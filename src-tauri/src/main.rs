@@ -99,7 +99,7 @@ fn main() {
             commands::start_patcher,
             commands::stop_patcher,
             commands::get_patcher_status,
-            commands::check_linked_bins,
+            commands::get_linked_bin_offenders,
             // Hotkeys
             commands::pause_hotkeys,
             commands::resume_hotkeys,

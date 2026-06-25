@@ -1,5 +1,4 @@
 export { patcherKeys } from "./keys";
-export { useCheckLinkedBins } from "./useCheckLinkedBins";
 export { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 export { useHotkeyEvents } from "./useHotkeyEvents";
 export { useOverlayProgress } from "./useOverlayProgress";

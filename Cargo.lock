@@ -2898,9 +2898,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_overlay"
-version = "0.2.9"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "06a59ee99b771ed6864cf933263d4f2cb501dbf07790b78ee92f2a3e826aa742"
+checksum = "e8cc5c067dc9efa2bba956797d37d396203c584edd016d4487ca76306f2e5718"
 dependencies = [
  "byteorder",
  "camino",

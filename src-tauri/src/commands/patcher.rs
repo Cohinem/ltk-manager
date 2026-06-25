@@ -1,10 +1,11 @@
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult, MutexResultExt};
-use crate::mods::ModLibraryState;
+use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
 use crate::patcher::host::{HostConfig, HostLogLevel};
 use crate::patcher::injector::{Injector, InjectorEvent, INJECTOR_EXE_NAME};
 use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
 use crate::state::SettingsState;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -65,29 +66,17 @@ pub struct WadScanFailedPayload {
     pub failures: Vec<WadScanFailureInfo>,
 }
 
-/// One library mod flagged by the pre-patch linked-bin check, sent in [`LinkedBinReport`].
+/// Payload for the `linked-bins-warning` event, emitted after a patcher start whose
+/// single overlay build found enabled mods with unresolved linked dependencies (only
+/// when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
+/// start — it drives a non-blocking toast. The per-mod badges and the reachable
+/// `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
-pub struct LinkedBinOffenderInfo {
-    /// Library mod id (matches `InstalledMod.id` on the frontend).
-    pub mod_id: String,
-    /// Mod display name — a fallback for the UI when it can't resolve the id.
-    pub display_name: String,
-    /// WAD targets (e.g. `Ahri.wad.client`) in this mod that contain the unresolved
-    /// bins. May be empty when the offending bin came from a RAW override.
-    pub wads: Vec<String>,
-    /// The missing linked bin paths, deduped.
-    pub missing_links: Vec<String>,
-}
-
-/// Result of [`check_linked_bins`]: enabled mods whose property-bins reference linked
-/// dependencies that won't resolve at load time. Empty `offenders` means clean.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkedBinReport {
-    pub offenders: Vec<LinkedBinOffenderInfo>,
+pub struct LinkedBinWarningPayload {
+    /// Number of enabled mods flagged in the latest build.
+    pub count: u32,
 }
 
 /// Resolve a bundled resource file (e.g. the injector executable) from the
@@ -267,26 +256,30 @@ pub(crate) fn start_patcher_inner(
     let _ = crate::tray::set_tray_state(app_handle.clone(), initial_state);
 
     let handle = thread::spawn(move || {
-        // Phase 1: Build overlay (the slow part)
-        let overlay_root = match library_clone.ensure_overlay(&settings_snapshot, &workshop_paths) {
-            Ok(root) => root,
-            Err(e) => {
-                tracing::error!(error = ?e, "Overlay build failed");
-                let error_response: AppErrorResponse = e.into();
-                let _ = library_clone
-                    .app_handle()
-                    .emit("patcher-error", &error_response);
-                if let Ok(mut s) = state_arc.lock() {
-                    s.phase = PatcherPhase::Idle;
+        // Phase 1: Build overlay (the slow part). The build records any linked-bin
+        // offenders into `LinkedBinState` and emits `linked-bins-updated` as a
+        // byproduct (no separate pre-flight build); we only need the count here to
+        // decide whether to raise the non-blocking warning toast below.
+        let (overlay_root, offender_count) =
+            match library_clone.ensure_overlay(&settings_snapshot, &workshop_paths) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::error!(error = ?e, "Overlay build failed");
+                    let error_response: AppErrorResponse = e.into();
+                    let _ = library_clone
+                        .app_handle()
+                        .emit("patcher-error", &error_response);
+                    if let Ok(mut s) = state_arc.lock() {
+                        s.phase = PatcherPhase::Idle;
+                    }
+                    // TRAY: Reset to default on error
+                    let _ = crate::tray::set_tray_state(
+                        app_handle_thread.clone(),
+                        crate::tray::AppTrayState::Default,
+                    );
+                    return;
                 }
-                // TRAY: Reset to default on error
-                let _ = crate::tray::set_tray_state(
-                    app_handle_thread.clone(),
-                    crate::tray::AppTrayState::Default,
-                );
-                return;
-            }
-        };
+            };
 
         // Check stop flag between build and patcher loop
         if stop_flag.load(Ordering::SeqCst) {
@@ -303,6 +296,18 @@ pub(crate) fn start_patcher_inner(
         }
 
         tracing::info!("Using overlay root: {}", overlay_root.display());
+
+        // Non-blocking advisory: missing linked bins are non-fatal at injection, so
+        // we inject straight through and let the user review/disable via the badges
+        // and reachable dialog. The toast is the one-time start-of-session nudge.
+        if settings_snapshot.linked_bin_check_enabled && offender_count > 0 {
+            let _ = app_handle_thread.emit(
+                "linked-bins-warning",
+                LinkedBinWarningPayload {
+                    count: offender_count as u32,
+                },
+            );
+        }
 
         let mut overlay_root_str = overlay_root.display().to_string();
         if !overlay_root_str.ends_with(std::path::MAIN_SEPARATOR) {
@@ -434,36 +439,43 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherSta
     })
 }
 
-/// Validate enabled library mods for unresolved property-bin linked dependencies
-/// before starting the patcher.
+/// Linked-bin offenders found in the most recent overlay build, keyed by mod id.
 ///
-/// The cslol patcher no longer treats a missing linked bin as fatal, so we run the
-/// equivalent check here proactively. The frontend uses the result to warn the user
-/// and offer to disable the offending mod(s) or start anyway.
+/// These are recorded as a byproduct of `start_patcher`'s single overlay build (and
+/// any hot-reload), so this is a cheap read with no IO — it never builds the overlay
+/// itself. Display names are resolved from the library index; mods absent from the
+/// latest build (e.g. since-disabled) simply don't appear. Missing linked bins are
+/// non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod
+/// badges and a reachable warning dialog.
 #[tauri::command]
-pub fn check_linked_bins(
-    settings: State<SettingsState>,
+pub fn get_linked_bin_offenders(
+    linked_bins: State<LinkedBinState>,
     library: State<ModLibraryState>,
-) -> IpcResult<LinkedBinReport> {
-    check_linked_bins_inner(&settings, &library).into()
-}
+    settings: State<SettingsState>,
+) -> IpcResult<HashMap<String, LinkedBinOffenderInfo>> {
+    let result: AppResult<HashMap<String, LinkedBinOffenderInfo>> = (|| {
+        let offenders = linked_bins.get_all()?;
+        if offenders.is_empty() {
+            return Ok(HashMap::new());
+        }
 
-fn check_linked_bins_inner(
-    settings: &State<SettingsState>,
-    library: &State<ModLibraryState>,
-) -> AppResult<LinkedBinReport> {
-    let settings_snapshot = settings.0.lock().mutex_err()?.clone();
-    let library = library.0.clone();
-    let offenders = library.validate_linked_bins(&settings_snapshot)?;
-    Ok(LinkedBinReport {
-        offenders: offenders
+        let settings_snapshot = settings.0.lock().mutex_err()?.clone();
+        let display_names: HashMap<String, String> = library
+            .0
+            .get_installed_mods(&settings_snapshot)?
             .into_iter()
-            .map(|o| LinkedBinOffenderInfo {
-                mod_id: o.mod_id,
-                display_name: o.display_name,
-                wads: o.wads,
-                missing_links: o.missing_links,
+            .map(|m| (m.id, m.display_name))
+            .collect();
+
+        Ok(offenders
+            .into_iter()
+            .map(|mut offender| {
+                if let Some(name) = display_names.get(&offender.mod_id) {
+                    offender.display_name = name.clone();
+                }
+                (offender.mod_id.clone(), offender)
             })
-            .collect(),
-    })
+            .collect())
+    })();
+    result.into()
 }

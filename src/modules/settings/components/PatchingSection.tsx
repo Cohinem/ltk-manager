@@ -61,6 +61,25 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
         </div>
       </SectionCard>
 
+      <SectionCard title="Dependency Check" icon={<ShieldCheck className="h-5 w-5" />}>
+        <label className="flex items-center justify-between gap-4">
+          <div>
+            <span className="block text-sm font-medium text-surface-200">
+              Warn about missing dependencies
+            </span>
+            <span className="block text-sm text-surface-400">
+              Flag enabled mods whose property-bins reference files removed from the game — shown as
+              a badge on each affected mod plus a one-time warning when you start the patcher.
+              Disabling this hides the badges and the warning.
+            </span>
+          </div>
+          <Switch
+            checked={settings.linkedBinCheckEnabled}
+            onCheckedChange={(checked) => onSave({ ...settings, linkedBinCheckEnabled: checked })}
+          />
+        </label>
+      </SectionCard>
+
       <SectionCard title="Injection" icon={<ShieldCheck className="h-5 w-5" />}>
         <div className="space-y-3">
           <label className="flex items-center justify-between gap-4">

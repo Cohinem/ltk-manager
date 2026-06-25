@@ -4,6 +4,7 @@ import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
 
+import { MissingDepsBadge } from "../MissingDepsBadge";
 import { WadCountBadge } from "../WadCountBadge";
 import {
   LayerBadge,
@@ -93,6 +94,9 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           {isMultiLayer && <LayerBadge layers={mod.layers} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <WadCountBadge modId={mod.id} />
+          </span>
+          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
+            <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
           </span>
         </div>
 

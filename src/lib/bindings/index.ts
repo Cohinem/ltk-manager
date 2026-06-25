@@ -30,7 +30,7 @@ export type { LayerContent } from "./LayerContent";
 export type { LayerInfo } from "./LayerInfo";
 export type { LibraryFolder } from "./LibraryFolder";
 export type { LinkedBinOffenderInfo } from "./LinkedBinOffenderInfo";
-export type { LinkedBinReport } from "./LinkedBinReport";
+export type { LinkedBinWarningPayload } from "./LinkedBinWarningPayload";
 export type { MigrationPhase } from "./MigrationPhase";
 export type { MigrationProgress } from "./MigrationProgress";
 export type { ModLayer } from "./ModLayer";
