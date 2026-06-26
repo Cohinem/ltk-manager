@@ -229,7 +229,13 @@ pub(crate) fn start_patcher_inner(
             .unwrap_or_else(|| "<unset>".to_string())
     );
     let library_clone = library.0.clone();
-    let host_flags = config.flags.unwrap_or(0) as u32;
+    let mut host_flags = config.flags.unwrap_or(0) as u32;
+    // The anti-skinhack scan aborts patching on a flagged champion WAD by
+    // default; turning the setting off opts out via the hook flag, downgrading
+    // the failure to a warning so patching proceeds.
+    if !settings_snapshot.enforce_skinhack_scan {
+        host_flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1;
+    }
 
     // Decide whether to elevate the injection host. An elevated game can only be
     // injected by an equally elevated host, so we elevate when the user opts in

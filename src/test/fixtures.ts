@@ -30,6 +30,8 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     alwaysStartPatcher: false,
     hasSeenHddWarning: false,
     elevateInjector: false,
+    autoCategorizationEnabled: true,
+    enforceSkinhackScan: true,
     ...overrides,
   };
 }

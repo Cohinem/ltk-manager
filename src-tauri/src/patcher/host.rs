@@ -51,6 +51,24 @@ mod proto {
 }
 
 // ---------------------------------------------------------------------------
+// Hook flag bits
+// ---------------------------------------------------------------------------
+
+/// Hook flag bits forwarded to the host via `config flags <N>`
+pub mod hook_flags {
+    /// `CSLOL_HOOK_DISABLE_VERIFY` — skip the signature-verification bypass,
+    /// leaving the game's own file verification intact.
+    pub const DISABLE_VERIFY: u32 = 1;
+    /// `CSLOL_HOOK_DISABLE_FILE` — disable the filesystem overlay, so no modded
+    /// files are redirected into the game.
+    pub const DISABLE_FILE: u32 = 2;
+    /// `CSLOL_HOOK_OPT_OUT_AH_V1` — opt out of anti-skinhack v1 enforcement: a
+    /// failed WAD scan is downgraded from a blocking error to a warning, so
+    /// patching proceeds instead of aborting.
+    pub const OPT_OUT_AH_V1: u32 = 4;
+}
+
+// ---------------------------------------------------------------------------
 // Host log level
 // ---------------------------------------------------------------------------
 
@@ -73,7 +91,7 @@ pub struct HostConfig {
     pub prefix: String,
     /// DLL log level.
     pub log_level: HostLogLevel,
-    /// Hook flags bitmask (0 = none, 1 = disable verify, 2 = disable file).
+    /// Hook flags bitmask (see [`hook_flags`]; `0` = full functionality).
     pub flags: u32,
 }
 
