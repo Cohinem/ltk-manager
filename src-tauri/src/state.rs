@@ -228,6 +228,9 @@ pub struct Settings {
     /// Whether to block mods from patching Scripts.wad.client. Default: true.
     #[serde(default = "default_true")]
     pub block_scripts_wad: bool,
+    /// Whether to run the linked-bin dependency check before starting the patcher. Default: true.
+    #[serde(default = "default_true")]
+    pub linked_bin_check_enabled: bool,
     /// Additional WAD files to exclude from overlay building.
     #[serde(
         default = "default_wad_blocklist",
@@ -278,6 +281,7 @@ impl Default for Settings {
             trusted_domains: default_trusted_domains(),
             watcher_enabled: false,
             block_scripts_wad: true,
+            linked_bin_check_enabled: true,
             wad_blocklist: default_wad_blocklist(),
             author_profiles: vec![],
             default_author_profile_id: None,
@@ -306,6 +310,7 @@ mod tests {
         assert!(settings.kill_league_hotkey.is_none());
         assert!(settings.kill_league_stops_patcher);
         assert!(settings.block_scripts_wad);
+        assert!(settings.linked_bin_check_enabled);
         assert!(settings.wad_blocklist.is_empty());
     }
 
@@ -337,6 +342,7 @@ mod tests {
             trusted_domains: vec!["runeforge.dev".to_string()],
             watcher_enabled: false,
             block_scripts_wad: true,
+            linked_bin_check_enabled: true,
             wad_blocklist: vec![],
             author_profiles: vec![AuthorProfile {
                 id: "test-id".to_string(),

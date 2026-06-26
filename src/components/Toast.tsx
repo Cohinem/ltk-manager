@@ -7,9 +7,15 @@ import { useNotificationStore } from "@/stores/notifications";
 
 export type ToastType = "success" | "error" | "warning" | "info";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastData {
   type?: ToastType;
   timeout?: number;
+  action?: ToastAction;
 }
 
 const typeIcons: Record<ToastType, ReactNode> = {
@@ -118,6 +124,15 @@ export function ToastItem({ toast }: ToastItemProps) {
         <div className="flex-1 space-y-1">
           <BaseToast.Title className="text-sm font-medium text-surface-100" />
           <BaseToast.Description className="text-sm text-surface-400" />
+          {toast.data?.action && (
+            <button
+              type="button"
+              onClick={() => toast.data?.action?.onClick()}
+              className="mt-1 cursor-pointer text-sm font-medium text-accent-400 transition-colors hover:text-accent-300"
+            >
+              {toast.data.action.label}
+            </button>
+          )}
         </div>
         <BaseToast.Close
           className="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
@@ -157,6 +172,7 @@ export function useToast() {
       description?: string;
       type?: ToastType;
       timeout?: number;
+      action?: ToastAction;
     }) => {
       const type = options.type ?? "info";
       const timeout = options.timeout ?? 5000;
@@ -166,7 +182,7 @@ export function useToast() {
       return toastManager.add({
         title: options.title,
         description: options.description,
-        data: { type, timeout },
+        data: { type, timeout, action: options.action },
         timeout,
       });
     },

@@ -20,6 +20,11 @@ interface PatcherProps {
   onStop: () => void;
 }
 
+function startButtonLabel(isStarting: boolean): string {
+  if (isStarting) return "Building...";
+  return "Start Patcher";
+}
+
 interface LibraryToolbarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -194,7 +199,7 @@ export function LibraryToolbar({
                 size="sm"
                 onClick={patcher.onStart}
                 loading={patcher.isStarting}
-                left={!patcher.isStarting && <Play className="h-4 w-4" />}
+                left={<Play className="h-4 w-4" />}
                 disabled={
                   isLoading ||
                   !hasEnabledMods ||
@@ -204,7 +209,7 @@ export function LibraryToolbar({
                   patcher.isStarting
                 }
               >
-                {patcher.isStarting ? "Building..." : "Start Patcher"}
+                {startButtonLabel(patcher.isStarting)}
               </Button>
             )}
           </Tooltip>

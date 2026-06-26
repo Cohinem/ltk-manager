@@ -2,6 +2,7 @@ mod categorize;
 mod folders;
 mod inspect;
 mod library;
+mod linked_bins;
 mod migration;
 mod profiles;
 mod schema_migration;
@@ -12,6 +13,7 @@ pub use migration::*;
 
 pub use categorize::{ChampionRoster, DerivedCategorization};
 pub use inspect::{inspect_modpkg_file, ModpkgInfo};
+pub use linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use wad_reports::{ModWadReport, WadReportState};
 
 use crate::error::{AppError, AppResult, MutexResultExt};

@@ -24,6 +24,7 @@ export * from "./LibraryContent";
 export * from "./LibraryContextMenu";
 export * from "./LibraryStates";
 export * from "./LibraryToolbar";
+export * from "./MissingDepsBadge";
 export * from "./ModCard";
 export * from "./ModDetailsDialog";
 export * from "./ProfileSelector";

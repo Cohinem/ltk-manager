@@ -85,6 +85,10 @@ export type Settings = {
    */
   blockScriptsWad: boolean;
   /**
+   * Whether to run the linked-bin dependency check before starting the patcher. Default: true.
+   */
+  linkedBinCheckEnabled: boolean;
+  /**
    * Additional WAD files to exclude from overlay building.
    */
   wadBlocklist: Array<WadBlocklistEntry>;

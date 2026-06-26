@@ -1,10 +1,8 @@
 use crate::error::{AppError, AppResult, Utf8PathExt};
-use crate::mods::{ModLibrary, WadReportState};
+use crate::mods::{LinkedBinState, ModLibrary, WadReportState};
 use crate::state::{Settings, WadBlocklistEntry};
 use std::path::PathBuf;
 use tauri::{Emitter, Manager};
-
-pub mod linked_bins;
 
 const SCRIPTS_WAD: &str = "scripts.wad.client";
 const TFT_WAD: &str = "map22.wad.client";
@@ -34,7 +32,11 @@ pub struct OverlayProgress {
 impl ModLibrary {
     /// Ensure the overlay exists and is up-to-date for the current enabled mod set.
     ///
-    /// Returns the overlay root directory (the prefix passed to the legacy patcher).
+    /// Returns the overlay root directory (the prefix passed to the legacy patcher)
+    /// and the number of mods whose property-bins reference linked dependencies that
+    /// don't resolve against the overlay WADs they land in (0 when everything
+    /// resolves). The offenders themselves are recorded into [`LinkedBinState`] and
+    /// announced via the `linked-bins-updated` event so the library badges can refresh.
     ///
     /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
     /// to the enabled mod list so they take highest priority.
@@ -42,7 +44,7 @@ impl ModLibrary {
         &self,
         settings: &Settings,
         workshop_project_paths: &[PathBuf],
-    ) -> AppResult<PathBuf> {
+    ) -> AppResult<(PathBuf, usize)> {
         let storage_dir = self.storage_dir(settings)?;
         let game_dir = crate::utils::game::resolve_game_dir(settings)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(settings)?;
@@ -129,6 +131,21 @@ impl ModLibrary {
             .build()
             .map_err(|e| AppError::Other(format!("Overlay build failed: {}", e)))?;
 
+        let linked_bin_offenders = builder.take_linked_bin_offenders();
+        let offender_count = linked_bin_offenders.len();
+
+        // Record offenders as a byproduct of this single build (no separate
+        // pre-flight). The library badges and the reachable warning dialog read
+        // them via `get_linked_bin_offenders`; the event tells the frontend the
+        // snapshot changed. Failure here must not fail the patch.
+        if let Some(state) = self.app_handle().try_state::<LinkedBinState>() {
+            if let Err(e) = state.record(linked_bin_offenders) {
+                tracing::warn!("Failed to record linked-bin offenders: {}", e);
+            } else {
+                let _ = self.app_handle().emit("linked-bins-updated", ());
+            }
+        }
+
         // Capture per-mod WAD reports for the library badge UI. Failure to
         // persist must not fail the patch — log and continue.
         //
@@ -147,7 +164,7 @@ impl ModLibrary {
             }
         }
 
-        Ok(overlay_root)
+        Ok((overlay_root, offender_count))
     }
 
     /// Scan `state_dir` for top-level JSON files that are empty or contain invalid
