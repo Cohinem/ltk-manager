@@ -1,7 +1,7 @@
 use crate::error::{AppError, AppResult, Utf8PathExt};
 use crate::mods::{LinkedBinState, ModLibrary, WadReportState};
 use crate::state::{Settings, WadBlocklistEntry};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tauri::{Emitter, Manager};
 
 const SCRIPTS_WAD: &str = "scripts.wad.client";
@@ -44,13 +44,24 @@ impl ModLibrary {
         &self,
         settings: &Settings,
         workshop_project_paths: &[PathBuf],
+        force_rebuild: bool,
     ) -> AppResult<(PathBuf, usize)> {
         let storage_dir = self.storage_dir(settings)?;
+
+        Self::flush_overlays_if_app_version_changed(&storage_dir);
+
         let game_dir = crate::utils::game::resolve_game_dir(settings)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(settings)?;
 
         let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
         let overlay_root = profile_dir.join("overlay");
+
+        // A manual rebuild discards this profile's cached overlay state so the
+        // builder regenerates every WAD from scratch instead of reusing files.
+        if force_rebuild {
+            tracing::info!("Overlay: force rebuild requested, purging cached overlay state");
+            Self::purge_overlay_artifacts(&profile_dir, true);
+        }
 
         tracing::info!("Overlay: storage_dir={}", storage_dir.display());
         tracing::info!("Overlay: profile_slug={}", profile_slug);
@@ -165,6 +176,103 @@ impl ModLibrary {
         }
 
         Ok((overlay_root, offender_count))
+    }
+
+    /// Force a full rebuild of the active profile's overlay.
+    ///
+    /// Discards the profile's cached overlay state (patched WADs, `overlay.json`,
+    /// metadata and game-index caches) so the builder regenerates everything from
+    /// scratch. This is the escape hatch for the case where the incremental builder
+    /// would otherwise reuse a stale or incorrectly-built overlay WAD — its reuse
+    /// decision keys on the mod set and content, not on the overlay's actual bytes
+    /// or the builder version.
+    pub fn rebuild_overlay(&self, settings: &Settings) -> AppResult<(PathBuf, usize)> {
+        self.ensure_overlay(settings, &[], true)
+    }
+
+    /// Wipe every profile's cached overlay artifacts when the app version changed
+    /// since the overlays were last built.
+    ///
+    /// The overlay builder keys its reuse/skip decisions on the mod set, mod
+    /// content, game fingerprint and a state *schema* version — none of which move
+    /// when the overlay-building *logic* changes between releases. So a build-logic
+    /// fix would otherwise never reach users who already have an overlay on disk.
+    /// Gating on the app version forces one clean rebuild after each update.
+    ///
+    /// Best-effort: a marker file under `storage_dir` records the version that last
+    /// built overlays. Failures are logged, never fatal.
+    fn flush_overlays_if_app_version_changed(storage_dir: &Path) {
+        const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+        let marker = storage_dir.join(".overlay-build-version");
+
+        let up_to_date = std::fs::read_to_string(&marker)
+            .ok()
+            .is_some_and(|v| v.trim() == APP_VERSION);
+        if up_to_date {
+            return;
+        }
+
+        let profiles_dir = storage_dir.join("profiles");
+        if let Ok(entries) = std::fs::read_dir(&profiles_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    Self::purge_overlay_artifacts(&path, false);
+                }
+            }
+        }
+
+        let _ = std::fs::create_dir_all(storage_dir);
+        match std::fs::write(&marker, APP_VERSION) {
+            Ok(()) => tracing::info!(
+                "Flushed cached overlays for app version {} (overlay build logic may have changed)",
+                APP_VERSION
+            ),
+            Err(e) => tracing::warn!(
+                "Failed to write overlay build-version marker {}: {}",
+                marker.display(),
+                e
+            ),
+        }
+    }
+
+    /// Remove a profile's cached overlay artifacts so the next build starts clean.
+    ///
+    /// Always removes the patched-WAD `overlay/` tree, the `overlay.json` state
+    /// file, and the `override_meta.bin` metadata cache. The `game_index.bin` cache
+    /// is only removed when `include_game_index` is set — it is expensive to rebuild
+    /// and is independently validated by the game fingerprint, so the version flush
+    /// keeps it and only a manual full rebuild drops it.
+    fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bool) {
+        let overlay_dir = profile_dir.join("overlay");
+        if overlay_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&overlay_dir) {
+                tracing::warn!(
+                    "Failed to remove overlay directory {}: {}",
+                    overlay_dir.display(),
+                    e
+                );
+            }
+        }
+
+        let mut files = vec![
+            profile_dir.join("overlay.json"),
+            profile_dir.join("override_meta.bin"),
+        ];
+        if include_game_index {
+            files.push(profile_dir.join("game_index.bin"));
+        }
+        for file in files {
+            if file.exists() {
+                if let Err(e) = std::fs::remove_file(&file) {
+                    tracing::warn!(
+                        "Failed to remove overlay artifact {}: {}",
+                        file.display(),
+                        e
+                    );
+                }
+            }
+        }
     }
 
     /// Scan `state_dir` for top-level JSON files that are empty or contain invalid

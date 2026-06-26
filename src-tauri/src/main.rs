@@ -98,6 +98,7 @@ fn main() {
             // Patcher
             commands::start_patcher,
             commands::stop_patcher,
+            commands::rebuild_overlay,
             commands::get_patcher_status,
             commands::get_linked_bin_offenders,
             // Hotkeys

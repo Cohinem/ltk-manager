@@ -127,6 +127,7 @@ export const api = {
   // Patcher
   startPatcher: (config: PatcherConfig) => invokeResult<void>("start_patcher", { config }),
   stopPatcher: () => invokeResult<void>("stop_patcher"),
+  rebuildOverlay: () => invokeResult<void>("rebuild_overlay"),
   getPatcherStatus: () => invokeResult<PatcherStatus>("get_patcher_status"),
   getLinkedBinOffenders: () =>
     invokeResult<Record<string, LinkedBinOffenderInfo>>("get_linked_bin_offenders"),

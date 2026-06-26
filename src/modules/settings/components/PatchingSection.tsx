@@ -1,7 +1,8 @@
-import { AlertTriangle, ShieldAlert, ShieldCheck } from "lucide-react";
+import { AlertTriangle, RefreshCw, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
 
-import { AlertBox, SectionCard, Switch } from "@/components";
+import { AlertBox, Button, SectionCard, Switch, useToast } from "@/components";
 import type { Settings } from "@/lib/tauri";
+import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
 
 import { WadBlocklistEditor } from "./WadBlocklistEditor";
@@ -13,6 +14,19 @@ interface PatchingSectionProps {
 
 export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
   const { data: leagueRunsAsAdmin } = useDetectLeagueRunAsAdmin();
+  const { data: patcherStatus } = usePatcherStatus();
+  const { mutate: rebuildOverlay, isPending: isRebuilding } = useRebuildOverlay();
+  const toast = useToast();
+
+  const isPatcherRunning = patcherStatus?.running ?? false;
+
+  const handleRebuildOverlay = () => {
+    rebuildOverlay(undefined, {
+      onSuccess: () =>
+        toast.success("Overlay rebuilt", "The overlay was regenerated from scratch."),
+      onError: (error) => toast.error("Rebuild failed", error.message),
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -140,6 +154,28 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
 
       <SectionCard title="WAD Blocklist" icon={<ShieldAlert className="h-5 w-5" />}>
         <WadBlocklistEditor settings={settings} onSave={onSave} />
+      </SectionCard>
+
+      <SectionCard title="Troubleshooting" icon={<Wrench className="h-5 w-5" />}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <span className="block text-sm font-medium text-surface-200">Rebuild overlay</span>
+            <span className="block text-sm text-surface-400">
+              Discards the cached overlay and regenerates it from scratch. Use this if a mod looks
+              applied in the manager but isn&apos;t showing in-game, or the game crashes with the
+              patcher on. The patcher must be stopped.
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            loading={isRebuilding}
+            disabled={isPatcherRunning}
+            left={<RefreshCw className="h-4 w-4" />}
+            onClick={handleRebuildOverlay}
+          >
+            Rebuild
+          </Button>
+        </div>
       </SectionCard>
     </div>
   );
