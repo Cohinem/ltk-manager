@@ -5,6 +5,8 @@ use crate::patcher::injector::{Injector, InjectorEvent, INJECTOR_EXE_NAME};
 use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
 use crate::state::SettingsState;
 use serde::{Deserialize, Serialize};
+
+use super::mods::reject_if_patcher_running;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
@@ -267,7 +269,7 @@ pub(crate) fn start_patcher_inner(
         // byproduct (no separate pre-flight build); we only need the count here to
         // decide whether to raise the non-blocking warning toast below.
         let (overlay_root, offender_count) =
-            match library_clone.ensure_overlay(&settings_snapshot, &workshop_paths) {
+            match library_clone.ensure_overlay(&settings_snapshot, &workshop_paths, false) {
                 Ok(v) => v,
                 Err(e) => {
                     tracing::error!(error = ?e, "Overlay build failed");
@@ -410,6 +412,40 @@ pub(crate) fn stop_patcher_inner(state: &State<PatcherState>) -> AppResult<()> {
     patcher_state.stop_flag.store(true, Ordering::SeqCst);
 
     Ok(())
+}
+
+/// Force a full rebuild of the active profile's overlay.
+///
+/// Troubleshooting escape hatch: the incremental overlay builder can reuse a
+/// previously-built (and possibly stale or incorrectly-built) WAD, so this
+/// discards the cached overlay state and regenerates it from scratch. Refuses
+/// while the patcher is running, since it rewrites the very files the running
+/// session points at. Runs on a blocking thread and reports progress via the
+/// same `overlay-progress` events as a normal patch.
+#[tauri::command]
+pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
+    let setup: AppResult<_> = (|| {
+        let patcher = app_handle.state::<PatcherState>();
+        reject_if_patcher_running(&patcher)?;
+        let settings = app_handle
+            .state::<SettingsState>()
+            .0
+            .lock()
+            .mutex_err()?
+            .clone();
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        Ok((settings, library))
+    })();
+
+    let (settings, library) = match setup {
+        Ok(v) => v,
+        Err(e) => return IpcResult::from(Err::<(), _>(e)),
+    };
+
+    tauri::async_runtime::spawn_blocking(move || library.rebuild_overlay(&settings).map(|_| ()))
+        .await
+        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
+        .into()
 }
 
 /// Get the current status of the patcher.
