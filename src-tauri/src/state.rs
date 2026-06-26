@@ -254,6 +254,18 @@ pub struct Settings {
     /// flag (see `commands::patcher::start_patcher_inner`).
     #[serde(default)]
     pub elevate_injector: bool,
+    /// Whether to automatically categorize mods from their content (champions,
+    /// maps and content tags derived from the WAD/chunk footprint, surfaced as
+    /// "auto" suggestions and library filters). When off, only the categories
+    /// the user sets themselves are used. Default: true.
+    #[serde(default = "default_true")]
+    pub auto_categorization_enabled: bool,
+    /// Whether to enforce the anti-skinhack scan while patching. When on
+    /// (default), a champion WAD that fails the scan aborts patching. When off,
+    /// the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
+    /// downgraded to warnings and flagged mods load anyway. Default: true.
+    #[serde(default = "default_true")]
+    pub enforce_skinhack_scan: bool,
 }
 
 impl Default for Settings {
@@ -287,6 +299,8 @@ impl Default for Settings {
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
             elevate_injector: false,
+            auto_categorization_enabled: true,
+            enforce_skinhack_scan: true,
         }
     }
 }
@@ -312,6 +326,8 @@ mod tests {
         assert!(settings.block_scripts_wad);
         assert!(settings.linked_bin_check_enabled);
         assert!(settings.wad_blocklist.is_empty());
+        assert!(settings.auto_categorization_enabled);
+        assert!(settings.enforce_skinhack_scan);
     }
 
     #[test]
@@ -352,6 +368,8 @@ mod tests {
             default_author_profile_id: Some("test-id".to_string()),
             has_seen_hdd_warning: false,
             elevate_injector: false,
+            auto_categorization_enabled: true,
+            enforce_skinhack_scan: true,
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();

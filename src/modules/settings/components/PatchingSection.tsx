@@ -16,23 +16,51 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
 
   return (
     <div className="space-y-4">
-      <SectionCard title="Game Modes" icon={<ShieldAlert className="h-5 w-5" />}>
-        <label className="flex items-center justify-between gap-4">
-          <div>
-            <span className="block text-sm font-medium text-surface-200">Patch TFT files</span>
-            <span className="block text-sm text-surface-400">
-              Apply mods to Teamfight Tactics game files (Map22.wad.client). Disable this if you
-              only play Summoner&apos;s Rift.
-            </span>
-          </div>
-          <Switch
-            checked={settings.patchTft}
-            onCheckedChange={(checked) => onSave({ ...settings, patchTft: checked })}
-          />
-        </label>
+      <SectionCard title="Patching" icon={<ShieldAlert className="h-5 w-5" />}>
+        <div className="space-y-3">
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-sm font-medium text-surface-200">Patch TFT files</span>
+              <span className="block text-sm text-surface-400">
+                Apply mods to Teamfight Tactics game files (Map22.wad.client). Disable this if you
+                only play Summoner&apos;s Rift.
+              </span>
+            </div>
+            <Switch
+              checked={settings.patchTft}
+              onCheckedChange={(checked) => onSave({ ...settings, patchTft: checked })}
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-sm font-medium text-surface-200">
+                Run injector elevated
+              </span>
+              <span className="block text-sm text-surface-400">
+                Runs the injection host with administrator privileges. Required when League itself
+                runs as administrator. Leave this off unless mods fail to load — when on, Windows
+                shows a UAC prompt each time the patcher starts (unless LTK Manager is already
+                running as admin).
+              </span>
+            </div>
+            <Switch
+              checked={settings.elevateInjector}
+              onCheckedChange={(checked) => onSave({ ...settings, elevateInjector: checked })}
+            />
+          </label>
+
+          {leagueRunsAsAdmin && (
+            <AlertBox variant="warning">
+              League is configured to run as administrator, so the injector will be elevated
+              automatically. You may see a UAC prompt when the patcher starts even with this setting
+              off.
+            </AlertBox>
+          )}
+        </div>
       </SectionCard>
 
-      <SectionCard title="Script Modding" icon={<ShieldAlert className="h-5 w-5" />}>
+      <SectionCard title="Safety & Integrity" icon={<ShieldCheck className="h-5 w-5" />}>
         <div className="space-y-3">
           <label className="flex items-center justify-between gap-4">
             <div>
@@ -58,54 +86,54 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               </p>
             </div>
           )}
-        </div>
-      </SectionCard>
 
-      <SectionCard title="Dependency Check" icon={<ShieldCheck className="h-5 w-5" />}>
-        <label className="flex items-center justify-between gap-4">
-          <div>
-            <span className="block text-sm font-medium text-surface-200">
-              Warn about missing dependencies
-            </span>
-            <span className="block text-sm text-surface-400">
-              Flag enabled mods whose property-bins reference files removed from the game — shown as
-              a badge on each affected mod plus a one-time warning when you start the patcher.
-              Disabling this hides the badges and the warning.
-            </span>
-          </div>
-          <Switch
-            checked={settings.linkedBinCheckEnabled}
-            onCheckedChange={(checked) => onSave({ ...settings, linkedBinCheckEnabled: checked })}
-          />
-        </label>
-      </SectionCard>
-
-      <SectionCard title="Injection" icon={<ShieldCheck className="h-5 w-5" />}>
-        <div className="space-y-3">
           <label className="flex items-center justify-between gap-4">
             <div>
               <span className="block text-sm font-medium text-surface-200">
-                Run injector elevated
+                Warn about missing dependencies
               </span>
               <span className="block text-sm text-surface-400">
-                Runs the injection host with administrator privileges. Required when League itself
-                runs as administrator. Leave this off unless mods fail to load — when on, Windows
-                shows a UAC prompt each time the patcher starts (unless LTK Manager is already
-                running as admin).
+                Flag enabled mods whose property-bins reference files removed from the game.
+              </span>
+              <span className="block text-sm text-surface-400">
+                Shown as a badge on each affected mod plus a one-time warning when you start the
+                patcher. Disabling this hides the badges and the warning.
               </span>
             </div>
             <Switch
-              checked={settings.elevateInjector}
-              onCheckedChange={(checked) => onSave({ ...settings, elevateInjector: checked })}
+              checked={settings.linkedBinCheckEnabled}
+              onCheckedChange={(checked) => onSave({ ...settings, linkedBinCheckEnabled: checked })}
             />
           </label>
 
-          {leagueRunsAsAdmin && (
-            <AlertBox variant="warning">
-              League is configured to run as administrator, so the injector will be elevated
-              automatically. You may see a UAC prompt when the patcher starts even with this setting
-              off.
-            </AlertBox>
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
+                Enforce anti-skinhack scan
+              </span>
+              <span className="text-sm text-surface-400">
+                Tells the patcher to scan modded files for skinhacks and abort if any are found.
+                This is a temporary measure to prevent skinhacks from being loaded while third-party
+                mod managers adapt to the new anti-skinhack requirements.{" "}
+              </span>
+              <span className="block text-sm font-bold text-amber-400">
+                This setting will be removed in a future update once third-party mod managers have
+                adapted to the new anti-skinhack requirements.
+              </span>
+            </div>
+            <Switch
+              checked={settings.enforceSkinhackScan}
+              onCheckedChange={(checked) => onSave({ ...settings, enforceSkinhackScan: checked })}
+            />
+          </label>
+
+          {!settings.enforceSkinhackScan && (
+            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <p className="text-sm text-amber-300">
+                Anti-skinhack enforcement is off. Mods flagged as skinhacks will be allowed to load.
+              </p>
+            </div>
           )}
         </div>
       </SectionCard>
