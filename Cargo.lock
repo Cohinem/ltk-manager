@@ -2898,9 +2898,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_overlay"
-version = "0.3.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8cc5c067dc9efa2bba956797d37d396203c584edd016d4487ca76306f2e5718"
+checksum = "569035c8426863ad67180c8d83621422e757313311360f1d0c13e6d94ad22902"
 dependencies = [
  "byteorder",
  "camino",
@@ -2909,6 +2909,7 @@ dependencies = [
  "ltk_mod_project",
  "ltk_modpkg",
  "ltk_wad",
+ "memmap2",
  "rayon",
  "rmp-serde",
  "serde",
@@ -3019,6 +3020,15 @@ name = "memchr"
 version = "2.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
+
+[[package]]
+name = "memmap2"
+version = "0.9.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1219ed1b7f229ee7104d281dd01d6802fe28bb6e95d292942c4daacdeb798c0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "memoffset"
