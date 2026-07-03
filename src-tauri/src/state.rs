@@ -266,6 +266,11 @@ pub struct Settings {
     /// downgraded to warnings and flagged mods load anyway. Default: true.
     #[serde(default = "default_true")]
     pub enforce_skinhack_scan: bool,
+    /// Whether mods' string overrides are applied to every installed locale
+    /// instead of only the locale the League client is configured to use.
+    /// Default: false (current locale only).
+    #[serde(default)]
+    pub apply_string_overrides_to_all_locales: bool,
 }
 
 impl Default for Settings {
@@ -301,6 +306,7 @@ impl Default for Settings {
             elevate_injector: false,
             auto_categorization_enabled: true,
             enforce_skinhack_scan: true,
+            apply_string_overrides_to_all_locales: false,
         }
     }
 }
@@ -328,6 +334,7 @@ mod tests {
         assert!(settings.wad_blocklist.is_empty());
         assert!(settings.auto_categorization_enabled);
         assert!(settings.enforce_skinhack_scan);
+        assert!(!settings.apply_string_overrides_to_all_locales);
     }
 
     #[test]
@@ -370,6 +377,7 @@ mod tests {
             elevate_injector: false,
             auto_categorization_enabled: true,
             enforce_skinhack_scan: true,
+            apply_string_overrides_to_all_locales: false,
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();

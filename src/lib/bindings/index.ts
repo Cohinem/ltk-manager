@@ -51,6 +51,8 @@ export type { SaveProjectConfigArgs } from "./SaveProjectConfigArgs";
 export type { Settings } from "./Settings";
 export type { Severity } from "./Severity";
 export type { StorageMedium } from "./StorageMedium";
+export type { StringKeySearchResult } from "./StringKeySearchResult";
+export type { StringKeySuggestion } from "./StringKeySuggestion";
 export type { Theme } from "./Theme";
 export type { ValidationResult } from "./ValidationResult";
 export type { WadBlocklistEntry } from "./WadBlocklistEntry";

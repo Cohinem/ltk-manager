@@ -93,12 +93,16 @@ impl ModLibrary {
         let blocked_wads = resolve_blocked_wads(settings, &available_wads);
         tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
 
+        let string_override_mode = resolve_string_override_mode(settings, &game_dir);
+        tracing::info!("Overlay: string_override_mode={:?}", string_override_mode);
+
         Self::clean_corrupt_overlay_state(&utf8_state_dir);
 
         let app_handle_clone = self.app_handle().clone();
         let mut builder =
             ltk_overlay::OverlayBuilder::new(utf8_game_dir, utf8_overlay_root, utf8_state_dir)
                 .with_blocked_wads(blocked_wads)
+                .with_string_overrides(string_override_mode)
                 .with_progress(move |progress| {
                     let stage = match progress.stage {
                         ltk_overlay::OverlayStage::Indexing => OverlayStage::Indexing,
@@ -306,6 +310,27 @@ impl ModLibrary {
             }
         }
     }
+}
+
+/// Resolve which locales mods' string overrides should be applied to.
+///
+/// With the "all locales" setting on, every installed locale is patched.
+/// Otherwise only the locale the League client is configured to use — read
+/// from `LeagueClientSettings.yaml`, falling back to the sole installed locale
+/// and finally to `en_us` so string overrides still apply on unusual installs.
+pub(crate) fn resolve_string_override_mode(
+    settings: &Settings,
+    game_dir: &Path,
+) -> ltk_overlay::StringOverrideMode {
+    if settings.apply_string_overrides_to_all_locales {
+        return ltk_overlay::StringOverrideMode::AllInstalled;
+    }
+
+    let locale = crate::utils::locale::detect_league_locale(game_dir).unwrap_or_else(|| {
+        tracing::warn!("Falling back to 'en_us' for string overrides");
+        "en_us".to_string()
+    });
+    ltk_overlay::StringOverrideMode::Locales(vec![locale])
 }
 
 /// Resolve the user's blocklist settings into a concrete, deduped list of WAD

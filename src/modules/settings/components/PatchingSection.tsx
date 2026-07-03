@@ -49,6 +49,25 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           <label className="flex items-center justify-between gap-4">
             <div>
               <span className="block text-sm font-medium text-surface-200">
+                Apply string overrides to all locales
+              </span>
+              <span className="block text-sm text-surface-400">
+                Patch mods&apos; text overrides into every installed game language instead of only
+                the language your League client is set to. Enable this if you switch languages
+                often.
+              </span>
+            </div>
+            <Switch
+              checked={settings.applyStringOverridesToAllLocales}
+              onCheckedChange={(checked) =>
+                onSave({ ...settings, applyStringOverridesToAllLocales: checked })
+              }
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-sm font-medium text-surface-200">
                 Run injector elevated
               </span>
               <span className="block text-sm text-surface-400">

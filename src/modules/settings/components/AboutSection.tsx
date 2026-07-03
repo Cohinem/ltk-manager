@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react";
 
-import { Button, SectionCard } from "@/components";
+import { Button, ExternalLink, SectionCard } from "@/components";
 import { api, type AppInfo } from "@/lib/tauri";
 
 interface AboutSectionProps {
@@ -32,22 +32,15 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
           managing League of Legends mods using the modpkg format.
         </p>
         <div className="mt-4 flex gap-4 border-t border-surface-600 pt-4">
-          <a
-            href="https://github.com/LeagueToolkit/ltk-manager"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-accent-400 transition-colors hover:text-accent-300"
-          >
-            View on GitHub →
-          </a>
-          <a
+          <ExternalLink href="https://github.com/LeagueToolkit/ltk-manager" className="text-sm">
+            View on GitHub
+          </ExternalLink>
+          <ExternalLink
             href="https://github.com/LeagueToolkit/ltk-manager/wiki"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-accent-400 transition-colors hover:text-accent-300"
+            className="text-sm"
           >
-            Documentation →
-          </a>
+            Documentation
+          </ExternalLink>
         </div>
       </div>
     </SectionCard>

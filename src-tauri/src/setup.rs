@@ -49,6 +49,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(settings_state);
     app.manage(patcher_state);
     app.manage(LinkedBinState::default());
+    app.manage(crate::strings::StringKeyIndexState::default());
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(hotkey_manager);

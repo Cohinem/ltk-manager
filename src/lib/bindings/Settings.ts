@@ -123,4 +123,10 @@ export type Settings = {
    * downgraded to warnings and flagged mods load anyway. Default: true.
    */
   enforceSkinhackScan: boolean;
+  /**
+   * Whether mods' string overrides are applied to every installed locale
+   * instead of only the locale the League client is configured to use.
+   * Default: false (current locale only).
+   */
+  applyStringOverridesToAllLocales: boolean;
 };
