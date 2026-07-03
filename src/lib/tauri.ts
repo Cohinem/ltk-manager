@@ -28,6 +28,7 @@ import type {
   SaveProjectConfigArgs,
   Settings,
   StorageMedium,
+  StringKeySearchResult,
   ValidationResult,
   WorkshopLayerInfo,
   WorkshopProject,
@@ -227,6 +228,8 @@ export const api = {
       layerName,
       stringOverrides,
     }),
+  searchStringKeys: (query: string, limit?: number) =>
+    invokeResult<StringKeySearchResult>("search_string_keys", { query, limit }),
   getLayerContentPath: (projectPath: string, layerName: string) =>
     invokeResult<string>("get_layer_content_path", { projectPath, layerName }),
   getLayerInfo: (projectPath: string, layerNames: string[]) =>

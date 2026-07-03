@@ -32,6 +32,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     elevateInjector: false,
     autoCategorizationEnabled: true,
     enforceSkinhackScan: true,
+    applyStringOverridesToAllLocales: false,
     ...overrides,
   };
 }

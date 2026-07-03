@@ -17,6 +17,7 @@ pub mod patcher;
 mod setup;
 mod state;
 mod storage;
+mod strings;
 mod tray;
 mod utils;
 mod workshop;
@@ -140,6 +141,7 @@ fn main() {
             commands::remove_project_thumbnail,
             commands::get_project_thumbnail,
             commands::save_layer_string_overrides,
+            commands::search_string_keys,
             commands::get_layer_content_path,
             commands::get_layer_info,
             commands::create_project_layer,
