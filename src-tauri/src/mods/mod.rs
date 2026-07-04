@@ -243,7 +243,6 @@ pub struct Profile {
     /// Display order of all mods (enabled and disabled) in the UI
     pub mod_order: Vec<String>,
     /// Per-mod layer enabled/disabled states: mod_id → (layer_name → enabled).
-    /// Missing entries default to all layers enabled.
     #[serde(default)]
     pub layer_states: HashMap<String, HashMap<String, bool>>,
     /// Creation timestamp

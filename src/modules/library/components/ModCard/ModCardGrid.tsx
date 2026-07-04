@@ -4,10 +4,10 @@ import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
 
+import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
 import { WadCountBadge } from "../WadCountBadge";
 import {
-  LayerBadge,
   ModCardMenu,
   ModCardThumbnail,
   ModCardToggle,
@@ -91,7 +91,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
 
         <div className="mb-1 flex min-h-5 items-center gap-1">
           <ModPills mod={mod} max={3} />
-          {isMultiLayer && <LayerBadge layers={mod.layers} />}
+          {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <WadCountBadge modId={mod.id} />
           </span>

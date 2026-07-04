@@ -17,7 +17,6 @@ export * from "./FolderHeader";
 export * from "./FolderNameForm";
 export * from "./FolderRow";
 export * from "./ImportProgressDialog";
-export * from "./LayerPickerPopover";
 export * from "./LayerPopover";
 export * from "./LayerToggleList";
 export * from "./LibraryContent";
