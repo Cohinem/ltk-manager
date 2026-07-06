@@ -18,6 +18,11 @@ export interface ToastData {
   action?: ToastAction;
 }
 
+export interface ToastOptions {
+  /** Also record the toast in the notification center. Off by default. */
+  notify?: boolean;
+}
+
 const typeIcons: Record<ToastType, ReactNode> = {
   success: <CircleCheck className="h-5 w-5 text-green-500" />,
   error: <CircleX className="h-5 w-5 text-red-500" />,
@@ -173,10 +178,11 @@ export function useToast() {
       type?: ToastType;
       timeout?: number;
       action?: ToastAction;
+      notify?: boolean;
     }) => {
       const type = options.type ?? "info";
       const timeout = options.timeout ?? 5000;
-      if (options.title) {
+      if (options.notify && options.title) {
         addNotification({ title: options.title, description: options.description, type });
       }
       return toastManager.add({
@@ -186,8 +192,10 @@ export function useToast() {
         timeout,
       });
     },
-    success: (title: string, description?: string) => {
-      addNotification({ title, description, type: "success" });
+    success: (title: string, description?: string, options?: ToastOptions) => {
+      if (options?.notify) {
+        addNotification({ title, description, type: "success" });
+      }
       return toastManager.add({
         title,
         description,
@@ -195,8 +203,10 @@ export function useToast() {
         timeout: 5000,
       });
     },
-    error: (title: string, description?: string) => {
-      addNotification({ title, description, type: "error" });
+    error: (title: string, description?: string, options?: ToastOptions) => {
+      if (options?.notify) {
+        addNotification({ title, description, type: "error" });
+      }
       return toastManager.add({
         title,
         description,
@@ -204,8 +214,10 @@ export function useToast() {
         timeout: 7000,
       });
     },
-    warning: (title: string, description?: string) => {
-      addNotification({ title, description, type: "warning" });
+    warning: (title: string, description?: string, options?: ToastOptions) => {
+      if (options?.notify) {
+        addNotification({ title, description, type: "warning" });
+      }
       return toastManager.add({
         title,
         description,
@@ -213,8 +225,10 @@ export function useToast() {
         timeout: 6000,
       });
     },
-    info: (title: string, description?: string) => {
-      addNotification({ title, description, type: "info" });
+    info: (title: string, description?: string, options?: ToastOptions) => {
+      if (options?.notify) {
+        addNotification({ title, description, type: "info" });
+      }
       return toastManager.add({
         title,
         description,
