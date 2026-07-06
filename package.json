@@ -18,7 +18,8 @@
     "test:coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
     "prepare": "husky",
-    "generate:types": "cd src-tauri && cargo test export_bindings --no-fail-fast"
+    "generate:types": "cd src-tauri && cargo test export_bindings --no-fail-fast",
+    "licenses": "node scripts/generate-licenses.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

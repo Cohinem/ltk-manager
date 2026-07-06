@@ -5,6 +5,7 @@ export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
 export { LeaguePathSection } from "./LeaguePathSection";
 export { LibrarySection } from "./LibrarySection";
+export { LicensesDialog } from "./LicensesDialog";
 export { MinimizeToTraySection } from "./MinimizeToTraySection";
 export { ModStorageSection } from "./ModStorageSection";
 export { PatchingSection } from "./PatchingSection";
