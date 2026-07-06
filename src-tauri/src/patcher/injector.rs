@@ -357,6 +357,10 @@ fn join_handle(handle: Option<JoinHandle<()>>) {
 /// Observed format:
 /// `error: WAD scan failed status with c0000229 for Ahri.wad.client`
 ///
+/// When the anti-skinhack scan is opted out (`OPT_OUT_AH_V1`), the DLL emits
+/// the same text at `warn:` level and proceeds with injection — that line is
+/// informational, not a failure, so it must not trigger the abort/dialog path.
+///
 /// A scan can fail with several status codes; this only parses the line — the
 /// frontend classifies the status into a failure kind.
 ///
@@ -365,6 +369,9 @@ fn join_handle(handle: Option<JoinHandle<()>>) {
 /// the code can't be parsed out.
 fn parse_wad_scan_failure(message: &str) -> Option<(Option<String>, String)> {
     if !message.contains("WAD scan failed") {
+        return None;
+    }
+    if message.trim_start().starts_with("warn:") {
         return None;
     }
 
@@ -399,6 +406,16 @@ mod tests {
         let (wad, status) = parse_wad_scan_failure(msg).expect("should detect failure");
         assert_eq!(wad.as_deref(), Some("Ahri.wad.client"));
         assert_eq!(status, "c0000229");
+    }
+
+    #[test]
+    fn ignores_warn_level_scan_line_from_opt_out() {
+        // With OPT_OUT_AH_V1 set, the DLL logs the same text at warn level and
+        // keeps injecting — it must not be reported as a fatal scan failure.
+        assert!(parse_wad_scan_failure(
+            "warn: WAD scan failed status with c0000229 for Ahri.wad.client"
+        )
+        .is_none());
     }
 
     #[test]
