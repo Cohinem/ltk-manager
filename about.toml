@@ -1,6 +1,6 @@
 # Configuration for cargo-about (https://github.com/EmbarkStudios/cargo-about)
 # Generates the third-party license manifest shown in Settings -> About.
-# Regenerate with: pnpm licenses
+# Regenerate with: pnpm generate:licenses
 
 # Only the platform we actually ship (see release.yml)
 targets = ["x86_64-pc-windows-msvc"]
