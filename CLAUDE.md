@@ -25,7 +25,7 @@ pnpm check          # typecheck + lint + format:check
 pnpm tauri build
 
 # Regenerate third-party license manifest (requires cargo-about; config in about.toml)
-pnpm licenses
+pnpm generate:licenses
 
 # Rust-only operations (from workspace root)
 cargo clippy -p ltk-manager

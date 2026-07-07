@@ -38,7 +38,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-accent-500/40 hover:-translate-y-px hover:shadow-[0_0_20px_-3px,0_4px_6px_-1px] hover:shadow-accent-500/40",
+        "border-accent-500/40 bg-surface-800 shadow-[0_0_12px_-6px] shadow-accent-500/25 hover:-translate-y-px hover:shadow-[0_0_14px_-5px,0_4px_6px_-1px] hover:shadow-accent-500/30",
     )
     .otherwise(
       () =>

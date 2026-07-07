@@ -38,7 +38,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-accent-500/30 hover:-translate-y-px",
+        "border-accent-500/40 bg-surface-800 shadow-[0_0_10px_-4px] shadow-accent-500/20 hover:-translate-y-px",
     )
     .otherwise(
       () =>
