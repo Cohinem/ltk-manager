@@ -241,29 +241,29 @@ impl Injector {
 
             match host::parse_event(&line) {
                 Some(HostEvent::Ok { message, .. }) => {
-                    tracing::debug!("[cslol-host] ok: {}", message);
+                    tracing::debug!("[ltk-host] ok: {}", message);
                 }
                 Some(HostEvent::Status { state, message, .. }) => {
                     match state {
                         HostState::Injecting => {
-                            tracing::info!("[cslol-host] injecting: {}", message);
+                            tracing::info!("[ltk-host] injecting: {}", message);
                         }
                         HostState::Injected => {
-                            tracing::info!("[cslol-host] injected: {}", message);
+                            tracing::info!("[ltk-host] injected: {}", message);
                         }
                         HostState::Waiting => {
-                            tracing::info!("[cslol-host] waiting: {}", message);
+                            tracing::info!("[ltk-host] waiting: {}", message);
                         }
                         HostState::Exited => {
-                            tracing::info!("[cslol-host] game exited: {}", message);
+                            tracing::info!("[ltk-host] game exited: {}", message);
                             // Game closed — the host will re-scan automatically
                             // for the next game instance. Keep the event loop
                             // running so injection persists across games until
                             // the user explicitly stops the patcher.
-                            tracing::info!("[cslol-host] waiting for next game instance...");
+                            tracing::info!("[ltk-host] waiting for next game instance...");
                         }
                         HostState::Failed => {
-                            tracing::error!("[cslol-host] failed: {}", message);
+                            tracing::error!("[ltk-host] failed: {}", message);
                             return Err(InjectorError::Failed(message));
                         }
                     }
@@ -274,13 +274,17 @@ impl Injector {
                     // reports fatal injection failures via `status ... failed`. Log
                     // it and keep going; if the host then dies, the EOF branch above
                     // surfaces this message as the failure reason.
-                    tracing::warn!("[cslol-host] error: {}", message);
+                    tracing::warn!("[ltk-host] error: {}", message);
                     last_error = Some(message);
                 }
                 Some(HostEvent::DllLog {
-                    pid, tid, message, ..
+                    pid,
+                    tid,
+                    level,
+                    message,
+                    ..
                 }) => {
-                    tracing::info!("[cslol-dll pid={} tid={}] {}", pid, tid, message);
+                    tracing::info!("[ltk-dll pid={} tid={} {}] {}", pid, tid, level, message);
 
                     // A fatal scan rejection (skinhack hit, parse error, or out
                     // of memory) aborts the whole session — no mods are applied.
@@ -306,7 +310,7 @@ impl Injector {
                     }
                 }
                 None => {
-                    tracing::trace!("[cslol-host] unparsed: {}", line);
+                    tracing::trace!("[ltk-host] unparsed: {}", line);
                 }
             }
         }
@@ -336,7 +340,7 @@ fn forward_stderr<R: Read + Send + 'static>(stream: R) -> JoinHandle<()> {
         for line in BufReader::new(stream).lines() {
             match line {
                 Ok(text) if !text.trim().is_empty() => {
-                    tracing::warn!("[cslol-host stderr] {}", text);
+                    tracing::warn!("[ltk-host stderr] {}", text);
                 }
                 Ok(_) => {}
                 Err(_) => break,
@@ -457,5 +461,29 @@ mod tests {
         .expect("parseable scan failure");
         assert_eq!(wad.as_deref(), Some("TahmKench.wad.client"));
         assert_eq!(status, "c0000225");
+    }
+
+    #[test]
+    fn detects_wad_scan_failure_from_ltk_patcher_dll_target() {
+        // The message reaching us is the DLL record text after the level field
+        // (`host::parse_event` strips the level), which the new DLL prefixes with
+        // its `tracing` target. The parser keys off `WAD scan failed`, so the
+        // target prefix is irrelevant.
+        let msg =
+            "ltk_patcher_dll::verify: WAD scan failed status with c0000229 for briar.wad.client";
+        let (wad, status) = parse_wad_scan_failure(msg).expect("should detect failure");
+        assert_eq!(wad.as_deref(), Some("briar.wad.client"));
+        assert_eq!(status, "c0000229");
+    }
+
+    #[test]
+    fn ignores_overlay_verification_failed_line() {
+        // The DLL logs a second ERROR right after the scan failure, summarizing
+        // the disabled overlay. It must not be mistaken for a separate failure
+        // (it lacks the `WAD scan failed` phrase), or briar would be counted twice.
+        assert!(parse_wad_scan_failure(
+            "ltk_patcher_dll::verify: overlay verification failed, disabling overlay: wad data/final/champions/briar.wad.client: anti-hack scan blocked (c0000229): 21a1ca943ae71cbc a9d31e88e92e4715"
+        )
+        .is_none());
     }
 }

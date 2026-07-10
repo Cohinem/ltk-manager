@@ -31,7 +31,7 @@ const COMPAT_KEY: &str = "Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCo
 const BAD_PREFIXES: &[&str] = &["League", "Riot"];
 
 #[cfg(target_os = "windows")]
-const SUS_PREFIXES: &[&str] = &["cslol-", "ltk-manager"];
+const SUS_PREFIXES: &[&str] = &["cslol-", "ltk_patcher", "ltk-manager"];
 
 /// Returns the basename of a value name (path) for matching against prefix
 /// lists. Compat-flag value names are full paths like
