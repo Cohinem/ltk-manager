@@ -10,12 +10,12 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 /// Bundled host executable name.
-pub const HOST_EXE_NAME: &str = "cslol-host.exe";
+pub const HOST_EXE_NAME: &str = "ltk_patcher_host.exe";
 
 /// Bundled hook DLL the host injects into the game. This is the file the
 /// diagnostics suite inspects (presence / signature / lock) — it replaced the
 /// legacy in-process `cslol-dll.dll`.
-pub const HOOK_DLL_NAME: &str = "cslol-hook-dll.dll";
+pub const HOOK_DLL_NAME: &str = "ltk_patcher_dll.dll";
 
 // ---------------------------------------------------------------------------
 // Protocol constants
@@ -145,6 +145,9 @@ pub enum HostEvent {
         timestamp: String,
         pid: u64,
         tid: u64,
+        /// The DLL's `tracing` level for this record (e.g. `info`, `warn`,
+        /// `error`).
+        level: String,
         message: String,
     },
 }
@@ -189,21 +192,23 @@ pub fn parse_event(line: &str) -> Option<HostEvent> {
             })
         }
         proto::EVT_DLL => {
-            // "dll <timestamp> <pid> <tid> <msg...>"
+            // "dll <timestamp> <pid> <tid> <level> <msg...>"
             let (timestamp, after_ts) = split_first_token(rest);
             let (pid_str, after_pid) = split_first_token(after_ts);
-            let (tid_str, message) = split_first_token(after_pid);
+            let (tid_str, after_tid) = split_first_token(after_pid);
+            let (level, message) = split_first_token(after_tid);
             let pid = pid_str.parse().ok()?;
             let tid = tid_str.parse().ok()?;
             Some(HostEvent::DllLog {
                 timestamp: timestamp.to_owned(),
                 pid,
                 tid,
+                level: level.to_owned(),
                 message: message.to_owned(),
             })
         }
         _ => {
-            tracing::warn!("[cslol-host] Unknown event keyword: {}", keyword);
+            tracing::warn!("[ltk-host] Unknown event keyword: {}", keyword);
             None
         }
     }
@@ -291,7 +296,7 @@ impl HostProcess {
     /// Send a raw command line to the host's stdin.
     pub fn send_command(&mut self, cmd: &str) -> Result<(), HostError> {
         let stdin = self.child.stdin.as_mut().ok_or(HostError::StdinClosed)?;
-        tracing::debug!("[cslol-host] >> {}", cmd);
+        tracing::debug!("[ltk-host] >> {}", cmd);
         writeln!(stdin, "{}", cmd).map_err(|_| HostError::StdinClosed)?;
         stdin.flush().map_err(|_| HostError::StdinClosed)?;
         Ok(())
@@ -451,7 +456,7 @@ mod tests {
     #[test]
     fn parse_dll_log_event() {
         let event = parse_event(
-            "dll 10.1234567 1234 5678 info: redirected wad: DATA/Champions/Ahri.wad.client",
+            "dll 10.1234567 1234 5678 info ltk_patcher_dll::hook: redirected wad: DATA/Champions/Ahri.wad.client",
         )
         .unwrap();
         match event {
@@ -459,15 +464,44 @@ mod tests {
                 timestamp,
                 pid,
                 tid,
+                level,
                 message,
-                ..
             } => {
                 assert_eq!(timestamp, "10.1234567");
                 assert_eq!(pid, 1234);
                 assert_eq!(tid, 5678);
+                assert_eq!(level, "info");
                 assert_eq!(
                     message,
-                    "info: redirected wad: DATA/Champions/Ahri.wad.client"
+                    "ltk_patcher_dll::hook: redirected wad: DATA/Champions/Ahri.wad.client"
+                );
+            }
+            _ => panic!("Expected DllLog event"),
+        }
+    }
+
+    #[test]
+    fn parse_dll_uppercase_level_keeps_message_intact() {
+        // Real host output uses uppercase level keywords; the level must be split
+        // off so the scan-failure phrase survives verbatim in `message`.
+        let event = parse_event(
+            "dll 64.6055036 11776 24292 ERROR ltk_patcher_dll::verify: WAD scan failed status with c0000229 for briar.wad.client",
+        )
+        .unwrap();
+        match event {
+            HostEvent::DllLog {
+                pid,
+                tid,
+                level,
+                message,
+                ..
+            } => {
+                assert_eq!(pid, 11776);
+                assert_eq!(tid, 24292);
+                assert_eq!(level, "ERROR");
+                assert_eq!(
+                    message,
+                    "ltk_patcher_dll::verify: WAD scan failed status with c0000229 for briar.wad.client"
                 );
             }
             _ => panic!("Expected DllLog event"),
