@@ -109,7 +109,7 @@ ltk-manager/
 │       ├── commands/           # IPC command handlers
 │       ├── mods/               # Mod install/uninstall/toggle logic
 │       ├── overlay/            # Overlay building
-│       ├── patcher/            # Patcher lifecycle + external injection host (cslol-host.exe)
+│       ├── patcher/            # Patcher lifecycle + external injection host (ltk_patcher_host.exe)
 │       ├── state.rs            # App state and settings
 │       └── error.rs            # Error types and IPC result helpers
 ├── docs/                       # Documentation

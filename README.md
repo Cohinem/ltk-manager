@@ -62,18 +62,17 @@ The next-generation mod manager for League of Legends, built by the [League Tool
 
 LTK Manager is open-source under a dual **MIT / Apache-2.0** license — you may choose either.
 
-### `cslol-dll.dll` Policy
+### LTK Patcher Binaries
 
-This application bundles `cslol-dll.dll`, the core injection module originally from cslol-manager. Its use and redistribution are governed by the [CSLOL DLL License Addendum](LICENSE-CSLOL.md).
+This application bundles the LTK patcher binaries (`ltk_patcher_host.exe` and `ltk_patcher_dll.dll`), which perform the actual game injection. They are governed by the [LTK Patcher License](LTK-PATCHER-LICENSE.md).
 
-If you are a developer looking to reuse this DLL in your own launcher or tool, you must comply with the following:
+The short version, if you want to reuse them in your own launcher or tool:
 
-1. **Re-signing** — You may not redistribute the DLL with the official signature. You must re-sign it using your own publicly trusted code-signing certificate.
-2. **Transparency** — You must publish your certificate's SHA-256 fingerprint and the DLL's SHA-256 hash in your project's documentation or about page.
-3. **Anti-Skinhacking** — You must implement technical measures to prevent the use of "skinhacking" (replicating paid content) and competitive advantage mods.
-4. **No Reverse Engineering** — Patching or tampering with the DLL itself is strictly prohibited.
+1. You are free to use, study, modify, and redistribute them.
+2. Official builds are code-signed by League Toolkit. Unless we've explicitly permitted it, you may not ship them under our signature — strip it, and if you sign, sign with your own certificate.
+3. Whatever you distribute is on your name: if it gets a code-signing certificate flagged or banned, that certificate must be yours, not ours.
 
-For full terms, see [LICENSE-CSLOL.md](LICENSE-CSLOL.md).
+For full terms, see [LTK-PATCHER-LICENSE.md](LTK-PATCHER-LICENSE.md).
 
 ---
 
