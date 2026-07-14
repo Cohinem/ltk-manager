@@ -398,12 +398,7 @@
     {
       "id": "MIT",
       "name": "MIT License",
-      "text": "Copyright (c) 2019-2024 Sean McArthur & Hyper Contributors\n\nPermission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.\n"
-    },
-    {
-      "id": "MIT",
-      "name": "MIT License",
-      "text": "Copyright (c) 2019-2025 Sean McArthur & Hyper Contributors\n\nPermission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.\n"
+      "text": "Copyright (c) 2019-2026 Sean McArthur & Hyper Contributors\n\nPermission is hereby granted, free of charge, to any\nperson obtaining a copy of this software and associated\ndocumentation files (the \"Software\"), to deal in the\nSoftware without restriction, including without\nlimitation the rights to use, copy, modify, merge,\npublish, distribute, sublicense, and/or sell copies of\nthe Software, and to permit persons to whom the Software\nis furnished to do so, subject to the following\nconditions:\n\nThe above copyright notice and this permission notice\nshall be included in all copies or substantial portions\nof the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF\nANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED\nTO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A\nPARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT\nSHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION\nOF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR\nIN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.\n"
     },
     {
       "id": "MIT",
@@ -513,6 +508,11 @@
     {
       "id": "MIT",
       "name": "MIT License",
+      "text": "MIT License\n\nCopyright (c) 2021 sarah\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+    },
+    {
+      "id": "MIT",
+      "name": "MIT License",
       "text": "MIT License\n\nCopyright (c) 2021 the Deno authors\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
     },
     {
@@ -594,6 +594,11 @@
       "id": "MIT",
       "name": "MIT License",
       "text": "The MIT License (MIT)\n\nCopyright (c) 2015 Danny Guo\nCopyright (c) 2016 Titus Wormer <tituswormer@gmail.com>\nCopyright (c) 2018 Akash Kurdekar\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+    },
+    {
+      "id": "MIT",
+      "name": "MIT License",
+      "text": "The MIT License (MIT)\n\nCopyright (c) 2015 Gerd Zellweger\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE."
     },
     {
       "id": "MIT",
@@ -756,7 +761,7 @@
       "version": "0.3.4",
       "url": "https://github.com/lu-zero/arg_enum_proc_macro",
       "licenses": [
-        90
+        89
       ]
     },
     {
@@ -804,7 +809,7 @@
       "version": "0.14.1",
       "url": "https://github.com/rust-av/av-scenechange",
       "licenses": [
-        97
+        96
       ]
     },
     {
@@ -938,7 +943,7 @@
     },
     {
       "name": "bytemuck",
-      "version": "1.25.0",
+      "version": "1.25.1",
       "url": "https://github.com/Lokathor/bytemuck",
       "licenses": [
         38
@@ -962,7 +967,7 @@
     },
     {
       "name": "bytes",
-      "version": "1.12.0",
+      "version": "1.12.1",
       "url": "https://github.com/tokio-rs/bytes",
       "licenses": [
         70
@@ -1013,7 +1018,7 @@
       "version": "0.7.3",
       "url": "https://github.com/mdsteele/rust-cfb",
       "licenses": [
-        88
+        87
       ]
     },
     {
@@ -1045,7 +1050,7 @@
       "version": "1.1.0",
       "url": "https://github.com/image-rs/color_quant.git",
       "licenses": [
-        122
+        123
       ]
     },
     {
@@ -1149,7 +1154,7 @@
       "version": "0.36.0",
       "url": "https://github.com/servo/rust-cssparser",
       "licenses": [
-        132
+        133
       ]
     },
     {
@@ -1157,7 +1162,7 @@
       "version": "0.6.1",
       "url": "https://github.com/servo/rust-cssparser",
       "licenses": [
-        132
+        133
       ]
     },
     {
@@ -1181,7 +1186,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        89
+        88
       ]
     },
     {
@@ -1189,7 +1194,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        89
+        88
       ]
     },
     {
@@ -1197,7 +1202,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        89
+        88
       ]
     },
     {
@@ -1229,7 +1234,7 @@
       "version": "2.1.1",
       "url": "https://github.com/JelteF/derive_more",
       "licenses": [
-        121
+        122
       ]
     },
     {
@@ -1237,7 +1242,7 @@
       "version": "2.1.1",
       "url": "https://github.com/JelteF/derive_more",
       "licenses": [
-        121
+        122
       ]
     },
     {
@@ -1310,7 +1315,7 @@
       "version": "0.3.5",
       "url": "https://github.com/upsuper/dtoa-short",
       "licenses": [
-        131
+        132
       ]
     },
     {
@@ -1380,7 +1385,7 @@
     },
     {
       "name": "exr",
-      "version": "1.74.0",
+      "version": "1.74.2",
       "url": "https://github.com/johannesvollmer/exrs",
       "licenses": [
         51
@@ -1407,7 +1412,7 @@
       "version": "0.2.7",
       "url": "https://github.com/pdf-rs/fax",
       "licenses": [
-        83
+        82
       ]
     },
     {
@@ -1447,7 +1452,7 @@
       "version": "0.2.0",
       "url": "https://github.com/orlp/foldhash",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1519,7 +1524,7 @@
       "version": "0.14.7",
       "url": "https://github.com/fizyk20/generic-array.git",
       "licenses": [
-        128
+        129
       ]
     },
     {
@@ -1636,7 +1641,7 @@
     },
     {
       "name": "http-body",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "url": "https://github.com/hyperium/http-body",
       "licenses": [
         79
@@ -1644,10 +1649,10 @@
     },
     {
       "name": "http-body-util",
-      "version": "0.1.3",
+      "version": "0.1.4",
       "url": "https://github.com/hyperium/http-body",
       "licenses": [
-        80
+        79
       ]
     },
     {
@@ -1655,7 +1660,7 @@
       "version": "0.1.5",
       "url": "https://github.com/bancek/rust-http-range.git",
       "licenses": [
-        84
+        83
       ]
     },
     {
@@ -1695,7 +1700,7 @@
       "version": "0.1.20",
       "url": "https://github.com/hyperium/hyper-util",
       "licenses": [
-        81
+        80
       ]
     },
     {
@@ -1703,7 +1708,7 @@
       "version": "0.5.0",
       "url": "https://github.com/mdsteele/rust-ico",
       "licenses": [
-        91
+        90
       ]
     },
     {
@@ -1711,7 +1716,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1719,7 +1724,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1727,7 +1732,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1735,7 +1740,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1743,7 +1748,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1751,7 +1756,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1759,7 +1764,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1831,7 +1836,7 @@
       "version": "0.19.0",
       "url": "https://github.com/bojand/infer",
       "licenses": [
-        93
+        92
       ]
     },
     {
@@ -1959,7 +1964,7 @@
       "version": "0.8.2",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -1983,12 +1988,12 @@
       "version": "0.1.5",
       "url": "https://gitlab.com/kornelski/loop9.git",
       "licenses": [
-        130
+        131
       ]
     },
     {
       "name": "ltk-manager",
-      "version": "1.11.0",
+      "version": "1.12.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
         39
@@ -2004,7 +2009,7 @@
     },
     {
       "name": "ltk_file",
-      "version": "0.2.9",
+      "version": "0.2.10",
       "licenses": [
         39
       ]
@@ -2018,7 +2023,7 @@
     },
     {
       "name": "ltk_io_ext",
-      "version": "0.4.3",
+      "version": "0.4.4",
       "licenses": [
         39
       ]
@@ -2064,14 +2069,14 @@
     },
     {
       "name": "ltk_primitives",
-      "version": "0.3.4",
+      "version": "0.3.5",
       "licenses": [
         39
       ]
     },
     {
       "name": "ltk_rst",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "licenses": [
         39
       ]
@@ -2085,7 +2090,7 @@
     },
     {
       "name": "ltk_wad",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "licenses": [
         39
       ]
@@ -2095,7 +2100,7 @@
       "version": "0.3.0",
       "url": "https://github.com/gendx/lzma-rs",
       "licenses": [
-        85
+        84
       ]
     },
     {
@@ -2127,12 +2132,12 @@
       "version": "0.1.1",
       "url": "https://github.com/shssoichiro/maybe-rayon",
       "licenses": [
-        101
+        100
       ]
     },
     {
       "name": "memchr",
-      "version": "2.8.2",
+      "version": "2.8.3",
       "url": "https://github.com/BurntSushi/memchr",
       "licenses": [
         117
@@ -2172,7 +2177,7 @@
     },
     {
       "name": "mio",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "url": "https://github.com/tokio-rs/mio",
       "licenses": [
         62
@@ -2231,7 +2236,7 @@
       "version": "0.3.0",
       "url": "https://github.com/lu-zero/noop_proc_macro",
       "licenses": [
-        96
+        95
       ]
     },
     {
@@ -2271,7 +2276,7 @@
       "version": "0.50.3",
       "url": "https://github.com/nushell/nu-ansi-term",
       "licenses": [
-        127
+        128
       ]
     },
     {
@@ -2286,6 +2291,14 @@
       "name": "num-bigint-dig",
       "version": "0.8.6",
       "url": "https://github.com/dignifiedquire/num-bigint",
+      "licenses": [
+        29
+      ]
+    },
+    {
+      "name": "num-complex",
+      "version": "0.4.6",
+      "url": "https://github.com/rust-num/num-complex",
       "licenses": [
         29
       ]
@@ -2316,7 +2329,7 @@
     },
     {
       "name": "num-iter",
-      "version": "0.1.45",
+      "version": "0.1.46",
       "url": "https://github.com/rust-num/num-iter",
       "licenses": [
         29
@@ -2364,10 +2377,10 @@
     },
     {
       "name": "open",
-      "version": "5.3.6",
+      "version": "5.4.0",
       "url": "https://github.com/Byron/open-rs",
       "licenses": [
-        125
+        126
       ]
     },
     {
@@ -2375,7 +2388,7 @@
       "version": "0.2.0",
       "url": "https://github.com/soc/option-ext.git",
       "licenses": [
-        133
+        134
       ]
     },
     {
@@ -2383,7 +2396,7 @@
       "version": "1.2.3",
       "url": "https://github.com/oconnor663/os_pipe.rs",
       "licenses": [
-        124
+        125
       ]
     },
     {
@@ -2391,7 +2404,7 @@
       "version": "3.5.0",
       "url": "https://github.com/jam1garner/owo-colors",
       "licenses": [
-        100
+        99
       ]
     },
     {
@@ -2535,7 +2548,7 @@
       "version": "0.1.5",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -2559,7 +2572,7 @@
       "version": "0.1.1",
       "url": "https://github.com/emilio/precomputed-hash",
       "licenses": [
-        86
+        85
       ]
     },
     {
@@ -2603,6 +2616,22 @@
       ]
     },
     {
+      "name": "pulp",
+      "version": "0.22.3",
+      "url": "https://github.com/sarah-quinones/pulp/",
+      "licenses": [
+        101
+      ]
+    },
+    {
+      "name": "pulp-wasm-simd-flag",
+      "version": "0.1.1",
+      "url": "https://github.com/sarah-quinones/pulp/",
+      "licenses": [
+        108
+      ]
+    },
+    {
       "name": "pxfm",
       "version": "0.1.30",
       "url": "https://github.com/awxkee/pxfm",
@@ -2639,7 +2668,7 @@
       "version": "0.41.0",
       "url": "https://github.com/tafia/quick-xml",
       "licenses": [
-        129
+        130
       ]
     },
     {
@@ -2652,7 +2681,7 @@
     },
     {
       "name": "rand",
-      "version": "0.8.6",
+      "version": "0.8.7",
       "url": "https://github.com/rust-random/rand",
       "licenses": [
         39
@@ -2660,7 +2689,7 @@
     },
     {
       "name": "rand",
-      "version": "0.9.4",
+      "version": "0.9.5",
       "url": "https://github.com/rust-random/rand",
       "licenses": [
         39
@@ -2723,6 +2752,14 @@
       ]
     },
     {
+      "name": "raw-cpuid",
+      "version": "11.6.0",
+      "url": "https://github.com/gz/rust-cpuid",
+      "licenses": [
+        119
+      ]
+    },
+    {
       "name": "raw-window-handle",
       "version": "0.6.2",
       "url": "https://github.com/rust-windowing/raw-window-handle",
@@ -2747,8 +2784,16 @@
       ]
     },
     {
+      "name": "reborrow",
+      "version": "0.5.5",
+      "url": "https://github.com/sarah-ek/reborrow/",
+      "licenses": [
+        104
+      ]
+    },
+    {
       "name": "regex",
-      "version": "1.12.4",
+      "version": "1.13.0",
       "url": "https://github.com/rust-lang/regex",
       "licenses": [
         29
@@ -2756,7 +2801,7 @@
     },
     {
       "name": "regex-automata",
-      "version": "0.4.14",
+      "version": "0.4.15",
       "url": "https://github.com/rust-lang/regex",
       "licenses": [
         29
@@ -2799,7 +2844,7 @@
       "version": "0.8.53",
       "url": "https://github.com/kornelski/rust-rgb",
       "licenses": [
-        95
+        94
       ]
     },
     {
@@ -2816,7 +2861,7 @@
       "version": "0.8.15",
       "url": "https://github.com/3Hren/msgpack-rust",
       "licenses": [
-        87
+        86
       ]
     },
     {
@@ -2824,7 +2869,7 @@
       "version": "1.3.1",
       "url": "https://github.com/3Hren/msgpack-rust",
       "licenses": [
-        87
+        86
       ]
     },
     {
@@ -2845,7 +2890,7 @@
     },
     {
       "name": "rustls",
-      "version": "0.23.41",
+      "version": "0.23.42",
       "url": "https://github.com/rustls/rustls",
       "licenses": [
         29
@@ -2877,7 +2922,7 @@
     },
     {
       "name": "rustversion",
-      "version": "1.0.22",
+      "version": "1.0.23",
       "url": "https://github.com/dtolnay/rustversion",
       "licenses": [
         39
@@ -2904,7 +2949,7 @@
       "version": "1.0.6",
       "url": "https://github.com/BurntSushi/same-file",
       "licenses": [
-        123
+        124
       ]
     },
     {
@@ -2920,7 +2965,7 @@
       "version": "0.8.22",
       "url": "https://github.com/GREsau/schemars",
       "licenses": [
-        94
+        93
       ]
     },
     {
@@ -2928,7 +2973,7 @@
       "version": "0.8.22",
       "url": "https://github.com/GREsau/schemars",
       "licenses": [
-        94
+        93
       ]
     },
     {
@@ -2944,7 +2989,7 @@
       "version": "0.36.1",
       "url": "https://github.com/servo/stylo",
       "licenses": [
-        133
+        134
       ]
     },
     {
@@ -3085,7 +3130,7 @@
     },
     {
       "name": "sha1",
-      "version": "0.10.6",
+      "version": "0.10.7",
       "url": "https://github.com/RustCrypto/hashes",
       "licenses": [
         31
@@ -3112,7 +3157,7 @@
       "version": "1.1.1",
       "url": "https://github.com/oconnor663/shared_child.rs",
       "licenses": [
-        124
+        125
       ]
     },
     {
@@ -3125,7 +3170,7 @@
     },
     {
       "name": "simd-adler32",
-      "version": "0.3.9",
+      "version": "0.3.10",
       "url": "https://github.com/mcountryman/simd-adler32",
       "licenses": [
         110
@@ -3173,7 +3218,7 @@
     },
     {
       "name": "socket2",
-      "version": "0.6.4",
+      "version": "0.6.5",
       "url": "https://github.com/rust-lang/socket2",
       "licenses": [
         29
@@ -3189,7 +3234,7 @@
     },
     {
       "name": "spin",
-      "version": "0.9.8",
+      "version": "0.9.9",
       "url": "https://github.com/mvdnes/spin-rs.git",
       "licenses": [
         114
@@ -3232,7 +3277,7 @@
       "version": "0.27.2",
       "url": "https://github.com/Peternator7/strum",
       "licenses": [
-        98
+        97
       ]
     },
     {
@@ -3240,7 +3285,7 @@
       "version": "0.27.2",
       "url": "https://github.com/Peternator7/strum",
       "licenses": [
-        98
+        97
       ]
     },
     {
@@ -3288,7 +3333,7 @@
       "version": "0.13.2",
       "url": "https://github.com/mystor/synstructure",
       "licenses": [
-        82
+        81
       ]
     },
     {
@@ -3296,7 +3341,7 @@
       "version": "0.32.1",
       "url": "https://github.com/GuillaumeGomez/sysinfo",
       "licenses": [
-        119
+        120
       ]
     },
     {
@@ -3397,7 +3442,7 @@
     },
     {
       "name": "tauri-plugin-single-instance",
-      "version": "2.4.2",
+      "version": "2.4.3",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
         39
@@ -3501,7 +3546,7 @@
     },
     {
       "name": "thread_local",
-      "version": "1.1.9",
+      "version": "1.1.10",
       "url": "https://github.com/Amanieu/thread_local-rs",
       "licenses": [
         29
@@ -3512,7 +3557,7 @@
       "version": "0.11.3",
       "url": "https://github.com/image-rs/image-tiff",
       "licenses": [
-        92
+        91
       ]
     },
     {
@@ -3544,7 +3589,7 @@
       "version": "0.8.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -3560,7 +3605,7 @@
       "version": "2.7.0",
       "url": "https://github.com/tokio-rs/tokio",
       "licenses": [
-        99
+        98
       ]
     },
     {
@@ -3597,7 +3642,7 @@
     },
     {
       "name": "toml",
-      "version": "1.1.2+spec-1.1.0",
+      "version": "1.1.3+spec-1.1.0",
       "url": "https://github.com/toml-rs/toml",
       "licenses": [
         13
@@ -3629,7 +3674,7 @@
     },
     {
       "name": "toml_edit",
-      "version": "0.25.12+spec-1.1.0",
+      "version": "0.25.13+spec-1.1.0",
       "url": "https://github.com/toml-rs/toml",
       "licenses": [
         13
@@ -3653,7 +3698,7 @@
     },
     {
       "name": "toml_writer",
-      "version": "1.1.1+spec-1.1.0",
+      "version": "1.1.2+spec-1.1.0",
       "url": "https://github.com/toml-rs/toml",
       "licenses": [
         13
@@ -3841,7 +3886,7 @@
       "url": "https://github.com/dtolnay/unicode-ident",
       "licenses": [
         39,
-        134
+        135
       ]
     },
     {
@@ -3894,7 +3939,7 @@
     },
     {
       "name": "uuid",
-      "version": "1.23.4",
+      "version": "1.23.5",
       "url": "https://github.com/uuid-rs/uuid",
       "licenses": [
         29
@@ -4001,7 +4046,7 @@
       "version": "0.1.11",
       "url": "https://github.com/BurntSushi/winapi-util",
       "licenses": [
-        123
+        124
       ]
     },
     {
@@ -4262,7 +4307,7 @@
     },
     {
       "name": "winnow",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "url": "https://github.com/winnow-rs/winnow",
       "licenses": [
         112
@@ -4281,7 +4326,7 @@
       "version": "0.6.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -4313,7 +4358,7 @@
       "version": "0.8.0",
       "url": "https://github.com/image-rs/y4m.git",
       "licenses": [
-        120
+        121
       ]
     },
     {
@@ -4321,7 +4366,7 @@
       "version": "0.8.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -4329,12 +4374,12 @@
       "version": "0.8.2",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
       "name": "zerocopy",
-      "version": "0.8.53",
+      "version": "0.8.54",
       "url": "https://github.com/google/zerocopy",
       "licenses": [
         7
@@ -4342,7 +4387,7 @@
     },
     {
       "name": "zerocopy-derive",
-      "version": "0.8.53",
+      "version": "0.8.54",
       "url": "https://github.com/google/zerocopy",
       "licenses": [
         7
@@ -4353,7 +4398,7 @@
       "version": "0.1.8",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -4361,7 +4406,7 @@
       "version": "0.1.7",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -4385,7 +4430,7 @@
       "version": "0.2.4",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -4393,7 +4438,7 @@
       "version": "0.11.6",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -4401,7 +4446,7 @@
       "version": "0.11.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        135
+        136
       ]
     },
     {
@@ -4422,7 +4467,7 @@
     },
     {
       "name": "zmij",
-      "version": "1.0.21",
+      "version": "1.0.23",
       "url": "https://github.com/dtolnay/zmij",
       "licenses": [
         111
@@ -4441,7 +4486,7 @@
       "version": "0.13.3",
       "url": "https://github.com/gyscos/zstd-rs",
       "licenses": [
-        126
+        127
       ]
     },
     {
