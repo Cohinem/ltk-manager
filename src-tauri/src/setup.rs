@@ -4,6 +4,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 
 use crate::deep_link::DeepLinkState;
 use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
+use crate::patcher::host::PatcherHostState;
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use crate::workshop::{Workshop, WorkshopState};
@@ -48,6 +49,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     app.manage(settings_state);
     app.manage(patcher_state);
+    app.manage(PatcherHostState::default());
     app.manage(LinkedBinState::default());
     app.manage(crate::strings::StringKeyIndexState::default());
     app.manage(mod_library);

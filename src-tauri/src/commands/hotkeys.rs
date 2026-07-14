@@ -1,6 +1,7 @@
 use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
+use crate::patcher::host::PatcherHostState;
 use crate::patcher::PatcherState;
 use crate::state::{save_settings_to_disk, SettingsState};
 use std::path::Path;
@@ -15,6 +16,7 @@ use super::patcher::{start_patcher_inner, PatcherConfig};
 /// Execute hot-reload: stop patcher → kill League → restart patcher.
 pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     let patcher_state = app_handle.state::<PatcherState>();
+    let host_state = app_handle.state::<PatcherHostState>();
     let settings_state = app_handle.state::<SettingsState>();
     let library_state = app_handle.state::<ModLibraryState>();
 
@@ -57,6 +59,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         patcher_config,
         app_handle,
         &patcher_state,
+        &host_state,
         &settings_state,
         &library_state,
     )?;
@@ -186,15 +189,17 @@ fn set_hotkey_inner(
 pub fn hot_reload_mods(
     app_handle: AppHandle,
     state: State<PatcherState>,
+    host_state: State<PatcherHostState>,
     settings: State<SettingsState>,
     library: State<ModLibraryState>,
 ) -> IpcResult<()> {
-    hot_reload_mods_inner(&app_handle, &state, &settings, &library).into()
+    hot_reload_mods_inner(&app_handle, &state, &host_state, &settings, &library).into()
 }
 
 fn hot_reload_mods_inner(
     app_handle: &AppHandle,
     state: &State<PatcherState>,
+    host_state: &State<PatcherHostState>,
     settings: &State<SettingsState>,
     library: &State<ModLibraryState>,
 ) -> AppResult<()> {
@@ -227,7 +232,14 @@ fn hot_reload_mods_inner(
     };
 
     tracing::info!("Restarting patcher after hot reload");
-    start_patcher_inner(patcher_config, app_handle, state, settings, library)?;
+    start_patcher_inner(
+        patcher_config,
+        app_handle,
+        state,
+        host_state,
+        settings,
+        library,
+    )?;
 
     // Best-effort LCU reconnect (in background — retries take time)
     let league_path = {
@@ -274,8 +286,7 @@ fn kill_league_inner(
 
 /// Wait for the patcher thread to finish (with timeout).
 fn wait_for_patcher_stop(state: &PatcherState) -> AppResult<()> {
-    // Must exceed the host's shutdown grace (`HostProcess::SHUTDOWN_GRACE`, 5s)
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(8);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
         {
             let ps = state.0.lock().mutex_err()?;
