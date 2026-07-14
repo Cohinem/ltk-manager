@@ -11,7 +11,7 @@ gen/
 public/third-party-licenses.json
 
 # Licenses
-LICENSE-CSLOL.md
+LTK-PATCHER-LICENSE.md
 
 # CI/CD
 .github/
