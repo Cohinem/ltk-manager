@@ -2,7 +2,7 @@ use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
 use crate::patcher::host::PatcherHostState;
 use crate::patcher::injector::INJECTOR_EXE_NAME;
-use crate::patcher::thread::PatcherThread;
+use crate::patcher::thread::{PatcherThread, SessionParams};
 use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
 use crate::state::{Settings, SettingsState};
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,6 @@ use super::mods::reject_if_patcher_running;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 use ts_rs::TS;
 
@@ -147,32 +146,9 @@ pub(crate) fn start_patcher_inner(
         ));
     }
 
-    // Lock briefly: check state, set phase, clone what we need for the thread
-    let (stop_flag, state_arc) = {
-        let mut patcher_state = state.0.lock().mutex_err()?;
-
-        if patcher_state.is_running() {
-            return Err(AppError::Other("Patcher is already running".to_string()));
-        }
-
-        patcher_state.stop_flag.store(false, Ordering::SeqCst);
-        patcher_state.phase = PatcherPhase::Building;
-
-        (Arc::clone(&patcher_state.stop_flag), Arc::clone(&state.0))
-    };
-
     tracing::debug!("Start patcher requested (external injector)");
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
-
-    // Stash config for hot-reload
-    {
-        let mut patcher_state = state.0.lock().mutex_err()?;
-        patcher_state.last_config = Some(StoredPatcherConfig {
-            flags: config.flags,
-            workshop_projects: config.workshop_projects.clone(),
-        });
-    }
 
     // tray: we see if we are loading Workshop or Library based on the config
     let is_workshop = config
@@ -183,6 +159,7 @@ pub(crate) fn start_patcher_inner(
 
     let workshop_paths: Vec<PathBuf> = config
         .workshop_projects
+        .clone()
         .unwrap_or_default()
         .iter()
         .map(PathBuf::from)
@@ -204,40 +181,30 @@ pub(crate) fn start_patcher_inner(
     );
 
     let mut host_flags = config.flags.unwrap_or(0) as u32;
-    // The anti-skinhack scan aborts patching on a flagged champion WAD by
-    // default; turning the setting off opts out via the hook flag, downgrading
-    // the failure to a warning so patching proceeds.
     if !settings_snapshot.enforce_skinhack_scan {
         host_flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1;
     }
 
     let should_elevate = resolve_should_elevate(&settings_snapshot);
 
-    let initial_state = if is_workshop {
-        crate::tray::AppTrayState::WorkshopLoading
-    } else {
-        crate::tray::AppTrayState::LibraryLoading
-    };
-    let _ = crate::tray::set_tray_state(app_handle.clone(), initial_state);
-
-    let handle = PatcherThread::spawn(
-        app_handle.clone(),
-        state_arc,
-        Arc::clone(&host_state.0),
-        stop_flag,
-        injector_exe,
-        settings_snapshot,
-        library.0.clone(),
-        workshop_paths,
-        host_flags,
-        should_elevate,
-        is_workshop,
-    );
-
-    let mut patcher_state = state.0.lock().mutex_err()?;
-    patcher_state.thread_handle = Some(handle);
-
-    Ok(())
+    PatcherThread::start(
+        app_handle,
+        &state.0,
+        &host_state.0,
+        StoredPatcherConfig {
+            flags: config.flags,
+            workshop_projects: config.workshop_projects,
+        },
+        SessionParams {
+            injector_exe,
+            settings: settings_snapshot,
+            library: library.0.clone(),
+            workshop_paths,
+            host_flags,
+            should_elevate,
+            is_workshop,
+        },
+    )
 }
 
 /// Whether to spawn the host with `--elevate`: when the user opts in or League
@@ -344,7 +311,7 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherSta
 /// Linked-bin offenders found in the most recent overlay build, keyed by mod id.
 ///
 /// These are recorded as a byproduct of `start_patcher`'s single overlay build (and
-/// any hot-reload), so this is a cheap read with no IO — it never builds the overlay
+/// any hot-reload), so this is a cheap read with no IO - it never builds the overlay
 /// itself. Display names are resolved from the library index; mods absent from the
 /// latest build (e.g. since-disabled) simply don't appear. Missing linked bins are
 /// non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod

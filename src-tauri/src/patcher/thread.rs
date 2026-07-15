@@ -5,19 +5,19 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
-use std::thread::{self, JoinHandle};
+use std::thread;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use ts_rs::TS;
 
-use crate::error::{AppError, AppErrorResponse};
+use crate::error::{AppError, AppErrorResponse, AppResult, MutexResultExt};
 use crate::mods::ModLibrary;
 use crate::state::Settings;
 
 use super::host::{HostConfig, HostError, HostLine, HostLogLevel, PatcherHost};
 use super::injector::{Injector, InjectorEvent};
-use super::{PatcherPhase, PatcherStateInner};
+use super::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
 
 /// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
 #[derive(Debug, Clone, Serialize, TS)]
@@ -46,7 +46,7 @@ pub struct WadScanFailedPayload {
 /// Payload for the `linked-bins-warning` event, emitted after a patcher start whose
 /// single overlay build found enabled mods with unresolved linked dependencies (only
 /// when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
-/// start — it drives a non-blocking toast. The per-mod badges and the reachable
+/// start - it drives a non-blocking toast. The per-mod badges and the reachable
 /// `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
@@ -54,6 +54,18 @@ pub struct WadScanFailedPayload {
 pub struct LinkedBinWarningPayload {
     /// Number of enabled mods flagged in the latest build.
     pub count: u32,
+}
+
+/// Per-session inputs for [`PatcherThread::start`], resolved by the command
+/// layer before the patcher state is claimed.
+pub(crate) struct SessionParams {
+    pub injector_exe: PathBuf,
+    pub settings: Settings,
+    pub library: ModLibrary,
+    pub workshop_paths: Vec<PathBuf>,
+    pub host_flags: u32,
+    pub should_elevate: bool,
+    pub is_workshop: bool,
 }
 
 /// Inputs moved into the background patcher thread.
@@ -72,26 +84,51 @@ pub struct PatcherThread {
 }
 
 impl PatcherThread {
-    /// Spawn the background patching thread and return its handle.
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn spawn(
-        app_handle: AppHandle,
-        state: Arc<Mutex<PatcherStateInner>>,
-        host: Arc<Mutex<Option<PatcherHost>>>,
-        stop_flag: Arc<AtomicBool>,
-        injector_exe: PathBuf,
-        settings: Settings,
-        library: ModLibrary,
-        workshop_paths: Vec<PathBuf>,
-        host_flags: u32,
-        should_elevate: bool,
-        is_workshop: bool,
-    ) -> JoinHandle<()> {
+    /// Atomically claim the patcher state and spawn the session thread.
+    ///
+    /// The running check and every start side effect (stop-flag reset, phase,
+    /// config stash for hot-reload, tray flip, handle store) happen under one
+    /// lock, so a concurrent start can't slip between them and respawn the
+    /// shared host under a live session.
+    pub(crate) fn start(
+        app_handle: &AppHandle,
+        state: &Arc<Mutex<PatcherStateInner>>,
+        host: &Arc<Mutex<Option<PatcherHost>>>,
+        config: StoredPatcherConfig,
+        params: SessionParams,
+    ) -> AppResult<()> {
+        let mut patcher_state = state.lock().mutex_err()?;
+        if patcher_state.is_running() {
+            return Err(AppError::Other("Patcher is already running".to_string()));
+        }
+
+        patcher_state.stop_flag.store(false, Ordering::SeqCst);
+        patcher_state.phase = PatcherPhase::Building;
+        patcher_state.last_config = Some(config);
+
+        // Under the same lock so the session's failure path (which resets the
+        // tray after locking the state) can't run before the flip to Loading.
+        let loading = if params.is_workshop {
+            crate::tray::AppTrayState::WorkshopLoading
+        } else {
+            crate::tray::AppTrayState::LibraryLoading
+        };
+        let _ = crate::tray::set_tray_state(app_handle.clone(), loading);
+
+        let SessionParams {
+            injector_exe,
+            settings,
+            library,
+            workshop_paths,
+            host_flags,
+            should_elevate,
+            is_workshop,
+        } = params;
         let session = Self {
-            app_handle,
-            state,
-            host,
-            stop_flag,
+            app_handle: app_handle.clone(),
+            state: Arc::clone(state),
+            host: Arc::clone(host),
+            stop_flag: Arc::clone(&patcher_state.stop_flag),
             injector_exe,
             settings,
             library,
@@ -100,7 +137,8 @@ impl PatcherThread {
             should_elevate,
             is_workshop,
         };
-        thread::spawn(move || session.run())
+        patcher_state.thread_handle = Some(thread::spawn(move || session.run()));
+        Ok(())
     }
 
     fn run(self) {
@@ -220,7 +258,7 @@ impl PatcherThread {
             })
             .run_session(events, &self.host, &self.stop_flag);
 
-        // Hand the event stream back to the host so the next session reuses it —
+        // Hand the event stream back to the host so the next session reuses it -
         // unless the host died, in which case clear it so the next start respawns.
         if let Ok(mut guard) = self.host.lock() {
             let alive = guard.as_mut().map(|h| h.is_alive()).unwrap_or(false);
@@ -275,9 +313,12 @@ fn ensure_host_started(
         .lock()
         .map_err(|_| HostError::Protocol("patcher host lock poisoned".to_string()))?;
 
+    // `drain_events` clears the previous session's trailing lines and doubles as
+    // a liveness probe: a lost or disconnected stream means the host can't serve
+    // another session even if the process is still alive.
     let needs_spawn = match guard.as_mut() {
         None => true,
-        Some(host) => !host.is_alive() || host.elevated() != elevate || !host.has_event_stream(),
+        Some(host) => !host.is_alive() || host.elevated() != elevate || !host.drain_events(),
     };
     if needs_spawn {
         if let Some(mut old) = guard.take() {
@@ -288,16 +329,22 @@ fn ensure_host_started(
         *guard = Some(PatcherHost::spawn(exe_path, elevate)?);
     }
 
-    let host = guard.as_mut().expect("host present after ensure");
-    // Drop trailing lines from the previous session (e.g. its `ok stop`).
-    host.drain_events();
-    if let Err(e) = host.configure(config).and_then(|_| host.start_scan()) {
-        // A failed handshake may leave the host wedged; drop it for a clean respawn.
-        *guard = None;
+    let result = {
+        let host = guard.as_mut().expect("host present after ensure");
+        host.configure(config).and_then(|_| host.start_scan())
+    };
+    if let Err(e) = result {
+        // A failed handshake may leave the host wedged; shut it down so the next
+        // start spawns clean.
+        if let Some(mut broken) = guard.take() {
+            broken.shutdown();
+        }
         return Err(e);
     }
 
-    Ok(host
+    Ok(guard
+        .as_mut()
+        .expect("host present after ensure")
         .take_events()
         .expect("event stream present on a freshly spawned or reused host"))
 }

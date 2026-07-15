@@ -64,7 +64,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         &library_state,
     )?;
 
-    // Best-effort LCU reconnect (in background — retries take time)
+    // Best-effort LCU reconnect (in background - retries take time)
     let league_path = {
         let s = settings_state.0.lock().mutex_err()?;
         s.league_path.clone()
@@ -241,7 +241,7 @@ fn hot_reload_mods_inner(
         library,
     )?;
 
-    // Best-effort LCU reconnect (in background — retries take time)
+    // Best-effort LCU reconnect (in background - retries take time)
     let league_path = {
         let s = settings.0.lock().mutex_err()?;
         s.league_path.clone()

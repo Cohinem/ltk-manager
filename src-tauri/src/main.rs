@@ -23,8 +23,6 @@ mod utils;
 mod workshop;
 
 fn main() {
-    use tauri::Manager;
-
     let logging_guards = logging::init();
 
     tracing::info!("Starting LTK Manager v{}", env!("CARGO_PKG_VERSION"));
@@ -159,20 +157,5 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
-            // The injection host is long-lived (spawned lazily on first patch and
-            // reused across start/stop). Shut it down gracefully on app exit so it
-            // never outlives the manager.
-            if let tauri::RunEvent::Exit = event {
-                if let Some(host_state) = app_handle.try_state::<patcher::host::PatcherHostState>()
-                {
-                    if let Ok(mut guard) = host_state.0.lock() {
-                        if let Some(mut host) = guard.take() {
-                            tracing::info!("App exiting: shutting down injection host");
-                            host.shutdown();
-                        }
-                    }
-                }
-            }
-        });
+        .run(setup::handle_run_event);
 }

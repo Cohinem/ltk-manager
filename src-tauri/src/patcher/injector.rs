@@ -101,7 +101,7 @@ impl Injector {
     /// until the game exits or `stop_flag` is set.
     ///
     /// The caller has already configured the host and started the scan; here we
-    /// only consume `events` — the host's stdout line stream — dispatching events
+    /// only consume `events` - the host's stdout line stream - dispatching events
     /// until the session ends. On stop (or an auto-stop from a failed WAD scan)
     /// we send `stop` to the host over `host` but leave the process running.
     ///
@@ -158,7 +158,7 @@ impl Injector {
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => {
                     // Reader thread ended: the host closed stdout / hit EOF. If we
-                    // didn't ask it to stop, the host died on its own — it crashed,
+                    // didn't ask it to stop, the host died on its own - it crashed,
                     // antivirus blocked it, or (on the elevated path) the user
                     // dismissed the UAC prompt. Surface that instead of silently
                     // reporting a clean stop.
@@ -187,7 +187,7 @@ impl Injector {
             }) => self.handle_status(host_state, message)?,
             Some(HostEvent::Error { message, .. }) => {
                 // A protocol-level error (e.g. an unrecognized command) is not
-                // necessarily fatal to an in-progress injection — the host reports
+                // necessarily fatal to an in-progress injection - the host reports
                 // fatal failures via `status failed`. Keep it so the EOF branch can
                 // surface it as the reason if the host then dies.
                 tracing::warn!("[ltk-host] error: {}", message);
@@ -234,7 +234,7 @@ impl Injector {
     /// dismissed UAC prompt is the most common cause on the elevated path.
     fn unexpected_exit_error(&self, last_error: Option<String>) -> InjectorError {
         let base = if self.elevate {
-            "The injection host exited unexpectedly. If you dismissed the Windows User Account Control (UAC) prompt, the patcher cannot run elevated — accept the prompt next time, or turn off \"Run injector elevated\" in Settings if League is not running as administrator."
+            "The injection host exited unexpectedly. If you dismissed the Windows User Account Control (UAC) prompt, the patcher cannot run elevated - accept the prompt next time, or turn off \"Run injector elevated\" in Settings if League is not running as administrator."
         } else {
             "The injection host exited unexpectedly. It may have crashed or been blocked by antivirus."
         };
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn ignores_warn_level_scan_line_from_opt_out() {
         // With OPT_OUT_AH_V1 set, the DLL logs the same text at warn level and
-        // keeps injecting — it must not be reported as a fatal scan failure.
+        // keeps injecting - it must not be reported as a fatal scan failure.
         assert!(parse_wad_scan_failure(
             "warn: WAD scan failed status with c0000229 for Ahri.wad.client"
         )
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn parses_arbitrary_status_code() {
-        // The parser stays status-agnostic — any hex code parses the same way and
+        // The parser stays status-agnostic - any hex code parses the same way and
         // the frontend classifies it. c0000225 is no longer emitted at runtime
         // (linked bins are validated pre-flight); kept here to prove that.
         let failure = parse_wad_scan_failure(

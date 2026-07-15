@@ -6,7 +6,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 pub const HOST_EXE_NAME: &str = "ltk_patcher_host.exe";
 
 /// Bundled hook DLL the host injects into the game. This is the file the
-/// diagnostics suite inspects (presence / signature / lock) — it replaced the
+/// diagnostics suite inspects (presence / signature / lock) - it replaced the
 /// legacy in-process `cslol-dll.dll`.
 pub const HOOK_DLL_NAME: &str = "ltk_patcher_dll.dll";
 
@@ -58,13 +58,13 @@ mod proto {
 
 /// Hook flag bits forwarded to the host via `config flags <N>`
 pub mod hook_flags {
-    /// `CSLOL_HOOK_DISABLE_VERIFY` — skip the signature-verification bypass,
+    /// `CSLOL_HOOK_DISABLE_VERIFY` - skip the signature-verification bypass,
     /// leaving the game's own file verification intact.
     pub const DISABLE_VERIFY: u32 = 1;
-    /// `CSLOL_HOOK_DISABLE_FILE` — disable the filesystem overlay, so no modded
+    /// `CSLOL_HOOK_DISABLE_FILE` - disable the filesystem overlay, so no modded
     /// files are redirected into the game.
     pub const DISABLE_FILE: u32 = 2;
-    /// `CSLOL_HOOK_OPT_OUT_AH_V1` — opt out of anti-skinhack v1 enforcement: a
+    /// `CSLOL_HOOK_OPT_OUT_AH_V1` - opt out of anti-skinhack v1 enforcement: a
     /// failed WAD scan is downgraded from a blocking error to a warning, so
     /// patching proceeds instead of aborting.
     pub const OPT_OUT_AH_V1: u32 = 4;
@@ -344,7 +344,7 @@ impl HostProcess {
     }
 
     /// Take stdout and wrap it in a buffered line reader for event parsing.
-    /// This consumes the stdout handle — call once.
+    /// This consumes the stdout handle - call once.
     pub fn take_event_reader(&mut self) -> Option<BufReader<std::process::ChildStdout>> {
         self.child.stdout.take().map(BufReader::new)
     }
@@ -365,7 +365,7 @@ impl HostProcess {
     /// Close stdin (signals the host to shut down) and wait for the child,
     /// force-killing it if it doesn't exit within the grace period.
     ///
-    /// Closing stdin alone is not a guaranteed exit signal — if the host is
+    /// Closing stdin alone is not a guaranteed exit signal - if the host is
     /// parked scanning for the game and ignores the `stop`/EOF, an unbounded
     /// `wait()` here would hang the patcher thread forever and leave the UI
     /// stuck "running". The grace-then-kill keeps shutdown bounded.
@@ -418,7 +418,7 @@ pub type HostLine = std::io::Result<String>;
 ///
 /// Killing the host between sessions would tear down the elevated worker it
 /// bridges to (and re-trigger its UAC prompt on the next start), so instead we
-/// spawn it once — lazily, on the first patcher start — and drive it with
+/// spawn it once - lazily, on the first patcher start - and drive it with
 /// `start`/`stop` commands. A single reader thread owns the host's stdout for
 /// its whole life and funnels every line onto [`Self::take_events`]'s channel;
 /// each session borrows that receiver for the duration of its event loop and
@@ -481,13 +481,6 @@ impl PatcherHost {
         self.elevated
     }
 
-    /// Whether the host still holds its event stream. A live host that lost it (a
-    /// session panicked between [`Self::take_events`] and [`Self::restore_events`])
-    /// is wedged and must be respawned, not reused.
-    pub fn has_event_stream(&self) -> bool {
-        self.events.is_some()
-    }
-
     /// Send all config commands for a session.
     pub fn configure(&mut self, config: &HostConfig) -> Result<(), HostError> {
         self.proc.configure(config)
@@ -503,17 +496,28 @@ impl PatcherHost {
         self.proc.stop_session()
     }
 
-    /// Discard any buffered lines left over from a previous session (e.g. the
-    /// trailing `ok stop` after the last stop) so a new session's event loop
-    /// starts clean.
-    pub fn drain_events(&mut self) {
-        if let Some(rx) = &self.events {
-            while rx.try_recv().is_ok() {}
+    /**
+    Discard buffered lines left over from a previous session and report whether the stream is still usable.
+    Returns `false` if the receiver is missing (a session panicked while
+    holding it) or disconnected (the reader thread died even though the
+    process may still be alive) - reusing such a host would make every
+    future session fail instantly, so it must be respawned.
+    */
+    pub fn drain_events(&mut self) -> bool {
+        let Some(rx) = &self.events else {
+            return false;
+        };
+        loop {
+            match rx.try_recv() {
+                Ok(_) => {}
+                Err(TryRecvError::Empty) => return true,
+                Err(TryRecvError::Disconnected) => return false,
+            }
         }
     }
 
     /// Borrow the host's line stream for the duration of a session. Returns
-    /// `None` if a session already holds it (shouldn't happen — only one runs at
+    /// `None` if a session already holds it (shouldn't happen - only one runs at
     /// a time).
     pub fn take_events(&mut self) -> Option<Receiver<HostLine>> {
         self.events.take()
