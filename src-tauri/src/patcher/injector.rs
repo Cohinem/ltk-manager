@@ -4,14 +4,12 @@
 //! The host owns all injection logic (window scanning, `SetWindowsHookEx`, DLL
 //! pipe) and reports structured lifecycle events back to us.
 
-use std::io::{BufRead, BufReader, Read};
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError};
-use std::thread::{self, JoinHandle};
+use std::sync::mpsc::{Receiver, RecvTimeoutError};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::host::{self, HostConfig, HostError, HostEvent, HostProcess, HostState, HOST_EXE_NAME};
+use super::host::{self, HostError, HostEvent, HostLine, HostState, PatcherHost, HOST_EXE_NAME};
 
 /// Re-export the executable name that `commands/patcher.rs` resolves.
 pub const INJECTOR_EXE_NAME: &str = HOST_EXE_NAME;
@@ -54,17 +52,25 @@ type EventCallback = Box<dyn Fn(InjectorEvent) + Send>;
 /// so a short window captures every offending archive.
 const WAD_FAILURE_COLLECT_WINDOW: Duration = Duration::from_millis(750);
 
-/// Spawns and supervises the injection host process.
+/// Drives one patching session against an already-running [`PatcherHost`].
+///
+/// The host process itself is spawned and kept alive by the caller (see
+/// `commands::patcher`); the injector only runs the per-session event loop and,
+/// on stop, issues a `stop` command rather than killing the host.
 pub struct Injector {
-    exe_path: PathBuf,
     elevate: bool,
     on_event: Option<EventCallback>,
 }
 
+impl Default for Injector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Injector {
-    pub fn new(exe_path: PathBuf) -> Self {
+    pub fn new() -> Self {
         Self {
-            exe_path,
             elevate: false,
             on_event: None,
         }
@@ -91,122 +97,51 @@ impl Injector {
         }
     }
 
-    /// Run the host-based injector, blocking until the patching session ends
-    /// or `stop_flag` is set.
+    /// Run one patching session's event loop against a persistent host, blocking
+    /// until the game exits or `stop_flag` is set.
     ///
-    /// Sends configuration commands, starts a scan session, then reads event
-    /// lines from the host until the game exits or we're told to stop.
-    pub fn run(
+    /// The caller has already configured the host and started the scan; here we
+    /// only consume `events` - the host's stdout line stream - dispatching events
+    /// until the session ends. On stop (or an auto-stop from a failed WAD scan)
+    /// we send `stop` to the host over `host` but leave the process running.
+    ///
+    /// Returns the event stream so the caller can hand it back to the host for
+    /// the next session (see [`PatcherHost::restore_events`]).
+    pub fn run_session(
         &self,
-        overlay_dir: &str,
+        events: Receiver<HostLine>,
+        host: &Arc<Mutex<Option<PatcherHost>>>,
         stop_flag: &AtomicBool,
-        config: &HostConfig,
-    ) -> Result<(), InjectorError> {
-        let mut proc = HostProcess::spawn(&self.exe_path, self.elevate)?;
-
-        // Forward stderr on a background thread for startup diagnostics.
-        let stderr_handle = proc.take_stderr().map(forward_stderr);
-
-        // Take the event reader before sending commands so we don't miss events.
-        let reader = proc.take_event_reader();
-
-        // Phase 1: Send configuration.
-        if let Err(e) = proc.configure(config) {
-            tracing::error!("Failed to configure host: {}", e);
-            proc.kill();
-            join_handle(stderr_handle);
-            return Err(e.into());
-        }
-
-        // Phase 2: Start scanning.
-        if let Err(e) = proc.start_scan() {
-            tracing::error!("Failed to start host scan: {}", e);
-            proc.kill();
-            join_handle(stderr_handle);
-            return Err(e.into());
-        }
-
-        tracing::info!("Host started, scanning for game (prefix: {})", overlay_dir);
-
-        // Phase 3: Read events until the session ends.
-        let result = if let Some(reader) = reader {
-            self.event_loop(reader, &mut proc, stop_flag)
-        } else {
-            tracing::error!("Host stdout not available");
-            Err(InjectorError::Host(HostError::StdoutClosed))
-        };
-
-        // Cleanup: signal the host to exit and wait for it (with a kill
-        // fallback) before joining the stderr forwarder. Joining stderr first
-        // would deadlock if the host only exits once its stdin is closed, since
-        // stderr won't reach EOF until the host process is gone.
-        proc.shutdown();
-        join_handle(stderr_handle);
-
-        result
+    ) -> (Result<(), InjectorError>, Receiver<HostLine>) {
+        let result = self.event_loop(&events, host, stop_flag);
+        (result, events)
     }
 
     /// Read and dispatch events from the host until the session is over.
     fn event_loop(
         &self,
-        reader: BufReader<std::process::ChildStdout>,
-        proc: &mut HostProcess,
+        rx: &Receiver<HostLine>,
+        host: &Arc<Mutex<Option<PatcherHost>>>,
         stop_flag: &AtomicBool,
     ) -> Result<(), InjectorError> {
-        // `reader.lines()` blocks until a full line arrives or EOF. While the
-        // host is silently scanning for the game it emits nothing, so checking
-        // the stop flag inline would never fire (the read is parked). Funnel the
-        // blocking reads through a channel and poll it with a timeout so the
-        // stop flag is honored within the poll interval regardless of host
-        // chatter. The reader thread self-terminates on EOF (once the host
-        // closes stdout during shutdown) or when the receiver is dropped.
-        let (tx, rx) = mpsc::channel::<std::io::Result<String>>();
-        thread::spawn(move || {
-            for line_result in reader.lines() {
-                let is_err = line_result.is_err();
-                if tx.send(line_result).is_err() || is_err {
-                    break;
-                }
-            }
-        });
-
-        // Tracks the most recent host-reported error so that, if the host then
-        // dies, we can surface it to the UI as the failure reason.
-        let mut last_error: Option<String> = None;
-
-        // The DLL emits one "WAD scan failed" line per rejected archive, in a
-        // burst during the game's load scan, then aborts injection. Accumulate
-        // them over a short window so we report every failure together, then
-        // auto-stop. `failure_reported` flips once we've finalized so we don't
-        // re-fire or fight the shutdown we just initiated.
-        let mut failures: Vec<WadScanFailure> = Vec::new();
-        let mut collect_deadline: Option<Instant> = None;
-        let mut failure_reported = false;
+        let mut state = SessionState::default();
 
         loop {
-            // Finalize the failure report once the collection window elapses.
-            // Done at the top of the loop so it runs even on recv timeouts.
-            if !failure_reported {
-                if let Some(deadline) = collect_deadline {
-                    if Instant::now() >= deadline {
-                        failure_reported = true;
-                        tracing::warn!(
-                            "Integrity scan rejected {} archive(s); stopping patcher",
-                            failures.len()
-                        );
-                        self.emit_event(InjectorEvent::WadScanFailed {
-                            failures: std::mem::take(&mut failures),
-                        });
-                        // Reuse the existing stop path: the check below sends
-                        // `stop` to the host and returns Ok.
-                        stop_flag.store(true, Ordering::SeqCst);
-                    }
-                }
+            // Finalize the WAD-failure report once its collection window elapses,
+            // then fall through to the normal stop path below. Checked at the top
+            // so it still fires on recv timeouts.
+            if let Some(failures) = state.take_ready_failures() {
+                tracing::warn!(
+                    "Integrity scan rejected {} archive(s); stopping patcher",
+                    failures.len()
+                );
+                self.emit_event(InjectorEvent::WadScanFailed { failures });
+                stop_flag.store(true, Ordering::SeqCst);
             }
 
             if stop_flag.load(Ordering::SeqCst) {
                 tracing::info!("Stop requested, sending stop to host");
-                let _ = proc.stop_session();
+                send_stop(host);
                 return Ok(());
             }
 
@@ -217,103 +152,81 @@ impl Injector {
                     if stop_flag.load(Ordering::SeqCst) {
                         return Ok(());
                     }
-                    return Err(
-                        self.unexpected_exit_error(last_error.or_else(|| Some(e.to_string())))
-                    );
+                    return Err(self
+                        .unexpected_exit_error(state.last_error.or_else(|| Some(e.to_string()))));
                 }
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => {
                     // Reader thread ended: the host closed stdout / hit EOF. If we
-                    // didn't ask it to stop, the host died on its own — it crashed,
+                    // didn't ask it to stop, the host died on its own - it crashed,
                     // antivirus blocked it, or (on the elevated path) the user
                     // dismissed the UAC prompt. Surface that instead of silently
                     // reporting a clean stop.
                     if stop_flag.load(Ordering::SeqCst) {
                         return Ok(());
                     }
-                    return Err(self.unexpected_exit_error(last_error));
+                    return Err(self.unexpected_exit_error(state.last_error));
                 }
             };
 
-            if line.trim().is_empty() {
-                continue;
-            }
-
-            match host::parse_event(&line) {
-                Some(HostEvent::Ok { message, .. }) => {
-                    tracing::debug!("[ltk-host] ok: {}", message);
-                }
-                Some(HostEvent::Status { state, message, .. }) => {
-                    match state {
-                        HostState::Injecting => {
-                            tracing::info!("[ltk-host] injecting: {}", message);
-                        }
-                        HostState::Injected => {
-                            tracing::info!("[ltk-host] injected: {}", message);
-                        }
-                        HostState::Waiting => {
-                            tracing::info!("[ltk-host] waiting: {}", message);
-                        }
-                        HostState::Exited => {
-                            tracing::info!("[ltk-host] game exited: {}", message);
-                            // Game closed — the host will re-scan automatically
-                            // for the next game instance. Keep the event loop
-                            // running so injection persists across games until
-                            // the user explicitly stops the patcher.
-                            tracing::info!("[ltk-host] waiting for next game instance...");
-                        }
-                        HostState::Failed => {
-                            tracing::error!("[ltk-host] failed: {}", message);
-                            return Err(InjectorError::Failed(message));
-                        }
-                    }
-                }
-                Some(HostEvent::Error { message, .. }) => {
-                    // A protocol-level error (e.g. an unrecognized command) is not
-                    // necessarily fatal to an in-progress injection — the host
-                    // reports fatal injection failures via `status ... failed`. Log
-                    // it and keep going; if the host then dies, the EOF branch above
-                    // surfaces this message as the failure reason.
-                    tracing::warn!("[ltk-host] error: {}", message);
-                    last_error = Some(message);
-                }
-                Some(HostEvent::DllLog {
-                    pid,
-                    tid,
-                    level,
-                    message,
-                    ..
-                }) => {
-                    tracing::info!("[ltk-dll pid={} tid={} {}] {}", pid, tid, level, message);
-
-                    // A fatal scan rejection (skinhack hit, parse error, or out
-                    // of memory) aborts the whole session — no mods are applied.
-                    // Collect every failure in the burst; the loop above finalizes
-                    // once it settles. The frontend classifies the status code.
-                    // (Missing linked bins no longer reach here — pre-flighted.)
-                    if !failure_reported {
-                        if let Some((wad, status)) = parse_wad_scan_failure(&message) {
-                            let dup = failures.iter().any(|f| {
-                                f.status == status
-                                    && match (&f.wad, &wad) {
-                                        (Some(a), Some(b)) => a.eq_ignore_ascii_case(b),
-                                        (None, None) => true,
-                                        _ => false,
-                                    }
-                            });
-                            if !dup {
-                                failures.push(WadScanFailure { wad, status });
-                            }
-                            collect_deadline
-                                .get_or_insert_with(|| Instant::now() + WAD_FAILURE_COLLECT_WINDOW);
-                        }
-                    }
-                }
-                None => {
-                    tracing::trace!("[ltk-host] unparsed: {}", line);
-                }
+            if !line.trim().is_empty() {
+                self.dispatch_line(&line, &mut state)?;
             }
         }
+    }
+
+    /// Handle one parsed host line: log it and fold it into `state`. Returns `Err`
+    /// only on a fatal `status failed`, which ends the session.
+    fn dispatch_line(&self, line: &str, state: &mut SessionState) -> Result<(), InjectorError> {
+        match host::parse_event(line) {
+            Some(HostEvent::Ok { message, .. }) => tracing::debug!("[ltk-host] ok: {}", message),
+            Some(HostEvent::Status {
+                state: host_state,
+                message,
+                ..
+            }) => self.handle_status(host_state, message)?,
+            Some(HostEvent::Error { message, .. }) => {
+                // A protocol-level error (e.g. an unrecognized command) is not
+                // necessarily fatal to an in-progress injection - the host reports
+                // fatal failures via `status failed`. Keep it so the EOF branch can
+                // surface it as the reason if the host then dies.
+                tracing::warn!("[ltk-host] error: {}", message);
+                state.last_error = Some(message);
+            }
+            Some(HostEvent::DllLog {
+                pid,
+                tid,
+                level,
+                message,
+                ..
+            }) => {
+                tracing::info!("[ltk-dll pid={} tid={} {}] {}", pid, tid, level, message);
+                state.record_wad_failure(&message);
+            }
+            None => tracing::trace!("[ltk-host] unparsed: {}", line),
+        }
+        Ok(())
+    }
+
+    /// Log an injection-lifecycle transition. Only `Failed` ends the session; a
+    /// game `Exited` keeps the loop alive so the host re-scans for the next game.
+    fn handle_status(&self, state: HostState, message: String) -> Result<(), InjectorError> {
+        match state {
+            HostState::Injecting => tracing::info!("[ltk-host] injecting: {}", message),
+            HostState::Injected => tracing::info!("[ltk-host] injected: {}", message),
+            HostState::Waiting => tracing::info!("[ltk-host] waiting: {}", message),
+            HostState::Exited => {
+                tracing::info!(
+                    "[ltk-host] game exited: {}; awaiting next instance",
+                    message
+                );
+            }
+            HostState::Failed => {
+                tracing::error!("[ltk-host] failed: {}", message);
+                return Err(InjectorError::Failed(message));
+            }
+        }
+        Ok(())
     }
 
     /// Build the error returned when the host process disappears without us
@@ -321,7 +234,7 @@ impl Injector {
     /// dismissed UAC prompt is the most common cause on the elevated path.
     fn unexpected_exit_error(&self, last_error: Option<String>) -> InjectorError {
         let base = if self.elevate {
-            "The injection host exited unexpectedly. If you dismissed the Windows User Account Control (UAC) prompt, the patcher cannot run elevated — accept the prompt next time, or turn off \"Run injector elevated\" in Settings if League is not running as administrator."
+            "The injection host exited unexpectedly. If you dismissed the Windows User Account Control (UAC) prompt, the patcher cannot run elevated - accept the prompt next time, or turn off \"Run injector elevated\" in Settings if League is not running as administrator."
         } else {
             "The injection host exited unexpectedly. It may have crashed or been blocked by antivirus."
         };
@@ -334,44 +247,74 @@ impl Injector {
     }
 }
 
-/// Forward the host's stderr on a background thread.
-fn forward_stderr<R: Read + Send + 'static>(stream: R) -> JoinHandle<()> {
-    thread::spawn(move || {
-        for line in BufReader::new(stream).lines() {
-            match line {
-                Ok(text) if !text.trim().is_empty() => {
-                    tracing::warn!("[ltk-host stderr] {}", text);
-                }
-                Ok(_) => {}
-                Err(_) => break,
-            }
-        }
-    })
+/// Mutable state carried across one session's event loop.
+#[derive(Default)]
+struct SessionState {
+    /// Most recent host `error` line, surfaced as the failure reason if the host
+    /// then dies.
+    last_error: Option<String>,
+    /// WAD-scan failures gathered during the load-scan burst. The DLL emits one
+    /// line per rejected archive then aborts, so we collect over a short window
+    /// and report them together. `reported` latches so we finalize exactly once.
+    failures: Vec<WadScanFailure>,
+    collect_deadline: Option<Instant>,
+    reported: bool,
 }
 
-fn join_handle(handle: Option<JoinHandle<()>>) {
-    if let Some(h) = handle {
-        let _ = h.join();
+impl SessionState {
+    /// Fold a DLL log line into the failure set: parse it, de-duplicate by
+    /// (wad, status), and arm the collection window on the first hit. Non-failure
+    /// lines and anything after finalization are ignored.
+    fn record_wad_failure(&mut self, message: &str) {
+        if self.reported {
+            return;
+        }
+        let Some(failure) = parse_wad_scan_failure(message) else {
+            return;
+        };
+        let dup = self.failures.iter().any(|f| {
+            f.status == failure.status
+                && match (&f.wad, &failure.wad) {
+                    (Some(a), Some(b)) => a.eq_ignore_ascii_case(b),
+                    (None, None) => true,
+                    _ => false,
+                }
+        });
+        if !dup {
+            self.failures.push(failure);
+        }
+        self.collect_deadline
+            .get_or_insert_with(|| Instant::now() + WAD_FAILURE_COLLECT_WINDOW);
+    }
+
+    /// Once the collection window has elapsed, latch and hand back the gathered
+    /// failures for reporting. Returns `Some` exactly once; `None` until ready.
+    fn take_ready_failures(&mut self) -> Option<Vec<WadScanFailure>> {
+        if self.reported || Instant::now() < self.collect_deadline? {
+            return None;
+        }
+        self.reported = true;
+        Some(std::mem::take(&mut self.failures))
     }
 }
 
-/// Detect the injected DLL's "WAD scan failed" diagnostic and pull out the
-/// status code and offending archive name.
-///
-/// Observed format:
-/// `error: WAD scan failed status with c0000229 for Ahri.wad.client`
-///
-/// When the anti-skinhack scan is opted out (`OPT_OUT_AH_V1`), the DLL emits
-/// the same text at `warn:` level and proceeds with injection — that line is
-/// informational, not a failure, so it must not trigger the abort/dialog path.
-///
-/// A scan can fail with several status codes; this only parses the line — the
-/// frontend classifies the status into a failure kind.
-///
-/// Returns `(wad, status)` when the message is a WAD-scan failure, where `wad`
-/// is the archive name when present and `status` falls back to `"unknown"` if
-/// the code can't be parsed out.
-fn parse_wad_scan_failure(message: &str) -> Option<(Option<String>, String)> {
+/// Send `stop` to the persistent host to tear down the current injection
+/// session, leaving the process alive for reuse.
+fn send_stop(host: &Arc<Mutex<Option<PatcherHost>>>) {
+    if let Ok(mut guard) = host.lock() {
+        if let Some(h) = guard.as_mut() {
+            let _ = h.stop_session();
+        }
+    }
+}
+
+/// Parse a "WAD scan failed" line, e.g.
+/// `error: WAD scan failed status with c0000229 for Ahri.wad.client`. Returns
+/// `None` for non-failures, including the `warn:`-level line the DLL emits when
+/// the scan is opted out (`OPT_OUT_AH_V1`) and keeps injecting. `wad` is present
+/// when named; `status` falls back to `"unknown"`. The frontend classifies it.
+// TODO: we shouldnt be making the patcher stop abruptly since it can cause crashes
+fn parse_wad_scan_failure(message: &str) -> Option<WadScanFailure> {
     if !message.contains("WAD scan failed") {
         return None;
     }
@@ -392,7 +335,7 @@ fn parse_wad_scan_failure(message: &str) -> Option<(Option<String>, String)> {
         .filter(|s| !s.is_empty())
         .map(str::to_string);
 
-    Some((wad, status))
+    Some(WadScanFailure { wad, status })
 }
 
 /// First whitespace-delimited token of `s` (empty string if none).
@@ -407,15 +350,15 @@ mod tests {
     #[test]
     fn detects_wad_scan_failure_with_wad_and_status() {
         let msg = "error: WAD scan failed status with c0000229 for Ahri.wad.client";
-        let (wad, status) = parse_wad_scan_failure(msg).expect("should detect failure");
-        assert_eq!(wad.as_deref(), Some("Ahri.wad.client"));
-        assert_eq!(status, "c0000229");
+        let failure = parse_wad_scan_failure(msg).expect("should detect failure");
+        assert_eq!(failure.wad.as_deref(), Some("Ahri.wad.client"));
+        assert_eq!(failure.status, "c0000229");
     }
 
     #[test]
     fn ignores_warn_level_scan_line_from_opt_out() {
         // With OPT_OUT_AH_V1 set, the DLL logs the same text at warn level and
-        // keeps injecting — it must not be reported as a fatal scan failure.
+        // keeps injecting - it must not be reported as a fatal scan failure.
         assert!(parse_wad_scan_failure(
             "warn: WAD scan failed status with c0000229 for Ahri.wad.client"
         )
@@ -437,30 +380,30 @@ mod tests {
 
     #[test]
     fn falls_back_when_status_and_wad_missing() {
-        let (wad, status) = parse_wad_scan_failure("error: WAD scan failed").expect("detected");
-        assert_eq!(wad, None);
-        assert_eq!(status, "unknown");
+        let failure = parse_wad_scan_failure("error: WAD scan failed").expect("detected");
+        assert_eq!(failure.wad, None);
+        assert_eq!(failure.status, "unknown");
     }
 
     #[test]
     fn falls_back_to_unknown_status_but_keeps_wad() {
-        let (wad, status) =
+        let failure =
             parse_wad_scan_failure("error: WAD scan failed for Kayn.wad.client").expect("detected");
-        assert_eq!(wad.as_deref(), Some("Kayn.wad.client"));
-        assert_eq!(status, "unknown");
+        assert_eq!(failure.wad.as_deref(), Some("Kayn.wad.client"));
+        assert_eq!(failure.status, "unknown");
     }
 
     #[test]
     fn parses_arbitrary_status_code() {
-        // The parser stays status-agnostic — any hex code parses the same way and
+        // The parser stays status-agnostic - any hex code parses the same way and
         // the frontend classifies it. c0000225 is no longer emitted at runtime
         // (linked bins are validated pre-flight); kept here to prove that.
-        let (wad, status) = parse_wad_scan_failure(
+        let failure = parse_wad_scan_failure(
             "error: WAD scan failed status with c0000225 for TahmKench.wad.client",
         )
         .expect("parseable scan failure");
-        assert_eq!(wad.as_deref(), Some("TahmKench.wad.client"));
-        assert_eq!(status, "c0000225");
+        assert_eq!(failure.wad.as_deref(), Some("TahmKench.wad.client"));
+        assert_eq!(failure.status, "c0000225");
     }
 
     #[test]
@@ -471,9 +414,9 @@ mod tests {
         // target prefix is irrelevant.
         let msg =
             "ltk_patcher_dll::verify: WAD scan failed status with c0000229 for briar.wad.client";
-        let (wad, status) = parse_wad_scan_failure(msg).expect("should detect failure");
-        assert_eq!(wad.as_deref(), Some("briar.wad.client"));
-        assert_eq!(status, "c0000229");
+        let failure = parse_wad_scan_failure(msg).expect("should detect failure");
+        assert_eq!(failure.wad.as_deref(), Some("briar.wad.client"));
+        assert_eq!(failure.status, "c0000229");
     }
 
     #[test]

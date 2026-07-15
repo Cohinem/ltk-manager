@@ -4,6 +4,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 
 use crate::deep_link::DeepLinkState;
 use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
+use crate::patcher::host::PatcherHostState;
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use crate::workshop::{Workshop, WorkshopState};
@@ -48,6 +49,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     app.manage(settings_state);
     app.manage(patcher_state);
+    app.manage(PatcherHostState::default());
     app.manage(LinkedBinState::default());
     app.manage(crate::strings::StringKeyIndexState::default());
     app.manage(mod_library);
@@ -82,6 +84,32 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     Ok(())
+}
+
+/// Runtime event hook for [`tauri::App::run`].
+///
+/// On exit, flags a running patching session to stop - so it takes the
+/// clean-stop path instead of reporting the host's exit as an unexpected
+/// death - then shuts down the long-lived injection host (spawned lazily on
+/// first patch, reused across start/stop) so it never outlives the manager.
+pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
+    if let tauri::RunEvent::Exit = event {
+        if let Some(patcher_state) = app_handle.try_state::<PatcherState>() {
+            if let Ok(ps) = patcher_state.0.lock() {
+                ps.stop_flag
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+
+        if let Some(host_state) = app_handle.try_state::<PatcherHostState>() {
+            if let Ok(mut guard) = host_state.0.lock() {
+                if let Some(mut host) = guard.take() {
+                    tracing::info!("App exiting: shutting down injection host");
+                    host.shutdown();
+                }
+            }
+        }
+    }
 }
 
 /// Perform first-run initialization:

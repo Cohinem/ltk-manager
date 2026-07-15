@@ -155,6 +155,7 @@ fn main() {
             // for dynamic icons
             tray::set_tray_state,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(setup::handle_run_event);
 }

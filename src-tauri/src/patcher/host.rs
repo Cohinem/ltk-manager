@@ -3,17 +3,19 @@
 //! The host process owns all injection logic and communicates with us over a
 //! line-oriented protocol on stdin (commands) and stdout (events).
 
-use std::io::{BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::thread;
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 /// Bundled host executable name.
 pub const HOST_EXE_NAME: &str = "ltk_patcher_host.exe";
 
 /// Bundled hook DLL the host injects into the game. This is the file the
-/// diagnostics suite inspects (presence / signature / lock) — it replaced the
+/// diagnostics suite inspects (presence / signature / lock) - it replaced the
 /// legacy in-process `cslol-dll.dll`.
 pub const HOOK_DLL_NAME: &str = "ltk_patcher_dll.dll";
 
@@ -56,13 +58,13 @@ mod proto {
 
 /// Hook flag bits forwarded to the host via `config flags <N>`
 pub mod hook_flags {
-    /// `CSLOL_HOOK_DISABLE_VERIFY` — skip the signature-verification bypass,
+    /// `CSLOL_HOOK_DISABLE_VERIFY` - skip the signature-verification bypass,
     /// leaving the game's own file verification intact.
     pub const DISABLE_VERIFY: u32 = 1;
-    /// `CSLOL_HOOK_DISABLE_FILE` — disable the filesystem overlay, so no modded
+    /// `CSLOL_HOOK_DISABLE_FILE` - disable the filesystem overlay, so no modded
     /// files are redirected into the game.
     pub const DISABLE_FILE: u32 = 2;
-    /// `CSLOL_HOOK_OPT_OUT_AH_V1` — opt out of anti-skinhack v1 enforcement: a
+    /// `CSLOL_HOOK_OPT_OUT_AH_V1` - opt out of anti-skinhack v1 enforcement: a
     /// failed WAD scan is downgraded from a blocking error to a warning, so
     /// patching proceeds instead of aborting.
     pub const OPT_OUT_AH_V1: u32 = 4;
@@ -342,7 +344,7 @@ impl HostProcess {
     }
 
     /// Take stdout and wrap it in a buffered line reader for event parsing.
-    /// This consumes the stdout handle — call once.
+    /// This consumes the stdout handle - call once.
     pub fn take_event_reader(&mut self) -> Option<BufReader<std::process::ChildStdout>> {
         self.child.stdout.take().map(BufReader::new)
     }
@@ -352,17 +354,22 @@ impl HostProcess {
         self.child.stderr.take()
     }
 
+    /// Whether the child process is still running (has not exited).
+    pub fn is_alive(&mut self) -> bool {
+        matches!(self.child.try_wait(), Ok(None))
+    }
+
     /// Grace period to wait for the host to exit on its own before force-killing.
     const SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
 
     /// Close stdin (signals the host to shut down) and wait for the child,
     /// force-killing it if it doesn't exit within the grace period.
     ///
-    /// Closing stdin alone is not a guaranteed exit signal — if the host is
+    /// Closing stdin alone is not a guaranteed exit signal - if the host is
     /// parked scanning for the game and ignores the `stop`/EOF, an unbounded
     /// `wait()` here would hang the patcher thread forever and leave the UI
     /// stuck "running". The grace-then-kill keeps shutdown bounded.
-    pub fn shutdown(mut self) {
+    pub fn shutdown(&mut self) {
         drop(self.child.stdin.take());
 
         let deadline = Instant::now() + Self::SHUTDOWN_GRACE;
@@ -400,12 +407,191 @@ impl HostProcess {
 }
 
 // ---------------------------------------------------------------------------
+// Persistent host
+// ---------------------------------------------------------------------------
+
+/// A line forwarded from the host's stdout: `Ok(line)` for a full line, `Err`
+/// for a read error or (implicitly, via channel disconnect) EOF.
+pub type HostLine = std::io::Result<String>;
+
+/// A long-lived injection host, kept alive across patching sessions.
+///
+/// Killing the host between sessions would tear down the elevated worker it
+/// bridges to (and re-trigger its UAC prompt on the next start), so instead we
+/// spawn it once - lazily, on the first patcher start - and drive it with
+/// `start`/`stop` commands. A single reader thread owns the host's stdout for
+/// its whole life and funnels every line onto [`Self::take_events`]'s channel;
+/// each session borrows that receiver for the duration of its event loop and
+/// hands it back via [`Self::restore_events`].
+pub struct PatcherHost {
+    proc: HostProcess,
+    /// Receiver for the persistent reader thread's lines. `None` while a session
+    /// has borrowed it (see [`Self::take_events`]).
+    events: Option<Receiver<HostLine>>,
+    reader_handle: Option<JoinHandle<()>>,
+    stderr_handle: Option<JoinHandle<()>>,
+    /// Whether the host was spawned with `--elevate`. A change in the desired
+    /// elevation mode forces a respawn (the flag is fixed at spawn time).
+    elevated: bool,
+}
+
+impl PatcherHost {
+    /// Spawn the host and start its persistent stdout reader thread.
+    pub fn spawn(exe_path: &Path, elevate: bool) -> Result<Self, HostError> {
+        let mut proc = HostProcess::spawn(exe_path, elevate)?;
+        let stderr_handle = proc.take_stderr().map(forward_stderr);
+        let reader = match proc.take_event_reader() {
+            Some(reader) => reader,
+            None => {
+                // Piped stdout should always be present; if not, don't leak the child.
+                proc.kill();
+                return Err(HostError::StdoutClosed);
+            }
+        };
+
+        let (tx, rx) = mpsc::channel::<HostLine>();
+        let reader_handle = thread::spawn(move || {
+            for line in reader.lines() {
+                let is_err = line.is_err();
+                // Stop on a send failure (receiver gone) or the first read error;
+                // EOF ends `lines()` naturally and drops `tx`, disconnecting the
+                // channel so the consuming session observes the host's exit.
+                if tx.send(line).is_err() || is_err {
+                    break;
+                }
+            }
+        });
+
+        Ok(Self {
+            proc,
+            events: Some(rx),
+            reader_handle: Some(reader_handle),
+            stderr_handle,
+            elevated: elevate,
+        })
+    }
+
+    /// Whether the host process is still running.
+    pub fn is_alive(&mut self) -> bool {
+        self.proc.is_alive()
+    }
+
+    /// Whether the host was spawned with `--elevate`.
+    pub fn elevated(&self) -> bool {
+        self.elevated
+    }
+
+    /// Send all config commands for a session.
+    pub fn configure(&mut self, config: &HostConfig) -> Result<(), HostError> {
+        self.proc.configure(config)
+    }
+
+    /// Begin a scan session.
+    pub fn start_scan(&mut self) -> Result<(), HostError> {
+        self.proc.start_scan()
+    }
+
+    /// Tear down the current injection session, leaving the host running.
+    pub fn stop_session(&mut self) -> Result<(), HostError> {
+        self.proc.stop_session()
+    }
+
+    /**
+    Discard buffered lines left over from a previous session and report whether the stream is still usable.
+    Returns `false` if the receiver is missing (a session panicked while
+    holding it) or disconnected (the reader thread died even though the
+    process may still be alive) - reusing such a host would make every
+    future session fail instantly, so it must be respawned.
+    */
+    pub fn drain_events(&mut self) -> bool {
+        let Some(rx) = &self.events else {
+            return false;
+        };
+        loop {
+            match rx.try_recv() {
+                Ok(_) => {}
+                Err(TryRecvError::Empty) => return true,
+                Err(TryRecvError::Disconnected) => return false,
+            }
+        }
+    }
+
+    /// Borrow the host's line stream for the duration of a session. Returns
+    /// `None` if a session already holds it (shouldn't happen - only one runs at
+    /// a time).
+    pub fn take_events(&mut self) -> Option<Receiver<HostLine>> {
+        self.events.take()
+    }
+
+    /// Hand the line stream back after a session ends, so the next one can reuse
+    /// this host.
+    pub fn restore_events(&mut self, events: Receiver<HostLine>) {
+        self.events = Some(events);
+    }
+
+    /// Gracefully stop the host: close stdin (with a kill fallback) and join the
+    /// reader/stderr threads. For app shutdown / respawn.
+    pub fn shutdown(&mut self) {
+        self.proc.shutdown();
+        if let Some(h) = self.reader_handle.take() {
+            let _ = h.join();
+        }
+        if let Some(h) = self.stderr_handle.take() {
+            let _ = h.join();
+        }
+    }
+}
+
+impl Drop for PatcherHost {
+    fn drop(&mut self) {
+        // Safety net: if the app exits without an explicit `shutdown`, `Child`'s
+        // own `Drop` would leak the process. Kill it so the host never outlives us.
+        self.proc.kill();
+    }
+}
+
+/// Tauri-managed handle to the persistent host. `None` until the first patcher
+/// start spawns it (lazy start); cleared when the host dies so the next start
+/// respawns.
+pub struct PatcherHostState(pub Arc<Mutex<Option<PatcherHost>>>);
+
+impl Default for PatcherHostState {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(None)))
+    }
+}
+
+/// Forward the host's stderr on a background thread for startup diagnostics.
+fn forward_stderr<R: Read + Send + 'static>(stream: R) -> JoinHandle<()> {
+    thread::spawn(move || {
+        for line in BufReader::new(stream).lines() {
+            match line {
+                Ok(text) if !text.trim().is_empty() => {
+                    tracing::warn!("[ltk-host stderr] {}", text);
+                }
+                Ok(_) => {}
+                Err(_) => break,
+            }
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn patcher_host_state_defaults_to_empty() {
+        let state = PatcherHostState::default();
+        assert!(
+            state.0.lock().unwrap().is_none(),
+            "no host until the first patcher start spawns one (lazy start)"
+        );
+    }
 
     #[test]
     fn parse_ok_event() {

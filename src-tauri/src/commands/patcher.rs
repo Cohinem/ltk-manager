@@ -1,18 +1,17 @@
-use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
-use crate::patcher::host::{HostConfig, HostLogLevel};
-use crate::patcher::injector::{Injector, InjectorEvent, INJECTOR_EXE_NAME};
+use crate::patcher::host::PatcherHostState;
+use crate::patcher::injector::INJECTOR_EXE_NAME;
+use crate::patcher::thread::{PatcherThread, SessionParams};
 use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
-use crate::state::SettingsState;
+use crate::state::{Settings, SettingsState};
 use serde::{Deserialize, Serialize};
 
 use super::mods::reject_if_patcher_running;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::thread;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 use ts_rs::TS;
 
 /// Configuration for starting the patcher.
@@ -42,43 +41,6 @@ pub struct PatcherStatus {
     pub config_path: Option<String>,
     /// Current phase of the patcher lifecycle.
     pub phase: PatcherPhase,
-}
-
-/// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct WadScanFailureInfo {
-    /// The offending archive (e.g. `TahmKench.wad.client`), if its name parsed.
-    pub wad: Option<String>,
-    /// The NTSTATUS-style code the scan reported (e.g. `c0000229` skinhack,
-    /// `c000003e` corrupt WAD).
-    pub status: String,
-}
-
-/// Payload for the `patcher-wad-scan-failed` event, emitted when the injected
-/// DLL's integrity scan rejects one or more modded archives. When this fires
-/// the patcher auto-stops and applies no mods for the session.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct WadScanFailedPayload {
-    /// The archives that failed the scan, de-duplicated. May be empty if no
-    /// names could be parsed from the scan log.
-    pub failures: Vec<WadScanFailureInfo>,
-}
-
-/// Payload for the `linked-bins-warning` event, emitted after a patcher start whose
-/// single overlay build found enabled mods with unresolved linked dependencies (only
-/// when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
-/// start — it drives a non-blocking toast. The per-mod badges and the reachable
-/// `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkedBinWarningPayload {
-    /// Number of enabled mods flagged in the latest build.
-    pub count: u32,
 }
 
 /// Resolve a bundled resource file (e.g. the injector executable) from the
@@ -152,10 +114,18 @@ pub fn start_patcher(
     config: PatcherConfig,
     app_handle: AppHandle,
     state: State<PatcherState>,
+    host_state: State<PatcherHostState>,
     settings: State<SettingsState>,
     library: State<ModLibraryState>,
 ) -> IpcResult<()> {
-    let result = start_patcher_inner(config, &app_handle, &state, &settings, &library);
+    let result = start_patcher_inner(
+        config,
+        &app_handle,
+        &state,
+        &host_state,
+        &settings,
+        &library,
+    );
     if let Err(ref e) = result {
         tracing::error!(error = ?e, "Start patcher failed");
     }
@@ -166,6 +136,7 @@ pub(crate) fn start_patcher_inner(
     config: PatcherConfig,
     app_handle: &AppHandle,
     state: &State<PatcherState>,
+    host_state: &State<PatcherHostState>,
     settings: &State<SettingsState>,
     library: &State<ModLibraryState>,
 ) -> AppResult<()> {
@@ -175,32 +146,9 @@ pub(crate) fn start_patcher_inner(
         ));
     }
 
-    // Lock briefly: check state, set phase, clone what we need for the thread
-    let (stop_flag, state_arc) = {
-        let mut patcher_state = state.0.lock().mutex_err()?;
-
-        if patcher_state.is_running() {
-            return Err(AppError::Other("Patcher is already running".to_string()));
-        }
-
-        patcher_state.stop_flag.store(false, Ordering::SeqCst);
-        patcher_state.phase = PatcherPhase::Building;
-
-        (Arc::clone(&patcher_state.stop_flag), Arc::clone(&state.0))
-    };
-
     tracing::debug!("Start patcher requested (external injector)");
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
-
-    // Stash config for hot-reload
-    {
-        let mut patcher_state = state.0.lock().mutex_err()?;
-        patcher_state.last_config = Some(StoredPatcherConfig {
-            flags: config.flags,
-            workshop_projects: config.workshop_projects.clone(),
-        });
-    }
 
     // tray: we see if we are loading Workshop or Library based on the config
     let is_workshop = config
@@ -211,6 +159,7 @@ pub(crate) fn start_patcher_inner(
 
     let workshop_paths: Vec<PathBuf> = config
         .workshop_projects
+        .clone()
         .unwrap_or_default()
         .iter()
         .map(PathBuf::from)
@@ -230,168 +179,46 @@ pub(crate) fn start_patcher_inner(
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "<unset>".to_string())
     );
-    let library_clone = library.0.clone();
+
     let mut host_flags = config.flags.unwrap_or(0) as u32;
-    // The anti-skinhack scan aborts patching on a flagged champion WAD by
-    // default; turning the setting off opts out via the hook flag, downgrading
-    // the failure to a warning so patching proceeds.
     if !settings_snapshot.enforce_skinhack_scan {
         host_flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1;
     }
 
-    // Decide whether to elevate the injection host. An elevated game can only be
-    // injected by an equally elevated host, so we elevate when the user opts in
-    // OR when we detect League is configured to run as administrator. If the
-    // manager is already elevated, any host it spawns inherits high integrity,
-    // so the `--elevate` UAC bridge would be redundant and we skip it.
+    let should_elevate = resolve_should_elevate(&settings_snapshot);
+
+    PatcherThread::start(
+        app_handle,
+        &state.0,
+        &host_state.0,
+        StoredPatcherConfig {
+            flags: config.flags,
+            workshop_projects: config.workshop_projects,
+        },
+        SessionParams {
+            injector_exe,
+            settings: settings_snapshot,
+            library: library.0.clone(),
+            workshop_paths,
+            host_flags,
+            should_elevate,
+            is_workshop,
+        },
+    )
+}
+
+/// Whether to spawn the host with `--elevate`: when the user opts in or League
+/// runs as admin, but never when the manager is already elevated (a spawned host
+/// inherits its integrity, making the UAC bridge redundant).
+fn resolve_should_elevate(settings: &Settings) -> bool {
     let manager_elevated = crate::diagnostics::manager_is_elevated();
     let league_admin = crate::diagnostics::league_configured_as_admin();
-    let should_elevate = !manager_elevated && (settings_snapshot.elevate_injector || league_admin);
+    let should_elevate = !manager_elevated && (settings.elevate_injector || league_admin);
     tracing::info!(
         "Injector elevation = {should_elevate} (opt_in={}, league_admin={league_admin}, manager_elevated={manager_elevated})",
-        settings_snapshot.elevate_injector
+        settings.elevate_injector
     );
-
-    // tray: clone the app handle so we can pass it into the background thread
-    let app_handle_thread = app_handle.clone();
-
-    // tray: set initial LOADING state before thread starts
-    let initial_state = if is_workshop {
-        crate::tray::AppTrayState::WorkshopLoading
-    } else {
-        crate::tray::AppTrayState::LibraryLoading
-    };
-    let _ = crate::tray::set_tray_state(app_handle.clone(), initial_state);
-
-    let handle = thread::spawn(move || {
-        // Phase 1: Build overlay (the slow part). The build records any linked-bin
-        // offenders into `LinkedBinState` and emits `linked-bins-updated` as a
-        // byproduct (no separate pre-flight build); we only need the count here to
-        // decide whether to raise the non-blocking warning toast below.
-        let (overlay_root, offender_count) =
-            match library_clone.ensure_overlay(&settings_snapshot, &workshop_paths, false) {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::error!(error = ?e, "Overlay build failed");
-                    let error_response: AppErrorResponse = e.into();
-                    let _ = library_clone
-                        .app_handle()
-                        .emit("patcher-error", &error_response);
-                    if let Ok(mut s) = state_arc.lock() {
-                        s.phase = PatcherPhase::Idle;
-                    }
-                    // TRAY: Reset to default on error
-                    let _ = crate::tray::set_tray_state(
-                        app_handle_thread.clone(),
-                        crate::tray::AppTrayState::Default,
-                    );
-                    return;
-                }
-            };
-
-        // Check stop flag between build and patcher loop
-        if stop_flag.load(Ordering::SeqCst) {
-            tracing::info!("Stop requested after overlay build, exiting");
-            if let Ok(mut s) = state_arc.lock() {
-                s.phase = PatcherPhase::Idle;
-            }
-            // tray: R$reset to default on early stop
-            let _ = crate::tray::set_tray_state(
-                app_handle_thread.clone(),
-                crate::tray::AppTrayState::Default,
-            );
-            return;
-        }
-
-        tracing::info!("Using overlay root: {}", overlay_root.display());
-
-        // Non-blocking advisory: missing linked bins are non-fatal at injection, so
-        // we inject straight through and let the user review/disable via the badges
-        // and reachable dialog. The toast is the one-time start-of-session nudge.
-        if settings_snapshot.linked_bin_check_enabled && offender_count > 0 {
-            let _ = app_handle_thread.emit(
-                "linked-bins-warning",
-                LinkedBinWarningPayload {
-                    count: offender_count as u32,
-                },
-            );
-        }
-
-        let mut overlay_root_str = overlay_root.display().to_string();
-        if !overlay_root_str.ends_with(std::path::MAIN_SEPARATOR) {
-            overlay_root_str.push(std::path::MAIN_SEPARATOR);
-        }
-
-        // Phase 2: Run patcher loop
-        {
-            if let Ok(mut s) = state_arc.lock() {
-                s.phase = PatcherPhase::Patching;
-                s.config_path = Some(overlay_root_str.clone());
-            }
-        }
-
-        // tray: overlay is built, we are now Patching
-        let on_state = if is_workshop {
-            crate::tray::AppTrayState::WorkshopOn
-        } else {
-            crate::tray::AppTrayState::LibraryOn
-        };
-        let _ = crate::tray::set_tray_state(app_handle_thread.clone(), on_state);
-
-        // Build the host config from the patcher settings.
-        let host_config = HostConfig {
-            prefix: overlay_root_str.clone(),
-            log_level: HostLogLevel::Info,
-            flags: host_flags,
-        };
-
-        // This blocks until the game closes or the patcher is stopped. The
-        // host runs as a separate process and communicates over a line protocol,
-        // so we never load the patcher DLL into the manager.
-        let event_handle = app_handle_thread.clone();
-        match Injector::new(injector_exe)
-            .with_elevate(should_elevate)
-            .on_event(move |event| match event {
-                InjectorEvent::WadScanFailed { failures } => {
-                    let payload = WadScanFailedPayload {
-                        failures: failures
-                            .into_iter()
-                            .map(|f| WadScanFailureInfo {
-                                wad: f.wad,
-                                status: f.status,
-                            })
-                            .collect(),
-                    };
-                    let _ = event_handle.emit("patcher-wad-scan-failed", payload);
-                }
-            })
-            .run(&overlay_root_str, &stop_flag, &host_config)
-        {
-            Ok(()) => tracing::info!("Injector stopped"),
-            Err(e) => {
-                tracing::error!("Injector error: {}", e);
-                let error_response: AppErrorResponse = AppError::Other(e.to_string()).into();
-                let _ = app_handle_thread.emit("patcher-error", &error_response);
-            }
-        }
-
-        // Cleanup Phase
-        if let Ok(mut s) = state_arc.lock() {
-            s.phase = PatcherPhase::Idle;
-            s.config_path = None;
-        }
-
-        // tray: game closed or patcher stopped, revert to default icon
-        let _ = crate::tray::set_tray_state(app_handle_thread, crate::tray::AppTrayState::Default);
-
-        tracing::info!("Patcher thread exiting");
-    });
-
-    // Store thread handle
-    let mut patcher_state = state.0.lock().mutex_err()?;
-    patcher_state.thread_handle = Some(handle);
-
-    Ok(())
+    should_elevate
 }
 
 /// Stop the running patcher.
@@ -484,7 +311,7 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherSta
 /// Linked-bin offenders found in the most recent overlay build, keyed by mod id.
 ///
 /// These are recorded as a byproduct of `start_patcher`'s single overlay build (and
-/// any hot-reload), so this is a cheap read with no IO — it never builds the overlay
+/// any hot-reload), so this is a cheap read with no IO - it never builds the overlay
 /// itself. Display names are resolved from the library index; mods absent from the
 /// latest build (e.g. since-disabled) simply don't appear. Missing linked bins are
 /// non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod

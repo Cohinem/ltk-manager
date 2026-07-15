@@ -2,6 +2,7 @@ pub mod api;
 pub mod host;
 pub mod injector;
 pub mod runner;
+pub mod thread;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
