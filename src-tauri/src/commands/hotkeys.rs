@@ -1,8 +1,7 @@
 use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
-use crate::patcher::host::PatcherHostState;
-use crate::patcher::PatcherState;
+use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{save_settings_to_disk, SettingsState};
 use std::path::Path;
 use std::process::Command;

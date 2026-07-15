@@ -26,6 +26,8 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
 
+ltk-manager-core = { path = "../crates/ltk-manager-core" }
+
 ltk_modpkg = { version = "0.6.0", features = ["project"] }
 ltk_mod_project = { version = "0.5.0" }
 ltk_mod_core = { version = "0.1.0" }
