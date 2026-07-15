@@ -1,9 +1,8 @@
-//! Background patching thread: builds the overlay, drives the persistent host
-//! through one injection session, and emits the patcher's UI events.
+//! Background patching thread: builds the overlay, runs one injection session
+//! via the core session orchestration, and emits the patcher's UI events.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -15,8 +14,9 @@ use crate::error::{AppError, AppErrorResponse, AppResult, MutexResultExt};
 use crate::mods::ModLibrary;
 use crate::state::Settings;
 
-use super::host::{HostConfig, HostError, HostLine, HostLogLevel, PatcherHost};
-use super::injector::{Injector, InjectorEvent};
+use super::host::{HostConfig, HostLogLevel, PatcherHost};
+use super::injector::WadScanFailure;
+use super::session::{self, PatcherEvents, SessionError};
 use super::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
 
 /// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
@@ -54,6 +54,26 @@ pub struct WadScanFailedPayload {
 pub struct LinkedBinWarningPayload {
     /// Number of enabled mods flagged in the latest build.
     pub count: u32,
+}
+
+/// Maps core patcher events to Tauri UI events.
+struct TauriPatcherEvents {
+    app_handle: AppHandle,
+}
+
+impl PatcherEvents for TauriPatcherEvents {
+    fn wad_scan_failed(&self, failures: Vec<WadScanFailure>) {
+        let payload = WadScanFailedPayload {
+            failures: failures
+                .into_iter()
+                .map(|f| WadScanFailureInfo {
+                    wad: f.wad,
+                    status: f.status,
+                })
+                .collect(),
+        };
+        let _ = self.app_handle.emit("patcher-wad-scan-failed", payload);
+    }
 }
 
 /// Per-session inputs for [`PatcherThread::start`], resolved by the command
@@ -176,15 +196,9 @@ impl PatcherThread {
         self.check_linked_bins(offender_count);
 
         tracing::info!("Using overlay root: {}", overlay_root.display());
-        Some(self.normalize_overlay_prefix(&overlay_root.display().to_string()))
-    }
-
-    fn normalize_overlay_prefix(&self, prefix: &str) -> String {
-        let mut normalized = prefix.to_string();
-        if !normalized.ends_with(std::path::MAIN_SEPARATOR) {
-            normalized.push(std::path::MAIN_SEPARATOR);
-        }
-        normalized
+        Some(session::normalize_overlay_prefix(
+            &overlay_root.display().to_string(),
+        ))
     }
 
     fn check_linked_bins(&self, offender_count: usize) {
@@ -203,8 +217,8 @@ impl PatcherThread {
         }
     }
 
-    /// Configure the host, run its event loop until the game exits or the user
-    /// stops, then reset UI state.
+    /// Run one injection session via the core orchestration, blocking until the
+    /// game exits or the user stops, then reset UI state.
     fn run_session(&self, overlay_prefix: String) {
         if let Ok(mut s) = self.state.lock() {
             s.phase = PatcherPhase::Patching;
@@ -222,60 +236,26 @@ impl PatcherThread {
             flags: self.host_flags,
         };
 
-        let events = match ensure_host_started(
+        let result = session::run_injection_session(
             &self.host,
             &self.injector_exe,
             self.should_elevate,
             &host_config,
-        ) {
-            Ok(rx) => rx,
-            Err(e) => {
-                tracing::error!("Failed to start injection host: {}", e);
-                let error_response: AppErrorResponse = AppError::Other(e.to_string()).into();
-                let _ = self.app_handle.emit("patcher-error", &error_response);
-                self.reset_to_idle();
-                return;
-            }
-        };
-
-        // Blocks until the game closes or the patcher is stopped.
-        let event_handle = self.app_handle.clone();
-        let (result, events) = Injector::new()
-            .with_elevate(self.should_elevate)
-            .on_event(move |event| match event {
-                InjectorEvent::WadScanFailed { failures } => {
-                    let payload = WadScanFailedPayload {
-                        failures: failures
-                            .into_iter()
-                            .map(|f| WadScanFailureInfo {
-                                wad: f.wad,
-                                status: f.status,
-                            })
-                            .collect(),
-                    };
-                    let _ = event_handle.emit("patcher-wad-scan-failed", payload);
-                }
-            })
-            .run_session(events, &self.host, &self.stop_flag);
-
-        // Hand the event stream back to the host so the next session reuses it -
-        // unless the host died, in which case clear it so the next start respawns.
-        if let Ok(mut guard) = self.host.lock() {
-            let alive = guard.as_mut().map(|h| h.is_alive()).unwrap_or(false);
-            if alive {
-                guard
-                    .as_mut()
-                    .expect("host present when alive")
-                    .restore_events(events);
-            } else {
-                *guard = None;
-            }
-        }
+            &self.stop_flag,
+            TauriPatcherEvents {
+                app_handle: self.app_handle.clone(),
+            },
+        );
 
         match result {
             Ok(()) => tracing::info!("Injector stopped"),
             Err(e) => {
-                tracing::error!("Injector error: {}", e);
+                match &e {
+                    SessionError::Host(err) => {
+                        tracing::error!("Failed to start injection host: {}", err)
+                    }
+                    SessionError::Injector(err) => tracing::error!("Injector error: {}", err),
+                }
                 let error_response: AppErrorResponse = AppError::Other(e.to_string()).into();
                 let _ = self.app_handle.emit("patcher-error", &error_response);
             }
@@ -297,54 +277,4 @@ impl PatcherThread {
     fn set_tray(&self, tray_state: crate::tray::AppTrayState) {
         let _ = crate::tray::set_tray_state(self.app_handle.clone(), tray_state);
     }
-}
-
-/// Configure the persistent host and begin a scan session, returning its event
-/// stream. Reuses the live host so its elevated worker (and UAC prompt) persist
-/// across start/stop; respawns if it is missing, dead, or the elevation mode
-/// changed (the `--elevate` flag is fixed at spawn).
-fn ensure_host_started(
-    host_arc: &Arc<Mutex<Option<PatcherHost>>>,
-    exe_path: &std::path::Path,
-    elevate: bool,
-    config: &HostConfig,
-) -> Result<Receiver<HostLine>, HostError> {
-    let mut guard = host_arc
-        .lock()
-        .map_err(|_| HostError::Protocol("patcher host lock poisoned".to_string()))?;
-
-    // `drain_events` clears the previous session's trailing lines and doubles as
-    // a liveness probe: a lost or disconnected stream means the host can't serve
-    // another session even if the process is still alive.
-    let needs_spawn = match guard.as_mut() {
-        None => true,
-        Some(host) => !host.is_alive() || host.elevated() != elevate || !host.drain_events(),
-    };
-    if needs_spawn {
-        if let Some(mut old) = guard.take() {
-            // Graceful shutdown tears down a (possibly elevated) worker instead of
-            // orphaning it; a dead host returns at once.
-            old.shutdown();
-        }
-        *guard = Some(PatcherHost::spawn(exe_path, elevate)?);
-    }
-
-    let result = {
-        let host = guard.as_mut().expect("host present after ensure");
-        host.configure(config).and_then(|_| host.start_scan())
-    };
-    if let Err(e) = result {
-        // A failed handshake may leave the host wedged; shut it down so the next
-        // start spawns clean.
-        if let Some(mut broken) = guard.take() {
-            broken.shutdown();
-        }
-        return Err(e);
-    }
-
-    Ok(guard
-        .as_mut()
-        .expect("host present after ensure")
-        .take_events()
-        .expect("event stream present on a freshly spawned or reused host"))
 }

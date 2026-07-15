@@ -1,0 +1,11 @@
+[package]
+name = "ltk-manager-core"
+version = "0.1.0"
+description = "UI-agnostic core library for LTK Manager"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+
+[dependencies]
+thiserror = "2"
+tracing = "0.1"

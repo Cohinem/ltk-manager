@@ -4,8 +4,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 
 use crate::deep_link::DeepLinkState;
 use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
-use crate::patcher::host::PatcherHostState;
-use crate::patcher::PatcherState;
+use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::SettingsState;
 use crate::workshop::{Workshop, WorkshopState};
 

@@ -29,8 +29,11 @@
     "*.{js,json,css,html,md}": [
       "prettier --write"
     ],
-    "*.rs": [
+    "src-tauri/**/*.rs": [
       "cargo fmt --manifest-path src-tauri/Cargo.toml --"
+    ],
+    "crates/ltk-manager-core/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-core/Cargo.toml --"
     ]
   },
   "dependencies": {

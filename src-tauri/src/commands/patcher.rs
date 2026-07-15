@@ -1,9 +1,8 @@
 use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
-use crate::patcher::host::PatcherHostState;
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::{PatcherThread, SessionParams};
-use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
+use crate::patcher::{PatcherHostState, PatcherPhase, PatcherState, StoredPatcherConfig};
 use crate::state::{Settings, SettingsState};
 use serde::{Deserialize, Serialize};
 

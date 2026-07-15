@@ -1,13 +1,17 @@
 pub mod api;
-pub mod host;
-pub mod injector;
 pub mod runner;
 pub mod thread;
+
+// Host process management, the injector event loop, and per-session
+// orchestration live in the Tauri-free core crate; re-exported here so the
+// shell keeps its `crate::patcher::…` paths while the extraction proceeds.
+pub use ltk_manager_core::patcher::{host, injector, session};
 
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
+use ltk_manager_core::patcher::host::PatcherHost;
 use serde::Serialize;
 use ts_rs::TS;
 
@@ -26,6 +30,17 @@ pub struct PatcherState(pub Arc<Mutex<PatcherStateInner>>);
 impl PatcherState {
     pub fn new() -> Self {
         Self(Arc::new(Mutex::new(PatcherStateInner::new())))
+    }
+}
+
+/// Tauri-managed handle to the persistent host. `None` until the first patcher
+/// start spawns it (lazy start); cleared when the host dies so the next start
+/// respawns.
+pub struct PatcherHostState(pub Arc<Mutex<Option<PatcherHost>>>);
+
+impl Default for PatcherHostState {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(None)))
     }
 }
 
@@ -111,6 +126,15 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&PatcherPhase::Patching).unwrap(),
             "\"patching\""
+        );
+    }
+
+    #[test]
+    fn patcher_host_state_defaults_to_empty() {
+        let state = PatcherHostState::default();
+        assert!(
+            state.0.lock().unwrap().is_none(),
+            "no host until the first patcher start spawns one (lazy start)"
         );
     }
 

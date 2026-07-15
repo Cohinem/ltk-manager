@@ -9,7 +9,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use super::host::{self, HostError, HostEvent, HostLine, HostState, PatcherHost, HOST_EXE_NAME};
+use super::host::{self, HOST_EXE_NAME, HostError, HostEvent, HostLine, HostState, PatcherHost};
 
 /// Re-export the executable name that `commands/patcher.rs` resolves.
 pub const INJECTOR_EXE_NAME: &str = HOST_EXE_NAME;
@@ -301,10 +301,10 @@ impl SessionState {
 /// Send `stop` to the persistent host to tear down the current injection
 /// session, leaving the process alive for reuse.
 fn send_stop(host: &Arc<Mutex<Option<PatcherHost>>>) {
-    if let Ok(mut guard) = host.lock() {
-        if let Some(h) = guard.as_mut() {
-            let _ = h.stop_session();
-        }
+    if let Ok(mut guard) = host.lock()
+        && let Some(h) = guard.as_mut()
+    {
+        let _ = h.stop_session();
     }
 }
 
@@ -359,10 +359,12 @@ mod tests {
     fn ignores_warn_level_scan_line_from_opt_out() {
         // With OPT_OUT_AH_V1 set, the DLL logs the same text at warn level and
         // keeps injecting - it must not be reported as a fatal scan failure.
-        assert!(parse_wad_scan_failure(
-            "warn: WAD scan failed status with c0000229 for Ahri.wad.client"
-        )
-        .is_none());
+        assert!(
+            parse_wad_scan_failure(
+                "warn: WAD scan failed status with c0000229 for Ahri.wad.client"
+            )
+            .is_none()
+        );
     }
 
     #[test]
