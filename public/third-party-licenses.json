@@ -894,7 +894,7 @@
     },
     {
       "name": "bitflags",
-      "version": "2.13.0",
+      "version": "2.13.1",
       "url": "https://github.com/bitflags/bitflags",
       "licenses": [
         29
@@ -1993,7 +1993,7 @@
     },
     {
       "name": "ltk-manager",
-      "version": "1.12.0",
+      "version": "1.13.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
         39
@@ -2801,7 +2801,7 @@
     },
     {
       "name": "regex",
-      "version": "1.13.0",
+      "version": "1.13.1",
       "url": "https://github.com/rust-lang/regex",
       "licenses": [
         29
@@ -2809,7 +2809,7 @@
     },
     {
       "name": "regex-automata",
-      "version": "0.4.15",
+      "version": "0.4.16",
       "url": "https://github.com/rust-lang/regex",
       "licenses": [
         29
@@ -3322,7 +3322,7 @@
     },
     {
       "name": "syn",
-      "version": "2.0.118",
+      "version": "2.0.119",
       "url": "https://github.com/dtolnay/syn",
       "licenses": [
         39
@@ -3947,7 +3947,7 @@
     },
     {
       "name": "uuid",
-      "version": "1.23.5",
+      "version": "1.24.0",
       "url": "https://github.com/uuid-rs/uuid",
       "licenses": [
         29
@@ -4347,7 +4347,7 @@
     },
     {
       "name": "xxhash-rust",
-      "version": "0.8.16",
+      "version": "0.8.17",
       "url": "https://github.com/DoumanAsh/xxhash-rust",
       "licenses": [
         54
