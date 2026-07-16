@@ -4,7 +4,7 @@
  * Payload for the `linked-bins-warning` event, emitted after a patcher start whose
  * single overlay build found enabled mods with unresolved linked dependencies (only
  * when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
- * start — it drives a non-blocking toast. The per-mod badges and the reachable
+ * start - it drives a non-blocking toast. The per-mod badges and the reachable
  * `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
  */
 export type LinkedBinWarningPayload = {

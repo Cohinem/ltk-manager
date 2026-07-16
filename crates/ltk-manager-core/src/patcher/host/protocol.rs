@@ -43,6 +43,12 @@ pub mod hook_flags {
     /// failed WAD scan is downgraded from a blocking error to a warning, so
     /// patching proceeds instead of aborting.
     pub const OPT_OUT_AH_V1: u32 = 4;
+    /// Delay the anti-hack WAD scan to the load stage, verifying archives as the
+    /// game uses them instead of all at once up front. The way the overlay
+    /// serves files makes this crash-prone, so the DLL only honours the bit when
+    /// the game has crash reporting turned off; otherwise it silently falls back
+    /// to scanning everything up front.
+    pub const LAZY_WAD_SCAN: u32 = 8;
 }
 
 /// DLL log verbosity, sent via `config loglevel <N>`.

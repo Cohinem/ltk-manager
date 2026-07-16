@@ -271,6 +271,20 @@ pub struct Settings {
     /// Default: false (current locale only).
     #[serde(default)]
     pub apply_string_overrides_to_all_locales: bool,
+    /// Raise the injection host's log level from `Info` to `Debug`. The host and
+    /// the injected DLL decide their own verbosity from this, so it is the only
+    /// way to get their diagnostics out of a release build - `RUST_LOG` only
+    /// affects the manager's own tracing. Read at patcher start, so a change
+    /// takes effect on the next start. Default: false.
+    #[serde(default)]
+    pub verbose_patcher_logging: bool,
+    /// Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
+    /// WAD scan to the load stage instead of scanning every archive up front.
+    /// The overlay makes lazy scanning crash-prone, so the DLL only honours the
+    /// flag when the game has crash reporting disabled - with it enabled this is
+    /// inert rather than harmful. Default: false.
+    #[serde(default)]
+    pub lazy_wad_scan: bool,
 }
 
 impl Default for Settings {
@@ -307,6 +321,8 @@ impl Default for Settings {
             auto_categorization_enabled: true,
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
+            verbose_patcher_logging: false,
+            lazy_wad_scan: false,
         }
     }
 }
@@ -335,6 +351,8 @@ mod tests {
         assert!(settings.auto_categorization_enabled);
         assert!(settings.enforce_skinhack_scan);
         assert!(!settings.apply_string_overrides_to_all_locales);
+        assert!(!settings.verbose_patcher_logging);
+        assert!(!settings.lazy_wad_scan);
     }
 
     #[test]
@@ -378,6 +396,8 @@ mod tests {
             auto_categorization_enabled: true,
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
+            verbose_patcher_logging: false,
+            lazy_wad_scan: false,
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();
