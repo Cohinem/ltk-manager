@@ -137,4 +137,12 @@ export type Settings = {
    * takes effect on the next start. Default: false.
    */
   verbosePatcherLogging: boolean;
+  /**
+   * Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
+   * WAD scan to the load stage instead of scanning every archive up front.
+   * The overlay makes lazy scanning crash-prone, so the DLL only honours the
+   * flag when the game has crash reporting disabled - with it enabled this is
+   * inert rather than harmful. Default: false.
+   */
+  lazyWadScan: boolean;
 };

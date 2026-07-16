@@ -34,6 +34,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     enforceSkinhackScan: true,
     applyStringOverridesToAllLocales: false,
     verbosePatcherLogging: false,
+    lazyWadScan: false,
     ...overrides,
   };
 }

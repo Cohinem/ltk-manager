@@ -183,6 +183,9 @@ pub(crate) fn start_patcher_inner(
     if !settings_snapshot.enforce_skinhack_scan {
         host_flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1;
     }
+    if settings_snapshot.lazy_wad_scan {
+        host_flags |= crate::patcher::host::hook_flags::LAZY_WAD_SCAN;
+    }
 
     let should_elevate = resolve_should_elevate(&settings_snapshot);
 

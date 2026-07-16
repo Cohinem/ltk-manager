@@ -168,6 +168,25 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               </p>
             </div>
           )}
+
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-sm font-medium text-surface-200">Lazy WAD scan</span>
+              <span className="block text-sm text-surface-400">
+                Verifies modded archives as the game loads them instead of scanning every archive up
+                front.
+              </span>
+              <span className="block text-sm text-surface-400">
+                Because of how the overlay serves files this can cause sporadic crashes, so it only
+                applies when League&apos;s &quot;Automatically Send Crash Reports&quot; setting is
+                turned off. With crash reporting on, the patcher just scans up front as usual.
+              </span>
+            </div>
+            <Switch
+              checked={settings.lazyWadScan}
+              onCheckedChange={(checked) => onSave({ ...settings, lazyWadScan: checked })}
+            />
+          </label>
         </div>
       </SectionCard>
 

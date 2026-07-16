@@ -278,6 +278,13 @@ pub struct Settings {
     /// takes effect on the next start. Default: false.
     #[serde(default)]
     pub verbose_patcher_logging: bool,
+    /// Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
+    /// WAD scan to the load stage instead of scanning every archive up front.
+    /// The overlay makes lazy scanning crash-prone, so the DLL only honours the
+    /// flag when the game has crash reporting disabled - with it enabled this is
+    /// inert rather than harmful. Default: false.
+    #[serde(default)]
+    pub lazy_wad_scan: bool,
 }
 
 impl Default for Settings {
@@ -315,6 +322,7 @@ impl Default for Settings {
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
+            lazy_wad_scan: false,
         }
     }
 }
@@ -344,6 +352,7 @@ mod tests {
         assert!(settings.enforce_skinhack_scan);
         assert!(!settings.apply_string_overrides_to_all_locales);
         assert!(!settings.verbose_patcher_logging);
+        assert!(!settings.lazy_wad_scan);
     }
 
     #[test]
@@ -388,6 +397,7 @@ mod tests {
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
+            lazy_wad_scan: false,
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();
