@@ -232,7 +232,11 @@ impl PatcherThread {
 
         let host_config = HostConfig {
             prefix: overlay_prefix,
-            log_level: HostLogLevel::Info,
+            log_level: if self.settings.verbose_patcher_logging {
+                HostLogLevel::Debug
+            } else {
+                HostLogLevel::Info
+            },
             flags: self.host_flags,
         };
 

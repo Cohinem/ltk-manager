@@ -129,4 +129,12 @@ export type Settings = {
    * Default: false (current locale only).
    */
   applyStringOverridesToAllLocales: boolean;
+  /**
+   * Raise the injection host's log level from `Info` to `Debug`. The host and
+   * the injected DLL decide their own verbosity from this, so it is the only
+   * way to get their diagnostics out of a release build - `RUST_LOG` only
+   * affects the manager's own tracing. Read at patcher start, so a change
+   * takes effect on the next start. Default: false.
+   */
+  verbosePatcherLogging: boolean;
 };

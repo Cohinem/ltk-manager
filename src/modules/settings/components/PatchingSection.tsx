@@ -176,24 +176,43 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
       </SectionCard>
 
       <SectionCard title="Troubleshooting" icon={<Wrench className="h-5 w-5" />}>
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <span className="block text-sm font-medium text-surface-200">Rebuild overlay</span>
-            <span className="block text-sm text-surface-400">
-              Discards the cached overlay and regenerates it from scratch. Use this if a mod looks
-              applied in the manager but isn&apos;t showing in-game, or the game crashes with the
-              patcher on. The patcher must be stopped.
-            </span>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-sm font-medium text-surface-200">Rebuild overlay</span>
+              <span className="block text-sm text-surface-400">
+                Discards the cached overlay and regenerates it from scratch. Use this if a mod looks
+                applied in the manager but isn&apos;t showing in-game, or the game crashes with the
+                patcher on. The patcher must be stopped.
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              loading={isRebuilding}
+              disabled={isPatcherRunning}
+              left={<RefreshCw className="h-4 w-4" />}
+              onClick={handleRebuildOverlay}
+            >
+              Rebuild
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            loading={isRebuilding}
-            disabled={isPatcherRunning}
-            left={<RefreshCw className="h-4 w-4" />}
-            onClick={handleRebuildOverlay}
-          >
-            Rebuild
-          </Button>
+
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-sm font-medium text-surface-200">
+                Verbose patcher logging
+              </span>
+              <span className="block text-sm text-surface-400">
+                Makes the injector and the injected DLL log their internals to the app log file.
+                Turn this on only when gathering a log for a bug report — it is noisy. Takes effect
+                the next time the patcher starts.
+              </span>
+            </div>
+            <Switch
+              checked={settings.verbosePatcherLogging}
+              onCheckedChange={(checked) => onSave({ ...settings, verbosePatcherLogging: checked })}
+            />
+          </label>
         </div>
       </SectionCard>
     </div>
