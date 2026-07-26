@@ -5,13 +5,13 @@
 //! archive, resolves which of its layers the active profile wants, and hands
 //! back a list the builder can consume in priority order.
 
+use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt};
+use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{Profile, ProfileSlug};
-use crate::mods::ModLibrary;
-use ltk_manager_core::config::Config;
 use ltk_modpkg::Modpkg;
 use ltk_overlay::{FantomeContent, ModpkgContent};
 use std::collections::HashSet;
@@ -148,7 +148,7 @@ impl Profile {
             return Ok(Some(
                 states
                     .iter()
-                    .filter(|(_, &enabled)| enabled)
+                    .filter(|&(_, &enabled)| enabled)
                     .map(|(name, _)| name.clone())
                     .collect(),
             ));

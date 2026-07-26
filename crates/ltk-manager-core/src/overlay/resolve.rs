@@ -4,7 +4,7 @@
 //! resolved value out. They are the two decisions a CLI would need to make
 //! identically to the GUI.
 
-use ltk_manager_core::config::{Config, WadBlocklistEntry};
+use crate::config::{Config, WadBlocklistEntry};
 use std::path::Path;
 
 const SCRIPTS_WAD: &str = "scripts.wad.client";

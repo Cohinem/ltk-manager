@@ -9,12 +9,12 @@
 use crate::error::{AppResult, MutexResultExt};
 use serde::Serialize;
 use std::sync::Mutex;
-use ts_rs::TS;
 
 /// One library mod whose property-bins reference linked dependencies that don't
 /// resolve against the overlay WADs they land in.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct LinkedBinOffenderInfo {
     /// Library mod id (matches `InstalledMod.id` on the frontend).

@@ -5,14 +5,13 @@
 //! for the detected locale, so the workshop strings editor can suggest valid
 //! field names and show what each one currently says in game.
 
+use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
-use ltk_manager_core::config::Config;
 use serde::Serialize;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use ts_rs::TS;
 
 const HASH_LIST_URL: &str =
     "https://raw.githubusercontent.com/CommunityDragon/Data/master/hashes/lol/hashes.rst.xxh3.txt";
@@ -20,8 +19,9 @@ const HASH_LIST_FILE: &str = "hashes.rst.xxh3.txt";
 const HASH_LIST_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 /// One autocomplete suggestion for a stringtable field.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct StringKeySuggestion {
     /// Field name, e.g. `game_character_displayname_ahri`.
@@ -32,8 +32,9 @@ pub struct StringKeySuggestion {
 }
 
 /// Result of a suggestion query.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct StringKeySearchResult {
     pub suggestions: Vec<StringKeySuggestion>,
@@ -174,10 +175,8 @@ fn load_key_list(cache_dir: &Path) -> AppResult<String> {
         Err(_) => true,
     };
 
-    if needs_refresh {
-        if let Err(e) = download_key_list(&path) {
-            tracing::warn!("Failed to refresh string key list: {}", e);
-        }
+    if needs_refresh && let Err(e) = download_key_list(&path) {
+        tracing::warn!("Failed to refresh string key list: {}", e);
     }
 
     std::fs::read_to_string(&path).map_err(|_| {

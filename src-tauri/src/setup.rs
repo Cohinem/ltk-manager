@@ -45,6 +45,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let mod_library = ModLibraryState(ModLibrary::new(
         Arc::clone(&events),
         default_storage_dir,
+        env!("CARGO_PKG_VERSION"),
         Arc::clone(&linked_bins),
         Arc::clone(&wad_reports),
     ));
@@ -70,7 +71,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(PatcherHostState::default());
     app.manage(linked_bins);
     app.manage(wad_reports);
-    app.manage(crate::strings::StringKeyIndexState::default());
+    app.manage(ltk_manager_core::strings::StringKeyIndexState::default());
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(hotkey_manager);

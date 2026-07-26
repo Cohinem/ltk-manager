@@ -1,18 +1,18 @@
+use crate::config::Config;
 use crate::error::{AppError, AppResult};
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::{BackendEvent, MigrationPhase, MigrationProgress};
+use crate::events::{BackendEvent, MigrationPhase, MigrationProgress};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
-use ts_rs::TS;
 
-use crate::mods::types::BulkInstallResult;
 use crate::mods::ModLibrary;
+use crate::mods::types::BulkInstallResult;
 
 /// Metadata for a discovered cslol-manager mod, shown in the UI selection step.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct CslolModInfo {
     pub folder_name: String,

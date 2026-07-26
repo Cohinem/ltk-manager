@@ -59,7 +59,7 @@ fn run_watcher(app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>>
 
     let last_mutation = {
         let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
-        Arc::clone(&mod_library_state.0.last_mutation_epoch_ms)
+        Arc::clone(mod_library_state.0.last_mutation_epoch_ms())
     };
 
     std::fs::create_dir_all(&archives_dir)?;

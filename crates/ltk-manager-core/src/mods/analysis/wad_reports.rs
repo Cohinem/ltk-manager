@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use ts_rs::TS;
 
 const WAD_REPORTS_FILENAME: &str = "wad-reports.json";
 /// v2 added the persisted `derived` categorization. Older (`v1`) caches load
@@ -23,8 +22,9 @@ const SCHEMA_VERSION: u32 = 2;
 ///
 /// Mirrors `ltk_overlay::ModWadReport` but adds the `is_stale` flag derived
 /// at read time and uses TS bindings for the frontend.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ModWadReport {
     pub mod_id: String,
@@ -278,11 +278,11 @@ impl WadReportStore {
     pub fn invalidate_by_content(&mut self, mod_ids: &[String]) -> AppResult<()> {
         let mut changed = false;
         for mod_id in mod_ids {
-            if let Some(entry) = self.file.reports.get_mut(mod_id.as_str()) {
-                if !entry.content_stale {
-                    entry.content_stale = true;
-                    changed = true;
-                }
+            if let Some(entry) = self.file.reports.get_mut(mod_id.as_str())
+                && !entry.content_stale
+            {
+                entry.content_stale = true;
+                changed = true;
             }
         }
         if changed {

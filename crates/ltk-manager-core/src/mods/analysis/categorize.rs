@@ -20,13 +20,13 @@
 use super::wad_reports::ModWadReport;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
-use ts_rs::TS;
 
 /// Categories derived from a mod's contents. Each list is de-duplicated and
 /// sorted. Champions hold display names (e.g. `"Aatrox"`); maps and tags hold
 /// well-known slugs (e.g. `"summoners-rift"`, `"champion-skin"`).
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct DerivedCategorization {
     pub champions: Vec<String>,

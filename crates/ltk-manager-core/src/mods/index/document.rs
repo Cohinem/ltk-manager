@@ -7,13 +7,13 @@
 //! writes, since each one rewrites the whole document.
 
 use super::schema_migration;
+use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::events::BackendEvent;
+use crate::mods::ModLibrary;
 use crate::mods::index::reconcile::reconcile_library_index;
 use crate::mods::types::{LibraryFolder, Profile, ProfileSlug, ROOT_FOLDER_ID};
-use crate::mods::ModLibrary;
 use chrono::{DateTime, Utc};
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::BackendEvent;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -24,7 +24,7 @@ use uuid::Uuid;
 
 impl ModLibrary {
     /// Resolve storage directory from the config snapshot.
-    pub(crate) fn storage_dir(&self, config: &Config) -> AppResult<PathBuf> {
+    pub fn storage_dir(&self, config: &Config) -> AppResult<PathBuf> {
         config
             .mod_storage_path
             .clone()

@@ -1,6 +1,6 @@
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
-use crate::strings::{StringKeyIndexState, StringKeySearchResult};
+use ltk_manager_core::strings::{StringKeyIndexState, StringKeySearchResult};
 use tauri::{AppHandle, State};
 
 /// Search known stringtable field names for the workshop strings editor.

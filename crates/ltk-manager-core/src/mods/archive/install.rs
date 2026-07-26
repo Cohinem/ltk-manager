@@ -5,16 +5,16 @@
 //! every profile and folder. Both run inside `mutate_index`, so a bulk install
 //! takes the index lock once rather than once per file.
 
+use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::events::{BackendEvent, InstallProgress};
+use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
     extract_fantome_metadata, extract_modpkg_metadata, load_mod_project, read_installed_mod,
 };
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{BulkInstallError, BulkInstallResult, InstalledMod, ROOT_FOLDER_ID};
-use crate::mods::ModLibrary;
 use chrono::Utc;
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::{BackendEvent, InstallProgress};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

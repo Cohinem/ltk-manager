@@ -6,15 +6,15 @@
 //! archive parsing in [`super::metadata`], and overlay conversion in
 //! [`super::overlay_content`].
 
+use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
     extract_fantome_thumbnail, extract_modpkg_thumbnail, load_mod_project, read_installed_mod,
 };
-use crate::mods::index::get_active_profile;
 use crate::mods::index::ModArchiveFormat;
-use crate::mods::types::InstalledMod;
-use crate::mods::ModLibrary;
-use ltk_manager_core::config::Config;
+use crate::mods::index::get_active_profile;
+use crate::mods::types::{EditModMetadataArgs, InstalledMod};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
@@ -236,7 +236,7 @@ impl ModLibrary {
         &self,
         config: &Config,
         mod_id: &str,
-        args: crate::commands::EditModMetadataArgs,
+        args: EditModMetadataArgs,
     ) -> AppResult<InstalledMod> {
         self.mutate_index(config, |storage_dir, index| {
             let entry = index

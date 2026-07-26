@@ -10,7 +10,7 @@ use std::path::Path;
 
 use libloading::Library;
 
-use crate::utils::native::{cstr_to_str, str_to_cstr_utf16};
+use ltk_manager_core::utils::native::{cstr_to_str, str_to_cstr_utf16};
 
 pub const PATCHER_DLL_NAME: &str = "cslol-dll.dll";
 

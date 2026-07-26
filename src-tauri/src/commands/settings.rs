@@ -1,6 +1,6 @@
 use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::state::{persist_settings, Settings, SettingsState};
-use crate::utils::game::GameDir;
+use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
 use tauri_plugin_autostart::ManagerExt;

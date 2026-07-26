@@ -1,13 +1,13 @@
+use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use chrono::Utc;
-use ltk_manager_core::config::Config;
 use std::collections::HashMap;
 use std::fs;
 use uuid::Uuid;
 
+use crate::mods::ModLibrary;
 use crate::mods::index::{get_active_profile, get_profile_by_id, resolve_profile_dirs};
 use crate::mods::types::{Profile, ProfileSlug};
-use crate::mods::ModLibrary;
 
 impl ModLibrary {
     /// Create a new profile.

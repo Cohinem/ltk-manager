@@ -8,8 +8,8 @@
 //! instead of persisting them for a badge UI.
 
 use crate::error::{AppError, AppResult};
+use crate::events::{OverlayProgress, OverlayStage};
 use camino::Utf8PathBuf;
-use ltk_manager_core::events::{OverlayProgress, OverlayStage};
 
 /// Everything a build needs, resolved by the caller.
 pub struct OverlayBuildInputs {

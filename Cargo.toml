@@ -7,6 +7,8 @@ ltk_fantome = "0.6.0"
 ltk_file = { version = "0.2.8", features = ["serde"] }
 ltk_mod_project = "0.5.0"
 ltk_modpkg = { version = "0.6.0", features = ["project"] }
+ltk_overlay = "0.5.2"
+ltk_rst = "0.2.0"
 ltk_wad = "0.2.12"
 
 camino = "1.2"
@@ -14,6 +16,7 @@ chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1"
 image = "0.25.2"
 indexmap = { version = "2", features = ["serde"] }
+regex = "1"
 reqwest = { version = "0.12", features = ["blocking"] }
 semver = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -29,6 +32,8 @@ uuid = { version = "1", features = ["v4"] }
 walkdir = "2.5"
 webp = "0.3"
 windows-sys = "0.59"
+xxhash-rust = { version = "0.8.15", features = ["xxh3", "xxh64"] }
 zip = "2.2.0"
 
 assert_matches = "1.5"
+filetime = "0.2"
