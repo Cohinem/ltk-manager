@@ -3,7 +3,7 @@ use crate::mods::{
     inspect_modpkg_file, BulkInstallResult, EditModMetadataArgs, InstalledMod, ModLibraryState,
     ModWadReport, ModpkgInfo, WadReportState,
 };
-use crate::patcher::PatcherState;
+use crate::patcher::{PatcherError, PatcherState};
 use crate::state::SettingsState;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -271,7 +271,7 @@ pub fn analyze_mod_wads(
 pub(super) fn reject_if_patcher_running(patcher: &State<PatcherState>) -> AppResult<()> {
     let state = patcher.0.lock().mutex_err()?;
     if state.is_running() {
-        return Err(AppError::PatcherRunning);
+        return Err(PatcherError::Busy.into());
     }
     Ok(())
 }

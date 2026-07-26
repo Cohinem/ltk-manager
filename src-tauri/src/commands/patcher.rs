@@ -2,7 +2,9 @@ use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::{PatcherThread, SessionParams};
-use crate::patcher::{PatcherHostState, PatcherPhase, PatcherState, StoredPatcherConfig};
+use crate::patcher::{
+    PatcherError, PatcherHostState, PatcherPhase, PatcherState, StoredPatcherConfig,
+};
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
@@ -142,9 +144,7 @@ pub(crate) fn start_patcher_inner(
     library: &State<ModLibraryState>,
 ) -> AppResult<()> {
     if cfg!(not(target_os = "windows")) {
-        return Err(AppError::Other(
-            "The patcher is not yet available on this platform".to_string(),
-        ));
+        return Err(PatcherError::UnsupportedPlatform.into());
     }
 
     tracing::debug!("Start patcher requested (external injector)");
@@ -235,7 +235,7 @@ pub(crate) fn stop_patcher_inner(state: &State<PatcherState>) -> AppResult<()> {
     let patcher_state = state.0.lock().mutex_err()?;
 
     if !patcher_state.is_running() {
-        return Err(AppError::Other("Patcher is not running".to_string()));
+        return Err(PatcherError::NotRunning.into());
     }
 
     tracing::info!("Stopping patcher...");

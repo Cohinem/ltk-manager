@@ -17,7 +17,7 @@ use ltk_manager_core::config::Config;
 use super::host::{HostConfig, HostLogLevel, PatcherHost};
 use super::injector::WadScanFailure;
 use super::session::{self, PatcherEvents, SessionError};
-use super::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
+use super::{PatcherError, PatcherPhase, PatcherStateInner, StoredPatcherConfig};
 
 /// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
 #[derive(Debug, Clone, Serialize, TS)]
@@ -119,7 +119,7 @@ impl PatcherThread {
     ) -> AppResult<()> {
         let mut patcher_state = state.lock().mutex_err()?;
         if patcher_state.is_running() {
-            return Err(AppError::Other("Patcher is already running".to_string()));
+            return Err(PatcherError::AlreadyRunning.into());
         }
 
         patcher_state.stop_flag.store(false, Ordering::SeqCst);
@@ -260,7 +260,7 @@ impl PatcherThread {
                     }
                     SessionError::Injector(err) => tracing::error!("Injector error: {}", err),
                 }
-                let error_response: AppErrorResponse = AppError::Other(e.to_string()).into();
+                let error_response: AppErrorResponse = AppError::from(PatcherError::from(e)).into();
                 let _ = self.app_handle.emit("patcher-error", &error_response);
             }
         }

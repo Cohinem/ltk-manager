@@ -10,6 +10,7 @@ use camino::Utf8PathBuf;
 use std::path::PathBuf;
 use thiserror::Error;
 
+use crate::patcher::PatcherError;
 use crate::workshop::WorkshopError;
 
 /// Internal application error type with rich error information.
@@ -67,8 +68,8 @@ pub enum AppError {
     #[error("WAD builder error: {0}")]
     WadBuilderError(#[from] ltk_wad::WadBuilderError),
 
-    #[error("Cannot modify mods while the patcher is running")]
-    PatcherRunning,
+    #[error(transparent)]
+    Patcher(#[from] PatcherError),
 
     #[error("ZIP error: {0}")]
     ZipError(#[from] zip::result::ZipError),

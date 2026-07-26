@@ -49,8 +49,8 @@ pub enum ErrorCode {
     Fantome,
     /// WAD file error
     Wad,
-    /// Operation blocked because the patcher is running
-    PatcherRunning,
+    /// Patcher domain error. The specific variant is in `context.kind`.
+    Patcher,
     /// ZIP error
     Zip,
     /// Library index was written by a newer app version
@@ -218,10 +218,12 @@ impl From<AppError> for AppErrorResponse {
 
             AppError::WadBuilderError(e) => AppErrorResponse::new(ErrorCode::Wad, e.to_string()),
 
-            AppError::PatcherRunning => AppErrorResponse::new(
-                ErrorCode::PatcherRunning,
-                "Stop the patcher before modifying mods",
-            ),
+            AppError::Patcher(patcher_err) => {
+                let mut response =
+                    AppErrorResponse::new(ErrorCode::Patcher, patcher_err.to_string());
+                response.context = serde_json::to_value(&patcher_err).ok();
+                response
+            }
 
             AppError::ZipError(e) => AppErrorResponse::new(ErrorCode::Zip, e.to_string()),
 
@@ -246,6 +248,9 @@ impl From<AppError> for AppErrorResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ltk_manager_core::patcher::injector::InjectorError;
+    use ltk_manager_core::patcher::session::SessionError;
+    use ltk_manager_core::patcher::{InjectionStage, PatcherError};
 
     #[test]
     fn error_code_serializes_as_screaming_snake_case() {
@@ -271,8 +276,8 @@ mod tests {
             "\"PROJECT_ALREADY_EXISTS\""
         );
         assert_eq!(
-            serde_json::to_string(&ErrorCode::PatcherRunning).unwrap(),
-            "\"PATCHER_RUNNING\""
+            serde_json::to_string(&ErrorCode::Patcher).unwrap(),
+            "\"PATCHER\""
         );
     }
 
@@ -295,7 +300,7 @@ mod tests {
             ErrorCode::PackFailed,
             ErrorCode::Fantome,
             ErrorCode::Wad,
-            ErrorCode::PatcherRunning,
+            ErrorCode::Patcher,
             ErrorCode::Zip,
             ErrorCode::SchemaVersionTooNew,
             ErrorCode::Workshop,
@@ -346,11 +351,47 @@ mod tests {
     }
 
     #[test]
-    fn app_error_to_response_patcher_running() {
-        let error = AppError::PatcherRunning;
-        let resp: AppErrorResponse = error.into();
-        assert_eq!(resp.code, ErrorCode::PatcherRunning);
-        assert!(resp.context.is_none());
+    fn app_error_to_response_patcher_carries_the_variant_in_context() {
+        let resp: AppErrorResponse = AppError::Patcher(PatcherError::Busy).into();
+        assert_eq!(resp.code, ErrorCode::Patcher);
+        assert_eq!(resp.context.unwrap()["kind"], "BUSY");
+    }
+
+    /// Every patcher failure shares one code, so `context.kind` is the only
+    /// thing separating them - it must survive the mapping for each variant.
+    #[test]
+    fn every_patcher_variant_reaches_the_frontend_distinguishable() {
+        let kinds = [
+            (PatcherError::Busy, "BUSY"),
+            (PatcherError::AlreadyRunning, "ALREADY_RUNNING"),
+            (PatcherError::NotRunning, "NOT_RUNNING"),
+            (PatcherError::UnsupportedPlatform, "UNSUPPORTED_PLATFORM"),
+            (
+                PatcherError::InjectionFailed {
+                    stage: InjectionStage::Host,
+                    message: "host died".to_string(),
+                },
+                "INJECTION_FAILED",
+            ),
+        ];
+        for (error, expected) in kinds {
+            let resp: AppErrorResponse = AppError::Patcher(error).into();
+            assert_eq!(resp.code, ErrorCode::Patcher);
+            assert_eq!(resp.context.unwrap()["kind"], expected);
+        }
+    }
+
+    #[test]
+    fn injection_failure_context_keeps_the_stage_and_the_reason() {
+        let error = PatcherError::from(SessionError::Injector(InjectorError::Failed(
+            "DLL never attached after 60s".to_string(),
+        )));
+        let resp: AppErrorResponse = AppError::Patcher(error).into();
+
+        assert!(resp.message.contains("DLL never attached"));
+        let context = resp.context.unwrap();
+        assert_eq!(context["kind"], "INJECTION_FAILED");
+        assert_eq!(context["stage"], "INJECTION");
     }
 
     #[test]
