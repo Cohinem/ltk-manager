@@ -12,35 +12,35 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 ts = ["dep:ts-rs"]
 
 [dependencies]
-ltk_fantome = { version = "0.6.0" }
-ltk_file = { version = "0.2.8", features = ["serde"] }
-ltk_modpkg = { version = "0.6.0", features = ["project"] }
-ltk_mod_project = { version = "0.5.0" }
-ltk_wad = "0.2.12"
+ltk_fantome = { workspace = true }
+ltk_file = { workspace = true }
+ltk_modpkg = { workspace = true }
+ltk_mod_project = { workspace = true }
+ltk_wad = { workspace = true }
 
-camino = "1.2"
-chrono = { version = "0.4", features = ["serde"] }
-flate2 = "1"
-image = "0.25.2"
-indexmap = { version = "2", features = ["serde"] }
-reqwest = { version = "0.12", features = ["blocking"] }
-semver = "1.0"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_yaml_ng = "0.10"
-slug = "0.1"
-tar = "0.4"
-tempfile = "3"
-thiserror = "2"
-tracing = "0.1"
-ts-rs = { version = "12", optional = true }
-uuid = { version = "1", features = ["v4"] }
-walkdir = "2.5"
-webp = "0.3"
-zip = "2.2.0"
+camino = { workspace = true }
+chrono = { workspace = true }
+flate2 = { workspace = true }
+image = { workspace = true }
+indexmap = { workspace = true }
+reqwest = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml_ng = { workspace = true }
+slug = { workspace = true }
+tar = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+uuid = { workspace = true }
+walkdir = { workspace = true }
+webp = { workspace = true }
+zip = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = [
+windows-sys = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_WinTrust",
@@ -53,4 +53,4 @@ windows-sys = { version = "0.59", features = [
 ] }
 
 [dev-dependencies]
-assert_matches = "1.5"
+assert_matches = { workspace = true }

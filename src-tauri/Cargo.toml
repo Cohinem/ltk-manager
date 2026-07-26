@@ -28,64 +28,64 @@ tauri-plugin-window-state = "2"
 
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
 
-ltk_modpkg = { version = "0.6.0", features = ["project"] }
-ltk_mod_project = { version = "0.5.0" }
+ltk_modpkg = { workspace = true }
+ltk_mod_project = { workspace = true }
 ltk_mod_core = { version = "0.1.0" }
-ltk_fantome = { version = "0.6.0" }
+ltk_fantome = { workspace = true }
 ltk_overlay = { version = "0.5.2" }
 ltk_rst = "0.2.0"
-ltk_wad = "0.2.12"
-ltk_file = { version = "0.2.8", features = ["serde"] }
+ltk_wad = { workspace = true }
+ltk_file = { workspace = true }
 
-camino = "1.2"
-serde_yaml_ng = "0.10"
-semver = "1.0"
+camino = { workspace = true }
+serde_yaml_ng = { workspace = true }
+semver = { workspace = true }
 toml = "0.8"
-indexmap = { version = "2", features = ["serde"] }
+indexmap = { workspace = true }
 
 tokio = { version = "1", features = ["full"] }
 libloading = "0.9.0"
 
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 regex = "1"
 
-ts-rs = { version = "12", features = [
+ts-rs = { workspace = true, features = [
     "chrono-impl",
     "serde-json-impl",
     "indexmap-impl",
 ] }
 
-thiserror = "2"
+thiserror = { workspace = true }
 anyhow = "1"
 
-uuid = { version = "1", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
+uuid = { workspace = true }
+chrono = { workspace = true }
 byteorder = "1.5.0"
 xxhash-rust = { version = "0.8.15", features = ["xxh3", "xxh64"] }
 zstd = { version = "0.13", default-features = false }
 
-zip = "2.2.0"
-image = "0.25.2"
-webp = "0.3"
-slug = "0.1"
+zip = { workspace = true }
+image = { workspace = true }
+webp = { workspace = true }
+slug = { workspace = true }
 notify = { version = "7", default-features = false }
 notify-debouncer-mini = "0.5"
-walkdir = "2.5"
+walkdir = { workspace = true }
 
-reqwest = { version = "0.12", features = ["blocking"] }
+reqwest = { workspace = true }
 url = "2"
-flate2 = "1"
-tar = "0.4"
+flate2 = { workspace = true }
+tar = { workspace = true }
 
-tracing = "0.1"
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 
-tempfile = "3"
+tempfile = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = [
+windows-sys = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Security_Cryptography",
@@ -101,7 +101,7 @@ windows-sys = { version = "0.59", features = [
 ] }
 
 [dev-dependencies]
-assert_matches = "1.5"
+assert_matches = { workspace = true }
 filetime = "0.2"
 
 [features]
