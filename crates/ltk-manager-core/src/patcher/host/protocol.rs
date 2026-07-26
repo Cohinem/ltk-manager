@@ -72,6 +72,41 @@ pub struct HostConfig {
     pub flags: u32,
 }
 
+/// Builds the outbound half of the protocol (UI → host).
+///
+/// Kept next to [`parse_event`], which parses the inbound half, so a wire-format
+/// change on either side shows up in one file - and so the exact bytes we send
+/// can be asserted without a host process to send them to.
+pub(super) mod command {
+    use super::{HostConfig, proto};
+
+    /// `stop` - tear down the current injection session.
+    pub const STOP: &str = proto::CMD_STOP;
+
+    fn config(key: &str, value: impl std::fmt::Display) -> String {
+        format!("{} {} {}", proto::CMD_CONFIG, key, value)
+    }
+
+    /// The session's `config` lines, in the order the host expects them.
+    pub fn configure(config_: &HostConfig) -> [String; 3] {
+        [
+            config(proto::CONFIG_LOGLEVEL, config_.log_level as u32),
+            config(proto::CONFIG_FLAGS, config_.flags),
+            config(proto::CONFIG_PREFIX, &config_.prefix),
+        ]
+    }
+
+    /// `start scan` - host-driven injection: scan for the game and inject.
+    pub fn start_scan() -> String {
+        format!("{} {}", proto::CMD_START, proto::METHOD_SCAN)
+    }
+
+    /// `start passive` - modding-framework integration.
+    pub fn start_passive() -> String {
+        format!("{} {}", proto::CMD_START, proto::METHOD_PASSIVE)
+    }
+}
+
 /// Injection lifecycle state reported by the host.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HostState {
@@ -333,6 +368,61 @@ mod tests {
         assert_eq!(split_first_token("single"), ("single", ""));
         assert_eq!(split_first_token("  spaced  out  "), ("spaced", "out  "));
         assert_eq!(split_first_token(""), ("", ""));
+    }
+
+    /// The host reads these three keys in this order before `start`; a reorder
+    /// or a renamed key silently produces an unconfigured session.
+    #[test]
+    fn configure_emits_loglevel_then_flags_then_prefix() {
+        let lines = command::configure(&HostConfig {
+            prefix: "C:\\overlay\\".to_string(),
+            log_level: HostLogLevel::Debug,
+            flags: hook_flags::OPT_OUT_AH_V1 | hook_flags::LAZY_WAD_SCAN,
+        });
+        assert_eq!(
+            lines,
+            [
+                "config loglevel 32",
+                "config flags 12",
+                "config prefix C:\\overlay\\",
+            ]
+        );
+    }
+
+    /// `loglevel` is sent as the DLL's numeric level, not the variant name.
+    #[test]
+    fn log_levels_serialize_to_their_dll_values() {
+        let level_of = |log_level| {
+            command::configure(&HostConfig {
+                prefix: String::new(),
+                log_level,
+                flags: 0,
+            })[0]
+                .clone()
+        };
+        assert_eq!(level_of(HostLogLevel::Error), "config loglevel 0");
+        assert_eq!(level_of(HostLogLevel::Info), "config loglevel 16");
+        assert_eq!(level_of(HostLogLevel::Debug), "config loglevel 32");
+        assert_eq!(level_of(HostLogLevel::All), "config loglevel 4096");
+    }
+
+    /// The prefix is passed through verbatim - spaces included, unquoted -
+    /// because the host takes the rest of the line as the value.
+    #[test]
+    fn configure_passes_a_spaced_prefix_through_unquoted() {
+        let lines = command::configure(&HostConfig {
+            prefix: "C:\\Riot Games\\overlay\\".to_string(),
+            log_level: HostLogLevel::Info,
+            flags: 0,
+        });
+        assert_eq!(lines[2], "config prefix C:\\Riot Games\\overlay\\");
+    }
+
+    #[test]
+    fn start_and_stop_commands() {
+        assert_eq!(command::start_scan(), "start scan");
+        assert_eq!(command::start_passive(), "start passive");
+        assert_eq!(command::STOP, "stop");
     }
 
     #[test]
