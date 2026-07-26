@@ -5,4 +5,5 @@
 //! reported through listener traits (see [`patcher::session::PatcherEvents`]);
 //! the Tauri shell in `src-tauri` supplies the adapters.
 
+pub mod config;
 pub mod patcher;

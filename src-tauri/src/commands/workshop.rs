@@ -1,4 +1,4 @@
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::state::SettingsState;
 use crate::workshop::{
     AddFilesReport, ContentTree, CreateProjectArgs, FantomePeekResult, ImportFantomeArgs,
@@ -15,8 +15,8 @@ pub fn get_workshop_projects(
     settings: State<SettingsState>,
 ) -> IpcResult<Vec<WorkshopProject>> {
     let result: AppResult<Vec<WorkshopProject>> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        workshop.0.get_projects(&settings)
+        let config = settings.config()?;
+        workshop.0.get_projects(&config)
     })();
     result.into()
 }
@@ -28,8 +28,8 @@ pub fn create_workshop_project(
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
     let result: AppResult<WorkshopProject> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        workshop.0.create_project(&settings, args)
+        let config = settings.config()?;
+        workshop.0.create_project(&config, args)
     })();
     result.into()
 }
@@ -90,8 +90,8 @@ pub fn import_from_modpkg(
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
     let result: AppResult<WorkshopProject> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        workshop.0.import_from_modpkg(&settings, &file_path)
+        let config = settings.config()?;
+        workshop.0.import_from_modpkg(&config, &file_path)
     })();
     result.into()
 }
@@ -111,8 +111,8 @@ pub fn import_from_fantome(
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
     let result: AppResult<WorkshopProject> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        workshop.0.import_from_fantome(&settings, args)
+        let config = settings.config()?;
+        workshop.0.import_from_fantome(&config, args)
     })();
     result.into()
 }
@@ -124,8 +124,8 @@ pub fn import_from_git_repo(
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
     let result: AppResult<WorkshopProject> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        workshop.0.import_from_git_repo(&settings, args)
+        let config = settings.config()?;
+        workshop.0.import_from_git_repo(&config, args)
     })();
     result.into()
 }

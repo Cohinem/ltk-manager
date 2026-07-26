@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use crate::state::Settings;
+use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
@@ -83,7 +83,7 @@ pub fn scan_cslol_directory(dir: &Path) -> AppResult<Vec<CslolModInfo>> {
 /// Emits `"migration-progress"` events during both the packaging and installing phases.
 pub fn import_cslol_mods(
     library: &ModLibrary,
-    settings: &Settings,
+    config: &Config,
     app_handle: &AppHandle,
     cslol_dir: &Path,
     folders: &[String],
@@ -123,7 +123,7 @@ pub fn import_cslol_mods(
         }
     }
 
-    let result = library.install_mods_from_packages(settings, &temp_paths);
+    let result = library.install_mods_from_packages(config, &temp_paths);
 
     for path in &temp_paths {
         let _ = fs::remove_file(path);

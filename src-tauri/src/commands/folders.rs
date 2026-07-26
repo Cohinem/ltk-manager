@@ -1,4 +1,4 @@
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::mods::{LibraryFolder, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -12,8 +12,8 @@ pub fn get_folders(
     settings: State<SettingsState>,
 ) -> IpcResult<Vec<LibraryFolder>> {
     let result: AppResult<Vec<LibraryFolder>> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.get_folders(&settings)
+        let config = settings.config()?;
+        library.0.get_folders(&config)
     })();
     result.into()
 }
@@ -24,8 +24,8 @@ pub fn get_folder_order(
     settings: State<SettingsState>,
 ) -> IpcResult<Vec<String>> {
     let result: AppResult<Vec<String>> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.get_folder_order(&settings)
+        let config = settings.config()?;
+        library.0.get_folder_order(&config)
     })();
     result.into()
 }
@@ -37,8 +37,8 @@ pub fn create_folder(
     settings: State<SettingsState>,
 ) -> IpcResult<LibraryFolder> {
     let result: AppResult<LibraryFolder> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.create_folder(&settings, &name)
+        let config = settings.config()?;
+        library.0.create_folder(&config, &name)
     })();
     result.into()
 }
@@ -51,8 +51,8 @@ pub fn rename_folder(
     settings: State<SettingsState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.rename_folder(&settings, &folder_id, &new_name)
+        let config = settings.config()?;
+        library.0.rename_folder(&config, &folder_id, &new_name)
     })();
     result.into()
 }
@@ -64,8 +64,8 @@ pub fn delete_folder(
     settings: State<SettingsState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.delete_folder(&settings, &folder_id)
+        let config = settings.config()?;
+        library.0.delete_folder(&config, &folder_id)
     })();
     result.into()
 }
@@ -78,8 +78,8 @@ pub fn move_mod_to_folder(
     settings: State<SettingsState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.move_mod_to_folder(&settings, &mod_id, &folder_id)
+        let config = settings.config()?;
+        library.0.move_mod_to_folder(&config, &mod_id, &folder_id)
     })();
     result.into()
 }
@@ -94,8 +94,8 @@ pub fn toggle_folder(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.toggle_folder(&settings, &folder_id, enabled)
+        let config = settings.config()?;
+        library.0.toggle_folder(&config, &folder_id, enabled)
     })();
     result.into()
 }
@@ -110,10 +110,8 @@ pub fn reorder_folder_mods(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library
-            .0
-            .reorder_folder_mods(&settings, &folder_id, mod_ids)
+        let config = settings.config()?;
+        library.0.reorder_folder_mods(&config, &folder_id, mod_ids)
     })();
     result.into()
 }
@@ -127,8 +125,8 @@ pub fn reorder_folders(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.reorder_folders(&settings, folder_order)
+        let config = settings.config()?;
+        library.0.reorder_folders(&config, folder_order)
     })();
     result.into()
 }

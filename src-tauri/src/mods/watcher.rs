@@ -29,7 +29,7 @@ fn resolve_watch_dirs(app_handle: &AppHandle) -> Option<(PathBuf, PathBuf)> {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
     let settings = settings_state.0.lock().ok()?;
     let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
-    let storage_dir = mod_library_state.0.storage_dir(&settings).ok()?;
+    let storage_dir = mod_library_state.0.storage_dir(&settings.config).ok()?;
 
     let archives_dir = storage_dir.join("archives");
     let mods_dir = storage_dir.join("mods");
@@ -121,15 +121,15 @@ fn handle_change(app_handle: &AppHandle) {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
     let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
 
-    let settings = match settings_state.0.lock() {
-        Ok(s) => s.clone(),
+    let config = match settings_state.0.lock() {
+        Ok(s) => s.config.clone(),
         Err(e) => {
             tracing::warn!("Watcher: failed to lock settings: {}", e);
             return;
         }
     };
 
-    match mod_library_state.0.reconcile_index(&settings) {
+    match mod_library_state.0.reconcile_index(&config) {
         Ok(true) => {
             tracing::info!("Watcher: library index reconciled after file change");
             let _ = app_handle.emit("library-changed", ());

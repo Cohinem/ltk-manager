@@ -3,7 +3,8 @@ use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::{PatcherThread, SessionParams};
 use crate::patcher::{PatcherHostState, PatcherPhase, PatcherState, StoredPatcherConfig};
-use crate::state::{Settings, SettingsState};
+use crate::state::SettingsState;
+use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
 
 use super::mods::reject_if_patcher_running;
@@ -164,15 +165,15 @@ pub(crate) fn start_patcher_inner(
         .map(PathBuf::from)
         .collect();
 
-    let settings_snapshot = settings.0.lock().mutex_err()?.clone();
+    let config_snapshot = settings.config()?;
     tracing::debug!(
-        "Settings snapshot: league_path={} mod_storage_path={}",
-        settings_snapshot
+        "Config snapshot: league_path={} mod_storage_path={}",
+        config_snapshot
             .league_path
             .as_ref()
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| "<unset>".to_string()),
-        settings_snapshot
+        config_snapshot
             .mod_storage_path
             .as_ref()
             .map(|p| p.display().to_string())
@@ -180,14 +181,14 @@ pub(crate) fn start_patcher_inner(
     );
 
     let mut host_flags = config.flags.unwrap_or(0) as u32;
-    if !settings_snapshot.enforce_skinhack_scan {
+    if !config_snapshot.enforce_skinhack_scan {
         host_flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1;
     }
-    if settings_snapshot.lazy_wad_scan {
+    if config_snapshot.lazy_wad_scan {
         host_flags |= crate::patcher::host::hook_flags::LAZY_WAD_SCAN;
     }
 
-    let should_elevate = resolve_should_elevate(&settings_snapshot);
+    let should_elevate = resolve_should_elevate(&config_snapshot);
 
     PatcherThread::start(
         app_handle,
@@ -199,7 +200,7 @@ pub(crate) fn start_patcher_inner(
         },
         SessionParams {
             injector_exe,
-            settings: settings_snapshot,
+            config: config_snapshot,
             library: library.0.clone(),
             workshop_paths,
             host_flags,
@@ -212,13 +213,13 @@ pub(crate) fn start_patcher_inner(
 /// Whether to spawn the host with `--elevate`: when the user opts in or League
 /// runs as admin, but never when the manager is already elevated (a spawned host
 /// inherits its integrity, making the UAC bridge redundant).
-fn resolve_should_elevate(settings: &Settings) -> bool {
+fn resolve_should_elevate(config: &Config) -> bool {
     let manager_elevated = crate::diagnostics::manager_is_elevated();
     let league_admin = crate::diagnostics::league_configured_as_admin();
-    let should_elevate = !manager_elevated && (settings.elevate_injector || league_admin);
+    let should_elevate = !manager_elevated && (config.elevate_injector || league_admin);
     tracing::info!(
         "Injector elevation = {should_elevate} (opt_in={}, league_admin={league_admin}, manager_elevated={manager_elevated})",
-        settings.elevate_injector
+        config.elevate_injector
     );
     should_elevate
 }
@@ -256,22 +257,17 @@ pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
         reject_if_patcher_running(&patcher)?;
-        let settings = app_handle
-            .state::<SettingsState>()
-            .0
-            .lock()
-            .mutex_err()?
-            .clone();
+        let config = app_handle.state::<SettingsState>().config()?;
         let library = app_handle.state::<ModLibraryState>().0.clone();
-        Ok((settings, library))
+        Ok((config, library))
     })();
 
-    let (settings, library) = match setup {
+    let (config, library) = match setup {
         Ok(v) => v,
         Err(e) => return IpcResult::from(Err::<(), _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || library.rebuild_overlay(&settings).map(|_| ()))
+    tauri::async_runtime::spawn_blocking(move || library.rebuild_overlay(&config).map(|_| ()))
         .await
         .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
         .into()
@@ -330,10 +326,10 @@ pub fn get_linked_bin_offenders(
             return Ok(HashMap::new());
         }
 
-        let settings_snapshot = settings.0.lock().mutex_err()?.clone();
+        let config_snapshot = settings.config()?;
         let display_names: HashMap<String, String> = library
             .0
-            .get_installed_mods(&settings_snapshot)?
+            .get_installed_mods(&config_snapshot)?
             .into_iter()
             .map(|m| (m.id, m.display_name))
             .collect();

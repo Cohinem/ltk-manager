@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use crate::state::Settings;
+use ltk_manager_core::config::Config;
 use std::collections::HashSet;
 use uuid::Uuid;
 
@@ -103,7 +103,7 @@ fn sync_all_profile_mod_orders(index: &mut LibraryIndex) {
 
 impl ModLibrary {
     /// Create a new named folder.
-    pub fn create_folder(&self, settings: &Settings, name: &str) -> AppResult<LibraryFolder> {
+    pub fn create_folder(&self, config: &Config, name: &str) -> AppResult<LibraryFolder> {
         let name = name.trim().to_string();
         if name.is_empty() {
             return Err(AppError::ValidationFailed(
@@ -111,7 +111,7 @@ impl ModLibrary {
             ));
         }
 
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             let folder = LibraryFolder {
                 id: Uuid::new_v4().to_string(),
                 name,
@@ -124,12 +124,7 @@ impl ModLibrary {
     }
 
     /// Rename an existing folder. Cannot rename the root folder.
-    pub fn rename_folder(
-        &self,
-        settings: &Settings,
-        folder_id: &str,
-        new_name: &str,
-    ) -> AppResult<()> {
+    pub fn rename_folder(&self, config: &Config, folder_id: &str, new_name: &str) -> AppResult<()> {
         if folder_id == ROOT_FOLDER_ID {
             return Err(AppError::ValidationFailed(
                 "Cannot rename the root folder".to_string(),
@@ -142,7 +137,7 @@ impl ModLibrary {
             ));
         }
 
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             let folder = index
                 .folders
                 .iter_mut()
@@ -156,14 +151,14 @@ impl ModLibrary {
     }
 
     /// Delete a folder, moving its mods to the root folder. Cannot delete root.
-    pub fn delete_folder(&self, settings: &Settings, folder_id: &str) -> AppResult<()> {
+    pub fn delete_folder(&self, config: &Config, folder_id: &str) -> AppResult<()> {
         if folder_id == ROOT_FOLDER_ID {
             return Err(AppError::ValidationFailed(
                 "Cannot delete the root folder".to_string(),
             ));
         }
 
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             let folder_idx = index
                 .folders
                 .iter()
@@ -188,11 +183,11 @@ impl ModLibrary {
     /// Move a mod into a folder (from any folder, including root).
     pub fn move_mod_to_folder(
         &self,
-        settings: &Settings,
+        config: &Config,
         mod_id: &str,
         folder_id: &str,
     ) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             if !index.mods.iter().any(|m| m.id == mod_id) {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
             }
@@ -235,13 +230,8 @@ impl ModLibrary {
     }
 
     /// Enable or disable all mods in a folder for the active profile.
-    pub fn toggle_folder(
-        &self,
-        settings: &Settings,
-        folder_id: &str,
-        enabled: bool,
-    ) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+    pub fn toggle_folder(&self, config: &Config, folder_id: &str, enabled: bool) -> AppResult<()> {
+        self.mutate_index(config, |_storage_dir, index| {
             let folder = index
                 .folders
                 .iter()
@@ -301,11 +291,11 @@ impl ModLibrary {
     /// Reorder mods within a folder.
     pub fn reorder_folder_mods(
         &self,
-        settings: &Settings,
+        config: &Config,
         folder_id: &str,
         mod_ids: Vec<String>,
     ) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             let folder = index
                 .folders
                 .iter_mut()
@@ -332,8 +322,8 @@ impl ModLibrary {
     }
 
     /// Reorder top-level folders.
-    pub fn reorder_folders(&self, settings: &Settings, folder_order: Vec<String>) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+    pub fn reorder_folders(&self, config: &Config, folder_order: Vec<String>) -> AppResult<()> {
+        self.mutate_index(config, |_storage_dir, index| {
             let mut expected: Vec<&str> = index.folder_order.iter().map(|s| s.as_str()).collect();
             expected.sort();
             let mut provided: Vec<&str> = folder_order.iter().map(|s| s.as_str()).collect();
@@ -352,15 +342,13 @@ impl ModLibrary {
     }
 
     /// Get all folders (including root).
-    pub fn get_folders(&self, settings: &Settings) -> AppResult<Vec<LibraryFolder>> {
-        self.with_index(settings, |_storage_dir, index| Ok(index.folders.clone()))
+    pub fn get_folders(&self, config: &Config) -> AppResult<Vec<LibraryFolder>> {
+        self.with_index(config, |_storage_dir, index| Ok(index.folders.clone()))
     }
 
     /// Get the current folder ordering.
-    pub fn get_folder_order(&self, settings: &Settings) -> AppResult<Vec<String>> {
-        self.with_index(settings, |_storage_dir, index| {
-            Ok(index.folder_order.clone())
-        })
+    pub fn get_folder_order(&self, config: &Config) -> AppResult<Vec<String>> {
+        self.with_index(config, |_storage_dir, index| Ok(index.folder_order.clone()))
     }
 }
 

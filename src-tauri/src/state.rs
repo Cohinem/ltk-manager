@@ -1,6 +1,8 @@
+use crate::error::{AppResult, MutexResultExt};
+use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
@@ -15,19 +17,14 @@ pub fn get_settings_file_path(app_handle: &AppHandle) -> Option<PathBuf> {
     get_app_data_dir(app_handle).map(|p| p.join("settings.json"))
 }
 
-/// Load settings from disk, returning defaults if file doesn't exist.
-pub fn load_settings(app_handle: &AppHandle) -> Settings {
-    let Some(settings_path) = get_settings_file_path(app_handle) else {
-        tracing::warn!("Could not determine settings file path, using defaults");
-        return Settings::default();
-    };
-
+/// Load settings from disk, returning defaults if the file doesn't exist.
+pub fn load_settings(settings_path: &Path) -> Settings {
     if !settings_path.exists() {
         tracing::info!("Settings file not found, using defaults");
         return Settings::default();
     }
 
-    match fs::read_to_string(&settings_path) {
+    match fs::read_to_string(settings_path) {
         Ok(contents) => match serde_json::from_str(&contents) {
             Ok(settings) => {
                 tracing::info!("Loaded settings from {:?}", settings_path);
@@ -47,16 +44,9 @@ pub fn load_settings(app_handle: &AppHandle) -> Settings {
 
 /// Save settings to disk.
 pub fn save_settings_to_disk(
-    app_handle: &AppHandle,
+    settings_path: &Path,
     settings: &Settings,
 ) -> Result<(), std::io::Error> {
-    let Some(settings_path) = get_settings_file_path(app_handle) else {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Could not determine settings file path",
-        ));
-    };
-
     if let Some(parent) = settings_path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -64,10 +54,21 @@ pub fn save_settings_to_disk(
     let contents = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-    fs::write(&settings_path, contents)?;
+    fs::write(settings_path, contents)?;
     tracing::info!("Saved settings to {:?}", settings_path);
 
     Ok(())
+}
+
+/// Resolve the settings path from the app handle and save.
+pub fn persist_settings(app_handle: &AppHandle, settings: &Settings) -> Result<(), std::io::Error> {
+    let Some(settings_path) = get_settings_file_path(app_handle) else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Could not determine settings file path",
+        ));
+    };
+    save_settings_to_disk(&settings_path, settings)
 }
 
 /// Application settings state.
@@ -75,7 +76,24 @@ pub struct SettingsState(pub Mutex<Settings>);
 
 impl SettingsState {
     pub fn new(app_handle: &AppHandle) -> Self {
-        Self(Mutex::new(load_settings(app_handle)))
+        let settings = match get_settings_file_path(app_handle) {
+            Some(path) => load_settings(&path),
+            None => {
+                tracing::warn!("Could not determine settings file path, using defaults");
+                Settings::default()
+            }
+        };
+        Self(Mutex::new(settings))
+    }
+
+    /// Snapshot the patching-relevant configuration.
+    ///
+    /// Callers take a clone rather than holding the guard: settings can change
+    /// at runtime, and every consumer downstream (`ModLibrary`, `Workshop`, the
+    /// overlay builder, the patcher thread) is designed around a per-operation
+    /// snapshot. Centralizing it here keeps poison handling in one place.
+    pub fn config(&self) -> AppResult<Config> {
+        Ok(self.0.lock().mutex_err()?.config.clone())
     }
 }
 
@@ -125,58 +143,16 @@ fn default_trusted_domains() -> Vec<String> {
     vec!["runeforge.dev".to_string(), "divineskins.gg".to_string()]
 }
 
-fn default_wad_blocklist() -> Vec<WadBlocklistEntry> {
-    vec![]
-}
-
-/// A single entry in the WAD blocklist.
-///
-/// `Exact` matches a literal filename (case-insensitively). `Regex` matches
-/// against every WAD filename in the game install; the pattern is always
-/// applied case-insensitively.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
-#[ts(export)]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum WadBlocklistEntry {
-    Exact { value: String },
-    Regex { value: String },
-}
-
-/// Accepts both the legacy `["Name.wad.client", ...]` format and the new
-/// tagged `[{ "kind": "exact", "value": "..." }, ...]` format. Legacy strings
-/// are migrated to `Exact` entries.
-fn deserialize_wad_blocklist<'de, D>(deserializer: D) -> Result<Vec<WadBlocklistEntry>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum RawEntry {
-        Legacy(String),
-        Tagged(WadBlocklistEntry),
-    }
-
-    let raw: Vec<RawEntry> = Vec::deserialize(deserializer)?;
-    Ok(raw
-        .into_iter()
-        .map(|entry| match entry {
-            RawEntry::Legacy(value) => WadBlocklistEntry::Exact { value },
-            RawEntry::Tagged(entry) => entry,
-        })
-        .collect())
-}
-
+/// Application settings: UI/shell preferences plus the flattened core
+/// [`Config`]. The flatten keeps `settings.json` a single flat document, so
+/// the split is invisible to both the file on disk and the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    #[ts(as = "Option<String>")]
-    pub league_path: Option<PathBuf>,
-    #[ts(as = "Option<String>")]
-    pub mod_storage_path: Option<PathBuf>,
-    /// Directory where mod projects are stored (for Creator Workshop).
-    #[ts(as = "Option<String>")]
-    pub workshop_path: Option<PathBuf>,
+    /// Patching-relevant configuration shared with non-GUI frontends.
+    #[serde(flatten)]
+    pub config: Config,
     pub first_run_complete: bool,
     /// Application theme (system, dark, or light).
     pub theme: Theme,
@@ -189,9 +165,6 @@ pub struct Settings {
     pub backdrop_blur: Option<u32>,
     /// Library view mode ("grid" or "list"). Defaults to "grid".
     pub library_view_mode: Option<String>,
-    /// Whether to patch TFT game files (Map22.wad.client). Default: false.
-    #[serde(default)]
-    pub patch_tft: bool,
     /// Whether to minimize to system tray instead of taskbar. Default: true.
     #[serde(default = "default_true")]
     pub minimize_to_tray: bool,
@@ -225,18 +198,6 @@ pub struct Settings {
     /// Whether the library file watcher is enabled. Default: false.
     #[serde(default)]
     pub watcher_enabled: bool,
-    /// Whether to block mods from patching Scripts.wad.client. Default: true.
-    #[serde(default = "default_true")]
-    pub block_scripts_wad: bool,
-    /// Whether to run the linked-bin dependency check before starting the patcher. Default: true.
-    #[serde(default = "default_true")]
-    pub linked_bin_check_enabled: bool,
-    /// Additional WAD files to exclude from overlay building.
-    #[serde(
-        default = "default_wad_blocklist",
-        deserialize_with = "deserialize_wad_blocklist"
-    )]
-    pub wad_blocklist: Vec<WadBlocklistEntry>,
     #[serde(default)]
     pub author_profiles: Vec<AuthorProfile>,
     #[serde(default)]
@@ -246,60 +207,18 @@ pub struct Settings {
     /// the "show performance warnings" setting if/when we add one.
     #[serde(default)]
     pub has_seen_hdd_warning: bool,
-    /// Run the injection host elevated (UAC). An elevated game can only be
-    /// injected by an equally elevated host, so this is required when League
-    /// runs as administrator. Off by default: when off, non-elevated users
-    /// avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
-    /// when League is detected configured to run as admin, regardless of this
-    /// flag (see `commands::patcher::start_patcher_inner`).
-    #[serde(default)]
-    pub elevate_injector: bool,
-    /// Whether to automatically categorize mods from their content (champions,
-    /// maps and content tags derived from the WAD/chunk footprint, surfaced as
-    /// "auto" suggestions and library filters). When off, only the categories
-    /// the user sets themselves are used. Default: true.
-    #[serde(default = "default_true")]
-    pub auto_categorization_enabled: bool,
-    /// Whether to enforce the anti-skinhack scan while patching. When on
-    /// (default), a champion WAD that fails the scan aborts patching. When off,
-    /// the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
-    /// downgraded to warnings and flagged mods load anyway. Default: true.
-    #[serde(default = "default_true")]
-    pub enforce_skinhack_scan: bool,
-    /// Whether mods' string overrides are applied to every installed locale
-    /// instead of only the locale the League client is configured to use.
-    /// Default: false (current locale only).
-    #[serde(default)]
-    pub apply_string_overrides_to_all_locales: bool,
-    /// Raise the injection host's log level from `Info` to `Debug`. The host and
-    /// the injected DLL decide their own verbosity from this, so it is the only
-    /// way to get their diagnostics out of a release build - `RUST_LOG` only
-    /// affects the manager's own tracing. Read at patcher start, so a change
-    /// takes effect on the next start. Default: false.
-    #[serde(default)]
-    pub verbose_patcher_logging: bool,
-    /// Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
-    /// WAD scan to the load stage instead of scanning every archive up front.
-    /// The overlay makes lazy scanning crash-prone, so the DLL only honours the
-    /// flag when the game has crash reporting disabled - with it enabled this is
-    /// inert rather than harmful. Default: false.
-    #[serde(default)]
-    pub lazy_wad_scan: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            league_path: None,
-            mod_storage_path: None,
-            workshop_path: None,
+            config: Config::default(),
             first_run_complete: false,
             theme: Theme::default(),
             accent_color: AccentColor::default(),
             backdrop_image: None,
             backdrop_blur: None,
             library_view_mode: None,
-            patch_tft: false,
             minimize_to_tray: true,
             start_in_tray: false,
             auto_run: false,
@@ -311,18 +230,9 @@ impl Default for Settings {
             kill_league_stops_patcher: true,
             trusted_domains: default_trusted_domains(),
             watcher_enabled: false,
-            block_scripts_wad: true,
-            linked_bin_check_enabled: true,
-            wad_blocklist: default_wad_blocklist(),
             author_profiles: vec![],
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
-            elevate_injector: false,
-            auto_categorization_enabled: true,
-            enforce_skinhack_scan: true,
-            apply_string_overrides_to_all_locales: false,
-            verbose_patcher_logging: false,
-            lazy_wad_scan: false,
         }
     }
 }
@@ -330,84 +240,88 @@ impl Default for Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ltk_manager_core::config::WadBlocklistEntry;
 
     #[test]
     fn settings_default_values() {
         let settings = Settings::default();
-        assert!(settings.league_path.is_none());
-        assert!(settings.mod_storage_path.is_none());
-        assert!(settings.workshop_path.is_none());
+        assert!(settings.config.league_path.is_none());
+        assert!(settings.config.mod_storage_path.is_none());
+        assert!(settings.config.workshop_path.is_none());
         assert!(!settings.first_run_complete);
         assert_eq!(settings.theme, Theme::System);
-        assert!(!settings.patch_tft);
+        assert!(!settings.config.patch_tft);
         assert!(settings.minimize_to_tray);
         assert!(!settings.migration_dismissed);
         assert!(settings.reload_mods_hotkey.is_none());
         assert!(settings.kill_league_hotkey.is_none());
         assert!(settings.kill_league_stops_patcher);
-        assert!(settings.block_scripts_wad);
-        assert!(settings.linked_bin_check_enabled);
-        assert!(settings.wad_blocklist.is_empty());
-        assert!(settings.auto_categorization_enabled);
-        assert!(settings.enforce_skinhack_scan);
-        assert!(!settings.apply_string_overrides_to_all_locales);
-        assert!(!settings.verbose_patcher_logging);
-        assert!(!settings.lazy_wad_scan);
+        assert!(settings.config.block_scripts_wad);
+        assert!(settings.config.linked_bin_check_enabled);
+        assert!(settings.config.wad_blocklist.is_empty());
+        assert!(settings.config.auto_categorization_enabled);
+        assert!(settings.config.enforce_skinhack_scan);
+        assert!(!settings.config.apply_string_overrides_to_all_locales);
+        assert!(!settings.config.verbose_patcher_logging);
+        assert!(!settings.config.lazy_wad_scan);
     }
 
     #[test]
     fn settings_json_round_trip() {
         let settings = Settings {
-            league_path: Some(PathBuf::from("/game")),
-            mod_storage_path: Some(PathBuf::from("/mods")),
-            workshop_path: None,
+            config: Config {
+                league_path: Some(PathBuf::from("/game")),
+                mod_storage_path: Some(PathBuf::from("/mods")),
+                patch_tft: true,
+                ..Config::default()
+            },
             first_run_complete: true,
             theme: Theme::Dark,
             accent_color: AccentColor {
                 preset: Some("purple".to_string()),
                 custom_hue: None,
             },
-            backdrop_image: None,
             backdrop_blur: Some(40),
             library_view_mode: Some("list".to_string()),
-            patch_tft: true,
-            minimize_to_tray: true,
-            start_in_tray: false,
-            auto_run: false,
-            start_in_tray_unless_update: false,
-            always_start_patcher: false,
-            migration_dismissed: false,
             reload_mods_hotkey: Some("Ctrl+Shift+R".to_string()),
-            kill_league_hotkey: None,
-            kill_league_stops_patcher: true,
             trusted_domains: vec!["runeforge.dev".to_string()],
-            watcher_enabled: false,
-            block_scripts_wad: true,
-            linked_bin_check_enabled: true,
-            wad_blocklist: vec![],
             author_profiles: vec![AuthorProfile {
                 id: "test-id".to_string(),
                 name: "Test Author".to_string(),
                 role: Some("3D Artist".to_string()),
             }],
             default_author_profile_id: Some("test-id".to_string()),
-            has_seen_hdd_warning: false,
-            elevate_injector: false,
-            auto_categorization_enabled: true,
-            enforce_skinhack_scan: true,
-            apply_string_overrides_to_all_locales: false,
-            verbose_patcher_logging: false,
-            lazy_wad_scan: false,
+            ..Settings::default()
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.league_path.unwrap(), PathBuf::from("/game"));
+        assert_eq!(
+            deserialized.config.league_path.unwrap(),
+            PathBuf::from("/game")
+        );
         assert!(deserialized.first_run_complete);
         assert_eq!(deserialized.author_profiles.len(), 1);
         assert_eq!(deserialized.author_profiles[0].name, "Test Author");
         assert_eq!(deserialized.default_author_profile_id.unwrap(), "test-id");
         assert_eq!(deserialized.theme, Theme::Dark);
-        assert!(deserialized.patch_tft);
+        assert!(deserialized.config.patch_tft);
+    }
+
+    /// The `Config` flatten must keep the on-disk format flat — config keys at
+    /// the top level, no nested `config` object.
+    #[test]
+    fn settings_serialize_flat() {
+        let settings = Settings {
+            config: Config {
+                league_path: Some(PathBuf::from("/game")),
+                ..Config::default()
+            },
+            ..Settings::default()
+        };
+        let json = serde_json::to_value(&settings).unwrap();
+        assert_eq!(json["leaguePath"], "/game");
+        assert_eq!(json["enforceSkinhackScan"], true);
+        assert!(json.get("config").is_none());
     }
 
     #[test]
@@ -437,8 +351,8 @@ mod tests {
     fn settings_deserializes_with_missing_optional_fields() {
         let json = r#"{"firstRunComplete": false, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false}"#;
         let settings: Settings = serde_json::from_str(json).unwrap();
-        assert!(settings.league_path.is_none());
-        assert!(settings.mod_storage_path.is_none());
+        assert!(settings.config.league_path.is_none());
+        assert!(settings.config.mod_storage_path.is_none());
         assert!(!settings.first_run_complete);
     }
 
@@ -450,15 +364,15 @@ mod tests {
             "wadBlocklist": ["Map12.wad.client", "Aatrox.wad.client"]
         }"#;
         let settings: Settings = serde_json::from_str(json).unwrap();
-        assert_eq!(settings.wad_blocklist.len(), 2);
+        assert_eq!(settings.config.wad_blocklist.len(), 2);
         assert_eq!(
-            settings.wad_blocklist[0],
+            settings.config.wad_blocklist[0],
             WadBlocklistEntry::Exact {
                 value: "Map12.wad.client".to_string()
             }
         );
         assert_eq!(
-            settings.wad_blocklist[1],
+            settings.config.wad_blocklist[1],
             WadBlocklistEntry::Exact {
                 value: "Aatrox.wad.client".to_string()
             }
@@ -466,68 +380,26 @@ mod tests {
     }
 
     #[test]
-    fn wad_blocklist_accepts_tagged_entries() {
-        let json = r#"{
-            "firstRunComplete": false, "theme": "system", "accentColor": {},
-            "patchTft": false, "migrationDismissed": false,
-            "wadBlocklist": [
-                { "kind": "exact", "value": "Map12.wad.client" },
-                { "kind": "regex", "value": "^map\\d+\\.en_us\\.wad\\.client$" }
-            ]
-        }"#;
-        let settings: Settings = serde_json::from_str(json).unwrap();
-        assert_eq!(settings.wad_blocklist.len(), 2);
-        assert!(matches!(
-            settings.wad_blocklist[0],
-            WadBlocklistEntry::Exact { .. }
-        ));
-        assert!(matches!(
-            settings.wad_blocklist[1],
-            WadBlocklistEntry::Regex { .. }
-        ));
-    }
-
-    #[test]
-    fn wad_blocklist_mixed_legacy_and_tagged() {
-        let json = r#"{
-            "firstRunComplete": false, "theme": "system", "accentColor": {},
-            "patchTft": false, "migrationDismissed": false,
-            "wadBlocklist": [
-                "Legacy.wad.client",
-                { "kind": "regex", "value": "^tft" }
-            ]
-        }"#;
-        let settings: Settings = serde_json::from_str(json).unwrap();
-        assert_eq!(settings.wad_blocklist.len(), 2);
-        assert_eq!(
-            settings.wad_blocklist[0],
-            WadBlocklistEntry::Exact {
-                value: "Legacy.wad.client".to_string()
-            }
-        );
-        assert_eq!(
-            settings.wad_blocklist[1],
-            WadBlocklistEntry::Regex {
-                value: "^tft".to_string()
-            }
-        );
-    }
-
-    #[test]
-    fn wad_blocklist_serializes_as_tagged() {
-        let entries = vec![
-            WadBlocklistEntry::Exact {
-                value: "foo.wad.client".to_string(),
+    fn wad_blocklist_serializes_as_tagged_through_settings() {
+        let settings = Settings {
+            config: Config {
+                wad_blocklist: vec![
+                    WadBlocklistEntry::Exact {
+                        value: "foo.wad.client".to_string(),
+                    },
+                    WadBlocklistEntry::Regex {
+                        value: "bar".to_string(),
+                    },
+                ],
+                ..Config::default()
             },
-            WadBlocklistEntry::Regex {
-                value: "bar".to_string(),
-            },
-        ];
-        let json = serde_json::to_value(&entries).unwrap();
-        assert_eq!(json[0]["kind"], "exact");
-        assert_eq!(json[0]["value"], "foo.wad.client");
-        assert_eq!(json[1]["kind"], "regex");
-        assert_eq!(json[1]["value"], "bar");
+            ..Settings::default()
+        };
+        let json = serde_json::to_value(&settings).unwrap();
+        assert_eq!(json["wadBlocklist"][0]["kind"], "exact");
+        assert_eq!(json["wadBlocklist"][0]["value"], "foo.wad.client");
+        assert_eq!(json["wadBlocklist"][1]["kind"], "regex");
+        assert_eq!(json["wadBlocklist"][1]["value"], "bar");
     }
 
     #[test]

@@ -2,7 +2,7 @@ use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
-use crate::state::{save_settings_to_disk, SettingsState};
+use crate::state::{persist_settings, SettingsState};
 use std::path::Path;
 use std::process::Command;
 use std::sync::atomic::Ordering;
@@ -64,10 +64,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     )?;
 
     // Best-effort LCU reconnect (in background - retries take time)
-    let league_path = {
-        let s = settings_state.0.lock().mutex_err()?;
-        s.league_path.clone()
-    };
+    let league_path = settings_state.config()?.league_path;
     if let Some(path) = league_path {
         std::thread::spawn(move || try_lcu_reconnect(&path));
     }
@@ -179,7 +176,7 @@ fn set_hotkey_inner(
         }
     }
 
-    save_settings_to_disk(app_handle, &s)?;
+    persist_settings(app_handle, &s)?;
     Ok(())
 }
 
@@ -241,10 +238,7 @@ fn hot_reload_mods_inner(
     )?;
 
     // Best-effort LCU reconnect (in background - retries take time)
-    let league_path = {
-        let s = settings.0.lock().mutex_err()?;
-        s.league_path.clone()
-    };
+    let league_path = settings.config()?.league_path;
     if let Some(path) = league_path {
         std::thread::spawn(move || try_lcu_reconnect(&path));
     }

@@ -12,7 +12,7 @@ use ts_rs::TS;
 
 use crate::error::{AppError, AppErrorResponse, AppResult, MutexResultExt};
 use crate::mods::ModLibrary;
-use crate::state::Settings;
+use ltk_manager_core::config::Config;
 
 use super::host::{HostConfig, HostLogLevel, PatcherHost};
 use super::injector::WadScanFailure;
@@ -80,7 +80,7 @@ impl PatcherEvents for TauriPatcherEvents {
 /// layer before the patcher state is claimed.
 pub(crate) struct SessionParams {
     pub injector_exe: PathBuf,
-    pub settings: Settings,
+    pub config: Config,
     pub library: ModLibrary,
     pub workshop_paths: Vec<PathBuf>,
     pub host_flags: u32,
@@ -95,7 +95,7 @@ pub struct PatcherThread {
     host: Arc<Mutex<Option<PatcherHost>>>,
     stop_flag: Arc<AtomicBool>,
     injector_exe: PathBuf,
-    settings: Settings,
+    config: Config,
     library: ModLibrary,
     workshop_paths: Vec<PathBuf>,
     host_flags: u32,
@@ -114,7 +114,7 @@ impl PatcherThread {
         app_handle: &AppHandle,
         state: &Arc<Mutex<PatcherStateInner>>,
         host: &Arc<Mutex<Option<PatcherHost>>>,
-        config: StoredPatcherConfig,
+        stored_config: StoredPatcherConfig,
         params: SessionParams,
     ) -> AppResult<()> {
         let mut patcher_state = state.lock().mutex_err()?;
@@ -124,7 +124,7 @@ impl PatcherThread {
 
         patcher_state.stop_flag.store(false, Ordering::SeqCst);
         patcher_state.phase = PatcherPhase::Building;
-        patcher_state.last_config = Some(config);
+        patcher_state.last_config = Some(stored_config);
 
         // Under the same lock so the session's failure path (which resets the
         // tray after locking the state) can't run before the flip to Loading.
@@ -137,7 +137,7 @@ impl PatcherThread {
 
         let SessionParams {
             injector_exe,
-            settings,
+            config,
             library,
             workshop_paths,
             host_flags,
@@ -150,7 +150,7 @@ impl PatcherThread {
             host: Arc::clone(host),
             stop_flag: Arc::clone(&patcher_state.stop_flag),
             injector_exe,
-            settings,
+            config,
             library,
             workshop_paths,
             host_flags,
@@ -175,7 +175,7 @@ impl PatcherThread {
         let (overlay_root, offender_count) =
             match self
                 .library
-                .ensure_overlay(&self.settings, &self.workshop_paths, false)
+                .ensure_overlay(&self.config, &self.workshop_paths, false)
             {
                 Ok(v) => v,
                 Err(e) => {
@@ -207,7 +207,7 @@ impl PatcherThread {
         // iterating over all linked bins in the mod, overlaying their paths,
         // and checking if they exist. This would allow us to show the user
         // the missing linked bins before they even start the patcher.
-        if self.settings.linked_bin_check_enabled && offender_count > 0 {
+        if self.config.linked_bin_check_enabled && offender_count > 0 {
             let _ = self.app_handle.emit(
                 "linked-bins-warning",
                 LinkedBinWarningPayload {
@@ -232,7 +232,7 @@ impl PatcherThread {
 
         let host_config = HostConfig {
             prefix: overlay_prefix,
-            log_level: if self.settings.verbose_patcher_logging {
+            log_level: if self.config.verbose_patcher_logging {
                 HostLogLevel::Debug
             } else {
                 HostLogLevel::Info

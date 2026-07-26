@@ -1,15 +1,16 @@
 //! Read-only utilities for resolving and inspecting a League game directory.
 
 use crate::error::{AppError, AppResult};
-use crate::state::Settings;
+use ltk_manager_core::config::Config;
 use std::path::{Path, PathBuf};
 
-/// Resolve the game directory (the one containing `DATA`) from settings.
+/// Resolve the game directory (the one containing `DATA`) from the configured
+/// League path.
 ///
 /// Users may configure either the install root (`…/League of Legends`) or the
 /// `Game` subdirectory directly; both are accepted.
-pub(crate) fn resolve_game_dir(settings: &Settings) -> AppResult<PathBuf> {
-    let league_root = settings
+pub(crate) fn resolve_game_dir(config: &Config) -> AppResult<PathBuf> {
+    let league_root = config
         .league_path
         .clone()
         .ok_or_else(|| AppError::ValidationFailed("League path is not configured".to_string()))?;
@@ -109,9 +110,9 @@ mod tests {
 
     #[test]
     fn resolve_game_dir_no_league_path() {
-        let settings = Settings::default();
+        let config = Config::default();
         assert_matches!(
-            resolve_game_dir(&settings),
+            resolve_game_dir(&config),
             Err(AppError::ValidationFailed(_))
         );
     }
@@ -121,11 +122,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("Game")).unwrap();
 
-        let settings = Settings {
+        let config = Config {
             league_path: Some(dir.path().to_path_buf()),
-            ..Settings::default()
+            ..Config::default()
         };
-        let result = resolve_game_dir(&settings).unwrap();
+        let result = resolve_game_dir(&config).unwrap();
         assert!(result.ends_with("Game"));
     }
 
@@ -134,23 +135,23 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("DATA")).unwrap();
 
-        let settings = Settings {
+        let config = Config {
             league_path: Some(dir.path().to_path_buf()),
-            ..Settings::default()
+            ..Config::default()
         };
-        let result = resolve_game_dir(&settings).unwrap();
+        let result = resolve_game_dir(&config).unwrap();
         assert_eq!(result, dir.path().to_path_buf());
     }
 
     #[test]
     fn resolve_game_dir_neither_dir() {
         let dir = tempfile::tempdir().unwrap();
-        let settings = Settings {
+        let config = Config {
             league_path: Some(dir.path().to_path_buf()),
-            ..Settings::default()
+            ..Config::default()
         };
         assert_matches!(
-            resolve_game_dir(&settings),
+            resolve_game_dir(&config),
             Err(AppError::ValidationFailed(_))
         );
     }

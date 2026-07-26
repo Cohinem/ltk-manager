@@ -28,17 +28,18 @@ pub async fn import_cslol_mods(
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
         reject_if_patcher_running(&patcher)?;
-        let settings = app_handle
+        let config = app_handle
             .state::<SettingsState>()
             .0
             .lock()
             .mutex_err()?
+            .config
             .clone();
         let library = app_handle.state::<ModLibraryState>().0.clone();
-        Ok((settings, library))
+        Ok((config, library))
     })();
 
-    let (settings, library) = match setup {
+    let (config, library) = match setup {
         Ok(v) => v,
         Err(e) => return IpcResult::from(Err::<BulkInstallResult, _>(e)),
     };
@@ -46,7 +47,7 @@ pub async fn import_cslol_mods(
     tauri::async_runtime::spawn_blocking(move || {
         crate::mods::import_cslol_mods(
             &library,
-            &settings,
+            &config,
             &app_handle,
             &PathBuf::from(&directory),
             &selected_folders,
