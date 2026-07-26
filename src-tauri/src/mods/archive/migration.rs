@@ -7,7 +7,8 @@ use std::io::{Read, Write};
 use std::path::Path;
 use ts_rs::TS;
 
-use super::{BulkInstallResult, ModLibrary};
+use crate::mods::types::BulkInstallResult;
+use crate::mods::ModLibrary;
 
 /// Metadata for a discovered cslol-manager mod, shown in the UI selection step.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

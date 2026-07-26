@@ -3,13 +3,15 @@ use ltk_manager_core::config::Config;
 use std::collections::HashSet;
 use uuid::Uuid;
 
-use super::{LibraryFolder, LibraryIndex, ModLibrary, ROOT_FOLDER_ID};
+use crate::mods::index::LibraryIndex;
+use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
+use crate::mods::ModLibrary;
 
 /// Flatten folder_order + folder contents into a linear mod ID sequence.
 ///
 /// Iterates folders in `folder_order` order, expanding each folder's `mod_ids`
 /// in place. This is the canonical derivation of `Profile.mod_order`.
-pub(super) fn flatten_folder_order(index: &LibraryIndex) -> Vec<String> {
+pub(crate) fn flatten_folder_order(index: &LibraryIndex) -> Vec<String> {
     let mut result = Vec::new();
     for folder_id in &index.folder_order {
         if let Some(folder) = index.folders.iter().find(|f| &f.id == folder_id) {
@@ -25,7 +27,7 @@ pub(super) fn flatten_folder_order(index: &LibraryIndex) -> Vec<String> {
 /// - Removes folder_order entries referencing nonexistent folders.
 /// - Appends untracked mods to the root folder.
 /// - Ensures all folders appear in folder_order.
-pub(super) fn sync_folders(index: &mut LibraryIndex) -> bool {
+pub(crate) fn sync_folders(index: &mut LibraryIndex) -> bool {
     let mut changed = false;
     let valid_ids: HashSet<&str> = index.mods.iter().map(|m| m.id.as_str()).collect();
 
@@ -355,7 +357,8 @@ impl ModLibrary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mods::{LibraryModEntry, ModArchiveFormat, Profile, ProfileSlug};
+    use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
+    use crate::mods::types::{Profile, ProfileSlug};
     use chrono::Utc;
     use std::collections::HashMap;
 

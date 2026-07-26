@@ -3,7 +3,8 @@ use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
-use super::{atomic_write_json, library_index_path, LibraryIndex, ROOT_FOLDER_ID};
+use super::{atomic_write_json, library_index_path, LibraryIndex};
+use crate::mods::types::ROOT_FOLDER_ID;
 
 /// Current schema version for the library index.
 /// Increment this when making breaking changes to the schema and add a

@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::fs;
 use uuid::Uuid;
 
-use super::{
-    get_active_profile, get_profile_by_id, resolve_profile_dirs, ModLibrary, Profile, ProfileSlug,
-};
+use crate::mods::index::{get_active_profile, get_profile_by_id, resolve_profile_dirs};
+use crate::mods::types::{Profile, ProfileSlug};
+use crate::mods::ModLibrary;
 
 impl ModLibrary {
     /// Create a new profile.

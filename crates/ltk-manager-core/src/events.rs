@@ -269,6 +269,18 @@ mod tests {
         .unwrap();
         assert_eq!(json["currentFile"], "x");
 
+        let json = serde_json::to_value(OverlayProgress {
+            stage: OverlayStage::Patching,
+            current_file: Some("test.wad.client".to_string()),
+            current: 5,
+            total: 10,
+        })
+        .unwrap();
+        assert_eq!(json["stage"], "patching");
+        assert_eq!(json["currentFile"], "test.wad.client");
+        assert_eq!(json["current"], 5);
+        assert_eq!(json["total"], 10);
+
         let json = serde_json::to_value(FantomeImportProgress {
             stage: FantomeImportStage::Finalizing,
             current_wad: Some("w".to_string()),
@@ -278,6 +290,21 @@ mod tests {
         .unwrap();
         assert_eq!(json["currentWad"], "w");
         assert_eq!(json["stage"], "finalizing");
+    }
+
+    /// Every overlay stage is a distinct string the frontend switches on, so a
+    /// renamed variant must not silently change what it serializes to.
+    #[test]
+    fn overlay_stages_serialize_to_their_wire_names() {
+        for (stage, expected) in [
+            (OverlayStage::Indexing, "\"indexing\""),
+            (OverlayStage::Collecting, "\"collecting\""),
+            (OverlayStage::Patching, "\"patching\""),
+            (OverlayStage::Strings, "\"strings\""),
+            (OverlayStage::Complete, "\"complete\""),
+        ] {
+            assert_eq!(serde_json::to_string(&stage).unwrap(), expected);
+        }
     }
 
     #[test]

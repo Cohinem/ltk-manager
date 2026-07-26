@@ -5,7 +5,7 @@
 //! They're produced as a side effect of [`crate::overlay::ensure_overlay`] and
 //! on demand via the `analyze_mod_wads` Tauri command.
 
-use super::DerivedCategorization;
+use super::categorize::DerivedCategorization;
 use crate::error::{AppResult, MutexResultExt};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
