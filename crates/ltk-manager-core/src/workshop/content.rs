@@ -3,20 +3,21 @@ use crate::error::{AppError, AppResult};
 use ltk_file::LeagueFileKind;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
-use ts_rs::TS;
 use walkdir::WalkDir;
 
 /// A project's content directory as a flat per-layer listing.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ContentTree {
     pub layers: Vec<LayerContent>,
 }
 
 /// The files inside a single layer directory.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct LayerContent {
     pub name: String,
@@ -26,8 +27,9 @@ pub struct LayerContent {
 }
 
 /// A single file entry in a layer's content directory.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ContentEntry {
     /// Path relative to the layer root, always POSIX-style (`/`).
@@ -39,8 +41,9 @@ pub struct ContentEntry {
 /// Mirror of [`ltk_file::LeagueFileKind`] with `ts-rs` bindings. Kept in sync
 /// manually — the upstream enum is small and stable, and mirroring lets us
 /// export a TypeScript union without fighting external crate attributes.
-#[derive(Debug, Clone, Copy, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "snake_case")]
 pub enum WorkshopFileKind {
     Animation,

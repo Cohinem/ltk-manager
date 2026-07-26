@@ -1,15 +1,15 @@
 use super::{
-    find_config_file, is_valid_project_name, load_workshop_project, CreateProjectArgs,
-    FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, SaveProjectConfigArgs, Workshop,
-    WorkshopProject,
+    CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs,
+    SaveProjectConfigArgs, Workshop, WorkshopProject, find_config_file, is_valid_project_name,
+    load_workshop_project,
 };
+use crate::config::Config;
 use crate::error::{AppError, AppResult};
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::{
+use crate::events::{
     BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
 };
 use ltk_mod_project::{
-    default_layers, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag,
+    ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, default_layers,
 };
 use ltk_modpkg::{Modpkg, ModpkgExtractor};
 use std::collections::HashSet;
@@ -655,10 +655,10 @@ fn scan_fantome_wad_names<R: Read + Seek>(archive: &mut ZipArchive<R>) -> AppRes
 
         if !relative.contains('/') && !file.is_dir() && is_wad_file_name(relative) {
             file_wads.insert(relative.to_string());
-        } else if let Some(wad_name) = relative.split('/').next() {
-            if is_wad_file_name(wad_name) {
-                dir_wads.insert(wad_name.to_string());
-            }
+        } else if let Some(wad_name) = relative.split('/').next()
+            && is_wad_file_name(wad_name)
+        {
+            dir_wads.insert(wad_name.to_string());
         }
     }
 

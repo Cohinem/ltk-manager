@@ -5,19 +5,31 @@ mod projects;
 
 pub use content::ContentTree;
 
+use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::events::EventSink;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::EventSink;
 use ltk_mod_project::{ModProject, ModProjectAuthor};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use ts_rs::TS;
+use thiserror::Error;
 
-pub use ltk_manager_core::workshop::WorkshopError;
+/// Domain errors specific to workshop operations.
+///
+/// Sent over IPC as the `context` payload of an `AppError` with code `WORKSHOP`.
+/// Frontend code can switch on `kind` to handle each variant.
+#[derive(Debug, Clone, Serialize, Deserialize, Error)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum WorkshopError {
+    /// One or more files already exist in the target layer directory.
+    #[error("File(s) already exist in target layer: {conflicts:?}")]
+    LayerFileConflict { conflicts: Vec<String> },
+}
 
 /// Managed struct that encapsulates workshop operations.
 ///
@@ -27,9 +39,6 @@ pub use ltk_manager_core::workshop::WorkshopError;
 pub struct Workshop {
     events: Arc<dyn EventSink>,
 }
-
-/// Tauri managed state wrapper for `Workshop`.
-pub struct WorkshopState(pub Workshop);
 
 impl Workshop {
     pub fn new(events: Arc<dyn EventSink>) -> Self {
@@ -47,11 +56,63 @@ impl Workshop {
             .clone()
             .ok_or(AppError::WorkshopNotConfigured)
     }
+
+    /// Open one of the workshop's project directories.
+    pub fn project(&self, project_path: &str) -> AppResult<ProjectDir> {
+        ProjectDir::open(project_path)
+    }
+}
+
+/// A project directory that existed when it was opened.
+///
+/// Editing a project needs nothing from [`Workshop`] — no config, no event
+/// sink, just the directory — so those operations live here instead of taking a
+/// path as their first argument. Constructing one is what proves the directory
+/// exists, which is why no method below repeats that check.
+pub struct ProjectDir(PathBuf);
+
+impl ProjectDir {
+    /// Open an existing project directory.
+    pub fn open(path: impl Into<PathBuf>) -> AppResult<Self> {
+        let path = path.into();
+        if !path.exists() {
+            return Err(AppError::ProjectNotFound(path.display().to_string()));
+        }
+        Ok(Self(path))
+    }
+
+    /// The directory this project lives in.
+    pub fn path(&self) -> &Path {
+        &self.0
+    }
+
+    /// The project's config file, whichever extension it uses.
+    pub(crate) fn config_file(&self) -> Option<PathBuf> {
+        find_config_file(&self.0)
+    }
+
+    /// Read the project's authoring config.
+    pub(crate) fn config(&self) -> AppResult<ModProject> {
+        Ok(ModProject::load(&self.0)?)
+    }
+
+    /// Write `config` back over the project's `mod.config.json`.
+    pub(crate) fn write_config(&self, config: &ModProject) -> AppResult<()> {
+        let contents = serde_json::to_string_pretty(config)?;
+        fs::write(self.0.join("mod.config.json"), contents)?;
+        Ok(())
+    }
+
+    /// Read the project as the frontend sees it.
+    pub fn load(&self) -> AppResult<WorkshopProject> {
+        load_workshop_project(&self.0)
+    }
 }
 
 /// A workshop project displayed in the UI.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopProject {
     /// Absolute path to the project directory
@@ -80,16 +141,18 @@ pub struct WorkshopProject {
     pub last_modified: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopAuthor {
     pub name: String,
     pub role: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopLayer {
     pub name: String,
@@ -101,8 +164,9 @@ pub struct WorkshopLayer {
 }
 
 /// Runtime info about a layer's content directory, fetched separately from config.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopLayerInfo {
     pub wad_files: Vec<String>,
@@ -112,7 +176,7 @@ pub struct WorkshopLayerInfo {
 ///
 /// Splits on hyphens and capitalizes the first letter of each word.
 /// Example: `"high-res"` → `"High Res"`, `"base"` → `"Base"`
-pub(crate) fn slug_to_display_name(slug: &str) -> String {
+pub fn slug_to_display_name(slug: &str) -> String {
     slug.split('-')
         .map(|word| {
             let mut chars = word.chars();
@@ -129,8 +193,9 @@ pub(crate) fn slug_to_display_name(slug: &str) -> String {
 }
 
 /// Metadata peeked from a .fantome archive without extracting content.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct FantomePeekResult {
     pub name: String,
@@ -142,8 +207,9 @@ pub struct FantomePeekResult {
 }
 
 /// Arguments for importing a .fantome archive.
-#[derive(Debug, Clone, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportFantomeArgs {
     pub file_path: String,
@@ -152,18 +218,20 @@ pub struct ImportFantomeArgs {
 }
 
 /// Arguments for importing a project from a GitHub repository.
-#[derive(Debug, Clone, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportGitRepoArgs {
     pub url: String,
-    #[ts(optional)]
+    #[cfg_attr(feature = "ts", ts(optional))]
     pub branch: Option<String>,
 }
 
 /// Arguments for creating a new project.
-#[derive(Debug, Clone, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateProjectArgs {
     pub name: String,
@@ -173,8 +241,9 @@ pub struct CreateProjectArgs {
 }
 
 /// Arguments for saving project configuration changes.
-#[derive(Debug, Clone, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct SaveProjectConfigArgs {
     pub project_path: String,
@@ -188,18 +257,20 @@ pub struct SaveProjectConfigArgs {
 }
 
 /// Arguments for packing a project.
-#[derive(Debug, Clone, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct PackProjectArgs {
     pub project_path: String,
-    #[ts(optional)]
+    #[cfg_attr(feature = "ts", ts(optional))]
     pub output_dir: Option<String>,
     pub format: PackFormat,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 pub enum PackFormat {
     Modpkg,
@@ -207,8 +278,9 @@ pub enum PackFormat {
 }
 
 /// Result of a successful pack operation.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct PackResult {
     pub output_path: String,
@@ -217,8 +289,9 @@ pub struct PackResult {
 }
 
 /// Result of adding files/folders to a layer.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct AddFilesReport {
     /// Basenames of items added to the layer directory.
@@ -226,8 +299,9 @@ pub struct AddFilesReport {
 }
 
 /// Validation result for a project.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationResult {
     pub valid: bool,
