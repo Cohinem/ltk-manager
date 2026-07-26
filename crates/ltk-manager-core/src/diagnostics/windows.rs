@@ -1,12 +1,12 @@
 //! OS-level diagnostic checks: Windows version, long-paths registry,
 //! UAC enabled. These don't depend on any user paths and run on app launch.
 
-use super::{check, Category, Check, Severity};
+use super::{Category, Check, Severity, check};
 
 #[cfg(target_os = "windows")]
-use super::win_util::{reg_read_num, HKLM};
+use super::win_util::{HKLM, reg_read_num};
 #[cfg(target_os = "windows")]
-use super::{check_ok, CheckDetail};
+use super::{CheckDetail, check_ok};
 
 #[cfg(target_os = "windows")]
 const MIN_OK_BUILD: u32 = 19045;

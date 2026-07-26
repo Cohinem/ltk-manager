@@ -40,7 +40,7 @@ pub(crate) fn resolve_string_override_mode(
 ///   can't break the whole patch.
 /// - `block_scripts_wad` and `!patch_tft` add their respective WADs.
 ///
-/// `available_wads` should come from `crate::utils::game::list_game_wads`; pass an empty slice if
+/// `available_wads` should come from [`GameDir::wads`](crate::utils::game::GameDir::wads); pass an empty slice if
 /// enumeration failed (regex entries then match nothing).
 pub(crate) fn resolve_blocked_wads(config: &Config, available_wads: &[String]) -> Vec<String> {
     let mut blocked: Vec<String> = Vec::new();

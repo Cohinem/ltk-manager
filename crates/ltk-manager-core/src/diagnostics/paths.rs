@@ -9,7 +9,7 @@
 
 use std::path::{Path, PathBuf};
 
-use super::{check, check_ok, Category, Check, CheckCtx, CheckDetail, Severity};
+use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
 
 #[cfg(target_os = "windows")]
 use super::win_util::has_cloud_sync_attrs;
@@ -67,11 +67,7 @@ fn free_disk_bytes(path: &Path) -> Option<u64> {
             ptr::null_mut(),
         )
     };
-    if ok == 0 {
-        None
-    } else {
-        Some(free)
-    }
+    if ok == 0 { None } else { Some(free) }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -285,12 +281,10 @@ pub fn check_storage_path(ctx: &CheckCtx) -> Check {
             t,
             summary_suffix
         );
-        c.suggestion = Some(
-            format!(
-                "Storage path appears to live under a {} folder. If sync is active this will cause patcher slowness and potential corruption — recommend moving storage out of any cloud-synced folder.",
-                t
-            ),
-        );
+        c.suggestion = Some(format!(
+            "Storage path appears to live under a {} folder. If sync is active this will cause patcher slowness and potential corruption — recommend moving storage out of any cloud-synced folder.",
+            t
+        ));
         c.details.push(CheckDetail::new("cloud_token", t));
     }
     c

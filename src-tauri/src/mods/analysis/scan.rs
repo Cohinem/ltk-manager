@@ -67,8 +67,9 @@ impl ModLibrary {
             }
         };
 
-        let roster =
-            ChampionRoster::from_internal_names(crate::utils::game::read_champion_names(game_dir));
+        let roster = ChampionRoster::from_internal_names(
+            crate::utils::game::GameDir::from_path(game_dir).champion_names(),
+        );
         let precise = DerivedCategorization::from_chunk_paths(&chunk_paths, &roster);
         if !precise.is_empty() {
             report.derived = precise;
@@ -87,8 +88,8 @@ impl ModLibrary {
         reports: &WadReportState,
         mod_id: &str,
     ) -> Option<ModWadReport> {
-        let game_dir = match crate::utils::game::resolve_game_dir(config) {
-            Ok(dir) => dir,
+        let game_dir = match crate::utils::game::GameDir::resolve(config) {
+            Ok(dir) => dir.into_path(),
             Err(e) => {
                 tracing::info!("Skipping WAD analysis for {mod_id}: {e}");
                 return None;

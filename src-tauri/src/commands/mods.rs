@@ -256,7 +256,7 @@ pub fn analyze_mod_wads(
 ) -> IpcResult<ModWadReport> {
     let result: AppResult<ModWadReport> = (|| {
         let config = settings.config()?;
-        let game_dir = crate::utils::game::resolve_game_dir(&config)?;
+        let game_dir = crate::utils::game::GameDir::resolve(&config)?.into_path();
         let (profile_dir, mut enabled_mod) =
             library.0.build_single_mod_provider(&config, &mod_id)?;
 

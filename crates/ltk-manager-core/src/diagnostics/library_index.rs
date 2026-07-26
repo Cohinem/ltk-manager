@@ -5,7 +5,7 @@
 //! is unparseable. This catches the corruption case fixed in commit e96dff9
 //! before the user hits a broken library that won't load at all.
 
-use super::{check, check_ok, Category, Check, CheckCtx, CheckDetail, Severity};
+use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
 
 const INDEX_FILENAME: &str = "mod_library_index.json";
 

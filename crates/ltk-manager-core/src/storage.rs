@@ -6,10 +6,10 @@
 //! storage lives on a spinning disk — builds on HDD can take 15–20 minutes.
 
 use serde::Serialize;
-use ts_rs::TS;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 // `Ssd` and `Hdd` are only constructed inside `windows_impl`; on other targets
 // this enum is still emitted for the shared ts-rs binding, so we suppress the
@@ -49,11 +49,11 @@ mod windows_impl {
     use windows_sys::Win32::Storage::FileSystem::{
         CreateFileW, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
     };
-    use windows_sys::Win32::System::Ioctl::{
-        PropertyStandardQuery, StorageDeviceSeekPenaltyProperty, DEVICE_SEEK_PENALTY_DESCRIPTOR,
-        IOCTL_STORAGE_QUERY_PROPERTY, STORAGE_PROPERTY_QUERY,
-    };
     use windows_sys::Win32::System::IO::DeviceIoControl;
+    use windows_sys::Win32::System::Ioctl::{
+        DEVICE_SEEK_PENALTY_DESCRIPTOR, IOCTL_STORAGE_QUERY_PROPERTY, PropertyStandardQuery,
+        STORAGE_PROPERTY_QUERY, StorageDeviceSeekPenaltyProperty,
+    };
 
     pub fn detect(path: &str) -> StorageMedium {
         let Some(device_path) = volume_device_path(path) else {

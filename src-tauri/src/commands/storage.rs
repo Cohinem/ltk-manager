@@ -1,5 +1,5 @@
 use crate::error::IpcResult;
-use crate::storage::{detect_path_storage_medium, StorageMedium};
+use ltk_manager_core::storage::{detect_path_storage_medium, StorageMedium};
 
 /// Detect whether the given path is on an SSD, HDD, or unknown medium.
 ///

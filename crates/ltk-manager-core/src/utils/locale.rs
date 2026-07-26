@@ -31,7 +31,7 @@ struct GlobalsSection {
 /// unavailable, falls back to the game's installed localized WADs
 /// (`DATA/FINAL/Localized/Global.{locale}.wad.client`) if exactly one locale is
 /// installed. Returns `None` when neither source is conclusive.
-pub(crate) fn detect_league_locale(game_dir: &Path) -> Option<String> {
+pub fn detect_league_locale(game_dir: &Path) -> Option<String> {
     if let Some(locale) = locale_from_client_settings(game_dir) {
         return Some(locale);
     }

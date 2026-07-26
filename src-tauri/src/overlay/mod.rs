@@ -42,7 +42,7 @@ impl ModLibrary {
 
         artifacts::flush_overlays_if_app_version_changed(&storage_dir);
 
-        let game_dir = crate::utils::game::resolve_game_dir(config)?;
+        let game_dir = crate::utils::game::GameDir::resolve(config)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
 
         let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
@@ -58,14 +58,14 @@ impl ModLibrary {
         tracing::info!("Overlay: storage_dir={}", storage_dir.display());
         tracing::info!("Overlay: profile_slug={}", profile_slug);
         tracing::info!("Overlay: overlay_root={}", overlay_root.display());
-        tracing::info!("Overlay: game_dir={}", game_dir.display());
+        tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
         let mods = self.collect_overlay_mods(workshop_project_paths, enabled_mods)?;
 
         let utf8_state_dir = profile_dir.try_into_utf8("profile directory")?;
         artifacts::clean_corrupt_overlay_state(&utf8_state_dir);
 
-        let available_wads = crate::utils::game::list_game_wads(&game_dir).unwrap_or_else(|e| {
+        let available_wads = game_dir.wads().unwrap_or_else(|e| {
             tracing::warn!(
                 "Failed to enumerate game WADs for regex expansion: {}; \
                  regex blocklist entries will match nothing",
@@ -74,12 +74,12 @@ impl ModLibrary {
             Vec::new()
         });
         let blocked_wads = resolve_blocked_wads(config, &available_wads);
-        let string_override_mode = resolve_string_override_mode(config, &game_dir);
+        let string_override_mode = resolve_string_override_mode(config, game_dir.path());
         tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
         tracing::info!("Overlay: string_override_mode={:?}", string_override_mode);
 
         let inputs = OverlayBuildInputs {
-            game_dir: game_dir.try_into_utf8("game directory")?,
+            game_dir: game_dir.into_path().try_into_utf8("game directory")?,
             overlay_root: overlay_root.clone().try_into_utf8("overlay root")?,
             state_dir: utf8_state_dir,
             blocked_wads,

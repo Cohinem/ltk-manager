@@ -211,17 +211,16 @@ fn download_key_list(dest: &Path) -> AppResult<PathBuf> {
 /// Any failure (unset league path, missing WAD/chunk, parse error) just means
 /// suggestions come without value previews.
 fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtable)> {
-    let game_dir = match crate::utils::game::resolve_game_dir(config) {
+    let game_dir = match crate::utils::game::GameDir::resolve(config) {
         Ok(dir) => dir,
         Err(e) => {
             tracing::debug!("String index: game dir unavailable: {}", e);
             return None;
         }
     };
-    let locale =
-        crate::utils::locale::detect_league_locale(&game_dir).unwrap_or_else(|| "en_us".into());
+    let locale = game_dir.locale().unwrap_or_else(|| "en_us".into());
 
-    let wad_path = find_localized_global_wad(&game_dir, &locale)?;
+    let wad_path = find_localized_global_wad(game_dir.path(), &locale)?;
     let file = std::fs::File::open(&wad_path).ok()?;
     let mut wad = ltk_wad::Wad::mount(file).ok()?;
 

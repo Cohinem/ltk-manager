@@ -6,7 +6,7 @@
 //! check here is the phase-1 detector; phase 2 will add full handle-owner
 //! enumeration via NtQuerySystemInformation.
 
-use super::{check, check_ok, Category, Check, CheckCtx, CheckDetail, Severity};
+use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
 
 #[cfg(target_os = "windows")]
 use super::win_util::is_file_locked;
@@ -169,9 +169,9 @@ pub fn check_dll_not_locked(ctx: &CheckCtx) -> Check {
 fn verify_authenticode(path: &std::path::Path) -> Result<i32, String> {
     use std::ptr;
     use windows_sys::Win32::Security::WinTrust::{
-        WinVerifyTrust, WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0,
-        WINTRUST_FILE_INFO, WTD_CHOICE_FILE, WTD_REVOKE_NONE, WTD_STATEACTION_CLOSE,
-        WTD_STATEACTION_VERIFY, WTD_UI_NONE,
+        WINTRUST_ACTION_GENERIC_VERIFY_V2, WINTRUST_DATA, WINTRUST_DATA_0, WINTRUST_FILE_INFO,
+        WTD_CHOICE_FILE, WTD_REVOKE_NONE, WTD_STATEACTION_CLOSE, WTD_STATEACTION_VERIFY,
+        WTD_UI_NONE, WinVerifyTrust,
     };
 
     let wide = super::win_util::path_to_wide(path);

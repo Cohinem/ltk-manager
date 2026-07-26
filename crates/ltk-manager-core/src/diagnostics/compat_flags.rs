@@ -17,12 +17,12 @@
 //! `reg delete` command for each. Phase 3 will add a one-click fix gated
 //! behind explicit confirmation.
 
-use super::{check, Category, Check, Severity};
+use super::{Category, Check, Severity, check};
 
 #[cfg(target_os = "windows")]
-use super::win_util::{reg_list_value_names, reg_read_str, ROOTS};
+use super::win_util::{ROOTS, reg_list_value_names, reg_read_str};
 #[cfg(target_os = "windows")]
-use super::{check_ok, CheckDetail};
+use super::{CheckDetail, check_ok};
 
 #[cfg(target_os = "windows")]
 const COMPAT_KEY: &str = "Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers";

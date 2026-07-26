@@ -4,8 +4,8 @@
 //! that explicitly so users see the same warning as the first-time setup
 //! flow even after they dismiss the banner.
 
-use super::{check, check_ok, Category, Check, CheckCtx, CheckDetail, Severity};
-use crate::storage::{detect_path_storage_medium, StorageMedium};
+use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
+use crate::storage::{StorageMedium, detect_path_storage_medium};
 
 pub fn check_storage_medium(ctx: &CheckCtx) -> Check {
     let Some(p) = ctx.mod_storage_path.as_ref() else {

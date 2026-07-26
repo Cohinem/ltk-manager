@@ -5,7 +5,6 @@
 
 mod commands;
 mod deep_link;
-mod diagnostics;
 mod error;
 mod events;
 mod hotkeys;
@@ -17,7 +16,6 @@ mod overlay;
 pub mod patcher;
 mod setup;
 mod state;
-mod storage;
 mod strings;
 mod tray;
 mod utils;

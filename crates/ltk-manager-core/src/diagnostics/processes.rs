@@ -4,10 +4,10 @@
 //! configuration is *non-elevated* manager + *non-elevated* League; running
 //! either as administrator breaks the patcher's process-injection.
 
-use super::{check, Category, Check, Severity};
+use super::{Category, Check, Severity, check};
 
 #[cfg(target_os = "windows")]
-use super::{check_ok, CheckDetail};
+use super::{CheckDetail, check_ok};
 
 #[cfg(target_os = "windows")]
 pub fn check_manager_not_admin() -> Check {
@@ -52,7 +52,7 @@ pub(crate) fn is_running_as_admin() -> bool {
     use std::ptr;
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::Security::{
-        GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
+        GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
     };
     use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
@@ -153,7 +153,7 @@ const LEAGUE_PROCESS_NAMES: &[&str] = &[
 fn list_running_league() -> Vec<(String, u32)> {
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
         TH32CS_SNAPPROCESS,
     };
 
