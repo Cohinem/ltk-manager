@@ -1,19 +1,18 @@
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
 use crate::patcher::injector::INJECTOR_EXE_NAME;
-use crate::patcher::thread::{PatcherThread, SessionParams};
+use crate::patcher::thread::TauriPatcherEvents;
 use crate::patcher::{
-    PatcherError, PatcherHostState, PatcherPhase, PatcherState, StoredPatcherConfig,
+    PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherState, PatcherThread,
+    SessionParams, StoredPatcherConfig,
 };
 use crate::state::SettingsState;
-use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use super::mods::reject_if_patcher_running;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Manager, State};
 use ts_rs::TS;
 
@@ -40,8 +39,8 @@ pub struct PatcherConfig {
 pub struct PatcherStatus {
     /// Whether the patcher is currently running.
     pub running: bool,
-    /// The config path the patcher was started with.
-    pub config_path: Option<String>,
+    /// Overlay prefix the running session was started with. `null` while idle.
+    pub overlay_prefix: Option<String>,
     /// Current phase of the patcher lifecycle.
     pub phase: PatcherPhase,
 }
@@ -151,7 +150,7 @@ pub(crate) fn start_patcher_inner(
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
 
-    // tray: we see if we are loading Workshop or Library based on the config
+    // Decides which tray icon set this session drives (workshop vs library).
     let is_workshop = config
         .workshop_projects
         .as_ref()
@@ -189,12 +188,15 @@ pub(crate) fn start_patcher_inner(
         host_flags |= crate::patcher::host::hook_flags::LAZY_WAD_SCAN;
     }
 
-    let should_elevate = resolve_should_elevate(&config_snapshot);
+    let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);
+
+    let events: Arc<dyn PatcherEvents> =
+        Arc::new(TauriPatcherEvents::new(app_handle.clone(), is_workshop));
 
     PatcherThread::start(
-        app_handle,
-        &state.0,
-        &host_state.0,
+        events,
+        state.handle(),
+        host_state.handle(),
         StoredPatcherConfig {
             flags: config.flags,
             workshop_projects: config.workshop_projects,
@@ -206,23 +208,8 @@ pub(crate) fn start_patcher_inner(
             workshop_paths,
             host_flags,
             should_elevate,
-            is_workshop,
         },
     )
-}
-
-/// Whether to spawn the host with `--elevate`: when the user opts in or League
-/// runs as admin, but never when the manager is already elevated (a spawned host
-/// inherits its integrity, making the UAC bridge redundant).
-fn resolve_should_elevate(config: &Config) -> bool {
-    let manager_elevated = ltk_manager_core::diagnostics::manager_is_elevated();
-    let league_admin = ltk_manager_core::diagnostics::league_configured_as_admin();
-    let should_elevate = !manager_elevated && (config.elevate_injector || league_admin);
-    tracing::info!(
-        "Injector elevation = {should_elevate} (opt_in={}, league_admin={league_admin}, manager_elevated={manager_elevated})",
-        config.elevate_injector
-    );
-    should_elevate
 }
 
 /// Stop the running patcher.
@@ -232,16 +219,11 @@ pub fn stop_patcher(state: State<PatcherState>) -> IpcResult<()> {
 }
 
 pub(crate) fn stop_patcher_inner(state: &State<PatcherState>) -> AppResult<()> {
-    let patcher_state = state.0.lock().mutex_err()?;
-
-    if !patcher_state.is_running() {
+    if !state.request_stop()? {
         return Err(PatcherError::NotRunning.into());
     }
 
     tracing::info!("Stopping patcher...");
-
-    patcher_state.stop_flag.store(true, Ordering::SeqCst);
-
     Ok(())
 }
 
@@ -281,29 +263,29 @@ pub fn get_patcher_status(state: State<PatcherState>) -> IpcResult<PatcherStatus
 }
 
 fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherStatus> {
-    let mut patcher_state = state.0.lock().mutex_err()?;
+    state.with_mut(|patcher_state| {
+        let running = patcher_state.is_running();
 
-    let running = patcher_state.is_running();
+        // Defensive reset: if the thread has died but phase wasn't reset (e.g. panic),
+        // correct it so the UI doesn't get stuck.
+        if !running && patcher_state.phase != PatcherPhase::Idle {
+            tracing::warn!(
+                "Patcher thread dead but phase was {:?}, resetting to Idle",
+                patcher_state.phase
+            );
+            patcher_state.phase = PatcherPhase::Idle;
+            patcher_state.overlay_prefix = None;
+        }
 
-    // Defensive reset: if the thread has died but phase wasn't reset (e.g. panic),
-    // correct it so the UI doesn't get stuck.
-    if !running && patcher_state.phase != PatcherPhase::Idle {
-        tracing::warn!(
-            "Patcher thread dead but phase was {:?}, resetting to Idle",
-            patcher_state.phase
-        );
-        patcher_state.phase = PatcherPhase::Idle;
-        patcher_state.config_path = None;
-    }
-
-    Ok(PatcherStatus {
-        running,
-        config_path: if running {
-            patcher_state.config_path.clone()
-        } else {
-            None
-        },
-        phase: patcher_state.phase,
+        PatcherStatus {
+            running,
+            overlay_prefix: if running {
+                patcher_state.overlay_prefix.clone()
+            } else {
+                None
+            },
+            phase: patcher_state.phase,
+        }
     })
 }
 

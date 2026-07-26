@@ -11,18 +11,9 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
+use super::events::PatcherEvents;
 use super::host::{HostConfig, HostError, HostLine, PatcherHost};
-use super::injector::{Injector, InjectorError, InjectorEvent, WadScanFailure};
-
-/// Notable conditions the patcher core surfaces to the embedding application
-/// while a session runs. The Tauri shell adapts these to UI events; a CLI can
-/// map them to log output. Grows as more of the patcher orchestration moves
-/// into core (phase changes, errors, linked-bin warnings).
-pub trait PatcherEvents: Send {
-    /// One or more archives failed the injected DLL's integrity scan, so no
-    /// mods were applied and the session auto-stops.
-    fn wad_scan_failed(&self, failures: Vec<WadScanFailure>);
-}
+use super::injector::{Injector, InjectorError, InjectorEvent};
 
 /// Fatal error from one injection session.
 #[derive(Debug, thiserror::Error)]
@@ -52,13 +43,13 @@ pub fn normalize_overlay_prefix(prefix: &str) -> String {
 /// starts the scan, and drives the injector's event loop. On exit the host's
 /// event stream is handed back for reuse by the next session - unless the host
 /// died, in which case it is cleared so the next start respawns.
-pub fn run_injection_session<E: PatcherEvents + 'static>(
+pub fn run_injection_session(
     host: &Arc<Mutex<Option<PatcherHost>>>,
     injector_exe: &Path,
     elevate: bool,
     config: &HostConfig,
     stop_flag: &AtomicBool,
-    events: E,
+    events: Arc<dyn PatcherEvents>,
 ) -> Result<(), SessionError> {
     let host_lines = ensure_host_started(host, injector_exe, elevate, config)?;
 

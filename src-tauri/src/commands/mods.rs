@@ -269,8 +269,7 @@ pub fn analyze_mod_wads(
 
 /// Reject the operation if the patcher is currently running.
 pub(super) fn reject_if_patcher_running(patcher: &State<PatcherState>) -> AppResult<()> {
-    let state = patcher.0.lock().mutex_err()?;
-    if state.is_running() {
+    if patcher.is_running()? {
         return Err(PatcherError::Busy.into());
     }
     Ok(())

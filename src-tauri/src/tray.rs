@@ -5,7 +5,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent}
 use tauri::Manager;
 
 // states, profiles and workshop
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AppTrayState {
     Default,

@@ -5,7 +5,6 @@ use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{persist_settings, SettingsState};
 use std::path::Path;
 use std::process::Command;
-use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use super::patcher::{start_patcher_inner, PatcherConfig};
@@ -20,10 +19,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     let library_state = app_handle.state::<ModLibraryState>();
 
     // Get the last config before stopping
-    let last_config = {
-        let ps = patcher_state.0.lock().mutex_err()?;
-        ps.last_config.clone()
-    };
+    let last_config = patcher_state.with(|ps| ps.last_config.clone())?;
 
     let config = match last_config {
         Some(c) => c,
@@ -33,13 +29,8 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         }
     };
 
-    // Stop patcher if running
-    {
-        let ps = patcher_state.0.lock().mutex_err()?;
-        if ps.is_running() {
-            tracing::trace!("Hot reload: stopping patcher...");
-            ps.stop_flag.store(true, Ordering::SeqCst);
-        }
+    if patcher_state.request_stop()? {
+        tracing::trace!("Hot reload: stopping patcher...");
     }
 
     wait_for_patcher_stop(&patcher_state)?;
@@ -85,12 +76,9 @@ pub(crate) fn execute_kill_league(app_handle: &AppHandle) -> AppResult<()> {
     };
 
     if should_stop_patcher {
-        let ps = patcher_state.0.lock().mutex_err()?;
-        if ps.is_running() {
+        if patcher_state.request_stop()? {
             tracing::trace!("Kill league: also stopping patcher");
-            ps.stop_flag.store(true, Ordering::SeqCst);
         }
-        drop(ps);
         wait_for_patcher_stop(&patcher_state)?;
     }
 
@@ -180,33 +168,18 @@ fn set_hotkey_inner(
     Ok(())
 }
 
-/// Kill League of Legends process, optionally stopping the patcher.
+/// Kill the League of Legends process, optionally stopping the patcher first.
+///
+/// Runs on a blocking thread rather than inline: stopping the patcher waits up
+/// to 5 s for the session thread to wind down, which would otherwise hold the
+/// IPC handler for the whole duration. Shares [`execute_kill_league`] with the
+/// hotkey path so the two cannot drift.
 #[tauri::command]
-pub fn kill_league(state: State<PatcherState>, settings: State<SettingsState>) -> IpcResult<()> {
-    kill_league_inner(&state, &settings).into()
-}
-
-fn kill_league_inner(
-    state: &State<PatcherState>,
-    settings: &State<SettingsState>,
-) -> AppResult<()> {
-    let should_stop_patcher = {
-        let s = settings.0.lock().mutex_err()?;
-        s.kill_league_stops_patcher
-    };
-
-    if should_stop_patcher {
-        let ps = state.0.lock().mutex_err()?;
-        if ps.is_running() {
-            tracing::info!("Kill league: also stopping patcher");
-            ps.stop_flag.store(true, Ordering::SeqCst);
-        }
-        drop(ps);
-        wait_for_patcher_stop(state)?;
-    }
-
-    kill_league_process();
-    Ok(())
+pub async fn kill_league(app_handle: AppHandle) -> IpcResult<()> {
+    tauri::async_runtime::spawn_blocking(move || execute_kill_league(&app_handle))
+        .await
+        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
+        .into()
 }
 
 // ── Helpers ──
@@ -215,11 +188,8 @@ fn kill_league_inner(
 fn wait_for_patcher_stop(state: &PatcherState) -> AppResult<()> {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
-        {
-            let ps = state.0.lock().mutex_err()?;
-            if !ps.is_running() {
-                return Ok(());
-            }
+        if !state.is_running()? {
+            return Ok(());
         }
         if std::time::Instant::now() > deadline {
             return Err(AppError::Other(

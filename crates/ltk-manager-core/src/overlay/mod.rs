@@ -9,35 +9,42 @@ mod artifacts;
 mod build;
 mod resolve;
 
+pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
 use crate::config::Config;
 use crate::error::{AppResult, Utf8PathExt};
 use crate::events::BackendEvent;
 use crate::mods::ModLibrary;
-use build::{OverlayBuildInputs, OverlayBuildOutcome};
 use std::path::PathBuf;
 use std::sync::Arc;
+
+/// One completed overlay build: where it landed, plus everything it learned.
+pub struct OverlayBuild {
+    /// The overlay root directory - the prefix the patcher is pointed at.
+    pub overlay_root: PathBuf,
+    /// What the build found. Advisory data for badges and reports; pass it to
+    /// [`ModLibrary::record_overlay_build`] to persist and announce it, or drop
+    /// it if the frontend has no use for it.
+    pub outcome: OverlayBuildOutcome,
+}
 
 impl ModLibrary {
     /// Ensure the overlay exists and is up-to-date for the current enabled mod set.
     ///
-    /// Returns the overlay root directory (the prefix passed to the legacy patcher)
-    /// and the number of mods whose property-bins reference linked dependencies that
-    /// don't resolve against the overlay WADs they land in (0 when everything
-    /// resolves). The offenders themselves are recorded into [`LinkedBinState`] and
-    /// announced via the `linked-bins-updated` event so the library badges can refresh.
+    /// Builds and returns; persisting what the build found is a separate step
+    /// ([`Self::record_overlay_build`]). A caller that only wants the overlay —
+    /// a CLI, say — therefore doesn't silently mutate the badge caches or fire
+    /// UI events as a side effect of asking for one.
     ///
     /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
     /// to the enabled mod list so they take highest priority.
-    ///
-    /// [`LinkedBinState`]: crate::mods::LinkedBinState
     pub fn ensure_overlay(
         &self,
         config: &Config,
         workshop_project_paths: &[PathBuf],
         force_rebuild: bool,
-    ) -> AppResult<(PathBuf, usize)> {
+    ) -> AppResult<OverlayBuild> {
         let storage_dir = self.storage_dir(config)?;
 
         artifacts::flush_overlays_if_app_version_changed(&storage_dir, self.app_version());
@@ -88,14 +95,14 @@ impl ModLibrary {
         };
 
         let progress_events = Arc::clone(self.events());
-        let outcome = build::build_overlay(inputs, move |progress| {
+        let outcome = build_overlay(inputs, move |progress| {
             progress_events.emit(BackendEvent::OverlayProgress(progress));
         })?;
 
-        let offender_count = outcome.linked_bin_offenders.len();
-        self.record_build_outcome(outcome);
-
-        Ok((overlay_root, offender_count))
+        Ok(OverlayBuild {
+            overlay_root,
+            outcome,
+        })
     }
 
     /// Prepend workshop projects to the enabled mods so they take highest priority.
@@ -135,7 +142,7 @@ impl ModLibrary {
         Ok(all_mods)
     }
 
-    /// Persist what the build found and tell the frontend the snapshots moved.
+    /// Persist what a build found and tell the frontend the snapshots moved.
     ///
     /// Both halves are advisory UI data, so a failure to record either one is
     /// logged and swallowed — a patch that worked must not be reported as failed
@@ -144,7 +151,7 @@ impl ModLibrary {
     /// `OverlayBuilder::build()` emits its own `Complete` progress event before
     /// returning, so the frontend can see the build finish before these land.
     /// The dedicated events are how it learns the caches are ready to query.
-    fn record_build_outcome(&self, outcome: OverlayBuildOutcome) {
+    pub fn record_overlay_build(&self, outcome: OverlayBuildOutcome) {
         match self.linked_bins().record(outcome.linked_bin_offenders) {
             Ok(()) => self.events().emit(BackendEvent::LinkedBinsUpdated),
             Err(e) => tracing::warn!("Failed to record linked-bin offenders: {}", e),
@@ -167,7 +174,12 @@ impl ModLibrary {
     /// would otherwise reuse a stale or incorrectly-built overlay WAD — its reuse
     /// decision keys on the mod set and content, not on the overlay's actual bytes
     /// or the builder version.
-    pub fn rebuild_overlay(&self, config: &Config) -> AppResult<(PathBuf, usize)> {
-        self.ensure_overlay(config, &[], true)
+    ///
+    /// Records the build, since refreshing the stale badge caches is half of what
+    /// the user is asking for when they reach for this.
+    pub fn rebuild_overlay(&self, config: &Config) -> AppResult<PathBuf> {
+        let build = self.ensure_overlay(config, &[], true)?;
+        self.record_overlay_build(build.outcome);
+        Ok(build.overlay_root)
     }
 }
