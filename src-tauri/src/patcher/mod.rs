@@ -1,46 +1,75 @@
-pub mod api;
-pub mod runner;
+//! Patcher state owned by the Tauri shell.
+//!
+//! The session thread, its lifecycle state and the line protocol all live in the
+//! Tauri-free core crate; what stays here is the managed-state wrappers Tauri
+//! registers and the [`thread`] adapter that maps core notifications to UI
+//! events.
+//!
+//! The legacy in-process implementation (`api.rs` / `runner.rs`, which loaded
+//! the patcher DLL into the manager process and interfered with Vanguard) was
+//! deleted here; it was superseded by the external host in `c0ecc27` and is
+//! recoverable from history if the native reimplementation ever wants it.
+
 pub mod thread;
 
-// Host process management, the injector event loop, and per-session
-// orchestration live in the Tauri-free core crate; re-exported here so the
-// shell keeps its `crate::patcher::…` paths while the extraction proceeds.
-pub use ltk_manager_core::patcher::{host, injector, session, PatcherError};
+pub use ltk_manager_core::patcher::{
+    host, injector, session, PatcherError, PatcherEvents, PatcherPhase, PatcherStateInner,
+    PatcherThread, SessionParams, StoredPatcherConfig,
+};
 
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
 
+use crate::error::{AppResult, MutexResultExt};
 use ltk_manager_core::patcher::host::PatcherHost;
-use serde::Serialize;
-use ts_rs::TS;
 
-/// Current phase of the patcher lifecycle.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub enum PatcherPhase {
-    Idle,
-    Building,
-    Patching,
-}
-
-pub struct PatcherState(pub Arc<Mutex<PatcherStateInner>>);
+/// Tauri-managed patcher lifecycle state.
+///
+/// The inner `Arc` is private on purpose: every accessor below either takes a
+/// closure or does one bounded operation, so no caller can hold the patcher lock
+/// across a blocking wait or a second lock. [`Self::handle`] is the one way out,
+/// for handing the shared state to the core session thread.
+pub struct PatcherState(Arc<Mutex<PatcherStateInner>>);
 
 impl PatcherState {
     pub fn new() -> Self {
         Self(Arc::new(Mutex::new(PatcherStateInner::new())))
     }
-}
 
-/// Tauri-managed handle to the persistent host. `None` until the first patcher
-/// start spawns it (lazy start); cleared when the host dies so the next start
-/// respawns.
-pub struct PatcherHostState(pub Arc<Mutex<Option<PatcherHost>>>);
+    /// The shared state itself, for [`PatcherThread::start`].
+    pub fn handle(&self) -> &Arc<Mutex<PatcherStateInner>> {
+        &self.0
+    }
 
-impl Default for PatcherHostState {
-    fn default() -> Self {
-        Self(Arc::new(Mutex::new(None)))
+    /// Read the state under the lock. The closure bounds the guard's lifetime.
+    pub fn with<T>(&self, f: impl FnOnce(&PatcherStateInner) -> T) -> AppResult<T> {
+        let inner = self.0.lock().mutex_err()?;
+        Ok(f(&inner))
+    }
+
+    /// Mutate the state under the lock.
+    pub fn with_mut<T>(&self, f: impl FnOnce(&mut PatcherStateInner) -> T) -> AppResult<T> {
+        let mut inner = self.0.lock().mutex_err()?;
+        Ok(f(&mut inner))
+    }
+
+    /// Whether a patching session is currently live.
+    pub fn is_running(&self) -> AppResult<bool> {
+        self.with(PatcherStateInner::is_running)
+    }
+
+    /// Ask a running session to stop, reporting whether there was one.
+    ///
+    /// Only signals — the session unwinds on its own thread, so callers that
+    /// need it *gone* must still wait for the handle to finish.
+    pub fn request_stop(&self) -> AppResult<bool> {
+        self.with(|inner| {
+            let running = inner.is_running();
+            if running {
+                inner.stop_flag.store(true, Ordering::SeqCst);
+            }
+            running
+        })
     }
 }
 
@@ -50,48 +79,32 @@ impl Default for PatcherState {
     }
 }
 
-/// Stored patcher configuration for hot-reload (re-start with the same options).
-#[derive(Debug, Clone)]
-pub struct StoredPatcherConfig {
-    pub flags: Option<u64>,
-    pub workshop_projects: Option<Vec<String>>,
-}
+/// Tauri-managed handle to the persistent host. `None` until the first patcher
+/// start spawns it (lazy start); cleared when the host dies so the next start
+/// respawns.
+pub struct PatcherHostState(Arc<Mutex<Option<PatcherHost>>>);
 
-pub struct PatcherStateInner {
-    /// Flag to signal the patcher thread to stop.
-    pub stop_flag: Arc<AtomicBool>,
-    /// Handle to the patcher thread.
-    pub thread_handle: Option<JoinHandle<()>>,
-    /// The config path used when starting.
-    pub config_path: Option<String>,
-    /// Current phase of the patcher lifecycle.
-    pub phase: PatcherPhase,
-    /// Last patcher config used, for hot-reload.
-    pub last_config: Option<StoredPatcherConfig>,
-}
-
-impl PatcherStateInner {
-    pub fn new() -> Self {
-        Self {
-            stop_flag: Arc::new(AtomicBool::new(false)),
-            thread_handle: None,
-            config_path: None,
-            phase: PatcherPhase::Idle,
-            last_config: None,
-        }
+impl PatcherHostState {
+    /// The shared slot itself, for [`PatcherThread::start`] — which spawns into
+    /// it lazily and clears it when the host dies.
+    pub fn handle(&self) -> &Arc<Mutex<Option<PatcherHost>>> {
+        &self.0
     }
 
-    pub fn is_running(&self) -> bool {
-        self.thread_handle
-            .as_ref()
-            .map(|h| !h.is_finished())
-            .unwrap_or(false)
+    /// Take the host out of managed state, leaving it empty.
+    ///
+    /// Ownership moves to the caller so the (possibly long) shutdown happens
+    /// with the lock released. A poisoned lock yields `None`: there is nothing
+    /// useful to do with a host whose owner panicked, and the `Drop` safety net
+    /// still kills the process.
+    pub fn take(&self) -> Option<PatcherHost> {
+        self.0.lock().ok()?.take()
     }
 }
 
-impl Default for PatcherStateInner {
+impl Default for PatcherHostState {
     fn default() -> Self {
-        Self::new()
+        Self(Arc::new(Mutex::new(None)))
     }
 }
 
@@ -100,40 +113,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn patcher_state_inner_defaults_to_idle() {
-        let inner = PatcherStateInner::new();
-        assert_eq!(inner.phase, PatcherPhase::Idle);
-        assert!(inner.thread_handle.is_none());
-        assert!(inner.config_path.is_none());
-    }
-
-    #[test]
-    fn is_running_false_when_no_thread() {
-        let inner = PatcherStateInner::new();
-        assert!(!inner.is_running());
-    }
-
-    #[test]
-    fn patcher_phase_serialization() {
-        assert_eq!(
-            serde_json::to_string(&PatcherPhase::Idle).unwrap(),
-            "\"idle\""
-        );
-        assert_eq!(
-            serde_json::to_string(&PatcherPhase::Building).unwrap(),
-            "\"building\""
-        );
-        assert_eq!(
-            serde_json::to_string(&PatcherPhase::Patching).unwrap(),
-            "\"patching\""
-        );
-    }
-
-    #[test]
     fn patcher_host_state_defaults_to_empty() {
         let state = PatcherHostState::default();
         assert!(
-            state.0.lock().unwrap().is_none(),
+            state.take().is_none(),
             "no host until the first patcher start spawns one (lazy start)"
         );
     }
@@ -141,8 +124,18 @@ mod tests {
     #[test]
     fn patcher_state_new_creates_valid_state() {
         let state = PatcherState::new();
-        let inner = state.0.lock().unwrap();
-        assert!(!inner.is_running());
-        assert_eq!(inner.phase, PatcherPhase::Idle);
+        assert!(!state.is_running().unwrap());
+        assert_eq!(state.with(|inner| inner.phase).unwrap(), PatcherPhase::Idle);
+    }
+
+    /// Stopping an idle patcher is a no-op that says so, rather than arming the
+    /// flag for whatever session starts next.
+    #[test]
+    fn request_stop_reports_no_session_and_leaves_the_flag_clear() {
+        let state = PatcherState::new();
+        assert!(!state.request_stop().unwrap());
+        assert!(!state
+            .with(|inner| inner.stop_flag.load(Ordering::SeqCst))
+            .unwrap());
     }
 }

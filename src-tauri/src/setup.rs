@@ -115,18 +115,13 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
     if let tauri::RunEvent::Exit = event {
         if let Some(patcher_state) = app_handle.try_state::<PatcherState>() {
-            if let Ok(ps) = patcher_state.0.lock() {
-                ps.stop_flag
-                    .store(true, std::sync::atomic::Ordering::SeqCst);
-            }
+            let _ = patcher_state.request_stop();
         }
 
         if let Some(host_state) = app_handle.try_state::<PatcherHostState>() {
-            if let Ok(mut guard) = host_state.0.lock() {
-                if let Some(mut host) = guard.take() {
-                    tracing::info!("App exiting: shutting down injection host");
-                    host.shutdown();
-                }
+            if let Some(mut host) = host_state.take() {
+                tracing::info!("App exiting: shutting down injection host");
+                host.shutdown();
             }
         }
     }

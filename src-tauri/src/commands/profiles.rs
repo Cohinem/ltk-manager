@@ -1,4 +1,4 @@
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{ModLibraryState, Profile};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -68,14 +68,12 @@ pub fn switch_mod_profile(
     patcher_state: State<PatcherState>,
 ) -> IpcResult<Profile> {
     let result: AppResult<Profile> = (|| {
-        let patcher = patcher_state.0.lock().mutex_err()?;
-        if patcher.is_running() {
+        if patcher_state.is_running()? {
             return Err(AppError::Other(
                 "Cannot switch profiles while patcher is running. Please stop the patcher first."
                     .to_string(),
             ));
         }
-        drop(patcher);
 
         let config = settings.config()?;
         library.0.switch_profile(&config, profile_id)
@@ -94,14 +92,12 @@ pub fn rename_mod_profile(
     patcher_state: State<PatcherState>,
 ) -> IpcResult<Profile> {
     let result: AppResult<Profile> = (|| {
-        let patcher = patcher_state.0.lock().mutex_err()?;
-        if patcher.is_running() {
+        if patcher_state.is_running()? {
             return Err(AppError::Other(
                 "Cannot rename profiles while patcher is running. Please stop the patcher first."
                     .to_string(),
             ));
         }
-        drop(patcher);
 
         let config = settings.config()?;
         library.0.rename_profile(&config, profile_id, new_name)

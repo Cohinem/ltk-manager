@@ -10,9 +10,9 @@ export type PatcherStatus = {
  */
 running: boolean, 
 /**
- * The config path the patcher was started with.
+ * Overlay prefix the running session was started with. `null` while idle.
  */
-configPath: string | null, 
+overlayPrefix: string | null, 
 /**
  * Current phase of the patcher lifecycle.
  */

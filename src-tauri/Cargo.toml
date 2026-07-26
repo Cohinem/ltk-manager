@@ -38,7 +38,6 @@ toml = "0.8"
 indexmap = { workspace = true }
 
 tokio = { version = "1", features = ["full"] }
-libloading = "0.9.0"
 
 serde = { workspace = true }
 serde_json = { workspace = true }
