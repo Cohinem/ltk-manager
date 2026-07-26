@@ -15,21 +15,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use thiserror::Error;
 use ts_rs::TS;
 
-/// Domain errors specific to workshop operations.
-///
-/// Sent over IPC as the `context` payload of an `AppError` with code `WORKSHOP`.
-/// Frontend code can switch on `kind` to handle each variant.
-#[derive(Debug, Clone, Serialize, Deserialize, Error, TS)]
-#[ts(export)]
-#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum WorkshopError {
-    /// One or more files already exist in the target layer directory.
-    #[error("File(s) already exist in target layer: {conflicts:?}")]
-    LayerFileConflict { conflicts: Vec<String> },
-}
+pub use ltk_manager_core::workshop::WorkshopError;
 
 /// Managed struct that encapsulates workshop operations.
 ///
