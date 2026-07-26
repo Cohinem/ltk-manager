@@ -1,11 +1,11 @@
+use crate::config::Config;
 use crate::error::{AppError, AppResult};
-use ltk_manager_core::config::Config;
 use std::collections::HashSet;
 use uuid::Uuid;
 
+use crate::mods::ModLibrary;
 use crate::mods::index::LibraryIndex;
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
-use crate::mods::ModLibrary;
 
 /// Flatten folder_order + folder contents into a linear mod ID sequence.
 ///
@@ -72,11 +72,11 @@ pub(crate) fn sync_folders(index: &mut LibraryIndex) -> bool {
         .map(|m| m.id.clone())
         .collect();
 
-    if !untracked.is_empty() {
-        if let Some(root) = index.folders.iter_mut().find(|f| f.id == ROOT_FOLDER_ID) {
-            root.mod_ids.extend(untracked);
-            changed = true;
-        }
+    if !untracked.is_empty()
+        && let Some(root) = index.folders.iter_mut().find(|f| f.id == ROOT_FOLDER_ID)
+    {
+        root.mod_ids.extend(untracked);
+        changed = true;
     }
 
     changed

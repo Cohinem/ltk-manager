@@ -12,13 +12,10 @@ mod hotkeys;
 mod log_layer;
 mod logging;
 mod mods;
-mod overlay;
 pub mod patcher;
 mod setup;
 mod state;
-mod strings;
 mod tray;
-mod utils;
 mod workshop;
 
 fn main() {

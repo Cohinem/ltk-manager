@@ -20,15 +20,18 @@ use std::path::Path;
 /// fix would otherwise never reach users who already have an overlay on disk.
 /// Gating on the app version forces one clean rebuild after each update.
 ///
+/// `app_version` is the *host application's* version, passed in rather than read
+/// from `CARGO_PKG_VERSION`: that would resolve to this crate's version, which
+/// does not move when the app ships a release, so the flush would never fire.
+///
 /// Best-effort: a marker file under `storage_dir` records the version that last
 /// built overlays. Failures are logged, never fatal.
-pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path) {
-    const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path, app_version: &str) {
     let marker = storage_dir.join(".overlay-build-version");
 
     let up_to_date = std::fs::read_to_string(&marker)
         .ok()
-        .is_some_and(|v| v.trim() == APP_VERSION);
+        .is_some_and(|v| v.trim() == app_version);
     if up_to_date {
         return;
     }
@@ -44,10 +47,10 @@ pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path) {
     }
 
     let _ = std::fs::create_dir_all(storage_dir);
-    match std::fs::write(&marker, APP_VERSION) {
+    match std::fs::write(&marker, app_version) {
         Ok(()) => tracing::info!(
             "Flushed cached overlays for app version {} (overlay build logic may have changed)",
-            APP_VERSION
+            app_version
         ),
         Err(e) => tracing::warn!(
             "Failed to write overlay build-version marker {}: {}",
@@ -66,14 +69,14 @@ pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path) {
 /// keeps it and only a manual full rebuild drops it.
 pub(super) fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bool) {
     let overlay_dir = profile_dir.join("overlay");
-    if overlay_dir.exists() {
-        if let Err(e) = std::fs::remove_dir_all(&overlay_dir) {
-            tracing::warn!(
-                "Failed to remove overlay directory {}: {}",
-                overlay_dir.display(),
-                e
-            );
-        }
+    if overlay_dir.exists()
+        && let Err(e) = std::fs::remove_dir_all(&overlay_dir)
+    {
+        tracing::warn!(
+            "Failed to remove overlay directory {}: {}",
+            overlay_dir.display(),
+            e
+        );
     }
 
     let mut files = vec![
@@ -84,14 +87,14 @@ pub(super) fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bo
         files.push(profile_dir.join("game_index.bin"));
     }
     for file in files {
-        if file.exists() {
-            if let Err(e) = std::fs::remove_file(&file) {
-                tracing::warn!(
-                    "Failed to remove overlay artifact {}: {}",
-                    file.display(),
-                    e
-                );
-            }
+        if file.exists()
+            && let Err(e) = std::fs::remove_file(&file)
+        {
+            tracing::warn!(
+                "Failed to remove overlay artifact {}: {}",
+                file.display(),
+                e
+            );
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::error::{AppError, AppResult, IpcResult, MutexResultExt, Utf8PathExt};
 use crate::mods::{
-    inspect_modpkg_file, BulkInstallResult, InstalledMod, ModLibraryState, ModWadReport,
-    ModpkgInfo, WadReportState,
+    inspect_modpkg_file, BulkInstallResult, EditModMetadataArgs, InstalledMod, ModLibraryState,
+    ModWadReport, ModpkgInfo, WadReportState,
 };
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -146,20 +146,6 @@ pub fn enable_mod_with_layers(
     result.into()
 }
 
-#[derive(Debug, serde::Deserialize, ts_rs::TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct EditModMetadataArgs {
-    pub display_name: Option<String>,
-    pub tags: Option<Vec<String>>,
-    pub champions: Option<Vec<String>>,
-    pub maps: Option<Vec<String>>,
-    #[serde(default)]
-    pub set_thumbnail_path: Option<String>,
-    #[serde(default)]
-    pub remove_thumbnail: Option<bool>,
-}
-
 /// Edit a mod's metadata (name, tags, champions, maps).
 #[tauri::command]
 pub fn edit_mod_metadata(
@@ -256,7 +242,7 @@ pub fn analyze_mod_wads(
 ) -> IpcResult<ModWadReport> {
     let result: AppResult<ModWadReport> = (|| {
         let config = settings.config()?;
-        let game_dir = crate::utils::game::GameDir::resolve(&config)?.into_path();
+        let game_dir = ltk_manager_core::utils::game::GameDir::resolve(&config)?.into_path();
         let (profile_dir, mut enabled_mod) =
             library.0.build_single_mod_provider(&config, &mod_id)?;
 

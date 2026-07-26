@@ -176,7 +176,7 @@ pub struct WorkshopLayerInfo {
 ///
 /// Splits on hyphens and capitalizes the first letter of each word.
 /// Example: `"high-res"` → `"High Res"`, `"base"` → `"Base"`
-pub fn slug_to_display_name(slug: &str) -> String {
+pub(crate) fn slug_to_display_name(slug: &str) -> String {
     slug.split('-')
         .map(|word| {
             let mut chars = word.chars();

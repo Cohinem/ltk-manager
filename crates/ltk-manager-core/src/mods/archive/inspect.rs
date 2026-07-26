@@ -3,11 +3,11 @@ use ltk_modpkg::Modpkg;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;
-use ts_rs::TS;
 
 /// Information returned by `inspect_modpkg`.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ModpkgInfo {
     pub name: String,
@@ -20,8 +20,9 @@ pub struct ModpkgInfo {
     pub total_size: u64,
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct LayerInfo {
     pub name: String,

@@ -8,11 +8,11 @@ use crate::mods::index::LibraryIndex;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use ts_rs::TS;
 
 /// Slugified profile name used as the filesystem directory name.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(transparent)]
 pub struct ProfileSlug(pub String);
 
@@ -20,15 +20,11 @@ impl ProfileSlug {
     /// Create a slug from a profile name. Returns `None` if the name produces an empty slug.
     pub fn from_name(name: &str) -> Option<Self> {
         let s = slug::slugify(name);
-        if s.is_empty() {
-            None
-        } else {
-            Some(Self(s))
-        }
+        if s.is_empty() { None } else { Some(Self(s)) }
     }
 
     /// Check whether this slug is unique among profiles in the index.
-    pub fn is_unique_in(&self, index: &LibraryIndex, exclude_id: Option<&str>) -> bool {
+    pub(crate) fn is_unique_in(&self, index: &LibraryIndex, exclude_id: Option<&str>) -> bool {
         !index
             .profiles
             .iter()
@@ -53,8 +49,9 @@ impl From<String> for ProfileSlug {
 }
 
 /// A mod profile for organizing different mod configurations.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
     /// Unique identifier (UUID)
@@ -78,8 +75,9 @@ pub struct Profile {
 }
 
 /// A mod layer shown in the UI.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ModLayer {
     pub name: String,
@@ -90,8 +88,9 @@ pub struct ModLayer {
 }
 
 /// A mod entry shown in the UI Library.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct InstalledMod {
     pub id: String,
@@ -112,9 +111,26 @@ pub struct InstalledMod {
     pub folder_id: Option<String>,
 }
 
+/// Fields to change on a mod's metadata. `None` leaves a field untouched.
+#[derive(Debug, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct EditModMetadataArgs {
+    pub display_name: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub champions: Option<Vec<String>>,
+    pub maps: Option<Vec<String>>,
+    #[serde(default)]
+    pub set_thumbnail_path: Option<String>,
+    #[serde(default)]
+    pub remove_thumbnail: Option<bool>,
+}
+
 /// A named folder for grouping mods in the library.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryFolder {
     pub id: String,
@@ -126,8 +142,9 @@ pub struct LibraryFolder {
 pub const ROOT_FOLDER_ID: &str = "root";
 
 /// Result of a bulk mod install operation.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct BulkInstallResult {
     pub installed: Vec<InstalledMod>,
@@ -135,8 +152,9 @@ pub struct BulkInstallResult {
 }
 
 /// Error info for a single file that failed during bulk install.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct BulkInstallError {
     pub file_path: String,
@@ -158,10 +176,11 @@ mod tests {
     fn profile_slug_from_name_special_chars() {
         let slug = ProfileSlug::from_name("Test & Profile #1").unwrap();
         assert!(!slug.as_str().is_empty());
-        assert!(slug
-            .as_str()
-            .chars()
-            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'));
+        assert!(
+            slug.as_str()
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        );
     }
 
     #[test]

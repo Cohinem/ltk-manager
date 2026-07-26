@@ -1,2 +1,6 @@
 *.sh text eol=lf
 public/third-party-licenses.json text eol=lf
+
+# ts-rs writes LF; without this every `cargo test` leaves the whole directory
+# looking modified on CRLF checkouts.
+src/lib/bindings/*.ts text eol=lf

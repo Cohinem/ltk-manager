@@ -7,14 +7,14 @@
 //! can't. All of it is best-effort: a mod that fails analysis stays
 //! uncategorized rather than failing its install.
 
+use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::events::BackendEvent;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::{
     ChampionRoster, DerivedCategorization, ModLibrary, ModWadReport, WadReportState,
 };
 use camino::Utf8PathBuf;
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::BackendEvent;
 use ltk_modpkg::Modpkg;
 use std::fs::File;
 use std::path::Path;

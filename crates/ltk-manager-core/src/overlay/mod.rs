@@ -11,11 +11,11 @@ mod resolve;
 
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
+use crate::config::Config;
 use crate::error::{AppResult, Utf8PathExt};
+use crate::events::BackendEvent;
 use crate::mods::ModLibrary;
 use build::{OverlayBuildInputs, OverlayBuildOutcome};
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::BackendEvent;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -40,7 +40,7 @@ impl ModLibrary {
     ) -> AppResult<(PathBuf, usize)> {
         let storage_dir = self.storage_dir(config)?;
 
-        artifacts::flush_overlays_if_app_version_changed(&storage_dir);
+        artifacts::flush_overlays_if_app_version_changed(&storage_dir, self.app_version());
 
         let game_dir = crate::utils::game::GameDir::resolve(config)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;

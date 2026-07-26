@@ -12,6 +12,6 @@ pub(super) mod reconcile;
 pub(super) mod schema_migration;
 
 pub(crate) use document::{
-    atomic_write_json, get_active_profile, get_profile_by_id, library_index_path,
-    resolve_profile_dirs, LibraryIndex, LibraryModEntry, ModArchiveFormat,
+    LibraryIndex, LibraryModEntry, ModArchiveFormat, atomic_write_json, get_active_profile,
+    get_profile_by_id, library_index_path, resolve_profile_dirs,
 };
