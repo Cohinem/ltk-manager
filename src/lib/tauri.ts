@@ -138,7 +138,6 @@ export const api = {
   resumeHotkeys: () => invokeResult<void>("resume_hotkeys"),
   setHotkey: (action: HotkeyAction, accelerator: string | null) =>
     invokeResult<void>("set_hotkey", { action, accelerator }),
-  hotReloadMods: () => invokeResult<void>("hot_reload_mods"),
   killLeague: () => invokeResult<void>("kill_league"),
 
   // Profiles

@@ -106,7 +106,6 @@ fn main() {
             commands::pause_hotkeys,
             commands::resume_hotkeys,
             commands::set_hotkey,
-            commands::hot_reload_mods,
             commands::kill_league,
             // Profiles
             commands::list_mod_profiles,
