@@ -6,7 +6,7 @@ use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::protocol::{HostConfig, proto};
+use super::protocol::{HostConfig, command};
 
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
@@ -76,38 +76,31 @@ impl HostProcess {
     /// Send a raw command line to the host's stdin.
     pub fn send_command(&mut self, cmd: &str) -> Result<(), HostError> {
         let stdin = self.child.stdin.as_mut().ok_or(HostError::StdinClosed)?;
-        tracing::debug!("[ltk-host] >> {}", cmd);
-        writeln!(stdin, "{}", cmd).map_err(|_| HostError::StdinClosed)?;
-        stdin.flush().map_err(|_| HostError::StdinClosed)?;
-        Ok(())
-    }
-
-    /// Send one `config <key> <value>` command.
-    fn send_config(&mut self, key: &str, value: impl std::fmt::Display) -> Result<(), HostError> {
-        self.send_command(&format!("{} {} {}", proto::CMD_CONFIG, key, value))
+        write_line(stdin, cmd)
     }
 
     /// Send all config commands derived from a `HostConfig`.
     pub fn configure(&mut self, config: &HostConfig) -> Result<(), HostError> {
-        self.send_config(proto::CONFIG_LOGLEVEL, config.log_level as u32)?;
-        self.send_config(proto::CONFIG_FLAGS, config.flags)?;
-        self.send_config(proto::CONFIG_PREFIX, &config.prefix)
+        for line in command::configure(config) {
+            self.send_command(&line)?;
+        }
+        Ok(())
     }
 
     /// Send `start scan` to begin host-driven injection.
     pub fn start_scan(&mut self) -> Result<(), HostError> {
-        self.send_command(&format!("{} {}", proto::CMD_START, proto::METHOD_SCAN))
+        self.send_command(&command::start_scan())
     }
 
     /// Send `start passive` for modding-framework integration.
     #[allow(dead_code)]
     pub fn start_passive(&mut self) -> Result<(), HostError> {
-        self.send_command(&format!("{} {}", proto::CMD_START, proto::METHOD_PASSIVE))
+        self.send_command(&command::start_passive())
     }
 
     /// Send `stop` to tear down the current injection session.
     pub fn stop_session(&mut self) -> Result<(), HostError> {
-        self.send_command(proto::CMD_STOP)
+        self.send_command(command::STOP)
     }
 
     /// Take stdout and wrap it in a buffered line reader for event parsing.
@@ -170,5 +163,97 @@ impl HostProcess {
     pub fn kill(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+/// Write one command line to a host's stdin.
+///
+/// Split out from [`HostProcess::send_command`] so the framing is testable
+/// without a child process: the host reads line-at-a-time, so an extra newline
+/// makes it see a blank command and a missing flush leaves it waiting for input
+/// that is sitting in our buffer.
+fn write_line<W: Write>(sink: &mut W, line: &str) -> Result<(), HostError> {
+    tracing::debug!("[ltk-host] >> {}", line);
+    writeln!(sink, "{}", line).map_err(|_| HostError::StdinClosed)?;
+    sink.flush().map_err(|_| HostError::StdinClosed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::patcher::host::HostLogLevel;
+    use assert_matches::assert_matches;
+    use std::io;
+
+    /// A sink that fails on exactly one of write/flush, to prove both paths map
+    /// to `StdinClosed`.
+    struct FailingSink {
+        fail_flush: bool,
+    }
+
+    impl Write for FailingSink {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            if self.fail_flush {
+                Ok(buf.len())
+            } else {
+                Err(io::Error::new(io::ErrorKind::BrokenPipe, "stdin closed"))
+            }
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            if self.fail_flush {
+                Err(io::Error::new(io::ErrorKind::BrokenPipe, "stdin closed"))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[test]
+    fn write_line_terminates_with_exactly_one_newline() {
+        let mut sink = Vec::new();
+        write_line(&mut sink, "start scan").unwrap();
+        assert_eq!(String::from_utf8(sink).unwrap(), "start scan\n");
+    }
+
+    #[test]
+    fn write_line_does_not_separate_commands_with_blank_lines() {
+        let mut sink = Vec::new();
+        for line in command::configure(&HostConfig {
+            prefix: "overlay\\".to_string(),
+            log_level: HostLogLevel::Info,
+            flags: 0,
+        }) {
+            write_line(&mut sink, &line).unwrap();
+        }
+        assert_eq!(
+            String::from_utf8(sink).unwrap(),
+            "config loglevel 16\nconfig flags 0\nconfig prefix overlay\\\n"
+        );
+    }
+
+    #[test]
+    fn write_line_reports_a_dead_pipe_as_stdin_closed() {
+        let mut sink = FailingSink { fail_flush: false };
+        assert_matches!(write_line(&mut sink, "stop"), Err(HostError::StdinClosed));
+    }
+
+    /// A write that lands in the buffer but never reaches the host is still a
+    /// dead pipe - the failure must not be swallowed by the `writeln!` success.
+    #[test]
+    fn write_line_reports_a_failed_flush_as_stdin_closed() {
+        let mut sink = FailingSink { fail_flush: true };
+        assert_matches!(write_line(&mut sink, "stop"), Err(HostError::StdinClosed));
+    }
+
+    #[test]
+    fn spawn_reports_a_missing_host_binary_with_the_path_it_tried() {
+        let missing = std::env::temp_dir().join("ltk-manager-no-such-host.exe");
+        let Err(error) = HostProcess::spawn(&missing, false) else {
+            panic!("spawning a missing binary should fail");
+        };
+        assert_matches!(error, HostError::Spawn { path, .. } => {
+            assert!(path.contains("ltk-manager-no-such-host"), "path was {path}");
+        });
     }
 }

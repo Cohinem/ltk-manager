@@ -2,7 +2,7 @@
 
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
-use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::{self, JoinHandle};
 
 use super::process::{HostError, HostProcess};
@@ -23,9 +23,7 @@ pub type HostLine = std::io::Result<String>;
 /// hands it back via [`Self::restore_events`].
 pub struct PatcherHost {
     proc: HostProcess,
-    /// Receiver for the persistent reader thread's lines. `None` while a session
-    /// has borrowed it (see [`Self::take_events`]).
-    events: Option<Receiver<HostLine>>,
+    events: EventStream,
     reader_handle: Option<JoinHandle<()>>,
     stderr_handle: Option<JoinHandle<()>>,
     /// Whether the host was spawned with `--elevate`. A change in the desired
@@ -48,21 +46,11 @@ impl PatcherHost {
         };
 
         let (tx, rx) = mpsc::channel::<HostLine>();
-        let reader_handle = thread::spawn(move || {
-            for line in reader.lines() {
-                let is_err = line.is_err();
-                // Stop on a send failure (receiver gone) or the first read error;
-                // EOF ends `lines()` naturally and drops `tx`, disconnecting the
-                // channel so the consuming session observes the host's exit.
-                if tx.send(line).is_err() || is_err {
-                    break;
-                }
-            }
-        });
+        let reader_handle = thread::spawn(move || forward_lines(reader, tx));
 
         Ok(Self {
             proc,
-            events: Some(rx),
+            events: EventStream(Some(rx)),
             reader_handle: Some(reader_handle),
             stderr_handle,
             elevated: elevate,
@@ -95,23 +83,9 @@ impl PatcherHost {
     }
 
     /// Discard buffered lines left over from a previous session and report
-    /// whether the stream is still usable.
-    ///
-    /// Returns `false` if the receiver is missing (a session panicked while
-    /// holding it) or disconnected (the reader thread died even though the
-    /// process may still be alive) - reusing such a host would make every
-    /// future session fail instantly, so it must be respawned.
+    /// whether the stream is still usable. See [`EventStream::drain`].
     pub fn drain_events(&mut self) -> bool {
-        let Some(rx) = &self.events else {
-            return false;
-        };
-        loop {
-            match rx.try_recv() {
-                Ok(_) => {}
-                Err(TryRecvError::Empty) => return true,
-                Err(TryRecvError::Disconnected) => return false,
-            }
-        }
+        self.events.drain()
     }
 
     /// Borrow the host's line stream for the duration of a session. Returns
@@ -124,7 +98,7 @@ impl PatcherHost {
     /// Hand the line stream back after a session ends, so the next one can reuse
     /// this host.
     pub fn restore_events(&mut self, events: Receiver<HostLine>) {
-        self.events = Some(events);
+        self.events.restore(events);
     }
 
     /// Gracefully stop the host: close stdin (with a kill fallback) and join the
@@ -148,6 +122,59 @@ impl Drop for PatcherHost {
     }
 }
 
+/// The host's stdout line stream, borrowed by one session at a time.
+///
+/// Its own type so the borrow protocol - and the "disconnected means respawn"
+/// rule [`Self::drain`] encodes - can be exercised without a child process.
+struct EventStream(Option<Receiver<HostLine>>);
+
+impl EventStream {
+    /// Discard buffered lines left over from a previous session and report
+    /// whether the stream is still usable.
+    ///
+    /// Returns `false` if the receiver is missing (a session panicked while
+    /// holding it) or disconnected (the reader thread died even though the
+    /// process may still be alive) - reusing such a host would make every
+    /// future session fail instantly, so it must be respawned.
+    fn drain(&mut self) -> bool {
+        let Some(rx) = &self.0 else {
+            return false;
+        };
+        loop {
+            match rx.try_recv() {
+                Ok(_) => {}
+                Err(TryRecvError::Empty) => return true,
+                Err(TryRecvError::Disconnected) => return false,
+            }
+        }
+    }
+
+    fn take(&mut self) -> Option<Receiver<HostLine>> {
+        self.0.take()
+    }
+
+    fn restore(&mut self, events: Receiver<HostLine>) {
+        self.0 = Some(events);
+    }
+}
+
+/// Forward every line the host writes onto `tx` until EOF, a read error, or the
+/// receiver going away.
+///
+/// Nothing is sent to mark the end: EOF ends `lines()` naturally and drops `tx`,
+/// and it is that channel disconnect a waiting session reads as "the host
+/// exited".
+fn forward_lines<R: BufRead>(reader: R, tx: Sender<HostLine>) {
+    for line in reader.lines() {
+        let is_err = line.is_err();
+        // Stop on a send failure (receiver gone) or the first read error; a
+        // stream that has already errored will not recover.
+        if tx.send(line).is_err() || is_err {
+            break;
+        }
+    }
+}
+
 /// Forward the host's stderr on a background thread for startup diagnostics.
 fn forward_stderr<R: Read + Send + 'static>(stream: R) -> JoinHandle<()> {
     thread::spawn(move || {
@@ -161,4 +188,124 @@ fn forward_stderr<R: Read + Send + 'static>(stream: R) -> JoinHandle<()> {
             }
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    /// Yields one chunk, then fails - a pipe that dies mid-stream.
+    struct BreaksAfter(Option<&'static str>);
+
+    impl Read for BreaksAfter {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            match self.0.take() {
+                Some(text) => {
+                    buf[..text.len()].copy_from_slice(text.as_bytes());
+                    Ok(text.len())
+                }
+                None => Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "host pipe broke",
+                )),
+            }
+        }
+    }
+
+    fn collect(rx: &Receiver<HostLine>) -> Vec<String> {
+        rx.try_iter().filter_map(Result::ok).collect()
+    }
+
+    #[test]
+    fn forward_lines_strips_terminators_and_preserves_order() {
+        let (tx, rx) = mpsc::channel();
+        forward_lines(Cursor::new("status 1.0 injecting\r\nok 2.0 done\n"), tx);
+        assert_eq!(collect(&rx), ["status 1.0 injecting", "ok 2.0 done"]);
+    }
+
+    /// The session's only signal that the host exited: no sentinel line, just a
+    /// disconnected channel once the reader returns.
+    #[test]
+    fn forward_lines_disconnects_the_channel_at_eof() {
+        let (tx, rx) = mpsc::channel();
+        forward_lines(Cursor::new("ok 1.0 done\n"), tx);
+        assert!(rx.recv().is_ok());
+        assert_matches::assert_matches!(rx.recv(), Err(_), "channel should be disconnected");
+    }
+
+    #[test]
+    fn forward_lines_forwards_a_read_error_then_stops() {
+        let (tx, rx) = mpsc::channel();
+        forward_lines(BufReader::new(BreaksAfter(Some("ok 1.0 done\n"))), tx);
+        let received: Vec<HostLine> = rx.try_iter().collect();
+        assert_eq!(received.len(), 2, "the good line and the error");
+        assert_eq!(received[0].as_ref().unwrap(), "ok 1.0 done");
+        assert!(received[1].is_err());
+    }
+
+    /// A session that goes away must not wedge the reader thread on a full or
+    /// dead channel - it returns instead of looping forever.
+    #[test]
+    fn forward_lines_returns_when_the_receiver_is_gone() {
+        let (tx, rx) = mpsc::channel();
+        drop(rx);
+        forward_lines(Cursor::new("a\nb\nc\n"), tx);
+    }
+
+    #[test]
+    fn drain_discards_the_previous_session_leftovers_and_keeps_the_stream() {
+        let (tx, rx) = mpsc::channel();
+        tx.send(Ok("dll 1.0 1 1 info stale".to_string())).unwrap();
+        tx.send(Ok("ok 2.0 stale".to_string())).unwrap();
+        let mut stream = EventStream(Some(rx));
+
+        assert!(stream.drain());
+
+        let rx = stream.take().unwrap();
+        assert!(collect(&rx).is_empty(), "leftovers should be gone");
+    }
+
+    /// The reader thread dying is invisible to `is_alive` - the process can
+    /// outlive its own stdout - so `drain` is what forces the respawn.
+    #[test]
+    fn drain_rejects_a_stream_whose_reader_died() {
+        let (tx, rx) = mpsc::channel::<HostLine>();
+        drop(tx);
+        assert!(!EventStream(Some(rx)).drain());
+    }
+
+    /// A session that panicked while holding the stream never restored it; the
+    /// host is unusable for the next one.
+    #[test]
+    fn drain_rejects_a_stream_a_session_never_gave_back() {
+        assert!(!EventStream(None).drain());
+    }
+
+    #[test]
+    fn take_then_restore_hands_the_same_stream_back() {
+        let (tx, rx) = mpsc::channel();
+        let mut stream = EventStream(Some(rx));
+
+        let borrowed = stream.take().unwrap();
+        assert!(stream.take().is_none(), "only one session may hold it");
+
+        stream.restore(borrowed);
+        tx.send(Ok("ok 1.0 next session".to_string())).unwrap();
+        assert_eq!(collect(&stream.take().unwrap()), ["ok 1.0 next session"]);
+    }
+
+    #[test]
+    fn forward_stderr_ends_at_eof() {
+        forward_stderr(Cursor::new("warning: no signature\n\n"))
+            .join()
+            .expect("stderr forwarder should not panic");
+    }
+
+    #[test]
+    fn forward_stderr_ends_on_a_read_error() {
+        forward_stderr(BreaksAfter(Some("warning\n")))
+            .join()
+            .expect("stderr forwarder should not panic");
+    }
 }

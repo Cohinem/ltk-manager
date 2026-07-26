@@ -5,7 +5,7 @@ pub mod thread;
 // Host process management, the injector event loop, and per-session
 // orchestration live in the Tauri-free core crate; re-exported here so the
 // shell keeps its `crate::patcher::…` paths while the extraction proceeds.
-pub use ltk_manager_core::patcher::{host, injector, session};
+pub use ltk_manager_core::patcher::{host, injector, session, PatcherError};
 
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
