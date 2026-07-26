@@ -1,7 +1,7 @@
 use crate::error::{AppError, AppResult, MutexResultExt, Utf8PathExt};
-use crate::state::Settings;
 use camino::Utf8PathBuf;
 use chrono::Utc;
+use ltk_manager_core::config::Config;
 use ltk_mod_project::{ModMap, ModProject, ModProjectLayer, ModTag};
 use ltk_modpkg::Modpkg;
 use ltk_overlay::{FantomeContent, ModpkgContent};
@@ -17,8 +17,8 @@ use super::{
 use tauri::{Emitter, Manager};
 
 impl ModLibrary {
-    pub fn get_installed_mods(&self, settings: &Settings) -> AppResult<Vec<InstalledMod>> {
-        self.with_index(settings, |storage_dir, index| {
+    pub fn get_installed_mods(&self, config: &Config) -> AppResult<Vec<InstalledMod>> {
+        self.with_index(config, |storage_dir, index| {
             let active_profile_id = index.active_profile_id.clone();
             let active_profile = index
                 .profiles
@@ -68,8 +68,8 @@ impl ModLibrary {
     /// Reorder all mods for the active profile.
     /// The provided `mod_ids` must exactly match the active profile's mod order.
     /// The `enabled_mods` order is derived from the new display order.
-    pub fn reorder_mods(&self, settings: &Settings, mod_ids: Vec<String>) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+    pub fn reorder_mods(&self, config: &Config, mod_ids: Vec<String>) -> AppResult<()> {
+        self.mutate_index(config, |_storage_dir, index| {
             let active_profile_id = index.active_profile_id.clone();
             let profile = index
                 .profiles
@@ -107,10 +107,10 @@ impl ModLibrary {
 
     pub fn install_mod_from_package(
         &self,
-        settings: &Settings,
+        config: &Config,
         file_path: &str,
     ) -> AppResult<InstalledMod> {
-        self.mutate_index(settings, |storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             let (_entry, installed_mod) =
                 install_single_mod_to_index(storage_dir, index, file_path)?;
             Ok(installed_mod)
@@ -123,7 +123,7 @@ impl ModLibrary {
     /// the overlay once. Emits `"install-progress"` events per file.
     pub fn install_mods_from_packages(
         &self,
-        settings: &Settings,
+        config: &Config,
         file_paths: &[String],
     ) -> AppResult<BulkInstallResult> {
         if file_paths.is_empty() {
@@ -136,7 +136,7 @@ impl ModLibrary {
         let app_handle = self.app_handle().clone();
         let file_paths = file_paths.to_vec();
 
-        self.mutate_index(settings, |storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             let total = file_paths.len();
             let mut installed = Vec::new();
             let mut failed = Vec::new();
@@ -178,11 +178,11 @@ impl ModLibrary {
 
     pub fn toggle_mod_enabled(
         &self,
-        settings: &Settings,
+        config: &Config,
         mod_id: &str,
         enabled: bool,
     ) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             // Validate mod exists
             if !index.mods.iter().any(|m| m.id == mod_id) {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
@@ -229,11 +229,11 @@ impl ModLibrary {
     /// Set the enabled/disabled state of individual layers for a mod in the active profile.
     pub fn set_mod_layers(
         &self,
-        settings: &Settings,
+        config: &Config,
         mod_id: &str,
         layer_states: HashMap<String, bool>,
     ) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             if !index.mods.iter().any(|m| m.id == mod_id) {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
             }
@@ -256,11 +256,11 @@ impl ModLibrary {
     /// Enable a mod and set its initial layer configuration in a single atomic operation.
     pub fn enable_mod_with_layers(
         &self,
-        settings: &Settings,
+        config: &Config,
         mod_id: &str,
         layer_states: HashMap<String, bool>,
     ) -> AppResult<()> {
-        self.mutate_index(settings, |_storage_dir, index| {
+        self.mutate_index(config, |_storage_dir, index| {
             if !index.mods.iter().any(|m| m.id == mod_id) {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
             }
@@ -302,11 +302,11 @@ impl ModLibrary {
 
     pub fn edit_mod_metadata(
         &self,
-        settings: &Settings,
+        config: &Config,
         mod_id: &str,
         args: crate::commands::EditModMetadataArgs,
     ) -> AppResult<InstalledMod> {
-        self.mutate_index(settings, |storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             let entry = index
                 .mods
                 .iter()
@@ -400,8 +400,8 @@ impl ModLibrary {
         })
     }
 
-    pub fn uninstall_mod_by_id(&self, settings: &Settings, mod_id: &str) -> AppResult<()> {
-        self.mutate_index(settings, |storage_dir, index| {
+    pub fn uninstall_mod_by_id(&self, config: &Config, mod_id: &str) -> AppResult<()> {
+        self.mutate_index(config, |storage_dir, index| {
             let Some(pos) = index.mods.iter().position(|m| m.id == mod_id) else {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
             };
@@ -441,10 +441,10 @@ impl ModLibrary {
     /// Returns `None` if the mod has no thumbnail.
     pub fn get_mod_thumbnail_path(
         &self,
-        settings: &Settings,
+        config: &Config,
         mod_id: &str,
     ) -> AppResult<Option<String>> {
-        self.with_index(settings, |storage_dir, index| {
+        self.with_index(config, |storage_dir, index| {
             let entry = index
                 .mods
                 .iter()
@@ -487,10 +487,10 @@ impl ModLibrary {
     /// [`AppError::InvalidPath`] if the archive file is missing.
     pub fn build_single_mod_provider(
         &self,
-        settings: &Settings,
+        config: &Config,
         mod_id: &str,
     ) -> AppResult<(PathBuf, ltk_overlay::EnabledMod)> {
-        self.with_index(settings, |storage_dir, index| {
+        self.with_index(config, |storage_dir, index| {
             let entry = index
                 .mods
                 .iter()
@@ -543,12 +543,8 @@ impl ModLibrary {
     /// Returns `Ok(None)` for fantome mods — their packed WAD chunks are keyed
     /// by hash, carrying no readable path — and for any modpkg with no usable
     /// paths. Mounting reads only the chunk table, not chunk data.
-    fn modpkg_chunk_paths(
-        &self,
-        settings: &Settings,
-        mod_id: &str,
-    ) -> AppResult<Option<Vec<String>>> {
-        self.with_index(settings, |storage_dir, index| {
+    fn modpkg_chunk_paths(&self, config: &Config, mod_id: &str) -> AppResult<Option<Vec<String>>> {
+        self.with_index(config, |storage_dir, index| {
             let entry = index
                 .mods
                 .iter()
@@ -574,11 +570,11 @@ impl ModLibrary {
     /// `DATA/FINAL`, used to build the champion roster.
     pub fn apply_precise_categorization(
         &self,
-        settings: &Settings,
+        config: &Config,
         game_dir: &Path,
         report: &mut super::ModWadReport,
     ) {
-        let chunk_paths = match self.modpkg_chunk_paths(settings, &report.mod_id) {
+        let chunk_paths = match self.modpkg_chunk_paths(config, &report.mod_id) {
             Ok(Some(paths)) => paths,
             Ok(None) => return,
             Err(e) => {
@@ -604,11 +600,11 @@ impl ModLibrary {
     /// an install. Used by the post-install background pass in `commands::mods`.
     pub fn try_analyze_and_record(
         &self,
-        settings: &Settings,
+        config: &Config,
         reports: &super::WadReportState,
         mod_id: &str,
     ) -> Option<super::ModWadReport> {
-        let game_dir = match crate::utils::game::resolve_game_dir(settings) {
+        let game_dir = match crate::utils::game::resolve_game_dir(config) {
             Ok(dir) => dir,
             Err(e) => {
                 tracing::info!("Skipping WAD analysis for {mod_id}: {e}");
@@ -616,8 +612,7 @@ impl ModLibrary {
             }
         };
 
-        let (profile_dir, mut enabled_mod) = match self.build_single_mod_provider(settings, mod_id)
-        {
+        let (profile_dir, mut enabled_mod) = match self.build_single_mod_provider(config, mod_id) {
             Ok(v) => v,
             Err(e) => {
                 tracing::warn!("Could not build content provider for {mod_id}: {e}");
@@ -646,7 +641,7 @@ impl ModLibrary {
         };
 
         let mut report = super::ModWadReport::from_upstream(upstream);
-        self.apply_precise_categorization(settings, utf8_game_dir.as_std_path(), &mut report);
+        self.apply_precise_categorization(config, utf8_game_dir.as_std_path(), &mut report);
         match reports.0.lock().mutex_err() {
             Ok(mut store) => {
                 if let Err(e) = store.upsert(report.clone()) {
@@ -666,13 +661,13 @@ impl ModLibrary {
     /// background thread, then emit `wad-reports-updated` once so the UI refetches.
     /// Best-effort: never blocks or fails the install — a missing League path
     /// or analysis error just leaves the mod uncategorized until the user analyzes it manually.
-    pub fn spawn_categorization(&self, settings: &Settings, mod_ids: Vec<String>) {
+    pub fn spawn_categorization(&self, config: &Config, mod_ids: Vec<String>) {
         if mod_ids.is_empty() {
             return;
         }
 
         let library = self.clone();
-        let settings = settings.clone();
+        let config = config.clone();
         let app = self.app_handle().clone();
         std::thread::spawn(move || {
             let Some(reports) = app.try_state::<super::WadReportState>() else {
@@ -682,7 +677,7 @@ impl ModLibrary {
             let mut recorded_any = false;
             for id in &mod_ids {
                 if library
-                    .try_analyze_and_record(&settings, &reports, id)
+                    .try_analyze_and_record(&config, &reports, id)
                     .is_some()
                 {
                     recorded_any = true;
@@ -697,9 +692,9 @@ impl ModLibrary {
 
     pub fn get_enabled_mods_for_overlay(
         &self,
-        settings: &Settings,
+        config: &Config,
     ) -> AppResult<(super::ProfileSlug, Vec<ltk_overlay::EnabledMod>)> {
-        self.with_index(settings, |storage_dir, index| {
+        self.with_index(config, |storage_dir, index| {
             let active_profile_id = index.active_profile_id.clone();
             let active_profile = index
                 .profiles

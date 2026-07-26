@@ -15,8 +15,8 @@ pub fn get_installed_mods(
     settings: State<SettingsState>,
 ) -> IpcResult<Vec<InstalledMod>> {
     let result: AppResult<Vec<InstalledMod>> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.get_installed_mods(&settings)
+        let config = settings.config()?;
+        library.0.get_installed_mods(&config)
     })();
     result.into()
 }
@@ -31,11 +31,11 @@ pub fn install_mod(
 ) -> IpcResult<InstalledMod> {
     let result: AppResult<InstalledMod> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        let installed = library.0.install_mod_from_package(&settings, &file_path)?;
+        let config = settings.config()?;
+        let installed = library.0.install_mod_from_package(&config, &file_path)?;
         library
             .0
-            .spawn_categorization(&settings, vec![installed.id.clone()]);
+            .spawn_categorization(&config, vec![installed.id.clone()]);
         Ok(installed)
     })();
     result.into()
@@ -51,12 +51,10 @@ pub fn install_mods(
 ) -> IpcResult<BulkInstallResult> {
     let result: AppResult<BulkInstallResult> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        let result = library
-            .0
-            .install_mods_from_packages(&settings, &file_paths)?;
+        let config = settings.config()?;
+        let result = library.0.install_mods_from_packages(&config, &file_paths)?;
         let ids = result.installed.iter().map(|m| m.id.clone()).collect();
-        library.0.spawn_categorization(&settings, ids);
+        library.0.spawn_categorization(&config, ids);
         Ok(result)
     })();
     result.into()
@@ -72,8 +70,8 @@ pub fn uninstall_mod(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.uninstall_mod_by_id(&settings, &mod_id)
+        let config = settings.config()?;
+        library.0.uninstall_mod_by_id(&config, &mod_id)
     })();
     result.into()
 }
@@ -89,8 +87,8 @@ pub fn toggle_mod(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.toggle_mod_enabled(&settings, &mod_id, enabled)
+        let config = settings.config()?;
+        library.0.toggle_mod_enabled(&config, &mod_id, enabled)
     })();
     result.into()
 }
@@ -105,8 +103,8 @@ pub fn reorder_mods(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.reorder_mods(&settings, mod_ids)
+        let config = settings.config()?;
+        library.0.reorder_mods(&config, mod_ids)
     })();
     result.into()
 }
@@ -122,8 +120,8 @@ pub fn set_mod_layers(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.set_mod_layers(&settings, &mod_id, layer_states)
+        let config = settings.config()?;
+        library.0.set_mod_layers(&config, &mod_id, layer_states)
     })();
     result.into()
 }
@@ -139,10 +137,10 @@ pub fn enable_mod_with_layers(
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
         reject_if_patcher_running(&patcher)?;
-        let settings = settings.0.lock().mutex_err()?.clone();
+        let config = settings.config()?;
         library
             .0
-            .enable_mod_with_layers(&settings, &mod_id, layer_states)
+            .enable_mod_with_layers(&config, &mod_id, layer_states)
     })();
     result.into()
 }
@@ -170,8 +168,8 @@ pub fn edit_mod_metadata(
     settings: State<SettingsState>,
 ) -> IpcResult<InstalledMod> {
     let result: AppResult<InstalledMod> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.edit_mod_metadata(&settings, &mod_id, metadata)
+        let config = settings.config()?;
+        library.0.edit_mod_metadata(&config, &mod_id, metadata)
     })();
     result.into()
 }
@@ -191,8 +189,8 @@ pub fn get_mod_thumbnail(
     settings: State<SettingsState>,
 ) -> IpcResult<Option<String>> {
     let result: AppResult<Option<String>> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.get_mod_thumbnail_path(&settings, &mod_id)
+        let config = settings.config()?;
+        library.0.get_mod_thumbnail_path(&config, &mod_id)
     })();
     result.into()
 }
@@ -204,8 +202,8 @@ pub fn get_storage_directory(
     settings: State<SettingsState>,
 ) -> IpcResult<String> {
     let result: AppResult<String> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        let storage_dir = library.0.storage_dir(&settings)?;
+        let config = settings.config()?;
+        let storage_dir = library.0.storage_dir(&config)?;
         Ok(storage_dir.display().to_string())
     })();
     result.into()
@@ -256,11 +254,10 @@ pub fn analyze_mod_wads(
     reports: State<WadReportState>,
 ) -> IpcResult<ModWadReport> {
     let result: AppResult<ModWadReport> = (|| {
-        let settings_snapshot = settings.0.lock().mutex_err()?.clone();
-        let game_dir = crate::utils::game::resolve_game_dir(&settings_snapshot)?;
-        let (profile_dir, mut enabled_mod) = library
-            .0
-            .build_single_mod_provider(&settings_snapshot, &mod_id)?;
+        let config = settings.config()?;
+        let game_dir = crate::utils::game::resolve_game_dir(&config)?;
+        let (profile_dir, mut enabled_mod) =
+            library.0.build_single_mod_provider(&config, &mod_id)?;
 
         let game_dir = game_dir.try_into_utf8("game directory")?;
         let state_dir = profile_dir.try_into_utf8("profile directory")?;
@@ -273,11 +270,9 @@ pub fn analyze_mod_wads(
         .map_err(|e| AppError::Other(format!("Mod analysis failed: {}", e)))?;
 
         let mut report = ModWadReport::from_upstream(upstream);
-        library.0.apply_precise_categorization(
-            &settings_snapshot,
-            game_dir.as_std_path(),
-            &mut report,
-        );
+        library
+            .0
+            .apply_precise_categorization(&config, game_dir.as_std_path(), &mut report);
         let mut store = reports.0.lock().mutex_err()?;
         store.upsert(report.clone())?;
         Ok(store.get(&report.mod_id).unwrap_or(report))

@@ -11,8 +11,8 @@ pub fn list_mod_profiles(
     settings: State<SettingsState>,
 ) -> IpcResult<Vec<Profile>> {
     let result: AppResult<Vec<Profile>> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.get_profiles(&settings)
+        let config = settings.config()?;
+        library.0.get_profiles(&config)
     })();
     result.into()
 }
@@ -24,8 +24,8 @@ pub fn get_active_mod_profile(
     settings: State<SettingsState>,
 ) -> IpcResult<Profile> {
     let result: AppResult<Profile> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.get_active_profile_info(&settings)
+        let config = settings.config()?;
+        library.0.get_active_profile_info(&config)
     })();
     result.into()
 }
@@ -38,8 +38,8 @@ pub fn create_mod_profile(
     settings: State<SettingsState>,
 ) -> IpcResult<Profile> {
     let result: AppResult<Profile> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.create_profile(&settings, name)
+        let config = settings.config()?;
+        library.0.create_profile(&config, name)
     })();
     result.into()
 }
@@ -52,8 +52,8 @@ pub fn delete_mod_profile(
     settings: State<SettingsState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.delete_profile(&settings, profile_id)
+        let config = settings.config()?;
+        library.0.delete_profile(&config, profile_id)
     })();
     result.into()
 }
@@ -77,8 +77,8 @@ pub fn switch_mod_profile(
         }
         drop(patcher);
 
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.switch_profile(&settings, profile_id)
+        let config = settings.config()?;
+        library.0.switch_profile(&config, profile_id)
     })();
     result.into()
 }
@@ -103,8 +103,8 @@ pub fn rename_mod_profile(
         }
         drop(patcher);
 
-        let settings = settings.0.lock().mutex_err()?.clone();
-        library.0.rename_profile(&settings, profile_id, new_name)
+        let config = settings.config()?;
+        library.0.rename_profile(&config, profile_id, new_name)
     })();
     result.into()
 }

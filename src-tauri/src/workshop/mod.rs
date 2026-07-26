@@ -6,9 +6,9 @@ mod projects;
 pub use content::ContentTree;
 
 use crate::error::{AppError, AppResult};
-use crate::state::Settings;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
+use ltk_manager_core::config::Config;
 use ltk_mod_project::{ModProject, ModProjectAuthor};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -33,7 +33,7 @@ pub enum WorkshopError {
 /// Managed struct that encapsulates workshop operations.
 ///
 /// Holds the `AppHandle` for consistency with `ModLibrary`.
-/// Settings are passed per-call since they can change at runtime.
+/// The [`Config`] is passed per-call since it can change at runtime.
 pub struct Workshop {
     app_handle: AppHandle,
 }
@@ -48,9 +48,9 @@ impl Workshop {
         }
     }
 
-    /// Resolve the workshop directory from settings.
-    pub(crate) fn workshop_dir(&self, settings: &Settings) -> AppResult<PathBuf> {
-        settings
+    /// Resolve the workshop directory from config.
+    pub(crate) fn workshop_dir(&self, config: &Config) -> AppResult<PathBuf> {
+        config
             .workshop_path
             .clone()
             .ok_or(AppError::WorkshopNotConfigured)

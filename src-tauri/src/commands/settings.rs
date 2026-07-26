@@ -1,5 +1,5 @@
 use crate::error::{AppResult, IpcResult, MutexResultExt};
-use crate::state::{save_settings_to_disk, Settings, SettingsState};
+use crate::state::{persist_settings, Settings, SettingsState};
 use crate::utils::game::{list_game_wads, resolve_game_dir};
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
@@ -39,7 +39,7 @@ fn save_settings_inner(
         let _ = autolaunch.disable();
     }
 
-    save_settings_to_disk(app_handle, &settings)?;
+    persist_settings(app_handle, &settings)?;
 
     let mut current = state.0.lock().mutex_err()?;
     *current = settings;
@@ -88,8 +88,8 @@ pub fn list_available_wads(state: State<SettingsState>) -> IpcResult<Vec<String>
 }
 
 fn list_available_wads_inner(state: &State<SettingsState>) -> AppResult<Vec<String>> {
-    let settings = state.0.lock().mutex_err()?.clone();
-    let game_dir = resolve_game_dir(&settings)?;
+    let config = state.config()?;
+    let game_dir = resolve_game_dir(&config)?;
     list_game_wads(&game_dir)
 }
 
@@ -114,5 +114,5 @@ pub fn check_setup_required(state: State<SettingsState>) -> IpcResult<bool> {
 fn check_setup_required_inner(state: &State<SettingsState>) -> AppResult<bool> {
     let settings = state.0.lock().mutex_err()?;
 
-    Ok(settings.league_path.is_none())
+    Ok(settings.config.league_path.is_none())
 }

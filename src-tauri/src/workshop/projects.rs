@@ -5,7 +5,7 @@ use super::{
     WorkshopProject,
 };
 use crate::error::{AppError, AppResult};
-use crate::state::Settings;
+use ltk_manager_core::config::Config;
 use ltk_mod_project::{
     default_layers, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag,
 };
@@ -22,8 +22,8 @@ use ltk_wad::{HexPathResolver, WadExtractor};
 
 impl Workshop {
     /// Get all workshop projects from the configured workshop directory.
-    pub fn get_projects(&self, settings: &Settings) -> AppResult<Vec<WorkshopProject>> {
-        let workshop_path = self.workshop_dir(settings)?;
+    pub fn get_projects(&self, config: &Config) -> AppResult<Vec<WorkshopProject>> {
+        let workshop_path = self.workshop_dir(config)?;
 
         if !workshop_path.exists() {
             return Ok(Vec::new());
@@ -60,10 +60,10 @@ impl Workshop {
     /// Create a new workshop project.
     pub fn create_project(
         &self,
-        settings: &Settings,
+        config: &Config,
         args: CreateProjectArgs,
     ) -> AppResult<WorkshopProject> {
-        let workshop_path = self.workshop_dir(settings)?;
+        let workshop_path = self.workshop_dir(config)?;
 
         if !is_valid_project_name(&args.name) {
             return Err(AppError::ValidationFailed(
@@ -241,10 +241,10 @@ impl Workshop {
     /// Import a .fantome archive as a new workshop project.
     pub fn import_from_fantome(
         &self,
-        settings: &Settings,
+        config: &Config,
         args: ImportFantomeArgs,
     ) -> AppResult<WorkshopProject> {
-        let workshop_path = self.workshop_dir(settings)?;
+        let workshop_path = self.workshop_dir(config)?;
 
         if !is_valid_project_name(&args.name) {
             return Err(AppError::ValidationFailed(
@@ -378,10 +378,10 @@ impl Workshop {
     /// Import a .modpkg file as a new workshop project.
     pub fn import_from_modpkg(
         &self,
-        settings: &Settings,
+        config: &Config,
         file_path: &str,
     ) -> AppResult<WorkshopProject> {
-        let workshop_path = self.workshop_dir(settings)?;
+        let workshop_path = self.workshop_dir(config)?;
 
         let file = fs::File::open(file_path)?;
         let mut modpkg = Modpkg::mount_from_reader(file)?;
@@ -472,10 +472,10 @@ impl Workshop {
     /// Import a project from a GitHub repository by downloading and extracting its tarball.
     pub fn import_from_git_repo(
         &self,
-        settings: &Settings,
+        config: &Config,
         args: ImportGitRepoArgs,
     ) -> AppResult<WorkshopProject> {
-        let workshop_path = self.workshop_dir(settings)?;
+        let workshop_path = self.workshop_dir(config)?;
         let (owner, repo) = parse_github_url(&args.url)?;
         let branch = args.branch.unwrap_or_else(|| "main".to_string());
 

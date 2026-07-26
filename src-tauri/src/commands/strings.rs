@@ -1,4 +1,4 @@
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use crate::strings::{StringKeyIndexState, StringKeySearchResult};
 use tauri::{AppHandle, State};
@@ -26,12 +26,12 @@ fn search_string_keys_inner(
     settings: &SettingsState,
     index: &StringKeyIndexState,
 ) -> AppResult<StringKeySearchResult> {
-    let settings = settings.0.lock().mutex_err()?.clone();
+    let config = settings.config()?;
     let cache_dir = crate::state::get_app_data_dir(app_handle)
         .ok_or_else(|| AppError::Other("Could not determine app data directory".to_string()))?
         .join("hashes");
 
-    let index = index.get_or_build(&cache_dir, &settings)?;
+    let index = index.get_or_build(&cache_dir, &config)?;
     let limit = limit.unwrap_or(50).min(200) as usize;
     Ok(index.search(query, limit))
 }

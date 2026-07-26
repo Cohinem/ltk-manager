@@ -6,7 +6,7 @@
 //! `Severity::Warn` or `Severity::Bad` instead.
 
 use crate::diagnostics::{run_all, CheckCtx, DiagnosticReport};
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::state::{get_app_data_dir, SettingsState};
 use std::path::PathBuf;
@@ -133,7 +133,7 @@ fn run_diagnostics_inner(
     app_handle: &AppHandle,
     settings: &State<SettingsState>,
 ) -> AppResult<DiagnosticReport> {
-    let snapshot = settings.0.lock().mutex_err()?.clone();
+    let snapshot = settings.config()?;
     // Mirror `ModLibrary::storage_dir` — fall back to the Tauri app-data dir
     // when the user hasn't set a custom storage path. The diagnostics should
     // inspect whatever path the rest of the app actually uses.

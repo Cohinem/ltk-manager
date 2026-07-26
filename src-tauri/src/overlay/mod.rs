@@ -1,6 +1,6 @@
 use crate::error::{AppError, AppResult, Utf8PathExt};
 use crate::mods::{LinkedBinState, ModLibrary, WadReportState};
-use crate::state::{Settings, WadBlocklistEntry};
+use ltk_manager_core::config::{Config, WadBlocklistEntry};
 use std::path::{Path, PathBuf};
 use tauri::{Emitter, Manager};
 
@@ -42,16 +42,16 @@ impl ModLibrary {
     /// to the enabled mod list so they take highest priority.
     pub fn ensure_overlay(
         &self,
-        settings: &Settings,
+        config: &Config,
         workshop_project_paths: &[PathBuf],
         force_rebuild: bool,
     ) -> AppResult<(PathBuf, usize)> {
-        let storage_dir = self.storage_dir(settings)?;
+        let storage_dir = self.storage_dir(config)?;
 
         Self::flush_overlays_if_app_version_changed(&storage_dir);
 
-        let game_dir = crate::utils::game::resolve_game_dir(settings)?;
-        let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(settings)?;
+        let game_dir = crate::utils::game::resolve_game_dir(config)?;
+        let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
 
         let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
         let overlay_root = profile_dir.join("overlay");
@@ -90,10 +90,10 @@ impl ModLibrary {
             );
             Vec::new()
         });
-        let blocked_wads = resolve_blocked_wads(settings, &available_wads);
+        let blocked_wads = resolve_blocked_wads(config, &available_wads);
         tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
 
-        let string_override_mode = resolve_string_override_mode(settings, &game_dir);
+        let string_override_mode = resolve_string_override_mode(config, &game_dir);
         tracing::info!("Overlay: string_override_mode={:?}", string_override_mode);
 
         Self::clean_corrupt_overlay_state(&utf8_state_dir);
@@ -190,8 +190,8 @@ impl ModLibrary {
     /// would otherwise reuse a stale or incorrectly-built overlay WAD — its reuse
     /// decision keys on the mod set and content, not on the overlay's actual bytes
     /// or the builder version.
-    pub fn rebuild_overlay(&self, settings: &Settings) -> AppResult<(PathBuf, usize)> {
-        self.ensure_overlay(settings, &[], true)
+    pub fn rebuild_overlay(&self, config: &Config) -> AppResult<(PathBuf, usize)> {
+        self.ensure_overlay(config, &[], true)
     }
 
     /// Wipe every profile's cached overlay artifacts when the app version changed
@@ -319,10 +319,10 @@ impl ModLibrary {
 /// from `LeagueClientSettings.yaml`, falling back to the sole installed locale
 /// and finally to `en_us` so string overrides still apply on unusual installs.
 pub(crate) fn resolve_string_override_mode(
-    settings: &Settings,
+    config: &Config,
     game_dir: &Path,
 ) -> ltk_overlay::StringOverrideMode {
-    if settings.apply_string_overrides_to_all_locales {
+    if config.apply_string_overrides_to_all_locales {
         return ltk_overlay::StringOverrideMode::AllInstalled;
     }
 
@@ -344,10 +344,10 @@ pub(crate) fn resolve_string_override_mode(
 ///
 /// `available_wads` should come from `crate::utils::game::list_game_wads`; pass an empty slice if
 /// enumeration failed (regex entries then match nothing).
-pub(crate) fn resolve_blocked_wads(settings: &Settings, available_wads: &[String]) -> Vec<String> {
+pub(crate) fn resolve_blocked_wads(config: &Config, available_wads: &[String]) -> Vec<String> {
     let mut blocked: Vec<String> = Vec::new();
 
-    for entry in &settings.wad_blocklist {
+    for entry in &config.wad_blocklist {
         match entry {
             WadBlocklistEntry::Exact { value } => {
                 blocked.push(value.to_lowercase());
@@ -369,10 +369,10 @@ pub(crate) fn resolve_blocked_wads(settings: &Settings, available_wads: &[String
         }
     }
 
-    if settings.block_scripts_wad {
+    if config.block_scripts_wad {
         blocked.push(SCRIPTS_WAD.to_string());
     }
-    if !settings.patch_tft {
+    if !config.patch_tft {
         blocked.push(TFT_WAD.to_string());
     }
 
@@ -387,13 +387,13 @@ mod tests {
 
     #[test]
     fn resolve_blocked_wads_exact_lowercased_and_scripts_added_by_default() {
-        let settings = Settings {
+        let config = Config {
             wad_blocklist: vec![WadBlocklistEntry::Exact {
                 value: "Aatrox.wad.client".to_string(),
             }],
-            ..Settings::default()
+            ..Config::default()
         };
-        let result = resolve_blocked_wads(&settings, &[]);
+        let result = resolve_blocked_wads(&config, &[]);
         assert!(result.contains(&"aatrox.wad.client".to_string()));
         assert!(result.contains(&"scripts.wad.client".to_string()));
         assert!(result.contains(&"map22.wad.client".to_string()));
@@ -401,13 +401,13 @@ mod tests {
 
     #[test]
     fn resolve_blocked_wads_regex_expanded_against_available() {
-        let settings = Settings {
+        let config = Config {
             block_scripts_wad: false,
             patch_tft: true,
             wad_blocklist: vec![WadBlocklistEntry::Regex {
                 value: r"^map\d+\.en_us\.wad\.client$".to_string(),
             }],
-            ..Settings::default()
+            ..Config::default()
         };
         let available = vec![
             "map11.en_us.wad.client".to_string(),
@@ -415,7 +415,7 @@ mod tests {
             "map22.en_us.wad.client".to_string(),
             "aatrox.wad.client".to_string(),
         ];
-        let result = resolve_blocked_wads(&settings, &available);
+        let result = resolve_blocked_wads(&config, &available);
         assert_eq!(
             result,
             vec![
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn resolve_blocked_wads_invalid_regex_skipped_and_others_kept() {
-        let settings = Settings {
+        let config = Config {
             block_scripts_wad: false,
             patch_tft: true,
             wad_blocklist: vec![
@@ -438,15 +438,15 @@ mod tests {
                     value: "keeper.wad.client".to_string(),
                 },
             ],
-            ..Settings::default()
+            ..Config::default()
         };
-        let result = resolve_blocked_wads(&settings, &[]);
+        let result = resolve_blocked_wads(&config, &[]);
         assert_eq!(result, vec!["keeper.wad.client".to_string()]);
     }
 
     #[test]
     fn resolve_blocked_wads_dedupes_overlapping_entries() {
-        let settings = Settings {
+        let config = Config {
             block_scripts_wad: true,
             patch_tft: true,
             wad_blocklist: vec![
@@ -457,10 +457,10 @@ mod tests {
                     value: "^scripts".to_string(),
                 },
             ],
-            ..Settings::default()
+            ..Config::default()
         };
         let available = vec!["scripts.wad.client".to_string()];
-        let result = resolve_blocked_wads(&settings, &available);
+        let result = resolve_blocked_wads(&config, &available);
         assert_eq!(result, vec!["scripts.wad.client".to_string()]);
     }
 

@@ -1,6 +1,6 @@
 use crate::error::{AppError, AppResult};
-use crate::state::Settings;
 use chrono::Utc;
+use ltk_manager_core::config::Config;
 use std::collections::HashMap;
 use std::fs;
 use uuid::Uuid;
@@ -11,8 +11,8 @@ use super::{
 
 impl ModLibrary {
     /// Create a new profile.
-    pub fn create_profile(&self, settings: &Settings, name: String) -> AppResult<Profile> {
-        self.mutate_index(settings, |storage_dir, index| {
+    pub fn create_profile(&self, config: &Config, name: String) -> AppResult<Profile> {
+        self.mutate_index(config, |storage_dir, index| {
             let name = name.trim().to_string();
             if name.is_empty() {
                 return Err(AppError::Other("Profile name cannot be empty".to_string()));
@@ -62,8 +62,8 @@ impl ModLibrary {
     }
 
     /// Delete a profile by ID.
-    pub fn delete_profile(&self, settings: &Settings, profile_id: String) -> AppResult<()> {
-        self.mutate_index(settings, |storage_dir, index| {
+    pub fn delete_profile(&self, config: &Config, profile_id: String) -> AppResult<()> {
+        self.mutate_index(config, |storage_dir, index| {
             let profile = get_profile_by_id(index, &profile_id)?;
 
             if profile.name == "Default" {
@@ -91,8 +91,8 @@ impl ModLibrary {
     }
 
     /// Switch to a different profile.
-    pub fn switch_profile(&self, settings: &Settings, profile_id: String) -> AppResult<Profile> {
-        self.mutate_index(settings, |_storage_dir, index| {
+    pub fn switch_profile(&self, config: &Config, profile_id: String) -> AppResult<Profile> {
+        self.mutate_index(config, |_storage_dir, index| {
             get_profile_by_id(index, &profile_id)?;
             index.active_profile_id = profile_id.clone();
 
@@ -111,18 +111,18 @@ impl ModLibrary {
     }
 
     /// Get all profiles.
-    pub fn get_profiles(&self, settings: &Settings) -> AppResult<Vec<Profile>> {
-        self.with_index(settings, |_storage_dir, index| Ok(index.profiles.clone()))
+    pub fn get_profiles(&self, config: &Config) -> AppResult<Vec<Profile>> {
+        self.with_index(config, |_storage_dir, index| Ok(index.profiles.clone()))
     }
 
     /// Rename a profile.
     pub fn rename_profile(
         &self,
-        settings: &Settings,
+        config: &Config,
         profile_id: String,
         new_name: String,
     ) -> AppResult<Profile> {
-        self.mutate_index(settings, |storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             let new_name = new_name.trim().to_string();
             if new_name.is_empty() {
                 return Err(AppError::Other("Profile name cannot be empty".to_string()));
@@ -187,8 +187,8 @@ impl ModLibrary {
     }
 
     /// Get the active profile.
-    pub fn get_active_profile_info(&self, settings: &Settings) -> AppResult<Profile> {
-        self.with_index(settings, |_storage_dir, index| {
+    pub fn get_active_profile_info(&self, config: &Config) -> AppResult<Profile> {
+        self.with_index(config, |_storage_dir, index| {
             let profile = get_active_profile(index)?;
             Ok(profile.clone())
         })

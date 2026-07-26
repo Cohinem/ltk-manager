@@ -17,8 +17,9 @@ pub use linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use wad_reports::{ModWadReport, WadReportState};
 
 use crate::error::{AppError, AppResult, MutexResultExt};
-use crate::state::{get_app_data_dir, Settings};
+use crate::state::get_app_data_dir;
 use chrono::{DateTime, Utc};
+use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -39,7 +40,7 @@ pub(crate) const WATCHER_SUPPRESS_SECS: i64 = 10;
 ///
 /// All index operations are serialized through `index_lock` to prevent
 /// concurrent reads/writes from clobbering each other.
-/// Settings are passed per-call since they can change at runtime.
+/// The [`Config`] is passed per-call since it can change at runtime.
 pub struct ModLibrary {
     app_handle: AppHandle,
     index_lock: Arc<Mutex<()>>,
@@ -76,9 +77,9 @@ impl ModLibrary {
         &self.app_handle
     }
 
-    /// Resolve storage directory from settings snapshot.
-    pub(crate) fn storage_dir(&self, settings: &Settings) -> AppResult<PathBuf> {
-        settings
+    /// Resolve storage directory from the config snapshot.
+    pub(crate) fn storage_dir(&self, config: &Config) -> AppResult<PathBuf> {
+        config
             .mod_storage_path
             .clone()
             .or_else(|| get_app_data_dir(&self.app_handle))
@@ -88,9 +89,9 @@ impl ModLibrary {
     /// Run reconciliation to clean up orphaned entries, discover new archives,
     /// and refresh stale metadata.
     /// Returns `true` if the index was modified.
-    pub fn reconcile_index(&self, settings: &Settings) -> AppResult<bool> {
+    pub fn reconcile_index(&self, config: &Config) -> AppResult<bool> {
         let _lock = self.index_lock.lock().mutex_err()?;
-        let storage_dir = self.storage_dir(settings)?;
+        let storage_dir = self.storage_dir(config)?;
         let mut index = load_library_index(&storage_dir)?;
         let mut refreshed_ids: Vec<String> = Vec::new();
         let reconciled = reconcile_library_index(&storage_dir, &mut index, &mut refreshed_ids);
@@ -121,9 +122,9 @@ impl ModLibrary {
     /// Emits `library-changed` when the index is modified so the frontend
     /// refreshes its queries. [`WadReportState`] must already be managed before
     /// calling this, since reconciliation reads it via `try_state`.
-    pub fn reconcile_in_background(&self, settings: Settings) {
+    pub fn reconcile_in_background(&self, config: Config) {
         let library = self.clone();
-        std::thread::spawn(move || match library.reconcile_index(&settings) {
+        std::thread::spawn(move || match library.reconcile_index(&config) {
             Ok(true) => {
                 tracing::info!("Library index reconciled on startup");
                 let _ = library.app_handle.emit("library-changed", ());
@@ -136,11 +137,11 @@ impl ModLibrary {
     /// Read-only index access: acquire lock, load index, run closure.
     fn with_index<T>(
         &self,
-        settings: &Settings,
+        config: &Config,
         f: impl FnOnce(&Path, &LibraryIndex) -> AppResult<T>,
     ) -> AppResult<T> {
         let _lock = self.index_lock.lock().mutex_err()?;
-        let storage_dir = self.storage_dir(settings)?;
+        let storage_dir = self.storage_dir(config)?;
         let index = load_library_index(&storage_dir)?;
         f(&storage_dir, &index)
     }
@@ -151,11 +152,11 @@ impl ModLibrary {
     /// notifications caused by our own writes for [`WATCHER_SUPPRESS_SECS`].
     fn mutate_index<T>(
         &self,
-        settings: &Settings,
+        config: &Config,
         f: impl FnOnce(&Path, &mut LibraryIndex) -> AppResult<T>,
     ) -> AppResult<T> {
         let _lock = self.index_lock.lock().mutex_err()?;
-        let storage_dir = self.storage_dir(settings)?;
+        let storage_dir = self.storage_dir(config)?;
         let mut index = load_library_index(&storage_dir)?;
         let result = f(&storage_dir, &mut index)?;
         save_library_index(&storage_dir, &index)?;

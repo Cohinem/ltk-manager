@@ -1,5 +1,5 @@
 use crate::deep_link;
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{InstalledMod, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -45,10 +45,8 @@ pub fn deep_link_install_mod(
         let temp_path = deep_link::download_mod_file(&url, &app_handle)?;
         let temp_path_str = temp_path.to_string_lossy().to_string();
 
-        let settings = settings.0.lock().mutex_err()?.clone();
-        let result = library
-            .0
-            .install_mod_from_package(&settings, &temp_path_str);
+        let config = settings.config()?;
+        let result = library.0.install_mod_from_package(&config, &temp_path_str);
 
         if let Err(e) = std::fs::remove_file(&temp_path) {
             tracing::warn!("Failed to clean up temp file: {}", e);

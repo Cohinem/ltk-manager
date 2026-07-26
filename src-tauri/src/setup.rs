@@ -28,11 +28,13 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     // Register WadReportState BEFORE reconcile so that the reconcile pass can
     // invalidate stale reports and prune orphans on the first startup.
-    let storage_dir = mod_library.0.storage_dir(&settings).ok();
+    let storage_dir = mod_library.0.storage_dir(&settings.config).ok();
     let wad_report_state = WadReportState::new(storage_dir.as_deref());
     app.manage(wad_report_state);
 
-    mod_library.0.reconcile_in_background(settings.clone());
+    mod_library
+        .0
+        .reconcile_in_background(settings.config.clone());
 
     let hotkey_manager = crate::hotkeys::HotkeyManager::new(&app_handle);
     hotkey_manager.register_from_settings(&settings);
@@ -123,7 +125,7 @@ fn initialize_first_run(app_handle: &tauri::AppHandle, settings_state: &Settings
         }
     };
 
-    if settings.league_path.is_some() {
+    if settings.config.league_path.is_some() {
         tracing::info!("League path already configured, skipping auto-detection");
         return;
     }
@@ -135,10 +137,10 @@ fn initialize_first_run(app_handle: &tauri::AppHandle, settings_state: &Settings
 
         if let Some(install_root) = path.parent().and_then(|p| p.parent()) {
             tracing::info!("Auto-detected League at: {:?}", install_root);
-            settings.league_path = Some(install_root.to_path_buf());
+            settings.config.league_path = Some(install_root.to_path_buf());
             settings.first_run_complete = true;
 
-            if let Err(e) = crate::state::save_settings_to_disk(app_handle, &settings) {
+            if let Err(e) = crate::state::persist_settings(app_handle, &settings) {
                 tracing::error!("Failed to save auto-detected settings: {}", e);
             }
         }

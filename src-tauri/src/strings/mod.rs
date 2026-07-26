@@ -6,7 +6,7 @@
 //! field names and show what each one currently says in game.
 
 use crate::error::{AppError, AppResult, MutexResultExt};
-use crate::state::Settings;
+use ltk_manager_core::config::Config;
 use serde::Serialize;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
@@ -58,10 +58,10 @@ pub struct StringKeyIndex {
 impl StringKeyIndex {
     /// Build the index from the cached/downloaded key list and, best-effort,
     /// the game stringtable of the detected locale.
-    fn build(cache_dir: &Path, settings: &Settings) -> AppResult<Self> {
+    fn build(cache_dir: &Path, config: &Config) -> AppResult<Self> {
         let key_list = load_key_list(cache_dir)?;
 
-        let table = load_game_stringtable(settings);
+        let table = load_game_stringtable(config);
         let locale = table.as_ref().map(|(locale, _)| locale.clone());
 
         let mut entries: Vec<IndexEntry> = key_list
@@ -147,13 +147,13 @@ impl StringKeyIndexState {
     pub fn get_or_build(
         &self,
         cache_dir: &Path,
-        settings: &Settings,
+        config: &Config,
     ) -> AppResult<Arc<StringKeyIndex>> {
         let mut slot = self.0.lock().mutex_err()?;
         if let Some(index) = slot.as_ref() {
             return Ok(Arc::clone(index));
         }
-        let index = Arc::new(StringKeyIndex::build(cache_dir, settings)?);
+        let index = Arc::new(StringKeyIndex::build(cache_dir, config)?);
         *slot = Some(Arc::clone(&index));
         Ok(index)
     }
@@ -210,8 +210,8 @@ fn download_key_list(dest: &Path) -> AppResult<PathBuf> {
 /// Best-effort load of the game's `lol.stringtable` for the detected locale.
 /// Any failure (unset league path, missing WAD/chunk, parse error) just means
 /// suggestions come without value previews.
-fn load_game_stringtable(settings: &Settings) -> Option<(String, ltk_rst::Stringtable)> {
-    let game_dir = match crate::utils::game::resolve_game_dir(settings) {
+fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtable)> {
+    let game_dir = match crate::utils::game::resolve_game_dir(config) {
         Ok(dir) => dir,
         Err(e) => {
             tracing::debug!("String index: game dir unavailable: {}", e);
@@ -320,7 +320,7 @@ mod tests {
         .unwrap();
 
         // No league path configured -> no value previews, keys still indexed.
-        let index = StringKeyIndex::build(&cache_dir, &Settings::default()).unwrap();
+        let index = StringKeyIndex::build(&cache_dir, &Config::default()).unwrap();
         assert_eq!(index.entries.len(), 2);
         assert!(index.entries.iter().all(|e| e.value.is_none()));
         assert_eq!(index.locale, None);

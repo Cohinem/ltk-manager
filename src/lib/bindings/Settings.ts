@@ -4,13 +4,12 @@ import type { AuthorProfile } from "./AuthorProfile";
 import type { Theme } from "./Theme";
 import type { WadBlocklistEntry } from "./WadBlocklistEntry";
 
+/**
+ * Application settings: UI/shell preferences plus the flattened core
+ * [`Config`]. The flatten keeps `settings.json` a single flat document, so
+ * the split is invisible to both the file on disk and the frontend.
+ */
 export type Settings = {
-  leaguePath: string | null;
-  modStoragePath: string | null;
-  /**
-   * Directory where mod projects are stored (for Creator Workshop).
-   */
-  workshopPath: string | null;
   firstRunComplete: boolean;
   /**
    * Application theme (system, dark, or light).
@@ -32,10 +31,6 @@ export type Settings = {
    * Library view mode ("grid" or "list"). Defaults to "grid".
    */
   libraryViewMode: string | null;
-  /**
-   * Whether to patch TFT game files (Map22.wad.client). Default: false.
-   */
-  patchTft: boolean;
   /**
    * Whether to minimize to system tray instead of taskbar. Default: true.
    */
@@ -80,6 +75,24 @@ export type Settings = {
    * Whether the library file watcher is enabled. Default: false.
    */
   watcherEnabled: boolean;
+  authorProfiles: Array<AuthorProfile>;
+  defaultAuthorProfileId: string | null;
+  /**
+   * Whether the user has dismissed the HDD-performance warning. Once true,
+   * we suppress the warning on subsequent patcher starts. Reset by toggling
+   * the "show performance warnings" setting if/when we add one.
+   */
+  hasSeenHddWarning: boolean;
+  leaguePath: string | null;
+  modStoragePath: string | null;
+  /**
+   * Directory where mod projects are stored (for Creator Workshop).
+   */
+  workshopPath: string | null;
+  /**
+   * Whether to patch TFT game files (Map22.wad.client). Default: false.
+   */
+  patchTft: boolean;
   /**
    * Whether to block mods from patching Scripts.wad.client. Default: true.
    */
@@ -92,14 +105,6 @@ export type Settings = {
    * Additional WAD files to exclude from overlay building.
    */
   wadBlocklist: Array<WadBlocklistEntry>;
-  authorProfiles: Array<AuthorProfile>;
-  defaultAuthorProfileId: string | null;
-  /**
-   * Whether the user has dismissed the HDD-performance warning. Once true,
-   * we suppress the warning on subsequent patcher starts. Reset by toggling
-   * the "show performance warnings" setting if/when we add one.
-   */
-  hasSeenHddWarning: boolean;
   /**
    * Run the injection host elevated (UAC). An elevated game can only be
    * injected by an equally elevated host, so this is required when League
