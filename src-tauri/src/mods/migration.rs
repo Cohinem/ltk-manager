@@ -1,13 +1,13 @@
 use crate::error::{AppError, AppResult};
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::{BackendEvent, MigrationPhase, MigrationProgress};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
-use tauri::{AppHandle, Emitter};
 use ts_rs::TS;
 
-use super::{BulkInstallResult, MigrationPhase, MigrationProgress, ModLibrary};
+use super::{BulkInstallResult, ModLibrary};
 
 /// Metadata for a discovered cslol-manager mod, shown in the UI selection step.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -84,7 +84,6 @@ pub fn scan_cslol_directory(dir: &Path) -> AppResult<Vec<CslolModInfo>> {
 pub fn import_cslol_mods(
     library: &ModLibrary,
     config: &Config,
-    app_handle: &AppHandle,
     cslol_dir: &Path,
     folders: &[String],
 ) -> AppResult<BulkInstallResult> {
@@ -96,15 +95,14 @@ pub fn import_cslol_mods(
     let mut temp_paths: Vec<String> = Vec::new();
 
     for (i, folder) in folders.iter().enumerate() {
-        let _ = app_handle.emit(
-            "migration-progress",
-            MigrationProgress {
+        library
+            .events()
+            .emit(BackendEvent::MigrationProgress(MigrationProgress {
                 phase: MigrationPhase::Packaging,
                 current: i + 1,
                 total,
                 current_file: folder.clone(),
-            },
-        );
+            }));
 
         let mod_dir = installed_dir.join(folder);
         if !mod_dir.is_dir() {

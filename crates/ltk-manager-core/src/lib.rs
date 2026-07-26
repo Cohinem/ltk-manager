@@ -6,4 +6,5 @@
 //! the Tauri shell in `src-tauri` supplies the adapters.
 
 pub mod config;
+pub mod events;
 pub mod patcher;

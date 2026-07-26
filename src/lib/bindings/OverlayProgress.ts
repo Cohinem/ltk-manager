@@ -2,7 +2,7 @@
 import type { OverlayStage } from "./OverlayStage";
 
 /**
- * Progress event emitted during overlay building.
+ * Progress of an overlay build.
  */
 export type OverlayProgress = {
   stage: OverlayStage;

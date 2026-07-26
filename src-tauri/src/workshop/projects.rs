@@ -1,11 +1,13 @@
 use super::{
     find_config_file, is_valid_project_name, load_workshop_project, CreateProjectArgs,
-    FantomeImportProgress, FantomeImportStage, FantomePeekResult, GitImportProgress,
-    GitImportStage, ImportFantomeArgs, ImportGitRepoArgs, SaveProjectConfigArgs, Workshop,
+    FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, SaveProjectConfigArgs, Workshop,
     WorkshopProject,
 };
 use crate::error::{AppError, AppResult};
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::{
+    BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
+};
 use ltk_mod_project::{
     default_layers, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag,
 };
@@ -14,7 +16,6 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{Cursor, Read, Seek};
 use std::path::PathBuf;
-use tauri::Emitter;
 use zip::ZipArchive;
 
 use camino::Utf8Path;
@@ -364,15 +365,13 @@ impl Workshop {
         current: u32,
         total: u32,
     ) {
-        let _ = self.app_handle.emit(
-            "fantome-import-progress",
-            FantomeImportProgress {
+        self.events()
+            .emit(BackendEvent::FantomeImportProgress(FantomeImportProgress {
                 stage,
                 current_wad: current_wad.map(String::from),
                 current,
                 total,
-            },
-        );
+            }));
     }
 
     /// Import a .modpkg file as a new workshop project.
@@ -560,13 +559,11 @@ impl Workshop {
     }
 
     fn emit_git_progress(&self, stage: GitImportStage, message: Option<&str>) {
-        let _ = self.app_handle.emit(
-            "git-import-progress",
-            GitImportProgress {
+        self.events()
+            .emit(BackendEvent::GitImportProgress(GitImportProgress {
                 stage,
                 message: message.map(String::from),
-            },
-        );
+            }));
     }
 }
 

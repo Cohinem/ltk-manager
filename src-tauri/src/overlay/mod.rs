@@ -1,33 +1,12 @@
 use crate::error::{AppError, AppResult, Utf8PathExt};
-use crate::mods::{LinkedBinState, ModLibrary, WadReportState};
+use crate::mods::ModLibrary;
 use ltk_manager_core::config::{Config, WadBlocklistEntry};
+use ltk_manager_core::events::{BackendEvent, OverlayProgress, OverlayStage};
 use std::path::{Path, PathBuf};
-use tauri::{Emitter, Manager};
+use std::sync::Arc;
 
 const SCRIPTS_WAD: &str = "scripts.wad.client";
 const TFT_WAD: &str = "map22.wad.client";
-
-#[derive(Clone, serde::Serialize, ts_rs::TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub enum OverlayStage {
-    Indexing,
-    Collecting,
-    Patching,
-    Strings,
-    Complete,
-}
-
-/// Progress event emitted during overlay building.
-#[derive(Clone, serde::Serialize, ts_rs::TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct OverlayProgress {
-    pub stage: OverlayStage,
-    pub current_file: Option<String>,
-    pub current: u32,
-    pub total: u32,
-}
 
 impl ModLibrary {
     /// Ensure the overlay exists and is up-to-date for the current enabled mod set.
@@ -98,7 +77,7 @@ impl ModLibrary {
 
         Self::clean_corrupt_overlay_state(&utf8_state_dir);
 
-        let app_handle_clone = self.app_handle().clone();
+        let progress_events = Arc::clone(self.events());
         let mut builder =
             ltk_overlay::OverlayBuilder::new(utf8_game_dir, utf8_overlay_root, utf8_state_dir)
                 .with_blocked_wads(blocked_wads)
@@ -111,15 +90,12 @@ impl ModLibrary {
                         ltk_overlay::OverlayStage::ApplyingStringOverrides => OverlayStage::Strings,
                         ltk_overlay::OverlayStage::Complete => OverlayStage::Complete,
                     };
-                    let _ = app_handle_clone.emit(
-                        "overlay-progress",
-                        OverlayProgress {
-                            stage,
-                            current_file: progress.current_file,
-                            current: progress.current,
-                            total: progress.total,
-                        },
-                    );
+                    progress_events.emit(BackendEvent::OverlayProgress(OverlayProgress {
+                        stage,
+                        current_file: progress.current_file,
+                        current: progress.current,
+                        total: progress.total,
+                    }));
                 });
 
         let mut all_mods = Vec::new();
@@ -153,12 +129,10 @@ impl ModLibrary {
         // pre-flight). The library badges and the reachable warning dialog read
         // them via `get_linked_bin_offenders`; the event tells the frontend the
         // snapshot changed. Failure here must not fail the patch.
-        if let Some(state) = self.app_handle().try_state::<LinkedBinState>() {
-            if let Err(e) = state.record(linked_bin_offenders) {
-                tracing::warn!("Failed to record linked-bin offenders: {}", e);
-            } else {
-                let _ = self.app_handle().emit("linked-bins-updated", ());
-            }
+        if let Err(e) = self.linked_bins().record(linked_bin_offenders) {
+            tracing::warn!("Failed to record linked-bin offenders: {}", e);
+        } else {
+            self.events().emit(BackendEvent::LinkedBinsUpdated);
         }
 
         // Capture per-mod WAD reports for the library badge UI. Failure to
@@ -170,12 +144,10 @@ impl ModLibrary {
         // persisting so the frontend knows the cache is ready to query.
         let reports = builder.take_mod_wad_reports();
         if !reports.is_empty() {
-            if let Some(state) = self.app_handle().try_state::<WadReportState>() {
-                if let Err(e) = state.record_reports(reports) {
-                    tracing::warn!("Failed to persist per-mod WAD reports: {}", e);
-                } else {
-                    let _ = self.app_handle().emit("wad-reports-updated", ());
-                }
+            if let Err(e) = self.wad_reports().record_reports(reports) {
+                tracing::warn!("Failed to persist per-mod WAD reports: {}", e);
+            } else {
+                self.events().emit(BackendEvent::WadReportsUpdated);
             }
         }
 

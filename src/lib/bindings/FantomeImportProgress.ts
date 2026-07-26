@@ -2,7 +2,7 @@
 import type { FantomeImportStage } from "./FantomeImportStage";
 
 /**
- * Progress event emitted during fantome import.
+ * Progress of a fantome import.
  */
 export type FantomeImportProgress = {
   stage: FantomeImportStage;

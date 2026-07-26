@@ -7,6 +7,7 @@ mod commands;
 mod deep_link;
 mod diagnostics;
 mod error;
+mod events;
 mod hotkeys;
 #[cfg(debug_assertions)]
 mod log_layer;

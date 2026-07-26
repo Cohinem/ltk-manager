@@ -6,6 +6,7 @@ use crate::patcher::{PatcherHostState, PatcherPhase, PatcherState, StoredPatcher
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use super::mods::reject_if_patcher_running;
 use std::collections::HashMap;
@@ -316,7 +317,7 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherSta
 /// badges and a reachable warning dialog.
 #[tauri::command]
 pub fn get_linked_bin_offenders(
-    linked_bins: State<LinkedBinState>,
+    linked_bins: State<Arc<LinkedBinState>>,
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
 ) -> IpcResult<HashMap<String, LinkedBinOffenderInfo>> {

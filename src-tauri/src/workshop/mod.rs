@@ -9,11 +9,12 @@ use crate::error::{AppError, AppResult};
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::EventSink;
 use ltk_mod_project::{ModProject, ModProjectAuthor};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::AppHandle;
+use std::sync::Arc;
 use thiserror::Error;
 use ts_rs::TS;
 
@@ -32,20 +33,23 @@ pub enum WorkshopError {
 
 /// Managed struct that encapsulates workshop operations.
 ///
-/// Holds the `AppHandle` for consistency with `ModLibrary`.
-/// The [`Config`] is passed per-call since it can change at runtime.
+/// Progress is reported through [`EventSink`] rather than a Tauri handle, so
+/// nothing here depends on the shell. The [`Config`] is passed per-call since it
+/// can change at runtime.
 pub struct Workshop {
-    app_handle: AppHandle,
+    events: Arc<dyn EventSink>,
 }
 
 /// Tauri managed state wrapper for `Workshop`.
 pub struct WorkshopState(pub Workshop);
 
 impl Workshop {
-    pub fn new(app_handle: &AppHandle) -> Self {
-        Self {
-            app_handle: app_handle.clone(),
-        }
+    pub fn new(events: Arc<dyn EventSink>) -> Self {
+        Self { events }
+    }
+
+    pub(crate) fn events(&self) -> &Arc<dyn EventSink> {
+        &self.events
     }
 
     /// Resolve the workshop directory from config.
@@ -159,27 +163,6 @@ pub struct ImportFantomeArgs {
     pub display_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub enum FantomeImportStage {
-    Extracting,
-    Finalizing,
-    Complete,
-    Error,
-}
-
-/// Progress event emitted during fantome import.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct FantomeImportProgress {
-    pub stage: FantomeImportStage,
-    pub current_wad: Option<String>,
-    pub current: u32,
-    pub total: u32,
-}
-
 /// Arguments for importing a project from a GitHub repository.
 #[derive(Debug, Clone, Deserialize, TS)]
 #[ts(export)]
@@ -188,25 +171,6 @@ pub struct ImportGitRepoArgs {
     pub url: String,
     #[ts(optional)]
     pub branch: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub enum GitImportStage {
-    Downloading,
-    Extracting,
-    Complete,
-    Error,
-}
-
-/// Progress event emitted during git repo import.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct GitImportProgress {
-    pub stage: GitImportStage,
-    pub message: Option<String>,
 }
 
 /// Arguments for creating a new project.

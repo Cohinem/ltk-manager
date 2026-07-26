@@ -17,9 +17,9 @@ pub use linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use wad_reports::{ModWadReport, WadReportState};
 
 use crate::error::{AppError, AppResult, MutexResultExt};
-use crate::state::get_app_data_dir;
 use chrono::{DateTime, Utc};
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::{BackendEvent, EventSink};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -27,7 +27,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter, Manager};
 use ts_rs::TS;
 use uuid::Uuid;
 
@@ -42,7 +41,18 @@ pub(crate) const WATCHER_SUPPRESS_SECS: i64 = 10;
 /// concurrent reads/writes from clobbering each other.
 /// The [`Config`] is passed per-call since it can change at runtime.
 pub struct ModLibrary {
-    app_handle: AppHandle,
+    /// Notification channel, in place of emitting through a Tauri handle.
+    events: Arc<dyn EventSink>,
+    /// Fallback storage root when the user hasn't set a custom path. Supplied by
+    /// the caller (the shell resolves it from `app_data_dir`, a CLI from `dirs`)
+    /// rather than looked up, so nothing here depends on Tauri.
+    default_storage_dir: Option<PathBuf>,
+    /// Offenders from the latest overlay build. Owned directly rather than
+    /// fetched via `try_state`, which removes both the startup ordering
+    /// constraint and the silent no-op when the state wasn't registered.
+    linked_bins: Arc<LinkedBinState>,
+    /// Per-mod WAD analysis cache. Owned for the same reason as `linked_bins`.
+    wad_reports: Arc<WadReportState>,
     index_lock: Arc<Mutex<()>>,
     /// Epoch-millis timestamp of the last `mutate_index` completion.
     /// The file watcher skips events that arrive within [`WATCHER_SUPPRESS_SECS`]
@@ -53,7 +63,10 @@ pub struct ModLibrary {
 impl Clone for ModLibrary {
     fn clone(&self) -> Self {
         Self {
-            app_handle: self.app_handle.clone(),
+            events: Arc::clone(&self.events),
+            default_storage_dir: self.default_storage_dir.clone(),
+            linked_bins: Arc::clone(&self.linked_bins),
+            wad_reports: Arc::clone(&self.wad_reports),
             index_lock: Arc::clone(&self.index_lock),
             last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
         }
@@ -64,17 +77,35 @@ impl Clone for ModLibrary {
 pub struct ModLibraryState(pub ModLibrary);
 
 impl ModLibrary {
-    pub fn new(app_handle: &AppHandle) -> Self {
+    pub fn new(
+        events: Arc<dyn EventSink>,
+        default_storage_dir: Option<PathBuf>,
+        linked_bins: Arc<LinkedBinState>,
+        wad_reports: Arc<WadReportState>,
+    ) -> Self {
         Self {
-            app_handle: app_handle.clone(),
+            events,
+            default_storage_dir,
+            linked_bins,
+            wad_reports,
             index_lock: Arc::new(Mutex::new(())),
             last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),
         }
     }
 
-    /// Expose the inner AppHandle (needed by overlay module for emitting events).
-    pub fn app_handle(&self) -> &AppHandle {
-        &self.app_handle
+    /// Notification sink for this library's operations.
+    pub(crate) fn events(&self) -> &Arc<dyn EventSink> {
+        &self.events
+    }
+
+    /// Offenders recorded by the most recent overlay build.
+    pub(crate) fn linked_bins(&self) -> &Arc<LinkedBinState> {
+        &self.linked_bins
+    }
+
+    /// Per-mod WAD analysis cache.
+    pub(crate) fn wad_reports(&self) -> &Arc<WadReportState> {
+        &self.wad_reports
     }
 
     /// Resolve storage directory from the config snapshot.
@@ -82,7 +113,7 @@ impl ModLibrary {
         config
             .mod_storage_path
             .clone()
-            .or_else(|| get_app_data_dir(&self.app_handle))
+            .or_else(|| self.default_storage_dir.clone())
             .ok_or_else(|| AppError::Other("Failed to resolve mod storage directory".to_string()))
     }
 
@@ -101,16 +132,11 @@ impl ModLibrary {
         }
         // Flag any cached WAD reports for mods whose archives were re-extracted
         // (content fingerprint drift) and prune entries for mods no longer present.
-        if let Some(state) = self
-            .app_handle
-            .try_state::<crate::mods::wad_reports::WadReportState>()
-        {
-            if let Ok(mut store) = state.0.lock() {
-                let _ = store.invalidate_by_content(&refreshed_ids);
-                let valid_ids: std::collections::HashSet<String> =
-                    index.mods.iter().map(|m| m.id.clone()).collect();
-                let _ = store.prune_orphans(&valid_ids);
-            }
+        if let Ok(mut store) = self.wad_reports.0.lock() {
+            let _ = store.invalidate_by_content(&refreshed_ids);
+            let valid_ids: std::collections::HashSet<String> =
+                index.mods.iter().map(|m| m.id.clone()).collect();
+            let _ = store.prune_orphans(&valid_ids);
         }
         Ok(reconciled)
     }
@@ -127,7 +153,7 @@ impl ModLibrary {
         std::thread::spawn(move || match library.reconcile_index(&config) {
             Ok(true) => {
                 tracing::info!("Library index reconciled on startup");
-                let _ = library.app_handle.emit("library-changed", ());
+                library.events.emit(BackendEvent::LibraryChanged);
             }
             Ok(false) => {}
             Err(e) => tracing::warn!("Failed to reconcile library on startup: {}", e),
@@ -162,15 +188,10 @@ impl ModLibrary {
         save_library_index(&storage_dir, &index)?;
         // Drop WAD report cache entries for mods that are no longer in the
         // library after this mutation (e.g. uninstall paths).
-        if let Some(state) = self
-            .app_handle
-            .try_state::<crate::mods::wad_reports::WadReportState>()
-        {
-            if let Ok(mut store) = state.0.lock() {
-                let valid_ids: std::collections::HashSet<String> =
-                    index.mods.iter().map(|m| m.id.clone()).collect();
-                let _ = store.prune_orphans(&valid_ids);
-            }
+        if let Ok(mut store) = self.wad_reports.0.lock() {
+            let valid_ids: std::collections::HashSet<String> =
+                index.mods.iter().map(|m| m.id.clone()).collect();
+            let _ = store.prune_orphans(&valid_ids);
         }
         self.stamp_mutation();
         Ok(result)
@@ -317,35 +338,6 @@ pub struct BulkInstallError {
     pub file_path: String,
     pub file_name: String,
     pub message: String,
-}
-
-/// Progress event emitted per-file during bulk mod install.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct InstallProgress {
-    pub current: usize,
-    pub total: usize,
-    pub current_file: String,
-}
-
-/// Progress event emitted during cslol migration (both packaging and installing phases).
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct MigrationProgress {
-    pub phase: MigrationPhase,
-    pub current: usize,
-    pub total: usize,
-    pub current_file: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub enum MigrationPhase {
-    Packaging,
-    Installing,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

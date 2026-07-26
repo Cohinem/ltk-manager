@@ -2,19 +2,20 @@ use crate::error::{AppError, AppResult, MutexResultExt, Utf8PathExt};
 use camino::Utf8PathBuf;
 use chrono::Utc;
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::{BackendEvent, InstallProgress};
 use ltk_mod_project::{ModMap, ModProject, ModProjectLayer, ModTag};
 use ltk_modpkg::Modpkg;
 use ltk_overlay::{FantomeContent, ModpkgContent};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::{
-    BulkInstallError, BulkInstallResult, InstallProgress, InstalledMod, LibraryIndex,
-    LibraryModEntry, ModArchiveFormat, ModLayer, ModLibrary, Profile,
+    BulkInstallError, BulkInstallResult, InstalledMod, LibraryIndex, LibraryModEntry,
+    ModArchiveFormat, ModLayer, ModLibrary, Profile,
 };
-use tauri::{Emitter, Manager};
 
 impl ModLibrary {
     pub fn get_installed_mods(&self, config: &Config) -> AppResult<Vec<InstalledMod>> {
@@ -133,7 +134,7 @@ impl ModLibrary {
             });
         }
 
-        let app_handle = self.app_handle().clone();
+        let events = Arc::clone(self.events());
         let file_paths = file_paths.to_vec();
 
         self.mutate_index(config, |storage_dir, index| {
@@ -148,14 +149,11 @@ impl ModLibrary {
                     .unwrap_or(file_path)
                     .to_string();
 
-                let _ = app_handle.emit(
-                    "install-progress",
-                    InstallProgress {
-                        current: i + 1,
-                        total,
-                        current_file: file_name.clone(),
-                    },
-                );
+                events.emit(BackendEvent::InstallProgress(InstallProgress {
+                    current: i + 1,
+                    total,
+                    current_file: file_name.clone(),
+                }));
 
                 match install_single_mod_to_index(storage_dir, index, file_path) {
                     Ok((_entry, mod_info)) => {
@@ -668,12 +666,9 @@ impl ModLibrary {
 
         let library = self.clone();
         let config = config.clone();
-        let app = self.app_handle().clone();
+        let events = Arc::clone(self.events());
+        let reports = Arc::clone(self.wad_reports());
         std::thread::spawn(move || {
-            let Some(reports) = app.try_state::<super::WadReportState>() else {
-                return;
-            };
-
             let mut recorded_any = false;
             for id in &mod_ids {
                 if library
@@ -685,7 +680,7 @@ impl ModLibrary {
             }
 
             if recorded_any {
-                let _ = app.emit("wad-reports-updated", ());
+                events.emit(BackendEvent::WadReportsUpdated);
             }
         });
     }

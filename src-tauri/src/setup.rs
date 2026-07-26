@@ -3,10 +3,13 @@ use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 
 use crate::deep_link::DeepLinkState;
+use crate::events::TauriEventSink;
 use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::SettingsState;
 use crate::workshop::{Workshop, WorkshopState};
+use ltk_manager_core::events::EventSink;
+use std::sync::Arc;
 
 pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.handle().clone();
@@ -19,18 +22,32 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     let settings_state = SettingsState::new(&app_handle);
     let patcher_state = PatcherState::new();
-    let mod_library = ModLibraryState(ModLibrary::new(&app_handle));
-    let workshop = WorkshopState(Workshop::new(&app_handle));
+    let events: Arc<dyn EventSink> = Arc::new(TauriEventSink::new(app_handle.clone()));
+    let workshop = WorkshopState(Workshop::new(Arc::clone(&events)));
 
     initialize_first_run(&app_handle, &settings_state);
 
     let settings = settings_state.0.lock().unwrap().clone();
 
-    // Register WadReportState BEFORE reconcile so that the reconcile pass can
-    // invalidate stale reports and prune orphans on the first startup.
-    let storage_dir = mod_library.0.storage_dir(&settings.config).ok();
-    let wad_report_state = WadReportState::new(storage_dir.as_deref());
-    app.manage(wad_report_state);
+    // The library owns these stores; `manage` below registers the same `Arc`s so
+    // commands can reach them. Constructing them here (rather than having the
+    // library fetch them) is what removed the old "must be managed before
+    // reconcile" ordering constraint.
+    let default_storage_dir = crate::state::get_app_data_dir(&app_handle);
+    let storage_dir = settings
+        .config
+        .mod_storage_path
+        .clone()
+        .or_else(|| default_storage_dir.clone());
+    let wad_reports = Arc::new(WadReportState::new(storage_dir.as_deref()));
+    let linked_bins = Arc::new(LinkedBinState::default());
+
+    let mod_library = ModLibraryState(ModLibrary::new(
+        Arc::clone(&events),
+        default_storage_dir,
+        Arc::clone(&linked_bins),
+        Arc::clone(&wad_reports),
+    ));
 
     mod_library
         .0
@@ -51,7 +68,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(settings_state);
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
-    app.manage(LinkedBinState::default());
+    app.manage(linked_bins);
+    app.manage(wad_reports);
     app.manage(crate::strings::StringKeyIndexState::default());
     app.manage(mod_library);
     app.manage(workshop);
