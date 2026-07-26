@@ -3,9 +3,4 @@
 /**
  * Arguments for creating a new project.
  */
-export type CreateProjectArgs = {
-  name: string;
-  displayName: string;
-  description: string;
-  authors: Array<string>;
-};
+export type CreateProjectArgs = { name: string, displayName: string, description: string, authors: Array<string>, };

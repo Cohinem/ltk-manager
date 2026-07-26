@@ -3,16 +3,15 @@
 /**
  * Configuration for starting the patcher.
  */
-export type PatcherConfig = {
-  /**
-   * Optional hook flags bitmask forwarded to the injection host
-   */
-  flags?: number;
-  /**
-   * Absolute paths to workshop project directories to include in the overlay.
-   *
-   * These are loaded directly from disk via `FsModContent` and prepended to
-   * the enabled mod list (highest priority).
-   */
-  workshopProjects?: Array<string>;
-};
+export type PatcherConfig = { 
+/**
+ * Optional hook flags bitmask forwarded to the injection host
+ */
+flags?: number, 
+/**
+ * Absolute paths to workshop project directories to include in the overlay.
+ *
+ * These are loaded directly from disk via `FsModContent` and prepended to
+ * the enabled mod list (highest priority).
+ */
+workshopProjects?: Array<string>, };

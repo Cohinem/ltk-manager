@@ -6,6 +6,7 @@ use crate::patcher::{PatcherHostState, PatcherPhase, PatcherState, StoredPatcher
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use super::mods::reject_if_patcher_running;
 use std::collections::HashMap;
@@ -214,8 +215,8 @@ pub(crate) fn start_patcher_inner(
 /// runs as admin, but never when the manager is already elevated (a spawned host
 /// inherits its integrity, making the UAC bridge redundant).
 fn resolve_should_elevate(config: &Config) -> bool {
-    let manager_elevated = crate::diagnostics::manager_is_elevated();
-    let league_admin = crate::diagnostics::league_configured_as_admin();
+    let manager_elevated = ltk_manager_core::diagnostics::manager_is_elevated();
+    let league_admin = ltk_manager_core::diagnostics::league_configured_as_admin();
     let should_elevate = !manager_elevated && (config.elevate_injector || league_admin);
     tracing::info!(
         "Injector elevation = {should_elevate} (opt_in={}, league_admin={league_admin}, manager_elevated={manager_elevated})",
@@ -316,7 +317,7 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherSta
 /// badges and a reachable warning dialog.
 #[tauri::command]
 pub fn get_linked_bin_offenders(
-    linked_bins: State<LinkedBinState>,
+    linked_bins: State<Arc<LinkedBinState>>,
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
 ) -> IpcResult<HashMap<String, LinkedBinOffenderInfo>> {

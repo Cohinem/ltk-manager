@@ -6,32 +6,29 @@ import type { Severity } from "./Severity";
 /**
  * Result of a single diagnostic check.
  */
-export type Check = {
-  /**
-   * Stable identifier (e.g. `"windows.long_paths"`). Survives label changes.
-   */
-  id: string;
-  /**
-   * Human-readable label.
-   */
-  label: string;
-  category: Category;
-  severity: Severity;
-  /**
-   * One-line summary of the result, shown next to the label.
-   */
-  summary: string;
-  /**
-   * Optional structured details, shown when the row is expanded.
-   */
-  details: Array<CheckDetail>;
-  /**
-   * Optional plain-text guidance for the user.
-   */
-  suggestion?: string;
-  /**
-   * Optional command (PowerShell / cmd / shell) to run as a fix. Shown
-   * alongside the suggestion with a copy button.
-   */
-  fixCommand?: string;
-};
+export type Check = { 
+/**
+ * Stable identifier (e.g. `"windows.long_paths"`). Survives label changes.
+ */
+id: string, 
+/**
+ * Human-readable label.
+ */
+label: string, category: Category, severity: Severity, 
+/**
+ * One-line summary of the result, shown next to the label.
+ */
+summary: string, 
+/**
+ * Optional structured details, shown when the row is expanded.
+ */
+details: Array<CheckDetail>, 
+/**
+ * Optional plain-text guidance for the user.
+ */
+suggestion?: string, 
+/**
+ * Optional command (PowerShell / cmd / shell) to run as a fix. Shown
+ * alongside the suggestion with a copy button.
+ */
+fixCommand?: string, };

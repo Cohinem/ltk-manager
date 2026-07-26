@@ -5,4 +5,4 @@ import type { InstalledMod } from "./InstalledMod";
 /**
  * Result of a bulk mod install operation.
  */
-export type BulkInstallResult = { installed: Array<InstalledMod>; failed: Array<BulkInstallError> };
+export type BulkInstallResult = { installed: Array<InstalledMod>, failed: Array<BulkInstallError>, };

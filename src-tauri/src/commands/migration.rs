@@ -48,7 +48,6 @@ pub async fn import_cslol_mods(
         crate::mods::import_cslol_mods(
             &library,
             &config,
-            &app_handle,
             &PathBuf::from(&directory),
             &selected_folders,
         )

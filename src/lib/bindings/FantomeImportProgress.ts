@@ -2,11 +2,6 @@
 import type { FantomeImportStage } from "./FantomeImportStage";
 
 /**
- * Progress event emitted during fantome import.
+ * Progress of a fantome import.
  */
-export type FantomeImportProgress = {
-  stage: FantomeImportStage;
-  currentWad: string | null;
-  current: number;
-  total: number;
-};
+export type FantomeImportProgress = { stage: FantomeImportStage, currentWad: string | null, current: number, total: number, };

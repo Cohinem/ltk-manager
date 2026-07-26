@@ -5,53 +5,52 @@ import type { WorkshopLayer } from "./WorkshopLayer";
 /**
  * A workshop project displayed in the UI.
  */
-export type WorkshopProject = {
-  /**
-   * Absolute path to the project directory
-   */
-  path: string;
-  /**
-   * Project slug name (directory name)
-   */
-  name: string;
-  /**
-   * Human-readable display name
-   */
-  displayName: string;
-  /**
-   * Semantic version string
-   */
-  version: string;
-  /**
-   * Project description
-   */
-  description: string;
-  /**
-   * List of authors
-   */
-  authors: Array<WorkshopAuthor>;
-  /**
-   * Categorization tags
-   */
-  tags: Array<string>;
-  /**
-   * Champion names this mod applies to
-   */
-  champions: Array<string>;
-  /**
-   * Map identifiers this mod applies to
-   */
-  maps: Array<string>;
-  /**
-   * Project layers
-   */
-  layers: Array<WorkshopLayer>;
-  /**
-   * Path to thumbnail image if exists
-   */
-  thumbnailPath: string | null;
-  /**
-   * Last modification time
-   */
-  lastModified: string;
-};
+export type WorkshopProject = { 
+/**
+ * Absolute path to the project directory
+ */
+path: string, 
+/**
+ * Project slug name (directory name)
+ */
+name: string, 
+/**
+ * Human-readable display name
+ */
+displayName: string, 
+/**
+ * Semantic version string
+ */
+version: string, 
+/**
+ * Project description
+ */
+description: string, 
+/**
+ * List of authors
+ */
+authors: Array<WorkshopAuthor>, 
+/**
+ * Categorization tags
+ */
+tags: Array<string>, 
+/**
+ * Champion names this mod applies to
+ */
+champions: Array<string>, 
+/**
+ * Map identifiers this mod applies to
+ */
+maps: Array<string>, 
+/**
+ * Project layers
+ */
+layers: Array<WorkshopLayer>, 
+/**
+ * Path to thumbnail image if exists
+ */
+thumbnailPath: string | null, 
+/**
+ * Last modification time
+ */
+lastModified: string, };

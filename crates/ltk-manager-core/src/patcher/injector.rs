@@ -47,6 +47,26 @@ pub struct WadScanFailure {
 
 type EventCallback = Box<dyn Fn(InjectorEvent) + Send>;
 
+/// Ends the host's current injection session.
+///
+/// The event loop needs exactly one thing from the host - the ability to say
+/// "stop" - so it takes this instead of the whole `Arc<Mutex<Option<PatcherHost>>>`.
+/// That is what makes the loop testable: production passes the real host, tests
+/// pass a stub that records the call.
+pub trait SessionControl {
+    fn stop_session(&self);
+}
+
+impl SessionControl for Arc<Mutex<Option<PatcherHost>>> {
+    fn stop_session(&self) {
+        if let Ok(mut guard) = self.lock()
+            && let Some(h) = guard.as_mut()
+        {
+            let _ = h.stop_session();
+        }
+    }
+}
+
 /// How long to keep gathering "WAD scan failed" lines after the first before
 /// reporting them together. They arrive as a burst during the game's load scan,
 /// so a short window captures every offending archive.
@@ -121,7 +141,7 @@ impl Injector {
     fn event_loop(
         &self,
         rx: &Receiver<HostLine>,
-        host: &Arc<Mutex<Option<PatcherHost>>>,
+        control: &dyn SessionControl,
         stop_flag: &AtomicBool,
     ) -> Result<(), InjectorError> {
         let mut state = SessionState::default();
@@ -141,7 +161,7 @@ impl Injector {
 
             if stop_flag.load(Ordering::SeqCst) {
                 tracing::info!("Stop requested, sending stop to host");
-                send_stop(host);
+                control.stop_session();
                 return Ok(());
             }
 
@@ -300,14 +320,6 @@ impl SessionState {
 
 /// Send `stop` to the persistent host to tear down the current injection
 /// session, leaving the process alive for reuse.
-fn send_stop(host: &Arc<Mutex<Option<PatcherHost>>>) {
-    if let Ok(mut guard) = host.lock()
-        && let Some(h) = guard.as_mut()
-    {
-        let _ = h.stop_session();
-    }
-}
-
 /// Parse a "WAD scan failed" line, e.g.
 /// `error: WAD scan failed status with c0000229 for Ahri.wad.client`. Returns
 /// `None` for non-failures, including the `warn:`-level line the DLL emits when
@@ -346,6 +358,232 @@ fn first_token(s: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc::{Sender, channel};
+
+    /// Records whether the loop asked the host to stop, standing in for the real
+    /// `Arc<Mutex<Option<PatcherHost>>>`.
+    #[derive(Default)]
+    struct StubControl {
+        stops: AtomicBool,
+    }
+
+    impl SessionControl for StubControl {
+        fn stop_session(&self) {
+            self.stops.store(true, Ordering::SeqCst);
+        }
+    }
+
+    impl StubControl {
+        fn was_stopped(&self) -> bool {
+            self.stops.load(Ordering::SeqCst)
+        }
+    }
+
+    /// Wire-format helpers. The loop only sees lines, so getting these exactly
+    /// right is the difference between testing the loop and testing nothing: an
+    /// unparseable line is silently ignored, and the loop keeps waiting.
+    fn dll_line(level: &str, message: &str) -> String {
+        format!("dll 1.0000000 1234 5678 {level} {message}")
+    }
+
+    fn wad_failure_line(wad: &str) -> String {
+        dll_line(
+            "error",
+            &format!("error: WAD scan failed status with c0000229 for {wad}"),
+        )
+    }
+
+    struct Harness {
+        injector: Injector,
+        control: StubControl,
+        stop_flag: Arc<AtomicBool>,
+        tx: Option<Sender<HostLine>>,
+        rx: Receiver<HostLine>,
+        events: Arc<Mutex<Vec<InjectorEvent>>>,
+    }
+
+    impl Harness {
+        fn new(elevate: bool) -> Self {
+            let events = Arc::new(Mutex::new(Vec::new()));
+            let sink = Arc::clone(&events);
+            let injector = Injector::new()
+                .with_elevate(elevate)
+                .on_event(move |e| sink.lock().unwrap().push(e));
+            let (tx, rx) = channel();
+            Self {
+                injector,
+                control: StubControl::default(),
+                stop_flag: Arc::new(AtomicBool::new(false)),
+                tx: Some(tx),
+                rx,
+                events,
+            }
+        }
+
+        fn send(&self, line: &str) {
+            self.tx
+                .as_ref()
+                .expect("sender still open")
+                .send(Ok(line.to_string()))
+                .unwrap();
+        }
+
+        /// Drop the sender so the loop observes a disconnected channel, which is
+        /// how a host death (crash, antivirus, dismissed UAC) reaches the loop.
+        fn close(&mut self) {
+            self.tx = None;
+        }
+
+        /// Runs the loop behind a watchdog that trips the stop flag if the loop
+        /// outlives any legitimate case. Without it, a test that feeds a line the
+        /// parser rejects hangs the whole suite instead of failing.
+        fn run(&self) -> Result<(), InjectorError> {
+            let watchdog_flag = Arc::clone(&self.stop_flag);
+            let watchdog = std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_secs(10));
+                watchdog_flag.store(true, Ordering::SeqCst);
+            });
+            let result = self
+                .injector
+                .event_loop(&self.rx, &self.control, &self.stop_flag);
+            drop(watchdog);
+            result
+        }
+
+        fn emitted(&self) -> Vec<InjectorEvent> {
+            self.events.lock().unwrap().clone()
+        }
+    }
+
+    #[test]
+    fn stop_flag_ends_session_cleanly_and_stops_host() {
+        let harness = Harness::new(false);
+        harness.stop_flag.store(true, Ordering::SeqCst);
+
+        assert!(harness.run().is_ok());
+        assert!(
+            harness.control.was_stopped(),
+            "a requested stop must be forwarded to the host"
+        );
+    }
+
+    #[test]
+    fn host_death_without_stop_request_is_an_error() {
+        let mut harness = Harness::new(false);
+        harness.close();
+
+        let err = harness.run().expect_err("EOF without stop must error");
+        let msg = err.to_string();
+        assert!(msg.contains("exited unexpectedly"), "got: {msg}");
+        assert!(
+            msg.contains("antivirus"),
+            "non-elevated path should suggest antivirus, got: {msg}"
+        );
+    }
+
+    /// A dismissed UAC prompt looks identical to a crash at the channel level, so
+    /// the elevated path has to explain itself differently.
+    #[test]
+    fn host_death_on_elevated_path_mentions_uac() {
+        let mut harness = Harness::new(true);
+        harness.close();
+
+        let msg = harness.run().expect_err("EOF must error").to_string();
+        assert!(msg.contains("User Account Control"), "got: {msg}");
+    }
+
+    #[test]
+    fn host_death_after_stop_request_is_clean() {
+        let mut harness = Harness::new(false);
+        harness.stop_flag.store(true, Ordering::SeqCst);
+        harness.close();
+
+        assert!(harness.run().is_ok());
+    }
+
+    /// A prior `error:` line becomes the reported reason when the host then dies,
+    /// rather than being lost behind the generic message.
+    #[test]
+    fn last_host_error_is_surfaced_on_death() {
+        let mut harness = Harness::new(false);
+        harness.send("error 1.0000000 could not open process");
+        harness.close();
+
+        let msg = harness.run().expect_err("EOF must error").to_string();
+        assert!(msg.contains("could not open process"), "got: {msg}");
+    }
+
+    #[test]
+    fn status_failed_ends_the_session_with_its_message() {
+        let harness = Harness::new(false);
+        harness.send("status 1.0000000 failed injection rejected");
+
+        let err = harness.run().expect_err("status failed must error");
+        assert!(
+            matches!(&err, InjectorError::Failed(m) if m.contains("injection rejected")),
+            "got: {err}"
+        );
+    }
+
+    /// A game exit is not a session end - the host re-scans for the next launch,
+    /// so the loop must keep running.
+    #[test]
+    fn game_exit_does_not_end_the_session() {
+        let mut harness = Harness::new(false);
+        harness.send("status 1.0000000 exited game closed");
+        harness.close();
+
+        // Only the disconnect ends it, and since no stop was requested that is an
+        // error - proving the loop survived the `exited` line.
+        assert!(harness.run().is_err());
+    }
+
+    /// The DLL emits one line per rejected archive then aborts. They must be
+    /// batched into a single event and auto-stop the session.
+    #[test]
+    fn wad_scan_failures_are_batched_and_auto_stop() {
+        let harness = Harness::new(false);
+        harness.send(&wad_failure_line("Ahri.wad.client"));
+        harness.send(&wad_failure_line("Ashe.wad.client"));
+
+        assert!(harness.run().is_ok(), "auto-stop is a clean end");
+
+        let events = harness.emitted();
+        assert_eq!(events.len(), 1, "failures must arrive as one batch");
+        let InjectorEvent::WadScanFailed { failures } = &events[0];
+        let wads: Vec<_> = failures.iter().filter_map(|f| f.wad.as_deref()).collect();
+        assert!(wads.contains(&"Ahri.wad.client"), "got: {wads:?}");
+        assert!(wads.contains(&"Ashe.wad.client"), "got: {wads:?}");
+        assert!(
+            harness.control.was_stopped(),
+            "a failed scan must stop the host"
+        );
+    }
+
+    #[test]
+    fn duplicate_wad_failures_are_deduplicated() {
+        let harness = Harness::new(false);
+        for _ in 0..3 {
+            harness.send(&wad_failure_line("Ahri.wad.client"));
+        }
+
+        assert!(harness.run().is_ok());
+
+        let events = harness.emitted();
+        let InjectorEvent::WadScanFailed { failures } = &events[0];
+        assert_eq!(failures.len(), 1, "same (wad, status) reported once");
+    }
+
+    #[test]
+    fn clean_session_emits_no_events() {
+        let harness = Harness::new(false);
+        harness.send("ok 1.0000000 configured");
+        harness.send("status 1.0000000 injected into pid 1234");
+        harness.stop_flag.store(true, Ordering::SeqCst);
+
+        assert!(harness.run().is_ok());
+        assert!(harness.emitted().is_empty());
+    }
 
     #[test]
     fn detects_wad_scan_failure_with_wad_and_status() {

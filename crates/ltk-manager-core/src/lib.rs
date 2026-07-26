@@ -6,4 +6,10 @@
 //! the Tauri shell in `src-tauri` supplies the adapters.
 
 pub mod config;
+pub mod diagnostics;
+pub mod error;
+pub mod events;
 pub mod patcher;
+pub mod storage;
+pub mod utils;
+pub mod workshop;

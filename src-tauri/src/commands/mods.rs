@@ -6,6 +6,7 @@ use crate::mods::{
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use std::collections::HashMap;
+use std::sync::Arc;
 use tauri::State;
 
 /// Get all installed mods from the mod library.
@@ -217,7 +218,7 @@ pub fn get_storage_directory(
 #[tauri::command]
 pub fn get_mod_wad_report(
     mod_id: String,
-    reports: State<WadReportState>,
+    reports: State<Arc<WadReportState>>,
 ) -> IpcResult<Option<ModWadReport>> {
     let result: AppResult<Option<ModWadReport>> = (|| {
         let store = reports.0.lock().mutex_err()?;
@@ -230,7 +231,7 @@ pub fn get_mod_wad_report(
 /// mod id → report. Far cheaper than one IPC call per mod.
 #[tauri::command]
 pub fn get_all_mod_wad_reports(
-    reports: State<WadReportState>,
+    reports: State<Arc<WadReportState>>,
 ) -> IpcResult<HashMap<String, ModWadReport>> {
     let result: AppResult<HashMap<String, ModWadReport>> = (|| {
         let store = reports.0.lock().mutex_err()?;
@@ -251,11 +252,11 @@ pub fn analyze_mod_wads(
     mod_id: String,
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
-    reports: State<WadReportState>,
+    reports: State<Arc<WadReportState>>,
 ) -> IpcResult<ModWadReport> {
     let result: AppResult<ModWadReport> = (|| {
         let config = settings.config()?;
-        let game_dir = crate::utils::game::resolve_game_dir(&config)?;
+        let game_dir = crate::utils::game::GameDir::resolve(&config)?.into_path();
         let (profile_dir, mut enabled_mod) =
             library.0.build_single_mod_provider(&config, &mod_id)?;
 

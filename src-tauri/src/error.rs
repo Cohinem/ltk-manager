@@ -1,8 +1,15 @@
-use camino::Utf8PathBuf;
+//! How a domain error reaches the frontend.
+//!
+//! [`AppError`] itself lives in core and says only what went wrong. This module
+//! owns the IPC representation of it: a stable [`ErrorCode`] the frontend can
+//! match on, the [`AppErrorResponse`] payload, and the [`IpcResult`] envelope
+//! every command returns. The `From<AppError>` mapping below is the single place
+//! that decides which variants collapse to the same code and which carry context.
+
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use thiserror::Error;
 use ts_rs::TS;
+
+pub use ltk_manager_core::error::{AppError, AppResult, MutexResultExt, Utf8PathExt};
 
 /// Error codes that can be communicated across the IPC boundary.
 /// These are serialized as SCREAMING_SNAKE_CASE for TypeScript consumption.
@@ -149,78 +156,6 @@ impl<T, E: Into<AppErrorResponse>> From<Result<T, E>> for IpcResult<T> {
     }
 }
 
-/// Internal application error type with rich error information.
-/// This is converted to `AppErrorResponse` when crossing the IPC boundary.
-#[derive(Debug, Error)]
-#[allow(dead_code)]
-pub enum AppError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-
-    #[error("Modpkg error: {0}")]
-    Modpkg(#[from] ltk_modpkg::error::ModpkgError),
-
-    #[error("League installation not found")]
-    LeagueNotFound,
-
-    #[error("Invalid path: {0}")]
-    InvalidPath(String),
-
-    #[error("Mod not found: {0}")]
-    ModNotFound(String),
-
-    #[error("Validation failed: {0}")]
-    ValidationFailed(String),
-
-    #[error("Internal state error: {0}")]
-    InternalState(String),
-
-    #[error("Failed to acquire mutex lock")]
-    MutexLockFailed,
-
-    #[error("{0}")]
-    Other(String),
-
-    #[error("Workshop directory not configured")]
-    WorkshopNotConfigured,
-
-    #[error("Project not found: {0}")]
-    ProjectNotFound(String),
-
-    #[error("Project already exists: {0}")]
-    ProjectAlreadyExists(String),
-
-    #[error("Failed to pack project: {0}")]
-    PackFailed(String),
-
-    #[error("Fantome error: {0}")]
-    Fantome(String),
-
-    #[error("WAD error: {0}")]
-    WadError(#[from] ltk_wad::WadError),
-
-    #[error("WAD builder error: {0}")]
-    WadBuilderError(#[from] ltk_wad::WadBuilderError),
-
-    #[error("Cannot modify mods while the patcher is running")]
-    PatcherRunning,
-
-    #[error("ZIP error: {0}")]
-    ZipError(#[from] zip::result::ZipError),
-
-    #[error("Library index schema version {file_version} is newer than supported version {max_supported}")]
-    SchemaVersionTooNew {
-        file_version: u32,
-        max_supported: u32,
-    },
-
-    #[error(transparent)]
-    Workshop(#[from] crate::workshop::WorkshopError),
-}
-
 impl From<AppError> for AppErrorResponse {
     fn from(error: AppError) -> Self {
         match error {
@@ -305,50 +240,6 @@ impl From<AppError> for AppErrorResponse {
                 response
             }
         }
-    }
-}
-
-impl From<ltk_mod_project::ModProjectError> for AppError {
-    fn from(error: ltk_mod_project::ModProjectError) -> Self {
-        match error {
-            ltk_mod_project::ModProjectError::ConfigNotFound(path) => {
-                AppError::ProjectNotFound(path.display().to_string())
-            }
-            ltk_mod_project::ModProjectError::Io(e) => AppError::Io(e),
-            ltk_mod_project::ModProjectError::Json(e) => AppError::Serialization(e),
-            ltk_mod_project::ModProjectError::Toml(e) => AppError::Other(e.to_string()),
-            ltk_mod_project::ModProjectError::UnsupportedExtension(ext) => {
-                AppError::Other(format!("Unsupported config file extension: {}", ext))
-            }
-        }
-    }
-}
-
-/// Convenience type alias for internal Result usage
-pub type AppResult<T> = Result<T, AppError>;
-
-/// Extension trait for converting `Result<T, PoisonError>` to `AppResult<T>`.
-pub trait MutexResultExt<T> {
-    fn mutex_err(self) -> AppResult<T>;
-}
-
-impl<T, E> MutexResultExt<T> for Result<T, std::sync::PoisonError<E>> {
-    fn mutex_err(self) -> AppResult<T> {
-        self.map_err(|_| AppError::MutexLockFailed)
-    }
-}
-
-/// Extension trait for converting an owned `PathBuf` into a `Utf8PathBuf`,
-/// mapping a non-UTF-8 path to an [`AppError::InvalidPath`] labeled with what
-/// the path represents (e.g. `"game directory"`).
-pub trait Utf8PathExt {
-    fn try_into_utf8(self, label: &str) -> AppResult<Utf8PathBuf>;
-}
-
-impl Utf8PathExt for PathBuf {
-    fn try_into_utf8(self, label: &str) -> AppResult<Utf8PathBuf> {
-        Utf8PathBuf::from_path_buf(self)
-            .map_err(|p| AppError::InvalidPath(format!("Non-UTF-8 {label}: {}", p.display())))
     }
 }
 
@@ -495,21 +386,6 @@ mod tests {
         let json = serde_json::to_value(&result).unwrap();
         assert_eq!(json["ok"], false);
         assert_eq!(json["error"]["code"], "UNKNOWN");
-    }
-
-    #[test]
-    fn mutex_result_ext_ok() {
-        let mutex = std::sync::Mutex::new(42);
-        let guard = mutex.lock().mutex_err().unwrap();
-        assert_eq!(*guard, 42);
-    }
-
-    #[test]
-    fn utf8_path_ext_converts_valid_path() {
-        let utf8 = PathBuf::from("/tmp/foo/bar")
-            .try_into_utf8("test path")
-            .unwrap();
-        assert_eq!(utf8.as_str(), "/tmp/foo/bar");
     }
 
     #[test]

@@ -1,14 +1,14 @@
 //! Tauri command for running the diagnostic suite.
 //!
 //! Resolves the bundled hook DLL the injector loads into the game, snapshots
-//! settings, and runs every check in [`crate::diagnostics::run_all`]. The
+//! settings, and runs every check in [`ltk_manager_core::diagnostics::run_all`]. The
 //! command never returns an error — checks that fail to gather data report
 //! `Severity::Warn` or `Severity::Bad` instead.
 
-use crate::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::state::{get_app_data_dir, SettingsState};
+use ltk_manager_core::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 

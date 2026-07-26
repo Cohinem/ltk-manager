@@ -2,11 +2,6 @@
 import type { MigrationPhase } from "./MigrationPhase";
 
 /**
- * Progress event emitted during cslol migration (both packaging and installing phases).
+ * Progress of a cslol migration, across both phases.
  */
-export type MigrationProgress = {
-  phase: MigrationPhase;
-  current: number;
-  total: number;
-  currentFile: string;
-};
+export type MigrationProgress = { phase: MigrationPhase, current: number, total: number, currentFile: string, };

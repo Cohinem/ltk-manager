@@ -5,17 +5,16 @@ import type { ErrorCode } from "./ErrorCode";
  * Structured error response sent over IPC.
  * This provides rich error information to the frontend.
  */
-export type AppError = {
-  /**
-   * Machine-readable error code for pattern matching
-   */
-  code: ErrorCode;
-  /**
-   * Human-readable error message
-   */
-  message: string;
-  /**
-   * Optional contextual data (e.g., the invalid path, missing mod ID)
-   */
-  context?: unknown;
-};
+export type AppError = { 
+/**
+ * Machine-readable error code for pattern matching
+ */
+code: ErrorCode, 
+/**
+ * Human-readable error message
+ */
+message: string, 
+/**
+ * Optional contextual data (e.g., the invalid path, missing mod ID)
+ */
+context?: unknown, };

@@ -2,6 +2,6 @@
 import type { GitImportStage } from "./GitImportStage";
 
 /**
- * Progress event emitted during git repo import.
+ * Progress of a git repository import.
  */
-export type GitImportProgress = { stage: GitImportStage; message: string | null };
+export type GitImportProgress = { stage: GitImportStage, message: string | null, };

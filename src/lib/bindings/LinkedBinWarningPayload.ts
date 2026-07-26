@@ -7,9 +7,8 @@
  * start - it drives a non-blocking toast. The per-mod badges and the reachable
  * `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
  */
-export type LinkedBinWarningPayload = {
-  /**
-   * Number of enabled mods flagged in the latest build.
-   */
-  count: number;
-};
+export type LinkedBinWarningPayload = { 
+/**
+ * Number of enabled mods flagged in the latest build.
+ */
+count: number, };

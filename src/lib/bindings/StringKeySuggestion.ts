@@ -3,14 +3,13 @@
 /**
  * One autocomplete suggestion for a stringtable field.
  */
-export type StringKeySuggestion = {
-  /**
-   * Field name, e.g. `game_character_displayname_ahri`.
-   */
-  key: string;
-  /**
-   * What the game's stringtable currently says for this field in the
-   * indexed locale, when the key exists there.
-   */
-  value: string | null;
-};
+export type StringKeySuggestion = { 
+/**
+ * Field name, e.g. `game_character_displayname_ahri`.
+ */
+key: string, 
+/**
+ * What the game's stringtable currently says for this field in the
+ * indexed locale, when the key exists there.
+ */
+value: string | null, };

@@ -3,4 +3,4 @@
 /**
  * Validation result for a project.
  */
-export type ValidationResult = { valid: boolean; errors: Array<string>; warnings: Array<string> };
+export type ValidationResult = { valid: boolean, errors: Array<string>, warnings: Array<string>, };

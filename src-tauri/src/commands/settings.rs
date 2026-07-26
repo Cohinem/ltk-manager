@@ -1,6 +1,6 @@
 use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::state::{persist_settings, Settings, SettingsState};
-use crate::utils::game::{list_game_wads, resolve_game_dir};
+use crate::utils::game::GameDir;
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
 use tauri_plugin_autostart::ManagerExt;
@@ -89,8 +89,7 @@ pub fn list_available_wads(state: State<SettingsState>) -> IpcResult<Vec<String>
 
 fn list_available_wads_inner(state: &State<SettingsState>) -> AppResult<Vec<String>> {
     let config = state.config()?;
-    let game_dir = resolve_game_dir(&config)?;
-    list_game_wads(&game_dir)
+    GameDir::resolve(&config)?.wads()
 }
 
 /// Whether League is configured to launch as administrator (an AppCompatFlags
@@ -102,7 +101,7 @@ fn list_available_wads_inner(state: &State<SettingsState>) -> AppResult<Vec<Stri
 /// understand why a UAC prompt may appear despite the setting being off.
 #[tauri::command]
 pub fn detect_league_run_as_admin() -> IpcResult<bool> {
-    IpcResult::ok(crate::diagnostics::league_configured_as_admin())
+    IpcResult::ok(ltk_manager_core::diagnostics::league_configured_as_admin())
 }
 
 /// Check if initial setup is required (league path not configured).

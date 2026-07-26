@@ -3,9 +3,4 @@
 /**
  * Parsed representation of a `ltk://install` deep-link URL.
  */
-export type DeepLinkInstallRequest = {
-  url: string;
-  name: string | null;
-  author: string | null;
-  source: string | null;
-};
+export type DeepLinkInstallRequest = { url: string, name: string | null, author: string | null, source: string | null, };

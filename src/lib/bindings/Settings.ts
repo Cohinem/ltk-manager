@@ -9,145 +9,139 @@ import type { WadBlocklistEntry } from "./WadBlocklistEntry";
  * [`Config`]. The flatten keeps `settings.json` a single flat document, so
  * the split is invisible to both the file on disk and the frontend.
  */
-export type Settings = {
-  firstRunComplete: boolean;
-  /**
-   * Application theme (system, dark, or light).
-   */
-  theme: Theme;
-  /**
-   * Accent color configuration.
-   */
-  accentColor: AccentColor;
-  /**
-   * Optional backdrop image path for glassmorphism effect.
-   */
-  backdropImage: string | null;
-  /**
-   * Backdrop blur amount in pixels (default: 40).
-   */
-  backdropBlur: number | null;
-  /**
-   * Library view mode ("grid" or "list"). Defaults to "grid".
-   */
-  libraryViewMode: string | null;
-  /**
-   * Whether to minimize to system tray instead of taskbar. Default: true.
-   */
-  minimizeToTray: boolean;
-  /**
-   * Whether to start the application minimized to the system tray. Default: false.
-   */
-  startInTray: boolean;
-  /**
-   * Whether to register the app to launch automatically on login. Default: false.
-   */
-  autoRun: boolean;
-  /**
-   * When starting in tray, show the window if an update is available. Default: false.
-   */
-  startInTrayUnlessUpdate: boolean;
-  /**
-   * Always start the patcher automatically on launch. Default: false.
-   */
-  alwaysStartPatcher: boolean;
-  /**
-   * Whether the user has dismissed the migration banner.
-   */
-  migrationDismissed: boolean;
-  /**
-   * Global hotkey accelerator for reloading mods (e.g. "Ctrl+Shift+R").
-   */
-  reloadModsHotkey: string | null;
-  /**
-   * Global hotkey accelerator for killing League (e.g. "Ctrl+Shift+K").
-   */
-  killLeagueHotkey: string | null;
-  /**
-   * Whether the kill-league hotkey should also stop the patcher. Default: true.
-   */
-  killLeagueStopsPatcher: boolean;
-  /**
-   * Trusted domains for protocol installs. Downloads are only allowed from these domains.
-   */
-  trustedDomains: Array<string>;
-  /**
-   * Whether the library file watcher is enabled. Default: false.
-   */
-  watcherEnabled: boolean;
-  authorProfiles: Array<AuthorProfile>;
-  defaultAuthorProfileId: string | null;
-  /**
-   * Whether the user has dismissed the HDD-performance warning. Once true,
-   * we suppress the warning on subsequent patcher starts. Reset by toggling
-   * the "show performance warnings" setting if/when we add one.
-   */
-  hasSeenHddWarning: boolean;
-  leaguePath: string | null;
-  modStoragePath: string | null;
-  /**
-   * Directory where mod projects are stored (for Creator Workshop).
-   */
-  workshopPath: string | null;
-  /**
-   * Whether to patch TFT game files (Map22.wad.client). Default: false.
-   */
-  patchTft: boolean;
-  /**
-   * Whether to block mods from patching Scripts.wad.client. Default: true.
-   */
-  blockScriptsWad: boolean;
-  /**
-   * Whether to run the linked-bin dependency check before starting the patcher. Default: true.
-   */
-  linkedBinCheckEnabled: boolean;
-  /**
-   * Additional WAD files to exclude from overlay building.
-   */
-  wadBlocklist: Array<WadBlocklistEntry>;
-  /**
-   * Run the injection host elevated (UAC). An elevated game can only be
-   * injected by an equally elevated host, so this is required when League
-   * runs as administrator. Off by default: when off, non-elevated users
-   * avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
-   * when League is detected configured to run as admin, regardless of this
-   * flag (see `commands::patcher::start_patcher_inner`).
-   */
-  elevateInjector: boolean;
-  /**
-   * Whether to automatically categorize mods from their content (champions,
-   * maps and content tags derived from the WAD/chunk footprint, surfaced as
-   * "auto" suggestions and library filters). When off, only the categories
-   * the user sets themselves are used. Default: true.
-   */
-  autoCategorizationEnabled: boolean;
-  /**
-   * Whether to enforce the anti-skinhack scan while patching. When on
-   * (default), a champion WAD that fails the scan aborts patching. When off,
-   * the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
-   * downgraded to warnings and flagged mods load anyway. Default: true.
-   */
-  enforceSkinhackScan: boolean;
-  /**
-   * Whether mods' string overrides are applied to every installed locale
-   * instead of only the locale the League client is configured to use.
-   * Default: false (current locale only).
-   */
-  applyStringOverridesToAllLocales: boolean;
-  /**
-   * Raise the injection host's log level from `Info` to `Debug`. The host and
-   * the injected DLL decide their own verbosity from this, so it is the only
-   * way to get their diagnostics out of a release build - `RUST_LOG` only
-   * affects the manager's own tracing. Read at patcher start, so a change
-   * takes effect on the next start. Default: false.
-   */
-  verbosePatcherLogging: boolean;
-  /**
-   * Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
-   * WAD scan to the load stage instead of scanning every archive up front.
-   * The overlay makes lazy scanning crash-prone, so the DLL only honours the
-   * flag when the game has crash reporting disabled - with it enabled this is
-   * inert rather than harmful. Default: false.
-   */
-  lazyWadScan: boolean;
-};
+export type Settings = { firstRunComplete: boolean, 
+/**
+ * Application theme (system, dark, or light).
+ */
+theme: Theme, 
+/**
+ * Accent color configuration.
+ */
+accentColor: AccentColor, 
+/**
+ * Optional backdrop image path for glassmorphism effect.
+ */
+backdropImage: string | null, 
+/**
+ * Backdrop blur amount in pixels (default: 40).
+ */
+backdropBlur: number | null, 
+/**
+ * Library view mode ("grid" or "list"). Defaults to "grid".
+ */
+libraryViewMode: string | null, 
+/**
+ * Whether to minimize to system tray instead of taskbar. Default: true.
+ */
+minimizeToTray: boolean, 
+/**
+ * Whether to start the application minimized to the system tray. Default: false.
+ */
+startInTray: boolean, 
+/**
+ * Whether to register the app to launch automatically on login. Default: false.
+ */
+autoRun: boolean, 
+/**
+ * When starting in tray, show the window if an update is available. Default: false.
+ */
+startInTrayUnlessUpdate: boolean, 
+/**
+ * Always start the patcher automatically on launch. Default: false.
+ */
+alwaysStartPatcher: boolean, 
+/**
+ * Whether the user has dismissed the migration banner.
+ */
+migrationDismissed: boolean, 
+/**
+ * Global hotkey accelerator for reloading mods (e.g. "Ctrl+Shift+R").
+ */
+reloadModsHotkey: string | null, 
+/**
+ * Global hotkey accelerator for killing League (e.g. "Ctrl+Shift+K").
+ */
+killLeagueHotkey: string | null, 
+/**
+ * Whether the kill-league hotkey should also stop the patcher. Default: true.
+ */
+killLeagueStopsPatcher: boolean, 
+/**
+ * Trusted domains for protocol installs. Downloads are only allowed from these domains.
+ */
+trustedDomains: Array<string>, 
+/**
+ * Whether the library file watcher is enabled. Default: false.
+ */
+watcherEnabled: boolean, authorProfiles: Array<AuthorProfile>, defaultAuthorProfileId: string | null, 
+/**
+ * Whether the user has dismissed the HDD-performance warning. Once true,
+ * we suppress the warning on subsequent patcher starts. Reset by toggling
+ * the "show performance warnings" setting if/when we add one.
+ */
+hasSeenHddWarning: boolean, leaguePath: string | null, modStoragePath: string | null, 
+/**
+ * Directory where mod projects are stored (for Creator Workshop).
+ */
+workshopPath: string | null, 
+/**
+ * Whether to patch TFT game files (Map22.wad.client). Default: false.
+ */
+patchTft: boolean, 
+/**
+ * Whether to block mods from patching Scripts.wad.client. Default: true.
+ */
+blockScriptsWad: boolean, 
+/**
+ * Whether to run the linked-bin dependency check before starting the patcher. Default: true.
+ */
+linkedBinCheckEnabled: boolean, 
+/**
+ * Additional WAD files to exclude from overlay building.
+ */
+wadBlocklist: Array<WadBlocklistEntry>, 
+/**
+ * Run the injection host elevated (UAC). An elevated game can only be
+ * injected by an equally elevated host, so this is required when League
+ * runs as administrator. Off by default: when off, non-elevated users
+ * avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
+ * when League is detected configured to run as admin, regardless of this
+ * flag (see `commands::patcher::start_patcher_inner`).
+ */
+elevateInjector: boolean, 
+/**
+ * Whether to automatically categorize mods from their content (champions,
+ * maps and content tags derived from the WAD/chunk footprint, surfaced as
+ * "auto" suggestions and library filters). When off, only the categories
+ * the user sets themselves are used. Default: true.
+ */
+autoCategorizationEnabled: boolean, 
+/**
+ * Whether to enforce the anti-skinhack scan while patching. When on
+ * (default), a champion WAD that fails the scan aborts patching. When off,
+ * the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
+ * downgraded to warnings and flagged mods load anyway. Default: true.
+ */
+enforceSkinhackScan: boolean, 
+/**
+ * Whether mods' string overrides are applied to every installed locale
+ * instead of only the locale the League client is configured to use.
+ * Default: false (current locale only).
+ */
+applyStringOverridesToAllLocales: boolean, 
+/**
+ * Raise the injection host's log level from `Info` to `Debug`. The host and
+ * the injected DLL decide their own verbosity from this, so it is the only
+ * way to get their diagnostics out of a release build - `RUST_LOG` only
+ * affects the manager's own tracing. Read at patcher start, so a change
+ * takes effect on the next start. Default: false.
+ */
+verbosePatcherLogging: boolean, 
+/**
+ * Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
+ * WAD scan to the load stage instead of scanning every archive up front.
+ * The overlay makes lazy scanning crash-prone, so the DLL only honours the
+ * flag when the game has crash reporting disabled - with it enabled this is
+ * inert rather than harmful. Default: false.
+ */
+lazyWadScan: boolean, };

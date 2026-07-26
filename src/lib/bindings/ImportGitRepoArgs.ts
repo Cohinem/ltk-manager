@@ -3,4 +3,4 @@
 /**
  * Arguments for importing a project from a GitHub repository.
  */
-export type ImportGitRepoArgs = { url: string; branch?: string };
+export type ImportGitRepoArgs = { url: string, branch?: string, };

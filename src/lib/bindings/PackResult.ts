@@ -3,4 +3,4 @@
 /**
  * Result of a successful pack operation.
  */
-export type PackResult = { outputPath: string; fileName: string; format: string };
+export type PackResult = { outputPath: string, fileName: string, format: string, };

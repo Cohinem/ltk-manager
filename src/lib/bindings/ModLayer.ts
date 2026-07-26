@@ -3,4 +3,4 @@
 /**
  * A mod layer shown in the UI.
  */
-export type ModLayer = { name: string; displayName: string; priority: number; enabled: boolean };
+export type ModLayer = { name: string, displayName: string, priority: number, enabled: boolean, };

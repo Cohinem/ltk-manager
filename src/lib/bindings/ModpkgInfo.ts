@@ -4,13 +4,4 @@ import type { LayerInfo } from "./LayerInfo";
 /**
  * Information returned by `inspect_modpkg`.
  */
-export type ModpkgInfo = {
-  name: string;
-  displayName: string;
-  version: string;
-  description: string | null;
-  authors: Array<string>;
-  layers: Array<LayerInfo>;
-  fileCount: bigint;
-  totalSize: bigint;
-};
+export type ModpkgInfo = { name: string, displayName: string, version: string, description: string | null, authors: Array<string>, layers: Array<LayerInfo>, fileCount: bigint, totalSize: bigint, };

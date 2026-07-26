@@ -3,14 +3,13 @@
 /**
  * One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
  */
-export type WadScanFailureInfo = {
-  /**
-   * The offending archive (e.g. `TahmKench.wad.client`), if its name parsed.
-   */
-  wad: string | null;
-  /**
-   * The NTSTATUS-style code the scan reported (e.g. `c0000229` skinhack,
-   * `c000003e` corrupt WAD).
-   */
-  status: string;
-};
+export type WadScanFailureInfo = { 
+/**
+ * The offending archive (e.g. `TahmKench.wad.client`), if its name parsed.
+ */
+wad: string | null, 
+/**
+ * The NTSTATUS-style code the scan reported (e.g. `c0000229` skinhack,
+ * `c000003e` corrupt WAD).
+ */
+status: string, };
