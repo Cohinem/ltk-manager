@@ -4,17 +4,16 @@ import type { Check } from "./Check";
 /**
  * Full diagnostic report returned by `run_diagnostics`.
  */
-export type DiagnosticReport = {
-  /**
-   * ISO-8601 UTC timestamp.
-   */
-  generatedAt: string;
-  /**
-   * Manager version (matches `Cargo.toml`).
-   */
-  appVersion: string;
-  /**
-   * All checks in display order.
-   */
-  checks: Array<Check>;
-};
+export type DiagnosticReport = { 
+/**
+ * ISO-8601 UTC timestamp.
+ */
+generatedAt: string, 
+/**
+ * Manager version (matches `Cargo.toml`).
+ */
+appVersion: string, 
+/**
+ * All checks in display order.
+ */
+checks: Array<Check>, };

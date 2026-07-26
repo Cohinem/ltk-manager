@@ -4,37 +4,36 @@ import type { ProfileSlug } from "./ProfileSlug";
 /**
  * A mod profile for organizing different mod configurations.
  */
-export type Profile = {
-  /**
-   * Unique identifier (UUID)
-   */
-  id: string;
-  /**
-   * User-friendly name
-   */
-  name: string;
-  /**
-   * Slugified name used as the filesystem directory name
-   */
-  slug: ProfileSlug;
-  /**
-   * List of mod IDs enabled in this profile (maintains overlay priority order)
-   */
-  enabledMods: Array<string>;
-  /**
-   * Display order of all mods (enabled and disabled) in the UI
-   */
-  modOrder: Array<string>;
-  /**
-   * Per-mod layer enabled/disabled states: mod_id → (layer_name → enabled).
-   */
-  layerStates: { [key in string]: { [key in string]: boolean } };
-  /**
-   * Creation timestamp
-   */
-  createdAt: string;
-  /**
-   * Last time this profile was used/switched to
-   */
-  lastUsed: string;
-};
+export type Profile = { 
+/**
+ * Unique identifier (UUID)
+ */
+id: string, 
+/**
+ * User-friendly name
+ */
+name: string, 
+/**
+ * Slugified name used as the filesystem directory name
+ */
+slug: ProfileSlug, 
+/**
+ * List of mod IDs enabled in this profile (maintains overlay priority order)
+ */
+enabledMods: Array<string>, 
+/**
+ * Display order of all mods (enabled and disabled) in the UI
+ */
+modOrder: Array<string>, 
+/**
+ * Per-mod layer enabled/disabled states: mod_id → (layer_name → enabled).
+ */
+layerStates: { [key in string]: { [key in string]: boolean } }, 
+/**
+ * Creation timestamp
+ */
+createdAt: string, 
+/**
+ * Last time this profile was used/switched to
+ */
+lastUsed: string, };

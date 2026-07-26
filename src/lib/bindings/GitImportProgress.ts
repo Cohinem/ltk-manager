@@ -4,4 +4,4 @@ import type { GitImportStage } from "./GitImportStage";
 /**
  * Progress of a git repository import.
  */
-export type GitImportProgress = { stage: GitImportStage; message: string | null };
+export type GitImportProgress = { stage: GitImportStage, message: string | null, };

@@ -7,4 +7,4 @@
  * against every WAD filename in the game install; the pattern is always
  * applied case-insensitively.
  */
-export type WadBlocklistEntry = { kind: "exact"; value: string } | { kind: "regex"; value: string };
+export type WadBlocklistEntry = { "kind": "exact", value: string, } | { "kind": "regex", value: string, };

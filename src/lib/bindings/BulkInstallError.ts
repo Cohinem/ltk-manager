@@ -3,4 +3,4 @@
 /**
  * Error info for a single file that failed during bulk install.
  */
-export type BulkInstallError = { filePath: string; fileName: string; message: string };
+export type BulkInstallError = { filePath: string, fileName: string, message: string, };

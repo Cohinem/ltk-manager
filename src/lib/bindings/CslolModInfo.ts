@@ -3,10 +3,4 @@
 /**
  * Metadata for a discovered cslol-manager mod, shown in the UI selection step.
  */
-export type CslolModInfo = {
-  folderName: string;
-  name: string;
-  author: string;
-  version: string;
-  description: string;
-};
+export type CslolModInfo = { folderName: string, name: string, author: string, version: string, description: string, };

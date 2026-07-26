@@ -4,17 +4,16 @@ import type { PatcherPhase } from "./PatcherPhase";
 /**
  * Current status of the patcher.
  */
-export type PatcherStatus = {
-  /**
-   * Whether the patcher is currently running.
-   */
-  running: boolean;
-  /**
-   * The config path the patcher was started with.
-   */
-  configPath: string | null;
-  /**
-   * Current phase of the patcher lifecycle.
-   */
-  phase: PatcherPhase;
-};
+export type PatcherStatus = { 
+/**
+ * Whether the patcher is currently running.
+ */
+running: boolean, 
+/**
+ * The config path the patcher was started with.
+ */
+configPath: string | null, 
+/**
+ * Current phase of the patcher lifecycle.
+ */
+phase: PatcherPhase, };

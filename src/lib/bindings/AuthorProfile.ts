@@ -3,4 +3,4 @@
 /**
  * A saved author profile that can be reused across workshop projects.
  */
-export type AuthorProfile = { id: string; name: string; role: string | null };
+export type AuthorProfile = { id: string, name: string, role: string | null, };

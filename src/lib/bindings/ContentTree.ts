@@ -4,4 +4,4 @@ import type { LayerContent } from "./LayerContent";
 /**
  * A project's content directory as a flat per-layer listing.
  */
-export type ContentTree = { layers: Array<LayerContent> };
+export type ContentTree = { layers: Array<LayerContent>, };

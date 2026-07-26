@@ -5,8 +5,4 @@
  * sorted. Champions hold display names (e.g. `"Aatrox"`); maps and tags hold
  * well-known slugs (e.g. `"summoners-rift"`, `"champion-skin"`).
  */
-export type DerivedCategorization = {
-  champions: Array<string>;
-  maps: Array<string>;
-  tags: Array<string>;
-};
+export type DerivedCategorization = { champions: Array<string>, maps: Array<string>, tags: Array<string>, };

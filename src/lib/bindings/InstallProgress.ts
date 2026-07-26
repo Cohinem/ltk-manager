@@ -3,4 +3,4 @@
 /**
  * Progress of a bulk mod install, emitted per file.
  */
-export type InstallProgress = { current: number; total: number; currentFile: string };
+export type InstallProgress = { current: number, total: number, currentFile: string, };

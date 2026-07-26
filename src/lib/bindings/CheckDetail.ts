@@ -3,4 +3,4 @@
 /**
  * A single key/value detail row attached to a check.
  */
-export type CheckDetail = { key: string; value: string };
+export type CheckDetail = { key: string, value: string, };

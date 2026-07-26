@@ -4,9 +4,4 @@ import type { MigrationPhase } from "./MigrationPhase";
 /**
  * Progress of a cslol migration, across both phases.
  */
-export type MigrationProgress = {
-  phase: MigrationPhase;
-  current: number;
-  total: number;
-  currentFile: string;
-};
+export type MigrationProgress = { phase: MigrationPhase, current: number, total: number, currentFile: string, };

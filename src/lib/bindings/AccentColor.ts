@@ -3,13 +3,12 @@
 /**
  * Accent color configuration.
  */
-export type AccentColor = {
-  /**
-   * Preset color name: "blue", "purple", "green", "orange", "pink", "red", "teal"
-   */
-  preset: string | null;
-  /**
-   * Custom hue value (0-360) for custom colors
-   */
-  customHue: number | null;
-};
+export type AccentColor = { 
+/**
+ * Preset color name: "blue", "purple", "green", "orange", "pink", "red", "teal"
+ */
+preset: string | null, 
+/**
+ * Custom hue value (0-360) for custom colors
+ */
+customHue: number | null, };

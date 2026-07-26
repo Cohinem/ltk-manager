@@ -4,4 +4,4 @@ import type { PackFormat } from "./PackFormat";
 /**
  * Arguments for packing a project.
  */
-export type PackProjectArgs = { projectPath: string; outputDir?: string; format: PackFormat };
+export type PackProjectArgs = { projectPath: string, outputDir?: string, format: PackFormat, };

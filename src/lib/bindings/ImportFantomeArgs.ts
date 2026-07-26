@@ -3,4 +3,4 @@
 /**
  * Arguments for importing a .fantome archive.
  */
-export type ImportFantomeArgs = { filePath: string; name: string; displayName: string };
+export type ImportFantomeArgs = { filePath: string, name: string, displayName: string, };

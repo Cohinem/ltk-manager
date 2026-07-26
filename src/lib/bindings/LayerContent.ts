@@ -4,9 +4,4 @@ import type { ContentEntry } from "./ContentEntry";
 /**
  * The files inside a single layer directory.
  */
-export type LayerContent = {
-  name: string;
-  fileCount: number;
-  totalSizeBytes: bigint;
-  entries: Array<ContentEntry>;
-};
+export type LayerContent = { name: string, fileCount: number, totalSizeBytes: bigint, entries: Array<ContentEntry>, };

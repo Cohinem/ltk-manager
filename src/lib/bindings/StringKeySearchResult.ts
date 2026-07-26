@@ -4,14 +4,12 @@ import type { StringKeySuggestion } from "./StringKeySuggestion";
 /**
  * Result of a suggestion query.
  */
-export type StringKeySearchResult = {
-  suggestions: Array<StringKeySuggestion>;
-  /**
-   * Total number of known field names in the index.
-   */
-  totalKeys: number;
-  /**
-   * Locale whose stringtable supplied the `value` previews, when available.
-   */
-  locale: string | null;
-};
+export type StringKeySearchResult = { suggestions: Array<StringKeySuggestion>, 
+/**
+ * Total number of known field names in the index.
+ */
+totalKeys: number, 
+/**
+ * Locale whose stringtable supplied the `value` previews, when available.
+ */
+locale: string | null, };

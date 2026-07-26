@@ -3,9 +3,8 @@
 /**
  * Result of adding files/folders to a layer.
  */
-export type AddFilesReport = {
-  /**
-   * Basenames of items added to the layer directory.
-   */
-  added: Array<string>;
-};
+export type AddFilesReport = { 
+/**
+ * Basenames of items added to the layer directory.
+ */
+added: Array<string>, };

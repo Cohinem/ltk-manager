@@ -7,28 +7,21 @@ import type { DerivedCategorization } from "./DerivedCategorization";
  * Mirrors `ltk_overlay::ModWadReport` but adds the `is_stale` flag derived
  * at read time and uses TS bindings for the frontend.
  */
-export type ModWadReport = {
-  modId: string;
-  affectedWads: Array<string>;
-  wadCount: number;
-  overrideCount: number;
-  contentFingerprint: bigint | null;
-  gameIndexFingerprint: bigint;
-  /**
-   * ISO-8601 timestamp the report was computed.
-   */
-  computedAt: string;
-  /**
-   * `true` when the cached report's fingerprints no longer match the
-   * current values; computed on read, never persisted.
-   */
-  isStale: boolean;
-  /**
-   * Champions / maps / tags derived from the mod's contents. Computed at
-   * analysis time — precisely from a modpkg's chunk paths when available,
-   * otherwise coarsely from `affected_wads` — and persisted so reads don't
-   * re-open the archive. Improving the classifier takes effect on the next
-   * analysis (e.g. reinstall or "Analyze uncategorized").
-   */
-  derived: DerivedCategorization;
-};
+export type ModWadReport = { modId: string, affectedWads: Array<string>, wadCount: number, overrideCount: number, contentFingerprint: bigint | null, gameIndexFingerprint: bigint, 
+/**
+ * ISO-8601 timestamp the report was computed.
+ */
+computedAt: string, 
+/**
+ * `true` when the cached report's fingerprints no longer match the
+ * current values; computed on read, never persisted.
+ */
+isStale: boolean, 
+/**
+ * Champions / maps / tags derived from the mod's contents. Computed at
+ * analysis time — precisely from a modpkg's chunk paths when available,
+ * otherwise coarsely from `affected_wads` — and persisted so reads don't
+ * re-open the archive. Improving the classifier takes effect on the next
+ * analysis (e.g. reinstall or "Analyze uncategorized").
+ */
+derived: DerivedCategorization, };

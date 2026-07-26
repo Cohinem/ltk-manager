@@ -4,13 +4,4 @@ import type { WorkshopAuthor } from "./WorkshopAuthor";
 /**
  * Arguments for saving project configuration changes.
  */
-export type SaveProjectConfigArgs = {
-  projectPath: string;
-  displayName: string;
-  version: string;
-  description: string;
-  authors: Array<WorkshopAuthor>;
-  tags: Array<string>;
-  champions: Array<string>;
-  maps: Array<string>;
-};
+export type SaveProjectConfigArgs = { projectPath: string, displayName: string, version: string, description: string, authors: Array<WorkshopAuthor>, tags: Array<string>, champions: Array<string>, maps: Array<string>, };

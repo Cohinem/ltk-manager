@@ -4,11 +4,8 @@ import type { WorkshopFileKind } from "./WorkshopFileKind";
 /**
  * A single file entry in a layer's content directory.
  */
-export type ContentEntry = {
-  /**
-   * Path relative to the layer root, always POSIX-style (`/`).
-   */
-  relativePath: string;
-  sizeBytes: bigint;
-  kind: WorkshopFileKind;
-};
+export type ContentEntry = { 
+/**
+ * Path relative to the layer root, always POSIX-style (`/`).
+ */
+relativePath: string, sizeBytes: bigint, kind: WorkshopFileKind, };

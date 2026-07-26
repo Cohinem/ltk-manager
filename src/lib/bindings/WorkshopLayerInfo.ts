@@ -3,4 +3,4 @@
 /**
  * Runtime info about a layer's content directory, fetched separately from config.
  */
-export type WorkshopLayerInfo = { wadFiles: Array<string> };
+export type WorkshopLayerInfo = { wadFiles: Array<string>, };

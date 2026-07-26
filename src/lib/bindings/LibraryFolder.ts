@@ -3,4 +3,4 @@
 /**
  * A named folder for grouping mods in the library.
  */
-export type LibraryFolder = { id: string; name: string; modIds: Array<string> };
+export type LibraryFolder = { id: string, name: string, modIds: Array<string>, };

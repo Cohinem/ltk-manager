@@ -6,10 +6,9 @@ import type { WadScanFailureInfo } from "./WadScanFailureInfo";
  * DLL's integrity scan rejects one or more modded archives. When this fires
  * the patcher auto-stops and applies no mods for the session.
  */
-export type WadScanFailedPayload = {
-  /**
-   * The archives that failed the scan, de-duplicated. May be empty if no
-   * names could be parsed from the scan log.
-   */
-  failures: Array<WadScanFailureInfo>;
-};
+export type WadScanFailedPayload = { 
+/**
+ * The archives that failed the scan, de-duplicated. May be empty if no
+ * names could be parsed from the scan log.
+ */
+failures: Array<WadScanFailureInfo>, };

@@ -3,11 +3,4 @@
 /**
  * Metadata peeked from a .fantome archive without extracting content.
  */
-export type FantomePeekResult = {
-  name: string;
-  author: string;
-  version: string;
-  description: string;
-  wadFiles: Array<string>;
-  suggestedName: string;
-};
+export type FantomePeekResult = { name: string, author: string, version: string, description: string, wadFiles: Array<string>, suggestedName: string, };

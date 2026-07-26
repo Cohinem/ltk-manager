@@ -4,9 +4,4 @@ import type { OverlayStage } from "./OverlayStage";
 /**
  * Progress of an overlay build.
  */
-export type OverlayProgress = {
-  stage: OverlayStage;
-  currentFile: string | null;
-  current: number;
-  total: number;
-};
+export type OverlayProgress = { stage: OverlayStage, currentFile: string | null, current: number, total: number, };

@@ -3,9 +3,4 @@
 /**
  * Progress payload emitted during protocol install download.
  */
-export type ProtocolInstallProgress = {
-  stage: string;
-  bytesDownloaded: bigint;
-  totalBytes: bigint | null;
-  error: string | null;
-};
+export type ProtocolInstallProgress = { stage: string, bytesDownloaded: bigint, totalBytes: bigint | null, error: string | null, };

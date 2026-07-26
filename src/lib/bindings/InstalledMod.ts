@@ -4,25 +4,12 @@ import type { ModLayer } from "./ModLayer";
 /**
  * A mod entry shown in the UI Library.
  */
-export type InstalledMod = {
-  id: string;
-  name: string;
-  displayName: string;
-  version: string;
-  description: string | null;
-  authors: Array<string>;
-  enabled: boolean;
-  installedAt: string;
-  layers: Array<ModLayer>;
-  tags: Array<string>;
-  champions: Array<string>;
-  maps: Array<string>;
-  /**
-   * Directory where the mod is installed
-   */
-  modDir: string;
-  /**
-   * ID of the containing folder, or None if ungrouped.
-   */
-  folderId: string | null;
-};
+export type InstalledMod = { id: string, name: string, displayName: string, version: string, description: string | null, authors: Array<string>, enabled: boolean, installedAt: string, layers: Array<ModLayer>, tags: Array<string>, champions: Array<string>, maps: Array<string>, 
+/**
+ * Directory where the mod is installed
+ */
+modDir: string, 
+/**
+ * ID of the containing folder, or None if ungrouped.
+ */
+folderId: string | null, };
