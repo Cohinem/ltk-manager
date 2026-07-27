@@ -4,3 +4,7 @@ public/third-party-licenses.json text eol=lf
 # ts-rs writes LF; without this every `cargo test` leaves the whole directory
 # looking modified on CRLF checkouts.
 src/lib/bindings/*.ts text eol=lf
+
+# cargo-about embeds these files verbatim as JSON strings, so a CRLF checkout
+# produces a manifest that differs from the one CI regenerates on Linux.
+LICENSE-* text eol=lf
