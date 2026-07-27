@@ -1,5 +1,5 @@
 [workspace]
-members = ["src-tauri", "crates/ltk-manager-core"]
+members = ["src-tauri", "crates/ltk-manager-core", "crates/ritoclient-api"]
 resolver = "2"
 
 [workspace.dependencies]
