@@ -10,6 +10,7 @@ export * from "./Dialog";
 export * from "./ExternalLink";
 export * from "./FormField";
 export * from "./HintIcon";
+export * from "./icons";
 export * from "./Kbd";
 export * from "./Menu";
 export * from "./MultiSelect";

@@ -26,7 +26,7 @@ export function SortDropdown() {
 
   return (
     <Select.Root value={toValue(sort)} onValueChange={(v) => v && setSort(fromValue(v))}>
-      <Select.Trigger className="w-48 py-1.5 text-xs">
+      <Select.Trigger className="w-48 text-xs">
         <Select.Value prefix="Sort by:">
           {(value: string) => LABEL_MAP[value] ?? "Sort"}
         </Select.Value>

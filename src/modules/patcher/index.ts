@@ -1,5 +1,7 @@
 export {
   patcherKeys,
+  useClearStoppingOnIdle,
+  useClearTestingProjectsOnIdle,
   useGuardedStartPatcher,
   useOverlayProgress,
   usePatcherError,

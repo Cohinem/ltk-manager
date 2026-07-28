@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub use ltk_manager_core::error::{AppError, AppResult, MutexResultExt, Utf8PathExt};
+use ltk_manager_core::launcher::LauncherError;
 
 /// Error codes that can be communicated across the IPC boundary.
 /// These are serialized as SCREAMING_SNAKE_CASE for TypeScript consumption.
@@ -57,6 +58,15 @@ pub enum ErrorCode {
     SchemaVersionTooNew,
     /// Workshop domain error. The specific variant is in `context.kind`.
     Workshop,
+    /// No Riot Client owns the configured League installation.
+    RiotClientNotFound,
+    /// A Riot Client is running but did not accept the launch request.
+    RiotClientUnreachable,
+    /// The Riot Client understood the launch request and refused it. The remedy
+    /// is the player's to apply, and `context.riotErrorCode` says which one.
+    LaunchRefused,
+    /// The launch failed for a reason with no specific remedy.
+    LaunchFailed,
 }
 
 /// Structured error response sent over IPC.
@@ -225,6 +235,23 @@ impl From<AppError> for AppErrorResponse {
                 response
             }
 
+            // Unlike the patcher, each launcher failure gets its own code: the
+            // frontend offers a different remedy for each, so collapsing them
+            // into one code plus a `kind` would just move the switch.
+            AppError::Launcher(launcher_err) => {
+                let code = match launcher_err {
+                    LauncherError::RiotClientNotFound { .. } => ErrorCode::RiotClientNotFound,
+                    LauncherError::RiotClientUnreachable { .. } => ErrorCode::RiotClientUnreachable,
+                    LauncherError::LaunchRefused { .. } => ErrorCode::LaunchRefused,
+                    LauncherError::SpawnFailed { .. } | LauncherError::UnsupportedPlatform => {
+                        ErrorCode::LaunchFailed
+                    }
+                };
+                let mut response = AppErrorResponse::new(code, launcher_err.to_string());
+                response.context = serde_json::to_value(&launcher_err).ok();
+                response
+            }
+
             AppError::ZipError(e) => AppErrorResponse::new(ErrorCode::Zip, e.to_string()),
 
             AppError::SchemaVersionTooNew { file_version, max_supported } => AppErrorResponse::new(
@@ -304,6 +331,10 @@ mod tests {
             ErrorCode::Zip,
             ErrorCode::SchemaVersionTooNew,
             ErrorCode::Workshop,
+            ErrorCode::RiotClientNotFound,
+            ErrorCode::RiotClientUnreachable,
+            ErrorCode::LaunchRefused,
+            ErrorCode::LaunchFailed,
         ] {
             let json = serde_json::to_string(&code).unwrap();
             let deserialized: ErrorCode = serde_json::from_str(&json).unwrap();
@@ -392,6 +423,53 @@ mod tests {
         let context = resp.context.unwrap();
         assert_eq!(context["kind"], "INJECTION_FAILED");
         assert_eq!(context["stage"], "INJECTION");
+    }
+
+    /// Each launcher failure has its own remedy in the UI, so each must arrive
+    /// under its own code rather than sharing one with a discriminating field.
+    #[test]
+    fn every_launcher_variant_gets_its_own_code() {
+        let cases = [
+            (
+                LauncherError::RiotClientNotFound {
+                    installs_path: "C:/ProgramData/…/RiotClientInstalls.json".to_string(),
+                },
+                ErrorCode::RiotClientNotFound,
+            ),
+            (
+                LauncherError::RiotClientUnreachable {
+                    reason: "HTTP 404".to_string(),
+                },
+                ErrorCode::RiotClientUnreachable,
+            ),
+            (
+                LauncherError::SpawnFailed {
+                    reason: "access denied".to_string(),
+                },
+                ErrorCode::LaunchFailed,
+            ),
+            (LauncherError::UnsupportedPlatform, ErrorCode::LaunchFailed),
+        ];
+
+        for (error, expected) in cases {
+            let resp: AppErrorResponse = AppError::Launcher(error).into();
+            assert_eq!(resp.code, expected);
+        }
+    }
+
+    #[test]
+    fn riot_client_not_found_carries_the_path_it_tried() {
+        let resp: AppErrorResponse = AppError::Launcher(LauncherError::RiotClientNotFound {
+            installs_path: "C:/ProgramData/Riot Games/RiotClientInstalls.json".to_string(),
+        })
+        .into();
+
+        let context = resp.context.unwrap();
+        assert_eq!(context["kind"], "RIOT_CLIENT_NOT_FOUND");
+        assert_eq!(
+            context["installsPath"],
+            "C:/ProgramData/Riot Games/RiotClientInstalls.json"
+        );
     }
 
     #[test]

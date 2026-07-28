@@ -53,6 +53,9 @@ pub enum LaunchRoute {
     ExistingClient,
     /// Cold-started `RiotClientServices.exe`.
     ColdStart,
+    /// `LeagueClient.exe` was already up, so no request was sent. An outcome
+    /// rather than an error - what to do about it is the caller's business.
+    AlreadyRunning,
 }
 
 /// The result of a successful launch request.
@@ -66,7 +69,7 @@ pub enum LaunchRoute {
 pub struct LaunchOutcome {
     pub route: LaunchRoute,
     /// Pid of the Riot Client - the one we spawned on a cold start, the one
-    /// from the lockfile on a handoff.
+    /// from the lockfile otherwise.
     pub riot_client_pid: Option<u32>,
     /// The session id the client minted, when it told us one. This is the key
     /// into `/product-session/v1/external-sessions`, so it is what a future
@@ -117,7 +120,8 @@ pub fn launch_league(
 
     // One terminal event per launch, on every exit path, so a listener always
     // gets told the request is over.
-    let stage = match result {
+    let stage = match &result {
+        Ok(outcome) if outcome.route == LaunchRoute::AlreadyRunning => LaunchStage::AlreadyRunning,
         Ok(_) => LaunchStage::Launched,
         Err(_) => LaunchStage::Error,
     };
@@ -142,7 +146,12 @@ fn launch_league_inner(
         observer.on_progress(LaunchProgress::at(LaunchStage::Resolving));
 
         if crate::processes::league_client_running() {
-            return Err(LauncherError::LeagueAlreadyRunning);
+            tracing::info!("League is already running; there is nothing to launch");
+            return Ok(LaunchOutcome {
+                route: LaunchRoute::AlreadyRunning,
+                riot_client_pid: crate::lockfile::live_lockfile().map(|l| l.pid),
+                session_id: None,
+            });
         }
 
         let installs_path = crate::installs::default_installs_path();
@@ -166,9 +175,10 @@ fn launch_league_inner(
 
 /// Deliver a launch to a Riot Client that is already up.
 ///
-/// The happy path is one POST to the product-launcher. A client idling in the
-/// tray has not loaded that plugin yet and exposes only the argv handoff, so
-/// there we wake it and wait for the launcher to appear.
+/// The happy path is one POST to the product-launcher. Anything short of that -
+/// a tray-idle client that has not loaded the plugin, one still booting, one
+/// whose remoting listener is restarting - is a "not yet": we nudge it and wait,
+/// rather than reporting a failure for a client that is merely busy.
 #[cfg(target_os = "windows")]
 fn hand_off(
     lockfile: &crate::Lockfile,
@@ -188,18 +198,33 @@ fn hand_off(
     observer.on_progress(LaunchProgress::at(LaunchStage::HandingOff));
 
     crate::window::allow_foreground();
-    match product_launcher::launch_product(lockfile, target)? {
-        LaunchAttempt::Launched { session_id } => Ok(LaunchOutcome {
+    match product_launcher::launch_product(lockfile, target) {
+        Ok(LaunchAttempt::Launched { session_id }) => Ok(LaunchOutcome {
             route: LaunchRoute::ExistingClient,
             riot_client_pid: Some(lockfile.pid),
             session_id,
         }),
-        LaunchAttempt::LauncherNotRegistered => {
-            tracing::info!("Riot Client is idle; waking it before launching");
+        Ok(LaunchAttempt::NotReady { reason }) => {
+            tracing::info!("Riot Client cannot take the request yet ({reason}); waking it");
             observer.on_progress(LaunchProgress::at(LaunchStage::WakingClient));
-            crate::app_args::wake_with_launch_args(lockfile, target)?;
+
+            // Best-effort. A client whose listener is restarting refuses the
+            // wake for the same reason it refused the launch, and the wait below
+            // is what recovers from that - failing here would report the client
+            // unreachable while it was busy becoming reachable.
+            if let Err(e) = crate::app_args::wake_with_launch_args(target) {
+                tracing::debug!("Could not wake the Riot Client: {e}");
+            }
             wait_for_launcher(lockfile.pid, target, observer)
         }
+        // A refusal is not necessarily the client's final answer - see the
+        // grace period in [`wait_for_launcher`]. No wake: a client that can
+        // refuse is awake enough, it just is not caught up yet.
+        Err(refused @ LauncherError::LaunchRefused { .. }) => {
+            tracing::info!("{refused}; giving the client a chance to catch up");
+            wait_for_launcher(lockfile.pid, target, observer)
+        }
+        Err(e) => Err(e),
     }
 }
 
@@ -219,14 +244,35 @@ fn wait_for_launcher(
 
     use crate::product_launcher::{self, LaunchAttempt};
 
-    /// Booting from tray takes tens of seconds on a cold disk.
-    const BOOT_TIMEOUT: Duration = Duration::from_secs(60);
+    /// Booting from the tray is tens of seconds on a cold disk, and the client
+    /// may self-update on the way up. Overshooting costs a spinner the user can
+    /// watch; undershooting reports a failure for a launch that then happens
+    /// anyway, which is worse - the client turns up minutes later with no
+    /// explanation attached to it.
+    const BOOT_TIMEOUT: Duration = Duration::from_secs(120);
     const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
+    /// How long a refusal is treated as the client not having caught up yet.
+    ///
+    /// A client that has just woken from the tray answers `eula_not_accepted`
+    /// for a few seconds - its gates run against player state it has not
+    /// fetched. That is indistinguishable from a player who genuinely has not
+    /// accepted the terms, so a refusal is retried for a while and then
+    /// reported *as itself*: waiting out the full boot budget would replace a
+    /// message the player can act on with "the client never became ready".
+    const REFUSAL_GRACE: Duration = Duration::from_secs(30);
+
     let started = Instant::now();
-    let deadline = started + BOOT_TIMEOUT;
+    let mut last_reason = String::from("the Riot Client did not finish starting up in time");
+    let mut refused_since: Option<Instant> = None;
 
     loop {
+        if started.elapsed() >= BOOT_TIMEOUT {
+            return Err(LauncherError::RiotClientUnreachable {
+                reason: last_reason,
+            });
+        }
+
         std::thread::sleep(POLL_INTERVAL);
 
         observer.on_progress(LaunchProgress::waiting(
@@ -245,23 +291,41 @@ fn wait_for_launcher(
             });
         }
 
-        // Transient failures are expected while the client reinitialises, so
-        // only the deadline ends this loop.
-        if let Some(lockfile) = crate::lockfile::live_lockfile()
-            && let Ok(LaunchAttempt::Launched { session_id }) =
-                product_launcher::launch_product(&lockfile, target)
-        {
-            return Ok(LaunchOutcome {
-                route: LaunchRoute::ExistingClient,
-                riot_client_pid: Some(lockfile.pid),
-                session_id,
-            });
+        let Some(lockfile) = crate::lockfile::live_lockfile() else {
+            continue;
+        };
+
+        // An earlier POST can be accepted and still time out on our side - the
+        // client works through gates that outlast our patience. Asking again
+        // then would queue a *second* launch for a request already in flight.
+        if product_launcher::is_launch_request_pending(&lockfile) == Some(true) {
+            tracing::debug!("A launch is already in flight; waiting rather than asking again");
+            continue;
         }
 
-        if Instant::now() >= deadline {
-            return Err(LauncherError::RiotClientUnreachable {
-                reason: "the Riot Client did not finish starting up in time".to_string(),
-            });
+        // Transient failures are expected while the client reinitialises, so
+        // only the deadline ends this loop - but the last one is kept, because
+        // it is the only description of *why* the wait ran out.
+        match product_launcher::launch_product(&lockfile, target) {
+            Ok(LaunchAttempt::Launched { session_id }) => {
+                return Ok(LaunchOutcome {
+                    route: LaunchRoute::ExistingClient,
+                    riot_client_pid: Some(lockfile.pid),
+                    session_id,
+                });
+            }
+            Ok(LaunchAttempt::NotReady { reason }) => {
+                tracing::debug!("Riot Client still not ready: {reason}");
+                last_reason = format!("the Riot Client never became ready to launch: {reason}");
+            }
+            Err(refused @ LauncherError::LaunchRefused { .. }) => {
+                let since = *refused_since.get_or_insert_with(Instant::now);
+                if since.elapsed() >= REFUSAL_GRACE {
+                    return Err(refused);
+                }
+                tracing::debug!("{refused}; still within the grace period");
+            }
+            Err(e) => return Err(e),
         }
     }
 }
@@ -329,6 +393,9 @@ mod tests {
     fn route_serializes_for_the_frontend() {
         let json = serde_json::to_value(LaunchRoute::ExistingClient).unwrap();
         assert_eq!(json, "EXISTING_CLIENT");
+
+        let json = serde_json::to_value(LaunchRoute::AlreadyRunning).unwrap();
+        assert_eq!(json, "ALREADY_RUNNING");
     }
 
     #[test]

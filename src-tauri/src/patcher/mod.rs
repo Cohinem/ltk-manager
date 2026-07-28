@@ -128,7 +128,7 @@ mod tests {
         assert_eq!(state.with(|inner| inner.phase).unwrap(), PatcherPhase::Idle);
     }
 
-    /// Stopping an idle patcher is a no-op that says so, rather than arming the
+    /// Stopping an idle patcher is a no-op that says so, rather than setting the
     /// flag for whatever session starts next.
     #[test]
     fn request_stop_reports_no_session_and_leaves_the_flag_clear() {

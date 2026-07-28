@@ -27,7 +27,7 @@ fn main() {
         logging::cleanup_old_logs(p, 7);
     }
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             deep_link::handle_argv(app, &argv);
         }))
@@ -47,7 +47,17 @@ fn main() {
                         & !tauri_plugin_window_state::StateFlags::VISIBLE,
                 )
                 .build(),
-        )
+        );
+
+    // Defaults to 0.0.0.0, which exposes full IPC and JS execution to the local network
+    #[cfg(all(debug_assertions, feature = "mcp-bridge"))]
+    let builder = builder.plugin(
+        tauri_plugin_mcp_bridge::Builder::new()
+            .bind_address("127.0.0.1")
+            .build(),
+    );
+
+    builder
         .manage(logging_guards)
         .setup(setup::run)
         .invoke_handler(tauri::generate_handler![
@@ -98,6 +108,9 @@ fn main() {
             commands::rebuild_overlay,
             commands::get_patcher_status,
             commands::get_linked_bin_offenders,
+            // Launcher
+            commands::launch_league,
+            commands::get_launch_availability,
             // Hotkeys
             commands::pause_hotkeys,
             commands::resume_hotkeys,

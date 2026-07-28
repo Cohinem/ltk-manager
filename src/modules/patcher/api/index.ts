@@ -1,4 +1,6 @@
 export { patcherKeys } from "./keys";
+export { useClearStoppingOnIdle } from "./useClearStoppingOnIdle";
+export { useClearTestingProjectsOnIdle } from "./useClearTestingProjectsOnIdle";
 export { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 export { useHotkeyEvents } from "./useHotkeyEvents";
 export { useOverlayProgress } from "./useOverlayProgress";

@@ -1,4 +1,4 @@
-//! Diagnostics module — system health checks for troubleshooting patcher issues.
+//! Diagnostics module - system health checks for troubleshooting patcher issues.
 //!
 //! Each check is a pure function that returns a [`Check`]; the report is the
 //! ordered list of all checks. Phase 1 is read-only; fixes (registry edits,
@@ -12,7 +12,7 @@ mod compat_flags;
 mod library_index;
 mod patcher_dll;
 mod paths;
-mod processes;
+pub(crate) mod processes;
 mod storage_medium;
 mod windows;
 
@@ -32,9 +32,9 @@ pub(crate) mod win_util;
 pub enum Severity {
     /// Check passed.
     Ok,
-    /// Informational — no action needed (e.g. CPU model, language).
+    /// Informational - no action needed (e.g. CPU model, language).
     Info,
-    /// Suspicious — may cause problems, worth investigating.
+    /// Suspicious - may cause problems, worth investigating.
     Warn,
     /// Known to break the patcher, should be fixed.
     Bad,
@@ -126,7 +126,7 @@ pub struct DiagnosticReport {
 pub struct CheckCtx {
     /// League install root (e.g. `C:\Riot Games\League of Legends`).
     pub league_path: Option<PathBuf>,
-    /// Resolved mod storage directory — the path the rest of the app actually
+    /// Resolved mod storage directory - the path the rest of the app actually
     /// uses, with the `app_data_dir` fallback already applied. Only `None` if
     /// even the fallback could not be resolved (no Tauri app-data dir).
     pub mod_storage_path: Option<PathBuf>,
@@ -206,7 +206,7 @@ pub(crate) fn check(
 }
 
 /// Run the full suite of diagnostics. Each check is independent and infallible
-/// at this layer — checks that fail to gather data report a `Warn` or `Bad`
+/// at this layer - checks that fail to gather data report a `Warn` or `Bad`
 /// severity rather than propagating an error.
 pub fn run_all(ctx: &CheckCtx) -> Vec<Check> {
     vec![

@@ -66,11 +66,13 @@ export function RadioGroupOptions({
 export interface RadioGroupCardProps extends Omit<Radio.Root.Props, "className" | "children"> {
   title: string;
   description?: string;
+  /** Sits beside the title - a status chip on the option itself, not on its text. */
+  badge?: ReactNode;
   className?: string;
 }
 
 export const RadioGroupCard = forwardRef<HTMLButtonElement, RadioGroupCardProps>(
-  ({ title, description, className, ...props }, ref) => {
+  ({ title, description, badge, className, ...props }, ref) => {
     return (
       <Radio.Root
         ref={ref}
@@ -84,7 +86,10 @@ export const RadioGroupCard = forwardRef<HTMLButtonElement, RadioGroupCardProps>
         )}
         {...props}
       >
-        <div className="font-medium text-surface-100">{title}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-surface-100">{title}</span>
+          {badge}
+        </div>
         {description && <div className="text-xs text-surface-400">{description}</div>}
       </Radio.Root>
     );

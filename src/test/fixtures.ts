@@ -28,6 +28,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     autoRun: false,
     startInTrayUnlessUpdate: false,
     alwaysStartPatcher: false,
+    launchMode: "classic",
     hasSeenHddWarning: false,
     elevateInjector: false,
     autoCategorizationEnabled: true,
@@ -35,6 +36,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     applyStringOverridesToAllLocales: false,
     verbosePatcherLogging: false,
     lazyWadScan: false,
+    hideRiotClientOnLaunch: true,
     ...overrides,
   };
 }

@@ -3,6 +3,7 @@ export { AppearanceSection } from "./AppearanceSection";
 export { AuthorProfilesSection } from "./AuthorProfilesSection";
 export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
+export { LaunchSection } from "./LaunchSection";
 export { LeaguePathSection } from "./LeaguePathSection";
 export { LibrarySection } from "./LibrarySection";
 export { LicensesDialog } from "./LicensesDialog";

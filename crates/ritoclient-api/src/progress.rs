@@ -25,6 +25,8 @@ pub enum LaunchStage {
     WaitingForClient,
     /// The client accepted the request.
     Launched,
+    /// League was already up; no request was sent.
+    AlreadyRunning,
     /// The request failed; the error itself is reported separately.
     Error,
 }
@@ -98,6 +100,7 @@ mod tests {
             (LaunchStage::WakingClient, "\"wakingClient\""),
             (LaunchStage::WaitingForClient, "\"waitingForClient\""),
             (LaunchStage::Launched, "\"launched\""),
+            (LaunchStage::AlreadyRunning, "\"alreadyRunning\""),
             (LaunchStage::Error, "\"error\""),
         ] {
             assert_eq!(serde_json::to_string(&stage).unwrap(), expected);

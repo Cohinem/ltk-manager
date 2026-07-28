@@ -11,6 +11,10 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Launch progress is defined by the crate that produces it, and re-exported
+/// here so every payload in the registry below can be named from one module.
+pub use ritoclient_api::{LaunchProgress, LaunchStage};
+
 /// Receives notifications from domain operations.
 ///
 /// Implementations must not block: sinks are called from inside index locks and
@@ -187,6 +191,8 @@ declare_events! {
     FantomeImportProgress(FantomeImportProgress) => "fantome-import-progress",
     /// A git repository import advanced.
     GitImportProgress(GitImportProgress) => "git-import-progress",
+    /// A League launch request advanced.
+    LaunchProgress(LaunchProgress) => "launch-progress",
 }
 
 #[cfg(test)]
@@ -254,6 +260,10 @@ mod tests {
             })
             .name(),
             "git-import-progress"
+        );
+        assert_eq!(
+            BackendEvent::LaunchProgress(LaunchProgress::at(LaunchStage::Resolving)).name(),
+            "launch-progress"
         );
     }
 

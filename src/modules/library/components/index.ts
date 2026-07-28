@@ -26,6 +26,7 @@ export * from "./LibraryToolbar";
 export * from "./MissingDepsBadge";
 export * from "./ModCard";
 export * from "./ModDetailsDialog";
+export * from "./PlayButton";
 export * from "./ProfileSelector";
 export * from "./RemoveFromFolderZone";
 export * from "./SelectionActionBar";

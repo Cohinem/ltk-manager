@@ -16,8 +16,8 @@ import {
 } from "@/modules/library";
 import { MigrationBanner, MigrationWizardDialog } from "@/modules/migration";
 import {
+  PatcherEventListeners,
   PatcherUnsupported,
-  StatusBar,
   useGuardedStartPatcher,
   usePatcherStatus,
   useStopPatcher,
@@ -48,11 +48,9 @@ export function Library({ folderId }: LibraryProps = {}) {
   const stopPatcher = useStopPatcher();
   const maybeShowHddWarning = useHddWarning();
 
-  const isStarting = patcherStatus?.phase === "building";
   const isPatcherActive = patcherStatus?.running ?? false;
 
   const filterOptions = useFilterOptions(mods);
-  const hasEnabledMods = mods.some((m) => m.enabled);
   const visibleMods = useFilteredMods(mods, searchQuery);
 
   const selectMode = useLibrarySelectionStore((s) => s.selectMode);
@@ -116,32 +114,24 @@ export function Library({ folderId }: LibraryProps = {}) {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         actions={actions}
-        patcher={
-          patcherAvailable
-            ? {
-                status: patcherStatus,
-                isStarting: isStarting,
-                isStopping: stopPatcher.isPending,
-                onStart: handleStartPatcher,
-                onStop: handleStopPatcher,
-              }
-            : undefined
-        }
-        hasEnabledMods={hasEnabledMods}
         isLoading={isLoading}
         isPatcherActive={isPatcherActive}
         filterOptions={filterOptions}
         visibleMods={visibleMods}
       />
-      <StatusBar />
-      <LibraryContent
-        mods={mods}
-        searchQuery={searchQuery}
-        isLoading={isLoading}
-        error={error}
-        folderId={folderId}
-      />
-      {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
+      <PatcherEventListeners />
+      {/* Its own positioning context so the floating selection bar rides above
+          the mod list rather than the session bar below it. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <LibraryContent
+          mods={mods}
+          searchQuery={searchQuery}
+          isLoading={isLoading}
+          error={error}
+          folderId={folderId}
+        />
+        {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
+      </div>
       <ImportProgressDialog
         open={actions.importDialogOpen}
         onClose={actions.handleCloseImportDialog}

@@ -7,6 +7,7 @@ export * from "./libraryView";
 export * from "./linkedBinGuard";
 export * from "./notifications";
 export * from "./patcherSession";
+export * from "./playSession";
 export * from "./updater";
 export * from "./workshopDialogs";
 export * from "./workshopFilter";

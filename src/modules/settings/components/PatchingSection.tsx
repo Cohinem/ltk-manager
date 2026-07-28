@@ -1,6 +1,6 @@
 import { AlertTriangle, RefreshCw, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
 
-import { AlertBox, Button, SectionCard, Switch, useToast } from "@/components";
+import { AlertBox, Button, SectionCard, Switch, TftIcon, useToast } from "@/components";
 import type { Settings } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
@@ -34,7 +34,10 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
         <div className="space-y-3">
           <label className="flex items-center justify-between gap-4">
             <div>
-              <span className="block text-sm font-medium text-surface-200">Patch TFT files</span>
+              <span className="flex items-center gap-2.5 text-sm font-medium text-surface-200">
+                <TftIcon className="h-4 w-4 shrink-0" />
+                Patch TFT files
+              </span>
               <span className="block text-sm text-surface-400">
                 Apply mods to Teamfight Tactics game files (Map22.wad.client). Disable this if you
                 only play Summoner&apos;s Rift.
