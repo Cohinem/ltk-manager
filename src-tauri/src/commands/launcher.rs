@@ -67,7 +67,7 @@ fn launch_league_inner(
     };
 
     let config = settings.config()?;
-    let target = target.unwrap_or_default();
+    let target = target.unwrap_or_else(launcher::league_target);
     tracing::info!("Launching {}/{}", target.product_id, target.patchline_id);
 
     let events = TauriEventSink::new(app.clone());

@@ -4809,12 +4809,11 @@ dependencies = [
 [[package]]
 name = "ritoclient-api"
 version = "0.1.0"
+source = "git+https://github.com/Crauzer/ritoclient?rev=eb6bf7a8f5c11ca30d698caa4f3e736fb9b57ac2#eb6bf7a8f5c11ca30d698caa4f3e736fb9b57ac2"
 dependencies = [
- "assert_matches",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
- "tempfile",
  "thiserror 2.0.18",
  "tracing",
  "ts-rs",

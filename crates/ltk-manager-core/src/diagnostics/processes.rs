@@ -90,7 +90,18 @@ pub(crate) fn is_running_as_admin() -> bool {
 #[cfg(target_os = "windows")]
 #[allow(dead_code)]
 pub fn check_league_not_running() -> Check {
-    let running = ritoclient_api::processes::list_riot_processes();
+    let running = ritoclient_api::processes::list_matching(
+        &[
+            ritoclient_api::processes::RIOT_PROCESS_NAMES,
+            &[
+                "league of legends.exe",
+                crate::launcher::LEAGUE_CLIENT_EXE,
+                "leagueclientux.exe",
+                "leagueclientuxrender.exe",
+            ],
+        ]
+        .concat(),
+    );
     if running.is_empty() {
         return check_ok(
             "process.league_not_running",
