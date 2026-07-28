@@ -12,7 +12,7 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 ts = ["dep:ts-rs", "ritoclient-api/ts"]
 
 [dependencies]
-ritoclient-api = { path = "../ritoclient-api" }
+ritoclient-api = { workspace = true }
 
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }

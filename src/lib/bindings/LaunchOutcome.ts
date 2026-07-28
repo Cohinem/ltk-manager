@@ -4,7 +4,7 @@ import type { LaunchRoute } from "./LaunchRoute";
 /**
  * The result of a successful launch request.
  *
- * "Successful" means the Riot Client took the request, not that League is up:
+ * "Successful" means the Riot Client took the request, not that the game is up:
  * the client may still be updating itself, or waiting for the user to log in.
  */
 export type LaunchOutcome = { route: LaunchRoute, 
@@ -16,7 +16,7 @@ riotClientPid: number | null,
 /**
  * The session id the client minted, when it told us one. This is the key
  * into `/product-session/v1/external-sessions`, so it is what a future
- * "did League actually start?" check should follow rather than scanning
+ * "did the game actually start?" check should follow rather than scanning
  * for a process name.
  */
 sessionId: string | null, };

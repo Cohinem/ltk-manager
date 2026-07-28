@@ -4,7 +4,7 @@
  * Why a launch request could not be delivered.
  *
  * These deliberately do not share one code: each variant has a different
- * remedy ("set your League path", "open the Riot Client"), so a host can map
+ * remedy ("set your game path", "open the Riot Client"), so a host can map
  * each to its own error code and branch on that.
  *
  * Read-only queries do not use this type - they answer `Option`, because the

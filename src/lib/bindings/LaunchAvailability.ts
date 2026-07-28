@@ -3,9 +3,9 @@
 /**
  * Whether a launch is possible right now, and why not if it isn't.
  *
- * Drives the button's disabled state, so it never fails: an unanswerable
- * question resolves to "can't launch" rather than an error the UI has to
- * render.
+ * The manager's own view of [`ritoclient_api::Availability`]: same answers,
+ * but named for the one game this application is about, which is what the UI
+ * renders against.
  */
 export type LaunchAvailability = { 
 /**

@@ -74,7 +74,7 @@ pub fn auto_detect_league_path(state: State<SettingsState>) -> IpcResult<Option<
 /// client to be up.
 fn auto_detect_league_path_inner(launch_mode: LaunchMode) -> Option<PathBuf> {
     if launch_mode == LaunchMode::Modern {
-        if let Some(root) = ritoclient_api::product_registry::detect_league_install_root() {
+        if let Some(root) = ltk_manager_core::launcher::detect_league_install_root() {
             tracing::info!(
                 "Riot Client reports League installed at: {}",
                 root.display()
