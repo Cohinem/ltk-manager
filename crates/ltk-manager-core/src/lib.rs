@@ -9,6 +9,7 @@ pub mod config;
 pub mod diagnostics;
 pub mod error;
 pub mod events;
+pub mod launcher;
 pub mod mods;
 pub mod overlay;
 pub mod patcher;

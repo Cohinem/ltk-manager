@@ -1,22 +1,20 @@
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
-import type { LucideIcon } from "lucide-react";
 import {
   Accessibility,
   FolderOpen,
   Hammer,
-  Library,
   Minus,
   Settings,
   Square,
   Stethoscope,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { IconButton, Separator, Tooltip, useToast } from "@/components";
+import { IconButton, MaskIcon, Separator, Tooltip, useToast } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
 import { ProfileSelector } from "@/modules/library";
@@ -24,7 +22,7 @@ import { ProfileSelector } from "@/modules/library";
 import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
-  { to: "/", label: "Library", icon: Library, exact: true },
+  { to: "/", label: "Library", icon: MaskIcon, exact: true },
   { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
 ] as const;
 
@@ -46,7 +44,7 @@ function NavLink({
 }: {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon: ComponentType<{ className?: string }>;
   exact: boolean;
 }) {
   return (

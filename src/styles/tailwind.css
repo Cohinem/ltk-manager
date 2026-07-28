@@ -1,3 +1,8 @@
+/* Self-hosted: the app has no network in a packaged build, and a fallback to
+   system-ui is not metric-compatible - Segoe UI's descent leaves text sitting
+   low in its line box, which shows up as icons and labels disagreeing about
+   where the middle of a button is. */
+@import "@fontsource-variable/inter";
 @import "tailwindcss";
 @import "./animations.css";
 @import "./global.css";
@@ -63,8 +68,10 @@
   --z-index-notification: var(--z-notification);
 
   /* Fonts */
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-display: "Beaufort for LOL", "Inter", system-ui, sans-serif;
+  /* "Inter Variable" is the family name fontsource registers; plain "Inter"
+     stays ahead of the system stack for anyone who has it installed. */
+  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-display: "Beaufort for LOL", "Inter Variable", "Inter", system-ui, sans-serif;
 
   /* Animations */
   --animate-fade-in: fade-in 0.2s ease-out;
@@ -73,4 +80,8 @@
   --animate-toast-slide-in: toast-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-toast-slide-out: toast-slide-out 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+  /* Reuses the shimmer keyframe, run fast and linear so it reads as a highlight
+     shooting past rather than the slow sweep on skeletons. Its resting frame is
+     off-screen right, so reduce-motion leaves a plain accent border. */
+  --animate-border-shimmer: shimmer 1.2s linear infinite;
 }

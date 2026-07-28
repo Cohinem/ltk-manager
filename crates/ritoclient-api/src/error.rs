@@ -6,8 +6,8 @@ use thiserror::Error;
 /// Why a launch request could not be delivered.
 ///
 /// These deliberately do not share one code: each variant has a different
-/// remedy ("set your League path", "open the Riot Client", "close League"), so a
-/// host can map each to its own error code and branch on that.
+/// remedy ("set your League path", "open the Riot Client"), so a host can map
+/// each to its own error code and branch on that.
 ///
 /// Read-only queries do not use this type - they answer `Option`, because the
 /// caller always has a fallback and "the client didn't tell us" is not a failure
@@ -32,10 +32,20 @@ pub enum LauncherError {
     #[error("The Riot Client did not accept the launch request: {reason}")]
     RiotClientUnreachable { reason: String },
 
-    /// `LeagueClient.exe` is already up. Mods only apply to a fresh launch, so
-    /// handing more args to the client would silently do nothing useful.
-    #[error("League of Legends is already running")]
-    LeagueAlreadyRunning,
+    /// The client understood the request and refused it: the player has not
+    /// accepted the Terms of Service, the game is not up to date, the patchline
+    /// is locked. Distinct from [`Self::RiotClientUnreachable`] because nothing
+    /// about the manager is wrong and retrying changes nothing - the remedy is
+    /// always something the player does in the Riot Client itself.
+    ///
+    /// `riot_error_code` is Riot's own machine-readable tag (`eula_not_accepted`
+    /// and friends), kept separate from the prose so a host can special-case the
+    /// ones worth explaining without matching on English.
+    #[error("The Riot Client refused to launch League: {message}")]
+    LaunchRefused {
+        riot_error_code: String,
+        message: String,
+    },
 
     /// `RiotClientServices.exe` could not be spawned.
     #[error("Could not start the Riot Client: {reason}")]
@@ -52,8 +62,8 @@ mod tests {
     /// The `kind` tag is what the shell matches on to pick an `ErrorCode`.
     #[test]
     fn variants_serialize_with_a_kind_tag() {
-        let json = serde_json::to_value(LauncherError::LeagueAlreadyRunning).unwrap();
-        assert_eq!(json["kind"], "LEAGUE_ALREADY_RUNNING");
+        let json = serde_json::to_value(LauncherError::UnsupportedPlatform).unwrap();
+        assert_eq!(json["kind"], "UNSUPPORTED_PLATFORM");
 
         let json = serde_json::to_value(LauncherError::RiotClientNotFound {
             installs_path: "C:/ProgramData/Riot Games/RiotClientInstalls.json".to_string(),

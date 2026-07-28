@@ -6,8 +6,14 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { useAutoStartPatcher, useReducedMotion, useSurfaceLinkedBinWarning } from "@/hooks";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
+import { SessionBar } from "@/modules/launcher";
 import { useLibraryWatcher } from "@/modules/library";
-import { LinkedBinWarningDialog, PatcherStatusPill, WadScanFailedDialog } from "@/modules/patcher";
+import {
+  LinkedBinWarningDialog,
+  useClearStoppingOnIdle,
+  useClearTestingProjectsOnIdle,
+  WadScanFailedDialog,
+} from "@/modules/patcher";
 import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
 import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
 import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
@@ -29,6 +35,8 @@ function RootLayout() {
   useLibraryWatcher();
   useAutoStartPatcher();
   useSurfaceLinkedBinWarning();
+  useClearTestingProjectsOnIdle();
+  useClearStoppingOnIdle();
 
   const update = useUpdaterUpdate();
   const { data: settings } = useSettings();
@@ -84,10 +92,10 @@ function RootLayout() {
           <Outlet />
         </div>
       </main>
+      <SessionBar />
       <ProtocolInstallDialog />
       <WadScanFailedDialog />
       <LinkedBinWarningDialog />
-      <PatcherStatusPill />
       {import.meta.env.DEV && <DevConsole />}
     </div>
   );

@@ -114,6 +114,26 @@ pub enum Theme {
     Light,
 }
 
+/// What the library's primary button is.
+///
+/// `Classic` is the behaviour from before the manager could launch anything:
+/// the button only starts the patcher, and the game is started wherever the
+/// user started it before. `Modern` makes it the whole path in one click -
+/// build the overlay, start the patcher, then ask the Riot Client to start
+/// League. Both actions stay reachable from the button's menu either way.
+///
+/// Classic is the default while the launcher is experimental: it is the
+/// behaviour every existing install already has, and it depends on nothing
+/// outside this app.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, TS)]
+#[ts(export)]
+#[serde(rename_all = "lowercase")]
+pub enum LaunchMode {
+    #[default]
+    Classic,
+    Modern,
+}
+
 /// Accent color configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, TS)]
 #[ts(export)]
@@ -180,6 +200,10 @@ pub struct Settings {
     /// Always start the patcher automatically on launch. Default: false.
     #[serde(default)]
     pub always_start_patcher: bool,
+    /// What the library's primary button does. Default: [`LaunchMode::Classic`],
+    /// so an install that predates the launcher keeps the button it had.
+    #[serde(default)]
+    pub launch_mode: LaunchMode,
     /// Whether the user has dismissed the migration banner.
     #[serde(default)]
     pub migration_dismissed: bool,
@@ -224,6 +248,7 @@ impl Default for Settings {
             auto_run: false,
             start_in_tray_unless_update: false,
             always_start_patcher: false,
+            launch_mode: LaunchMode::default(),
             migration_dismissed: false,
             reload_mods_hotkey: None,
             kill_league_hotkey: None,
@@ -264,6 +289,40 @@ mod tests {
         assert!(!settings.config.apply_string_overrides_to_all_locales);
         assert!(!settings.config.verbose_patcher_logging);
         assert!(!settings.config.lazy_wad_scan);
+        assert_eq!(settings.launch_mode, LaunchMode::Classic);
+    }
+
+    #[test]
+    fn launch_mode_serialization() {
+        assert_eq!(
+            serde_json::to_string(&LaunchMode::Classic).unwrap(),
+            "\"classic\""
+        );
+        assert_eq!(
+            serde_json::to_string(&LaunchMode::Modern).unwrap(),
+            "\"modern\""
+        );
+    }
+
+    /// A settings file written before the manager could launch anything keeps
+    /// the patcher-only button it was written with - the launcher is opt-in
+    /// while it is experimental.
+    #[test]
+    fn launch_mode_defaults_to_classic_when_absent() {
+        let json = r#"{"firstRunComplete": false, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.launch_mode, LaunchMode::Classic);
+    }
+
+    #[test]
+    fn launch_mode_round_trips() {
+        let settings = Settings {
+            launch_mode: LaunchMode::Modern,
+            ..Settings::default()
+        };
+        let json = serde_json::to_string(&settings).unwrap();
+        let deserialized: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.launch_mode, LaunchMode::Modern);
     }
 
     #[test]

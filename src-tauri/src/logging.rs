@@ -14,8 +14,9 @@ pub struct LoggingGuards {
 
 #[cfg(debug_assertions)]
 pub fn init() -> LoggingGuards {
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "ltk_manager=debug,ltk_overlay=info,tauri=info".into());
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        "ltk_manager=debug,ritoclient_api=debug,ltk_overlay=info,tauri=info".into()
+    });
 
     let stdout_layer = tracing_subscriber::fmt::layer();
     let (file_guard, writer, log_path) = build_file_writer();
@@ -46,8 +47,9 @@ pub fn init() -> LoggingGuards {
 
 #[cfg(not(debug_assertions))]
 pub fn init() -> LoggingGuards {
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "ltk_manager=debug,ltk_overlay=info,tauri=info".into());
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        "ltk_manager=debug,ritoclient_api=debug,ltk_overlay=info,tauri=info".into()
+    });
 
     let stdout_layer = tracing_subscriber::fmt::layer();
     let (file_guard, writer, log_path) = build_file_writer();

@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { Settings } from "@/lib/tauri";
 import { MigrationSection, MigrationWizardDialog } from "@/modules/migration";
 
+import { LaunchSection } from "./LaunchSection";
 import { LeaguePathSection } from "./LeaguePathSection";
 import { MinimizeToTraySection } from "./MinimizeToTraySection";
 import { ModStorageSection } from "./ModStorageSection";
@@ -21,6 +22,7 @@ export function GeneralSection({ settings, onSave }: GeneralSectionProps) {
   return (
     <div className="space-y-4">
       <LeaguePathSection settings={settings} onSave={onSave} />
+      <LaunchSection settings={settings} onSave={onSave} />
       <MinimizeToTraySection settings={settings} onSave={onSave} />
       <TrustedDomainsSection settings={settings} onSave={onSave} />
       <WatcherSection settings={settings} onSave={onSave} />

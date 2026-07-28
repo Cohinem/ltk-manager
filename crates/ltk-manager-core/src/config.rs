@@ -123,6 +123,18 @@ pub struct Config {
     /// inert rather than harmful. Default: false.
     #[serde(default)]
     pub lazy_wad_scan: bool,
+    /// Whether to hide the Riot Client's window once the game is up. Nobody
+    /// launching through the manager wants the launcher left sitting on their
+    /// desktop behind the game, so this is on by default.
+    ///
+    /// Hides to the tray; the client keeps running because the game needs it for
+    /// the whole session, and it stays hidden after the game exits. That last
+    /// part takes active work: the client un-hides *itself* on exit, through the
+    /// `showUxIfHidden` flag on Foundation's UX command bus, so
+    /// `hide_for_play_session` re-asserts the hide. Reversible from the tray
+    /// icon at any point. Default: true.
+    #[serde(default = "default_true")]
+    pub hide_riot_client_on_launch: bool,
 }
 
 impl Default for Config {
@@ -141,6 +153,7 @@ impl Default for Config {
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
             lazy_wad_scan: false,
+            hide_riot_client_on_launch: true,
         }
     }
 }
@@ -165,6 +178,7 @@ mod tests {
         assert!(!config.apply_string_overrides_to_all_locales);
         assert!(!config.verbose_patcher_logging);
         assert!(!config.lazy_wad_scan);
+        assert!(config.hide_riot_client_on_launch);
     }
 
     #[test]
@@ -173,6 +187,21 @@ mod tests {
         assert!(config.league_path.is_none());
         assert!(config.block_scripts_wad);
         assert!(config.enforce_skinhack_scan);
+    }
+
+    /// Settings files written before this flag existed have to come back on,
+    /// not off - a missing key is an old install, not a user who said no.
+    #[test]
+    fn hiding_the_riot_client_defaults_on_for_settings_written_before_it_existed() {
+        let config: Config = serde_json::from_str(r#"{ "patchTft": true }"#).unwrap();
+        assert!(config.hide_riot_client_on_launch);
+    }
+
+    #[test]
+    fn hiding_the_riot_client_can_be_turned_off() {
+        let config: Config =
+            serde_json::from_str(r#"{ "hideRiotClientOnLaunch": false }"#).unwrap();
+        assert!(!config.hide_riot_client_on_launch);
     }
 
     #[test]

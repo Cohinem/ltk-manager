@@ -17,7 +17,7 @@ use std::time::Duration;
 use crate::LauncherError;
 use crate::http;
 use crate::launch::LaunchTarget;
-use crate::lockfile::Lockfile;
+use crate::lockfile::live_lockfile;
 use crate::window::allow_foreground;
 
 /// The client may be mid-startup when we ask, so a refusal is worth a couple of
@@ -28,12 +28,14 @@ const RETRY_DELAY: Duration = Duration::from_millis(250);
 /// Wake a tray-idle client by handing it launch arguments.
 ///
 /// Do not mistake its 204 for a launch. See the module docs.
-pub fn wake_with_launch_args(
-    lockfile: &Lockfile,
-    target: &LaunchTarget,
-) -> Result<(), LauncherError> {
-    let client = http::client(http::LAUNCH_TIMEOUT)?;
-    let url = format!("{}/riotclientapp/v1/new-args", lockfile.base_url());
+///
+/// **The lockfile is re-read every attempt, not taken as an argument.** This
+/// very call is what restarts the client's remoting listener on a new port, so
+/// from the second attempt onwards a caller-supplied lockfile names a port
+/// nothing is listening on - the retries would all fail against a client that
+/// had in fact just woken up.
+pub fn wake_with_launch_args(target: &LaunchTarget) -> Result<(), LauncherError> {
+    let client = http::client(http::WAKE_TIMEOUT)?;
 
     // Both elements are required: the client only takes its launch branch when
     // `--launch-product` and `--launch-patchline` are both present.
@@ -48,22 +50,27 @@ pub fn wake_with_launch_args(
     let mut last_reason = String::from("no attempt was made");
 
     for attempt in 1..=ATTEMPTS {
-        allow_foreground();
+        match live_lockfile() {
+            Some(lockfile) => {
+                allow_foreground();
 
-        let response = client
-            .post(&url)
-            .basic_auth("riot", Some(&lockfile.password))
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(body.clone())
-            .send();
+                let response = client
+                    .post(format!("{}/riotclientapp/v1/new-args", lockfile.base_url()))
+                    .basic_auth("riot", Some(&lockfile.password))
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(body.clone())
+                    .send();
 
-        match response {
-            Ok(r) if r.status() == reqwest::StatusCode::NO_CONTENT => {
-                tracing::debug!("Woke the Riot Client with new-args");
-                return Ok(());
+                match response {
+                    Ok(r) if r.status() == reqwest::StatusCode::NO_CONTENT => {
+                        tracing::debug!("Woke the Riot Client with new-args");
+                        return Ok(());
+                    }
+                    Ok(r) => last_reason = format!("HTTP {}", r.status()),
+                    Err(e) => last_reason = http::describe(&e),
+                }
             }
-            Ok(r) => last_reason = format!("HTTP {}", r.status()),
-            Err(e) => last_reason = e.to_string(),
+            None => last_reason = "the Riot Client is no longer running".to_string(),
         }
 
         tracing::debug!("new-args attempt {attempt}/{ATTEMPTS} failed: {last_reason}");

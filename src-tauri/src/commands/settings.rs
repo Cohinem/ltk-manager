@@ -1,5 +1,5 @@
 use crate::error::{AppResult, IpcResult, MutexResultExt};
-use crate::state::{persist_settings, Settings, SettingsState};
+use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
@@ -49,11 +49,40 @@ fn save_settings_inner(
 
 /// Auto-detect League of Legends installation path.
 #[tauri::command]
-pub fn auto_detect_league_path() -> IpcResult<Option<PathBuf>> {
-    IpcResult::ok(auto_detect_league_path_inner())
+pub fn auto_detect_league_path(state: State<SettingsState>) -> IpcResult<Option<PathBuf>> {
+    let launch_mode = state
+        .0
+        .lock()
+        .map(|settings| settings.launch_mode)
+        .unwrap_or_default();
+
+    IpcResult::ok(auto_detect_league_path_inner(launch_mode))
 }
 
-fn auto_detect_league_path_inner() -> Option<PathBuf> {
+/// Ask the Riot Client first, then fall back to scanning for the executable.
+///
+/// The client's product registry is authoritative - Foundation builds League's
+/// own command line from the same `install_full_path` - while the scan infers a
+/// root by walking up from an exe it found. The scan stays because the registry
+/// only answers while the client is running, which on first run it often isn't.
+///
+/// Classic skips the client and detects the way the manager did before it could
+/// talk to one: the mode exists for people who keep the launcher out of it, so
+/// asking the client to find their install would be the launcher back by another
+/// route. The scan reads the client's `RiotClientInstalls.json`, the running
+/// game, the usual install roots and the Windows registry, none of which need a
+/// client to be up.
+fn auto_detect_league_path_inner(launch_mode: LaunchMode) -> Option<PathBuf> {
+    if launch_mode == LaunchMode::Modern {
+        if let Some(root) = ritoclient_api::product_registry::detect_league_install_root() {
+            tracing::info!(
+                "Riot Client reports League installed at: {}",
+                root.display()
+            );
+            return Some(root);
+        }
+    }
+
     let exe_path = ltk_mod_core::auto_detect_league_path()?;
     let path = std::path::Path::new(&exe_path);
 

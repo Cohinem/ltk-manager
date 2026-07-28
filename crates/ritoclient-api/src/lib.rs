@@ -34,6 +34,15 @@
 //! Launching is Windows-only; everything else compiles everywhere, and the
 //! platform-specific entry points return [`LauncherError::UnsupportedPlatform`]
 //! or an empty result rather than failing to build.
+//!
+//! # Planned restructuring
+//!
+//! This layout is a module per endpoint group, each re-deriving the connection
+//! and re-inventing how a request is made - so the rule that the lockfile must
+//! be re-read before *every* call is one each call site remembers or forgets on
+//! its own. That has already cost two bugs. `TODO.md` in this crate has the
+//! argument and the target shape: a `Client` that owns the connection, one
+//! request path, one response taxonomy. Read it before adding an endpoint here.
 
 pub mod app_args;
 pub mod error;

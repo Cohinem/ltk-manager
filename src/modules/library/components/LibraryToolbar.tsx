@@ -1,7 +1,7 @@
-import { CheckCheck, CheckSquare, Grid3X3, List, Play, Plus, Search, X } from "lucide-react";
+import { CheckCheck, CheckSquare, Grid3X3, List, Plus, Search, X } from "lucide-react";
 
 import { Button, IconButton, Kbd, Tooltip } from "@/components";
-import type { InstalledMod, PatcherStatus } from "@/lib/tauri";
+import type { InstalledMod } from "@/lib/tauri";
 import type { FilterOptions } from "@/modules/library/api";
 import type { useLibraryActions } from "@/modules/library/api";
 import { useLibraryViewMode } from "@/modules/library/api";
@@ -10,27 +10,13 @@ import { useLibrarySelectionStore } from "@/stores";
 import { ActiveFilterChips } from "./ActiveFilterChips";
 import { AnalyzeUncategorizedButton } from "./AnalyzeUncategorizedButton";
 import { FilterPopover } from "./FilterPopover";
+import { PlayButton } from "./PlayButton";
 import { SortDropdown } from "./SortDropdown";
-
-interface PatcherProps {
-  status: PatcherStatus | undefined;
-  isStarting: boolean;
-  isStopping: boolean;
-  onStart: () => void;
-  onStop: () => void;
-}
-
-function startButtonLabel(isStarting: boolean): string {
-  if (isStarting) return "Building...";
-  return "Start Patcher";
-}
 
 interface LibraryToolbarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   actions: ReturnType<typeof useLibraryActions>;
-  patcher?: PatcherProps;
-  hasEnabledMods: boolean;
   isLoading: boolean;
   isPatcherActive: boolean;
   filterOptions: FilterOptions;
@@ -41,8 +27,6 @@ export function LibraryToolbar({
   searchQuery,
   onSearchChange,
   actions,
-  patcher,
-  hasEnabledMods,
   isLoading,
   isPatcherActive,
   filterOptions,
@@ -68,7 +52,7 @@ export function LibraryToolbar({
             placeholder="Search mods..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full rounded-lg border border-surface-600 bg-surface-800 py-2 pr-4 pl-10 text-surface-100 transition-colors duration-150 placeholder:text-surface-500 focus-visible:border-accent-500 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-0 focus-visible:outline-none"
+            className="h-8 w-full rounded-lg border border-surface-600 bg-surface-800 pr-4 pl-10 text-sm text-surface-100 transition-colors duration-150 placeholder:text-surface-500 focus-visible:border-accent-500 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-0 focus-visible:outline-none"
           />
         </div>
 
@@ -162,55 +146,7 @@ export function LibraryToolbar({
           </Button>
         </Tooltip>
 
-        {patcher && (
-          <Tooltip
-            content={
-              <>
-                Toggle patcher <Kbd shortcut="Ctrl+P" />
-              </>
-            }
-          >
-            {patcher.status?.running ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={patcher.onStop}
-                loading={patcher.isStopping}
-                disabled={
-                  actions.installMod.isPending ||
-                  actions.bulkInstallMods.isPending ||
-                  patcher.isStopping
-                }
-                left={
-                  !patcher.isStopping && (
-                    <span className="inline-flex h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]" />
-                  )
-                }
-                className="border-green-500/40 bg-green-500/10 text-green-400 hover:border-green-500/60 hover:bg-green-500/20"
-              >
-                {patcher.isStopping ? "Stopping..." : "Stop Patcher"}
-              </Button>
-            ) : (
-              <Button
-                variant={hasEnabledMods ? "filled" : "default"}
-                size="sm"
-                onClick={patcher.onStart}
-                loading={patcher.isStarting}
-                left={<Play className="h-4 w-4" />}
-                disabled={
-                  isLoading ||
-                  !hasEnabledMods ||
-                  actions.installMod.isPending ||
-                  actions.bulkInstallMods.isPending ||
-                  patcher.isStopping ||
-                  patcher.isStarting
-                }
-              >
-                {startButtonLabel(patcher.isStarting)}
-              </Button>
-            )}
-          </Tooltip>
-        )}
+        <PlayButton disabled={actions.installMod.isPending || actions.bulkInstallMods.isPending} />
       </div>
       <ActiveFilterChips />
     </div>

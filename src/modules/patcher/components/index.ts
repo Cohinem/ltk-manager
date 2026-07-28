@@ -1,5 +1,4 @@
 export * from "./LinkedBinWarningDialog";
-export * from "./PatcherStatusPill";
+export * from "./PatcherEventListeners";
 export * from "./PatcherUnsupported";
-export * from "./StatusBar";
 export * from "./WadScanFailedDialog";

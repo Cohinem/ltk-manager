@@ -69,6 +69,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(settings_state);
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
+    app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
     app.manage(wad_reports);
     app.manage(ltk_manager_core::strings::StringKeyIndexState::default());

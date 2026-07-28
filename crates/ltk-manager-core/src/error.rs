@@ -10,6 +10,7 @@ use camino::Utf8PathBuf;
 use std::path::PathBuf;
 use thiserror::Error;
 
+use crate::launcher::LauncherError;
 use crate::patcher::PatcherError;
 use crate::workshop::WorkshopError;
 
@@ -70,6 +71,9 @@ pub enum AppError {
 
     #[error(transparent)]
     Patcher(#[from] PatcherError),
+
+    #[error(transparent)]
+    Launcher(#[from] LauncherError),
 
     #[error("ZIP error: {0}")]
     ZipError(#[from] zip::result::ZipError),

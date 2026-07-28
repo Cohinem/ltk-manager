@@ -115,6 +115,9 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         ref={ref}
         className={twMerge(
           "flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-sm outline-none select-none",
+          // Base UI stops a disabled item responding but leaves it looking
+          // identical to a live one, so it needs its own resting colour.
+          "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400",
           itemVariantClasses[variant],
           className,
         )}

@@ -27,6 +27,7 @@ tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
 
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
+ritoclient-api = { path = "../crates/ritoclient-api", features = ["ts"] }
 
 ltk_mod_core = { version = "0.1.0" }
 ltk_overlay = { workspace = true }
@@ -71,6 +72,7 @@ tar = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
+tauri-plugin-mcp-bridge = { version = "0.12", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
@@ -95,3 +97,4 @@ filetime = "0.2"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+mcp-bridge = ["dep:tauri-plugin-mcp-bridge"]

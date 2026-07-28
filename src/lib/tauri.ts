@@ -15,6 +15,9 @@ import type {
   ImportFantomeArgs,
   ImportGitRepoArgs,
   InstalledMod,
+  LaunchAvailability,
+  LaunchOutcome,
+  LaunchTarget,
   LibraryFolder,
   LinkedBinOffenderInfo,
   ModpkgInfo,
@@ -132,6 +135,12 @@ export const api = {
   getPatcherStatus: () => invokeResult<PatcherStatus>("get_patcher_status"),
   getLinkedBinOffenders: () =>
     invokeResult<Record<string, LinkedBinOffenderInfo>>("get_linked_bin_offenders"),
+
+  // Launcher
+  // Resolves to null when a launch was already in flight - a redundant click.
+  launchLeague: (target?: LaunchTarget) =>
+    invokeResult<LaunchOutcome | null>("launch_league", { target: target ?? null }),
+  getLaunchAvailability: () => invokeResult<LaunchAvailability>("get_launch_availability"),
 
   // Hotkeys
   pauseHotkeys: () => invokeResult<void>("pause_hotkeys"),
