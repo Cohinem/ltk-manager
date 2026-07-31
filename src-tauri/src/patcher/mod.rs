@@ -108,6 +108,22 @@ impl Default for PatcherHostState {
     }
 }
 
+/// Stop a running patching session and shut down the long-lived injection host.
+pub fn shutdown_resources(app_handle: &tauri::AppHandle) {
+    use tauri::Manager;
+
+    if let Some(patcher_state) = app_handle.try_state::<PatcherState>() {
+        let _ = patcher_state.request_stop();
+    }
+
+    if let Some(host_state) = app_handle.try_state::<PatcherHostState>() {
+        if let Some(mut host) = host_state.take() {
+            tracing::info!("Shutting down injection host");
+            host.shutdown();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

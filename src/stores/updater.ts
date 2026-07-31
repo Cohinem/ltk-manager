@@ -2,6 +2,8 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { create } from "zustand";
 
+import { api } from "@/lib/tauri";
+
 const SKIPPED_VERSION_KEY = "ltk-update-skipped-version";
 
 interface UpdaterStore {
@@ -55,7 +57,7 @@ const store = create<UpdaterStore>((set, get) => ({
       let downloaded = 0;
       let contentLength = 0;
 
-      await update.downloadAndInstall((event) => {
+      await update.download((event) => {
         switch (event.event) {
           case "Started":
             contentLength = event.data.contentLength ?? 0;
@@ -72,6 +74,8 @@ const store = create<UpdaterStore>((set, get) => ({
         }
       });
 
+      await api.prepareForUpdate();
+      await update.install();
       await relaunch();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Update failed";

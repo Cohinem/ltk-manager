@@ -108,23 +108,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Runtime event hook for [`tauri::App::run`].
-///
-/// On exit, flags a running patching session to stop - so it takes the
-/// clean-stop path instead of reporting the host's exit as an unexpected
-/// death - then shuts down the long-lived injection host (spawned lazily on
-/// first patch, reused across start/stop) so it never outlives the manager.
 pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
     if let tauri::RunEvent::Exit = event {
-        if let Some(patcher_state) = app_handle.try_state::<PatcherState>() {
-            let _ = patcher_state.request_stop();
-        }
-
-        if let Some(host_state) = app_handle.try_state::<PatcherHostState>() {
-            if let Some(mut host) = host_state.take() {
-                tracing::info!("App exiting: shutting down injection host");
-                host.shutdown();
-            }
-        }
+        crate::patcher::shutdown_resources(app_handle);
     }
 }
 

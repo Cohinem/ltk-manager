@@ -65,6 +65,7 @@ fn main() {
             commands::get_app_info,
             commands::get_platform_support,
             commands::show_main_window,
+            commands::prepare_for_update,
             // Settings
             commands::get_settings,
             commands::save_settings,
