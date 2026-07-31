@@ -47,6 +47,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install cargo-about
+        uses: taiki-e/install-action@v2
+        with: { tool: cargo-about@0.9.1 }
+
       - name: Bump versions and create PR
         shell: bash
         env:
@@ -63,12 +67,15 @@ jobs:
           "
 
           sed -i "0,/^version = \".*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-          cargo generate-lockfile
+          # generate-lockfile would re-resolve every dependency to its newest
+          # compatible version; --workspace only syncs the bumped member versions
+          cargo update --workspace
+          node scripts/generate-licenses.mjs
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add package.json src-tauri/Cargo.toml Cargo.lock
+          git add package.json src-tauri/Cargo.toml Cargo.lock public/third-party-licenses.json
           git commit -m "chore: release v$VERSION"
           git push origin "$BRANCH"
 
