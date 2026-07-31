@@ -30,6 +30,20 @@ pub fn get_app_info() -> IpcResult<AppInfo> {
     })
 }
 
+/// Release everything the installer needs to replace before the updater hands
+/// off to it.
+///
+/// On Windows the updater plugin exits through `std::process::exit`, which
+/// skips `RunEvent::Exit` and with it the usual patcher/host teardown - a
+/// stale `ltk_patcher_host.exe` would keep running and hold a lock on the very
+/// executable the installer wants to overwrite. The frontend calls this after
+/// the update download finishes, right before install.
+#[tauri::command]
+pub fn prepare_for_update(app: AppHandle) -> IpcResult<()> {
+    crate::patcher::shutdown_resources(&app);
+    IpcResult::ok(())
+}
+
 /// Reveal the main window once the frontend has finished its initial render.
 ///
 /// The window is created hidden (`visible: false` in `tauri.conf.json`) to avoid a

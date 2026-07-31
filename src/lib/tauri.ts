@@ -87,6 +87,7 @@ export const api = {
   getAppInfo: () => invokeResult<AppInfo>("get_app_info"),
   getPlatformSupport: () => invokeResult<PlatformSupport>("get_platform_support"),
   showMainWindow: () => invokeResult<void>("show_main_window"),
+  prepareForUpdate: () => invokeResult<void>("prepare_for_update"),
 
   // Settings
   getSettings: () => invokeResult<Settings>("get_settings"),

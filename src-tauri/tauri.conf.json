@@ -48,6 +48,9 @@
       "signCommand": "trusted-signing-cli -e https://eus.codesigning.azure.net/ -a runeforge -c Natoken -d LTK-Manager %1",
       "webviewInstallMode": {
         "type": "downloadBootstrapper"
+      },
+      "nsis": {
+        "installerHooks": "./windows/installer-hooks.nsh"
       }
     },
     "macOS": {
