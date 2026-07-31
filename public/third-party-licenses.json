@@ -1985,7 +1985,7 @@
     },
     {
       "name": "ltk-manager",
-      "version": "1.13.1",
+      "version": "1.13.2",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
         40
