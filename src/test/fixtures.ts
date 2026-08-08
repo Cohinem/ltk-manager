@@ -3,6 +3,7 @@ import type { InstalledMod, Profile, Settings } from "@/lib/bindings";
 export function createMockSettings(overrides?: Partial<Settings>): Settings {
   return {
     leaguePath: null,
+    leagueSkinsPath: null,
     modStoragePath: null,
     workshopPath: null,
     firstRunComplete: false,

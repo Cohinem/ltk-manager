@@ -231,6 +231,10 @@ pub struct Settings {
     /// the "show performance warnings" setting if/when we add one.
     #[serde(default)]
     pub has_seen_hdd_warning: bool,
+    /// Root directory containing the LeagueSkins collection.
+    #[serde(default)]
+    #[ts(as = "Option<String>")]
+    pub league_skins_path: Option<PathBuf>,
 }
 
 impl Default for Settings {
@@ -258,6 +262,7 @@ impl Default for Settings {
             author_profiles: vec![],
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
+            league_skins_path: None,
         }
     }
 }
@@ -273,6 +278,7 @@ mod tests {
         assert!(settings.config.league_path.is_none());
         assert!(settings.config.mod_storage_path.is_none());
         assert!(settings.config.workshop_path.is_none());
+        assert!(settings.league_skins_path.is_none());
         assert!(!settings.first_run_complete);
         assert_eq!(settings.theme, Theme::System);
         assert!(!settings.config.patch_tft);

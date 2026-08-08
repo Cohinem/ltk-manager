@@ -77,6 +77,7 @@ fn main() {
             // Mods
             commands::get_installed_mods,
             commands::install_mod,
+            commands::apply_league_skin,
             commands::install_mods,
             commands::uninstall_mod,
             commands::toggle_mod,
