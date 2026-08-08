@@ -5,6 +5,7 @@ import { MigrationSection, MigrationWizardDialog } from "@/modules/migration";
 
 import { LaunchSection } from "./LaunchSection";
 import { LeaguePathSection } from "./LeaguePathSection";
+import { LeagueSkinsSection } from "./LeagueSkinsSection";
 import { MinimizeToTraySection } from "./MinimizeToTraySection";
 import { ModStorageSection } from "./ModStorageSection";
 import { TrustedDomainsSection } from "./TrustedDomainsSection";
@@ -27,6 +28,7 @@ export function GeneralSection({ settings, onSave }: GeneralSectionProps) {
       <TrustedDomainsSection settings={settings} onSave={onSave} />
       <WatcherSection settings={settings} onSave={onSave} />
       <ModStorageSection settings={settings} onSave={onSave} />
+      <LeagueSkinsSection settings={settings} onSave={onSave} />
       <WorkshopSection settings={settings} onSave={onSave} />
       <MigrationSection onImport={() => setMigrationOpen(true)} />
       <MigrationWizardDialog open={migrationOpen} onClose={() => setMigrationOpen(false)} />

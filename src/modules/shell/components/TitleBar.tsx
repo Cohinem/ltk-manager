@@ -5,6 +5,7 @@ import {
   Accessibility,
   FolderOpen,
   Hammer,
+  Layers,
   Minus,
   Settings,
   Square,
@@ -23,6 +24,7 @@ import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
   { to: "/", label: "Library", icon: MaskIcon, exact: true },
+  { to: "/native", label: "Native", icon: Layers, exact: true },
   { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
 ] as const;
 

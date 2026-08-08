@@ -24,10 +24,12 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self' ipc: http://ipc.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org",
       "assetProtocol": {
         "enable": true,
-        "scope": ["**"]
+        "scope": [
+          "**"
+        ]
       }
     }
   },
@@ -61,7 +63,9 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["ltk"]
+        "schemes": [
+          "ltk"
+        ]
       }
     },
     "updater": {
