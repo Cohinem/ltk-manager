@@ -139,7 +139,9 @@ pub enum LaunchMode {
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct AccentColor {
-    /// Preset color name: "blue", "purple", "green", "orange", "pink", "red", "teal"
+    /// Preset name: "ltk" (the brand accent), or one of the generated hues
+    /// "blue", "purple", "green", "orange", "pink", "red", "teal". `None` is
+    /// read as "ltk" by the frontend.
     pub preset: Option<String>,
     /// Custom hue value (0-360) for custom colors
     pub custom_hue: Option<f32>,
@@ -222,6 +224,21 @@ pub struct Settings {
     /// Whether the library file watcher is enabled. Default: false.
     #[serde(default)]
     pub watcher_enabled: bool,
+    /// Whether a mod card shows its category pills.
+    ///
+    /// The tags, champions and maps a mod declares, plus whatever
+    /// categorization derived. Display only, and on by default, since the pills
+    /// are how a crowded grid stays readable. Filtering is unaffected either way.
+    #[serde(default = "default_true")]
+    pub show_mod_tags: bool,
+    /// Whether a mod card shows its WAD footprint badge.
+    ///
+    /// Display only. The footprint is still analyzed and still feeds
+    /// `Config::auto_categorization_enabled`, so hiding the badge costs no
+    /// categories. Default: false, since the WAD count means nothing to most
+    /// people installing a skin.
+    #[serde(default)]
+    pub show_wad_footprint: bool,
     #[serde(default)]
     pub author_profiles: Vec<AuthorProfile>,
     #[serde(default)]
@@ -255,6 +272,8 @@ impl Default for Settings {
             kill_league_stops_patcher: true,
             trusted_domains: default_trusted_domains(),
             watcher_enabled: false,
+            show_mod_tags: true,
+            show_wad_footprint: false,
             author_profiles: vec![],
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
@@ -285,6 +304,8 @@ mod tests {
         assert!(settings.config.linked_bin_check_enabled);
         assert!(settings.config.wad_blocklist.is_empty());
         assert!(settings.config.auto_categorization_enabled);
+        assert!(settings.show_mod_tags);
+        assert!(!settings.show_wad_footprint);
         assert!(settings.config.enforce_skinhack_scan);
         assert!(!settings.config.apply_string_overrides_to_all_locales);
         assert!(!settings.config.verbose_patcher_logging);
@@ -366,8 +387,8 @@ mod tests {
         assert!(deserialized.config.patch_tft);
     }
 
-    /// The `Config` flatten must keep the on-disk format flat — config keys at
-    /// the top level, no nested `config` object.
+    /// The `Config` flatten must keep the on-disk format flat, with config keys
+    /// at the top level and no nested `config` object.
     #[test]
     fn settings_serialize_flat() {
         let settings = Settings {

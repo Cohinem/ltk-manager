@@ -1,9 +1,9 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { Image, X } from "lucide-react";
+import { ImageIcon } from "@phosphor-icons/react";
 
-import { Field, IconButton, Tooltip } from "@/components";
+import { PathField, Slider } from "@/components";
 import type { Settings } from "@/lib/tauri";
 
+import { SettingRow } from "../SettingRow";
 import { useDebouncedSlider } from "./useDebouncedSlider";
 
 interface BackdropImagePickerProps {
@@ -11,82 +11,64 @@ interface BackdropImagePickerProps {
   onSave: (settings: Settings) => void;
 }
 
+const IMAGE_FILTERS = [
+  { name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] },
+];
+
+/* Wide enough to read a filename, and free to give width back when the window is
+   narrow - a rigid slot would crowd the label off its own row. */
+const controlClass = "w-72 shrink";
+
 export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerProps) {
   const [localBlur, handleBlurChange] = useDebouncedSlider(settings.backdropBlur ?? 40, (blur) => {
     onSave({ ...settings, backdropBlur: blur });
   });
 
-  async function handleBrowse() {
-    try {
-      const selected = await open({
-        title: "Select Background Image",
-        filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] }],
-      });
-
-      if (selected) {
-        onSave({ ...settings, backdropImage: selected as string });
-      }
-    } catch (error) {
-      console.error("Failed to browse:", error);
-    }
-  }
-
-  function handleClear() {
-    onSave({ ...settings, backdropImage: null });
-  }
-
   return (
-    <div className="space-y-3">
-      <span className="block text-sm font-medium text-surface-400">Background Image</span>
-      <div className="flex gap-2">
-        <Field.Control
-          type="text"
-          value={settings.backdropImage || ""}
-          readOnly
-          placeholder="No image selected"
-          className="flex-1"
-        />
-        <Tooltip content="Browse image">
-          <IconButton
-            icon={<Image className="h-5 w-5" />}
-            variant="outline"
-            size="lg"
-            onClick={handleBrowse}
+    <>
+      <SettingRow
+        kind="action"
+        title="Background image"
+        description="Sits behind the UI, under a frosted glass effect."
+        controlClassName={controlClass}
+        control={
+          <PathField
+            pick="file"
+            filters={IMAGE_FILTERS}
+            display="name"
+            aria-label="Background image"
+            value={settings.backdropImage}
+            onSelect={(path) => onSave({ ...settings, backdropImage: path })}
+            onClear={() => onSave({ ...settings, backdropImage: null })}
+            placeholder="No image selected"
+            dialogTitle="Select Background Image"
+            browseIcon={<ImageIcon weight="bold" className="h-5 w-5" />}
           />
-        </Tooltip>
-        {settings.backdropImage && (
-          <Tooltip content="Clear image">
-            <IconButton
-              icon={<X className="h-5 w-5" />}
-              variant="outline"
-              size="lg"
-              onClick={handleClear}
-            />
-          </Tooltip>
-        )}
-      </div>
-      <p className="text-sm text-surface-500">
-        Set a background image for the app. The UI will render with a frosted glass effect over the
-        image.
-      </p>
+        }
+      />
 
-      {/* Blur slider — only visible when a backdrop image is set */}
       {settings.backdropImage && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-surface-500">Blur Amount</span>
-            <span className="text-xs text-surface-400">{localBlur}px</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={localBlur}
-            onChange={(e) => handleBlurChange(Number(e.target.value))}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-surface-600"
-          />
-        </div>
+        <SettingRow
+          kind="action"
+          title="Blur"
+          description="How far the image is softened behind the glass."
+          controlClassName={controlClass}
+          control={
+            <div className="flex items-center gap-3">
+              <Slider
+                value={localBlur}
+                onValueChange={handleBlurChange}
+                min={0}
+                max={100}
+                aria-label="Background blur"
+              />
+              <span className="w-10 shrink-0 text-right font-mono text-xs text-surface-300">
+                {localBlur}px
+              </span>
+            </div>
+          }
+        />
       )}
-    </div>
+    </>
   );
 }

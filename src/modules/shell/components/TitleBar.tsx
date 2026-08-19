@@ -1,39 +1,63 @@
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
-import {
-  Accessibility,
-  FolderOpen,
-  Hammer,
-  Minus,
-  Settings,
-  Square,
-  Stethoscope,
-  X,
-} from "lucide-react";
+import { Accessibility, FolderOpen, Minus, Settings, Square, Stethoscope, X } from "lucide-react";
 import { type ComponentType, useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { IconButton, MaskIcon, Separator, Tooltip, useToast } from "@/components";
+import { CollectionIcon, IconButton, LootIcon, Separator, Tooltip, useToast } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
-import { ProfileSelector } from "@/modules/library";
 
 import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
-  { to: "/", label: "Library", icon: MaskIcon, exact: true },
-  { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
+  { to: "/", label: "Mods", icon: CollectionIcon, exact: true },
+  { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
 ] as const;
 
-const linkBaseClass =
-  "relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors";
-const settingsLinkBase = "relative flex h-full items-center px-3 transition-colors";
-const activeLinkClass = "text-accent-400";
-const inactiveLinkClass = "text-surface-400 hover:text-surface-200";
+/* One motion for every target in the bar: the cell holds its size and the glyph
+   inside it grows, so nothing beside it shifts. Nav and action cells only - the
+   window controls keep the platform's dead-flat shape: DS-SHAPE. */
+const iconLiftClass =
+  "[&_svg]:transition-transform [&_svg]:duration-150 [&_svg]:ease-out hover:[&_svg]:scale-110";
 
+/* Two nav shapes, split by what the target is rather than by where it sits.
+   A page tab fills the strip and carries a bottom bar, which only reads under a
+   full-height cell. An icon-only link in the action cluster takes the icon
+   buttons' rounded cell instead, and marks current with an accent fill - the
+   same pair the Settings tab rail uses.
+
+   Hover on both is the flat ghost-button fill. The wiki's brand-gradient row
+   wash is not used here: it fades to transparent across the row, and on a cell
+   this narrow it cuts off mid-fade at the trailing edge. */
+const tabBaseClass = `relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700 ${iconLiftClass}`;
+const tabActiveClass = "text-accent-400";
+const tabInactiveClass = "text-surface-400 hover:text-surface-200";
+
+/* Every action cell runs the bar's full height and sits flush with its
+   neighbours, so the bar's own height is the only thing setting their size. */
+const actionCellClass = `h-full w-9 shrink-0 rounded-none ${iconLiftClass}`;
+const iconNavBase = `flex h-full w-9 shrink-0 items-center justify-center transition-colors ${iconLiftClass}`;
+const iconNavActive = "bg-accent-500/15 text-accent-300";
+const iconNavInactive = "text-surface-400 hover:bg-surface-700 hover:text-surface-200";
+
+/* Window controls are OS chrome, so they take the platform's shape: full-height
+   square cells running flush to the window's corner, not the app's rounded
+   buttons. Their hover is the plain ghost fill, like every other button in the
+   bar. Minimize and maximize carry no color - neither is a warning or a
+   success, and the saturated fills they used to flash read far louder than
+   anything else in the app. Close keeps a signal, but as a tinted wash and a red
+   glyph, the shape the status palette takes everywhere else. */
+const windowControlClass = "h-full w-10 rounded-none text-surface-400 hover:text-surface-200";
+
+/* A ramp rather than a flat bar, so the tab strip reads as the same chrome as
+   the wiki's nav. Drawn from the accent rather than the fixed brand pair, which
+   cannot follow the accent the user picked. */
 function ActiveIndicator() {
-  return <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-accent-500" />;
+  return (
+    <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-linear-to-r from-accent-500 to-accent-400" />
+  );
 }
 
 function NavLink({
@@ -51,8 +75,8 @@ function NavLink({
     <Link
       to={to}
       activeOptions={{ exact }}
-      activeProps={{ className: twMerge(linkBaseClass, activeLinkClass) }}
-      inactiveProps={{ className: twMerge(linkBaseClass, inactiveLinkClass) }}
+      activeProps={{ className: twMerge(tabBaseClass, tabActiveClass) }}
+      inactiveProps={{ className: twMerge(tabBaseClass, tabInactiveClass) }}
     >
       {({ isActive }) => (
         <>
@@ -128,147 +152,143 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   return (
     <header
       className={twMerge(
-        "title-bar flex h-10 shrink-0 items-center justify-between border-b border-surface-600 bg-surface-950 select-none",
+        "title-bar flex h-9 shrink-0 items-center justify-between border-b border-surface-600 bg-surface-900 select-none",
         isMacOS && "pl-20",
       )}
       data-tauri-drag-region
     >
       {/* Left: App icon, title, version, and navigation */}
       <div className="flex h-full items-center" data-tauri-drag-region>
-        <div className="flex items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
-          <img src="/icon.svg" alt="LTK" className="h-5 w-5" data-tauri-drag-region />
-          <span className="text-sm font-medium text-surface-100" data-tauri-drag-region>
-            {title}
-          </span>
-          {version && (
-            <span className="text-xs text-surface-500" data-tauri-drag-region>
-              v{version}
+        <div className="flex shrink-0 items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
+          <img src="/icon.svg" alt="LTK" className="h-5 w-5 shrink-0" data-tauri-drag-region />
+          <div className="flex flex-col" data-tauri-drag-region>
+            <span
+              className="font-display text-sm leading-tight font-bold tracking-tight whitespace-nowrap text-accent-400"
+              data-tauri-drag-region
+            >
+              {title}
             </span>
-          )}
+            {version && (
+              <span
+                className="text-[10px] leading-none whitespace-nowrap text-surface-500"
+                data-tauri-drag-region
+              >
+                v{version}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Navigation tabs */}
-        <nav className="flex h-full items-center gap-1">
+        <nav className="flex h-full items-center">
           {navItems.map((item) => (
             <NavLink key={item.to} {...item} />
           ))}
         </nav>
-
-        <Separator orientation="vertical" />
-
-        <ProfileSelector />
       </div>
 
       {/* Right: Notifications, Settings, and window controls */}
       <div className="flex h-full items-center">
-        <Tooltip content="Open storage directory">
-          <IconButton
-            icon={<FolderOpen className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenStorageDirectory}
-            aria-label="Open storage directory"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+        <div className="flex h-full items-center">
+          <Tooltip content="Open storage directory">
+            <IconButton
+              icon={<FolderOpen className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenStorageDirectory}
+              aria-label="Open storage directory"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
+            />
+          </Tooltip>
 
-        <NotificationCenter />
+          <NotificationCenter />
 
-        <Tooltip content="Report a Bug">
-          <IconButton
-            icon={<Accessibility className="h-5 w-5" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open(bugReportUrl)}
-            aria-label="Report a Bug"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+          <Tooltip content="Report a Bug">
+            <IconButton
+              icon={<Accessibility className="h-5 w-5" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open(bugReportUrl)}
+              aria-label="Report a Bug"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
+            />
+          </Tooltip>
 
-        <Tooltip content="Join our Discord">
-          <IconButton
-            icon={<DiscordIcon className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open("https://discord.gg/yhzDVRyQex")}
-            aria-label="Join our Discord"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+          <Tooltip content="Join our Discord">
+            <IconButton
+              icon={<DiscordIcon className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open("https://discord.gg/yhzDVRyQex")}
+              aria-label="Join our Discord"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
+            />
+          </Tooltip>
 
-        <Tooltip content="Diagnostics">
+          <Tooltip content="Diagnostics">
+            <Link
+              to="/diagnostics"
+              activeProps={{ className: twMerge(iconNavBase, iconNavActive) }}
+              inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
+              aria-label="Diagnostics"
+            >
+              <Stethoscope className="h-4 w-4" />
+            </Link>
+          </Tooltip>
+
+          {/* Settings button */}
           <Link
-            to="/diagnostics"
-            activeProps={{
-              className: twMerge(settingsLinkBase, activeLinkClass),
-            }}
-            inactiveProps={{
-              className: twMerge(settingsLinkBase, inactiveLinkClass),
-            }}
-            aria-label="Diagnostics"
+            to="/settings"
+            activeProps={{ className: twMerge(iconNavBase, iconNavActive) }}
+            inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
+            aria-label="Settings"
           >
-            {({ isActive }) => (
-              <>
-                <Stethoscope className="h-4 w-4" />
-                {isActive && <ActiveIndicator />}
-              </>
-            )}
+            <Settings className="h-4 w-4" />
           </Link>
-        </Tooltip>
-
-        {/* Settings button */}
-        <Link
-          to="/settings"
-          activeProps={{
-            className: twMerge(settingsLinkBase, activeLinkClass),
-          }}
-          inactiveProps={{
-            className: twMerge(settingsLinkBase, inactiveLinkClass),
-          }}
-          aria-label="Settings"
-        >
-          {({ isActive }) => (
-            <>
-              <Settings className="h-4 w-4" />
-              {isActive && <ActiveIndicator />}
-            </>
-          )}
-        </Link>
+        </div>
 
         {!isMacOS && (
           <>
-            <Separator orientation="vertical" />
+            <Separator orientation="vertical" className="mx-0 h-full" />
 
-            <IconButton
-              icon={<Minus className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="sm"
-              onClick={handleMinimize}
-              aria-label="Minimize"
-              className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-amber-500 hover:text-white active:scale-90 active:opacity-80"
-            />
-            <IconButton
-              icon={
-                isMaximized ? (
-                  <OverlappingSquares className="h-3 w-3" />
-                ) : (
-                  <Square className="h-3 w-3" />
-                )
-              }
-              variant="ghost"
-              size="sm"
-              onClick={handleMaximize}
-              aria-label={isMaximized ? "Restore" : "Maximize"}
-              className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-green-500 hover:text-white active:scale-90 active:opacity-80"
-            />
-            <IconButton
-              icon={<X className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              aria-label="Close"
-              className="mx-0.5 mr-2 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-red-500 hover:text-white active:scale-90 active:opacity-80"
-            />
+            <div className="flex h-full">
+              <IconButton
+                icon={<Minus className="h-3.5 w-3.5" />}
+                variant="ghost"
+                size="sm"
+                onClick={handleMinimize}
+                aria-label="Minimize"
+                className={windowControlClass}
+              />
+              <IconButton
+                icon={
+                  isMaximized ? (
+                    <OverlappingSquares className="h-3 w-3" />
+                  ) : (
+                    <Square className="h-3 w-3" />
+                  )
+                }
+                variant="ghost"
+                size="sm"
+                onClick={handleMaximize}
+                aria-label={isMaximized ? "Restore" : "Maximize"}
+                className={windowControlClass}
+              />
+              <IconButton
+                /* Lucide's X is inset to half its viewBox, so it needs a box two rungs
+                   above its neighbours' to draw a cross their size, then a lighter stroke
+                   to come back to their weight at that box. */
+                icon={<X className="h-5 w-5" strokeWidth={1.25} />}
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                aria-label="Close"
+                className={twMerge(
+                  windowControlClass,
+                  "hover:bg-danger/15 hover:text-danger-text active:bg-danger/25",
+                )}
+              />
+            </div>
           </>
         )}
       </div>

@@ -4,7 +4,12 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { useAutoStartPatcher, useReducedMotion, useSurfaceLinkedBinWarning } from "@/hooks";
+import {
+  useAutoStartPatcher,
+  useOverscrollSpring,
+  useReducedMotion,
+  useSurfaceLinkedBinWarning,
+} from "@/hooks";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { SessionBar } from "@/modules/launcher";
 import { useLibraryWatcher } from "@/modules/library";
@@ -28,6 +33,10 @@ function RootLayout() {
   const { data: setupRequired, isLoading: isCheckingSetup } = useCheckSetupRequired();
 
   const zoomLevel = useDisplayStore((s) => s.zoomLevel);
+  const cornerStyle = useDisplayStore((s) => s.cornerStyle);
+  const surfaceTint = useDisplayStore((s) => s.surfaceTint);
+  const cardScale = useDisplayStore((s) => s.cardScale);
+  const scrollMode = useDisplayStore((s) => s.scrollMode);
   const isReducedMotion = useReducedMotion();
 
   useDevLogStream();
@@ -37,6 +46,7 @@ function RootLayout() {
   useSurfaceLinkedBinWarning();
   useClearTestingProjectsOnIdle();
   useClearStoppingOnIdle();
+  useOverscrollSpring();
 
   const update = useUpdaterUpdate();
   const { data: settings } = useSettings();
@@ -52,8 +62,24 @@ function RootLayout() {
   }, [zoomLevel]);
 
   useEffect(() => {
+    document.documentElement.dataset.corners = cornerStyle;
+  }, [cornerStyle]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--surface-tint", String(surfaceTint / 100));
+  }, [surfaceTint]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty("--card-scale", String(cardScale / 100));
+  }, [cardScale]);
+
+  useEffect(() => {
     document.documentElement.dataset.reduceMotion = String(isReducedMotion);
   }, [isReducedMotion]);
+
+  useEffect(() => {
+    document.documentElement.dataset.scrollMode = scrollMode;
+  }, [scrollMode]);
 
   useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
   useHotkeys("ctrl+2", () => navigate({ to: "/workshop" }), { preventDefault: true });
@@ -77,14 +103,14 @@ function RootLayout() {
   // Show loading state while checking setup
   if (isCheckingSetup) {
     return (
-      <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-900 via-surface-800 to-surface-900">
+      <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-950 via-surface-900 to-surface-950">
         <Loader2 className="h-6 w-6 animate-spin text-surface-400" />
       </div>
     );
   }
 
   return (
-    <div className="root flex h-screen flex-col bg-surface-900">
+    <div className="root flex h-screen flex-col bg-surface-950">
       <TitleBar appInfo={appInfo} />
       <main className="relative flex-1 overflow-hidden">
         <UpdateNotification />

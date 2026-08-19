@@ -38,11 +38,11 @@ export function ModCardList({ view }: { view: ModCardView }) {
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-800 shadow-[0_0_10px_-4px] shadow-accent-500/20 hover:-translate-y-px",
+        "border-accent-500/40 bg-surface-900 shadow-[0_0_10px_-4px] shadow-accent-500/20 hover:-translate-y-px",
     )
     .otherwise(
       () =>
-        "border-surface-700 bg-surface-900 hover:-translate-y-px hover:border-surface-600 hover:bg-surface-800/80 hover:shadow-md",
+        "border-surface-700 bg-surface-900 hover:-translate-y-px hover:border-accent-hover hover:bg-surface-800/80 hover:shadow-md",
     );
 
   return (
@@ -71,7 +71,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
           <h3 className="truncate font-medium text-surface-100">{mod.displayName}</h3>
           {isFlagged && (
             <Tooltip content={skinhackReason}>
-              <ShieldAlert className="h-4 w-4 shrink-0 text-red-500" />
+              <ShieldAlert className="h-4 w-4 shrink-0 text-danger-text" />
             </Tooltip>
           )}
         </div>
@@ -91,7 +91,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
       </div>
 
       <div data-no-toggle onClick={(e) => e.stopPropagation()}>
-        <ModCardToggle variant="list" view={view} />
+        <ModCardToggle view={view} />
       </div>
 
       <div data-no-toggle onClick={(e) => e.stopPropagation()}>

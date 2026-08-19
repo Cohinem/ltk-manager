@@ -1,6 +1,6 @@
-import { Plus, Search, X } from "lucide-react";
+import { MagnifyingGlassIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 
-import { Button, Field } from "@/components";
+import { Field, IconButton, Tooltip } from "@/components";
 
 interface StringOverridesToolbarProps {
   filter: string;
@@ -8,36 +8,46 @@ interface StringOverridesToolbarProps {
   onAdd: () => void;
 }
 
+/** Filter and add, sized for the 36px tab strip the document portals into. */
 export function StringOverridesToolbar({
   filter,
   onFilterChange,
   onAdd,
 }: StringOverridesToolbarProps) {
   return (
-    <div className="flex items-center gap-2">
-      <Field.Root className="relative w-56">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
+    <div className="flex items-center gap-1">
+      <Field.Root className="relative w-44">
+        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
         <Field.Control
           type="text"
           value={filter}
           onChange={(e) => onFilterChange(e.target.value)}
           placeholder="Filter overrides..."
-          className="pr-8 pl-9"
+          className="h-7 pr-7 pl-7 text-xs"
         />
         {filter && (
-          <button
-            type="button"
+          <IconButton
+            icon={<XIcon weight="bold" className="h-3.5 w-3.5" />}
+            variant="transparent"
+            size="xs"
+            compact
             onClick={() => onFilterChange("")}
             aria-label="Clear filter"
-            className="absolute top-1/2 right-2.5 -translate-y-1/2 text-surface-500 transition-colors hover:text-surface-200"
-          >
-            <X className="h-4 w-4" />
-          </button>
+            className="absolute top-1/2 right-1 h-5 w-5 -translate-y-1/2"
+          />
         )}
       </Field.Root>
-      <Button variant="outline" size="sm" left={<Plus className="h-4 w-4" />} onClick={onAdd}>
-        Add Override
-      </Button>
+
+      <Tooltip content="Add override">
+        <IconButton
+          icon={<PlusIcon weight="bold" className="h-4 w-4" />}
+          variant="ghost"
+          size="xs"
+          compact
+          onClick={onAdd}
+          aria-label="Add override"
+        />
+      </Tooltip>
     </div>
   );
 }

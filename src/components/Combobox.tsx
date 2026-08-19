@@ -36,10 +36,10 @@ export const ComboboxInput = forwardRef<HTMLInputElement, ComboboxInputProps>(
         className={twMerge(
           "h-8 w-full rounded-lg border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50 placeholder:text-surface-400",
-          "border-surface-500 hover:border-surface-400",
+          "border-surface-500 hover:border-accent-hover",
           "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          hasError && "border-red-500 focus:border-red-500 focus:ring-red-500",
+          hasError && "border-danger focus:border-danger focus:ring-danger",
           className,
         )}
         {...props}
@@ -429,7 +429,7 @@ export function ComboboxField({
       {label && (
         <label className="text-sm font-medium text-surface-200">
           {label}
-          {required && <span className="ml-1 text-red-400">*</span>}
+          {required && <span className="ml-1 text-required">*</span>}
         </label>
       )}
       {description && <p className="text-xs text-surface-400">{description}</p>}
@@ -469,7 +469,7 @@ export function ComboboxField({
           </ComboboxPositioner>
         </ComboboxPortal>
       </ComboboxRoot>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger-text">{error}</p>}
     </div>
   );
 }

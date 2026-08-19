@@ -4,6 +4,7 @@ import { Progress } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { LaunchProgress, OverlayProgress } from "@/lib/tauri";
 import { useOverlayProgress, usePatcherStatus } from "@/modules/patcher";
+import { useSessionProjectNames } from "@/modules/workshop";
 import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
 
 import { useLaunchAvailability, useLaunchProgress } from "../api";
@@ -48,21 +49,21 @@ function isDeterminate(stage: OverlayProgress["stage"]) {
 const dotClasses: Record<StepState, string> = {
   pending: "border border-surface-600 bg-transparent",
   active: "border border-accent-500 bg-accent-500/30",
-  done: "border border-green-500/60 bg-green-500/20",
-  failed: "border border-red-500/60 bg-red-500/20",
+  done: "border border-success/60 bg-success/20",
+  failed: "border border-danger/60 bg-danger/20",
 };
 
 const labelClasses: Record<StepState, string> = {
   pending: "text-surface-500",
   active: "text-accent-400",
   done: "text-surface-300",
-  failed: "text-red-400",
+  failed: "text-danger-text",
 };
 
 function StepDot({ state }: { state: StepState }) {
   if (state === "active") return <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-500" />;
-  if (state === "done") return <Check className="h-3.5 w-3.5 text-green-500" />;
-  if (state === "failed") return <AlertCircle className="h-3.5 w-3.5 text-red-500" />;
+  if (state === "done") return <Check className="h-3.5 w-3.5 text-success-text" />;
+  if (state === "failed") return <AlertCircle className="h-3.5 w-3.5 text-danger-text" />;
   return <span className={`h-3.5 w-3.5 rounded-full ${dotClasses[state]}`} />;
 }
 
@@ -100,7 +101,7 @@ function RestingLine({ children }: { children: React.ReactNode }) {
  *
  * Anchored at the bottom of the window, below the page rather than above it. A
  * bar that appears above a scroll container pushes every visible row down as it
- * mounts; below one, the container's top edge holds still and only its height
+ * mounts. Below one, the container's top edge holds still and only its height
  * changes, so nothing the user is looking at moves. It never unmounts now, so
  * the page above it does not resize at all.
  */
@@ -110,7 +111,7 @@ export function SessionBar() {
   const launchProgress = useLaunchProgress();
   const { data: availability } = useLaunchAvailability();
   const playStep = usePlaySessionStore((s) => s.step);
-  const testingProjects = usePatcherSessionStore((s) => s.testingProjects);
+  const sessionProjects = useSessionProjectNames();
   const stopping = usePatcherSessionStore((s) => s.stopping);
   const { data: platform } = usePlatformSupport();
 
@@ -157,12 +158,12 @@ export function SessionBar() {
   if (settled) {
     return (
       <RestingLine>
-        <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-green-500 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]" />
-        <span className="font-medium text-green-400">Patcher running</span>
+        <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
+        <span className="font-medium text-success-text">Patcher running</span>
         <span className="text-surface-400">Your mods will be applied when League starts.</span>
-        {testingProjects.length > 0 && (
+        {sessionProjects.length > 0 && (
           <span className="ml-auto rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400">
-            {describeTestingProjects(testingProjects)}
+            {describeTestingProjects(sessionProjects)}
           </span>
         )}
       </RestingLine>
@@ -206,7 +207,7 @@ export function SessionBar() {
     launchProgress,
   );
 
-  const testLabel = describeTestingProjects(testingProjects);
+  const testLabel = describeTestingProjects(sessionProjects);
 
   // Tied to the steps rather than to `launching`, so the shimmer dies the moment
   // the last one settles instead of running on a bar with nothing left to do.
@@ -262,9 +263,9 @@ function idleHint(leagueRunning: boolean): string {
   return "Start the patcher to apply your mods.";
 }
 
-function describeTestingProjects(projects: { displayName: string }[]): string | null {
-  if (projects.length === 1) return `Testing ${projects[0].displayName}`;
-  if (projects.length > 1) return `Testing ${projects.length} projects`;
+function describeTestingProjects(names: string[]): string | null {
+  if (names.length === 1) return `Testing ${names[0]}`;
+  if (names.length > 1) return `Testing ${names.length} projects`;
   return null;
 }
 
@@ -281,7 +282,7 @@ function describeCurrentWork(
   launch: LaunchProgress | null,
 ) {
   if (launching && launch) {
-    // Only the wait for a booting client knows how long it has left; every
+    // Only the wait for a booting client knows how long it has left. Every
     // other stage is genuinely open-ended, so it gets an indeterminate bar.
     const waiting = launch.stage === "waitingForClient" && launch.timeoutSecs > 0;
     return {
