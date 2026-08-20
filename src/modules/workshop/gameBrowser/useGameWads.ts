@@ -13,6 +13,8 @@ export const gameKeys = {
   index: ["game-index"] as const,
   dirs: ["game-dir"] as const,
   dir: (path: string) => ["game-dir", path] as const,
+  search: (query: string) => ["game-search", query] as const,
+  find: (pattern: string, regex: boolean) => ["game-find", pattern, regex] as const,
 };
 
 /** Every WAD archive of the installed game. Errors when no League path is set. */

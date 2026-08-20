@@ -161,6 +161,7 @@ fn main() {
             commands::get_project_thumbnail,
             commands::save_layer_string_overrides,
             commands::search_string_keys,
+            commands::lookup_string_values,
             commands::get_layer_content_path,
             commands::get_layer_info,
             commands::create_project_layer,
@@ -181,6 +182,8 @@ fn main() {
             commands::get_game_index,
             commands::read_game_dir,
             commands::refresh_game_index,
+            commands::search_game_index,
+            commands::find_in_game_index,
             // Asset preview
             commands::read_asset_info,
             // Deep Link

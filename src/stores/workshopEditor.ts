@@ -32,6 +32,20 @@ export interface RevealRequest {
 }
 
 /**
+ * One stop on a project's navigation history.
+ *
+ * The group is not recorded, because a document sits in exactly one of them and
+ * `leafHolding` answers which. A position inside the document is not recorded
+ * either, so a back restores which document and leaves the rest to it.
+ */
+export interface HistoryEntry {
+  readonly documentId: string;
+}
+
+/** How far back the arrows reach before the oldest stop is dropped. */
+const HISTORY_LIMIT = 50;
+
+/**
  * Everything the editor holds for one project.
  *
  * `documents`, `layout`, `activeLeafId` and `selectedLayer` persist, written to
@@ -69,6 +83,16 @@ export interface ProjectEditor {
   collapsed: Record<string, ReadonlySet<string>>;
   /** The pending scroll request, which at most one layer's tree answers. */
   reveal: RevealRequest | null;
+  /**
+   * Where the user has been in this editor, oldest first.
+   *
+   * Session-only. `.ltk/editor.json` holds where a user left the project, and a
+   * history is how they got there - restoring it a day later hands them a back
+   * button into a session they no longer remember.
+   */
+  history: readonly HistoryEntry[];
+  /** Where in `history` the arrows stand. -1 while nothing has been visited. */
+  historyIndex: number;
 }
 
 interface WorkshopEditorStore {
@@ -93,7 +117,11 @@ interface WorkshopEditorStore {
     targetLeafId: string,
     edge: Edge,
   ) => void;
+  /** Opens into a fresh group beside the focused one, which `Ctrl+Enter` asks for. */
+  openDocumentBeside: (projectPath: string, document: ContentDocument) => void;
   focusLeaf: (projectPath: string, leafId: string) => void;
+  /** Walks the history by `delta` without recording the stop it lands on. */
+  navigateHistory: (projectPath: string, delta: number) => void;
   /** Writes what `onLayoutChanged` reported for one split. */
   setSplitLayout: (projectPath: string, splitId: string, layout: Record<string, number>) => void;
   /** Merges every strip into the focused leaf, in reading order. */
@@ -121,6 +149,8 @@ export const EMPTY_EDITOR: ProjectEditor = {
   dirty: new Set(),
   collapsed: {},
   reveal: null,
+  history: [],
+  historyIndex: -1,
 };
 
 /** The collapsed-set of a layer nobody has shut a directory in. */
@@ -142,6 +172,42 @@ function updateProject(
   const next = change(current);
   if (next === null || next === current) return null;
   return { byProject: { ...state.byProject, [projectPath]: next } };
+}
+
+/**
+ * Push the document a route just landed on, or leave the stack alone.
+ *
+ * Recorded inside the store actions rather than at their call sites, so a route
+ * into a document cannot forget to report itself. Landing again on the stop the
+ * arrows already stand on records nothing, which is what keeps a re-activate of
+ * the open tab out of the stack.
+ */
+function recordVisit(editor: ProjectEditor, documentId: string): ProjectEditor {
+  if (editor.history[editor.historyIndex]?.documentId === documentId) return editor;
+
+  /* A move after a back drops the forward part, the way a browser does. */
+  const history = editor.history.slice(0, editor.historyIndex + 1);
+  history.push({ documentId });
+  if (history.length > HISTORY_LIMIT) history.splice(0, history.length - HISTORY_LIMIT);
+
+  return { ...editor, history, historyIndex: history.length - 1 };
+}
+
+/** Drop a closed document's stops, so a back never lands on a tab that is gone. */
+function forgetVisits(editor: ProjectEditor, documentId: string): ProjectEditor {
+  if (!editor.history.some((entry) => entry.documentId === documentId)) return editor;
+
+  const history: HistoryEntry[] = [];
+  let index = editor.historyIndex;
+  editor.history.forEach((entry, at) => {
+    if (entry.documentId !== documentId) {
+      history.push(entry);
+      return;
+    }
+    if (at <= editor.historyIndex) index -= 1;
+  });
+
+  return { ...editor, history, historyIndex: Math.max(-1, Math.min(index, history.length - 1)) };
 }
 
 /**
@@ -236,18 +302,24 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
               editor.activeLeafId === holder.id &&
               previewId === editor.previewId
             ) {
-              return null;
+              return recordVisit(editor, document.id);
             }
-            return { ...editor, layout, activeLeafId: holder.id, previewId };
+            return recordVisit(
+              { ...editor, layout, activeLeafId: holder.id, previewId },
+              document.id,
+            );
           }
 
           const group = openGroup(editor, document, leafId);
-          return {
-            ...editor,
-            documents: { ...editor.documents, [document.id]: document },
-            layout: insertTab(group.layout, group.leafId, document.id),
-            activeLeafId: group.leafId,
-          };
+          return recordVisit(
+            {
+              ...editor,
+              documents: { ...editor.documents, [document.id]: document },
+              layout: insertTab(group.layout, group.leafId, document.id),
+              activeLeafId: group.leafId,
+            },
+            document.id,
+          );
         }) ?? state,
     ),
 
@@ -260,8 +332,10 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
           const holder = leafHolding(editor.layout, document.id);
           if (holder) {
             const layout = setActiveTab(editor.layout, holder.id, document.id);
-            if (layout === editor.layout && editor.activeLeafId === holder.id) return null;
-            return { ...editor, layout, activeLeafId: holder.id };
+            if (layout === editor.layout && editor.activeLeafId === holder.id) {
+              return recordVisit(editor, document.id);
+            }
+            return recordVisit({ ...editor, layout, activeLeafId: holder.id }, document.id);
           }
 
           const documents = { ...editor.documents, [document.id]: document };
@@ -270,25 +344,35 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
           if (previous && editor.previewId) {
             const layout = replaceTab(editor.layout, previous.id, editor.previewId, document.id);
             if (layout !== editor.layout) {
-              delete documents[editor.previewId];
-              return {
-                ...editor,
-                documents,
-                layout,
-                activeLeafId: previous.id,
-                previewId: document.id,
-              };
+              const replaced = editor.previewId;
+              delete documents[replaced];
+              return recordVisit(
+                forgetVisits(
+                  {
+                    ...editor,
+                    documents,
+                    layout,
+                    activeLeafId: previous.id,
+                    previewId: document.id,
+                  },
+                  replaced,
+                ),
+                document.id,
+              );
             }
           }
 
           const group = openGroup(editor, document, leafId);
-          return {
-            ...editor,
-            documents,
-            layout: insertTab(group.layout, group.leafId, document.id),
-            activeLeafId: group.leafId,
-            previewId: document.id,
-          };
+          return recordVisit(
+            {
+              ...editor,
+              documents,
+              layout: insertTab(group.layout, group.leafId, document.id),
+              activeLeafId: group.leafId,
+              previewId: document.id,
+            },
+            document.id,
+          );
         }) ?? state,
     ),
 
@@ -306,8 +390,10 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
         updateProject(state, projectPath, (editor) => {
           if (!findLeaf(editor.layout, leafId)) return null;
           const layout = setActiveTab(editor.layout, leafId, id);
-          if (layout === editor.layout && editor.activeLeafId === leafId) return null;
-          return { ...editor, layout, activeLeafId: leafId };
+          if (layout === editor.layout && editor.activeLeafId === leafId) {
+            return recordVisit(editor, id);
+          }
+          return recordVisit({ ...editor, layout, activeLeafId: leafId }, id);
         }) ?? state,
     ),
 
@@ -332,7 +418,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
             ? editor.activeLeafId
             : leaves(layout)[0].id;
 
-          return { ...editor, documents, layout, activeLeafId, dirty, previewId };
+          return forgetVisits({ ...editor, documents, layout, activeLeafId, dirty, previewId }, id);
         }) ?? state,
     ),
 
@@ -365,12 +451,77 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
         }) ?? state,
     ),
 
+  openDocumentBeside: (projectPath, document) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const focused = findLeaf(editor.layout, editor.activeLeafId) ?? leaves(editor.layout)[0];
+
+          /* An empty group has nothing to sit beside, so it takes the document
+             rather than splitting into two with one of them showing nothing. */
+          if (focused.tabs.length === 0) {
+            return recordVisit(
+              {
+                ...editor,
+                documents: { ...editor.documents, [document.id]: document },
+                layout: insertTab(editor.layout, focused.id, document.id),
+                activeLeafId: focused.id,
+              },
+              document.id,
+            );
+          }
+
+          if (leafHolding(editor.layout, document.id)) {
+            const split = splitLeaf(editor.layout, focused.id, "right", document.id);
+            if (split.tree === editor.layout) return recordVisit(editor, document.id);
+            return recordVisit(
+              { ...editor, layout: split.tree, activeLeafId: split.leafId },
+              document.id,
+            );
+          }
+
+          const split = splitEmpty(editor.layout, focused.id, "right");
+          return recordVisit(
+            {
+              ...editor,
+              documents: { ...editor.documents, [document.id]: document },
+              layout: insertTab(split.tree, split.leafId, document.id),
+              activeLeafId: split.leafId,
+            },
+            document.id,
+          );
+        }) ?? state,
+    ),
+
   focusLeaf: (projectPath, leafId) =>
     set(
       (state) =>
         updateProject(state, projectPath, (editor) => {
-          if (editor.activeLeafId === leafId || !findLeaf(editor.layout, leafId)) return null;
-          return { ...editor, activeLeafId: leafId };
+          const leaf = findLeaf(editor.layout, leafId);
+          if (!leaf || editor.activeLeafId === leafId) return null;
+
+          const focused = { ...editor, activeLeafId: leafId };
+          return leaf.activeTab ? recordVisit(focused, leaf.activeTab) : focused;
+        }) ?? state,
+    ),
+
+  navigateHistory: (projectPath, delta) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const at = editor.historyIndex + delta;
+          const entry = editor.history[at];
+          if (!entry) return null;
+
+          const holder = leafHolding(editor.layout, entry.documentId);
+          if (!holder) return null;
+
+          return {
+            ...editor,
+            layout: setActiveTab(editor.layout, holder.id, entry.documentId),
+            activeLeafId: holder.id,
+            historyIndex: at,
+          };
         }) ?? state,
     ),
 

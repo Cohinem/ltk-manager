@@ -13,6 +13,7 @@ pub mod game_index;
 pub mod game_wads;
 pub mod hashtables;
 pub mod launcher;
+pub mod matcher;
 pub mod mods;
 pub mod overlay;
 pub mod patcher;

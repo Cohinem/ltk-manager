@@ -8,6 +8,7 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -47,6 +48,9 @@ pub struct StringKeySearchResult {
 struct IndexEntry {
     key: String,
     value: Option<String>,
+    /// Lowercased copy of `value`, so a search can match the in-game text
+    /// without re-lowercasing the whole table on every keystroke.
+    value_lower: Option<String>,
 }
 
 /// In-memory suggestion index: known field names (sorted) joined with the
@@ -79,6 +83,7 @@ impl StringKeyIndex {
                 });
                 Some(IndexEntry {
                     key: name.to_string(),
+                    value_lower: value.as_deref().map(str::to_lowercase),
                     value,
                 })
             })
@@ -96,14 +101,15 @@ impl StringKeyIndex {
         Ok(Self { entries, locale })
     }
 
-    /// Rank matching keys for `query`: prefix matches first, then substring
-    /// matches, both in alphabetical order. An empty query lists the first
-    /// `limit` keys for discovery.
+    /// Rank matches for `query`: key prefix first, then key substring, then
+    /// in-game text substring, each bucket in alphabetical order. An empty
+    /// query lists the first `limit` keys for discovery.
     pub fn search(&self, query: &str, limit: usize) -> StringKeySearchResult {
         let query = query.trim().to_lowercase();
 
         let mut prefix: Vec<&IndexEntry> = Vec::new();
         let mut contains: Vec<&IndexEntry> = Vec::new();
+        let mut texts: Vec<&IndexEntry> = Vec::new();
         if query.is_empty() {
             prefix.extend(self.entries.iter().take(limit));
         } else {
@@ -115,6 +121,13 @@ impl StringKeyIndex {
                     prefix.push(entry);
                 } else if contains.len() < limit && entry.key.contains(&query) {
                     contains.push(entry);
+                } else if texts.len() < limit
+                    && entry
+                        .value_lower
+                        .as_deref()
+                        .is_some_and(|value| value.contains(&query))
+                {
+                    texts.push(entry);
                 }
             }
         }
@@ -122,6 +135,7 @@ impl StringKeyIndex {
         let suggestions = prefix
             .into_iter()
             .chain(contains)
+            .chain(texts)
             .take(limit)
             .map(|entry| StringKeySuggestion {
                 key: entry.key.clone(),
@@ -134,6 +148,26 @@ impl StringKeyIndex {
             total_keys: self.entries.len() as u32,
             locale: self.locale.clone(),
         }
+    }
+
+    /// Current in-game text for each of `keys`, matched case-insensitively.
+    ///
+    /// The map is keyed by the strings as the caller wrote them. A key the
+    /// index cannot resolve to a value is absent, so a miss reads as "nothing
+    /// known" rather than as an empty string.
+    pub fn lookup(&self, keys: &[String]) -> HashMap<String, String> {
+        keys.iter()
+            .filter_map(|key| {
+                let wanted = key.trim().to_lowercase();
+                // `build` sorts the entries by key, so a binary search holds.
+                let found = self
+                    .entries
+                    .binary_search_by(|entry| entry.key.as_str().cmp(wanted.as_str()))
+                    .ok()?;
+                let value = self.entries[found].value.clone()?;
+                Some((key.clone(), value))
+            })
+            .collect()
     }
 }
 
@@ -258,14 +292,18 @@ mod tests {
     use super::*;
 
     fn index_from(entries: &[(&str, Option<&str>)]) -> StringKeyIndex {
+        let mut entries: Vec<IndexEntry> = entries
+            .iter()
+            .map(|(key, value)| IndexEntry {
+                key: key.to_string(),
+                value: value.map(str::to_string),
+                value_lower: value.map(str::to_lowercase),
+            })
+            .collect();
+        // The same invariant `build` establishes, which `lookup` relies on.
+        entries.sort_by(|a, b| a.key.cmp(&b.key));
         StringKeyIndex {
-            entries: entries
-                .iter()
-                .map(|(key, value)| IndexEntry {
-                    key: key.to_string(),
-                    value: value.map(str::to_string),
-                })
-                .collect(),
+            entries,
             locale: Some("en_us".to_string()),
         }
     }
@@ -294,10 +332,55 @@ mod tests {
     }
 
     #[test]
+    fn search_matches_the_in_game_text_after_the_keys() {
+        let index = index_from(&[
+            ("fox_fire_tooltip", Some("Fox-Fire")),
+            (
+                "game_character_displayname_ahri",
+                Some("the Nine-Tailed Fox"),
+            ),
+            ("game_character_displayname_annie", Some("the Dark Child")),
+        ]);
+
+        let result = index.search("fox", 10);
+        let keys: Vec<&str> = result.suggestions.iter().map(|s| s.key.as_str()).collect();
+        // The key match outranks the value-only match, whatever the case.
+        assert_eq!(
+            keys,
+            vec!["fox_fire_tooltip", "game_character_displayname_ahri"]
+        );
+    }
+
+    #[test]
     fn empty_query_lists_from_start() {
         let index = index_from(&[("aaa", None), ("bbb", None)]);
         let result = index.search("  ", 1);
         assert_eq!(result.suggestions[0].key, "aaa");
+    }
+
+    #[test]
+    fn lookup_answers_known_keys_case_insensitively_and_skips_the_rest() {
+        let index = index_from(&[
+            (
+                "game_character_displayname_ahri",
+                Some("the Nine-Tailed Fox"),
+            ),
+            ("unvalued_key", None),
+        ]);
+
+        let values = index.lookup(&[
+            "GAME_character_displayname_Ahri".to_string(),
+            "unvalued_key".to_string(),
+            "no_such_key".to_string(),
+        ]);
+
+        assert_eq!(
+            values
+                .get("GAME_character_displayname_Ahri")
+                .map(String::as_str),
+            Some("the Nine-Tailed Fox")
+        );
+        assert_eq!(values.len(), 1);
     }
 
     #[test]

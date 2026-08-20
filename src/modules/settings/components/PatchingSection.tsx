@@ -144,13 +144,27 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           )}
 
           <SettingRow
-            title="Lazy WAD scan"
-            description="Archives get verified on demand when mounting."
-            hint="This can cause sporadic crashes, so it only applies when League's Automatically Send Crash Reports setting is off. With crash reporting on, the patcher scans up front as usual."
+            title="Scan every WAD up front"
+            description="Every archive gets verified up front at startup."
+            hint="On-demand scanning can cause sporadic crashes, so the patcher only does it while League's Automatically Send Crash Reports setting is off. With crash reporting on, every WAD is scanned up front regardless."
             control={
               <Switch
-                checked={settings.lazyWadScan}
-                onCheckedChange={(checked) => onSave({ ...settings, lazyWadScan: checked })}
+                checked={settings.fullWadScan}
+                onCheckedChange={(checked) => onSave({ ...settings, fullWadScan: checked })}
+              />
+            }
+          />
+
+          <SettingRow
+            title="Disable crash reporting"
+            description="League's crash reporting gets turned off when the patcher starts."
+            hint="Archives are only verified on demand while Riot's crash reporting is off. It lives in LeagueClientSettings.yaml, which the client rewrites when it exits, so the patcher reapplies this at every start."
+            control={
+              <Switch
+                checked={settings.disableCrashReporting}
+                onCheckedChange={(checked) =>
+                  onSave({ ...settings, disableCrashReporting: checked })
+                }
               />
             }
           />

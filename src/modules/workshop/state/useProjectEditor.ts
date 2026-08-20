@@ -192,6 +192,26 @@ export function useOpenDocumentTab() {
   );
 }
 
+/**
+ * Opens into a fresh group beside the focused one.
+ *
+ * What `Ctrl+Enter` on a palette row asks for, and what a future Open to the
+ * Side wires up.
+ */
+export function useOpenDocumentBeside() {
+  const projectPath = useProjectPath();
+  const openDocumentBeside = useWorkshopEditorStore((s) => s.openDocumentBeside);
+  return useCallback(
+    (document: ContentDocument) => {
+      openDocumentBeside(projectPath, document);
+
+      const layerName = documentLayerName(document);
+      if (layerName) useWorkshopEditorStore.getState().selectLayer(projectPath, layerName);
+    },
+    [openDocumentBeside, projectPath],
+  );
+}
+
 export function usePromoteDocument() {
   const projectPath = useProjectPath();
   const promoteDocument = useWorkshopEditorStore((s) => s.promoteDocument);
@@ -324,6 +344,55 @@ export function useRevealInTree() {
   return useCallback(
     (layerName: string, path: string) => reveal(projectPath, layerName, path),
     [reveal, projectPath],
+  );
+}
+
+/** Which of the two history arrows have somewhere to go. */
+export function useHistoryReach(): { back: string | null; forward: string | null } {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore(
+    useShallow((s) => {
+      const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+      return {
+        back: editor.history[editor.historyIndex - 1]?.documentId ?? null,
+        forward: editor.history[editor.historyIndex + 1]?.documentId ?? null,
+      };
+    }),
+  );
+}
+
+export function useNavigateHistory() {
+  const projectPath = useProjectPath();
+  const navigateHistory = useWorkshopEditorStore((s) => s.navigateHistory);
+  return useCallback(
+    (delta: number) => navigateHistory(projectPath, delta),
+    [navigateHistory, projectPath],
+  );
+}
+
+/**
+ * Visited document ids, nearest first, each one once.
+ *
+ * Where the user stands leads, then where they came from, then where a forward
+ * arrow would take them. This is both the order an empty palette lists its
+ * documents in and the depth its history bonus decays over.
+ */
+export function useRecentDocumentIds(): readonly string[] {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore(
+    useShallow((s) => {
+      const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+      const seen = new Set<string>();
+
+      for (let at = editor.historyIndex; at >= 0; at -= 1) {
+        const entry = editor.history[at];
+        if (entry) seen.add(entry.documentId);
+      }
+      for (let at = editor.historyIndex + 1; at < editor.history.length; at += 1) {
+        seen.add(editor.history[at]!.documentId);
+      }
+      return [...seen];
+    }),
   );
 }
 

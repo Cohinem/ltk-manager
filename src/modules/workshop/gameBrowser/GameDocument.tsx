@@ -1,30 +1,92 @@
-import { ArrowsClockwiseIcon, FilesIcon } from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
+import { ArrowsClockwiseIcon, FilesIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { EmptyState, IconButton, Tooltip } from "@/components";
-import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
+import { EmptyState, Field, IconButton, Spinner, Tooltip } from "@/components";
+import type { GameFindHit, GameFindResult } from "@/lib/tauri";
+import { DocumentActions, DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { hasErrorCode } from "@/utils/errors";
 
 import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
 import { useOpenDocument } from "../state";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
-import { buildIndexTree, holdsOnlyUnknown, type SourceDirNode, toggled } from "./sourceIndex";
+import {
+  buildIndexTree,
+  buildSourceTree,
+  holdsOnlyUnknown,
+  type SourceDirNode,
+  type SourceEntry,
+  toggled,
+} from "./sourceIndex";
 import { SourceTree } from "./SourceTree";
+import { useGameFind } from "./useGameFind";
 import { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./useGameIndex";
+import { useGameSearchRevealTarget } from "./useGameSearchReveal";
 import { useSourcePreview } from "./useSourcePreview";
 
-/** The root game browser: every archive of the installed game, folded into one tree. */
+/**
+ * The root game browser: every archive of the installed game, folded into one tree.
+ *
+ * The toolbar's box is the full search over the same tree. Empty, the document
+ * browses lazily, one directory read as it opens. Typed into, the body swaps to
+ * the tree the pattern leaves - every hit under its real directories - and back
+ * without losing where the browse had gotten to.
+ */
 export function GameDocument({ active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
+  const [pattern, setPattern] = useState("");
+  const [regex, setRegex] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  const searching = pattern.length > 0;
+
   return (
-    <div data-ui="GameDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <div
+      data-ui="GameDocument"
+      ref={bodyRef}
+      className="flex min-h-0 flex-1 flex-col bg-surface-950"
+    >
       <DocumentActions active={active}>
         <GameStats />
         <ArchivesAction />
         <RebuildAction />
       </DocumentActions>
-      <GameIndexTree />
+
+      <DocumentToolbar active={active}>
+        <SearchField
+          pattern={pattern}
+          regex={regex}
+          onPatternChange={setPattern}
+          onRegexChange={setRegex}
+          onCommit={() => focusRows(bodyRef.current)}
+        />
+      </DocumentToolbar>
+
+      {/* Hidden rather than unmounted, so the browse tree's expanded
+          directories survive a search and back. */}
+      <div hidden={searching} className="flex min-h-0 flex-1 flex-col">
+        <GameIndexTree />
+      </div>
+      {searching && <FindResults pattern={pattern} regex={regex} />}
     </div>
   );
+}
+
+/* The browse tree stays mounted under `hidden` while a search shows, so the
+   visible tree is the one whose rows can take focus. */
+function focusRows(body: HTMLElement | null) {
+  if (!body) return;
+
+  const rows = body.querySelectorAll<HTMLElement>('[data-treeitem-index="0"]');
+  const first = [...rows].find((row) => row.offsetParent !== null);
+  if (first) {
+    first.focus();
+    return;
+  }
+
+  /* The first row virtualizes away once the tree is scrolled. The tree itself
+     still takes focus, and the keys continue from the row it last held. */
+  const trees = body.querySelectorAll<HTMLElement>('[role="tree"]');
+  [...trees].find((tree) => tree.offsetParent !== null)?.focus();
 }
 
 function GameStats() {
@@ -82,6 +144,185 @@ function RebuildAction() {
       />
     </Tooltip>
   );
+}
+
+interface SearchFieldProps {
+  pattern: string;
+  regex: boolean;
+  onPatternChange: (pattern: string) => void;
+  onRegexChange: (regex: boolean) => void;
+  /** `Enter` or `ArrowDown`, which hand the keyboard to the rows below. */
+  onCommit: () => void;
+}
+
+function SearchField({
+  pattern,
+  regex,
+  onPatternChange,
+  onRegexChange,
+  onCommit,
+}: SearchFieldProps) {
+  const { data, error, isFetching } = useGameFind(pattern, regex);
+  const counted = pattern.length > 0 && data && data.total > 0 && !error;
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  useGameSearchRevealTarget(inputRef);
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape" && pattern.length > 0) {
+      event.preventDefault();
+      onPatternChange("");
+    }
+    if (event.key === "Enter" || event.key === "ArrowDown") {
+      event.preventDefault();
+      onCommit();
+    }
+  }
+
+  return (
+    <>
+      <Field.Root className="relative min-w-0 flex-1">
+        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
+        <Field.Control
+          ref={inputRef}
+          type="text"
+          value={pattern}
+          onChange={(event) => onPatternChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={regex ? "Search the game files by regex" : "Search the game files"}
+          aria-label="Search the game files"
+          autoComplete="off"
+          spellCheck={false}
+          className="h-6 pr-14 pl-7 text-xs select-text"
+        />
+        <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
+          {pattern && (
+            <IconButton
+              icon={<XIcon weight="bold" className="h-3 w-3" />}
+              variant="transparent"
+              size="xs"
+              compact
+              onClick={() => {
+                onPatternChange("");
+                inputRef.current?.focus();
+              }}
+              aria-label="Clear the search"
+              className="h-4 w-4"
+            />
+          )}
+          <Tooltip content="Use regular expression">
+            <button
+              type="button"
+              aria-pressed={regex}
+              onClick={() => onRegexChange(!regex)}
+              className={twMerge(
+                "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-[10px] text-surface-400 transition-colors",
+                /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
+                regex &&
+                  "bg-accent-500/20 text-accent-300 hover:bg-accent-500/30 hover:text-accent-300",
+              )}
+            >
+              .*
+            </button>
+          </Tooltip>
+        </span>
+      </Field.Root>
+
+      {counted && (
+        <span className="shrink-0 text-[11px] text-surface-400 tabular-nums select-none">
+          {countText(data)}
+        </span>
+      )}
+      {isFetching && <Spinner size="sm" className="h-3 w-3 shrink-0" />}
+    </>
+  );
+}
+
+function countText(result: GameFindResult): string {
+  const total = result.total.toLocaleString();
+  const label = result.total === 1 ? "match" : "matches";
+  if (result.hits.length < result.total) {
+    return `first ${result.hits.length.toLocaleString()} of ${total} ${label}`;
+  }
+  return `${total} ${label}`;
+}
+
+interface FindResultsProps {
+  pattern: string;
+  regex: boolean;
+}
+
+/**
+ * The tree the pattern leaves: every matching file under its real directories.
+ *
+ * The hits arrive flat and in tree order, and `buildSourceTree` folds them
+ * back into directories, so the filtered view reads exactly like the browse
+ * tree it stands in for - same rows, same context menu, same keys. Everything
+ * starts expanded, because the hits are what the pattern was typed to see.
+ */
+function FindResults({ pattern, regex }: FindResultsProps) {
+  const { data, error, isFetching } = useGameFind(pattern, regex);
+  const openFile = useSourcePreview();
+
+  /* The parse error belongs under the box, because the fix is the next
+     keystroke. Every other failure replaces the tree, because the fix is not. */
+  const patternError = error && hasErrorCode(error, "VALIDATION_FAILED") ? error : null;
+
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const tree = useMemo(() => buildSourceTree((data?.hits ?? []).map(toSourceEntry)), [data]);
+  const isExpanded = useCallback((node: SourceDirNode) => !collapsed.has(node.id), [collapsed]);
+  const handleToggle = useCallback(
+    (node: SourceDirNode) => setCollapsed((prev) => toggled(prev, node.id)),
+    [],
+  );
+
+  if (error && !patternError) return <GameWadsErrorState error={error} />;
+  if (!data && !patternError) return <GameLoadingState />;
+
+  return (
+    <>
+      {patternError && (
+        <p className="shrink-0 border-b border-surface-700/50 px-3 pb-1.5 font-mono text-xs whitespace-pre-wrap text-danger-text">
+          {patternError.message}
+        </p>
+      )}
+      {data && data.unnamed && <UnknownHashHint />}
+      {data && data.hits.length === 0 && (
+        <EmptyState
+          size="sm"
+          title="No match"
+          description="Nothing in the install matches that pattern."
+        />
+      )}
+      {data && data.hits.length > 0 && (
+        <div
+          className={twMerge(
+            "flex min-h-0 flex-1 flex-col transition-opacity",
+            /* Still the answer to the last pattern, dimmed rather than blanked. */
+            isFetching && "opacity-50",
+          )}
+        >
+          <SourceTree
+            nodes={tree}
+            ariaLabel="Search results"
+            isExpanded={isExpanded}
+            onToggle={handleToggle}
+            onOpen={openFile}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
+function toSourceEntry(hit: GameFindHit): SourceEntry {
+  return {
+    pathHash: hit.pathHash,
+    path: hit.path,
+    sizeBytes: Number(hit.sizeBytes),
+    wad: hit.wad,
+    nameRanges: hit.nameRanges,
+  };
 }
 
 function GameIndexTree() {

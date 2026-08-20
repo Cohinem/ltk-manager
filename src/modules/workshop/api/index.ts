@@ -5,6 +5,7 @@ export { useDeleteProject } from "./useDeleteProject";
 export { useFantomeImportProgress } from "./useFantomeImportProgress";
 export { useFilteredProjects } from "./useFilteredProjects";
 export { useWorkshopFilterOptions, type WorkshopFilterOptions } from "./useFilterOptions";
+export { useGameStringValues } from "./useGameStringValues";
 export { useGitImportProgress } from "./useGitImportProgress";
 export { useImportFromFantome } from "./useImportFromFantome";
 export { useImportFromGitRepo } from "./useImportFromGitRepo";

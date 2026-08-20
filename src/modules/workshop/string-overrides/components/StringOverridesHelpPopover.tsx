@@ -1,8 +1,8 @@
-import { HelpCircle } from "lucide-react";
+import { QuestionIcon } from "@phosphor-icons/react";
 
 import { ExternalLink, IconButton, Popover, Tooltip } from "@/components";
 
-/** The guide to overrides, as a glyph sized for the tab strip it sits in. */
+/** The guide to overrides, as a glyph sized for the toolbar row it sits in. */
 export function StringOverridesHelpPopover() {
   return (
     <Popover.Root>
@@ -10,7 +10,7 @@ export function StringOverridesHelpPopover() {
         <Popover.Trigger
           render={
             <IconButton
-              icon={<HelpCircle className="h-4 w-4" />}
+              icon={<QuestionIcon className="h-4 w-4" />}
               variant="ghost"
               size="xs"
               compact
@@ -36,9 +36,10 @@ export function StringOverridesHelpPopover() {
               this to every installed language.
             </p>
             <p>
-              Field names are matched case-insensitively. To target an entry whose name is unknown,
-              use its full 64-bit hash as the field name: exactly 16 hex digits, padded with leading
-              zeros, e.g.{" "}
+              Field names usually come from the game&rsquo;s .bin files, in locations that vary by
+              context (champion, item, or UI data), and are matched case-insensitively. To target an
+              entry whose name is unknown, use its full 64-bit hash as the field name: exactly 16
+              hex digits, padded with leading zeros, e.g.{" "}
               <code className="rounded bg-surface-700 px-1 py-0.5 text-xs">f772a83b33773223</code>.
             </p>
             <p>
