@@ -7,7 +7,7 @@ import {
 import { memo } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Spinner, Tooltip } from "@/components";
+import { MarkedText, Spinner, Tooltip } from "@/components";
 import { formatBytes } from "@/utils";
 
 import { describeFileKind } from "../utils/fileKindIcon";
@@ -168,7 +168,9 @@ function FileRow({
           <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
         </span>
       </Tooltip>
-      <span className="truncate">{node.name}</span>
+      <span className="truncate">
+        <MarkedText text={node.name} ranges={node.entry.nameRanges} />
+      </span>
       <span className="ml-auto shrink-0 font-mono text-[10px] text-surface-400 tabular-nums">
         {formatBytes(node.entry.sizeBytes)}
       </span>

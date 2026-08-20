@@ -7,6 +7,8 @@ use crate::patcher::{
     PatcherThread, SessionParams, StoredPatcherConfig,
 };
 use crate::state::SettingsState;
+use ltk_manager_core::utils::client_settings::LeagueClientSettings;
+use ltk_manager_core::utils::game::GameDir;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -184,8 +186,22 @@ pub(crate) fn start_patcher_inner(
     if !config_snapshot.enforce_skinhack_scan {
         host_flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1;
     }
-    if config_snapshot.lazy_wad_scan {
-        host_flags |= crate::patcher::host::hook_flags::LAZY_WAD_SCAN;
+    if config_snapshot.full_wad_scan {
+        host_flags |= crate::patcher::host::hook_flags::FULL_WAD_SCAN;
+    }
+
+    // The client rewrites its own settings when it exits, so the preference is
+    // re-applied at every start rather than once.
+    if config_snapshot.disable_crash_reporting {
+        match GameDir::resolve(&config_snapshot)
+            .and_then(|game_dir| LeagueClientSettings::disable_crash_reporting(&game_dir))
+        {
+            Ok(true) => tracing::info!("Turned the League client's crash reporting off"),
+            Ok(false) => {}
+            Err(e) => {
+                tracing::warn!("Could not turn the League client's crash reporting off: {e}")
+            }
+        }
     }
 
     let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);

@@ -2,26 +2,8 @@
 
 use std::path::Path;
 
-/// Minimal, permissive projection of `LeagueClientSettings.yaml` — only the
-/// `install.globals.locale` path is read; everything else is ignored and every
-/// level is optional so Riot adding/removing keys can't break parsing.
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(default)]
-struct LeagueClientSettings {
-    install: InstallSection,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(default)]
-struct InstallSection {
-    globals: GlobalsSection,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-#[serde(default)]
-struct GlobalsSection {
-    locale: Option<String>,
-}
+use crate::utils::client_settings::LeagueClientSettings;
+use crate::utils::game::GameDir;
 
 /// Detect the locale the League client is configured to use, lowercased
 /// (e.g. `"en_us"`).
@@ -59,32 +41,12 @@ pub fn detect_league_locale(game_dir: &Path) -> Option<String> {
 }
 
 fn locale_from_client_settings(game_dir: &Path) -> Option<String> {
-    let config_path = game_dir
-        .parent()?
-        .join("Config")
-        .join("LeagueClientSettings.yaml");
-
-    let contents = match std::fs::read_to_string(&config_path) {
-        Ok(contents) => contents,
-        Err(e) => {
-            tracing::debug!("Could not read {}: {}", config_path.display(), e);
-            return None;
-        }
-    };
-
-    let settings: LeagueClientSettings = match serde_yaml_ng::from_str(&contents) {
-        Ok(settings) => settings,
-        Err(e) => {
-            tracing::warn!("Failed to parse {}: {}", config_path.display(), e);
-            return None;
-        }
-    };
-
-    let locale = settings.install.globals.locale?.trim().to_lowercase();
-    if locale.is_empty() {
-        return None;
-    }
+    let settings = LeagueClientSettings::read(&GameDir::from_path(game_dir))
+        .inspect_err(|e| tracing::debug!("Could not read the League client settings: {e}"))
+        .ok()?;
+    let locale = settings.locale()?;
     tracing::info!("Detected League locale '{}' from client settings", locale);
+
     Some(locale)
 }
 

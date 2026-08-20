@@ -36,6 +36,15 @@ interface WorkshopLayoutStore {
    */
   previewZoom: PreviewZoom;
   previewCheckered: boolean;
+  /**
+   * Whether the project bar searches the installed game.
+   *
+   * The one search source with a cost: the first query of a session builds an
+   * index over every archive. A modder who never copies a game file pays
+   * nothing for it, and a modder who does gets the whole install in the same
+   * box as their own project.
+   */
+  searchGame: boolean;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
   toggleSection: (id: string, open: boolean) => void;
@@ -46,6 +55,7 @@ interface WorkshopLayoutStore {
   setTabOpenMode: (tabOpenMode: TabOpenMode) => void;
   setPreviewZoom: (previewZoom: PreviewZoom) => void;
   setPreviewCheckered: (previewCheckered: boolean) => void;
+  setSearchGame: (searchGame: boolean) => void;
 }
 
 export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
@@ -61,6 +71,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       tabOpenMode: "append",
       previewZoom: "fit",
       previewCheckered: true,
+      searchGame: true,
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
       toggleSection: (id, open) =>
@@ -73,6 +84,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setTabOpenMode: (tabOpenMode) => set({ tabOpenMode }),
       setPreviewZoom: (previewZoom) => set({ previewZoom }),
       setPreviewCheckered: (previewCheckered) => set({ previewCheckered }),
+      setSearchGame: (searchGame) => set({ searchGame }),
     }),
     { name: "ltk-workshop-layout", version: 1 },
   ),
@@ -99,3 +111,5 @@ export const usePreviewZoom = () => useWorkshopLayoutStore((s) => s.previewZoom)
 export const useSetPreviewZoom = () => useWorkshopLayoutStore((s) => s.setPreviewZoom);
 export const usePreviewCheckered = () => useWorkshopLayoutStore((s) => s.previewCheckered);
 export const useSetPreviewCheckered = () => useWorkshopLayoutStore((s) => s.setPreviewCheckered);
+export const useSearchGame = () => useWorkshopLayoutStore((s) => s.searchGame);
+export const useSetSearchGame = () => useWorkshopLayoutStore((s) => s.setSearchGame);

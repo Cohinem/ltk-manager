@@ -1,4 +1,10 @@
-import { FolderOpenIcon, GearSixIcon, GitBranchIcon, PlusIcon } from "@phosphor-icons/react";
+import {
+  FolderOpenIcon,
+  GearSixIcon,
+  GitBranchIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
@@ -30,6 +36,7 @@ import {
 import { workshopKeys } from "../api/keys";
 import { useProjectActions } from "../api/useProjectActions";
 import { DETAILS_DOCUMENT_ID, detailsDocument, GAME_DOCUMENT_ID, gameDocument } from "../documents";
+import { useRevealGameSearch } from "../gameBrowser";
 import { CreateLayerDialog, useCreateLayer } from "../layers";
 import { useActiveDocumentId, useOpenDocument } from "../state";
 import { buildLayerWads } from "../utils/contentTree";
@@ -211,6 +218,7 @@ interface ProjectRowProps {
 function ProjectRow({ onOpenFolder }: ProjectRowProps) {
   const openDocument = useOpenDocument();
   const activeId = useActiveDocumentId();
+  const revealGameSearch = useRevealGameSearch();
 
   return (
     <div
@@ -238,6 +246,17 @@ function ProjectRow({ onOpenFolder }: ProjectRowProps) {
           onClick={() => openDocument(gameDocument())}
           aria-label="Game index"
           className={twMerge(activeId === GAME_DOCUMENT_ID && activeDocumentClass)}
+        />
+      </Tooltip>
+
+      <Tooltip content="Search the game files">
+        <IconButton
+          icon={<MagnifyingGlassIcon weight="bold" className="h-4 w-4" />}
+          variant="ghost"
+          size="sm"
+          compact
+          onClick={revealGameSearch}
+          aria-label="Search the game files"
         />
       </Tooltip>
 

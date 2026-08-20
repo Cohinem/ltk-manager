@@ -161,13 +161,27 @@ applyStringOverridesToAllLocales: boolean,
  */
 verbosePatcherLogging: boolean, 
 /**
- * Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
- * WAD scan to the load stage instead of scanning every archive up front.
- * The overlay makes lazy scanning crash-prone, so the DLL only honours the
- * flag when the game has crash reporting disabled - with it enabled this is
- * inert rather than harmful. Default: false.
+ * Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
+ * up front instead of the DLL's default of verifying each one as the game
+ * loads it. The overlay makes lazy scanning crash-prone, so the DLL only
+ * scans lazily when the game has crash reporting disabled, which is what
+ * [`Self::disable_crash_reporting`] is for - with crash reporting on, the
+ * up-front scan happens either way and this flag changes nothing.
+ * Default: false.
  */
-lazyWadScan: boolean, 
+fullWadScan: boolean, 
+/**
+ * Whether to turn the League client's crash reporting off when the
+ * patcher starts, by clearing `install.crash_reporting.enabled` in its
+ * `LeagueClientSettings.yaml`.
+ *
+ * The DLL verifies archives as the game loads them only while crash
+ * reporting is off, so leaving it on costs every session the up-front
+ * scan of every archive. The client rewrites its settings when it exits,
+ * which is why the patcher applies this at every start rather than once.
+ * Default: true.
+ */
+disableCrashReporting: boolean, 
 /**
  * Whether to hide the Riot Client's window once the game is up. Nobody
  * launching through the manager wants the launcher left sitting on their

@@ -99,19 +99,27 @@ export function gameWadDocument(wadName: string): ContentDocument {
 }
 
 /**
+ * The tab one asset takes, whether or not that tab is open.
+ *
+ * Keyed by what the reference names and not by the resolved path, so a second
+ * request for one asset activates the tab that is already open rather than
+ * adding another. Split out from {@link previewDocument} for a caller that
+ * wants to name the tab without building it - the palette names thousands.
+ */
+export function previewDocumentId(asset: AssetRef): string {
+  return `preview:${assetKey(asset)}`;
+}
+
+/**
  * One asset, opened in its own tab.
  *
  * `resolvedPath` is what a hash table made of a game chunk's hash, which the
  * reference itself cannot carry. Layer and loose-file references already hold
  * their path, so those callers pass nothing.
- *
- * Keyed by what the reference names and not by the resolved path, so a second
- * request for one asset activates the tab that is already open rather than
- * adding another.
  */
 export function previewDocument(asset: AssetRef, resolvedPath?: string): ContentDocument {
   return {
-    id: `preview:${assetKey(asset)}`,
+    id: previewDocumentId(asset),
     kind: "preview",
     asset,
     title: assetName(asset, resolvedPath),

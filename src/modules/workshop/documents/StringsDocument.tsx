@@ -1,11 +1,13 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
-import { Button } from "@/components";
-import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
+import { Button, EmptyState, Spinner } from "@/components";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
+import { useGameStringValues } from "../api/useGameStringValues";
 import { useSetDocumentDirty } from "../state";
 import {
-  StringOverridesEmptyState,
+  matchesOverrideFilter,
+  type OverrideSaveState,
   StringOverridesHelpPopover,
   StringOverridesTable,
   StringOverridesToolbar,
@@ -13,7 +15,7 @@ import {
 } from "../string-overrides";
 import type { ContentDocumentOf } from "./contentDocument";
 
-/** One layer's string overrides for one locale. */
+/** One layer's string overrides for one locale, saving themselves as edited. */
 export function StringsDocument({
   document,
   active,
@@ -23,19 +25,22 @@ export function StringsDocument({
   const setDocumentDirty = useSetDocumentDirty();
 
   const documentId = document.id;
-  const hasChanges = editor.hasChanges;
+  /* Autosave keeps the document clean on its own. Dirty is reserved for what
+     genuinely cannot persist - a validation hold or a failed write - so the
+     close guard only ever asks about edits that would really be lost. */
+  const unsaved = editor.saveState === "blocked" || editor.saveState === "failed";
 
   useEffect(() => {
-    setDocumentDirty(documentId, hasChanges);
-  }, [documentId, hasChanges, setDocumentDirty]);
+    setDocumentDirty(documentId, unsaved);
+  }, [documentId, unsaved, setDocumentDirty]);
 
   useEffect(() => {
     return () => setDocumentDirty(documentId, false);
   }, [documentId, setDocumentDirty]);
 
-  const save = useRef(editor.save);
+  const saveNow = useRef(editor.saveNow);
   useEffect(() => {
-    save.current = editor.save;
+    saveNow.current = editor.saveNow;
   });
 
   useEffect(() => {
@@ -46,59 +51,123 @@ export function StringsDocument({
       if (event.key.toLowerCase() !== "s") return;
 
       event.preventDefault();
-      save.current();
+      saveNow.current();
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [active]);
 
-  const count = editor.entries.length;
+  const originals = useGameStringValues(editor.entries.map((entry) => entry.key)).data;
+
+  const { entries, filter, lastCommittedId } = editor;
+  const visible = useMemo(
+    () =>
+      entries.filter(
+        (entry) =>
+          entry.id === lastCommittedId ||
+          matchesOverrideFilter(entry, originals?.[entry.key], filter),
+      ),
+    [entries, filter, lastCommittedId, originals],
+  );
 
   return (
     <div data-ui="StringsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
-      <DocumentActions active={active}>
+      <DocumentToolbar active={active}>
         <StringOverridesToolbar
+          layerName={document.layerName}
+          locale={locale}
           filter={editor.filter}
           onFilterChange={editor.setFilter}
-          onAdd={editor.addEntry}
+          shown={visible.length}
+          total={editor.entries.length}
         />
+        <SaveStatus state={editor.saveState} onRetry={editor.saveNow} />
         <StringOverridesHelpPopover />
-        {editor.hasChanges && (
-          <Button variant="ghost" size="xs" compact onClick={editor.discard}>
-            Discard
-          </Button>
-        )}
-        <Button
-          variant="filled"
-          size="xs"
-          compact
-          onClick={editor.save}
-          disabled={!editor.hasChanges}
-          loading={editor.isSaving}
-        >
-          Save
-        </Button>
-      </DocumentActions>
+      </DocumentToolbar>
 
       <div className="min-h-0 flex-1 overflow-hidden p-3">
-        {count === 0 && <StringOverridesEmptyState onAdd={editor.addEntry} />}
-        {count > 0 && (
-          <StringOverridesTable
-            entries={editor.entries}
-            errors={editor.errors}
-            filter={editor.filter}
-            pendingFocusId={editor.pendingFocusId}
-            onClearFilter={() => editor.setFilter("")}
-            onFocusHandled={editor.clearPendingFocus}
-            onUpdateEntry={editor.updateEntry}
-            onPickSuggestion={editor.pickSuggestion}
-            onRemoveEntry={editor.removeEntry}
-            className="flex h-full flex-col"
-            scrollClassName="min-h-0 flex-1"
-          />
-        )}
+        <StringOverridesTable
+          className="h-full"
+          entries={visible}
+          originals={originals ?? {}}
+          errors={editor.errors}
+          emptyState={<NoRows filter={editor.filter} onClearFilter={() => editor.setFilter("")} />}
+          onCommitEntry={editor.commitEntry}
+          onUpdateEntry={editor.updateEntry}
+          onPickSuggestion={editor.pickSuggestion}
+          onRemoveEntry={editor.removeEntry}
+        />
       </div>
     </div>
+  );
+}
+
+interface SaveStatusProps {
+  state: OverrideSaveState;
+  onRetry: () => void;
+}
+
+/* Quiet when clean, because saving is the document's job, not an event. The
+   states worth a word are the ones holding the author's edits back. */
+function SaveStatus({ state, onRetry }: SaveStatusProps) {
+  if (state === "pending" || state === "saving") {
+    return <Spinner size="sm" className="h-3 w-3 shrink-0" />;
+  }
+
+  if (state === "blocked") {
+    return (
+      /* DS-TEXT */
+      <span className="shrink-0 text-[11px] text-warning-text select-none">
+        Fix the errors to save
+      </span>
+    );
+  }
+
+  if (state === "failed") {
+    return (
+      <span className="flex shrink-0 items-center gap-1.5">
+        {/* DS-TEXT */}
+        <span className="text-[11px] text-danger-text select-none">Save failed</span>
+        <Button variant="ghost" size="xs" compact onClick={onRetry}>
+          Retry
+        </Button>
+      </span>
+    );
+  }
+
+  return null;
+}
+
+interface NoRowsProps {
+  filter: string;
+  onClearFilter: () => void;
+}
+
+/* Under the composer, which stays: whichever way the list is empty, the way
+   forward is right above. */
+function NoRows({ filter, onClearFilter }: NoRowsProps) {
+  const term = filter.trim();
+
+  if (term.length > 0) {
+    return (
+      <EmptyState
+        size="sm"
+        title={`No overrides match "${term}"`}
+        action={
+          <Button variant="ghost" size="sm" onClick={onClearFilter}>
+            Clear filter
+          </Button>
+        }
+      />
+    );
+  }
+
+  return (
+    <EmptyState
+      size="sm"
+      title="No overrides yet"
+      description="Pick a field above and type what it should say. Search by name, or by what the text says in game."
+    />
   );
 }

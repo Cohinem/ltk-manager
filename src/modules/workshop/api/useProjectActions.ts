@@ -1,45 +1,63 @@
+import { useCallback, useMemo } from "react";
+
 import { api, type WorkshopProject } from "@/lib/tauri";
 import { useWorkshopDialogsStore } from "@/stores";
 
 import { useTestProjects } from "./useTestProject";
 
+/**
+ * The actions that apply to a whole project, wherever one is offered.
+ *
+ * Every handler and the object holding them keep their identity across a
+ * render, so a caller that memoizes on this hook - the command palette builds
+ * its rows from it - is not rebuilt by an unrelated repaint.
+ */
 export function useProjectActions(project: WorkshopProject | undefined) {
   const testProjects = useTestProjects();
   const openPackDialog = useWorkshopDialogsStore((s) => s.openPackDialog);
   const openDeleteDialog = useWorkshopDialogsStore((s) => s.openDeleteDialog);
 
-  function handleTestProject() {
+  const testMutate = testProjects.mutate;
+  const handleTestProject = useCallback(() => {
     if (!project) return;
-    testProjects.mutate(
+    testMutate(
       { projects: [{ path: project.path, displayName: project.displayName }] },
       { onError: (err) => console.error("Failed to test project:", err.message) },
     );
-  }
+  }, [project, testMutate]);
 
-  function handleOpenPackDialog() {
-    if (!project) return;
-    openPackDialog(project);
-  }
+  const handleOpenPackDialog = useCallback(() => {
+    if (project) openPackDialog(project);
+  }, [openPackDialog, project]);
 
-  function handleOpenDeleteDialog() {
-    if (!project) return;
-    openDeleteDialog(project);
-  }
+  const handleOpenDeleteDialog = useCallback(() => {
+    if (project) openDeleteDialog(project);
+  }, [openDeleteDialog, project]);
 
-  async function handleOpenLocation() {
+  const handleOpenLocation = useCallback(async () => {
     if (!project) return;
     try {
       await api.revealInExplorer(project.path);
     } catch (error) {
       console.error("Failed to open location:", error);
     }
-  }
+  }, [project]);
 
-  return {
-    isTesting: testProjects.isPending,
-    handleTestProject,
-    handleOpenPackDialog,
-    handleOpenDeleteDialog,
-    handleOpenLocation,
-  };
+  const isTesting = testProjects.isPending;
+  return useMemo(
+    () => ({
+      isTesting,
+      handleTestProject,
+      handleOpenPackDialog,
+      handleOpenDeleteDialog,
+      handleOpenLocation,
+    }),
+    [
+      isTesting,
+      handleTestProject,
+      handleOpenPackDialog,
+      handleOpenDeleteDialog,
+      handleOpenLocation,
+    ],
+  );
 }

@@ -309,7 +309,8 @@ mod tests {
         assert!(settings.config.enforce_skinhack_scan);
         assert!(!settings.config.apply_string_overrides_to_all_locales);
         assert!(!settings.config.verbose_patcher_logging);
-        assert!(!settings.config.lazy_wad_scan);
+        assert!(!settings.config.full_wad_scan);
+        assert!(settings.config.disable_crash_reporting);
         assert_eq!(settings.launch_mode, LaunchMode::Classic);
     }
 

@@ -21,6 +21,8 @@ export interface SourceEntry {
    * away and a row carries no other route back to one.
    */
   readonly wad: string;
+  /** Matched runs over the row's name, present when a search built the entry. */
+  readonly nameRanges?: ReadonlyArray<readonly [number, number]>;
 }
 
 /** One subdirectory of a lazily-read index, as its parent listing names it. */

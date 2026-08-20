@@ -2,6 +2,7 @@ import { findLeaf, leaves, singleLeaf } from "@/modules/editor";
 import {
   detailsDocument,
   filesDocument,
+  gameDocument,
   migrateFromV1,
   previewDocument,
   readLegacyEditorSeed,
@@ -589,6 +590,107 @@ describe("workshopEditor store", () => {
       store().forgetProject(A);
 
       expect(store().byProject).toBe(before);
+    });
+  });
+  describe("the navigation history", () => {
+    /** The document ids the stack holds, oldest first, and where it stands. */
+    function historyOf(projectPath: string) {
+      const editor = editorOf(projectPath);
+      return {
+        ids: editor.history.map((entry) => entry.documentId),
+        at: editor.historyIndex,
+      };
+    }
+
+    it("records each document a route lands on", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      expect(historyOf(A)).toEqual({ ids: ["details", "files:base"], at: 1 });
+    });
+
+    it("records nothing when a route lands where it already stands", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, detailsDocument());
+
+      expect(historyOf(A)).toEqual({ ids: ["details"], at: 0 });
+    });
+
+    it("keeps one stack per project", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, filesDocument("base"));
+
+      expect(historyOf(A).ids).toEqual(["details"]);
+      expect(historyOf(B).ids).toEqual(["files:base"]);
+    });
+
+    it("activates what a back lands on, without recording it", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().navigateHistory(A, -1);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("details");
+      expect(historyOf(A)).toEqual({ ids: ["details", "files:base"], at: 0 });
+    });
+
+    it("walks forward again after a back", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().navigateHistory(A, -1);
+
+      store().navigateHistory(A, 1);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("files:base");
+      expect(historyOf(A).at).toBe(1);
+    });
+
+    it("does nothing at either end of the stack", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().navigateHistory(A, -1);
+      store().navigateHistory(A, 1);
+
+      expect(store().byProject).toBe(before);
+    });
+
+    it("drops the forward part on a move after a back", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().navigateHistory(A, -1);
+
+      store().openDocument(A, gameDocument());
+
+      expect(historyOf(A)).toEqual({ ids: ["details", "game"], at: 1 });
+    });
+
+    it("drops a closed document's stops, so a back never lands on a gone tab", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(A, gameDocument());
+
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(historyOf(A)).toEqual({ ids: ["details", "game"], at: 1 });
+    });
+
+    it("keeps the arrows inside the stack once every stop behind them is gone", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().closeDocument(A, ROOT_LEAF, "details");
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(historyOf(A)).toEqual({ ids: [], at: -1 });
+    });
+
+    it("records the document a focus of another group lands on", () => {
+      const right = splitApart(A);
+      store().focusLeaf(A, ROOT_LEAF);
+
+      expect(historyOf(A).ids).toEqual(["details", "files:base", "details"]);
+      expect(right).not.toBe(ROOT_LEAF);
     });
   });
 });

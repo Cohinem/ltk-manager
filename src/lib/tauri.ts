@@ -14,7 +14,9 @@ import type {
   EditModMetadataArgs,
   FantomePeekResult,
   GameDirListing,
+  GameFindResult,
   GameIndexStats,
+  GameSearchResult,
   GameWadEntry,
   GameWadSummary,
   HashtableCacheStatus,
@@ -196,6 +198,10 @@ export const api = {
   getGameIndex: () => invokeResult<GameIndexStats>("get_game_index"),
   readGameDir: (path: string) => invokeResult<GameDirListing>("read_game_dir", { path }),
   refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
+  searchGameIndex: (query: string) =>
+    invokeResult<GameSearchResult>("search_game_index", { query }),
+  findInGameIndex: (pattern: string, regex: boolean) =>
+    invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
@@ -264,6 +270,8 @@ export const api = {
     }),
   searchStringKeys: (query: string, limit?: number) =>
     invokeResult<StringKeySearchResult>("search_string_keys", { query, limit }),
+  lookupStringValues: (keys: string[]) =>
+    invokeResult<Record<string, string>>("lookup_string_values", { keys }),
   getLayerContentPath: (projectPath: string, layerName: string) =>
     invokeResult<string>("get_layer_content_path", { projectPath, layerName }),
   getLayerInfo: (projectPath: string, layerNames: string[]) =>

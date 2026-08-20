@@ -116,13 +116,26 @@ pub struct Config {
     /// takes effect on the next start. Default: false.
     #[serde(default)]
     pub verbose_patcher_logging: bool,
-    /// Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
-    /// WAD scan to the load stage instead of scanning every archive up front.
-    /// The overlay makes lazy scanning crash-prone, so the DLL only honours the
-    /// flag when the game has crash reporting disabled - with it enabled this is
-    /// inert rather than harmful. Default: false.
+    /// Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
+    /// up front instead of the DLL's default of verifying each one as the game
+    /// loads it. The overlay makes lazy scanning crash-prone, so the DLL only
+    /// scans lazily when the game has crash reporting disabled, which is what
+    /// [`Self::disable_crash_reporting`] is for - with crash reporting on, the
+    /// up-front scan happens either way and this flag changes nothing.
+    /// Default: false.
     #[serde(default)]
-    pub lazy_wad_scan: bool,
+    pub full_wad_scan: bool,
+    /// Whether to turn the League client's crash reporting off when the
+    /// patcher starts, by clearing `install.crash_reporting.enabled` in its
+    /// `LeagueClientSettings.yaml`.
+    ///
+    /// The DLL verifies archives as the game loads them only while crash
+    /// reporting is off, so leaving it on costs every session the up-front
+    /// scan of every archive. The client rewrites its settings when it exits,
+    /// which is why the patcher applies this at every start rather than once.
+    /// Default: true.
+    #[serde(default = "default_true")]
+    pub disable_crash_reporting: bool,
     /// Whether to hide the Riot Client's window once the game is up. Nobody
     /// launching through the manager wants the launcher left sitting on their
     /// desktop behind the game, so this is on by default.
@@ -152,7 +165,8 @@ impl Default for Config {
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
-            lazy_wad_scan: false,
+            full_wad_scan: false,
+            disable_crash_reporting: true,
             hide_riot_client_on_launch: true,
         }
     }
@@ -177,7 +191,8 @@ mod tests {
         assert!(config.enforce_skinhack_scan);
         assert!(!config.apply_string_overrides_to_all_locales);
         assert!(!config.verbose_patcher_logging);
-        assert!(!config.lazy_wad_scan);
+        assert!(!config.full_wad_scan);
+        assert!(config.disable_crash_reporting);
         assert!(config.hide_riot_client_on_launch);
     }
 
