@@ -466,12 +466,32 @@ mod tests {
                 "RIOT_CLIENT_UNREACHABLE",
             ),
             (
+                LauncherError::Refused {
+                    riot_error_code: "eula_not_accepted".to_string(),
+                    message: "Accept the Terms of Service".to_string(),
+                },
+                "REFUSED",
+            ),
+            (LauncherError::Stopped, "STOPPED"),
+            (
+                LauncherError::Misconfigured {
+                    reason: "the game process name is empty".to_string(),
+                },
+                "MISCONFIGURED",
+            ),
+            (
                 LauncherError::SpawnFailed {
                     reason: "access denied".to_string(),
                 },
                 "SPAWN_FAILED",
             ),
             (LauncherError::UnsupportedPlatform, "UNSUPPORTED_PLATFORM"),
+            (
+                LauncherError::Other {
+                    message: "something new upstream".to_string(),
+                },
+                "OTHER",
+            ),
         ];
 
         for (error, expected_kind) in cases {

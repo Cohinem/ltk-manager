@@ -9,7 +9,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
 
-import { Button, IconButton, Progress } from "@/components";
+import { Button, IconButton, Progress, Tooltip } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { Incident, LaunchProgress, OverlayProgress, VerdictKind } from "@/lib/tauri";
 import { ConsequenceChip, isInformational, useDismissIncident } from "@/modules/diagnostics";
@@ -21,6 +21,7 @@ import {
 } from "@/modules/patcher";
 import { useSessionProjectNames } from "@/modules/workshop";
 import {
+  type LeagueSession,
   type PatcherFailure,
   useIncidentLineStore,
   usePatcherFailureStore,
@@ -28,7 +29,7 @@ import {
   usePlaySessionStore,
 } from "@/stores";
 
-import { useLaunchAvailability, useLaunchProgress } from "../api";
+import { useCancelLaunch, useLaunchAvailability, useLaunchProgress } from "../api";
 
 type StepState = "pending" | "active" | "done" | "failed";
 
@@ -60,7 +61,11 @@ const launchStageLabels: Record<LaunchProgress["stage"], string> = {
   waitingForClient: "Waiting for the Riot Client to finish starting up...",
   launched: "League is starting.",
   alreadyRunning: "League is already running - nothing to launch.",
+  // Not worded as a failure: the wait is what was cancelled, and a request the
+  // Riot Client had already taken still starts a game.
+  stopped: "Cancelled. The manager stopped waiting for the Riot Client.",
   error: "Could not start League.",
+  unknown: "Working...",
 };
 
 function isDeterminate(stage: OverlayProgress["stage"]) {
@@ -135,6 +140,14 @@ function Middot() {
   return (
     <span aria-hidden className="text-surface-600">
       ·
+    </span>
+  );
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400">
+      {children}
     </span>
   );
 }
@@ -251,11 +264,44 @@ function FailureLine({ failure }: { failure: PatcherFailure }) {
   );
 }
 
+function cancelLabel(cancelling: boolean): string {
+  if (cancelling) return "Cancelling...";
+  return "Cancel";
+}
+
+/**
+ * Ends the wait for the Riot Client.
+ *
+ * Not the launch: a request the client already accepted starts a game whatever
+ * this app does next, which is why the button says it stopped waiting rather
+ * than promising nothing will happen. The backend checks the flag between the
+ * steps of its wait, so a press can take a poll to land - hence "Cancelling"
+ * rather than the bar closing on the click.
+ */
+function CancelLaunchButton() {
+  const step = usePlaySessionStore((s) => s.step);
+  const cancelLaunch = useCancelLaunch();
+
+  if (step !== "launching" && step !== "cancelling") return null;
+
+  const cancelling = step === "cancelling";
+
+  return (
+    <Tooltip content="Stop waiting for the Riot Client. A request it already took still starts a game.">
+      <Button variant="ghost" size="xs" onClick={() => cancelLaunch.mutate()} disabled={cancelling}>
+        {cancelLabel(cancelling)}
+      </Button>
+    </Tooltip>
+  );
+}
+
 /**
  * The app's status bar: patcher state at rest, the play session when there is one.
  *
  * The session half supersedes the old build-only bar, which unmounted the moment
- * the build finished - exactly when the longest silent wait began.
+ * the build finished - exactly when the longest silent wait began. It now runs
+ * to the end of the game rather than to the end of the launch request, because
+ * the Riot Client's own session record is what says when that is.
  *
  * Anchored at the bottom of the window, below the page rather than above it. A
  * bar that appears above a scroll container pushes every visible row down as it
@@ -269,6 +315,7 @@ export function SessionBar() {
   const launchProgress = useLaunchProgress();
   const { data: availability } = useLaunchAvailability();
   const playStep = usePlaySessionStore((s) => s.step);
+  const session = usePlaySessionStore((s) => s.session);
   const sessionProjects = useSessionProjectNames();
   const stopping = usePatcherSessionStore((s) => s.stopping);
   const incident = useIncidentLineStore((s) => s.incident);
@@ -280,6 +327,7 @@ export function SessionBar() {
   const phase = patcherStatus?.phase ?? "idle";
   const isBuilding = phase === "building";
   const patcherUp = phase === "patching";
+  const testLabel = describeTestingProjects(sessionProjects);
 
   // A build that starts is the user trying again, and the start that failed
   // before it is history.
@@ -289,8 +337,15 @@ export function SessionBar() {
 
   // The launch half is only part of this session when it was asked for. A bare
   // Ctrl+P start must not grow a step the user never requested.
-  const launching = playStep === "launching" || launchProgress !== null;
+  const launching =
+    playStep === "launching" || playStep === "cancelling" || launchProgress !== null;
+  const waitingForGame = playStep === "waiting-for-game";
   const showsLaunch = playStep !== "idle" || launchProgress !== null;
+
+  // Whether anything is still stepping. A game running is not: it is where the
+  // stepper ends, and the resting lines below are only right once nothing else
+  // has progress left to report.
+  const hasProgress = isBuilding || launching || waitingForGame || playStep === "starting-patcher";
 
   // The stop is signalled instantly but unwinds over seconds, and "Patcher
   // running / your mods will be applied" is the wrong thing to say for those
@@ -305,7 +360,7 @@ export function SessionBar() {
     );
   }
 
-  if (phase === "idle" && !showsLaunch) {
+  if (phase === "idle" && !showsLaunch && session === null) {
     // Where the patcher cannot run, "idle" is a permanent fact rather than a
     // state the user can act on, and `PatcherUnsupported` already explains why.
     if (!patcherAvailable) return null;
@@ -324,18 +379,41 @@ export function SessionBar() {
     );
   }
 
+  // The game is up. Nothing is left to step through until it ends, and the
+  // session is what says when that is rather than a timer of ours. A build
+  // started mid-game still outranks it - that one has progress to show.
+  if (session?.running && !hasProgress) {
+    return (
+      <RestingLine>
+        <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
+        <span className="font-medium text-success-text">In game</span>
+        <span className="text-surface-400">{inGameHint(patcherUp)}</span>
+        <span className="ml-auto flex items-center gap-2">
+          {testLabel && <Pill>{testLabel}</Pill>}
+          {session.version && (
+            <Tooltip content="Content release the Riot Client reports for this session. It changes when the game patches, which is what usually breaks a mod.">
+              <span className="font-mono text-xs text-surface-500 select-text">
+                {session.version}
+              </span>
+            </Tooltip>
+          )}
+        </span>
+      </RestingLine>
+    );
+  }
+
   // Once everything has settled there is nothing left to step through, and a
   // stepper frozen at "all done" for a whole game is just noise.
-  const settled = patcherUp && !launching;
+  const settled = patcherUp && !launching && !waitingForGame;
   if (settled) {
     return (
       <RestingLine>
         <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
         <span className="font-medium text-success-text">Patcher running</span>
         <span className="text-surface-400">Your mods will be applied when League starts.</span>
-        {sessionProjects.length > 0 && (
-          <span className="ml-auto rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400">
-            {describeTestingProjects(sessionProjects)}
+        {testLabel && (
+          <span className="ml-auto">
+            <Pill>{testLabel}</Pill>
           </span>
         )}
       </RestingLine>
@@ -350,10 +428,19 @@ export function SessionBar() {
 
   function launchStepState(): StepState {
     if (launchProgress?.stage === "error") return "failed";
+    // A cancel is neither: nothing failed and nothing happened, so the step
+    // stays as it was before the launch was asked for.
+    if (launchProgress?.stage === "stopped") return "pending";
+    if (waitingForGame || session !== null) return "done";
     if (launchProgress?.stage === "launched" || launchProgress?.stage === "alreadyRunning") {
       return "done";
     }
     if (launching) return "active";
+    return "pending";
+  }
+
+  function gameStepState(): StepState {
+    if (waitingForGame) return "active";
     return "pending";
   }
 
@@ -369,7 +456,10 @@ export function SessionBar() {
   }
 
   if (showsLaunch) {
-    steps.push({ key: "launch", label: "Launch League", state: launchStepState() });
+    steps.push(
+      { key: "launch", label: "Launch League", state: launchStepState() },
+      { key: "game", label: "In game", state: gameStepState() },
+    );
   }
 
   const { label, value, counter, detail } = describeCurrentWork(
@@ -377,9 +467,9 @@ export function SessionBar() {
     overlayProgress,
     launching,
     launchProgress,
+    waitingForGame,
+    session,
   );
-
-  const testLabel = describeTestingProjects(sessionProjects);
 
   // Tied to the steps rather than to `launching`, so the shimmer dies the moment
   // the last one settles instead of running on a bar with nothing left to do.
@@ -396,11 +486,7 @@ export function SessionBar() {
             <span className={`text-xs font-medium ${labelClasses[step.state]}`}>{step.label}</span>
           </div>
         ))}
-        {testLabel && (
-          <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400">
-            {testLabel}
-          </span>
-        )}
+        {testLabel && <Pill>{testLabel}</Pill>}
       </div>
 
       <div className="mt-1.5 flex items-center gap-3">
@@ -409,6 +495,7 @@ export function SessionBar() {
         {counter && (
           <span className="shrink-0 text-sm text-surface-400 tabular-nums">{counter}</span>
         )}
+        <CancelLaunchButton />
       </div>
 
       <div className="mt-1.5">
@@ -435,6 +522,30 @@ function idleHint(leagueRunning: boolean): string {
   return "Start the patcher to apply your mods.";
 }
 
+/**
+ * The in-game line's second half.
+ *
+ * A session the manager is following is not the same as a modded one - it
+ * follows a game it merely adopted just as closely - so the line says which of
+ * the two this is.
+ */
+function inGameHint(patcherUp: boolean): string {
+  if (patcherUp) return "Your mods are being applied.";
+  return "The patcher is not running, so this game is unmodded.";
+}
+
+/**
+ * The client's own word for where the session has got to, when it has one.
+ *
+ * `None` is the client saying it has nothing to report, which is most of a
+ * session - printing it back reads as a state rather than as silence, so that
+ * one gets no line at all.
+ */
+function sessionDetail(session: LeagueSession | null): string | null {
+  if (!session || session.phase === "None" || session.phase === "") return null;
+  return `Riot Client session: ${session.phase}`;
+}
+
 function describeTestingProjects(names: string[]): string | null {
   if (names.length === 1) return `Testing ${names[0]}`;
   if (names.length > 1) return `Testing ${names.length} projects`;
@@ -444,15 +555,27 @@ function describeTestingProjects(names: string[]): string | null {
 /**
  * Collapse whichever half is running into one label, bar and detail line.
  *
- * The launch takes precedence: when both have something to say the launch is
- * the newer news, and the build's last message is already history.
+ * The order is newest news first: the wait for the game supersedes the launch
+ * that produced it, and the launch supersedes a build whose last message is
+ * already history.
  */
 function describeCurrentWork(
   isBuilding: boolean,
   overlay: OverlayProgress | null,
   launching: boolean,
   launch: LaunchProgress | null,
+  waitingForGame: boolean,
+  session: LeagueSession | null,
 ) {
+  if (waitingForGame) {
+    return {
+      label: "Waiting for League to start...",
+      value: null,
+      counter: null,
+      detail: sessionDetail(session),
+    };
+  }
+
   if (launching && launch) {
     // Only the wait for a booting client knows how long it has left. Every
     // other stage is genuinely open-ended, so it gets an indeterminate bar.

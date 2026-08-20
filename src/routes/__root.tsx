@@ -12,7 +12,7 @@ import {
 } from "@/hooks";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
-import { SessionBar } from "@/modules/launcher";
+import { SessionBar, useLeagueSession } from "@/modules/launcher";
 import { useLibraryWatcher } from "@/modules/library";
 import {
   LinkedBinWarningDialog,
@@ -51,6 +51,7 @@ function RootLayout() {
   useClearStoppingOnIdle();
   useIncidentListeners();
   useCleanGameWatch();
+  useLeagueSession();
   useOverscrollSpring();
 
   const update = useUpdaterUpdate();

@@ -37,7 +37,7 @@ function launchErrorMessage(error: AppError): LaunchErrorMessage {
       description:
         "It's running but didn't accept the launch request. Bring it up manually and try again.",
     }))
-    .with({ kind: "LAUNCH_REFUSED" }, (refusal) => refusalMessage(refusal, error.message))
+    .with({ kind: "REFUSED" }, (refusal) => refusalMessage(refusal, error.message))
     .with({ kind: "SPAWN_FAILED" }, () => ({
       title: "Couldn't start the Riot Client",
       description:
@@ -58,7 +58,7 @@ function launchErrorMessage(error: AppError): LaunchErrorMessage {
  * why the wording tells the player to go and clear it rather than to try again.
  */
 function refusalMessage(
-  refusal: Extract<LauncherError, { kind: "LAUNCH_REFUSED" }>,
+  refusal: Extract<LauncherError, { kind: "REFUSED" }>,
   fallback: string,
 ): LaunchErrorMessage {
   if (refusal.riotErrorCode === "eula_not_accepted") {
@@ -74,12 +74,20 @@ function refusalMessage(
   return { title: "The Riot Client refused to launch League", description: fallback };
 }
 
-/** Returns a callback that surfaces a launch failure with the right wording. */
+/**
+ * Returns a callback that surfaces a launch failure with the right wording.
+ *
+ * A cancelled launch is silent. It arrives here because it is a `LauncherError`
+ * like any other, but nothing failed - and a dialog saying the launch broke,
+ * behind a Cancel button the user just pressed, is worse than saying nothing.
+ */
 export function useLaunchErrorToast() {
   const toast = useToast();
 
   return useCallback(
     (error: AppError) => {
+      if ((error.context as LauncherError | undefined)?.kind === "STOPPED") return;
+
       const { title, description } = launchErrorMessage(error);
       toast.error(title, description);
       console.error("Failed to launch League:", error);

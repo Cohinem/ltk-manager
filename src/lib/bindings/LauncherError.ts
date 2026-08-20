@@ -3,12 +3,8 @@
 /**
  * Why a launch request could not be delivered.
  *
- * These deliberately do not share one code: each variant has a different
- * remedy ("set your game path", "open the Riot Client"), so a host can map
- * each to its own error code and branch on that.
- *
- * Read-only queries do not use this type - they answer `Option`, because the
- * caller always has a fallback and "the client didn't tell us" is not a failure
- * worth surfacing.
+ * Each variant has a different remedy ("set your game path", "open the Riot
+ * Client"), so each gets its own `ErrorCode` in the shell rather than sharing
+ * one with a discriminating field.
  */
-export type LauncherError = { "kind": "RIOT_CLIENT_NOT_FOUND", installsPath: string, } | { "kind": "RIOT_CLIENT_UNREACHABLE", reason: string, } | { "kind": "LAUNCH_REFUSED", riotErrorCode: string, message: string, } | { "kind": "SPAWN_FAILED", reason: string, } | { "kind": "UNSUPPORTED_PLATFORM" };
+export type LauncherError = { "kind": "RIOT_CLIENT_NOT_FOUND", installsPath: string, } | { "kind": "RIOT_CLIENT_UNREACHABLE", reason: string, } | { "kind": "REFUSED", riotErrorCode: string, message: string, } | { "kind": "STOPPED" } | { "kind": "MISCONFIGURED", reason: string, } | { "kind": "SPAWN_FAILED", reason: string, } | { "kind": "UNSUPPORTED_PLATFORM" } | { "kind": "OTHER", message: string, };

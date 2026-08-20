@@ -2911,7 +2911,23 @@
       ]
     },
     {
+      "name": "ritoclient",
+      "version": "0.1.0",
+      "url": "https://github.com/Crauzer/ritoclient",
+      "licenses": [
+        31
+      ]
+    },
+    {
       "name": "ritoclient-api",
+      "version": "0.1.0",
+      "url": "https://github.com/Crauzer/ritoclient",
+      "licenses": [
+        31
+      ]
+    },
+    {
+      "name": "ritoclient-core",
       "version": "0.1.0",
       "url": "https://github.com/Crauzer/ritoclient",
       "licenses": [

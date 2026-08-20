@@ -56,23 +56,25 @@ sentence ends with a full stop, like any other sentence.
 
 ### Workspace Crates
 
-| Crate                     | Knows about                                                | Depends on           | License             |
-| ------------------------- | ---------------------------------------------------------- | -------------------- | ------------------- |
-| `crates/ritoclient-api`   | The Riot Client's local API only - no manager types at all | nothing in this repo | `Apache-2.0`        |
-| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic                          | `ritoclient-api`     | `MIT OR Apache-2.0` |
-| `src-tauri`               | Tauri commands, IPC, events                                | both                 | `MIT OR Apache-2.0` |
+| Crate                     | Knows about                       | Depends on   | License             |
+| ------------------------- | --------------------------------- | ------------ | ------------------- |
+| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient` | `MIT OR Apache-2.0` |
+| `src-tauri`               | Tauri commands, IPC, events       | core         | `MIT OR Apache-2.0` |
 
-Dependencies point one way only. `ritoclient-api` takes plain arguments (`Option<&Path>`) and
-reports through its own `LaunchObserver` trait - it must never learn about `Config`, `EventSink`
-or `AppError`. `core/src/launcher.rs` is the seam that adapts between them.
+`ritoclient` is an external dependency rather than a workspace member, pinned to a git rev in the
+root `Cargo.toml` until it ships on crates.io. It is **Apache-2.0**, where this workspace is dual
+licensed - not an oversight to tidy. Re-run `pnpm generate:licenses` after any dependency is added
+or relicensed.
 
-`ritoclient-api` is **Apache-2.0 only**, deliberately - not an oversight to be tidied back to the
-workspace's dual license. It carries its own `LICENSE-APACHE` for that reason. Re-run
-`pnpm generate:licenses` after any workspace crate is added or relicensed.
+Dependencies point one way only. `ritoclient` takes plain arguments (`Option<&Path>`) and reports
+through its own `LaunchObserver` and `SessionObserver` traits - it must never learn about `Config`,
+`EventSink` or `AppError`. `core/src/launcher/` is the seam that adapts between them, and
+`launcher/types.rs` mirrors every launch shape that crosses IPC so an upstream rename is a compile
+error there rather than a frontend union that quietly disagrees.
 
 Read-only calls to the Riot Client return `Option`, never `Result`: every caller has a fallback,
-and "the client didn't answer" is not a failure worth showing a user. Only launching returns
-`LauncherError`.
+and "the client didn't answer" is not a failure worth showing a user. Only launching, closing and
+building a launcher return `LauncherError`.
 
 ### Patcher
 
@@ -85,10 +87,13 @@ a high-integrity worker via UAC.
 
 ### State
 
-Two Tauri-managed states:
+Three Tauri-managed states:
 
 - `SettingsState` - App settings (league path, storage path, theme). Access via `State<SettingsState>`, lock with `.0.lock().mutex_err()?.clone()`.
 - `PatcherState` - Patcher thread handle and stop flag. Access via `State<PatcherState>`.
+- `LauncherState` - The one `LeagueLauncher`, built at startup. It holds the session watcher and
+  the window hider, which outlive the command that started them, so `save_settings` calls
+  `reconfigure` rather than rebuilding it.
 
 ### Error Codes
 

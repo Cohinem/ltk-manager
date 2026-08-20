@@ -39,7 +39,7 @@ describe("useLaunchErrorToast", () => {
   it("answers a refusal Riot explained", async () => {
     await show(
       launchError({
-        kind: "LAUNCH_REFUSED",
+        kind: "REFUSED",
         riotErrorCode: "eula_not_accepted",
         message: "eula",
       }),
@@ -51,13 +51,21 @@ describe("useLaunchErrorToast", () => {
   it("passes a refusal it does not know through unedited", async () => {
     await show(
       launchError(
-        { kind: "LAUNCH_REFUSED", riotErrorCode: "something_new", message: "x" },
+        { kind: "REFUSED", riotErrorCode: "something_new", message: "x" },
         "The client said no.",
       ),
     );
 
     expect(screen.getByText("The Riot Client refused to launch League")).toBeInTheDocument();
     expect(screen.getByText("The client said no.")).toBeInTheDocument();
+  });
+
+  /// A cancel is the user's own doing. A toast saying the launch broke, behind
+  /// a Cancel button they just pressed, is the one thing this must never do.
+  it("says nothing about a launch the user cancelled", async () => {
+    await show(launchError({ kind: "STOPPED" }));
+
+    expect(screen.queryByText("Couldn't launch League")).not.toBeInTheDocument();
   });
 
   /// An error with no context at all still has to say something.

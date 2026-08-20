@@ -3,9 +3,10 @@ members = ["src-tauri", "crates/ltk-manager-core"]
 resolver = "2"
 
 [workspace.dependencies]
-# Pinned to a rev until it ships on crates.io. Declared here rather than per
-# crate so `ltk-manager-core` and `src-tauri` can never drift onto two revs.
-ritoclient-api = { git = "https://github.com/Crauzer/ritoclient", rev = "eb6bf7a8f5c11ca30d698caa4f3e736fb9b57ac2" }
+# Pinned to a rev until it ships on crates.io. Declared here rather than in
+# `ltk-manager-core` so moving the pin is one edit in the place every other
+# pinned dependency is written down.
+ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631" }
 
 # Pinned to a rev until they ship on crates.io. Both crates must come from the
 # same rev: `ltk_mimir_cache` hands back `ltk_hashdb` types.

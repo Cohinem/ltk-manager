@@ -11,9 +11,12 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Launch progress is defined by the crate that produces it, and re-exported
-/// here so every payload in the registry below can be named from one module.
-pub use ritoclient_api::{LaunchProgress, LaunchStage};
+/// The launcher's payloads are defined alongside the code that produces them,
+/// and re-exported here so every payload in the registry below can be named
+/// from one module.
+pub use crate::launcher::{
+    LaunchProgress, LaunchStage, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
+};
 
 /// Receives notifications from domain operations.
 ///
@@ -203,6 +206,17 @@ declare_events! {
     GitImportProgress(GitImportProgress) => "git-import-progress",
     /// A League launch request advanced.
     LaunchProgress(LaunchProgress) => "launch-progress",
+    /// The Riot Client opened a session for League. Emitted once per session,
+    /// including for one the manager adopted or recovered rather than started.
+    SessionStarted(SessionStarted) => "session-started",
+    /// A live session moved to another phase - what the match is doing, which
+    /// is not whether League is up.
+    SessionChanged(SessionChanged) => "session-changed",
+    /// League appeared or went away during a live session. The one the status
+    /// bar and the patcher act on.
+    SessionGameRunning(SessionGameRunning) => "session-game-running",
+    /// A live session ended, with the client's own reason when it gave one.
+    SessionEnded(SessionEnded) => "session-ended",
     /// A hashtable sync asked for a release asset.
     HashtableSyncProgress(HashtableSyncProgress) => "hashtable-sync-progress",
 }
@@ -283,6 +297,40 @@ mod tests {
             })
             .name(),
             "hashtable-sync-progress"
+        );
+    }
+
+    /// The three session events are one story told in order, so their names are
+    /// worth pinning together rather than one at a time.
+    #[test]
+    fn session_event_names_are_stable() {
+        assert_eq!(
+            BackendEvent::SessionStarted(SessionStarted {
+                phase: "Pending".to_string(),
+                running: false,
+                version: "24C2E5A086AFFB82".to_string(),
+            })
+            .name(),
+            "session-started"
+        );
+        assert_eq!(
+            BackendEvent::SessionChanged(SessionChanged {
+                phase: "Gameplay".to_string(),
+            })
+            .name(),
+            "session-changed"
+        );
+        assert_eq!(
+            BackendEvent::SessionGameRunning(SessionGameRunning { running: true }).name(),
+            "session-game-running"
+        );
+        assert_eq!(
+            BackendEvent::SessionEnded(SessionEnded {
+                exit_code: Some(0),
+                exit_reason: Some("Exit".to_string()),
+            })
+            .name(),
+            "session-ended"
         );
     }
 

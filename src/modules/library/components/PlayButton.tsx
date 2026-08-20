@@ -1,12 +1,12 @@
-import { ChevronDown, ChevronsRight } from "lucide-react";
+import { CaretDoubleRightIcon, CaretDownIcon, XCircleIcon } from "@phosphor-icons/react";
 
 import { Button, ButtonGroup, IconButton, Kbd, LeagueIcon, Menu, Tooltip } from "@/components";
 import { useHddWarning, usePlatformSupport } from "@/hooks";
-import { useLaunchAvailability, usePlay } from "@/modules/launcher";
+import { useLaunchAvailability, usePlay, useStopLeague } from "@/modules/launcher";
 import { useInstalledMods } from "@/modules/library/api";
 import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
-import { usePatcherSessionStore } from "@/stores";
+import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
 
 interface PlayButtonProps {
   /** Set while a library action that must not overlap a patch is in progress. */
@@ -19,6 +19,7 @@ function playLabel(
   patcherOnly: boolean,
 ): string {
   if (step === "launching") return "Launching...";
+  if (step === "cancelling") return "Cancelling...";
   if (isBuilding) return "Building...";
   if (step === "starting-patcher") return "Starting...";
   if (patcherOnly) return "Start Patcher";
@@ -42,11 +43,35 @@ function primaryTooltip(
 /**
  * The League mark deliberately overflows `Button`'s icon slot. It is the brand
  * on the app's primary action, not a glyph labelling it, so it is sized past
- * what the surrounding lucide icons sit at.
+ * what the surrounding icons sit at.
  */
 function PrimaryIcon({ patcherOnly }: { patcherOnly: boolean }) {
-  if (patcherOnly) return <ChevronsRight className="h-5 w-5 shrink-0" />;
+  if (patcherOnly) return <CaretDoubleRightIcon weight="bold" className="h-5 w-5 shrink-0" />;
   return <LeagueIcon className="h-6 w-6 shrink-0" />;
+}
+
+/**
+ * Ends the game through the Riot Client, which is the only thing that can.
+ *
+ * In the menu rather than on the button, and only while a session is live: the
+ * client refuses to close a product it never started, so an entry offered at any
+ * other time would be an entry that cannot work.
+ */
+function StopLeagueMenuItem() {
+  const session = usePlaySessionStore((s) => s.session);
+  const stopLeague = useStopLeague();
+
+  if (!session) return null;
+
+  return (
+    <Menu.Item
+      icon={<XCircleIcon weight="bold" className="h-4 w-4" />}
+      onClick={() => stopLeague.mutate()}
+      disabled={stopLeague.isPending}
+    >
+      Close League
+    </Menu.Item>
+  );
 }
 
 interface LaunchMenuItemProps {
@@ -177,7 +202,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<ChevronDown className="h-4 w-4" />}
+                icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
                 variant="outline"
                 size="md"
                 aria-label="More launch options"
@@ -194,6 +219,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
                   onClick={launchOnly}
                   disabled={!canLaunch || isBusy}
                 />
+                <StopLeagueMenuItem />
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>
@@ -236,7 +262,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
         <Menu.Trigger
           render={
             <IconButton
-              icon={<ChevronDown className="h-4 w-4" />}
+              icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
               variant="filled"
               size="md"
               disabled={busy}
@@ -258,7 +284,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
               )}
               {!patcherOnly && (
                 <Menu.Item
-                  icon={<ChevronsRight className="h-4 w-4" />}
+                  icon={<CaretDoubleRightIcon weight="bold" className="h-4 w-4" />}
                   onClick={handleStartPatcherOnly}
                   disabled={!hasEnabledMods}
                   shortcut="Ctrl+P"
@@ -272,6 +298,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
                 onClick={launchOnly}
                 disabled={!canLaunch}
               />
+              <StopLeagueMenuItem />
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>
