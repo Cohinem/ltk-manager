@@ -22,6 +22,7 @@ ltk_modpkg = { workspace = true }
 ltk_mod_project = { workspace = true }
 ltk_overlay = { workspace = true }
 ltk_rst = { workspace = true }
+ltk_texture = { workspace = true }
 ltk_wad = { workspace = true }
 
 camino = { workspace = true }
@@ -29,6 +30,7 @@ chrono = { workspace = true }
 flate2 = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
+lru = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 semver = { workspace = true }
