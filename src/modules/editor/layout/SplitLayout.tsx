@@ -62,34 +62,39 @@ export interface SeamProps {
 /**
  * The boundary between two panels, and the control that drags it.
  *
- * A `gap` is a 6px transparent grab area matching the space it replaces, with a
- * centred 2px rail. SidePanel's ResizeHandle draws the same control, so the two
- * read as one. A `divider` draws the panel edge itself, which is why it is a
- * pixel wide and never hides: the library grows any separator under 10px into a
- * hit target of that size, so it still grabs like the wider one.
+ * Both variants are the 6px band with a centred 2px rail that SidePanel's
+ * ResizeHandle draws, so every seam reads as one control. A `gap` is
+ * transparent, because the islands either side of it already mark their edges.
+ * A `divider` parts two panes that share one frame and would otherwise meet
+ * with no edge at all, so it fills its band and carries a grip until the rail
+ * takes over on hover.
  */
 export function Seam({ orientation, variant = "gap" }: SeamProps) {
   const horizontal = orientation === "horizontal";
-
-  if (variant === "divider") {
-    return (
-      <Separator
-        className={twMerge(
-          "shrink-0 bg-surface-700 transition-colors outline-none",
-          "hover:bg-accent-500/60 focus-visible:bg-accent-500",
-          horizontal ? "w-px" : "h-px",
-        )}
-      />
-    );
-  }
+  const divider = variant === "divider";
 
   return (
     <Separator
       className={twMerge(
-        "group/seam relative shrink-0 outline-none",
+        "group/seam relative flex shrink-0 items-center justify-center outline-none",
         horizontal ? "w-1.5" : "h-1.5",
+        /* A rung over the panes it parts, not under them: DS-GROUND. */
+        divider && "bg-surface-900",
       )}
     >
+      {divider && (
+        <span
+          aria-hidden="true"
+          className={twMerge(
+            "flex gap-0.5 transition-opacity group-hover/seam:opacity-0 group-focus-visible/seam:opacity-0",
+            horizontal ? "flex-col" : "flex-row",
+          )}
+        >
+          <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
+          <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
+          <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
+        </span>
+      )}
       <span
         aria-hidden="true"
         className={twMerge(
