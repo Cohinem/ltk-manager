@@ -12,8 +12,6 @@ type WadSort = "name" | "size";
  * reading through a directory one file at a time.
  */
 type TabOpenMode = "append" | "replace";
-/** How a preview scales its asset. `fit` sizes it to the pane, a number multiplies its pixels. */
-type PreviewZoom = "fit" | number;
 
 interface WorkshopLayoutStore {
   layerPanelSide: LayerPanelSide;
@@ -28,13 +26,12 @@ interface WorkshopLayoutStore {
   wadSort: WadSort;
   tabOpenMode: TabOpenMode;
   /**
-   * How every preview draws its asset, rather than each tab holding its own.
+   * Whether every preview draws its asset on the alpha checkerboard.
    *
-   * A modder comparing four textures sets the zoom and the alpha checkerboard
-   * once and reads all four the same way, which is the whole point of opening
-   * them side by side.
+   * A display preference and not a viewport, so a modder sets it once and every
+   * preview reads it. The zoom and the pan live in one preview instead. A file
+   * opened after a 3200% read wants its own whole image first.
    */
-  previewZoom: PreviewZoom;
   previewCheckered: boolean;
   /**
    * Whether the project bar searches the installed game.
@@ -53,7 +50,6 @@ interface WorkshopLayoutStore {
   setShowLayerStats: (showLayerStats: boolean) => void;
   setWadSort: (wadSort: WadSort) => void;
   setTabOpenMode: (tabOpenMode: TabOpenMode) => void;
-  setPreviewZoom: (previewZoom: PreviewZoom) => void;
   setPreviewCheckered: (previewCheckered: boolean) => void;
   setSearchGame: (searchGame: boolean) => void;
 }
@@ -69,7 +65,6 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       showLayerStats: true,
       wadSort: "name",
       tabOpenMode: "append",
-      previewZoom: "fit",
       previewCheckered: true,
       searchGame: true,
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
@@ -82,7 +77,6 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setShowLayerStats: (showLayerStats) => set({ showLayerStats }),
       setWadSort: (wadSort) => set({ wadSort }),
       setTabOpenMode: (tabOpenMode) => set({ tabOpenMode }),
-      setPreviewZoom: (previewZoom) => set({ previewZoom }),
       setPreviewCheckered: (previewCheckered) => set({ previewCheckered }),
       setSearchGame: (searchGame) => set({ searchGame }),
     }),
@@ -90,7 +84,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
   ),
 );
 
-export type { LayerPanelSide, PreviewZoom, TabOpenMode, WadSort };
+export type { LayerPanelSide, TabOpenMode, WadSort };
 export const useLayerPanelSide = () => useWorkshopLayoutStore((s) => s.layerPanelSide);
 export const useSetLayerPanelSide = () => useWorkshopLayoutStore((s) => s.setLayerPanelSide);
 export const useLayerPanelOpen = () => useWorkshopLayoutStore((s) => s.layerPanelOpen);
@@ -107,8 +101,6 @@ export const useWadSort = () => useWorkshopLayoutStore((s) => s.wadSort);
 export const useSetWadSort = () => useWorkshopLayoutStore((s) => s.setWadSort);
 export const useTabOpenMode = () => useWorkshopLayoutStore((s) => s.tabOpenMode);
 export const useSetTabOpenMode = () => useWorkshopLayoutStore((s) => s.setTabOpenMode);
-export const usePreviewZoom = () => useWorkshopLayoutStore((s) => s.previewZoom);
-export const useSetPreviewZoom = () => useWorkshopLayoutStore((s) => s.setPreviewZoom);
 export const usePreviewCheckered = () => useWorkshopLayoutStore((s) => s.previewCheckered);
 export const useSetPreviewCheckered = () => useWorkshopLayoutStore((s) => s.setPreviewCheckered);
 export const useSearchGame = () => useWorkshopLayoutStore((s) => s.searchGame);

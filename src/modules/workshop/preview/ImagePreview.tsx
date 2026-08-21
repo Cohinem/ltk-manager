@@ -1,25 +1,69 @@
-import { CheckerboardIcon } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CheckerboardIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  type ReactZoomPanPinchContentRef,
+  type ReactZoomPanPinchRef,
+  TransformComponent,
+  TransformWrapper,
+} from "react-zoom-pan-pinch";
 import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState, IconButton, Spinner, Tooltip } from "@/components";
+import { useReducedMotion, useResizeObserver } from "@/hooks";
 import type { AppError, AssetInfo, AssetRef } from "@/lib/tauri";
-import {
-  type PreviewZoom,
-  usePreviewCheckered,
-  usePreviewZoom,
-  useSetPreviewCheckered,
-  useSetPreviewZoom,
-  useWorkshopLayoutStore,
-} from "@/stores";
+import { usePreviewCheckered, useSetPreviewCheckered } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import { previewUrl } from "./assetRef";
 import { BinPreview, isPropertyBin } from "./BinPreview";
 import { useAssetInfo } from "./useAssetInfo";
 
-/** How far `Ctrl` and the wheel reach, either side of the image's own scale. */
+/** How far a zoom reaches, either side of the image's own scale. */
 const ZOOM_RANGE = [0.05, 32] as const;
+
+/** What one step of the zoom controls multiplies the scale by. */
+const ZOOM_STEP = 1.25;
+
+/** That step as `zoomIn` and `zoomOut` take it, which is an exponent and not a factor. */
+const ZOOM_EXPONENT = Math.log(ZOOM_STEP);
+
+/** How long a step of the zoom controls takes to land. */
+const ZOOM_ANIMATION_MS = 200;
+
+/**
+ * The wheel's zoom per pixel of scroll, as a share of the current scale.
+ *
+ * The library adds its step to the scale and does not multiply by it. One fixed
+ * step is then a nudge at 3200% and a leap at 5%. A step that is itself a share
+ * of the scale turns that sum back into a ratio. 100 pixels of wheel is a tenth
+ * either way at every zoom.
+ */
+const WHEEL_STEP = 0.001;
+
+/** What a fit leaves between the image and the pane, per side. */
+const FIT_INSET = 16;
+
+/** One checkerboard square, in screen pixels at any zoom. */
+const CHECKER_SIZE = 16;
+
+/** Under this the two scales are one scale, and no sync is due. */
+const SCALE_EPSILON = 1e-6;
+
+interface Size {
+  width: number;
+  height: number;
+}
+
+/** How a preview scales its asset. `fit` sizes it to the pane, a number multiplies its pixels. */
+type PreviewZoom = "fit" | number;
 
 interface ImagePreviewProps {
   asset: AssetRef;
@@ -39,25 +83,36 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
   const info = useAssetInfo(asset);
   const url = useMemo(() => previewUrl(asset), [asset]);
 
-  const zoom = usePreviewZoom();
-  const checkered = usePreviewCheckered();
-  const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
+  const [natural, setNatural] = useState<Size | null>(null);
+  const [pane, setPane] = useState<Size | null>(null);
   const [failed, setFailed] = useState(false);
 
+  /**
+   * The viewport, which is this preview's and no other preview's.
+   *
+   * A file opens on its whole image. The zoom of the last file does not reach
+   * it. The alternative shares one zoom across the open previews, and then a
+   * 3200% read of one texture is what the next texture opens at. The image is
+   * another size, and the zoom says nothing about that.
+   */
+  const [zoom, setZoom] = useState<PreviewZoom>("fit");
+  const controls = useRef<ReactZoomPanPinchContentRef>(null);
+
   /* A fresh asset in the same tab is a fresh load, so what the old one measured
-     goes. The zoom stays, because it is every preview's and not this one's. */
+     goes and the viewport goes with it. */
   useEffect(() => {
     setNatural(null);
     setFailed(false);
+    setZoom("fit");
   }, [url]);
 
-  /* Read at the wheel rather than through the hook, so the listener the canvas
-     binds survives a zoom instead of rebinding on each notch of it. */
-  const zoomBy = useCallback((factor: number) => {
-    const { previewZoom, setPreviewZoom } = useWorkshopLayoutStore.getState();
-    const from = typeof previewZoom === "number" ? previewZoom : 1;
-    setPreviewZoom(clamp(from * factor));
+  const onResize = useCallback((width: number, height: number) => {
+    setPane((prev) =>
+      prev?.width === width && prev?.height === height ? prev : { width, height },
+    );
   }, []);
+
+  const fit = fitScale(natural, pane);
 
   if (failed) {
     return <PreviewUnavailable asset={asset} name={name} info={info.data} error={info.error} />;
@@ -68,110 +123,221 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
       <Canvas
         url={url}
         name={name}
-        zoom={zoom}
         natural={natural}
-        checkered={checkered}
+        fit={fit}
+        zoom={zoom}
+        controls={controls}
+        onResize={onResize}
+        onZoom={setZoom}
         onLoad={setNatural}
         onError={() => setFailed(true)}
-        onZoomBy={zoomBy}
       />
 
-      <StatusStrip info={info.data} natural={natural} />
+      <StatusStrip
+        info={info.data}
+        natural={natural}
+        fit={fit}
+        zoom={zoom}
+        controls={controls}
+        onZoom={setZoom}
+      />
     </div>
   );
 }
 
+/** The handle on one preview's transform, which the canvas fills and the strip drives. */
+type Controls = RefObject<ReactZoomPanPinchContentRef | null>;
+
 interface CanvasProps {
   url: string;
   name: string;
+  natural: Size | null;
+  fit: number;
   zoom: PreviewZoom;
-  natural: { width: number; height: number } | null;
-  checkered: boolean;
-  onLoad: (natural: { width: number; height: number }) => void;
+  controls: Controls;
+  onResize: (width: number, height: number) => void;
+  onZoom: (zoom: PreviewZoom) => void;
+  onLoad: (natural: Size) => void;
   onError: () => void;
-  onZoomBy: (factor: number) => void;
 }
 
-function Canvas({ url, name, zoom, natural, checkered, onLoad, onError, onZoomBy }: CanvasProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+/**
+ * The pane a modder pans and zooms the image inside.
+ *
+ * `react-zoom-pan-pinch` owns the transform, and the transform is what answers
+ * the wheel, the drag, the pinch and the double click. The image takes its own
+ * pixel size and nothing but the transform scales it. The scale the library
+ * reports and the zoom the strip reads are therefore one number.
+ *
+ * The transform is the record and `zoom` is the reading of it. This reports a
+ * scale a pointer lands on, and it never reports a scale the pane was merely
+ * told to take. That is what stops the two chasing each other.
+ */
+function Canvas({
+  url,
+  name,
+  natural,
+  fit,
+  zoom,
+  controls,
+  onResize,
+  onZoom,
+  onLoad,
+  onError,
+}: CanvasProps) {
+  const checkered = usePreviewCheckered();
+  const reduceMotion = useReducedMotion();
 
-  /* A non-passive listener, because `preventDefault` on a wheel event is what
-     stops the webview zooming the whole page under Ctrl, and React attaches
-     its own wheel handlers passively. */
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
+  const measure = useResizeObserver<HTMLDivElement>((element) =>
+    onResize(element.clientWidth, element.clientHeight),
+  );
 
-    const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey) return;
-      event.preventDefault();
-      onZoomBy(event.deltaY < 0 ? 1.1 : 1 / 1.1);
-    };
+  const scale = zoom === "fit" ? fit : zoom;
 
-    element.addEventListener("wheel", onWheel, { passive: false });
-    return () => element.removeEventListener("wheel", onWheel);
-  }, [onZoomBy]);
+  const commanded = useRef(scale);
+  useLayoutEffect(() => {
+    commanded.current = scale;
+  });
 
-  const scaled = typeof zoom === "number" && natural;
+  const drawn = useRef<string | null>(null);
+
+  /* Before the paint rather than after it, so a freshly decoded image is
+     already at its scale the first frame it is on screen. */
+  useLayoutEffect(() => {
+    const api = controls.current;
+    if (!api || !natural) return;
+
+    const fresh = drawn.current !== url;
+    drawn.current = url;
+
+    /* A pan is the user's until the image under it changes, so only a fresh
+       file and a re-fit move it. The strip reaches the transform directly. */
+    if (!fresh) {
+      if (api.instance.isAnimating) return;
+      if (Math.abs(api.instance.state.scale - scale) < SCALE_EPSILON) return;
+    }
+    api.centerView(scale, 0);
+  }, [url, natural, scale, controls]);
+
+  const onTransform = useCallback(
+    (_: ReactZoomPanPinchRef, state: { scale: number }) => {
+      if (Math.abs(state.scale - commanded.current) < SCALE_EPSILON) return;
+      onZoom(state.scale);
+    },
+    [onZoom],
+  );
 
   return (
     <div
-      ref={scrollRef}
+      ref={measure}
       data-ui="ImagePreview:canvas"
-      className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto p-4"
+      className="relative min-h-0 flex-1 cursor-grab overflow-hidden active:cursor-grabbing"
     >
+      <TransformWrapper
+        ref={controls}
+        minScale={ZOOM_RANGE[0]}
+        maxScale={ZOOM_RANGE[1]}
+        /* A drag moves the image at every zoom, including one that fits. So
+           no bounds hold it inside the pane and no edge draws it back, because
+           either one would take the drag away again. */
+        limitToBounds={false}
+        autoAlignment={{ disabled: true }}
+        velocityAnimation={{ disabled: true }}
+        wheel={{ step: WHEEL_STEP * scale }}
+        doubleClick={{ animationTime: reduceMotion ? 0 : ZOOM_ANIMATION_MS }}
+        zoomAnimation={{ disabled: reduceMotion }}
+        onTransform={onTransform}
+      >
+        <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }}>
+          <img
+            src={url}
+            alt={name}
+            draggable={false}
+            onLoad={(event) =>
+              onLoad({
+                width: event.currentTarget.naturalWidth,
+                height: event.currentTarget.naturalHeight,
+              })
+            }
+            onError={onError}
+            /* Counter the transform, so a square stays 16 screen pixels at 5%
+               and at 3200% alike. */
+            style={
+              checkered
+                ? { backgroundSize: `${CHECKER_SIZE / scale}px ${CHECKER_SIZE / scale}px` }
+                : undefined
+            }
+            className={twMerge(
+              "block max-w-none select-none",
+              /* Nearest neighbour past 100%, so a modder reads the texels rather
+                 than the webview's guess at what is between them. */
+              scale >= 1 && "[image-rendering:pixelated]",
+              checkered && CHECKERBOARD,
+              !natural && "invisible",
+            )}
+          />
+        </TransformComponent>
+      </TransformWrapper>
+
       {!natural && (
-        <div className="absolute">
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <Spinner size="md" />
         </div>
       )}
-      <img
-        src={url}
-        alt={name}
-        draggable={false}
-        onLoad={(event) =>
-          onLoad({
-            width: event.currentTarget.naturalWidth,
-            height: event.currentTarget.naturalHeight,
-          })
-        }
-        onError={onError}
-        style={scaled ? { width: natural.width * zoom, height: natural.height * zoom } : undefined}
-        className={twMerge(
-          "shrink-0 select-none",
-          /* Nearest neighbour past 100%, so a modder reads the texels rather
-             than the webview's guess at what is between them. */
-          "[image-rendering:pixelated]",
-          !scaled && "max-h-full max-w-full object-contain",
-          checkered && CHECKERBOARD,
-          !natural && "invisible",
-        )}
-      />
     </div>
   );
 }
 
 /* Two conic sweeps of one token, which reads as alpha wherever the image is
    transparent. A flat ground cannot: a dark texture and a hole look alike. */
-const CHECKERBOARD =
-  "bg-[repeating-conic-gradient(var(--surface-800)_0%_25%,transparent_0%_50%)] bg-[length:16px_16px]";
+const CHECKERBOARD = "bg-[repeating-conic-gradient(var(--surface-800)_0%_25%,transparent_0%_50%)]";
+
+/**
+ * What scale draws the whole image inside the pane.
+ *
+ * Only ever a reduction. An icon smaller than the pane reads at its own size.
+ * To fill the pane with it would show a modder texels of the webview's own
+ * invention before they asked for any.
+ */
+function fitScale(natural: Size | null, pane: Size | null): number {
+  if (!natural || !pane) return 1;
+
+  const width = Math.max(pane.width - FIT_INSET * 2, 1);
+  const height = Math.max(pane.height - FIT_INSET * 2, 1);
+  return clamp(Math.min(1, width / natural.width, height / natural.height));
+}
 
 interface StatusStripProps {
   info: AssetInfo | undefined;
-  natural: { width: number; height: number } | null;
+  natural: Size | null;
+  fit: number;
+  zoom: PreviewZoom;
+  controls: Controls;
+  onZoom: (zoom: PreviewZoom) => void;
 }
 
 /**
  * What the asset's header declares, and the controls that draw it.
  *
- * The two controls read the shared view state rather than taking it from the
- * preview above, so a strip in one split answers for every preview open.
+ * A zoom is a place as much as a scale, and a number cannot say where the image
+ * sits. The steps therefore hand the whole gesture to the library, and the two
+ * absolute zooms move this pane's transform themselves.
  */
-function StatusStrip({ info, natural }: StatusStripProps) {
-  const zoom = usePreviewZoom();
-  const setZoom = useSetPreviewZoom();
+function StatusStrip({ info, natural, fit, zoom, controls, onZoom }: StatusStripProps) {
   const checkered = usePreviewCheckered();
   const setCheckered = useSetPreviewCheckered();
+  const reduceMotion = useReducedMotion();
+
+  const scale = zoom === "fit" ? fit : zoom;
+  const animation = reduceMotion ? 0 : ZOOM_ANIMATION_MS;
+
+  /* The transform first and the report second. A move of the transform reports
+     the scale it landed on. That number would otherwise arrive after this one
+     and take the mode with it. */
+  const goTo = (next: PreviewZoom) => {
+    controls.current?.centerView(next === "fit" ? fit : next, 0);
+    onZoom(next);
+  };
 
   const facts: string[] = [];
 
@@ -210,15 +376,50 @@ function StatusStrip({ info, natural }: StatusStripProps) {
           />
         </Tooltip>
 
-        <Tooltip content={zoom === "fit" ? "Actual size" : "Fit to the pane"}>
+        <Tooltip content="Zoom out">
+          <IconButton
+            variant="ghost"
+            size="xs"
+            compact
+            icon={<MinusIcon className="h-4 w-4" weight="bold" />}
+            disabled={scale <= ZOOM_RANGE[0]}
+            onClick={() => controls.current?.zoomOut(ZOOM_EXPONENT, animation)}
+          />
+        </Tooltip>
+
+        <Tooltip content="Actual size">
           <Button
             variant="ghost"
             size="xs"
             compact
-            className="tabular-nums"
-            onClick={() => setZoom(zoom === "fit" ? 1 : "fit")}
+            className="min-w-12 tabular-nums"
+            onClick={() => goTo(1)}
           >
-            {zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`}
+            {Math.round(scale * 100)}%
+          </Button>
+        </Tooltip>
+
+        <Tooltip content="Zoom in">
+          <IconButton
+            variant="ghost"
+            size="xs"
+            compact
+            icon={<PlusIcon className="h-4 w-4" weight="bold" />}
+            disabled={scale >= ZOOM_RANGE[1]}
+            onClick={() => controls.current?.zoomIn(ZOOM_EXPONENT, animation)}
+          />
+        </Tooltip>
+
+        <Tooltip content="Fit to the pane">
+          <Button
+            variant="ghost"
+            size="xs"
+            compact
+            aria-pressed={zoom === "fit"}
+            className={zoom === "fit" ? "text-accent-300" : undefined}
+            onClick={() => goTo("fit")}
+          >
+            Fit
           </Button>
         </Tooltip>
       </div>
