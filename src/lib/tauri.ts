@@ -10,6 +10,7 @@ import type {
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
+  DecodedIncident,
   DiagnosticReport,
   EditModMetadataArgs,
   FantomePeekResult,
@@ -24,6 +25,7 @@ import type {
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
+  Incident,
   InstalledMod,
   LaunchAvailability,
   LaunchOutcome,
@@ -206,6 +208,11 @@ export const api = {
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
 
+  // Ritobin
+  detectRitobinIntegration: () => invokeResult<boolean>("detect_ritobin_integration"),
+  openAssetInRitobin: (asset: AssetRef, name?: string) =>
+    invokeResult<void>("open_asset_in_ritobin", { asset, name }),
+
   // Deep Link
   deepLinkInstallMod: (
     url: string,
@@ -226,6 +233,13 @@ export const api = {
   runDiagnostics: () => invokeResult<DiagnosticReport>("run_diagnostics"),
   openElevatedTerminal: (withBanner: boolean) =>
     invokeResult<void>("open_elevated_terminal", { withBanner }),
+  listIncidents: () => invokeResult<Incident[]>("list_incidents"),
+  dismissIncident: (id: string) => invokeResult<void>("dismiss_incident", { id }),
+  revealGameLog: (id: string) => invokeResult<void>("reveal_game_log", { id }),
+  incidentReport: (id: string) => invokeResult<string>("incident_report", { id }),
+  incidentToken: (id: string) => invokeResult<string>("incident_token", { id }),
+  decodeIncidentToken: (token: string) =>
+    invokeResult<DecodedIncident>("decode_incident_token", { token }),
 
   // Workshop
   getWorkshopProjects: () => invokeResult<WorkshopProject[]>("get_workshop_projects"),

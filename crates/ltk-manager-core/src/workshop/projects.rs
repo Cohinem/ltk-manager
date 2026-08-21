@@ -4,10 +4,11 @@ use super::{
     load_workshop_project,
 };
 use crate::config::Config;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, Utf8PathRefExt};
 use crate::events::{
     BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
 };
+use crate::hashtables::WadPathResolver;
 use ltk_mod_project::{
     ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, default_layers,
 };
@@ -19,7 +20,7 @@ use std::path::PathBuf;
 use zip::ZipArchive;
 
 use camino::Utf8Path;
-use ltk_wad::{HexPathResolver, WadExtractor};
+use ltk_wad::{PathResolver, WadExtractor};
 
 impl Workshop {
     /// Get all workshop projects from the configured workshop directory.
@@ -132,7 +133,7 @@ impl Workshop {
             return Err(AppError::ProjectNotFound(args.project_path));
         }
 
-        let mut mod_project = ModProject::load(&path)?;
+        let mut mod_project = ModProject::load(path.try_as_utf8("project directory")?)?;
 
         mod_project.display_name = args.display_name;
         mod_project.version = args.version;
@@ -193,7 +194,7 @@ impl Workshop {
         // Rename the directory
         fs::rename(&old_path, &new_path)?;
 
-        let mut mod_project = ModProject::load(&new_path)?;
+        let mut mod_project = ModProject::load(new_path.try_as_utf8("project directory")?)?;
         mod_project.name = new_name;
 
         let json_config_path = new_path.join("mod.config.json");
@@ -271,6 +272,7 @@ impl Workshop {
             let base_dir = project_dir.join("content").join("base");
             fs::create_dir_all(&base_dir)?;
 
+            let resolver = WadPathResolver::discover();
             for (idx, wad_name) in wad_names.iter().enumerate() {
                 self.emit_fantome_progress(
                     FantomeImportStage::Extracting,
@@ -278,7 +280,7 @@ impl Workshop {
                     idx as u32,
                     total_wads,
                 );
-                extract_fantome_wad(&mut archive, wad_name, &base_dir)?;
+                extract_fantome_wad(&mut archive, wad_name, &base_dir, &resolver)?;
             }
 
             self.emit_fantome_progress(
@@ -405,7 +407,7 @@ impl Workshop {
 
         // Build layers from header, preserving string overrides from metadata
         let mut layers: Vec<ModProjectLayer> = modpkg
-            .layers
+            .layers()
             .values()
             .map(|l| {
                 let meta_layer = metadata.layers.iter().find(|ml| ml.name == l.name);
@@ -522,12 +524,17 @@ impl Workshop {
                 ));
             }
 
-            let mod_project = ModProject::load(&extracted_dir).map_err(|e| match e {
-                ltk_mod_project::ModProjectError::ConfigNotFound(_) => AppError::ValidationFailed(
-                    "Repository does not contain a mod.config.json or mod.config.toml".to_string(),
-                ),
-                other => AppError::from(other),
-            })?;
+            let mod_project =
+                ModProject::load(extracted_dir.try_as_utf8("extracted project directory")?)
+                    .map_err(|e| match e {
+                        ltk_mod_project::ModProjectError::ConfigNotFound(_) => {
+                            AppError::ValidationFailed(
+                                "Repository does not contain a mod.config.json or mod.config.toml"
+                                    .to_string(),
+                            )
+                        }
+                        other => AppError::from(other),
+                    })?;
 
             let project_name = &mod_project.name;
             if !is_valid_project_name(project_name) {
@@ -678,6 +685,7 @@ fn extract_fantome_wad<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     wad_name: &str,
     base_dir: &std::path::Path,
+    resolver: &impl PathResolver,
 ) -> AppResult<()> {
     let dir_prefix = format!("WAD/{}/", wad_name);
     let packed_path = format!("WAD/{}", wad_name);
@@ -738,8 +746,7 @@ fn extract_fantome_wad<R: Read + Seek>(
             let wad_dir = base_dir.join(wad_name);
             fs::create_dir_all(&wad_dir)?;
 
-            let resolver = HexPathResolver;
-            let extractor = WadExtractor::new(&resolver);
+            let extractor = WadExtractor::new(resolver);
             extractor.extract_all(
                 &mut wad,
                 Utf8Path::from_path(&wad_dir).ok_or_else(|| {

@@ -1,12 +1,14 @@
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
+use crate::patcher::host::HOOK_DLL_NAME;
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
 use crate::patcher::{
     PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherSession, PatcherState,
     PatcherThread, SessionParams, StoredPatcherConfig,
 };
-use crate::state::SettingsState;
+use crate::state::{IncidentStoreState, SettingsState};
+use ltk_manager_core::diagnostics::binary_id::PatcherBinaries;
 use ltk_manager_core::utils::client_settings::LeagueClientSettings;
 use ltk_manager_core::utils::game::GameDir;
 use serde::{Deserialize, Serialize};
@@ -121,6 +123,7 @@ pub fn start_patcher(
     host_state: State<PatcherHostState>,
     settings: State<SettingsState>,
     library: State<ModLibraryState>,
+    incidents: State<IncidentStoreState>,
 ) -> IpcResult<()> {
     let result = start_patcher_inner(
         config,
@@ -129,6 +132,7 @@ pub fn start_patcher(
         &host_state,
         &settings,
         &library,
+        &incidents,
     );
     if let Err(ref e) = result {
         tracing::error!(error = ?e, "Start patcher failed");
@@ -143,6 +147,7 @@ pub(crate) fn start_patcher_inner(
     host_state: &State<PatcherHostState>,
     settings: &State<SettingsState>,
     library: &State<ModLibraryState>,
+    incidents: &State<IncidentStoreState>,
 ) -> AppResult<()> {
     if cfg!(not(target_os = "windows")) {
         return Err(PatcherError::UnsupportedPlatform.into());
@@ -206,8 +211,26 @@ pub(crate) fn start_patcher_inner(
 
     let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);
 
+    let dll_path = crate::commands::diagnostics::resolve_patcher_dll(app_handle)
+        .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))
+        .unwrap_or_else(|| PathBuf::from(HOOK_DLL_NAME));
+    let patcher_binaries = PatcherBinaries::identify(
+        &dll_path,
+        &injector_exe,
+        option_env!("LTK_BUNDLED_DLL_HASH").unwrap_or_default(),
+        option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
+    );
+
     let events: Arc<dyn PatcherEvents> =
         Arc::new(TauriPatcherEvents::new(app_handle.clone(), is_workshop));
+    // The cap is a setting, so the session's store reads it as a snapshot.
+    let incident_store = Arc::new(
+        incidents
+            .0
+            .as_ref()
+            .clone()
+            .with_keep(config_snapshot.keep_incidents as usize),
+    );
 
     PatcherThread::start(
         events,
@@ -221,6 +244,8 @@ pub(crate) fn start_patcher_inner(
             workshop_paths,
             host_flags,
             should_elevate,
+            patcher_binaries,
+            incident_store,
         },
     )
 }
