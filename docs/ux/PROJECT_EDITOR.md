@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                     |
 | ---------- | -------------------------------------------------------------------------- |
+| 2026-08-21 | Pan and zoom a preview, on `react-zoom-pan-pinch`                          |
 | 2026-08-21 | Draw a bin as blocks, and move the preview into its own document           |
 | 2026-08-20 | Match a run of characters and every term, not a subsequence                |
 | 2026-08-20 | Search the whole install from the bar, on a scorer in Rust                 |
@@ -13,7 +14,6 @@
 | 2026-08-20 | Search every bin object path, on an index the palette reads                |
 | 2026-08-20 | Give the explorers a location, a breadcrumb, a grid and a sort             |
 | 2026-08-19 | Propose the project bar, its palette and the history arrows                |
-| 2026-08-19 | Open on a double click, into a preview group beside the browser            |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -64,6 +64,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Explorer sorting       | Proposed    | Name, size and kind, and the directories first              |
 | Multi-select and copy  | Proposed    | What makes a copy of many game files worth the trip         |
 | Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                 |
+| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library         |
 | Bin preview            | Planned     | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)    |
 | Mesh preview           | Planned     | A model in a small viewport                                 |
 | Modified time          | Planned     | Needs a time field in the content scan                      |
@@ -1465,8 +1466,11 @@ a move back.
 | The expansion           | the document                   | the same, and the trees hold it already                 |
 | The filter and the text | the document, and not the file | it answers one question and is gone by the next open    |
 
-`workshopLayout` holds the application's four, beside the preview zoom and the tab open mode
-that it holds now. `.ltk/editor.json` holds the document's, with the tabs and the split tree.
+`workshopLayout` holds the application's four, beside the alpha checkerboard and the tab open
+mode that it holds now. `.ltk/editor.json` holds the document's, with the tabs and the split
+tree. A preview's zoom and pan are in neither. They belong to one open preview and go when it
+closes, which [Panning and zooming a preview](#panning-and-zooming-a-preview) gives the reason
+for.
 The layer file tree of the side panel is not a document, so its location joins the collapse
 state that the workshop store already keys by layer.
 
@@ -1586,6 +1590,61 @@ index is the one signal the app gets that the install changed underneath it.
 
 The image preview decodes DDS and TEX through the `ltk_texture` crate. The `ltk-tex-utils`
 repository holds an integration to work from.
+
+### Panning and zooming a preview
+
+A modder reads a texture at two distances. First they check the silhouette at the size the
+game draws it. Then they read one edge at the texel. Every image and vector preview answers
+both. `react-zoom-pan-pinch` supplies the wheel, the drag, the pinch and the double click.
+
+| Gesture                 | Does                                                 |
+| ----------------------- | ---------------------------------------------------- |
+| The wheel               | Zooms about the pointer, a tenth to the notch        |
+| A trackpad pinch        | The same, by as far as the fingers moved             |
+| A drag                  | Pans, at every zoom and in every direction           |
+| A double click          | Doubles the zoom, about the pointer                  |
+| The strip's `−` and `+` | Steps the zoom by a quarter, about the pane's center |
+| The strip's percentage  | Goes to the actual size, and centers                 |
+| The strip's **Fit**     | Goes back to the whole image, and centers            |
+
+**A drag always pans.** No bounds hold the image inside the pane and no edge pulls it back. A
+modder moves a fitted icon aside as readily as a corner of a 4096 pixel texture.
+
+Bounds lock a fitted image in the middle of the pane. Most textures a modder opens do fit, so
+the drag would do nothing for most of them. A viewer that does not answer a drag reads as a
+viewer that cannot pan. The pane carries the grab cursor for the same reason. The drag is
+there whatever is on screen, so the cursor says so whatever is on screen.
+
+An image can leave the pane that way. **Fit** and the percentage both center what they scale,
+and either one returns it in a single click.
+
+The zoom reaches from 5% to 3200%. Past 100% the image draws nearest neighbour, so a modder
+reads the texels rather than the webview's guess at what is between them. Under 100% the
+webview smooths as it would anywhere else.
+
+The alpha checkerboard holds its 16 pixel square at every zoom, because a checkerboard that
+scales with the image stops reading as a ground.
+
+A fit is only ever a reduction. An icon smaller than the pane reads at its own size. To fill
+the pane with it would show a modder texels of the webview's own invention before they asked
+for any.
+
+**The zoom and the pan belong to one preview.** A file opens on its whole image. The zoom of
+the last file does not reach it.
+
+An earlier version shared one zoom across every open preview, on the argument that four
+textures compared beside each other want one scale. That argument does not survive the next
+open. A 3200% read of one texture is then what the next texture opens at. The image is another
+size, and the scale says nothing about that. Every preview still shares the alpha
+checkerboard, because that is a display preference and not a viewport.
+
+The strip's controls follow the same split. `−` and `+` are the library's own step, which
+zooms about the middle of what is on screen and leaves the pan alone. The percentage and
+**Fit** name one scale outright, so they move the transform and center what they scaled.
+
+The library adds its wheel step to the scale and does not multiply by it. One fixed step is
+then a nudge at 3200% and a leap at 5%. The step is a share of the current scale for that
+reason, which turns the sum back into a ratio at every zoom.
 
 ### How a file opens
 
