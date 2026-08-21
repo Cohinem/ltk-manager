@@ -9,10 +9,10 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 [features]
 # Derive `ts_rs::TS` on core types so the Tauri shell can export bindings for
 # types that cross IPC (e.g. `Config` flattened into `Settings`).
-ts = ["dep:ts-rs", "ritoclient-api/ts"]
+ts = ["dep:ts-rs"]
 
 [dependencies]
-ritoclient-api = { workspace = true }
+ritoclient = { workspace = true }
 
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }

@@ -121,7 +121,10 @@ fn main() {
             commands::get_linked_bin_offenders,
             // Launcher
             commands::launch_league,
+            commands::cancel_launch,
+            commands::stop_league,
             commands::get_launch_availability,
+            commands::get_league_session,
             // Hotkeys
             commands::pause_hotkeys,
             commands::resume_hotkeys,

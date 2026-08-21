@@ -1,8 +1,9 @@
+use crate::commands::launcher::LauncherState;
 use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_autostart::ManagerExt;
 
 /// Get current settings.
@@ -40,6 +41,15 @@ fn save_settings_inner(
     }
 
     persist_settings(app_handle, &settings)?;
+
+    // The launcher is built from the install root and re-reads the window
+    // hider, both of which the user may just have moved. Logged rather than
+    // propagated: the settings are already saved, and failing the save for a
+    // launcher that cannot be rebuilt would report the wrong thing.
+    let launcher: State<'_, LauncherState> = app_handle.state();
+    if let Err(e) = launcher.launcher().reconfigure(&settings.config) {
+        tracing::error!(error = ?e, "Could not apply the new settings to the launcher");
+    }
 
     let mut current = state.0.lock().mutex_err()?;
     *current = settings;

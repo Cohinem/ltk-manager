@@ -2915,7 +2915,6 @@ dependencies = [
  "notify-debouncer-mini",
  "regex",
  "reqwest 0.12.28",
- "ritoclient-api",
  "semver",
  "serde",
  "serde_json",
@@ -2976,7 +2975,7 @@ dependencies = [
  "ltk_wad",
  "regex",
  "reqwest 0.12.28",
- "ritoclient-api",
+ "ritoclient",
  "rmp-serde",
  "semver",
  "serde",
@@ -4901,16 +4900,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "ritoclient"
+version = "0.1.0"
+source = "git+https://github.com/Crauzer/ritoclient?rev=f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631#f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631"
+dependencies = [
+ "ritoclient-api",
+ "ritoclient-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "ritoclient-api"
 version = "0.1.0"
-source = "git+https://github.com/Crauzer/ritoclient?rev=eb6bf7a8f5c11ca30d698caa4f3e736fb9b57ac2#eb6bf7a8f5c11ca30d698caa4f3e736fb9b57ac2"
+source = "git+https://github.com/Crauzer/ritoclient?rev=f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631#f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631"
+dependencies = [
+ "ritoclient-core",
+ "serde",
+]
+
+[[package]]
+name = "ritoclient-core"
+version = "0.1.0"
+source = "git+https://github.com/Crauzer/ritoclient?rev=f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631#f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631"
 dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tracing",
- "ts-rs",
  "windows-sys 0.59.0",
 ]
 

@@ -39,7 +39,11 @@ async function renderPlay() {
  * `get_patcher_status` poll, so a test spells out the exact lifecycle it wants
  * the patcher to walk; the last entry repeats once exhausted.
  */
-function mockBackend(phases: PatcherPhase[], route: LaunchRoute = "EXISTING_CLIENT") {
+function mockBackend(
+  phases: PatcherPhase[],
+  route: LaunchRoute = "EXISTING_CLIENT",
+  sessionId: string | null = null,
+) {
   const remaining = [...phases];
 
   mockInvoke.mockImplementation((cmd: string) => {
@@ -62,7 +66,7 @@ function mockBackend(phases: PatcherPhase[], route: LaunchRoute = "EXISTING_CLIE
         });
       }
       case "launch_league":
-        return Promise.resolve({ ok: true, value: { route, riotClientPid: 1234 } });
+        return Promise.resolve({ ok: true, value: { route, riotClientPid: 1234, sessionId } });
       default:
         return Promise.resolve({ ok: true, value: null });
     }
@@ -78,7 +82,7 @@ describe("usePlay", () => {
     mockInvoke.mockReset();
     // The step lives in a module-level store now, so a run that ended
     // mid-flight would silently gate every later test's play().
-    usePlaySessionStore.setState({ step: "idle" });
+    usePlaySessionStore.setState({ step: "idle", session: null });
   });
 
   it("arms the patcher before asking the Riot Client to launch", async () => {
@@ -146,7 +150,39 @@ describe("usePlay", () => {
     expect(await screen.findByText("League is already running")).toBeInTheDocument();
   });
 
-  it("clears the busy step once the launch settles", async () => {
+  it("launchOnly says the manager is following a game it adopted", async () => {
+    mockBackend(["idle"], "ADOPTED", "irnZWC1kOMt");
+    const { result } = await renderPlay();
+
+    await act(async () => {
+      await result.current.play.launchOnly();
+    });
+
+    expect(await screen.findByText("League is already running")).toBeInTheDocument();
+    expect(await screen.findByText(/following the game you already had open/)).toBeInTheDocument();
+  });
+
+  /// The run used to end where the launch did, which was seconds before the
+  /// game existed. It now waits on the session the outcome named.
+  it("hands the run to the session the launch named", async () => {
+    mockBackend(["patching"], "EXISTING_CLIENT", "irnZWC1kOMt");
+    const { result } = await renderPlay();
+
+    await act(async () => {
+      await result.current.play.play();
+    });
+
+    await waitFor(() => {
+      expect(result.current.play.step).toBe("waiting-for-game");
+    });
+    // A game running is not an action of ours in flight, so the button stays
+    // usable - the patcher is still stoppable through it.
+    expect(result.current.play.isBusy).toBe(false);
+  });
+
+  /// Nothing would ever end a run left waiting on a session that does not
+  /// exist, so a launch without one settles here instead.
+  it("ends the run where there is no session to follow", async () => {
     mockBackend(["patching"]);
     const { result } = await renderPlay();
 

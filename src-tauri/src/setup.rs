@@ -2,6 +2,7 @@ use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 
+use crate::commands::launcher::LauncherState;
 use crate::deep_link::DeepLinkState;
 use crate::events::TauriEventSink;
 use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
@@ -79,10 +80,14 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     let deep_link_state = DeepLinkState::new();
 
+    let launcher_state = LauncherState::new(&app_handle, &settings.config)?;
+    let launcher = Arc::clone(launcher_state.launcher());
+
     app.manage(settings_state);
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
     app.manage(incident_store);
+    app.manage(launcher_state);
     app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
     app.manage(wad_reports);
@@ -113,6 +118,15 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // A game outlives the manager and the session id following it does not, so
+    // the watcher is put back on it here. Off the setup path because it asks the
+    // Riot Client, which may be mid-boot. The frontend asks for the same thing
+    // when it mounts, which is what gets a session already in progress onto the
+    // status bar - this only guarantees something is following it.
+    std::thread::spawn(move || {
+        launcher.follow_current_session();
+    });
+
     if let Ok(Some(urls)) = app.deep_link().get_current() {
         crate::deep_link::handle_urls(&app_handle, &urls);
     }
@@ -129,6 +143,11 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
     if let tauri::RunEvent::Exit = event {
         crate::patcher::shutdown_resources(app_handle);
+
+        // The session watcher ends on its own, but the window hider polls for
+        // five minutes waiting for a game that will never come now.
+        let launcher: tauri::State<'_, LauncherState> = app_handle.state();
+        launcher.launcher().shutdown();
     }
 }
 

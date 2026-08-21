@@ -50,6 +50,10 @@ const INVALID_PATH_HINT = (
   </>
 );
 
+const STOP_PATCHER_HINT =
+  "The Riot Client tells the manager when your game ends, and the patcher stops with it. Leave " +
+  "this off to play several games in a row on one patch.";
+
 const HIDE_RIOT_CLIENT_HINT =
   "Only the window is hidden. League needs the Riot Client for the whole session, so it keeps " +
   "running in the system tray, and it stays there when you close League. Click the tray icon " +
@@ -145,6 +149,17 @@ export function LeagueSection({ settings, onSave, className }: LeagueSectionProp
           <Switch
             checked={settings.hideRiotClientOnLaunch}
             onCheckedChange={(checked) => onSave({ ...settings, hideRiotClientOnLaunch: checked })}
+          />
+        </label>
+
+        <label className="flex items-center justify-between gap-4">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
+            Stop the patcher when the game ends
+            <HintIcon content={STOP_PATCHER_HINT} />
+          </span>
+          <Switch
+            checked={settings.stopPatcherOnSessionEnd}
+            onCheckedChange={(checked) => onSave({ ...settings, stopPatcherOnSessionEnd: checked })}
           />
         </label>
       </div>

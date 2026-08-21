@@ -210,6 +210,14 @@ pub struct Settings {
     /// so an install that predates the launcher keeps the button it had.
     #[serde(default)]
     pub launch_mode: LaunchMode,
+    /// Whether the end of a League session also stops the patcher. Default:
+    /// false.
+    ///
+    /// Off because the patcher running until it is told to stop is right for
+    /// someone who plays several games in a row, and only wrong for someone who
+    /// plays one. Which of those a person is, is not ours to guess.
+    #[serde(default)]
+    pub stop_patcher_on_session_end: bool,
     /// Whether the user has dismissed the migration banner.
     #[serde(default)]
     pub migration_dismissed: bool,
@@ -270,6 +278,7 @@ impl Default for Settings {
             start_in_tray_unless_update: false,
             always_start_patcher: false,
             launch_mode: LaunchMode::default(),
+            stop_patcher_on_session_end: false,
             migration_dismissed: false,
             reload_mods_hotkey: None,
             kill_league_hotkey: None,

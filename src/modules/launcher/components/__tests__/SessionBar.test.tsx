@@ -146,7 +146,7 @@ describe("SessionBar", () => {
     mockInvoke.mockReset();
     mockNavigate.mockReset();
     handlers.clear();
-    usePlaySessionStore.setState({ step: "idle" });
+    usePlaySessionStore.setState({ step: "idle", session: null });
     useIncidentLineStore.setState({ incident: null, answeredIncidentId: null });
     usePatcherFailureStore.setState({ failure: null });
 
@@ -424,5 +424,72 @@ describe("SessionBar", () => {
       expect(screen.getByText("League closed")).toBeInTheDocument();
       expect(screen.queryByText("Injection Host Failure")).not.toBeInTheDocument();
     });
+  });
+
+  /// A cancel is the user's own doing, so the bar has to close on it without
+  /// ever reading as something that went wrong.
+  it("reports a cancelled launch as cancelled rather than failed", async () => {
+    usePlaySessionStore.setState({ step: "launching" });
+    await renderBar("patching");
+    await emit("launch-progress", { stage: "stopped", waitedSecs: 0, timeoutSecs: 0 });
+
+    expect(screen.getByText(/^Cancelled\./)).toBeInTheDocument();
+    expect(screen.queryByText("Could not start League.")).not.toBeInTheDocument();
+  });
+
+  /// The launch blocks for up to two minutes from cold, which is exactly when
+  /// a way out is worth having.
+  it("offers a cancel while the launch is in flight", async () => {
+    usePlaySessionStore.setState({ step: "launching" });
+    await renderBar("patching");
+    await emit("launch-progress", waiting);
+
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  /// The gap this whole migration exists to close: the request is delivered
+  /// seconds to minutes before the game appears, and the bar used to go quiet
+  /// for all of it.
+  it("keeps waiting after the launch is delivered, until the game is up", async () => {
+    usePlaySessionStore.setState({ step: "launching" });
+    await renderBar("patching");
+
+    // The events are `useLeagueSession`'s to receive, and it puts them here.
+    await act(async () => {
+      usePlaySessionStore
+        .getState()
+        .sessionStarted({ phase: "Pending", running: false, version: "24C2E5A086AFFB82" });
+    });
+
+    expect(screen.getByText("Waiting for League to start...")).toBeInTheDocument();
+    expect(screen.getByText("Riot Client session: Pending")).toBeInTheDocument();
+    expect(screen.getByText("In game")).toBeInTheDocument();
+  });
+
+  it("rests on the live session once the game is up", async () => {
+    usePlaySessionStore.setState({
+      step: "in-game",
+      session: { phase: "None", running: true, version: "24C2E5A086AFFB82" },
+    });
+    mockPatcher("patching");
+    renderWithProviders(<SessionBar />);
+
+    expect(await screen.findByText("Your mods are being applied.")).toBeInTheDocument();
+    expect(screen.getByText("In game")).toBeInTheDocument();
+    expect(screen.getByText("24C2E5A086AFFB82")).toBeInTheDocument();
+    expect(screen.queryByText("Build overlay")).not.toBeInTheDocument();
+  });
+
+  /// A session followed without the patcher is an ordinary game, and saying
+  /// "your mods are being applied" over one would be a lie.
+  it("says an unpatched game is unmodded", async () => {
+    usePlaySessionStore.setState({
+      step: "in-game",
+      session: { phase: "None", running: true, version: null },
+    });
+    mockPatcher("idle");
+    renderWithProviders(<SessionBar />);
+
+    expect(await screen.findByText(/this game is unmodded/i)).toBeInTheDocument();
   });
 });

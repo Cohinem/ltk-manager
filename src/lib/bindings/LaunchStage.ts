@@ -3,9 +3,8 @@
 /**
  * Stage of a League launch request.
  *
- * A launch is a single blocking call that can spend a minute inside one step -
- * waking a tray-idle client and waiting for it to load its launcher plugin.
- * Without these the caller cannot tell that wait apart from a hang, which is
- * the whole reason they exist.
+ * A launch is one blocking call that can spend a minute inside a single step,
+ * waking a tray-idle client. Without these the frontend cannot tell that wait
+ * apart from a hang.
  */
-export type LaunchStage = "resolving" | "handingOff" | "coldStart" | "wakingClient" | "waitingForClient" | "launched" | "alreadyRunning" | "error";
+export type LaunchStage = "resolving" | "handingOff" | "coldStart" | "wakingClient" | "waitingForClient" | "launched" | "alreadyRunning" | "stopped" | "error" | "unknown";

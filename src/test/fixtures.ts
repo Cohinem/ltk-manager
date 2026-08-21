@@ -29,6 +29,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     startInTrayUnlessUpdate: false,
     alwaysStartPatcher: false,
     launchMode: "classic",
+    stopPatcherOnSessionEnd: false,
     hasSeenHddWarning: false,
     elevateInjector: false,
     autoCategorizationEnabled: true,

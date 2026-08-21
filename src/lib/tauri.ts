@@ -41,6 +41,7 @@ import type {
   PlatformSupport,
   Profile,
   SaveProjectConfigArgs,
+  SessionStarted,
   Settings,
   StorageMedium,
   StringKeySearchResult,
@@ -153,7 +154,14 @@ export const api = {
   // Resolves to null when a launch was already in flight - a redundant click.
   launchLeague: (target?: LaunchTarget) =>
     invokeResult<LaunchOutcome | null>("launch_league", { target: target ?? null }),
+  // Resolves to false when nothing was in flight, which is what a Cancel
+  // pressed just as the request landed looks like.
+  cancelLaunch: () => invokeResult<boolean>("cancel_launch"),
+  stopLeague: () => invokeResult<void>("stop_league"),
   getLaunchAvailability: () => invokeResult<LaunchAvailability>("get_launch_availability"),
+  // Also starts following the session it reports, so a game already in progress
+  // when the app opened still reaches the session events.
+  getLeagueSession: () => invokeResult<SessionStarted | null>("get_league_session"),
 
   // Hotkeys
   pauseHotkeys: () => invokeResult<void>("pause_hotkeys"),

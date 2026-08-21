@@ -7,7 +7,7 @@ import type { LaunchStage } from "./LaunchStage";
 export type LaunchProgress = { stage: LaunchStage, 
 /**
  * Seconds spent waiting for the client so far. Only meaningful during
- * [`LaunchStage::WaitingForClient`]; zero everywhere else.
+ * [`LaunchStage::WaitingForClient`], zero everywhere else.
  */
 waitedSecs: number, 
 /**

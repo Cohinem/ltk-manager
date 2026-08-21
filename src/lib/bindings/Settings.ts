@@ -57,6 +57,15 @@ alwaysStartPatcher: boolean,
  */
 launchMode: LaunchMode, 
 /**
+ * Whether the end of a League session also stops the patcher. Default:
+ * false.
+ *
+ * Off because the patcher running until it is told to stop is right for
+ * someone who plays several games in a row, and only wrong for someone who
+ * plays one. Which of those a person is, is not ours to guess.
+ */
+stopPatcherOnSessionEnd: boolean, 
+/**
  * Whether the user has dismissed the migration banner.
  */
 migrationDismissed: boolean, 
