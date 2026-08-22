@@ -40,6 +40,8 @@ export interface EditorTab {
   dirty?: boolean;
   /** The ephemeral tab, which the next open from a tree replaces. */
   preview?: boolean;
+  /** What the document puts above the strip's own items in this tab's menu. */
+  menu?: ReactNode;
 }
 
 export interface EditorTabsProps {
@@ -61,8 +63,6 @@ export interface EditorTabsProps {
   onPromote?: (id: string) => void;
   /** The strip belongs to the focused leaf, whose active tab carries the accent rail. */
   focused?: boolean;
-  /** Chrome at the trailing edge, for controls that outlive any one tab. */
-  actions?: ReactNode;
   className?: string;
 }
 
@@ -85,7 +85,6 @@ export function EditorTabs({
   onSplit,
   onPromote,
   focused,
-  actions,
   className,
 }: EditorTabsProps) {
   const sortableIds = tabs.map((tab) => tabDroppableId(leafId, tab.id));
@@ -135,12 +134,6 @@ export function EditorTabs({
         </SortableContext>
         {caretIndex === tabs.length && <DropCaret />}
       </Tabs.List>
-
-      {actions && (
-        <div data-ui="EditorTabs:actions" className="flex shrink-0 items-center gap-1">
-          {actions}
-        </div>
-      )}
     </Tabs.Root>
   );
 }
@@ -312,7 +305,13 @@ const SortableTab = memo(function SortableTab({
         <ContextMenu.Trigger render={<div {...tabProps} />}>{body}</ContextMenu.Trigger>
         <ContextMenu.Portal>
           <ContextMenu.Positioner>
-            <ContextMenu.Popup className="w-52">
+            <ContextMenu.Popup className="w-60">
+              {tab.menu && (
+                <>
+                  {tab.menu}
+                  <ContextMenu.Separator />
+                </>
+              )}
               <ContextMenu.Item
                 icon={<XIcon className="h-4 w-4" />}
                 onClick={() => onClose(tab.id)}

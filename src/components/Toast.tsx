@@ -16,6 +16,13 @@ export interface ToastData {
   type?: ToastType;
   timeout?: number;
   action?: ToastAction;
+  /**
+   * How far a running task has got, 0-100, in the countdown's place.
+   *
+   * A toast that stays until its work ends has no dismissal to count down, so
+   * the strip along its bottom reports the work instead.
+   */
+  progress?: number;
 }
 
 export interface ToastOptions {
@@ -92,6 +99,21 @@ function ToastProgressBar({
   );
 }
 
+/* The accent rather than the type color, because this strip reports work
+   rather than a status. */
+function ToastTaskBar({ value }: { value: number }) {
+  const clamped = Math.min(100, Math.max(0, value));
+
+  return (
+    <div className="absolute right-0 bottom-0 left-0 h-1 overflow-hidden rounded-b-lg bg-surface-700">
+      <div
+        className="h-full bg-accent-500 transition-[width] duration-150"
+        style={{ width: `${clamped}%` }}
+      />
+    </div>
+  );
+}
+
 interface ToastItemProps {
   toast: BaseToast.Root.ToastObject<ToastData>;
 }
@@ -99,6 +121,7 @@ interface ToastItemProps {
 export function ToastItem({ toast }: ToastItemProps) {
   const type = toast.data?.type ?? "info";
   const timeout = toast.data?.timeout ?? 5000;
+  const progress = toast.data?.progress;
   const icon = typeIcons[type];
   const [hovered, setHovered] = useState(false);
 
@@ -146,7 +169,10 @@ export function ToastItem({ toast }: ToastItemProps) {
           <X className="h-4 w-4" />
         </BaseToast.Close>
       </BaseToast.Content>
-      <ToastProgressBar timeout={timeout} type={type} paused={hovered} />
+      {progress === undefined && (
+        <ToastProgressBar timeout={timeout} type={type} paused={hovered} />
+      )}
+      {progress !== undefined && <ToastTaskBar value={progress} />}
     </BaseToast.Root>
   );
 }

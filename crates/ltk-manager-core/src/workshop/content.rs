@@ -1,7 +1,7 @@
 use super::Workshop;
 use crate::error::{AppError, AppResult};
 use ltk_file::LeagueFileKind;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -41,7 +41,7 @@ pub struct ContentEntry {
 /// Mirror of [`ltk_file::LeagueFileKind`] with `ts-rs` bindings. Kept in sync
 /// manually — the upstream enum is small and stable, and mirroring lets us
 /// export a TypeScript union without fighting external crate attributes.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "snake_case")]
@@ -95,6 +95,35 @@ impl From<LeagueFileKind> for WorkshopFileKind {
             LeagueFileKind::WorldGeometry => Self::WorldGeometry,
             LeagueFileKind::WwiseBank => Self::WwiseBank,
             LeagueFileKind::WwisePackage => Self::WwisePackage,
+        }
+    }
+}
+
+impl From<WorkshopFileKind> for LeagueFileKind {
+    fn from(value: WorkshopFileKind) -> Self {
+        match value {
+            WorkshopFileKind::Animation => Self::Animation,
+            WorkshopFileKind::Jpeg => Self::Jpeg,
+            WorkshopFileKind::LightGrid => Self::LightGrid,
+            WorkshopFileKind::LuaObj => Self::LuaObj,
+            WorkshopFileKind::MapGeometry => Self::MapGeometry,
+            WorkshopFileKind::Png => Self::Png,
+            WorkshopFileKind::Tga => Self::Tga,
+            WorkshopFileKind::Preload => Self::Preload,
+            WorkshopFileKind::PropertyBin => Self::PropertyBin,
+            WorkshopFileKind::PropertyBinOverride => Self::PropertyBinOverride,
+            WorkshopFileKind::RiotStringTable => Self::RiotStringTable,
+            WorkshopFileKind::SimpleSkin => Self::SimpleSkin,
+            WorkshopFileKind::Skeleton => Self::Skeleton,
+            WorkshopFileKind::StaticMeshAscii => Self::StaticMeshAscii,
+            WorkshopFileKind::StaticMeshBinary => Self::StaticMeshBinary,
+            WorkshopFileKind::Svg => Self::Svg,
+            WorkshopFileKind::Texture => Self::Texture,
+            WorkshopFileKind::TextureDds => Self::TextureDds,
+            WorkshopFileKind::Unknown => Self::Unknown,
+            WorkshopFileKind::WorldGeometry => Self::WorldGeometry,
+            WorkshopFileKind::WwiseBank => Self::WwiseBank,
+            WorkshopFileKind::WwisePackage => Self::WwisePackage,
         }
     }
 }

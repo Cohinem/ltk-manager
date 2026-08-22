@@ -9,7 +9,7 @@ import {
 
 import { Button, EmptyState, IconButton, Menu, Tooltip } from "@/components";
 import { api, type LayerContent } from "@/lib/tauri";
-import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
 import { useProjectContentTree } from "../api";
 import { ContentTree } from "../components/ContentTree";
@@ -41,7 +41,7 @@ export function FilesDocument({
 
   return (
     <div data-ui="FilesDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
-      <DocumentActions active={active}>
+      <DocumentToolbar active={active}>
         <Menu.Root>
           <Menu.Trigger
             render={
@@ -96,7 +96,7 @@ export function FilesDocument({
             aria-label={`Open folder for layer ${layerName}`}
           />
         </Tooltip>
-      </DocumentActions>
+      </DocumentToolbar>
 
       <FilesBody layer={layer} layerName={layerName} />
     </div>

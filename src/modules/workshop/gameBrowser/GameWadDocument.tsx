@@ -1,12 +1,14 @@
+import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
-import { EmptyState } from "@/components";
+import { Button, EmptyState } from "@/components";
 import type { GameWadSummary } from "@/lib/tauri";
-import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useShutWadDirs, useToggleWadDir } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import type { ContentDocumentOf } from "../documents/contentDocument";
+import { archiveTarget } from "./extractTargets";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import {
   buildSourceTree,
@@ -15,6 +17,7 @@ import {
   wadBasename,
 } from "./sourceIndex";
 import { SourceTree } from "./SourceTree";
+import { useExtractActions } from "./useExtractActions";
 import { useGameWadEntries } from "./useGameWadEntries";
 import { useGameWads } from "./useGameWads";
 import { useSourcePreview } from "./useSourcePreview";
@@ -30,9 +33,12 @@ export function GameWadDocument({
 
   return (
     <div data-ui="GameWadDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
-      <DocumentActions active={active}>
+      {/* A row under the tab rather than the strip's popover: the ways out of
+          an archive are the reason this tab is open. */}
+      <DocumentToolbar active={active}>
         <ArchiveStats summary={summary} />
-      </DocumentActions>
+        <ArchiveActions summary={summary} />
+      </DocumentToolbar>
       <GameWadBody wadName={wadName} />
     </div>
   );
@@ -66,6 +72,51 @@ function ArchiveStats({ summary }: { summary: GameWadSummary | undefined }) {
     <span className="text-xs text-surface-400 select-none">
       {entries.length} {label} · {size}
     </span>
+  );
+}
+
+/* The scoped browser's routes to the whole archive, which its tree cannot
+   carry: the archive level is the tab, so no row stands for it. */
+function ArchiveActions({ summary }: { summary: GameWadSummary | undefined }) {
+  const { run, lastFolder, layerLabel, busy } = useExtractActions();
+  if (!summary) return null;
+
+  const targets = [archiveTarget(summary.name)];
+  const subject = wadBasename(summary.name);
+
+  return (
+    <div className="ml-auto flex shrink-0 items-center gap-1">
+      {layerLabel && (
+        <Button
+          variant="ghost"
+          size="xs"
+          left={<StackPlusIcon className="h-4 w-4" />}
+          disabled={busy}
+          onClick={() => run("copy", targets, subject)}
+        >
+          Copy into {layerLabel}
+        </Button>
+      )}
+      {lastFolder && (
+        <Button
+          variant="ghost"
+          size="xs"
+          left={<DownloadSimpleIcon className="h-4 w-4" />}
+          disabled={busy}
+          onClick={() => run("quick", targets, subject)}
+        >
+          Extract to {lastFolder}
+        </Button>
+      )}
+      <Button
+        variant="ghost"
+        size="xs"
+        left={<DownloadSimpleIcon className="h-4 w-4" />}
+        onClick={() => run("dialog", targets, subject)}
+      >
+        Extract…
+      </Button>
+    </div>
   );
 }
 

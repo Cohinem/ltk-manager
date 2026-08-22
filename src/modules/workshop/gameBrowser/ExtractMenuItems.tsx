@@ -1,0 +1,60 @@
+import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
+
+import { ContextMenu } from "@/components";
+
+import { type ExtractHow, useExtractActions } from "./useExtractActions";
+
+interface ExtractMenuItemsProps {
+  /** Runs whichever way was picked against whatever the menu was opened on. */
+  onRun: (how: ExtractHow) => void;
+}
+
+/**
+ * The three ways out of the browser, as the items every row's menu carries.
+ *
+ * The same three on a file row, a directory row and an archive row, because
+ * the only thing that differs between them is what the aim expands to. The
+ * copy and the quick extract each show only once there is somewhere for them
+ * to go, and the dialog is what is left when there is not.
+ *
+ * **Copy into `<layer>`** above the extracts, and naming its layer, per
+ * [Copy into a layer](../../../../docs/ux/PROJECT_EDITOR.md#copy-into-a-layer).
+ */
+export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
+  const { lastFolder, layerLabel, busy } = useExtractActions();
+
+  return (
+    <>
+      {layerLabel && (
+        <ContextMenu.Item
+          icon={<StackPlusIcon className="h-4 w-4" />}
+          shortcut="Ctrl+I"
+          disabled={busy}
+          onClick={() => onRun("copy")}
+        >
+          Copy into {layerLabel}
+        </ContextMenu.Item>
+      )}
+      {lastFolder && (
+        <ContextMenu.Item
+          icon={<DownloadSimpleIcon className="h-4 w-4" />}
+          shortcut="Ctrl+E"
+          disabled={busy}
+          onClick={() => onRun("quick")}
+        >
+          Extract to {lastFolder}
+        </ContextMenu.Item>
+      )}
+      {/* The ellipsis is the promise of the dialog that follows. It takes the
+          plain key while there is no folder to go straight to, because then it
+          is the only extract there is. */}
+      <ContextMenu.Item
+        icon={<DownloadSimpleIcon className="h-4 w-4" />}
+        shortcut={lastFolder ? "Ctrl+Shift+E" : "Ctrl+E"}
+        onClick={() => onRun("dialog")}
+      >
+        Extract…
+      </ContextMenu.Item>
+    </>
+  );
+}

@@ -1,5 +1,5 @@
-export type { DocumentActionsProps, DocumentToolbarProps } from "./DocumentActions";
-export { DocumentActions, DocumentToolbar } from "./DocumentActions";
+export type { DocumentToolbarProps } from "./DocumentToolbar";
+export { DocumentToolbar } from "./DocumentToolbar";
 export type { EditorSurfaceProps } from "./EditorSurface";
 export { EditorSurface } from "./EditorSurface";
 export type { EditorTab, EditorTabsProps } from "./EditorTabs";

@@ -259,7 +259,7 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
 
     let chunk_path = format!("data/menu/{locale}/lol.stringtable");
     let chunk_hash = ltk_modpkg::ChunkPath::new(&chunk_path).hash().value();
-    let chunk = *wad.chunks().get(chunk_hash)?;
+    let chunk = *wad.chunks().get(ltk_wad::WadHash(chunk_hash))?;
     let bytes = wad.load_chunk_decompressed(&chunk).ok()?;
 
     match ltk_rst::Stringtable::from_reader(&mut Cursor::new(&bytes[..])) {

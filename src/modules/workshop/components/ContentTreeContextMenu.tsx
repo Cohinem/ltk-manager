@@ -4,6 +4,7 @@ import {
   CopyIcon,
   FolderOpenIcon,
   TabsIcon,
+  TrashIcon,
 } from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
@@ -21,6 +22,8 @@ interface ContentTreeContextMenuProps {
   layerName: string;
   /** Opens a file row, the way a double click on it would. */
   onOpen?: (node: FileNode) => void;
+  /** Asks for the row to go. The confirmation is the tree's, not this menu's. */
+  onDelete?: (node: ContentTreeNode) => void;
 }
 
 /**
@@ -34,6 +37,7 @@ export function ContentTreeContextMenu({
   projectPath,
   layerName,
   onOpen,
+  onDelete,
 }: ContentTreeContextMenuProps) {
   const copy = useCopyToClipboard();
   const ritobin = useRitobinIntegration();
@@ -95,6 +99,19 @@ export function ContentTreeContextMenu({
           >
             Reveal in Explorer
           </ContextMenu.Item>
+          {onDelete && (
+            <>
+              <ContextMenu.Separator />
+              <ContextMenu.Item
+                icon={<TrashIcon className="h-4 w-4" />}
+                variant="danger"
+                shortcut="Del"
+                onClick={() => onDelete(node)}
+              >
+                Delete
+              </ContextMenu.Item>
+            </>
+          )}
         </ContextMenu.Popup>
       </ContextMenu.Positioner>
     </ContextMenu.Portal>

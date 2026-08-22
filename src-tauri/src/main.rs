@@ -179,6 +179,7 @@ fn main() {
             commands::reorder_project_layers,
             commands::update_layer_description,
             commands::add_files_to_layer,
+            commands::delete_layer_content,
             commands::get_project_editor_state,
             commands::save_project_editor_state,
             // Hashtables
@@ -193,8 +194,13 @@ fn main() {
             commands::refresh_game_index,
             commands::search_game_index,
             commands::find_in_game_index,
+            // Extract to disk
+            commands::plan_game_extract,
+            commands::extract_game_files,
+            commands::cancel_extract,
             // Asset preview
             commands::read_asset_info,
+            commands::save_asset_copy,
             // Ritobin
             commands::detect_ritobin_integration,
             commands::open_asset_in_ritobin,

@@ -33,6 +33,7 @@ impl EventSink for TauriEventSink {
             BackendEvent::SessionGameRunning(session) => self.app_handle.emit(name, session),
             BackendEvent::SessionEnded(session) => self.app_handle.emit(name, session),
             BackendEvent::HashtableSyncProgress(progress) => self.app_handle.emit(name, progress),
+            BackendEvent::ExtractProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LinkedBinsUpdated
             | BackendEvent::WadReportsUpdated
             | BackendEvent::LibraryChanged => self.app_handle.emit(name, ()),

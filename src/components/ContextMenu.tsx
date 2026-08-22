@@ -121,7 +121,9 @@ export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(
         {...props}
       >
         {icon && <span className="h-4 w-4 shrink-0 opacity-70">{icon}</span>}
-        <span className="flex-1">{children}</span>
+        {/* A menu item is one line, so a long label loses its tail rather than
+            taking the popup's width past what the call site set. */}
+        <span className="min-w-0 flex-1 truncate">{children}</span>
         {shortcut && <Kbd shortcut={shortcut} />}
       </BaseContextMenu.Item>
     );

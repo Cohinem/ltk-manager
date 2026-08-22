@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                     |
-| ---------- | -------------------------------------------------------------------------- |
-| 2026-08-21 | Pan and zoom a preview, on `react-zoom-pan-pinch`                          |
-| 2026-08-21 | Draw a bin as blocks, and move the preview into its own document           |
-| 2026-08-20 | Match a run of characters and every term, not a subsequence                |
-| 2026-08-20 | Search the whole install from the bar, on a scorer in Rust                 |
-| 2026-08-20 | Build the project bar, its palette and the history arrows                  |
-| 2026-08-20 | Keep the bin dependency graph, and compute a closure rather than store one |
-| 2026-08-20 | Index the project's own bin objects, and search them first                 |
-| 2026-08-20 | Search every bin object path, on an index the palette reads                |
-| 2026-08-20 | Give the explorers a location, a breadcrumb, a grid and a sort             |
-| 2026-08-19 | Propose the project bar, its palette and the history arrows                |
+| Date       | Change                                                                   |
+| ---------- | ------------------------------------------------------------------------ |
+| 2026-08-22 | Delete a layer file or folder from its own tree row                      |
+| 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself         |
+| 2026-08-22 | Extract with no dialog, and copy a game file into a layer                |
+| 2026-08-22 | Implement the extract to disk, on the branch's extractor                 |
+| 2026-08-21 | Key every chunk by `WadHash` upstream, the bin tooling's own hash type   |
+| 2026-08-21 | Reshape the extractor API upstream, one resolver type and closures       |
+| 2026-08-21 | Recover chunk names from the bins, on a byte scan the crate runs         |
+| 2026-08-21 | Pan and zoom a preview, on `react-zoom-pan-pinch`                        |
+| 2026-08-21 | Draw a bin as blocks, and move the preview into its own document         |
+| 2026-08-20 | Extract a selection, a directory or an archive to disk, as wadtools does |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -62,7 +62,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Asset thumbnails       | Proposed    | A small mipmap over `ltk-asset`, at the tile's own width    |
 | Details list           | Proposed    | The third view. Name, size, kind, and modified where it is  |
 | Explorer sorting       | Proposed    | Name, size and kind, and the directories first              |
-| Multi-select and copy  | Proposed    | What makes a copy of many game files worth the trip         |
+| Multi-select and copy  | Proposed    | One model under every view. A directory is its files        |
 | Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                 |
 | Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library         |
 | Bin preview            | Planned     | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)    |
@@ -73,7 +73,14 @@ This table holds every major feature of the editor. A status word has one meanin
 | Game index             | In progress | Folded, in memory and searchable. The mmap cache remains    |
 | Scoped game browser    | Available   | One tab for each archive, from either list of archives      |
 | Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings   |
-| Copy into a layer      | Planned     | Writes a game file into the selected layer                  |
+| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain    |
+| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick      |
+| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once     |
+| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer           |
+| Held mark              | Proposed    | A game row that the selected layer holds. No backend work   |
+| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer    |
+| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains             |
+| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view    |
 | Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**         |
 | PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**        |
 | Source control section | Planned     | Git history for the declarative data                        |
@@ -105,7 +112,8 @@ data in the editor.
 of an asset. A user manages which files a layer holds, and edits a file itself elsewhere.
 
 The [game browser](#game-browser) reads the assets of the installed game under the same
-rule. It never writes into the game directory, and a copy into a layer is its one output.
+rule. It never writes into the game directory. A copy into a layer and an extract to disk
+are its two outputs.
 
 ### Declarative data
 
@@ -1035,6 +1043,43 @@ search is the one exception, and it reads every layer.
 - A run of directories that each hold one directory folds into one row
 - The tree renders through a virtualizer, so the file count does not change the cost
 
+#### What a row's menu holds
+
+- **Open**, on a file row, which is the menu's route to what a double click does
+- **Open in VS Code**, on a property bin, when the ritobin integration is set up
+- **Copy Name** and **Copy Relative Path**
+- **Reveal in Explorer**, on the row's own path
+- **Delete**, on `Del`
+
+#### Deleting a row
+
+A delete takes what the row names. A file row takes the file, a directory row takes the
+directory and everything below it, and a folded row takes the whole run its name spells out.
+
+Every delete is confirmed, and not only the ones that look expensive. A layer file is often
+the only copy of an edit and nothing here reaches the recycle bin, so being wrong costs the
+same either way. What the confirmation varies is how much it says is going, and a
+directory names the count of files below it before the button is in reach.
+
+The confirmation opens on the row rather than in the middle of the screen. A tree is a
+place as much as it is a list, and a modal in the centre asks the reader to carry the
+row's identity across the gap and back. Anchored, the answer stands next to the question.
+
+Everything else dims behind it, and the row itself is cut out of the dim. Blurring the row
+the popover is pointing at would undo what the anchoring bought, so the scrim is drawn as
+four strips around the row, with a ring on it to keep the gap from reading as a seam.
+
+The path leads the popover, set on its own as mono text rather than quoted inside the
+prompt. A folded row spells out five or six segments, and a path wrapped mid-segment
+inside a sentence reads as prose, when it is the one thing on screen a reader has to check
+character by character. The part the delete takes is the bright tail of it, and whatever
+stays behind is dim.
+
+The directories a delete empties go with it, up to the layer root. The listing is built from
+files, so a directory holding none has no row and no size, and one left behind is a folder
+the tree cannot show. It would still be what makes the layer read as non-empty to the
+project validator.
+
 ### Search
 
 A layer holds hundreds of files. A search box at the top of the panel is the fastest route
@@ -1154,7 +1199,8 @@ a scoped game browser. Each of them is a tree and nothing else. A modder who kno
 the file they want is served. A modder who would know the texture on sight is not.
 
 This section gives all three one set of controls: a location, a breadcrumb over it, a second
-view that draws tiles, and the sorting and filtering that a list of files asks for.
+view that draws tiles, the sorting and filtering that a list of files asks for, and one
+selection under every view.
 
 ### Three explorers, one set of controls
 
@@ -1419,22 +1465,137 @@ draw, and one click clears one.
 
 ### Selection
 
-A tree holds a focused row today and no selection. The grid holds a selection, because the copy
-that the game browser exists for is worth doing to more than one file at a time.
+Every explorer holds a selection, and the selection belongs to the explorer and not to the view
+that draws it. A tree, a grid and a details list are three drawings of one set of items, and a
+user who selects four textures in the grid and switches to the tree to read where they sit
+keeps the four. The same holds for a view nobody has built yet. A tree held a focused row and
+nothing else until the copy that the game browser exists for asked for more than one file at a
+time.
 
-| Gesture             | Does                                        |
-| ------------------- | ------------------------------------------- |
-| A click             | Selects one                                 |
-| `Ctrl` and a click  | Adds one, or removes one                    |
-| `Shift` and a click | Extends from the anchor                     |
-| `Ctrl+A`            | Selects the directory                       |
-| A double click      | Opens a file, and descends into a directory |
+**The model.** One set of item ids and one anchor, in one hook that every view mounts and no
+view writes for itself. An id is what the source names an item by: a file's path hash, or a
+directory's path. Those ids hold across a sort, a filter, a search and a view switch, which is
+what lets the selection outlive all four. The model offers select, toggle, extend, select all
+and clear, and it answers the count, the size and the targets a copy takes. No view reads the
+set to decide anything. A view asks the model.
 
-The context menu acts on the selection, so **Copy into the layer** writes every selected file.
-That is the gesture that turns a screen of thumbnails into a layer.
+| Gesture              | Does                                                     |
+| -------------------- | -------------------------------------------------------- |
+| A click              | Selects one, and drops the rest                          |
+| `Ctrl` and a click   | Adds one, or removes one                                 |
+| `Shift` and a click  | Extends from the anchor, over every item between the two |
+| `Shift` and an arrow | The same, along the order the view walks                 |
+| `Ctrl+Space`         | Adds the focused item, or removes it                     |
+| `Ctrl+A`             | Selects every item in the directory that holds the focus |
+| `Escape`             | Clears the selection                                     |
+| A double click       | Opens a file, and descends into a directory in the grid  |
+| A right click        | Selects the item alone, unless the selection holds it    |
 
-The tree keeps its single focus for now. Multi-select in a tree spans depths and has to answer
-what a selected directory means, and neither question blocks the grid.
+The gestures are the same in every view. What differs is what "between" and "the directory that
+holds the focus" mean, and the view answers both.
+
+**What a view supplies.** Three answers, and nothing else.
+
+| The view gives             | In the tree                              | In the grid and the list       |
+| -------------------------- | ---------------------------------------- | ------------------------------ |
+| The visible order          | the flattened rows, whatever their depth | the tiles or rows, in the sort |
+| The focused item           | the focused row                          | the focused tile or row        |
+| The directory of the focus | the focused row's parent                 | the location                   |
+
+A range therefore runs over the rows on screen between the anchor and the click in the tree,
+whatever their depth, which is what Visual Studio Code's explorer does, and over the tiles in
+reading order in the grid. Under a filter, the directory that holds the focus is the filtered
+set, so `Ctrl+A` selects what the filter shows.
+
+**A selected directory is every file below it.** That is the whole answer to what a selection
+that spans depths means, and it holds in every view: a directory tile in the grid selects the
+same files as the directory row in the tree. A copy of it writes the files below it, and a
+count of it counts them. The copy writes each file once, whatever selected items cover it.
+
+The root game browser holds a collapsed directory's listing only once it opens, and a selection
+of that directory loads nothing. The backend walks the directory when the copy runs, because the
+index holds the files and the frontend does not.
+
+**What a view draws.** The model names three states for an item, and every view draws them with
+the same two marks: a fill for the set, and a ring for the focus.
+
+| State    | Means                               | Drawn as                  |
+| -------- | ----------------------------------- | ------------------------- |
+| Selected | the set holds the item              | the accent fill           |
+| Covered  | a selected directory holds the item | the fill at half strength |
+| Focused  | the keys act here                   | the ring                  |
+
+A row's fill is its band and a tile's fill is its background, and the two read as one system.
+Covered is what makes the reach of a selected directory visible without a count: the rows under
+it in the tree, and the tiles inside it once the grid descends. The focus and the selection are
+two marks, and an item can hold one without the other, which is what an arrow key without
+`Shift` moves. Every view sets `aria-multiselectable`, and `aria-selected` reports the selection
+and not the focus.
+
+**The bar.** The toolbar row states the selection at its right end, where the match count sits:
+the file count, the size, the explorer's action where it has one, and a clear control after
+them. The bar is the explorer's and sits above whichever view is showing, so a view switch does
+not move it. An empty selection shows nothing there, so the row reads as it does today. A
+directory's size needs a total on each directory entry, which the game index computes at the
+build beside the file count it keeps already.
+
+The context menu acts on the selection in every view, so **Copy into base** writes every
+selected file whether the menu opened on a row or on a tile. That is the gesture that turns a
+screen of thumbnails, or a tree of rows, into a layer. [Copy into a layer](#copy-into-a-layer)
+holds the rest.
+
+### An item is a drag source
+
+Every item of an explorer drags, in every view, and the drop target decides what the drop
+means. A surface opens it, and a layer takes a copy of it. The item carries one payload
+wherever it goes, so a target never asks which view or which explorer it came from.
+
+**The payload.** The model's item list: for each item its source, its id, its kind and its
+name. A drag that starts on a selected item carries the selection, and a drag on any other
+item carries that item alone, under the rule the context menu obeys. A target derives what it
+needs: a surface builds a preview reference for each file, and a layer copy builds its
+targets. Neither reads the view.
+
+| Dropped on                         | Does                                                     |
+| ---------------------------------- | -------------------------------------------------------- |
+| A tab strip                        | Opens each file there, at the index, as a tab drag lands |
+| The centre of a surface            | Opens each file there, at the end of the strip           |
+| An edge of a surface               | Splits there, and opens each file in the new group       |
+| A layer row of the Content section | Copies into that layer                                   |
+| The layer explorer                 | Copies into the layer it shows                           |
+
+The first three are the zones that [a tab drag](#a-tab-drag-creates-a-panel) has already, and
+an item lands on them with one difference: a tab moves and an item opens. The last two are
+new, and [Copy into a layer](#copy-into-a-layer) says what the copy writes.
+
+- A drop names the group, so the rule that puts a preview in a group of its own does not apply
+- A drag is a deliberate open, so it adds a tab whatever the tab open mode says, the way a
+  double click on a replaceable tab keeps it
+- Each file opens as its own tab, in the order dragged, and the first takes the focus. A drop
+  of many files opens many tabs, which is what a user asked for by dragging many
+- A file that is open already activates its tab, the rule every open obeys
+- A directory dropped on a surface opens nothing. A directory is a place and not a document,
+  and the surface paints no preview for it, the way it paints none for a split the resolver
+  refuses. Its files still drop on a layer
+
+**The ghost.** The kind glyph and the name for one item, and the count for more, the way a
+file manager draws it. A layer row under the pointer lights and names the copy,
+`Copy into base`, and the layer explorer lights whole, on the overlay the WAD drop draws
+already.
+
+**One context.** The editor's one `DndContext` sits at the grid's root today and never wraps a
+side panel, so the sidebar's layer reorder does not nest inside it. An item drag starts in a
+document and ends on a layer row, or starts in a side panel that hosts a browser and ends on
+a surface, so the context climbs to the content browser's root and wraps both. The layer
+reorder joins it as a sortable, and the collision rank tells a layer row under an item apart
+from a layer row under a layer. The activation distance stays, so a click on an item is still
+a click.
+
+**The keys exist already.** `Enter` opens, `Ctrl+Enter` opens beside, and `Ctrl+C` then
+`Ctrl+V` copies, so the drag adds no reach that a keyboard lacks.
+
+A layer file is the same draggable, and a drop of one on a surface opens it the same way. A
+drop of one on another layer is a later pass, once the layer explorer takes the selection.
 
 ### Keys
 
@@ -1450,6 +1611,9 @@ what a selected directory means, and neither question blocks the grid.
 | The arrows         | Move the focus, by a column in the grid    |
 | A letter           | Jumps to the next name that starts with it |
 | `Enter`            | Opens, and descends into a directory       |
+| `Ctrl+C`           | Copies the selection, in a game explorer   |
+| `Ctrl+V`           | Writes the copied files into the layer     |
+| `Ctrl+E`           | Opens the extract dialog for the selection |
 
 `Alt+←` stays with [the navigation history](#the-navigation-history). A move to a parent is not
 a move back.
@@ -1465,6 +1629,9 @@ a move back.
 | The location            | the document                   | it is where the user left the project                   |
 | The expansion           | the document                   | the same, and the trees hold it already                 |
 | The filter and the text | the document, and not the file | it answers one question and is gone by the next open    |
+| The selection           | the document, for the session  | it feeds one copy, and a restart has no copy pending    |
+| The copied files        | the app, for the session       | a copy in one project pastes into another               |
+| The conflict answer     | the app                        | a work habit, and the dialog's checkbox writes it       |
 
 `workshopLayout` holds the application's four, beside the alpha checkerboard and the tab open
 mode that it holds now. `.ltk/editor.json` holds the document's, with the tabs and the split
@@ -1482,18 +1649,23 @@ state that the workshop store already keys by layer.
   `aria-current="page"`
 - A thumbnail is `alt=""`. The tile's name is the label, and a second reading of it is noise
 - The grid holds one tab stop and moves a roving focus, the rule that the trees obey
+- Every drop has a key: `Enter` opens, `Ctrl+Enter` opens beside, and `Ctrl+C` then `Ctrl+V`
+  copies
 
 ### What ships in what order
 
-| Step | Holds                                                                       |
-| ---- | --------------------------------------------------------------------------- |
-| 1    | The bar, the location, the breadcrumb and the path input, in tree mode      |
-| 2    | The grid, the tile size, the thumbnail switch, and the `w` parameter        |
-| 3    | The sort, the kind filter and the chips, over every view                    |
-| 4    | The details list, the selection, and the recursive filter of the game index |
+| Step | Holds                                                                  |
+| ---- | ---------------------------------------------------------------------- |
+| 1    | The bar, the location, the breadcrumb and the path input, in tree mode |
+| 2    | The grid, the tile size, the thumbnail switch, and the `w` parameter   |
+| 3    | The sort, the kind filter and the chips, over every view               |
+| 4    | The details list, and the recursive filter of the game index           |
 
 Step 1 changes no backend. Step 2 changes one URL. Step 3 changes none. Step 4 waits on the
 scorer that [the project bar](#the-project-bar) builds.
+
+The selection is not in this table. It ships ahead of the grid, in the tree, under the order
+that [Copy into a layer](#copy-into-a-layer) sets, because the copy wants it first.
 
 ## Editor surface
 
@@ -1717,6 +1889,7 @@ shows every file of the game in one tree.
 - A copy into a layer lands at the path that the game reads
 - The first open is quick, and every open after it is quicker
 - A game patch costs a rebuild of the changed archives alone
+- A modder extracts a file, a directory or an archive to disk, under the rules wadtools set
 
 ### Where it opens
 
@@ -1851,21 +2024,427 @@ in the same viewer, so a modder compares the two with a switch between two tabs.
 
 ### Copy into a layer
 
-The copy is the purpose of the whole view. The browser writes the selected file into the
+The copy is the purpose of the whole view. The browser writes the selection into the
 selected layer at the path that the game reads, so the path is correct by construction.
 This removes the most common fault of a new mod.
 
 - A copy of a file writes one file
-- A copy of a directory writes every file below it
-- A target file that exists asks first
+- A copy of a directory writes every file below it, under the rule in
+  [Selection](#selection)
+- A copy writes each file once, whatever selected items cover it, and writes a shared chunk
+  under one archive
+- A target file that exists with other bytes asks first, unless a setting answers
 - A file with an unknown path lands under its hash, in hex
 
+**What is built.** The menu route, on one row or one directory, through the extractor
+rather than a copy command of its own - the same write and the same target path, with
+**Skip** for a file already there rather than the ask. The selection, the selection bar,
+the clipboard and the drag wait on [the selection model](#selection).
+
 The Content section of the primary side panel sets the target layer. This is the same
-selection that the secondary side panel reads.
+selection that the secondary side panel reads. A project with no layer disables the copy,
+and the control says so.
+
+The copy reads the targets of the [selection](#selection) and knows nothing of the view
+that built it. A file target names its archive and its hash, a directory target names its
+path, and the tree, the grid and the details list hand over the same list. A view that does
+not exist yet hands over the same list too, which is the test the design has to pass.
+
+#### The routes
+
+One command, reached four ways. The menu is what a mouse finds, the bar is what a selection
+shows, the keys are what a keyboard knows, and the drag is what a file manager taught. Each
+route ends in the same write and the same report, and each one reads the model and not the
+view, so a route that works on a row works on a tile.
+
+**The context menu.** **Copy into base** acts on the selection, and names the target layer
+in its label, so a user reads where the files go before the click. **Copy into…** lists the
+other layers, for a file that belongs in a chroma and not in the base. A project with one
+layer shows no submenu. The menu is one component, mounted by every view. A right click on
+an item outside the selection selects that item alone first, the rule every file manager
+obeys, so a user who right-clicks one file copies one file and a user who built a selection
+keeps it.
+
+**The selection bar.** The count and the size at the right of the toolbar row, then one
+button that names the layer, **Copy into base**, with the other layers on its caret. This is
+the shape the workshop's selection button draws already, and it is the route a user finds
+once a selection exists and no menu is open. The scoped browser draws the toolbar row as
+soon as a selection exists, and [the explorer bar](#the-explorer-bar) gives it one for good.
+
+**The keys.** `Ctrl+C` in a game browser copies the selection, or the focused row when
+nothing is selected, so the key never does nothing. `Ctrl+V` in the editor writes the copied
+files into the layer that is selected at the paste. The editor's clipboard holds the files,
+and a paste in a second project writes there, because the game is one and the clipboard is
+the application's. `Ctrl+V` inside a text field pastes text, as it always did.
+
+The same `Ctrl+C` writes the chunk paths to the system clipboard, one on each line. A modder
+who copies a texture often pastes its path into a `.bin` next, and one gesture serves both
+readers. **Copy Chunk Path** stays in the menu for the single row.
+
+**The drag.** An [item is a drag source](#an-item-is-a-drag-source), and a layer is one of
+its targets. A drag that starts on a selected item carries the selection, and a drag on any
+other item carries that item alone, so a drag from a tile and a drag from a row drop the
+same thing. It drops on a layer row of the Content section, or on the layer explorer
+wherever that explorer is hosted and whatever view it draws. The explorer lights as one
+target and not a row or a tile of it, on the overlay the WAD drop draws already, and the
+overlay reads `Copy 12 files into base`.
+
+A paste and a drop land at the game path whatever item of the layer explorer holds the focus
+or the pointer. The path is not the user's to choose, which is the whole point of the copy.
+
+#### The target path
+
+A layer holds one directory for each archive it changes, named as the archive's file is
+named, and the chunk path under it.
+
+```
+content/<layer>/<Archive>.wad.client/<chunk path>
+```
+
+| The chunk                         | Lands at                                               |
+| --------------------------------- | ------------------------------------------------------ |
+| A named chunk of one archive      | `<archive>/<path>`                                     |
+| A named chunk of several archives | The same, under the one archive the copy chooses       |
+| An unnamed chunk                  | `<archive>/<hash>.<ext>`, the extension from the bytes |
+
+The archive directory takes the archive's file name and not its directory under
+`DATA/FINAL`, which is how the layer names its WADs already and what the WADs section reads.
 
 The hex name loses nothing. The overlay builder reads a file stem of sixteen hex digits as
-the chunk hash itself, so a copy under a hex name targets the same chunk as a copy under a
-path.
+the chunk hash itself, and it reads the stem alone, so an extension beside it costs nothing
+and gives the file a viewer. `LeagueFileKind::identify_from_bytes` in `ltk_file` names the
+kind and `extension` names the suffix, which is how wadtools names a chunk it extracts and
+how the preview names an unnamed chunk's kind already. A chunk that no sniff names keeps
+`.bin`, which is the name `ltk_overlay` gives such a chunk itself.
+
+#### A chunk in several archives
+
+The index folds every archive into one tree, and a chunk that several archives carry is one
+file in it. 939,329 chunks fold to 819,136 files, so about one chunk in eight has a second
+copy somewhere in the install. A shared particle texture sits in a champion's archive and in
+a map's.
+
+**One file, one archive.** A copy writes a shared chunk once, under the archive the user
+means, and never a duplicate. The mod does not need the second copy, and a layer that held
+one would carry the game's own redundancy as its own weight.
+
+The copy chooses the archive in this order, and stops at the first rule that answers.
+
+| Rule | The archive                                 | Because                                                 |
+| ---- | ------------------------------------------- | ------------------------------------------------------- |
+| 1    | The scoped browser's own                    | The tab names it, and the scope is the user's statement |
+| 2    | The only one, when one carries the chunk    | Seven chunks in eight                                   |
+| 3    | One that the selected layer changes already | A modder at work on Aatrox keeps landing in Aatrox      |
+| 4    | The one a segment of the path names         | `assets/characters/aatrox/…` names `Aatrox.wad.client`  |
+| 5    | The user's pick, in the dialog              | Nothing else can answer                                 |
+
+Rule 4 compares each segment of the path with each archive's file stem, without case. Rule 5
+opens [the dialog](#the-dialog), and the select there starts on the archive that carries the
+most files of the copy, so a batch from one champion lands in one place.
+
+The index keeps the first archive of a chunk today and drops the rest. Rules 2 to 5 need
+every one. A file that one archive carries costs what it costs now, and the 120,193 extra
+copies cost a small integer each. `GameFileEntry` gains the list, and the row's tooltip and
+the inspector read it.
+
+#### The dialog
+
+A copy runs without a dialog when nothing about it needs a decision, and one dialog carries
+every decision it does need. Three things open it.
+
+| Trigger                                     | The dialog shows                     |
+| ------------------------------------------- | ------------------------------------ |
+| A file exists in the layer with other bytes | The list, and Skip or Replace        |
+| A shared chunk that no rule places          | The archives, as a select            |
+| More than 200 files or 256 MB               | The count, the size and the archives |
+
+A file that exists in the layer with the same bytes is no decision. The game's copy and the
+layer's copy are one file, so the copy leaves it and the report counts it as skipped. The
+question is asked about a file the modder changed, which is the one file a replace can cost
+them.
+
+**The answer is a setting.** The Project editor section of the settings gains **When a
+copied file exists**: Ask, Skip or Replace. Ask is the default. A checkbox in the dialog,
+**Do this every time**, writes the other two, so a user meets the setting in the flow and
+not in a settings page. The setting is the application's, beside the tab open mode.
+
+Ask is the default because two flows pull the other way, and nothing in a copy says which
+one is at work. A modder who edits in the layer wants Skip, because a replace loses the
+edit. A modder who pulls the game's files again after a patch wants Replace, because the
+edit is the thing to redo. Either sets the answer once and never sees the question again.
+
+The dialog's buttons are **Copy** and **Cancel**. Cancel writes nothing. The frontend has the
+count and the size from the rows before the plan returns, which is what the size on a
+directory entry is for, so the summary draws at once and the rest fills in.
+
+#### The commands
+
+Two commands, because the dialog needs three answers before anything is written, and the
+backend is the side that holds them.
+
+`plan_game_copy` takes the project, the layer and the targets. It walks each directory
+target, applies the archive rules, and compares each file that exists in the layer with the
+chunk's bytes. It returns the count and the size, the archive of each file, the files that
+need a pick with their candidates, and the files that exist with other bytes. It writes
+nothing, and it reads only the files that exist in the layer, which are few.
+
+`copy_game_files_to_layer` takes the same, with the picks and the conflict answer, `skip` or
+`replace`. Each file writes to a temporary name and renames into place, the rule
+`add_files_to_layer` obeys. A copy that fails part way keeps the files it wrote, because
+each is whole on its own, and the report names the one that failed. The report holds what
+was written, what was skipped, what was replaced, and the archives.
+
+| Target      | Holds                                | Expands to                         |
+| ----------- | ------------------------------------ | ---------------------------------- |
+| A file      | the archive and the path hash        | itself                             |
+| A directory | an index path, and an archive or all | every file below it, in that scope |
+
+The backend walks a directory, because the root browser never loaded its children. A copy
+above the dialog's size line reports its progress, on the event shape the Fantome import
+uses, and the toast holds the bar.
+
+A target names its source the way an `AssetRef` does, so a later source copies through the
+same two commands with one more variant: a mod package, a Fantome archive, a second install.
+The views never learn which source they draw, and the copy never learns which view asked.
+
+#### The report
+
+- A toast: `Copied 12 files into base`, the archives in its description, and a **Show**
+  action that reveals the first file in the layer tree
+- The content tree refetches, so the layer tree and the WADs section show the new files
+- The rows stay selected. A second layer takes the same files in two clicks, which is how a
+  base and a chroma start
+
+#### What ships in what order
+
+| Step | Holds                                                                        |
+| ---- | ---------------------------------------------------------------------------- |
+| 1    | The model, its keys and its bar, in the tree. A size on a directory entry    |
+| 2    | The commands, the menu, the bar's button, the dialog, its setting and report |
+| 3    | `Ctrl+C` and `Ctrl+V`, with the paths on the system clipboard                |
+| 4    | The held mark, and its switch                                                |
+| 5    | The item drag, onto a surface to open and onto a layer to copy               |
+
+Step 1 adds one field to one struct. Step 2 is the backend work, and it is where the index
+starts to keep every archive of a chunk. Steps 3 to 5 change no backend. The tree is the
+first view to mount the model because it is the view that exists. The grid and the details
+list mount the same hook when they land, and none of the five steps waits on them. The layer
+explorer takes the same model in a later pass, when a delete and a reveal give it an action
+to act on.
+
+### The held mark
+
+An item of a game browser whose path the selected layer holds already draws a mark, and
+`In base` on its tooltip. A directory draws it when any file below it does. Held is an item
+state beside the three that [Selection](#selection) names, so each view draws it in its own
+idiom: a dot in the accent before the size in the tree and the list, and a badge on the tile
+in the grid.
+
+This is the inverse of the inspector's **In the game archive** field, and it answers the
+question that field cannot: which of the game's files does this mod change already? A
+modder reads it across the whole game at one look, and a copy that would conflict is
+visible before it starts.
+
+No backend work. The content tree payload holds every path of the layer, and a set of those
+paths, with the archive directory cut off, answers a row in constant time. The ancestors of
+each path join the set once per layer, so a directory row answers the same way.
+
+The mark follows the selected layer, so a switch in the Content section redraws it.
+**In the layer**, a second switch in the kind menu of the two game explorers, narrows to the
+marked rows. Read [Filtering](#filtering).
+
+### Extract to disk
+
+A modder does not always want a file in a mod. A texture goes to an image editor, a `.bin`
+goes to ritobin, a mesh goes to a viewer, and a whole archive goes to a folder that other
+tools read. The browser's second output is an extract to disk. It reads the same
+selection, the same targets and the same directory walk as the copy, so a gesture that
+copies is a gesture that extracts.
+
+#### What extracts
+
+| Gesture                                  | Extracts                                                       |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| **Extract…** on the selection            | every selected file, and every file below a selected directory |
+| **Extract…** on a directory              | every file below it                                            |
+| **Extract…** on an archive row           | the whole archive                                              |
+| **Extract archive…** in a scoped browser | the same, from inside the archive                              |
+| `Ctrl+E`                                 | the selection, or the focused item when nothing is selected    |
+
+The item reads **Extract…** with the ellipsis, because a dialog follows. It sits under
+**Copy into base** in the same menu, on a row, a tile or an archive row alike, in every
+view. An archive row is a row of the Game WADs tab or of the WADs section, and both gain
+the menu and a hover action for it.
+
+The Game WADs list takes [the selection model](#selection) too, so a user selects three
+archives and extracts them in one go. Each archive lands in a directory of its own name.
+
+#### The dialog
+
+One dialog, remembered field by field, so the second extract is two clicks.
+
+| Field                     | Holds                                                  | Default              |
+| ------------------------- | ------------------------------------------------------ | -------------------- |
+| Destination               | A folder, with a Browse button                         | the last folder used |
+| Layout                    | **Keep paths** or **Flat**                             | Keep paths           |
+| One folder per archive    | A switch. Adds `<Archive>.wad.client/` above each path | off                  |
+| Existing files            | **Skip** or **Replace**                                | Skip                 |
+| Open the folder when done | A switch                                               | on                   |
+
+A summary line above the fields states the count, the size and the archives, from the same
+plan the copy runs, so a user reads what a directory holds before the write starts.
+
+**Keep paths** writes each file at its game path under the destination, which is what
+wadtools does and what a repack needs. Two extracts into one folder merge into one mirror
+of the game, and a modder builds that mirror over a month without a thought.
+
+**Flat** writes every file into the destination by its name alone. A second file of the
+same name takes its path hash before the extension, `aatrox_base_tx_cm.0123456789abcdef.tex`,
+so nothing is lost and nothing is asked.
+
+**One folder per archive** writes the layout a layer holds. A folder extracted with it
+drops straight onto a layer through **Add WAD folder**, so an extract is also a way to
+stage a layer outside the project.
+
+The destination refuses a folder inside the League install. The manager never writes into
+the game directory, and an extract is not the exception.
+
+**The filter chips.** An extract writes what the explorer shows. A user who filtered the
+tree to textures and extracts a directory gets its textures, and the dialog names the chips
+in its summary, `Textures only`, with a control to lift them for this one extract. wadtools
+has the same switch as `--filter-type`.
+
+#### Without the dialog
+
+A dialog per file is the price of the first extract, not of every one. Once a folder has
+been picked, every menu that carries **Extract…** carries two items above it, and the
+dialog moves to `Ctrl+Shift+E`. The three read the same on a file row, a directory row, an
+archive row, a right click on the tab itself, and the row under an archive or a preview
+tab, because each of those differs only in what the aim expands to.
+
+- **Copy into `<layer>`**, `Ctrl+I`, writes the aim into the selected layer exactly as
+  [Copy into a layer](#copy-into-a-layer) has it - at the game path under
+  `<Archive>.wad.client/`, and never over a file already sitting there
+- **Extract to `<folder>`**, `Ctrl+E`, writes the aim into the last folder used, on the
+  answers the dialog last took
+
+Neither is drawn where it has nowhere to go. Until a folder has been picked there is
+nothing to repeat, so the quick item is absent and `Ctrl+E` opens the dialog instead, and
+a project with no layer shows no copy.
+
+`Ctrl+I` is an interim key. The design gives the direct copy none of its own, because
+`Ctrl+C` and `Ctrl+V` are its keyboard route, and the game clipboard is unbuilt - so
+`Ctrl+C` stays free for it.
+
+A preview tab offers the two, and not the dialog: **Save a copy…** is already the whole of
+the dialog one file needs, since its save dialog names the file and picks the folder.
+
+An extract runs alongside whatever comes next. The dialog shuts on **Extract**, and the
+bar and its **Cancel** ride the toast, so a modder browses on while an archive is read.
+One runs at a time, and a second request is answered rather than queued.
+
+#### The rules
+
+wadtools is the reference, and its rules are the crate's rules. Read
+`crates/wadtools/src/extractor.rs` in `LeagueToolkit/wadtools` and
+`crates/ltk_wad/src/extractor.rs` in `LeagueToolkit/league-toolkit`.
+
+| Case                                  | The file is named                                          |
+| ------------------------------------- | ---------------------------------------------------------- |
+| A resolved path                       | the path, as the hash table names it                       |
+| An unresolved hash                    | `<hash>.<ext>`, the extension from the sniff               |
+| A path with no extension              | `<stem>.ltk.<ext>`, or `<stem>.ltk` when no sniff names it |
+| A path that collides with a directory | the same `.ltk` form                                       |
+| A name too long for the file system   | `<hash>.<ext>`, in the destination root                    |
+
+- A write is whole or absent. **Skip** opens the file with `create_new`, so an existing file
+  is skipped without a race, and **Replace** writes over it. This is wadtools' `--overwrite`
+  switch, and Skip is its default too
+- A chunk is read once, raw, and decompressed on a worker, so the archive is read in order
+  while the disk writes in parallel. A bounded channel between the two caps the memory, and
+  this is the pipeline wadtools runs
+- The report counts what was written, what was skipped, the bytes, and the files by kind,
+  which is wadtools' `--stats`
+
+#### The extractor lives in `ltk_wad`
+
+Two copies of the rules exist today, one in `ltk_wad::WadExtractor` and one in wadtools'
+own `Extractor`, and they agree line for line on the naming. The library copy extracts a
+whole archive alone, in sequence, and always over an existing file. The tool's copy has
+everything else, and nobody else can call it.
+
+The manager needs the tool's copy as a library, so the default extractor in `ltk_wad` takes
+what wadtools holds, and wadtools drops its own.
+
+| The crate gains                           | Comes from                  |
+| ----------------------------------------- | --------------------------- |
+| A chunk subset, and not the whole archive | new, for a selection        |
+| The flat layout, with the hash suffix     | new                         |
+| Skip or replace, through `create_new`     | wadtools                    |
+| Bytes and by-kind counts in the result    | wadtools                    |
+| The parallel reader and writer pipeline   | wadtools                    |
+| A cancel flag the reader tests            | new, for the toast's Cancel |
+| Names recovered from `.bin` files         | wadtools, on a byte scan    |
+
+`PathResolver` stays the seam, and any `HashMap<WadHash, String>` is one. A resolver answers
+`None` for a hash it has no name for, and the crate writes that chunk under its hash. The
+manager's resolver is the game index itself, which resolved every path through the mimir
+tables at the build, so the extractor asks nothing the index has not answered already.
+
+**What the name recovery costs, measured.** The crate reads a bin's strings as the
+length-prefixed runs the format writes, with no parse of the object tree, and it tells a
+bin from any other chunk by its first block alone, through one zstd context kept for the
+whole pass. Against wadtools' full parse on the same install, the names come out
+identical: 2,600 for `Aatrox.wad.client` and 60,326 for `Global.wad.client`, with no hash
+table at all. `Global` takes 1.5 seconds that way, where the full parse takes 3.7. With the
+mimir tables synced, 18 chunks of 560,894 across 205 archives have no name, and no bin
+names them, so the pass finds nothing and costs half a second on `Global`. The pass is for
+the machine whose cache is not synced yet.
+
+This is a change in `LeagueToolkit/league-toolkit`, and the manager's extract waits on it.
+It sits on the `feat/wad-extractor` branch there, as PR #183 of four commits, and a release
+remains. The third commit reshapes the API, since the release breaks it anyway. The
+extractor holds one `&dyn PathResolver`, and closures for the path filter and the progress.
+`extract_chunks` takes path hashes, and lists the ones the archive lacks. Progress reports
+each chunk once it is done, and a failure names its chunk through `WadError::Chunk`. The
+fourth commit keys every chunk by `ltk_hash::WadHash`, the type a `WadChunkLink` in a bin
+already holds, so a link read out of a bin looks its chunk up with no conversion. The
+manager drives `WadExtractor` for a WAD import today, with the resolver that names
+nothing, so the crate is a dependency already and the upgrade is a version bump and two
+call sites.
+
+#### The command and the report
+
+`extract_game_files` takes the targets, the destination, the layout, the per-archive
+switch, the existing-files answer and the kind filter. It expands the targets as
+`plan_game_copy` does, groups the chunks by archive, mounts each through the WAD cache,
+and drives the extractor once per archive.
+
+- A progress event carries the count done, the total, the bytes, and the current path, on
+  the shape the Fantome import uses. The toast holds the bar and a **Cancel**
+- A cancel stops the reader, and the files written so far stay, because each is whole
+- The report: `Extracted 1,204 files (312 MB)`, the destination as its description, the
+  kinds under it, and an **Open folder** action. The folder opens itself when the switch
+  says so
+
+A preview tab's context menu gains **Save a copy…**, which is this extract for one file
+through a save dialog, so a modder who has the texture open does not go back to the tree
+for it.
+
+#### What ships in what order
+
+| Step | Holds                                                                      |
+| ---- | -------------------------------------------------------------------------- |
+| 1    | The crate: the subset, skip or replace, the stats, flat, the name recovery |
+| 2    | The dialog and the command, on the selection and on a directory            |
+| 3    | The archive rows, the Game WADs selection, and the scoped browser's action |
+| 4    | The progress event, the cancel and the pipeline                            |
+| 5    | `Ctrl+E`, **Save a copy…**, and the filter chips                           |
+
+Step 1 is upstream. Steps 2 and 3 change the frontend and one command. Step 4 lands the
+parallel pipeline in the crate and the cancel on both sides. The drag out of the window in
+[Ideas for review](#ideas-for-review) is this extract with the desktop as the destination
+and Flat as the layout.
 
 ### Hash names
 
@@ -2088,6 +2667,9 @@ other seam.
 The tab strip drags with `@dnd-kit` today. The four boundaries of a leaf become drop
 targets of the same kind, so one drag reaches both a reorder and a split.
 
+An explorer item drags onto the same zones and opens rather than moves. Read
+[An item is a drag source](#an-item-is-a-drag-source).
+
 This gesture answers the question of how many times a panel type appears. The editor
 surface appears as many times as the user drags, because a split is the purpose of the
 gesture. Every other panel type appears once, because none of them holds a tab.
@@ -2197,6 +2779,16 @@ commit box, in the shape that Visual Studio Code uses.
 **An empty state that teaches.** Each empty section names the first action in plain words,
 and not only a button. This is the cheapest help for a new modder.
 
+**A copy from the palette.** `Alt+Enter` on a game row of the project bar copies that file
+into the selected layer, for the modder who holds the path as a string and wants the file
+and not a preview. The bar already reads `Ctrl+Enter` for a split, so the modifier has a
+home.
+
+**A drag out of the window.** A game file dropped on the desktop extracts it. The item is a
+drag source already, and the operating system is one more target, through a drag-out plugin
+for Tauri. The payload is the same list, and the target runs
+[the extract](#extract-to-disk) with the drop as the destination and Flat as the layout.
+
 ## Open questions
 
 1. Does the `.ltk` directory belong in version control? A layout is a work habit, and the
@@ -2212,10 +2804,14 @@ and not only a button. This is the cheapest help for a new modder.
 5. Does the sort belong to the application or to each explorer? One sort for every explorer
    is one thing to learn, and a modder reading the game index by size may still want their
    own layer by name.
-6. Does the tree gain the grid's multi-select? A selection that spans depths has to answer
-   what a selected directory holds, and a copy is the only action that wants it.
-7. Does a thumbnail survive a scroll? Nothing is stored today. A bounded cache of encoded
+6. Does a thumbnail survive a scroll? Nothing is stored today. A bounded cache of encoded
    thumbnails is the escalation, and a measurement should buy it.
+7. Does an extract obey the filter chips? The proposal says yes, because the explorer shows
+   what the extract writes and the dialog names the chips. The other reading extracts the
+   whole directory and leaves the chips to the view.
+8. Where does the first extract go? The proposal remembers the last folder and starts with
+   none, so the first extract asks. A default under the user's documents is the other
+   reading, and it saves one click once.
 
 ### Answered
 
@@ -2265,5 +2861,16 @@ and not only a button. This is the cheapest help for a new modder.
 | Which side matches the project's objects?        | The frontend, on the content scan's payload         |
 | Does a bin's dependency list earn a stored edge? | Yes, and never a stored closure                     |
 | Which reader wants the dependency graph?         | Not search. The link picker and the problems list   |
+| Does the tree gain the grid's multi-select?      | Yes. A selected directory is every file below it    |
+| Does a shared chunk land under every archive?    | No. One file, under the archive the copy chooses    |
+| Does `Ctrl+C` reach the system clipboard?        | Yes, with the chunk paths, one on each line         |
+| Is the conflict answer a setting?                | Yes. Ask, Skip or Replace, and Ask is the default   |
+| Does the layer file tree take the selection now? | No. The copy runs from the game into the mod        |
+| How does an unnamed chunk get an extension?      | `LeagueFileKind::identify_from_bytes`, as wadtools  |
+| Does the selection belong to a view?             | No. To the explorer, and a view switch keeps it     |
+| What does an item dropped on a surface do?       | Opens there. A tab moves, and an item opens         |
+| Which crate holds the extractor?                 | `ltk_wad`. wadtools and the manager both drive it   |
+| Does an extract keep the game paths?             | Yes by default, and a switch flattens it            |
+| How does the crate recover a chunk's name?       | A byte scan of the bins, found by their first block |
 
 A row moves here when the body of this document carries the answer.

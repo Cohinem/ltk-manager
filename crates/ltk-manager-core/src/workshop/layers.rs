@@ -12,7 +12,7 @@ use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fs;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 impl ProjectDir {
     /// Create a new layer.
@@ -275,7 +275,7 @@ fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) ->
     let file = fs::File::open(src)?;
     let mut wad = Wad::mount(BufReader::new(file))?;
 
-    let extractor = WadExtractor::new(resolver);
+    let mut extractor = WadExtractor::new(resolver);
     let utf8_dst = Utf8Path::from_path(dst).ok_or_else(|| {
         AppError::Other(format!(
             "WAD output path is not valid UTF-8: {}",
@@ -310,6 +310,61 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<()> {
         }
     }
     Ok(())
+}
+
+/// Resolve a layer-relative path to somewhere the layer genuinely holds.
+///
+/// Deleting is permanent, so this is deliberately stricter than joining. Every
+/// segment has to be one plain name, which rejects `..` and an absolute path
+/// before anything reaches the disk, and the directory the entry sits in is
+/// then canonicalized and checked against the layer - which is what a symlink
+/// partway down the path cannot get past.
+fn resolve_in_layer(layer_dir: &Path, relative_path: &str) -> AppResult<PathBuf> {
+    let reject = || {
+        AppError::ValidationFailed(format!(
+            "'{}' is not a path inside this layer",
+            relative_path
+        ))
+    };
+
+    let mut target = layer_dir.to_path_buf();
+    let mut depth = 0usize;
+    for segment in relative_path.split('/').filter(|s| !s.is_empty()) {
+        let mut parts = Path::new(segment).components();
+        match (parts.next(), parts.next()) {
+            (Some(Component::Normal(name)), None) => target.push(name),
+            _ => return Err(reject()),
+        }
+        depth += 1;
+    }
+
+    // The layer itself is not one of its own entries.
+    if depth == 0 {
+        return Err(reject());
+    }
+
+    let parent = target.parent().ok_or_else(&reject)?;
+    if !fs::canonicalize(parent)?.starts_with(fs::canonicalize(layer_dir)?) {
+        return Err(reject());
+    }
+
+    Ok(target)
+}
+
+/// Remove the directories a delete just emptied, up to the layer root.
+///
+/// A listing is built from files, so a directory holding none has no row and no
+/// size. Leaving one behind means the layer keeps offering an archive the tree
+/// shows as gone. `remove_dir` refuses a directory that still holds anything,
+/// which is both the stop condition and the reason this cannot overreach.
+fn prune_empty_parents(layer_dir: &Path, deleted: &Path) {
+    let mut cursor = deleted.parent();
+    while let Some(dir) = cursor {
+        if dir == layer_dir || fs::remove_dir(dir).is_err() {
+            return;
+        }
+        cursor = dir.parent();
+    }
 }
 
 impl ProjectDir {
@@ -414,6 +469,45 @@ impl ProjectDir {
         }
 
         Ok(AddFilesReport { added })
+    }
+
+    /// Delete one file or directory from a layer's content directory.
+    ///
+    /// `relative_path` addresses it from the layer root, the way the content
+    /// listing names its entries, and a directory goes with everything below
+    /// it. The entry itself is removed without being followed, so a symlink
+    /// costs the link rather than what it points at.
+    pub fn delete_layer_content(&self, layer_name: &str, relative_path: &str) -> AppResult<()> {
+        let layer_dir = self.layer_content_path(layer_name)?;
+        let target = resolve_in_layer(&layer_dir, relative_path)?;
+
+        let metadata = fs::symlink_metadata(&target).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                AppError::ValidationFailed(format!(
+                    "'{}' is no longer in this layer",
+                    relative_path
+                ))
+            } else {
+                AppError::Io(e)
+            }
+        })?;
+
+        let is_dir = metadata.is_dir();
+        if is_dir {
+            fs::remove_dir_all(&target)?;
+        } else {
+            fs::remove_file(&target)?;
+        }
+        prune_empty_parents(&layer_dir, &target);
+
+        tracing::info!(
+            layer = %layer_name,
+            path = %relative_path,
+            directory = is_dir,
+            "Deleted layer content"
+        );
+
+        Ok(())
     }
 
     /// Collect runtime info about each layer's content directory.
@@ -541,6 +635,17 @@ impl Workshop {
         let source_paths = sources.into_iter().map(PathBuf::from).collect();
         self.project(project_path)?
             .add_files_to_layer(layer_name, source_paths)
+    }
+
+    /// Delete one file or directory from a layer's content directory.
+    pub fn delete_layer_content(
+        &self,
+        project_path: &str,
+        layer_name: &str,
+        relative_path: &str,
+    ) -> AppResult<()> {
+        self.project(project_path)?
+            .delete_layer_content(layer_name, relative_path)
     }
 }
 
@@ -924,6 +1029,138 @@ mod tests {
             .unwrap()
             .add_files_to_layer("base", vec![bad]);
         assert!(matches!(result, Err(AppError::ValidationFailed(_))));
+    }
+
+    /// Lay out `<layer>/<relative>` for each entry, with the file's own name as
+    /// its content so a surviving file can be told from a resurrected one.
+    fn seed_layer(dir: &std::path::Path, layer: &str, entries: &[&str]) -> PathBuf {
+        let layer_dir = dir.join("content").join(layer);
+        for relative in entries {
+            let path = layer_dir.join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, relative.as_bytes()).unwrap();
+        }
+        layer_dir
+    }
+
+    #[test]
+    fn delete_layer_content_removes_one_file() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+        let layer_dir = seed_layer(
+            dir.path(),
+            "base",
+            &[
+                "Aatrox.wad.client/data/a.bin",
+                "Aatrox.wad.client/data/b.bin",
+            ],
+        );
+
+        ProjectDir::open(dir.path())
+            .unwrap()
+            .delete_layer_content("base", "Aatrox.wad.client/data/a.bin")
+            .unwrap();
+
+        assert!(!layer_dir.join("Aatrox.wad.client/data/a.bin").exists());
+        assert!(layer_dir.join("Aatrox.wad.client/data/b.bin").is_file());
+    }
+
+    #[test]
+    fn delete_layer_content_removes_a_directory_whole() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+        let layer_dir = seed_layer(
+            dir.path(),
+            "base",
+            &["Aatrox.wad.client/data/a.bin", "Sona.wad.client/data/b.bin"],
+        );
+
+        ProjectDir::open(dir.path())
+            .unwrap()
+            .delete_layer_content("base", "Aatrox.wad.client")
+            .unwrap();
+
+        assert!(!layer_dir.join("Aatrox.wad.client").exists());
+        assert!(layer_dir.join("Sona.wad.client/data/b.bin").is_file());
+    }
+
+    #[test]
+    fn delete_layer_content_prunes_the_directories_it_empties() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+        let layer_dir = seed_layer(dir.path(), "base", &["Aatrox.wad.client/data/deep/a.bin"]);
+
+        ProjectDir::open(dir.path())
+            .unwrap()
+            .delete_layer_content("base", "Aatrox.wad.client/data/deep/a.bin")
+            .unwrap();
+
+        assert!(!layer_dir.join("Aatrox.wad.client").exists());
+        assert!(layer_dir.is_dir(), "the layer itself must survive");
+    }
+
+    #[test]
+    fn delete_layer_content_keeps_a_parent_that_still_holds_something() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+        let layer_dir = seed_layer(
+            dir.path(),
+            "base",
+            &[
+                "Aatrox.wad.client/data/a.bin",
+                "Aatrox.wad.client/meta.json",
+            ],
+        );
+
+        ProjectDir::open(dir.path())
+            .unwrap()
+            .delete_layer_content("base", "Aatrox.wad.client/data/a.bin")
+            .unwrap();
+
+        assert!(!layer_dir.join("Aatrox.wad.client/data").exists());
+        assert!(layer_dir.join("Aatrox.wad.client/meta.json").is_file());
+    }
+
+    #[test]
+    fn delete_layer_content_rejects_an_escaping_path() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+        seed_layer(dir.path(), "base", &["Aatrox.wad.client/a.bin"]);
+        let outsider = dir.path().join("mod.config.json");
+
+        for path in [
+            "../../mod.config.json",
+            "Aatrox.wad.client/../../../mod.config.json",
+            "",
+            ".",
+        ] {
+            let result = ProjectDir::open(dir.path())
+                .unwrap()
+                .delete_layer_content("base", path);
+            assert!(
+                matches!(result, Err(AppError::ValidationFailed(_))),
+                "expected {path:?} to be rejected, got {result:?}"
+            );
+        }
+
+        assert!(
+            outsider.is_file(),
+            "nothing outside the layer may be touched"
+        );
+    }
+
+    #[test]
+    fn delete_layer_content_reports_an_entry_that_is_already_gone() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+        seed_layer(dir.path(), "base", &["Aatrox.wad.client/a.bin"]);
+
+        assert!(matches!(
+            ProjectDir::open(dir.path())
+                .unwrap()
+                .delete_layer_content("base", "Aatrox.wad.client/gone.bin"),
+            Err(AppError::ValidationFailed(msg)) if msg.contains("no longer")
+        ));
     }
 
     #[test]

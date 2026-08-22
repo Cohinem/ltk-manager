@@ -4,7 +4,7 @@ import { twMerge } from "tailwind-merge";
 
 import { EmptyState, Field, IconButton, Spinner, Tooltip } from "@/components";
 import type { GameFindHit, GameFindResult } from "@/lib/tauri";
-import { DocumentActions, DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import {
   useExpandedGameDirs,
   useGameSearchPattern,
@@ -19,6 +19,7 @@ import { hasErrorCode } from "@/utils/errors";
 
 import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
 import { useOpenDocument } from "../state";
+import { indexDir } from "./extractTargets";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import {
   buildIndexTree,
@@ -53,14 +54,13 @@ export function GameDocument({ active }: EditorDocumentProps<ContentDocumentOf<"
       ref={bodyRef}
       className="flex min-h-0 flex-1 flex-col bg-surface-950"
     >
-      <DocumentActions active={active}>
+      {/* A row of its own rather than the strip's popover, because a route to
+          the archives and a way to rebuild the index are worth a glance. */}
+      <DocumentToolbar active={active}>
+        <SearchField onCommit={() => focusRows(bodyRef.current)} />
         <GameStats />
         <ArchivesAction />
         <RebuildAction />
-      </DocumentActions>
-
-      <DocumentToolbar active={active}>
-        <SearchField onCommit={() => focusRows(bodyRef.current)} />
       </DocumentToolbar>
 
       {/* Hidden rather than unmounted, so the browse tree's expanded
@@ -93,7 +93,10 @@ function focusRows(body: HTMLElement | null) {
 
 function GameStats() {
   const { data } = useGameIndex();
-  if (!data) return null;
+  /* The search's own count stands in the same row and answers the same
+     question of what is in front of the reader, so the two never both show. */
+  const searching = useGameSearchPattern().length > 0;
+  if (!data || searching) return null;
 
   const files = data.files === 1 ? "file" : "files";
   const archives = data.archives === 1 ? "archive" : "archives";
@@ -362,6 +365,9 @@ function GameIndexTree() {
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onOpen={openFile}
+        /* A shut row here holds no children yet, so the backend expands it
+           through the index rather than the tree walking what it has. */
+        dirTargets={indexDir}
         scrollKey="game-index"
       />
     </>

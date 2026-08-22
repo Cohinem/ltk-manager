@@ -9,6 +9,7 @@ pub mod config;
 pub mod diagnostics;
 pub mod error;
 pub mod events;
+pub mod game_extract;
 pub mod game_index;
 pub mod game_wads;
 pub mod hashtables;
