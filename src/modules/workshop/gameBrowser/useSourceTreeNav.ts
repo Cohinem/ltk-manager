@@ -2,6 +2,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
 import type { SourceDirNode, SourceFileNode, SourceRow, SourceTreeNode } from "./sourceIndex";
+import type { ExtractHow } from "./useExtractActions";
 
 function expandable(node: SourceTreeNode): node is SourceDirNode {
   return node.type === "dir";
@@ -13,6 +14,8 @@ interface UseSourceTreeNavParams {
   onToggle: (node: SourceDirNode) => void;
   /** The keyboard route to what a double click on a file row does. */
   onOpen?: (node: SourceFileNode) => void;
+  /** The keyboard route to the focused row's own extract items. */
+  onRun?: (node: SourceTreeNode, how: ExtractHow) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
@@ -34,6 +37,7 @@ export function useSourceTreeNav({
   isExpanded,
   onToggle,
   onOpen,
+  onRun,
   virtualizer,
   scrollElementRef,
 }: UseSourceTreeNavParams): UseSourceTreeNavReturn {
@@ -49,8 +53,11 @@ export function useSourceTreeNav({
       setFocusedIndex(clamped);
       virtualizer.scrollToIndex(clamped, { align: "auto", behavior: "auto" });
       requestAnimationFrame(() => {
+        /* Scoped to the rows themselves: the pinned band carries a second copy
+           of an ancestor row under the same index, and it is not the one to
+           focus. */
         const el = scrollElementRef.current?.querySelector<HTMLElement>(
-          `[data-treeitem-index="${clamped}"]`,
+          `[data-tree-rows] [data-treeitem-index="${clamped}"]`,
         );
         el?.focus();
       });
@@ -63,6 +70,24 @@ export function useSourceTreeNav({
       const row = rows[focusedIndex];
       if (!row) return;
       const node = row.node;
+
+      /* Before the switch, because the plain keys are already spoken for and a
+         modifier has to be read rather than fallen through to. `Ctrl+E` is
+         whichever extract needs no dialog, and Shift asks for the dialog. */
+      if (onRun && (e.ctrlKey || e.metaKey)) {
+        const key = e.key.toLowerCase();
+        if (key === "e") {
+          e.preventDefault();
+          onRun(node, e.shiftKey ? "dialog" : "quick");
+          return;
+        }
+        if (key === "i") {
+          e.preventDefault();
+          onRun(node, "copy");
+          return;
+        }
+      }
+
       switch (e.key) {
         /* Enter opens, the way a double click does. A keyboard user who asked
            for a file by name meant to open it. */
@@ -114,7 +139,7 @@ export function useSourceTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, isExpanded, onToggle, onOpen, moveFocus],
+    [rows, focusedIndex, isExpanded, onToggle, onOpen, onRun, moveFocus],
   );
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };

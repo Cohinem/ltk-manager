@@ -4,8 +4,7 @@ import { twMerge } from "tailwind-merge";
 import { Button, Dialog } from "@/components";
 
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
-import { DocumentActionsSlotContext, DocumentToolbarSlotContext } from "./DocumentActions";
-import { DocumentActionsMenu } from "./DocumentActionsMenu";
+import { DocumentToolbarSlotContext } from "./DocumentToolbar";
 import { EditorTabs } from "./EditorTabs";
 
 export interface EditorSurfaceProps<D extends EditorDocumentBase> {
@@ -40,8 +39,8 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
  * scroll position and half-typed edits survive a trip to another tab.
  * Closing one with unsaved edits asks first.
  *
- * The strip's trailing edge is a slot the active document fills through
- * {@link DocumentActions}, rather than chrome this surface is handed.
+ * The row under the strip is a slot the active document fills through
+ * {@link DocumentToolbar}, rather than chrome this surface is handed.
  */
 export function EditorSurface<D extends EditorDocumentBase>({
   leafId,
@@ -62,7 +61,6 @@ export function EditorSurface<D extends EditorDocumentBase>({
   /* A queue rather than one document: Close Others can meet several unsaved
      editors at once, and each of them is its own question. */
   const [pendingCloses, setPendingCloses] = useState<readonly D[]>([]);
-  const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
@@ -91,6 +89,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
             icon: definition.icon(document),
             dirty: dirtyIds.has(document.id),
             preview: document.id === previewId,
+            menu: definition.tabMenu?.(document),
           },
         ];
       }),
@@ -167,7 +166,6 @@ export function EditorSurface<D extends EditorDocumentBase>({
         onSplit={onSplit}
         onPromote={onPromote}
         focused={focused}
-        actions={<DocumentActionsMenu slot={slot} onSlot={setSlot} />}
       />
 
       {/* `empty:hidden` rather than a conditional, because what fills this row
@@ -181,28 +179,26 @@ export function EditorSurface<D extends EditorDocumentBase>({
       <div data-ui="EditorSurface:documents" className="relative min-h-0 flex-1 overflow-hidden">
         {documents.length === 0 && empty}
 
-        <DocumentActionsSlotContext value={slot}>
-          <DocumentToolbarSlotContext value={toolbar}>
-            {documents.map((document) => {
-              const definition = definitionFor(document);
-              if (!definition) return null;
+        <DocumentToolbarSlotContext value={toolbar}>
+          {documents.map((document) => {
+            const definition = definitionFor(document);
+            if (!definition) return null;
 
-              const Editor = definition.component;
-              const active = document.id === activeId;
+            const Editor = definition.component;
+            const active = document.id === activeId;
 
-              return (
-                <div
-                  key={document.id}
-                  data-ui={`EditorSurface:document:${document.kind}`}
-                  hidden={!active}
-                  className="absolute inset-0 flex flex-col"
-                >
-                  <Editor document={document} active={active} />
-                </div>
-              );
-            })}
-          </DocumentToolbarSlotContext>
-        </DocumentActionsSlotContext>
+            return (
+              <div
+                key={document.id}
+                data-ui={`EditorSurface:document:${document.kind}`}
+                hidden={!active}
+                className="absolute inset-0 flex flex-col"
+              >
+                <Editor document={document} active={active} />
+              </div>
+            );
+          })}
+        </DocumentToolbarSlotContext>
       </div>
 
       <UnsavedCloseDialog

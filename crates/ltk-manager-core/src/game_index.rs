@@ -536,6 +536,52 @@ impl GameIndex {
         (total, mask)
     }
 
+    /// Every file at or below one directory, in tree order.
+    ///
+    /// `path` is what a listing gave, so a folded chain addresses the
+    /// directory that holds the files rather than the first link of the
+    /// chain. [`UNKNOWN_DIR`] gives the group of chunks no hash table names,
+    /// and the root gives its named files plus that group, which is what the
+    /// tree shows below the root row.
+    ///
+    /// Returns `None` when nothing in the index has that path.
+    pub fn files_under(&self, path: &str) -> Option<Vec<GameFileEntry>> {
+        if path == UNKNOWN_DIR {
+            return Some(self.unnamed_entries());
+        }
+
+        let root = self.resolve(path)?;
+        let mut out = Vec::new();
+        self.collect_files(root, path, &mut out);
+        if path.is_empty() {
+            out.extend(self.unnamed_entries());
+        }
+        Some(out)
+    }
+
+    /// The wire shape of every chunk no hash table names.
+    fn unnamed_entries(&self) -> Vec<GameFileEntry> {
+        self.unknown
+            .iter()
+            .map(|file| file.unnamed_entry(self.wad_name(file)))
+            .collect()
+    }
+
+    /// Append this directory's files and every descendant's, depth first.
+    fn collect_files(&self, index: usize, path: &str, out: &mut Vec<GameFileEntry>) {
+        let dir = &self.dirs[index];
+        for file in &dir.files {
+            out.push(file.entry(path, self.wad_name(file)));
+        }
+        for (name, &child) in &dir.children {
+            let child_path = if path.is_empty() {
+                name.clone()
+            } else {
+                format!("{path}/{name}")
+            };
+            self.collect_files(child, &child_path, out);
+        }
+    }
     /// The arena index of `path`, where `""` is the root.
     fn resolve(&self, path: &str) -> Option<usize> {
         let mut cursor = 0usize;

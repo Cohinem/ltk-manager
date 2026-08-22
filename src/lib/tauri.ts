@@ -13,6 +13,10 @@ import type {
   DecodedIncident,
   DiagnosticReport,
   EditModMetadataArgs,
+  ExtractOptions,
+  ExtractPlan,
+  ExtractSummary,
+  ExtractTarget,
   FantomePeekResult,
   GameDirListing,
   GameFindResult,
@@ -46,6 +50,7 @@ import type {
   StorageMedium,
   StringKeySearchResult,
   ValidationResult,
+  WorkshopFileKind,
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
@@ -213,8 +218,20 @@ export const api = {
   findInGameIndex: (pattern: string, regex: boolean) =>
     invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
 
+  // Extract to disk
+  planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
+    invokeResult<ExtractPlan>("plan_game_extract", { targets, kinds }),
+  // Resolves to null when an extract was already in flight - a redundant click.
+  extractGameFiles: (targets: ExtractTarget[], options: ExtractOptions) =>
+    invokeResult<ExtractSummary | null>("extract_game_files", { targets, options }),
+  // Resolves to false when nothing was in flight, which is what a Cancel
+  // pressed just as the run finished looks like.
+  cancelExtract: () => invokeResult<boolean>("cancel_extract"),
+
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
+  saveAssetCopy: (asset: AssetRef, destination: string) =>
+    invokeResult<void>("save_asset_copy", { asset, destination }),
 
   // Ritobin
   detectRitobinIntegration: () => invokeResult<boolean>("detect_ritobin_integration"),
@@ -328,6 +345,8 @@ export const api = {
     }),
   addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) =>
     invokeResult<AddFilesReport>("add_files_to_layer", { projectPath, layerName, sources }),
+  deleteLayerContent: (projectPath: string, layerName: string, relativePath: string) =>
+    invokeResult<void>("delete_layer_content", { projectPath, layerName, relativePath }),
   // The editor state file is opaque to the backend, so both sides are strings.
   getProjectEditorState: (projectPath: string) =>
     invokeResult<string | null>("get_project_editor_state", { projectPath }),

@@ -13,7 +13,7 @@ use std::time::Duration;
 use ltk_mimir_cache::{
     HashStore, ManifestError, NoCacheDirError, Table, UpdateError, UpdateOptions, UpdateOutcome,
 };
-use ltk_wad::PathResolver;
+use ltk_wad::{PathResolver, WadHash};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -243,9 +243,9 @@ impl HashtableCache {
 
 /// Names WAD chunks from the shared mimir tables when extracting an archive.
 ///
-/// A hash no table knows keeps the hex name [`ltk_wad::HexPathResolver`] would
-/// have given it, so extraction resolves what it can and never fails for want
-/// of a table.
+/// A hash no table knows resolves to `None`, and the extractor writes that
+/// chunk under its hex hash. So extraction names what it can and never fails
+/// for want of a table.
 pub struct WadPathResolver {
     db: LayeredHashDb,
 }
@@ -286,10 +286,14 @@ impl fmt::Debug for WadPathResolver {
 }
 
 impl PathResolver for WadPathResolver {
-    fn resolve(&self, path_hash: u64) -> Cow<'_, str> {
-        self.db
-            .get(path_hash)
-            .unwrap_or_else(|| Cow::Owned(format!("{path_hash:016x}")))
+    fn resolve(&self, path_hash: WadHash) -> Option<Cow<'_, str>> {
+        self.db.get(path_hash.0)
+    }
+
+    /// Answered without building the string, which is what the name recovery
+    /// asks once per chunk before it reads a single bin.
+    fn is_known(&self, path_hash: WadHash) -> bool {
+        self.db.contains(path_hash.0)
     }
 }
 
@@ -422,14 +426,19 @@ mod tests {
         let path = "assets/characters/aatrox/aatrox.bin";
         let mut db = LayeredHashDb::new();
         db.insert(0x1234, path);
+        let resolver = WadPathResolver::new(db);
 
-        assert_eq!(WadPathResolver::new(db).resolve(0x1234), path);
+        assert_eq!(resolver.resolve(WadHash(0x1234)).as_deref(), Some(path));
+        assert!(resolver.is_known(WadHash(0x1234)));
     }
 
+    /// A hash no table knows names nothing, and the extractor writes that
+    /// chunk under its hex hash rather than the resolver inventing one.
     #[test]
-    fn resolver_falls_back_to_the_hex_name() {
+    fn resolver_names_nothing_for_a_hash_no_table_holds() {
         let resolver = WadPathResolver::new(LayeredHashDb::new());
 
-        assert_eq!(resolver.resolve(0xdead_beef), "00000000deadbeef");
+        assert_eq!(resolver.resolve(WadHash(0xdead_beef)), None);
+        assert!(!resolver.is_known(WadHash(0xdead_beef)));
     }
 }

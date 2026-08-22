@@ -126,6 +126,28 @@ pub struct HashtableSyncProgress {
     pub file: String,
 }
 
+/// Progress of an extract of game chunks to disk.
+///
+/// One extract runs over any number of archives, so `current` and `total`
+/// count the whole run rather than the archive being read. The extractor
+/// reports every chunk it finishes, which is tens of thousands for a large
+/// archive, so the emitter throttles rather than sending one of these each
+/// time.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ExtractProgress {
+    pub current: u32,
+    pub total: u32,
+    /// The chunk just written, or its hex hash when nothing names it.
+    pub current_path: Option<String>,
+    /// Bytes written so far across the whole run.
+    pub bytes: u64,
+    /// The `DATA/FINAL`-relative archive being read.
+    pub archive: String,
+}
+
 /// Stage of a git repository import.
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -219,6 +241,8 @@ declare_events! {
     SessionEnded(SessionEnded) => "session-ended",
     /// A hashtable sync asked for a release asset.
     HashtableSyncProgress(HashtableSyncProgress) => "hashtable-sync-progress",
+    /// An extract of game chunks to disk advanced. Throttled by its emitter.
+    ExtractProgress(ExtractProgress) => "extract-progress",
 }
 
 #[cfg(test)]

@@ -1,9 +1,10 @@
 import { FileArchiveIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Button, EmptyState, Field, IconButton } from "@/components";
+import { Button, ContextMenu, EmptyState, Field, IconButton } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
@@ -12,8 +13,11 @@ import { formatBytes } from "@/utils";
 
 import { type ContentDocumentOf, gameWadDocument } from "../documents/contentDocument";
 import { useActiveDocumentId, useOpenDocument } from "../state";
+import { ExtractMenuItems } from "./ExtractMenuItems";
+import { archiveTarget } from "./extractTargets";
 import { GameLoadingState, GameWadsErrorState } from "./GameBrowserStates";
 import { wadBasename, wadDirname } from "./sourceIndex";
+import { useExtractActions } from "./useExtractActions";
 import { useGameWads } from "./useGameWads";
 
 /* The file trees' row height, so a list of archives scans like the trees it
@@ -109,6 +113,17 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const openDocument = useOpenDocument();
   const activeId = useActiveDocumentId();
+  const { run } = useExtractActions();
+
+  /* One menu for the whole list, pointed at the row the event came from, the
+     same scheme the source trees use. */
+  const [menuWad, setMenuWad] = useState<GameWadSummary | null>(null);
+
+  function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-wad]");
+    const name = row?.dataset.wad;
+    setMenuWad(wads.find((wad) => wad.name === name) ?? null);
+  }
 
   const [initialOffset] = useState(() => keptScrollTop(SCROLL_KEY));
 
@@ -153,54 +168,70 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
   }
 
   return (
-    <div
-      ref={scrollRef}
-      className="min-h-0 flex-1 overflow-auto py-1 select-none"
-      {...NO_OVERSCROLL}
-    >
-      <div
-        role="presentation"
-        className="relative w-full"
-        style={{ height: `${virtualizer.getTotalSize()}px` }}
+    <ContextMenu.Root>
+      <ContextMenu.Trigger
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-auto py-1 select-none"
+        onContextMenu={handleContextMenu}
+        {...NO_OVERSCROLL}
       >
-        {virtualizer.getVirtualItems().map((row) => {
-          const wad = wads[row.index]!;
-          const document = gameWadDocument(wad.name);
-          const directory = wadDirname(wad.name);
+        <div
+          role="presentation"
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
+        >
+          {virtualizer.getVirtualItems().map((row) => {
+            const wad = wads[row.index]!;
+            const document = gameWadDocument(wad.name);
+            const directory = wadDirname(wad.name);
 
-          return (
-            <button
-              key={row.key}
-              type="button"
-              onClick={() => openDocument(document)}
-              style={{ height: `${ROW_HEIGHT}px`, transform: `translateY(${row.start}px)` }}
-              className={twMerge(
-                "absolute inset-x-0 flex min-w-0 cursor-pointer items-center gap-2 px-3 text-left font-mono text-xs transition-colors outline-none",
-                "focus-visible:ring-1 focus-visible:ring-accent-500/70 focus-visible:ring-inset",
-                document.id === activeId && "bg-accent-500/15 text-accent-100",
-                document.id !== activeId &&
-                  "text-surface-200/90 hover:bg-surface-700/70 hover:text-surface-100",
-              )}
-            >
-              <FileArchiveIcon
+            return (
+              <button
+                key={row.key}
+                type="button"
+                data-wad={wad.name}
+                onClick={() => openDocument(document)}
+                style={{ height: `${ROW_HEIGHT}px`, transform: `translateY(${row.start}px)` }}
                 className={twMerge(
-                  "h-3.5 w-3.5 shrink-0",
-                  document.id === activeId ? "text-accent-400" : "text-surface-400",
+                  "absolute inset-x-0 flex min-w-0 cursor-pointer items-center gap-2 px-3 text-left font-mono text-xs transition-colors outline-none",
+                  "focus-visible:ring-1 focus-visible:ring-accent-500/70 focus-visible:ring-inset",
+                  document.id === activeId && "bg-accent-500/15 text-accent-100",
+                  document.id !== activeId &&
+                    "text-surface-200/90 hover:bg-surface-700/70 hover:text-surface-100",
                 )}
-              />
-              {/* One span, so the whole thing reads and truncates as the path
+              >
+                <FileArchiveIcon
+                  className={twMerge(
+                    "h-3.5 w-3.5 shrink-0",
+                    document.id === activeId ? "text-accent-400" : "text-surface-400",
+                  )}
+                />
+                {/* One span, so the whole thing reads and truncates as the path
                   it is rather than as a name with a note after it. */}
-              <span className="min-w-0 truncate">
-                {directory && <span className="text-surface-400">{directory}/</span>}
-                {wadBasename(wad.name)}
-              </span>
-              <span className="ml-auto shrink-0 text-[10px] text-surface-400 tabular-nums">
-                {formatBytes(Number(wad.sizeBytes))}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
+                <span className="min-w-0 truncate">
+                  {directory && <span className="text-surface-400">{directory}/</span>}
+                  {wadBasename(wad.name)}
+                </span>
+                <span className="ml-auto shrink-0 text-[10px] text-surface-400 tabular-nums">
+                  {formatBytes(Number(wad.sizeBytes))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </ContextMenu.Trigger>
+
+      {menuWad && (
+        <ContextMenu.Portal>
+          <ContextMenu.Positioner>
+            <ContextMenu.Popup className="w-60">
+              <ExtractMenuItems
+                onRun={(how) => run(how, [archiveTarget(menuWad.name)], wadBasename(menuWad.name))}
+              />
+            </ContextMenu.Popup>
+          </ContextMenu.Positioner>
+        </ContextMenu.Portal>
+      )}
+    </ContextMenu.Root>
   );
 }

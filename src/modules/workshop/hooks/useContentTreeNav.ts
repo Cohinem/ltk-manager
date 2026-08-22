@@ -1,7 +1,7 @@
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
-import type { FileNode, FlatTreeRow } from "../utils/contentTree";
+import type { ContentTreeNode, FileNode, FlatTreeRow } from "../utils/contentTree";
 
 interface UseContentTreeNavParams {
   rows: readonly FlatTreeRow[];
@@ -10,6 +10,8 @@ interface UseContentTreeNavParams {
   onToggle: (path: string) => void;
   /** The keyboard route to what a double click on a file row does. */
   onOpen?: (node: FileNode) => void;
+  /** The keyboard route to the menu's Delete, confirmation included. */
+  onDelete?: (node: ContentTreeNode) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
@@ -33,6 +35,7 @@ export function useContentTreeNav({
   collapsed,
   onToggle,
   onOpen,
+  onDelete,
   virtualizer,
   scrollElementRef,
 }: UseContentTreeNavParams): UseContentTreeNavReturn {
@@ -48,8 +51,11 @@ export function useContentTreeNav({
       setFocusedIndex(clamped);
       virtualizer.scrollToIndex(clamped, { align: "auto", behavior: "auto" });
       requestAnimationFrame(() => {
+        /* Scoped to the rows themselves: the pinned band carries a second copy
+           of an ancestor row under the same index, and it is not the one to
+           focus. */
         const el = scrollElementRef.current?.querySelector<HTMLElement>(
-          `[data-treeitem-index="${clamped}"]`,
+          `[data-tree-rows] [data-treeitem-index="${clamped}"]`,
         );
         el?.focus();
       });
@@ -62,6 +68,13 @@ export function useContentTreeNav({
       const row = rows[focusedIndex];
       if (!row) return;
       switch (e.key) {
+        /* What the row itself holds rather than what the tree does with it, so
+           a modifier a browser or the OS claims is not in the way. The delete
+           is confirmed either way, so a mistyped key costs a dialog. */
+        case "Delete":
+          e.preventDefault();
+          onDelete?.(row.node);
+          return;
         /* Enter opens, the way a double click does. A user who found a file
            by name meant to open it. */
         case "Enter":
@@ -112,7 +125,7 @@ export function useContentTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, collapsed, onToggle, onOpen, moveFocus],
+    [rows, focusedIndex, collapsed, onToggle, onOpen, onDelete, moveFocus],
   );
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };

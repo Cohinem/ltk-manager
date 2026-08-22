@@ -6,6 +6,8 @@ import type { WorkshopProject } from "@/lib/tauri";
 import {
   ContentBrowser,
   DeleteConfirmDialog,
+  ExtractDialog,
+  ExtractRunner,
   LoadingState,
   PackDialog,
   ProjectHeader,
@@ -64,6 +66,8 @@ function ProjectDetail() {
 
       <PackDialog />
       <DeleteConfirmDialog />
+      <ExtractDialog />
+      <ExtractRunner />
     </ProjectProvider>
   );
 }

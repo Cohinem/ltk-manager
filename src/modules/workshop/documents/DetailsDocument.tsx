@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 
 import { Button, Field, SectionCard, Tooltip } from "@/components";
-import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useSettings } from "@/modules/settings";
 
 import { AuthorsSection } from "../components/overview/AuthorsSection";
@@ -57,7 +57,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
 
   return (
     <div data-ui="DetailsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
-      <DocumentActions active={active}>
+      <DocumentToolbar active={active}>
         {hasChanges && (
           <Button variant="ghost" size="xs" compact onClick={editor.discard}>
             Discard
@@ -73,7 +73,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
         >
           Save
         </Button>
-      </DocumentActions>
+      </DocumentToolbar>
 
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl space-y-5 p-5">

@@ -1,3 +1,7 @@
+export { ExtractDialog } from "./ExtractDialog";
+export { ExtractMenuItems } from "./ExtractMenuItems";
+export { ExtractRunner } from "./ExtractRunner";
+export { archiveTarget, chunkTarget } from "./extractTargets";
 export { fileKindFromPath } from "./fileKind";
 export { GameWadsErrorState } from "./GameBrowserStates";
 export { GameDocument } from "./GameDocument";
@@ -5,6 +9,7 @@ export { GameWadDocument } from "./GameWadDocument";
 export { GameWadsDocument } from "./GameWadsDocument";
 export * from "./sourceIndex";
 export { SourceTree } from "./SourceTree";
+export { type ExtractHow, useExtractActions } from "./useExtractActions";
 export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./useGameIndex";
 export { useGameSearch } from "./useGameSearch";
 export { useRevealGameSearch } from "./useGameSearchReveal";

@@ -7,15 +7,19 @@ import type { EditorRegistry } from "@/modules/editor";
 import { LayerGlyph } from "../components/LayerGlyph";
 import { useProjectContext } from "../components/ProjectContext";
 import {
+  archiveTarget,
+  chunkTarget,
+  ExtractMenuItems,
   fileKindFromPath,
   GameDocument,
   GameWadDocument,
   GameWadsDocument,
+  useExtractActions,
   wadBasename,
 } from "../gameBrowser";
 import { assetPath, PreviewDocument } from "../preview";
 import { describeFileKind } from "../utils/fileKindIcon";
-import { type ContentDocument, layerTitle } from "./contentDocument";
+import { type ContentDocument, type ContentDocumentOf, layerTitle } from "./contentDocument";
 import { DetailsDocument } from "./DetailsDocument";
 import { FilesDocument } from "./FilesDocument";
 import { StringsDocument } from "./StringsDocument";
@@ -64,6 +68,7 @@ export function useContentEditors(): EditorRegistry<ContentDocument> {
           path: document.wadName,
         }),
         component: GameWadDocument,
+        tabMenu: (document) => <GameWadTabMenu wadName={document.wadName} />,
       },
       preview: {
         icon: (document) => <PreviewGlyph title={document.title} />,
@@ -75,10 +80,35 @@ export function useContentEditors(): EditorRegistry<ContentDocument> {
           path: document.path ?? assetPath(document.asset),
         }),
         component: PreviewDocument,
+        tabMenu: (document) => {
+          /* A layer file and a loose file are on disk already, so only a game
+             chunk has anywhere to go. */
+          if (document.asset.kind !== "gameChunk") return null;
+          return <PreviewTabMenu document={document} />;
+        },
       },
     }),
     [project],
   );
+}
+
+/* A right click on the tab is the route to the whole archive that the tab's
+   own tree cannot carry: the archive level is the tab, so no row stands for it. */
+function GameWadTabMenu({ wadName }: { wadName: string }) {
+  const { run } = useExtractActions();
+
+  return (
+    <ExtractMenuItems onRun={(how) => run(how, [archiveTarget(wadName)], wadBasename(wadName))} />
+  );
+}
+
+/* The same three the tree offers, on the tab of the chunk already open. */
+function PreviewTabMenu({ document }: { document: ContentDocumentOf<"preview"> }) {
+  const { run } = useExtractActions();
+  const target = chunkTarget(document.asset, document.path);
+  if (!target) return null;
+
+  return <ExtractMenuItems onRun={(how) => run(how, [target], document.title)} />;
 }
 
 /** The tree row's own glyph, so a preview tab reads like the row that opened it. */

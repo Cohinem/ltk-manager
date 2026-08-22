@@ -1,6 +1,7 @@
 export { workshopKeys } from "./keys";
 export { useAddFilesToLayer } from "./useAddFilesToLayer";
 export { useCreateProject } from "./useCreateProject";
+export { useDeleteLayerContent } from "./useDeleteLayerContent";
 export { useDeleteProject } from "./useDeleteProject";
 export { useFantomeImportProgress } from "./useFantomeImportProgress";
 export { useFilteredProjects } from "./useFilteredProjects";

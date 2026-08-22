@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use lru::LruCache;
 use ltk_hashdb::LayeredHashDb;
-use ltk_wad::Wad;
+use ltk_wad::{Wad, WadHash};
 use serde::Serialize;
 
 use crate::config::Config;
@@ -167,7 +167,7 @@ impl GameArchives {
         let file = fs::File::open(&path)?;
         let wad = Wad::mount(BufReader::new(file))?;
 
-        let hashes: Vec<u64> = wad.chunks().iter().map(|c| c.path_hash()).collect();
+        let hashes: Vec<u64> = wad.chunks().iter().map(|c| c.path_hash().0).collect();
         for ((path_hash, path), chunk) in resolver.get_batch(&hashes).zip(wad.chunks().iter()) {
             visit(path_hash, path.as_deref(), chunk.uncompressed_size() as u64);
         }
@@ -257,7 +257,7 @@ impl WadCache {
         &self,
         archives: &GameArchives,
         wad_name: &str,
-        path_hash: u64,
+        path_hash: WadHash,
     ) -> AppResult<Vec<u8>> {
         let mounted = self.mount(archives.archive_path(wad_name)?)?;
         let mut wad = mounted.lock().mutex_err()?;
@@ -418,7 +418,7 @@ mod tests {
             .read_chunk(
                 &archives,
                 "Champions/Aatrox.wad.client",
-                xxh64(b"assets/known.bin", 0),
+                WadHash(xxh64(b"assets/known.bin", 0)),
             )
             .unwrap();
 
@@ -438,7 +438,7 @@ mod tests {
             .read_chunk(
                 &GameArchives::at(tmp.path()),
                 "Champions/Aatrox.wad.client",
-                1,
+                WadHash(1),
             )
             .unwrap_err();
 
@@ -453,7 +453,7 @@ mod tests {
         let cache = WadCache::default();
 
         let err = cache
-            .read_chunk(&archives, "../evil.wad.client", 1)
+            .read_chunk(&archives, "../evil.wad.client", WadHash(1))
             .unwrap_err();
 
         assert!(matches!(err, AppError::InvalidPath(_)));
@@ -477,7 +477,11 @@ mod tests {
 
         for path in [b"assets/first.bin".as_slice(), b"assets/second.bin"] {
             cache
-                .read_chunk(&archives, "Champions/Aatrox.wad.client", xxh64(path, 0))
+                .read_chunk(
+                    &archives,
+                    "Champions/Aatrox.wad.client",
+                    WadHash(xxh64(path, 0)),
+                )
                 .unwrap();
         }
 
@@ -497,7 +501,7 @@ mod tests {
 
         for name in names {
             cache
-                .read_chunk(&archives, name, xxh64(b"assets/known.bin", 0))
+                .read_chunk(&archives, name, WadHash(xxh64(b"assets/known.bin", 0)))
                 .unwrap();
         }
 
@@ -514,7 +518,7 @@ mod tests {
             .read_chunk(
                 &GameArchives::at(tmp.path()),
                 "One.wad.client",
-                xxh64(b"assets/known.bin", 0),
+                WadHash(xxh64(b"assets/known.bin", 0)),
             )
             .unwrap();
 

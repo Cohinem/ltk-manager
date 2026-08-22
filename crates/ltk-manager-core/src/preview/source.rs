@@ -72,7 +72,7 @@ impl AssetRef {
                 )?)?)
             }
             Self::GameChunk { wad, path_hash } => {
-                let path_hash = u64::from_str_radix(path_hash, 16).map_err(|_| {
+                let path_hash = path_hash.parse().map_err(|_| {
                     AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}"))
                 })?;
                 wads.read_chunk(&GameArchives::resolve(config)?, wad, path_hash)

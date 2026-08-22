@@ -270,6 +270,22 @@ pub fn add_files_to_layer(
         .into()
 }
 
+/// Delete one file or directory from a layer's content directory.
+///
+/// `relative_path` is layer-relative, the way the content tree names its rows.
+#[tauri::command]
+pub fn delete_layer_content(
+    project_path: String,
+    layer_name: String,
+    relative_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<()> {
+    workshop
+        .0
+        .delete_layer_content(&project_path, &layer_name, &relative_path)
+        .into()
+}
+
 /// Read the frontend-owned editor state at `<project>/.ltk/editor.json`.
 ///
 /// The content is opaque here - the frontend versions and interprets it. A
