@@ -185,7 +185,7 @@ function FailedTestTip({ incident }: { incident: Incident }) {
 
   return (
     <div className="flex max-w-[260px] flex-col gap-1.5">
-      <span className="text-[10px] font-medium tracking-wider text-surface-400 uppercase">
+      <span className="text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
         Last test
       </span>
       <p className="font-semibold text-surface-100">{incident.verdict.title}</p>

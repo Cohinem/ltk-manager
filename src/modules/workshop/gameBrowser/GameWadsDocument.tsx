@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Button, ContextMenu, EmptyState, Field, IconButton } from "@/components";
+import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
@@ -134,14 +135,22 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
     return () => keepScrollTop(SCROLL_KEY, scrollRef.current?.scrollTop ?? 0);
   }, []);
 
+  const zoomed = useZoomedPx();
+  const rowHeight = zoomed(ROW_HEIGHT);
   const virtualizer = useVirtualizer({
     count: wads.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowHeight,
     overscan: 12,
     getItemKey: (index) => wads[index]!.name,
     initialOffset,
   });
+
+  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
+     one of the inputs the measurement memo watches. */
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, zoomed]);
 
   if (query.isPending) return <GameLoadingState />;
   if (query.isError) return <GameWadsErrorState error={query.error} />;
@@ -191,7 +200,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
                 type="button"
                 data-wad={wad.name}
                 onClick={() => openDocument(document)}
-                style={{ height: `${ROW_HEIGHT}px`, transform: `translateY(${row.start}px)` }}
+                style={{ height: `${rowHeight}px`, transform: `translateY(${row.start}px)` }}
                 className={twMerge(
                   "absolute inset-x-0 flex min-w-0 cursor-pointer items-center gap-2 px-3 text-left font-mono text-xs transition-colors outline-none",
                   "focus-visible:ring-1 focus-visible:ring-accent-500/70 focus-visible:ring-inset",
@@ -212,7 +221,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
                   {directory && <span className="text-surface-400">{directory}/</span>}
                   {wadBasename(wad.name)}
                 </span>
-                <span className="ml-auto shrink-0 text-[10px] text-surface-400 tabular-nums">
+                <span className="ml-auto shrink-0 text-[0.625rem] text-surface-400 tabular-nums">
                   {formatBytes(Number(wad.sizeBytes))}
                 </span>
               </button>

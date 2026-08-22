@@ -13,6 +13,8 @@ export {
   layerTitle,
   previewDocument,
   previewDocumentId,
+  PROBLEMS_DOCUMENT_ID,
+  problemsDocument,
   stringsDocument,
 } from "./contentDocument";
 export { DetailsDocument } from "./DetailsDocument";

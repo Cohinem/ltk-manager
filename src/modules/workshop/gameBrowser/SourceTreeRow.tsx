@@ -110,7 +110,7 @@ function DirRow({
       />
       <DirGlyph unknown={node.unknown} isExpanded={isExpanded} />
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 text-[10px] text-surface-500 tabular-nums">
+      <span className="ml-auto shrink-0 text-[0.625rem] text-surface-500 tabular-nums">
         {node.fileCount}
       </span>
     </button>
@@ -171,7 +171,7 @@ function FileRow({
       <span className="truncate">
         <MarkedText text={node.name} ranges={node.entry.nameRanges} />
       </span>
-      <span className="ml-auto shrink-0 font-mono text-[10px] text-surface-400 tabular-nums">
+      <span className="ml-auto shrink-0 font-mono text-[0.625rem] text-surface-400 tabular-nums">
         {formatBytes(node.entry.sizeBytes)}
       </span>
     </div>

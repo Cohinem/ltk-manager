@@ -68,7 +68,7 @@ export function ContentWadList({ wads, layerName, layerDisplayName }: ContentWad
               <span className="min-w-0 flex-1 truncate text-sm">{wad.name}</span>
               <span
                 className={twMerge(
-                  "shrink-0 text-[11px] text-surface-400 tabular-nums",
+                  "shrink-0 text-[0.6875rem] text-surface-400 tabular-nums",
                   browsable &&
                     "transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0",
                 )}

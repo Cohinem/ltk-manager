@@ -96,7 +96,7 @@ function CountsHeader({ checks }: { checks: Check[] }) {
           key={it.sev}
           className="flex flex-col items-baseline gap-1 rounded-md border border-surface-700/40 bg-surface-950/40 px-3 py-2"
         >
-          <span className="text-[10px] font-medium tracking-wider text-surface-500 uppercase">
+          <span className="text-[0.625rem] font-medium tracking-wider text-surface-500 uppercase">
             {it.label}
           </span>
           <span className={`text-xl font-semibold tabular-nums ${it.cls}`}>{counts[it.sev]}</span>

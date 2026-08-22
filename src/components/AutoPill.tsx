@@ -25,7 +25,7 @@ interface AutoPillProps {
  */
 export function AutoPill({ label, tone = "tag", onClick, className }: AutoPillProps) {
   const classes = twMerge(
-    "inline-flex items-center gap-0.5 rounded-md border border-dashed px-1.5 py-0.5 text-[10px] leading-tight",
+    "inline-flex items-center gap-0.5 rounded-md border border-dashed px-1.5 py-0.5 text-[0.625rem] leading-tight",
     TONE_CLASSES[tone],
     onClick && "cursor-pointer transition-colors hover:bg-surface-700/40",
     className,

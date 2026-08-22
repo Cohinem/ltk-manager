@@ -8,6 +8,7 @@ use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::ritobin::RitobinVerb;
 use tauri::{AppHandle, Manager};
 
+use super::off_thread;
 use crate::error::{AppError, IpcResult};
 use crate::state::SettingsState;
 
@@ -37,7 +38,7 @@ pub async fn open_asset_in_ritobin(
         Err(e) => return IpcResult::from(Err::<(), _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || {
+    off_thread(move || {
         let verb =
             RitobinVerb::installed().ok_or_else(|| AppError::Other(NOT_INSTALLED.to_owned()))?;
 
@@ -49,6 +50,4 @@ pub async fn open_asset_in_ritobin(
         )
     })
     .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
 }

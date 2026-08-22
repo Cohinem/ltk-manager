@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{AppHandle, Manager, State};
 
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use super::off_thread;
+use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::events::TauriEventSink;
 use crate::state::SettingsState;
 use ltk_manager_core::game_extract::{
@@ -166,7 +167,7 @@ where
         Err(e) => return IpcResult::from(Err::<T, _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || -> AppResult<T> {
+    off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
         let index = app_handle
             .state::<GameIndexState>()
@@ -178,8 +179,6 @@ where
         work(&index, &archives)
     })
     .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
 }
 
 #[cfg(test)]

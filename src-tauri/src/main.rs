@@ -50,14 +50,6 @@ fn main() {
                 .build(),
         );
 
-    // Defaults to 0.0.0.0, which exposes full IPC and JS execution to the local network
-    #[cfg(all(debug_assertions, feature = "mcp-bridge"))]
-    let builder = builder.plugin(
-        tauri_plugin_mcp_bridge::Builder::new()
-            .bind_address("127.0.0.1")
-            .build(),
-    );
-
     builder
         /* The preview's pixels come this way rather than over IPC, so an
         `<img>` draws them with the webview's own decoder. */
@@ -182,6 +174,11 @@ fn main() {
             commands::delete_layer_content,
             commands::get_project_editor_state,
             commands::save_project_editor_state,
+            // Problems
+            commands::analyze_project,
+            commands::fix_problems,
+            commands::undo_fix_run,
+            commands::fix_runs,
             // Hashtables
             commands::get_hashtable_cache_status,
             commands::sync_hashtables,

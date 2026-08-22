@@ -163,7 +163,7 @@ export function DecodedTokenCard({ incident }: DecodedTokenCardProps) {
       className="flex flex-col gap-3 rounded-lg border border-surface-700/50 bg-surface-900/95 p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-5 items-center rounded-sm border border-accent-500/40 bg-accent-500/10 px-1.5 font-mono text-[10px] font-semibold tracking-wider text-accent-300 uppercase select-none">
+        <span className="inline-flex h-5 items-center rounded-sm border border-accent-500/40 bg-accent-500/10 px-1.5 font-mono text-[0.625rem] font-semibold tracking-wider text-accent-300 uppercase select-none">
           From a token
         </span>
       </div>

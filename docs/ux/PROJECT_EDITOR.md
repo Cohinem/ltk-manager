@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                   |
-| ---------- | ------------------------------------------------------------------------ |
-| 2026-08-22 | Delete a layer file or folder from its own tree row                      |
-| 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself         |
-| 2026-08-22 | Extract with no dialog, and copy a game file into a layer                |
-| 2026-08-22 | Implement the extract to disk, on the branch's extractor                 |
-| 2026-08-21 | Key every chunk by `WadHash` upstream, the bin tooling's own hash type   |
-| 2026-08-21 | Reshape the extractor API upstream, one resolver type and closures       |
-| 2026-08-21 | Recover chunk names from the bins, on a byte scan the crate runs         |
-| 2026-08-21 | Pan and zoom a preview, on `react-zoom-pan-pinch`                        |
-| 2026-08-21 | Draw a bin as blocks, and move the preview into its own document         |
-| 2026-08-20 | Extract a selection, a directory or an archive to disk, as wadtools does |
+| Date       | Change                                                                 |
+| ---------- | ---------------------------------------------------------------------- |
+| 2026-08-22 | Give the problems list a model, and the bin retype rule that fills it  |
+| 2026-08-22 | Delete a layer file or folder from its own tree row                    |
+| 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself       |
+| 2026-08-22 | Extract with no dialog, and copy a game file into a layer              |
+| 2026-08-22 | Implement the extract to disk, on the branch's extractor               |
+| 2026-08-21 | Key every chunk by `WadHash` upstream, the bin tooling's own hash type |
+| 2026-08-21 | Reshape the extractor API upstream, one resolver type and closures     |
+| 2026-08-21 | Recover chunk names from the bins, on a byte scan the crate runs       |
+| 2026-08-21 | Pan and zoom a preview, on `react-zoom-pan-pinch`                      |
+| 2026-08-21 | Draw a bin as blocks, and move the preview into its own document       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -39,65 +39,67 @@ This table holds every major feature of the editor. A status word has one meanin
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature                | Status      | Note                                                        |
-| ---------------------- | ----------- | ----------------------------------------------------------- |
-| Layer file tree        | Available   | Moves to the secondary side panel                           |
-| Mod details document   | Available   | -                                                           |
-| String overrides       | Available   | -                                                           |
-| Tab strip, per project | Available   | -                                                           |
-| Tab context menu       | Available   | The four closes, copy path and copy name, and the splits    |
-| Secondary side panel   | In progress | Holds the file tree and the asset inspector                 |
-| Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks   |
-| Tree search            | Planned     | Reads every layer, and groups a result by layer             |
-| Tab title prefix       | Planned     | `<layer>/<file>` when two tabs take the same name           |
-| Panel host choice      | Planned     | Either side panel accepts any panel type                    |
-| Tree expansion rules   | Planned     | Stops the full expand of every directory                    |
-| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer      |
-| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                |
-| Directory size and bar | Planned     | Needs a size total for each directory                       |
-| File type filter       | Planned     | One of the three explorer filters. Uses the reported kind   |
-| Explorer bar           | Proposed    | The location, the breadcrumb and the view controls, one row |
-| Breadcrumb navigator   | Proposed    | Crumbs with sibling menus, and `Ctrl+L` for a typed path    |
-| Grid view              | Proposed    | One directory as tiles, in any of the three explorers       |
-| Asset thumbnails       | Proposed    | A small mipmap over `ltk-asset`, at the tile's own width    |
-| Details list           | Proposed    | The third view. Name, size, kind, and modified where it is  |
-| Explorer sorting       | Proposed    | Name, size and kind, and the directories first              |
-| Multi-select and copy  | Proposed    | One model under every view. A directory is its files        |
-| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                 |
-| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library         |
-| Bin preview            | Planned     | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)    |
-| Mesh preview           | Planned     | A model in a small viewport                                 |
-| Modified time          | Planned     | Needs a time field in the content scan                      |
-| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index      |
-| Game browser           | In progress | One folded read-only tree. Search remains                   |
-| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains    |
-| Scoped game browser    | Available   | One tab for each archive, from either list of archives      |
-| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings   |
-| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain    |
-| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick      |
-| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once     |
-| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer           |
-| Held mark              | Proposed    | A game row that the selected layer holds. No backend work   |
-| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer    |
-| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains             |
-| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view    |
-| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**         |
-| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**        |
-| Source control section | Planned     | Git history for the declarative data                        |
-| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams             |
-| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains |
-| Project bar            | Available   | Takes the header's middle, from the project name title      |
-| Command palette        | In progress | The project and the game are in. The bin objects remain     |
-| Bin object search      | Planned     | The project's objects, and the install's behind the blocker |
-| Project object index   | Planned     | The layers' own bins, rebuilt with the content scan         |
-| Bin object index       | Blocked     | The install's half. A lazy `ltk_meta` read comes first      |
-| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader         |
-| Navigation history     | Available   | The `←` `→` arrows, one stack for each project              |
-| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for  |
-| Merged layer view      | Proposed    | Names the layer that wins for each path                     |
-| Layer diff             | Proposed    | Compares one path across two layers                         |
-| Problems list          | Proposed    | Collects the validation results in one panel                |
-| Texture facts          | Available   | In the preview's status strip. The inspector row remains    |
+| Feature                | Status      | Note                                                               |
+| ---------------------- | ----------- | ------------------------------------------------------------------ |
+| Layer file tree        | Available   | Moves to the secondary side panel                                  |
+| Mod details document   | Available   | -                                                                  |
+| String overrides       | Available   | -                                                                  |
+| Tab strip, per project | Available   | -                                                                  |
+| Tab context menu       | Available   | The four closes, copy path and copy name, and the splits           |
+| Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
+| Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
+| Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
+| Tab title prefix       | Planned     | `<layer>/<file>` when two tabs take the same name                  |
+| Panel host choice      | Planned     | Either side panel accepts any panel type                           |
+| Tree expansion rules   | Planned     | Stops the full expand of every directory                           |
+| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer             |
+| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                       |
+| Directory size and bar | Planned     | Needs a size total for each directory                              |
+| File type filter       | Planned     | One of the three explorer filters. Uses the reported kind          |
+| Explorer bar           | Proposed    | The location, the breadcrumb and the view controls, one row        |
+| Breadcrumb navigator   | Proposed    | Crumbs with sibling menus, and `Ctrl+L` for a typed path           |
+| Grid view              | Proposed    | One directory as tiles, in any of the three explorers              |
+| Asset thumbnails       | Proposed    | A small mipmap over `ltk-asset`, at the tile's own width           |
+| Details list           | Proposed    | The third view. Name, size, kind, and modified where it is         |
+| Explorer sorting       | Proposed    | Name, size and kind, and the directories first                     |
+| Multi-select and copy  | Proposed    | One model under every view. A directory is its files               |
+| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                        |
+| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                |
+| Bin preview            | Planned     | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
+| Mesh preview           | Planned     | A model in a small viewport                                        |
+| Modified time          | Planned     | Needs a time field in the content scan                             |
+| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |
+| Game browser           | In progress | One folded read-only tree. Search remains                          |
+| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains           |
+| Scoped game browser    | Available   | One tab for each archive, from either list of archives             |
+| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings          |
+| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain           |
+| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick             |
+| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once            |
+| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer                  |
+| Held mark              | Proposed    | A game row that the selected layer holds. No backend work          |
+| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer           |
+| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains                    |
+| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view           |
+| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**                |
+| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**               |
+| Source control section | Planned     | Git history for the declarative data                               |
+| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                    |
+| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
+| Project bar            | Available   | Takes the header's middle, from the project name title             |
+| Command palette        | In progress | The project and the game are in. The bin objects remain            |
+| Bin object search      | Planned     | The project's objects, and the install's behind the blocker        |
+| Project object index   | Planned     | The layers' own bins, rebuilt with the content scan                |
+| Bin object index       | Blocked     | The install's half. A lazy `ltk_meta` read comes first             |
+| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
+| Navigation history     | Available   | The `←` `→` arrows, one stack for each project                     |
+| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
+| Merged layer view      | Proposed    | Names the layer that wins for each path                            |
+| Layer diff             | Proposed    | Compares one path across two layers                                |
+| Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md) |
+| Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent              |
+| Fix restore point      | Planned     | `.ltk/restore/`, and one Undo for a whole fix run                  |
+| Texture facts          | Available   | In the preview's status strip. The inspector row remains           |
 
 ## Scope
 
@@ -2650,7 +2652,7 @@ the panels and not a view: it appears once for each leaf of the split tree. Read
 - The file tree of the selected layer
 - The asset inspector
 - The game browser
-- The problems list, when it arrives
+- The [problems list](PROJECT_PROBLEMS.md#the-problems-panel), when it arrives
 - The merged layer view, when it arrives
 
 ### A tab drag creates a panel
@@ -2769,10 +2771,6 @@ answers this question for one file, and this view answers it for the whole proje
 **A diff between layers.** Two layers hold the same path. A diff shows what one changes
 against the other.
 
-**A problems list.** A panel that collects validation results, such as a missing hash or a
-`.bin` reference that points at nothing. This turns a failed patch into a list of items to
-fix.
-
 **A Git section in the primary side panel.** The changed files, a stage control and a
 commit box, in the shape that Visual Studio Code uses.
 
@@ -2872,5 +2870,7 @@ for Tauri. The payload is the same list, and the target runs
 | Which crate holds the extractor?                 | `ltk_wad`. wadtools and the manager both drive it   |
 | Does an extract keep the game paths?             | Yes by default, and a switch flattens it            |
 | How does the crate recover a chunk's name?       | A byte scan of the bins, found by their first block |
+| Where do the manager's checks collect?           | One Problems panel, on a rule for each check        |
+| What repairs a mod that a game patch broke?      | Problems, on a migration table shipped in the build |
 
 A row moves here when the body of this document carries the answer.

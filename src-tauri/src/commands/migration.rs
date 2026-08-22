@@ -1,4 +1,5 @@
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use super::off_thread;
+use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::mods::{BulkInstallResult, CslolModInfo, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -10,12 +11,7 @@ use super::mods::reject_if_patcher_running;
 /// Scan a cslol-manager directory for importable mods.
 #[tauri::command]
 pub async fn scan_cslol_mods(directory: String) -> IpcResult<Vec<CslolModInfo>> {
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::mods::scan_cslol_directory(&PathBuf::from(directory))
-    })
-    .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
+    off_thread(move || crate::mods::scan_cslol_directory(&PathBuf::from(directory))).await
 }
 
 /// Import selected mods from a cslol-manager installation.
@@ -44,7 +40,7 @@ pub async fn import_cslol_mods(
         Err(e) => return IpcResult::from(Err::<BulkInstallResult, _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || {
+    off_thread(move || {
         crate::mods::import_cslol_mods(
             &library,
             &config,
@@ -53,6 +49,4 @@ pub async fn import_cslol_mods(
         )
     })
     .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
 }

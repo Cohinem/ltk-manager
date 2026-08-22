@@ -4,6 +4,7 @@ import {
   GitBranchIcon,
   MagnifyingGlassIcon,
   PlusIcon,
+  WarningDiamondIcon,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
@@ -35,7 +36,14 @@ import {
 
 import { workshopKeys } from "../api/keys";
 import { useProjectActions } from "../api/useProjectActions";
-import { DETAILS_DOCUMENT_ID, detailsDocument, GAME_DOCUMENT_ID, gameDocument } from "../documents";
+import {
+  DETAILS_DOCUMENT_ID,
+  detailsDocument,
+  GAME_DOCUMENT_ID,
+  gameDocument,
+  PROBLEMS_DOCUMENT_ID,
+  problemsDocument,
+} from "../documents";
 import { useRevealGameSearch } from "../gameBrowser";
 import { CreateLayerDialog, useCreateLayer } from "../layers";
 import { useActiveDocumentId, useOpenDocument } from "../state";
@@ -45,7 +53,11 @@ import { AddLocaleMenu, ContentStringsList } from "./ContentStringsList";
 import { ContentWadList } from "./ContentWadList";
 
 /* Which sections start open, for a user who has not touched a boundary yet. */
-const SECTION_DEFAULTS: Record<string, boolean> = { layers: true, wads: false, strings: false };
+const SECTION_DEFAULTS: Record<string, boolean> = {
+  layers: true,
+  wads: false,
+  strings: false,
+};
 
 const SORT_OPTIONS = [
   { value: "name" as const, label: "Name" },
@@ -234,6 +246,18 @@ function ProjectRow({ onOpenFolder }: ProjectRowProps) {
           onClick={() => openDocument(detailsDocument())}
           aria-label="Mod details"
           className={twMerge(activeId === DETAILS_DOCUMENT_ID && activeDocumentClass)}
+        />
+      </Tooltip>
+
+      <Tooltip content="Problems">
+        <IconButton
+          icon={<WarningDiamondIcon className="h-4 w-4" />}
+          variant="ghost"
+          size="sm"
+          compact
+          onClick={() => openDocument(problemsDocument())}
+          aria-label="Problems"
+          className={twMerge(activeId === PROBLEMS_DOCUMENT_ID && activeDocumentClass)}
         />
       </Tooltip>
 

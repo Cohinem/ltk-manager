@@ -217,7 +217,7 @@ export function ModPills({
       {declaredVisible.map((pill) => (
         <span
           key={pill.key}
-          className={`rounded px-1.5 py-0.5 text-[10px] leading-tight ${DECLARED_PILL_CLASSES[pill.tone]}`}
+          className={`rounded px-1.5 py-0.5 text-[0.625rem] leading-tight ${DECLARED_PILL_CLASSES[pill.tone]}`}
         >
           {pill.label}
         </span>
@@ -231,7 +231,7 @@ export function ModPills({
           </span>
         </Tooltip>
       )}
-      {overflow > 0 && <span className="text-[10px] text-surface-500">+{overflow}</span>}
+      {overflow > 0 && <span className="text-[0.625rem] text-surface-500">+{overflow}</span>}
     </div>
   );
 }

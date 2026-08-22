@@ -85,7 +85,7 @@ export function GamesTab() {
         className="flex w-72 shrink-0 flex-col border-r border-surface-700/50 bg-surface-950 xl:w-80"
       >
         <div className="flex h-8 shrink-0 items-center justify-between gap-2 border-b border-surface-700/50 pr-1.5 pl-3 select-none">
-          <p className="font-mono text-[11px] tracking-wide text-surface-400 tabular-nums">
+          <p className="font-mono text-[0.6875rem] tracking-wide text-surface-400 tabular-nums">
             {countLabel}
           </p>
           <Tooltip content={DECODE_LABEL}>

@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use super::mods::reject_if_patcher_running;
+use super::off_thread;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
@@ -288,10 +289,7 @@ pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
         Err(e) => return IpcResult::from(Err::<(), _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || library.rebuild_overlay(&config).map(|_| ()))
-        .await
-        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-        .into()
+    off_thread(move || library.rebuild_overlay(&config).map(|_| ())).await
 }
 
 /// Get the current status of the patcher.

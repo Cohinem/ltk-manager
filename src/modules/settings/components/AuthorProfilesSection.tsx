@@ -229,7 +229,7 @@ function ProfileRow({ profile, isDefault }: { profile: AuthorProfile; isDefault:
           {profile.name}
         </span>
         {isDefault && (
-          <span className="shrink-0 rounded-full bg-accent-500/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-accent-300 uppercase">
+          <span className="shrink-0 rounded-full bg-accent-500/15 px-2 py-0.5 text-[0.625rem] font-medium tracking-wide text-accent-300 uppercase">
             Default
           </span>
         )}

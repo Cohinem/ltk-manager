@@ -2,7 +2,12 @@
    metric-compatible with these faces. */
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource-variable/nunito-sans";
 @import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/fira-code";
 @import "tailwindcss";
 @import "./animations.css";
 @import "./global.css";
@@ -61,6 +66,8 @@
   --color-cat-champion-text: var(--ltk-cat-champion-text);
   --color-cat-map: var(--ltk-cat-map);
   --color-cat-map-text: var(--ltk-cat-map-text);
+
+  /* Document colors */
   --color-doc-details: var(--ltk-doc-details);
   --color-doc-details-text: var(--ltk-doc-details-text);
   --color-doc-base: var(--ltk-doc-base);
@@ -71,6 +78,10 @@
   --color-doc-strings-text: var(--ltk-doc-strings-text);
   --color-doc-game: var(--ltk-doc-game);
   --color-doc-game-text: var(--ltk-doc-game-text);
+  --color-doc-problems: var(--ltk-doc-problems);
+  --color-doc-problems-text: var(--ltk-doc-problems-text);
+
+  /* Void */
   --color-void: var(--ltk-void);
   --color-void-text: var(--ltk-void-text);
 
@@ -113,10 +124,24 @@
   --z-index-toast: var(--z-toast);
   --z-index-notification: var(--z-notification);
 
-  /* Fonts. Fontsource registers the "* Variable" family names. */
-  --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;
-  --font-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
+  /* Type */
+  --text-row: var(--type-row);
+  --text-row--line-height: var(--type-row-leading);
+  --text-meta: var(--type-meta);
+  --text-meta--line-height: var(--type-meta-leading);
+  --text-meta--letter-spacing: var(--type-meta-tracking);
+  --text-code: var(--type-code);
+
+  /* Weights */
+  --font-weight-normal: var(--weight-normal);
+  --font-weight-medium: var(--weight-medium);
+  --font-weight-semibold: var(--weight-semibold);
+  --font-weight-bold: var(--weight-bold);
+
+  /* Fonts */
+  --font-sans: var(--face-sans);
+  --font-display: var(--face-display);
+  --font-mono: var(--face-mono);
 
   /* Animations */
   --animate-fade-in: fade-in 0.2s ease-out;

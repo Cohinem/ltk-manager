@@ -239,7 +239,7 @@ function TabDragGhost({ documentId }: { documentId: string }) {
     <div className="flex h-6 items-center gap-1.5 rounded-md bg-surface-800 px-2 text-xs text-surface-100 shadow-lg select-none">
       {definition.icon(document)}
       <span className="truncate">{title}</span>
-      {context && <span className="truncate text-[11px] text-surface-400">{context}</span>}
+      {context && <span className="truncate text-[0.6875rem] text-surface-400">{context}</span>}
     </div>
   );
 }

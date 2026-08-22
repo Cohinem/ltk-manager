@@ -7,6 +7,7 @@ use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager, State};
 
+use super::off_thread;
 use super::patcher::{start_patcher_inner, PatcherConfig};
 
 // ── Hotkey action implementations (called from shortcut callbacks) ──
@@ -174,10 +175,7 @@ fn set_hotkey_inner(
 /// hotkey path so the two cannot drift.
 #[tauri::command]
 pub async fn kill_league(app_handle: AppHandle) -> IpcResult<()> {
-    tauri::async_runtime::spawn_blocking(move || execute_kill_league(&app_handle))
-        .await
-        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-        .into()
+    off_thread(move || execute_kill_league(&app_handle)).await
 }
 
 // ── Helpers ──

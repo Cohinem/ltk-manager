@@ -87,7 +87,7 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-[10px] font-semibold tracking-wider text-surface-500 uppercase select-none">
+      <h3 className="text-[0.625rem] font-semibold tracking-wider text-surface-500 uppercase select-none">
         {title}
       </h3>
       {children}

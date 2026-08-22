@@ -5,5 +5,6 @@ export * from "./gameBrowser";
 export * from "./layers";
 export * from "./palette";
 export * from "./preview";
+export * from "./problems";
 export * from "./state";
 export * from "./string-overrides";

@@ -16,7 +16,7 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
   return (
     <span
       className={twMerge(
-        "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider",
+        "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[0.625rem] font-semibold tracking-wider",
         s.bg,
         s.text,
       )}

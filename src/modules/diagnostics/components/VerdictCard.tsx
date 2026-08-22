@@ -62,7 +62,7 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           </h2>
           <ConsequenceChip consequence={verdict.consequence} />
           {incident.dismissed && (
-            <span className="inline-flex h-5 items-center rounded-sm border border-surface-600 px-1.5 text-[10px] font-medium tracking-wider text-surface-400 uppercase">
+            <span className="inline-flex h-5 items-center rounded-sm border border-surface-600 px-1.5 text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
               Dismissed
             </span>
           )}

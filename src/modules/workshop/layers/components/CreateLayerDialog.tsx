@@ -131,7 +131,7 @@ export function CreateLayerDialog({
                         <FolderClosed className="mt-0.5 h-3 w-3 shrink-0 text-surface-500" />
                         <span>
                           Saved to disk as{" "}
-                          <code className="rounded bg-surface-800 px-1 py-0.5 font-mono text-[11px] text-surface-300">
+                          <code className="rounded bg-surface-800 px-1 py-0.5 font-mono text-[0.6875rem] text-surface-300">
                             content/{field.state.value || "layer-slug"}
                           </code>
                           . Lowercase letters, numbers, and hyphens only.

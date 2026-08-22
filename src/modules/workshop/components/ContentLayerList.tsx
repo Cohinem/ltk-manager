@@ -404,7 +404,7 @@ function RowShell({
         {stats && showStats && (
           <span
             className={twMerge(
-              "shrink-0 text-[11px] tabular-nums transition-opacity group-hover/row:opacity-0 group-has-[[aria-expanded=true]]/row:opacity-0",
+              "shrink-0 text-[0.6875rem] tabular-nums transition-opacity group-hover/row:opacity-0 group-has-[[aria-expanded=true]]/row:opacity-0",
               selected ? "text-accent-300" : "text-surface-400",
             )}
           >
