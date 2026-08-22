@@ -275,14 +275,23 @@ fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) ->
     let file = fs::File::open(src)?;
     let mut wad = Wad::mount(BufReader::new(file))?;
 
-    let mut extractor = WadExtractor::new(resolver);
+    let mut extractor = WadExtractor::new(resolver).with_name_recovery();
     let utf8_dst = Utf8Path::from_path(dst).ok_or_else(|| {
         AppError::Other(format!(
             "WAD output path is not valid UTF-8: {}",
             dst.display()
         ))
     })?;
-    extractor.extract_all(&mut wad, utf8_dst)?;
+    let report = extractor.extract_all(&mut wad, utf8_dst)?;
+
+    tracing::debug!(
+        wad = %src.display(),
+        extracted = report.extracted,
+        recovered = report.recovered.names.len(),
+        bins_scanned = report.recovered.bins_scanned,
+        "Extracted packed WAD into layer"
+    );
+
     Ok(())
 }
 

@@ -746,13 +746,21 @@ fn extract_fantome_wad<R: Read + Seek>(
             let wad_dir = base_dir.join(wad_name);
             fs::create_dir_all(&wad_dir)?;
 
-            let mut extractor = WadExtractor::new(resolver);
-            extractor.extract_all(
+            let mut extractor = WadExtractor::new(resolver).with_name_recovery();
+            let report = extractor.extract_all(
                 &mut wad,
                 Utf8Path::from_path(&wad_dir).ok_or_else(|| {
                     AppError::Fantome("WAD output path is not valid UTF-8".to_string())
                 })?,
             )?;
+
+            tracing::debug!(
+                wad = wad_name,
+                extracted = report.extracted,
+                recovered = report.recovered.names.len(),
+                bins_scanned = report.recovered.bins_scanned,
+                "Extracted packed WAD from fantome archive"
+            );
 
             return Ok(());
         }
