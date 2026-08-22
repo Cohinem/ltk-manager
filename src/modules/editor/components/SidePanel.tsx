@@ -226,11 +226,11 @@ export function SidePanel({
                       open && "rotate-90",
                     )}
                   />
-                  <span className="truncate text-[11px] font-medium tracking-wide text-surface-300 uppercase">
+                  <span className="truncate text-[0.6875rem] font-medium tracking-wide text-surface-300 uppercase">
                     {section.title}
                   </span>
                   {section.meta !== undefined && (
-                    <span className="shrink-0 text-[11px] text-surface-400 tabular-nums">
+                    <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums">
                       {section.meta}
                     </span>
                   )}

@@ -7,6 +7,7 @@ import { SettingRow } from "../SettingRow";
 import { AccentColorPicker } from "./AccentColorPicker";
 import { BackdropImagePicker } from "./BackdropImagePicker";
 import { CornerStylePicker } from "./CornerStylePicker";
+import { CodeFontPicker, InterfaceFontPicker } from "./FontPicker";
 import { ReduceMotionPicker } from "./ReduceMotionPicker";
 import { ResetAppearanceButton } from "./ResetAppearanceButton";
 import { ScrollbarSizePicker } from "./ScrollbarSizePicker";
@@ -63,6 +64,15 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
           title="Zoom level"
           description="Scales the whole interface."
           control={<ZoomLevelPicker />}
+        />
+
+        <SettingRow kind="action" title="Interface font" control={<InterfaceFontPicker />} />
+
+        <SettingRow
+          kind="action"
+          title="Code font"
+          hint="Each face is measured against the interface font so the two sit level."
+          control={<CodeFontPicker />}
         />
 
         <SettingRow

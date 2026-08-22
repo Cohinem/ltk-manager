@@ -1,5 +1,6 @@
 //! Read-only browsing of the game's archives folded into one tree.
 
+use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::game_index::{
@@ -154,7 +155,7 @@ where
         Err(e) => return IpcResult::from(Err::<T, _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || -> AppResult<T> {
+    off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
         let index = app_handle
             .state::<GameIndexState>()
@@ -168,6 +169,4 @@ where
         read(&index)
     })
     .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
 }

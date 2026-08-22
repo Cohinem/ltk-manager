@@ -118,7 +118,7 @@ function SaveStatus({ state, onRetry }: SaveStatusProps) {
   if (state === "blocked") {
     return (
       /* DS-TEXT */
-      <span className="shrink-0 text-[11px] text-warning-text select-none">
+      <span className="shrink-0 text-[0.6875rem] text-warning-text select-none">
         Fix the errors to save
       </span>
     );
@@ -128,7 +128,7 @@ function SaveStatus({ state, onRetry }: SaveStatusProps) {
     return (
       <span className="flex shrink-0 items-center gap-1.5">
         {/* DS-TEXT */}
-        <span className="text-[11px] text-danger-text select-none">Save failed</span>
+        <span className="text-[0.6875rem] text-danger-text select-none">Save failed</span>
         <Button variant="ghost" size="xs" compact onClick={onRetry}>
           Retry
         </Button>

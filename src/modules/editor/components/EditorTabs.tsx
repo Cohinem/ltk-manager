@@ -247,7 +247,9 @@ const SortableTab = memo(function SortableTab({
         {tab.icon}
         <span className={twMerge("truncate", tab.preview && "italic")}>{tab.title}</span>
         {tab.context && (
-          <span className="shrink-[3] truncate text-[11px] text-surface-400">{tab.context}</span>
+          <span className="shrink-[3] truncate text-[0.6875rem] text-surface-400">
+            {tab.context}
+          </span>
         )}
       </Tabs.Tab>
 

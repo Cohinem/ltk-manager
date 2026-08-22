@@ -19,6 +19,7 @@ pub mod mods;
 pub mod overlay;
 pub mod patcher;
 pub mod preview;
+pub mod problems;
 pub mod ritobin;
 pub mod storage;
 pub mod strings;

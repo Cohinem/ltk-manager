@@ -49,11 +49,13 @@
   --ltk-doc-layer: #38bdf8;
   --ltk-doc-strings: #34d399;
   --ltk-doc-game: #fb7185;
+  --ltk-doc-problems: #f97316;
   --ltk-doc-details-text: var(--ltk-doc-details);
   --ltk-doc-base-text: var(--ltk-doc-base);
   --ltk-doc-layer-text: var(--ltk-doc-layer);
   --ltk-doc-strings-text: var(--ltk-doc-strings);
   --ltk-doc-game-text: var(--ltk-doc-game);
+  --ltk-doc-problems-text: var(--ltk-doc-problems);
 
   /* Void hue for skinhack detection. */
   --ltk-void: #c084fc;
@@ -73,6 +75,7 @@
   --ltk-doc-layer-text: color-mix(in srgb, var(--ltk-doc-layer) 50%, black);
   --ltk-doc-strings-text: color-mix(in srgb, var(--ltk-doc-strings) 50%, black);
   --ltk-doc-game-text: color-mix(in srgb, var(--ltk-doc-game) 50%, black);
+  --ltk-doc-problems-text: color-mix(in srgb, var(--ltk-doc-problems) 50%, black);
   --ltk-void-text: color-mix(in srgb, var(--ltk-void) 50%, black);
 }
 
@@ -266,6 +269,30 @@
   --icon-006: calc(21px * var(--zoom-scale));
   --icon-007: calc(24px * var(--zoom-scale));
 
+  /* The faces, and the x-heights that level mono against the sans.
+     Fontsource registers the "* Variable" family names. */
+  --face-sans: "Geist Variable", "Geist", system-ui, sans-serif;
+  --face-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
+  --face-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
+  --sans-x-height: 0.53;
+  --mono-x-height: 0.53;
+
+  /* Weight tiers, in the numbers Geist hits them at. */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Dense row type: the tier a row names itself in, and the tier around it. */
+  --type-row: 0.75rem;
+  --type-row-leading: 1rem;
+  --type-meta: 0.6875rem;
+  --type-meta-leading: 0.875rem;
+  --type-meta-tracking: 0.01em;
+
+  /* Monospace measured against the sans beside it. */
+  --type-code: calc(var(--sans-x-height) / var(--mono-x-height) * 1em);
+
   /* Elevation, dark-first. Light mode softens it below. */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
@@ -314,6 +341,40 @@
   --radius-005: 28px;
 }
 
+/* The interface faces a user may choose. */
+[data-font-sans="inter"] {
+  --face-sans: "Inter Variable", system-ui, sans-serif;
+  --sans-x-height: 0.546;
+}
+
+[data-font-sans="plex"] {
+  --face-sans: "IBM Plex Sans Variable", system-ui, sans-serif;
+  --sans-x-height: 0.516;
+  --weight-normal: 440;
+  --weight-medium: 505;
+  --weight-semibold: 610;
+}
+
+[data-font-sans="nunito"] {
+  --face-sans: "Nunito Sans Variable", system-ui, sans-serif;
+  --sans-x-height: 0.484;
+  --weight-normal: 565;
+  --weight-medium: 675;
+  --weight-semibold: 765;
+  --weight-bold: 850;
+}
+
+/* The code faces a user may choose. */
+[data-font-mono="jetbrains"] {
+  --face-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --mono-x-height: 0.55;
+}
+
+[data-font-mono="fira"] {
+  --face-mono: "Fira Code Variable", ui-monospace, monospace;
+  --mono-x-height: 0.525;
+}
+
 [data-scrollbars="thin"] {
   --scrollbar-size: 6px;
 }
@@ -357,10 +418,29 @@
    Base Styles
    ============================================ */
 
+/* Zoom reaches type through the root font size, which is what every rem in the
+   app is measured against. --space-* and --icon-* carry the scale themselves
+   because they are authored in px, and --radius-* is left out on purpose. */
 html {
+  font-size: calc(100% * var(--zoom-scale));
   font-family: var(--font-sans);
+  font-weight: var(--weight-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* The sans tiers are that face's numbers and mean nothing to the mono, which
+   reaches the same tiers at the plain ones. Layered as `base` so the weight
+   utilities, which Tailwind emits into `utilities`, still win on an element
+   that asks for one. */
+@layer base {
+  .font-mono {
+    --weight-normal: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+    font-weight: var(--weight-normal);
+  }
 }
 
 body {

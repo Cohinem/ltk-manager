@@ -180,7 +180,7 @@ export const MenuGroupLabel = forwardRef<HTMLDivElement, MenuGroupLabelProps>(
       <BaseMenu.GroupLabel
         ref={ref}
         className={twMerge(
-          "px-2 py-1 text-[11px] font-medium tracking-wide text-surface-400 uppercase",
+          "px-2 py-1 text-[0.6875rem] font-medium tracking-wide text-surface-400 uppercase",
           className,
         )}
         {...props}

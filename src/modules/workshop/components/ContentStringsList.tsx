@@ -78,7 +78,7 @@ export function ContentStringsList({ layerName, overrides }: ContentStringsListP
               <span className="min-w-0 flex-1 truncate text-sm">{locale}</span>
               <span
                 className={twMerge(
-                  "shrink-0 text-[11px] tabular-nums",
+                  "shrink-0 text-[0.6875rem] tabular-nums",
                   active ? "text-accent-300" : "text-surface-400",
                 )}
               >

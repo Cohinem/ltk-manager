@@ -22,12 +22,17 @@ ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "
 ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
 ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
 
-# Pinned to a rev until `ltk_wad` 0.4 ships on crates.io. Both crates must come
-# from the same rev: the git `ltk_wad` takes `ltk_file` by path, and a
-# `LeagueFileKind` out of a git source is a different type to the compiler than
-# the crates.io one of the same version. `ltk_overlay` and `ltk_texture` keep the
-# crates.io copy, and nothing hands a file kind across the two.
+# Pinned to a rev until `ltk_wad` 0.4 ships on crates.io. All three must come
+# from the same rev: the git `ltk_wad` takes `ltk_file` and `ltk_hash` by path,
+# and a `LeagueFileKind` or a `WadHash` out of a git source is a different type
+# to the compiler than the crates.io one of the same version. `ltk_meta` is here
+# rather than on its published 0.6.1 for that reason - it hands back the
+# `WadHash` that a `WadChunkLink` holds, and the game index keys chunks by
+# `ltk_wad`'s. `ltk_overlay` and `ltk_texture` keep the crates.io copy, and
+# nothing hands a file kind across the two.
 ltk_file = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f", features = ["serde"] }
+ltk_hash = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f", features = ["serde"] }
+ltk_meta = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f", features = ["serde"] }
 ltk_wad = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f" }
 
 ltk_rst = "0.2.1"

@@ -216,7 +216,7 @@ function SearchField({ onCommit }: SearchFieldProps) {
               aria-pressed={regex}
               onClick={() => onRegexChange(!regex)}
               className={twMerge(
-                "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-[10px] text-surface-400 transition-colors",
+                "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-[0.625rem] text-surface-400 transition-colors",
                 /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
                 regex &&
                   "bg-accent-500/20 text-accent-300 hover:bg-accent-500/30 hover:text-accent-300",
@@ -229,7 +229,7 @@ function SearchField({ onCommit }: SearchFieldProps) {
       </Field.Root>
 
       {counted && (
-        <span className="shrink-0 text-[11px] text-surface-400 tabular-nums select-none">
+        <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
           {countText(data)}
         </span>
       )}

@@ -200,7 +200,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             </span>
             {version && (
               <span
-                className="text-[10px] leading-none whitespace-nowrap text-surface-500"
+                className="text-[0.625rem] leading-none whitespace-nowrap text-surface-500"
                 data-tauri-drag-region
               >
                 v{version}

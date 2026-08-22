@@ -2,6 +2,7 @@ import type { WorkshopProject } from "@/lib/tauri";
 
 import { NavigationArrows } from "../palette/NavigationArrows";
 import { ProjectBar } from "../palette/ProjectBar";
+import { ProblemsBadge } from "../problems";
 import { ContentLayoutPopover } from "./ContentLayoutPopover";
 import { ProjectActions } from "./ProjectActions";
 
@@ -19,6 +20,8 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
       <NavigationArrows />
 
       <ProjectBar />
+
+      <ProblemsBadge />
 
       {/* Layout is view-level, so it sits here once rather than in every leaf's tab strip. */}
       <ContentLayoutPopover />

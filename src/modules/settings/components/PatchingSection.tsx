@@ -105,7 +105,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
         <div className="flex flex-col gap-3">
           <SettingRow
             title="Block Scripts.wad.client"
-            description="Stops mods from modifying game scripts."
+            description="Stops mods from modifying Lua game scripts"
             control={
               <Switch
                 checked={settings.blockScriptsWad}
@@ -116,8 +116,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
 
           {!settings.blockScriptsWad && (
             <AlertBox variant="warning">
-              Script modding is on, so a mod can run arbitrary game code. Only install from sources
-              you trust.
+              Modding allows running Lua scripts. Only install from sources you trust.
             </AlertBox>
           )}
 
@@ -180,8 +179,8 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           />
 
           <SettingRow
-            title="Read League's game log after a game"
-            description="League's r3dlog, read once a game ends, for the codes a verdict rests on"
+            title="Allow reading game logs"
+            description="The incident reporter reads the game log to see what went wrong."
             hint="Turn this off to keep the manager from opening anything under the League install. An incident still records how the game ended, and the archives the patcher saw."
             control={
               <Switch
@@ -193,7 +192,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
 
           <SettingRow
             title="Keep incidents"
-            description="How many games that went wrong stay on the Games tab"
+            description="How many indicents to keep"
             hint="The newest are kept, under 1 MB together, and the oldest goes first."
             control={
               <KeepIncidentsField

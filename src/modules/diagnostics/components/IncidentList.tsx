@@ -89,7 +89,7 @@ export function IncidentList({ incidents, selectedId, onSelect }: IncidentListPr
       {groups.map((group) => (
         <div key={group.key} role="group" aria-label={group.label} className="flex flex-col">
           {/* A band of its own, so a long day still says which day while it scrolls. */}
-          <div className="sticky top-0 z-10 flex h-6 items-center gap-2 border-y border-surface-800 bg-surface-900 px-3 text-[10px] font-medium tracking-wider text-surface-400 uppercase">
+          <div className="sticky top-0 z-10 flex h-6 items-center gap-2 border-y border-surface-800 bg-surface-900 px-3 text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
             <span className="min-w-0 flex-1 truncate">{group.label}</span>
             <span className="shrink-0 font-mono tabular-nums">{group.incidents.length}</span>
           </div>
@@ -171,17 +171,17 @@ function IncidentRow({ incident, selected, onSelect, ref }: IncidentRowProps) {
         <span className="flex items-baseline gap-2">
           <span
             className={twMerge(
-              "min-w-0 flex-1 truncate text-[13px] font-medium text-surface-100",
+              "min-w-0 flex-1 truncate text-[0.8125rem] font-medium text-surface-100",
               skinhack && "text-void-text",
             )}
           >
             {incident.verdict.title}
           </span>
-          <span className="shrink-0 font-mono text-[11px] text-surface-500 tabular-nums">
+          <span className="shrink-0 font-mono text-[0.6875rem] text-surface-500 tabular-nums">
             {formatClock(incident.endedAt)}
           </span>
         </span>
-        <span className="flex items-baseline gap-2 font-mono text-[11px] text-surface-500">
+        <span className="flex items-baseline gap-2 font-mono text-[0.6875rem] text-surface-500">
           {subtitle && <span className="min-w-0 flex-1 truncate">{subtitle}</span>}
           <span className={twMerge("shrink-0 truncate", !subtitle && "min-w-0 flex-1")}>
             {metaLine(incident)}

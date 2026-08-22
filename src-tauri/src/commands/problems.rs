@@ -1,0 +1,154 @@
+//! The problems panel's IPC: analyze, fix, undo, and a project's restore points.
+//!
+//! A run is held in memory rather than returned and forgotten, because a fix
+//! names the problems of a run the backend made. Anything that writes
+//! invalidates that state, so the panel's next read re-runs the rules over the
+//! files as they are now.
+
+use super::off_thread;
+use crate::error::{AppError, AppResult, IpcResult};
+use crate::state::SettingsState;
+use ltk_manager_core::problems;
+use ltk_manager_core::problems::{FixReport, FixRunSummary, ProblemId, ProblemsState, UndoReport};
+use std::path::Path;
+use tauri::{AppHandle, Manager};
+
+/// Run every rule over one project.
+///
+/// The run answers inside its budget, 2ms on a skin mod and a few hundred on a
+/// 60MB map overhaul, so it needs no progress events and no cancel. A few
+/// hundred milliseconds is still a frame budget the window does not have, and
+/// the first run of a session also pays for the hashtable cache, so the walk
+/// happens off the UI thread. See `docs/ux/PROJECT_PROBLEMS.md`.
+#[tauri::command]
+pub async fn analyze_project(
+    project_path: String,
+    app_handle: AppHandle,
+) -> IpcResult<problems::Run> {
+    off_thread(move || {
+        analyze_project_inner(
+            &project_path,
+            &app_handle.state::<ProblemsState>(),
+            &app_handle.state::<SettingsState>(),
+        )
+    })
+    .await
+}
+
+fn analyze_project_inner(
+    project_path: &str,
+    runs: &ProblemsState,
+    settings: &SettingsState,
+) -> AppResult<problems::Run> {
+    let root = Path::new(project_path);
+    let config = settings.config()?;
+
+    let run = problems::analyze(root, &config)?;
+    runs.record(root, run.clone())?;
+    Ok(run)
+}
+
+/// Apply the fixes of the named problems, and write a restore point first.
+///
+/// Fix on a row, Fix on a group and Fix on the panel are this one call with a
+/// different list.
+///
+/// # Errors
+///
+/// Reports a project the backend holds no run for, because the ids name
+/// problems only a run can have produced.
+#[tauri::command]
+pub async fn fix_problems(
+    project_path: String,
+    problems: Vec<ProblemId>,
+    app_handle: AppHandle,
+) -> IpcResult<FixReport> {
+    off_thread(move || {
+        fix_problems_inner(
+            &project_path,
+            &problems,
+            &app_handle.state::<ProblemsState>(),
+            &app_handle.state::<SettingsState>(),
+        )
+    })
+    .await
+}
+
+fn fix_problems_inner(
+    project_path: &str,
+    chosen: &[ProblemId],
+    runs: &ProblemsState,
+    settings: &SettingsState,
+) -> AppResult<FixReport> {
+    let root = Path::new(project_path);
+    let run = runs.last(root)?.ok_or_else(|| {
+        AppError::ValidationFailed(format!(
+            "no analysis is held for {project_path}, run the analysis first"
+        ))
+    })?;
+    let config = settings.config()?;
+
+    let report = problems::apply(root, &run, chosen, &config);
+
+    runs.invalidate(root)?;
+    report
+}
+
+/// Reverse one fix run.
+///
+/// # Errors
+///
+/// Reports a stamp the project holds no restore point for.
+#[tauri::command]
+pub async fn undo_fix_run(
+    project_path: String,
+    stamp: String,
+    app_handle: AppHandle,
+) -> IpcResult<UndoReport> {
+    off_thread(move || {
+        undo_fix_run_inner(&project_path, &stamp, &app_handle.state::<ProblemsState>())
+    })
+    .await
+}
+
+fn undo_fix_run_inner(
+    project_path: &str,
+    stamp: &str,
+    runs: &ProblemsState,
+) -> AppResult<UndoReport> {
+    let root = Path::new(project_path);
+
+    let report = problems::undo_fix_run(root, stamp);
+    runs.invalidate(root)?;
+    report
+}
+
+/// The restore points a project holds, newest first.
+///
+/// # Errors
+///
+/// Reports a restore directory that exists and cannot be read. A project with
+/// none reports an empty list.
+#[tauri::command]
+pub async fn fix_runs(project_path: String) -> IpcResult<Vec<FixRunSummary>> {
+    off_thread(move || problems::fix_runs(Path::new(&project_path))).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_fix_without_a_recorded_run_is_a_validation_error() {
+        let error = fix_problems_inner(
+            "X:/lol-mods/charizard-smolder-x",
+            &[],
+            &ProblemsState::default(),
+            &SettingsState::default(),
+        )
+        .expect_err("a project the backend never analyzed has no run to fix from");
+
+        assert!(matches!(error, AppError::ValidationFailed(_)));
+        assert!(error.to_string().contains("run the analysis first"));
+    }
+}

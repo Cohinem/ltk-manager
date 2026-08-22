@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ContextMenu } from "@/components";
+import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import { keepScrollTop, keptScrollTop } from "@/stores";
 
@@ -74,10 +75,13 @@ export function SourceTree({
     [isExpanded],
   );
 
+  const zoomed = useZoomedPx();
+  const rowHeight = zoomed(ROW_HEIGHT);
+
   const { sticky, height: stickyHeight } = useStickyTreeRows({
     rows,
     scrollElementRef: scrollRef,
-    rowHeight: ROW_HEIGHT,
+    rowHeight,
     offsetTop: CONTENT_TOP,
     isOpenBranch,
   });
@@ -85,7 +89,7 @@ export function SourceTree({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowHeight,
     overscan: 12,
     getItemKey: (index) => rows[index]!.node.id,
     initialOffset,
@@ -93,6 +97,12 @@ export function SourceTree({
        landing under it. */
     scrollPaddingStart: stickyHeight,
   });
+
+  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
+     one of the inputs the measurement memo watches. */
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, zoomed]);
 
   /* Every tree of the browser offers the same ways out, so the routes are read
      here rather than handed down by the three documents that mount one. */
@@ -171,7 +181,7 @@ export function SourceTree({
                   onToggle={() => revealRow(pin.index)}
                   onSelect={setFocusedIndex}
                   onOpen={onOpen}
-                  height={ROW_HEIGHT}
+                  height={rowHeight}
                   rowIndex={pin.index}
                   tabIndex={-1}
                 />
@@ -205,7 +215,7 @@ export function SourceTree({
                     onToggle={onToggle}
                     onSelect={setFocusedIndex}
                     onOpen={onOpen}
-                    height={ROW_HEIGHT}
+                    height={rowHeight}
                     rowIndex={virtualRow.index}
                     tabIndex={isSelected ? 0 : -1}
                   />

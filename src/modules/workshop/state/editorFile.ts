@@ -170,6 +170,7 @@ const layoutNodeSchema: z.ZodType<unknown> = z.lazy(() =>
 const contentDocumentSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("details") }),
   z.object({ id: z.string(), kind: z.literal("files"), layerName: z.string() }),
+  z.object({ id: z.string(), kind: z.literal("problems") }),
   z.object({
     id: z.string(),
     kind: z.literal("strings"),

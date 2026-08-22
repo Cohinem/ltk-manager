@@ -11,9 +11,9 @@ import { describeFileKind } from "../utils/fileKindIcon";
 /** Shared row styling. Kept as string constants so the hover/selected variants
  * cascade cleanly in Tailwind 4 — selected-hover has to beat plain hover, so
  * it appears later in the class string. */
-/* The tree is set in JetBrains Mono, which carries more ink per row than the sans
-   the rest of the app uses, so the same rung reads brighter here. The name settles
-   a little under it and the hover still climbs to a full rung. */
+/* The tree is set in mono, whose even advance carries more ink per row than the
+   sans the rest of the app uses, so the same rung reads brighter here. The name
+   settles a little under it and the hover still climbs to a full rung. */
 const ROW_BASE_CLASSES =
   "flex items-center gap-1 pr-3 select-none text-surface-200/90 outline-none transition-colors duration-100";
 const ROW_STATE_CLASSES =
@@ -167,7 +167,7 @@ function DirRow({
         strokeWidth={1.75}
       />
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 text-[10px] text-surface-500 tabular-nums">
+      <span className="ml-auto shrink-0 text-[0.625rem] text-surface-500 tabular-nums">
         {fileCount}
       </span>
     </button>
@@ -226,7 +226,7 @@ function FileRow({
         </span>
       </Tooltip>
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 font-mono text-[10px] text-surface-400 tabular-nums">
+      <span className="ml-auto shrink-0 font-mono text-[0.625rem] text-surface-400 tabular-nums">
         {formatBytes(Number(node.entry.sizeBytes))}
       </span>
     </div>

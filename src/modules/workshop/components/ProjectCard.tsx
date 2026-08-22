@@ -433,12 +433,12 @@ function ProjectPills({
       {visible.map((pill) => (
         <span
           key={`${pill.color}:${pill.label}`}
-          className={`rounded px-1.5 py-0.5 text-[10px] leading-tight ${colorClasses[pill.color]}`}
+          className={`rounded px-1.5 py-0.5 text-[0.625rem] leading-tight ${colorClasses[pill.color]}`}
         >
           {pill.label}
         </span>
       ))}
-      {overflow > 0 && <span className="text-[10px] text-surface-500">+{overflow}</span>}
+      {overflow > 0 && <span className="text-[0.625rem] text-surface-500">+{overflow}</span>}
     </div>
   );
 }

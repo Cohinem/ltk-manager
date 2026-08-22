@@ -3,6 +3,7 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ContextMenu } from "@/components";
+import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { ContentEntry } from "@/lib/tauri";
 
@@ -78,10 +79,13 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
     [collapsed],
   );
 
+  const zoomed = useZoomedPx();
+  const rowHeight = zoomed(ROW_HEIGHT);
+
   const { sticky, height: stickyHeight } = useStickyTreeRows({
     rows,
     scrollElementRef: scrollRef,
-    rowHeight: ROW_HEIGHT,
+    rowHeight,
     offsetTop: CONTENT_TOP,
     isOpenBranch,
   });
@@ -89,13 +93,19 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => rowHeight,
     overscan: 12,
     getItemKey: (index) => nodeKey(rows[index]!.node),
     /* Everything the tree scrolls to itself clears the pinned band rather than
        landing under it. */
     scrollPaddingStart: stickyHeight,
   });
+
+  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
+     one of the inputs the measurement memo watches. */
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, zoomed]);
 
   /* The tree owns the confirmation rather than the menu, so the keyboard route
      and the menu item reach the same one. The node rather than what the
@@ -224,7 +234,7 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
                     onToggle={() => revealRow(pin.index)}
                     onSelect={setFocusedIndex}
                     onOpen={openFile}
-                    height={ROW_HEIGHT}
+                    height={rowHeight}
                     rowIndex={pin.index}
                     tabIndex={-1}
                   />
@@ -259,7 +269,7 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
                       onToggle={toggle}
                       onSelect={setFocusedIndex}
                       onOpen={openFile}
-                      height={ROW_HEIGHT}
+                      height={rowHeight}
                       rowIndex={virtualRow.index}
                       tabIndex={isSelected ? 0 : -1}
                     />

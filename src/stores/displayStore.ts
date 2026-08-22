@@ -7,6 +7,8 @@ type CornerStyle = "sharp" | "default" | "round";
 type CardScale = 70 | 80 | 90 | 100 | 110 | 120 | 130;
 type ScrollMode = "smooth" | "spring";
 type ScrollbarSize = "thin" | "default" | "wide";
+type SansFont = "geist" | "inter" | "plex" | "nunito";
+type MonoFont = "geist" | "jetbrains" | "fira";
 
 interface DisplayStore {
   zoomLevel: ZoomLevel;
@@ -14,6 +16,8 @@ interface DisplayStore {
   scrollMode: ScrollMode;
   scrollbarSize: ScrollbarSize;
   cornerStyle: CornerStyle;
+  sansFont: SansFont;
+  monoFont: MonoFont;
   /** Percent of each surface rung's authored chroma, so 0 is a neutral grey ramp. */
   surfaceTint: number;
   cardScale: CardScale;
@@ -22,6 +26,8 @@ interface DisplayStore {
   setScrollMode: (scrollMode: ScrollMode) => void;
   setScrollbarSize: (scrollbarSize: ScrollbarSize) => void;
   setCornerStyle: (cornerStyle: CornerStyle) => void;
+  setSansFont: (sansFont: SansFont) => void;
+  setMonoFont: (monoFont: MonoFont) => void;
   setSurfaceTint: (surfaceTint: number) => void;
   setCardScale: (cardScale: CardScale) => void;
   resetAppearance: () => void;
@@ -33,12 +39,21 @@ const APPEARANCE_DEFAULTS = {
   zoomLevel: 100,
   reduceMotion: "system",
   cornerStyle: "default",
+  sansFont: "geist",
+  monoFont: "geist",
   surfaceTint: 30,
   scrollMode: "smooth",
   scrollbarSize: "default",
 } satisfies Pick<
   DisplayStore,
-  "zoomLevel" | "reduceMotion" | "cornerStyle" | "surfaceTint" | "scrollMode" | "scrollbarSize"
+  | "zoomLevel"
+  | "reduceMotion"
+  | "cornerStyle"
+  | "sansFont"
+  | "monoFont"
+  | "surfaceTint"
+  | "scrollMode"
+  | "scrollbarSize"
 >;
 
 const APPEARANCE_KEYS = Object.keys(APPEARANCE_DEFAULTS) as (keyof typeof APPEARANCE_DEFAULTS)[];
@@ -63,13 +78,15 @@ export const useDisplayStore = create<DisplayStore>()(
       setScrollMode: (scrollMode) => set({ scrollMode }),
       setScrollbarSize: (scrollbarSize) => set({ scrollbarSize }),
       setCornerStyle: (cornerStyle) => set({ cornerStyle }),
+      setSansFont: (sansFont) => set({ sansFont }),
+      setMonoFont: (monoFont) => set({ monoFont }),
       setSurfaceTint: (surfaceTint) => set({ surfaceTint }),
       setCardScale: (cardScale) => set({ cardScale }),
       resetAppearance: () => set(APPEARANCE_DEFAULTS),
     }),
     {
       name: "ltk-display-prefs",
-      version: 7,
+      version: 8,
       migrate: (persisted, version) => {
         const state = persisted as Record<string, unknown>;
         if (version === 0) {
@@ -122,7 +139,19 @@ export const useDisplayStore = create<DisplayStore>()(
         }
         // 6 never shipped, so nobody chose the tint it stored on their behalf.
         if (version === 6) {
-          return { ...state, surfaceTint: APPEARANCE_DEFAULTS.surfaceTint } as DisplayStore;
+          return {
+            ...state,
+            surfaceTint: APPEARANCE_DEFAULTS.surfaceTint,
+            sansFont: APPEARANCE_DEFAULTS.sansFont,
+            monoFont: APPEARANCE_DEFAULTS.monoFont,
+          } as DisplayStore;
+        }
+        if (version === 7) {
+          return {
+            ...state,
+            sansFont: APPEARANCE_DEFAULTS.sansFont,
+            monoFont: APPEARANCE_DEFAULTS.monoFont,
+          } as DisplayStore;
         }
         return persisted as DisplayStore;
       },
@@ -131,9 +160,13 @@ export const useDisplayStore = create<DisplayStore>()(
 );
 
 export { VALID_CARD_SCALES, VALID_ZOOM_LEVELS };
-export type { CardScale, CornerStyle, ScrollbarSize, ScrollMode, ZoomLevel };
+export type { CardScale, CornerStyle, MonoFont, SansFont, ScrollbarSize, ScrollMode, ZoomLevel };
 export const useZoomLevel = () => useDisplayStore((s) => s.zoomLevel);
 export const useSetZoomLevel = () => useDisplayStore((s) => s.setZoomLevel);
+export const useSansFont = () => useDisplayStore((s) => s.sansFont);
+export const useSetSansFont = () => useDisplayStore((s) => s.setSansFont);
+export const useMonoFont = () => useDisplayStore((s) => s.monoFont);
+export const useSetMonoFont = () => useDisplayStore((s) => s.setMonoFont);
 export const useReduceMotion = () => useDisplayStore((s) => s.reduceMotion);
 export const useSetReduceMotion = () => useDisplayStore((s) => s.setReduceMotion);
 export const useScrollMode = () => useDisplayStore((s) => s.scrollMode);

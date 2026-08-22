@@ -11,3 +11,4 @@ export { usePrevious } from "./usePrevious";
 export { useReducedMotion } from "./useReducedMotion";
 export { useResizeObserver } from "./useResizeObserver";
 export { useSurfaceLinkedBinWarning } from "./useSurfaceLinkedBinWarning";
+export { useZoomedPx } from "./useZoomedPx";

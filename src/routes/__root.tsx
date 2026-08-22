@@ -36,6 +36,8 @@ function RootLayout() {
 
   const zoomLevel = useDisplayStore((s) => s.zoomLevel);
   const cornerStyle = useDisplayStore((s) => s.cornerStyle);
+  const sansFont = useDisplayStore((s) => s.sansFont);
+  const monoFont = useDisplayStore((s) => s.monoFont);
   const surfaceTint = useDisplayStore((s) => s.surfaceTint);
   const cardScale = useDisplayStore((s) => s.cardScale);
   const scrollMode = useDisplayStore((s) => s.scrollMode);
@@ -70,6 +72,14 @@ function RootLayout() {
   useEffect(() => {
     document.documentElement.dataset.corners = cornerStyle;
   }, [cornerStyle]);
+
+  useEffect(() => {
+    document.documentElement.dataset.fontSans = sansFont;
+  }, [sansFont]);
+
+  useEffect(() => {
+    document.documentElement.dataset.fontMono = monoFont;
+  }, [monoFont]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--surface-tint", String(surfaceTint / 100));

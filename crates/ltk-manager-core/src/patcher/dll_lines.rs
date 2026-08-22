@@ -1,87 +1,37 @@
-//! The phrases the injection host and the DLL write, as the manager reads them.
-//!
-//! A phrase is a contract between two repositories. Each constant names the
-//! `ltk-patcher` source file that writes it, so a rename upstream is found here
-//! and not as a silent verdict of Unmodded. [`DllLine::parse`] turns one DLL
-//! record into what it says about the game.
-
 use crate::diagnostics::incident::LaunchKind;
 
 use super::injector::WadScanFailure;
 
-/// The host's `status` messages. Written by `crates/ltk_patcher_host/src/worker.rs`.
 pub mod host_status {
-    /// `status injecting scanning for game`. The session started, or the last
-    /// game's window went away.
     pub const SCANNING_FOR_GAME: &str = "scanning for game";
-    /// `status injecting game found`. The host hooked the game's thread.
     pub const GAME_FOUND: &str = "game found";
-    /// `status injected dll attached`. The DLL read the host's config and acked
-    /// with its pid.
     pub const DLL_ATTACHED: &str = "dll attached";
-    /// `status waiting game exit`. The hook is removed, and the host waits.
     pub const GAME_EXIT: &str = "game exit";
-    /// `status exited dll detached`. The pipe closed, which is the process ending.
     pub const DLL_DETACHED: &str = "dll detached";
 }
 
-/// The overlay is live. Written by `crates/ltk_patcher_dll/src/entry/mod.rs`.
 pub const INIT_DONE: &str = "init done";
-/// League started before the scan, and the DLL stays inert. Written by
-/// `crates/ltk_patcher_dll/src/entry/mod.rs`.
 pub const JOINED_TOO_LATE: &str = "joined too late, not overlaying";
-/// Followed by the game's build timestamp as `0x..`. Written by
-/// `crates/ltk_patcher_dll/src/entry/mod.rs`.
 pub const END_OF_LIFE: &str = "end of life reached, please update: ";
-/// `failed to install integrity hook` and `failed to install overlay hook`.
-/// Written by `crates/ltk_patcher_dll/src/entry/mod.rs`.
 pub const HOOK_FAILED_PREFIX: &str = "failed to install ";
-/// The tail of a hook failure, after the hook's name.
 pub const HOOK_FAILED_SUFFIX: &str = " hook";
-/// Followed by `wad <name>: <why>`. The eager scan fails closed on the first
-/// bad archive. Written by `crates/ltk_patcher_dll/src/verify/mod.rs`.
 pub const OVERLAY_DISABLED: &str = "overlay verification failed, disabling overlay: ";
-/// Followed by `wad <name>: <why>`. The lazy scan fails open for one archive.
-/// Written by `crates/ltk_patcher_dll/src/verify/mod.rs`.
 pub const WAD_SKIPPED: &str = "lazy verification failed, not overlaying: ";
-/// `WAD scan failed status with <status> for <champion>.wad.client`. Written by
-/// `crates/ltk_patcher_dll/src/verify/mod.rs`, which names this phrase as a
-/// contract with [`parse_wad_scan_failure`].
 pub const WAD_SCAN_FAILED: &str = "WAD scan failed";
-/// Followed by the game's request path. Written by
-/// `crates/ltk_patcher_dll/src/hooks/fsov/imp_windows_iat.rs` and
-/// `imp_windows_strconv.rs`.
 pub const REDIRECTED: &str = "redirected wad: ";
-/// `<kind> launch; anti-hack scan will not block`. Written by
-/// `crates/ltk_patcher_dll/src/verify/mod.rs`.
 pub const LAUNCH_SUFFIX: &str = " launch; anti-hack scan will not block";
-/// The kind before [`LAUNCH_SUFFIX`] for a spectator launch.
 pub const LAUNCH_SPECTATOR: &str = "spectator";
-/// The kind before [`LAUNCH_SUFFIX`] for a replay launch.
 pub const LAUNCH_REPLAY: &str = "replay (.rofl)";
-/// The kind before [`LAUNCH_SUFFIX`] for a PBE launch.
 pub const LAUNCH_PBE: &str = "PBE";
 
-/// The level the DLL wrote one record at.
-///
-/// The host forwards it as its own column of the `dll` event, spelled the way
-/// `tracing` renders it, so a reader takes the level from there instead of
-/// matching a prefix inside the message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DllLevel {
-    /// The DLL failed at something. The only level a blocking record carries.
     Error,
-    /// Something the DLL noted and carried on from, an opted-out scan included.
     Warn,
-    /// Anything quieter, which no verdict rests on.
     Other,
 }
 
 impl DllLevel {
-    /// The level a `dll` event named, or [`Other`](Self::Other) for the rest.
-    ///
-    /// Case-insensitive: the host writes `ERROR`, and older builds wrote the
-    /// level into the message as `error: `.
     pub fn parse(level: &str) -> Self {
         if level.eq_ignore_ascii_case("error") {
             Self::Error
@@ -93,46 +43,20 @@ impl DllLevel {
     }
 }
 
-/// What one DLL record says about the game.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DllLine {
-    /// The overlay is live.
     InitDone,
-    /// League started before the scan, and the DLL stays inert.
     JoinedTooLate,
-    /// The DLL refused a game build newer than it knows.
-    EndOfLife {
-        /// The game's build timestamp, as the DLL printed it.
-        build: String,
-    },
-    /// The eager scan failed closed, and every mod is off for this game.
+    EndOfLife { build: String },
     OverlayDisabled { wad: String, why: String },
-    /// The lazy scan skipped one archive, and the game ran without it.
     WadSkipped { wad: String, why: String },
-    /// A hook did not take.
-    HookFailed {
-        /// `integrity` or `overlay`.
-        hook: String,
-    },
-    /// The overlay hook served an archive, named by its last path segment.
+    HookFailed { hook: String },
     Redirected { wad: String },
-    /// The anti-hack scan reported on an archive.
-    ///
-    /// Carries nothing: what the scan said is read by
-    /// [`parse_wad_scan_failure`], which collects the failures as a set. This
-    /// variant exists so a scan record is not mistaken for one the manager
-    /// keeps no line from.
     ScanFailed,
-    /// A game where the scan does not block.
     Launch(LaunchKind),
 }
 
 impl DllLine {
-    /// Reads one DLL record, with or without its `<target>: ` prefix.
-    ///
-    /// `None` for a record that says nothing the manager keeps. The level is
-    /// not consulted: every phrase here names its own kind, and whether a scan
-    /// record blocked is [`parse_wad_scan_failure`]'s question.
     pub fn parse(message: &str) -> Option<Self> {
         if message.contains(WAD_SCAN_FAILED) {
             return Some(Self::ScanFailed);
@@ -184,11 +108,6 @@ impl DllLine {
     }
 }
 
-/// The record after its `tracing` target.
-///
-/// The DLL writes `<target>: <message>` with a Rust module path as the target.
-/// Older builds wrote the level there instead (`error: ...`), which reads the
-/// same way. A message whose first `: ` follows anything else is returned whole.
 pub fn strip_target(message: &str) -> &str {
     let message = message.trim_start();
     match message.split_once(": ") {
@@ -204,15 +123,11 @@ fn looks_like_target(prefix: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':')
 }
 
-/// The last segment of a request path, whichever separator the game used.
 fn last_segment(path: &str) -> &str {
     let path = path.trim();
     path.rsplit(['/', '\\']).next().unwrap_or(path)
 }
 
-/// `wad <name>: <why>` into the archive's last segment and the reason. The
-/// one message without a colon, `wad <path> is not under the overlay prefix`,
-/// splits at its first space.
 fn split_wad_and_why(text: &str) -> (String, String) {
     let text = text.trim().strip_prefix("wad ").unwrap_or(text).trim();
     let (wad, why) = text
@@ -222,13 +137,6 @@ fn split_wad_and_why(text: &str) -> (String, String) {
     (last_segment(wad).to_string(), why.trim().to_string())
 }
 
-/// The archive a blocking scan record names, e.g.
-/// `WAD scan failed status with c0000229 for Ahri.wad.client`.
-///
-/// `None` unless the DLL wrote the record at [`DllLevel::Error`], which is what
-/// separates a rejection from the line an opted-out scan (`OPT_OUT_AH_V1`)
-/// writes before it keeps injecting. `wad` is present when named, and `status`
-/// falls back to `"unknown"`. The caller classifies the status.
 pub fn parse_wad_scan_failure(level: DllLevel, message: &str) -> Option<WadScanFailure> {
     if level != DllLevel::Error || !message.contains(WAD_SCAN_FAILED) {
         return None;
@@ -250,7 +158,6 @@ pub fn parse_wad_scan_failure(level: DllLevel, message: &str) -> Option<WadScanF
     Some(WadScanFailure { wad, status })
 }
 
-/// First whitespace-delimited token of `s` (empty string if none).
 fn first_token(s: &str) -> &str {
     s.split_whitespace().next().unwrap_or("")
 }
@@ -374,8 +281,6 @@ mod tests {
         }
     }
 
-    /// The phrase says which line this is and the level says whether it blocked,
-    /// so an opted-out scan is still a scan record and still names no failure.
     #[test]
     fn an_opted_out_scan_record_names_no_failure() {
         let line = "WAD scan failed status with c0000229 for Ahri.wad.client";
@@ -486,9 +391,6 @@ mod tests {
 
     #[test]
     fn parses_arbitrary_status_code() {
-        // The parser stays status-agnostic - any hex code parses the same way and
-        // the frontend classifies it. c0000225 is no longer emitted at runtime
-        // (linked bins are validated pre-flight); kept here to prove that.
         let failure = parse_wad_scan_failure(
             DllLevel::Error,
             "error: WAD scan failed status with c0000225 for TahmKench.wad.client",
@@ -500,10 +402,6 @@ mod tests {
 
     #[test]
     fn detects_wad_scan_failure_from_ltk_patcher_dll_target() {
-        // The message reaching us is the DLL record text after the level field
-        // (`host::parse_event` strips the level), which the new DLL prefixes with
-        // its `tracing` target. The parser keys off `WAD scan failed`, so the
-        // target prefix is irrelevant.
         let msg =
             "ltk_patcher_dll::verify: WAD scan failed status with c0000229 for briar.wad.client";
         let failure = parse_wad_scan_failure(DllLevel::Error, msg).expect("should detect failure");
@@ -513,9 +411,6 @@ mod tests {
 
     #[test]
     fn ignores_overlay_verification_failed_line() {
-        // The DLL logs a second ERROR right after the scan failure, summarizing
-        // the disabled overlay. It must not be mistaken for a separate failure
-        // (it lacks the `WAD scan failed` phrase), or briar would be counted twice.
         assert!(parse_wad_scan_failure(DllLevel::Error, "ltk_patcher_dll::verify: overlay verification failed, disabling overlay: wad data/final/champions/briar.wad.client: anti-hack scan blocked (c0000229): 21a1ca943ae71cbc a9d31e88e92e4715"
         )
         .is_none());

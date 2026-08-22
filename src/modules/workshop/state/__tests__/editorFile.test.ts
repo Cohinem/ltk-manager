@@ -10,6 +10,7 @@ import {
   gameWadDocument,
   gameWadsDocument,
   previewDocument,
+  problemsDocument,
 } from "@/modules/workshop";
 
 import {
@@ -169,6 +170,23 @@ describe("editorFile", () => {
         list.id,
         scoped.id,
       ]);
+    });
+
+    /* A document kind missing from the schema costs its tab on every restart,
+       which reads as a tab that will not stay open rather than as a parse. */
+    it("keeps the problems document", () => {
+      const problems = problemsDocument();
+      const layout = singleLeaf([problems.id], problems.id);
+
+      const state = sanitizeEditorState({
+        documents: { [problems.id]: problems },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: null,
+      });
+
+      expect(state?.documents[problems.id]).toEqual(problems);
+      expect(findLeaf(state!.layout, state!.activeLeafId)?.tabs).toEqual([problems.id]);
     });
 
     it("keeps a preview document and the tab holding it", () => {

@@ -74,8 +74,15 @@ wholesale between the themes.
 Elevation is dark-first: `--shadow-*` carries depths tuned for the dark theme and the
 light block softens them, because those depths read as smudges on a near-white surface.
 
-Density is `[data-density]` on `<html>` and may only touch `--space-*` and `--icon-*` -
-never `--radius-*`, `--shadow-*`, `--z-*`, or colors.
+Zoom is `--zoom-scale` on `<html>` and reaches the interface three ways. `--space-*` and
+`--icon-*` carry the scale in their own `calc()`, because they are authored in px. Type
+rides the root font size, which is what every `rem` in the app resolves against. Nothing
+else moves - not `--radius-*`, `--shadow-*`, `--z-*`, or colors.
+
+A length authored in px is therefore a length that will not zoom. That is right for a
+radius and wrong for anything sized against text, so **write type in `rem`**, never
+`text-[13px]`. The rows a virtualizer measures itself are the one place px is
+unavoidable, and those go through `useZoomedPx`.
 
 `[data-corners]` is the one exception, and it is the only thing allowed to move
 `--radius-*`. It is a setting of its own rather than a side effect of density, and it

@@ -63,7 +63,7 @@ export function AlertBox({
     <div
       role="alert"
       className={twMerge(
-        "flex items-center gap-4 rounded-lg border px-4 py-3",
+        "flex items-center gap-2 rounded-lg border px-2 py-2",
         styles.border,
         styles.bg,
         className,

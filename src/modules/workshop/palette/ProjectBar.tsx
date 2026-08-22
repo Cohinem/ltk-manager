@@ -237,7 +237,7 @@ function IdleBar({ displayName, version, onOpen, ref }: IdleBarProps) {
         className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-r-md pr-2 pl-0.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
       >
         <span className="truncate text-sm font-medium text-surface-100">{displayName}</span>
-        <span className="shrink-0 rounded-full bg-surface-700 px-2 py-0.5 text-[11px] text-surface-400">
+        <span className="shrink-0 rounded-full bg-surface-700 px-2 py-0.5 text-[0.6875rem] text-surface-400">
           v{version}
         </span>
         <Kbd shortcut="Ctrl+P" className="ml-auto shrink-0 opacity-60" />

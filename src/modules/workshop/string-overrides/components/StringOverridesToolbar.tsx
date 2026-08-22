@@ -70,7 +70,7 @@ export function StringOverridesToolbar({
       </Field.Root>
 
       {total > 0 && (
-        <span className="shrink-0 text-[11px] text-surface-400 tabular-nums select-none">
+        <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
           {countText(shown, total)}
         </span>
       )}

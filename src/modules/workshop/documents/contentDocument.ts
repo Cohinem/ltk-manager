@@ -20,6 +20,10 @@ interface StringsDoc extends EditorDocumentBase {
   locale: string;
 }
 
+interface ProblemsDoc extends EditorDocumentBase {
+  kind: "problems";
+}
+
 interface GameDoc extends EditorDocumentBase {
   kind: "game";
 }
@@ -52,6 +56,7 @@ export type ContentDocument =
   | DetailsDoc
   | FilesDoc
   | StringsDoc
+  | ProblemsDoc
   | GameDoc
   | GameWadsDoc
   | GameWadDoc
@@ -76,6 +81,13 @@ export function filesDocument(layerName: string): ContentDocument {
 
 export function stringsDocument(layerName: string, locale: string): ContentDocument {
   return { id: `strings:${layerName}:${locale}`, kind: "strings", layerName, locale };
+}
+
+/** A run covers the whole project, so its document needs nothing to key on. */
+export const PROBLEMS_DOCUMENT_ID = "problems";
+
+export function problemsDocument(): ContentDocument {
+  return { id: PROBLEMS_DOCUMENT_ID, kind: "problems" };
 }
 
 /** The game has one root browser over one install, so its document needs nothing to key on. */

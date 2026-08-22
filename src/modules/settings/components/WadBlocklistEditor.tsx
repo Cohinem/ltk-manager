@@ -8,11 +8,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { match, P } from "ts-pattern";
 
 import { Button, Field, IconButton, SelectField, Tabs } from "@/components";
-import { useClickOutside } from "@/hooks";
+import { useClickOutside, useZoomedPx } from "@/hooks";
 import type { Settings, WadBlocklistEntry } from "@/lib/tauri";
 import { useAvailableWads } from "@/modules/settings/api";
 import {
@@ -298,13 +298,20 @@ function WadSuggestionList({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const zoomed = useZoomedPx();
   const virtualizer = useVirtualizer({
     count: suggestions.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => SUGGESTION_ROW_HEIGHT,
+    estimateSize: () => zoomed(SUGGESTION_ROW_HEIGHT),
     overscan: 10,
     getItemKey: (index) => suggestions[index]!,
   });
+
+  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
+     one of the inputs the measurement memo watches. */
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, zoomed]);
 
   return (
     <div
@@ -492,7 +499,7 @@ function KindBadge({ kind }: { kind: WadBlocklistEntry["kind"] }) {
     kind === "exact" ? "bg-surface-700 text-surface-300" : "bg-accent-500/15 text-accent-300";
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase ${classes}`}
+      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[0.625rem] font-medium tracking-wide uppercase ${classes}`}
     >
       {kind}
     </span>

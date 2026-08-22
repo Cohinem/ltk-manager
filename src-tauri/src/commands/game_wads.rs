@@ -1,6 +1,7 @@
 //! Read-only browsing of the game's WAD archives.
 
-use crate::error::{AppError, AppResult, IpcResult};
+use super::off_thread;
+use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::game_wads::{GameArchives, GameWadEntry, GameWadSummary};
 use ltk_manager_core::hashtables::HashtableCache;
@@ -13,10 +14,7 @@ pub async fn get_game_wads(app_handle: AppHandle) -> IpcResult<Vec<GameWadSummar
         Ok(config) => config,
         Err(e) => return IpcResult::from(Err::<Vec<GameWadSummary>, _>(e)),
     };
-    tauri::async_runtime::spawn_blocking(move || GameArchives::resolve(&config)?.list())
-        .await
-        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-        .into()
+    off_thread(move || GameArchives::resolve(&config)?.list()).await
 }
 
 /// Read the chunk list of one game WAD archive.
@@ -32,7 +30,7 @@ pub async fn read_game_wad(
         Ok(config) => config,
         Err(e) => return IpcResult::from(Err::<Vec<GameWadEntry>, _>(e)),
     };
-    tauri::async_runtime::spawn_blocking(move || -> AppResult<Vec<GameWadEntry>> {
+    off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
         let resolver = match HashtableCache::discover() {
             Ok(cache) => cache.wad_tables(),
@@ -44,6 +42,4 @@ pub async fn read_game_wad(
         archives.read(&wad_name, &resolver)
     })
     .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
 }

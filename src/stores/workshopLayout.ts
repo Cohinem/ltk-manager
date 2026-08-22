@@ -42,6 +42,15 @@ interface WorkshopLayoutStore {
    * box as their own project.
    */
   searchGame: boolean;
+  /**
+   * Whether Problems draws the lints for Meta changes Riot has not deployed.
+   *
+   * A mod is not wrong about a schema the running game has not taken, so these
+   * are off by default and the panel is about the game the user has. A modder
+   * preparing a release for the coming build turns them on and reads them
+   * muted, beside the findings that are wrong today.
+   */
+  forwardLookingMeta: boolean;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
   toggleSection: (id: string, open: boolean) => void;
@@ -52,6 +61,7 @@ interface WorkshopLayoutStore {
   setTabOpenMode: (tabOpenMode: TabOpenMode) => void;
   setPreviewCheckered: (previewCheckered: boolean) => void;
   setSearchGame: (searchGame: boolean) => void;
+  setForwardLookingMeta: (forwardLookingMeta: boolean) => void;
 }
 
 export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
@@ -67,6 +77,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       tabOpenMode: "append",
       previewCheckered: true,
       searchGame: true,
+      forwardLookingMeta: false,
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
       toggleSection: (id, open) =>
@@ -79,6 +90,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setTabOpenMode: (tabOpenMode) => set({ tabOpenMode }),
       setPreviewCheckered: (previewCheckered) => set({ previewCheckered }),
       setSearchGame: (searchGame) => set({ searchGame }),
+      setForwardLookingMeta: (forwardLookingMeta) => set({ forwardLookingMeta }),
     }),
     { name: "ltk-workshop-layout", version: 1 },
   ),
@@ -105,3 +117,6 @@ export const usePreviewCheckered = () => useWorkshopLayoutStore((s) => s.preview
 export const useSetPreviewCheckered = () => useWorkshopLayoutStore((s) => s.setPreviewCheckered);
 export const useSearchGame = () => useWorkshopLayoutStore((s) => s.searchGame);
 export const useSetSearchGame = () => useWorkshopLayoutStore((s) => s.setSearchGame);
+export const useForwardLookingMeta = () => useWorkshopLayoutStore((s) => s.forwardLookingMeta);
+export const useSetForwardLookingMeta = () =>
+  useWorkshopLayoutStore((s) => s.setForwardLookingMeta);

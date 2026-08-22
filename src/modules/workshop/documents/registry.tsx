@@ -1,4 +1,9 @@
-import { FileArchiveIcon, FilesIcon, TranslateIcon } from "@phosphor-icons/react";
+import {
+  FileArchiveIcon,
+  FilesIcon,
+  TranslateIcon,
+  WarningDiamondIcon,
+} from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
@@ -18,6 +23,7 @@ import {
   wadBasename,
 } from "../gameBrowser";
 import { assetPath, PreviewDocument } from "../preview";
+import { ProblemsDocument } from "../problems";
 import { describeFileKind } from "../utils/fileKindIcon";
 import { type ContentDocument, type ContentDocumentOf, layerTitle } from "./contentDocument";
 import { DetailsDocument } from "./DetailsDocument";
@@ -50,6 +56,11 @@ export function useContentEditors(): EditorRegistry<ContentDocument> {
           context: layerTitle(project, document.layerName),
         }),
         component: StringsDocument,
+      },
+      problems: {
+        icon: () => <WarningDiamondIcon className="h-4 w-4 shrink-0 text-doc-problems-text" />,
+        label: () => ({ title: "Problems", path: project.path }),
+        component: ProblemsDocument,
       },
       game: {
         icon: () => <LeagueIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,

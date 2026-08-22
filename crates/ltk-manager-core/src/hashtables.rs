@@ -10,6 +10,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use ltk_hash::BinHash;
 use ltk_mimir_cache::{
     HashStore, ManifestError, NoCacheDirError, Table, UpdateError, UpdateOptions, UpdateOutcome,
 };
@@ -19,7 +20,7 @@ use thiserror::Error;
 
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
 
-pub use ltk_hashdb::LayeredHashDb;
+pub use ltk_hashdb::{HashDb, LayeredHashDb};
 
 /// Download base for the published hashtable release assets.
 const RELEASE_BASE_URL: &str = "https://github.com/LeagueToolkit/mimir/releases/latest/download";
@@ -238,6 +239,102 @@ impl HashtableCache {
     /// The same tables as [`wad_tables`](Self::wad_tables), as a resolver.
     pub fn wad_path_resolver(&self) -> WadPathResolver {
         WadPathResolver::new(self.wad_tables())
+    }
+
+    /// Open the four tables that name what a bin addresses by hash.
+    ///
+    /// Best-effort in the same way [`wad_tables`](Self::wad_tables) is: a table
+    /// absent from the cache is logged at debug and its hashes simply miss.
+    pub fn bin_tables(&self) -> BinHashTables {
+        let mut tables = BinHashTables::default();
+        for (table, result) in self.store.open_many(&BinHashTables::TABLES) {
+            match result {
+                Ok(db) => tables.put(table, db),
+                Err(e) => tracing::debug!("Hashtable `{}` unavailable: {e}", table.id()),
+            }
+        }
+        tables
+    }
+}
+
+/// The four tables that name what a bin addresses by hash.
+///
+/// **Each is its own universe of `FNV1a32` keys and is queried on its own.**
+/// Layering them into one lookup the way the WAD tables are layered would be
+/// wrong: `game` and `lcu` are both XXH64 over WAD paths, one space where a
+/// collision is negligible, while these four hash four unrelated kinds of
+/// string into 32 bits. Across 800,000 rows a shared lookup would answer a
+/// property hash with an object's path often enough to be a certainty rather
+/// than a risk, and a wrong name is worse than a number.
+#[derive(Default)]
+pub struct BinHashTables {
+    /// `binentries` - an object's path.
+    entries: Option<HashDb>,
+    /// `bintypes` - a class.
+    types: Option<HashDb>,
+    /// `binfields` - a property.
+    fields: Option<HashDb>,
+    /// `binhashes` - the string behind a `Hash` value.
+    hashes: Option<HashDb>,
+}
+
+impl BinHashTables {
+    /// The tables this opens, and the only ones it knows where to put.
+    const TABLES: [Table; 4] = [
+        Table::BinEntries,
+        Table::BinTypes,
+        Table::BinFields,
+        Table::BinHashes,
+    ];
+
+    fn put(&mut self, table: Table, db: HashDb) {
+        match table {
+            Table::BinEntries => self.entries = Some(db),
+            Table::BinTypes => self.types = Some(db),
+            Table::BinFields => self.fields = Some(db),
+            Table::BinHashes => self.hashes = Some(db),
+            other => tracing::debug!("`{}` is not a bin hash table", other.id()),
+        }
+    }
+
+    /// The path of an object, out of `binentries`.
+    #[must_use]
+    pub fn entry(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+        Self::read(self.entries.as_ref(), hash)
+    }
+
+    /// The name of a class, out of `bintypes`.
+    #[must_use]
+    pub fn class(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+        Self::read(self.types.as_ref(), hash)
+    }
+
+    /// The name of a property, out of `binfields`.
+    #[must_use]
+    pub fn field(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+        Self::read(self.fields.as_ref(), hash)
+    }
+
+    /// The string behind a `Hash` value, out of `binhashes`.
+    #[must_use]
+    pub fn value(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+        Self::read(self.hashes.as_ref(), hash)
+    }
+
+    fn read(db: Option<&HashDb>, hash: BinHash) -> Option<Cow<'_, str>> {
+        db?.get(u64::from(hash.0))
+    }
+}
+
+impl fmt::Debug for BinHashTables {
+    /// These hold hundreds of thousands of rows between them and print none.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BinHashTables")
+            .field("entries", &self.entries.is_some())
+            .field("types", &self.types.is_some())
+            .field("fields", &self.fields.is_some())
+            .field("hashes", &self.hashes.is_some())
+            .finish()
     }
 }
 

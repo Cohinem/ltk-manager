@@ -95,7 +95,7 @@ export function CheckRow({ check }: { check: Check }) {
           {check.fixCommand && (
             <div className="rounded-md border border-surface-700/60 bg-surface-900/80">
               <div className="flex items-center justify-between gap-2 border-b border-surface-700/60 px-3 py-1.5">
-                <span className="font-mono text-[10px] tracking-wider text-surface-500">
+                <span className="font-mono text-[0.625rem] tracking-wider text-surface-500">
                   FIX COMMAND (run as administrator)
                 </span>
                 <div className="flex items-center gap-1">

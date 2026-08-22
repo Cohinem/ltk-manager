@@ -9,7 +9,7 @@ import {
 } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { useListNav } from "@/hooks";
+import { useListNav, useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 
 import { Skeleton } from "./Skeleton";
@@ -154,12 +154,17 @@ export function CommandPalette({
     onCancel: onClose,
   });
 
+  const zoomed = useZoomedPx();
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => itemHeight(items[index]!),
+    estimateSize: (index) => zoomed(itemHeight(items[index]!)),
     overscan: 8,
   });
+
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, zoomed]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -207,7 +212,7 @@ export function CommandPalette({
           <button
             type="button"
             onClick={onScopeRemove}
-            className="shrink-0 cursor-pointer rounded-sm bg-accent-500/20 px-1.5 py-0.5 text-[11px] text-accent-200 transition-colors hover:bg-accent-500/30"
+            className="shrink-0 cursor-pointer rounded-sm bg-accent-500/20 px-1.5 py-0.5 text-[0.6875rem] text-accent-200 transition-colors hover:bg-accent-500/30"
           >
             {scope}
           </button>
@@ -292,7 +297,7 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
   if (item.kind === "header") {
     const { group } = item;
     return (
-      <div className="flex h-full items-center justify-between gap-2 px-3 text-[11px] font-medium tracking-wide text-surface-400 uppercase">
+      <div className="flex h-full items-center justify-between gap-2 px-3 text-[0.6875rem] font-medium tracking-wide text-surface-400 uppercase">
         <span className="truncate">{group.label}</span>
         <span className="flex shrink-0 items-center gap-1.5">
           {group.total !== undefined && !group.pending && (
@@ -320,7 +325,7 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
 
   if (item.kind === "more") {
     return (
-      <div className="flex h-full items-center pl-9 text-[11px] text-surface-500">
+      <div className="flex h-full items-center pl-9 text-[0.6875rem] text-surface-500">
         {item.rest} more
       </div>
     );
@@ -357,14 +362,14 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
           <MarkedText text={row.name} ranges={row.nameRanges} />
         </span>
         {row.path !== undefined && (
-          <span className="truncate font-mono text-[11px] text-surface-400">
+          <span className="truncate font-mono text-[0.6875rem] text-surface-400">
             <MarkedText text={row.path} ranges={row.pathRanges} />
           </span>
         )}
       </div>
 
       {row.trailing && (
-        <span className="shrink-0 text-[11px] text-surface-400">{row.trailing}</span>
+        <span className="shrink-0 text-[0.6875rem] text-surface-400">{row.trailing}</span>
       )}
     </div>
   );

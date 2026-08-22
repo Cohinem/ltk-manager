@@ -109,7 +109,7 @@ function InstallSteps() {
           <button
             type="button"
             onClick={() => void copy(PALETTE_COMMAND, "command")}
-            className="mt-1 flex w-full items-center gap-1.5 rounded-sm bg-surface-800 px-1.5 py-1 text-left font-mono text-[11px] text-surface-200 transition-colors hover:bg-surface-700"
+            className="mt-1 flex w-full items-center gap-1.5 rounded-sm bg-surface-800 px-1.5 py-1 text-left font-mono text-[0.6875rem] text-surface-200 transition-colors hover:bg-surface-700"
           >
             <span className="truncate">{PALETTE_COMMAND}</span>
             <CopyIcon className="ml-auto h-3 w-3 shrink-0 text-surface-400" />

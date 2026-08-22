@@ -141,11 +141,11 @@ export function WadCountBadge({ modId }: WadCountBadgeProps) {
                   {report.wadCount} WAD{report.wadCount === 1 ? "" : "s"} · {report.overrideCount}{" "}
                   override{report.overrideCount === 1 ? "" : "s"}
                 </p>
-                <p className="mt-0.5 text-[10px] text-surface-500">
+                <p className="mt-0.5 text-[0.625rem] text-surface-500">
                   {formatDistanceToNow(new Date(report.computedAt), { addSuffix: true })}
                 </p>
                 {report.isStale && (
-                  <p className="mt-0.5 text-[10px] text-warning-text">
+                  <p className="mt-0.5 text-[0.625rem] text-warning-text">
                     May be outdated. Re-analyze or patch to refresh.
                   </p>
                 )}
@@ -181,12 +181,16 @@ export function WadCountBadge({ modId }: WadCountBadgeProps) {
 function CategorySection({ group }: { group: CategoryGroup }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-0.5 text-[10px] font-semibold tracking-wide text-surface-400 uppercase">
+      <div className="mb-0.5 text-[0.625rem] font-semibold tracking-wide text-surface-400 uppercase">
         {group.label} · {group.wads.length}
       </div>
       <ul className="space-y-0.5">
         {group.wads.map((wad) => (
-          <li key={wad} className="truncate font-mono text-[11px] text-surface-300" title={wad}>
+          <li
+            key={wad}
+            className="truncate font-mono text-[0.6875rem] text-surface-300"
+            title={wad}
+          >
             {shortWadName(wad)}
           </li>
         ))}

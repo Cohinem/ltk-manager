@@ -3,6 +3,7 @@ export * from "./AutoPill";
 export * from "./Button";
 export * from "./ButtonGroup";
 export * from "./Checkbox";
+export * from "./Code";
 export * from "./Combobox";
 export * from "./CommandPalette";
 export * from "./ContextMenu";

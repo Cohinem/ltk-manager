@@ -7,7 +7,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use crate::error::{AppError, AppResult, IpcResult};
+use super::off_thread;
+use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::preview::{AssetInfo, AssetRef};
@@ -25,12 +26,7 @@ pub async fn read_asset_info(asset: AssetRef, app_handle: AppHandle) -> IpcResul
         Err(e) => return IpcResult::from(Err::<AssetInfo, _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || {
-        asset.info(&config, &app_handle.state::<WadCache>())
-    })
-    .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
+    off_thread(move || asset.info(&config, &app_handle.state::<WadCache>())).await
 }
 
 /// Write one previewed asset to a path the user picked.
@@ -52,7 +48,7 @@ pub async fn save_asset_copy(
         Err(e) => return IpcResult::from(Err::<(), _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || -> AppResult<()> {
+    off_thread(move || {
         let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;
         let path = PathBuf::from(&destination);
         if let Some(parent) = path.parent() {
@@ -63,6 +59,4 @@ pub async fn save_asset_copy(
         Ok(())
     })
     .await
-    .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    .into()
 }
