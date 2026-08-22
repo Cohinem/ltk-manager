@@ -343,7 +343,7 @@ fn resolve_in_layer(layer_dir: &Path, relative_path: &str) -> AppResult<PathBuf>
         return Err(reject());
     }
 
-    let parent = target.parent().ok_or_else(|| reject())?;
+    let parent = target.parent().ok_or_else(&reject)?;
     if !fs::canonicalize(parent)?.starts_with(fs::canonicalize(layer_dir)?) {
         return Err(reject());
     }
