@@ -1,14 +1,14 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { MonoFont, SansFont } from "@/lib/fonts";
+
 type ZoomLevel = 70 | 80 | 90 | 100 | 110 | 120 | 130;
 type ReduceMotion = "system" | "on" | "off";
 type CornerStyle = "sharp" | "default" | "round";
 type CardScale = 70 | 80 | 90 | 100 | 110 | 120 | 130;
 type ScrollMode = "smooth" | "spring";
 type ScrollbarSize = "thin" | "default" | "wide";
-type SansFont = "geist" | "inter" | "plex" | "nunito";
-type MonoFont = "geist" | "jetbrains" | "fira";
 
 interface DisplayStore {
   zoomLevel: ZoomLevel;

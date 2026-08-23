@@ -10,6 +10,7 @@ import {
   useReducedMotion,
   useSurfaceLinkedBinWarning,
 } from "@/hooks";
+import { monoStack, sansStack, sansWeights, WEIGHT_TIERS } from "@/lib/fonts";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import { SessionBar, useLeagueSession } from "@/modules/launcher";
@@ -74,11 +75,20 @@ function RootLayout() {
   }, [cornerStyle]);
 
   useEffect(() => {
-    document.documentElement.dataset.fontSans = sansFont;
+    const root = document.documentElement;
+    root.style.setProperty("--face-sans", sansStack(sansFont));
+    /* Every tier is written or cleared, so the face before this one leaves
+       nothing of its own behind. */
+    const weights = sansWeights(sansFont);
+    for (const tier of WEIGHT_TIERS) {
+      const weight = weights[tier];
+      if (weight === undefined) root.style.removeProperty(`--weight-${tier}`);
+      else root.style.setProperty(`--weight-${tier}`, String(weight));
+    }
   }, [sansFont]);
 
   useEffect(() => {
-    document.documentElement.dataset.fontMono = monoFont;
+    document.documentElement.style.setProperty("--face-mono", monoStack(monoFont));
   }, [monoFont]);
 
   useEffect(() => {

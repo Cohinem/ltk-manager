@@ -1,19 +1,13 @@
 import { Select } from "@/components";
-import type { MonoFont, SansFont } from "@/stores";
+import {
+  MONO_OPTIONS,
+  type MonoFont,
+  monoStack,
+  SANS_OPTIONS,
+  type SansFont,
+  sansStack,
+} from "@/lib/fonts";
 import { useMonoFont, useSansFont, useSetMonoFont, useSetSansFont } from "@/stores";
-
-const SANS_OPTIONS: { value: SansFont; label: string }[] = [
-  { value: "geist", label: "Geist" },
-  { value: "inter", label: "Inter" },
-  { value: "plex", label: "IBM Plex Sans" },
-  { value: "nunito", label: "Nunito Sans" },
-];
-
-const MONO_OPTIONS: { value: MonoFont; label: string }[] = [
-  { value: "geist", label: "Geist Mono" },
-  { value: "jetbrains", label: "JetBrains Mono" },
-  { value: "fira", label: "Fira Code" },
-];
 
 export function InterfaceFontPicker() {
   const sansFont = useSansFont();
@@ -34,9 +28,9 @@ export function InterfaceFontPicker() {
         <Select.Positioner>
           <Select.Popup>
             {SANS_OPTIONS.map(({ value, label }) => (
-              /* The attribute redefines --face-sans for this row alone, so the
-                 name is drawn in the face it names. */
-              <Select.Item key={value} value={value} data-font-sans={value} className="font-sans">
+              /* The one place a family is named rather than a utility written:
+                 each row is drawn in the face it names. */
+              <Select.Item key={value} value={value} style={{ fontFamily: sansStack(value) }}>
                 {label}
               </Select.Item>
             ))}
@@ -66,7 +60,7 @@ export function CodeFontPicker() {
         <Select.Positioner>
           <Select.Popup>
             {MONO_OPTIONS.map(({ value, label }) => (
-              <Select.Item key={value} value={value} data-font-mono={value} className="font-mono">
+              <Select.Item key={value} value={value} style={{ fontFamily: monoStack(value) }}>
                 {label}
               </Select.Item>
             ))}

@@ -269,15 +269,15 @@
   --icon-006: calc(21px * var(--zoom-scale));
   --icon-007: calc(24px * var(--zoom-scale));
 
-  /* The faces, and the x-heights that level mono against the sans.
-     Fontsource registers the "* Variable" family names. */
-  --face-sans: "Geist Variable", "Geist", system-ui, sans-serif;
+  /* The faces the app falls back to. A chosen face replaces the sans and the
+     mono on the root element, from the table in lib/fonts. Fontsource registers
+     the "* Variable" family names. */
+  --face-sans: "Geist Variable", system-ui, sans-serif;
   --face-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
-  --face-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, monospace;
-  --sans-x-height: 0.53;
-  --mono-x-height: 0.53;
+  --face-mono: "Geist Mono Variable", ui-monospace, monospace;
 
-  /* Weight tiers, in the numbers Geist hits them at. */
+  /* The weight scale, in plain CSS weights. It belongs to no face: one that
+     reads wrong at a plain number brings its own - see DS-WEIGHT-TIER. */
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -290,8 +290,9 @@
   --type-meta-leading: 0.875rem;
   --type-meta-tracking: 0.01em;
 
-  /* Monospace measured against the sans beside it. */
-  --type-code: calc(var(--sans-x-height) / var(--mono-x-height) * 1em);
+  /* Mono needs no size correction: font-size-adjust has already given it the
+     same x-height as the sans it sits beside. */
+  --type-code: 1em;
 
   /* Elevation, dark-first. Light mode softens it below. */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
@@ -339,40 +340,6 @@
   --radius-003: 15px;
   --radius-004: 20px;
   --radius-005: 28px;
-}
-
-/* The interface faces a user may choose. */
-[data-font-sans="inter"] {
-  --face-sans: "Inter Variable", system-ui, sans-serif;
-  --sans-x-height: 0.546;
-}
-
-[data-font-sans="plex"] {
-  --face-sans: "IBM Plex Sans Variable", system-ui, sans-serif;
-  --sans-x-height: 0.516;
-  --weight-normal: 440;
-  --weight-medium: 505;
-  --weight-semibold: 610;
-}
-
-[data-font-sans="nunito"] {
-  --face-sans: "Nunito Sans Variable", system-ui, sans-serif;
-  --sans-x-height: 0.484;
-  --weight-normal: 565;
-  --weight-medium: 675;
-  --weight-semibold: 765;
-  --weight-bold: 850;
-}
-
-/* The code faces a user may choose. */
-[data-font-mono="jetbrains"] {
-  --face-mono: "JetBrains Mono Variable", ui-monospace, monospace;
-  --mono-x-height: 0.55;
-}
-
-[data-font-mono="fira"] {
-  --face-mono: "Fira Code Variable", ui-monospace, monospace;
-  --mono-x-height: 0.525;
 }
 
 [data-scrollbars="thin"] {
@@ -425,6 +392,11 @@ html {
   font-size: calc(100% * var(--zoom-scale));
   font-family: var(--font-sans);
   font-weight: var(--weight-normal);
+  /* Every face renders at this x-height whatever its own metrics say. It is why
+     switching face does not change how big the app reads, why mono sits level
+     with the sans beside it, and why a face needs no measurement to be added.
+     0.53 is the ratio the app was drawn at rather than any one face's. */
+  font-size-adjust: 0.53;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -440,6 +412,12 @@ html {
     --weight-semibold: 600;
     --weight-bold: 700;
     font-weight: var(--weight-normal);
+  }
+
+  /* Levelling the x-height is for the faces a user swaps between. The display
+     face is fixed and was sized against its own metrics, so it keeps them. */
+  .font-display {
+    font-size-adjust: none;
   }
 }
 
