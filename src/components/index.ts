@@ -22,6 +22,7 @@ export * from "./Kbd";
 export * from "./ListEditor";
 export * from "./Menu";
 export * from "./MultiSelect";
+export * from "./NumberField";
 export * from "./PathField";
 export * from "./Popover";
 export * from "./Progress";

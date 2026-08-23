@@ -1,6 +1,7 @@
 import { Slider as BaseSlider } from "@base-ui/react/slider";
 import { twMerge } from "tailwind-merge";
 
+/** A mark along the slider. */
 interface Mark {
   value: number;
   label?: string;
@@ -9,40 +10,43 @@ interface Mark {
 export type SliderVariant = "default" | "ruler";
 
 interface SliderProps {
+  /** The current value of the slider. */
   value: number;
+  /** Fires on every pointer move, not just when the drag ends. */
   onValueChange: (value: number) => void;
+  /** Fires once the drag ends rather than on every pointer move. */
+  onValueCommitted?: (value: number) => void;
+  /** The minimum value of the slider. */
   min?: number;
+  /** The maximum value of the slider. */
   max?: number;
+  /** The step increment of the slider. */
   step?: number;
+  /** Marks to display along the slider. */
   marks?: Mark[];
+  /** The label to display above the slider. */
   label?: string;
   "aria-label"?: string;
-  /** `ruler` fills the rail to the value and ticks its stops, with no handle. */
+  /** The visual variant of the slider. */
   variant?: SliderVariant;
+  /** Whether the slider is disabled. */
   disabled?: boolean;
+  /** Additional class names to apply to the slider. */
   className?: string;
 }
 
-/* A label at either end would hang half outside the rail, so the outermost two
-   are pinned to its edges instead of centred on their position. Ticks stay
-   centred - two pixels wide, they have nothing to hang. */
 function labelShift(index: number, count: number): string {
   if (index === 0) return "translate-x-0";
   if (index === count - 1) return "-translate-x-full";
   return "-translate-x-1/2";
 }
 
-/* The spring overshoots, so the rail clips it rather than letting the fill poke
-   past its cap at full value. Reduce motion collapses every transition globally,
-   so the fill snaps there without a second code path.
-
-   No data-dragging opt-out: pointerdown sets that flag before the value lands, so
-   it would suppress the animation on a plain click, not just on a drag. */
 const indicatorMotion = "transition-[width] duration-300 ease-[var(--ease-spring)]";
 
 export function Slider({
   value,
   onValueChange,
+  onValueCommitted,
   min = 0,
   max = 100,
   step = 1,
@@ -61,6 +65,10 @@ export function Slider({
       onValueChange={(val) => {
         const next = typeof val === "number" ? val : val[0];
         onValueChange(next);
+      }}
+      onValueCommitted={(val) => {
+        const next = typeof val === "number" ? val : val[0];
+        onValueCommitted?.(next);
       }}
       min={min}
       max={max}
@@ -140,9 +148,9 @@ export function Slider({
             "absolute top-1/2 -translate-x-1/2 -translate-y-1/2",
             isRuler
               ? "h-4 w-1 rounded-full bg-transparent focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none"
-              : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300 data-[dragging]:scale-y-125",
+              : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300 data-dragging:scale-y-125",
             !isRuler && !disabled && "hover:bg-accent-300",
-            disabled ? "cursor-not-allowed" : "cursor-pointer data-[dragging]:cursor-grabbing",
+            disabled ? "cursor-not-allowed" : "cursor-pointer data-dragging:cursor-grabbing",
           )}
         />
       </BaseSlider.Control>

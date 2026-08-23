@@ -63,7 +63,8 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
           kind="action"
           title="Zoom level"
           description="Scales the whole interface."
-          hint="Ctrl+Plus and Ctrl+Minus step the zoom from anywhere, and Ctrl+0 returns to 100%."
+          hint="Click the percentage to type an exact level. Ctrl+Plus and Ctrl+Minus step the zoom from anywhere, and Ctrl+0 returns to 100%."
+          controlClassName="w-72 shrink"
           control={<ZoomLevelPicker />}
         />
 

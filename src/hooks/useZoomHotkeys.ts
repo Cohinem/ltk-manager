@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { useSetZoomLevel, useZoomLevel, VALID_ZOOM_LEVELS } from "@/stores";
+import { useSetZoomLevel, useZoomLevel, ZOOM_STEP } from "@/stores";
 
 const DEFAULT_ZOOM = 100;
 
@@ -16,20 +16,17 @@ const OPTIONS = {
 /**
  * Binds ctrl with plus, minus and zero to the zoom setting.
  *
- * A step moves one entry along `VALID_ZOOM_LEVELS` rather than by a percentage
- * of its own, so the keys and the Appearance dropdown can never disagree about
- * what the steps are, and the ends clamp instead of wrapping. Both rows of the
- * keyboard are bound because the numpad reports codes of its own.
+ * A press moves by `ZOOM_STEP`, the same grid the Appearance slider runs on, so
+ * the two can never disagree about what a step is. The store clamps, so the ends
+ * stop rather than wrap. Both rows of the keyboard are bound because the numpad
+ * reports codes of its own.
  */
 export function useZoomHotkeys(): void {
   const zoomLevel = useZoomLevel();
   const setZoomLevel = useSetZoomLevel();
 
   const step = useCallback(
-    (direction: 1 | -1) => {
-      const next = VALID_ZOOM_LEVELS[VALID_ZOOM_LEVELS.indexOf(zoomLevel) + direction];
-      if (next !== undefined) setZoomLevel(next);
-    },
+    (direction: 1 | -1) => setZoomLevel(zoomLevel + direction * ZOOM_STEP),
     [zoomLevel, setZoomLevel],
   );
 

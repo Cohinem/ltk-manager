@@ -3,7 +3,8 @@ import { persist } from "zustand/middleware";
 
 import type { MonoFont, SansFont } from "@/lib/fonts";
 
-type ZoomLevel = 70 | 80 | 90 | 100 | 110 | 120 | 130;
+/** Interface scale as a percent, on the `ZOOM_STEP` grid between `ZOOM_MIN` and `ZOOM_MAX`. */
+type ZoomLevel = number;
 type ReduceMotion = "system" | "on" | "off";
 type CornerStyle = "sharp" | "default" | "round";
 type CardScale = 70 | 80 | 90 | 100 | 110 | 120 | 130;
@@ -58,7 +59,18 @@ const APPEARANCE_DEFAULTS = {
 
 const APPEARANCE_KEYS = Object.keys(APPEARANCE_DEFAULTS) as (keyof typeof APPEARANCE_DEFAULTS)[];
 
-const VALID_ZOOM_LEVELS: readonly ZoomLevel[] = [70, 80, 90, 100, 110, 120, 130];
+/* Symmetric about 100 so the default sits at the middle of the rail. */
+const ZOOM_MIN = 50;
+const ZOOM_MAX = 150;
+/** The grid every level snaps to, and what the keyboard shortcuts move by. */
+const ZOOM_STEP = 2;
+
+/* Every level reaching the store passes through here, so nothing can store a
+   zoom off the grid or past an end the slider cannot reach. */
+function clampZoom(zoomLevel: number): ZoomLevel {
+  const snapped = Math.round(zoomLevel / ZOOM_STEP) * ZOOM_STEP;
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, snapped));
+}
 
 const VALID_CARD_SCALES: readonly CardScale[] = [70, 80, 90, 100, 110, 120, 130];
 
@@ -73,7 +85,7 @@ export const useDisplayStore = create<DisplayStore>()(
     (set) => ({
       ...APPEARANCE_DEFAULTS,
       cardScale: 100,
-      setZoomLevel: (zoomLevel) => set({ zoomLevel }),
+      setZoomLevel: (zoomLevel) => set({ zoomLevel: clampZoom(zoomLevel) }),
       setReduceMotion: (reduceMotion) => set({ reduceMotion }),
       setScrollMode: (scrollMode) => set({ scrollMode }),
       setScrollbarSize: (scrollbarSize) => set({ scrollbarSize }),
@@ -159,7 +171,7 @@ export const useDisplayStore = create<DisplayStore>()(
   ),
 );
 
-export { VALID_CARD_SCALES, VALID_ZOOM_LEVELS };
+export { VALID_CARD_SCALES, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP };
 export type { CardScale, CornerStyle, MonoFont, SansFont, ScrollbarSize, ScrollMode, ZoomLevel };
 export const useZoomLevel = () => useDisplayStore((s) => s.zoomLevel);
 export const useSetZoomLevel = () => useDisplayStore((s) => s.setZoomLevel);

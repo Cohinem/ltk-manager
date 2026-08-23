@@ -1,4 +1,4 @@
-import { useDisplayStore } from "@/stores/displayStore";
+import { useDisplayStore, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "@/stores/displayStore";
 
 describe("displayStore", () => {
   beforeEach(() => {
@@ -53,6 +53,29 @@ describe("displayStore", () => {
       useDisplayStore.getState().setZoomLevel(70);
       useDisplayStore.getState().setZoomLevel(100);
       expect(useDisplayStore.getState().zoomLevel).toBe(100);
+    });
+
+    it("clamps past either end of the range", () => {
+      useDisplayStore.getState().setZoomLevel(ZOOM_MAX + 50);
+      expect(useDisplayStore.getState().zoomLevel).toBe(ZOOM_MAX);
+
+      useDisplayStore.getState().setZoomLevel(ZOOM_MIN - 50);
+      expect(useDisplayStore.getState().zoomLevel).toBe(ZOOM_MIN);
+    });
+
+    it("snaps a level off the grid onto it", () => {
+      useDisplayStore.getState().setZoomLevel(101);
+      expect(useDisplayStore.getState().zoomLevel).toBe(102);
+
+      useDisplayStore.getState().setZoomLevel(100.4);
+      expect(useDisplayStore.getState().zoomLevel).toBe(100);
+    });
+
+    it("reaches every step between the ends", () => {
+      for (let level = ZOOM_MIN; level <= ZOOM_MAX; level += ZOOM_STEP) {
+        useDisplayStore.getState().setZoomLevel(level);
+        expect(useDisplayStore.getState().zoomLevel).toBe(level);
+      }
     });
   });
 

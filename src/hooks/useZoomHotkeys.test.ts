@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useDisplayStore } from "@/stores";
+import { useDisplayStore, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "@/stores";
 
 import { useZoomHotkeys } from "./useZoomHotkeys";
 
@@ -36,16 +36,16 @@ describe("useZoomHotkeys", () => {
     document.body.innerHTML = "";
   });
 
-  it("steps up one level on ctrl and the equals key", () => {
+  it("steps up one step on ctrl and the equals key", () => {
     renderHook(() => useZoomHotkeys());
     press("Equal", "=");
-    expect(zoom()).toBe(110);
+    expect(zoom()).toBe(100 + ZOOM_STEP);
   });
 
-  it("steps down one level on ctrl and the minus key", () => {
+  it("steps down one step on ctrl and the minus key", () => {
     renderHook(() => useZoomHotkeys());
     press("Minus", "-");
-    expect(zoom()).toBe(90);
+    expect(zoom()).toBe(100 - ZOOM_STEP);
   });
 
   it("returns to 100% on ctrl and zero", () => {
@@ -58,7 +58,7 @@ describe("useZoomHotkeys", () => {
   it("reaches the same steps from the numpad", () => {
     renderHook(() => useZoomHotkeys());
     press("NumpadAdd", "+");
-    expect(zoom()).toBe(110);
+    expect(zoom()).toBe(100 + ZOOM_STEP);
 
     press("NumpadSubtract", "-");
     expect(zoom()).toBe(100);
@@ -69,14 +69,14 @@ describe("useZoomHotkeys", () => {
   });
 
   it("clamps at the ends rather than wrapping", () => {
-    setZoom(130);
+    setZoom(ZOOM_MAX);
     renderHook(() => useZoomHotkeys());
     press("Equal", "=");
-    expect(zoom()).toBe(130);
+    expect(zoom()).toBe(ZOOM_MAX);
 
-    setZoom(70);
+    setZoom(ZOOM_MIN);
     press("Minus", "-");
-    expect(zoom()).toBe(70);
+    expect(zoom()).toBe(ZOOM_MIN);
   });
 
   it("still zooms while a field has focus", () => {
@@ -86,6 +86,6 @@ describe("useZoomHotkeys", () => {
     input.focus();
 
     press("Equal", "=", input);
-    expect(zoom()).toBe(110);
+    expect(zoom()).toBe(100 + ZOOM_STEP);
   });
 });
