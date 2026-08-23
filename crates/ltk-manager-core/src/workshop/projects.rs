@@ -1,3 +1,4 @@
+use super::layer::LayersExt;
 use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs,
     SaveProjectConfigArgs, Workshop, WorkshopProject, find_config_file, is_valid_project_name,
@@ -9,6 +10,7 @@ use crate::events::{
     BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
 };
 use crate::hashtables::WadPathResolver;
+use crate::utils::natural_order::compare_names;
 use ltk_mod_project::{
     ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, default_layers,
 };
@@ -318,14 +320,8 @@ impl Workshop {
                         string_overrides: layer_info.string_overrides,
                     })
                     .collect();
-                if !layers.iter().any(|l| l.name == "base") {
-                    layers.insert(0, ModProjectLayer::base());
-                }
-                layers.sort_by(|a, b| {
-                    a.priority
-                        .cmp(&b.priority)
-                        .then_with(|| a.name.cmp(&b.name))
-                });
+                layers.ensure_base();
+                layers.sort_for_display();
                 layers
             };
 
@@ -422,11 +418,8 @@ impl Workshop {
                 }
             })
             .collect();
-        layers.sort_by(|a, b| a.priority.cmp(&b.priority).then(a.name.cmp(&b.name)));
-
-        if !layers.iter().any(|l| l.name == "base") {
-            layers.insert(0, ModProjectLayer::base());
-        }
+        layers.ensure_base();
+        layers.sort_for_display();
 
         // Create mod project config
         let mod_project = ModProject {
@@ -675,7 +668,7 @@ fn scan_fantome_wad_names<R: Read + Seek>(archive: &mut ZipArchive<R>) -> AppRes
             wads.push(wad_name);
         }
     }
-    wads.sort();
+    wads.sort_by(|a, b| compare_names(a, b));
 
     Ok(wads)
 }

@@ -5,7 +5,6 @@
 //! with it: a project with one unreadable `.bin` still gets every problem in
 //! the other forty, and the panel names the file it could not read.
 
-use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -15,15 +14,13 @@ use walkdir::WalkDir;
 
 use crate::config::Config;
 use crate::error::AppResult;
+use crate::workshop::layer;
 use crate::workshop::{ProjectDir, WorkshopFileKind};
 
 use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";
-
-/// The layer every project has, which reads before the rest.
-const BASE_LAYER: &str = "base";
 
 /// The files of one project, and what else a run hands every rule.
 ///
@@ -52,7 +49,7 @@ impl ProjectFiles {
     pub fn read(project_root: &Path, config: &Config) -> AppResult<Self> {
         let content_dir = project_root.join(CONTENT_DIR);
         let layers = if content_dir.exists() {
-            Self::layer_dirs(&content_dir)?
+            layer::dirs_in(&content_dir)?
                 .iter()
                 .map(|dir| {
                     let name = dir
@@ -72,36 +69,6 @@ impl ProjectFiles {
             build: GameBuild::installed(config),
             names: BinNames::open(),
         })
-    }
-
-    /// The layer directories under one content directory, `base` first.
-    ///
-    /// Layers come from disk rather than from the project's config, so a layer
-    /// a user dropped in by hand is a layer a run reads.
-    fn layer_dirs(content_dir: &Path) -> AppResult<Vec<PathBuf>> {
-        let mut dirs: Vec<PathBuf> = std::fs::read_dir(content_dir)?
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .filter(|path| path.is_dir())
-            .filter(|path| {
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .is_some_and(|name| !name.starts_with('.'))
-            })
-            .collect();
-
-        dirs.sort_by(|a, b| {
-            let a = a.file_name().and_then(|name| name.to_str()).unwrap_or("");
-            let b = b.file_name().and_then(|name| name.to_str()).unwrap_or("");
-            match (a, b) {
-                (BASE_LAYER, BASE_LAYER) => Ordering::Equal,
-                (BASE_LAYER, _) => Ordering::Less,
-                (_, BASE_LAYER) => Ordering::Greater,
-                (a, b) => a.cmp(b),
-            }
-        });
-
-        Ok(dirs)
     }
 
     /// The project's own directory.

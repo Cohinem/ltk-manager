@@ -1,4 +1,5 @@
 use super::Workshop;
+use super::layer;
 use crate::error::{AppError, AppResult};
 use ltk_file::LeagueFileKind;
 use serde::{Deserialize, Serialize};
@@ -143,27 +144,7 @@ impl Workshop {
             return Ok(ContentTree { layers: Vec::new() });
         }
 
-        let mut layer_dirs: Vec<PathBuf> = std::fs::read_dir(&content_dir)?
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .filter(|p| p.is_dir())
-            .filter(|p| {
-                p.file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| !n.starts_with('.'))
-            })
-            .collect();
-
-        layer_dirs.sort_by(|a, b| {
-            let a_name = a.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            let b_name = b.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            match (a_name, b_name) {
-                ("base", "base") => std::cmp::Ordering::Equal,
-                ("base", _) => std::cmp::Ordering::Less,
-                (_, "base") => std::cmp::Ordering::Greater,
-                (a, b) => a.cmp(b),
-            }
-        });
+        let layer_dirs = layer::dirs_in(&content_dir)?;
 
         let mut layers = Vec::with_capacity(layer_dirs.len());
         for layer_dir in &layer_dirs {
@@ -253,7 +234,9 @@ fn scan_layer(layer_dir: &Path, name: &str) -> AppResult<LayerContent> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::events::NullEventSink;
     use std::fs;
+    use std::sync::Arc;
 
     fn touch(path: &Path, contents: &[u8]) {
         if let Some(parent) = path.parent() {
@@ -348,26 +331,12 @@ mod tests {
         touch(&content.join("alpha/a.bin"), b"");
         touch(&content.join("zeta/a.bin"), b"");
 
-        let mut layer_dirs: Vec<PathBuf> = std::fs::read_dir(&content)
-            .unwrap()
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .filter(|p| p.is_dir())
-            .collect();
-        layer_dirs.sort_by(|a, b| {
-            let a_name = a.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            let b_name = b.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            match (a_name, b_name) {
-                ("base", "base") => std::cmp::Ordering::Equal,
-                ("base", _) => std::cmp::Ordering::Less,
-                (_, "base") => std::cmp::Ordering::Greater,
-                (a, b) => a.cmp(b),
-            }
-        });
-        let names: Vec<_> = layer_dirs
-            .iter()
-            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
-            .collect();
-        assert_eq!(names, vec!["base", "alpha", "zeta"]);
+        let workshop = Workshop::new(Arc::new(NullEventSink));
+        let tree = workshop
+            .get_project_content_tree(project_dir.path().to_str().unwrap())
+            .unwrap();
+
+        let names: Vec<&str> = tree.layers.iter().map(|l| l.name.as_str()).collect();
+        assert_eq!(names, ["base", "alpha", "zeta"]);
     }
 }

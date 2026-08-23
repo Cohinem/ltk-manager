@@ -76,6 +76,48 @@ describe("buildContentTree", () => {
     expect(names).toEqual(["a-dir", "m-dir", "a-file.bin", "z-file.bin"]);
   });
 
+  it("orders digit runs numerically, so skin9 precedes skin50", () => {
+    const tree = buildContentTree([50, 5, 9, 62, 6, 0, 45].map((n) => entry(`skins/skin${n}.bin`)));
+    const skins = tree[0] as DirNode;
+    expect(skins.children.map((c) => c.name)).toEqual([
+      "skin0.bin",
+      "skin5.bin",
+      "skin6.bin",
+      "skin9.bin",
+      "skin45.bin",
+      "skin50.bin",
+      "skin62.bin",
+    ]);
+  });
+
+  it("keeps unresolved chunk hashes in codepoint order, after the named files", () => {
+    const tree = buildContentTree([
+      entry("4219e04090690b1d.bin"),
+      entry("skin2.bin"),
+      entry("0d4fec316b95f54f.bin"),
+      entry("228b5d518bb1d3e6.bin"),
+      entry("skin10.bin"),
+      entry("3f81e0297e13b044.bin"),
+    ]);
+    expect(tree.map((c) => c.name)).toEqual([
+      "skin2.bin",
+      "skin10.bin",
+      "0d4fec316b95f54f.bin",
+      "228b5d518bb1d3e6.bin",
+      "3f81e0297e13b044.bin",
+      "4219e04090690b1d.bin",
+    ]);
+  });
+
+  it("treats a name that is merely hex-ish as a normal name", () => {
+    const tree = buildContentTree([
+      entry("deadbeef.bin"),
+      entry("0d4fec316b95f54f.bin"),
+      entry("cafe.bin"),
+    ]);
+    expect(tree.map((c) => c.name)).toEqual(["cafe.bin", "deadbeef.bin", "0d4fec316b95f54f.bin"]);
+  });
+
   it("ignores leading or duplicate slashes defensively", () => {
     const tree = buildContentTree([entry("//odd///path.bin")]);
     const odd = tree[0] as DirNode;

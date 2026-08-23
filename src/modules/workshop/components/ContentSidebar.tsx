@@ -48,6 +48,7 @@ import { useRevealGameSearch } from "../gameBrowser";
 import { CreateLayerDialog, useCreateLayer } from "../layers";
 import { useActiveDocumentId, useOpenDocument } from "../state";
 import { buildLayerWads } from "../utils/contentTree";
+import { compareNames } from "../utils/naturalOrder";
 import { ContentLayerList } from "./ContentLayerList";
 import { AddLocaleMenu, ContentStringsList } from "./ContentStringsList";
 import { ContentWadList } from "./ContentWadList";
@@ -120,7 +121,7 @@ export function ContentSidebar({
   const wads = useMemo(() => {
     const entries = buildLayerWads(selectedLayer?.entries ?? []);
     if (wadSort === "size") return entries.sort((a, b) => b.sizeBytes - a.sizeBytes);
-    return entries.sort((a, b) => a.name.localeCompare(b.name));
+    return entries.sort((a, b) => compareNames(a.name, b.name));
   }, [selectedLayer, wadSort]);
 
   const stringsLayer = project.layers.find((layer) => layer.name === selectedLayerName) ?? null;

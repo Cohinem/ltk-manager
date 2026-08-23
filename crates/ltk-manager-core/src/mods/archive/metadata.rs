@@ -10,6 +10,7 @@
 use crate::error::{AppError, AppResult};
 use crate::mods::index::LibraryModEntry;
 use crate::mods::types::{InstalledMod, ModLayer};
+use crate::workshop::layer::LayersExt;
 use ltk_mod_project::{ModMap, ModProject, ModProjectLayer, ModTag};
 use ltk_modpkg::Modpkg;
 use std::collections::HashMap;
@@ -139,15 +140,8 @@ pub(crate) fn extract_fantome_metadata(file_path: &Path, metadata_dir: &Path) ->
                 string_overrides: layer_info.string_overrides,
             })
             .collect();
-        // Ensure base layer exists
-        if !layers.iter().any(|l| l.name == "base") {
-            layers.insert(0, ltk_mod_project::ModProjectLayer::base());
-        }
-        layers.sort_by(|a, b| {
-            a.priority
-                .cmp(&b.priority)
-                .then_with(|| a.name.cmp(&b.name))
-        });
+        layers.ensure_base();
+        layers.sort_for_display();
         layers
     };
 
@@ -217,12 +211,8 @@ pub(crate) fn extract_modpkg_metadata(file_path: &Path, metadata_dir: &Path) -> 
             }
         })
         .collect();
-    layers.sort_by(|a, b| a.priority.cmp(&b.priority).then(a.name.cmp(&b.name)));
-
-    // Ensure base exists.
-    if !layers.iter().any(|l| l.name == "base") {
-        layers.insert(0, ModProjectLayer::base());
-    }
+    layers.ensure_base();
+    layers.sort_for_display();
 
     let project = ModProject {
         name: metadata.name,

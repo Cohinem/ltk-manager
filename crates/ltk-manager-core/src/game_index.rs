@@ -11,6 +11,7 @@ use serde::Serialize;
 use crate::error::{AppResult, MutexResultExt};
 use crate::game_wads::GameArchives;
 use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
+use crate::utils::natural_order::compare_names;
 
 /// The directory id of the group holding chunks no hash table names.
 ///
@@ -239,7 +240,7 @@ pub struct GameIndex {
 
 #[derive(Debug, Default)]
 struct Dir {
-    /// Sorted by name, which is the order a listing wants.
+    /// Keyed by name. A listing re-sorts them, since it wants natural order.
     children: BTreeMap<String, usize>,
     files: Vec<File>,
     /// Files at or below this directory, filled once the whole tree is in.
@@ -300,6 +301,8 @@ impl GameIndex {
         }
 
         index.finalize(0);
+        /* Byte order rather than natural: these are 16 hex digits, and reading
+        the leading digit run of each as a number interleaves them by it. */
         index.unknown.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(index)
     }
@@ -327,6 +330,9 @@ impl GameIndex {
             .iter()
             .map(|(name, &child)| self.fold(path, name, child))
             .collect();
+        /* The map keyed them by byte order, and a folded row is named for the
+        whole run rather than the key. */
+        dirs.sort_by(|a, b| compare_names(&a.name, &b.name));
 
         /* Last, and only at the root, so the junk drawer never pushes named
         paths down the tree. */
@@ -530,7 +536,7 @@ impl GameIndex {
         }
 
         let dir = &mut self.dirs[index];
-        dir.files.sort_by(|a, b| a.name.cmp(&b.name));
+        dir.files.sort_by(|a, b| compare_names(&a.name, &b.name));
         dir.file_count = total;
         dir.subtree_mask = mask;
         (total, mask)
@@ -1615,6 +1621,49 @@ mod tests {
                 ("assets/two.bin", "Champions/B.wad.client"),
             ]
         );
+    }
+
+    #[test]
+    fn a_listing_orders_digit_runs_numerically() {
+        let (_tmp, index) = index_over(&[
+            "assets/skin50.bin",
+            "assets/skin5.bin",
+            "assets/skin9.bin",
+            "assets/skin76.bin",
+            "assets/skin14.bin",
+            "assets/skin3.bin",
+        ]);
+
+        let listing = index.read_dir("assets").unwrap();
+        let names: Vec<&str> = listing
+            .files
+            .iter()
+            .map(|file| file.path.as_deref().unwrap())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "assets/skin3.bin",
+                "assets/skin5.bin",
+                "assets/skin9.bin",
+                "assets/skin14.bin",
+                "assets/skin50.bin",
+                "assets/skin76.bin",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_listing_orders_its_directories_naturally_too() {
+        let (_tmp, index) = index_over(&[
+            "assets/map10/terrain.bin",
+            "assets/map2/terrain.bin",
+            "assets/map1/terrain.bin",
+        ]);
+
+        let listing = index.read_dir("assets").unwrap();
+        let names: Vec<&str> = listing.dirs.iter().map(|dir| dir.name.as_str()).collect();
+        assert_eq!(names, ["map1", "map2", "map10"]);
     }
 
     #[test]

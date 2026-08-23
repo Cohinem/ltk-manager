@@ -1,4 +1,5 @@
 mod content;
+pub mod layer;
 mod layers;
 mod packing;
 mod projects;

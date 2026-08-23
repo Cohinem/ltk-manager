@@ -1,5 +1,7 @@
 import type { ContentEntry } from "@/lib/tauri";
 
+import { compareNames } from "./naturalOrder";
+
 export type ContentTreeNode = DirNode | FileNode;
 
 export interface DirNode {
@@ -20,10 +22,8 @@ export interface FileNode {
 /**
  * Group a layer's flat file entries into a nested directory/file tree.
  *
- * Entries keep the order they were given within each directory — the backend
- * already sorts by relative path, so the tree inherits that ordering. Within a
- * single directory, children are then sorted directories-first, each group
- * alphabetically, to match typical file-tree expectations.
+ * Children of a directory are ordered directories-first, each group in natural
+ * name order, regardless of the order the entries arrived in.
  *
  * A run of directories that each hold nothing but the next one folds into a
  * single row naming the whole run, the way an editor's explorer does. Those
@@ -31,6 +31,9 @@ export interface FileNode {
  */
 export function buildContentTree(entries: readonly ContentEntry[]): ContentTreeNode[] {
   const root: DirNode = { type: "dir", name: "", path: "", children: [] };
+  /* Every directory by its path, the way the game browser's builder keys its
+  own. Scanning the siblings already placed costs a large layer whole seconds. */
+  const dirs = new Map<string, DirNode>([["", root]]);
 
   for (const entry of entries) {
     const segments = entry.relativePath.split("/").filter((s) => s.length > 0);
@@ -41,10 +44,11 @@ export function buildContentTree(entries: readonly ContentEntry[]): ContentTreeN
       const segment = segments[i]!;
       const childPath = cursor.path ? `${cursor.path}/${segment}` : segment;
 
-      let next = cursor.children.find((c): c is DirNode => c.type === "dir" && c.name === segment);
+      let next = dirs.get(childPath);
       if (!next) {
         next = { type: "dir", name: segment, path: childPath, children: [] };
         (cursor.children as ContentTreeNode[]).push(next);
+        dirs.set(childPath, next);
       }
       cursor = next;
     }
@@ -107,9 +111,22 @@ function sortRecursive(dir: DirNode): void {
   }
 }
 
+/**
+ * A chunk name the extractor could not resolve
+ */
+const UNRESOLVED_CHUNK = /^[0-9a-f]{16}(\.|$)/;
+
 function compareNodes(a: ContentTreeNode, b: ContentTreeNode): number {
   if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
-  return a.name.localeCompare(b.name);
+
+  /* The game browser gets these in their own group. Here they come off the
+  filesystem looking like any other file, so the name is all there is to go on. */
+  const aUnresolved = UNRESOLVED_CHUNK.test(a.name);
+  const bUnresolved = UNRESOLVED_CHUNK.test(b.name);
+  if (aUnresolved !== bUnresolved) return aUnresolved ? 1 : -1;
+  if (aUnresolved) return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+
+  return compareNames(a.name, b.name);
 }
 
 export interface FlatTreeRow {

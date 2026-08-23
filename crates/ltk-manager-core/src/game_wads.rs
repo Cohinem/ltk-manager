@@ -15,6 +15,7 @@ use serde::Serialize;
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
 use crate::utils::game::GameDir;
+use crate::utils::natural_order::compare_names;
 use crate::utils::path::resolve_within;
 
 /// One WAD archive in a game install.
@@ -120,7 +121,7 @@ impl GameArchives {
             out.push(GameWadSummary { name, size_bytes });
         }
 
-        out.sort_by(|a, b| a.name.cmp(&b.name));
+        out.sort_by(|a, b| compare_names(&a.name, &b.name));
         Ok(out)
     }
 

@@ -1,4 +1,5 @@
 use crate::error::AppResult;
+use crate::workshop::layer::Layer;
 use ltk_modpkg::Modpkg;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -29,6 +30,16 @@ pub struct LayerInfo {
     pub priority: i32,
     pub description: Option<String>,
     pub file_count: u64,
+}
+
+impl Layer for LayerInfo {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn priority(&self) -> i32 {
+        self.priority
+    }
 }
 
 pub fn inspect_modpkg_file(file_path: &str) -> AppResult<ModpkgInfo> {
@@ -91,7 +102,7 @@ pub fn inspect_modpkg_file(file_path: &str) -> AppResult<ModpkgInfo> {
             file_count: count,
         });
     }
-    layers.sort_by(|a, b| a.priority.cmp(&b.priority).then(a.name.cmp(&b.name)));
+    layers.sort_by(|a, b| a.cmp_for_display(b));
 
     Ok(ModpkgInfo {
         name: metadata.name,

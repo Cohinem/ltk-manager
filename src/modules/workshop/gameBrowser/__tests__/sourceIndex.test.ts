@@ -78,6 +78,38 @@ describe("buildSourceTree", () => {
     expect(tree.map(nameOf)).toEqual(["a-dir", "m-dir", "a-file.bin", "z-file.bin"]);
   });
 
+  it("orders digit runs numerically, so skin9 precedes skin50", () => {
+    const tree = buildSourceTree(
+      [50, 5, 9, 76, 14, 3].map((n) => known(`animations/skin${n}.bin`)),
+    );
+    const animations = tree[0] as SourceDirNode;
+    expect(animations.children.map(nameOf)).toEqual([
+      "skin3.bin",
+      "skin5.bin",
+      "skin9.bin",
+      "skin14.bin",
+      "skin50.bin",
+      "skin76.bin",
+    ]);
+  });
+
+  it("keeps the unnamed group in codepoint order", () => {
+    const tree = buildSourceTree([
+      unknown("4219e04090690b1d"),
+      unknown("0d4fec316b95f54f"),
+      unknown("228b5d518bb1d3e6"),
+      unknown("3f81e0297e13b044"),
+    ]);
+    const group = tree[0] as SourceDirNode;
+    expect(group.unknown).toBe(true);
+    expect(group.children.map(nameOf)).toEqual([
+      "0d4fec316b95f54f",
+      "228b5d518bb1d3e6",
+      "3f81e0297e13b044",
+      "4219e04090690b1d",
+    ]);
+  });
+
   it("folds a run of directories that each hold only the next one", () => {
     const tree = buildSourceTree([known("data/characters/aatrox/skin0.bin")]);
     expect(tree).toHaveLength(1);

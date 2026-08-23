@@ -5,6 +5,8 @@
  * thin adapter and nothing in this file imports one.
  */
 
+import { compareNames } from "../utils/naturalOrder";
+
 /** The path the index gives the group of entries no hash table names. */
 export const UNKNOWN_DIR = "?";
 
@@ -78,8 +80,8 @@ interface MutableDir {
  * Group entries into a directory/file tree, the way the layer file tree does.
  *
  * Entries with a resolved path nest under their path segments, directories
- * first and each group alphabetical, and a run of directories that each hold
- * nothing but the next one folds into a single row. Entries with no path
+ * first and each group in natural name order, and a run of directories that
+ * each hold nothing but the next one folds into a single row. Entries with no path
  * gather under one `unknown` group. Directory rows carry their recursive file
  * count, so rendered rows read it in O(1).
  *
@@ -120,7 +122,10 @@ export function buildSourceTree(entries: readonly SourceEntry[], idPrefix = ""):
   const { children } = finalizeChildren(root, idPrefix);
 
   if (unknown.length > 0) {
-    unknown.sort((a, b) => a.name.localeCompare(b.name));
+    /* Codepoint order, the way the backend sorts its own unnamed group: these
+    are all 16 hex digits, and reading the leading digit run of each as a number
+    interleaves them by it. */
+    unknown.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     /* After every named entry, so the junk drawer never pushes real paths down. */
     children.push({
       type: "dir",
@@ -168,9 +173,9 @@ function finalizeChildren(
     fileCount += inner.fileCount;
   }
 
-  dirs.sort((a, b) => a.name.localeCompare(b.name));
+  dirs.sort((a, b) => compareNames(a.name, b.name));
 
-  const files = [...dir.files].sort((a, b) => a.name.localeCompare(b.name));
+  const files = [...dir.files].sort((a, b) => compareNames(a.name, b.name));
   fileCount += files.length;
 
   return { children: [...dirs, ...files], fileCount };
