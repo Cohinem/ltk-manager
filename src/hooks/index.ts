@@ -12,3 +12,4 @@ export { useReducedMotion } from "./useReducedMotion";
 export { useResizeObserver } from "./useResizeObserver";
 export { useSurfaceLinkedBinWarning } from "./useSurfaceLinkedBinWarning";
 export { useZoomedPx } from "./useZoomedPx";
+export { useZoomHotkeys } from "./useZoomHotkeys";

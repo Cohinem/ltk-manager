@@ -9,6 +9,7 @@ import {
   useOverscrollSpring,
   useReducedMotion,
   useSurfaceLinkedBinWarning,
+  useZoomHotkeys,
 } from "@/hooks";
 import { monoStack, sansStack, sansWeights, WEIGHT_TIERS } from "@/lib/fonts";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
@@ -56,6 +57,7 @@ function RootLayout() {
   useCleanGameWatch();
   useLeagueSession();
   useOverscrollSpring();
+  useZoomHotkeys();
 
   const update = useUpdaterUpdate();
   const { data: settings } = useSettings();
