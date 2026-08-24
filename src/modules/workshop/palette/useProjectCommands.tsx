@@ -1,9 +1,6 @@
 import {
-  ArrowsClockwiseIcon,
   FileArchiveIcon,
-  FilesIcon,
   FolderOpenIcon,
-  GearSixIcon,
   LayoutIcon,
   MagnifyingGlassIcon,
   PackageIcon,
@@ -13,7 +10,6 @@ import {
   SquareSplitVerticalIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
@@ -23,7 +19,7 @@ import { useProjectActions } from "../api/useProjectActions";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
 import { useProjectContext } from "../components/ProjectContext";
 import { detailsDocument, gameDocument, gameWadsDocument } from "../documents";
-import { useRefreshGameIndex, useRevealGameSearch } from "../gameBrowser";
+import { useRevealGameSearch } from "../gameBrowser";
 import {
   useActiveDocumentId,
   useActiveLeafId,
@@ -32,23 +28,25 @@ import {
   useSplitWithDocument,
 } from "../state";
 import type { ProjectCommand } from "./types";
+import { useGlobalCommands } from "./useGlobalCommands";
 
 const GLYPH = "h-4 w-4";
 
 /**
- * Every action the project bar can run, composed out of the modules' own hooks.
+ * Every action the bar can run under a project, composed out of the modules'
+ * own hooks.
  *
  * A command closes over the real mutation rather than over a copy of it, so
  * nothing registers into a global table at import time and a command that needs
- * project state reads it the way every other panel does.
+ * project state reads it the way every other panel does. The ones that need no
+ * project come from [`useGlobalCommands`], folded in where they used to sit.
  */
 export function useProjectCommands(): readonly ProjectCommand[] {
   const project = useProjectContext();
-  const navigate = useNavigate();
 
   const actions = useProjectActions(project);
   const testState = useWorkshopTestState(project);
-  const refreshGameIndex = useRefreshGameIndex();
+  const global = useGlobalCommands();
 
   const openDocument = useOpenDocument();
   const resetLayout = useResetLayout();
@@ -60,7 +58,6 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   const setLayerPanelOpen = useSetLayerPanelOpen();
   const revealGameSearch = useRevealGameSearch();
 
-  const refresh = refreshGameIndex.mutate;
   const layerCount = project.layers.length;
 
   return useMemo<readonly ProjectCommand[]>(() => {
@@ -179,43 +176,16 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         icon: <MagnifyingGlassIcon weight="bold" className={GLYPH} />,
         run: revealGameSearch,
       },
-      {
-        id: "game.rebuildIndex",
-        title: "Rebuild the game index",
-        group: "Game",
-        keywords: ["rescan", "refresh", "wad"],
-        icon: <ArrowsClockwiseIcon className={GLYPH} />,
-        run: () => refresh(),
-      },
-
-      {
-        id: "settings.open",
-        title: "Open settings",
-        group: "Settings",
-        shortcut: "Ctrl+,",
-        keywords: ["preferences", "options"],
-        icon: <GearSixIcon className={GLYPH} />,
-        run: () => void navigate({ to: "/settings" }),
-      },
-      {
-        id: "settings.projects",
-        title: "Open the workshop",
-        group: "Settings",
-        shortcut: "Ctrl+2",
-        keywords: ["projects", "list", "back"],
-        icon: <FilesIcon className={GLYPH} />,
-        run: () => void navigate({ to: "/workshop" }),
-      },
+      ...global,
     ];
   }, [
     actions,
     activeDocumentId,
     activeLeafId,
+    global,
     layerCount,
     layerPanelOpen,
-    navigate,
     openDocument,
-    refresh,
     resetLayout,
     revealGameSearch,
     setLayerPanelOpen,

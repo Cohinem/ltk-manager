@@ -32,15 +32,22 @@ export interface RevealRequest {
 }
 
 /**
- * One stop on a project's navigation history.
+ * One stop on the shell's navigation history.
  *
- * The group is not recorded, because a document sits in exactly one of them and
- * `leafHolding` answers which. A position inside the document is not recorded
- * either, so a back restores which document and leaves the rest to it.
+ * The stack spans the workshop rather than one project, so a stop names where
+ * it was as well as what it was. The group is not recorded, because a document
+ * sits in exactly one of them and `leafHolding` answers which. A position
+ * inside the document is not recorded either, so a back restores which document
+ * and leaves the rest to it.
  */
-export interface HistoryEntry {
-  readonly documentId: string;
-}
+export type HistoryEntry =
+  | { readonly kind: "list" }
+  | {
+      readonly kind: "document";
+      /** The path of the project holding it, which is what the arrows route to. */
+      readonly project: string;
+      readonly documentId: string;
+    };
 
 /** How far back the arrows reach before the oldest stop is dropped. */
 const HISTORY_LIMIT = 50;
@@ -83,21 +90,21 @@ export interface ProjectEditor {
   collapsed: Record<string, ReadonlySet<string>>;
   /** The pending scroll request, which at most one layer's tree answers. */
   reveal: RevealRequest | null;
-  /**
-   * Where the user has been in this editor, oldest first.
-   *
-   * Session-only. `.ltk/editor.json` holds where a user left the project, and a
-   * history is how they got there - restoring it a day later hands them a back
-   * button into a session they no longer remember.
-   */
-  history: readonly HistoryEntry[];
-  /** Where in `history` the arrows stand. -1 while nothing has been visited. */
-  historyIndex: number;
 }
 
 interface WorkshopEditorStore {
   /** Editor state per project path, so switching projects keeps every set. */
   byProject: Record<string, ProjectEditor>;
+  /**
+   * Where the user has been across the shell, oldest first.
+   *
+   * One stack rather than one per project, so the arrows walk out of a project
+   * the same way they walk between its tabs. Session-only: `.ltk/editor.json`
+   * holds where a user left a project, and a history is how they got there.
+   */
+  history: readonly HistoryEntry[];
+  /** Where in `history` the arrows stand. -1 while nothing has been visited. */
+  historyIndex: number;
   /** Installs a project's persisted slice, completing it with the memory-only fields. */
   hydrateProject: (projectPath: string, state: PersistedProjectEditor) => void;
   /** Opens into `leafId`, falling back to the focused leaf. A document already open activates where it is. */
@@ -120,8 +127,15 @@ interface WorkshopEditorStore {
   /** Opens into a fresh group beside the focused one, which `Ctrl+Enter` asks for. */
   openDocumentBeside: (projectPath: string, document: ContentDocument) => void;
   focusLeaf: (projectPath: string, leafId: string) => void;
-  /** Walks the history by `delta` without recording the stop it lands on. */
-  navigateHistory: (projectPath: string, delta: number) => void;
+  /** Records the list as a stop, which is what a back out of a project lands on. */
+  recordListVisit: () => void;
+  /**
+   * Walks the history by `delta` without recording the stop it lands on.
+   *
+   * Returns the stop it reached, because one in another project is a route
+   * change and a store cannot make one.
+   */
+  navigateHistory: (delta: number) => HistoryEntry | null;
   /** Writes what `onLayoutChanged` reported for one split. */
   setSplitLayout: (projectPath: string, splitId: string, layout: Record<string, number>) => void;
   /** Merges every strip into the focused leaf, in reading order. */
@@ -149,65 +163,137 @@ export const EMPTY_EDITOR: ProjectEditor = {
   dirty: new Set(),
   collapsed: {},
   reveal: null,
-  history: [],
-  historyIndex: -1,
 };
 
 /** The collapsed-set of a layer nobody has shut a directory in. */
 export const NO_COLLAPSED_DIRS: ReadonlySet<string> = new Set();
+
+/** The shell's stack, apart from the editors the stops point into. */
+type Stack = Pick<WorkshopEditorStore, "history" | "historyIndex">;
+
+/**
+ * What one action left behind: the editor, and what it did to the stack.
+ *
+ * The stack sits on the store root, so an action working inside one project's
+ * slice cannot write it. It tags what it did instead, and `updateProject` folds
+ * the tag into the shell's stack with the project the action was given.
+ */
+interface EditorMove {
+  readonly editor: ProjectEditor;
+  /** The document the action landed on, which the stack records. */
+  readonly visited?: string;
+  /** A document that is gone, whose stops the stack drops. */
+  readonly forgotten?: string;
+}
+
+function asMove(target: ProjectEditor | EditorMove): EditorMove {
+  return "editor" in target ? target : { editor: target };
+}
 
 /**
  * Apply a change to one project's editor, or report that nothing moved.
  *
  * Returning `null` lets the caller hand `set` the state object it was given.
  * Zustand compares by identity, so that is what makes an unchanged action skip
- * every subscriber rather than waking them with an equal value.
+ * every subscriber rather than waking them with an equal value. An action that
+ * only moved the stack still counts as a change, which is what records a route
+ * onto the document a group is already showing.
  */
 function updateProject(
   state: WorkshopEditorStore,
   projectPath: string,
-  change: (editor: ProjectEditor) => ProjectEditor | null,
-): Pick<WorkshopEditorStore, "byProject"> | null {
+  change: (editor: ProjectEditor) => ProjectEditor | EditorMove | null,
+): Partial<WorkshopEditorStore> | null {
   const current = state.byProject[projectPath] ?? EMPTY_EDITOR;
-  const next = change(current);
-  if (next === null || next === current) return null;
-  return { byProject: { ...state.byProject, [projectPath]: next } };
+  const result = change(current);
+  if (result === null) return null;
+
+  const move = asMove(result);
+  const stack = foldStack(state, projectPath, move);
+  const moved = move.editor !== current;
+  if (!moved && stack === null) return null;
+
+  return {
+    ...(moved ? { byProject: { ...state.byProject, [projectPath]: move.editor } } : null),
+    ...stack,
+  };
+}
+
+/* Forgotten before visited, so replacing a preview drops the tab it stood on
+   and then records the one that took its place. */
+function foldStack(stack: Stack, project: string, move: EditorMove): Stack | null {
+  let next: Stack | null = null;
+
+  if (move.forgotten !== undefined) {
+    const documentId = move.forgotten;
+    next = dropStops(
+      stack,
+      (entry) =>
+        entry.kind === "document" && entry.project === project && entry.documentId === documentId,
+    );
+  }
+
+  if (move.visited !== undefined) {
+    next = pushStop(next ?? stack, { kind: "document", project, documentId: move.visited }) ?? next;
+  }
+
+  return next;
 }
 
 /**
- * Push the document a route just landed on, or leave the stack alone.
+ * Tag the document a route just landed on, for the stack to record.
  *
- * Recorded inside the store actions rather than at their call sites, so a route
- * into a document cannot forget to report itself. Landing again on the stop the
- * arrows already stand on records nothing, which is what keeps a re-activate of
- * the open tab out of the stack.
+ * Tagged inside the store actions rather than at their call sites, so a route
+ * into a document cannot forget to report itself.
  */
-function recordVisit(editor: ProjectEditor, documentId: string): ProjectEditor {
-  if (editor.history[editor.historyIndex]?.documentId === documentId) return editor;
-
-  /* A move after a back drops the forward part, the way a browser does. */
-  const history = editor.history.slice(0, editor.historyIndex + 1);
-  history.push({ documentId });
-  if (history.length > HISTORY_LIMIT) history.splice(0, history.length - HISTORY_LIMIT);
-
-  return { ...editor, history, historyIndex: history.length - 1 };
+function recordVisit(target: ProjectEditor | EditorMove, documentId: string): EditorMove {
+  return { ...asMove(target), visited: documentId };
 }
 
-/** Drop a closed document's stops, so a back never lands on a tab that is gone. */
-function forgetVisits(editor: ProjectEditor, documentId: string): ProjectEditor {
-  if (!editor.history.some((entry) => entry.documentId === documentId)) return editor;
+/** Tag a closed document, so a back never lands on a tab that is gone. */
+function forgetVisits(target: ProjectEditor | EditorMove, documentId: string): EditorMove {
+  return { ...asMove(target), forgotten: documentId };
+}
+
+/**
+ * Push a stop, or leave the stack standing where it is.
+ *
+ * Landing again on the stop the arrows already stand on records nothing, which
+ * is what keeps a re-activate of the open tab, and a return to the list a back
+ * already reached, out of the stack.
+ */
+function pushStop(stack: Stack, entry: HistoryEntry): Stack | null {
+  if (sameStop(stack.history[stack.historyIndex], entry)) return null;
+
+  /* A move after a back drops the forward part, the way a browser does. */
+  const history = stack.history.slice(0, stack.historyIndex + 1);
+  history.push(entry);
+  if (history.length > HISTORY_LIMIT) history.splice(0, history.length - HISTORY_LIMIT);
+
+  return { history, historyIndex: history.length - 1 };
+}
+
+function sameStop(a: HistoryEntry | undefined, b: HistoryEntry): boolean {
+  if (a === undefined) return false;
+  if (a.kind === "list" || b.kind === "list") return a.kind === b.kind;
+  return a.project === b.project && a.documentId === b.documentId;
+}
+
+/** Drop the stops a predicate names, keeping the arrows inside what is left. */
+function dropStops(stack: Stack, gone: (entry: HistoryEntry) => boolean): Stack | null {
+  if (!stack.history.some(gone)) return null;
 
   const history: HistoryEntry[] = [];
-  let index = editor.historyIndex;
-  editor.history.forEach((entry, at) => {
-    if (entry.documentId !== documentId) {
+  let index = stack.historyIndex;
+  stack.history.forEach((entry, at) => {
+    if (!gone(entry)) {
       history.push(entry);
       return;
     }
-    if (at <= editor.historyIndex) index -= 1;
+    if (at <= stack.historyIndex) index -= 1;
   });
 
-  return { ...editor, history, historyIndex: Math.max(-1, Math.min(index, history.length - 1)) };
+  return { history, historyIndex: Math.max(-1, Math.min(index, history.length - 1)) };
 }
 
 /**
@@ -267,8 +353,10 @@ function reorderLeafTabs(node: LayoutNode, leafId: string, ids: readonly string[
   return changed ? { ...node, children } : node;
 }
 
-export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
+export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) => ({
   byProject: {},
+  history: [],
+  historyIndex: -1,
 
   hydrateProject: (projectPath, state) =>
     set((current) => ({
@@ -505,25 +593,38 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
         }) ?? state,
     ),
 
-  navigateHistory: (projectPath, delta) =>
-    set(
-      (state) =>
-        updateProject(state, projectPath, (editor) => {
-          const at = editor.historyIndex + delta;
-          const entry = editor.history[at];
-          if (!entry) return null;
+  recordListVisit: () => set((state) => pushStop(state, { kind: "list" }) ?? state),
 
-          const holder = leafHolding(editor.layout, entry.documentId);
-          if (!holder) return null;
+  navigateHistory: (delta) => {
+    const state = get();
+    const at = state.historyIndex + delta;
+    const entry = state.history[at];
+    if (!entry) return null;
 
-          return {
-            ...editor,
-            layout: setActiveTab(editor.layout, holder.id, entry.documentId),
-            activeLeafId: holder.id,
-            historyIndex: at,
-          };
-        }) ?? state,
-    ),
+    if (entry.kind === "list") {
+      set({ historyIndex: at });
+      return entry;
+    }
+
+    /* A stop whose tab is gone is skipped rather than repaired: `dropStops`
+       clears a close, and what is left is a project the shell has forgotten. */
+    const editor = state.byProject[entry.project];
+    const holder = editor ? leafHolding(editor.layout, entry.documentId) : null;
+    if (!editor || !holder) return null;
+
+    set({
+      byProject: {
+        ...state.byProject,
+        [entry.project]: {
+          ...editor,
+          layout: setActiveTab(editor.layout, holder.id, entry.documentId),
+          activeLeafId: holder.id,
+        },
+      },
+      historyIndex: at,
+    });
+    return entry;
+  },
 
   setSplitLayout: (projectPath, splitId, layout) =>
     set(
@@ -594,7 +695,15 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
       const byProject = { ...state.byProject };
       delete byProject[fromPath];
       byProject[toPath] = current;
-      return { byProject };
+
+      /* The stops keep pointing at the editor they were recorded in, which the
+         rename moved rather than replaced. */
+      const history = state.history.map((entry) =>
+        entry.kind === "document" && entry.project === fromPath
+          ? { ...entry, project: toPath }
+          : entry,
+      );
+      return { byProject, history };
     }),
 
   forgetProject: (projectPath) =>
@@ -603,6 +712,10 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
 
       const byProject = { ...state.byProject };
       delete byProject[projectPath];
-      return { byProject };
+      const stack = dropStops(
+        state,
+        (entry) => entry.kind === "document" && entry.project === projectPath,
+      );
+      return { byProject, ...stack };
     }),
 }));

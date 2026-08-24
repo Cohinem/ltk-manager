@@ -4,6 +4,8 @@ import {
   ListIcon,
   MagnifyingGlassIcon,
 } from "@phosphor-icons/react";
+import { useRef } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 
 import {
   Button,
@@ -56,6 +58,11 @@ export function LibraryToolbar({
   visibleMods,
 }: LibraryToolbarProps) {
   const { viewMode, setViewMode } = useLibraryViewMode();
+  const searchRef = useRef<HTMLInputElement>(null);
+  useHotkeys("ctrl+f", () => searchRef.current?.select(), {
+    preventDefault: true,
+    enableOnFormTags: true,
+  });
   const isInstalling = actions.installMod.isPending || actions.bulkInstallMods.isPending;
   const importLabel = isInstalling ? "Importing..." : "Import";
 
@@ -65,6 +72,7 @@ export function LibraryToolbar({
         <div className="relative flex min-w-[180px] flex-1 items-center">
           <MagnifyingGlassIcon className="pointer-events-none absolute left-3 h-4 w-4 text-surface-500" />
           <Field.Control
+            ref={searchRef}
             type="text"
             placeholder="Search mods..."
             value={searchQuery}

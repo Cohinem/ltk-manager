@@ -1,8 +1,6 @@
 import type { WorkshopAuthor } from "@/lib/tauri";
 
-/**
- * Parse a comma-separated champions string into an array of trimmed, non-empty names.
- */
+/** Splits a comma-separated champions field, dropping blanks. */
 export function parseChampionsText(text: string): string[] {
   return text
     .split(",")
@@ -10,16 +8,10 @@ export function parseChampionsText(text: string): string[] {
     .filter(Boolean);
 }
 
-/**
- * Filter out authors with empty names.
- */
 export function filterEmptyAuthors(authors: WorkshopAuthor[]): WorkshopAuthor[] {
   return authors.filter((a) => a.name.trim());
 }
 
-/**
- * Update a single field on an author at a given index, returning a new array.
- */
 export function updateAuthorAt(
   authors: WorkshopAuthor[],
   index: number,
@@ -31,16 +23,10 @@ export function updateAuthorAt(
   return updated;
 }
 
-/**
- * Remove the author at a given index, returning a new array.
- */
 export function removeAuthorAt(authors: WorkshopAuthor[], index: number): WorkshopAuthor[] {
   return authors.filter((_, i) => i !== index);
 }
 
-/**
- * Append an author entry, optionally pre-filled with initial values.
- */
 export function appendAuthor(
   authors: WorkshopAuthor[],
   initial?: Partial<WorkshopAuthor>,

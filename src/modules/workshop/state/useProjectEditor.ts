@@ -4,6 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
 import {
   EMPTY_EDITOR,
+  type HistoryEntry,
   NO_COLLAPSED_DIRS,
   type RevealRequest,
   useTabOpenMode,
@@ -347,29 +348,6 @@ export function useRevealInTree() {
   );
 }
 
-/** Which of the two history arrows have somewhere to go. */
-export function useHistoryReach(): { back: string | null; forward: string | null } {
-  const projectPath = useProjectPath();
-  return useWorkshopEditorStore(
-    useShallow((s) => {
-      const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
-      return {
-        back: editor.history[editor.historyIndex - 1]?.documentId ?? null,
-        forward: editor.history[editor.historyIndex + 1]?.documentId ?? null,
-      };
-    }),
-  );
-}
-
-export function useNavigateHistory() {
-  const projectPath = useProjectPath();
-  const navigateHistory = useWorkshopEditorStore((s) => s.navigateHistory);
-  return useCallback(
-    (delta: number) => navigateHistory(projectPath, delta),
-    [navigateHistory, projectPath],
-  );
-}
-
 /**
  * Visited document ids, nearest first, each one once.
  *
@@ -381,16 +359,16 @@ export function useRecentDocumentIds(): readonly string[] {
   const projectPath = useProjectPath();
   return useWorkshopEditorStore(
     useShallow((s) => {
-      const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
       const seen = new Set<string>();
 
-      for (let at = editor.historyIndex; at >= 0; at -= 1) {
-        const entry = editor.history[at];
-        if (entry) seen.add(entry.documentId);
-      }
-      for (let at = editor.historyIndex + 1; at < editor.history.length; at += 1) {
-        seen.add(editor.history[at]!.documentId);
-      }
+      /* One project's stops out of a stack that spans the shell, or another
+         project's document ids would rank this project's rows. */
+      const take = (entry: HistoryEntry | undefined) => {
+        if (entry?.kind === "document" && entry.project === projectPath) seen.add(entry.documentId);
+      };
+
+      for (let at = s.historyIndex; at >= 0; at -= 1) take(s.history[at]);
+      for (let at = s.historyIndex + 1; at < s.history.length; at += 1) take(s.history[at]);
       return [...seen];
     }),
   );

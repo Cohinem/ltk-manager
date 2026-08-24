@@ -19,6 +19,6 @@ export {
 } from "./contentDocument";
 export { DetailsDocument } from "./DetailsDocument";
 export { FilesDocument } from "./FilesDocument";
-export { useContentEditors } from "./registry";
+export { contentEditors, useContentEditors } from "./registry";
 export { StringsDocument } from "./StringsDocument";
 export { useProjectDetails, validateVersion } from "./useProjectDetails";

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-08-24 | Hand the shell-wide pieces to [Workshop](WORKSHOP.md)                  |
 | 2026-08-22 | Give the problems list a model, and the bin retype rule that fills it  |
 | 2026-08-22 | Delete a layer file or folder from its own tree row                    |
 | 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself       |
@@ -13,13 +14,16 @@
 | 2026-08-21 | Reshape the extractor API upstream, one resolver type and closures     |
 | 2026-08-21 | Recover chunk names from the bins, on a byte scan the crate runs       |
 | 2026-08-21 | Pan and zoom a preview, on `react-zoom-pan-pinch`                      |
-| 2026-08-21 | Draw a bin as blocks, and move the preview into its own document       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
 The project editor is the LTK Manager screen for work on one mod project. The core design
 idea is an IDE for League mods. A user opens a project, reads its content, changes what the
 mod declares, and packs the result.
+
+The header row and the bar in it are drawn by the workshop shell over both of its routes, so
+what they mean outside a project is [Workshop](WORKSHOP.md). This document describes them from
+inside one.
 
 ## Goals
 
@@ -92,7 +96,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Project object index   | Planned     | The layers' own bins, rebuilt with the content scan                |
 | Bin object index       | Blocked     | The install's half. A lazy `ltk_meta` read comes first             |
 | Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
-| Navigation history     | Available   | The `←` `→` arrows, one stack for each project                     |
+| Navigation history     | Available   | The `←` `→` arrows, one stack for the whole workshop shell         |
 | Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
 | Merged layer view      | Proposed    | Names the layer that wins for each path                            |
 | Layer diff             | Proposed    | Compares one path across two layers                                |
@@ -190,11 +194,19 @@ control that answers for the whole view.
 The back arrow and the project name title are both gone. The bar took the name, the version
 tag and the route back to the project list. Read [the project bar](#the-project-bar).
 
+The row itself belongs to the shell, which draws the same five slots over the project grid and
+refills them rather than swapping the chrome. What the slots hold there, and how the row
+balances around the bar, is [Layout](WORKSHOP.md#layout).
+
 ## The project bar
 
 The header's middle holds one control. It names the project while nothing is happening, and it
 is the route to every file, every command and every path of the game as soon as a user types
-in it. To its left are the two arrows that walk the project's navigation history.
+in it. To its left are the two arrows that walk the navigation history.
+
+The same control stands over the project grid, where it names the workshop and filters the
+cards. Its three modes, and which one a click and `Ctrl+F` each land in, are
+[The bar](WORKSHOP.md#the-bar).
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -858,9 +870,12 @@ upstream change.
 
 ## The navigation history
 
-The two arrows to the left of the bar walk one stack for each project. This is the Go Back of
-Visual Studio Code and not the Back of a browser, so it answers where a user was in the editor
-rather than which page the application showed.
+The two arrows to the left of the bar walk one stack, and it spans the workshop shell rather
+than sitting under each project - a stop is a document in a named project or the project grid
+itself, and a back that lands in another project routes to it. Read
+[the navigation history](WORKSHOP.md#the-navigation-history). This is the Go Back of Visual
+Studio Code and not the Back of a browser, so it answers where a user was in the editor rather
+than which page the application showed.
 
 ```ts
 interface HistoryEntry {
@@ -2794,20 +2809,17 @@ for Tauri. The payload is the same list, and the target runs
 2. Does a back onto a document that was closed reopen it, or does the entry drop? The
    proposal drops it, so a back never lands on a tab that is gone. A reopen is the other
    reading, and it is what a user who closed a preview by mistake would want.
-3. Does the bar reach a second project, or the application outside a project? The crumb is
-   the route out today. A `Workshop /` scope over every project is the next step, and the
-   workshop list has its own filter bar already.
-4. Which key opens the bar on a keyboard that is not `Ctrl`-based? The Linux and macOS
+3. Which key opens the bar on a keyboard that is not `Ctrl`-based? The Linux and macOS
    builds are not in scope yet, and `Ctrl+P` is a Windows answer.
-5. Does the sort belong to the application or to each explorer? One sort for every explorer
+4. Does the sort belong to the application or to each explorer? One sort for every explorer
    is one thing to learn, and a modder reading the game index by size may still want their
    own layer by name.
-6. Does a thumbnail survive a scroll? Nothing is stored today. A bounded cache of encoded
+5. Does a thumbnail survive a scroll? Nothing is stored today. A bounded cache of encoded
    thumbnails is the escalation, and a measurement should buy it.
-7. Does an extract obey the filter chips? The proposal says yes, because the explorer shows
+6. Does an extract obey the filter chips? The proposal says yes, because the explorer shows
    what the extract writes and the dialog names the chips. The other reading extracts the
    whole directory and leaves the chips to the view.
-8. Where does the first extract go? The proposal remembers the last folder and starts with
+7. Where does the first extract go? The proposal remembers the last folder and starts with
    none, so the first extract asks. A default under the user's documents is the other
    reading, and it saves one click once.
 
@@ -2815,11 +2827,12 @@ for Tauri. The payload is the same list, and the target runs
 
 | Question                                         | Answer                                              |
 | ------------------------------------------------ | --------------------------------------------------- |
+| Does the bar reach a second project?             | Yes. Projects answers from either surface           |
 | Where does the route back to Workshop live?      | A crumb inside the project bar                      |
 | Does the project name title stay in the header?  | No. The bar carries the name and the version tag    |
 | Does the palette search the installed game?      | Yes, in a section that streams in after the project |
 | Can a user turn a search source off?             | Yes, in the Project editor settings                 |
-| What do the `←` `→` arrows walk?                 | The editor's navigation history, with the position  |
+| What do the `←` `→` arrows walk?                 | The shell's navigation history, with the position   |
 | Does the navigation history survive a restart?   | No. The stack is the session's                      |
 | Which library builds the palette?                | None. It is `@/components` over base-ui             |
 | Which side matches the game's 819,136 paths?     | The backend, which is the only side that holds them |

@@ -388,7 +388,9 @@ impl GameRecord {
                     PathHome::Unknown => Vec::new(),
                 };
                 if writers.is_empty() {
-                    cause.push_str(" No enabled mod writes the archive that file lives in, so the mods that were in the game are listed.");
+                    cause.push_str(
+                        " The specified file could not be found in any mounted WAD archive.",
+                    );
                     self.redirected_writers(ctx)
                 } else {
                     writers

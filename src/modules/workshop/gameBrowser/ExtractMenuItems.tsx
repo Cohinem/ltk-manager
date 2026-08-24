@@ -12,13 +12,8 @@ interface ExtractMenuItemsProps {
 /**
  * The three ways out of the browser, as the items every row's menu carries.
  *
- * The same three on a file row, a directory row and an archive row, because
- * the only thing that differs between them is what the aim expands to. The
- * copy and the quick extract each show only once there is somewhere for them
- * to go, and the dialog is what is left when there is not.
- *
  * **Copy into `<layer>`** above the extracts, and naming its layer, per
- * [Copy into a layer](../../../../docs/ux/PROJECT_EDITOR.md#copy-into-a-layer).
+ * "Copy into a layer" in `docs/ux/PROJECT_EDITOR.md`.
  */
 export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
   const { lastFolder, layerLabel, busy } = useExtractActions();

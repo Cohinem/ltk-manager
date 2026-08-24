@@ -1,11 +1,16 @@
 import { ArrowLeftIcon, ArrowRightIcon } from "@phosphor-icons/react";
-import { useCallback, useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { IconButton, Tooltip } from "@/components";
+import { type HistoryEntry, useWorkshopEditorStore } from "@/stores";
 
-import { useContentEditors } from "../documents";
-import { useHistoryReach, useNavigateHistory, useOpenDocuments } from "../state";
+import { useWorkshopProjects } from "../api/useWorkshopProjects";
+import { useOptionalProjectContext } from "../components/ProjectContext";
+import { contentEditors } from "../documents";
+import { useHistoryReach, useNavigateHistory } from "../state";
+import { useOpenProject } from "./projectRows";
 
 /* The fourth and fifth mouse buttons, which every browser and file manager
    already spends on back and forward. */
@@ -13,19 +18,16 @@ const MOUSE_BACK = 3;
 const MOUSE_FORWARD = 4;
 
 /**
- * The two arrows that walk this project's navigation history.
+ * The two arrows that walk the workshop's navigation history.
  *
- * This is the Go Back of an editor rather than the Back of a browser, so it
- * answers where a user was in the project and not which page the application
- * showed. `Alt+←` and `Alt+→` are the keys, and the mouse's side buttons do the
- * same.
+ * Per "The navigation history" in `docs/ux/WORKSHOP.md`.
  */
 export function NavigationArrows() {
   const reach = useHistoryReach();
-  const navigateHistory = useNavigateHistory();
+  const walk = useWalkHistory();
 
-  const goBack = useCallback(() => navigateHistory(-1), [navigateHistory]);
-  const goForward = useCallback(() => navigateHistory(1), [navigateHistory]);
+  const goBack = useCallback(() => walk(-1), [walk]);
+  const goForward = useCallback(() => walk(1), [walk]);
 
   useHotkeys("alt+left", goBack, { preventDefault: true, enableOnFormTags: true });
   useHotkeys("alt+right", goForward, { preventDefault: true, enableOnFormTags: true });
@@ -42,23 +44,56 @@ export function NavigationArrows() {
     return () => window.removeEventListener("mousedown", onMouseDown);
   }, [goBack, goForward]);
 
+  /* One control pair rather than two buttons that happen to be adjacent, so
+     they read together and sit against the bar they belong to. */
   return (
     <div data-ui="NavigationArrows" className="flex shrink-0 items-center">
-      <Arrow direction="back" documentId={reach.back} onClick={goBack} />
-      <Arrow direction="forward" documentId={reach.forward} onClick={goForward} />
+      <Arrow direction="back" entry={reach.back} onClick={goBack} />
+      <Arrow direction="forward" entry={reach.forward} onClick={goForward} />
     </div>
+  );
+}
+
+/**
+ * Walk the stack, and follow it off this route when the stop is elsewhere.
+ *
+ * The store moves the index and hands the tab back to its group, which is as
+ * far as it reaches. Routing is the other half, and a route it is already on
+ * costs nothing to ask for.
+ */
+function useWalkHistory(): (delta: number) => void {
+  const navigateHistory = useNavigateHistory();
+  const navigate = useNavigate();
+  const openProject = useOpenProject();
+  const { data: projects } = useWorkshopProjects();
+
+  return useCallback(
+    (delta: number) => {
+      const entry = navigateHistory(delta);
+      if (entry === null) return;
+
+      if (entry.kind === "list") {
+        void navigate({ to: "/workshop" });
+        return;
+      }
+
+      /* A stop holds the directory, and the route takes the slug. */
+      const project = projects?.find((candidate) => candidate.path === entry.project);
+      if (project) openProject(project.name);
+    },
+    [navigate, navigateHistory, openProject, projects],
   );
 }
 
 interface ArrowProps {
   direction: "back" | "forward";
   /** What the arrow returns to, or null while it has nothing behind it. */
-  documentId: string | null;
+  entry: HistoryEntry | null;
   onClick: () => void;
 }
 
-function Arrow({ direction, documentId, onClick }: ArrowProps) {
-  const title = useDocumentTitle(documentId);
+function Arrow({ direction, entry, onClick }: ArrowProps) {
+  const title = useStopTitle(entry);
   const back = direction === "back";
   const label = back ? "Back" : "Forward";
 
@@ -74,29 +109,41 @@ function Arrow({ direction, documentId, onClick }: ArrowProps) {
       variant="ghost"
       size="sm"
       compact
-      disabled={documentId === null}
+      /* Narrower than it is tall: a square box puts 12px between two 16px
+         glyphs, and the height is what holds the arrows against the bar. */
+      className="w-6"
+      disabled={entry === null}
       onClick={onClick}
       aria-label={label}
     />
   );
 
-  if (documentId === null) return button;
+  if (entry === null) return button;
 
   return <Tooltip content={`${label} to ${title} (${back ? "Alt+←" : "Alt+→"})`}>{button}</Tooltip>;
 }
 
-/** What a document is called on a tab, which is what the tooltip names. */
-function useDocumentTitle(documentId: string | null): string {
-  const documents = useOpenDocuments();
-  const editors = useContentEditors();
+/** What a stop is called: the grid by its own name, a document by its tab's. */
+function useStopTitle(entry: HistoryEntry | null): string {
+  const stop = entry?.kind === "document" ? entry : null;
+  const here = useOptionalProjectContext();
+  const { data: projects } = useWorkshopProjects();
 
-  const document = documents.find((candidate) => candidate.id === documentId);
-  if (!document) return "where you were";
+  const document = useWorkshopEditorStore((s) =>
+    stop ? (s.byProject[stop.project]?.documents[stop.documentId] ?? null) : null,
+  );
+  const project = projects?.find((candidate) => candidate.path === stop?.project) ?? null;
+  const editors = useMemo(() => (project ? contentEditors(project) : null), [project]);
+
+  if (entry === null || entry.kind === "list") return "the workshop";
+  if (!project || !editors || !document) return "where you were";
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
      kind cannot express. The key comes off the document, so the two agree. */
   const definition = editors[document.kind] as {
     label: (document: never) => { title: string };
   };
-  return definition.label(document as never).title;
+  const title = definition.label(document as never).title;
+
+  return project.path === here?.path ? title : `${title} in ${project.displayName}`;
 }

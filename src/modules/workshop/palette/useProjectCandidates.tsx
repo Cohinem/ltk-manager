@@ -13,73 +13,40 @@ import {
 } from "../documents";
 import { useOpenDocuments } from "../state";
 import { describeFileKind } from "../utils/fileKindIcon";
-import { letterMask } from "./matcher";
-import type { PaletteCandidate, PaletteSourceId, ProjectCommand } from "./types";
+import { buildCandidate, buildCommandCandidate } from "./candidate";
+import { useProjectRows } from "./projectRows";
+import type { PaletteCandidate, PaletteCandidates } from "./types";
 import { useProjectCommands } from "./useProjectCommands";
-
-/**
- * What each locally-matched source contributes, memoized apart so one rebuild
- * is not four.
- *
- * The game is absent: its rows are ranked in Rust and arrive through
- * `useGameRows`, which is what keeps 819,136 paths off the frontend heap.
- */
-export type ProjectCandidates = Readonly<
-  Record<Exclude<PaletteSourceId, "game">, readonly PaletteCandidate[]>
->;
 
 const NONE: readonly PaletteCandidate[] = [];
 
 /**
- * Every row the project bar can match, source by source.
+ * Every row the bar can match under a project, source by source.
  *
  * A source's array is rebuilt only when its own data moves, so a keystroke
- * costs a scan and nothing else. The lowercase forms and the letter mask are
- * built here for the same reason - lowercasing a few thousand rows per
- * keystroke is the cost that shows up in a search of this size.
+ * costs a scan and nothing else.
  *
- * `enabled` is false while the bar is idle. A project of a few thousand files
- * is a few thousand rows to build, and the content scan refetches on each trip
- * back to the window, so a user who never opens the bar would otherwise pay for
- * those rows all day.
+ * A project of a few thousand files is a few thousand rows to build, and the
+ * content scan refetches on each trip back to the window. The palette is
+ * mounted only while it is open, which is what keeps a user who never opens it
+ * from paying for those rows all day.
  */
-export function useProjectCandidates(enabled: boolean): ProjectCandidates {
+export function useProjectCandidates(): PaletteCandidates {
   return {
-    documents: useDocumentCandidates(enabled),
-    files: useFileCandidates(enabled),
-    layers: useLayerCandidates(enabled),
-    strings: useStringCandidates(enabled),
-    commands: useCommandCandidates(enabled),
+    projects: useProjectRows(),
+    documents: useDocumentCandidates(),
+    files: useFileCandidates(),
+    layers: useLayerCandidates(),
+    strings: useStringCandidates(),
+    commands: useCommandCandidates(),
   };
 }
 
-type CandidateSeed = Omit<PaletteCandidate, "nameLower" | "fullLower" | "mask">;
-
-function candidate(seed: CandidateSeed): PaletteCandidate {
-  const nameLower = seed.name.toLowerCase();
-  const fullLower = seed.path.length > 0 ? `${seed.path.toLowerCase()}/${nameLower}` : nameLower;
-
-  /* A row that already carries the document it opens names itself by that, so
-     only a source whose target is built at the last moment passes one in. */
-  const documentId =
-    seed.documentId ?? (seed.target.kind === "document" ? seed.target.document.id : undefined);
-
-  return {
-    ...seed,
-    documentId,
-    nameLower,
-    fullLower,
-    mask: letterMask(seed.keywords === undefined ? fullLower : `${fullLower} ${seed.keywords}`),
-  };
-}
-
-function useDocumentCandidates(enabled: boolean): readonly PaletteCandidate[] {
+function useDocumentCandidates(): readonly PaletteCandidate[] {
   const documents = useOpenDocuments();
   const editors = useContentEditors();
 
   return useMemo(() => {
-    if (!enabled) return NONE;
-
     return documents.flatMap((document) => {
       const definition = editors[document.kind];
       if (!definition) return [];
@@ -94,7 +61,7 @@ function useDocumentCandidates(enabled: boolean): readonly PaletteCandidate[] {
       const label = entry.label(document as never);
 
       return [
-        candidate({
+        buildCandidate({
           id: document.id,
           source: "documents",
           name: label.title,
@@ -105,16 +72,16 @@ function useDocumentCandidates(enabled: boolean): readonly PaletteCandidate[] {
         }),
       ];
     });
-  }, [documents, editors, enabled]);
+  }, [documents, editors]);
 }
 
-function useFileCandidates(enabled: boolean): readonly PaletteCandidate[] {
+function useFileCandidates(): readonly PaletteCandidate[] {
   const project = useProjectContext();
   const { data } = useProjectContentTree(project.path);
   const layers = data?.layers;
 
   return useMemo(() => {
-    if (!enabled || !layers) return NONE;
+    if (!layers) return NONE;
 
     return layers.flatMap((layer) => {
       const title = layerTitle(project, layer.name);
@@ -124,7 +91,7 @@ function useFileCandidates(enabled: boolean): readonly PaletteCandidate[] {
         const descriptor = describeFileKind(entry.kind);
         const Glyph = descriptor.icon;
 
-        return candidate({
+        return buildCandidate({
           id: `file:${layer.name}:${entry.relativePath}`,
           source: "files",
           name: cut < 0 ? entry.relativePath : entry.relativePath.slice(cut + 1),
@@ -146,17 +113,15 @@ function useFileCandidates(enabled: boolean): readonly PaletteCandidate[] {
         });
       });
     });
-  }, [enabled, layers, project]);
+  }, [layers, project]);
 }
 
-function useLayerCandidates(enabled: boolean): readonly PaletteCandidate[] {
+function useLayerCandidates(): readonly PaletteCandidate[] {
   const project = useProjectContext();
 
   return useMemo(() => {
-    if (!enabled) return NONE;
-
     return project.layers.map((layer) =>
-      candidate({
+      buildCandidate({
         id: `layer:${layer.name}`,
         source: "layers",
         name: layer.displayName,
@@ -168,19 +133,17 @@ function useLayerCandidates(enabled: boolean): readonly PaletteCandidate[] {
         target: { kind: "document", document: filesDocument(layer.name) },
       }),
     );
-  }, [enabled, project.layers]);
+  }, [project.layers]);
 }
 
-function useStringCandidates(enabled: boolean): readonly PaletteCandidate[] {
+function useStringCandidates(): readonly PaletteCandidate[] {
   const project = useProjectContext();
 
   return useMemo(() => {
-    if (!enabled) return NONE;
-
     return project.layers.flatMap((layer) =>
       Object.entries(layer.stringOverrides).flatMap(([locale, entries]) =>
         Object.entries(entries).map(([key, value]) =>
-          candidate({
+          buildCandidate({
             id: `string:${layer.name}:${locale}:${key}`,
             source: "strings",
             name: key,
@@ -193,28 +156,11 @@ function useStringCandidates(enabled: boolean): readonly PaletteCandidate[] {
         ),
       ),
     );
-  }, [enabled, project.layers]);
+  }, [project.layers]);
 }
 
-function useCommandCandidates(enabled: boolean): readonly PaletteCandidate[] {
+function useCommandCandidates(): readonly PaletteCandidate[] {
   const commands = useProjectCommands();
 
-  return useMemo(() => (enabled ? commands.map(commandCandidate) : NONE), [commands, enabled]);
-}
-
-function commandCandidate(command: ProjectCommand): PaletteCandidate {
-  const words = [command.group, ...(command.keywords ?? [])].join(" ").toLowerCase();
-
-  return candidate({
-    id: command.id,
-    source: "commands",
-    name: command.title,
-    path: "",
-    trailing:
-      command.enabled === false ? command.disabledReason : (command.shortcut ?? command.group),
-    disabled: command.enabled === false,
-    keywords: words,
-    icon: command.icon,
-    target: { kind: "command", command },
-  });
+  return useMemo(() => commands.map(buildCommandCandidate), [commands]);
 }

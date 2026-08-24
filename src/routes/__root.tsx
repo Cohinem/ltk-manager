@@ -119,15 +119,6 @@ function RootLayout() {
     preventDefault: true,
   });
   useHotkeys("ctrl+,", () => navigate({ to: "/settings" }), { preventDefault: true });
-  useHotkeys(
-    "ctrl+f",
-    () => {
-      const input = document.querySelector<HTMLInputElement>('input[placeholder*="Search"]');
-      input?.focus();
-    },
-    { preventDefault: true, enableOnFormTags: true },
-  );
-
   // Redirect to settings if setup is required
   useEffect(() => {
     if (setupRequired && location.pathname !== "/settings") {

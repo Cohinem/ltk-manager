@@ -1,3 +1,5 @@
+export { type BarMode, barMode, barPlaceholder } from "./barMode";
+export { buildCandidate, buildCommandCandidate } from "./candidate";
 export {
   compileQuery,
   letterMask,
@@ -9,10 +11,9 @@ export {
   startsQuery,
 } from "./matcher";
 export { NavigationArrows } from "./NavigationArrows";
-export { ProjectBar } from "./ProjectBar";
+export { projectRow, useOpenProject, useProjectRows } from "./projectRows";
 export { compareRows, rankCandidate, rankCandidates, type RankContext } from "./rank";
 export {
-  GROUP_CAP,
   HELP_PREFIX,
   PALETTE_SOURCES,
   type PaletteSource,
@@ -20,17 +21,22 @@ export {
   type ParsedQuery,
   parseQuery,
   prefixScope,
-  SCOPED_CAP,
+  PROJECT_SOURCES,
+  sourceCap,
+  WORKSHOP_SOURCES,
 } from "./sources";
 export type {
   OpenIntent,
   PaletteCandidate,
+  PaletteCandidates,
   PaletteGroup,
   PaletteSourceId,
   PaletteTarget,
   ProjectCommand,
   RankedRow,
 } from "./types";
-export { type ProjectCandidates, useProjectCandidates } from "./useProjectCandidates";
+export { useGlobalCommands } from "./useGlobalCommands";
+export { type PaletteSearchParams, usePaletteSearch } from "./usePaletteSearch";
+export { useProjectCandidates } from "./useProjectCandidates";
 export { useProjectCommands } from "./useProjectCommands";
-export { type PaletteSearchResult, useProjectSearch } from "./useProjectSearch";
+export { WorkshopBar } from "./WorkshopBar";
