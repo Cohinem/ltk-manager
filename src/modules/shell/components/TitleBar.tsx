@@ -30,6 +30,7 @@ import { isInformational, useLatestIncident, useLatestIncidentToken } from "@/mo
 import { type AppMark, useAppMark, useRollAppMark } from "@/stores";
 
 import { NotificationCenter } from "./NotificationCenter";
+import { UpdateButton } from "./UpdateButton";
 
 const navItems = [
   { to: "/", label: "Mods", icon: CollectionIcon, exact: true },
@@ -252,6 +253,8 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
       {/* Right: Notifications, Settings, and window controls */}
       <div className="flex h-full items-center">
         <div className="flex h-full items-center">
+          <UpdateButton />
+
           <Tooltip content="Open storage directory">
             <IconButton
               icon={<FolderOpenIcon className="h-4 w-4" />}

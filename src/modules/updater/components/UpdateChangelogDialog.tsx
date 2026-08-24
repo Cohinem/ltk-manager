@@ -1,6 +1,6 @@
-import { CircleAlert, Download, RefreshCw, Sparkles } from "lucide-react";
+import { Download, Sparkles } from "lucide-react";
 
-import { Button, Checkbox, Dialog, Progress } from "@/components";
+import { AlertBox, Button, Checkbox, Dialog, Progress } from "@/components";
 import {
   useUpdaterDialogOpen,
   useUpdaterDismissError,
@@ -35,80 +35,73 @@ export function UpdateChangelogDialog() {
     <Dialog.Root open={dialogOpen} onOpenChange={updating ? undefined : setDialogOpen}>
       <Dialog.Portal>
         <Dialog.Backdrop />
-        <Dialog.Overlay size="md">
-          <Dialog.Header className="border-b-accent-500/20 bg-linear-to-r from-accent-600/10 to-accent-500/5">
+        <Dialog.Overlay size="lg" data-ui="UpdateChangelogDialog">
+          <Dialog.Header tone="accent">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500/15">
-                <Sparkles className="h-5 w-5 text-accent-400" />
-              </div>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
+                <Sparkles className="size-5 text-accent-400" />
+              </span>
               <div>
                 <Dialog.Title>What&apos;s New</Dialog.Title>
-                <p className="text-xs font-medium text-accent-400">v{update.version}</p>
+                <p className="text-xs font-medium text-accent-400">
+                  v{update.currentVersion} &rarr; v{update.version}
+                </p>
               </div>
             </div>
             {!updating && <Dialog.Close />}
           </Dialog.Header>
 
-          <Dialog.Body className="max-h-[60vh] overflow-y-auto">
+          <Dialog.Body className="flex flex-col gap-4">
             {error && (
-              <div className="mb-4 flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/20 px-4 py-3">
-                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-danger-text">Update failed</p>
-                  <p className="mt-0.5 text-xs text-danger-text">{error}</p>
-                </div>
-              </div>
+              <AlertBox variant="error" title="Update failed" onDismiss={dismissError}>
+                {error}
+              </AlertBox>
             )}
 
             {updating && (
-              <div className="mb-4 rounded-lg border border-accent-500/20 bg-accent-600/10 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <RefreshCw className="h-5 w-5 shrink-0 animate-spin text-accent-400" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-accent-100">Installing update...</p>
-                    <p className="text-xs text-accent-300">
-                      {progress}% complete. App will restart automatically
-                    </p>
-                  </div>
-                </div>
-                <Progress.Root value={progress} className="mt-2">
-                  <Progress.Track size="sm">
+              <div className="flex flex-col gap-1.5">
+                <Progress.Root
+                  value={progress}
+                  label="Installing update"
+                  valueLabel={`${progress}%`}
+                >
+                  <Progress.Track>
                     <Progress.Indicator />
                   </Progress.Track>
                 </Progress.Root>
+                <p className="text-sm text-surface-400">
+                  The app restarts once the install finishes.
+                </p>
               </div>
             )}
 
-            <ChangelogContent body={update.body} />
+            <div className="max-h-[50vh] overflow-y-auto">
+              <ChangelogContent body={update.body} />
+            </div>
           </Dialog.Body>
 
-          <Dialog.Footer className="items-center">
-            {!updating && !error && (
+          {!updating && (
+            <Dialog.Footer className="items-center justify-between">
               <Checkbox
                 size="sm"
                 label="Skip this version"
                 checked={skipped}
                 onCheckedChange={(val) => setSkipVersion(val === true)}
-                className="mr-auto"
               />
-            )}
-            {error && (
-              <Button variant="ghost" onClick={dismissError} className="mr-auto">
-                Dismiss Error
-              </Button>
-            )}
-            {!updating && (
-              <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-                Close
-              </Button>
-            )}
-            {!updating && (
-              <Button variant="filled" onClick={downloadAndInstall}>
-                <Download className="h-4 w-4" />
-                {error ? "Retry Update" : "Update Now"}
-              </Button>
-            )}
-          </Dialog.Footer>
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+                  Close
+                </Button>
+                <Button
+                  variant="filled"
+                  left={<Download className="h-4 w-4" />}
+                  onClick={downloadAndInstall}
+                >
+                  {error ? "Retry Update" : "Update Now"}
+                </Button>
+              </div>
+            </Dialog.Footer>
+          )}
         </Dialog.Overlay>
       </Dialog.Portal>
     </Dialog.Root>

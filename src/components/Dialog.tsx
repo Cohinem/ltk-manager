@@ -53,7 +53,7 @@ export const DialogBackdrop = forwardRef<HTMLDivElement, DialogBackdropProps>(
         className={twMerge(
           "fixed inset-0 z-40 bg-scrim backdrop-blur-sm",
           "transition-opacity duration-200",
-          "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+          "data-ending-style:opacity-0 data-starting-style:opacity-0",
           className,
         )}
         {...props}
@@ -88,8 +88,8 @@ export const DialogOverlay = forwardRef<HTMLDivElement, DialogOverlayProps>(
           "fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2",
           "rounded-xl border border-surface-600 bg-surface-800 shadow-2xl outline-none",
           "transition-[opacity,transform] duration-200 ease-out",
-          "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
-          "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
+          "data-starting-style:scale-95 data-starting-style:opacity-0",
+          "data-ending-style:scale-95 data-ending-style:opacity-0",
           overlaySizeClasses[size],
           className,
         )}
@@ -156,9 +156,11 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
         ref={ref}
         className={twMerge(
           "inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md",
-          "text-surface-200 transition-colors hover:bg-surface-700 active:bg-surface-800",
+          "text-surface-200 transition-colors hover:bg-danger/15 hover:text-danger-text",
+          "active:bg-danger/25",
           className,
         )}
+        aria-label="Close"
         {...props}
       >
         <X className="h-5 w-5" />
@@ -169,18 +171,27 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
 DialogClose.displayName = "Dialog.Close";
 
 // Header (layout: title + close button row)
+export type DialogHeaderTone = "default" | "accent";
+
+const headerToneClasses: Record<DialogHeaderTone, string> = {
+  default: "border-surface-600",
+  accent: "border-accent-500/20 bg-linear-to-r from-accent-600/12 to-accent-500/5",
+};
+
 export interface DialogHeaderProps {
+  tone?: DialogHeaderTone;
   className?: string;
   children?: ReactNode;
 }
 
 export const DialogHeader = forwardRef<HTMLDivElement, DialogHeaderProps>(
-  ({ className, children }, ref) => {
+  ({ tone = "default", className, children }, ref) => {
     return (
       <div
         ref={ref}
         className={twMerge(
-          "flex items-center justify-between border-b border-surface-600 px-6 py-4",
+          "flex items-center justify-between border-b px-6 py-4",
+          headerToneClasses[tone],
           className,
         )}
       >

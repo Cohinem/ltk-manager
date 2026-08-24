@@ -1,20 +1,25 @@
 import { useEffect } from "react";
 
-import { useUpdaterCheckForUpdate } from "@/stores";
+import { useUpdaterCheckForUpdate, useUpdaterStore } from "@/stores";
+
+import { mockUpdate } from "../mockUpdate";
 
 /**
  * Check for an update shortly after the app mounts.
  *
- * Skipped in dev: a dev build reports the workspace version, which is whatever
- * release is current, so the check offers an update to the version already
- * running - and does it on every hot reload. The store's `checkForUpdate` is
- * left alone so an explicit check still works from the console.
+ * A dev run with `VITE_MOCK_UPDATE=1` gets a stand-in update instead, to
+ * exercise the titlebar cell and the changelog dialog.
  */
 export function useUpdateCheck({ checkOnMount = true, delayMs = 3000 } = {}) {
   const checkForUpdate = useUpdaterCheckForUpdate();
 
   useEffect(() => {
-    if (import.meta.env.DEV) return;
+    if (import.meta.env.DEV) {
+      if (import.meta.env.VITE_MOCK_UPDATE === "1") {
+        useUpdaterStore.setState({ update: mockUpdate() });
+      }
+      return;
+    }
     if (!checkOnMount) return;
 
     const timeoutId = setTimeout(() => {
