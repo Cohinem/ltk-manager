@@ -4,7 +4,7 @@ use super::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::game_wads::{GameArchives, GameWadEntry, GameWadSummary};
-use ltk_manager_core::hashtables::HashtableCache;
+use ltk_manager_core::hashtables::WadPathResolverState;
 use tauri::{AppHandle, Manager};
 
 /// List the game's WAD archives under `DATA/FINAL`, sorted by name.
@@ -32,14 +32,8 @@ pub async fn read_game_wad(
     };
     off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
-        let resolver = match HashtableCache::discover() {
-            Ok(cache) => cache.wad_tables(),
-            Err(e) => {
-                tracing::debug!("Hashtable cache unavailable, chunk paths unresolved: {e}");
-                Default::default()
-            }
-        };
-        archives.read(&wad_name, &resolver)
+        let resolver = app_handle.state::<WadPathResolverState>().get()?;
+        archives.read(&wad_name, resolver.tables())
     })
     .await
 }

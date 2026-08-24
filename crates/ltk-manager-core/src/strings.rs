@@ -1,23 +1,18 @@
 //! Autocomplete index for stringtable field names.
 //!
-//! Combines the community-maintained key-name list (CommunityDragon
-//! `hashes.rst.xxh3.txt`) with current values from the game's own stringtable
-//! for the detected locale, so the workshop strings editor can suggest valid
-//! field names and show what each one currently says in game.
+//! Combines the key names of the shared cache's `rst-xxh3` table with current
+//! values from the game's own stringtable for the detected locale, so the
+//! workshop strings editor can suggest valid field names and show what each one
+//! currently says in game.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppResult, MutexResultExt};
+use crate::hashtables::HashtableCache;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-
-const HASH_LIST_URL: &str =
-    "https://raw.githubusercontent.com/CommunityDragon/Data/master/hashes/lol/hashes.rst.xxh3.txt";
-const HASH_LIST_FILE: &str = "hashes.rst.xxh3.txt";
-const HASH_LIST_MAX_AGE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 /// One autocomplete suggestion for a stringtable field.
 #[derive(Debug, Clone, Serialize)]
@@ -61,31 +56,40 @@ pub struct StringKeyIndex {
 }
 
 impl StringKeyIndex {
-    /// Build the index from the cached/downloaded key list and, best-effort,
-    /// the game stringtable of the detected locale.
-    fn build(cache_dir: &Path, config: &Config) -> AppResult<Self> {
-        let key_list = load_key_list(cache_dir)?;
+    /// Build the index from the shared cache's key names and, best-effort, the
+    /// game stringtable of the detected locale.
+    ///
+    /// A cache that holds no `rst-xxh3` table indexes nothing, so the editor
+    /// offers no suggestions rather than failing.
+    fn from_cache(config: &Config) -> Self {
+        let keys = match HashtableCache::discover() {
+            Ok(cache) => cache.string_keys(),
+            Err(e) => {
+                tracing::warn!("No hashtable cache to read field names from: {e}");
+                Vec::new()
+            }
+        };
+        Self::from_keys(keys, config)
+    }
 
+    /// Join field names with what the game's stringtable currently says for
+    /// each, keyed by the hash the table stores them under.
+    fn from_keys(keys: Vec<(u64, String)>, config: &Config) -> Self {
         let table = load_game_stringtable(config);
         let locale = table.as_ref().map(|(locale, _)| locale.clone());
 
-        let mut entries: Vec<IndexEntry> = key_list
-            .lines()
-            .filter_map(|line| {
-                let (hex, name) = line.split_once(' ')?;
-                let name = name.trim();
-                if name.is_empty() {
-                    return None;
-                }
-                let value = table.as_ref().and_then(|(_, table)| {
-                    let hash = u64::from_str_radix(hex.trim(), 16).ok()?;
-                    table.get(hash).map(str::to_string)
-                });
-                Some(IndexEntry {
-                    key: name.to_string(),
+        let mut entries: Vec<IndexEntry> = keys
+            .into_iter()
+            .filter(|(_, key)| !key.trim().is_empty())
+            .map(|(hash, key)| {
+                let value = table
+                    .as_ref()
+                    .and_then(|(_, table)| table.get(hash).map(str::to_string));
+                IndexEntry {
                     value_lower: value.as_deref().map(str::to_lowercase),
                     value,
-                })
+                    key,
+                }
             })
             .collect();
 
@@ -98,7 +102,7 @@ impl StringKeyIndex {
             locale
         );
 
-        Ok(Self { entries, locale })
+        Self { entries, locale }
     }
 
     /// Rank matches for `query`: key prefix first, then key substring, then
@@ -178,66 +182,24 @@ pub struct StringKeyIndexState(Mutex<Option<Arc<StringKeyIndex>>>);
 impl StringKeyIndexState {
     /// Return the index, building it on first use. The lock is held for the
     /// duration of the build so concurrent callers wait instead of racing a
-    /// second download/parse.
-    pub fn get_or_build(
-        &self,
-        cache_dir: &Path,
-        config: &Config,
-    ) -> AppResult<Arc<StringKeyIndex>> {
+    /// second read of the table.
+    pub fn get_or_build(&self, config: &Config) -> AppResult<Arc<StringKeyIndex>> {
         let mut slot = self.0.lock().mutex_err()?;
         if let Some(index) = slot.as_ref() {
             return Ok(Arc::clone(index));
         }
-        let index = Arc::new(StringKeyIndex::build(cache_dir, config)?);
+        let index = Arc::new(StringKeyIndex::from_cache(config));
         *slot = Some(Arc::clone(&index));
         Ok(index)
     }
-}
 
-/// Read the key list from the cache, refreshing it from CommunityDragon when
-/// missing or older than [`HASH_LIST_MAX_AGE`]. A failed refresh falls back to
-/// a stale cache when one exists.
-fn load_key_list(cache_dir: &Path) -> AppResult<String> {
-    let path = cache_dir.join(HASH_LIST_FILE);
-
-    let needs_refresh = match std::fs::metadata(&path) {
-        Ok(meta) => meta
-            .modified()
-            .ok()
-            .and_then(|t| t.elapsed().ok())
-            .is_none_or(|age| age > HASH_LIST_MAX_AGE),
-        Err(_) => true,
-    };
-
-    if needs_refresh && let Err(e) = download_key_list(&path) {
-        tracing::warn!("Failed to refresh string key list: {}", e);
+    /// Drop the built index, so the next caller reads what a sync just wrote.
+    pub fn clear(&self) {
+        match self.0.lock() {
+            Ok(mut slot) => *slot = None,
+            Err(_) => tracing::warn!("String key index lock poisoned, keeping the built index"),
+        }
     }
-
-    std::fs::read_to_string(&path).map_err(|_| {
-        AppError::Other(
-            "String key list is not available yet - it downloads automatically when online"
-                .to_string(),
-        )
-    })
-}
-
-fn download_key_list(dest: &Path) -> AppResult<PathBuf> {
-    tracing::info!("Downloading string key list from CommunityDragon");
-    let response = reqwest::blocking::get(HASH_LIST_URL)
-        .and_then(|r| r.error_for_status())
-        .map_err(|e| AppError::Other(format!("Failed to download string key list: {e}")))?;
-    let body = response
-        .bytes()
-        .map_err(|e| AppError::Other(format!("Failed to download string key list: {e}")))?;
-
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    let temp = dest.with_extension("txt.tmp");
-    std::fs::write(&temp, &body)?;
-    std::fs::rename(&temp, dest)?;
-    tracing::info!("String key list saved ({} bytes)", body.len());
-    Ok(dest.to_path_buf())
 }
 
 /// Best-effort load of the game's `lol.stringtable` for the detected locale.
@@ -382,25 +344,19 @@ mod tests {
         assert_eq!(values.len(), 1);
     }
 
+    /// A name with nothing behind it is not a suggestion, and no league path
+    /// means no value previews - the keys are still every bit of the index.
     #[test]
-    fn build_parses_key_list_and_joins_values() {
-        let tmp = tempfile::tempdir().unwrap();
-        let cache_dir = tmp.path().join("hashes");
-        std::fs::create_dir_all(&cache_dir).unwrap();
+    fn table_keys_index_without_a_game_to_read_values_from() {
+        let index = StringKeyIndex::from_keys(
+            vec![
+                (xxh3_full("game_client_quit"), "game_client_quit".to_owned()),
+                (0xdead_beef_dead_beef, "unknown_key".to_owned()),
+                (1, String::new()),
+            ],
+            &Config::default(),
+        );
 
-        // Build a table with a known key, then reference it from the list by
-        // its full XXH3 hash the way the CommunityDragon file does.
-        let mut table = ltk_rst::Stringtable::new();
-        table.insert_str("game_client_quit", "Quit");
-        let full_hash = xxh3_full("game_client_quit");
-        std::fs::write(
-            cache_dir.join(HASH_LIST_FILE),
-            format!("{full_hash:016x} game_client_quit\ndeadbeefdeadbeef unknown_key\n"),
-        )
-        .unwrap();
-
-        // No league path configured -> no value previews, keys still indexed.
-        let index = StringKeyIndex::build(&cache_dir, &Config::default()).unwrap();
         assert_eq!(index.entries.len(), 2);
         assert!(index.entries.iter().all(|e| e.value.is_none()));
         assert_eq!(index.locale, None);

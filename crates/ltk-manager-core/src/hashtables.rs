@@ -8,6 +8,7 @@
 use std::borrow::Cow;
 use std::fmt;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use ltk_hash::BinHash;
@@ -18,6 +19,7 @@ use ltk_wad::{PathResolver, WadHash};
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::error::{AppResult, MutexResultExt};
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
 
 pub use ltk_hashdb::{HashDb, LayeredHashDb};
@@ -255,6 +257,27 @@ impl HashtableCache {
         }
         tables
     }
+
+    /// Every stringtable field name the `rst-xxh3` table holds, with its hash.
+    ///
+    /// Alphabetical, which is the order the table stores its strings in.
+    ///
+    /// Best-effort in the same way [`wad_tables`](Self::wad_tables) is: a cache
+    /// the table is absent from names nothing, and the caller's index is empty
+    /// rather than an error.
+    #[must_use]
+    pub fn string_keys(&self) -> Vec<(u64, String)> {
+        match self.store.open(Table::RstXxh3) {
+            Ok(db) => db
+                .iter()
+                .map(|(hash, key)| (hash, key.into_owned()))
+                .collect(),
+            Err(e) => {
+                tracing::debug!("Hashtable `{}` unavailable: {e}", Table::RstXxh3.id());
+                Vec::new()
+            }
+        }
+    }
 }
 
 /// The four tables that name what a bin addresses by hash.
@@ -371,6 +394,69 @@ impl WadPathResolver {
     /// Resolve through tables the caller already opened.
     pub fn new(db: LayeredHashDb) -> Self {
         Self { db }
+    }
+
+    /// Name every chunk of one archive in a single pass over the tables.
+    ///
+    /// Answers in `hashes` order, `None` where no table holds one. One call per
+    /// archive rather than one per chunk, so the compressed frames an archive's
+    /// paths share decompress once between them instead of once per name.
+    ///
+    /// Owned rather than borrowed, because the batch lookup ties a borrowed
+    /// answer to the probe slice, and a published table's hit is an owned
+    /// string either way.
+    #[must_use]
+    pub fn resolve_all(&self, hashes: &[WadHash]) -> Vec<Option<String>> {
+        let keys: Vec<u64> = hashes.iter().map(|hash| hash.0).collect();
+        self.db
+            .get_batch(&keys)
+            .map(|(_, path)| path.map(Cow::into_owned))
+            .collect()
+    }
+
+    /// The tables behind the resolver, for callers that read them directly.
+    #[must_use]
+    pub fn tables(&self) -> &LayeredHashDb {
+        &self.db
+    }
+}
+
+/// Lazily-opened, app-managed [`WadPathResolver`] over the shared cache.
+///
+/// Opening the tables reads the manifest, maps two files and parses their seek
+/// tables, which every browser action would otherwise repeat. A sync writes new
+/// files under new names, so it ends with [`invalidate`](Self::invalidate) and
+/// the next caller opens what it wrote.
+#[derive(Debug, Default)]
+pub struct WadPathResolverState(Mutex<Option<Arc<WadPathResolver>>>);
+
+impl WadPathResolverState {
+    /// The resolver, opening the tables on the first call.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked. Absent tables are not
+    /// an error, because [`WadPathResolver::discover`] names nothing instead.
+    pub fn get(&self) -> AppResult<Arc<WadPathResolver>> {
+        let mut slot = self.0.lock().mutex_err()?;
+        if let Some(resolver) = slot.as_ref() {
+            return Ok(Arc::clone(resolver));
+        }
+
+        let resolver = Arc::new(WadPathResolver::discover());
+        *slot = Some(Arc::clone(&resolver));
+        Ok(resolver)
+    }
+
+    /// Drop the open tables, so the next caller opens what a sync just wrote.
+    ///
+    /// Readers already holding the old handle keep reading the old files, which
+    /// stay on disk until a later sync's collection sweeps them.
+    pub fn invalidate(&self) {
+        match self.0.lock() {
+            Ok(mut slot) => *slot = None,
+            Err(_) => tracing::warn!("Hashtable handle lock poisoned, keeping the open tables"),
+        }
     }
 }
 
@@ -516,6 +602,17 @@ mod tests {
         .unwrap();
         assert_eq!(json["upToDate"], true);
         assert!(json["unknownTables"].is_array());
+    }
+
+    #[test]
+    fn the_shared_handle_opens_once_and_reopens_after_a_sync() {
+        let state = WadPathResolverState::default();
+
+        let first = state.get().unwrap();
+        assert!(Arc::ptr_eq(&first, &state.get().unwrap()));
+
+        state.invalidate();
+        assert!(!Arc::ptr_eq(&first, &state.get().unwrap()));
     }
 
     #[test]

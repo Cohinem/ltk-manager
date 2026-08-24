@@ -6,6 +6,7 @@ use crate::workshop::{
     WorkshopLayerInfo, WorkshopProject, WorkshopState,
 };
 use indexmap::IndexMap;
+use ltk_manager_core::hashtables::WadPathResolverState;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -111,10 +112,12 @@ pub fn import_from_fantome(
     args: ImportFantomeArgs,
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
+    resolvers: State<WadPathResolverState>,
 ) -> IpcResult<WorkshopProject> {
     let result: AppResult<WorkshopProject> = (|| {
         let config = settings.config()?;
-        workshop.0.import_from_fantome(&config, args)
+        let resolver = resolvers.get()?;
+        workshop.0.import_from_fantome(&config, args, &resolver)
     })();
     result.into()
 }
@@ -263,11 +266,15 @@ pub fn add_files_to_layer(
     layer_name: String,
     sources: Vec<String>,
     workshop: State<WorkshopState>,
+    resolvers: State<WadPathResolverState>,
 ) -> IpcResult<AddFilesReport> {
-    workshop
-        .0
-        .add_files_to_layer(&project_path, &layer_name, sources)
-        .into()
+    let result: AppResult<AddFilesReport> = (|| {
+        let resolver = resolvers.get()?;
+        workshop
+            .0
+            .add_files_to_layer(&project_path, &layer_name, sources, &resolver)
+    })();
+    result.into()
 }
 
 /// Delete one file or directory from a layer's content directory.

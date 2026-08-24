@@ -979,10 +979,9 @@ pub struct GameIndexState(Mutex<Option<Arc<GameIndex>>>);
 impl GameIndexState {
     /// Return the index, building it on first use.
     ///
-    /// `resolver` is called only when a build happens, because opening the
-    /// hash tables costs more than every directory read that follows it. The
-    /// lock is held across the build, so concurrent callers wait rather than
-    /// each walking the whole install.
+    /// `resolver` is read only when a build happens. The lock is held across
+    /// the build, so concurrent callers wait rather than each walking the whole
+    /// install.
     ///
     /// # Errors
     ///
@@ -991,14 +990,14 @@ impl GameIndexState {
     pub fn get_or_build(
         &self,
         archives: &GameArchives,
-        resolver: impl FnOnce() -> LayeredHashDb,
+        resolver: &LayeredHashDb,
     ) -> AppResult<Arc<GameIndex>> {
         let mut slot = self.0.lock().mutex_err()?;
         if let Some(index) = slot.as_ref() {
             return Ok(Arc::clone(index));
         }
 
-        let index = Arc::new(GameIndex::build(archives, &resolver())?);
+        let index = Arc::new(GameIndex::build(archives, resolver)?);
         *slot = Some(Arc::clone(&index));
         Ok(index)
     }

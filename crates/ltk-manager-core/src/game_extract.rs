@@ -21,8 +21,8 @@ use std::time::{Duration, Instant};
 use camino::Utf8Path;
 use ltk_file::LeagueFileKind;
 use ltk_wad::{
-    ExistingFilePolicy, ExtractLayout as WadExtractLayout, ExtractReport, PathResolver, Wad,
-    WadExtractor, WadHash,
+    ExistingFilePolicy, ExtractLayout as WadExtractLayout, ExtractReport, Wad, WadExtractor,
+    WadHash,
 };
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +31,7 @@ use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, EventSink, ExtractProgress};
 use crate::game_index::GameIndex;
 use crate::game_wads::GameArchives;
+use crate::hashtables::WadPathResolver;
 use crate::utils::game::GameDir;
 use crate::workshop::WorkshopFileKind;
 
@@ -235,7 +236,7 @@ impl ExtractJob {
         kinds: Option<&[WorkshopFileKind]>,
         index: &GameIndex,
         archives: &GameArchives,
-        resolver: &dyn PathResolver,
+        resolver: &WadPathResolver,
     ) -> AppResult<Self> {
         let kinds: Option<HashSet<WorkshopFileKind>> =
             kinds.map(|kinds| kinds.iter().copied().collect());
@@ -284,12 +285,16 @@ impl ExtractJob {
                     let entry = grouped.entry(wad.clone()).or_default();
                     let path = archives.archive_path(wad)?;
                     let archive = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
-                    for chunk in archive.chunks().iter() {
-                        let hash = chunk.path_hash();
-                        let path = resolver.resolve(hash);
+                    let hashes: Vec<WadHash> = archive
+                        .chunks()
+                        .iter()
+                        .map(|chunk| chunk.path_hash())
+                        .collect();
+                    for (chunk, name) in archive.chunks().iter().zip(resolver.resolve_all(&hashes))
+                    {
                         entry.push(
-                            hash,
-                            path.as_deref(),
+                            chunk.path_hash(),
+                            name.as_deref(),
                             chunk.uncompressed_size() as u64,
                             kinds.as_ref(),
                             &mut job,
@@ -349,7 +354,7 @@ impl ExtractJob {
         options: &ExtractOptions,
         config: &Config,
         archives: &GameArchives,
-        resolver: &dyn PathResolver,
+        resolver: &WadPathResolver,
         events: &dyn EventSink,
         cancel: &AtomicBool,
     ) -> AppResult<ExtractSummary> {
@@ -463,7 +468,7 @@ impl ExtractJob {
         wad: &str,
         kinds: Option<&[LeagueFileKind]>,
         options: &ExtractOptions,
-        resolver: &dyn PathResolver,
+        resolver: &WadPathResolver,
         events: &dyn EventSink,
         cancel: &AtomicBool,
         state: &mut RunState,
@@ -682,8 +687,7 @@ fn canonicalize_existing(path: &Path) -> Option<PathBuf> {
 mod tests {
     use super::*;
     use crate::events::NullEventSink;
-    use ltk_wad::{NoResolver, WadBuilder, WadChunkBuilder};
-    use std::collections::HashMap;
+    use ltk_wad::{WadBuilder, WadChunkBuilder};
     use std::io::Write as _;
 
     fn final_dir(root: &Path) -> PathBuf {
@@ -709,16 +713,12 @@ mod tests {
             .unwrap();
     }
 
-    fn names(paths: &[&str]) -> HashMap<WadHash, String> {
-        paths
-            .iter()
-            .map(|path| {
-                (
-                    WadHash(xxhash_rust::xxh64::xxh64(path.as_bytes(), 0)),
-                    (*path).to_owned(),
-                )
-            })
-            .collect()
+    fn names(paths: &[&str]) -> WadPathResolver {
+        let mut db = crate::hashtables::LayeredHashDb::new();
+        for path in paths {
+            db.insert(xxhash_rust::xxh64::xxh64(path.as_bytes(), 0), *path);
+        }
+        WadPathResolver::new(db)
     }
 
     fn options(destination: &Path) -> ExtractOptions {
@@ -944,7 +944,7 @@ mod tests {
             None,
             &GameIndex::build(&archives, &Default::default()).unwrap(),
             &archives,
-            &NoResolver,
+            &names(&[]),
         )
         .unwrap();
         let summary = job
@@ -952,7 +952,7 @@ mod tests {
                 &options(&out),
                 &Config::default(),
                 &archives,
-                &NoResolver,
+                &names(&[]),
                 &NullEventSink,
                 &AtomicBool::new(false),
             )
@@ -1091,7 +1091,7 @@ mod tests {
             None,
             &index,
             &archives,
-            &NoResolver,
+            &names(&[]),
         )
         .unwrap_err();
 

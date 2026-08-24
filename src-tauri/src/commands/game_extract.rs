@@ -14,7 +14,7 @@ use ltk_manager_core::game_extract::{
 };
 use ltk_manager_core::game_index::{GameIndex, GameIndexState};
 use ltk_manager_core::game_wads::GameArchives;
-use ltk_manager_core::hashtables::WadPathResolver;
+use ltk_manager_core::hashtables::{WadPathResolver, WadPathResolverState};
 use ltk_manager_core::workshop::WorkshopFileKind;
 
 /// Keeps one extract in flight at a time, and holds the flag that calls it off.
@@ -78,9 +78,8 @@ pub async fn plan_game_extract(
     kinds: Option<Vec<WorkshopFileKind>>,
     app_handle: AppHandle,
 ) -> IpcResult<ExtractPlan> {
-    with_index(app_handle, move |index, archives| {
-        let resolver = WadPathResolver::discover();
-        let job = ExtractJob::plan(&targets, kinds.as_deref(), index, archives, &resolver)?;
+    with_index(app_handle, move |index, archives, resolver| {
+        let job = ExtractJob::plan(&targets, kinds.as_deref(), index, archives, resolver)?;
         Ok(job.summary())
     })
     .await
@@ -99,7 +98,7 @@ pub async fn extract_game_files(
 ) -> IpcResult<Option<ExtractSummary>> {
     let events = TauriEventSink::new(app_handle.clone());
 
-    let result = with_index(app_handle.clone(), move |index, archives| {
+    let result = with_index(app_handle.clone(), move |index, archives, resolver| {
         let extract = app_handle.state::<ExtractState>();
         let Some((_guard, cancel)) = extract.acquire()? else {
             tracing::debug!("Extract already in flight, ignoring the request");
@@ -107,13 +106,12 @@ pub async fn extract_game_files(
         };
 
         let config = app_handle.state::<SettingsState>().config()?;
-        let resolver = WadPathResolver::discover();
         let job = ExtractJob::plan(
             &targets,
             options.kinds.as_deref(),
             index,
             archives,
-            &resolver,
+            resolver,
         )?;
 
         if job.is_empty() {
@@ -123,7 +121,7 @@ pub async fn extract_game_files(
             }));
         }
 
-        let summary = job.run(&options, &config, archives, &resolver, &events, &cancel)?;
+        let summary = job.run(&options, &config, archives, resolver, &events, &cancel)?;
         tracing::info!(
             extracted = summary.extracted,
             skipped = summary.skipped_existing,
@@ -152,15 +150,16 @@ pub fn cancel_extract(extract: State<ExtractState>) -> IpcResult<bool> {
     extract.cancel().into()
 }
 
-/// Run `work` against the game index and the install's archives.
+/// Run `work` against the game index, the install's archives and the tables
+/// that name their chunks.
 ///
 /// The same shape as `game_index.rs::with_index`, and separate from it because
-/// an extract needs the archives beside the index and runs for seconds rather
-/// than for one directory read.
+/// an extract needs the archives and the resolver beside the index, and runs
+/// for seconds rather than for one directory read.
 async fn with_index<T, F>(app_handle: AppHandle, work: F) -> IpcResult<T>
 where
     T: Send + 'static,
-    F: FnOnce(&GameIndex, &GameArchives) -> AppResult<T> + Send + 'static,
+    F: FnOnce(&GameIndex, &GameArchives, &WadPathResolver) -> AppResult<T> + Send + 'static,
 {
     let config = match app_handle.state::<SettingsState>().config() {
         Ok(config) => config,
@@ -169,14 +168,11 @@ where
 
     off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
+        let resolver = app_handle.state::<WadPathResolverState>().get()?;
         let index = app_handle
             .state::<GameIndexState>()
-            .get_or_build(&archives, || {
-                ltk_manager_core::hashtables::HashtableCache::discover()
-                    .map(|cache| cache.wad_tables())
-                    .unwrap_or_default()
-            })?;
-        work(&index, &archives)
+            .get_or_build(&archives, resolver.tables())?;
+        work(&index, &archives, &resolver)
     })
     .await
 }

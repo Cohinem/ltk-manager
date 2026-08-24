@@ -8,7 +8,7 @@ use ltk_manager_core::game_index::{
     GameSearchResult, SearchGeneration,
 };
 use ltk_manager_core::game_wads::{GameArchives, WadCache};
-use ltk_manager_core::hashtables::HashtableCache;
+use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::matcher::{FindQuery, PatternSyntax};
 use tauri::{AppHandle, Manager};
 
@@ -157,15 +157,10 @@ where
 
     off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
+        let resolver = app_handle.state::<WadPathResolverState>().get()?;
         let index = app_handle
             .state::<GameIndexState>()
-            .get_or_build(&archives, || match HashtableCache::discover() {
-                Ok(cache) => cache.wad_tables(),
-                Err(e) => {
-                    tracing::debug!("Hashtable cache unavailable, chunk paths unresolved: {e}");
-                    Default::default()
-                }
-            })?;
+            .get_or_build(&archives, resolver.tables())?;
         read(&index)
     })
     .await

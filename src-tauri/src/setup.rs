@@ -93,6 +93,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(wad_reports);
     app.manage(ltk_manager_core::strings::StringKeyIndexState::default());
     app.manage(ltk_manager_core::game_index::GameIndexState::default());
+    app.manage(ltk_manager_core::hashtables::WadPathResolverState::default());
     app.manage(ltk_manager_core::game_index::SearchGeneration::default());
     app.manage(ltk_manager_core::game_index::FindGeneration::default());
     app.manage(ltk_manager_core::game_wads::WadCache::default());

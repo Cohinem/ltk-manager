@@ -99,7 +99,10 @@ export function StringKeyField({
                 <p className="px-3 py-4 text-center text-sm text-surface-400">
                   {search.isPending && "Loading field names… (first load can take a moment)"}
                   {search.isError && "Field name search is unavailable right now."}
-                  {search.isSuccess && "No field name or in-game text matches."}
+                  {search.isSuccess &&
+                    (search.data?.totalKeys === 0
+                      ? "No field names yet. Sync the hashtables in Settings."
+                      : "No field name or in-game text matches.")}
                 </p>
               </Combobox.Empty>
             </Combobox.Popup>

@@ -8,7 +8,6 @@ use camino::Utf8Path;
 use indexmap::IndexMap;
 use ltk_mod_project::ModProjectLayer;
 use ltk_wad::{PathResolver, Wad, WadExtractor};
-use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fs;
 use std::io::BufReader;
@@ -388,6 +387,7 @@ impl ProjectDir {
         &self,
         layer_name: &str,
         sources: Vec<PathBuf>,
+        resolver: &WadPathResolver,
     ) -> AppResult<AddFilesReport> {
         let layer_dir = self.layer_content_path(layer_name)?;
 
@@ -437,7 +437,6 @@ impl ProjectDir {
             return Err(WorkshopError::LayerFileConflict { conflicts }.into());
         }
 
-        let resolver: OnceCell<WadPathResolver> = OnceCell::new();
         let mut added: Vec<String> = Vec::with_capacity(prepared.len());
         for (src, basename) in prepared {
             let dest = layer_dir.join(&basename);
@@ -453,7 +452,7 @@ impl ProjectDir {
 
             let was_packed = src.is_file();
             let result = if was_packed {
-                extract_wad_into_dir(&src, &temp, resolver.get_or_init(WadPathResolver::discover))
+                extract_wad_into_dir(&src, &temp, resolver)
             } else {
                 copy_dir_recursive(&src, &temp)
             };
@@ -640,10 +639,11 @@ impl Workshop {
         project_path: &str,
         layer_name: &str,
         sources: Vec<String>,
+        resolver: &WadPathResolver,
     ) -> AppResult<AddFilesReport> {
         let source_paths = sources.into_iter().map(PathBuf::from).collect();
         self.project(project_path)?
-            .add_files_to_layer(layer_name, source_paths)
+            .add_files_to_layer(layer_name, source_paths, resolver)
     }
 
     /// Delete one file or directory from a layer's content directory.
@@ -900,6 +900,12 @@ mod tests {
         assert_eq!(layers[1].priority, 1);
     }
 
+    /// A resolver holding no tables, for the cases where naming is not what
+    /// is under test.
+    fn no_names() -> WadPathResolver {
+        WadPathResolver::new(crate::hashtables::LayeredHashDb::new())
+    }
+
     fn build_test_wad(path: &std::path::Path, chunk_paths: &[&str]) {
         use ltk_wad::{WadBuilder, WadChunkBuilder};
         use std::io::Write;
@@ -972,7 +978,7 @@ mod tests {
 
         let report = ProjectDir::open(dir.path())
             .unwrap()
-            .add_files_to_layer("base", vec![src_file])
+            .add_files_to_layer("base", vec![src_file], &no_names())
             .unwrap();
 
         assert_eq!(report.added, vec!["Aatrox.wad.client".to_string()]);
@@ -1011,7 +1017,7 @@ mod tests {
 
         let report = ProjectDir::open(dir.path())
             .unwrap()
-            .add_files_to_layer("base", vec![wad_dir])
+            .add_files_to_layer("base", vec![wad_dir], &no_names())
             .unwrap();
 
         assert_eq!(report.added, vec!["Champion.wad.client".to_string()]);
@@ -1034,9 +1040,11 @@ mod tests {
         let bad = src_dir.path().join("readme.txt");
         fs::write(&bad, b"hi").unwrap();
 
-        let result = ProjectDir::open(dir.path())
-            .unwrap()
-            .add_files_to_layer("base", vec![bad]);
+        let result = ProjectDir::open(dir.path()).unwrap().add_files_to_layer(
+            "base",
+            vec![bad],
+            &no_names(),
+        );
         assert!(matches!(result, Err(AppError::ValidationFailed(_))));
     }
 
@@ -1187,9 +1195,11 @@ mod tests {
         fs::write(&new_a, b"new").unwrap();
         fs::write(&new_b, b"new").unwrap();
 
-        let result = ProjectDir::open(dir.path())
-            .unwrap()
-            .add_files_to_layer("base", vec![new_a, new_b]);
+        let result = ProjectDir::open(dir.path()).unwrap().add_files_to_layer(
+            "base",
+            vec![new_a, new_b],
+            &no_names(),
+        );
         match result {
             Err(AppError::Workshop(WorkshopError::LayerFileConflict { conflicts })) => {
                 assert_eq!(conflicts, vec!["Aatrox.wad.client".to_string()]);

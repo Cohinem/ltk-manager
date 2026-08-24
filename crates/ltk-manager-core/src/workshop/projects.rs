@@ -247,6 +247,7 @@ impl Workshop {
         &self,
         config: &Config,
         args: ImportFantomeArgs,
+        resolver: &WadPathResolver,
     ) -> AppResult<WorkshopProject> {
         let workshop_path = self.workshop_dir(config)?;
 
@@ -274,7 +275,6 @@ impl Workshop {
             let base_dir = project_dir.join("content").join("base");
             fs::create_dir_all(&base_dir)?;
 
-            let resolver = WadPathResolver::discover();
             for (idx, wad_name) in wad_names.iter().enumerate() {
                 self.emit_fantome_progress(
                     FantomeImportStage::Extracting,
@@ -282,7 +282,7 @@ impl Workshop {
                     idx as u32,
                     total_wads,
                 );
-                extract_fantome_wad(&mut archive, wad_name, &base_dir, &resolver)?;
+                extract_fantome_wad(&mut archive, wad_name, &base_dir, resolver)?;
             }
 
             self.emit_fantome_progress(
