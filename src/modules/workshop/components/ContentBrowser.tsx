@@ -10,6 +10,7 @@ import {
   Seam,
   SplitLayout,
   TabDndProvider,
+  TabGlyph,
 } from "@/modules/editor";
 import {
   useBrowserSplit,
@@ -237,7 +238,7 @@ function TabDragGhost({ documentId }: { documentId: string }) {
   const { title, context } = definition.label(document);
   return (
     <div className="flex h-6 items-center gap-1.5 rounded-md bg-surface-800 px-2 text-xs text-surface-100 shadow-lg select-none">
-      {definition.icon(document)}
+      <TabGlyph>{definition.icon(document)}</TabGlyph>
       <span className="truncate">{title}</span>
       {context && <span className="truncate text-[0.6875rem] text-surface-400">{context}</span>}
     </div>

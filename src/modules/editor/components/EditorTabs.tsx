@@ -242,9 +242,9 @@ const SortableTab = memo(function SortableTab({
         value={tab.id}
         /* `shrink` beats the base tab's `shrink-0`, without which the strip's
            max width clips the label rather than eliding it. */
-        className="min-w-0 shrink cursor-pointer gap-1.5 py-1 pr-1 pl-2 text-xs"
+        className="min-w-0 shrink cursor-pointer gap-1.5 py-0.5 pr-1 pl-0.5 text-xs"
       >
-        {tab.icon}
+        {tab.icon && <TabGlyph>{tab.icon}</TabGlyph>}
         <span className={twMerge("truncate", tab.preview && "italic")}>{tab.title}</span>
         {tab.context && (
           <span className="shrink-[3] truncate text-[0.6875rem] text-surface-400">
@@ -263,7 +263,7 @@ const SortableTab = memo(function SortableTab({
         className={twMerge(
           /* Out of flow, so revealing it never resizes the strip. The fill
              arrives with it, to mask the label it now covers. */
-          "absolute top-1/2 right-1 z-10 h-5 w-5 -translate-y-1/2 opacity-0 transition-opacity",
+          "absolute top-0 right-1 bottom-0.5 z-10 my-auto h-5 w-5 opacity-0 transition-opacity",
           "group-hover/tab:bg-surface-800 group-hover/tab:opacity-100 hover:bg-surface-700",
           "focus-visible:opacity-100",
           tab.dirty && "opacity-100",
@@ -288,8 +288,10 @@ const SortableTab = memo(function SortableTab({
     ...listeners,
     className: twMerge(
       /* Hidden overflow clips the focus rail to the pill's rounded corners, so
-         edge to edge means the silhouette's edges rather than past them. */
-      "group/tab relative flex h-7 max-w-56 shrink-0 touch-none items-center overflow-hidden rounded-md pr-1",
+         edge to edge means the silhouette's edges rather than past them. The
+         bottom pad is the rail's own room, which it otherwise takes out of
+         the gap under the label. */
+      "group/tab relative flex h-7 max-w-56 shrink-0 touch-none items-center overflow-hidden rounded-md pr-1 pb-0.5",
       /* The open document rises off the strip rather than marking
          itself with a rule: DS-GROUND. */
       active && "bg-surface-800 text-surface-100",
@@ -394,4 +396,16 @@ function CloseGlyph({ dirty }: { dirty?: boolean }) {
       <XIcon weight="bold" className="hidden h-3 w-3 group-hover/tab:block" />
     </>
   );
+}
+
+/**
+ * A document glyph sized against the tab rather than the registry that mints it.
+ *
+ * One registry answers every surface that names a document, and the command
+ * palette wants a glyph that sits beside a line of text. On a tab the glyph is
+ * what the eye finds first, so it takes the pill's height rather than the
+ * label's.
+ */
+export function TabGlyph({ children }: { children: ReactNode }) {
+  return <span className="flex shrink-0 items-center [&_svg]:h-5 [&_svg]:w-5">{children}</span>;
 }
