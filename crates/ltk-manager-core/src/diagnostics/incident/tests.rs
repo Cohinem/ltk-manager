@@ -224,15 +224,80 @@ fn a_rejected_archive_names_its_writers() {
         incident.suspects[0].because,
         "writes Aatrox.wad.client, which the scan rejected"
     );
+    assert_eq!(incident.verdict.hints, [hint::REMOVE_SKINHACK]);
 
     record.scan_failures[0].status = "base_skin".to_string();
     let incident = classify(&record, &no_path).unwrap();
     assert!(incident.verdict.cause.contains("incomplete mod"));
     assert!(!incident.verdict.cause.contains("skinhack"));
     assert_eq!(incident.scan_status, Some(ScanStatus::BaseSkin));
+    assert_eq!(incident.verdict.hints, [hint::REIMPORT_MOD]);
     // Only a skinhack reaches its own kind.
     assert_eq!(incident.verdict.kind, VerdictKind::ArchiveRejected);
     assert_eq!(incident.verdict.title, "Archive Scan Rejection");
+
+    // The DLL renamed the token it reports this by, so the rejection has to
+    // read the same either way or one player's history splits across an update.
+    record.scan_failures[0].status = "mod_wad".to_string();
+    let renamed = classify(&record, &no_path).unwrap();
+    assert_eq!(renamed.scan_status, Some(ScanStatus::BaseSkin));
+    assert_eq!(renamed.verdict.cause, incident.verdict.cause);
+    assert_eq!(renamed.verdict.hints, incident.verdict.hints);
+
+    record.scan_failures[0].status = "base_wad".to_string();
+    let incident = classify(&record, &no_path).unwrap();
+    assert_eq!(incident.scan_status, Some(ScanStatus::BaseWad));
+    assert!(incident.verdict.cause.contains("game's own copy"));
+    assert_eq!(incident.verdict.hints, [hint::REPAIR_GAME]);
+}
+
+/// The tokens the DLL emits are the contract, and one this build cannot name
+/// reaches the player as a status with no reading and no fix.
+#[test]
+fn every_token_the_dll_emits_reads_and_advises() {
+    let table = [
+        ("c0000229", ScanStatus::Skinhack),
+        ("c0000225", ScanStatus::MissingBin),
+        ("c000003e", ScanStatus::Corrupt),
+        ("mod_wad", ScanStatus::BaseSkin),
+        ("base_wad", ScanStatus::BaseWad),
+        // What `mod_wad` replaced, still read for a history an older DLL wrote.
+        ("base_skin", ScanStatus::BaseSkin),
+        // The game's own scan, which the DLL passes through untouched.
+        ("c0000017", ScanStatus::OutOfMemory),
+        ("c000009a", ScanStatus::OutOfMemory),
+    ];
+    for (token, status) in table {
+        assert_eq!(ScanStatus::parse(token), status, "{token} reads wrong");
+        assert_eq!(
+            ScanStatus::parse(&format!("  {}  ", token.to_uppercase())),
+            status,
+            "{token} does not survive a change of case or a stray space"
+        );
+    }
+    // The game writes its codes with the prefix as often as without.
+    assert_eq!(ScanStatus::parse("0xC0000229"), ScanStatus::Skinhack);
+
+    for status in [
+        ScanStatus::Skinhack,
+        ScanStatus::MissingBin,
+        ScanStatus::Corrupt,
+        ScanStatus::OutOfMemory,
+        ScanStatus::BaseSkin,
+        ScanStatus::BaseWad,
+        ScanStatus::Unknown,
+    ] {
+        assert!(
+            !status.hint().is_empty(),
+            "{status:?} offers nothing to try"
+        );
+        let cause = status.cause("Aatrox.wad.client", "c0000229");
+        assert!(cause.ends_with('.'), "{status:?} does not end its cause");
+        assert!(
+            cause.contains("Aatrox.wad.client"),
+            "{status:?} does not name the archive"
+        );
+    }
 }
 
 /// The two halves of the evidence phrase live in different modules, so only
@@ -240,7 +305,14 @@ fn a_rejected_archive_names_its_writers() {
 #[test]
 fn a_rejection_reads_back_the_status_it_wrote() {
     for wad in [Some("Aatrox.wad.client".to_string()), None] {
-        for status in ["c0000229", "base_skin", "c000003e", "deadbeef"] {
+        for status in [
+            "c0000229",
+            "base_skin",
+            "mod_wad",
+            "base_wad",
+            "c000003e",
+            "deadbeef",
+        ] {
             let failure = WadScanFailure {
                 wad: wad.clone(),
                 status: status.to_string(),

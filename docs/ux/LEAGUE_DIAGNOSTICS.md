@@ -205,10 +205,14 @@ The record keeps the last segment of each. A mod whose archives were never redir
 not in the game, which is the cheapest attribution the manager will ever get.
 
 **The scan's word on one archive.** `WAD scan failed status with <status> for <champion>.wad.client`
-is the line the injector parses today. The status is the scan's hex code, or `base_skin`
-when the base-skin fast track found a skin with a mesh missing. The DLL's source names this
-phrase as a contract with the manager's parser, and the lines on this page join that
-contract.
+is the line the injector parses today. The status is a hex code when the game's own scan
+raised one, and a word when the verdict is the DLL's own and has no code to borrow. The
+DLL's source names this phrase as a contract with the manager's parser, and the lines on
+this page join that contract.
+
+The opt-out path writes `AH wad scan failed <status> for <champion> (opted out):<error>`
+instead, at warn level. The manager reads only error-level records here, so an opted-out
+game keeps patching and the line stays evidence rather than a verdict.
 
 **An archive skipped on the lazy path.** `lazy verification failed, not overlaying: wad <name>: <why>`
 fails open for one file, so the game ran with every other mod and without that one. Nothing
@@ -557,13 +561,20 @@ one rather than patching it blind. The game ran unmodded, no mod is named, and t
 to update LTK Manager. A patch day produces this one, and it is the verdict that turns a
 wave of "mods stopped working" into one sentence.
 
-**An archive was rejected.** This is `WadScanFailedDialog`, kept as it is. The incident
-records what the dialog showed, so the Games tab can show it again after the dialog is gone.
-The status classification the dialog already holds is the one the verdict uses:
-`c0000229` a skinhack, `c0000225` a missing bin, `c000003e` a corrupt archive, `c0000017`
-and `c000009a` out of memory. `base_skin` joins them, and the dialog does not know it yet:
-the base-skin fast track found a skin with a mesh missing, and it reads as an incomplete mod
-rather than a skinhack.
+**An archive was rejected.** This is `WadScanFailedDialog`. The incident records what the
+dialog showed, so the Games tab can show it again after the dialog is gone. Both read one
+classification, `ScanStatus`, rather than each keeping a table: `c0000229` a skinhack,
+`c0000225` a missing bin, `c000003e` a corrupt archive, `c0000017` and `c000009a` out of
+memory, `mod_wad` a base skin with a mesh missing, which reads as an incomplete mod rather
+than a skinhack, and `base_wad` the game's own copy of the archive, where no mod is at
+fault. `base_skin` is what `mod_wad` was called before, and reads the same so a history
+written by an older DLL survives the update.
+
+Every status carries a fix, because a rejection a player cannot act on is the same dead end
+whichever code produced it. A skinhack says to disable the mod, a missing bin, a corrupt
+archive and an incomplete base skin say to re-import it, out of memory says to close what
+else is running, the game's own copy says to repair the install, and a status this build
+cannot name says to copy the report.
 
 **The overlay was disabled.** `The patcher turned the overlay off before the game loaded.`
 The eager scan fails closed, so the first archive that does not verify disables every mod

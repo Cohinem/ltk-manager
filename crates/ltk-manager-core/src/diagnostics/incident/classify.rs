@@ -289,7 +289,7 @@ impl GameRecord {
             .filter_map(|failure| failure.wad.clone())
             .collect();
         let suspects = ctx.writers_of(&wads, Because::Rejected);
-        let mut verdict = Verdict::new(status.kind(), cause);
+        let mut verdict = Verdict::new(status.kind(), cause).with_hint(status.hint());
         if first.wad.is_some() {
             verdict = verdict.with_subject(archive);
             if self.is_workshop() {

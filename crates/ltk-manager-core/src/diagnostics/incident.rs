@@ -1083,10 +1083,11 @@ impl ClassifyContext<'_> {
     }
 }
 
-/// The status the scan reported, as `WadScanFailedDialog` classifies it.
+/// The status the scan reported, read once for every consumer.
 ///
 /// Carried on the [`Incident`] so a consumer can tell one rejection from
-/// another without reading [`Verdict::cause`] as prose.
+/// another without reading [`Verdict::cause`] as prose, and sent beside the raw
+/// code on `patcher-wad-scan-failed` so the dialog keeps no second table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
@@ -1102,6 +1103,12 @@ pub enum ScanStatus {
     OutOfMemory,
     /// A skin with a mesh missing, which reads as an incomplete mod.
     BaseSkin,
+    /// The game's own copy of the archive is what the scan objected to.
+    ///
+    /// No blocking line carries this today, because the DLL keeps a baseline
+    /// anomaly out of the phrase the manager greps. Read anyway, so the table
+    /// stays whole against the DLL's.
+    BaseWad,
     /// A status this build does not know.
     Unknown,
 }
@@ -1109,6 +1116,9 @@ pub enum ScanStatus {
 impl ScanStatus {
     /// The status for the code the scan reported, `c0000229` or `0xC0000229`
     /// alike, and [`Self::Unknown`] for one this build has no name for.
+    ///
+    /// Some verdicts are the DLL's own rather than the game's and have no NT
+    /// code to borrow, so they name a word instead. Both kinds land here.
     pub fn parse(status: &str) -> Self {
         let code = status.trim().to_ascii_lowercase();
         match code.strip_prefix("0x").unwrap_or(&code) {
@@ -1116,7 +1126,11 @@ impl ScanStatus {
             "c0000225" => Self::MissingBin,
             "c000003e" => Self::Corrupt,
             "c0000017" | "c000009a" => Self::OutOfMemory,
-            "base_skin" => Self::BaseSkin,
+            // The DLL renamed this token to `mod_wad` without changing what it
+            // finds, so both spellings have to read alike. Dropping the old one
+            // would split a player's history in two across the upgrade.
+            "base_skin" | "mod_wad" => Self::BaseSkin,
+            "base_wad" => Self::BaseWad,
             _ => Self::Unknown,
         }
     }
@@ -1166,9 +1180,26 @@ impl ScanStatus {
             Self::BaseSkin => format!(
                 "The base-skin check found a skin in {archive} with a mesh missing, which reads as an incomplete mod. No mod was applied this game."
             ),
+            Self::BaseWad => format!(
+                "The scan objected to the game's own copy of {archive}, not to a mod, and no mod was applied this game."
+            ),
             Self::Unknown => format!(
                 "{archive} failed the game's integrity scan with status {status}, so no mod was applied this game."
             ),
+        }
+    }
+
+    /// What to try about this status, as the verdict's first hint.
+    ///
+    /// Every status reaches one. A rejection a player cannot act on is the same
+    /// dead end whichever code produced it.
+    fn hint(self) -> &'static str {
+        match self {
+            Self::Skinhack => hint::REMOVE_SKINHACK,
+            Self::MissingBin | Self::Corrupt | Self::BaseSkin => hint::REIMPORT_MOD,
+            Self::OutOfMemory => hint::FREE_MEMORY,
+            Self::BaseWad => hint::REPAIR_GAME,
+            Self::Unknown => hint::COPY_REPORT,
         }
     }
 }
@@ -1291,6 +1322,11 @@ mod hint {
     pub const SCAN_UP_FRONT: &str = "Turn on Scan every WAD up front, because the DLL scanned archives on demand and the game ended inside its first minute.";
     pub const COPY_REPORT: &str = "Copy the report when you ask for help.";
     pub const DISABLE_SUSPECT: &str = "A mod that references a file it does not ship stops the read. Disable the suspect and play again.";
+    pub const REMOVE_SKINHACK: &str =
+        "Disable the mod the scan named, then start the patcher again.";
+    pub const REIMPORT_MOD: &str =
+        "Re-import or rebuild the mod the scan named, then start the patcher again.";
+    pub const REPAIR_GAME: &str = "Repair the install in the Riot Client, because the scan objected to a file the game ships.";
     pub const ELEVATE: &str =
         "League may run elevated, so let the host elevate or run LTK Manager as administrator.";
     pub const SIGNATURE: &str =

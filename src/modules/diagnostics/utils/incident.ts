@@ -209,6 +209,7 @@ export const SCAN_STATUS_LABELS: Readonly<Record<ScanStatus, string>> = {
   corrupt: "corrupt or unsupported",
   "out-of-memory": "out of memory mid-scan",
   "base-skin": "base skin with a mesh missing",
+  "base-wad": "the game's own copy of the archive",
   unknown: "a status this build does not know",
 };
 
