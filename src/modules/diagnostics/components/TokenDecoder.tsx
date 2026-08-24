@@ -2,6 +2,7 @@ import { type KeyboardEvent, useState } from "react";
 
 import { Button, Dialog, TextareaField } from "@/components";
 import type { DecodedIncident } from "@/lib/tauri";
+import { SCAN_STATUS_LABELS } from "@/modules/patcher";
 
 import { useDecodeIncidentToken } from "../api";
 import {
@@ -13,7 +14,6 @@ import {
   OVERLAY_LABELS,
   PHASE_LABELS,
   SCAN_LABELS,
-  SCAN_STATUS_LABELS,
 } from "../utils/incident";
 import { ConsequenceChip } from "./ConsequenceChip";
 

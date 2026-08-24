@@ -33,7 +33,17 @@ origin: SessionOrigin,
 /**
  * Whether the DLL attached to this game.
  */
-injected: boolean, hostElevated: boolean, patcher: PatcherBinaries, overlay: OverlayOutcome, overlayDetail: string | null, redirected: Array<string>, skipped: Array<SkippedArchive>, enabledCount: number, launch: LaunchKind, scan: ScanMode | null, scanStatus: ScanStatus | null, phase: GamePhase, game: GameInfo | null, ending: Ending, 
+injected: boolean, hostElevated: boolean, patcher: PatcherBinaries, overlay: OverlayOutcome, overlayDetail: string | null, redirected: Array<string>, skipped: Array<SkippedArchive>, enabledCount: number, launch: LaunchKind, scan: ScanMode | null, scanStatus: ScanStatus | null, 
+/**
+ * The token the scan reported, beside [`Incident::scan_status`]'s reading
+ * of it. The only part of a rejection a reader cannot get from the status.
+ */
+scanStatusCode: string | null, 
+/**
+ * How many archives the scan rejected. The verdict names the first, so
+ * the rest is what a reader still has to be told about.
+ */
+scanRejected: number, phase: GamePhase, game: GameInfo | null, ending: Ending, 
 /**
  * Set when the session failed before any game, which is the whole story.
  */

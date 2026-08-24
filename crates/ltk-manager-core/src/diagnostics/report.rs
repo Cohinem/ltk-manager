@@ -37,8 +37,17 @@ impl Incident {
             "Verdict: {} ({})",
             self.verdict.title, self.verdict.consequence
         );
-        out.push_str(&self.verdict.cause);
-        out.push('\n');
+        if !self.verdict.cause.is_empty() {
+            out.push_str(&self.verdict.cause);
+            out.push('\n');
+        }
+        if let Some(code) = &self.scan_status_code {
+            let _ = writeln!(
+                out,
+                "Scan: rejected {} archive(s), status {code}",
+                self.scan_rejected
+            );
+        }
         if let Some(subject) = &self.verdict.subject {
             let label = if subject.starts_with("step ") {
                 "Step"

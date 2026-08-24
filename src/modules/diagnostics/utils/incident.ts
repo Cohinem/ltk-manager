@@ -6,7 +6,6 @@ import type {
   OriginKind,
   OverlayOutcome,
   ScanMode,
-  ScanStatus,
   SessionOrigin,
   VerdictKind,
 } from "@/lib/tauri";
@@ -201,16 +200,6 @@ export const PHASE_LABELS: Readonly<Record<GamePhase, string>> = {
 export const ORIGIN_KIND_LABELS: Readonly<Record<OriginKind, string>> = {
   library: "Library",
   workshop: "Workshop test",
-};
-
-export const SCAN_STATUS_LABELS: Readonly<Record<ScanStatus, string>> = {
-  skinhack: "skinhack",
-  "missing-bin": "a linked .bin is missing",
-  corrupt: "corrupt or unsupported",
-  "out-of-memory": "out of memory mid-scan",
-  "base-skin": "base skin with a mesh missing",
-  "base-wad": "the game's own copy of the archive",
-  unknown: "a status this build does not know",
 };
 
 /** What the DLL's detail is about, for the overlay outcomes that carry one. */

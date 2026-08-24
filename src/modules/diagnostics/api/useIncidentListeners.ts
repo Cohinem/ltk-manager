@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useToast } from "@/components";
 import type { Incident } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
+import { scanRejectionCause } from "@/modules/patcher";
 import { useIncidentLineStore } from "@/stores";
 
 import { isInformational } from "../utils/incident";
@@ -34,7 +35,7 @@ export function useIncidentListeners() {
     toast.toast({
       type: toastTypeFor(incident),
       title: incident.verdict.title,
-      description: incident.verdict.cause,
+      description: scanRejectionCause(incident),
       notify: true,
       action: {
         label: "Details",

@@ -1,88 +1,13 @@
-import {
-  AlertTriangle,
-  Copy,
-  FileWarning,
-  type LucideIcon,
-  Package,
-  PackageX,
-  ShieldAlert,
-  Wrench,
-} from "lucide-react";
+import { Copy, Package, Wrench } from "lucide-react";
 
 import { AlertBox, Button, Dialog, Spinner, useToast } from "@/components";
-import type { ScanStatus, WadScanFailedPayload } from "@/lib/tauri";
+import type { WadScanFailedPayload } from "@/lib/tauri";
 
 import { usePatcherStatus } from "../api/usePatcherStatus";
 import { useStopPatcher } from "../api/useStopPatcher";
 import { useWadScanFailure } from "../api/useWadScanFailure";
 import { useWadScanOffenders } from "../api/useWadScanOffenders";
-
-function pickPrimaryStatus(statuses: ScanStatus[]): ScanStatus {
-  const unique = [...new Set(statuses)];
-  if (unique.includes("skinhack")) return "skinhack";
-  if (unique.length === 1) return unique[0] ?? "unknown";
-  return "unknown";
-}
-
-interface StatusConfig {
-  title: string;
-  icon: LucideIcon;
-  tone: "red" | "amber";
-  lead: string;
-  fix: string;
-}
-
-const STATUS_CONFIG: Record<ScanStatus, StatusConfig> = {
-  skinhack: {
-    title: "Skinhack detected",
-    icon: ShieldAlert,
-    tone: "red",
-    lead: "The patcher's integrity scan detected a skinhack among your enabled mods. Using official Riot skins is not allowed.",
-    fix: "Remove or disable the offending mod(s), then start the patcher again.",
-  },
-  "missing-bin": {
-    title: "Missing Data File",
-    icon: PackageX,
-    tone: "amber",
-    lead: "The patcher couldn't resolve a data file link.",
-    fix: "Update the offending mod(s), then start the patcher again.",
-  },
-  corrupt: {
-    title: "A mod file is corrupt",
-    icon: PackageX,
-    tone: "amber",
-    lead: "A modded WAD couldn't be read (it's corrupt or built for an unsupported version).",
-    fix: "Re-import the offending mod(s), then start the patcher again.",
-  },
-  "out-of-memory": {
-    title: "Ran out of memory",
-    icon: AlertTriangle,
-    tone: "amber",
-    lead: "The game ran out of memory while loading mods.",
-    fix: "Close other programs or reduce the number of enabled mods, then try again.",
-  },
-  "base-skin": {
-    title: "A mod is incomplete",
-    icon: PackageX,
-    tone: "amber",
-    lead: "Found a character skin with a missing mesh.",
-    fix: "Re-import or rebuild the offending mod(s), then start the patcher again.",
-  },
-  "base-wad": {
-    title: "A game file is not what the scan expects",
-    icon: FileWarning,
-    tone: "amber",
-    lead: "The content scan rejected a source Wad archive from the game.",
-    fix: "Repair the install in the Riot Client, then start the patcher again.",
-  },
-  unknown: {
-    title: "Mods could not be applied",
-    icon: AlertTriangle,
-    tone: "amber",
-    lead: "A modded file failed the integrity scan.",
-    fix: "Remove or re-import the offending mod(s), then start the patcher again.",
-  },
-};
+import { pickPrimaryStatus, SCAN_STATUS_MESSAGES } from "../utils/scanStatus";
 
 const TONE = {
   red: {
@@ -102,9 +27,20 @@ function wadLabel(wad: string): string {
   return wad.replace(/\.wad(\.client|\.server)?$/i, "");
 }
 
+/**
+ * Surfaces the `patcher-wad-scan-failed` event as a blocking dialog. The
+ * integrity scan rejected a modded archive (a skinhack, a corrupt WAD, or out of
+ * memory), so the DLL refused to load any mods and the patcher was auto-stopped.
+ * The body pins the failure to the offending library mod(s) so the user knows
+ * exactly what to fix. (Missing linked bins are non-fatal at injection and are
+ * surfaced separately via the mod-card badges and `LinkedBinWarningDialog`, so the
+ * `missing-bin` status here is a defensive fallback.)
+ */
 export function WadScanFailedDialog() {
   const { failure, clear } = useWadScanFailure();
 
+  // Render the content (and its mod/report queries) only while a failure is
+  // active, so the dialog stays inert when idle.
   if (!failure) return null;
 
   return <WadScanFailedContent failure={failure} onClose={clear} />;
@@ -124,7 +60,7 @@ function WadScanFailedContent({
 
   const statuses = failure.failures.map((f) => f.reading);
   const primaryStatus = pickPrimaryStatus(statuses);
-  const config = STATUS_CONFIG[primaryStatus];
+  const config = SCAN_STATUS_MESSAGES[primaryStatus];
   const tone = TONE[config.tone];
   const Icon = config.icon;
 

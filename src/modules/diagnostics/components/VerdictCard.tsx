@@ -2,6 +2,7 @@ import { twMerge } from "tailwind-merge";
 
 import skinhackMark from "@/assets/game/skinhack.png";
 import type { Incident } from "@/lib/tauri";
+import { scanRejectionCause } from "@/modules/patcher";
 
 import { isSkinhackRejection } from "../utils/incident";
 import { ConsequenceChip } from "./ConsequenceChip";
@@ -67,7 +68,9 @@ export function VerdictCard({ incident }: VerdictCardProps) {
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm leading-relaxed text-surface-300">{verdict.cause}</p>
+        <p className="mt-1 text-sm leading-relaxed text-surface-300">
+          {scanRejectionCause(incident)}
+        </p>
         {verdict.subject && (
           /* An inset inside a card is the one place a lower rung is right: DS-GROUND. */
           <p

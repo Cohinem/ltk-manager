@@ -35,6 +35,8 @@ export function createMockIncident(overrides?: Partial<Incident>): Incident {
     launch: "match",
     scan: "eager",
     scanStatus: null,
+    scanStatusCode: null,
+    scanRejected: 0,
     phase: "loading",
     failure: null,
     game: {

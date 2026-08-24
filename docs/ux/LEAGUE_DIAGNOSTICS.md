@@ -570,6 +570,11 @@ than a skinhack, and `base_wad` the game's own copy of the archive, where no mod
 fault. `base_skin` is what `mod_wad` was called before, and reads the same so a history
 written by an older DLL survives the update.
 
+The backend classifies and stops there. It records the status, the token behind it and how
+many archives the scan rejected, and leaves the verdict's cause empty, so the words are
+written once on the frontend and the dialog and the Games tab cannot word one event two
+ways. An incident stored before that keeps the sentence it was recorded with.
+
 Every status carries a fix, because a rejection a player cannot act on is the same dead end
 whichever code produced it. A skinhack says to disable the mod, a missing bin, a corrupt
 archive and an incomplete base skin say to re-import it, out of memory says to close what

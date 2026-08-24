@@ -13,3 +13,4 @@ export {
   useStopPatcher,
 } from "./api";
 export * from "./components";
+export * from "./utils/scanStatus";

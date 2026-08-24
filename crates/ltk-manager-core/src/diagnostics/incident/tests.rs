@@ -214,8 +214,11 @@ fn a_rejected_archive_names_its_writers() {
         incident.verdict.subject.as_deref(),
         Some("Aatrox.wad.client")
     );
-    assert!(incident.verdict.cause.contains("skinhack"));
     assert_eq!(incident.scan_status, Some(ScanStatus::Skinhack));
+    assert_eq!(incident.scan_status_code.as_deref(), Some("c0000229"));
+    assert_eq!(incident.scan_rejected, 1);
+    // The words are the frontend's, from the three fields above.
+    assert!(incident.verdict.cause.is_empty());
     // The finding a player recognises, not the machinery that caught it.
     assert_eq!(incident.verdict.title, "Skinhack Detection");
     assert_eq!(incident.verdict.title_override, None);
@@ -228,8 +231,6 @@ fn a_rejected_archive_names_its_writers() {
 
     record.scan_failures[0].status = "base_skin".to_string();
     let incident = classify(&record, &no_path).unwrap();
-    assert!(incident.verdict.cause.contains("incomplete mod"));
-    assert!(!incident.verdict.cause.contains("skinhack"));
     assert_eq!(incident.scan_status, Some(ScanStatus::BaseSkin));
     assert_eq!(incident.verdict.hints, [hint::REIMPORT_MOD]);
     // Only a skinhack reaches its own kind.
@@ -240,15 +241,22 @@ fn a_rejected_archive_names_its_writers() {
     // read the same either way or one player's history splits across an update.
     record.scan_failures[0].status = "mod_wad".to_string();
     let renamed = classify(&record, &no_path).unwrap();
-    assert_eq!(renamed.scan_status, Some(ScanStatus::BaseSkin));
-    assert_eq!(renamed.verdict.cause, incident.verdict.cause);
+    assert_eq!(renamed.scan_status, incident.scan_status);
     assert_eq!(renamed.verdict.hints, incident.verdict.hints);
+    assert_eq!(renamed.scan_status_code.as_deref(), Some("mod_wad"));
 
     record.scan_failures[0].status = "base_wad".to_string();
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.scan_status, Some(ScanStatus::BaseWad));
-    assert!(incident.verdict.cause.contains("game's own copy"));
     assert_eq!(incident.verdict.hints, [hint::REPAIR_GAME]);
+
+    // A burst is counted, so the frontend can say how many it does not name.
+    record.scan_failures.push(WadScanFailure {
+        wad: Some("Ahri.wad.client".to_string()),
+        status: "base_wad".to_string(),
+    });
+    let incident = classify(&record, &no_path).unwrap();
+    assert_eq!(incident.scan_rejected, 2);
 }
 
 /// The tokens the DLL emits are the contract, and one this build cannot name
@@ -290,12 +298,6 @@ fn every_token_the_dll_emits_reads_and_advises() {
         assert!(
             !status.hint().is_empty(),
             "{status:?} offers nothing to try"
-        );
-        let cause = status.cause("Aatrox.wad.client", "c0000229");
-        assert!(cause.ends_with('.'), "{status:?} does not end its cause");
-        assert!(
-            cause.contains("Aatrox.wad.client"),
-            "{status:?} does not name the archive"
         );
     }
 }

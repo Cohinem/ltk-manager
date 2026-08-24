@@ -106,6 +106,8 @@ const missingData: Incident = {
   launch: "match",
   scan: "eager",
   scanStatus: null,
+  scanStatusCode: null,
+  scanRejected: 0,
   hostElevated: false,
   patcher: {},
   overlayDetail: null,

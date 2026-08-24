@@ -455,6 +455,14 @@ pub struct Incident {
     pub launch: LaunchKind,
     pub scan: Option<ScanMode>,
     pub scan_status: Option<ScanStatus>,
+    /// The token the scan reported, beside [`Incident::scan_status`]'s reading
+    /// of it. The only part of a rejection a reader cannot get from the status.
+    #[serde(default)]
+    pub scan_status_code: Option<String>,
+    /// How many archives the scan rejected. The verdict names the first, so
+    /// the rest is what a reader still has to be told about.
+    #[serde(default)]
+    pub scan_rejected: u16,
     #[serde(default)]
     pub phase: GamePhase,
     pub game: Option<GameInfo>,
@@ -1160,32 +1168,6 @@ impl ScanStatus {
         match self {
             Self::Skinhack => VerdictKind::SkinhackDetected,
             _ => VerdictKind::ArchiveRejected,
-        }
-    }
-
-    fn cause(self, archive: &str, status: &str) -> String {
-        match self {
-            Self::Skinhack => format!(
-                "The scan found a skinhack, an official Riot skin ported onto a base champion, in {archive}. No mod was applied this game."
-            ),
-            Self::MissingBin => format!(
-                "The scan could not find a linked .bin file that {archive} needs, so no mod was applied this game."
-            ),
-            Self::Corrupt => format!(
-                "{archive} could not be read. It is corrupt, or built for an unsupported version, so no mod was applied this game."
-            ),
-            Self::OutOfMemory => format!(
-                "The game ran out of memory while scanning {archive}, so no mod was applied this game."
-            ),
-            Self::BaseSkin => format!(
-                "The base-skin check found a skin in {archive} with a mesh missing, which reads as an incomplete mod. No mod was applied this game."
-            ),
-            Self::BaseWad => format!(
-                "The scan objected to the game's own copy of {archive}, not to a mod, and no mod was applied this game."
-            ),
-            Self::Unknown => format!(
-                "{archive} failed the game's integrity scan with status {status}, so no mod was applied this game."
-            ),
         }
     }
 

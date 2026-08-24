@@ -64,6 +64,8 @@ impl GameRecord {
             launch: self.launch,
             scan: self.scan,
             scan_status: self.scan_status(),
+            scan_status_code: self.scan_failures.first().map(|f| f.status.clone()),
+            scan_rejected: saturating_count(self.scan_failures.len()),
             phase: self.phase(),
             game: self.log.as_ref().map(|log| GameInfo {
                 version: log.build_version.clone().unwrap_or_default(),
@@ -267,31 +269,22 @@ impl GameRecord {
     }
 
     /// The integrity scan rejected an archive, so no mod was applied.
+    ///
+    /// The cause is left empty on purpose. What a rejection reads like is the
+    /// frontend's sentence, built from `scan_status`, `scan_status_code` and
+    /// `scan_rejected`, so the dialog and the Games tab word one event once.
     fn rule_scan_rejection(&self, ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
         let first = self.scan_failures.first()?;
-        let archive = first
-            .wad
-            .as_deref()
-            .map(last_segment)
-            .unwrap_or_else(|| "An archive".to_string());
         let status = self.scan_status().unwrap_or(ScanStatus::Unknown);
-        let mut cause = status.cause(&archive, &first.status);
-        let others = self.scan_failures.len() - 1;
-        if others > 0 {
-            cause.push_str(&format!(
-                " {others} more archive{} failed the scan.",
-                plural(others)
-            ));
-        }
         let wads: Vec<String> = self
             .scan_failures
             .iter()
             .filter_map(|failure| failure.wad.clone())
             .collect();
         let suspects = ctx.writers_of(&wads, Because::Rejected);
-        let mut verdict = Verdict::new(status.kind(), cause).with_hint(status.hint());
-        if first.wad.is_some() {
-            verdict = verdict.with_subject(archive);
+        let mut verdict = Verdict::new(status.kind(), "").with_hint(status.hint());
+        if let Some(wad) = first.wad.as_deref() {
+            verdict = verdict.with_subject(last_segment(wad));
             if self.is_workshop() {
                 verdict = verdict.with_hint(hint::OPEN_PROJECT);
             }
