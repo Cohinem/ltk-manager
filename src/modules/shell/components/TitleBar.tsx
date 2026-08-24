@@ -10,13 +10,24 @@ import {
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
-import { type ComponentType, useEffect, useState } from "react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { CollectionIcon, IconButton, LootIcon, Separator, Tooltip, useToast } from "@/components";
+import {
+  CollectionIcon,
+  IconButton,
+  LootIcon,
+  MinionIcon,
+  PoroIcon,
+  ScuttleIcon,
+  Separator,
+  Tooltip,
+  useToast,
+} from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { api, type AppInfo, unwrap, type VerdictKind } from "@/lib/tauri";
 import { isInformational, useLatestIncident, useLatestIncidentToken } from "@/modules/diagnostics";
+import { type AppMark, useAppMark, useRollAppMark } from "@/stores";
 
 import { NotificationCenter } from "./NotificationCenter";
 
@@ -25,44 +36,19 @@ const navItems = [
   { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
 ] as const;
 
-/* One motion for every target in the bar: the cell holds its size and the glyph
-   inside it grows, so nothing beside it shifts. Nav and action cells only - the
-   window controls keep the platform's dead-flat shape: DS-SHAPE. */
 const iconLiftClass =
   "[&_svg]:transition-transform [&_svg]:duration-150 [&_svg]:ease-out hover:[&_svg]:scale-110";
 
-/* Two nav shapes, split by what the target is rather than by where it sits.
-   A page tab fills the strip and carries a bottom bar, which only reads under a
-   full-height cell. An icon-only link in the action cluster takes the icon
-   buttons' rounded cell instead, and marks current with an accent fill - the
-   same pair the Settings tab rail uses.
-
-   Hover on both is the flat ghost-button fill. The wiki's brand-gradient row
-   wash is not used here: it fades to transparent across the row, and on a cell
-   this narrow it cuts off mid-fade at the trailing edge. */
 const tabBaseClass = `relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700 ${iconLiftClass}`;
 const tabActiveClass = "text-accent-400";
 const tabInactiveClass = "text-surface-400 hover:text-surface-200";
 
-/* Every action cell runs the bar's full height and sits flush with its
-   neighbours, so the bar's own height is the only thing setting their size. */
 const actionCellClass = `h-full w-9 shrink-0 rounded-none ${iconLiftClass}`;
 const iconNavBase = `flex h-full w-9 shrink-0 items-center justify-center transition-colors ${iconLiftClass}`;
 const iconNavActive = "bg-accent-500/15 text-accent-300";
 const iconNavInactive = "text-surface-400 hover:bg-surface-700 hover:text-surface-200";
-
-/* Window controls are OS chrome, so they take the platform's shape: full-height
-   square cells running flush to the window's corner, not the app's rounded
-   buttons. Their hover is the plain ghost fill, like every other button in the
-   bar. Minimize and maximize carry no color - neither is a warning or a
-   success, and the saturated fills they used to flash read far louder than
-   anything else in the app. Close keeps a signal, but as a tinted wash and a red
-   glyph, the shape the status palette takes everywhere else. */
 const windowControlClass = "h-full w-10 rounded-none text-surface-400 hover:text-surface-200";
 
-/* A ramp rather than a flat bar, so the tab strip reads as the same chrome as
-   the wiki's nav. Drawn from the accent rather than the fixed brand pair, which
-   cannot follow the accent the user picked. */
 function ActiveIndicator() {
   return (
     <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-linear-to-r from-accent-500 to-accent-400" />
@@ -128,6 +114,52 @@ function buildBugReportUrl(appInfo: AppInfo | undefined, diagnosticToken: string
   return `https://github.com/LeagueToolkit/ltk-manager/issues/new?${params.toString()}`;
 }
 
+const mascotMarks = {
+  poro: PoroIcon,
+  minion: MinionIcon,
+  scuttle: ScuttleIcon,
+};
+
+const UNLOCK_CLICKS = 10;
+const UNLOCK_GAP = 1500;
+
+function MarkGlyph({ mark }: { mark: AppMark }) {
+  if (mark === "ltk") return <img src="/icon.svg" alt="LTK" className="size-5" />;
+
+  const Mascot = mascotMarks[mark];
+  return <Mascot className="size-6" />;
+}
+
+function TitleMark() {
+  const mark = useAppMark();
+  const rollAppMark = useRollAppMark();
+  const run = useRef({ count: 0, expiresAt: 0 });
+
+  function handleClick() {
+    const now = Date.now();
+    const count = now < run.current.expiresAt ? run.current.count + 1 : 1;
+
+    if (count < UNLOCK_CLICKS) {
+      run.current = { count, expiresAt: now + UNLOCK_GAP };
+      return;
+    }
+
+    run.current = { count: 0, expiresAt: 0 };
+    rollAppMark();
+  }
+
+  return (
+    <span
+      className="-m-1.5 flex size-8 shrink-0 items-center justify-center p-1"
+      onClick={handleClick}
+      data-tauri-drag-region="false"
+      data-ui="TitleBar:mark"
+    >
+      <MarkGlyph mark={mark} />
+    </span>
+  );
+}
+
 interface TitleBarProps {
   title?: string;
   appInfo?: AppInfo;
@@ -190,7 +222,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
       {/* Left: App icon, title, version, and navigation */}
       <div className="flex h-full items-center" data-tauri-drag-region>
         <div className="flex shrink-0 items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
-          <img src="/icon.svg" alt="LTK" className="h-5 w-5 shrink-0" data-tauri-drag-region />
+          <TitleMark />
           <div className="flex flex-col" data-tauri-drag-region>
             <span
               className="font-display text-sm leading-tight font-bold tracking-tight whitespace-nowrap text-accent-400"

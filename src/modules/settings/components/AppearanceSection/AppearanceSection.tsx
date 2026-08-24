@@ -2,6 +2,7 @@ import { PaletteIcon } from "@phosphor-icons/react";
 
 import { SectionCard, Separator } from "@/components";
 import type { Settings } from "@/lib/tauri";
+import { useRotateAppMark } from "@/stores";
 
 import { SettingRow } from "../SettingRow";
 import { AccentColorPicker } from "./AccentColorPicker";
@@ -16,6 +17,20 @@ import { SurfaceTintPicker } from "./SurfaceTintPicker";
 import { ThemePicker } from "./ThemePicker";
 import { ZoomLevelPicker } from "./ZoomLevelPicker";
 
+function MarkRotator() {
+  const rotateAppMark = useRotateAppMark();
+
+  return (
+    <span
+      className="group/rotator absolute right-0 bottom-0 size-5 p-1"
+      onClick={rotateAppMark}
+      aria-hidden
+    >
+      <span className="block size-full rounded-md transition duration-200 group-hover/rotator:bg-surface-veil group-hover/rotator:shadow-[0_0_10px] group-hover/rotator:shadow-accent-400/60 group-active/rotator:bg-surface-veil-strong" />
+    </span>
+  );
+}
+
 interface AppearanceSectionProps {
   settings: Settings;
   onSave: (settings: Settings) => void;
@@ -28,6 +43,7 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
       icon={<PaletteIcon className="h-5 w-5" />}
       description="Options for how the app looks"
       action={<ResetAppearanceButton settings={settings} onSave={onSave} />}
+      panelClassName="relative"
     >
       <div className="flex flex-col gap-3">
         <SettingRow
@@ -102,6 +118,8 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
 
         <BackdropImagePicker settings={settings} onSave={onSave} />
       </div>
+
+      <MarkRotator />
     </SectionCard>
   );
 }

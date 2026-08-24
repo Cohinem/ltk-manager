@@ -1,3 +1,4 @@
+export * from "./appMark";
 export * from "./deepLink";
 export * from "./devConsole";
 export * from "./displayStore";
