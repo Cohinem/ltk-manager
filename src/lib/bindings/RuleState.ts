@@ -10,6 +10,14 @@
  */
 export type RuleState = { "kind": "active" } | { "kind": "dormant", 
 /**
- * One sentence naming what it waits for, in the rule's own words.
+ * A few words a control can hold, such as `Patch 16.17`.
  */
-reason: string, };
+waiting: string, 
+/**
+ * One sentence a reader who has not met this check can act on.
+ */
+reason: string, 
+/**
+ * The values behind `reason`, for a reader who wants them.
+ */
+detail: string | null, };

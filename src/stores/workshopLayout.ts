@@ -45,10 +45,11 @@ interface WorkshopLayoutStore {
   /**
    * Whether Problems draws the lints for Meta changes Riot has not deployed.
    *
-   * A mod is not wrong about a schema the running game has not taken, so these
-   * are off by default and the panel is about the game the user has. A modder
-   * preparing a release for the coming build turns them on and reads them
-   * muted, beside the findings that are wrong today.
+   * On, because the day a change lands is the day every mod that shipped the
+   * old shape stops working, and a modder who first hears about it that morning
+   * is a modder who ships broken. A mod is not wrong about a schema the running
+   * game has not taken, so the panel dims them rather than counting them, and
+   * the switch above the list takes them off it.
    */
   forwardLookingMeta: boolean;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
@@ -77,7 +78,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       tabOpenMode: "append",
       previewCheckered: true,
       searchGame: true,
-      forwardLookingMeta: false,
+      forwardLookingMeta: true,
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
       toggleSection: (id, open) =>

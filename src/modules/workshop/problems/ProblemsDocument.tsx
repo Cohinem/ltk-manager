@@ -5,6 +5,7 @@ import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 /* The document type rather than the barrel, which reaches back here for the
    component this file exports. */
 import type { ContentDocumentOf } from "../documents/contentDocument";
+import { AheadToggle } from "./AheadToggle";
 import { filterProblems } from "./problemGroups";
 import { ProblemsActions } from "./ProblemsActions";
 import { ProblemsCount } from "./ProblemsCount";
@@ -38,6 +39,8 @@ export function ProblemsDocument({ active }: EditorDocumentProps<ContentDocument
         <ProblemsCount />
         <ProblemsActions />
       </DocumentToolbar>
+
+      <AheadToggle />
 
       <div className="min-h-0 flex-1 overflow-hidden p-3">
         <ProblemsList query={query} />

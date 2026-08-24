@@ -224,8 +224,12 @@ pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
     let mut rules = Vec::new();
     for rule in super::rules::all() {
         let mut info = rule.info();
-        if let Some(reason) = rule.dormant(&files) {
-            info.state = RuleState::Dormant { reason };
+        if let Some(dormancy) = rule.dormant(&files) {
+            info.state = RuleState::Dormant {
+                waiting: dormancy.waiting,
+                reason: dormancy.reason,
+                detail: dormancy.detail,
+            };
         }
         rules.push(info);
         rule.check(&files, &mut report);
@@ -502,9 +506,18 @@ mod tests {
             .collect();
 
         assert_eq!(dormant.len(), 1, "the bin retype rule is the keyed one");
-        let RuleState::Dormant { reason } = &dormant[0].state else {
+        let RuleState::Dormant {
+            waiting,
+            reason,
+            detail,
+        } = &dormant[0].state
+        else {
             unreachable!("filtered on it")
         };
-        assert!(reason.contains("16.17.8087655"), "{reason}");
+        assert_eq!(waiting, "Patch 16.17");
+        assert!(reason.contains("16.17"), "{reason}");
+        let detail = detail.as_deref().expect("the rule names both builds");
+        assert!(detail.contains("16.17.8087655"), "{detail}");
+        assert!(detail.contains("16.16.8049184"), "{detail}");
     }
 }

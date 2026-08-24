@@ -37,8 +37,8 @@ use ltk_meta::property::{Kind, NoMeta, values};
 
 use crate::problems::names::{self, BinNames};
 use crate::problems::{
-    Applied, Detail, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Problem, ProjectFiles,
-    Report, Rule, RuleId, Severity, Site, TypeMismatch,
+    Applied, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Problem,
+    ProjectFiles, Report, Rule, RuleId, Severity, Site, TypeMismatch,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -71,22 +71,36 @@ impl Rule for BinPropertyType {
         "The type of a meta property in a bin file does not match what the game expects"
     }
 
-    /// The oldest table this project's game has not reached, as a sentence.
+    /// The oldest table this project's game has not reached, in a modder's words.
     ///
     /// A table is a claim about one build. Until the game is on that build the
     /// change has not happened, so the findings are about work that is coming
     /// rather than a mod that is broken - which is what [`Severity::Warning`]
     /// already says of each of them, and what the panel mutes them for.
-    fn dormant(&self, project: &ProjectFiles) -> Option<String> {
+    ///
+    /// The sentence names the patch rather than the build, because a patch is
+    /// the number a modder reads in Riot's notes. The builds both sides compare
+    /// on are the fine print under it.
+    fn dormant(&self, project: &ProjectFiles) -> Option<Dormancy> {
         let installed = project.build()?;
         let waiting = table::tables()
             .iter()
-            .find(|table| table.build() > installed)?;
+            .find(|table| table.build() > installed)?
+            .build();
+        let patch = waiting.patch();
 
-        Some(format!(
-            "Riot changes these property types in game build {}, and the installed game is on {installed}. Repairing a mod before that build lands breaks it on the client you have.",
-            waiting.build()
-        ))
+        Some(
+            Dormancy::new(
+                format!("Patch {patch}"),
+                format!(
+                    "Riot changes how these values are stored in patch {patch}. Your game is on {}, so nothing here is broken yet, and repairing it now breaks the mod on the patch you play.",
+                    installed.patch()
+                ),
+            )
+            .with_detail(format!(
+                "Your game is on {installed}, and the change lands in {waiting}"
+            )),
+        )
     }
 
     fn check(&self, project: &ProjectFiles, report: &mut Report) {
@@ -1304,16 +1318,31 @@ mod tests {
     const BEFORE_TABLE: GameBuild = GameBuild::new(16, 16, 8_049_184);
 
     /// A change Riot has not deployed is a change no mod is wrong about yet,
-    /// so the rule says which build it is waiting on.
+    /// so the rule says which patch it is waiting on.
     #[test]
-    fn an_install_older_than_the_table_names_the_build_it_waits_for() {
+    fn an_install_older_than_the_table_names_the_patch_it_waits_for() {
         let (_tmp, files) = project_on(&bin_with(ICON_AVATAR, text(ICON)), Some(BEFORE_TABLE));
 
-        let reason = BinPropertyType::new()
+        let dormancy = BinPropertyType::new()
             .dormant(&files)
             .expect("a build before the table's leaves the rule dormant");
-        assert!(reason.contains("16.17.8087655"), "{reason}");
-        assert!(reason.contains("16.16.8049184"), "{reason}");
+        assert_eq!(dormancy.waiting, "Patch 16.17");
+        assert!(dormancy.reason.contains("16.17"), "{}", dormancy.reason);
+        assert!(dormancy.reason.contains("16.16"), "{}", dormancy.reason);
+    }
+
+    /// The build numbers a modder does not recognise stay out of the sentence
+    /// and go under it, where somebody comparing two installs can find them.
+    #[test]
+    fn the_builds_it_compared_are_the_fine_print() {
+        let (_tmp, files) = project_on(&bin_with(ICON_AVATAR, text(ICON)), Some(BEFORE_TABLE));
+
+        let dormancy = BinPropertyType::new().dormant(&files).unwrap();
+        assert!(!dormancy.reason.contains("8087655"), "{}", dormancy.reason);
+
+        let detail = dormancy.detail.expect("the rule names both builds");
+        assert!(detail.contains("16.17.8087655"), "{detail}");
+        assert!(detail.contains("16.16.8049184"), "{detail}");
     }
 
     /// A modder wants to see what is coming, so waiting mutes the findings in

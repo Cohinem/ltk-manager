@@ -28,6 +28,13 @@ const PROJECT: WorkshopProject = {
 
 const RETYPE = "bin/property-type";
 
+const DORMANT: RuleInfo["state"] = {
+  kind: "dormant",
+  waiting: "Patch 16.17",
+  reason: "Riot changes how these values are stored in patch 16.17.",
+  detail: null,
+};
+
 function rule(state: RuleInfo["state"]): RuleInfo {
   return { id: RETYPE, title: "Meta property type mismatch", description: "", state };
 }
@@ -62,7 +69,9 @@ function renderBadge(value: Run) {
 describe("ProblemsBadge", () => {
   beforeEach(() => {
     mockInvoke.mockReset();
-    useWorkshopLayoutStore.setState({ forwardLookingMeta: false });
+    useWorkshopLayoutStore.setState({
+      forwardLookingMeta: useWorkshopLayoutStore.getInitialState().forwardLookingMeta,
+    });
   });
 
   it("counts what the project has to answer for", async () => {
@@ -74,9 +83,8 @@ describe("ProblemsBadge", () => {
   /* A change Riot has not deployed has broken nothing, so the bar stays quiet
      about it. The panel still lists those findings, muted. */
   it("says nothing about a check waiting on a newer game", async () => {
-    const waiting = run({ kind: "dormant", reason: "Waiting on 16.17.8087655." }, [
-      problem("a", "warning"),
-    ]);
+    useWorkshopLayoutStore.setState({ forwardLookingMeta: false });
+    const waiting = run(DORMANT, [problem("a", "warning")]);
     renderBadge(waiting);
 
     await waitFor(() => expect(mockInvoke).toHaveBeenCalled());
@@ -87,9 +95,7 @@ describe("ProblemsBadge", () => {
      the mod owes on the game that is installed, which is what this counts. */
   it("says nothing about one even with the forward-looking linter on", async () => {
     useWorkshopLayoutStore.setState({ forwardLookingMeta: true });
-    renderBadge(
-      run({ kind: "dormant", reason: "Waiting on 16.17.8087655." }, [problem("a", "warning")]),
-    );
+    renderBadge(run(DORMANT, [problem("a", "warning")]));
 
     await waitFor(() => expect(mockInvoke).toHaveBeenCalled());
     expect(screen.queryByRole("button")).toBeNull();
@@ -98,12 +104,7 @@ describe("ProblemsBadge", () => {
   /* One rule can hold tables for several builds, and a finding from one the
      game has taken crashes it today whatever the rest is waiting on. */
   it("counts a crash from a waiting check", async () => {
-    renderBadge(
-      run({ kind: "dormant", reason: "Waiting on 16.18." }, [
-        problem("a", "fatal"),
-        problem("b", "warning"),
-      ]),
-    );
+    renderBadge(run(DORMANT, [problem("a", "fatal"), problem("b", "warning")]));
 
     expect(await screen.findByRole("button", { name: "1 crash, open Problems" })).toBeVisible();
   });

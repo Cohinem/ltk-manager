@@ -415,9 +415,48 @@ pub enum RuleState {
     Active,
     /// Some or all of what the rule checks waits for a newer game build.
     Dormant {
-        /// One sentence naming what it waits for, in the rule's own words.
+        /// A few words a control can hold, such as `Patch 16.17`.
+        waiting: String,
+        /// One sentence a reader who has not met this check can act on.
         reason: String,
+        /// The values behind `reason`, for a reader who wants them.
+        detail: Option<String>,
     },
+}
+
+/// What a rule waits for, in the three lengths a panel draws it at.
+///
+/// A control holds [`Dormancy::waiting`], the sentence under it is
+/// [`Dormancy::reason`], and [`Dormancy::detail`] is the fine print beneath
+/// that. Splitting them here is what keeps the exact build numbers out of the
+/// sentence a modder reads first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Dormancy {
+    /// A few words a control can hold, such as `Patch 16.17`.
+    pub waiting: String,
+    /// One sentence a reader who has not met this check can act on.
+    pub reason: String,
+    /// The values behind [`Dormancy::reason`], for a reader who wants them.
+    pub detail: Option<String>,
+}
+
+impl Dormancy {
+    /// A dormancy with no fine print under its sentence.
+    #[must_use]
+    pub fn new(waiting: impl Into<String>, reason: impl Into<String>) -> Self {
+        Self {
+            waiting: waiting.into(),
+            reason: reason.into(),
+            detail: None,
+        }
+    }
+
+    /// The same, carrying the values its sentence is derived from.
+    #[must_use]
+    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
 }
 
 /// The path of one bin object, for the hashes a run's problems sit under.
@@ -555,15 +594,15 @@ pub trait Rule: Send + Sync {
 
     /// Why this rule waits for something `project` does not have yet.
     ///
-    /// One sentence a panel draws as it stands, in the rule's own words,
-    /// because what a check waits for is the check's own business. A rule that
-    /// speaks about every project - which is most of them, since most checks
-    /// are about the mod alone - reports `None` and never overrides this.
+    /// The words a panel draws as they stand, in the rule's own words, because
+    /// what a check waits for is the check's own business. A rule that speaks
+    /// about every project - which is most of them, since most checks are about
+    /// the mod alone - reports `None` and never overrides this.
     ///
     /// This changes nothing about what [`Rule::check`] reports. A finding
     /// about a change that has not landed is still a finding, and the severity
     /// it carries is what says the game has not taken it yet.
-    fn dormant(&self, project: &ProjectFiles) -> Option<String> {
+    fn dormant(&self, project: &ProjectFiles) -> Option<Dormancy> {
         let _ = project;
         None
     }
@@ -786,13 +825,17 @@ mod tests {
     }
 
     #[test]
-    fn a_dormant_rule_serializes_with_its_reason() {
+    fn a_dormant_rule_serializes_with_every_length_of_its_reason() {
         let json = serde_json::to_value(RuleState::Dormant {
-            reason: "waiting on 16.17.8087655".to_owned(),
+            waiting: "Patch 16.17".to_owned(),
+            reason: "These break when patch 16.17 arrives.".to_owned(),
+            detail: Some("Your game is on 16.16.8049184".to_owned()),
         })
         .unwrap();
         assert_eq!(json["kind"], "dormant");
-        assert_eq!(json["reason"], "waiting on 16.17.8087655");
+        assert_eq!(json["waiting"], "Patch 16.17");
+        assert_eq!(json["reason"], "These break when patch 16.17 arrives.");
+        assert_eq!(json["detail"], "Your game is on 16.16.8049184");
     }
 
     #[test]

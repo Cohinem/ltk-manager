@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -193,13 +193,20 @@ const RETYPE_RULE: RuleInfo = {
   state: { kind: "active" },
 };
 
+const WAITING_LABEL = "Patch 16.17";
 const WAITING_REASON =
-  "Riot changes these property types in game build 16.17.8087655, and the installed game is on 16.16.8049184.";
+  "Riot changes how these values are stored in patch 16.17. Your game is on 16.16, so nothing here is broken yet.";
+const WAITING_DETAIL = "Your game is on 16.16.8049184, and the change lands in 16.17.8087655";
 
 /** The same rule on a machine whose game has not taken the change. */
 const WAITING_RULE: RuleInfo = {
   ...RETYPE_RULE,
-  state: { kind: "dormant", reason: WAITING_REASON },
+  state: {
+    kind: "dormant",
+    waiting: WAITING_LABEL,
+    reason: WAITING_REASON,
+    detail: WAITING_DETAIL,
+  },
 };
 
 function run(overrides?: Partial<Run>): Run {
@@ -317,6 +324,18 @@ function filter() {
   return screen.getByLabelText("Filter problems");
 }
 
+/** The accessible name of the switch, which is its label and its count. */
+const AHEAD_LABEL = /^Patch 16\.17/;
+
+/** The switch under the filter, for the checks ahead of the installed game. */
+function aheadToggle() {
+  return screen.findByRole("button", { name: AHEAD_LABEL });
+}
+
+/* Read rather than written, so a suite that resets the store between tests is
+   resetting it to what a modder who has never touched the switch would see. */
+const DEFAULT_FORWARD_LOOKING = useWorkshopLayoutStore.getInitialState().forwardLookingMeta;
+
 /** The tabs of every group, which is where an opened document lands. */
 function openTabs() {
   const editor = useWorkshopEditorStore.getState().byProject[PROJECT.path];
@@ -327,7 +346,7 @@ describe("ProblemsDocument", () => {
   beforeEach(() => {
     mockInvoke.mockReset();
     useWorkshopEditorStore.setState({ byProject: {} });
-    useWorkshopLayoutStore.setState({ forwardLookingMeta: false });
+    useWorkshopLayoutStore.setState({ forwardLookingMeta: DEFAULT_FORWARD_LOOKING });
   });
 
   it("draws one group row per file, labelled with its layer and file name", async () => {
@@ -724,18 +743,31 @@ describe("ProblemsDocument", () => {
   });
 
   describe("a check looking ahead of the installed game", () => {
-    /* Off is the default, so the panel is about the game the user has. */
-    it("draws neither the findings nor a notice while the linter is off", async () => {
+    /* The day a change lands is the day every mod that shipped the old shape
+       stops working, so a modder sees what is coming without asking. */
+    it("draws its findings, and the toggle pressed, out of the box", async () => {
       mockBackend({ ok: true, value: run({ rules: [WAITING_RULE], problems: [ICON_AVATAR] }) });
       renderPanel();
 
-      await waitFor(() => expect(mockInvoke).toHaveBeenCalled());
-      expect(screen.queryByText(WAITING_REASON)).toBeNull();
+      expect(await aheadToggle()).toHaveAttribute("aria-pressed", "true");
+      expect(await skin0Group()).toBeInTheDocument();
+    });
+
+    /* Pressed off, the panel is about the game the user has. The toggle is
+       what says the run holds more than the panel is drawing. */
+    it("draws the toggle and none of its findings once it is pressed off", async () => {
+      mockBackend({ ok: true, value: run({ rules: [WAITING_RULE], problems: [ICON_AVATAR] }) });
+      renderPanel();
+
+      await userEvent.click(await aheadToggle());
+
+      expect(await aheadToggle()).toHaveAttribute("aria-pressed", "false");
       expect(await screen.findByText("All good")).toBeInTheDocument();
     });
 
     /* Every check that speaks about the installed game keeps its rows. */
     it("leaves the rest of the list alone while the linter is off", async () => {
+      useWorkshopLayoutStore.setState({ forwardLookingMeta: false });
       mockBackend({ ok: true, value: run({ rules: [WAITING_RULE] }) });
       renderPanel();
 
@@ -743,14 +775,65 @@ describe("ProblemsDocument", () => {
       expect(screen.queryByText("Meta property type mismatch")).toBeNull();
     });
 
-    /* On, the findings are on screen and the notice says why they are dim. */
-    it("lists what it found and names the build it waits for", async () => {
-      useWorkshopLayoutStore.setState({ forwardLookingMeta: true });
+    /* The point of moving this out of Settings: the switch sits above the list
+       it changes, so a modder who does not want it is one click from gone. */
+    it("brings them back when the toggle is pressed again", async () => {
+      useWorkshopLayoutStore.setState({ forwardLookingMeta: false });
       mockBackend({ ok: true, value: run({ rules: [WAITING_RULE], problems: [ICON_AVATAR] }) });
       renderPanel();
 
-      expect(await screen.findByText(WAITING_REASON)).toBeInTheDocument();
+      await userEvent.click(await aheadToggle());
+
+      expect(await aheadToggle()).toHaveAttribute("aria-pressed", "true");
       expect(await skin0Group()).toBeInTheDocument();
+    });
+
+    /* The count is the promise the toggle makes, so it counts the whole run
+       rather than what the panel happens to be drawing under it. */
+    it("counts every finding it would reveal, at either setting", async () => {
+      const second = problem({ id: "p-second", severity: "warning", path: SKIN4 });
+      mockBackend({
+        ok: true,
+        value: run({ rules: [WAITING_RULE], problems: [ICON_AVATAR, second] }),
+      });
+      renderPanel();
+
+      expect(await aheadToggle()).toHaveAccessibleName("Patch 16.17, 2 findings ahead");
+      await userEvent.click(await aheadToggle());
+      expect(await aheadToggle()).toHaveAccessibleName("Patch 16.17, 2 findings ahead");
+    });
+
+    /* A control that is always there and always says nothing is a control a
+       reader stops seeing, so it draws only where there is something to draw. */
+    it("draws no toggle where every check speaks about this game", async () => {
+      mockBackend({ ok: true, value: run() });
+      renderPanel();
+
+      await skin0Group();
+      expect(screen.queryByRole("button", { name: AHEAD_LABEL })).toBeNull();
+    });
+
+    /* A rule can wait on a build and still have found nothing about it. */
+    it("draws no toggle where the waiting check found nothing", async () => {
+      const crash = problem({ id: "p-crash", severity: "fatal", path: SKIN4 });
+
+      mockBackend({ ok: true, value: run({ rules: [WAITING_RULE], problems: [crash] }) });
+      renderPanel();
+
+      await screen.findByRole("button", { name: groupName("base", SKIN4) });
+      expect(screen.queryByRole("button", { name: AHEAD_LABEL })).toBeNull();
+    });
+
+    /* The sentence a modder acts on is on the toggle rather than over the list,
+       and the builds behind it are under that sentence. */
+    it("explains itself on hover, fine print and all", async () => {
+      mockBackend({ ok: true, value: run({ rules: [WAITING_RULE], problems: [ICON_AVATAR] }) });
+      renderPanel();
+
+      await userEvent.hover(await aheadToggle());
+
+      expect(await screen.findByText(WAITING_REASON)).toBeInTheDocument();
+      expect(screen.getByText(WAITING_DETAIL)).toBeInTheDocument();
     });
 
     /* The findings were always in the run, so the setting is a way of reading
@@ -768,6 +851,7 @@ describe("ProblemsDocument", () => {
     /* A crash is a crash on the game that is installed, whatever the rest of
        the rule is still waiting on. */
     it("keeps a crash on screen while the linter is off", async () => {
+      useWorkshopLayoutStore.setState({ forwardLookingMeta: false });
       const crash = problem({ id: "p-crash", severity: "fatal", path: SKIN4 });
       mockBackend({ ok: true, value: run({ rules: [WAITING_RULE], problems: [crash] }) });
       renderPanel();

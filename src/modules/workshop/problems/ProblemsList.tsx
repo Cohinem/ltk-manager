@@ -8,7 +8,6 @@ import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 
 import { useProjectProblems } from "../api";
 import { useProjectContext } from "../components/ProjectContext";
-import { DormantRules } from "./DormantRules";
 /* The row model is aliased because `ProblemRow` is also the component that
    draws one, which this file imports from `./ProblemRows`. */
 import {
@@ -128,8 +127,6 @@ export function ProblemsList({ query }: ProblemsListProps) {
 
   return (
     <div data-ui="ProblemsList" className="flex h-full flex-col select-none">
-      <DormantRules />
-
       {run && run.failed.length > 0 && (
         <div className="shrink-0 pb-2">
           <AlertBox variant="warning" title={unreadableTitle(run.failed.length)}>

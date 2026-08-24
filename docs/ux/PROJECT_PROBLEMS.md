@@ -4,6 +4,8 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-08-24 | Draw the forward-looking lints by default, dimmed                 |
+| 2026-08-24 | Give the forward-looking switch a row, and drop the notice        |
 | 2026-08-23 | Put the forward-looking lints behind one editor setting           |
 | 2026-08-23 | Mute what waits for a build, rather than withholding it           |
 | 2026-08-22 | Wait for the build a table names, and let a modder ask anyway     |
@@ -42,25 +44,25 @@ This table holds every major feature of Problems. A status word has one meaning.
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature              | Status    | Note                                                        |
-| -------------------- | --------- | ----------------------------------------------------------- |
-| The problem model    | Available | `Rule`, `Problem`, `Fix`, `Run`, in the core crate          |
-| The run engine       | Available | Reads every layer, groups by file, holds the last run       |
-| Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one     |
-| The migration table  | Available | 395 rows, `include_str!` into the core crate                |
-| The fix preview      | Available | The before value and the after value, for each problem      |
-| The restore point    | Available | `.ltk/restore/<stamp>/`, and one Undo for a whole run       |
-| The problems tab     | Available | A document of the editor surface, and not a side panel      |
-| The run's own words  | Available | A rule's title and an object's path, sent once for a run    |
-| Grouping by object   | Available | A file's findings sit under the bin object that holds them  |
-| The count in the bar | Available | An error count beside Test, which opens the tab             |
-| Forward-looking lint | Available | One editor setting, and the rows it draws are muted         |
-| Open at the property | Blocked   | Needs the [bin editor](BIN_EDITOR.md). Reveals the file now |
-| Hash-name repair     | Proposed  | The 8 rows that need `binhashes` to name a hash             |
-| Move the old checks  | Proposed  | The three checks below become rules and lose their shapes   |
-| Linked bin rule      | Proposed  | `bin/missing-link`, from the overlay build's offenders      |
-| Archive path rule    | Proposed  | `wad/unknown-path`. The game archive check, as a rule       |
-| Library mod problems | Proposed  | The same rules over an installed mod, which is packed       |
+| Feature              | Status    | Note                                                         |
+| -------------------- | --------- | ------------------------------------------------------------ |
+| The problem model    | Available | `Rule`, `Problem`, `Fix`, `Run`, in the core crate           |
+| The run engine       | Available | Reads every layer, groups by file, holds the last run        |
+| Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one      |
+| The migration table  | Available | 395 rows, `include_str!` into the core crate                 |
+| The fix preview      | Available | The before value and the after value, for each problem       |
+| The restore point    | Available | `.ltk/restore/<stamp>/`, and one Undo for a whole run        |
+| The problems tab     | Available | A document of the editor surface, and not a side panel       |
+| The run's own words  | Available | A rule's title and an object's path, sent once for a run     |
+| Grouping by object   | Available | A file's findings sit under the bin object that holds them   |
+| The count in the bar | Available | An error count beside Test, which opens the tab              |
+| Forward-looking lint | Available | On by default, muted, and a switch in a row under the filter |
+| Open at the property | Blocked   | Needs the [bin editor](BIN_EDITOR.md). Reveals the file now  |
+| Hash-name repair     | Proposed  | The 8 rows that need `binhashes` to name a hash              |
+| Move the old checks  | Proposed  | The three checks below become rules and lose their shapes    |
+| Linked bin rule      | Proposed  | `bin/missing-link`, from the overlay build's offenders       |
+| Archive path rule    | Proposed  | `wad/unknown-path`. The game archive check, as a rule        |
+| Library mod problems | Proposed  | The same rules over an installed mod, which is packed        |
 
 ## Scope
 
@@ -653,37 +655,74 @@ away from the person least able to notice it went quiet.
 
 **A dormant rule finds everything and claims nothing.** Every finding is in the run, because the
 day the build lands is the day each of them stops the mod working, and a modder who cannot see
-them until that morning is a modder who ships broken. What the manager will not do is put them
-in front of somebody they are not about yet, so one setting decides whether the panel draws
-them.
+them until that morning is a modder who ships broken. So the panel draws them, and what it will
+not do is claim they are wrong today: they are dimmed, they are out of every count of what the
+mod owes, and one switch takes them off the list altogether.
+
+**The switch is in the panel it changes,** in a row of its own under the filter box and above
+the list. It is labelled with the patch the rule waits for and the count it holds, and it starts
+pressed.
 
 ```
-Project editor
-  Forward-looking Meta Linter                                          [ off ]
-  Makes the Problems tab in the editor show lints for future Meta changes
-```
-
-Off is the default, and the Problems tab is then about the game the user has: the forward-
-looking findings draw nowhere and every tally in the panel counts the list a reader is looking
-at. On, they draw muted, under a notice naming the build they wait for.
-
-```
-ⓘ  Meta property type mismatch is looking ahead
-   Riot changes these property types in game build 16.17.8087655, and the
-   installed game is on 16.16.8049184. Repairing a mod before that build
-   lands breaks it on the client you have.
-   Forward-looking Meta Linter, in the project editor settings
-──────────────────────────────────────────────────
+🔍 Filter problems                                 ⚠ 12    🔧  ⟳
+───────────────────────────────────────────────────────────
+ [⏳ Patch 16.17  12]
 ▾ ⚠ 14  base · …/skins/skin0.bin                       dim
   ▾ Characters/Smolder/Skins/Skin0                        dim
     ⚠ Meta property type mismatch                        dim
 ```
 
-The sentence is the rule's own, sent once on the run beside its title, for the reason
-[everything else about a rule rides there](#what-rides-on-the-run). The line under it names the
-setting, because a modder who turned this on a month ago needs to know what is dimming their
-list. A muted row comes back to full under the pointer, because a row a reader has reached for
-is a row they are reading.
+It has a row rather than a place in the toolbar because the toolbar is what a document
+contributes to the surface it is in, and the things already on that row - the filter, the
+tallies, Fix, re-run - are about the whole run. This one is about half of it, and it belongs
+with the half it governs.
+
+**On is the default, because a change that has not landed is the one a modder can still ship
+ahead of.** Every mod that carries the old shape breaks on the morning the patch does, and a
+check nobody is shown until that morning has bought nobody anything. Dimming is what keeps it
+honest: the rows are there, they are visibly not the ones that are wrong today, and no count of
+what the mod owes includes them. A muted row comes back to full under the pointer, because a row
+a reader has reached for is a row they are reading.
+
+Pressed off, the Problems tab is about the game the user has and nothing else: the forward-
+looking findings draw nowhere, and every tally in the panel counts the list in front of the
+reader. That is the setting for a modder patching something for tonight.
+
+**The row is a switch and never a notice.** This spot held four lines of prose once, and the
+prose was the mistake. A modder presses this switch once and then reads the panel for a month,
+so an explanation pinned there answers on every one of those days a question that was asked on
+the first. The same words are on the switch instead, where a reader who has forgotten what is
+dimming their list reaches for them and nobody else pays.
+
+```
+⏳ Patch 16.17  12
+└─ Not broken yet
+   Riot changes how these values are stored in patch 16.17. Your game is on
+   16.16, so nothing here is broken yet, and repairing it now breaks the mod
+   on the patch you play.
+   Your game is on 16.16.8049184, and the change lands in 16.17.8087655
+   ───────────────────────────────────────────────────────
+   Click to take them off the list
+```
+
+**A rule says what it waits for at three lengths.** `waiting` is the few words the switch
+holds, `reason` is the sentence under it, and `detail` is the fine print under that. All three
+are the rule's own, sent once on the run beside its title, for the reason
+[everything else about a rule rides there](#what-rides-on-the-run).
+
+Splitting them is what keeps the build numbers out of the sentence a modder reads first. A
+patch is `16.17`, which is the number Riot's own notes carry, and `16.17.8087655` is a content
+build that means nothing to anybody who has not opened `content-metadata.json`. The sentence
+takes the patch. The two builds the rule actually compared go underneath, for the modder
+checking one install against another.
+
+**The switch draws only where it would change something.** A run whose rules all speak about
+the installed game has no switch, and neither has a run where the waiting rule found nothing.
+A control that is always on screen and always says nothing is a control a reader stops seeing.
+
+**Settings still holds the same switch**, under Project editor, because that is where a modder
+who wants to know what the manager can do goes looking. It is the same preference and it
+persists the same way. What changed is that finding it is no longer the only way to use it.
 
 **The mute is a dimming and never a restyling.** A finding keeps its severity glyph, its types
 and its wrench, so the row says the same thing it would say a week from now. Reaching for a
@@ -1040,9 +1079,12 @@ yet. It is `MIT OR Apache-2.0`, which is the workspace's own license, so adding 
 | What does a row repeat from the rule?          | Nothing. A rule's words ride on the run              |
 | Which severity does a landed build get?        | Fatal. The game crashes rather than refusing the mod |
 | Does a run block the window while it reads?    | No. Every problems command answers off the UI thread |
-| Does a check run before Riot deploys it?       | Yes, and one editor setting says whether it is drawn |
+| Does a check run before Riot deploys it?       | Yes, and it is drawn until a modder says otherwise   |
+| Where is that switch?                          | Under the panel's filter, and in Settings as well    |
+| What does it say when nothing is waiting?      | Nothing. It draws only where it would reveal a row   |
 | Why run a check nobody can act on yet?         | The day it lands, every mod that shipped it breaks   |
-| Is the forward-looking linter on by default?   | No. The panel is about the game the user has         |
+| Is the forward-looking linter on by default?   | Yes, dimmed. Off is one click, above the list        |
+| Why a patch number and not a build?            | 16.17 is what Riot's notes say. The build is detail  |
 | Is that setting per project?                   | No. It is how a modder reads, so it is the editor's  |
 | What if no install could be read?              | The check draws in full. Unknown is not a claim      |
 | Does the setting re-run the project?           | No. The findings were always there. It is a reading  |

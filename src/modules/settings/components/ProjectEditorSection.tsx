@@ -55,9 +55,9 @@ export function ProjectEditorSection() {
       <Separator />
 
       <SettingRow
-        title="Forward-looking Meta Linter"
-        description="Makes the Problems tab in the editor show lints for future Meta changes"
-        hint="Riot changes the declared type of bin properties from one game build to the next. These lints are about a build your game has not taken yet, so Problems draws them muted and leaves them out of the count beside Test. Repairing one before that build lands breaks the mod on the client you have."
+        title="Lints for the coming patch"
+        description="Lists what a coming patch will break, dimmed, alongside what is wrong today."
+        hint="Riot changes how bin files store some of their values from one patch to the next. These findings are about a patch your game has not taken yet, so Problems dims them and leaves them out of the count beside Test, and repairing one early breaks the mod on the patch you play. Problems carries the same switch under its filter box whenever a project has some, which is the quicker way to turn them off for one sitting."
         control={<Switch checked={forwardLookingMeta} onCheckedChange={setForwardLookingMeta} />}
       />
     </SectionCard>

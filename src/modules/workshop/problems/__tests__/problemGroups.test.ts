@@ -428,7 +428,9 @@ describe("mutedRules", () => {
 
   const WAITING = rule("bin/property-type", {
     kind: "dormant",
-    reason: "Riot changes these in game build 16.17.8087655.",
+    waiting: "Patch 16.17",
+    reason: "Riot changes how these values are stored in patch 16.17.",
+    detail: null,
   });
   const RUNNING = rule("bin/asset-exists", { kind: "active" });
 

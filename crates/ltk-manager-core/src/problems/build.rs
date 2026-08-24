@@ -38,6 +38,15 @@ impl GameBuild {
         }
     }
 
+    /// The patch a player names, as `<major>.<minor>`.
+    ///
+    /// A build is `16.17.8087655` and the patch notes call it 16.17, so this is
+    /// the half of a build a modder recognises.
+    #[must_use]
+    pub fn patch(&self) -> String {
+        format!("{}.{}", self.major, self.minor)
+    }
+
     /// Read the installed game's content build.
     ///
     /// Returns `None` where no League path is configured, the file is absent,
@@ -181,6 +190,11 @@ mod tests {
 
         std::fs::write(tmp.path().join(METADATA_FILE), r#"{ "version": "live" }"#).unwrap();
         assert_eq!(GameBuild::read(tmp.path()), None);
+    }
+
+    #[test]
+    fn a_patch_is_the_two_numbers_a_player_reads() {
+        assert_eq!(GameBuild::new(16, 17, 8_087_655).patch(), "16.17");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-export { DormantRules } from "./DormantRules";
+export { AheadToggle } from "./AheadToggle";
 export {
   countBySeverity,
   filterProblems,

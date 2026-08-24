@@ -18,4 +18,12 @@ describe("workshopLayout", () => {
       expect(useWorkshopLayoutStore.getState().tabOpenMode).toBe("replace");
     });
   });
+
+  describe("forwardLookingMeta", () => {
+    /* The day a change lands is the day every mod that shipped the old shape
+       stops working, so Problems says what is coming without being asked. */
+    it("draws what a coming patch will break, out of the box", () => {
+      expect(useWorkshopLayoutStore.getInitialState().forwardLookingMeta).toBe(true);
+    });
+  });
 });

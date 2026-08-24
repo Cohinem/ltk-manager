@@ -323,9 +323,10 @@ export function isMuted(problem: Problem, muted: ReadonlySet<RuleId>): boolean {
 /**
  * The findings the panel draws, once the forward-looking setting is settled.
  *
- * Off is the default and it hides them outright, so every tally in the panel
- * counts the same list a reader is looking at. The count beside Test is the
- * one that leaves them out either way - read `ProblemsBadge`.
+ * On is the default and it draws them muted. Pressed off, it hides them
+ * outright rather than dimming them further, so every tally in the panel counts
+ * the same list a reader is looking at. The count beside Test is the one that
+ * leaves them out either way - read `ProblemsBadge`.
  */
 export function shownProblems(
   problems: readonly Problem[],

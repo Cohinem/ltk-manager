@@ -62,21 +62,34 @@ export function useShownProblems(): readonly Problem[] {
 }
 
 /**
- * Every check waiting on a build this game has not taken, where they are drawn.
+ * Every check waiting on a build this game has not taken.
  *
- * Empty while the forward-looking linter is off, because there is nothing on
- * screen for a notice to explain. Empty too on a machine whose game has taken
- * every change the manager ships a table for.
+ * Read at either setting, because the control that turns them on has to say
+ * what it would turn on. Empty on a machine whose game has taken every change
+ * the manager ships a table for.
  */
 export function useDormantRules(): readonly RuleInfo[] {
   const project = useProjectContext();
   const { data: run } = useProjectProblems(project.path);
-  const forwardLooking = useForwardLookingMeta();
 
-  return useMemo(() => {
-    if (!forwardLooking) return [];
-    return (run?.rules ?? []).filter((info) => info.state.kind === "dormant");
-  }, [run, forwardLooking]);
+  return useMemo(() => (run?.rules ?? []).filter((info) => info.state.kind === "dormant"), [run]);
+}
+
+/**
+ * How many findings the forward-looking setting is the difference between.
+ *
+ * The whole run rather than what the panel drew, because this is the number
+ * the toggle promises and the toggle is what decides whether they are drawn.
+ */
+export function useAheadCount(): number {
+  const project = useProjectContext();
+  const { data: run } = useProjectProblems(project.path);
+  const muted = useMutedRules();
+
+  return useMemo(
+    () => (run?.problems ?? []).filter((problem) => isMuted(problem, muted)).length,
+    [run, muted],
+  );
 }
 
 /**
