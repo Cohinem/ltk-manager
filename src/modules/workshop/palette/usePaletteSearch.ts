@@ -2,101 +2,89 @@ import { useMemo } from "react";
 
 import { letterMask } from "./matcher";
 import { compareRows, rankCandidates } from "./rank";
-import {
-  GROUP_CAP,
-  HELP_PREFIX,
-  PALETTE_SOURCES,
-  type ParsedQuery,
-  parseQuery,
-  SCOPED_CAP,
-} from "./sources";
-import type { PaletteCandidate, PaletteGroup, PaletteSourceId, RankedRow } from "./types";
-import { useGameRows } from "./useGameRows";
-import { useProjectCandidates } from "./useProjectCandidates";
+import { HELP_PREFIX, PALETTE_SOURCES, type ParsedQuery, sourceCap } from "./sources";
+import type {
+  PaletteCandidate,
+  PaletteCandidates,
+  PaletteGroup,
+  PaletteSourceId,
+  RankedRow,
+} from "./types";
 
 const NO_RANGES = [] as const;
+const NO_CANDIDATES: readonly PaletteCandidate[] = [];
+const NO_RECENT: readonly string[] = [];
 
-export interface PaletteSearchResult {
-  /** The scope the query's own prefix asked for, and the term left after it. */
+export interface PaletteSearchParams {
+  /** The query split into its scope, its help flag and the term to match on. */
   readonly parsed: ParsedQuery;
-  readonly groups: readonly PaletteGroup[];
-}
-
-export interface ProjectSearchParams {
-  /** False while the bar is idle, which keeps the candidates unbuilt. */
-  readonly enabled: boolean;
-  /** What the user typed, prefix and all. */
-  readonly query: string;
-  /** The chip already before the caret, or null while the box reads every source. */
-  readonly scope: PaletteSourceId | null;
+  /** Which sources this context holds, read against the declared order. */
+  readonly sources: readonly PaletteSourceId[];
+  readonly candidates: PaletteCandidates;
+  /** What the installed game contributes, for a context that reads it. */
+  readonly game?: PaletteGroup | null;
   /** The layer the side panels are reading, whose files rank above the rest. */
-  readonly selectedLayer: string | null;
+  readonly selectedLayer?: string | null;
   /** Visited document ids, nearest first. */
-  readonly recent: readonly string[];
+  readonly recent?: readonly string[];
 }
 
 /**
- * The grouped rows the project bar draws for one query.
+ * The grouped rows the bar draws for one query.
  *
- * An empty query is a listing rather than a search: it hands back where the
- * user has been and what the editor can do, which makes `Ctrl+P` and `Enter`
- * the route back to the last file with nothing typed.
+ * What is in the list is the caller's, so the same box answers for a project,
+ * for the workshop over it, and for whatever is added to either.
+ *
+ * Per "What an empty box lists" in `docs/ux/WORKSHOP.md`.
  */
-export function useProjectSearch({
-  enabled,
-  query,
-  scope,
-  selectedLayer,
-  recent,
-}: ProjectSearchParams): PaletteSearchResult {
-  const candidates = useProjectCandidates(enabled);
-  const parsed = useMemo(() => parseQuery(query, scope), [query, scope]);
+export function usePaletteSearch({
+  parsed,
+  sources,
+  candidates,
+  game = null,
+  selectedLayer = null,
+  recent = NO_RECENT,
+}: PaletteSearchParams): readonly PaletteGroup[] {
+  return useMemo(() => {
+    if (parsed.help) return [helpGroup(parsed.term, sources)];
 
-  /* The one source that crosses IPC, so it is asked for on its own and folded
-     in wherever its group sits. */
-  const wantsGame = enabled && !parsed.help && (parsed.scope === null || parsed.scope === "game");
-  const game = useGameRows(parsed.term, wantsGame);
-
-  const groups = useMemo(() => {
-    if (!enabled) return [];
-    if (parsed.help) return [helpGroup(parsed.term)];
-
-    const sources = PALETTE_SOURCES.filter(
-      (source) => parsed.scope === null || source.id === parsed.scope,
+    const active = PALETTE_SOURCES.filter(
+      (source) =>
+        sources.includes(source.id) && (parsed.scope === null || source.id === parsed.scope),
     );
-    /* A cap only matters where several sources compete for the list. One
-       source on its own, and a listing with nothing typed, show what they have. */
-    const capped = parsed.term.length > 0 && parsed.scope === null;
-    const cap = capped ? GROUP_CAP : SCOPED_CAP;
+    const listing = listingSources(sources);
 
-    const found = sources.flatMap((source) => {
+    const found = active.flatMap((source) => {
       /* The backend already capped and ordered this one, so the group is only
          trimmed again where it has to share the list. */
       if (source.id === "game") {
         if (!game) return [];
-        return [{ ...game, rows: game.rows.slice(0, cap) }];
+        return [{ ...game, rows: game.rows.slice(0, sourceCap(source, parsed.scope)) }];
       }
 
-      const rows = matchSource(source.id, candidates[source.id], parsed, { selectedLayer, recent });
+      const rows = matchSource(source.id, candidates[source.id] ?? NO_CANDIDATES, parsed, listing, {
+        selectedLayer,
+        recent,
+      });
       if (rows.length === 0) return [];
 
       return [
         {
           source: source.id,
           label: source.label,
-          rows: rows.slice(0, cap),
+          rows: rows.slice(0, sourceCap(source, parsed.scope)),
           total: rows.length,
         },
       ];
     });
 
-    /* Nothing typed is a listing, and a listing reads in the order the sources
-       are declared: where you have been, then what you can do. */
-    if (parsed.term.length === 0) return found;
+    /* A listing keeps its own order. A term is ranked instead, so the groups
+       reorder by what they found. */
+    if (parsed.term.length === 0) {
+      return found.sort((a, b) => listing.indexOf(a.source) - listing.indexOf(b.source));
+    }
     return found.sort(compareGroups);
-  }, [candidates, enabled, game, parsed, recent, selectedLayer]);
-
-  return { parsed, groups };
+  }, [candidates, game, parsed, recent, selectedLayer, sources]);
 }
 
 /**
@@ -124,21 +112,31 @@ function sourceOrder(source: PaletteSourceId): number {
   return PALETTE_SOURCES.findIndex((candidate) => candidate.id === source);
 }
 
+/**
+ * Picks the sources an empty box shows, and the order it shows them in.
+ *
+ * Files, strings and the game wait for a term - a project of a few thousand
+ * files would be a wall of rows nobody asked for.
+ */
+function listingSources(sources: readonly PaletteSourceId[]): readonly PaletteSourceId[] {
+  const underProject = sources.includes("documents");
+  if (underProject) return ["documents", "layers", "commands"];
+  return ["commands", "projects"];
+}
+
 function matchSource(
   id: Exclude<PaletteSourceId, "game">,
   candidates: readonly PaletteCandidate[],
   parsed: ParsedQuery,
+  listing: readonly PaletteSourceId[],
   context: { selectedLayer: string | null; recent: readonly string[] },
 ): RankedRow[] {
   if (parsed.term.length > 0) return rankCandidates(parsed.term, candidates, context);
 
-  /* Nothing typed and no scope: the two sources that answer "where was I" and
-     "what can I do". Listing every file of the project under an empty box is a
-     wall of rows nobody asked for. */
-  if (parsed.scope === null && id !== "documents" && id !== "commands") return [];
+  if (parsed.scope === null && !listing.includes(id)) return [];
 
-  const listed = id === "documents" ? byRecency(candidates, context.recent) : candidates;
-  return listed.map((candidate) => ({
+  const rows = id === "documents" ? byRecency(candidates, context.recent) : candidates;
+  return rows.map((candidate) => ({
     row: candidate,
     band: 0,
     score: 0,
@@ -158,10 +156,10 @@ function byRecency(
   );
 }
 
-/** What `?` lists: every prefix, and what typing it narrows the box to. */
-function helpGroup(term: string): PaletteGroup {
+/** What `?` lists: every prefix this context holds, and what it narrows to. */
+function helpGroup(term: string, sources: readonly PaletteSourceId[]): PaletteGroup {
   const rows = PALETTE_SOURCES.flatMap((source) => {
-    if (source.prefix === undefined) return [];
+    if (source.prefix === undefined || !sources.includes(source.id)) return [];
     if (term.length > 0 && !source.label.toLowerCase().includes(term)) return [];
 
     const name = `${source.prefix}  ${source.label}`;

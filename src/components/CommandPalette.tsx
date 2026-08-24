@@ -83,8 +83,8 @@ type PaletteItem =
       /** The group is being replaced, so this row is the last answer, not this one. */
       readonly stale: boolean;
     }
-  | { readonly kind: "skeleton"; readonly at: number }
-  | { readonly kind: "more"; readonly rest: number };
+  | { readonly kind: "skeleton"; readonly group: string; readonly at: number }
+  | { readonly kind: "more"; readonly group: string; readonly rest: number };
 
 const HEADER_HEIGHT = 26;
 const ROW_HEIGHT = 44;
@@ -95,6 +95,14 @@ const MORE_HEIGHT = 24;
 const SKELETON_ROWS = 3;
 /* Uneven, so the placeholders read as a list of names rather than as a block. */
 const SKELETON_WIDTHS = [58, 44, 66];
+
+/** Composes an identifier for a PaletteItem. */
+function composeItemKey(item: PaletteItem): string {
+  if (item.kind === "header") return `header:${item.group.id}`;
+  if (item.kind === "row") return `row:${item.row.id}`;
+  if (item.kind === "skeleton") return `skeleton:${item.group}:${item.at}`;
+  return `more:${item.group}`;
+}
 
 function itemHeight(item: PaletteItem): number {
   if (item.kind === "header") return HEADER_HEIGHT;
@@ -159,6 +167,7 @@ export function CommandPalette({
     count: items.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: (index) => zoomed(itemHeight(items[index]!)),
+    getItemKey: (index) => composeItemKey(items[index]!),
     overscan: 8,
   });
 
@@ -325,8 +334,8 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
 
   if (item.kind === "more") {
     return (
-      <div className="flex h-full items-center pl-9 text-[0.6875rem] text-surface-500">
-        {item.rest} more
+      <div className="flex h-full items-center pl-9 text-meta text-surface-500">
+        and {item.rest} more…
       </div>
     );
   }
@@ -362,15 +371,13 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
           <MarkedText text={row.name} ranges={row.nameRanges} />
         </span>
         {row.path !== undefined && (
-          <span className="truncate font-mono text-[0.6875rem] text-surface-400">
+          <span className="truncate font-mono text-meta text-surface-400">
             <MarkedText text={row.path} ranges={row.pathRanges} />
           </span>
         )}
       </div>
 
-      {row.trailing && (
-        <span className="shrink-0 text-[0.6875rem] text-surface-400">{row.trailing}</span>
-      )}
+      {row.trailing && <span className="shrink-0 text-meta text-surface-400">{row.trailing}</span>}
     </div>
   );
 }
@@ -410,7 +417,8 @@ function flatten(groups: readonly PaletteGroupModel[]): PaletteItem[] {
     items.push({ kind: "header", group });
 
     if (group.rows.length === 0) {
-      for (let at = 0; at < SKELETON_ROWS; at += 1) items.push({ kind: "skeleton", at });
+      for (let at = 0; at < SKELETON_ROWS; at += 1)
+        items.push({ kind: "skeleton", group: group.id, at });
       continue;
     }
 
@@ -420,7 +428,7 @@ function flatten(groups: readonly PaletteGroupModel[]): PaletteItem[] {
     }
 
     const rest = (group.total ?? group.rows.length) - group.rows.length;
-    if (rest > 0) items.push({ kind: "more", rest });
+    if (rest > 0) items.push({ kind: "more", group: group.id, rest });
   }
   return items;
 }

@@ -7,7 +7,7 @@ import {
   previewDocument,
   readLegacyEditorSeed,
 } from "@/modules/workshop";
-import { EMPTY_EDITOR, useWorkshopEditorStore } from "@/stores/workshopEditor";
+import { EMPTY_EDITOR, type HistoryEntry, useWorkshopEditorStore } from "@/stores/workshopEditor";
 
 const A = "C:/mods/project-a";
 const B = "C:/mods/project-b";
@@ -52,7 +52,7 @@ function splitApart(projectPath: string): string {
 
 describe("workshopEditor store", () => {
   beforeEach(() => {
-    useWorkshopEditorStore.setState({ byProject: {} });
+    useWorkshopEditorStore.setState({ byProject: {}, history: [], historyIndex: -1 });
   });
 
   describe("setDocumentDirty", () => {
@@ -593,76 +593,129 @@ describe("workshopEditor store", () => {
     });
   });
   describe("the navigation history", () => {
-    /** The document ids the stack holds, oldest first, and where it stands. */
-    function historyOf(projectPath: string) {
-      const editor = editorOf(projectPath);
-      return {
-        ids: editor.history.map((entry) => entry.documentId),
-        at: editor.historyIndex,
-      };
+    /** Every stop, oldest first, and where the arrows stand. */
+    function historyOf() {
+      return { stops: store().history.map(stopName), at: store().historyIndex };
+    }
+
+    /** A stop as one string, so a project's own stops read apart from the grid's. */
+    function stopName(entry: HistoryEntry): string {
+      return entry.kind === "list" ? "list" : `${entry.project}/${entry.documentId}`;
     }
 
     it("records each document a route lands on", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, filesDocument("base"));
 
-      expect(historyOf(A)).toEqual({ ids: ["details", "files:base"], at: 1 });
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/files:base`], at: 1 });
     });
 
     it("records nothing when a route lands where it already stands", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, detailsDocument());
 
-      expect(historyOf(A)).toEqual({ ids: ["details"], at: 0 });
+      expect(historyOf()).toEqual({ stops: [`${A}/details`], at: 0 });
     });
 
-    it("keeps one stack per project", () => {
+    it("keeps one stack across the projects, so a back walks out of one", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(B, filesDocument("base"));
 
-      expect(historyOf(A).ids).toEqual(["details"]);
-      expect(historyOf(B).ids).toEqual(["files:base"]);
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${B}/files:base`], at: 1 });
+    });
+
+    it("records the grid, which is what a back out of a project lands on", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+
+      expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 1 });
+    });
+
+    it("records the grid once, however often the route reports it", () => {
+      store().recordListVisit();
+      store().recordListVisit();
+
+      expect(historyOf()).toEqual({ stops: ["list"], at: 0 });
+    });
+
+    it("keeps the forward stop when the grid a back reached reports itself", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+      store().navigateHistory(-1);
+
+      store().recordListVisit();
+
+      expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 0 });
     });
 
     it("activates what a back lands on, without recording it", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, filesDocument("base"));
 
-      store().navigateHistory(A, -1);
+      store().navigateHistory(-1);
 
       expect(activeTabOf(A, ROOT_LEAF)).toBe("details");
-      expect(historyOf(A)).toEqual({ ids: ["details", "files:base"], at: 0 });
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/files:base`], at: 0 });
+    });
+
+    it("hands back the stop it reached, which is what the router follows", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, filesDocument("base"));
+
+      expect(store().navigateHistory(-1)).toEqual({
+        kind: "document",
+        project: A,
+        documentId: "details",
+      });
+    });
+
+    it("hands back the grid, which routes rather than activating a tab", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+
+      expect(store().navigateHistory(-1)).toEqual({ kind: "list" });
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("details");
+    });
+
+    it("activates a stop in the project it belongs to, not the one on screen", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(B, gameDocument());
+
+      store().navigateHistory(-1);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("files:base");
+      expect(activeTabOf(B, ROOT_LEAF)).toBe("game");
     });
 
     it("walks forward again after a back", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, filesDocument("base"));
-      store().navigateHistory(A, -1);
+      store().navigateHistory(-1);
 
-      store().navigateHistory(A, 1);
+      store().navigateHistory(1);
 
       expect(activeTabOf(A, ROOT_LEAF)).toBe("files:base");
-      expect(historyOf(A).at).toBe(1);
+      expect(historyOf().at).toBe(1);
     });
 
     it("does nothing at either end of the stack", () => {
       store().openDocument(A, detailsDocument());
       const before = store().byProject;
 
-      store().navigateHistory(A, -1);
-      store().navigateHistory(A, 1);
-
+      expect(store().navigateHistory(-1)).toBeNull();
+      expect(store().navigateHistory(1)).toBeNull();
       expect(store().byProject).toBe(before);
     });
 
     it("drops the forward part on a move after a back", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, filesDocument("base"));
-      store().navigateHistory(A, -1);
+      store().navigateHistory(-1);
 
       store().openDocument(A, gameDocument());
 
-      expect(historyOf(A)).toEqual({ ids: ["details", "game"], at: 1 });
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/game`], at: 1 });
     });
 
     it("drops a closed document's stops, so a back never lands on a gone tab", () => {
@@ -672,7 +725,16 @@ describe("workshopEditor store", () => {
 
       store().closeDocument(A, ROOT_LEAF, "files:base");
 
-      expect(historyOf(A)).toEqual({ ids: ["details", "game"], at: 1 });
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/game`], at: 1 });
+    });
+
+    it("keeps another project's same-named stop when a close prunes one", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, detailsDocument());
+
+      store().closeDocument(B, ROOT_LEAF, "details");
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`], at: 0 });
     });
 
     it("keeps the arrows inside the stack once every stop behind them is gone", () => {
@@ -682,15 +744,33 @@ describe("workshopEditor store", () => {
       store().closeDocument(A, ROOT_LEAF, "details");
       store().closeDocument(A, ROOT_LEAF, "files:base");
 
-      expect(historyOf(A)).toEqual({ ids: [], at: -1 });
+      expect(historyOf()).toEqual({ stops: [], at: -1 });
     });
 
     it("records the document a focus of another group lands on", () => {
       const right = splitApart(A);
       store().focusLeaf(A, ROOT_LEAF);
 
-      expect(historyOf(A).ids).toEqual(["details", "files:base", "details"]);
+      expect(historyOf().stops).toEqual([`${A}/details`, `${A}/files:base`, `${A}/details`]);
       expect(right).not.toBe(ROOT_LEAF);
+    });
+
+    it("drops a deleted project's stops and leaves the rest standing", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, filesDocument("base"));
+
+      store().forgetProject(A);
+
+      expect(historyOf()).toEqual({ stops: ["list", `${B}/files:base`], at: 1 });
+    });
+
+    it("follows a renamed project, so the stops it left still reach it", () => {
+      store().openDocument(A, detailsDocument());
+
+      store().moveProject(A, B);
+
+      expect(historyOf()).toEqual({ stops: [`${B}/details`], at: 0 });
     });
   });
 });

@@ -7,6 +7,7 @@ import {
 import { useMemo } from "react";
 
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
+import type { WorkshopProject } from "@/lib/tauri";
 import type { EditorRegistry } from "@/modules/editor";
 
 import { LayerGlyph } from "../components/LayerGlyph";
@@ -30,81 +31,87 @@ import { DetailsDocument } from "./DetailsDocument";
 import { FilesDocument } from "./FilesDocument";
 import { StringsDocument } from "./StringsDocument";
 
-/** The editors the content surface can open, tab labels included. */
-export function useContentEditors(): EditorRegistry<ContentDocument> {
-  const project = useProjectContext();
-
-  return useMemo(
-    () => ({
-      details: {
-        icon: () => <PlayerTitleIcon className="h-4 w-4 shrink-0 text-doc-details-text" />,
-        label: () => ({ title: "Mod details", path: project.path }),
-        component: DetailsDocument,
-      },
-      files: {
-        icon: (document) => <LayerGlyph layerName={document.layerName} className="h-4 w-4" />,
-        label: (document) => ({
-          title: layerTitle(project, document.layerName),
-          path: `${project.path}/content/${document.layerName}`,
-        }),
-        component: FilesDocument,
-      },
-      strings: {
-        icon: () => <TranslateIcon className="h-4 w-4 shrink-0 text-doc-strings-text" />,
-        label: (document) => ({
-          title: document.locale,
-          context: layerTitle(project, document.layerName),
-        }),
-        component: StringsDocument,
-      },
-      problems: {
-        icon: () => <WarningDiamondIcon className="h-4 w-4 shrink-0 text-doc-problems-text" />,
-        label: () => ({ title: "Problems", path: project.path }),
-        component: ProblemsDocument,
-      },
-      game: {
-        icon: () => <LeagueIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
-        label: () => ({ title: "Game index" }),
-        component: GameDocument,
-      },
-      "game-wads": {
-        icon: () => <FilesIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
-        label: () => ({ title: "Game WADs" }),
-        component: GameWadsDocument,
-      },
-      "game-wad": {
-        icon: () => <FileArchiveIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
-        label: (document) => ({
-          title: wadBasename(document.wadName),
-          path: document.wadName,
-        }),
-        component: GameWadDocument,
-        tabMenu: (document) => <GameWadTabMenu wadName={document.wadName} />,
-      },
-      preview: {
-        icon: (document) => <PreviewGlyph title={document.title} />,
-        label: (document) => ({
-          title: document.title,
-          context: document.context,
-          /* A tab restored from a file written before the field existed derives
+/**
+ * The editors the content surface can open, tab labels included.
+ *
+ * Takes the project rather than reading it, because a label is answered for
+ * whichever project holds the document. The navigation history spans the
+ * workshop, so a stop is titled by the project it sits in and not by the one on
+ * screen - `layerTitle` against the wrong project names the wrong layer.
+ */
+export function contentEditors(project: WorkshopProject): EditorRegistry<ContentDocument> {
+  return {
+    details: {
+      icon: () => <PlayerTitleIcon className="h-4 w-4 shrink-0 text-doc-details-text" />,
+      label: () => ({ title: "Mod details", path: project.path }),
+      component: DetailsDocument,
+    },
+    files: {
+      icon: (document) => <LayerGlyph layerName={document.layerName} className="h-4 w-4" />,
+      label: (document) => ({
+        title: layerTitle(project, document.layerName),
+        path: `${project.path}/content/${document.layerName}`,
+      }),
+      component: FilesDocument,
+    },
+    strings: {
+      icon: () => <TranslateIcon className="h-4 w-4 shrink-0 text-doc-strings-text" />,
+      label: (document) => ({
+        title: document.locale,
+        context: layerTitle(project, document.layerName),
+      }),
+      component: StringsDocument,
+    },
+    problems: {
+      icon: () => <WarningDiamondIcon className="h-4 w-4 shrink-0 text-doc-problems-text" />,
+      label: () => ({ title: "Problems", path: project.path }),
+      component: ProblemsDocument,
+    },
+    game: {
+      icon: () => <LeagueIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      label: () => ({ title: "Game index" }),
+      component: GameDocument,
+    },
+    "game-wads": {
+      icon: () => <FilesIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      label: () => ({ title: "Game WADs" }),
+      component: GameWadsDocument,
+    },
+    "game-wad": {
+      icon: () => <FileArchiveIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      label: (document) => ({
+        title: wadBasename(document.wadName),
+        path: document.wadName,
+      }),
+      component: GameWadDocument,
+      tabMenu: (document) => <GameWadTabMenu wadName={document.wadName} />,
+    },
+    preview: {
+      icon: (document) => <PreviewGlyph title={document.title} />,
+      label: (document) => ({
+        title: document.title,
+        context: document.context,
+        /* A tab restored from a file written before the field existed derives
              one, which costs the resolved chunk path and nothing else. */
-          path: document.path ?? assetPath(document.asset),
-        }),
-        component: PreviewDocument,
-        tabMenu: (document) => {
-          /* A layer file and a loose file are on disk already, so only a game
+        path: document.path ?? assetPath(document.asset),
+      }),
+      component: PreviewDocument,
+      tabMenu: (document) => {
+        /* A layer file and a loose file are on disk already, so only a game
              chunk has anywhere to go. */
-          if (document.asset.kind !== "gameChunk") return null;
-          return <PreviewTabMenu document={document} />;
-        },
+        if (document.asset.kind !== "gameChunk") return null;
+        return <PreviewTabMenu document={document} />;
       },
-    }),
-    [project],
-  );
+    },
+  };
 }
 
-/* A right click on the tab is the route to the whole archive that the tab's
-   own tree cannot carry: the archive level is the tab, so no row stands for it. */
+/** The registry of the project the caller is mounted inside. */
+export function useContentEditors(): EditorRegistry<ContentDocument> {
+  const project = useProjectContext();
+  return useMemo(() => contentEditors(project), [project]);
+}
+
 function GameWadTabMenu({ wadName }: { wadName: string }) {
   const { run } = useExtractActions();
 

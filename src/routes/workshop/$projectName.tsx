@@ -1,7 +1,7 @@
 import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { Button, Toolbar } from "@/components";
+import { Button } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
 import {
   ContentBrowser,
@@ -10,8 +10,6 @@ import {
   ExtractRunner,
   LoadingState,
   PackDialog,
-  ProjectHeader,
-  ProjectProvider,
   useEditorPersistence,
   useWorkshopProjects,
 } from "@/modules/workshop";
@@ -44,31 +42,18 @@ function ProjectDetail() {
   }
 
   return (
-    <ProjectProvider project={project}>
-      <div data-ui="ProjectDetail" className="flex h-full flex-col">
-        <Toolbar className="border-surface-700/50">
-          <ProjectHeader project={project} />
-        </Toolbar>
-
-        {/* The fold is one surface, so the editor and its sidebar share a frame and
-            round together against the ground: DS-GROUND. */}
-        <div
-          data-ui="ProjectDetail:fold"
-          className="min-h-0 flex-1 overflow-hidden rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900"
-        >
-          {/* The editor holds one project, so another one is a fresh editor and
-              not this one re-pointed. The route reuses this component across a
-              change of param, and document ids repeat between projects, so
-              without the key a pane carries its scroll and focus over. */}
-          <HydratedContentBrowser key={project.path} project={project} />
-        </div>
-      </div>
+    <>
+      {/* The editor holds one project, so another one is a fresh editor and
+          not this one re-pointed. The route reuses this component across a
+          change of param, and document ids repeat between projects, so
+          without the key a pane carries its scroll and focus over. */}
+      <HydratedContentBrowser key={project.path} project={project} />
 
       <PackDialog />
       <DeleteConfirmDialog />
       <ExtractDialog />
       <ExtractRunner />
-    </ProjectProvider>
+    </>
   );
 }
 

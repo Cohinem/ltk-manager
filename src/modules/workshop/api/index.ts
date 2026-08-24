@@ -18,6 +18,7 @@ export { usePackProject } from "./usePackProject";
 export { usePeekFantome } from "./usePeekFantome";
 export { useProjectActions } from "./useProjectActions";
 export { projectContentTreeOptions, useProjectContentTree } from "./useProjectContentTree";
+export { type ProjectImports, useProjectImports } from "./useProjectImports";
 export { projectProblemsOptions, useProjectProblems } from "./useProjectProblems";
 export { projectThumbnailOptions, useProjectThumbnail } from "./useProjectThumbnail";
 export { useRemoveProjectThumbnail } from "./useRemoveProjectThumbnail";

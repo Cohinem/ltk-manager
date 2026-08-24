@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-import type { ViewMode } from "@/modules/workshop";
+/** How the workshop draws its projects, as cards or as rows. */
+export type ViewMode = "grid" | "list";
 
 interface WorkshopViewStore {
   viewMode: ViewMode;

@@ -10,20 +10,27 @@ import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
+import { useWorkshopDialogsStore, useWorkshopSelectionStore, type ViewMode } from "@/stores";
 
 import { useProjectThumbnail } from "../api/useProjectThumbnail";
 import { useTestProjects } from "../api/useTestProject";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
-import type { ViewMode } from "./WorkshopToolbar";
 
 interface ProjectCardProps {
   project: WorkshopProject;
   viewMode: ViewMode;
   onEdit: (project: WorkshopProject) => void;
+  /** The grid's roving stop, so `0` on the one card the tab order reaches. */
+  tabIndex: number;
 }
 
-export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
+/* Accent-500 rather than the dimmed one the pointer gets: DS-HOVER. */
+const FOCUS_RING = "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none";
+
+/* The grid draws on the ground, so a card is the default raised surface over
+   it: DS-GROUND. */
+
+export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCardProps) {
   const { data: thumbnailUrl } = useProjectThumbnail(project.path, project.thumbnailPath);
 
   const selected = useWorkshopSelectionStore((s) => s.selectedPaths.has(project.path));
@@ -97,8 +104,12 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   if (viewMode === "list") {
     return (
       <div
+        role="button"
+        tabIndex={tabIndex}
+        aria-label={project.displayName}
         className={twMerge(
-          "group flex cursor-pointer items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-accent-hover hover:shadow-md",
+          "group flex cursor-pointer items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-[background-color,border-color] duration-150 ease-out hover:border-accent-hover hover:bg-surface-800",
+          FOCUS_RING,
           listBorderClass,
           isPatcherActive && !isTestingThis && "opacity-50",
         )}
@@ -113,7 +124,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
           />
         </div>
 
-        <div className="relative h-12 w-21 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-surface-700 to-surface-800">
+        <div className="relative h-12 w-21 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-surface-600 to-surface-700">
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
@@ -205,8 +216,12 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
 
   return (
     <div
+      role="button"
+      tabIndex={tabIndex}
+      aria-label={project.displayName}
       className={twMerge(
-        "group relative cursor-pointer rounded-xl border bg-surface-900 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-accent-hover hover:bg-surface-800/80 hover:shadow-md",
+        "group relative cursor-pointer rounded-xl border bg-surface-900 transition-[background-color,border-color] duration-150 ease-out hover:border-accent-hover hover:bg-surface-800",
+        FOCUS_RING,
         gridBorderClass,
         isPatcherActive && !isTestingThis && "opacity-50",
       )}
@@ -230,7 +245,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
         />
       </div>
 
-      <div className="relative aspect-video overflow-hidden rounded-t-xl bg-linear-to-br from-surface-700 to-surface-800">
+      <div className="relative aspect-video overflow-hidden rounded-t-xl bg-linear-to-br from-surface-600 to-surface-700">
         {thumbnailUrl ? (
           <img src={thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (

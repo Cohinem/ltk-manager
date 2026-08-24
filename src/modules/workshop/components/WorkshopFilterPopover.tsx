@@ -29,7 +29,8 @@ import {
 } from "@/modules/library";
 import { useHasActiveWorkshopFilters, useWorkshopFilterStore } from "@/stores";
 
-import type { WorkshopFilterOptions } from "../api/useFilterOptions";
+import { useWorkshopFilterOptions } from "../api/useFilterOptions";
+import { useWorkshopProjects } from "../api/useWorkshopProjects";
 import { WorkshopSortDirectionToggle, WorkshopSortOptions } from "./WorkshopSortOptions";
 
 function mergeUnique(wellKnown: string[], fromProjects: string[]): string[] {
@@ -44,13 +45,16 @@ function mergeUnique(wellKnown: string[], fromProjects: string[]): string[] {
   return result;
 }
 
-interface WorkshopFilterPopoverProps {
-  filterOptions: WorkshopFilterOptions;
-  /** Merged onto the trigger, so the caller can seat it inside a field. */
-  className?: string;
+/** How the grid is sorted, and which projects it is showing. */
+export interface WorkshopFilterPopoverProps {
+  /** Reported so the bar it hangs off knows it is still being used. */
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function WorkshopFilterPopover({ filterOptions, className }: WorkshopFilterPopoverProps) {
+export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverProps) {
+  const { data: projects = [] } = useWorkshopProjects();
+  const filterOptions = useWorkshopFilterOptions(projects);
+
   const {
     selectedTags,
     selectedChampions,
@@ -80,7 +84,7 @@ export function WorkshopFilterPopover({ filterOptions, className }: WorkshopFilt
   }, [filterOptions.champions, champSearch]);
 
   return (
-    <Popover.Root>
+    <Popover.Root onOpenChange={onOpenChange}>
       <Tooltip content="Sort and filter projects">
         <Popover.Trigger
           render={
@@ -94,9 +98,9 @@ export function WorkshopFilterPopover({ filterOptions, className }: WorkshopFilt
                 </div>
               }
               variant="ghost"
-              size="sm"
+              size="xs"
+              compact
               aria-label="Sort and filter projects"
-              className={className}
             />
           }
         />

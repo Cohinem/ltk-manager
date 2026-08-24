@@ -4,7 +4,14 @@ import type { ContentDocument } from "../documents";
 import type { MatchRange } from "./matcher";
 
 /** Where a palette row came from, which is also the group it lands in. */
-export type PaletteSourceId = "documents" | "files" | "layers" | "strings" | "commands" | "game";
+export type PaletteSourceId =
+  | "projects"
+  | "documents"
+  | "files"
+  | "layers"
+  | "strings"
+  | "commands"
+  | "game";
 
 /**
  * One action the project bar can run.
@@ -34,6 +41,11 @@ export interface ProjectCommand {
  * because a project of a few thousand files builds one of these per file.
  */
 export type PaletteTarget =
+  | {
+      readonly kind: "project";
+      /** The slug the route takes, which is the directory rather than the title. */
+      readonly name: string;
+    }
   | { readonly kind: "layerFile"; readonly layerName: string; readonly path: string }
   | {
       readonly kind: "gameChunk";
@@ -92,6 +104,18 @@ export interface PaletteCandidate extends PaletteRowData {
   readonly fullLower: string;
   readonly mask: number;
 }
+
+/**
+ * What each locally-matched source contributes, source by source.
+ *
+ * Partial because a context holds only the sources it has: the workshop's own
+ * surface carries commands and no files. The game is absent from every one of
+ * them, because its rows are ranked in Rust and reach the bar already grouped,
+ * through `useGameRows`.
+ */
+export type PaletteCandidates = Partial<
+  Readonly<Record<Exclude<PaletteSourceId, "game">, readonly PaletteCandidate[]>>
+>;
 
 /** A row that matched, with what it marks and how it sorts against its group. */
 export interface RankedRow {

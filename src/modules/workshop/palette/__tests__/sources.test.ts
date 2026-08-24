@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { PALETTE_SOURCES, paletteSource, parseQuery, prefixScope } from "../sources";
+import {
+  PALETTE_SOURCES,
+  paletteSource,
+  parseQuery,
+  prefixScope,
+  PROJECT_SOURCES,
+  WORKSHOP_SOURCES,
+} from "../sources";
 
 describe("prefixScope", () => {
   it("names the source a leading prefix asks for", () => {
@@ -16,9 +23,23 @@ describe("prefixScope", () => {
     expect(prefixScope("aatrox")).toBeNull();
   });
 
+  it("reaches the projects by either of the two characters that name them", () => {
+    expect(prefixScope("/aatrox")).toBe("projects");
+    expect(prefixScope("~aatrox")).toBe("projects");
+  });
+
   it("gives every prefix to exactly one source", () => {
-    const prefixes = PALETTE_SOURCES.flatMap((source) => source.prefix ?? []);
+    const prefixes = PALETTE_SOURCES.flatMap((source) => [
+      ...(source.prefix ?? []),
+      ...(source.altPrefix ?? []),
+    ]);
     expect(new Set(prefixes).size).toBe(prefixes.length);
+  });
+
+  it("names an alias only where the source also carries a primary", () => {
+    for (const source of PALETTE_SOURCES) {
+      if (source.altPrefix !== undefined) expect(source.prefix).toBeDefined();
+    }
   });
 });
 
@@ -53,5 +74,23 @@ describe("paletteSource", () => {
     for (const source of PALETTE_SOURCES) {
       expect(paletteSource(source.id)).toBe(source);
     }
+  });
+});
+
+describe("the source lists", () => {
+  it("gives a project every source there is", () => {
+    expect(PROJECT_SOURCES).toEqual(PALETTE_SOURCES.map((source) => source.id));
+  });
+
+  it("keeps the game off the workshop's own surface, where no row could open", () => {
+    expect(WORKSHOP_SOURCES).not.toContain("game");
+  });
+
+  it("gives the workshop the projects, which is what a prefix reaches there", () => {
+    expect(WORKSHOP_SOURCES).toContain("projects");
+  });
+
+  it("names only sources that exist", () => {
+    for (const id of WORKSHOP_SOURCES) expect(() => paletteSource(id)).not.toThrow();
   });
 });
