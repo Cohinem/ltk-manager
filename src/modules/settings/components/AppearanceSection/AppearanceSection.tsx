@@ -48,17 +48,15 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
         action={<ResetAppearanceButton />}
         panelClassName="relative"
       >
-        <SettingGroup id="color" title="Color">
+        <SettingGroup id="appearance.color" title="Color">
           <SettingRow
             kind="action"
-            title="Theme"
             setting="theme"
             control={<ThemePicker settings={settings} onSave={onSave} />}
           />
 
           <SettingRow
             kind="action"
-            title="Accent color"
             setting="accentColor"
             hint="The last swatch opens a hue slider for a color of your own."
             control={<AccentColorPicker settings={settings} onSave={onSave} />}
@@ -66,7 +64,6 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
 
           <SettingRow
             kind="action"
-            title="Surface tint"
             setting="display.surfaceTint"
             description="How much of the accent color carries into panels and backgrounds."
             hint="At 0% every surface is a neutral grey and only the accent itself holds color."
@@ -75,10 +72,9 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
           />
         </SettingGroup>
 
-        <SettingGroup id="shape-and-scale" title="Shape and scale">
+        <SettingGroup id="appearance.shape-and-scale" title="Shape and scale">
           <SettingRow
             kind="action"
-            title="Corners"
             setting="display.cornerStyle"
             description="How rounded every panel, button and card is."
             control={<CornerStylePicker />}
@@ -86,7 +82,6 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
 
           <SettingRow
             kind="action"
-            title="Zoom level"
             setting="display.zoomLevel"
             description="Scales the whole interface."
             hint="Click the percentage to type an exact level. Ctrl+Plus and Ctrl+Minus step the zoom from anywhere, and Ctrl+0 returns to 100%."
@@ -95,27 +90,20 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
           />
         </SettingGroup>
 
-        <SettingGroup id="text" title="Text">
-          <SettingRow
-            kind="action"
-            title="Interface font"
-            setting="display.sansFont"
-            control={<InterfaceFontPicker />}
-          />
+        <SettingGroup id="appearance.text" title="Text">
+          <SettingRow kind="action" setting="display.sansFont" control={<InterfaceFontPicker />} />
 
           <SettingRow
             kind="action"
-            title="Code font"
             setting="display.monoFont"
             hint="Each face is measured against the interface font so the two sit level."
             control={<CodeFontPicker />}
           />
         </SettingGroup>
 
-        <SettingGroup id="motion" title="Motion">
+        <SettingGroup id="appearance.motion" title="Motion">
           <SettingRow
             kind="action"
-            title="Reduce motion"
             setting="display.reduceMotion"
             hint="System follows your OS preference. On disables animations, off always animates."
             control={<ReduceMotionPicker />}
@@ -123,7 +111,6 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
 
           <SettingRow
             kind="action"
-            title="Scrolling"
             setting="display.scrollMode"
             hint="Spring rubber-bands when a list is pushed past its end."
             control={<ScrollModePicker />}
@@ -131,14 +118,13 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
 
           <SettingRow
             kind="action"
-            title="Scrollbars"
             setting="display.scrollbarSize"
             description="How thick every scrollbar draws."
             control={<ScrollbarSizePicker />}
           />
         </SettingGroup>
 
-        <SettingGroup id="backdrop" title="Backdrop">
+        <SettingGroup id="appearance.backdrop" title="Backdrop">
           <BackdropImagePicker settings={settings} onSave={onSave} />
         </SettingGroup>
 

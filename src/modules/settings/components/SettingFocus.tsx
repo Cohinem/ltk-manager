@@ -13,6 +13,8 @@ import { twMerge } from "tailwind-merge";
 
 import { useReducedMotion } from "@/hooks";
 
+import { settingFocusTab } from "../settingsIndex";
+
 /** How long the mark holds before it fades. */
 const MARK_MS = 2000;
 
@@ -20,7 +22,7 @@ const MARK_MS = 2000;
 const MARK_RING = "ring-2 ring-accent-500/40 ring-offset-4 ring-offset-surface-900";
 
 interface SettingFocus {
-  /** The group id or setting key `?focus=` named, until something has marked it. */
+  /** The public id `?focus=` named, until the group or row carrying it has marked itself. */
   target: string | null;
   redirect: (id: string) => void;
   release: () => void;
@@ -49,9 +51,13 @@ export function SettingFocusProvider({ children }: SettingFocusProviderProps) {
 
   useEffect(() => {
     if (!focus) return;
-    /* Dropped from the URL as soon as it is read, so a refresh does not re-flash a mark
-       and Back does not walk two spellings of the same page. */
-    void navigate({ search: (prev) => ({ ...prev, focus: undefined }), replace: true });
+    /* The id's namespace answers which tab holds the target, so one param settles
+       both and a link carries one name. Dropping focus as it is read keeps a refresh
+       from re-flashing a mark, and Back from walking two spellings of the same page. */
+    void navigate({
+      search: (prev) => ({ ...prev, tab: settingFocusTab(focus), focus: undefined }),
+      replace: true,
+    });
   }, [focus, navigate]);
 
   const value = useMemo<SettingFocus>(

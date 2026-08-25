@@ -12,6 +12,18 @@ export const SETTINGS_TABS = [
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
+/** What a tab is called, wherever it is named away from the rail that draws it. */
+export const SETTINGS_TAB_LABELS: Record<SettingsTab, string> = {
+  general: "General",
+  library: "Library",
+  workshop: "Workshop",
+  patching: "Patching",
+  cache: "Cache",
+  hotkeys: "Hotkeys",
+  appearance: "Appearance",
+  about: "About",
+};
+
 export const DEFAULT_SETTINGS_TAB: SettingsTab = "general";
 
 /** A link that outlived the tab it named falls back to the default rather than blanking the page. */

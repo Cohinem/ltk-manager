@@ -1,10 +1,11 @@
-import { ArrowCounterClockwiseIcon, GearSixIcon } from "@phosphor-icons/react";
+import { ArrowCounterClockwiseIcon, CopyIcon, GearSixIcon } from "@phosphor-icons/react";
 import { type MouseEvent, type ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Menu } from "@/components";
+import { useCopyToClipboard } from "@/hooks";
 
-import type { SettingKey } from "../settingKey";
+import { type IndexedSettingKey, settingEntry } from "../settingsIndex";
 import { useSettingDefault } from "./SettingScope";
 
 /** Positions the menu where the pointer was, for a right-click on the row. */
@@ -13,7 +14,7 @@ interface PointerAnchor {
 }
 
 interface SettingGutterProps {
-  setting?: SettingKey;
+  setting?: IndexedSettingKey;
   className?: string;
   children: ReactNode;
 }
@@ -21,13 +22,17 @@ interface SettingGutterProps {
 /**
  * The gear and the modified bar in the column left of one row.
  *
- * A row whose key can never be reset draws neither, so the gutter stays empty
- * beside the paths, the lists and the author profiles.
+ * The gear belongs to every row the index carries, because an id is worth
+ * copying whether or not the value behind it can be put back. A row with no key
+ * is an action, and it draws neither.
  */
 export function SettingGutter({ setting, className, children }: SettingGutterProps) {
   const { resettable, changed, label, reset } = useSettingDefault(setting);
+  const copy = useCopyToClipboard();
   const [open, setOpen] = useState(false);
   const [pointer, setPointer] = useState<PointerAnchor | null>(null);
+
+  const entry = setting === undefined ? undefined : settingEntry(setting);
 
   function openAtPointer(event: MouseEvent) {
     event.preventDefault();
@@ -36,7 +41,7 @@ export function SettingGutter({ setting, className, children }: SettingGutterPro
     setOpen(true);
   }
 
-  if (!resettable) {
+  if (!entry) {
     return <div className={twMerge("relative", className)}>{children}</div>;
   }
 
@@ -60,7 +65,7 @@ export function SettingGutter({ setting, className, children }: SettingGutterPro
           /* Untabbed: 45 rows would otherwise double the page's tab order with a
              menu nobody opened. The keyboard path is a right-click on the row. */
           tabIndex={-1}
-          aria-label="Setting actions"
+          aria-label={`Actions for ${entry.title}`}
           onClick={() => setPointer(null)}
           className={twMerge(
             "absolute top-0.5 -left-7 flex h-5 w-5 items-center justify-center rounded-md",
@@ -78,18 +83,27 @@ export function SettingGutter({ setting, className, children }: SettingGutterPro
       <Menu.Portal>
         <Menu.Positioner side="bottom" align="start" anchor={pointer ?? undefined}>
           <Menu.Popup>
-            <Menu.Item
-              disabled={!changed}
-              icon={<ArrowCounterClockwiseIcon className="h-4 w-4" />}
-              onClick={reset}
-            >
-              Reset setting
-            </Menu.Item>
+            {resettable && (
+              <Menu.Item
+                disabled={!changed}
+                icon={<ArrowCounterClockwiseIcon className="h-4 w-4" />}
+                onClick={reset}
+              >
+                Reset setting
+              </Menu.Item>
+            )}
             {label && (
               <div className="px-2 pt-1 pb-0.5 text-xs text-surface-400 select-none">
                 Default: {label}
               </div>
             )}
+            {resettable && <Menu.Separator />}
+            <Menu.Item
+              icon={<CopyIcon className="h-4 w-4" />}
+              onClick={() => void copy(entry.id, "setting ID")}
+            >
+              Copy setting ID
+            </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

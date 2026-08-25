@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button, ButtonGroup, IconButton, SectionCard, Switch, useToast } from "@/components";
 import { api, isErr, type Settings } from "@/lib/tauri";
 
-import type { SettingKey } from "../settingKey";
+import type { IndexedSettingKey } from "../settingsIndex";
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
 
@@ -23,7 +23,6 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
 
       <SettingRows>
         <HotkeyRow
-          title="Hot reload mods"
           setting="reloadModsHotkey"
           description="Stop patcher, kill League, rebuild overlay, and restart the patcher with fresh mod files."
           value={settings.reloadModsHotkey ?? null}
@@ -35,7 +34,6 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
         />
 
         <HotkeyRow
-          title="Kill League"
           setting="killLeagueHotkey"
           description="Force-close the League of Legends process."
           value={settings.killLeagueHotkey ?? null}
@@ -47,7 +45,6 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
         />
 
         <SettingRow
-          title="Kill League stops patcher"
           setting="killLeagueStopsPatcher"
           description="When the Kill League hotkey is pressed, also stop the patcher."
           control={
@@ -65,14 +62,13 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
 }
 
 interface HotkeyRowProps {
-  title: string;
-  setting: SettingKey;
+  setting: IndexedSettingKey;
   description: string;
   value: string | null;
   onSet: (accelerator: string | null) => Promise<void>;
 }
 
-function HotkeyRow({ title, setting, description, value, onSet }: HotkeyRowProps) {
+function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const toast = useToast();
@@ -146,7 +142,6 @@ function HotkeyRow({ title, setting, description, value, onSet }: HotkeyRowProps
   return (
     <SettingRow
       kind="action"
-      title={title}
       setting={setting}
       description={description}
       control={

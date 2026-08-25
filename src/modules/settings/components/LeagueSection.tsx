@@ -83,11 +83,10 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
 
   return (
     <SectionCard title="League of Legends" icon={<LeagueIcon className="h-5 w-5" />}>
-      <SettingGroup id="installation" title="Installation">
+      <SettingGroup id="general.installation" title="Installation">
         <SettingRow
           kind="action"
           layout="stacked"
-          title="Installation path"
           setting="leaguePath"
           control={
             <PathField
@@ -116,11 +115,10 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
         />
       </SettingGroup>
 
-      <SettingGroup id="launching" title="Launching">
+      <SettingGroup id="general.launching" title="Launching">
         <SettingRow
           kind="action"
           layout="stacked"
-          title="Launcher flow"
           setting="launchMode"
           description="Whichever you pick, the other action stays on the button's menu."
           control={
@@ -146,7 +144,6 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
         />
 
         <SettingRow
-          title="Hide Riot Client on Game start"
           setting="hideRiotClientOnLaunch"
           hint={HIDE_RIOT_CLIENT_HINT}
           control={
@@ -160,7 +157,6 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
         />
 
         <SettingRow
-          title="Stop the patcher when the game ends"
           setting="stopPatcherOnSessionEnd"
           hint={STOP_PATCHER_HINT}
           control={

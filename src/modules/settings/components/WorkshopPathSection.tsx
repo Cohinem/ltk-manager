@@ -16,7 +16,6 @@ export function WorkshopPathSection({ settings, onSave }: WorkshopPathSectionPro
       <SettingRow
         kind="action"
         layout="stacked"
-        title="Workshop directory"
         setting="workshopPath"
         description="Where your mod projects are stored for the Creator Workshop. This directory holds all your project folders."
         control={

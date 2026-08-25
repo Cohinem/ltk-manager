@@ -21,6 +21,7 @@ import {
   LibrarySection,
   PatchingSection,
   SettingFocusProvider,
+  SETTINGS_TAB_LABELS,
   type SettingsTab,
   useAppInfo,
   useSaveSettings,
@@ -33,15 +34,15 @@ const routeApi = getRouteApi("/settings");
 const tabClass =
   "flex items-center gap-2.5 text-left text-base data-active:bg-accent-500/15 data-active:text-accent-300";
 
-const TABS: { value: SettingsTab; label: string; icon: ReactNode }[] = [
-  { value: "general", label: "General", icon: <GearIcon className="h-5 w-5 shrink-0" /> },
-  { value: "library", label: "Library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
-  { value: "workshop", label: "Workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
-  { value: "patching", label: "Patching", icon: <PatcherIcon className="h-5 w-5 shrink-0" /> },
-  { value: "cache", label: "Cache", icon: <DatabaseIcon className="h-5 w-5 shrink-0" /> },
-  { value: "hotkeys", label: "Hotkeys", icon: <KeyboardIcon className="h-5 w-5 shrink-0" /> },
-  { value: "appearance", label: "Appearance", icon: <PaletteIcon className="h-5 w-5 shrink-0" /> },
-  { value: "about", label: "About", icon: <InfoIcon className="h-5 w-5 shrink-0" /> },
+const TABS: { value: SettingsTab; icon: ReactNode }[] = [
+  { value: "general", icon: <GearIcon className="h-5 w-5 shrink-0" /> },
+  { value: "library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
+  { value: "workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
+  { value: "patching", icon: <PatcherIcon className="h-5 w-5 shrink-0" /> },
+  { value: "cache", icon: <DatabaseIcon className="h-5 w-5 shrink-0" /> },
+  { value: "hotkeys", icon: <KeyboardIcon className="h-5 w-5 shrink-0" /> },
+  { value: "appearance", icon: <PaletteIcon className="h-5 w-5 shrink-0" /> },
+  { value: "about", icon: <InfoIcon className="h-5 w-5 shrink-0" /> },
 ];
 
 export function Settings() {
@@ -83,7 +84,7 @@ export function Settings() {
           {TABS.map((item) => (
             <Tabs.Tab key={item.value} variant="pills" value={item.value} className={tabClass}>
               {item.icon}
-              {item.label}
+              {SETTINGS_TAB_LABELS[item.value]}
             </Tabs.Tab>
           ))}
         </Tabs.List>

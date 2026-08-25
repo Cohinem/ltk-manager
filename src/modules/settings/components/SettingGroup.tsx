@@ -42,7 +42,7 @@ function SettingGroupReset() {
 }
 
 interface SettingGroupProps {
-  /** Stable, kebab-case, and unique inside its tab, because `?focus=` addresses it. */
+  /** Stable and namespaced by its tab, `patching.mod-safety`, because `?focus=` addresses it. */
   id: string;
   /** A noun of one or two words. It labels a band, and it does not instruct. */
   title: string;

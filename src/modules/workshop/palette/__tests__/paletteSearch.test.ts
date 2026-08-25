@@ -46,6 +46,21 @@ const layers = [
   }),
 ];
 
+const settings = [
+  buildCandidate({
+    id: "setting:appearance.theme",
+    source: "settings",
+    name: "Theme",
+    path: "Appearance",
+    keywords: "appearance.theme",
+    icon: null,
+    target: {
+      kind: "command",
+      command: { id: "appearance.theme", title: "Theme", group: "Settings", run: () => {} },
+    },
+  }),
+];
+
 const projects = [
   buildCandidate({
     id: "project:settings-demo",
@@ -171,5 +186,28 @@ describe("the empty listing", () => {
     );
 
     expect(result.current[0]!.rows).toHaveLength(projects.length);
+  });
+});
+
+describe("the settings source", () => {
+  /* Forty-five rows would bury the handful of commands someone opened the bar
+     to read, so nothing lists them until a query says what to look for. */
+  it("stays out of a resting listing", () => {
+    expect([...sourcesOf("", WORKSHOP_SOURCES, { commands, projects, settings })]).not.toContain(
+      "settings",
+    );
+  });
+
+  it("answers a typed query on either surface", () => {
+    expect(sourcesOf("theme", WORKSHOP_SOURCES, { settings })).toEqual(new Set(["settings"]));
+    expect(sourcesOf("theme", PROJECT_SOURCES, { settings })).toEqual(new Set(["settings"]));
+  });
+
+  /* The id is the one name a reader who already knows the setting would type,
+     and it is not on screen for a match to mark. */
+  it("matches the public id as a keyword", () => {
+    expect(sourcesOf("appearance.theme", WORKSHOP_SOURCES, { settings })).toEqual(
+      new Set(["settings"]),
+    );
   });
 });

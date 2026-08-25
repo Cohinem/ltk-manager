@@ -39,4 +39,5 @@ export { useGlobalCommands } from "./useGlobalCommands";
 export { type PaletteSearchParams, usePaletteSearch } from "./usePaletteSearch";
 export { useProjectCandidates } from "./useProjectCandidates";
 export { useProjectCommands } from "./useProjectCommands";
+export { useSettingRows } from "./useSettingRows";
 export { WorkshopBar } from "./WorkshopBar";

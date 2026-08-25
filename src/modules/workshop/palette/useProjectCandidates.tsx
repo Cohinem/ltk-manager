@@ -17,6 +17,7 @@ import { buildCandidate, buildCommandCandidate } from "./candidate";
 import { useProjectRows } from "./projectRows";
 import type { PaletteCandidate, PaletteCandidates } from "./types";
 import { useProjectCommands } from "./useProjectCommands";
+import { useSettingRows } from "./useSettingRows";
 
 const NONE: readonly PaletteCandidate[] = [];
 
@@ -39,6 +40,7 @@ export function useProjectCandidates(): PaletteCandidates {
     layers: useLayerCandidates(),
     strings: useStringCandidates(),
     commands: useCommandCandidates(),
+    settings: useSettingRows(),
   };
 }
 

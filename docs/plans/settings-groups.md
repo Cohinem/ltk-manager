@@ -1,6 +1,6 @@
 # Settings Groups — Implementation Plan
 
-> Status: **phases 1 to 3 and 4a shipped** (2026-08-25). Phases 4b and 4c planned.
+> Status: **phases 1 to 4b shipped** (2026-08-25). Phase 4c planned.
 >
 > Design source: `docs/ux/SETTINGS.md` — [The levels](../ux/SETTINGS.md#the-levels),
 > [Anatomy](../ux/SETTINGS.md#anatomy), [How a group draws](../ux/SETTINGS.md#how-a-group-draws),
@@ -10,7 +10,8 @@
 >
 > Feature rows this closes: **The group**, **Group ids**, **`get_default_settings`**,
 > **The gutter gear**, **The modified bar**, **The group reset**, **The tab in the URL**,
-> **The focus anchor**, **`DS-SETTING-LEVEL`**, **`DS-SETTING-GUTTER`**.
+> **The focus anchor**, **The setting index**, **The public setting id**, **Copy setting ID**,
+> **Settings in the palette**, **`DS-SETTING-LEVEL`**, **`DS-SETTING-GUTTER`**.
 >
 > Phase 4 was redesigned on 2026-08-25 against the VS Code settings editor, and split into
 > 4a, 4b and 4c. The revert marker never shipped - a gutter gear took its place, because a
@@ -359,7 +360,8 @@ save, so resetting eight rows is one write rather than eight.
 ### 5.4 The gear
 
 `SettingGutter` wraps one row and owns the whole gutter concern: the gear, the modified bar, and the
-menu behind both. A row whose key has no format renders the wrapper and nothing in it.
+menu behind both. In 4a a row whose key had no format rendered the wrapper and nothing in it - 4b
+moved the gear onto every addressable row, and left the bar where it is.
 
 The menu is one controlled `Menu.Root` rather than a `ContextMenu`. The gear is its trigger, and a
 right-click on the row opens the same popup against a virtual anchor at the pointer. `ContextMenu`
@@ -385,21 +387,66 @@ Resetting `Background image` writes `backdropImage` and `backdropBlur` in the sa
 
 ## 6. Phase 4b — the index and the identity
 
-Branch `settings-index`. Planned.
+Branch `settings-index`. Shipped.
 
-- `settingsIndex.ts`: one entry per keyed row, holding the public id, the `SettingKey`, the tab and
-  the title. The 45 rows drop their `title` prop and read it from the index
-- The public id is tab-namespaced and permanent: `general.autoRun`, `appearance.theme`. It is what
-  `?focus=` takes from here on, so the tab lives inside the id and a link carries one param
-- An id that does not resolve lands on its namespace's tab with nothing marked. A junk namespace
-  falls back to General, which is phase 3's behaviour. The index carries `aliases` for a setting
-  that genuinely moves
-- `Copy setting ID` joins the gear's menu
-- Settings enter the existing `CommandPalette`, matched only against a non-empty query, so the
-  resting palette stays the six commands it has now
+### 6.1 The table
 
-The two shipped `?focus=` call sites change with it: `workshopPath` becomes
-`workshop.workshopPath`, and `leaguePath` becomes `general.leaguePath`.
+`settingsIndex.ts` holds one entry per addressable row - the public id, the `SettingKey` it reads
+and the title - and the four lookups over it: `settingEntry` by key, `settingById` by id or retired
+alias, `settingFocusTab` for what a `?focus=` value opens, and `SETTINGS_INDEX` itself for the
+palette.
+
+Forty-five entries, in the order a reader walks the tabs and then the cards inside them, so the
+table reads as the surface it describes.
+
+The literal array stays private and the module exports two types off it, `SettingId` and
+`IndexedSettingKey`. That second one is what makes the table closed: `SettingRow`'s `setting` prop
+is typed as the index's own key union, so a row cannot declare a key the table has no entry for and
+`settingEntry` needs no fallback.
+
+### 6.2 The id, and the namespace
+
+`general.autoRun`, `appearance.theme`. The namespace is the tab, and it is the working part rather
+than decoration - it answers which panel holds the target before that panel has mounted, which is
+what lets one param carry both halves of a link.
+
+Group ids are namespaced with them, `patching.mod-safety`, so `?focus=` has one id space and one
+resolution rule: look the value up in the index, and failing that read the tab off whatever sits
+before the first dot. An unknown suffix opens its tab and marks nothing. An unknown namespace falls
+back to General.
+
+`SettingFocusProvider` writes that tab into the URL in the same `replace` that clears `focus`, so
+the page is never left reading a cleared param for the tab it should be showing.
+
+### 6.3 The title
+
+The 45 rows dropped their `title` prop. `SettingRow`'s props became a union: a row reads a setting
+and takes its title from the index, or it names itself and reads none. Both, or neither, is a type
+error.
+
+It is the same argument as 4a's `defaultLabel`. A name written beside the row is a second copy of a
+name something else already reads, and the copy is what goes stale when the row is reworded.
+
+### 6.4 Copy setting ID
+
+Second item of the gear's menu, over `useCopyToClipboard`. With it, the gear moved to **every row
+the index carries** rather than only the ones that can be reset - an id is worth copying either way,
+and the paths and the lists are exactly the rows someone links a teammate to. On those, the menu is
+`Copy setting ID` alone, and `Reset setting` is absent rather than disabled.
+
+The index also gave the gear an accessible name that names its row, `Actions for Auto run`, which
+the accessibility section had asked for since the design was written.
+
+### 6.5 Settings in the palette
+
+A palette source of its own, `settings`, rather than more commands. `usePaletteSearch` already
+draws a source only when a term has been typed unless `listingSources` names it, and `settings` is
+not one of those - which is exactly "matched only against a non-empty query" expressed in the
+machinery that was already there. Rows carry the tab as their path and the public id as a keyword,
+and choosing one navigates with the id alone.
+
+`SETTINGS_TAB_LABELS` moved from `Settings.tsx` into `tabs.ts` for it, because the page held the
+only table of tab labels and a palette row needs one.
 
 ## 7. Phase 4c — the deep link
 
@@ -415,34 +462,43 @@ the row.
 
 `vitest`, beside the module, following `AppearanceSection/__tests__/ZoomLevelPicker.test.tsx`.
 
-| Test                   | Asserts                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------ |
-| `SettingGroup`         | The heading is an `h4` the section is labelled by, and the first group draws no rule |
-| `SettingRow` hidden    | A hidden row mounts, registers, and renders nothing                                  |
-| `validateSearch`       | An unknown tab falls back to `general`, and `focus` survives as a string             |
-| Focus, mounted         | The matching row takes focus, and the param is cleared                               |
-| Focus, hidden          | The enclosing group's header is marked instead                                       |
-| The gear's absence     | No gear on a row whose key has no format, so a path is never offered a reset         |
-| The gear's reset       | Enabled off default, `data-disabled` at it, and one save when clicked                |
-| The default's label    | `Default: Off` under the item, derived rather than written beside the row            |
-| Group reset visibility | Hidden at one changed row, drawn at two, and it counts them in its own label         |
-| Group reset write      | Every changed row in a single `save_settings`                                        |
-| Undo                   | Applies only the keys the reset wrote                                                |
-| `isSettingDefault`     | An unset accent preset reads as the brand preset, and a list compares by its order   |
-| `settingFormat`        | No entry for the five keys that hold a reader's own data                             |
+| Test                   | Asserts                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------- |
+| `SettingGroup`         | The heading is an `h4` the section is labelled by, and the first group draws no rule      |
+| `SettingRow` hidden    | A hidden row mounts, registers, and renders nothing                                       |
+| `validateSearch`       | An unknown tab falls back to `general`, and `focus` survives as a string                  |
+| Focus, mounted         | The matching row takes focus, and the param is cleared                                    |
+| Focus, hidden          | The enclosing group's header is marked instead                                            |
+| The gear's absence     | No gear on a row whose key has no format, so a path is never offered a reset              |
+| The gear's reset       | Enabled off default, `data-disabled` at it, and one save when clicked                     |
+| The default's label    | `Default: Off` under the item, derived rather than written beside the row                 |
+| Group reset visibility | Hidden at one changed row, drawn at two, and it counts them in its own label              |
+| Group reset write      | Every changed row in a single `save_settings`                                             |
+| Undo                   | Applies only the keys the reset wrote                                                     |
+| `isSettingDefault`     | An unset accent preset reads as the brand preset, and a list compares by its order        |
+| `settingFormat`        | No entry for the five keys that hold a reader's own data                                  |
+| The index              | Every id namespaced by a real tab, and each id and key carried once                       |
+| `settingEntry`         | A key reads back as the row that declared it, id and title together                       |
+| `settingById`          | A public id resolves, and a bare `SettingKey` does not                                    |
+| `settingFocusTab`      | A setting id, a group id nothing else resolves, and junk falling back to General          |
+| Focus, the tab         | The one navigate carries the namespace's tab, for a known id and for an unknown one       |
+| The gear's reach       | One on every addressable row, and no `Reset setting` on a row holding a reader's own data |
+| `Copy setting ID`      | The public id reaches the clipboard, rather than the key the row reads                    |
+| The palette source     | Absent from a resting listing, answering a typed query, and matching on the id            |
+| A row with no key      | Names itself, because the index has nothing to say about an action                        |
 
 ## 9. What is left
 
-| Item                     | Why it waits                                                                                                                                                       |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The collapsible group    | No card in the migration folds. `SettingRow.hidden` is the same mechanism a collapsed group would need, so the document's fourth open question has a shape already |
-| `settingsLayout`         | The store exists only to persist a collapsed state, so it lands with the collapse                                                                                  |
-| The changed dot          | It is drawn on a collapsed header alone                                                                                                                            |
-| The group action slot    | No group needs one yet. The prop ships, unused, because the header's ordering rule is written around it                                                            |
-| The patcher-failure link | The document names a call site the app does not have. Either a new link on the injection failure path, or the row means the elevation hint already there           |
-| A settings search box    | The palette carries a query from 4b. An on-page filter waits for a row list something can filter                                                                   |
-| The gear's tooltip       | VS Code's reads `editor.fontSize - Modified`. Ours has nothing to put there until 4b mints the public id                                                           |
-| Undo on a row reset      | The group and card resets raise one. A single row's way back is the control the reader just used                                                                   |
+| Item                     | Why it waits                                                                                                                                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The collapsible group    | No card in the migration folds. `SettingRow.hidden` is the same mechanism a collapsed group would need, so the document's fourth open question has a shape already                                          |
+| `settingsLayout`         | The store exists only to persist a collapsed state, so it lands with the collapse                                                                                                                           |
+| The changed dot          | It is drawn on a collapsed header alone                                                                                                                                                                     |
+| The group action slot    | No group needs one yet. The prop ships, unused, because the header's ordering rule is written around it                                                                                                     |
+| The patcher-failure link | The document names a call site the app does not have. Either a new link on the injection failure path, or the row means the elevation hint already there. `?focus=patching.injector` is what it would carry |
+| A settings search box    | The palette carries the query. An on-page filter waits for a row list something can filter                                                                                                                  |
+| The gear's tooltip       | The id exists now, and the menu one click away already says it. Nesting `Tooltip`'s render into `Menu.Trigger` is untested here, and it buys a hover label that repeats the popup                           |
+| Undo on a row reset      | The group and card resets raise one. A single row's way back is the control the reader just used                                                                                                            |
 
 ## 10. Order of work
 
@@ -452,13 +508,15 @@ the row.
 | 2     | `settings-groups`   | Shipped | `SettingKey`, `PROJECT_EDITOR_DEFAULTS`, and `setting` on every row                                      |
 | 3     | `settings-groups`   | Shipped | `tab` and `focus`, the controlled rail, the self-marking target, two link call sites                     |
 | 4a    | `settings-reset`    | Shipped | `get_default_settings`, `settingDefaults`, `SettingScope`, the gear, the bar, three resets, Undo         |
-| 4b    | `settings-index`    | Planned | The index, the public id, the `?focus=` migration, `Copy setting ID`, the palette                        |
+| 4b    | `settings-reset`    | Shipped | The index, the public id, the namespaced group ids, `Copy setting ID`, the palette source                |
 | 4c    | `settings-deeplink` | Planned | `parse_deep_link_url` routing, and `Copy link to setting`                                                |
 
 Phases 1 to 3 landed on one branch rather than three, because phase 2 has no visible change of its
-own and phase 3 is what makes phase 1's ids do anything. The release goes out from here, so the
-note reads as one change — the tabs read better and a link lands where it points. The markers and
-the resets follow in the next one.
+own and phase 3 is what makes phase 1's ids do anything. 4a and 4b then landed on `settings-reset`
+beside them: the split into three branches assumed 1 to 3 had already been committed and released,
+and they had not, so a second branch would have carried the first one's diff. The release note is
+one change - the tabs read better, a link lands where it points, and a row says whether it is off
+its default and how to put it back.
 
 ### What was built differently
 
@@ -478,10 +536,24 @@ Phase 4a added its own, against the design as it stood after the VS Code review:
 | ------------------------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The gutter               | The panel grows to `pl-11` | `pl-7` on the group's header and body instead, so the rule above a group still spans the panel rather than starting 28px in                                   |
 | The menu                 | `ContextMenu` for the row  | One controlled `Menu.Root` with a virtual anchor at the pointer. `ContextMenu` would be two popups to keep in step for one item list                          |
-| `defaultLabel`           | A prop per row             | A `SETTING_FORMAT` table keyed by `SettingKey`. Forty-five call sites keep their JSX, and 4b's index absorbs the table rather than 45 more props              |
+| `defaultLabel`           | A prop per row             | A `SETTING_FORMAT` table keyed by `SettingKey`. Forty-five call sites keep their JSX, and one table goes stale where 45 props each can                        |
 | The gear's tooltip       | Two lines over the gear    | Dropped. Without the public id there is nothing to say that the menu does not, and nesting `Tooltip`'s `render` inside `Menu.Trigger` buys a risk for nothing |
 | `useIsAppearanceDefault` | Untouched                  | Deleted. It was the second definition of "is default" that this phase exists to remove, and nothing read it once the card reset used the scope                |
 | The test setup           | Nothing                    | `__tests__/fixtures.tsx`, because a gear that cannot reach `get_default_settings` correctly draws nothing, which is right in the app and useless in a test    |
+
+Phase 4b added its own:
+
+| Where                 | The plan said                   | What shipped, and why                                                                                                                                                                           |
+| --------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The gear's reach      | 4a's rule, resettable rows only | Every row the index carries. An id is worth copying either way, and the paths and the lists are exactly the rows someone links a teammate to                                                    |
+| Group ids             | Untouched                       | Namespaced too, `patching.mod-safety`. Leaving them bare would have given `?focus=` two id spaces with two rules, which is the drift the phase exists to remove                                 |
+| The entry             | Id, key, tab and title          | No `tab` field. The tab is the id's namespace, so a column beside it is a second place for the same fact to be wrong                                                                            |
+| `SettingRow`          | `title` dropped from 45 rows    | Its props became a union, and `setting` is typed as the index's own key union. A key the table has no entry for is now a type error rather than a row with no name                              |
+| The two links         | `?tab=…&focus=…`                | `?focus=` alone. Carrying the tab beside an id that spells it is the redundancy the namespace was for                                                                                           |
+| The palette           | Settings enter `CommandPalette` | A source of its own. `usePaletteSearch` already draws a source only under a typed term unless `listingSources` names it, which is the requirement expressed in machinery that was already there |
+| `SETTINGS_TAB_LABELS` | Nothing                         | Moved out of `Settings.tsx` into `tabs.ts`, because the page held the only table of tab labels and a palette row needs one                                                                      |
+| The gear's name       | `Setting actions`               | `Actions for Auto run`. The index is what made it possible, and the accessibility section had asked for it since the design was written                                                         |
+| The gear's tooltip    | Waiting on the id               | Still absent. The id arrived and the reason changed: the menu one click away already says it                                                                                                    |
 
 Tracked as a single `area: frontend`, `type: ux` issue in `LeagueToolkit/ltk-manager`, linking this
 plan and the design document, with a four-item checklist each PR ticks.

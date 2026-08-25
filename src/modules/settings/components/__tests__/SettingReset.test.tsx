@@ -10,15 +10,10 @@ import { renderSettings, savedSettings } from "./fixtures";
 
 function Startup() {
   return (
-    <SettingGroup id="startup" title="Startup">
-      <SettingRow title="Auto run" setting="autoRun" control={<input type="checkbox" />} />
+    <SettingGroup id="general.startup" title="Startup">
+      <SettingRow setting="autoRun" control={<input type="checkbox" />} />
+      <SettingRow setting="minimizeToTray" control={<input type="checkbox" />} />
       <SettingRow
-        title="Minimize to system tray"
-        setting="minimizeToTray"
-        control={<input type="checkbox" />}
-      />
-      <SettingRow
-        title="Installation path"
         setting="leaguePath"
         layout="stacked"
         control={<input aria-label="Installation path" />}
@@ -34,27 +29,35 @@ function saveCount() {
 }
 
 describe("the gear", () => {
-  it("is absent on a row whose value is never put back", () => {
+  /* Every row the index carries gets one, because an id is worth copying whether
+     or not the value behind it can be put back. */
+  it("belongs to every addressable row", () => {
     renderSettings(<Startup />);
 
-    /* Three rows, and the path is the one that keeps its data by construction
-       rather than by a second flag. */
-    expect(screen.getAllByLabelText("Setting actions")).toHaveLength(2);
+    expect(screen.getAllByLabelText(/^Actions for /)).toHaveLength(3);
+  });
+
+  it("offers no reset on a row whose value is never put back", async () => {
+    const user = userEvent.setup();
+    renderSettings(<Startup />);
+
+    await user.click(screen.getByLabelText("Actions for Installation path"));
+
+    expect(await screen.findByRole("menuitem", { name: "Copy setting ID" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Reset setting" })).not.toBeInTheDocument();
   });
 
   it("offers a reset only while the row is off its default", async () => {
     const user = userEvent.setup();
     renderSettings(<Startup />, { settings: { autoRun: true } });
 
-    const [autoRun, minimize] = screen.getAllByLabelText("Setting actions");
-
-    await user.click(autoRun);
+    await user.click(screen.getByLabelText("Actions for Auto run"));
     expect(await screen.findByRole("menuitem", { name: "Reset setting" })).not.toHaveAttribute(
       "data-disabled",
     );
     await user.keyboard("{Escape}");
 
-    await user.click(minimize);
+    await user.click(screen.getByLabelText("Actions for Minimize to system tray"));
     await waitFor(() =>
       expect(screen.getByRole("menuitem", { name: "Reset setting" })).toHaveAttribute(
         "data-disabled",
@@ -66,7 +69,7 @@ describe("the gear", () => {
     const user = userEvent.setup();
     renderSettings(<Startup />, { settings: { autoRun: true } });
 
-    await user.click(screen.getAllByLabelText("Setting actions")[0]);
+    await user.click(screen.getByLabelText("Actions for Auto run"));
 
     expect(await screen.findByText("Default: Off")).toBeInTheDocument();
   });
@@ -75,11 +78,21 @@ describe("the gear", () => {
     const user = userEvent.setup();
     renderSettings(<Startup />, { settings: { autoRun: true } });
 
-    await user.click(screen.getAllByLabelText("Setting actions")[0]);
+    await user.click(screen.getByLabelText("Actions for Auto run"));
     await user.click(await screen.findByRole("menuitem", { name: "Reset setting" }));
 
     await waitFor(() => expect(saveCount()).toBe(1));
     expect(savedSettings().autoRun).toBe(false);
+  });
+
+  it("copies the public id rather than the key the row reads", async () => {
+    const user = userEvent.setup();
+    renderSettings(<Startup />);
+
+    await user.click(screen.getByLabelText("Actions for Auto run"));
+    await user.click(await screen.findByRole("menuitem", { name: "Copy setting ID" }));
+
+    await waitFor(async () => expect(await navigator.clipboard.readText()).toBe("general.autoRun"));
   });
 });
 

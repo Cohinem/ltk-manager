@@ -8,8 +8,8 @@ import { renderSettings } from "./fixtures";
 describe("SettingGroup", () => {
   it("labels the band with its own heading", () => {
     renderSettings(
-      <SettingGroup id="mod-safety" title="Mod safety">
-        <SettingRow title="Block Scripts.wad.client" control={<input />} />
+      <SettingGroup id="patching.mod-safety" title="Mod safety">
+        <SettingRow setting="blockScriptsWad" control={<input />} />
       </SettingGroup>,
     );
 
@@ -21,8 +21,8 @@ describe("SettingGroup", () => {
      divided from the panel edge it already sits against. */
   it("draws its rule only when something precedes it", () => {
     renderSettings(
-      <SettingGroup id="injector" title="Injector">
-        <SettingRow title="Patch TFT files" control={<input />} />
+      <SettingGroup id="patching.injector" title="Injector">
+        <SettingRow setting="patchTft" control={<input />} />
       </SettingGroup>,
     );
 

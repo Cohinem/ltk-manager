@@ -14,9 +14,8 @@ interface StartupAndTraySectionProps {
 export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectionProps) {
   return (
     <SectionCard title="Startup and tray" icon={<MonitorDown className="h-5 w-5" />}>
-      <SettingGroup id="startup" title="Startup">
+      <SettingGroup id="general.startup" title="Startup">
         <SettingRow
-          title="Auto run"
           setting="autoRun"
           description="Automatically launch LTK Manager when you start your computer."
           control={
@@ -28,7 +27,6 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
         />
 
         <SettingRow
-          title="Start in tray unless update available"
           setting="startInTrayUnlessUpdate"
           dependent
           hidden={!settings.autoRun}
@@ -44,7 +42,6 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
         />
 
         <SettingRow
-          title="Always start patcher at launch"
           setting="alwaysStartPatcher"
           description="Starts your last active profile every time the app launches."
           control={
@@ -56,9 +53,8 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
         />
       </SettingGroup>
 
-      <SettingGroup id="tray" title="Tray">
+      <SettingGroup id="general.tray" title="Tray">
         <SettingRow
-          title="Minimize to system tray"
           setting="minimizeToTray"
           description="Minimizing hides the window to the tray instead of the taskbar. Click the tray icon to restore it."
           control={
@@ -70,7 +66,6 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
         />
 
         <SettingRow
-          title="Start minimized to tray"
           setting="startInTray"
           description="The app starts hidden in the tray. Click the tray icon to open it."
           control={

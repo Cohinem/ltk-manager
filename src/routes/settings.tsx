@@ -9,11 +9,12 @@ interface SettingsSearch {
   /** Optional, so the links that mean the whole page keep pointing at `/settings` alone. */
   tab?: SettingsTab;
   /**
-   * A group id or a setting key to point at.
+   * A public setting id, or a group id, to point at.
    *
-   * A string rather than a union, because the ids it addresses are spread across
-   * four sections. An unknown one selects the tab and does nothing else, which is
-   * the right failure for a link that outlived the setting it named.
+   * A string rather than a union, because the ids it addresses live in the settings
+   * module rather than in the route. Both spellings are namespaced by tab, so an
+   * unknown one still opens the right tab and marks nothing - the right failure for
+   * a link that outlived the setting it named.
    */
   focus?: string;
 }

@@ -28,7 +28,6 @@ export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerPro
     <>
       <SettingRow
         kind="action"
-        title="Background image"
         setting="backdropImage"
         description="Sits behind the UI, under a frosted glass effect."
         controlClassName={controlClass}
@@ -50,7 +49,6 @@ export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerPro
 
       <SettingRow
         kind="action"
-        title="Blur"
         setting="backdropBlur"
         dependent
         hidden={!settings.backdropImage}

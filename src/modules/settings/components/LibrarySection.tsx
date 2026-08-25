@@ -20,11 +20,10 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
       icon={<BooksIcon className="h-5 w-5" />}
       description="Options for your mod library"
     >
-      <SettingGroup id="storage" title="Storage">
+      <SettingGroup id="library.storage" title="Storage">
         <SettingRow
           kind="action"
           layout="stacked"
-          title="Storage location"
           setting="modStoragePath"
           description="Leave empty for the app data directory."
           control={
@@ -40,9 +39,8 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
       </SettingGroup>
 
-      <SettingGroup id="cataloguing" title="Cataloguing">
+      <SettingGroup id="library.cataloguing" title="Cataloguing">
         <SettingRow
-          title="Automatically categorize mods"
           setting="autoCategorizationEnabled"
           description="Champions, maps and tags get read from each mod's files."
           hint="They are offered as suggested categories and as library filters. Turn this off to rely only on the categories you set yourself."
@@ -57,7 +55,6 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
 
         <SettingRow
-          title="Show footprint"
           setting="showWadFootprint"
           description="Shows the cache footprint of each mod in the library."
           hint="Opens the full list of patched WADs"
@@ -70,7 +67,6 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
 
         <SettingRow
-          title="Watch for external changes"
           setting="watcherEnabled"
           badge={<ExperimentalChip />}
           description="Mods added or removed outside the app show up in the library."
@@ -84,11 +80,10 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
       </SettingGroup>
 
-      <SettingGroup id="installing" title="Installing">
+      <SettingGroup id="library.installing" title="Installing">
         <SettingRow
           kind="action"
           layout="stacked"
-          title="Trusted mod providers"
           setting="trustedDomains"
           description="One-click links only install from these domains. Remove all of them to allow any source."
           control={<TrustedDomainsEditor settings={settings} onSave={onSave} />}

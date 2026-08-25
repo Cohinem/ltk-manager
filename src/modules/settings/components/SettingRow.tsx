@@ -3,17 +3,13 @@ import { twMerge } from "tailwind-merge";
 
 import { HintIcon } from "@/components";
 
-import type { SettingKey } from "../settingKey";
+import { type IndexedSettingKey, settingEntry } from "../settingsIndex";
 import { useMarkRedirect, useSettingMark } from "./SettingFocus";
 import { useSettingGroup } from "./SettingGroup";
 import { SettingGutter } from "./SettingGutter";
 import { useRegisterSetting } from "./SettingScope";
 
-interface SettingRowProps {
-  /** A string, because the gear's menu names the row out of it. */
-  title: string;
-  /** The setting this row reads. It is also the row's anchor id and its reset scope. */
-  setting?: SettingKey;
+interface SettingRowBase {
   /** A glyph before the title, for a row about one part of the game. */
   icon?: ReactNode;
   /** A chip after the title. `ExperimentalChip` and its kind. */
@@ -35,6 +31,16 @@ interface SettingRowProps {
   hidden?: boolean;
 }
 
+/**
+ * A row reads one setting, or it names itself, and never both.
+ *
+ * A keyed row takes its title from the index, so the one name a reader sees and
+ * the one a link carries cannot drift apart. A row with no key is an action the
+ * index has nothing to say about, and it writes its own.
+ */
+type SettingRowProps = SettingRowBase &
+  ({ setting: IndexedSettingKey; title?: never } | { setting?: never; title: string });
+
 /** One labelled setting and its control, across the row from it or beneath it. */
 export function SettingRow({
   title,
@@ -50,9 +56,10 @@ export function SettingRow({
   dependent = false,
   hidden = false,
 }: SettingRowProps) {
+  const entry = setting === undefined ? undefined : settingEntry(setting);
   const group = useSettingGroup();
-  const mark = useSettingMark(setting, !hidden);
-  useMarkRedirect(setting, group?.id, hidden);
+  const mark = useSettingMark(entry?.id, !hidden);
+  useMarkRedirect(entry?.id, group?.id, hidden);
   useRegisterSetting(setting, hidden);
 
   if (hidden) return null;
@@ -70,7 +77,7 @@ export function SettingRow({
       <div className="max-w-xl min-w-0">
         <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
           {icon}
-          {title}
+          {entry?.title ?? title}
           {hint && <HintIcon content={hint} />}
           {badge}
         </span>
