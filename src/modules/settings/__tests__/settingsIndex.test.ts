@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { settingById, settingEntry, settingFocusTab, SETTINGS_INDEX } from "../settingsIndex";
+import {
+  settingById,
+  settingEntry,
+  settingFocusTab,
+  settingLink,
+  SETTINGS_INDEX,
+} from "../settingsIndex";
 import { isSettingsTab } from "../tabs";
 
 describe("the index", () => {
@@ -30,6 +36,13 @@ describe("the index", () => {
   it("resolves a public id, and nothing else", () => {
     expect(settingById("patching.patchTft")?.key).toBe("patchTft");
     expect(settingById("patchTft")).toBeUndefined();
+  });
+});
+
+describe("settingLink", () => {
+  it("addresses the settings route by the public id", () => {
+    expect(settingLink("general.autoRun")).toBe("ltk://settings?focus=general.autoRun");
+    expect(settingLink("patching.mod-safety")).toBe("ltk://settings?focus=patching.mod-safety");
   });
 });
 

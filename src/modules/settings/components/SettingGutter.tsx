@@ -1,11 +1,11 @@
-import { ArrowCounterClockwiseIcon, CopyIcon, GearSixIcon } from "@phosphor-icons/react";
+import { ArrowCounterClockwiseIcon, CopyIcon, GearSixIcon, LinkIcon } from "@phosphor-icons/react";
 import { type MouseEvent, type ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Menu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 
-import { type IndexedSettingKey, settingEntry } from "../settingsIndex";
+import { type IndexedSettingKey, settingEntry, settingLink } from "../settingsIndex";
 import { useSettingDefault } from "./SettingScope";
 
 /** Positions the menu where the pointer was, for a right-click on the row. */
@@ -103,6 +103,12 @@ export function SettingGutter({ setting, className, children }: SettingGutterPro
               onClick={() => void copy(entry.id, "setting ID")}
             >
               Copy setting ID
+            </Menu.Item>
+            <Menu.Item
+              icon={<LinkIcon className="h-4 w-4" />}
+              onClick={() => void copy(settingLink(entry.id), "link to setting")}
+            >
+              Copy link to setting
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>

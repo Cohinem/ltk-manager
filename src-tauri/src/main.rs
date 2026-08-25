@@ -204,6 +204,7 @@ fn main() {
             commands::open_asset_in_ritobin,
             // Deep Link
             commands::deep_link_install_mod,
+            commands::take_pending_deep_link,
             // for dynamic icons
             tray::set_tray_state,
         ])

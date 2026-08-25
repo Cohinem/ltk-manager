@@ -100,6 +100,15 @@ export type ProtocolInstallProgress = {
   error: string | null;
 };
 
+export type DeepLinkSettingsRequest = {
+  focus: string;
+};
+
+/** A deep link that reached the backend before the frontend was listening for it. */
+export type PendingDeepLink =
+  | ({ kind: "install" } & DeepLinkInstallRequest)
+  | ({ kind: "settings" } & DeepLinkSettingsRequest);
+
 export type DeepLinkBlockedPayload = {
   domain: string;
   url: string;
@@ -251,6 +260,7 @@ export const api = {
     author?: string | null,
     source?: string | null,
   ) => invokeResult<InstalledMod>("deep_link_install_mod", { url, name, author, source }),
+  takePendingDeepLink: () => invokeResult<PendingDeepLink | null>("take_pending_deep_link"),
 
   // Shell
   revealInExplorer: (path: string) => invokeResult<void>("reveal_in_explorer", { path }),

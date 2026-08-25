@@ -1,6 +1,6 @@
 # Settings Groups — Implementation Plan
 
-> Status: **phases 1 to 4b shipped** (2026-08-25). Phase 4c planned.
+> Status: **shipped** (2026-08-25). Every phase, 1 to 4c.
 >
 > Design source: `docs/ux/SETTINGS.md` — [The levels](../ux/SETTINGS.md#the-levels),
 > [Anatomy](../ux/SETTINGS.md#anatomy), [How a group draws](../ux/SETTINGS.md#how-a-group-draws),
@@ -11,7 +11,8 @@
 > Feature rows this closes: **The group**, **Group ids**, **`get_default_settings`**,
 > **The gutter gear**, **The modified bar**, **The group reset**, **The tab in the URL**,
 > **The focus anchor**, **The setting index**, **The public setting id**, **Copy setting ID**,
-> **Settings in the palette**, **`DS-SETTING-LEVEL`**, **`DS-SETTING-GUTTER`**.
+> **Settings in the palette**, **`ltk://settings`**, **`DS-SETTING-LEVEL`**,
+> **`DS-SETTING-GUTTER`**.
 >
 > Phase 4 was redesigned on 2026-08-25 against the VS Code settings editor, and split into
 > 4a, 4b and 4c. The revert marker never shipped - a gutter gear took its place, because a
@@ -450,13 +451,46 @@ only table of tab labels and a palette row needs one.
 
 ## 7. Phase 4c — the deep link
 
-Branch `settings-deeplink`. Planned.
+Shipped on `settings-reset`, beside 4a and 4b.
 
-`parse_deep_link_url` serves `ltk://install` alone today. It becomes a routed enum, with
-`ltk://settings?focus=<id>` as the second route, reusing the rate limiter and validation already
-there. `Copy link to setting` joins the gear's menu, and it is the action that makes the id worth
-having - an id has nowhere to paste in an app with no settings file, and a link opens the app on
-the row.
+### 7.1 The route
+
+`parse_deep_link_url` returned a `DeepLinkInstallRequest` and checked that the action was
+`install`. It returns `DeepLinkRequest` now, an enum matched on the action, and the install body
+moved into `parse_install` unchanged. A fourth route is an arm rather than a rewrite.
+
+The scheme check, the rate limiter and the unknown-action error were already there and are shared.
+`handle_single` matches the enum, runs the trusted-domain check on the install arm alone - moved
+out into `allow_install`, which the doc names for the block event it raises - and hands either
+route to the same delivery.
+
+### 7.2 What `focus` may be
+
+Letters, digits, `.`, `-` and `_`, 1 to `FOCUS_MAX_CHARS` characters. The backend does not know the
+index and does not need to: what it is guarding is that the value it hands the frontend goes back
+into a URL. An id that clears this and resolves to nothing opens the tab its namespace names and
+marks nothing, which is already what `settingFocusTab` does for a link minted against an older
+build.
+
+### 7.3 The cold start
+
+The window is created hidden and `setup` runs before its script does, so a URL the app was launched
+with reached `app_handle.emit` while nothing was listening. `ltk://install` had been losing a cold
+start's link this way.
+
+`DeepLinkState` gained a `Handoff`: a link arriving while the frontend is not listening is held,
+and `take_pending_deep_link` drains it. Both sit under the one mutex, so a link cannot fall between
+the check and the send. The frontend asks once, from `useDeepLinkListener`'s own effect, and the
+answer is `None` from then on.
+
+`handle_argv`'s show, unminimize and focus became `raise_main_window`, and delivery raises the
+window - at delivery rather than at arrival, so a cold start does not flash an unpainted window
+while React boots.
+
+### 7.4 Copy link to setting
+
+`settingLink(id)` in `settingsIndex.ts`, and a second `Menu.Item` under `Copy setting ID`. The
+scheme is a constant there rather than in the component, next to the id it addresses.
 
 ## 8. Tests
 
@@ -486,6 +520,11 @@ the row.
 | `Copy setting ID`      | The public id reaches the clipboard, rather than the key the row reads                    |
 | The palette source     | Absent from a resting listing, answering a typed query, and matching on the id            |
 | A row with no key      | Names itself, because the index has nothing to say about an action                        |
+| The settings route     | A setting id and a group id both parse, and unknown params are ignored                    |
+| `focus` validation     | Missing, empty, outside the id alphabet and over the limit each rejected                  |
+| The hand-off           | A held link is returned once, and taking it marks the frontend listening                  |
+| `settingLink`          | The public id addressed as `ltk://settings?focus=`, for a setting and a group             |
+| `Copy link to setting` | The link reaches the clipboard, beside the id the item above it copies                    |
 
 ## 9. What is left
 
@@ -502,19 +541,19 @@ the row.
 
 ## 10. Order of work
 
-| Phase | Branch              | State   | Ships                                                                                                    |
-| ----- | ------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| 1     | `settings-groups`   | Shipped | `SettingGroup`, `SettingRows`, the card's layout, the row's anatomy, six cards, copy, `DS-SETTING-LEVEL` |
-| 2     | `settings-groups`   | Shipped | `SettingKey`, `PROJECT_EDITOR_DEFAULTS`, and `setting` on every row                                      |
-| 3     | `settings-groups`   | Shipped | `tab` and `focus`, the controlled rail, the self-marking target, two link call sites                     |
-| 4a    | `settings-reset`    | Shipped | `get_default_settings`, `settingDefaults`, `SettingScope`, the gear, the bar, three resets, Undo         |
-| 4b    | `settings-reset`    | Shipped | The index, the public id, the namespaced group ids, `Copy setting ID`, the palette source                |
-| 4c    | `settings-deeplink` | Planned | `parse_deep_link_url` routing, and `Copy link to setting`                                                |
+| Phase | Branch            | State   | Ships                                                                                                    |
+| ----- | ----------------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| 1     | `settings-groups` | Shipped | `SettingGroup`, `SettingRows`, the card's layout, the row's anatomy, six cards, copy, `DS-SETTING-LEVEL` |
+| 2     | `settings-groups` | Shipped | `SettingKey`, `PROJECT_EDITOR_DEFAULTS`, and `setting` on every row                                      |
+| 3     | `settings-groups` | Shipped | `tab` and `focus`, the controlled rail, the self-marking target, two link call sites                     |
+| 4a    | `settings-reset`  | Shipped | `get_default_settings`, `settingDefaults`, `SettingScope`, the gear, the bar, three resets, Undo         |
+| 4b    | `settings-reset`  | Shipped | The index, the public id, the namespaced group ids, `Copy setting ID`, the palette source                |
+| 4c    | `settings-reset`  | Shipped | `parse_deep_link_url` routing, the cold-start hand-off, and `Copy link to setting`                       |
 
 Phases 1 to 3 landed on one branch rather than three, because phase 2 has no visible change of its
 own and phase 3 is what makes phase 1's ids do anything. 4a and 4b then landed on `settings-reset`
-beside them: the split into three branches assumed 1 to 3 had already been committed and released,
-and they had not, so a second branch would have carried the first one's diff. The release note is
+beside them, and 4c after them: the split into branches assumed 1 to 3 had already been committed
+and released, and they had not, so a second branch would have carried the first one's diff. The release note is
 one change - the tabs read better, a link lands where it points, and a row says whether it is off
 its default and how to put it back.
 
@@ -554,6 +593,15 @@ Phase 4b added its own:
 | `SETTINGS_TAB_LABELS` | Nothing                         | Moved out of `Settings.tsx` into `tabs.ts`, because the page held the only table of tab labels and a palette row needs one                                                                      |
 | The gear's name       | `Setting actions`               | `Actions for Auto run`. The index is what made it possible, and the accessibility section had asked for it since the design was written                                                         |
 | The gear's tooltip    | Waiting on the id               | Still absent. The id arrived and the reason changed: the menu one click away already says it                                                                                                    |
+
+Phase 4c added its own:
+
+| Where             | The plan said       | What shipped, and why                                                                                                                                             |
+| ----------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The cold start    | Nothing             | A hand-off in `DeepLinkState`. A URL the app is launched with arrives before the window's script runs, so a link followed while the app was closed reached nobody |
+| `ltk://install`   | Untouched           | It was losing a cold start's link the same way, and the hand-off is not per route. Delivery for a running app is unchanged                                        |
+| The window raise  | `handle_argv` alone | `raise_main_window`, called at delivery. At arrival a cold start would show an unpainted window for as long as React takes to boot                                |
+| `DeepLinkRequest` | Rust-internal       | Serialized too, because the held link is returned by a command rather than emitted. Internally tagged, so the event payloads keep the shape the frontend reads    |
 
 Tracked as a single `area: frontend`, `type: ux` issue in `LeagueToolkit/ltk-manager`, linking this
 plan and the design document, with a four-item checklist each PR ticks.

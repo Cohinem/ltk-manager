@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
 | 2026-08-25 | Phase 4b shipped. The index, the public id, the palette and the copy    |
 | 2026-08-25 | Phase 4a shipped. The gutter gear, the modified bar and three resets    |
 | 2026-08-25 | Adopt the VS Code settings editor: a gutter gear replaces the marker    |
@@ -96,18 +97,18 @@ A status word has one meaning.
 | The public setting id   | Available | `appearance.theme`. Group ids are namespaced beside them           |
 | Copy setting ID         | Available | In the gear's menu, on every row the index carries                 |
 | Settings in the palette | Available | A source of its own, so a resting box still lists the commands     |
-| `ltk://settings`        | Planned   | Phase 4c. A routed deep link, and `Copy link to setting` with it   |
+| `ltk://settings`        | Available | A route beside `ltk://install`, with `Copy link to setting` on it  |
 | The group action slot   | Available | The prop ships unused. No group needs one yet                      |
 | The collapsible group   | Deferred  | No card in the migration folds. It lands with the first that does  |
 | The changed dot         | Deferred  | It is drawn on a collapsed header alone                            |
 
 The group was accepted in review on 2026-08-25, and the work is planned at
-`docs/plans/settings-groups.md`. Phases 1 to 3 shipped the same day, followed by 4a, so the group,
-its ids, both search params, the gear and all three resets are in the application. What is left is
-identity: one id per setting, the index behind it, the palette, and the deep link that carries it.
-**The collapsible group is deferred whole**, along with the caret, the changed dot, the
-`settings` declaration and the collapsed-state store, because no card in the migration below
-folds and a level with no call site is a level nobody has reviewed against real rows.
+`docs/plans/settings-groups.md`. Every phase shipped the same day, so the group, its ids, both
+search params, the gear, all three resets, the index behind them and the link that carries an id
+out of the app are in the application. **The collapsible group is deferred whole**, along with the
+caret, the changed dot, the `settings` declaration and the collapsed-state store, because no card
+in the migration below folds and a level with no call site is a level nobody has reviewed against
+real rows.
 
 ## The levels
 
@@ -339,6 +340,7 @@ Reset setting
 Default: Off
 ─────────────────
 Copy setting ID
+Copy link to setting
 ```
 
 The default reads as the reader would read it - `Off`, `Geist`, `100%`, `None` - and it is derived
@@ -363,7 +365,7 @@ would delete what a reader found or built.
 `Copy setting ID` copies the public id and nothing else. There is no settings file to paste it
 into, so what it is for is a person telling another person which setting they mean - a support
 thread, an issue, a message. `Copy link to setting` is the same act with somewhere to click, and
-it lands with the deep link.
+it copies the `ltk://settings` link below.
 
 ### The modified bar
 
@@ -437,8 +439,9 @@ something again.
 | Where        | Text                                                                |
 | ------------ | ------------------------------------------------------------------- |
 | Gear label   | `Actions for Auto run`, so a card of gears is not one name repeated |
-| Gear menu    | `Reset setting`, `Default: Off` under it, then `Copy setting ID`    |
+| Gear menu    | `Reset setting`, `Default: Off` under it, then the two copies       |
 | Copy toast   | `Copied setting ID`, with `general.autoRun` as its description      |
+| Link toast   | `Copied link to setting`, with the `ltk://` URL as its description  |
 | Group button | `Reset 2 changed settings in this group`, as label and tip          |
 | Card button  | `Reset to default`, which is what the Appearance card says          |
 | Toast        | `Reset 2 settings`, with an `Undo` action                           |
@@ -540,6 +543,26 @@ only once something is typed, and choosing one navigates with the id alone. A so
 rather than more commands, because a resting box lists its commands and forty-five settings would
 bury the handful someone opened the bar to read. The id is one of the words a row matches on, so a
 reader who already knows the setting can type `appearance.theme` at it.
+
+### The deep link
+
+`ltk://settings?focus=<id>` opens the app on one setting, and `Copy link to setting` in the gear's
+menu is what mints one. It is `Copy setting ID` with somewhere to click.
+
+`parse_deep_link_url` routes on the action rather than checking for one, so `install` and
+`settings` are two arms of one enum and a third route is an arm rather than a rewrite. The rate
+limiter, the scheme check and the unknown-action error were already there and are shared.
+
+`focus` is held to the id alphabet at the boundary - letters, digits, `.`, `-` and `_`, up to 128
+characters - because the value is handed to the frontend to put back into its own URL. Passing that
+is not the same as naming a setting the index carries, and it does not need to be: an id nothing
+resolves opens the tab its namespace names and marks nothing, which is what a link minted against a
+build that has since moved on should do.
+
+**A link followed while the app is closed is held rather than sent.** The window is created hidden,
+and the URL reaches the backend before the window's script has run, so an event carrying it would
+reach nobody. The frontend asks for the held link once, as its listener comes up. `ltk://install`
+was losing a cold start's link the same way, and now does not.
 
 ## Copy
 
@@ -663,6 +686,22 @@ Three namespaces, because the Project editor's rows read `workshopLayout`. That 
 preferences with geometry, so `ProjectEditorKey` names only the three rows the card shows, carved
 out the way `APPEARANCE_DEFAULTS` was carved out of the display store. A key exists where a row
 exists, and nowhere else.
+
+The index answers four questions, over the `SETTINGS_INDEX` table behind them.
+
+```tsx
+/** The entry for a key a row declared, which the index carries by construction. */
+function settingEntry(key: IndexedSettingKey): SettingEntry;
+
+/** The entry a public id or a retired alias names, or undefined for neither. */
+function settingById(id: string): SettingEntry | undefined;
+
+/** The tab a `?focus=` value opens, whatever it names. */
+function settingFocusTab(focus: string): SettingsTab;
+
+/** A link that opens the app on one setting, for pasting where it is clicked. */
+function settingLink(id: string): string;
+```
 
 **A row whose key has no entry in `SETTING_FORMAT` is addressable and never reset.** That is
 exactly the League path, the WAD blocklist and the author profiles. They keep their anchor, their

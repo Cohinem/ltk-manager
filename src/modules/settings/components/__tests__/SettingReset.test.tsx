@@ -94,6 +94,18 @@ describe("the gear", () => {
 
     await waitFor(async () => expect(await navigator.clipboard.readText()).toBe("general.autoRun"));
   });
+
+  it("copies a link the app can be opened on", async () => {
+    const user = userEvent.setup();
+    renderSettings(<Startup />);
+
+    await user.click(screen.getByLabelText("Actions for Auto run"));
+    await user.click(await screen.findByRole("menuitem", { name: "Copy link to setting" }));
+
+    await waitFor(async () =>
+      expect(await navigator.clipboard.readText()).toBe("ltk://settings?focus=general.autoRun"),
+    );
+  });
 });
 
 describe("the group reset", () => {

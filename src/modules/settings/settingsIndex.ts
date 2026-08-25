@@ -168,3 +168,16 @@ export function settingFocusTab(focus: string): SettingsTab {
   const [namespace] = (settingById(focus)?.id ?? focus).split(".");
   return isSettingsTab(namespace) ? namespace : DEFAULT_SETTINGS_TAB;
 }
+
+/** Declared in `tauri.conf.json`, and registered by the installer. */
+const DEEP_LINK_SCHEME = "ltk";
+
+/**
+ * A link that opens the app on one setting, for pasting where it is clicked.
+ *
+ * It carries the public id and nothing else, so the tab it lands on is settled
+ * by [`settingFocusTab`] on the way in rather than written into the link.
+ */
+export function settingLink(id: string): string {
+  return `${DEEP_LINK_SCHEME}://settings?focus=${encodeURIComponent(id)}`;
+}
