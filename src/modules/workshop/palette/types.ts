@@ -11,6 +11,7 @@ export type PaletteSourceId =
   | "layers"
   | "strings"
   | "commands"
+  | "settings"
   | "game";
 
 /**

@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Button, ButtonGroup, IconButton, SectionCard, Switch, useToast } from "@/components";
 import { api, isErr, type Settings } from "@/lib/tauri";
 
+import type { IndexedSettingKey } from "../settingsIndex";
+import { SettingRow } from "./SettingRow";
+import { SettingRows } from "./SettingRows";
+
 interface HotkeySectionProps {
   settings: Settings;
   onSave: (settings: Settings) => void;
@@ -12,14 +16,14 @@ interface HotkeySectionProps {
 export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
   return (
     <SectionCard title="Hotkeys" icon={<Keyboard className="h-5 w-5" />}>
-      <div className="space-y-4">
-        <p className="text-sm text-surface-400">
-          System-wide keyboard shortcuts that work even when the app is not focused. Useful for
-          quickly reloading mods while testing in-game.
-        </p>
+      <p className="text-sm text-surface-400">
+        System-wide keyboard shortcuts that work even when the app is not focused. Useful for
+        quickly reloading mods while testing in-game.
+      </p>
 
-        <HotkeyInput
-          label="Hot Reload Mods"
+      <SettingRows>
+        <HotkeyRow
+          setting="reloadModsHotkey"
           description="Stop patcher, kill League, rebuild overlay, and restart the patcher with fresh mod files."
           value={settings.reloadModsHotkey ?? null}
           onSet={async (accelerator) => {
@@ -29,8 +33,8 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
           }}
         />
 
-        <HotkeyInput
-          label="Kill League"
+        <HotkeyRow
+          setting="killLeagueHotkey"
           description="Force-close the League of Legends process."
           value={settings.killLeagueHotkey ?? null}
           onSet={async (accelerator) => {
@@ -40,33 +44,31 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
           }}
         />
 
-        <label className="flex items-center justify-between gap-4">
-          <div>
-            <span className="block text-sm font-medium text-surface-200">
-              Kill League stops patcher
-            </span>
-            <span className="block text-sm text-surface-400">
-              When the Kill League hotkey is pressed, also stop the patcher.
-            </span>
-          </div>
-          <Switch
-            checked={settings.killLeagueStopsPatcher}
-            onCheckedChange={(checked) => onSave({ ...settings, killLeagueStopsPatcher: checked })}
-          />
-        </label>
-      </div>
+        <SettingRow
+          setting="killLeagueStopsPatcher"
+          description="When the Kill League hotkey is pressed, also stop the patcher."
+          control={
+            <Switch
+              checked={settings.killLeagueStopsPatcher}
+              onCheckedChange={(checked) =>
+                onSave({ ...settings, killLeagueStopsPatcher: checked })
+              }
+            />
+          }
+        />
+      </SettingRows>
     </SectionCard>
   );
 }
 
-interface HotkeyInputProps {
-  label: string;
+interface HotkeyRowProps {
+  setting: IndexedSettingKey;
   description: string;
   value: string | null;
   onSet: (accelerator: string | null) => Promise<void>;
 }
 
-function HotkeyInput({ label, description, value, onSet }: HotkeyInputProps) {
+function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const toast = useToast();
@@ -138,45 +140,45 @@ function HotkeyInput({ label, description, value, onSet }: HotkeyInputProps) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      <div className="min-w-0 flex-1">
-        <span className="block text-sm font-medium text-surface-200">{label}</span>
-        <span className="block text-sm text-surface-400">{description}</span>
-      </div>
+    <SettingRow
+      kind="action"
+      setting={setting}
+      description={description}
+      control={
+        <ButtonGroup className="shrink-0">
+          {isCapturing ? (
+            <div
+              className="flex h-8 min-w-[140px] animate-pulse items-center justify-center rounded-md border-2 border-accent-500 bg-accent-500/10 px-3 text-sm font-medium text-accent-300 outline-none"
+              tabIndex={0}
+              ref={(el: HTMLDivElement | null) => el?.focus()}
+              onKeyDown={handleKeyDown}
+              onBlur={() => stopCapture()}
+            >
+              Press a key combo...
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              left={<Keyboard className="h-3.5 w-3.5" />}
+              onClick={() => startCapture()}
+              loading={isPending}
+            >
+              {value ?? "Not set"}
+            </Button>
+          )}
 
-      <ButtonGroup className="shrink-0">
-        {isCapturing ? (
-          <div
-            className="flex h-8 min-w-[140px] animate-pulse items-center justify-center rounded-md border-2 border-accent-500 bg-accent-500/10 px-3 text-sm font-medium text-accent-300 outline-none"
-            tabIndex={0}
-            ref={(el: HTMLDivElement | null) => el?.focus()}
-            onKeyDown={handleKeyDown}
-            onBlur={() => stopCapture()}
-          >
-            Press a key combo...
-          </div>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            left={<Keyboard className="h-3.5 w-3.5" />}
-            onClick={() => startCapture()}
-            loading={isPending}
-          >
-            {value ?? "Not set"}
-          </Button>
-        )}
-
-        {value && !isCapturing && (
-          <IconButton
-            variant="outline"
-            size="sm"
-            icon={<X className="h-3.5 w-3.5" />}
-            onClick={handleClear}
-            loading={isPending}
-          />
-        )}
-      </ButtonGroup>
-    </div>
+          {value && !isCapturing && (
+            <IconButton
+              variant="outline"
+              size="sm"
+              icon={<X className="h-3.5 w-3.5" />}
+              onClick={handleClear}
+              loading={isPending}
+            />
+          )}
+        </ButtonGroup>
+      }
+    />
   );
 }

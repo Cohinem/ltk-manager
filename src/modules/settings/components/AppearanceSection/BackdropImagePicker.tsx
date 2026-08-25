@@ -28,7 +28,7 @@ export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerPro
     <>
       <SettingRow
         kind="action"
-        title="Background image"
+        setting="backdropImage"
         description="Sits behind the UI, under a frosted glass effect."
         controlClassName={controlClass}
         control={
@@ -47,28 +47,28 @@ export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerPro
         }
       />
 
-      {settings.backdropImage && (
-        <SettingRow
-          kind="action"
-          title="Blur"
-          description="How far the image is softened behind the glass."
-          controlClassName={controlClass}
-          control={
-            <div className="flex items-center gap-3">
-              <Slider
-                value={localBlur}
-                onValueChange={handleBlurChange}
-                min={0}
-                max={100}
-                aria-label="Background blur"
-              />
-              <span className="w-10 shrink-0 text-right font-mono text-xs text-surface-300">
-                {localBlur}px
-              </span>
-            </div>
-          }
-        />
-      )}
+      <SettingRow
+        kind="action"
+        setting="backdropBlur"
+        dependent
+        hidden={!settings.backdropImage}
+        description="How far the image is softened behind the glass."
+        controlClassName={controlClass}
+        control={
+          <div className="flex items-center gap-3">
+            <Slider
+              value={localBlur}
+              onValueChange={handleBlurChange}
+              min={0}
+              max={100}
+              aria-label="Background blur"
+            />
+            <span className="w-10 shrink-0 text-right font-mono text-xs text-surface-300">
+              {localBlur}px
+            </span>
+          </div>
+        }
+      />
     </>
   );
 }

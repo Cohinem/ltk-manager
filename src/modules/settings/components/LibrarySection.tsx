@@ -1,9 +1,10 @@
 import { BooksIcon } from "@phosphor-icons/react";
 
-import { PathField, SectionCard, Separator, Switch } from "@/components";
+import { PathField, SectionCard, Switch } from "@/components";
 import type { Settings } from "@/lib/tauri";
 
 import { ExperimentalChip } from "./ExperimentalChip";
+import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
 import { TrustedDomainsEditor } from "./TrustedDomainsEditor";
 
@@ -19,21 +20,28 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
       icon={<BooksIcon className="h-5 w-5" />}
       description="Options for your mod library"
     >
-      <div className="flex flex-col gap-3">
-        <PathField
-          pick="directory"
-          label="Storage Location"
-          value={settings.modStoragePath}
-          onSelect={(path) => onSave({ ...settings, modStoragePath: path })}
-          placeholder="Default (app data directory)"
-          dialogTitle="Select Mod Storage Location"
-          description="Leave empty for the app data directory."
-        />
-
-        <Separator className="my-0" />
-
+      <SettingGroup id="library.storage" title="Storage">
         <SettingRow
-          title="Automatically categorize mods"
+          kind="action"
+          layout="stacked"
+          setting="modStoragePath"
+          description="Leave empty for the app data directory."
+          control={
+            <PathField
+              pick="directory"
+              aria-label="Storage location"
+              value={settings.modStoragePath}
+              onSelect={(path) => onSave({ ...settings, modStoragePath: path })}
+              placeholder="Default (app data directory)"
+              dialogTitle="Select Mod Storage Location"
+            />
+          }
+        />
+      </SettingGroup>
+
+      <SettingGroup id="library.cataloguing" title="Cataloguing">
+        <SettingRow
+          setting="autoCategorizationEnabled"
           description="Champions, maps and tags get read from each mod's files."
           hint="They are offered as suggested categories and as library filters. Turn this off to rely only on the categories you set yourself."
           control={
@@ -47,7 +55,7 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
 
         <SettingRow
-          title="Show footprint"
+          setting="showWadFootprint"
           description="Shows the cache footprint of each mod in the library."
           hint="Opens the full list of patched WADs"
           control={
@@ -59,12 +67,8 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
 
         <SettingRow
-          title={
-            <>
-              Watch for external changes
-              <ExperimentalChip />
-            </>
-          }
+          setting="watcherEnabled"
+          badge={<ExperimentalChip />}
           description="Mods added or removed outside the app show up in the library."
           hint="Filesystem notifications vary across platforms and antivirus software, so watching can miss an update or fire falsely. Requires a restart to take effect."
           control={
@@ -74,17 +78,17 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
             />
           }
         />
+      </SettingGroup>
 
-        <Separator className="my-0" />
-
+      <SettingGroup id="library.installing" title="Installing">
         <SettingRow
           kind="action"
           layout="stacked"
-          title="Trusted mod providers"
+          setting="trustedDomains"
           description="One-click links only install from these domains. Remove all of them to allow any source."
           control={<TrustedDomainsEditor settings={settings} onSave={onSave} />}
         />
-      </div>
+      </SettingGroup>
     </SectionCard>
   );
 }

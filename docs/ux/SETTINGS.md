@@ -2,10 +2,16 @@
 
 ## Changes
 
-| Date       | Change                                                              |
-| ---------- | ------------------------------------------------------------------- |
-| 2026-08-24 | Decide the defaults source, the scoped reset and the setting anchor |
-| 2026-08-24 | Propose the group, the level between a section card and a row       |
+| Date       | Change                                                                  |
+| ---------- | ----------------------------------------------------------------------- |
+| 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
+| 2026-08-25 | Phase 4b shipped. The index, the public id, the palette and the copy    |
+| 2026-08-25 | Phase 4a shipped. The gutter gear, the modified bar and three resets    |
+| 2026-08-25 | Adopt the VS Code settings editor: a gutter gear replaces the marker    |
+| 2026-08-25 | Phases 1 to 3 shipped. The group, the keys and the anchor are available |
+| 2026-08-25 | Accept the group, defer the collapse, and close three open questions    |
+| 2026-08-24 | Decide the defaults source, the scoped reset and the setting anchor     |
+| 2026-08-24 | Propose the group, the level between a section card and a row           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -22,7 +28,7 @@ the other panel was full. Appearance shows the same shape without the split: ele
 list, where color, type, motion and the backdrop each read as a run of rows the reader has to find
 by eye.
 
-This document proposes the **group**: a labelled band of rows inside a card, which costs one line
+This document specifies the **group**: a labelled band of rows inside a card, which costs one line
 of chrome and no new surface.
 
 Two more features follow from that level, and neither works well without it. A reader who can see a
@@ -48,16 +54,14 @@ of them.
 
 Out of scope:
 
-- A settings search box. A group is what would give a result its second breadcrumb, and the anchor
-  is how a result would navigate, so this document names the ids a search needs, and stops
 - The wording of any individual setting. `src/CLAUDE.md` owns the copy rules, and this document
   adds only the rules for a group's own title
 - The cache tab's table, the hotkey capture control and the about tab. None of them is a row list
 - Reordering settings across tabs
 - A reset for the whole application. Every scope here is a level the reader is already looking at,
   and `Reset all settings` is not one of them
-- An external `ltk://` link into settings. The anchor is internal navigation, and a protocol link
-  that opens a settings page needs its own trust rules first
+- A settings search box on the page itself. The palette carries the query, and an on-page filter
+  waits for a row list something can filter
 
 ## Feature status
 
@@ -65,31 +69,46 @@ A status word has one meaning.
 
 - **Available** - the feature is in the application today
 - **Planned** - the team agreed on the feature, and work did not start
+- **Deferred** - the team agreed on the feature, and it waits for a call site
 - **Proposed** - an idea for review, and not a decision
 
-| Feature                | Status    | Note                                                           |
-| ---------------------- | --------- | -------------------------------------------------------------- |
-| The tab rail           | Available | Eight tabs, `Tabs.List variant="pills"` in `Settings.tsx`      |
-| The section card       | Available | `SectionCard`. Heading on the ground, panel under it           |
-| The two-column grid    | Available | `SettingsGrid`, with `lg:col-span-2` for a wide card           |
-| The setting row        | Available | `SettingRow`, inline and stacked, toggle and action            |
-| The cluster separator  | Available | Ad-hoc `Separator` inside four cards. What a group replaces    |
-| The dependent row      | Available | Ad-hoc left rail in `MinimizeToTraySection`, no component      |
-| The defaults           | Available | `Settings::default()` in Rust, `APPEARANCE_DEFAULTS` in front  |
-| The card reset         | Available | `ResetAppearanceButton`, on one card, with its own comparison  |
-| `get_default_settings` | Planned   | The command that puts the Rust defaults on the frontend        |
-| The revert marker      | Planned   | On a row whose value differs from a fresh install              |
-| The group reset        | Planned   | On a group with two or more changed rows. Ships with the group |
-| The tab in the URL     | Planned   | `?tab=`, which `Settings.tsx` does not read or write today     |
-| The focus anchor       | Planned   | `?focus=`, addressing one group or one row                     |
-| The group              | Proposed  | This document                                                  |
-| The collapsible group  | Proposed  | For a group a first-run reader can ignore                      |
-| The group action slot  | Proposed  | One control for one group, at the header's trailing edge       |
-| Group ids              | Proposed  | The collapsed-state store, the anchor, and a future search     |
-| `DS-SETTING-LEVEL`     | Proposed  | The design-system code, added when the group ships             |
+| Feature                 | Status    | Note                                                               |
+| ----------------------- | --------- | ------------------------------------------------------------------ |
+| The tab rail            | Available | Eight tabs, `Tabs.List variant="pills"` in `Settings.tsx`          |
+| The section card        | Available | `SectionCard`. Heading on the ground, panel under it               |
+| The two-column grid     | Available | `SettingsGrid`, with `lg:col-span-2` for a wide card               |
+| The setting row         | Available | `SettingRow`, inline and stacked, toggle and action                |
+| The cluster separator   | Available | Survives on the Project editor card alone, between three rows      |
+| The dependent row       | Available | `SettingRow` `dependent` and `hidden`. Two instances               |
+| The defaults            | Available | `Settings::default()` in Rust, `APPEARANCE_DEFAULTS` in front      |
+| The card reset          | Available | `ResetAppearanceButton`, over the keys its card's scope collected  |
+| The group               | Available | `SettingGroup`. Five cards took groups, and General is one column  |
+| Group ids               | Available | Sixteen ids across five cards. The anchor, and a future search     |
+| `DS-SETTING-LEVEL`      | Available | In the `design-system` skill, cited by `SettingGroup`              |
+| The setting key         | Available | `SettingKey`, on every row. Nothing reads it until the reset lands |
+| The tab in the URL      | Available | `?tab=`, on a controlled rail written back with `replace`          |
+| The focus anchor        | Available | `?focus=`, addressing one group or one row. Two call sites aim it  |
+| `get_default_settings`  | Available | One command, one query that never goes stale, one default table    |
+| The gutter gear         | Available | On every row that can be put back. Right-click the row for it too  |
+| The modified bar        | Available | Dimmed accent on the edge of a row that is off its default         |
+| The group reset         | Available | On a group with two or more changed rows, with `Undo`              |
+| `DS-SETTING-GUTTER`     | Available | In the `design-system` skill, cited by the gutter and the group    |
+| The setting index       | Available | `SETTINGS_INDEX`. Id, key and title for 45 rows, in one table      |
+| The public setting id   | Available | `appearance.theme`. Group ids are namespaced beside them           |
+| Copy setting ID         | Available | In the gear's menu, on every row the index carries                 |
+| Settings in the palette | Available | A source of its own, so a resting box still lists the commands     |
+| `ltk://settings`        | Available | A route beside `ltk://install`, with `Copy link to setting` on it  |
+| The group action slot   | Available | The prop ships unused. No group needs one yet                      |
+| The collapsible group   | Deferred  | No card in the migration folds. It lands with the first that does  |
+| The changed dot         | Deferred  | It is drawn on a collapsed header alone                            |
 
-The five planned rows were decided in review on 2026-08-24. The group itself is still proposed, and
-the group reset is the one planned feature that cannot land before it.
+The group was accepted in review on 2026-08-25, and the work is planned at
+`docs/plans/settings-groups.md`. Every phase shipped the same day, so the group, its ids, both
+search params, the gear, all three resets, the index behind them and the link that carries an id
+out of the app are in the application. **The collapsible group is deferred whole**, along with the
+caret, the changed dot, the `settings` declaration and the collapsed-state store, because no card
+in the migration below folds and a level with no call site is a level nobody has reviewed against
+real rows.
 
 ## The levels
 
@@ -116,11 +135,15 @@ The mod-safety rows mean nothing except under Patching, so they are a group.
 
 **The count test.**
 
-| Rows in the card | Groups                                    |
-| ---------------- | ----------------------------------------- |
-| Under 5          | None. A short list is its own structure   |
-| 5 to 7           | Only when the cluster test passes cleanly |
-| 8 or more        | Group it, or split the card               |
+| Rows in the card | Groups                                             |
+| ---------------- | -------------------------------------------------- |
+| Under 5          | None, unless the card already draws a rule by hand |
+| 5 to 7           | Only when the cluster test passes cleanly          |
+| 8 or more        | Group it, or split the card                        |
+
+A short list is its own structure, so the count is what usually decides a small card. A card that
+reached for a `Separator` has already decided otherwise, and the group is the label that separator
+does not carry. `League of Legends` is four rows and takes two groups for exactly that reason.
 
 **The cluster test.** A grouping needs at least two groups, and each group needs at least two
 rows. One cluster and a remainder is not a grouping. It is a card with a separator, and it stays
@@ -146,20 +169,21 @@ label sits over a block either way.
   | Warn about missing dependencies  (r)    ( ) |
   | Enforce anti-skinhack scan              (O) |
   | ------------------------------------------- |
-  | > INCIDENTS                               . |  <- collapsed, and the dot says a row inside changed
+  | INCIDENTS                                   |
+  | Allow reading game logs                 (O) |
+  | Keep incidents                         [50] |
   +---------------------------------------------+
 ```
 
 | Part        | Required | Note                                                               |
 | ----------- | -------- | ------------------------------------------------------------------ |
-| Id          | Yes      | Stable, kebab-case, unique inside its tab                          |
+| Id          | Yes      | Stable and namespaced by its tab, `patching.mod-safety`            |
 | Title       | Yes      | One or two words. See the copy rules below                         |
 | Description | No       | Rare. One line, and only when the title cannot carry the meaning   |
 | Hint        | No       | `HintIcon` after the title, for detail that would crowd the header |
 | Badge       | No       | `ExperimentalChip` and its kind                                    |
 | Action      | No       | One control for the whole group, at the trailing edge              |
 | Reset       | Auto     | An icon at the trailing edge, once two rows differ from default    |
-| Changed dot | Auto     | On a collapsed header only, when a row inside differs              |
 | Rows        | Yes      | Two, or one stacked editor                                         |
 
 `Auto` means the component decides and no card asks for it. An id is unique inside its **tab**
@@ -172,17 +196,15 @@ this group's own control, and the reset is the one every group has.
 
 The group adds no surface and no radius. It is a label, a rule and a rhythm.
 
-| Part        | Utilities                                                            |
-| ----------- | -------------------------------------------------------------------- |
-| Panel body  | `flex flex-col gap-4`                                                |
-| Group root  | `border-t border-surface-700/40 pt-4 first:border-t-0 first:pt-0`    |
-| Group body  | `flex flex-col gap-3`                                                |
-| Header      | `flex items-center justify-between gap-2 select-none`                |
-| Title       | `text-xs font-medium tracking-wide text-surface-400 uppercase`       |
-| Description | `text-xs text-surface-400`                                           |
-| Caret       | `h-3.5 w-3.5 text-surface-500`, leading, on a collapsible group only |
-| Reset       | `Button variant="ghost" size="sm"`, icon only, `h-3.5 w-3.5` glyph   |
-| Changed dot | `h-1.5 w-1.5 rounded-full bg-accent-500`, on a collapsed header only |
+| Part        | Utilities                                                          |
+| ----------- | ------------------------------------------------------------------ |
+| Panel body  | `flex flex-col gap-4`                                              |
+| Group root  | `border-t border-surface-700/40 pt-4 first:border-t-0 first:pt-0`  |
+| Group body  | `flex flex-col gap-3`                                              |
+| Header      | `flex items-center justify-between gap-2 select-none`              |
+| Title       | `text-xs font-medium tracking-wide text-surface-400 uppercase`     |
+| Description | `text-xs text-surface-400`                                         |
+| Reset       | `Button variant="ghost" size="sm"`, icon only, `h-3.5 w-3.5` glyph |
 
 The title is the same object as `FilterSection`'s header, on purpose. The app gets one sub-header
 style rather than a second one that only settings uses. Uppercase at `text-xs` is what keeps it
@@ -211,7 +233,7 @@ Three design-system codes apply:
   group, because a border needs a distance that a gap cannot give it
 - `DS-INVARIANT` - `surface-700/40` for the rule and `surface-400` for the label, so both invert
   with the theme
-- `DS-KIND-HUE` - the changed dot is `accent-500`. Nothing went wrong, so no status hue is right
+- `DS-KIND-HUE` - the focus mark is `accent-500`. Nothing went wrong, so no status hue is right
 - `DS-VEIL` - the reset is a ghost button, so it hovers to `surface-veil` and not to a rung
 
 ## Rules
@@ -237,6 +259,10 @@ group below it draws its rule as usual, because it is no longer the panel's firs
 
 ## Collapsible groups
 
+**Deferred.** No card in the migration below folds, so nothing here has a call site to be reviewed
+against. It lands with the first group that needs to fold, and the design below is what that work
+starts from rather than what the group ships with.
+
 A group folds only when a reader who is not looking for it should not have to read past it -
 diagnostics, developer options, a long blocklist. Everything else stays open.
 
@@ -248,15 +274,17 @@ diagnostics, developer options, a long blocklist. Everything else stays open.
 - The open state persists per group id, in a `settingsLayout` store that mirrors
   `workshopLayout.openSections` - a `Record<string, boolean>` under `persist`
 - The body animates its height, and `useReducedMotion()` returns that to instant
-- A collapsed group keeps its rows out of the DOM. A settings search, when one is built, indexes
-  the settings model rather than the rendered page
-- Because those rows are not mounted, a collapsible group declares the settings it holds. That is
-  the one place the registration below is not enough, and it is what the changed dot reads
+- A settings search, when one is built, indexes the settings model rather than the rendered page,
+  whichever way the collapsed rows go
+- Whether a collapsed group keeps its rows in the DOM is the question this work left open. The
+  dependent row answers the same question with `hidden` - mounted, registered, drawing nothing - and
+  a collapsed group taking that shape needs no declaration of the settings it holds
 
 ## The dependent row
 
-`MinimizeToTraySection` already draws one. A row appears when its parent toggle is on, indented
-behind a left rail. This is a different relationship from a group, and it keeps a different shape.
+`Start in tray unless update available` is one, and `Blur` under `Background image` is the second.
+A row appears when its parent toggle is on, indented behind a left rail. This is a different relationship
+from a group, and it keeps a different shape.
 
 | Concept       | Shape                                     | Membership                        |
 | ------------- | ----------------------------------------- | --------------------------------- |
@@ -270,6 +298,9 @@ Rules for a dependent row:
 - The rail is `border-l-2 border-surface-600 pl-4`. The rung today is `surface-700`, which is the
   input rung. `surface-600` is the divider rung, and a rail is a divider
 - A group holds a parent row and its dependents together. They never straddle a rule
+- **A hidden dependent row stays mounted and draws nothing.** The row owns the condition rather than
+  the card around it, so the group it belongs to knows the setting exists even while the reader
+  cannot see it. That is what lets an anchor find it and a reset skip it, from one registration
 
 ## Defaults and reset
 
@@ -284,10 +315,11 @@ change?_ and _how do I put it back?_ One affordance answers both.
 
 Two tables already hold them, so the source is not new work.
 
-| Owner                                    | Holds                                                  |
-| ---------------------------------------- | ------------------------------------------------------ |
-| `Settings::default()`, in Rust           | Every setting the backend stores, `Config` included    |
-| `APPEARANCE_DEFAULTS`, in `displayStore` | Zoom, motion, corners, fonts, surface tint, scrollbars |
+| Owner                                          | Holds                                                  |
+| ---------------------------------------------- | ------------------------------------------------------ |
+| `Settings::default()`, in Rust                 | Every setting the backend stores, `Config` included    |
+| `APPEARANCE_DEFAULTS`, in `displayStore`       | Zoom, motion, corners, fonts, surface tint, scrollbars |
+| `PROJECT_EDITOR_DEFAULTS`, in `workshopLayout` | Tab open mode, game search, forward-looking meta       |
 
 The Rust table reaches the frontend through one command, `get_default_settings`, behind a query
 that never goes stale. A second copy of that table written in TypeScript is the one thing this
@@ -297,33 +329,70 @@ because it offers to reset a value to something a fresh install never had.
 The command keeps the `get_` prefix that C-GETTER rules out. `get_settings` sits beside it in the
 same file, and one command out of step with its neighbour reads as a mistake rather than a rule.
 
-### The revert marker
+### The gutter gear
 
-A row whose value differs from its default shows a small counter-clockwise arrow after its title,
-in the cluster where `HintIcon` already sits. It is on whenever the row is off default, and absent
-otherwise, so a scan down a card shows what this install changed before the reader clicks anything.
-
-The tooltip carries the value, which is what makes a default readable without resetting to it:
+Left of every row is a gutter, and every row the index carries draws a gear in it. The gear is
+invisible until the pointer is over the row, so a card at rest is rows and controls and nothing
+else. Its menu is where a row is put back, and where its id is taken:
 
 ```
-Reset to default
+Reset setting
 Default: Off
+─────────────────
+Copy setting ID
+Copy link to setting
 ```
 
-The label is the value as the reader would read it - `Off`, `Geist`, `100%`, `not set` - so the row
-supplies the string. Only the row knows how its own control presents a value.
+The default reads as the reader would read it - `Off`, `Geist`, `100%`, `None` - and it is derived
+from the tables above rather than written beside the row. A hand-written label is a second copy of a
+value the backend already owns, and the two drift the first time a Rust default changes.
 
-On a row that carries a hint as well, the hint comes first and the marker sits outermost. The hint
-belongs to the title and never moves, and the marker comes and goes with the value, so a title that
-shifts under the cursor is the thing to avoid.
+**The gear takes no tab stop.** Forty-five rows would otherwise double the settings page's tab
+order, and every second stop would be an affordance rather than a control. Right-clicking anywhere
+on the row opens the same menu, which is the desktop convention and the path that does not need a
+pointer to find a 20px target.
+
+`Reset setting` is disabled rather than hidden while the row is at its default. A menu whose only
+item comes and goes is a menu that reads as broken, and the disabled item is also what tells a
+reader the row is already where a fresh install leaves it.
+
+**The gear is on every addressable row, and the reset is not.** An id is worth copying whether or
+not the value behind it can be put back, and the paths and the lists are exactly the rows someone
+links a teammate to. On those, `Copy setting ID` is the whole menu. `Reset setting` is absent
+rather than disabled, because an item that can never be enabled is a promise of a way back that
+would delete what a reader found or built.
+
+`Copy setting ID` copies the public id and nothing else. There is no settings file to paste it
+into, so what it is for is a person telling another person which setting they mean - a support
+thread, an issue, a message. `Copy link to setting` is the same act with somewhere to click, and
+it copies the `ltk://settings` link below.
+
+### The modified bar
+
+A row that is off its default draws a bar down its own left edge, in dimmed accent. It is the
+at-a-glance half of the pair: the gear can carry actions because it hides, and the bar can carry
+state because it does not.
+
+**Dimmed, and not full accent.** A tab where most rows have been changed is a column of bars, and at
+full strength that column drowns out the single row a `?focus=` link just landed on. Modified is a
+state the reader chose. The mark is the app answering a question they just asked, so the mark is the
+louder of the two.
+
+The dependent row gives up the rail it carried and keeps its indent alone, because that edge now
+means one thing.
 
 ### The three scopes
 
 | Level | Control                              | Appears                          | Resets                  |
 | ----- | ------------------------------------ | -------------------------------- | ----------------------- |
-| Row   | An arrow after the title             | The row is off its default       | That row                |
+| Row   | A gear in the gutter                 | On row hover, or a right-click   | That row                |
 | Group | A ghost icon button in the header    | Two or more rows are off default | Every row in the group  |
 | Card  | A labelled `Reset to default` button | Always, disabled at default      | Every group in the card |
+
+**Appearance is the only card with a card-level reset.** It has one today, and it is the card whose
+eleven rows are one subject a reader changes as a set. Patching's four group resets already cover
+its card between them, and a card button beside the League path is the widest scope on the page and
+the one a reader checks least.
 
 **A group's reset waits for the second changed row.** One changed row is already its own reset, and
 a second control that does the same thing to the same row is noise. This is what keeps a single
@@ -338,6 +407,10 @@ eight things at once, and it is a better one than a confirm dialog: no click for
 meant it, and full recovery for the reader who did not. A row needs neither, because the way back
 is the control they just used.
 
+`Undo` puts back the keys the reset wrote, and nothing else. It is a patch applied to whatever the
+settings are when it is clicked, rather than a snapshot written over them, so a change the reader
+made during the toast's five seconds survives. A reset reaches its own scope, and so does its undo.
+
 ### What a reset never touches
 
 A reset puts a choice back. It does not delete work, so these rows carry no marker, and no scope
@@ -350,20 +423,28 @@ above them reaches them:
 Their editors already carry their own controls, and a list editor removes one item at a time on
 purpose.
 
-A hidden dependent row is not reset either. Its parent is off, so its value is inert, and it waits
-there for the parent to come back on. That is what a reader expects from a setting that disappeared
-rather than one that was cleared. A collapsible group declares only the rows that are always there,
-so a dependent row stays out of its scope by the same rule.
+A hidden dependent row is not reset either, and it carries no marker while it is hidden. Its parent
+is off, so its value is inert, and it waits there for the parent to come back on. That is what a
+reader expects from a setting that disappeared rather than one that was cleared. It follows that a
+group's reset never counts a hidden row toward the two changed rows that put the control on screen,
+because a control that offers to put back a row nobody can see is a control nobody can check.
+
+`Blur` is the one exception, and it is a row resetting its own parent's dependent rather than a
+scope reaching past itself. Resetting `Background image` clears `backdropBlur` in the same write,
+because a blur belongs to an image the reader just removed rather than being a choice that will mean
+something again.
 
 ### Copy
 
-| Where        | Text                                                       |
-| ------------ | ---------------------------------------------------------- |
-| Row tooltip  | `Reset to default`, then `Default: Off` on its own line    |
-| Row label    | `Reset Patch TFT files to default`                         |
-| Group button | `Reset this group`, with `Reset Mod safety` as its label   |
-| Card button  | `Reset to default`, which is what the Appearance card says |
-| Toast        | `Mod safety reset`, with an `Undo` action                  |
+| Where        | Text                                                                |
+| ------------ | ------------------------------------------------------------------- |
+| Gear label   | `Actions for Auto run`, so a card of gears is not one name repeated |
+| Gear menu    | `Reset setting`, `Default: Off` under it, then the two copies       |
+| Copy toast   | `Copied setting ID`, with `general.autoRun` as its description      |
+| Link toast   | `Copied link to setting`, with the `ltk://` URL as its description  |
+| Group button | `Reset 2 changed settings in this group`, as label and tip          |
+| Card button  | `Reset to default`, which is what the Appearance card says          |
+| Toast        | `Reset 2 settings`, with an `Undo` action                           |
 
 ## Anchors
 
@@ -372,41 +453,67 @@ places navigate there, and every one of them lands on the General tab and leaves
 reader - including the two that already know exactly which row they mean. The workshop's empty
 state says `Set up a workshop directory in Settings`, and then opens a tab that does not hold it.
 
+### The setting index
+
+`SETTINGS_INDEX` is one table with one row per addressable setting, holding its public id, the
+`SettingKey` it reads and its title. Everything that has to name a setting reads it there. The row
+draws its own title from it, the gear copies the id, `?focus=` resolves against it, and the palette
+builds a row per entry.
+
+The id is namespaced by the tab the setting is drawn on - `general.autoRun`, `appearance.theme` -
+and it is permanent. The namespace is not decoration. It is what lets a link resolve a tab before
+the panel holding its target has mounted, which is the whole reason one param can carry both halves
+of a link. Group ids are namespaced the same way, so `?focus=` has one id space and one rule rather
+than two.
+
+A row is addressable only if the table carries it, and `SettingRow` will not take a key the table
+does not - the prop is typed as the table's own key union. The title moving into the table is the
+same argument as the default's label: a name written beside the row is a second copy of a name
+something else already reads, and the copy is what goes stale when the row is reworded.
+
+A setting that moves keeps its old spelling in `aliases`, so a link minted before the move still
+lands on it. Nothing has moved yet, and the column is empty.
+
 ### The URL
 
 `/settings` takes two more search params beside the `firstRun` it validates today.
 
-| Param   | Value                        | Effect                                    |
-| ------- | ---------------------------- | ----------------------------------------- |
-| `tab`   | A tab value from `TABS`      | Opens that tab. Defaults to `general`     |
-| `focus` | A group id, or a setting key | Points at one group, or one row inside it |
+| Param   | Value                              | Effect                                                   |
+| ------- | ---------------------------------- | -------------------------------------------------------- |
+| `tab`   | A tab value from `TABS`            | Opens that tab. Defaults to `general`                    |
+| `focus` | A public setting id, or a group id | Opens the tab its namespace names, and points at one row |
 
-`?tab=patching&focus=mod-safety` opens Patching and points at the group.
-`?tab=patching&focus=patchTft` opens the same tab and points at the row.
+`?focus=patching.mod-safety` opens Patching and points at the group.
+`?focus=patching.patchTft` opens the same tab and points at the row. Neither needs a `tab=`
+beside it, because the namespace already carries one.
 
 A search param, and not a `#` hash: this route already validates its search in one place, and what
 scrolls is a container inside the page rather than the document.
 
-The id is what the URL carries, so a link outlives every rewrite of the label above it. `focus`
-addressing a **setting key** rather than a separate row id is the same idea one level down. The key
-is the one name a row already has, it is unique by construction, and it cannot fall out of step
-with what the row reads.
+The id is what the URL carries, so a link outlives every rewrite of the label above it. What it
+carries is the **public id** from the index rather than the `SettingKey` the row reads: the key is
+a name the frontend gives itself and would rather be free to change, and the id is the one the app
+promises to anyone holding a link.
 
 A row excluded from reset is still a valid target. The two features share the id and nothing else.
 
 ### What focus does
 
-1. Selects the tab, if it is not the one already selected
-2. Expands the group, if it is collapsed, and the group holding the row when `focus` names a row
-3. Scrolls the target into view, near the top of the panel rather than the bottom of it
-4. Marks it for two seconds with `ring-2 ring-accent-500/40`, which then fades
-5. Clears `focus` from the URL with `replace: true`
+1. Reads the tab out of the id's namespace and selects it
+2. Scrolls the target into view, near the top of the panel rather than the bottom of it
+3. Marks it for two seconds with `ring-2 ring-accent-500/40`, which then fades
+4. Writes that tab into the URL and clears `focus`, both in one `replace: true`
 
-Step 5 is what stops a refresh from re-flashing a mark the reader has already read, and what keeps
-Back out of a loop between two spellings of the same page.
+Step 4 is what stops a refresh from re-flashing a mark the reader has already read, and what keeps
+Back out of a loop between two spellings of the same page. The tab is written in the same navigate,
+so the page is never left reading a cleared `focus` for the tab it should be showing.
 
-`useReducedMotion()` returns step 3 to an instant scroll, and step 4 to a mark that holds for two
+`useReducedMotion()` returns step 2 to an instant scroll, and step 3 to a mark that holds for two
 seconds and then disappears.
+
+**A `focus` naming a hidden dependent row marks the group around it.** The row is mounted, so the
+group knows the key is one of its own, and the reader lands on the header above the toggle that
+gates what they came for. Marking a row that draws nothing would be a link that appears to fail.
 
 ### Tab state
 
@@ -416,15 +523,46 @@ walk through. Back leaves settings.
 
 ### Who links
 
-| From                              | Today       | With the anchor                     |
-| --------------------------------- | ----------- | ----------------------------------- |
-| The workshop's empty state        | `/settings` | `?tab=workshop&focus=workshopPath`  |
-| The game browser, with no League  | `/settings` | `?tab=general&focus=leaguePath`     |
-| A patcher failure, on an injector | `/settings` | `?tab=patching&focus=injector`      |
-| The titlebar gear, and `Ctrl+,`   | `/settings` | Unchanged. They mean the whole page |
+| From                              | Today       | With the anchor                      |
+| --------------------------------- | ----------- | ------------------------------------ |
+| The workshop's empty state        | `/settings` | `?focus=workshop.workshopPath`       |
+| The game browser, with no League  | `/settings` | `?focus=general.leaguePath`          |
+| A patcher failure, on an injector | `/settings` | `?focus=patching.injector`           |
+| The titlebar gear, and `Ctrl+,`   | `/settings` | Unchanged. They mean the whole page  |
+| First run                         | `?firstRun` | Unchanged. The banner is the pointer |
 
-A settings search, when one is built, navigates with the same two params. That is the whole of what
-a result has to do, which is why the ids come first and the search comes later.
+The patcher failure is the one row with no link to rewrite. Nothing on the injection failure path
+navigates to settings today, so it is a link to add rather than a link to aim.
+
+First run takes no `focus`, because it already draws a banner over the card telling the reader to
+configure the path below. A banner and a mark that fades after two seconds are one signal too many,
+and the banner is the half that explains auto-detection.
+
+The palette carries the search. Every entry of the index is a row of a `settings` source, matched
+only once something is typed, and choosing one navigates with the id alone. A source of its own
+rather than more commands, because a resting box lists its commands and forty-five settings would
+bury the handful someone opened the bar to read. The id is one of the words a row matches on, so a
+reader who already knows the setting can type `appearance.theme` at it.
+
+### The deep link
+
+`ltk://settings?focus=<id>` opens the app on one setting, and `Copy link to setting` in the gear's
+menu is what mints one. It is `Copy setting ID` with somewhere to click.
+
+`parse_deep_link_url` routes on the action rather than checking for one, so `install` and
+`settings` are two arms of one enum and a third route is an arm rather than a rewrite. The rate
+limiter, the scheme check and the unknown-action error were already there and are shared.
+
+`focus` is held to the id alphabet at the boundary - letters, digits, `.`, `-` and `_`, up to 128
+characters - because the value is handed to the frontend to put back into its own URL. Passing that
+is not the same as naming a setting the index carries, and it does not need to be: an id nothing
+resolves opens the tab its namespace names and marks nothing, which is what a link minted against a
+build that has since moved on should do.
+
+**A link followed while the app is closed is held rather than sent.** The window is created hidden,
+and the URL reaches the backend before the window's script has run, so an event carrying it would
+reach nobody. The frontend asks for the held link once, as its listener comes up. `ltk://install`
+was losing a cold start's link the same way, and now does not.
 
 ## Copy
 
@@ -456,15 +594,17 @@ that title holds four.
 - `role="group"` with `aria-labelledby`, and not `fieldset` with `legend`. Every row already owns
   its own label, and a fieldset makes some screen readers repeat the legend on each control inside
   it
-- A collapsible header is a `<button aria-expanded aria-controls>` inside the `h4`, wrapping the
-  caret and the title only. It is one tab stop, the caret gets none of its own, and Enter and Space
-  toggle it. The action and the reset are siblings of that button rather than children of it
+- A collapsible header, when one lands, is a `<button aria-expanded aria-controls>` inside the `h4`,
+  wrapping the caret and the title only. It is one tab stop, the caret gets none of its own, and
+  Enter and Space toggle it. The action and the reset are siblings of that button, not children
 - The header is chrome the app wrote about itself, so it takes `select-none`
 - Tab order inside a group is unchanged. A group adds no focus trap and no roving index
-- The revert marker is a `<button>` in the row's title cluster, which is safe inside a `<label>`
-  because a label ignores clicks on interactive descendants - the note `HintIcon` already carries
-- Its accessible name names the row, `Reset Patch TFT files to default`. A card of identical arrows
-  otherwise reads out as `Reset to default` eleven times
+- The gear is a `<button>` in the row's gutter, which is safe inside a `<label>` because a label
+  ignores clicks on interactive descendants - the note `HintIcon` already carries
+- Its accessible name names the row, `Actions for Patch TFT files`, which the index is what makes
+  possible. A card of identical gears otherwise reads out as `Setting actions` eleven times
+- The gear takes `tabIndex={-1}` and is reached by right-clicking the row rather than by Tab. Forty-five
+  rows of affordance between forty-five rows of control is a tab order nobody walks twice
 - The changed dot on a collapsed header is decorative. The header's accessible name carries the
   fact instead
 - A focus target takes `tabIndex={-1}` and takes focus after the scroll, so a keyboard reader lands
@@ -479,7 +619,7 @@ the module barrel. It is settings-specific, so it does not belong in `@/componen
 
 ```tsx
 interface SettingGroupProps {
-  /** Stable id, for the collapsed-state store and for the `focus` anchor. */
+  /** Stable and namespaced by its tab, `patching.mod-safety`, for the `focus` anchor. */
   id: string;
   title: string;
   /** Rare. Only where the title cannot carry the meaning on its own. */
@@ -489,15 +629,12 @@ interface SettingGroupProps {
   badge?: ReactNode;
   /** A control for the whole group, pinned to the header's trailing edge. */
   action?: ReactNode;
-  /** Lets the reader fold the group away. The state persists by `id`. */
-  collapsible?: boolean;
-  /** Only for a group a first-run reader can ignore. Defaults to open. */
-  defaultOpen?: boolean;
-  /** What this group holds. Only a collapsible group needs it, since its rows may be unmounted. */
-  settings?: SettingKey[];
   children: ReactNode;
 }
 ```
+
+`collapsible`, `defaultOpen` and the `settings` declaration land with the collapsible group, and
+not before.
 
 Two supporting changes come with it:
 
@@ -509,12 +646,12 @@ Two supporting changes come with it:
 
 ```tsx
 <SectionCard title="Patching" icon={<PatcherIcon className="h-5 w-5" />}>
-  <SettingGroup id="injector" title="Injector">
-    <SettingRow title="Patch TFT files" setting="patchTft" defaultLabel="Off" ... />
+  <SettingGroup id="patching.injector" title="Injector">
+    <SettingRow setting="patchTft" ... />
   </SettingGroup>
 
-  <SettingGroup id="mod-safety" title="Mod safety">
-    <SettingRow title="Block Scripts.wad.client" setting="blockScriptsWad" defaultLabel="On" ... />
+  <SettingGroup id="patching.mod-safety" title="Mod safety">
+    <SettingRow setting="blockScriptsWad" ... />
     <AlertBox variant="warning">...</AlertBox>
   </SettingGroup>
 </SectionCard>
@@ -525,45 +662,81 @@ row said.
 
 ### What a row declares
 
-`SettingRow` gains two props, both optional, because an action row reads no setting at all.
+`SettingRow` reads a setting, or it names itself, and never both. That is a union rather than two
+optional props, so a row cannot carry a title the index would overrule and cannot omit both.
 
 ```tsx
-/** The setting this row reads. It is also the row's anchor id and its reset scope. */
-setting?: SettingKey;
-/** What a fresh install shows, as the reader would read it - `Off`, `Geist`, `100%`. */
-defaultLabel?: string;
+type SettingRowProps = SettingRowBase &
+  ({ setting: IndexedSettingKey; title?: never } | { setting?: never; title: string });
 ```
+
+`setting` is the row's reset scope, and the index turns it into the row's title and its anchor id.
+Its type is the index's own key union, so a key the table has no entry for is a type error rather
+than a row with no name.
+
+The icon and the badge two rows carry inside a fragment today become props of their own, beside the
+`badge` a group already takes. A row's anatomy belongs to the row.
 
 ```tsx
-/** A setting the backend stores, or one the display store owns. */
-type SettingKey = keyof Settings | `display.${keyof typeof APPEARANCE_DEFAULTS}`;
+/** A setting the backend stores, or one a frontend store owns. */
+type SettingKey = keyof Settings | `display.${AppearanceKey}` | `layout.${ProjectEditorKey}`;
 ```
 
-**A row with a `setting` and no `defaultLabel` is addressable and never reset.** That is exactly
-the League path, the WAD blocklist and the author profiles: they keep their anchor, and they keep
-their data. The rule that a reset never deletes work is then structural rather than a second prop
-someone can set wrong.
+Three namespaces, because the Project editor's rows read `workshopLayout`. That store mixes
+preferences with geometry, so `ProjectEditorKey` names only the three rows the card shows, carved
+out the way `APPEARANCE_DEFAULTS` was carved out of the display store. A key exists where a row
+exists, and nowhere else.
+
+The index answers four questions, over the `SETTINGS_INDEX` table behind them.
+
+```tsx
+/** The entry for a key a row declared, which the index carries by construction. */
+function settingEntry(key: IndexedSettingKey): SettingEntry;
+
+/** The entry a public id or a retired alias names, or undefined for neither. */
+function settingById(id: string): SettingEntry | undefined;
+
+/** The tab a `?focus=` value opens, whatever it names. */
+function settingFocusTab(focus: string): SettingsTab;
+
+/** A link that opens the app on one setting, for pasting where it is clicked. */
+function settingLink(id: string): string;
+```
+
+**A row whose key has no entry in `SETTING_FORMAT` is addressable and never reset.** That is
+exactly the League path, the WAD blocklist and the author profiles. They keep their anchor, their
+id and their gear, and they keep their data. The rule that a reset never deletes work is then
+structural rather than a flag someone can set wrong.
 
 Two hooks and one context carry the rest.
 
 ```tsx
-/** What a fresh install stores, from the Rust defaults and from the display store. */
+/** What a fresh install stores, from the Rust defaults and from the two frontend tables. */
 function useSettingDefaults(): SettingDefaults;
 
-/** Which of these settings are off default, and how to put them back in one save. */
-function useSettingReset(keys: SettingKey[]): { changed: SettingKey[]; reset: () => void };
+/** What the scope above this hook holds that is off default, and how to put it back in one save. */
+function useSettingReset(): { changed: readonly SettingKey[]; reset: () => void };
+
+/** What one row's gear needs: whether it offers a reset, to what, and how. */
+function useSettingDefault(key: SettingKey | undefined): SettingDefault;
 
 /** A row registers what it reads, so the group around it knows its own scope. */
-const SettingScope = createContext<{ register: (key: SettingKey) => () => void } | null>(null);
+const SettingScope = createContext<{
+  register: (key: SettingKey, hidden: boolean) => () => void;
+} | null>(null);
 ```
 
-An open group needs no prop for any of this. What registered is what it resets, and how many
-registered rows are off default is what decides whether its reset is on screen at all.
+A group needs no prop for any of this. What registered is what it resets, and how many registered
+rows are visible and off default is what decides whether its reset is on screen at all.
 
-Registration rather than a list of keys on every group, for two reasons. A dependent row mounts and
-unmounts, so a hard-coded list would claim a key for a row that is not on screen. And a second list
-of keys beside the rows is a second place to forget one. A collapsible group is the exception, and
-it declares its keys, because a collapsed group has no mounted rows to hear from.
+Registration rather than a list of keys on every group, for two reasons. A second list of keys
+beside the rows is a second place to forget one. And a dependent row registers whether or not the
+reader can see it, so the group holds the whole truth about its own scope without anyone writing it
+down twice — which is what an anchor to a hidden row needs, and what a reset skipping one needs.
+
+A card that carries a reset renders one more `SettingScope` around its whole `SectionCard`. Scopes
+nest and forward upward, so the card sees every group inside it without a second component, and
+`SectionCard` itself stays a shared shell with no idea what a setting is.
 
 ### What the route declares
 
@@ -579,8 +752,9 @@ interface SettingsSearch {
 sections and a union would have to be maintained beside them. An unknown `focus` selects the tab
 and does nothing else, which is the right failure for a link that outlived the setting it named.
 
-Only the collapsed state persists, in `settingsLayout`. The tab and the focus target live in the
-URL, and the two-second mark lives in the component.
+Nothing about the group persists. The tab and the focus target live in the URL, and the two-second
+mark lives in the component. `settingsLayout` arrives with the collapsible group, and only to hold
+its open state.
 
 `data-ui` values are `SettingGroup` on the root and `SettingGroup:header` on the header.
 
@@ -620,8 +794,9 @@ because it resets all of them.
 | Motion          | Reduce motion, Scrolling, Scrollbars |
 | Backdrop        | Background image, Blur               |
 
-`Blur` appears only once an image is set, so `Backdrop` is a one-row group some of the time. The
-row it holds is a stacked editor either way, which is the stated exception.
+`Blur` appears only once an image is set, which makes it a dependent row of `Background image`
+rather than a peer of it, and `Backdrop` a one-row group holding a stacked editor and its dependent.
+It draws behind the rail like the tray card's, and resetting the image clears it.
 
 ### Library
 
@@ -636,11 +811,22 @@ separators do not carry.
 
 ### General
 
-| Card              | Rows | Verdict                                            |
-| ----------------- | ---- | -------------------------------------------------- |
-| League of Legends | 4    | No groups. One cluster, under the count test       |
-| Startup and tray  | 5    | Two groups. Renamed from `System Tray & Autostart` |
-| Import            | -    | An action card, and not a row list                 |
+| Card              | Rows | Verdict                                                      |
+| ----------------- | ---- | ------------------------------------------------------------ |
+| League of Legends | 4    | Two groups. It draws a `Separator` today, per the count test |
+| Startup and tray  | 5    | Two groups. Renamed from `System Tray & Autostart`           |
+| Import            | -    | An action card, and not a row list                           |
+
+The tab goes single-column. `Startup and tray` runs the full width once it has groups, which leaves
+`Import` alone in a half column under two wide cards, so `SettingsGrid` leaves this tab too and
+`Import` runs wide with the rest.
+
+Card `League of Legends`:
+
+| Group        | Rows                                                                               |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Installation | Installation path. One row, and a stacked editor, which is the exception           |
+| Launching    | Launcher flow, Hide Riot Client on Game start, Stop the patcher when the game ends |
 
 Card `Startup and tray`:
 
@@ -658,14 +844,17 @@ Card `Startup and tray`:
 | Hotkeys  | No groups. Three rows. A per-action hotkey list would group by what the hotkey does   |
 | About    | No groups. Not a row list                                                             |
 
-Every row a migration touches also gains the `setting` key it reads, and the `defaultLabel` a
-reader would read for it, except the six that no reset may touch. Those six take the key alone, so
-they can still be linked to.
+Every row a migration touches also gains the `setting` key it reads, and an entry in the index
+under it. The rows no reset may touch take the entry all the same, so they can still be linked to
+and their ids can still be copied.
 
-After this work, four cards of the eight tabs carry groups. That is the intended outcome, because
+After this work, five cards of the eight tabs carry groups. That is the intended outcome, because
 the level earns its place twice: once on the two cards that are unreadable today, and again every
 time a setting is added. The ninth row on the Appearance card joins `Motion`, instead of starting
 a `More appearance options` card.
+
+`SettingsGrid` survives on the Workshop tab alone, which is the one tab whose cards are short enough
+to sit side by side and have no groups to widen them.
 
 ## Rejected alternatives
 
@@ -688,12 +877,20 @@ a `More appearance options` card.
 
 ## Open questions
 
-- `Game archives` and `Incidents` sit close enough that a reader may look in the wrong one for
-  `Allow reading game logs`. Does the pair want one group named `Diagnostics`?
-- Which cards get a card-level reset? Appearance has one today. Patching would be the next
-  candidate, and the four group resets may already be enough of one
-- Should `focus` also address a card, for a link that means the whole of `Overlay` rather than one
-  row in it? Every row is addressable already, so this only buys a better-aimed link
-- A collapsible group has to declare its settings, since a collapsed group has no rows mounted to
-  register. Is a group that folds worth that second list, or should a collapsed group keep its rows
-  in the DOM instead?
+- Does the patcher want a link into settings at all? The anchor gives one a target, and nothing on
+  the injection failure path navigates to settings today, so the link is a decision rather than a
+  rewrite
+
+Closed on 2026-08-25:
+
+- **`Game archives` and `Incidents` stay apart.** The archive rows are coupled to each other -
+  archives are verified on demand only while Riot's crash reporting is off - and one `Diagnostics`
+  group of four rows would hide that coupling behind a vaguer name than either has now
+- **Appearance keeps the only card-level reset.** Patching's four group resets cover its card
+  between them, and a card button beside the League path is the widest scope on the page
+- **`focus` addresses a group or a row, and never a card.** Every row is addressable already, so a
+  card target buys a better-aimed link and a third kind of thing an id can name
+- **A collapsible group's declaration is not needed yet.** The group ships without folding, so the
+  question waits with it. `SettingRow.hidden` is the answer's likely shape: a row that stays mounted
+  and draws nothing is what lets a group know its own scope without a second list, and a collapsed
+  group could keep its rows the same way

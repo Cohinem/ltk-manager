@@ -1,46 +1,25 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 
 import { Button } from "@/components";
-import type { Settings } from "@/lib/tauri";
-import { useIsAppearanceDefault, useResetAppearance } from "@/stores";
 
-import { LTK_PRESET } from "../../api";
+import { useSettingReset } from "../SettingScope";
 
-interface ResetAppearanceButtonProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
-/** Puts every Appearance row back to what a fresh install shows. */
-export function ResetAppearanceButton({ settings, onSave }: ResetAppearanceButtonProps) {
-  const resetAppearance = useResetAppearance();
-  const displayIsDefault = useIsAppearanceDefault();
-
-  // An unset preset is the brand, matching the fallback in useTheme.
-  const settingsAreDefault =
-    settings.theme === "system" &&
-    (settings.accentColor?.preset ?? LTK_PRESET) === LTK_PRESET &&
-    settings.accentColor?.customHue == null &&
-    settings.backdropImage == null;
-
-  function handleReset() {
-    onSave({
-      ...settings,
-      theme: "system",
-      accentColor: { preset: null, customHue: null },
-      backdropImage: null,
-      backdropBlur: null,
-    });
-    resetAppearance();
-  }
+/**
+ * Puts every Appearance row back to what a fresh install shows.
+ *
+ * It counts the rows the card's own scope collected, so the card and the groups
+ * inside it can never disagree about what a default is.
+ */
+export function ResetAppearanceButton() {
+  const { changed, reset } = useSettingReset();
 
   return (
     <Button
       variant="outline"
       size="sm"
       left={<ArrowCounterClockwiseIcon weight="bold" className="h-4 w-4" />}
-      onClick={handleReset}
-      disabled={displayIsDefault && settingsAreDefault}
+      onClick={reset}
+      disabled={changed.length === 0}
     >
       Reset to default
     </Button>

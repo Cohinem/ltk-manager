@@ -44,6 +44,7 @@ export const PALETTE_SOURCES: readonly PaletteSource[] = [
   { id: "layers", label: "Layers", hint: "The layers of this project" },
   { id: "strings", label: "Strings", prefix: "#", hint: "Every string override key" },
   { id: "commands", label: "Commands", prefix: ">", cap: 5, hint: "What the editor can do" },
+  { id: "settings", label: "Settings", hint: "Every setting a link can open" },
   { id: "game", label: "Game", hint: "Every file of the installed game" },
 ];
 
@@ -57,7 +58,7 @@ export const PROJECT_SOURCES: readonly PaletteSourceId[] = PALETTE_SOURCES.map(
  *
  * The game is absent: a game row has no editor to open into from this surface.
  */
-export const WORKSHOP_SOURCES: readonly PaletteSourceId[] = ["projects", "commands"];
+export const WORKSHOP_SOURCES: readonly PaletteSourceId[] = ["projects", "commands", "settings"];
 
 /** The prefix that lists the other prefixes, rather than scoping to a source. */
 export const HELP_PREFIX = "?";

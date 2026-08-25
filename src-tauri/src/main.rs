@@ -71,6 +71,7 @@ fn main() {
             // Settings
             commands::get_settings,
             commands::save_settings,
+            commands::get_default_settings,
             commands::auto_detect_league_path,
             commands::validate_league_path,
             commands::check_setup_required,
@@ -203,6 +204,7 @@ fn main() {
             commands::open_asset_in_ritobin,
             // Deep Link
             commands::deep_link_install_mod,
+            commands::take_pending_deep_link,
             // for dynamic icons
             tray::set_tray_state,
         ])

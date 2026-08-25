@@ -1,9 +1,4 @@
-import {
-  ArrowsClockwiseIcon,
-  ShieldCheckIcon,
-  ShieldWarningIcon,
-  StackIcon,
-} from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, ShieldWarningIcon, StackIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 
 import {
@@ -11,7 +6,6 @@ import {
   Button,
   FieldControl,
   SectionCard,
-  Separator,
   Switch,
   TftIcon,
   useToast,
@@ -20,8 +14,9 @@ import type { Settings } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
 
+import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
-import { SettingsGrid } from "./SettingsGrid";
+import { SettingRows } from "./SettingRows";
 import { WadBlocklistEditor } from "./WadBlocklistEditor";
 
 interface PatchingSectionProps {
@@ -46,16 +41,12 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
   };
 
   return (
-    <SettingsGrid>
+    <div className="flex flex-col gap-6">
       <SectionCard title="Patching" icon={<ShieldWarningIcon className="h-5 w-5" />}>
-        <div className="flex flex-col gap-3">
+        <SettingGroup id="patching.injector" title="Injector">
           <SettingRow
-            title={
-              <>
-                <TftIcon className="h-4 w-4 shrink-0" />
-                Patch TFT files
-              </>
-            }
+            setting="patchTft"
+            icon={<TftIcon className="h-4 w-4 shrink-0" />}
             description="Turn this off if you only play Summoner's Rift."
             hint="Applies mods to Map22.wad.client, the Teamfight Tactics map archive."
             control={
@@ -67,7 +58,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           />
 
           <SettingRow
-            title="Run injector elevated"
+            setting="elevateInjector"
             description="Leave off unless mods fail to load."
             hint="Required when League itself runs as administrator. Windows shows a UAC prompt each time the patcher starts, unless LTK Manager is already elevated."
             control={
@@ -86,7 +77,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           )}
 
           <SettingRow
-            title="Verbose patcher logging"
+            setting="verbosePatcherLogging"
             description="Logs injector internals to the app log. Noisy, so keep it for bug reports."
             hint="Takes effect the next time the patcher starts."
             control={
@@ -98,13 +89,11 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               />
             }
           />
-        </div>
-      </SectionCard>
+        </SettingGroup>
 
-      <SectionCard title="Safety & Integrity" icon={<ShieldCheckIcon className="h-5 w-5" />}>
-        <div className="flex flex-col gap-3">
+        <SettingGroup id="patching.mod-safety" title="Mod safety">
           <SettingRow
-            title="Block Scripts.wad.client"
+            setting="blockScriptsWad"
             description="Stops mods from modifying Lua game scripts"
             control={
               <Switch
@@ -121,7 +110,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           )}
 
           <SettingRow
-            title="Warn about missing dependencies"
+            setting="linkedBinCheckEnabled"
             description="Flags enabled mods that reference files removed from the game."
             hint="Shown as a badge on each affected mod, plus a one-time warning when you start the patcher."
             control={
@@ -135,7 +124,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           />
 
           <SettingRow
-            title="Enforce anti-skinhack scan"
+            setting="enforceSkinhackScan"
             description="Scans modded files for skinhacks and aborts patching if any are found."
             hint="Temporary. It goes away once third-party mod managers have adapted to the new anti-skinhack requirements."
             control={
@@ -151,9 +140,11 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               Enforcement is off, so mods flagged as skinhacks will load.
             </AlertBox>
           )}
+        </SettingGroup>
 
+        <SettingGroup id="patching.game-archives" title="Game archives">
           <SettingRow
-            title="Scan every WAD up front"
+            setting="fullWadScan"
             description="Every archive gets verified up front at startup."
             hint="On-demand scanning can cause sporadic crashes, so the patcher only does it while League's Automatically Send Crash Reports setting is off. With crash reporting on, every WAD is scanned up front regardless."
             control={
@@ -165,7 +156,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           />
 
           <SettingRow
-            title="Disable crash reporting"
+            setting="disableCrashReporting"
             description="League's crash reporting gets turned off when the patcher starts."
             hint="Archives are only verified on demand while Riot's crash reporting is off. It lives in LeagueClientSettings.yaml, which the client rewrites when it exits, so the patcher reapplies this at every start."
             control={
@@ -177,9 +168,11 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               />
             }
           />
+        </SettingGroup>
 
+        <SettingGroup id="patching.incidents" title="Incidents">
           <SettingRow
-            title="Allow reading game logs"
+            setting="readGameLog"
             description="The incident reporter reads the game log to see what went wrong."
             hint="Turn this off to keep the manager from opening anything under the League install. An incident still records how the game ended, and the archives the patcher saw."
             control={
@@ -191,8 +184,8 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           />
 
           <SettingRow
-            title="Keep incidents"
-            description="How many indicents to keep"
+            setting="keepIncidents"
+            description="How many incidents to keep"
             hint="The newest are kept, under 1 MB together, and the oldest goes first."
             control={
               <KeepIncidentsField
@@ -201,18 +194,17 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               />
             }
           />
-        </div>
+        </SettingGroup>
       </SectionCard>
 
       <SectionCard
         title="Overlay"
         icon={<StackIcon className="h-5 w-5" />}
         description="Options for the layered filesystem that the patcher uses"
-        className="lg:col-span-2"
       >
-        <div className="flex flex-col gap-3">
+        <SettingRows>
           <SettingRow
-            title="Apply string overrides to all locales"
+            setting="applyStringOverridesToAllLocales"
             description="Every client locale will be overridden with Default or English."
             control={
               <Switch
@@ -243,15 +235,15 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
             }
           />
 
-          <Separator className="my-0" />
-
-          <div className="flex flex-col gap-2">
-            <span className="text-sm font-medium text-surface-200">WAD blocklist</span>
-            <WadBlocklistEditor settings={settings} onSave={onSave} />
-          </div>
-        </div>
+          <SettingRow
+            kind="action"
+            layout="stacked"
+            setting="wadBlocklist"
+            control={<WadBlocklistEditor settings={settings} onSave={onSave} />}
+          />
+        </SettingRows>
       </SectionCard>
-    </SettingsGrid>
+    </div>
   );
 }
 

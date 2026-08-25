@@ -8,6 +8,7 @@ import { parseQuery, WORKSHOP_SOURCES } from "./sources";
 import type { PaletteRowData } from "./types";
 import { useGlobalCommands } from "./useGlobalCommands";
 import { usePaletteSearch } from "./usePaletteSearch";
+import { useSettingRows } from "./useSettingRows";
 
 /**
  * The bar's palette with no project open, which is what a prefix reaches.
@@ -23,9 +24,10 @@ export function WorkshopPalette(props: PaletteBranchProps) {
 
   const projects = useProjectRows();
   const commands = useGlobalCommands();
+  const settings = useSettingRows();
   const candidates = useMemo(
-    () => ({ projects, commands: commands.map(buildCommandCandidate) }),
-    [commands, projects],
+    () => ({ projects, commands: commands.map(buildCommandCandidate), settings }),
+    [commands, projects, settings],
   );
 
   const groups = usePaletteSearch({ parsed, sources: WORKSHOP_SOURCES, candidates });
