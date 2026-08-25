@@ -114,6 +114,7 @@ export const api = {
 
   // Settings
   getSettings: () => invokeResult<Settings>("get_settings"),
+  getDefaultSettings: () => invokeResult<Settings>("get_default_settings"),
   saveSettings: (settings: Settings) => invokeResult<void>("save_settings", { settings }),
   autoDetectLeaguePath: () => invokeResult<string | null>("auto_detect_league_path"),
   validateLeaguePath: (path: string) => invokeResult<boolean>("validate_league_path", { path }),

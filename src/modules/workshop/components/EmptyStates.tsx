@@ -44,7 +44,7 @@ export function NotConfiguredState() {
           <p className="mb-4 max-w-sm text-surface-500">
             Set up a workshop directory in Settings to start creating mod projects.
           </p>
-          <Link to="/settings">
+          <Link to="/settings" search={{ tab: "workshop", focus: "workshopPath" }}>
             <Button variant="filled" left={<Settings className="h-4 w-4" />}>
               Open Settings
             </Button>

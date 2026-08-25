@@ -71,6 +71,7 @@ fn main() {
             // Settings
             commands::get_settings,
             commands::save_settings,
+            commands::get_default_settings,
             commands::auto_detect_league_path,
             commands::validate_league_path,
             commands::check_setup_required,

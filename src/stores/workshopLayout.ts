@@ -65,6 +65,16 @@ interface WorkshopLayoutStore {
   setForwardLookingMeta: (forwardLookingMeta: boolean) => void;
 }
 
+/* What the Project editor card shows. The rest of this store is geometry, which is
+   remembered rather than chosen, so a settings key exists only for these three. */
+const PROJECT_EDITOR_DEFAULTS = {
+  tabOpenMode: "append",
+  searchGame: true,
+  forwardLookingMeta: true,
+} satisfies Pick<WorkshopLayoutStore, "tabOpenMode" | "searchGame" | "forwardLookingMeta">;
+
+type ProjectEditorKey = keyof typeof PROJECT_EDITOR_DEFAULTS;
+
 export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
   persist(
     (set) => ({
@@ -75,10 +85,8 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       browserSplit: null,
       showLayerStats: true,
       wadSort: "name",
-      tabOpenMode: "append",
       previewCheckered: true,
-      searchGame: true,
-      forwardLookingMeta: true,
+      ...PROJECT_EDITOR_DEFAULTS,
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
       toggleSection: (id, open) =>
@@ -97,7 +105,8 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
   ),
 );
 
-export type { LayerPanelSide, TabOpenMode, WadSort };
+export { PROJECT_EDITOR_DEFAULTS };
+export type { LayerPanelSide, ProjectEditorKey, TabOpenMode, WadSort };
 export const useLayerPanelSide = () => useWorkshopLayoutStore((s) => s.layerPanelSide);
 export const useSetLayerPanelSide = () => useWorkshopLayoutStore((s) => s.setLayerPanelSide);
 export const useLayerPanelOpen = () => useWorkshopLayoutStore((s) => s.layerPanelOpen);

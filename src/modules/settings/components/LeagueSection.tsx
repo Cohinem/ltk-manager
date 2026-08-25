@@ -3,24 +3,23 @@ import { type ReactNode } from "react";
 
 import {
   Button,
-  HintIcon,
   LeagueIcon,
   PathField,
   type PathValidity,
   RadioGroup,
   SectionCard,
-  Separator,
   Switch,
 } from "@/components";
 import type { LaunchMode, Settings } from "@/lib/tauri";
 import { useAutoDetectLeaguePath, useValidateLeaguePath } from "@/modules/settings/api";
 
 import { ExperimentalChip } from "./ExperimentalChip";
+import { SettingGroup } from "./SettingGroup";
+import { SettingRow } from "./SettingRow";
 
 interface LeagueSectionProps {
   settings: Settings;
   onSave: (settings: Settings) => void;
-  className?: string;
 }
 
 const LAUNCH_MODES: {
@@ -65,7 +64,7 @@ function pathValidity(valid: boolean | undefined): PathValidity | undefined {
   return valid ? "valid" : "invalid";
 }
 
-export function LeagueSection({ settings, onSave, className }: LeagueSectionProps) {
+export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
   const { data: pathIsValid } = useValidateLeaguePath(settings.leaguePath);
   const autoDetect = useAutoDetectLeaguePath();
 
@@ -83,86 +82,97 @@ export function LeagueSection({ settings, onSave, className }: LeagueSectionProp
   }
 
   return (
-    <SectionCard
-      title="League of Legends"
-      icon={<LeagueIcon className="h-5 w-5" />}
-      className={className}
-    >
-      <div className="flex flex-col gap-4">
-        <PathField
-          pick="directory"
-          label="Installation Path"
-          value={settings.leaguePath}
-          onSelect={selectPath}
-          placeholder="Not configured"
-          dialogTitle="Select League of Legends Installation"
-          validity={pathValidity(pathIsValid)}
-          error={pathIsValid === false && INVALID_PATH_HINT}
-          actions={
-            <Button
-              variant="outline"
-              size="sm"
-              left={<CrosshairIcon weight="bold" className="h-4 w-4" />}
-              loading={autoDetect.isPending}
-              onClick={handleAutoDetect}
-              className="shrink-0"
+    <SectionCard title="League of Legends" icon={<LeagueIcon className="h-5 w-5" />}>
+      <SettingGroup id="installation" title="Installation">
+        <SettingRow
+          kind="action"
+          layout="stacked"
+          title="Installation path"
+          setting="leaguePath"
+          control={
+            <PathField
+              pick="directory"
+              aria-label="Installation path"
+              value={settings.leaguePath}
+              onSelect={selectPath}
+              placeholder="Not configured"
+              dialogTitle="Select League of Legends Installation"
+              validity={pathValidity(pathIsValid)}
+              error={pathIsValid === false && INVALID_PATH_HINT}
+              actions={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  left={<CrosshairIcon weight="bold" className="h-4 w-4" />}
+                  loading={autoDetect.isPending}
+                  onClick={handleAutoDetect}
+                  className="shrink-0"
+                >
+                  Auto-detect
+                </Button>
+              }
+            />
+          }
+        />
+      </SettingGroup>
+
+      <SettingGroup id="launching" title="Launching">
+        <SettingRow
+          kind="action"
+          layout="stacked"
+          title="Launcher flow"
+          setting="launchMode"
+          description="Whichever you pick, the other action stays on the button's menu."
+          control={
+            <RadioGroup.Root
+              value={settings.launchMode}
+              onValueChange={(value: unknown) =>
+                onSave({ ...settings, launchMode: value as LaunchMode })
+              }
             >
-              Auto-detect
-            </Button>
+              <RadioGroup.Options>
+                {LAUNCH_MODES.map((mode) => (
+                  <RadioGroup.Card
+                    key={mode.value}
+                    value={mode.value}
+                    title={mode.title}
+                    description={mode.description}
+                    badge={mode.badge}
+                  />
+                ))}
+              </RadioGroup.Options>
+            </RadioGroup.Root>
           }
         />
 
-        <Separator className="my-0" />
+        <SettingRow
+          title="Hide Riot Client on Game start"
+          setting="hideRiotClientOnLaunch"
+          hint={HIDE_RIOT_CLIENT_HINT}
+          control={
+            <Switch
+              checked={settings.hideRiotClientOnLaunch}
+              onCheckedChange={(checked) =>
+                onSave({ ...settings, hideRiotClientOnLaunch: checked })
+              }
+            />
+          }
+        />
 
-        <div className="space-y-2">
-          <div>
-            <span className="block text-sm font-medium text-surface-200">Launcher flow</span>
-            <span className="block text-sm text-surface-400">
-              Whichever you pick, the other action stays on the button&apos;s menu.
-            </span>
-          </div>
-          <RadioGroup.Root
-            value={settings.launchMode}
-            onValueChange={(value: unknown) =>
-              onSave({ ...settings, launchMode: value as LaunchMode })
-            }
-          >
-            <RadioGroup.Options>
-              {LAUNCH_MODES.map((mode) => (
-                <RadioGroup.Card
-                  key={mode.value}
-                  value={mode.value}
-                  title={mode.title}
-                  description={mode.description}
-                  badge={mode.badge}
-                />
-              ))}
-            </RadioGroup.Options>
-          </RadioGroup.Root>
-        </div>
-
-        <label className="flex items-center justify-between gap-4">
-          <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
-            Hide Riot Client on Game start
-            <HintIcon content={HIDE_RIOT_CLIENT_HINT} />
-          </span>
-          <Switch
-            checked={settings.hideRiotClientOnLaunch}
-            onCheckedChange={(checked) => onSave({ ...settings, hideRiotClientOnLaunch: checked })}
-          />
-        </label>
-
-        <label className="flex items-center justify-between gap-4">
-          <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
-            Stop the patcher when the game ends
-            <HintIcon content={STOP_PATCHER_HINT} />
-          </span>
-          <Switch
-            checked={settings.stopPatcherOnSessionEnd}
-            onCheckedChange={(checked) => onSave({ ...settings, stopPatcherOnSessionEnd: checked })}
-          />
-        </label>
-      </div>
+        <SettingRow
+          title="Stop the patcher when the game ends"
+          setting="stopPatcherOnSessionEnd"
+          hint={STOP_PATCHER_HINT}
+          control={
+            <Switch
+              checked={settings.stopPatcherOnSessionEnd}
+              onCheckedChange={(checked) =>
+                onSave({ ...settings, stopPatcherOnSessionEnd: checked })
+              }
+            />
+          }
+        />
+      </SettingGroup>
     </SectionCard>
   );
 }

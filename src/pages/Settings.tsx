@@ -8,16 +8,20 @@ import {
   SpinnerGapIcon,
 } from "@phosphor-icons/react";
 import { getRouteApi } from "@tanstack/react-router";
+import { type ReactNode } from "react";
 
 import { LootIcon, PatcherIcon, Tabs } from "@/components";
 import {
   AboutSection,
   AppearanceSection,
   CacheSection,
+  DEFAULT_SETTINGS_TAB,
   GeneralSection,
   HotkeySection,
   LibrarySection,
   PatchingSection,
+  SettingFocusProvider,
+  type SettingsTab,
   useAppInfo,
   useSaveSettings,
   useSettings,
@@ -29,7 +33,7 @@ const routeApi = getRouteApi("/settings");
 const tabClass =
   "flex items-center gap-2.5 text-left text-base data-active:bg-accent-500/15 data-active:text-accent-300";
 
-const TABS = [
+const TABS: { value: SettingsTab; label: string; icon: ReactNode }[] = [
   { value: "general", label: "General", icon: <GearIcon className="h-5 w-5 shrink-0" /> },
   { value: "library", label: "Library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
   { value: "workshop", label: "Workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
@@ -41,7 +45,8 @@ const TABS = [
 ];
 
 export function Settings() {
-  const { firstRun } = routeApi.useSearch();
+  const { firstRun, tab } = routeApi.useSearch();
+  const navigate = routeApi.useNavigate();
   const { data: settings, isLoading } = useSettings();
   const { data: appInfo } = useAppInfo();
   const saveSettingsMutation = useSaveSettings();
@@ -58,65 +63,77 @@ export function Settings() {
     saveSettingsMutation.mutate(newSettings!);
   }
 
+  function selectTab(value: unknown) {
+    /* Replace, because a tab is not a place a reader wants Back to walk through.
+       Back leaves settings. */
+    void navigate({ search: (prev) => ({ ...prev, tab: value as SettingsTab }), replace: true });
+  }
+
   return (
     <div className="flex h-full flex-col">
-      <Tabs.Root defaultValue="general" className="flex min-h-0 flex-1 flex-row">
+      <Tabs.Root
+        value={tab ?? DEFAULT_SETTINGS_TAB}
+        onValueChange={selectTab}
+        className="flex min-h-0 flex-1 flex-row"
+      >
         <Tabs.List
           variant="pills"
           className="w-52 shrink-0 flex-col items-stretch rounded-none border-r border-surface-700/50 bg-surface-800/40 p-3"
         >
-          {TABS.map((tab) => (
-            <Tabs.Tab key={tab.value} variant="pills" value={tab.value} className={tabClass}>
-              {tab.icon}
-              {tab.label}
+          {TABS.map((item) => (
+            <Tabs.Tab key={item.value} variant="pills" value={item.value} className={tabClass}>
+              {item.icon}
+              {item.label}
             </Tabs.Tab>
           ))}
         </Tabs.List>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          <Tabs.Panel value="general" className="mx-auto max-w-5xl space-y-8 px-6 pt-4 pb-6">
-            {firstRun && !settings.leaguePath && (
-              <div className="flex items-start gap-3 rounded-xl border border-accent-500/30 bg-accent-500/10 p-5">
-                <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" />
-                <div>
-                  <h3 className="font-medium text-accent-300">Welcome to LTK Manager!</h3>
-                  <p className="mt-1 text-sm text-surface-400">
-                    To get started, please configure your League of Legends installation path below.
-                    You can use auto-detection or browse to the folder manually.
-                  </p>
+          <SettingFocusProvider>
+            <Tabs.Panel value="general" className="mx-auto max-w-5xl space-y-8 px-6 pt-4 pb-6">
+              {firstRun && !settings.leaguePath && (
+                <div className="flex items-start gap-3 rounded-xl border border-accent-500/30 bg-accent-500/10 p-5">
+                  <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" />
+                  <div>
+                    <h3 className="font-medium text-accent-300">Welcome to LTK Manager!</h3>
+                    <p className="mt-1 text-sm text-surface-400">
+                      To get started, please configure your League of Legends installation path
+                      below. You can use auto-detection or browse to the folder manually.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
-            <GeneralSection settings={settings} onSave={saveSettings} />
-          </Tabs.Panel>
+              )}
+              <GeneralSection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
 
-          <Tabs.Panel value="library" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-            <LibrarySection settings={settings} onSave={saveSettings} />
-          </Tabs.Panel>
+            <Tabs.Panel value="library" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <LibrarySection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
 
-          <Tabs.Panel value="workshop" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-            <WorkshopSection settings={settings} onSave={saveSettings} />
-          </Tabs.Panel>
+            <Tabs.Panel value="workshop" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <WorkshopSection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
 
-          <Tabs.Panel value="patching" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-            <PatchingSection settings={settings} onSave={saveSettings} />
-          </Tabs.Panel>
+            <Tabs.Panel value="patching" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <PatchingSection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
 
-          <Tabs.Panel value="cache" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-            <CacheSection />
-          </Tabs.Panel>
+            <Tabs.Panel value="cache" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <CacheSection />
+            </Tabs.Panel>
 
-          <Tabs.Panel value="hotkeys" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-            <HotkeySection settings={settings} onSave={saveSettings} />
-          </Tabs.Panel>
+            <Tabs.Panel value="hotkeys" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <HotkeySection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
 
-          <Tabs.Panel value="appearance" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-            <AppearanceSection settings={settings} onSave={saveSettings} />
-          </Tabs.Panel>
+            <Tabs.Panel value="appearance" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <AppearanceSection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
 
-          <Tabs.Panel value="about" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-            <AboutSection appInfo={appInfo} />
-          </Tabs.Panel>
+            <Tabs.Panel value="about" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <AboutSection appInfo={appInfo} />
+            </Tabs.Panel>
+          </SettingFocusProvider>
         </div>
       </Tabs.Root>
     </div>

@@ -57,7 +57,9 @@ const APPEARANCE_DEFAULTS = {
   | "scrollbarSize"
 >;
 
-const APPEARANCE_KEYS = Object.keys(APPEARANCE_DEFAULTS) as (keyof typeof APPEARANCE_DEFAULTS)[];
+type AppearanceKey = keyof typeof APPEARANCE_DEFAULTS;
+
+const APPEARANCE_KEYS = Object.keys(APPEARANCE_DEFAULTS) as AppearanceKey[];
 
 /* Symmetric about 100 so the default sits at the middle of the rail. */
 const ZOOM_MIN = 50;
@@ -171,8 +173,17 @@ export const useDisplayStore = create<DisplayStore>()(
   ),
 );
 
-export { VALID_CARD_SCALES, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP };
-export type { CardScale, CornerStyle, MonoFont, SansFont, ScrollbarSize, ScrollMode, ZoomLevel };
+export { APPEARANCE_DEFAULTS, APPEARANCE_KEYS, VALID_CARD_SCALES, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP };
+export type {
+  AppearanceKey,
+  CardScale,
+  CornerStyle,
+  MonoFont,
+  SansFont,
+  ScrollbarSize,
+  ScrollMode,
+  ZoomLevel,
+};
 export const useZoomLevel = () => useDisplayStore((s) => s.zoomLevel);
 export const useSetZoomLevel = () => useDisplayStore((s) => s.setZoomLevel);
 export const useSansFont = () => useDisplayStore((s) => s.sansFont);
@@ -192,5 +203,3 @@ export const useSetSurfaceTint = () => useDisplayStore((s) => s.setSurfaceTint);
 export const useCardScale = () => useDisplayStore((s) => s.cardScale);
 export const useSetCardScale = () => useDisplayStore((s) => s.setCardScale);
 export const useResetAppearance = () => useDisplayStore((s) => s.resetAppearance);
-export const useIsAppearanceDefault = () =>
-  useDisplayStore((s) => APPEARANCE_KEYS.every((key) => s[key] === APPEARANCE_DEFAULTS[key]));

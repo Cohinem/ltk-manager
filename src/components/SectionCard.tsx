@@ -40,7 +40,7 @@ export function SectionCard({
       </div>
       <div
         className={twMerge(
-          "rounded-xl border border-surface-700/50 bg-surface-900/95 p-5",
+          "flex flex-col gap-4 rounded-xl border border-surface-700/50 bg-surface-900/95 p-5",
           panelClassName,
         )}
       >

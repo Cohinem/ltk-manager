@@ -146,7 +146,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
 
   return (
     <SectionCard
-      title="Author Profiles"
+      title="Author profiles"
       icon={<UsersThreeIcon className="h-5 w-5" />}
       description="Saved author identities you can reuse across projects."
       action={

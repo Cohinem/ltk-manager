@@ -57,6 +57,16 @@ fn save_settings_inner(
     Ok(())
 }
 
+/// The settings a fresh install starts with.
+///
+/// Read once by the settings UI, so a row can say whether it is still at its
+/// default and what resetting it would put back. The `get_` prefix is against
+/// C-GETTER and stays, because `get_settings` is its neighbour.
+#[tauri::command]
+pub fn get_default_settings() -> IpcResult<Settings> {
+    IpcResult::ok(Settings::default())
+}
+
 /// Auto-detect League of Legends installation path.
 #[tauri::command]
 pub fn auto_detect_league_path(state: State<SettingsState>) -> IpcResult<Option<PathBuf>> {
