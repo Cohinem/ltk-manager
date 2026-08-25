@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 /* The full barrels, unlike the modules under test: a test file is outside the
    cycle the sub-barrel import exists to break, and entering through the
    layout sub-barrel first evaluates its components mid-barrel, which reaches

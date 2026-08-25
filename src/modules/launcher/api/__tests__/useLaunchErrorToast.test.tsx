@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { act, renderHook, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";

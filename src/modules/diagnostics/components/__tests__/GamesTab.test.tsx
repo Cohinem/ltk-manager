@@ -1,16 +1,13 @@
+// @vitest-environment happy-dom
+
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import { GamesTab } from "../GamesTab";
 import { createMockIncident, onDay, renderWithApp } from "./fixtures";
-
-beforeAll(() => {
-  // jsdom lays nothing out, so it ships no scrollIntoView to keep the row in view.
-  Element.prototype.scrollIntoView = vi.fn();
-});
 
 const { mockNavigate, search } = vi.hoisted(() => ({
   mockNavigate: vi.fn(),

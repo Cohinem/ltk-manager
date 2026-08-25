@@ -25,6 +25,17 @@ Read-only calls to the Riot Client return `Option`, never `Result`: every caller
 and "the client didn't answer" is not a failure worth showing a user. Only launching, closing and
 building a launcher return `LauncherError`.
 
+## Tests
+
+Unit tests live in a file of their own. A module keeps `#[cfg(test)] mod tests;` as its last item
+and the suite moves next to it - `hashtables.rs` to `hashtables/tests.rs`, `problems/mod.rs` to
+`problems/tests.rs`. The module is still a child, so `use super::*` reaches the private items it
+always did.
+
+What this buys is a production file that is only production code, and a suite that can grow
+without burying it. Leave a test inline only where it is a few lines that read as part of the
+thing they check, such as a round-trip beside the conversion it exercises.
+
 ## Patcher
 
 `patcher/` owns patcher lifecycle (start/stop/status) and thread management with an

@@ -65,6 +65,8 @@ export type { HashtableCacheStatus } from "./HashtableCacheStatus";
 export type { HashtableStatus } from "./HashtableStatus";
 export type { HashtableSyncProgress } from "./HashtableSyncProgress";
 export type { HashtableSyncReport } from "./HashtableSyncReport";
+export type { HashtableUpdate } from "./HashtableUpdate";
+export type { HashtableUpdateCheck } from "./HashtableUpdateCheck";
 export type { HotkeyAction } from "./HotkeyAction";
 export type { ImportFantomeArgs } from "./ImportFantomeArgs";
 export type { ImportGitRepoArgs } from "./ImportGitRepoArgs";

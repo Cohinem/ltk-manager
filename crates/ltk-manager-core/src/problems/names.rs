@@ -13,8 +13,6 @@
 //! property by hash, so a cache that arrives or leaves between a run and a fix
 //! cannot change what a repair matches - only what a row draws.
 
-use std::borrow::Cow;
-
 use ltk_hash::BinHash;
 
 use crate::hashtables::{BinHashTables, HashtableCache};
@@ -30,7 +28,7 @@ impl BinNames {
     /// no table holds does: the row prints the number.
     #[must_use]
     pub fn open() -> Self {
-        match HashtableCache::discover() {
+        match HashtableCache::shared() {
             Ok(cache) => Self(cache.bin_tables()),
             Err(e) => {
                 tracing::debug!("No hashtable cache to name bin hashes with: {e}");
@@ -47,25 +45,25 @@ impl BinNames {
 
     /// The name of a property, for a segment of a property path.
     #[must_use]
-    pub fn field(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+    pub fn field(&self, hash: BinHash) -> Option<String> {
         self.0.field(hash)
     }
 
     /// The string behind a `Hash` value, for a map key or a `Hash` property.
     #[must_use]
-    pub fn value(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+    pub fn value(&self, hash: BinHash) -> Option<String> {
         self.0.value(hash)
     }
 
     /// The path of an object, for the entry a site names.
     #[must_use]
-    pub fn entry(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+    pub fn entry(&self, hash: BinHash) -> Option<String> {
         self.0.entry(hash)
     }
 
     /// The name of a class.
     #[must_use]
-    pub fn class(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+    pub fn class(&self, hash: BinHash) -> Option<String> {
         self.0.class(hash)
     }
 }
@@ -77,25 +75,4 @@ pub fn hex(hash: BinHash) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Every lookup has to miss rather than answer out of another table's
-    /// universe, which is the whole reason the four are kept apart.
-    #[test]
-    fn a_cache_that_is_not_there_names_nothing() {
-        let names = BinNames::none();
-        let hash = BinHash(0x0032_9f1d);
-
-        assert_eq!(names.field(hash), None);
-        assert_eq!(names.value(hash), None);
-        assert_eq!(names.entry(hash), None);
-        assert_eq!(names.class(hash), None);
-    }
-
-    #[test]
-    fn a_hash_with_no_name_prints_as_eight_digits() {
-        assert_eq!(hex(BinHash(0x0032_9f1d)), "0x00329f1d");
-        assert_eq!(hex(BinHash(0xffff_ffff)), "0xffffffff");
-    }
-}
+mod tests;

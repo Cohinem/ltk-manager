@@ -5,6 +5,7 @@ export { useAvailableWads } from "./useAvailableWads";
 export { useCheckSetupRequired } from "./useCheckSetupRequired";
 export { useDetectLeagueRunAsAdmin } from "./useDetectLeagueRunAsAdmin";
 export { useHashtableCacheStatus } from "./useHashtableCacheStatus";
+export { useHashtableUpdateCheck } from "./useHashtableUpdateCheck";
 export { useSaveSettings } from "./useSaveSettings";
 export { useSettingDefaults } from "./useSettingDefaults";
 export { useSettings } from "./useSettings";

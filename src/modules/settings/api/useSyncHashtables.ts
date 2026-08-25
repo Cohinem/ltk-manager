@@ -16,6 +16,7 @@ export function useSyncHashtables() {
     // A failed sync can still have installed some tables, so refresh either way.
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: settingsKeys.hashtableCache() });
+      queryClient.invalidateQueries({ queryKey: settingsKeys.hashtableUpdates() });
     },
   });
 }

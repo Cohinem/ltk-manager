@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { useDisplayStore, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "@/stores/displayStore";
 
 describe("displayStore", () => {

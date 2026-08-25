@@ -5,7 +5,8 @@ use crate::error::IpcResult;
 use crate::events::TauriEventSink;
 use ltk_manager_core::game_index::GameIndexState;
 use ltk_manager_core::hashtables::{
-    HashtableCache, HashtableCacheStatus, HashtableSyncReport, WadPathResolverState,
+    HashtableCache, HashtableCacheStatus, HashtableSyncReport, HashtableUpdateCheck,
+    WadPathResolverState,
 };
 use ltk_manager_core::strings::StringKeyIndexState;
 use tauri::{AppHandle, Manager};
@@ -18,7 +19,17 @@ const SYNC_USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"))
 /// A cache that was never synced is a normal report, not an error.
 #[tauri::command]
 pub async fn get_hashtable_cache_status() -> IpcResult<HashtableCacheStatus> {
-    off_thread(|| Ok(HashtableCache::discover()?.status()?)).await
+    off_thread(|| Ok(HashtableCache::shared()?.status()?)).await
+}
+
+/// Report what the latest published release has that the cache does not.
+///
+/// Reads the remote manifest and nothing else: no download, no install, and no
+/// update lock, so this is safe to run unasked and safe while another process
+/// is midway through a sync.
+#[tauri::command]
+pub async fn check_hashtable_updates() -> IpcResult<HashtableUpdateCheck> {
+    off_thread(|| Ok(HashtableCache::shared()?.check(SYNC_USER_AGENT)?)).await
 }
 
 /// Download the latest published hashtables into the shared cache.
@@ -32,7 +43,7 @@ pub async fn get_hashtable_cache_status() -> IpcResult<HashtableCacheStatus> {
 pub async fn sync_hashtables(force: bool, app: AppHandle) -> IpcResult<HashtableSyncReport> {
     off_thread(move || {
         let events = TauriEventSink::new(app.clone());
-        let report = HashtableCache::discover()?.sync(force, SYNC_USER_AGENT, &events)?;
+        let report = HashtableCache::shared()?.sync(force, SYNC_USER_AGENT, &events)?;
 
         if !report.up_to_date {
             app.state::<WadPathResolverState>().invalidate();
