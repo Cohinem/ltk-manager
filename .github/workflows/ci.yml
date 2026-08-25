@@ -9,6 +9,13 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# `actions` is what the cache service checks before allowing a write. Spelled
+# out here so a change to the repository default cannot silently turn every
+# job cold.
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   frontend-check:
     name: Frontend Check
@@ -35,7 +42,10 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile && pnpm build
       - uses: dtolnay/rust-toolchain@stable
+      # Shared with clippy: both emit metadata only, so the dependency
+      # artifacts are the same set. `test` builds rlibs and keeps its own.
       - uses: Swatinem/rust-cache@v2
+        with: { shared-key: lint }
       - run: cargo check --all-targets --all-features
 
   test:
@@ -71,6 +81,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { components: clippy }
       - uses: Swatinem/rust-cache@v2
+        with: { shared-key: lint }
       - run: cargo clippy --all-targets --all-features -- -D warnings
 
   fmt:
@@ -95,3 +106,37 @@ jobs:
       - run: node scripts/generate-licenses.mjs
       - name: Verify committed license manifest is up to date
         run: git diff --exit-code public/third-party-licenses.json
+
+  # release.yml runs on `refs/pull/N/merge`, and a cache written from a pull
+  # request ref is readable only by that one pull request. Only the default
+  # branch can write a cache every later run restores, so the Windows release
+  # dependencies are built here and the release job restores them.
+  warm-release-cache:
+    name: Warm Release Cache
+    runs-on: windows-latest
+    if: github.event_name == 'push' && github.repository_owner == 'LeagueToolkit'
+    concurrency:
+      group: warm-release-cache
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: pnpm/action-setup@v4
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pnpm\store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-
+      - run: pnpm install --frozen-lockfile && pnpm build
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+          cache-on-failure: true
+      # Matching what `tauri build` compiles. Building the workspace instead
+      # would unify features differently and the release job would miss.
+      - run: cargo build --release --manifest-path src-tauri/Cargo.toml
