@@ -6,7 +6,6 @@
 //! step that fails is logged and stepped over, so a failed store still
 //! announces the incident.
 
-use std::borrow::Cow;
 use std::cell::OnceCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -20,7 +19,7 @@ use crate::diagnostics::incident::{
     ClassifyContext, GameRecord, Incident, ModFootprint, ProjectFootprint, ScanMode,
 };
 use crate::diagnostics::store::IncidentStore;
-use crate::hashtables::{HashtableCache, LayeredHashDb};
+use crate::hashtables::{HashtableCache, LayeredHashDb, PathRef};
 use crate::mods::ModLibrary;
 use crate::workshop::ProjectDir;
 
@@ -91,7 +90,7 @@ impl IncidentPipeline {
             tables
                 .get_or_init(open_wad_tables)
                 .as_ref()
-                .and_then(|db| db.get(hash).map(Cow::into_owned))
+                .and_then(|db| db.get(hash).map(PathRef::into_owned))
         };
         let ctx = ClassifyContext {
             mods: &mods,
@@ -250,7 +249,7 @@ fn project_footprint(path: &Path) -> ProjectFootprint {
 /// The `game` and `lcu` hash tables, opened on the first hash the classifier
 /// asks about. Absent tables are a miss and never an error.
 fn open_wad_tables() -> Option<LayeredHashDb> {
-    match HashtableCache::discover() {
+    match HashtableCache::shared() {
         Ok(cache) => Some(cache.wad_tables()),
         Err(e) => {
             tracing::debug!("No hashtable cache for the verdict: {e}");

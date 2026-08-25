@@ -1,8 +1,10 @@
+// @vitest-environment happy-dom
+
 import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type {
@@ -39,12 +41,9 @@ const VIEWPORT_HEIGHT = 800;
 const VIEWPORT_WIDTH = 900;
 
 beforeAll(() => {
-  // jsdom lays nothing out, so it ships no scrollIntoView to keep a row in view.
-  Element.prototype.scrollIntoView = vi.fn();
-
   /* The virtualizer sizes its window from the scroll element's `offsetHeight`,
-     which jsdom reports as 0 for every node, and a 0px window renders no rows at
-     all. A fixed height stands in for the layout jsdom never runs. */
+     which happy-dom reports as 0 for every node, and a 0px window renders no rows
+     at all. A fixed height stands in for the layout it never runs. */
   Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
     configurable: true,
     get: () => VIEWPORT_HEIGHT,

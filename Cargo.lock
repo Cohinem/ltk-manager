@@ -2993,7 +2993,6 @@ dependencies = [
  "walkdir",
  "webp",
  "windows-sys 0.59.0",
- "xxhash-rust",
  "zip 2.4.2",
 ]
 
@@ -3044,7 +3043,7 @@ dependencies = [
 [[package]]
 name = "ltk_hashdb"
 version = "0.1.0"
-source = "git+https://github.com/LeagueToolkit/mimir?rev=c3282dfc0f7a03675bddda434b3202b05fe4a6a7#c3282dfc0f7a03675bddda434b3202b05fe4a6a7"
+source = "git+https://github.com/LeagueToolkit/mimir?rev=670196996ae219cbae5e64d40667363ff19a028f#670196996ae219cbae5e64d40667363ff19a028f"
 dependencies = [
  "memmap2",
  "thiserror 2.0.18",
@@ -3099,7 +3098,7 @@ dependencies = [
 [[package]]
 name = "ltk_mimir_cache"
 version = "0.1.0"
-source = "git+https://github.com/LeagueToolkit/mimir?rev=c3282dfc0f7a03675bddda434b3202b05fe4a6a7#c3282dfc0f7a03675bddda434b3202b05fe4a6a7"
+source = "git+https://github.com/LeagueToolkit/mimir?rev=670196996ae219cbae5e64d40667363ff19a028f#670196996ae219cbae5e64d40667363ff19a028f"
 dependencies = [
  "directories",
  "ltk_hashdb",

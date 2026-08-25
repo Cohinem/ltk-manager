@@ -15,12 +15,15 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       exclude: ["src/routeTree.gen.ts", "src/lib/bindings/**", "src/test/**", "**/*.config.*"],
     },
+
+    environment: "node",
+    include: ["src/**/*.test.{ts,tsx}"],
+
+    experimental: { fsModuleCache: !process.env.CI },
   },
 });

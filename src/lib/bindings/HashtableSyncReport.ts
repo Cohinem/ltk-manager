@@ -15,4 +15,10 @@ installed: Array<string>,
 /**
  * Remote table ids this build does not know. Skipped, never fatal.
  */
-unknownTables: Array<string>, };
+unknownTables: Array<string>, 
+/**
+ * Ids published in a `.hashdb` format this build cannot open. Skipped, so
+ * the cache keeps serving what it already holds and only a newer app can
+ * install these.
+ */
+unsupportedTables: Array<string>, };

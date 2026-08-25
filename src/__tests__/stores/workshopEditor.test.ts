@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { findLeaf, leaves, singleLeaf } from "@/modules/editor";
 import {
   detailsDocument,

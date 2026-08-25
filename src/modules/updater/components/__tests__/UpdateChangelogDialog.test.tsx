@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import type { Update } from "@tauri-apps/plugin-updater";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";

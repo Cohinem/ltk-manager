@@ -13,10 +13,25 @@ id: string,
  */
 file: string, 
 /**
+ * The release this table was published in, e.g. `2026-07-10`.
+ *
+ * Per table rather than per cache: a sync only installs what changed, so
+ * two tables in one cache can be of different vintages.
+ */
+version: string, 
+/**
  * Entry count recorded in the manifest.
  */
 entries: bigint, 
 /**
  * On-disk size of the active file, or 0 when it cannot be read.
  */
-sizeBytes: bigint, };
+sizeBytes: bigint, 
+/**
+ * Repository this table's inputs came from, e.g. `CommunityDragon/Data`.
+ */
+sourceRepo: string | null, 
+/**
+ * Commit of that repository the inputs were taken at.
+ */
+sourceCommit: string | null, };

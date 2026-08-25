@@ -10,8 +10,8 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 
 # Pinned to a rev until they ship on crates.io. Both crates must come from the
 # same rev: `ltk_mimir_cache` hands back `ltk_hashdb` types.
-ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "c3282dfc0f7a03675bddda434b3202b05fe4a6a7" }
-ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "c3282dfc0f7a03675bddda434b3202b05fe4a6a7" }
+ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
+ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
 # Pinned to a rev until they ship on crates.io. Every league-mod crate must come
 # from the same rev: `ltk_overlay` hands back `ltk_mod_project`, `ltk_modpkg`
@@ -60,7 +60,6 @@ uuid = { version = "1", features = ["v4"] }
 walkdir = "2.5"
 webp = "0.3"
 windows-sys = "0.59"
-xxhash-rust = { version = "0.8.15", features = ["xxh3", "xxh64"] }
 zip = "2.2.0"
 
 rmp-serde = "1"

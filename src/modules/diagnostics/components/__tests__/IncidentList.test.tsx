@@ -1,13 +1,10 @@
+// @vitest-environment happy-dom
+
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { IncidentList } from "../IncidentList";
 import { createMockIncident, onDay } from "./fixtures";
-
-beforeAll(() => {
-  // jsdom lays nothing out, so it ships no scrollIntoView to keep the row in view.
-  Element.prototype.scrollIntoView = vi.fn();
-});
 
 const today = createMockIncident({ id: "today", endedAt: onDay(0, 21, 14) });
 const yesterday = createMockIncident({

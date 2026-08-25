@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+
 import { useLibraryViewStore } from "@/stores/libraryView";
 
 describe("libraryView store", () => {

@@ -28,6 +28,7 @@ import type {
   GameWadSummary,
   HashtableCacheStatus,
   HashtableSyncReport,
+  HashtableUpdateCheck,
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
@@ -217,6 +218,7 @@ export const api = {
 
   // Hashtables
   getHashtableCacheStatus: () => invokeResult<HashtableCacheStatus>("get_hashtable_cache_status"),
+  checkHashtableUpdates: () => invokeResult<HashtableUpdateCheck>("check_hashtable_updates"),
   syncHashtables: (force: boolean) =>
     invokeResult<HashtableSyncReport>("sync_hashtables", { force }),
 

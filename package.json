@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "check": "pnpm run --parallel \"/^(typecheck|lint|format:check)$/\" && pnpm run test",
     "prepare": "husky",
     "generate:types": "cargo test --workspace export_bindings --no-fail-fast",
     "generate:licenses": "node scripts/generate-licenses.mjs"
@@ -101,8 +101,8 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "globals": "^16.5.0",
+    "happy-dom": "^20.11.6",
     "husky": "^9.1.7",
-    "jsdom": "^28.1.0",
     "lint-staged": "^15.5.2",
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.7.3",

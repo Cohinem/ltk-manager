@@ -14,14 +14,6 @@ dir: string,
  */
 generatedAt: string | null, 
 /**
- * Repository the table inputs came from, e.g. `CommunityDragon/Data`.
- */
-sourceRepo: string | null, 
-/**
- * Commit of that repository the inputs were taken at.
- */
-sourceCommit: string | null, 
-/**
  * Present tables, in [`Table::ALL`] order.
  */
 tables: Array<HashtableStatus>, 

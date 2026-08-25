@@ -5,14 +5,19 @@ import {
   AlertBox,
   Button,
   EmptyState,
+  Progress,
   SectionCard,
   Separator,
   Spinner,
   useToast,
 } from "@/components";
-import type { HashtableSyncProgress } from "@/lib/tauri";
+import type { HashtableStatus, HashtableSyncProgress } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { useHashtableCacheStatus, useSyncHashtables } from "@/modules/settings/api";
+import {
+  useHashtableCacheStatus,
+  useHashtableUpdateCheck,
+  useSyncHashtables,
+} from "@/modules/settings/api";
 import { formatBytes } from "@/utils";
 
 /* Table ids are the upstream filenames, so the friendly names live here. */
@@ -35,20 +40,58 @@ function formatUpdatedAt(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+/* Provenance is per table since a sync only replaces what changed, so a commit
+   is only interpretable next to the table it built. */
+function sourceLabel(table: HashtableStatus): string | undefined {
+  if (!table.sourceRepo) return undefined;
+  return table.sourceCommit ? `${table.sourceRepo} @ ${table.sourceCommit}` : table.sourceRepo;
+}
+
+function updateLabel(count: number): string {
+  return `${count} ${count === 1 ? "update" : "updates"} available`;
+}
+
+function unsupportedLabel(ids: string[]): string {
+  const names = ids.map(tableLabel).join(", ");
+  return `${names} ${ids.length === 1 ? "needs" : "need"} a newer version of LTK Manager.`;
+}
+
+/**
+ * How far through the whole sync we are, or null against a release that
+ * recorded no table sizes — where the bar has no end to draw and the byte
+ * count beside it carries the news instead.
+ */
+function syncFraction(progress: HashtableSyncProgress): number | null {
+  if (progress.totalBytes === null) return null;
+  const total = Number(progress.totalBytes);
+  if (total === 0) return null;
+  return Math.min(1, Number(progress.downloaded) / total);
+}
+
+function syncBytesLabel(progress: HashtableSyncProgress): string {
+  const done = formatBytes(Number(progress.downloaded));
+  if (progress.totalBytes === null) return done;
+  return `${done} / ${formatBytes(Number(progress.totalBytes))}`;
+}
+
+function downloadSizeLabel(bytes: bigint | null): string {
+  if (bytes === null) return "";
+  return ` · ${formatBytes(Number(bytes))}`;
+}
+
 export function CacheSection() {
   const { data: status, error } = useHashtableCacheStatus();
   const syncMutation = useSyncHashtables();
+  const { data: updates } = useHashtableUpdateCheck();
   const toast = useToast();
-  const [currentFile, setCurrentFile] = useState<string | null>(null);
+  const [progress, setProgress] = useState<HashtableSyncProgress | null>(null);
 
   const syncing = syncMutation.isPending;
 
-  useTauriEvent<HashtableSyncProgress>("hashtable-sync-progress", (progress) =>
-    setCurrentFile(progress.file),
-  );
+  useTauriEvent<HashtableSyncProgress>("hashtable-sync-progress", setProgress);
 
   function runSync(force: boolean) {
-    setCurrentFile(null);
+    setProgress(null);
     syncMutation.mutate(force, {
       onSuccess: (report) => {
         if (report.upToDate) {
@@ -62,7 +105,7 @@ export function CacheSection() {
         );
       },
       onError: (err) => toast.error("Sync failed", err.message),
-      onSettled: () => setCurrentFile(null),
+      onSettled: () => setProgress(null),
     });
   }
 
@@ -81,6 +124,9 @@ export function CacheSection() {
 
   const isEmpty = status.generatedAt === null;
   const totalBytes = status.tables.reduce((total, table) => total + Number(table.sizeBytes), 0);
+  /* A table the cache has none of is behind too, and it has no row to mark -
+     the "Not downloaded yet" line below is where those are named. */
+  const behind = new Map((updates?.behind ?? []).map((update) => [update.id, update]));
 
   const syncButton = (
     <Button
@@ -94,15 +140,34 @@ export function CacheSection() {
     </Button>
   );
 
+  const fraction = progress && syncFraction(progress);
+
   const progressLine = syncing && (
-    <div className="flex min-w-0 items-center gap-2 text-xs text-surface-400">
-      <Spinner size="sm" />
-      {currentFile && (
-        <span className="truncate font-mono" title={currentFile}>
-          {currentFile}
-        </span>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {!progress && (
+        <div className="flex items-center gap-2 text-xs text-surface-400">
+          <Spinner size="sm" />
+          <span>Checking for updates…</span>
+        </div>
       )}
-      {!currentFile && <span>Checking for updates…</span>}
+      {progress && (
+        <>
+          {/* One bar for the whole run, in its bytes where the release
+              recorded them and with no end where it did not. */}
+          <Progress.Root value={fraction === null ? null : fraction * 100}>
+            <Progress.Track size="sm">
+              <Progress.Indicator />
+            </Progress.Track>
+          </Progress.Root>
+          <div className="flex min-w-0 items-baseline gap-3 text-xs text-surface-400">
+            <span className="truncate">{tableLabel(progress.table)}</span>
+            <span className="ml-auto shrink-0 tabular-nums">
+              {`Table ${progress.current} of ${progress.total} · `}
+              {syncBytesLabel(progress)}
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 
@@ -134,20 +199,39 @@ export function CacheSection() {
         {!isEmpty && (
           <>
             <div className="flex flex-col gap-2">
-              <p className="text-sm text-surface-300">
-                Updated {formatUpdatedAt(status.generatedAt!)}
-              </p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-sm text-surface-300">
+                  Updated {formatUpdatedAt(status.generatedAt!)}
+                </p>
+                {updates && !updates.upToDate && (
+                  <span
+                    className="rounded-full bg-info/10 px-2 py-0.5 text-xs text-info-text"
+                    title={updates.behind.map((update) => tableLabel(update.id)).join(", ")}
+                  >
+                    {updateLabel(updates.behind.length)}
+                    {downloadSizeLabel(updates.downloadBytes)}
+                  </span>
+                )}
+                {updates?.upToDate && <span className="text-xs text-surface-500">Up to date</span>}
+              </div>
               {/* Inset on the card, not the page: DS-GROUND. */}
               <ul className="flex flex-col rounded-lg bg-surface-950/40 px-3 py-1">
                 {status.tables.map((table) => (
                   <li
                     key={table.id}
                     className="flex items-baseline gap-3 border-b border-surface-700/50 py-1.5 text-sm"
+                    title={sourceLabel(table)}
                   >
                     <span className="text-surface-200">{tableLabel(table.id)}</span>
                     <span className="text-xs text-surface-500">
                       {table.entries.toLocaleString()} entries
                     </span>
+                    {table.version && (
+                      <span className="text-xs text-surface-500 tabular-nums">
+                        {table.version}
+                        {behind.has(table.id) && ` → ${behind.get(table.id)!.want}`}
+                      </span>
+                    )}
                     <span className="ml-auto text-xs text-surface-400 tabular-nums">
                       {formatBytes(Number(table.sizeBytes))}
                     </span>
@@ -163,22 +247,29 @@ export function CacheSection() {
                   Not downloaded yet: {status.missing.map(tableLabel).join(", ")}.
                 </p>
               )}
+              {updates && updates.unsupportedTables.length > 0 && (
+                <p className="text-xs text-warning-text">
+                  {unsupportedLabel(updates.unsupportedTables)}
+                </p>
+              )}
             </div>
 
             <Separator className="my-0" />
 
-            <div className="flex items-center gap-3">
-              {syncButton}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={syncing}
-                left={<ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => runSync(true)}
-              >
-                Re-download all
-              </Button>
-              <div className="ml-auto min-w-0">{progressLine}</div>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                {syncButton}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={syncing}
+                  left={<ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />}
+                  onClick={() => runSync(true)}
+                >
+                  Re-download all
+                </Button>
+              </div>
+              {progressLine}
             </div>
           </>
         )}

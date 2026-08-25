@@ -182,6 +182,7 @@ fn main() {
             commands::fix_runs,
             // Hashtables
             commands::get_hashtable_cache_status,
+            commands::check_hashtable_updates,
             commands::sync_hashtables,
             // Game WADs
             commands::get_game_wads,
