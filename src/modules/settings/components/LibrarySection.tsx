@@ -37,6 +37,18 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
             />
           }
         />
+
+        <SettingRow
+          setting="retainModArchives"
+          description="A mod keeps the .fantome it was installed from, beside its own folder."
+          hint="Applies to mods installed from here on, so turning it off frees nothing already on disk. The archive is also what lets a mod be unpacked or repacked from its card later. Modpkg archives are always kept - the overlay reads their content straight out of the archive."
+          control={
+            <Switch
+              checked={settings.retainModArchives}
+              onCheckedChange={(checked) => onSave({ ...settings, retainModArchives: checked })}
+            />
+          }
+        />
       </SettingGroup>
 
       <SettingGroup id="library.cataloguing" title="Cataloguing">

@@ -43,6 +43,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     hideRiotClientOnLaunch: true,
     readGameLog: true,
     keepIncidents: 50,
+    retainModArchives: true,
     ...overrides,
   };
 }
@@ -62,6 +63,9 @@ export function createMockInstalledMod(overrides?: Partial<InstalledMod>): Insta
     champions: [],
     maps: [],
     modDir: "/path/to/mod",
+    format: "fantome",
+    storage: "project",
+    hasArchive: true,
     folderId: null,
     ...overrides,
   };

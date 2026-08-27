@@ -88,6 +88,7 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   killLeagueHotkey: optional("None", plain),
   reloadModsHotkey: optional("None", plain),
 
+  retainModArchives: onOff,
   autoCategorizationEnabled: onOff,
   showWadFootprint: onOff,
   watcherEnabled: onOff,

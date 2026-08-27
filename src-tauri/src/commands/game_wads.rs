@@ -32,7 +32,9 @@ pub async fn read_game_wad(
     };
     off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
-        let resolver = app_handle.state::<WadPathResolverState>().get()?;
+        let resolver = app_handle
+            .state::<std::sync::Arc<WadPathResolverState>>()
+            .get()?;
         archives.read(&wad_name, resolver.tables())
     })
     .await

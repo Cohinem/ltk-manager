@@ -26,7 +26,7 @@ pub mod report;
 mod storage_medium;
 pub mod store;
 pub mod token;
-mod windows;
+pub(crate) mod windows;
 
 #[cfg(target_os = "windows")]
 pub(crate) mod win_util;

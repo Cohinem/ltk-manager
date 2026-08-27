@@ -13,14 +13,14 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
-ltk_fantome = "0.8.0"
+ltk_fantome = "0.9.0"
 ltk_file = { version = "0.2.11", features = ["serde"] }
 ltk_hash = { version = "0.4.0", features = ["serde"] }
 ltk_meta = { version = "0.6.1", features = ["serde"] }
-ltk_mod_project = { version = "0.7.0", features = ["modpkg", "fantome"] }
-ltk_modpkg = "0.8.0"
-ltk_overlay = "0.7.0"
-ltk_wad = "0.5.2"
+ltk_mod_project = { version = "0.8.0", features = ["modpkg", "fantome"] }
+ltk_modpkg = "0.9.0"
+ltk_overlay = "0.8.0"
+ltk_wad = "0.5.3"
 
 ltk_rst = "0.2.1"
 ltk_texture = "0.6.0"

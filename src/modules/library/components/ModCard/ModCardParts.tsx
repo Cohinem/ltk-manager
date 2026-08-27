@@ -1,13 +1,16 @@
 import {
-  Copy,
-  Edit3,
-  EllipsisVertical,
-  FolderOpen,
-  FolderX,
-  Info,
-  ShieldAlert,
-  Trash2,
-} from "lucide-react";
+  ArchiveIcon,
+  CopyIcon,
+  DotsThreeVerticalIcon,
+  FolderIcon,
+  FolderMinusIcon,
+  FolderOpenIcon,
+  InfoIcon,
+  PackageIcon,
+  PencilSimpleIcon,
+  ShieldWarningIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 
 import {
   AutoPill,
@@ -18,7 +21,7 @@ import {
   Switch,
   Tooltip,
 } from "@/components";
-import type { InstalledMod } from "@/lib/tauri";
+import type { InstalledMod, ModStorage } from "@/lib/tauri";
 import { useModEffectiveCategories } from "@/modules/library/api";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
@@ -79,8 +82,52 @@ export function ModCardToggle({ view }: { view: ModCardView }) {
   );
 }
 
+/**
+ * Where the mod's content is read from, as a choice between the two rather than
+ * a button naming the one it is not.
+ *
+ * Per "Storage" in CONTEXT.md.
+ */
+function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
+  return (
+    <Menu.SubmenuRoot>
+      <Menu.SubmenuTrigger
+        icon={<PackageIcon className="h-4 w-4" weight="bold" />}
+        disabled={view.storageChangePending}
+      >
+        Storage
+      </Menu.SubmenuTrigger>
+      <Menu.Portal>
+        <Menu.SubmenuPositioner>
+          <Menu.Popup data-ui="ModCardMenu:storage">
+            <Menu.RadioGroup
+              value={view.mod.storage}
+              onValueChange={(storage) => view.onSetStorage(storage as ModStorage)}
+            >
+              <Menu.RadioItem
+                value="project"
+                icon={<FolderIcon className="h-4 w-4" weight="bold" />}
+                closeOnClick
+              >
+                Project
+              </Menu.RadioItem>
+              <Menu.RadioItem
+                value="archive"
+                icon={<ArchiveIcon className="h-4 w-4" weight="bold" />}
+                closeOnClick
+              >
+                Archive
+              </Menu.RadioItem>
+            </Menu.RadioGroup>
+          </Menu.Popup>
+        </Menu.SubmenuPositioner>
+      </Menu.Portal>
+    </Menu.SubmenuRoot>
+  );
+}
+
 export function ModCardMenu({ view }: { view: ModCardView }) {
-  const { mod, interactionsDisabled, isFlagged, isInUserFolder } = view;
+  const { mod, interactionsDisabled, isFlagged, isInUserFolder, canChangeStorage } = view;
 
   return (
     <Menu.Root>
@@ -88,7 +135,7 @@ export function ModCardMenu({ view }: { view: ModCardView }) {
         disabled={interactionsDisabled}
         render={
           <IconButton
-            icon={<EllipsisVertical className="h-4 w-4" />}
+            icon={<DotsThreeVerticalIcon className="h-4 w-4" weight="bold" />}
             variant="ghost"
             size="md"
             disabled={interactionsDisabled}
@@ -100,7 +147,7 @@ export function ModCardMenu({ view }: { view: ModCardView }) {
           <Menu.Popup>
             {isFlagged && (
               <Menu.Item
-                icon={<ShieldAlert className="h-4 w-4" />}
+                icon={<ShieldWarningIcon className="h-4 w-4" weight="bold" />}
                 onClick={() => view.setSkinhackInfoOpen(true)}
               >
                 What is a skinhack?
@@ -108,7 +155,7 @@ export function ModCardMenu({ view }: { view: ModCardView }) {
             )}
             {!isFlagged && (
               <Menu.Item
-                icon={<Info className="h-4 w-4" />}
+                icon={<InfoIcon className="h-4 w-4" weight="bold" />}
                 onClick={() => view.onViewDetails?.(mod)}
               >
                 View Details
@@ -116,26 +163,36 @@ export function ModCardMenu({ view }: { view: ModCardView }) {
             )}
             {!isFlagged && (
               <Menu.Item
-                icon={<Edit3 className="h-4 w-4" />}
+                icon={<PencilSimpleIcon className="h-4 w-4" weight="bold" />}
                 onClick={() => view.onEditMetadata?.(mod)}
               >
                 Edit Metadata
               </Menu.Item>
             )}
-            <Menu.Item icon={<FolderOpen className="h-4 w-4" />} onClick={view.onOpenLocation}>
+            <Menu.Item
+              icon={<FolderOpenIcon className="h-4 w-4" weight="bold" />}
+              onClick={view.onOpenLocation}
+            >
               Open Location
             </Menu.Item>
-            <Menu.Item icon={<Copy className="h-4 w-4" />} onClick={view.onCopyId}>
+            {canChangeStorage && <ModCardStorageSubmenu view={view} />}
+            <Menu.Item
+              icon={<CopyIcon className="h-4 w-4" weight="bold" />}
+              onClick={view.onCopyId}
+            >
               Copy ID
             </Menu.Item>
             {isInUserFolder && (
-              <Menu.Item icon={<FolderX className="h-4 w-4" />} onClick={view.onRemoveFromFolder}>
+              <Menu.Item
+                icon={<FolderMinusIcon className="h-4 w-4" weight="bold" />}
+                onClick={view.onRemoveFromFolder}
+              >
                 Remove from folder
               </Menu.Item>
             )}
             <Menu.Separator />
             <Menu.Item
-              icon={<Trash2 className="h-4 w-4" />}
+              icon={<TrashIcon className="h-4 w-4" weight="bold" />}
               variant="danger"
               disabled={interactionsDisabled}
               onClick={view.onUninstall}

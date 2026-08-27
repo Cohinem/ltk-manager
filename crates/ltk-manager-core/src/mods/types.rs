@@ -4,7 +4,7 @@
 //! and bulk-install results. The on-disk index that backs them lives in
 //! [`super::index`].
 
-use crate::mods::index::LibraryIndex;
+use crate::mods::index::{LibraryIndex, ModArchiveFormat, ModFault, ModStorage};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -107,8 +107,20 @@ pub struct InstalledMod {
     pub maps: Vec<String>,
     /// Directory where the mod is installed
     pub mod_dir: String,
+    /// The file this mod arrived as.
+    pub format: ModArchiveFormat,
+    /// Where this mod's content is read from.
+    pub storage: ModStorage,
+    /// Whether the archive is still beside the mod, which is what makes
+    /// [`storage`](Self::storage) switchable either way.
+    pub has_archive: bool,
     /// ID of the containing folder, or None if ungrouped.
     pub folder_id: Option<String>,
+    /// Set when the mod is in the library but unusable. The card shows the
+    /// reason and refuses to enable it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub fault: Option<ModFault>,
 }
 
 /// Fields to change on a mod's metadata. `None` leaves a field untouched.

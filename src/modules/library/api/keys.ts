@@ -10,4 +10,5 @@ export const libraryKeys = {
   wadReports: () => [...libraryKeys.all, "wadReport"] as const,
   wadReport: (modId: string) => [...libraryKeys.wadReports(), modId] as const,
   linkedBinOffenders: () => [...libraryKeys.all, "linkedBinOffenders"] as const,
+  migrationState: () => [...libraryKeys.all, "migrationState"] as const,
 };

@@ -112,7 +112,7 @@ pub fn import_from_fantome(
     args: ImportFantomeArgs,
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
-    resolvers: State<WadPathResolverState>,
+    resolvers: State<std::sync::Arc<WadPathResolverState>>,
 ) -> IpcResult<WorkshopProject> {
     let result: AppResult<WorkshopProject> = (|| {
         let config = settings.config()?;
@@ -266,7 +266,7 @@ pub fn add_files_to_layer(
     layer_name: String,
     sources: Vec<String>,
     workshop: State<WorkshopState>,
-    resolvers: State<WadPathResolverState>,
+    resolvers: State<std::sync::Arc<WadPathResolverState>>,
 ) -> IpcResult<AddFilesReport> {
     let result: AppResult<AddFilesReport> = (|| {
         let resolver = resolvers.get()?;

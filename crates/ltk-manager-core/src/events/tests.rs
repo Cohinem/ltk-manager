@@ -49,7 +49,7 @@ fn payload_carrying_event_names_are_stable() {
     assert_eq!(
         BackendEvent::FantomeImportProgress(FantomeImportProgress {
             stage: FantomeImportStage::Extracting,
-            current_wad: None,
+            current_item: None,
             current: 0,
             total: 0,
         })
@@ -141,12 +141,12 @@ fn payloads_serialize_as_camel_case() {
 
     let json = serde_json::to_value(FantomeImportProgress {
         stage: FantomeImportStage::Finalizing,
-        current_wad: Some("w".to_string()),
+        current_item: Some("w".to_string()),
         current: 1,
         total: 2,
     })
     .unwrap();
-    assert_eq!(json["currentWad"], "w");
+    assert_eq!(json["currentItem"], "w");
     assert_eq!(json["stage"], "finalizing");
 }
 

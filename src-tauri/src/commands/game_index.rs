@@ -157,7 +157,9 @@ where
 
     off_thread(move || {
         let archives = GameArchives::resolve(&config)?;
-        let resolver = app_handle.state::<WadPathResolverState>().get()?;
+        let resolver = app_handle
+            .state::<std::sync::Arc<WadPathResolverState>>()
+            .get()?;
         let index = app_handle
             .state::<GameIndexState>()
             .get_or_build(&archives, resolver.tables())?;

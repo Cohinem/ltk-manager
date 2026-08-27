@@ -11,12 +11,17 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::mods::ModStorage;
+
 /// The launcher's payloads are defined alongside the code that produces them,
 /// and re-exported here so every payload in the registry below can be named
 /// from one module.
 pub use crate::launcher::{
     LaunchProgress, LaunchStage, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
 };
+
+/// As above, for the payload the layout migration defines beside itself.
+pub use crate::mods::LayoutMigrationReport;
 
 /// Receives notifications from domain operations.
 ///
@@ -92,8 +97,27 @@ pub struct MigrationProgress {
     pub current_file: String,
 }
 
+/// Progress of the library layout migration, emitted per mod.
+///
+/// Separate from [`MigrationProgress`], which is the cslol import: the two run
+/// at different moments, mean different things, and share nothing but the word.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutMigrationProgress {
+    pub current: usize,
+    pub total: usize,
+    pub current_mod: String,
+}
+
 /// Stage of a fantome import.
-#[derive(Clone, Debug, Serialize)]
+///
+/// Coarser than the stages `ltk_mod_project`'s importer reports: everything
+/// past the content is `Finalizing`, because none of it carries a count a bar
+/// could be drawn from. `Error` has no counterpart there at all, since a failed
+/// import returns rather than reporting, so the caller emits it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
@@ -111,9 +135,74 @@ pub enum FantomeImportStage {
 #[serde(rename_all = "camelCase")]
 pub struct FantomeImportProgress {
     pub stage: FantomeImportStage,
-    pub current_wad: Option<String>,
+    /// The unit being unpacked, as the archive names it: a WAD, or `RAW` for
+    /// the pass that unpacks everything the archive keeps outside one.
+    pub current_item: Option<String>,
     pub current: u32,
     pub total: u32,
+}
+
+/// Progress of one mod moving between the two storage modes.
+///
+/// Its own event though an unpack is a fantome import, because the workshop's
+/// import dialog listens on `fantome-import-progress` and a library conversion
+/// must not drive it. The stage is shared, since the two report the same four
+/// states.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ModStorageProgress {
+    pub mod_id: String,
+    /// The storage the mod is moving to, which is what names the work.
+    pub storage: ModStorage,
+    pub stage: FantomeImportStage,
+    /// As [`FantomeImportProgress::current_item`].
+    pub current_item: Option<String>,
+    pub current: u32,
+    pub total: u32,
+}
+
+impl ModStorageProgress {
+    /// A stage with nothing named and no counters, for the steps that have none.
+    pub fn new(mod_id: &str, storage: ModStorage, stage: FantomeImportStage) -> Self {
+        Self {
+            mod_id: mod_id.to_owned(),
+            storage,
+            stage,
+            current_item: None,
+            current: 0,
+            total: 0,
+        }
+    }
+
+    /// The same, carrying the counters an unpack reached before it stopped.
+    pub fn at(mut self, current: u32, total: u32) -> Self {
+        self.current = current;
+        self.total = total;
+        self
+    }
+}
+
+impl From<ltk_mod_project::ImportProgress<'_>> for FantomeImportProgress {
+    fn from(progress: ltk_mod_project::ImportProgress<'_>) -> Self {
+        use ltk_mod_project::ImportStage as Upstream;
+
+        let (stage, current_item) = match progress.stage {
+            Upstream::Extracting { item } => {
+                (FantomeImportStage::Extracting, Some(item.to_owned()))
+            }
+            Upstream::WritingMetadata => (FantomeImportStage::Finalizing, None),
+            Upstream::Complete => (FantomeImportStage::Complete, None),
+        };
+
+        Self {
+            stage,
+            current_item,
+            current: progress.current,
+            total: progress.total,
+        }
+    }
 }
 
 /// Progress of a hashtable sync, as its tables stream in.
@@ -236,8 +325,15 @@ declare_events! {
     InstallProgress(InstallProgress) => "install-progress",
     /// A cslol migration advanced.
     MigrationProgress(MigrationProgress) => "migration-progress",
+    /// The library layout migration advanced to the next mod.
+    LayoutMigrationProgress(LayoutMigrationProgress) => "layout-migration-progress",
+    /// The library layout migration ended. Emitted only for a run that had
+    /// mods to move, so a library already on the slug layout announces nothing.
+    LayoutMigrationFinished(LayoutMigrationReport) => "layout-migration-finished",
     /// A fantome import advanced.
     FantomeImportProgress(FantomeImportProgress) => "fantome-import-progress",
+    /// One mod's storage conversion advanced.
+    ModStorageProgress(ModStorageProgress) => "mod-storage-progress",
     /// A git repository import advanced.
     GitImportProgress(GitImportProgress) => "git-import-progress",
     /// A League launch request advanced.
