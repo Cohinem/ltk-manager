@@ -1,4 +1,4 @@
-import { ShieldWarningIcon } from "@phosphor-icons/react";
+import { ShieldWarningIcon, WarningIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
@@ -23,6 +23,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
     thumbnailUrl,
     isFlagged,
     skinhackReason,
+    faultReason,
     isMultiLayer,
     selectMode,
     isSelected,
@@ -73,6 +74,11 @@ export function ModCardList({ view }: { view: ModCardView }) {
           {isFlagged && (
             <Tooltip content={skinhackReason}>
               <ShieldWarningIcon className="h-4 w-4 shrink-0 text-danger-text" />
+            </Tooltip>
+          )}
+          {faultReason !== null && (
+            <Tooltip content={faultReason}>
+              <WarningIcon className="h-4 w-4 shrink-0 text-danger-text" />
             </Tooltip>
           )}
         </div>

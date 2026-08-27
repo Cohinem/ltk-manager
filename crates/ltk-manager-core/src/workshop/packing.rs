@@ -264,7 +264,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         };
         fs::write(
@@ -312,7 +312,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         };
         fs::write(
@@ -341,7 +341,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         };
         fs::write(
@@ -370,7 +370,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         };
         fs::write(
@@ -398,7 +398,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         };
         fs::write(
@@ -427,7 +427,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         };
         fs::write(

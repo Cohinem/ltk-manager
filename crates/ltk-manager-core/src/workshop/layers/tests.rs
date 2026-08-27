@@ -34,7 +34,10 @@ fn load_layers(dir: &std::path::Path) -> Vec<ModProjectLayer> {
 #[test]
 fn create_layer_adds_to_config() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     let project = ProjectDir::open(dir.path())
         .unwrap()
@@ -56,7 +59,10 @@ fn create_layer_adds_to_config() {
 #[test]
 fn create_layer_invalid_name_rejected() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     assert!(matches!(
         ProjectDir::open(dir.path())
@@ -75,7 +81,10 @@ fn create_layer_invalid_name_rejected() {
 #[test]
 fn create_layer_duplicate_name_detected() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     assert!(matches!(
         ProjectDir::open(dir.path()).unwrap().create_layer("base", None, None),
@@ -86,7 +95,10 @@ fn create_layer_duplicate_name_detected() {
 #[test]
 fn delete_base_layer_rejected() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     assert!(matches!(
         ProjectDir::open(dir.path()).unwrap().delete_layer("base"),
@@ -97,7 +109,10 @@ fn delete_base_layer_rejected() {
 #[test]
 fn delete_nonexistent_layer_detected() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     assert!(matches!(
         ProjectDir::open(dir.path()).unwrap().delete_layer("nonexistent"),
@@ -316,7 +331,10 @@ fn extract_wad_into_dir_falls_back_to_hex_names() {
 #[test]
 fn add_files_to_layer_extracts_wad_file() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     let src_dir = tempfile::tempdir().unwrap();
     let src_file = src_dir.path().join("Aatrox.wad.client");
@@ -353,7 +371,10 @@ fn add_files_to_layer_extracts_wad_file() {
 #[test]
 fn add_files_to_layer_copies_directory() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     let src_dir = tempfile::tempdir().unwrap();
     let wad_dir = src_dir.path().join("Champion.wad.client");
@@ -380,7 +401,10 @@ fn add_files_to_layer_copies_directory() {
 #[test]
 fn add_files_to_layer_rejects_non_wad() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     let src_dir = tempfile::tempdir().unwrap();
     let bad = src_dir.path().join("readme.txt");
@@ -408,7 +432,10 @@ fn seed_layer(dir: &std::path::Path, layer: &str, entries: &[&str]) -> PathBuf {
 #[test]
 fn delete_layer_content_removes_one_file() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
     let layer_dir = seed_layer(
         dir.path(),
         "base",
@@ -430,7 +457,10 @@ fn delete_layer_content_removes_one_file() {
 #[test]
 fn delete_layer_content_removes_a_directory_whole() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
     let layer_dir = seed_layer(
         dir.path(),
         "base",
@@ -449,7 +479,10 @@ fn delete_layer_content_removes_a_directory_whole() {
 #[test]
 fn delete_layer_content_prunes_the_directories_it_empties() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
     let layer_dir = seed_layer(dir.path(), "base", &["Aatrox.wad.client/data/deep/a.bin"]);
 
     ProjectDir::open(dir.path())
@@ -464,7 +497,10 @@ fn delete_layer_content_prunes_the_directories_it_empties() {
 #[test]
 fn delete_layer_content_keeps_a_parent_that_still_holds_something() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
     let layer_dir = seed_layer(
         dir.path(),
         "base",
@@ -486,7 +522,10 @@ fn delete_layer_content_keeps_a_parent_that_still_holds_something() {
 #[test]
 fn delete_layer_content_rejects_an_escaping_path() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
     seed_layer(dir.path(), "base", &["Aatrox.wad.client/a.bin"]);
     let outsider = dir.path().join("mod.config.json");
 
@@ -514,7 +553,10 @@ fn delete_layer_content_rejects_an_escaping_path() {
 #[test]
 fn delete_layer_content_reports_an_entry_that_is_already_gone() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
     seed_layer(dir.path(), "base", &["Aatrox.wad.client/a.bin"]);
 
     assert!(matches!(
@@ -528,7 +570,10 @@ fn delete_layer_content_reports_an_entry_that_is_already_gone() {
 #[test]
 fn add_files_to_layer_aborts_on_conflict() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     let layer_dir = dir.path().join("content").join("base");
     fs::create_dir_all(&layer_dir).unwrap();
@@ -564,7 +609,10 @@ fn add_files_to_layer_aborts_on_conflict() {
 #[test]
 fn update_layer_description_persists() {
     let dir = tempfile::tempdir().unwrap();
-    make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
 
     let project = ProjectDir::open(dir.path())
         .unwrap()

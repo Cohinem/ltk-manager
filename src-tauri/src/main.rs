@@ -86,6 +86,7 @@ fn main() {
             commands::set_mod_layers,
             commands::enable_mod_with_layers,
             commands::edit_mod_metadata,
+            commands::set_mod_storage,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
             commands::get_storage_directory,
@@ -106,6 +107,7 @@ fn main() {
             // Migration
             commands::scan_cslol_mods,
             commands::import_cslol_mods,
+            commands::get_layout_migration_state,
             // Patcher
             commands::start_patcher,
             commands::stop_patcher,

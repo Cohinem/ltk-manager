@@ -30,6 +30,13 @@ export interface ToastOptions {
   notify?: boolean;
 }
 
+/** A handle on a toast that stays open until the work behind it ends. */
+export interface ToastTask {
+  /** Move the strip along the bottom, and say what is happening now. */
+  report: (percent: number, description: string) => void;
+  close: () => void;
+}
+
 const typeIcons: Record<ToastType, ReactNode> = {
   success: <CircleCheck className="h-5 w-5 text-success-text" />,
   error: <CircleX className="h-5 w-5 text-danger-text" />,
@@ -261,6 +268,31 @@ export function useToast() {
         data: { type: "info", timeout: 5000 },
         timeout: 5000,
       });
+    },
+    /**
+     * A toast that stays until the work behind it ends, reporting how far it
+     * has got where a dismissing toast counts itself down.
+     *
+     * For work the user did not start and cannot cancel. Anything they can wait
+     * on belongs in the UI that started it.
+     */
+    task: (title: string, description?: string): ToastTask => {
+      const id = toastManager.add({
+        title,
+        description,
+        data: { type: "info", progress: 0 },
+        timeout: 0,
+      });
+
+      return {
+        report: (percent: number, description: string) => {
+          toastManager.update(id, {
+            description,
+            data: { type: "info", progress: percent },
+          });
+        },
+        close: () => toastManager.close(id),
+      };
     },
     dismiss: (toastId: string) => {
       toastManager.close(toastId);

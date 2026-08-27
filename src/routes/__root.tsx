@@ -15,7 +15,7 @@ import { monoStack, sansStack, sansWeights, WEIGHT_TIERS } from "@/lib/fonts";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import { SessionBar, useLeagueSession } from "@/modules/launcher";
-import { useLibraryWatcher } from "@/modules/library";
+import { LibraryMigrationDialog, useLibraryWatcher, useModStorageToast } from "@/modules/library";
 import {
   LinkedBinWarningDialog,
   PatcherEventListeners,
@@ -49,6 +49,7 @@ function RootLayout() {
   useDevLogStream();
   useDeepLinkListener();
   useLibraryWatcher();
+  useModStorageToast();
   useAutoStartPatcher();
   useSurfaceLinkedBinWarning();
   useClearTestingProjectsOnIdle();
@@ -147,6 +148,7 @@ function RootLayout() {
       <SessionBar />
       <PatcherEventListeners />
       <ProtocolInstallDialog />
+      <LibraryMigrationDialog />
       <WadScanFailedDialog />
       <LinkedBinWarningDialog />
       {import.meta.env.DEV && <DevConsole />}

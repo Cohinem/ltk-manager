@@ -1,17 +1,15 @@
 //! Reading a mod's metadata out of its archive and back off disk.
 //!
-//! An installed mod is stored twice: the archive itself, and an extracted
-//! `mod.config.json` beside it. Extraction happens once at install time so the
-//! library view never has to mount every archive just to render a list. Both
-//! fantome and modpkg archives are normalized into the same [`ModProject`]
-//! shape here, which is why nothing downstream needs to know which format a
-//! mod came in as.
+//! Every installed mod, whatever it arrived as, has a `mod.config.json` in its
+//! directory. A fantome gets one from its importer and a modpkg gets one
+//! written here, both normalized into the same [`ModProject`] shape, which is
+//! why nothing downstream needs to know which format a mod came in as — and
+//! why the library view never mounts an archive just to render a list.
 
 use crate::error::{AppError, AppResult};
 use crate::mods::index::LibraryModEntry;
 use crate::mods::types::{InstalledMod, ModLayer};
-use crate::workshop::layer::LayersExt;
-use ltk_mod_project::{ModMap, ModProject, ModProjectLayer, ModTag};
+use ltk_mod_project::{ModProject, ModProjectLayer};
 use ltk_modpkg::Modpkg;
 use std::collections::HashMap;
 use std::fs;
@@ -23,8 +21,16 @@ pub(crate) fn read_installed_mod(
     storage_dir: &Path,
     layer_states: Option<&HashMap<String, bool>>,
 ) -> AppResult<InstalledMod> {
-    let mod_dir = entry.metadata_dir(storage_dir);
-    let project = load_mod_project(&mod_dir)?;
+    let mod_dir = entry.mod_dir(storage_dir);
+    let project = match &entry.fault {
+        // A faulted mod's own directory is gone — its metadata went to
+        // quarantine with the rest of it, and the library still has to draw a
+        // card the user can act on.
+        Some(_) => load_mod_project(&entry.quarantine_dir(storage_dir).join("metadata"))
+            .unwrap_or_else(|_| placeholder_project(&entry.id)),
+        None => load_mod_project(&mod_dir)?,
+    };
+
     let authors = project
         .authors
         .iter()
@@ -68,8 +74,60 @@ pub(crate) fn read_installed_mod(
         champions: project.champions.clone(),
         maps: project.maps.iter().map(|m| m.to_string()).collect(),
         mod_dir: mod_dir.display().to_string(),
+        format: entry.format,
+        storage: entry.storage,
+        has_archive: entry.archive_path(storage_dir).is_file(),
         folder_id: None,
+        fault: entry.fault.clone(),
     })
+}
+
+/// The stand-in for a mod whose config cannot be read at all, so a faulted
+/// entry still draws a card carrying its id and its error.
+fn placeholder_project(id: &str) -> ModProject {
+    ModProject {
+        name: id.to_string(),
+        display_name: id.to_string(),
+        version: String::new(),
+        description: String::new(),
+        authors: Vec::new(),
+        license: None,
+        tags: Vec::new(),
+        champions: Vec::new(),
+        maps: Vec::new(),
+        transformers: Vec::new(),
+        layers: Vec::new(),
+        thumbnail: None,
+    }
+}
+
+/// The layer table a fantome archive declares, or `None` when it declares none.
+///
+/// Only the layout migration reads this. Every other path gets the table from
+/// the importer, which keeps what `META/info.json` carries — but a config an
+/// older version of the app wrote does not, and repairing one means reading the
+/// archive again. `None` is what says to leave such a config alone.
+///
+/// Derived through the same conversion the importer uses, so the migration
+/// cannot decide a config needs rewriting over an ordering only this disagreed
+/// about. Both sides order through [`ModProjectLayer::normalize_table`].
+///
+/// # Errors
+///
+/// Fails when the archive cannot be opened or its `META/info.json` cannot be
+/// read.
+pub(crate) fn fantome_layers(archive: &Path) -> AppResult<Option<Vec<ModProjectLayer>>> {
+    let mut reader = ltk_fantome::FantomeReader::new(std::fs::File::open(archive)?)
+        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
+    let info = reader
+        .read_info()
+        .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
+
+    if info.layers.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(ModProject::from(info).layers))
 }
 
 pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
@@ -83,155 +141,51 @@ pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
     serde_json::from_str(&contents).map_err(AppError::from)
 }
 
-pub(crate) fn extract_fantome_metadata(file_path: &Path, metadata_dir: &Path) -> AppResult<()> {
-    use std::io::Read;
-    use zip::ZipArchive;
+/// Write a fantome's own metadata out as a mod project config.
+///
+/// Reads `META/info.json` and the thumbnail, never the content, so this costs
+/// one seek where importing the archive costs an unpack. It is what gives a
+/// mod kept in its archive the config every card and every slug is read from.
+///
+/// # Errors
+///
+/// Fails when the archive cannot be opened, its `META/info.json` cannot be
+/// read, or the config cannot be written.
+pub(crate) fn extract_fantome_metadata(archive: &Path, metadata_dir: &Path) -> AppResult<()> {
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
+        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
+    let info = reader
+        .read_info()
+        .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
 
-    let file = std::fs::File::open(file_path)?;
-    let mut archive = ZipArchive::new(file)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {}", e)))?;
+    let project = ModProject::from(info);
 
-    // Read metadata from info.json
-    let mut info_content = String::new();
-    let mut found_metadata = false;
-
-    for i in 0..archive.len() {
-        let file = archive
-            .by_index(i)
-            .map_err(|e| AppError::Other(format!("Failed to read archive entry: {}", e)))?;
-        let name = file.name().to_lowercase();
-
-        if name == "meta/info.json" {
-            drop(file);
-            let mut info_file = archive
-                .by_index(i)
-                .map_err(|e| AppError::Other(format!("Failed to read info.json: {}", e)))?;
-            info_file
-                .read_to_string(&mut info_content)
-                .map_err(|e| AppError::Other(format!("Failed to read info.json content: {}", e)))?;
-            found_metadata = true;
-            break;
-        }
-    }
-
-    if !found_metadata {
-        return Err(AppError::Other(
-            "Missing META/info.json in fantome archive".to_string(),
-        ));
-    }
-
-    // Parse metadata
-    let info_content = info_content.trim_start_matches('\u{feff}').trim();
-    let info: ltk_fantome::FantomeInfo = serde_json::from_str(info_content)
-        .map_err(|e| AppError::Other(format!("Failed to parse info.json: {}", e)))?;
-
-    // Build layers from Fantome info, preserving string overrides
-    let layers = if info.layers.is_empty() {
-        ltk_mod_project::default_layers()
-    } else {
-        let mut layers: Vec<ltk_mod_project::ModProjectLayer> = info
-            .layers
-            .into_values()
-            .map(|layer_info| ltk_mod_project::ModProjectLayer {
-                name: layer_info.name,
-                display_name: layer_info.display_name,
-                priority: layer_info.priority,
-                description: None,
-                string_overrides: layer_info.string_overrides,
-            })
-            .collect();
-        layers.ensure_base();
-        layers.sort_for_display();
-        layers
-    };
-
-    // Create mod.config.json from metadata
-    let project = ModProject {
-        name: slug::slugify(&info.name),
-        display_name: info.name,
-        version: info.version,
-        description: info.description,
-        authors: vec![ltk_mod_project::ModProjectAuthor::Name(info.author)],
-        license: None,
-        tags: info.tags.into_iter().map(ModTag::from).collect(),
-        champions: info.champions,
-        maps: info.maps.into_iter().map(ModMap::from).collect(),
-        transformers: Vec::new(),
-        layers,
-        thumbnail: None,
-    };
-
-    let config_path = metadata_dir.join("mod.config.json");
-    fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
-
-    // Extract README and thumbnail if present
-    for i in 0..archive.len() {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| AppError::Other(format!("Failed to read archive entry: {}", e)))?;
-        let name = file.name().to_string();
-        let name_lower = name.to_lowercase();
-
-        if name.eq_ignore_ascii_case("META/readme.md") || name.eq_ignore_ascii_case("readme.md") {
-            let mut contents = String::new();
-            file.read_to_string(&mut contents)?;
-            fs::write(metadata_dir.join("README.md"), contents)?;
-        } else if name_lower == "meta/image.png" {
-            let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer)?;
-            let _ = fs::write(metadata_dir.join("thumbnail.png"), &buffer);
-        }
-    }
+    fs::create_dir_all(metadata_dir)?;
+    fs::write(
+        metadata_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&project)?,
+    )?;
+    let _ = extract_fantome_thumbnail(archive, metadata_dir);
 
     tracing::info!("Extracted fantome metadata to {}", metadata_dir.display());
+
     Ok(())
 }
 
+/// Write a modpkg's own metadata out as a mod project config.
+///
+/// It is what gives a mod kept in its archive the config every card and every
+/// slug is read from.
+///
+/// # Errors
+///
+/// Fails when the package cannot be mounted or read, or the config cannot be
+/// written.
 pub(crate) fn extract_modpkg_metadata(file_path: &Path, metadata_dir: &Path) -> AppResult<()> {
     let file = std::fs::File::open(file_path)?;
     let mut modpkg = Modpkg::mount_from_reader(file)?;
 
-    // Build a mod project config from metadata/header layers (no content extraction).
-    let metadata = modpkg.load_metadata()?;
-
-    // Use header layers as source of truth, preserving string overrides from metadata.
-    let mut layers: Vec<ModProjectLayer> = modpkg
-        .layers()
-        .values()
-        .map(|l| {
-            let meta_layer = metadata.layers.iter().find(|ml| ml.name == l.name);
-            ModProjectLayer {
-                name: l.name.clone(),
-                display_name: meta_layer.and_then(|ml| ml.display_name.clone()),
-                priority: l.priority,
-                description: meta_layer.and_then(|ml| ml.description.clone()),
-                string_overrides: meta_layer
-                    .map(|ml| ml.string_overrides.clone())
-                    .unwrap_or_default(),
-            }
-        })
-        .collect();
-    layers.ensure_base();
-    layers.sort_for_display();
-
-    let project = ModProject {
-        name: metadata.name,
-        display_name: metadata.display_name,
-        version: metadata.version.to_string(),
-        description: metadata.description.unwrap_or_default(),
-        authors: metadata
-            .authors
-            .into_iter()
-            .map(|a| ltk_mod_project::ModProjectAuthor::Name(a.name))
-            .collect(),
-        license: None,
-        tags: metadata.tags.into_iter().map(ModTag::from).collect(),
-        champions: metadata.champions,
-        maps: metadata.maps.into_iter().map(ModMap::from).collect(),
-        transformers: Vec::new(),
-        layers,
-        thumbnail: None,
-    };
+    let project = ltk_mod_project::modpkg::read_project(&mut modpkg)?;
 
     let config_path = metadata_dir.join("mod.config.json");
     fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
@@ -251,38 +205,26 @@ pub(crate) fn extract_modpkg_metadata(file_path: &Path, metadata_dir: &Path) -> 
 
 /// Extract thumbnail from a fantome archive and save to the metadata directory.
 /// Returns the path to the saved file, or `None` if the archive has no thumbnail.
+///
+/// # Errors
+///
+/// Fails when the archive cannot be opened or its thumbnail cannot be written.
 pub(crate) fn extract_fantome_thumbnail(
     archive_path: &Path,
     metadata_dir: &Path,
 ) -> AppResult<Option<PathBuf>> {
-    use std::io::Read;
-    use zip::ZipArchive;
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive_path)?)
+        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
+    let Some(png) = reader
+        .read_image_png()
+        .map_err(|e| AppError::Other(format!("Failed to read the thumbnail: {e}")))?
+    else {
+        return Ok(None);
+    };
 
-    let file = std::fs::File::open(archive_path)?;
-    let mut archive = ZipArchive::new(file)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {}", e)))?;
-
-    for i in 0..archive.len() {
-        let name = archive
-            .by_index(i)
-            .map_err(|e| AppError::Other(format!("Failed to read archive entry: {}", e)))?
-            .name()
-            .to_lowercase();
-
-        if name == "meta/image.png" {
-            let mut file = archive
-                .by_index(i)
-                .map_err(|e| AppError::Other(format!("Failed to read thumbnail: {}", e)))?;
-            let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer)?;
-
-            let dest = metadata_dir.join("thumbnail.png");
-            fs::write(&dest, &buffer)?;
-            return Ok(Some(dest));
-        }
-    }
-
-    Ok(None)
+    let dest = metadata_dir.join("thumbnail.png");
+    fs::write(&dest, png)?;
+    Ok(Some(dest))
 }
 
 /// Extract thumbnail from a modpkg archive and save to the metadata directory.
@@ -308,7 +250,7 @@ pub(crate) fn extract_modpkg_thumbnail(
 mod tests {
     use super::*;
     use crate::mods::index::ModArchiveFormat;
-    use chrono::Utc;
+    use crate::mods::test_support::make_slugged_entry;
     use std::io::Write;
 
     fn make_test_mod_config_json() -> String {
@@ -325,7 +267,7 @@ mod tests {
             champions: vec!["Aatrox".to_string()],
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         })
         .unwrap()
@@ -406,11 +348,7 @@ mod tests {
         )
         .unwrap();
 
-        let entry = LibraryModEntry {
-            id: id.to_string(),
-            installed_at: Utc::now(),
-            format: ModArchiveFormat::Fantome,
-        };
+        let entry = make_slugged_entry(id, id, ModArchiveFormat::Fantome);
 
         let result = read_installed_mod(&entry, true, storage.path(), None).unwrap();
         assert_eq!(result.id, id);
@@ -442,17 +380,13 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             transformers: Vec::new(),
-            layers: ltk_mod_project::default_layers(),
+            layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
         })
         .unwrap();
         fs::write(mods_dir.join("mod.config.json"), config).unwrap();
 
-        let entry = LibraryModEntry {
-            id: id.to_string(),
-            installed_at: Utc::now(),
-            format: ModArchiveFormat::Fantome,
-        };
+        let entry = make_slugged_entry(id, id, ModArchiveFormat::Fantome);
 
         let result = read_installed_mod(&entry, false, storage.path(), None).unwrap();
         assert!(result.description.is_none());
@@ -462,11 +396,7 @@ mod tests {
     #[test]
     fn read_installed_mod_missing_config_returns_error() {
         let storage = tempfile::tempdir().unwrap();
-        let entry = LibraryModEntry {
-            id: "nonexistent".to_string(),
-            installed_at: Utc::now(),
-            format: ModArchiveFormat::Fantome,
-        };
+        let entry = make_slugged_entry("nonexistent", "nonexistent", ModArchiveFormat::Fantome);
         assert!(read_installed_mod(&entry, true, storage.path(), None).is_err());
     }
 
@@ -491,89 +421,5 @@ mod tests {
 
         let result = extract_fantome_thumbnail(&archive_path, &metadata_dir).unwrap();
         assert!(result.is_none());
-    }
-
-    #[test]
-    fn extract_fantome_metadata_valid() {
-        let dir = tempfile::tempdir().unwrap();
-        let archive_path = make_test_fantome_zip(dir.path(), false, false);
-        let metadata_dir = dir.path().join("metadata");
-        fs::create_dir_all(&metadata_dir).unwrap();
-
-        extract_fantome_metadata(&archive_path, &metadata_dir).unwrap();
-
-        let config_path = metadata_dir.join("mod.config.json");
-        assert!(config_path.exists());
-        let project = load_mod_project(&metadata_dir).unwrap();
-        assert_eq!(project.display_name, "Test Mod");
-    }
-
-    #[test]
-    fn extract_fantome_metadata_missing_info_json() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let zip_path = dir.path().join("empty.fantome");
-        let file = std::fs::File::create(&zip_path).unwrap();
-        let mut zip = zip::ZipWriter::new(file);
-        let options = zip::write::SimpleFileOptions::default();
-        zip.start_file("WAD/test.wad.client/file.bin", options)
-            .unwrap();
-        zip.write_all(b"data").unwrap();
-        zip.finish().unwrap();
-
-        let metadata_dir = dir.path().join("metadata");
-        fs::create_dir_all(&metadata_dir).unwrap();
-
-        assert!(extract_fantome_metadata(&zip_path, &metadata_dir).is_err());
-    }
-
-    #[test]
-    fn extract_fantome_metadata_with_bom() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let info_json = format!(
-            "\u{feff}{}",
-            serde_json::to_string(&ltk_fantome::FantomeInfo {
-                name: "BOM Mod".to_string(),
-                author: "Author".to_string(),
-                version: "2.0.0".to_string(),
-                description: "Has BOM".to_string(),
-                license: None,
-                tags: Vec::new(),
-                champions: Vec::new(),
-                maps: Vec::new(),
-                layers: HashMap::new(),
-            })
-            .unwrap()
-        );
-
-        let zip_path = dir.path().join("bom.fantome");
-        let file = std::fs::File::create(&zip_path).unwrap();
-        let mut zip = zip::ZipWriter::new(file);
-        let options = zip::write::SimpleFileOptions::default();
-        zip.start_file("META/info.json", options).unwrap();
-        zip.write_all(info_json.as_bytes()).unwrap();
-        zip.finish().unwrap();
-
-        let metadata_dir = dir.path().join("metadata");
-        fs::create_dir_all(&metadata_dir).unwrap();
-
-        extract_fantome_metadata(&zip_path, &metadata_dir).unwrap();
-        let project = load_mod_project(&metadata_dir).unwrap();
-        assert_eq!(project.display_name, "BOM Mod");
-    }
-
-    #[test]
-    fn extract_fantome_metadata_extracts_readme() {
-        let dir = tempfile::tempdir().unwrap();
-        let archive_path = make_test_fantome_zip(dir.path(), false, true);
-        let metadata_dir = dir.path().join("metadata");
-        fs::create_dir_all(&metadata_dir).unwrap();
-
-        extract_fantome_metadata(&archive_path, &metadata_dir).unwrap();
-        let readme = metadata_dir.join("README.md");
-        assert!(readme.exists());
-        let contents = fs::read_to_string(readme).unwrap();
-        assert!(contents.contains("Test Mod"));
     }
 }

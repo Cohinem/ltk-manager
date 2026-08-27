@@ -55,6 +55,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         IncidentStore::new(incidents_dir).with_keep(settings.config.keep_incidents as usize),
     ));
     let linked_bins = Arc::new(LinkedBinState::default());
+    // The library unpacks fantome archives, which needs the same chunk names
+    // the browser resolves with, so both hold this one handle.
+    let wad_resolver = Arc::new(ltk_manager_core::hashtables::WadPathResolverState::default());
 
     let mod_library = ModLibraryState(ModLibrary::new(
         Arc::clone(&events),
@@ -62,11 +65,12 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         env!("CARGO_PKG_VERSION"),
         Arc::clone(&linked_bins),
         Arc::clone(&wad_reports),
+        Arc::clone(&wad_resolver),
     ));
 
     mod_library
         .0
-        .reconcile_in_background(settings.config.clone());
+        .maintain_in_background(settings.config.clone());
 
     let hotkey_manager = crate::hotkeys::HotkeyManager::new(&app_handle);
     hotkey_manager.register_from_settings(&settings);
@@ -93,7 +97,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(wad_reports);
     app.manage(ltk_manager_core::strings::StringKeyIndexState::default());
     app.manage(ltk_manager_core::game_index::GameIndexState::default());
-    app.manage(ltk_manager_core::hashtables::WadPathResolverState::default());
+    app.manage(wad_resolver);
     app.manage(ltk_manager_core::game_index::SearchGeneration::default());
     app.manage(ltk_manager_core::game_index::FindGeneration::default());
     app.manage(ltk_manager_core::game_wads::WadCache::default());

@@ -358,16 +358,13 @@ impl ModLibrary {
 mod tests {
     use super::*;
     use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
+    use crate::mods::test_support::make_test_entry;
     use crate::mods::types::{Profile, ProfileSlug};
     use chrono::Utc;
     use std::collections::HashMap;
 
     fn make_mod_entry(id: &str) -> LibraryModEntry {
-        LibraryModEntry {
-            id: id.to_string(),
-            installed_at: Utc::now(),
-            format: ModArchiveFormat::Fantome,
-        }
+        make_test_entry(id, ModArchiveFormat::Fantome)
     }
 
     fn make_folder(id: &str, name: &str, mod_ids: Vec<&str>) -> LibraryFolder {

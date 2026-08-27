@@ -3,10 +3,24 @@ use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::mods::{BulkInstallResult, CslolModInfo, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
+use ltk_manager_core::mods::LayoutMigrationState;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 use super::mods::reject_if_patcher_running;
+
+/// What the library layout migration has to say for itself this launch.
+///
+/// The run starts with the app and is usually over before the webview finishes
+/// loading, so asking is what gets its report on screen — the event announcing
+/// it may have been emitted to nobody.
+#[tauri::command]
+pub fn get_layout_migration_state(
+    library: State<ModLibraryState>,
+) -> IpcResult<LayoutMigrationState> {
+    let result: AppResult<LayoutMigrationState> = Ok(library.0.layout_migration_state());
+    result.into()
+}
 
 /// Scan a cslol-manager directory for importable mods.
 #[tauri::command]

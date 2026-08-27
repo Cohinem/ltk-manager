@@ -1,10 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
-import type { InstalledMod } from "@/lib/tauri";
+import { api, type InstalledMod, type ModStorage } from "@/lib/tauri";
 import {
   useMoveModToFolder,
+  useSetModStorage,
   useSkinhackFlag,
   useToggleMod,
   useUninstallMod,
@@ -33,6 +33,16 @@ export interface ModCardView {
   thumbnailUrl: string | undefined;
   isFlagged: boolean;
   skinhackReason: string;
+  /** Why this mod is unusable, or `null` when it is fine. */
+  faultReason: string | null;
+  /**
+   * Whether this mod can be moved between the two storage modes at all.
+   *
+   * A modpkg has no unpacked form, and either direction needs the archive still
+   * beside the mod to convert against.
+   */
+  canChangeStorage: boolean;
+  storageChangePending: boolean;
   disabled: boolean;
   interactionsDisabled: boolean;
   isInUserFolder: boolean;
@@ -49,6 +59,7 @@ export interface ModCardView {
   onCardKeyDown: (e: React.KeyboardEvent) => void;
   onToggle: (modId: string, enabled: boolean) => void;
   onUninstall: () => void;
+  onSetStorage: (storage: ModStorage) => void;
   onCopyId: () => void;
   onOpenLocation: () => void;
   onRemoveFromFolder: () => void;
@@ -70,6 +81,7 @@ export function useModCardController({
   const toggleMod = useToggleMod();
   const uninstallMod = useUninstallMod();
   const moveModToFolder = useMoveModToFolder();
+  const setModStorage = useSetModStorage();
   const { data: patcherStatus } = usePatcherStatus();
 
   const selectMode = useLibrarySelectionStore((s) => s.selectMode);
@@ -84,11 +96,14 @@ export function useModCardController({
     setInfoOpen: setSkinhackInfoOpen,
   } = useSkinhackFlag(mod);
 
+  const faultReason = mod.fault?.error ?? null;
   const patcherRunning = patcherStatus?.running ?? false;
-  const disabled = isFlagged || patcherRunning;
+  const disabled = isFlagged || faultReason !== null || patcherRunning;
   const interactionsDisabled = disabled || selectMode;
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
+
+  const canChangeStorage = mod.format === "fantome" && mod.hasArchive && faultReason === null;
 
   function handleToggle(modId: string, enabled: boolean) {
     toggleMod.mutate(
@@ -103,16 +118,30 @@ export function useModCardController({
     });
   }
 
+  /* Success is announced by `useModStorageToast`, off the backend's own report,
+     so the toast can track the conversion rather than only its end. */
+  function handleSetStorage(storage: ModStorage) {
+    if (!canChangeStorage || storage === mod.storage) return;
+    setModStorage.mutate(
+      { modId: mod.id, storage },
+      {
+        onError: (error) => toast.error("Could not change how this mod is stored", error.message),
+      },
+    );
+  }
+
   async function handleCopyId() {
     await navigator.clipboard.writeText(mod.id);
     toast.success("Copied mod ID to clipboard");
   }
 
   async function handleOpenLocation() {
-    try {
-      await invoke("reveal_in_explorer", { path: mod.modDir });
-    } catch (error) {
-      console.error("Failed to open location:", error);
+    // A faulted mod's own directory is gone. What is left is what quarantine
+    // holds, which is the folder someone opening it now wants.
+    const path = mod.fault?.quarantineDir ?? mod.modDir;
+    const result = await api.revealInExplorer(path);
+    if (!result.ok) {
+      console.error("Failed to open location:", result.error);
     }
   }
 
@@ -143,12 +172,13 @@ export function useModCardController({
     activateCard(e.shiftKey);
   }
 
+  const blocked = isFlagged || faultReason !== null;
   const inSelectedState = selectMode && isSelected;
-  const inEnabledState = mod.enabled && !isFlagged;
-  const isInteractive = !isFlagged && (selectMode || !disabled);
+  const inEnabledState = mod.enabled && !blocked;
+  const isInteractive = !blocked && (selectMode || !disabled);
 
-  const cursorClass = match({ isFlagged, isInteractive })
-    .with({ isFlagged: true }, () => "cursor-default opacity-50")
+  const cursorClass = match({ blocked, isInteractive })
+    .with({ blocked: true }, () => "cursor-default opacity-50")
     .with({ isInteractive: true }, () => "cursor-pointer")
     .otherwise(() => "cursor-default");
 
@@ -157,6 +187,9 @@ export function useModCardController({
     thumbnailUrl,
     isFlagged,
     skinhackReason,
+    faultReason,
+    canChangeStorage,
+    storageChangePending: setModStorage.isPending,
     disabled,
     interactionsDisabled,
     isInUserFolder,
@@ -173,6 +206,7 @@ export function useModCardController({
     onCardKeyDown: handleCardKeyDown,
     onToggle: handleToggle,
     onUninstall: handleUninstall,
+    onSetStorage: handleSetStorage,
     onCopyId: handleCopyId,
     onOpenLocation: handleOpenLocation,
     onRemoveFromFolder: handleRemoveFromFolder,

@@ -51,29 +51,6 @@ impl Layer for ModProjectLayer {
     }
 }
 
-/// A project's own layer list, which every reader of one normalizes the same.
-pub trait LayersExt {
-    /// Add `base` at the front when the list has none.
-    ///
-    /// At the front so that a list nothing sorts afterwards still reads right.
-    fn ensure_base(&mut self);
-
-    /// Sort into the order every listing shows them in.
-    fn sort_for_display(&mut self);
-}
-
-impl LayersExt for Vec<ModProjectLayer> {
-    fn ensure_base(&mut self) {
-        if !self.iter().any(Layer::is_base) {
-            self.insert(0, ModProjectLayer::base());
-        }
-    }
-
-    fn sort_for_display(&mut self) {
-        self.sort_by(|a, b| a.cmp_for_display(b));
-    }
-}
-
 /// The layer directories under one content directory, `base` first.
 ///
 /// Layers come from disk rather than from the project's config, so a layer a
@@ -121,7 +98,7 @@ mod tests {
     }
 
     fn names(mut layers: Vec<ModProjectLayer>) -> Vec<String> {
-        layers.sort_for_display();
+        layers.sort_by(|a, b| a.cmp_for_display(b));
         layers.into_iter().map(|l| l.name).collect()
     }
 
@@ -145,18 +122,6 @@ mod tests {
             layer("base", 0),
         ]);
         assert_eq!(sorted, ["base", "layer9", "layer10"]);
-    }
-
-    #[test]
-    fn ensure_base_adds_one_only_when_missing() {
-        let mut layers = vec![layer("skins", 10)];
-        layers.ensure_base();
-        assert_eq!(names(layers), ["base", "skins"]);
-
-        let mut already = vec![layer("base", 3), layer("skins", 10)];
-        already.ensure_base();
-        assert_eq!(already.len(), 2, "a base layer already there is left alone");
-        assert_eq!(already[0].priority, 3, "including its own priority");
     }
 
     #[test]

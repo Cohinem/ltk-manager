@@ -9,6 +9,7 @@ mod artifacts;
 mod build;
 mod resolve;
 
+pub(crate) use artifacts::force_flush_on_next_build;
 pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 

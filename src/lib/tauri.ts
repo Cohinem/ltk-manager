@@ -37,9 +37,11 @@ import type {
   LaunchAvailability,
   LaunchOutcome,
   LaunchTarget,
+  LayoutMigrationState,
   LibraryFolder,
   LinkedBinOffenderInfo,
   ModpkgInfo,
+  ModStorage,
   ModWadReport,
   PackProjectArgs,
   PackResult,
@@ -149,6 +151,8 @@ export const api = {
     invokeResult<void>("enable_mod_with_layers", { modId, layerStates }),
   editModMetadata: (modId: string, metadata: EditModMetadataArgs) =>
     invokeResult<InstalledMod>("edit_mod_metadata", { modId, metadata }),
+  setModStorage: (modId: string, storage: ModStorage) =>
+    invokeResult<InstalledMod>("set_mod_storage", { modId, storage }),
   getModWadReport: (modId: string) =>
     invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
@@ -159,6 +163,7 @@ export const api = {
     invokeResult<CslolModInfo[]>("scan_cslol_mods", { directory }),
   importCslolMods: (directory: string, selectedFolders: string[]) =>
     invokeResult<BulkInstallResult>("import_cslol_mods", { directory, selectedFolders }),
+  getLayoutMigrationState: () => invokeResult<LayoutMigrationState>("get_layout_migration_state"),
 
   // Inspector
   inspectModpkg: (filePath: string) => invokeResult<ModpkgInfo>("inspect_modpkg", { filePath }),

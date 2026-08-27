@@ -48,6 +48,7 @@ const INDEX = [
   { id: "general.startInTray", key: "startInTray", title: "Start minimized to tray" },
 
   { id: "library.modStoragePath", key: "modStoragePath", title: "Storage location" },
+  { id: "library.retainModArchives", key: "retainModArchives", title: "Keep mod archives" },
   {
     id: "library.autoCategorizationEnabled",
     key: "autoCategorizationEnabled",

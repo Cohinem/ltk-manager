@@ -1,4 +1,4 @@
-import { ShieldWarningIcon } from "@phosphor-icons/react";
+import { ShieldWarningIcon, WarningIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
@@ -17,6 +17,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     thumbnailUrl,
     isFlagged,
     skinhackReason,
+    faultReason,
     isMultiLayer,
     selectMode,
     isSelected,
@@ -76,6 +77,13 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           </div>
         </Tooltip>
       )}
+      {faultReason !== null && (
+        <Tooltip content={faultReason}>
+          <div className="absolute top-2 left-2 z-10 rounded-md bg-danger/90 p-1">
+            <WarningIcon className="h-4 w-4 text-brand-on" />
+          </div>
+        </Tooltip>
+      )}
 
       <ModCardThumbnail variant="grid" thumbnailUrl={thumbnailUrl} displayName={mod.displayName} />
 
@@ -85,6 +93,9 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
             {mod.displayName}
           </h3>
           {isFlagged && <ShieldWarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />}
+          {faultReason !== null && (
+            <WarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />
+          )}
         </div>
 
         <div className="mb-1 flex min-h-5 items-center gap-1">

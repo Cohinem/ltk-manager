@@ -46,7 +46,8 @@ pub async fn sync_hashtables(force: bool, app: AppHandle) -> IpcResult<Hashtable
         let report = HashtableCache::shared()?.sync(force, SYNC_USER_AGENT, &events)?;
 
         if !report.up_to_date {
-            app.state::<WadPathResolverState>().invalidate();
+            app.state::<std::sync::Arc<WadPathResolverState>>()
+                .invalidate();
             app.state::<StringKeyIndexState>().clear();
             app.state::<GameIndexState>().clear()?;
         }

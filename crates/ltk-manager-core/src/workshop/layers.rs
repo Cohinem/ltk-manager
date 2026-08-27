@@ -4,6 +4,7 @@ use super::{
 };
 use crate::error::{AppError, AppResult};
 use crate::hashtables::WadPathResolver;
+use crate::utils::fs::copy_dir_all;
 use camino::Utf8Path;
 use indexmap::IndexMap;
 use ltk_mod_project::ModProjectLayer;
@@ -302,32 +303,6 @@ fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) ->
     Ok(())
 }
 
-/// Recursively copy `src` directory into `dst`, skipping symlinks.
-fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<()> {
-    fs::create_dir_all(dst)?;
-    for entry in walkdir::WalkDir::new(src).follow_links(false).into_iter() {
-        let entry = entry.map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
-        let file_type = entry.file_type();
-        if file_type.is_symlink() {
-            continue;
-        }
-        let rel = entry
-            .path()
-            .strip_prefix(src)
-            .map_err(|e| AppError::Other(e.to_string()))?;
-        let target = dst.join(rel);
-        if file_type.is_dir() {
-            fs::create_dir_all(&target)?;
-        } else if file_type.is_file() {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::copy(entry.path(), &target)?;
-        }
-    }
-    Ok(())
-}
-
 /// Resolve a layer-relative path to somewhere the layer genuinely holds.
 ///
 /// Deleting is permanent, so this is deliberately stricter than joining. Every
@@ -462,7 +437,7 @@ impl ProjectDir {
             let result = if was_packed {
                 extract_wad_into_dir(&src, &temp, resolver)
             } else {
-                copy_dir_recursive(&src, &temp)
+                copy_dir_all(&src, &temp)
             };
 
             if let Err(e) = result {
