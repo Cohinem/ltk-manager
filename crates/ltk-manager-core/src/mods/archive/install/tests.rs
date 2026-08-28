@@ -193,6 +193,56 @@ fn a_fantome_installs_despite_checksums_that_describe_nothing() {
     );
 }
 
+/// The retained archive is the only place a mod's own names survive until the
+/// importer writes declared tables into the project's `hashes/`, so the copy
+/// into the library is the preserve: names the resolver cannot recover are
+/// embedded on the way in.
+#[test]
+fn staging_embeds_unrecoverable_names_in_the_retained_archive() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("full.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+
+    let staged =
+        stage_mod_package(storage.path(), archive.to_str().unwrap(), &context(true)).unwrap();
+
+    let staged_archive = staged.staged_archive.as_ref().unwrap();
+    let mut reader =
+        ltk_fantome::FantomeReader::new(fs::File::open(staged_archive).unwrap()).unwrap();
+    let tables = reader.read_hashtables().unwrap();
+    assert_eq!(tables.len(), 1);
+    assert_eq!(
+        tables[0].1.names().collect::<Vec<_>>(),
+        ["data/characters/aatrox/skins/skin01.bin"]
+    );
+}
+
+/// The community tables are the preserve's exclusions: a name they already
+/// recover is not worth embedding, and a mod made only of such names keeps
+/// its archive byte-identical to what the author shipped.
+#[test]
+fn a_mod_the_resolver_covers_keeps_its_archive_unrewritten() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("full.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+
+    let resolver =
+        crate::mods::test_support::resolver_naming(&["data/characters/aatrox/skins/skin01.bin"]);
+    let context = InstallContext {
+        resolver: &resolver,
+        retain_archive: true,
+    };
+
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context).unwrap();
+
+    assert_eq!(
+        fs::read(staged.staged_archive.as_ref().unwrap()).unwrap(),
+        fs::read(&archive).unwrap()
+    );
+}
+
 #[test]
 fn registering_puts_the_archive_beside_the_slug_directory() {
     let storage = tempfile::tempdir().unwrap();
@@ -230,6 +280,24 @@ fn a_leftover_archive_keeps_its_slug_from_being_reused() {
     );
 }
 
+/// Until the importer writes declared tables into the project's `hashes/`, a
+/// rewritten archive is the only record of the embedded names — so a preserve
+/// that embedded anything overrides retention being off, and the archive stays.
+#[test]
+fn a_rewritten_archive_is_kept_even_with_retention_off() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("full.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+
+    let entry = install(storage.path(), &archive, false).unwrap();
+
+    let kept = entry.archive_path(storage.path());
+    assert!(kept.is_file());
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(&kept).unwrap()).unwrap();
+    assert!(!reader.read_hashtables().unwrap().is_empty());
+}
+
 #[test]
 fn retention_off_keeps_no_fantome_archive() {
     let storage = tempfile::tempdir().unwrap();
@@ -240,6 +308,34 @@ fn retention_off_keeps_no_fantome_archive() {
     let entry = install(storage.path(), &archive, false).unwrap();
     assert!(!entry.archive_path(storage.path()).exists());
     assert!(entry.is_present(storage.path()));
+}
+
+/// What a preserve found outlives the import: the index remembers it, and the
+/// mod the frontend receives carries it. A mod that preserved cleanly and one
+/// that arrived already lossy are told apart by `unharvestable` alone.
+#[test]
+fn the_harvest_is_recorded_on_the_entry_and_the_installed_mod() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("full.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+
+    let installed = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+
+    let expected = crate::mods::index::HarvestSummary {
+        names_added: 1,
+        unharvestable: 2,
+    };
+    assert_eq!(installed.harvest, Some(expected));
+    library
+        .with_index(&config, |_storage, index| {
+            assert_eq!(index.mods[0].harvest, Some(expected));
+            Ok(())
+        })
+        .unwrap();
 }
 
 #[test]

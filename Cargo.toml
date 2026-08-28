@@ -13,13 +13,20 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
-ltk_fantome = "0.9.0"
 ltk_file = { version = "0.2.11", features = ["serde"] }
 ltk_hash = { version = "0.4.0", features = ["serde"] }
 ltk_meta = { version = "0.6.1", features = ["serde"] }
-ltk_mod_project = { version = "0.8.0", features = ["modpkg", "fantome"] }
-ltk_modpkg = "0.9.0"
-ltk_overlay = "0.8.0"
+
+# Pinned to the embedded-hashtables rev until it ships on crates.io. All four
+# must come from the same rev: `ltk_mod_project` hands back `ltk_fantome` and
+# `ltk_modpkg` types, and `ltk_overlay` consumes both.
+ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f" }
+ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f", features = [
+    "modpkg",
+    "fantome",
+] }
+ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f" }
+ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f" }
 ltk_wad = "0.5.3"
 
 ltk_rst = "0.2.1"

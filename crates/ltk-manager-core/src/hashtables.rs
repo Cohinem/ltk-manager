@@ -880,6 +880,15 @@ impl WadPathResolverState {
         Ok(resolver)
     }
 
+    /// A state already holding `resolver`, never discovering the shared cache.
+    ///
+    /// For tests: [`get`](Self::get) on a default state opens whatever cache
+    /// the machine has synced, and a test resolving through that asserts
+    /// against tables it does not control.
+    pub(crate) fn preloaded(resolver: WadPathResolver) -> Self {
+        Self(Mutex::new(Some(Arc::new(resolver))))
+    }
+
     /// Drop the open tables, so the next caller opens what a sync just wrote.
     ///
     /// Readers already holding the old handle keep reading the old files, which

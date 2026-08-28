@@ -79,6 +79,7 @@ pub(crate) fn read_installed_mod(
         has_archive: entry.archive_path(storage_dir).is_file(),
         folder_id: None,
         fault: entry.fault.clone(),
+        harvest: entry.harvest,
     })
 }
 
@@ -284,6 +285,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             layers: HashMap::new(),
+            ..Default::default()
         };
 
         let zip_path = dir.join("test.fantome");

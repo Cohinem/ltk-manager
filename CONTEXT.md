@@ -42,10 +42,20 @@ its `display_name`), assigned once at install and never re-derived. **Id** is th
 UUID, and it is what profiles, folders and reports refer to. Two mods can want the same slug; the
 second gets a numeric suffix.
 
-**Retained archive** — `mods/<slug>.fantome`, the file a mod was installed from, kept beside its
-directory when the `retainModArchives` setting is on. A keepsake: the mod is readable without it. A
-**modpkg archive** (`mods/<slug>.modpkg`) is not retained but _required_ — it is where a packed
-mod's content lives.
+**Preserve** — the import step that reads the names a fantome's own files still hold and embeds
+the ones the community hashtables cannot recover into the archive copy, per the Embedded
+Hashtables standard. The **harvest** is what that step found, recorded on the entry as
+`HarvestSummary`: how many names the archive gained, and how many chunks arrived with no
+recoverable name at all (`unharvestable` — what tells a mod that preserved cleanly from one that
+was already lossy).
+
+**Mod archive** — `mods/<slug>.fantome` or `mods/<slug>.modpkg`, the file the mod arrived as,
+beside its directory. Its role follows storage. For a mod stored `archive` it is the mod — the
+content provider reads from it — and a modpkg, which only ever has that storage, therefore
+always has one. For a fantome stored `project` it is optional: kept when the `retainModArchives`
+setting is on, and always kept when the preserve rewrote it — the standard has the project carry
+its tables in `hashes/`, but until the importer writes them there, the rewritten archive is the
+embedded names' only record.
 
 **Storage** — where a mod's content is: `project` for the unpacked tree, `archive` for a mod read
 out of the file beside it. Recorded on the entry rather than derived, and the two coexist per mod: a

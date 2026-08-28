@@ -243,6 +243,7 @@ fn adopt_mod_directory(storage_dir: &Path, path: &Path, dir_name: &str) -> Optio
         // point at it, and re-slugging would break them for no gain.
         slug: Some(slug),
         fault: None,
+        harvest: None,
     })
 }
 

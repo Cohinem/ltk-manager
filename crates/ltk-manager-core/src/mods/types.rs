@@ -4,7 +4,7 @@
 //! and bulk-install results. The on-disk index that backs them lives in
 //! [`super::index`].
 
-use crate::mods::index::{LibraryIndex, ModArchiveFormat, ModFault, ModStorage};
+use crate::mods::index::{HarvestSummary, LibraryIndex, ModArchiveFormat, ModFault, ModStorage};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -121,6 +121,11 @@ pub struct InstalledMod {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional = nullable))]
     pub fault: Option<ModFault>,
+    /// What preserving the mod's names at import found. `None` for a modpkg
+    /// and for mods installed before the preserve existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub harvest: Option<HarvestSummary>,
 }
 
 /// Fields to change on a mod's metadata. `None` leaves a field untouched.

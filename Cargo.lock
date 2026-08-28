@@ -2999,11 +2999,11 @@ dependencies = [
 [[package]]
 name = "ltk_fantome"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89cb27ab31e14666ab4a48b46e91813ad32f36af8a72e7449909ebfb8b43566a"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
+ "ltk_hashtable",
  "ltk_wad",
  "serde",
  "serde_json",
@@ -3042,6 +3042,17 @@ dependencies = [
  "xxhash-rust",
  "zeekstd",
  "zstd",
+]
+
+[[package]]
+name = "ltk_hashtable"
+version = "0.1.0"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
+dependencies = [
+ "camino",
+ "serde",
+ "thiserror 2.0.18",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -3107,19 +3118,21 @@ dependencies = [
 [[package]]
 name = "ltk_mod_project"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91cf55b2142e5e106f75d1c5a6e154425c33a3e97a78a388a91c8c239b13c06d"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
 dependencies = [
  "camino",
  "ignore",
  "image",
  "indexmap 2.14.0",
  "ltk_fantome",
+ "ltk_hashtable",
  "ltk_modpkg",
+ "ltk_wad",
  "semver",
  "serde",
  "serde_json",
  "slug",
+ "tempfile",
  "thiserror 2.0.18",
  "toml 0.8.23",
  "webp-animation",
@@ -3128,8 +3141,7 @@ dependencies = [
 [[package]]
 name = "ltk_modpkg"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3f7c8ef9a329f4b9f3c799a0836dcda837b6eeeb2a40a6fa21a619cfe6cb05c"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
 dependencies = [
  "binrw",
  "byteorder",
@@ -3147,8 +3159,7 @@ dependencies = [
 [[package]]
 name = "ltk_overlay"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f63a44bcf01e590f294a9098d9afc0d8496707bd5f6f7a3d6d1a81931e19c6f"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
 dependencies = [
  "byteorder",
  "camino",

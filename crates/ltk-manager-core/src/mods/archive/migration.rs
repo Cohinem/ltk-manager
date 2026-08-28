@@ -202,6 +202,7 @@ mod tests {
             champions: Vec::new(),
             maps: Vec::new(),
             layers: HashMap::new(),
+            ..Default::default()
         })
         .unwrap()
     }

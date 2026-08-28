@@ -17,7 +17,7 @@ use crate::mods::archive::metadata::{
     extract_modpkg_metadata, load_mod_project, read_installed_mod,
 };
 use crate::mods::index::document::archive_path;
-use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat};
+use crate::mods::index::{HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use crate::mods::long_paths;
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::{BulkInstallError, BulkInstallResult, InstalledMod, ROOT_FOLDER_ID};
@@ -60,6 +60,8 @@ pub(crate) struct StagedMod {
     /// The file this came from, so a register that fails names something the
     /// user recognizes rather than an empty row.
     source_path: String,
+    /// What preserving the mod's names found. `None` for a modpkg.
+    harvest: Option<HarvestSummary>,
 }
 
 impl StagedMod {
@@ -95,6 +97,8 @@ struct StagedContent {
     project_name: String,
     /// Whether the archive was copied beside the staging directory.
     kept_archive: bool,
+    /// What preserving the mod's names found. `None` for a modpkg.
+    harvest: Option<HarvestSummary>,
 }
 
 impl ModLibrary {
@@ -265,11 +269,14 @@ pub(crate) fn stage_mod_package(
         staged_archive: staged.kept_archive.then_some(staged_archive),
         project_name: staged.project_name,
         source_path: file_path.display().to_string(),
+        harvest: staged.harvest,
     })
 }
 
 /// Materialize one archive into `staging_dir`, copying the archive itself to
 /// `staged_archive` when the mod keeps one.
+///
+/// Which mods keep one: per "Mod archive" in CONTEXT.md.
 fn stage_into(
     staging_dir: &Path,
     staged_archive: &Path,
@@ -293,23 +300,48 @@ fn stage_into(
                 long_paths::ImportRoot::ModStorage,
             )?;
 
+            let source = file_path.to_path_buf().try_into_utf8("archive path")?;
+            let dest = staged_archive
+                .to_path_buf()
+                .try_into_utf8("staged archive")?;
+            let report =
+                ltk_mod_project::preserve_archive_names(&source, &dest, Some(context.resolver))
+                    .map_err(|e| {
+                        AppError::Other(format!("Failed to preserve the mod's names: {e}"))
+                    })?;
+            tracing::info!(
+                archive = %source,
+                outcome = ?report.outcome,
+                unharvestable = report.unharvestable,
+                "Preserved the mod's names on import"
+            );
+
+            // Unpacked from the preserved copy, not the source, so an importer
+            // that learns to carry declared tables into the tree reads them
+            // from here with no change to this flow.
             let utf8_staging = staging_dir
                 .to_path_buf()
                 .try_into_utf8("staging directory")?;
             let project = ltk_mod_project::ProjectImporter::new(&utf8_staging)
                 .import(
-                    ltk_mod_project::fantome::FantomeImporter::new(fs::File::open(file_path)?)
+                    ltk_mod_project::fantome::FantomeImporter::new(fs::File::open(staged_archive)?)
                         .with_path_resolver(context.resolver),
                 )
                 .map_err(|e| AppError::Other(format!("Failed to import fantome archive: {e}")))?;
 
-            if context.retain_archive {
-                fs::copy(file_path, staged_archive)?;
+            let kept_archive = context.retain_archive
+                || matches!(
+                    report.outcome,
+                    ltk_mod_project::PreserveOutcome::Rewritten { .. }
+                );
+            if !kept_archive {
+                fs::remove_file(staged_archive)?;
             }
 
             Ok(StagedContent {
                 project_name: project.name,
-                kept_archive: context.retain_archive,
+                kept_archive,
+                harvest: Some(report.into()),
             })
         }
         ModArchiveFormat::Modpkg => {
@@ -319,6 +351,7 @@ fn stage_into(
             Ok(StagedContent {
                 project_name: load_mod_project(staging_dir)?.name,
                 kept_archive: true,
+                harvest: None,
             })
         }
     }
@@ -385,6 +418,7 @@ pub(crate) fn register_staged_mod(
         storage: staged.format.installed_storage(),
         slug: Some(slug),
         fault: None,
+        harvest: staged.harvest,
     };
     let id = entry.id.clone();
     index.mods.push(entry.clone());

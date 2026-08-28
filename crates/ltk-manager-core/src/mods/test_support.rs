@@ -39,7 +39,9 @@ pub(crate) fn make_library_with_events(
         "test",
         Arc::new(LinkedBinState::default()),
         Arc::new(WadReportState::new(Some(storage_dir))),
-        Arc::new(WadPathResolverState::default()),
+        Arc::new(WadPathResolverState::preloaded(
+            crate::hashtables::WadPathResolver::new(ltk_hashdb::LayeredHashDb::new()),
+        )),
     );
     let config = Config {
         mod_storage_path: Some(storage_dir.to_path_buf()),
@@ -86,6 +88,7 @@ pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModE
         storage: ModStorage::Archive,
         slug: None,
         fault: None,
+        harvest: None,
     }
 }
 
@@ -391,6 +394,7 @@ fn fantome_info(name: &str) -> ltk_fantome::FantomeInfo {
         champions: Vec::new(),
         maps: Vec::new(),
         layers: HashMap::new(),
+        ..Default::default()
     }
 }
 

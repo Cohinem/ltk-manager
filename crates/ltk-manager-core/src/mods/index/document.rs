@@ -256,6 +256,36 @@ impl ModFault {
     }
 }
 
+/// What preserving a mod's names at import found.
+///
+/// Recorded on the entry rather than only logged: `unharvestable` is what
+/// tells a mod that preserved cleanly from one that arrived already lossy,
+/// and that distinction should outlive a log rotation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct HarvestSummary {
+    /// Names the archive gained on the way in. Zero means every recoverable
+    /// name was already declared or covered by the community tables.
+    pub names_added: usize,
+    /// Chunks with no recoverable name: hex-named, and named by nothing the
+    /// harvest could read.
+    pub unharvestable: usize,
+}
+
+impl From<ltk_mod_project::HarvestReport> for HarvestSummary {
+    fn from(report: ltk_mod_project::HarvestReport) -> Self {
+        Self {
+            names_added: match report.outcome {
+                ltk_mod_project::PreserveOutcome::Unchanged => 0,
+                ltk_mod_project::PreserveOutcome::Rewritten { names_added } => names_added,
+            },
+            unharvestable: report.unharvestable,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LibraryModEntry {
@@ -281,6 +311,10 @@ pub(crate) struct LibraryModEntry {
     /// Set when the mod is present but unusable, e.g. a conversion that failed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) fault: Option<ModFault>,
+    /// What preserving the mod's names found, for a fantome installed since
+    /// the preserve existed. `None` for a modpkg and for older entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) harvest: Option<HarvestSummary>,
 }
 
 impl LibraryModEntry {
