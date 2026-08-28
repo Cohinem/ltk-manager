@@ -40,6 +40,7 @@ import type {
   LayoutMigrationState,
   LibraryFolder,
   LinkedBinOffenderInfo,
+  ModCheckVerdict,
   ModpkgInfo,
   ModStorage,
   ModWadReport,
@@ -157,6 +158,9 @@ export const api = {
     invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
   analyzeModWads: (modId: string) => invokeResult<ModWadReport>("analyze_mod_wads", { modId }),
+  checkMod: (modId: string) => invokeResult<ModCheckVerdict>("check_mod", { modId }),
+  repairMod: (modId: string) => invokeResult<FixReport>("repair_mod", { modId }),
+  getCheckVerdicts: () => invokeResult<Record<string, ModCheckVerdict>>("get_check_verdicts"),
 
   // Migration
   scanCslolMods: (directory: string) =>

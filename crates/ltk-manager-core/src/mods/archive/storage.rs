@@ -232,7 +232,7 @@ impl LibraryModEntry {
     /// Fails with [`AppError::ValidationFailed`] carrying what the user should
     /// do about it: a faulted mod, a format with no unpacked form, or a mod
     /// installed with archives turned off.
-    fn convertible_archive(&self, storage_dir: &Path) -> AppResult<PathBuf> {
+    pub(in crate::mods) fn convertible_archive(&self, storage_dir: &Path) -> AppResult<PathBuf> {
         if self.fault.is_some() {
             return Err(AppError::ValidationFailed(
                 "This mod is in a failed state. Remove it and install it again.".to_string(),

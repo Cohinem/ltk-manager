@@ -24,6 +24,7 @@
 
 mod analysis;
 mod archive;
+mod check;
 mod index;
 mod library;
 pub(crate) mod long_paths;
@@ -40,6 +41,7 @@ pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
 pub use archive::migration::*;
+pub use check::{ModCheckVerdict, ModHealth};
 pub use index::document::{ModArchiveFormat, ModFault, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
 pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};

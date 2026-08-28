@@ -462,6 +462,141 @@ pub(crate) fn make_bin_named_chunk_fantome_zip(path: &Path, recovered_path: &str
     zip.finish().unwrap();
 }
 
+/* Fixtures for the mod-health tests: a bin the shipped migration table
+objects to, archives and trees holding it, and the game install that makes
+the rule live. Shared by the repair and check suites, which exercise the
+same defect through different seams. */
+
+/// `SkinCharacterDataProperties`, the class the shipped migration table keys on.
+pub(crate) const SKIN_CLASS: ltk_hash::BinHash = ltk_hash::BinHash(0x9b67_e9f6);
+/// The object the stale-bin fixtures hang their property on.
+pub(crate) const STALE_ENTRY: ltk_hash::BinHash = ltk_hash::BinHash(0x1234_5678);
+/// `iconAvatar`, a field the table moves from `String` to `File`.
+pub(crate) const ICON_AVATAR: ltk_hash::BinHash = ltk_hash::BinHash(0x089a_ff69);
+pub(crate) const STALE_ICON: &str = "ASSETS/Characters/Smolder/HUD/Smolder_Circle.dds";
+
+/// Where the fixture bin sits, inside the archive and in the unpacked tree.
+pub(crate) const STALE_BIN_IN_WAD: &str = "data/skin0.bin";
+
+pub(crate) fn bin_bytes(bin: &ltk_meta::Bin) -> Vec<u8> {
+    let mut out = std::io::Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    out.into_inner()
+}
+
+/// A bin still declaring the old `String` shape for a migrated field.
+pub(crate) fn stale_bin() -> ltk_meta::Bin {
+    bin_holding(ltk_meta::property::values::String::new(
+        STALE_ICON.to_owned(),
+    ))
+}
+
+/// A bin already carrying the migrated shape, which the rules stay quiet about.
+pub(crate) fn healthy_bin() -> ltk_meta::Bin {
+    use ltk_hash::Hash as _;
+    bin_holding(ltk_meta::property::values::WadChunkLink::new(
+        ltk_wad::WadHash::hash_str(STALE_ICON),
+    ))
+}
+
+fn bin_holding(value: impl Into<ltk_meta::PropertyValueEnum>) -> ltk_meta::Bin {
+    ltk_meta::Bin::new(
+        [
+            ltk_meta::BinObject::<ltk_meta::property::NoMeta>::builder(STALE_ENTRY, SKIN_CLASS)
+                .property(ICON_AVATAR, value)
+                .build(),
+        ],
+        std::iter::empty::<&str>(),
+    )
+}
+
+/// A fantome archive holding one directory-style WAD entry with `bin`'s bytes.
+pub(crate) fn make_bin_fantome_zip(path: &Path, name: &str, bin: &ltk_meta::Bin) {
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(name))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+    zip.start_file(format!("WAD/Aatrox.wad.client/{STALE_BIN_IN_WAD}"), options)
+        .unwrap();
+    zip.write_all(&bin_bytes(bin)).unwrap();
+    zip.finish().unwrap();
+}
+
+/// An archive-storage fantome in the slug layout: a metadata-only mod
+/// directory, an archive holding `bin` beside it.
+pub(crate) fn place_bin_archived_fantome(storage_dir: &Path, slug: &str, bin: &ltk_meta::Bin) {
+    let mods_dir = storage_dir.join("mods");
+    let mod_dir = mods_dir.join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+    make_bin_fantome_zip(&mods_dir.join(format!("{slug}.fantome")), slug, bin);
+}
+
+/// A Project-storage fantome: `bin` sits in the unpacked tree, and no archive
+/// exists beside it.
+pub(crate) fn place_bin_project_mod(storage_dir: &Path, slug: &str, bin: &ltk_meta::Bin) {
+    let mod_dir = storage_dir.join("mods").join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+
+    let wad_dir = mod_dir
+        .join("content")
+        .join("base")
+        .join("Aatrox.wad.client");
+    fs::create_dir_all(wad_dir.join("data")).unwrap();
+    fs::write(wad_dir.join(STALE_BIN_IN_WAD), bin_bytes(bin)).unwrap();
+}
+
+/// Point the config at a game install on the build the shipped table names,
+/// so the rule is live rather than dormant.
+pub(crate) fn point_at_installed_build(config: &mut Config, root: &Path) {
+    let league = root.join("league");
+    fs::create_dir_all(league.join("Game")).unwrap();
+    fs::write(
+        league.join("Game").join("content-metadata.json"),
+        r#"{ "version": "16.17.8087655" }"#,
+    )
+    .unwrap();
+    config.league_path = Some(league);
+}
+
+/// The one property the stale-bin fixture holds, read back out of the mod's
+/// unpacked tree.
+pub(crate) fn property_in_unpacked_tree(
+    storage_dir: &Path,
+    slug: &str,
+) -> ltk_meta::PropertyValueEnum {
+    let bin_path = storage_dir
+        .join("mods")
+        .join(slug)
+        .join("content")
+        .join("base")
+        .join("Aatrox.wad.client")
+        .join(STALE_BIN_IN_WAD);
+    let bin = ltk_meta::Bin::from_reader(&mut fs::File::open(&bin_path).unwrap()).unwrap();
+    bin.objects
+        .get(&STALE_ENTRY)
+        .unwrap()
+        .properties
+        .get(&ICON_AVATAR)
+        .unwrap()
+        .clone()
+}
+
 /// A resolver that names `paths`, so a packed WAD's chunks land under them
 /// rather than under the hex names an empty one leaves them at.
 pub(crate) fn resolver_naming(paths: &[&str]) -> crate::hashtables::WadPathResolver {

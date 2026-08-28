@@ -7,6 +7,7 @@ import { SuspectBadge } from "@/modules/diagnostics";
 
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
+import { ModHealthBadge } from "../ModHealthBadge";
 import { WadCountBadge } from "../WadCountBadge";
 import { ModCardMenu, ModCardThumbnail, ModPills, SkinhackInfoDialog } from "./ModCardParts";
 import type { ModCardView } from "./useModCardController";
@@ -103,6 +104,9 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <WadCountBadge modId={mod.id} />
+          </span>
+          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
+            <ModHealthBadge modId={mod.id} />
           </span>
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />

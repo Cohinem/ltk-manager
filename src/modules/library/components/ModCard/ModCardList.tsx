@@ -7,6 +7,7 @@ import { SuspectBadge } from "@/modules/diagnostics";
 
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
+import { ModHealthBadge } from "../ModHealthBadge";
 import { WadCountBadge } from "../WadCountBadge";
 import {
   ModCardMenu,
@@ -90,6 +91,9 @@ export function ModCardList({ view }: { view: ModCardView }) {
           {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <WadCountBadge modId={mod.id} />
+          </span>
+          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
+            <ModHealthBadge modId={mod.id} />
           </span>
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />

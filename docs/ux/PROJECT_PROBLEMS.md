@@ -4,6 +4,7 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md             |
 | 2026-08-24 | Draw the forward-looking lints by default, dimmed                 |
 | 2026-08-24 | Give the forward-looking switch a row, and drop the notice        |
 | 2026-08-23 | Put the forward-looking lints behind one editor setting           |
@@ -44,25 +45,25 @@ This table holds every major feature of Problems. A status word has one meaning.
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature              | Status    | Note                                                         |
-| -------------------- | --------- | ------------------------------------------------------------ |
-| The problem model    | Available | `Rule`, `Problem`, `Fix`, `Run`, in the core crate           |
-| The run engine       | Available | Reads every layer, groups by file, holds the last run        |
-| Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one      |
-| The migration table  | Available | 395 rows, `include_str!` into the core crate                 |
-| The fix preview      | Available | The before value and the after value, for each problem       |
-| The restore point    | Available | `.ltk/restore/<stamp>/`, and one Undo for a whole run        |
-| The problems tab     | Available | A document of the editor surface, and not a side panel       |
-| The run's own words  | Available | A rule's title and an object's path, sent once for a run     |
-| Grouping by object   | Available | A file's findings sit under the bin object that holds them   |
-| The count in the bar | Available | An error count beside Test, which opens the tab              |
-| Forward-looking lint | Available | On by default, muted, and a switch in a row under the filter |
-| Open at the property | Blocked   | Needs the [bin editor](BIN_EDITOR.md). Reveals the file now  |
-| Hash-name repair     | Proposed  | The 8 rows that need `binhashes` to name a hash              |
-| Move the old checks  | Proposed  | The three checks below become rules and lose their shapes    |
-| Linked bin rule      | Proposed  | `bin/missing-link`, from the overlay build's offenders       |
-| Archive path rule    | Proposed  | `wad/unknown-path`. The game archive check, as a rule        |
-| Library mod problems | Proposed  | The same rules over an installed mod, which is packed        |
+| Feature              | Status    | Note                                                                   |
+| -------------------- | --------- | ---------------------------------------------------------------------- |
+| The problem model    | Available | `Rule`, `Problem`, `Fix`, `Run`, in the core crate                     |
+| The run engine       | Available | Reads every layer, groups by file, holds the last run                  |
+| Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one                |
+| The migration table  | Available | 395 rows, `include_str!` into the core crate                           |
+| The fix preview      | Available | The before value and the after value, for each problem                 |
+| The restore point    | Available | `.ltk/restore/<stamp>/`, and one Undo for a whole run                  |
+| The problems tab     | Available | A document of the editor surface, and not a side panel                 |
+| The run's own words  | Available | A rule's title and an object's path, sent once for a run               |
+| Grouping by object   | Available | A file's findings sit under the bin object that holds them             |
+| The count in the bar | Available | An error count beside Test, which opens the tab                        |
+| Forward-looking lint | Available | On by default, muted, and a switch in a row under the filter           |
+| Open at the property | Blocked   | Needs the [bin editor](BIN_EDITOR.md). Reveals the file now            |
+| Hash-name repair     | Proposed  | The 8 rows that need `binhashes` to name a hash                        |
+| Move the old checks  | Proposed  | The three checks below become rules and lose their shapes              |
+| Linked bin rule      | Proposed  | `bin/missing-link`, from the overlay build's offenders                 |
+| Archive path rule    | Proposed  | `wad/unknown-path`. The game archive check, as a rule                  |
+| Library mod problems | Available | The mod-user surface. Its own document, [MOD_HEALTH.md](MOD_HEALTH.md) |
 
 ## Scope
 
@@ -71,8 +72,9 @@ is wrong, and writes a repaired file back where a rule can derive one.
 
 Out of scope:
 
-- The installed library's mods. They are packed archives, and a repair means a repack. Read
-  [Why the library waits](#why-the-library-waits)
+- The installed library's mods. The same rules reach them now through their own surface,
+  [MOD_HEALTH.md](MOD_HEALTH.md) - a verdict and one button rather than a panel. Read
+  [The library waited](#the-library-waited) for why that half came second
 - The installed game. The [game browser](PROJECT_EDITOR.md#game-browser) never writes, and
   this feature adds no exception
 - Editing a value by hand. That is the [bin editor](BIN_EDITOR.md), and this panel is one of
@@ -1007,22 +1009,19 @@ is broken, and a build a lint refuses is the thing every user of every linter ha
 | Test   | Builds and patches. The result names the count, and opens Problems |
 | Pack   | Asks once, names the count, and offers Fix beside Pack anyway      |
 
-## Why the library waits
+## The library waited
 
-The same rules would find the same problems in an installed `.fantome` or `.modpkg`, and far
-more users are hurt by a published mod that broke than by a project of their own. The reason
-that half is not in this document is the write.
+The same rules find the same problems in an installed mod, and far more users are hurt by a
+published mod that broke than by a project of their own. The reason that half waited was the
+write: a project repair is a file write, and a packed mod's looked like unpack, fix, repack,
+reindex, re-enable.
 
-| Source        | Read                  | Write                                   |
-| ------------- | --------------------- | --------------------------------------- |
-| A project     | A loose file          | A file write                            |
-| A library mod | A chunk in an archive | Unpack, fix, repack, reindex, re-enable |
-
-A repack is a new problem with its own answers - what happens to the install index, what an
-enabled mod does while its archive is replaced, and whether a repacked mod is still the mod the
-user downloaded. `Site` carries a layer and a path today, and a library mod would want a mod id
-and a chunk instead. That is the seam to design when the second source arrives, and designing
-it now with one source would be guessing.
+The answer that shipped kept this document's model untouched. The library storage rework made
+an installed fantome a mod project on disk, so most mods repair exactly as a project does. A
+mod still stored as its archive is unpacked into staging, repaired there as a project, and
+repacked over the archive (ADR-0005). `Site` never needed a mod id or a chunk - by the time a
+rule reads anything, it is reading a project. The surface that shows all of this to a mod user
+is [MOD_HEALTH.md](MOD_HEALTH.md).
 
 ## What ships in what order
 
@@ -1066,7 +1065,7 @@ yet. It is `MIT OR Apache-2.0`, which is the workspace's own license, so adding 
 | Does an error block Test or Pack?              | Neither. Both name the count, and Pack asks once     |
 | Where does the panel live?                     | Its own tab, beside Mod details and the game index   |
 | Does a run persist across a restart?           | No. It is a fact about files as they were            |
-| Do the library's installed mods get the rules? | Later. A repack is its own design                    |
+| Do the library's installed mods get the rules? | Yes, as verdicts - [MOD_HEALTH.md](MOD_HEALTH.md)    |
 | When does a run happen?                        | When a project opens, and a user asks for nothing    |
 | Do two rules share one parse of a `.bin`?      | No. Each rule reads its own, and sharing waits       |
 | How far does Fix on the panel reach?           | Every layer, because a mod is every layer it ships   |

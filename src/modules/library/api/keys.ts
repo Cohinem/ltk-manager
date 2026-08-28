@@ -9,6 +9,7 @@ export const libraryKeys = {
   folderOrder: () => [...libraryKeys.all, "folderOrder"] as const,
   wadReports: () => [...libraryKeys.all, "wadReport"] as const,
   wadReport: (modId: string) => [...libraryKeys.wadReports(), modId] as const,
+  checkVerdicts: () => [...libraryKeys.all, "checkVerdicts"] as const,
   linkedBinOffenders: () => [...libraryKeys.all, "linkedBinOffenders"] as const,
   migrationState: () => [...libraryKeys.all, "migrationState"] as const,
 };

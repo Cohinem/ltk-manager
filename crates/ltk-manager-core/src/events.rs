@@ -319,6 +319,8 @@ declare_events! {
     LinkedBinsUpdated => "linked-bins-updated",
     /// Per-mod WAD analysis results changed.
     WadReportsUpdated => "wad-reports-updated",
+    /// Per-mod health verdicts changed.
+    CheckVerdictsUpdated => "check-verdicts-updated",
     /// The library index changed and any cached view of it is stale.
     LibraryChanged => "library-changed",
     /// A bulk install advanced.

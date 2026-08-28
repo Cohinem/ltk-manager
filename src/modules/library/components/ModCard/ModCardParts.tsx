@@ -5,6 +5,7 @@ import {
   FolderIcon,
   FolderMinusIcon,
   FolderOpenIcon,
+  HeartbeatIcon,
   InfoIcon,
   PackageIcon,
   PencilSimpleIcon,
@@ -20,9 +21,10 @@ import {
   Menu,
   Switch,
   Tooltip,
+  useToast,
 } from "@/components";
 import type { InstalledMod, ModStorage } from "@/lib/tauri";
-import { useModEffectiveCategories } from "@/modules/library/api";
+import { useCheckMod, useModEffectiveCategories } from "@/modules/library/api";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 
@@ -128,6 +130,33 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
 
 export function ModCardMenu({ view }: { view: ModCardView }) {
   const { mod, interactionsDisabled, isFlagged, isInUserFolder, canChangeStorage } = view;
+  const checkMod = useCheckMod();
+  const toast = useToast();
+
+  // The badge only appears when something is wrong, so a clean check needs
+  // its own answer here or the click looks ignored.
+  function handleCheckHealth() {
+    checkMod.mutate(mod.id, {
+      onSuccess: (verdict) => {
+        if (verdict.health === "healthy") {
+          toast.success("No problems found");
+          return;
+        }
+        const total =
+          verdict.counts.fatals +
+          verdict.counts.errors +
+          verdict.counts.warnings +
+          verdict.counts.infos;
+        if (verdict.health === "repairable") {
+          toast.info(
+            `${verdict.fixable} repairable finding${verdict.fixable === 1 ? "" : "s"} found`,
+          );
+          return;
+        }
+        toast.warning(`${total} finding${total === 1 ? "" : "s"}, none repairable`);
+      },
+    });
+  }
 
   return (
     <Menu.Root>
@@ -176,6 +205,13 @@ export function ModCardMenu({ view }: { view: ModCardView }) {
               Open Location
             </Menu.Item>
             {canChangeStorage && <ModCardStorageSubmenu view={view} />}
+            <Menu.Item
+              icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />}
+              disabled={checkMod.isPending}
+              onClick={handleCheckHealth}
+            >
+              Check Health
+            </Menu.Item>
             <Menu.Item
               icon={<CopyIcon className="h-4 w-4" weight="bold" />}
               onClick={view.onCopyId}

@@ -38,6 +38,9 @@ pub fn install_mod(
         library
             .0
             .spawn_categorization(&config, vec![installed.id.clone()]);
+        library
+            .0
+            .spawn_health_check(&config, vec![installed.id.clone()]);
         Ok(installed)
     })();
     result.into()
@@ -55,8 +58,9 @@ pub fn install_mods(
         reject_if_patcher_running(&patcher)?;
         let config = settings.config()?;
         let result = library.0.install_mods_from_packages(&config, &file_paths)?;
-        let ids = result.installed.iter().map(|m| m.id.clone()).collect();
-        library.0.spawn_categorization(&config, ids);
+        let ids: Vec<String> = result.installed.iter().map(|m| m.id.clone()).collect();
+        library.0.spawn_categorization(&config, ids.clone());
+        library.0.spawn_health_check(&config, ids);
         Ok(result)
     })();
     result.into()

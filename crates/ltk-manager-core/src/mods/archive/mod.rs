@@ -11,4 +11,5 @@ pub(super) mod inspect;
 pub(super) mod install;
 pub(super) mod metadata;
 pub(super) mod migration;
+pub(super) mod repair;
 pub(super) mod storage;

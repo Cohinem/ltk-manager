@@ -76,6 +76,21 @@ along with a `quarantine.json` saying what went wrong.
 **Fault** — the state of a mod that is in the library but unusable. It keeps its index entry and its
 place in every profile, renders greyed out with its reason, and is excluded from overlay builds.
 
+## Mod health
+
+**Check** — one pass of the Problems rules over an installed mod's content, summarized for a mod
+user. It reads and never writes: an `archive`-storage mod is unpacked into staging just to be
+read. A modder's view of the same rules is the Problems panel, and the split is deliberate — see
+`docs/ux/MOD_HEALTH.md`.
+
+**Verdict** — what a check concluded: `healthy`, `repairable`, or `unrepairable`, with the counts
+behind it. Remembered per mod in `check-verdicts.json` beside the index. A cache of a
+computation, not a record — a lost file refills on the next check.
+
+**Repair** — applying every fix the live rules derive for one mod. In the tree for a `project`
+mod, with a restore point. For an `archive` mod: unpack, fix, repack, and the repaired archive
+takes the original's place — see ADR-0005.
+
 ## The three migrations
 
 Three different things, and the words do not overlap:

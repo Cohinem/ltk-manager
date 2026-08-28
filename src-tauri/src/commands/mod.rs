@@ -27,6 +27,7 @@
 //! See `docs/ERROR_HANDLING.md` for details.
 
 mod app;
+mod check;
 mod deep_link;
 mod diagnostics;
 mod folders;
@@ -51,6 +52,7 @@ mod strings;
 mod workshop;
 
 pub use app::*;
+pub use check::*;
 pub use deep_link::*;
 pub use diagnostics::*;
 pub use folders::*;

@@ -529,16 +529,25 @@ impl Run {
 
     /// How many problems the run holds at each severity.
     pub fn counts(&self) -> Counts {
-        let mut counts = Counts::default();
-        for problem in &self.problems {
-            match problem.severity {
-                Severity::Fatal => counts.fatals += 1,
-                Severity::Error => counts.errors += 1,
-                Severity::Warning => counts.warnings += 1,
-                Severity::Info => counts.infos += 1,
-            }
-        }
-        counts
+        Counts::over(self.problems.iter())
+    }
+
+    /// The problems from live rules only — what a caller with no panel to
+    /// draw dormancy on may act on or count.
+    ///
+    /// A dormant rule's findings describe a patch the installed game has not
+    /// taken yet. The panel shows them with the fix withheld, and a flow with
+    /// no panel has to make the same cut itself.
+    pub fn live_problems(&self) -> impl Iterator<Item = &Problem> {
+        let dormant: std::collections::HashSet<RuleId> = self
+            .rules
+            .iter()
+            .filter(|rule| !matches!(rule.state, RuleState::Active))
+            .map(|rule| rule.id)
+            .collect();
+        self.problems
+            .iter()
+            .filter(move |problem| !dormant.contains(&problem.rule))
     }
 }
 
@@ -552,6 +561,22 @@ pub struct Counts {
     pub errors: u32,
     pub warnings: u32,
     pub infos: u32,
+}
+
+impl Counts {
+    /// Tally `problems` by severity.
+    pub fn over<'a>(problems: impl Iterator<Item = &'a Problem>) -> Self {
+        let mut counts = Self::default();
+        for problem in problems {
+            match problem.severity {
+                Severity::Fatal => counts.fatals += 1,
+                Severity::Error => counts.errors += 1,
+                Severity::Warning => counts.warnings += 1,
+                Severity::Info => counts.infos += 1,
+            }
+        }
+        counts
+    }
 }
 
 /// One check the manager runs over a project.

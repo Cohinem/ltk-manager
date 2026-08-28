@@ -39,6 +39,7 @@ impl EventSink for TauriEventSink {
             BackendEvent::ExtractProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LinkedBinsUpdated
             | BackendEvent::WadReportsUpdated
+            | BackendEvent::CheckVerdictsUpdated
             | BackendEvent::LibraryChanged => self.app_handle.emit(name, ()),
         };
 
