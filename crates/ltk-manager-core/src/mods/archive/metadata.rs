@@ -99,6 +99,7 @@ fn placeholder_project(id: &str) -> ModProject {
         transformers: Vec::new(),
         layers: Vec::new(),
         thumbnail: None,
+        hashtables: Vec::new(),
     }
 }
 
@@ -270,6 +271,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         })
         .unwrap()
     }
@@ -384,6 +386,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         })
         .unwrap();
         fs::write(mods_dir.join("mod.config.json"), config).unwrap();

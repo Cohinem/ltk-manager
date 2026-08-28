@@ -17,6 +17,7 @@ fn make_project_with_layers(dir: &std::path::Path, layers: Vec<ModProjectLayer>)
         transformers: Vec::new(),
         layers,
         thumbnail: None,
+        hashtables: Vec::new(),
     };
     fs::write(
         dir.join("mod.config.json"),

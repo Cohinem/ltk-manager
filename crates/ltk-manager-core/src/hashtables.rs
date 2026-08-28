@@ -885,6 +885,7 @@ impl WadPathResolverState {
     /// For tests: [`get`](Self::get) on a default state opens whatever cache
     /// the machine has synced, and a test resolving through that asserts
     /// against tables it does not control.
+    #[cfg(test)]
     pub(crate) fn preloaded(resolver: WadPathResolver) -> Self {
         Self(Mutex::new(Some(Arc::new(resolver))))
     }

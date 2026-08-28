@@ -101,6 +101,7 @@ impl Workshop {
             transformers: Vec::new(),
             layers: ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         };
 
         let config_path = project_dir.join("mod.config.json");

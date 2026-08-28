@@ -216,6 +216,7 @@ pub(crate) fn mod_project_named(name: &str) -> ltk_mod_project::ModProject {
         transformers: Vec::new(),
         layers: ltk_mod_project::ModProjectLayer::default_table(),
         thumbnail: None,
+        hashtables: Vec::new(),
     }
 }
 
@@ -418,6 +419,38 @@ pub(crate) fn make_long_chunk_fantome_zip(path: &Path) {
     zip.start_file("META/info.json", options).unwrap();
     zip.write_all(
         serde_json::to_string_pretty(&fantome_info("Long Chunk Mod"))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    zip.start_file("WAD/Ashe.wad.client", options).unwrap();
+    zip.write_all(&packed).unwrap();
+
+    zip.finish().unwrap();
+}
+
+/// An archive whose packed WAD holds one texture chunk and one bin, where the
+/// bin's strings are the only record of the texture's path.
+pub(crate) fn make_bin_named_chunk_fantome_zip(path: &Path, recovered_path: &str) {
+    let mut bin = b"PROP".to_vec();
+    bin.extend_from_slice(&2u32.to_le_bytes());
+    bin.extend_from_slice(&1u32.to_le_bytes());
+    bin.extend_from_slice(&(recovered_path.len() as u16).to_le_bytes());
+    bin.extend_from_slice(recovered_path.as_bytes());
+
+    let packed = build_packed_wad(&[
+        (recovered_path, &b"texture payload"[..]),
+        ("data/anonymous.bin", &bin[..]),
+    ]);
+
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info("Bin Named Mod"))
             .unwrap()
             .as_bytes(),
     )

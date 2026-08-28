@@ -20,13 +20,13 @@ ltk_meta = { version = "0.6.1", features = ["serde"] }
 # Pinned to the embedded-hashtables rev until it ships on crates.io. All four
 # must come from the same rev: `ltk_mod_project` hands back `ltk_fantome` and
 # `ltk_modpkg` types, and `ltk_overlay` consumes both.
-ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f" }
-ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f", features = [
+ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "ba6fc7768ac57d032657788ea4ea0b0b3f3019fb" }
+ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "ba6fc7768ac57d032657788ea4ea0b0b3f3019fb", features = [
     "modpkg",
     "fantome",
 ] }
-ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f" }
-ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "4be0cd93892709eff4a301d3981eee55d33d0a1f" }
+ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "ba6fc7768ac57d032657788ea4ea0b0b3f3019fb" }
+ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "ba6fc7768ac57d032657788ea4ea0b0b3f3019fb" }
 ltk_wad = "0.5.3"
 
 ltk_rst = "0.2.1"

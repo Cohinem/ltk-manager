@@ -2999,7 +2999,7 @@ dependencies = [
 [[package]]
 name = "ltk_fantome"
 version = "0.9.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=ba6fc7768ac57d032657788ea4ea0b0b3f3019fb#ba6fc7768ac57d032657788ea4ea0b0b3f3019fb"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
@@ -3047,12 +3047,13 @@ dependencies = [
 [[package]]
 name = "ltk_hashtable"
 version = "0.1.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=ba6fc7768ac57d032657788ea4ea0b0b3f3019fb#ba6fc7768ac57d032657788ea4ea0b0b3f3019fb"
 dependencies = [
  "camino",
+ "ltk_hash",
+ "ltk_wad",
  "serde",
  "thiserror 2.0.18",
- "xxhash-rust",
 ]
 
 [[package]]
@@ -3118,7 +3119,7 @@ dependencies = [
 [[package]]
 name = "ltk_mod_project"
 version = "0.8.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=ba6fc7768ac57d032657788ea4ea0b0b3f3019fb#ba6fc7768ac57d032657788ea4ea0b0b3f3019fb"
 dependencies = [
  "camino",
  "ignore",
@@ -3141,7 +3142,7 @@ dependencies = [
 [[package]]
 name = "ltk_modpkg"
 version = "0.9.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=ba6fc7768ac57d032657788ea4ea0b0b3f3019fb#ba6fc7768ac57d032657788ea4ea0b0b3f3019fb"
 dependencies = [
  "binrw",
  "byteorder",
@@ -3159,7 +3160,7 @@ dependencies = [
 [[package]]
 name = "ltk_overlay"
 version = "0.8.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=4be0cd93892709eff4a301d3981eee55d33d0a1f#4be0cd93892709eff4a301d3981eee55d33d0a1f"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=ba6fc7768ac57d032657788ea4ea0b0b3f3019fb#ba6fc7768ac57d032657788ea4ea0b0b3f3019fb"
 dependencies = [
  "byteorder",
  "camino",

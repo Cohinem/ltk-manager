@@ -266,6 +266,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         };
         fs::write(
             dir.join("mod.config.json"),
@@ -314,6 +315,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         };
         fs::write(
             dir.path().join("mod.config.json"),
@@ -343,6 +345,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         };
         fs::write(
             dir.path().join("mod.config.json"),
@@ -372,6 +375,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         };
         fs::write(
             dir.path().join("mod.config.json"),
@@ -400,6 +404,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         };
         fs::write(
             dir.path().join("mod.config.json"),
@@ -429,6 +434,7 @@ mod tests {
             transformers: Vec::new(),
             layers: ltk_mod_project::ModProjectLayer::default_table(),
             thumbnail: None,
+            hashtables: Vec::new(),
         };
         fs::write(
             dir.path().join("mod.config.json"),
@@ -482,6 +488,7 @@ mod tests {
                 string_overrides: IndexMap::new(),
             }],
             thumbnail: None,
+            hashtables: Vec::new(),
         };
         fs::write(
             dir.path().join("mod.config.json"),

@@ -310,6 +310,51 @@ fn retention_off_keeps_no_fantome_archive() {
     assert!(entry.is_present(storage.path()));
 }
 
+/// Names the preserve embedded survive the projectify: the unpacked tree holds
+/// the declared table and the manifest names it, so the project carries its own
+/// names wherever it goes next.
+#[test]
+fn harvested_names_land_in_the_projects_hashes_directory() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("full.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+
+    let entry = install(storage.path(), &archive, true).unwrap();
+
+    let mod_dir = entry.mod_dir(storage.path());
+    let table = fs::read_to_string(mod_dir.join("hashes").join("game.hashes.txt")).unwrap();
+    assert!(table.contains("data/characters/aatrox/skins/skin01.bin"));
+
+    let project = load_mod_project(&mod_dir).unwrap();
+    assert_eq!(project.hashtables.len(), 1);
+    assert_eq!(project.hashtables[0].path, "hashes/game.hashes.txt");
+}
+
+/// A packed WAD whose only name record is a bin inside it round-trips to a
+/// named file: the preserve harvests the name into the archive's table, and
+/// the import names the chunk from the mod's own table rather than hex.
+#[test]
+fn a_packed_chunk_named_only_by_its_own_bin_unpacks_under_that_name() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("packed.fantome");
+    let recovered_path = "assets/custom/recovered.tex";
+    crate::mods::test_support::make_bin_named_chunk_fantome_zip(&archive, recovered_path);
+
+    let entry = install(storage.path(), &archive, true).unwrap();
+
+    let wad_dir = entry
+        .mod_dir(storage.path())
+        .join("content")
+        .join("base")
+        .join("Ashe.wad.client");
+    assert!(
+        wad_dir.join("assets/custom/recovered.tex").is_file(),
+        "chunk should unpack under its harvested name"
+    );
+}
+
 /// What a preserve found outlives the import: the index remembers it, and the
 /// mod the frontend receives carries it. A mod that preserved cleanly and one
 /// that arrived already lossy are told apart by `unharvestable` alone.
