@@ -37,10 +37,11 @@ export function verdict(
               description: "A bin property's type does not match what the game expects",
               count: findings,
               fixable: isFixable ? fixable : 0,
+              mismatches: [{ expected: "File", found: "Hash" }],
               /* Mirrors the backend: the why-not sentence rides along only
                  when the repair falls short of the count. */
               ...((isFixable ? fixable : 0) < findings && {
-                unfixable: "Properties in override bins are never rewritten",
+                unfixable: "Couldn't rehash because source string is unknown",
               }),
             },
           ]),

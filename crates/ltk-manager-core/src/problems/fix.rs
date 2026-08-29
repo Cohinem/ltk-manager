@@ -89,6 +89,12 @@ impl<'a> FixRun<'a> {
         self.left.push(ProblemId::new(rule, &site));
     }
 
+    /// The project this run repairs, for a rule opening its tables.
+    #[must_use]
+    pub fn project_root(&self) -> &Path {
+        &self.project_root
+    }
+
     /// The names this run keeps, for a rule about to hash one away.
     ///
     /// A rule asks before it converts, and leaves the property alone where the

@@ -74,6 +74,15 @@ pub struct RuleBrief {
     pub count: u32,
     /// How many of them a repair would fix.
     pub fixable: u32,
+    /// The type pairs the findings disagree on, distinct and in first-seen
+    /// order. Where a rule reports types, `Expected File, found Hash` is the
+    /// actual problem, and the row draws it in place of the description.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(
+        feature = "ts",
+        ts(as = "Option<Vec<problems::TypeMismatch>>", optional)
+    )]
+    pub mismatches: Vec<problems::TypeMismatch>,
     /// Why the rest stay unrepaired, present only when some do.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
@@ -325,6 +334,31 @@ impl ModHealthVerdict {
     }
 }
 
+impl RuleBrief {
+    /// One rule's counts under the sentences `info` words it with.
+    ///
+    /// The words always come from the build rather than from any record: the
+    /// store keeps counts alone, so a sentence a build rewrites - or one day
+    /// localizes - reads correctly out of every remembered verdict.
+    fn worded(
+        info: &problems::RuleInfo,
+        count: u32,
+        fixable: u32,
+        mismatches: Vec<problems::TypeMismatch>,
+    ) -> Self {
+        Self {
+            rule: info.id.to_string(),
+            title: info.title.clone(),
+            description: info.description.clone(),
+            count,
+            fixable,
+            mismatches,
+            unfixable: (fixable < count && !info.unfixable.is_empty())
+                .then(|| info.unfixable.clone()),
+        }
+    }
+}
+
 /// Fold a run's live findings by rule, in the order the run names its rules.
 fn rule_briefs(run: &Run) -> Vec<RuleBrief> {
     run.rules
@@ -332,21 +366,19 @@ fn rule_briefs(run: &Run) -> Vec<RuleBrief> {
         .filter_map(|rule| {
             let mut count = 0u32;
             let mut fixable = 0u32;
+            let mut mismatches = Vec::new();
             for problem in run.live_problems().filter(|p| p.rule == rule.id) {
                 count += 1;
                 if problem.fix.is_some() {
                     fixable += 1;
                 }
+                if let Some(mismatch) = &problem.mismatch
+                    && !mismatches.contains(mismatch)
+                {
+                    mismatches.push(mismatch.clone());
+                }
             }
-            (count > 0).then(|| RuleBrief {
-                rule: rule.id.to_string(),
-                title: rule.title.clone(),
-                description: rule.description.clone(),
-                count,
-                fixable,
-                unfixable: (fixable < count && !rule.unfixable.is_empty())
-                    .then(|| rule.unfixable.clone()),
-            })
+            (count > 0).then(|| RuleBrief::worded(rule, count, fixable, mismatches))
         })
         .collect()
 }
@@ -359,12 +391,124 @@ pub(in crate::mods) fn cancelled(mod_id: &str) -> AppError {
     AppError::ValidationFailed(format!("The run was cancelled before {mod_id} finished"))
 }
 
+/// The stored shape's version, bumped when a brief gains data an old record
+/// never wrote - the type pairs, at 1.
+///
+/// A file from an older shape is discarded on load rather than carried: its
+/// verdicts read as never checked, so the next sweep re-checks those mods and
+/// records what the old shape was missing. Sentences never force a bump,
+/// because the store holds none.
+const VERDICT_FILE_VERSION: u32 = 1;
+
+/// The remembered verdicts, as every reader and writer holds them.
+///
+/// Not the on-disk shape: that is [`StoredVerdictFile`], which keeps data
+/// alone. Loading is where the two meet, so a brief's sentences are always
+/// the running build's.
+#[derive(Debug, Default)]
+struct VerdictFile {
+    verdicts: BTreeMap<String, ModHealthVerdict>,
+}
+
 /// On-disk shape of `mod-health-verdicts.json`.
+///
+/// A brief is persisted as its data alone - the rule id and the counts - and
+/// its sentences are reconstructed on load from the rules as this build words
+/// them. Persisted words go stale the moment a build rewrites them, because
+/// the sweep re-checks only when the basis moves, and words the store never
+/// holds are also words a later build can localize.
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct VerdictFile {
+struct StoredVerdictFile {
     version: u32,
-    verdicts: BTreeMap<String, ModHealthVerdict>,
+    verdicts: BTreeMap<String, StoredVerdict>,
+}
+
+/// One verdict as the file keeps it: [`ModHealthVerdict`] minus the words.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredVerdict {
+    mod_id: String,
+    health: ModHealth,
+    fixable: u32,
+    counts: Counts,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    rules: Vec<StoredRuleBrief>,
+    checked_at: String,
+    #[serde(default)]
+    basis: HealthCheckBasis,
+}
+
+/// One brief as the file keeps it: the rule id, the counts, and the type
+/// pairs - all data, no sentences.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredRuleBrief {
+    rule: String,
+    count: u32,
+    fixable: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    mismatches: Vec<problems::TypeMismatch>,
+}
+
+impl StoredVerdict {
+    /// The verdict without its sentences, ready to persist.
+    fn strip(verdict: &ModHealthVerdict) -> Self {
+        Self {
+            mod_id: verdict.mod_id.clone(),
+            health: verdict.health,
+            fixable: verdict.fixable,
+            counts: verdict.counts,
+            rules: verdict
+                .rules
+                .iter()
+                .map(|brief| StoredRuleBrief {
+                    rule: brief.rule.clone(),
+                    count: brief.count,
+                    fixable: brief.fixable,
+                    mismatches: brief.mismatches.clone(),
+                })
+                .collect(),
+            checked_at: verdict.checked_at.clone(),
+            basis: verdict.basis.clone(),
+        }
+    }
+
+    /// The verdict under the sentences `rules` word its briefs with.
+    ///
+    /// A brief whose rule this build no longer ships keeps its counts and
+    /// wears its rule id for a title, because the data outlives the words.
+    fn worded(self, rules: &[problems::RuleInfo]) -> ModHealthVerdict {
+        let briefs = self
+            .rules
+            .into_iter()
+            .map(
+                |brief| match rules.iter().find(|info| info.id.to_string() == brief.rule) {
+                    Some(info) => {
+                        RuleBrief::worded(info, brief.count, brief.fixable, brief.mismatches)
+                    }
+                    None => RuleBrief {
+                        title: brief.rule.clone(),
+                        description: String::new(),
+                        rule: brief.rule,
+                        count: brief.count,
+                        fixable: brief.fixable,
+                        mismatches: brief.mismatches,
+                        unfixable: None,
+                    },
+                },
+            )
+            .collect();
+        ModHealthVerdict {
+            mod_id: self.mod_id,
+            health: self.health,
+            fixable: self.fixable,
+            counts: self.counts,
+            rules: briefs,
+            checked_at: self.checked_at,
+            basis: self.basis,
+        }
+    }
 }
 
 impl VerdictFile {
@@ -373,19 +517,47 @@ impl VerdictFile {
     /// failing a read over.
     fn load(storage_dir: &Path) -> Self {
         let path = storage_dir.join(MOD_HEALTH_VERDICTS_FILENAME);
-        match fs::read_to_string(&path) {
+        let stored: StoredVerdictFile = match fs::read_to_string(&path) {
             Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|e| {
                 tracing::warn!("Unreadable {MOD_HEALTH_VERDICTS_FILENAME}, starting over: {e}");
-                Self::default()
+                StoredVerdictFile::default()
             }),
-            Err(_) => Self::default(),
+            Err(_) => StoredVerdictFile::default(),
+        };
+        if stored.version < VERDICT_FILE_VERSION && !stored.verdicts.is_empty() {
+            tracing::info!(
+                "Discarding {} verdicts from shape {} of {MOD_HEALTH_VERDICTS_FILENAME}: the next sweep re-checks them",
+                stored.verdicts.len(),
+                stored.version
+            );
+            return Self::default();
+        }
+
+        let rules: Vec<problems::RuleInfo> = problems::rules::all()
+            .iter()
+            .map(|rule| rule.info())
+            .collect();
+        Self {
+            verdicts: stored
+                .verdicts
+                .into_iter()
+                .map(|(mod_id, verdict)| (mod_id, verdict.worded(&rules)))
+                .collect(),
         }
     }
 
     fn save(&self, storage_dir: &Path) -> AppResult<()> {
+        let stored = StoredVerdictFile {
+            version: VERDICT_FILE_VERSION,
+            verdicts: self
+                .verdicts
+                .iter()
+                .map(|(mod_id, verdict)| (mod_id.clone(), StoredVerdict::strip(verdict)))
+                .collect(),
+        };
         let path = storage_dir.join(MOD_HEALTH_VERDICTS_FILENAME);
         let tmp = path.with_extension("json.tmp");
-        fs::write(&tmp, serde_json::to_string_pretty(self)?)?;
+        fs::write(&tmp, serde_json::to_string_pretty(&stored)?)?;
         fs::rename(&tmp, &path)?;
         Ok(())
     }

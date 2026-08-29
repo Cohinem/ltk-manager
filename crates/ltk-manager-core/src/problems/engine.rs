@@ -78,7 +78,7 @@ impl ProjectFiles {
             root: project_root.to_path_buf(),
             layers,
             build: GameBuild::installed(config),
-            names: BinNames::open(),
+            names: BinNames::open(project_root),
             budget,
         })
     }

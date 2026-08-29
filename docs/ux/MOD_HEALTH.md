@@ -325,12 +325,13 @@ has no second line to spend on the same sentence twenty times.
 
 **A row unfolds into its rules.** `3 problems` says how much and nothing else, so the row's name
 is a disclosure: folding it open lists the rules behind the count - `Meta property type
-mismatch (2)` with the rule's id as a chip, and the rule's own sentence under it saying what state
-causes the finding. That sentence is where the cause stops: never a site or a property path, per
-the line above. The count wears the warning tone where a repair reaches those findings - as
+mismatch (2)` with the rule's id as a chip, and the actual disagreement under it: `Expected File,
+found Hash`, one line per type pair the findings hold, with the rule's own sentence standing in
+only where a rule reports no types. That line is where the cause stops: never a site or a
+property path, per the line above. The count wears the warning tone where a repair reaches those findings - as
 `(x of y)` when it reaches only some - and stays plain where none does, which is what tells the
 same rule apart across the two groups. Where the repair falls short, the rule's own why-not
-sentence follows the cause - override bins are never rewritten, a hash-keyed value cannot be -
+sentence follows the cause - "Couldn't rehash because source string is unknown" -
 so the same rule being fixable on one mod and not on another stops being a mystery. The only word on a line is `not auto-fixable`, on a rule
 the press will not fix inside a mod the press is offered for - everything else is already said by
 the group. A verdict
