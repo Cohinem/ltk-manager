@@ -296,6 +296,10 @@ fn stage_into(
                 "Preserved the mod's names on import"
             );
 
+            let outcome = ltk_fantome::normalize_archive(&dest, &dest)
+                .map_err(|e| AppError::Other(format!("Failed to normalize the archive: {e}")))?;
+            tracing::info!(archive = %dest, outcome = ?outcome, "Normalized the mod's archive");
+
             extract_fantome_metadata(staged_archive, staging_dir)?;
 
             Ok(StagedContent {

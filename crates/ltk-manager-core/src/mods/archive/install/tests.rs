@@ -104,15 +104,48 @@ fn staging_embeds_unrecoverable_names_in_the_archive() {
     );
 }
 
+/// Import is where a fantome's packed WADs become `Stored`, so a build can map
+/// them straight out of the archive instead of inflating them into memory.
+/// Upstream ADR-0002: normalize runs at import, on the copy the importer owns,
+/// never on the file the user handed in.
+#[test]
+fn staging_stores_a_fantomes_packed_wads() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("full.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+    let shipped_bytes = fs::read(&archive).unwrap();
+
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
+
+    let mut zip = zip::ZipArchive::new(fs::File::open(&staged.staged_archive).unwrap()).unwrap();
+    assert_eq!(
+        zip.by_name("WAD/Ashe.wad.client").unwrap().compression(),
+        zip::CompressionMethod::Stored
+    );
+
+    assert_eq!(fs::read(&archive).unwrap(), shipped_bytes);
+
+    let staged_path = camino::Utf8PathBuf::from_path_buf(staged.staged_archive.clone()).unwrap();
+    assert_matches!(
+        ltk_fantome::normalize_archive(&staged_path, &staged_path),
+        Ok(ltk_fantome::NormalizeOutcome::Unchanged)
+    );
+}
+
 /// The community tables are the preserve's exclusions: a name they already
 /// recover is not worth embedding, and a mod made only of such names keeps
-/// its archive byte-identical to what the author shipped.
+/// its archive byte-identical to what the author shipped. The fixture is
+/// normalized first, since an archive shipping deflated packed WADs is
+/// rewritten to `Stored` on the way in regardless of names.
 #[test]
 fn a_mod_the_resolver_covers_keeps_its_archive_unrewritten() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
     crate::mods::test_support::make_full_fantome_zip(&archive);
+    let archive_utf8 = camino::Utf8PathBuf::from_path_buf(archive.clone()).unwrap();
+    ltk_fantome::normalize_archive(&archive_utf8, &archive_utf8).unwrap();
 
     let resolver =
         crate::mods::test_support::resolver_naming(&["data/characters/aatrox/skins/skin01.bin"]);
