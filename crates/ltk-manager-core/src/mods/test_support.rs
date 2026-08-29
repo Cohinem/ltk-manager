@@ -55,6 +55,7 @@ fn make_library_with(
         Some(storage_dir.to_path_buf()),
         app_version,
         Arc::new(LinkedBinState::default()),
+        Arc::new(crate::mods::ChecksumMismatchState::default()),
         Arc::new(WadReportState::new(Some(storage_dir))),
         Arc::new(WadPathResolverState::preloaded(
             crate::hashtables::WadPathResolver::new(ltk_hashdb::LayeredHashDb::new()),

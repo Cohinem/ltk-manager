@@ -5,7 +5,9 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use crate::commands::launcher::LauncherState;
 use crate::deep_link::DeepLinkState;
 use crate::events::TauriEventSink;
-use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
+use crate::mods::{
+    ChecksumMismatchState, LinkedBinState, ModLibrary, ModLibraryState, WadReportState,
+};
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{IncidentStoreState, SettingsState};
 use crate::workshop::{Workshop, WorkshopState};
@@ -55,6 +57,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         IncidentStore::new(incidents_dir).with_keep(settings.config.keep_incidents as usize),
     ));
     let linked_bins = Arc::new(LinkedBinState::default());
+    let checksum_mismatches = Arc::new(ChecksumMismatchState::default());
     // The library unpacks fantome archives, which needs the same chunk names
     // the browser resolves with, so both hold this one handle.
     let wad_resolver = Arc::new(ltk_manager_core::hashtables::WadPathResolverState::default());
@@ -64,6 +67,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         default_storage_dir,
         env!("CARGO_PKG_VERSION"),
         Arc::clone(&linked_bins),
+        Arc::clone(&checksum_mismatches),
         Arc::clone(&wad_reports),
         Arc::clone(&wad_resolver),
     ));
@@ -94,6 +98,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(launcher_state);
     app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
+    app.manage(checksum_mismatches);
     app.manage(wad_reports);
     app.manage(ltk_manager_core::strings::StringKeyIndexState::default());
     app.manage(ltk_manager_core::game_index::GameIndexState::default());

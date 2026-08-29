@@ -355,6 +355,8 @@ declare_events! {
     OverlayProgress(OverlayProgress) => "overlay-progress",
     /// The set of mods with unresolved linked-bin dependencies changed.
     LinkedBinsUpdated => "linked-bins-updated",
+    /// The set of chunks whose containers claimed wrong checksums changed.
+    ChecksumMismatchesUpdated => "checksum-mismatches-updated",
     /// Per-mod WAD analysis results changed.
     WadReportsUpdated => "wad-reports-updated",
     /// Per-mod health verdicts changed.

@@ -1,5 +1,8 @@
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
+use crate::mods::{
+    ChecksumMismatchInfo, ChecksumMismatchState, LinkedBinOffenderInfo, LinkedBinState,
+    ModLibraryState,
+};
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
@@ -363,4 +366,18 @@ pub fn get_linked_bin_offenders(
             .collect())
     })();
     result.into()
+}
+
+/// Checksum mismatches found in the most recent overlay build, keyed by mod id.
+///
+/// Recorded as a byproduct of the same build that records linked-bin offenders,
+/// so this is a cheap read with no IO. A mismatch marks a badly-packed mod: its
+/// container claimed a checksum its own bytes do not have. Never fatal - the
+/// overlay carries the recomputed value, so this is advisory, surfaced per-mod
+/// in mod details.
+#[tauri::command]
+pub fn get_checksum_mismatches(
+    checksum_mismatches: State<Arc<ChecksumMismatchState>>,
+) -> IpcResult<HashMap<String, Vec<ChecksumMismatchInfo>>> {
+    checksum_mismatches.by_mod().into()
 }

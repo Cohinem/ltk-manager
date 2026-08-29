@@ -158,6 +158,14 @@ impl ModLibrary {
             Err(e) => tracing::warn!("Failed to record linked-bin offenders: {}", e),
         }
 
+        match self
+            .checksum_mismatches()
+            .record(outcome.checksum_mismatches)
+        {
+            Ok(()) => self.events().emit(BackendEvent::ChecksumMismatchesUpdated),
+            Err(e) => tracing::warn!("Failed to record checksum mismatches: {}", e),
+        }
+
         if outcome.mod_wad_reports.is_empty() {
             return;
         }

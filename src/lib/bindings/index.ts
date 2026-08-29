@@ -11,6 +11,7 @@ export type { BulkInstallResult } from "./BulkInstallResult";
 export type { Category } from "./Category";
 export type { Check } from "./Check";
 export type { CheckDetail } from "./CheckDetail";
+export type { ChecksumMismatchInfo } from "./ChecksumMismatchInfo";
 export type { CodeSighting } from "./CodeSighting";
 export type { Consequence } from "./Consequence";
 export type { ContentEntry } from "./ContentEntry";
