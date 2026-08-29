@@ -22,7 +22,6 @@ function failure(overrides?: Partial<FailedConversion>): FailedConversion {
     id: "broken-mod",
     displayName: "Broken Mod",
     error: "The archive could not be read",
-    quarantineDir: "/storage/quarantine/broken-mod",
     ...overrides,
   };
 }

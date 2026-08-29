@@ -10,8 +10,9 @@
 //! decide about. Nothing reads a half-moved library because the whole run holds
 //! the index lock, which every other reader takes first.
 //!
-//! A mod that cannot be moved keeps its files under `quarantine/<uuid>/` and
-//! stays in the index wearing its fault.
+//! A mod that cannot be moved stays whole in the legacy layout, keeps working
+//! out of it, and is tried again next launch — the work set is recomputed from
+//! the entries still without a slug.
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
@@ -21,9 +22,8 @@ use crate::mods::archive::metadata::{
     extract_fantome_metadata, extract_modpkg_metadata, fantome_layers, load_mod_project,
 };
 use crate::mods::index::document::{archive_path, load_library_index, save_library_index};
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModFault, ModStorage};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::slug::{ModSlug, TakenSlugs};
-use crate::utils::fs::copy_dir_all;
 
 use serde::Serialize;
 use std::fs;
@@ -41,8 +41,6 @@ pub struct FailedConversion {
     pub display_name: String,
     /// Why it could not be moved, in the words the user reads.
     pub error: String,
-    /// Where the mod's original files were parked.
-    pub quarantine_dir: String,
 }
 
 /// What one migration run did.
@@ -102,7 +100,7 @@ impl ModLibrary {
         let pending: Vec<String> = index
             .mods
             .iter()
-            .filter(|entry| entry.slug.is_none() && entry.fault.is_none())
+            .filter(|entry| entry.slug.is_none())
             .map(|entry| entry.id.clone())
             .collect();
 
@@ -146,19 +144,18 @@ impl ModLibrary {
                     migrated_ids.push(entry.id.clone());
                 }
                 Err(e) => {
+                    // The entry keeps its legacy layout and its place in the
+                    // work set, so the next launch tries it again.
                     let error = e.to_string();
-                    tracing::warn!("Failed to move mod {}: {}", entry.id, error);
-                    let quarantine = quarantine_entry(&storage_dir, &entry, &error);
-                    index.mods[position].fault = Some(ModFault::ConversionFailed {
-                        error: error.clone(),
-                        quarantine_dir: quarantine.clone(),
-                    });
-
+                    tracing::warn!(
+                        "Failed to move mod {}, leaving it in the legacy layout: {}",
+                        entry.id,
+                        error
+                    );
                     report.failed.push(FailedConversion {
                         id: entry.id.clone(),
                         display_name,
                         error,
-                        quarantine_dir: quarantine,
                     });
                 }
             }
@@ -251,7 +248,7 @@ fn convert_entry(
 /// Write back what the cached config lost, which is the migration's one look
 /// inside the archive. Returns the config as it now stands.
 ///
-/// Two things come of it. An archive that cannot be opened faults here, in a
+/// Two things come of it. An archive that cannot be opened fails here, in a
 /// list the user can act on, rather than at patch time — the only check the
 /// move would otherwise skip. And a fantome's cached config gets its layer
 /// table back: the pre-slug layout wrote that config through
@@ -299,7 +296,7 @@ fn refresh_config_from_archive(
 ///
 /// Reads the archive's own metadata and nothing else: `META/info.json` for a
 /// fantome, the header for a modpkg. Mounting a modpkg here is also what makes
-/// a corrupt one fault rather than move silently.
+/// a corrupt one fail rather than move silently.
 fn rebuild_metadata(dir: &Path, archive: &Path, format: ModArchiveFormat) -> AppResult<()> {
     tracing::info!("Rebuilding missing metadata for {}", dir.display());
     match format {
@@ -309,72 +306,6 @@ fn rebuild_metadata(dir: &Path, archive: &Path, format: ModArchiveFormat) -> App
         ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
             extract_fantome_metadata(archive, dir)
         }
-    }
-}
-
-/// Park a failed conversion's original files and write down why.
-///
-/// Returns the quarantine directory as a storage-relative-free absolute path,
-/// which is what the failure list's Reveal button opens. Best-effort: a mod
-/// whose files cannot be moved keeps them where they are, and the fault message
-/// is still what the user reads.
-fn quarantine_entry(storage_dir: &Path, entry: &LibraryModEntry, error: &str) -> String {
-    let target = entry.quarantine_dir(storage_dir);
-    if let Err(e) = fs::create_dir_all(&target) {
-        tracing::warn!(
-            "Failed to create quarantine directory {}: {}",
-            target.display(),
-            e
-        );
-        return target.display().to_string();
-    }
-
-    let old_dir = entry.mod_dir(storage_dir);
-    if old_dir.is_dir() {
-        move_into(&old_dir, &target.join("metadata"));
-    }
-
-    let archive = entry.archive_path(storage_dir);
-    if archive.is_file() {
-        let file_name = archive
-            .file_name()
-            .map_or_else(|| "archive".into(), std::ffi::OsString::from);
-        move_into(&archive, &target.join(file_name));
-    }
-
-    let note = serde_json::json!({
-        "id": entry.id,
-        "error": error,
-        "quarantinedAt": chrono::Utc::now(),
-    });
-    if let Ok(contents) = serde_json::to_string_pretty(&note) {
-        let _ = fs::write(target.join("quarantine.json"), contents);
-    }
-
-    target.display().to_string()
-}
-
-/// Move `source` to `destination`, falling back to a copy across volumes.
-fn move_into(source: &Path, destination: &Path) {
-    if fs::rename(source, destination).is_ok() {
-        return;
-    }
-
-    let copied = if source.is_dir() {
-        copy_dir_all(source, destination).and_then(|()| Ok(fs::remove_dir_all(source)?))
-    } else {
-        fs::copy(source, destination)
-            .and_then(|_| fs::remove_file(source))
-            .map_err(AppError::from)
-    };
-
-    if let Err(e) = copied {
-        tracing::warn!(
-            "Failed to quarantine {} as {}: {}",
-            source.display(),
-            destination.display(),
-            e
-        );
     }
 }
 

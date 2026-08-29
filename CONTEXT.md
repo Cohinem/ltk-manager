@@ -14,8 +14,8 @@ and folder. Every read and write goes through the index lock, because each write
 file.
 
 **Mod entry** — one row of the index: an id, an installed-at timestamp, the format it arrived as,
-where its content is stored, its slug, and its fault if it has one. It is the only record of which
-mod is which — see ADR-0002.
+where its content is stored, and its slug once the layout migration has assigned one. It is the
+only record of which mod is which — see ADR-0002.
 
 **Drop folder** — `<storage>/archives/`. Somewhere a user can drop a `.fantome` or `.modpkg` and
 have it installed on the next reconcile. Since the layout migration it is _only_ that: installed
@@ -69,11 +69,10 @@ before it is renamed into place, with `mods/.staging-<uuid>.<ext>` beside it for
 Swept at startup, and only there: staging runs outside the index lock, so a sweep at any other
 moment could delete a directory an install is still filling.
 
-**Quarantine** — `<storage>/quarantine/<id>/`, where a failed conversion's original files are parked
-along with a `quarantine.json` saying what went wrong.
-
-**Fault** — the state of a mod that is in the library but unusable. It keeps its index entry and its
-place in every profile, renders greyed out with its reason, and is excluded from overlay builds.
+**Legacy layout** — `mods/<uuid>/` plus `archives/<uuid>.<ext>`, the shape a pre-slug library
+stored a mod in. A transient state, not a kind of mod: everything core does — overlay builds
+included — reads it, while conveniences such as unpack and repack wait for the slug. The layout
+migration drains it, retrying whatever it could not move every launch. See ADR-0008.
 
 ## Mod health
 
@@ -111,9 +110,10 @@ recovers names off an incoming archive rather than keeping ones a write is about
 
 Three different things, and the words do not overlap:
 
-**Layout migration** — the one-time pass that moves every mod off the uuid layout and onto its slug.
-Two renames per mod and no unpack (ADR-0003), so it runs unasked at startup, ahead of the first
-reconcile. A toast reports it while it runs, and a dialog lists whatever it could not move.
+**Layout migration** — the startup pass that moves every mod off the uuid layout and onto its slug.
+Two renames per mod and no unpack (ADR-0003), so it runs unasked, ahead of the first reconcile. A
+toast reports it while it runs, and a dialog lists whatever it could not move — which stays in the
+legacy layout, keeps working, and is tried again next launch (ADR-0008).
 
 **Schema migration** — versioning of `library.json` itself (`v0 → v1 → v2`). Runs on load, backs the
 old file up first, and never touches anything on disk outside that one document.

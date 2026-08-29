@@ -1,8 +1,8 @@
-import { FolderOpenIcon, WarningIcon } from "@phosphor-icons/react";
+import { WarningIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button, Dialog } from "@/components";
-import { api, type FailedConversion } from "@/lib/tauri";
+import { type FailedConversion } from "@/lib/tauri";
 
 import { useLayoutMigration } from "../api";
 
@@ -10,8 +10,8 @@ import { useLayoutMigration } from "../api";
  * What the library upgrade could not move.
  *
  * The upgrade itself is two renames per mod and runs unasked, reporting through
- * a toast. This is the half worth interrupting for: a mod whose files are now
- * in quarantine and whose card is greyed out until the user deals with it.
+ * a toast. This is the failure half: what stayed in the legacy layout and will
+ * be retried next launch — ADR-0008.
  */
 export function LibraryMigrationDialog() {
   const report = useLayoutMigration();
@@ -34,9 +34,9 @@ export function LibraryMigrationDialog() {
 
           <Dialog.Body className="flex flex-col gap-4">
             <p className="text-sm text-surface-300">
-              Your library moved to its new layout. What is listed below could not come with it. The
-              original files are safe where each row points, and each mod stays in your library
-              greyed out until you remove or replace it.
+              Your library moved to its new storage layout. The mods below could not be moved — they
+              still work and stay in your library, and moving them will be tried again the next time
+              the app starts.
             </p>
 
             <div className="flex flex-col gap-2">
@@ -65,14 +65,6 @@ function FailureRow({ failure }: { failure: FailedConversion }) {
         <span className="truncate text-sm text-surface-100 select-text">{failure.displayName}</span>
         <span className="text-xs text-surface-400 select-text">{failure.error}</span>
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => void api.revealInExplorer(failure.quarantineDir)}
-      >
-        <FolderOpenIcon className="h-4 w-4" weight="bold" />
-        Reveal
-      </Button>
     </div>
   );
 }

@@ -200,8 +200,10 @@ fn a_modpkg_keeps_its_archive_and_moves_it_beside_the_mod() {
     assert!(entry.is_present(storage.path()));
 }
 
+/// A conversion failure leaves the mod whole in the legacy layout — nothing
+/// moved aside, nothing deleted — so it keeps working and stays retryable.
 #[test]
-fn a_corrupt_archive_faults_the_mod_and_quarantines_its_files() {
+fn a_corrupt_archive_leaves_the_mod_in_the_legacy_layout() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
@@ -229,23 +231,22 @@ fn a_corrupt_archive_faults_the_mod_and_quarantines_its_files() {
     assert!(!report.failed[0].error.is_empty());
 
     let index = load_library_index(storage.path()).unwrap();
-    assert_eq!(index.mods.len(), 1, "a faulted mod stays in the library");
-    assert!(index.mods[0].fault.is_some());
+    assert_eq!(index.mods.len(), 1, "a failed mod stays in the library");
+    assert!(index.mods[0].slug.is_none());
     assert!(index.mods[0].is_present(storage.path()));
     assert_eq!(index.profiles[0].mod_order, vec!["id-1"]);
 
-    let quarantine = index.mods[0].quarantine_dir(storage.path());
-    assert!(quarantine.join("quarantine.json").exists());
     assert_eq!(
-        fs::read(quarantine.join("id-1.fantome")).unwrap(),
+        fs::read(archives.join("id-1.fantome")).unwrap(),
         b"not a zip"
     );
-    assert!(quarantine.join("metadata").join("mod.config.json").exists());
-    assert!(!storage.path().join("mods").join("id-1").exists());
+    assert!(meta_dir.join("mod.config.json").exists());
 }
 
+/// The work set recomputes from the entries still without a slug, so a failure
+/// is not a verdict — the next run tries the mod again.
 #[test]
-fn a_faulted_mod_is_not_retried_by_a_later_run() {
+fn a_failed_mod_is_retried_by_a_later_run() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
@@ -269,7 +270,7 @@ fn a_faulted_mod_is_not_retried_by_a_later_run() {
 
     let second = library.migrate_library_layout(&config).unwrap();
     assert_eq!(second.migrated, 0);
-    assert!(second.failed.is_empty());
+    assert_eq!(second.failed.len(), 1, "a failed mod stays in the work set");
 }
 
 /// The index is saved after every mod, so a run that stops halfway leaves the

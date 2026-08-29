@@ -22,14 +22,7 @@ pub(crate) fn read_installed_mod(
     layer_states: Option<&HashMap<String, bool>>,
 ) -> AppResult<InstalledMod> {
     let mod_dir = entry.mod_dir(storage_dir);
-    let project = match &entry.fault {
-        // A faulted mod's own directory is gone — its metadata went to
-        // quarantine with the rest of it, and the library still has to draw a
-        // card the user can act on.
-        Some(_) => load_mod_project(&entry.quarantine_dir(storage_dir).join("metadata"))
-            .unwrap_or_else(|_| placeholder_project(&entry.id)),
-        None => load_mod_project(&mod_dir)?,
-    };
+    let project = load_mod_project(&mod_dir)?;
 
     let authors = project
         .authors
@@ -78,29 +71,9 @@ pub(crate) fn read_installed_mod(
         storage: entry.storage,
         has_archive: entry.archive_path(storage_dir).is_file(),
         folder_id: None,
-        fault: entry.fault.clone(),
+        slug: entry.slug.as_ref().map(|slug| slug.as_str().to_string()),
         harvest: entry.harvest,
     })
-}
-
-/// The stand-in for a mod whose config cannot be read at all, so a faulted
-/// entry still draws a card carrying its id and its error.
-fn placeholder_project(id: &str) -> ModProject {
-    ModProject {
-        name: id.to_string(),
-        display_name: id.to_string(),
-        version: String::new(),
-        description: String::new(),
-        authors: Vec::new(),
-        license: None,
-        tags: Vec::new(),
-        champions: Vec::new(),
-        maps: Vec::new(),
-        transformers: Vec::new(),
-        layers: Vec::new(),
-        thumbnail: None,
-        hashtables: Vec::new(),
-    }
 }
 
 /// The layer table a fantome archive declares, or `None` when it declares none.

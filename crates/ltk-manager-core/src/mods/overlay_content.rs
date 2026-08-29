@@ -46,7 +46,7 @@ impl ModLibrary {
                 .find(|m| m.id == mod_id)
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
 
-            if !entry.is_usable(storage_dir) {
+            if !entry.is_present(storage_dir) {
                 return Err(AppError::InvalidPath(format!(
                     "Mod content missing on disk: {}",
                     entry.mod_dir(storage_dir).display()
@@ -91,15 +91,8 @@ impl ModLibrary {
                     continue;
                 };
 
-                if !entry.is_usable(storage_dir) {
-                    tracing::warn!(
-                        "Skipping mod {}: {}",
-                        entry.id,
-                        entry
-                            .fault
-                            .as_ref()
-                            .map_or("content missing on disk", |fault| fault.message())
-                    );
+                if !entry.is_present(storage_dir) {
+                    tracing::warn!("Skipping mod {}: content missing on disk", entry.id);
                     continue;
                 }
 
@@ -158,14 +151,6 @@ impl Profile {
 }
 
 impl LibraryModEntry {
-    /// Whether the overlay may read this mod: no fault, and files on disk.
-    ///
-    /// A converted fantome with no retained archive is usable — its content is
-    /// the unpacked tree, and the archive was only a keepsake.
-    pub(crate) fn is_usable(&self, storage_dir: &Path) -> bool {
-        self.fault.is_none() && self.is_present(storage_dir)
-    }
-
     /// Wraps this mod's content in the provider its layout calls for.
     ///
     /// # Errors

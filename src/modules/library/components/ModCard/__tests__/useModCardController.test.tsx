@@ -53,12 +53,6 @@ function mount(mod: InstalledMod) {
   return renderHook(() => useModCardController({ mod, viewMode: "grid" })).result;
 }
 
-const faulted = {
-  kind: "conversionFailed" as const,
-  error: "The archive could not be read",
-  quarantineDir: "/storage/quarantine/broken-mod",
-};
-
 beforeEach(() => {
   vi.clearAllMocks();
   setModStorage.isPending = false;
@@ -99,8 +93,9 @@ describe("useModCardController storage", () => {
     expect(view.current.canChangeStorage).toBe(true);
   });
 
-  it("offers nothing on a mod that has faulted", () => {
-    const view = mount(createMockInstalledMod({ fault: faulted }));
+  /* "Legacy is transient": ADR-0008. */
+  it("offers nothing on a mod still in the legacy layout", () => {
+    const view = mount(createMockInstalledMod({ slug: null }));
 
     expect(view.current.canChangeStorage).toBe(false);
   });
@@ -169,36 +164,14 @@ describe("useModCardController reveal", () => {
       path: "/storage/mods/test-mod",
     });
   });
-
-  /* A faulted mod's own directory is gone. Quarantine holds what is left of it,
-     which is the folder someone opening it now is looking for. */
-  it("opens quarantine for a mod whose own directory is gone", async () => {
-    const view = mount(
-      createMockInstalledMod({ modDir: "/storage/mods/broken-mod", fault: faulted }),
-    );
-
-    await act(async () => view.current.onOpenLocation());
-
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", {
-      path: "/storage/quarantine/broken-mod",
-    });
-  });
 });
 
-/* A mod that failed to convert is parked, not gone: its files sit in quarantine
-   and its entry stays in the library. The menu is the only way to either of
-   those, so being unusable cannot be what closes it. */
-describe("useModCardController quarantine", () => {
-  it("keeps the menu open to a mod that cannot be used", () => {
-    const result = mount(createMockInstalledMod({ id: "a", fault: faulted }));
-
-    expect(result.current.interactionsDisabled).toBe(true);
-    expect(result.current.menuDisabled).toBe(false);
-  });
-
+/* The menu is the only way to act on a mod that cannot be switched on, so
+   being unusable cannot be what closes it. */
+describe("useModCardController menu", () => {
   it("closes the menu in select mode, which is a mode over the whole grid", () => {
     selectionState.selectMode = true;
-    const result = mount(createMockInstalledMod({ id: "a", fault: faulted }));
+    const result = mount(createMockInstalledMod({ id: "a" }));
 
     expect(result.current.menuDisabled).toBe(true);
   });

@@ -364,7 +364,6 @@ pub(crate) fn register_staged_mod(
         format: staged.format,
         storage: staged.format.installed_storage(),
         slug: Some(slug),
-        fault: None,
         harvest: staged.harvest,
     };
     let id = entry.id.clone();

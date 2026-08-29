@@ -34,8 +34,6 @@ export interface ModCardView {
   thumbnailUrl: string | undefined;
   isFlagged: boolean;
   skinhackReason: string;
-  /** Why this mod is unusable, or `null` when it is fine. */
-  faultReason: string | null;
   /**
    * Whether this mod can be moved between the two storage modes at all.
    *
@@ -50,10 +48,9 @@ export interface ModCardView {
   /**
    * Whether the card's menu is closed to the reader.
    *
-   * Narrower than [`interactionsDisabled`], which also covers a mod that cannot
-   * be switched on. A quarantined mod cannot be switched on and never will be,
-   * so if that closed its menu too there would be no way left to reveal what
-   * quarantine is holding or to drop the entry.
+   * Narrower than [`interactionsDisabled`], which also covers a mod that
+   * cannot be switched on. A blocked mod still needs its menu, or there would
+   * be no way left to act on it.
    */
   menuDisabled: boolean;
   isInUserFolder: boolean;
@@ -68,8 +65,6 @@ export interface ModCardView {
   cursorClass: string;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
-  faultInfoOpen: boolean;
-  setFaultInfoOpen: (open: boolean) => void;
   wadFootprintOpen: boolean;
   setWadFootprintOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
@@ -113,11 +108,9 @@ export function useModCardController({
     setInfoOpen: setSkinhackInfoOpen,
   } = useSkinhackFlag(mod);
 
-  const faultReason = mod.fault?.error ?? null;
-  const [faultInfoOpen, setFaultInfoOpen] = useState(false);
   const [wadFootprintOpen, setWadFootprintOpen] = useState(false);
   const patcherRunning = patcherStatus?.running ?? false;
-  const disabled = isFlagged || faultReason !== null || patcherRunning;
+  const disabled = isFlagged || patcherRunning;
   const interactionsDisabled = disabled || selectMode;
   // Select mode is a mode over the whole grid, and a patcher run owns the
   // library. Being unusable is neither, and is the state most in need of a menu.
@@ -125,10 +118,9 @@ export function useModCardController({
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
+  // "Legacy is transient": ADR-0008.
   const canChangeStorage =
-    mod.format === "fantome" &&
-    (mod.storage === "project" || mod.hasArchive) &&
-    faultReason === null;
+    mod.format === "fantome" && (mod.storage === "project" || mod.hasArchive) && mod.slug != null;
 
   function handleToggle(modId: string, enabled: boolean) {
     toggleMod.mutate(
@@ -161,10 +153,7 @@ export function useModCardController({
   }
 
   async function handleOpenLocation() {
-    // A faulted mod's own directory is gone. What is left is what quarantine
-    // holds, which is the folder someone opening it now wants.
-    const path = mod.fault?.quarantineDir ?? mod.modDir;
-    const result = await api.revealInExplorer(path);
+    const result = await api.revealInExplorer(mod.modDir);
     if (!result.ok) {
       console.error("Failed to open location:", result.error);
     }
@@ -197,7 +186,7 @@ export function useModCardController({
     activateCard(e.shiftKey);
   }
 
-  const blocked = isFlagged || faultReason !== null;
+  const blocked = isFlagged;
   const inSelectedState = selectMode && isSelected;
   const inEnabledState = mod.enabled && !blocked;
   const isInteractive = !blocked && (selectMode || !disabled);
@@ -212,7 +201,6 @@ export function useModCardController({
     thumbnailUrl,
     isFlagged,
     skinhackReason,
-    faultReason,
     canChangeStorage,
     storageChangePending: setModStorage.isPending,
     disabled,
@@ -229,8 +217,6 @@ export function useModCardController({
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
-    faultInfoOpen,
-    setFaultInfoOpen,
     wadFootprintOpen,
     setWadFootprintOpen,
     onCardClick: handleCardClick,

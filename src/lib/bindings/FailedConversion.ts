@@ -15,8 +15,4 @@ displayName: string,
 /**
  * Why it could not be moved, in the words the user reads.
  */
-error: string, 
-/**
- * Where the mod's original files were parked.
- */
-quarantineDir: string, };
+error: string, };

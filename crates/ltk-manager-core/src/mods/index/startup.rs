@@ -27,8 +27,8 @@ impl ModLibrary {
     /// The staging sweep goes first because startup is the one moment nothing
     /// can be mid-install, which is what makes clearing another process's
     /// staging directories safe. The layout migration goes before
-    /// reconciliation because reconciliation refuses to run while a mod is
-    /// still in the uuid layout — it would read one mid-move as an orphan. The
+    /// reconciliation because reconciliation stands down until the migration
+    /// pass has reported — it would read a mod mid-move as an orphan. The
     /// health sweep goes last because it reads every mod's content, and the
     /// three before it decide where that content is.
     fn maintain(&self, config: &Config) {

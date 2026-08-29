@@ -66,10 +66,10 @@ pub struct HealthCheckBasis {
 impl LibraryModEntry {
     /// Whether the Problems rules can reach this mod's content at all.
     ///
-    /// A faulted mod has no content to trust, and a modpkg's only exists inside
-    /// its archive with no unpacked form to run the rules over - ADR-0001.
+    /// A modpkg's content only exists inside its archive, with no unpacked
+    /// form to run the rules over - ADR-0001.
     pub(in crate::mods) fn is_checkable(&self) -> bool {
-        self.fault.is_none() && self.format.is_convertible()
+        self.format.is_convertible()
     }
 }
 
@@ -96,8 +96,8 @@ impl ModLibrary {
     ///
     /// # Errors
     ///
-    /// Fails when the mod is not in the library, has faulted, or its content
-    /// cannot be read.
+    /// Fails when the mod is not in the library, or its content cannot be
+    /// read.
     pub fn check_mod_health(&self, config: &Config, mod_id: &str) -> AppResult<ModHealthVerdict> {
         self.check_mod_health_within(config, mod_id, &Budget::repair())
     }
@@ -126,11 +126,6 @@ impl ModLibrary {
                 .cloned()
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))
         })?;
-        if entry.fault.is_some() {
-            return Err(AppError::ValidationFailed(
-                "This mod is in a failed state. Remove it and install it again.".to_string(),
-            ));
-        }
 
         let run = self.run_over(config, &storage_dir, &entry, budget)?;
         if budget.is_cancelled() {

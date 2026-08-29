@@ -48,7 +48,7 @@ impl ModLibrary {
     ///
     /// # Errors
     ///
-    /// Fails when the mod is not in the library, has faulted, is a modpkg
+    /// Fails when the mod is not in the library, is still in the legacy layout, is a modpkg
     /// (whose content only exists inside its archive), or asks to unpack with
     /// no archive to read.
     pub fn set_mod_storage(
@@ -271,11 +271,13 @@ impl LibraryModEntry {
     /// # Errors
     ///
     /// Fails with [`AppError::ValidationFailed`] carrying what the user should
-    /// do about it: a faulted mod, or a format with no unpacked form.
+    /// do about it: a mod still in the legacy layout, or a format with no
+    /// unpacked form.
     pub(in crate::mods) fn convertible(&self) -> AppResult<()> {
-        if self.fault.is_some() {
+        // "Legacy is transient": ADR-0008.
+        if self.slug.is_none() {
             return Err(AppError::ValidationFailed(
-                "This mod is in a failed state. Remove it and install it again.".to_string(),
+                "This mod has not moved to the new library layout yet. It will be retried at the next launch.".to_string(),
             ));
         }
 

@@ -1,6 +1,6 @@
 use super::*;
+use crate::mods::index::ModArchiveFormat;
 use crate::mods::index::document::load_library_index;
-use crate::mods::index::{ModArchiveFormat, ModFault};
 use crate::mods::test_support::{
     RecordingEventSink, make_bad_crc_fantome_zip, make_full_fantome_zip, make_library_with_events,
     make_modpkg, make_slugged_entry, make_test_library, make_unpacked_entry, mod_project_named,
@@ -347,17 +347,14 @@ fn a_modpkg_has_no_unpacked_form_to_switch_to() {
     );
 }
 
+/// A legacy mod waits for the layout migration — "Legacy is transient",
+/// ADR-0008.
 #[test]
-fn a_faulted_mod_cannot_change_storage() {
+fn a_legacy_mod_cannot_change_storage() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
-    place_moved_fantome(storage.path(), "full-mod");
 
-    let mut entry = archived_entry("id-1", "full-mod");
-    entry.fault = Some(ModFault::ConversionFailed {
-        error: "boom".to_string(),
-        quarantine_dir: "q".to_string(),
-    });
+    let entry = crate::mods::test_support::make_test_entry("id-1", ModArchiveFormat::Fantome);
     seed_library(&library, &config, vec![entry]);
 
     assert_matches!(

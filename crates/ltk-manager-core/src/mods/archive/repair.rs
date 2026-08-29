@@ -66,8 +66,8 @@ impl ModLibrary {
     ///
     /// # Errors
     ///
-    /// Fails when the mod is not in the library, has faulted, or is stored as
-    /// an archive it does not have or that has no unpacked form.
+    /// Fails when the mod is not in the library, or is stored as an archive it
+    /// does not have or that has no unpacked form.
     pub fn repair_mod(&self, config: &Config, mod_id: &str) -> AppResult<FixReport> {
         /* A budget of its own, and not the run's: one mod from a row can be
         pressed while the startup sweep is going, and taking the run's handle
@@ -97,12 +97,6 @@ impl ModLibrary {
                 .cloned()
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))
         })?;
-
-        if entry.fault.is_some() {
-            return Err(AppError::ValidationFailed(
-                "This mod is in a failed state. Remove it and install it again.".to_string(),
-            ));
-        }
 
         let (report, checked) = match entry.storage {
             ModStorage::Project => {

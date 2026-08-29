@@ -47,7 +47,7 @@ pub use health::sweep::{HealthSweepReport, HealthSweepState};
 #[cfg(debug_assertions)]
 pub use health::timing::{HealthTiming, ModTiming};
 pub use health::{HealthCheckBasis, ModHealth, ModHealthVerdict};
-pub use index::document::{ModArchiveFormat, ModFault, ModStorage};
+pub use index::document::{ModArchiveFormat, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
 pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};
 
@@ -160,10 +160,12 @@ impl ModLibrary {
 
     /// What the layout migration has to say for itself this launch.
     pub fn layout_migration_state(&self) -> LayoutMigrationState {
+        // A poisoned lock answers `Idle` rather than the `Pending` default,
+        // which would stand reconciliation down for the rest of the session.
         self.layout_migration
             .lock()
             .map(|state| state.clone())
-            .unwrap_or_default()
+            .unwrap_or(LayoutMigrationState::Idle)
     }
 
     pub(crate) fn record_layout_migration(&self, outcome: LayoutMigrationState) {

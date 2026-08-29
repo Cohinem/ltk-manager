@@ -16,21 +16,6 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Whether any entry is still waiting for the layout migration.
-///
-/// A slug-less entry that has not faulted is one the migration has not reached.
-/// Reconciliation refuses to run while one exists: the migration moves whole
-/// directories, and a pass that saw an entry mid-move would read it as an
-/// orphan and delete it out of the index. Startup runs the two in order, so
-/// this only catches a watcher wakeup landing on a library the migration has
-/// not finished with.
-pub(crate) fn layout_migration_pending(index: &LibraryIndex) -> bool {
-    index
-        .mods
-        .iter()
-        .any(|entry| entry.slug.is_none() && entry.fault.is_none())
-}
-
 /// Reconcile the library index against the filesystem.
 ///
 /// 1. Remove orphaned mod entries (missing files on disk)
@@ -46,11 +31,6 @@ pub(crate) fn reconcile_library_index(
     refreshed_ids: &mut Vec<String>,
     context: &InstallContext<'_>,
 ) -> bool {
-    if layout_migration_pending(index) {
-        tracing::info!("Skipping reconciliation: the library layout migration has not run yet");
-        return false;
-    }
-
     let mut changed = false;
     changed |= remove_orphaned_entries(storage_dir, index);
     changed |= discover_mod_directories(storage_dir, index);
@@ -159,11 +139,19 @@ fn discover_mod_directories(storage_dir: &Path, index: &mut LibraryIndex) -> boo
         return false;
     };
 
+    // Keyed on the directory each entry actually occupies: the slug, or the
+    // uuid for a legacy entry the migration could not move. Missing the
+    // latter would register a mod's own directory as a second mod.
     let claimed: HashSet<String> = index
         .mods
         .iter()
-        .filter_map(|entry| entry.slug.as_ref())
-        .map(|slug| slug.as_str().to_ascii_lowercase())
+        .map(|entry| {
+            entry
+                .slug
+                .as_ref()
+                .map_or(entry.id.as_str(), ModSlug::as_str)
+                .to_ascii_lowercase()
+        })
         .collect();
 
     let mut discovered = Vec::new();
@@ -242,7 +230,6 @@ fn adopt_mod_directory(storage_dir: &Path, path: &Path, dir_name: &str) -> Optio
         // The directory keeps the name it already has: paths outside the index
         // point at it, and re-slugging would break them for no gain.
         slug: Some(slug),
-        fault: None,
         harvest: None,
     })
 }
@@ -266,7 +253,11 @@ fn discover_new_archives(
         return false;
     }
 
-    let known_ids: HashSet<&str> = index.mods.iter().map(|m| m.id.as_str()).collect();
+    let known_ids: HashSet<String> = index
+        .mods
+        .iter()
+        .map(|m| m.id.to_ascii_lowercase())
+        .collect();
 
     let dropped: Vec<PathBuf> = fs::read_dir(&archives_dir)
         .into_iter()
@@ -279,13 +270,13 @@ fn discover_new_archives(
                 .is_some_and(|ext| ModArchiveFormat::from_extension(ext).is_some())
         })
         // A file named for a mod the index already holds is not a drop. It is
-        // the original of a conversion whose quarantine move failed, and
-        // installing it would duplicate the mod and then delete the only copy
-        // of what the failure list told the user was safe.
+        // the archive of a legacy entry the layout migration could not move,
+        // and installing it would duplicate the mod and then consume its only
+        // copy.
         .filter(|p| {
             p.file_stem()
                 .and_then(|stem| stem.to_str())
-                .is_none_or(|stem| !known_ids.contains(stem))
+                .is_none_or(|stem| !known_ids.contains(&stem.to_ascii_lowercase()))
         })
         .collect();
 

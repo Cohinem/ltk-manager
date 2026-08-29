@@ -1,5 +1,5 @@
 use super::*;
-use crate::mods::index::{LibraryIndex, ModArchiveFormat, ModFault};
+use crate::mods::index::{LibraryIndex, ModArchiveFormat};
 use crate::mods::test_support::{
     make_full_fantome_zip, make_slugged_entry, make_test_library, make_test_profile,
     make_unpacked_entry, place_unpacked_mod,
@@ -148,39 +148,29 @@ fn a_packed_modpkg_reads_through_its_archive_and_everything_else_off_disk() {
 }
 
 #[test]
-fn the_overlay_takes_a_fantome_with_no_archive_and_skips_a_faulted_mod() {
+fn the_overlay_takes_a_fantome_with_no_archive_and_skips_a_missing_mod() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
     place_unpacked_mod(storage.path(), "keep-me", false);
-    place_unpacked_mod(storage.path(), "broken-mod", false);
-
-    let mut faulted = make_unpacked_entry("broken", "broken-mod");
-    let quarantine = faulted.quarantine_dir(storage.path());
-    std::fs::create_dir_all(&quarantine).unwrap();
-    faulted.fault = Some(ModFault::ConversionFailed {
-        error: "corrupt archive".to_string(),
-        quarantine_dir: quarantine.display().to_string(),
-    });
 
     let index = LibraryIndex {
         version: 0,
         mods: vec![
             make_unpacked_entry("keep", "keep-me"),
-            faulted,
             make_unpacked_entry("gone", "not-on-disk"),
         ],
         profiles: vec![make_test_profile(
             "p1",
             "Default",
-            vec!["keep", "broken", "gone"],
-            vec!["keep", "broken", "gone"],
+            vec!["keep", "gone"],
+            vec!["keep", "gone"],
         )],
         active_profile_id: "p1".to_string(),
         folders: vec![LibraryFolder {
             id: ROOT_FOLDER_ID.to_string(),
             name: String::new(),
-            mod_ids: vec!["keep".into(), "broken".into(), "gone".into()],
+            mod_ids: vec!["keep".into(), "gone".into()],
         }],
         folder_order: vec![ROOT_FOLDER_ID.to_string()],
     };

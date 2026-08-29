@@ -1,4 +1,4 @@
-import { ShieldWarningIcon, WarningIcon } from "@phosphor-icons/react";
+import { ShieldWarningIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
@@ -12,7 +12,6 @@ import {
   ModCardContextMenu,
   ModCardMenu,
   ModCardThumbnail,
-  ModFaultDialog,
   ModPills,
   SkinhackInfoDialog,
 } from "./ModCardParts";
@@ -25,7 +24,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     thumbnailUrl,
     isFlagged,
     skinhackReason,
-    faultReason,
     isMultiLayer,
     selectMode,
     isSelected,
@@ -36,8 +34,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
-    faultInfoOpen,
-    setFaultInfoOpen,
     onCardClick,
     onCardKeyDown,
   } = view;
@@ -118,22 +114,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
             </div>
           </Tooltip>
         )}
-        {faultReason !== null && (
-          <Tooltip content={faultReason}>
-            <button
-              type="button"
-              data-no-toggle
-              aria-label={`Why ${mod.displayName} failed`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setFaultInfoOpen(true);
-              }}
-              className="cursor-pointer rounded-md bg-danger/90 p-1 transition-colors hover:bg-danger"
-            >
-              <WarningIcon className="h-4 w-4 text-brand-on" />
-            </button>
-          </Tooltip>
-        )}
         {/* A ground under the pill's own fill, so it reads over cover art:
             DS-GLASS. `empty:hidden` keeps a healthy mod from spending a gap on
             the badge it does not draw. */}
@@ -178,9 +158,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
             {mod.displayName}
           </h3>
           {isFlagged && <ShieldWarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />}
-          {faultReason !== null && (
-            <WarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />
-          )}
         </div>
 
         <div className="flex items-center text-xs text-surface-500">
@@ -205,7 +182,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
         </div>
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-      <ModFaultDialog view={view} open={faultInfoOpen} onOpenChange={setFaultInfoOpen} />
       <ModWadFootprintDialog
         view={view}
         open={view.wadFootprintOpen}

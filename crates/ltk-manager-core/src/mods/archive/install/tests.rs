@@ -390,25 +390,6 @@ fn uninstalling_a_legacy_entry_clears_both_of_its_old_paths() {
     assert!(!entry.archive_path(storage.path()).exists());
 }
 
-#[test]
-fn uninstalling_a_faulted_entry_clears_its_quarantine() {
-    let storage = tempfile::tempdir().unwrap();
-    let (library, config) = make_test_library(storage.path());
-
-    let mut entry = crate::mods::test_support::make_test_entry("broken", ModArchiveFormat::Fantome);
-    let quarantine = entry.quarantine_dir(storage.path());
-    fs::create_dir_all(&quarantine).unwrap();
-    fs::write(quarantine.join("quarantine.json"), "{}").unwrap();
-    entry.fault = Some(crate::mods::index::ModFault::ConversionFailed {
-        error: "boom".to_string(),
-        quarantine_dir: quarantine.display().to_string(),
-    });
-    seed_index(&library, &config, vec![entry]);
-
-    library.uninstall_mod_by_id(&config, "broken").unwrap();
-    assert!(!quarantine.exists());
-}
-
 /// Write an index holding exactly `mods`, with one profile that names them all.
 fn seed_index(library: &ModLibrary, config: &Config, mods: Vec<LibraryModEntry>) {
     let ids: Vec<String> = mods.iter().map(|m| m.id.clone()).collect();

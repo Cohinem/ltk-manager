@@ -167,11 +167,6 @@ fn a_slugged_entry_keeps_its_archive_beside_the_mod() {
             .archive_path(storage_dir)
             .ends_with("mods/cool-skin.modpkg")
     );
-    assert!(
-        entry
-            .quarantine_dir(storage_dir)
-            .ends_with("quarantine/abc-123")
-    );
 }
 
 /// Every install reads out of its archive, and only an unpack or a discovered
@@ -235,21 +230,4 @@ fn a_legacy_entry_is_present_while_its_uuid_layout_is() {
 
     fs::remove_file(entry.archive_path(storage.path())).unwrap();
     assert!(!entry.is_present(storage.path()));
-}
-
-/// A faulted mod has no directory left — only what quarantine holds — and the
-/// library still has to show it so the user can act on it.
-#[test]
-fn a_faulted_entry_is_present_while_its_quarantine_is() {
-    let storage = tempfile::tempdir().unwrap();
-    let mut entry = make_test_entry("id-1", ModArchiveFormat::Fantome);
-    entry.fault = Some(ModFault::ConversionFailed {
-        error: "boom".to_string(),
-        quarantine_dir: String::new(),
-    });
-
-    assert!(!entry.is_present(storage.path()));
-
-    fs::create_dir_all(entry.quarantine_dir(storage.path())).unwrap();
-    assert!(entry.is_present(storage.path()));
 }

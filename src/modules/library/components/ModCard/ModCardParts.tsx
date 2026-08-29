@@ -12,7 +12,6 @@ import {
   PencilSimpleIcon,
   ShieldWarningIcon,
   TrashIcon,
-  WarningIcon,
 } from "@phosphor-icons/react";
 import { cloneElement, type ReactElement, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
@@ -20,9 +19,7 @@ import { twMerge } from "tailwind-merge";
 import {
   AutoPill,
   type AutoPillTone,
-  Button,
   ChampionIcon,
-  Code,
   ContextMenu,
   Dialog,
   IconButton,
@@ -248,7 +245,7 @@ export function ModCardContextMenu({
  * different commands.
  */
 function ModCardMenuItems({ view }: { view: ModCardView }) {
-  const { mod, faultReason, isFlagged, isInUserFolder, canChangeStorage } = view;
+  const { mod, isFlagged, isInUserFolder, canChangeStorage } = view;
   const checkModHealth = useCheckModHealth();
   const toast = useToast();
 
@@ -275,39 +272,6 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
         toast.warning(`${total} finding${total === 1 ? "" : "s"}, none repairable`);
       },
     });
-  }
-
-  /* A quarantined mod has no directory of its own left, so everything that
-     addresses one is gone and what remains is the two things that still mean
-     something: look at what was parked, or drop the entry. */
-  if (faultReason !== null) {
-    return (
-      <>
-        <Menu.Item
-          icon={<WarningIcon className="h-4 w-4" weight="bold" />}
-          onClick={() => view.setFaultInfoOpen(true)}
-        >
-          Why did this fail?
-        </Menu.Item>
-        <Menu.Item
-          icon={<FolderOpenIcon className="h-4 w-4" weight="bold" />}
-          onClick={view.onOpenLocation}
-        >
-          Reveal quarantined files
-        </Menu.Item>
-        <Menu.Item icon={<CopyIcon className="h-4 w-4" weight="bold" />} onClick={view.onCopyId}>
-          Copy ID
-        </Menu.Item>
-        <Menu.Separator />
-        <Menu.Item
-          icon={<TrashIcon className="h-4 w-4" weight="bold" />}
-          variant="danger"
-          onClick={view.onUninstall}
-        >
-          Remove from library
-        </Menu.Item>
-      </>
-    );
   }
 
   return (
@@ -526,66 +490,6 @@ export function ModPills({
       )}
       {overflow > 0 && <span className="text-[0.625rem] text-surface-500">+{overflow}</span>}
     </div>
-  );
-}
-
-/**
- * What went wrong with a quarantined mod, and the two things left to do about it.
- *
- * The failure used to live only in a tooltip on the card's warning mark, which
- * is the one place a reader can neither select it for a bug report nor act on
- * it. Per "Where copying is routine, give an explicit Copy action" in
- * src/CLAUDE.md, the message is a `Code` chip rather than prose.
- */
-export function ModFaultDialog({
-  view,
-  open,
-  onOpenChange,
-}: {
-  view: ModCardView;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const { mod, faultReason } = view;
-  if (faultReason === null) return null;
-
-  return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="md">
-          <Dialog.Header>
-            <Dialog.Title>{mod.displayName} could not be converted</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
-          <Dialog.Body>
-            <p className="text-sm leading-relaxed text-surface-300">
-              Its files were moved aside rather than deleted, and it stays in the library so it is
-              not lost. It cannot be switched on until it is imported again.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-surface-400">What went wrong:</p>
-            <Code className="mt-1 block">{faultReason}</Code>
-          </Dialog.Body>
-          <Dialog.Footer>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => {
-                onOpenChange(false);
-                view.onUninstall();
-              }}
-            >
-              <TrashIcon className="h-4 w-4" weight="bold" />
-              Remove from library
-            </Button>
-            <Button variant="filled" size="sm" onClick={view.onOpenLocation}>
-              <FolderOpenIcon className="h-4 w-4" weight="bold" />
-              Reveal files
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }
 

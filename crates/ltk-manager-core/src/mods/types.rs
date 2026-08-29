@@ -4,7 +4,7 @@
 //! and bulk-install results. The on-disk index that backs them lives in
 //! [`super::index`].
 
-use crate::mods::index::{HarvestSummary, LibraryIndex, ModArchiveFormat, ModFault, ModStorage};
+use crate::mods::index::{HarvestSummary, LibraryIndex, ModArchiveFormat, ModStorage};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -116,11 +116,13 @@ pub struct InstalledMod {
     pub has_archive: bool,
     /// ID of the containing folder, or None if ungrouped.
     pub folder_id: Option<String>,
-    /// Set when the mod is in the library but unusable. The card shows the
-    /// reason and refuses to enable it.
+    /// The mod's directory name under `mods/`.
+    ///
+    /// `None` while the mod is still in the legacy layout the migration has
+    /// not moved it out of.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional = nullable))]
-    pub fault: Option<ModFault>,
+    pub slug: Option<String>,
     /// What preserving the mod's names at import found. `None` for a modpkg
     /// and for mods installed before the preserve existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]

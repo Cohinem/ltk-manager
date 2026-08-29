@@ -6,6 +6,7 @@
 //! index lock — concurrent commands would otherwise clobber each other's
 //! writes, since each one rewrites the whole document.
 
+use super::layout_migration::LayoutMigrationState;
 use super::schema_migration;
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
@@ -36,6 +37,13 @@ impl ModLibrary {
     /// and refresh stale metadata.
     /// Returns `true` if the index was modified.
     pub fn reconcile_index(&self, config: &Config) -> AppResult<bool> {
+        // Stand down until the startup migration pass has reported, or a
+        // watcher wakeup could read a mod mid-move as an orphan — ADR-0008.
+        if matches!(self.layout_migration_state(), LayoutMigrationState::Pending) {
+            tracing::info!("Skipping reconciliation: the layout migration has not reported yet");
+            return Ok(false);
+        }
+
         let resolver = self.wad_resolver();
         let context = crate::mods::archive::install::InstallContext {
             resolver: resolver.as_ref(),
@@ -229,35 +237,6 @@ pub enum ModStorage {
     Archive,
 }
 
-/// Why a mod is in the library but unusable.
-///
-/// One variant today. The shape is the seam autofix grows into: a scanned
-/// import that needs repair is the same idea — an entry the user can still see,
-/// excluded from overlay builds until something resolves it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
-#[serde(tag = "kind", rename_all = "camelCase")]
-pub enum ModFault {
-    /// The layout migration could not convert this mod. Its original files are
-    /// parked at `quarantine_dir`, an absolute path — Reveal opens it, and the
-    /// mod has no directory of its own left to resolve it against.
-    #[serde(rename_all = "camelCase")]
-    ConversionFailed {
-        error: String,
-        quarantine_dir: String,
-    },
-}
-
-impl ModFault {
-    /// The failure, as the library card shows it.
-    pub(crate) fn message(&self) -> &str {
-        match self {
-            ModFault::ConversionFailed { error, .. } => error,
-        }
-    }
-}
-
 /// What preserving a mod's names at import found.
 ///
 /// Recorded on the entry rather than only logged: `unharvestable` is what
@@ -310,9 +289,6 @@ pub(crate) struct LibraryModEntry {
     /// on that, and a release after the migration ships removes them.
     #[serde(default)]
     pub(crate) slug: Option<ModSlug>,
-    /// Set when the mod is present but unusable, e.g. a conversion that failed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) fault: Option<ModFault>,
     /// What preserving the mod's names found, for a fantome installed since
     /// the preserve existed. `None` for a modpkg and for older entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -348,22 +324,13 @@ impl LibraryModEntry {
         }
     }
 
-    /// Where a failed conversion's original files are parked.
-    pub(crate) fn quarantine_dir(&self, storage_dir: &Path) -> PathBuf {
-        quarantine_dir(storage_dir, &self.id)
-    }
-
     /// Whether the files this entry names are still on disk.
     ///
-    /// A faulted mod is present while its quarantine directory is, so the user
-    /// can still see and remove it. Otherwise the config is what makes a mod
-    /// readable, plus the archive for any mod whose content is still inside
-    /// one.
+    /// The config is what makes a mod readable, plus the archive for any mod
+    /// whose content is still inside one. A converted fantome with no retained
+    /// archive is present — its content is the unpacked tree, and the archive
+    /// was only a keepsake.
     pub(crate) fn is_present(&self, storage_dir: &Path) -> bool {
-        if self.fault.is_some() {
-            return self.quarantine_dir(storage_dir).is_dir();
-        }
-
         if !self.mod_dir(storage_dir).join("mod.config.json").exists() {
             return false;
         }
@@ -373,9 +340,8 @@ impl LibraryModEntry {
 
     /// Delete everything on disk this entry names.
     ///
-    /// The three places [`is_present`](Self::is_present) looks: the mod
-    /// directory, the archive beside it, and the quarantine directory a failed
-    /// conversion left behind.
+    /// The two places [`is_present`](Self::is_present) looks: the mod
+    /// directory and the archive beside it.
     ///
     /// # Errors
     ///
@@ -391,11 +357,6 @@ impl LibraryModEntry {
         if archive_path.exists() {
             std::fs::remove_file(&archive_path)?;
             tracing::info!("Deleted mod archive at {}", archive_path.display());
-        }
-
-        let quarantine = self.quarantine_dir(storage_dir);
-        if quarantine.exists() {
-            std::fs::remove_dir_all(&quarantine)?;
         }
 
         Ok(())
@@ -414,12 +375,6 @@ pub(crate) fn archive_path(
     storage_dir
         .join("mods")
         .join(format!("{slug}.{}", format.extension()))
-}
-
-/// Where a failed conversion's original files are parked, keyed by mod id
-/// because a faulted mod has no directory of its own left.
-fn quarantine_dir(storage_dir: &Path, mod_id: &str) -> PathBuf {
-    storage_dir.join("quarantine").join(mod_id)
 }
 
 pub(crate) fn library_index_path(storage_dir: &Path) -> PathBuf {

@@ -100,7 +100,6 @@ export type { LinkedBinWarningPayload } from "./LinkedBinWarningPayload";
 export type { MigrationPhase } from "./MigrationPhase";
 export type { MigrationProgress } from "./MigrationProgress";
 export type { ModArchiveFormat } from "./ModArchiveFormat";
-export type { ModFault } from "./ModFault";
 export type { ModHealth } from "./ModHealth";
 export type { ModHealthVerdict } from "./ModHealthVerdict";
 export type { ModLayer } from "./ModLayer";

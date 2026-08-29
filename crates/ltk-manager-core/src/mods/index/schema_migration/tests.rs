@@ -223,7 +223,6 @@ fn a_migrated_v1_index_reports_every_mod_as_pending() {
     let index = LibraryIndex::load_and_migrate(dir.path()).unwrap();
     assert_eq!(index.version, 2);
     assert!(index.mods.iter().all(|m| m.slug.is_none()));
-    assert!(index.mods.iter().all(|m| m.fault.is_none()));
     assert!(dir.path().join("library.v1.json.bak").exists());
 }
 

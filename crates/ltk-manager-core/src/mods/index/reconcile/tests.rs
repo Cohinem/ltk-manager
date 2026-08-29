@@ -165,11 +165,24 @@ fn an_empty_library_reports_no_changes() {
     assert!(!reconcile(dir.path(), &mut index));
 }
 
-/// A background pass must not touch a library the layout migration has not
-/// converted yet, or it would read every legacy entry as an orphan.
+/// A mod the layout migration could not move stays in the legacy layout, and
+/// every pass has to leave it there: it is not an orphan, its directory is not
+/// a discovery, and its archive in `archives/` is not a drop.
 #[test]
-fn reconciliation_stands_down_while_the_layout_migration_is_pending() {
+fn reconciliation_leaves_a_legacy_entry_alone() {
     let dir = tempfile::tempdir().unwrap();
+
+    let archives = dir.path().join("archives");
+    fs::create_dir_all(&archives).unwrap();
+    make_fantome_zip(&archives.join("legacy.fantome"));
+    let meta_dir = dir.path().join("mods").join("legacy");
+    fs::create_dir_all(&meta_dir).unwrap();
+    fs::write(
+        meta_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named("legacy-mod")).unwrap(),
+    )
+    .unwrap();
+
     let mut index = index_with(
         vec![make_test_entry("legacy", ModArchiveFormat::Fantome)],
         vec!["legacy"],
@@ -177,22 +190,7 @@ fn reconciliation_stands_down_while_the_layout_migration_is_pending() {
 
     assert!(!reconcile(dir.path(), &mut index));
     assert_eq!(index.mods.len(), 1, "the legacy entry must be left alone");
-}
-
-/// A faulted entry is slug-less too, and must not hold reconciliation off
-/// forever after the migration has already had its go at it.
-#[test]
-fn a_faulted_entry_does_not_count_as_pending() {
-    let mut index = index_with(
-        vec![make_test_entry("legacy", ModArchiveFormat::Fantome)],
-        vec![],
-    );
-    index.mods[0].fault = Some(crate::mods::index::ModFault::ConversionFailed {
-        error: "boom".to_string(),
-        quarantine_dir: "q".to_string(),
-    });
-
-    assert!(!layout_migration_pending(&index));
+    assert!(index.mods[0].slug.is_none());
 }
 
 #[test]

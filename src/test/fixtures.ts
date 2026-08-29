@@ -65,6 +65,7 @@ export function createMockInstalledMod(overrides?: Partial<InstalledMod>): Insta
     storage: "project",
     hasArchive: true,
     folderId: null,
+    slug: "test-mod",
     ...overrides,
   };
 }

@@ -1,4 +1,4 @@
-import { ShieldWarningIcon, WarningIcon } from "@phosphor-icons/react";
+import { ShieldWarningIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
@@ -13,7 +13,6 @@ import {
   ModCardMenu,
   ModCardThumbnail,
   ModCardToggle,
-  ModFaultDialog,
   ModPills,
   SkinhackInfoDialog,
 } from "./ModCardParts";
@@ -26,7 +25,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
     thumbnailUrl,
     isFlagged,
     skinhackReason,
-    faultReason,
     isMultiLayer,
     selectMode,
     isSelected,
@@ -36,8 +34,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
-    faultInfoOpen,
-    setFaultInfoOpen,
     onCardClick,
   } = view;
 
@@ -106,11 +102,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
               <ShieldWarningIcon className="h-4 w-4 shrink-0 text-danger-text" />
             </Tooltip>
           )}
-          {faultReason !== null && (
-            <Tooltip content={faultReason}>
-              <WarningIcon className="h-4 w-4 shrink-0 text-danger-text" />
-            </Tooltip>
-          )}
         </div>
         <div className="flex items-center gap-1.5">
           <p className="truncate text-sm text-surface-500">
@@ -158,7 +149,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
         <ModCardMenu view={view} />
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-      <ModFaultDialog view={view} open={faultInfoOpen} onOpenChange={setFaultInfoOpen} />
       <ModWadFootprintDialog
         view={view}
         open={view.wadFootprintOpen}

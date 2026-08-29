@@ -1,6 +1,8 @@
 # ADR-0003: The layout migration moves files, it does not convert them
 
-Status: accepted (2026-08-26)
+Status: accepted (2026-08-26). The quarantine it gave a failed conversion is superseded by
+[ADR-0008](0008-a-failed-conversion-stays-in-the-legacy-layout.md), which leaves the mod in the
+legacy layout and retries it.
 
 Amends ADR-0001, which had the migration unpack every fantome in an existing library.
 [ADR-0004](0004-the-storage-mode-is-a-per-mod-choice.md) builds the per-mod toggle this one reserved

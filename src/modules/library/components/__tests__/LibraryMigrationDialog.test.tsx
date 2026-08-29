@@ -17,7 +17,6 @@ function failure(overrides?: Partial<FailedConversion>): FailedConversion {
     id: "broken-mod",
     displayName: "Broken Mod",
     error: "The archive could not be read",
-    quarantineDir: "/storage/quarantine/broken-mod",
     ...overrides,
   };
 }
@@ -74,21 +73,9 @@ describe("LibraryMigrationDialog", () => {
     expect(screen.getByText("1 mod could not be upgraded")).toBeInTheDocument();
   });
 
-  /* A failed mod's own directory is gone. Quarantine is where its files went,
-     and opening anywhere else would send the user to an empty folder. */
-  it("reveals the quarantine directory the files were parked in", async () => {
-    const user = userEvent.setup();
-    show({ migrated: 0, failed: [failure()] });
-
-    await user.click(screen.getByRole("button", { name: /Reveal/ }));
-
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", {
-      path: "/storage/quarantine/broken-mod",
-    });
-  });
-
-  /* The mods stay in the library wearing their fault, so this is an
-     acknowledgement rather than a decision to come back to. */
+  /* The failed mods keep working where they are and the upgrade retries on
+     its own, so this is an acknowledgement rather than a decision to come
+     back to. */
   it("closes for good once the reader is done with it", async () => {
     const user = userEvent.setup();
     show({ migrated: 0, failed: [failure()] });
