@@ -2,6 +2,7 @@
 import type { Counts } from "./Counts";
 import type { HealthCheckBasis } from "./HealthCheckBasis";
 import type { ModHealth } from "./ModHealth";
+import type { RuleBrief } from "./RuleBrief";
 
 /**
  * What one check concluded, summarized for a mod user.
@@ -15,6 +16,13 @@ fixable: number,
  * Every live finding by severity, fixable or not.
  */
 counts: Counts, 
+/**
+ * The counts by rule, for a row a reader folds open.
+ *
+ * Defaulted for a verdict recorded before the field existed, which reads
+ * as a row with nothing to unfold until its next check.
+ */
+rules?: Array<RuleBrief>, 
 /**
  * ISO-8601 timestamp the check ran.
  */

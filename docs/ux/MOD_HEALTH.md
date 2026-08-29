@@ -5,15 +5,15 @@
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
 | 2026-08-28 | The footer answers the dialog, whether or not it can repair  |
+| 2026-08-29 | A rule line says its cause, and only the exception is marked |
+| 2026-08-29 | A row unfolds into rules, wears the dot, and frees its seat  |
+| 2026-08-29 | The list folds into two verdict groups, which say the word   |
 | 2026-08-28 | The press leads with the run that does something             |
 | 2026-08-28 | The tone fades off the mark, and the press takes a footer    |
 | 2026-08-28 | The panel moves to the middle of the page, over the blur     |
 | 2026-08-28 | The cell follows the library, and a run can be called off    |
 | 2026-08-28 | The footer press repairs what a patch carries, all behind it |
 | 2026-08-28 | A repair preserves names rather than keeping a restore point |
-| 2026-08-28 | One drawer title, and three lines under it for three states  |
-| 2026-08-28 | The drawer becomes a focused sheet over a dimmed page        |
-| 2026-08-28 | An unfixable row says so, and the header says where to go    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -305,22 +305,47 @@ sitting where the button sat, because a progress bar reports a whole run and has
 the width of one press. The outcome stays a toast: by
 then the drawer has usually emptied itself and gone.
 
-**The drawer holds the whole finding.** A header that says what to do, a row per mod, and the one
-press. Each row is a mod name and how much is wrong with it - `3 problems`, or `4 unfixable
-problems :(` where no repair can reach any of them. Both halves of the list count the same thing,
-so a repairable row shows every finding rather than only the subset a repair can reach. It never
-shows a property path, for the same reason the badge's popover does not: that is the modder's
-half, and it lives in the Problems panel.
+**The drawer holds the whole finding.** A header that says what to do, the rows folded into two
+groups, and the one press. The groups are the two verdicts - `Can be repaired` and
+`Cannot be repaired` - each a full-bleed collapsible band with its count, so twenty broken mods
+read as two problems rather than twenty. A row is then one line, a mod name and how much is wrong with it -
+`3 problems`. Both groups count the same thing, so a repairable row shows every finding rather
+than only the subset a repair can reach. It never shows a property path, for the same reason the
+badge's popover does not: that is the modder's half, and it lives in the Problems panel.
 
-**An unfixable row says the word.** A missing Repair button is not a message: a reader scanning
-twenty rows sees one with nothing to press and has to work out why. Saying `unfixable` puts the
-one fact that matters in the line they were already reading, and the sad face is there because
-this is the row where the manager has run out of things to offer.
+**The group says the word, once.** A missing Repair button is not a message: a reader scanning
+twenty rows sees one with nothing to press and has to work out why. `Cannot be repaired` on the
+group header puts that fact over every row it covers, and saying it there is what lets the rows
+drop it - a column of `unfixable` repeated per row was the noise the grouping folds away.
 
 Where to go next is said once, by the header, and only where it is the whole story: a library no
 repair can reach at all reads "look for updated versions". A mixed list does not repeat it per
 row - the header's one line belongs to the repair that most of the list is still owed, and a row
 has no second line to spend on the same sentence twenty times.
+
+**A row unfolds into its rules.** `3 problems` says how much and nothing else, so the row's name
+is a disclosure: folding it open lists the rules behind the count - `Meta property type
+mismatch (2)` with the rule's id as a chip, and the rule's own sentence under it saying what state
+causes the finding. That sentence is where the cause stops: never a site or a property path, per
+the line above. The count wears the warning tone where a repair reaches those findings - as
+`(x of y)` when it reaches only some - and stays plain where none does, which is what tells the
+same rule apart across the two groups. Where the repair falls short, the rule's own why-not
+sentence follows the cause - override bins are never rewritten, a hash-keyed value cannot be -
+so the same rule being fixable on one mod and not on another stops being a mystery. The only word on a line is `not auto-fixable`, on a rule
+the press will not fix inside a mod the press is offered for - everything else is already said by
+the group. A verdict
+recorded before briefs existed unfolds into nothing, so its row stays plain text until the next
+check rewrites it.
+
+**An enabled mod's mark takes the accent.** The footer press repairs what the next game carries,
+and `Repair 2 enabled mods` is a promise about rows the list had no way to point at. The row's
+package mark in the accent is that word made visible - and a disabled mod's sits a rung dimmer -
+so the press and its targets can be read against each other. The same fact orders each group:
+enabled mods lead, and within each half the mod with the most problems does.
+
+**The count gives up its seat to the hover Repair.** The two share the row's right edge rather
+than sitting side by side, because a column of counts indented to leave room for a button that is
+not there reads as misalignment, not as a reveal.
 
 **A row repairs its own mod, on hover.** Repair all is the answer for somebody who wants their
 library back, and a row's own button is for somebody who wants one mod back - the update they just

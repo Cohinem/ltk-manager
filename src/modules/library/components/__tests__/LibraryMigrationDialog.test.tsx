@@ -61,6 +61,19 @@ describe("LibraryMigrationDialog", () => {
     expect(screen.getByText("Its metadata was unreadable")).toBeInTheDocument();
   });
 
+  /* Ten mods stuck on one locked file are one problem. The error leads its
+     group and is written once, with the mods hanging under it. */
+  it("writes a shared error once and lists every mod under it", () => {
+    show({
+      migrated: 0,
+      failed: [failure(), failure({ id: "other", displayName: "Other Mod" })],
+    });
+
+    expect(screen.getAllByText("The archive could not be read")).toHaveLength(1);
+    expect(screen.getByText("Broken Mod")).toBeInTheDocument();
+    expect(screen.getByText("Other Mod")).toBeInTheDocument();
+  });
+
   it("counts the failures in its title", () => {
     show({ migrated: 4, failed: [failure(), failure({ id: "other" })] });
 

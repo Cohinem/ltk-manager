@@ -77,6 +77,11 @@ impl Rule for BinPropertyType {
         "The type of a meta property in a bin file does not match what the game expects"
     }
 
+    fn unfixable_description(&self) -> &'static str {
+        "Properties in override bins are never rewritten, and a hash-keyed value cannot be: \
+         only the path itself crosses hash functions, and the file holds just the hash"
+    }
+
     /// The oldest table this project's game has not reached, in a modder's words.
     ///
     /// A table is a claim about one build. Until the game is on that build the

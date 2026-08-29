@@ -212,6 +212,7 @@ fn active(id: RuleId) -> RuleInfo {
         id,
         title: "Meta property type mismatch".to_owned(),
         description: "The declared type is not the one the game reads".to_owned(),
+        unfixable: String::new(),
         state: RuleState::Active,
     }
 }

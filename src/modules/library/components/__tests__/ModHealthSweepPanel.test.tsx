@@ -113,13 +113,91 @@ describe("ModHealthSweepPanel", () => {
     expect(screen.queryByRole("button", { name: /^Repair / })).not.toBeInTheDocument();
   });
 
-  /* A missing Repair button is not a message. The row has to say the word, or a
-     reader is left to work out why this one alone has nothing to press. */
-  it("says outright that an unrepairable mod's problems cannot be fixed", () => {
+  /* A missing Repair button is not a message. The group's header says the word
+     once over every row it covers, which is what lets the rows drop it. */
+  it("says outright that an unrepairable group cannot be fixed", () => {
     show({ repairable: [], unrepairable: [verdict("b", "unrepairable", { findings: 4 })] });
 
+    expect(screen.getByText("Cannot be repaired")).toBeInTheDocument();
     expect(screen.getByText("Old Ashe Rework")).toBeInTheDocument();
-    expect(screen.getByText("4 unfixable problems :(")).toBeInTheDocument();
+    expect(screen.getByText("4 problems")).toBeInTheDocument();
+  });
+
+  /* `3 problems` says how much and nothing else. The name is the disclosure,
+     and the fold lists the rules behind the count. */
+  it("unfolds a row into the rules behind its count", async () => {
+    const user = userEvent.setup();
+    show({ repairable: [verdict("a", "repairable", { findings: 3 })], unrepairable: [] });
+
+    await user.click(screen.getByRole("button", { name: "Charizard Smolder" }));
+
+    expect(screen.getByText("Outdated bin properties")).toBeInTheDocument();
+    expect(
+      screen.getByText("A bin property's type does not match what the game expects"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("bin-property-type")).toBeInTheDocument();
+    /* The fixture's brief fixes 2 of 3, and the fraction is what separates a
+       fixable line from the identical rule on an unrepairable mod. */
+    expect(screen.getByText("(2 of 3)")).toBeInTheDocument();
+    /* The repair falls short of the count, so the rule's own why-not sentence
+       follows the cause. */
+    expect(screen.getByText("Properties in override bins are never rewritten")).toBeInTheDocument();
+  });
+
+  it("shows a plain count on a rule no repair reaches", async () => {
+    const user = userEvent.setup();
+    show({ repairable: [], unrepairable: [verdict("b", "unrepairable", { findings: 4 })] });
+
+    await user.click(screen.getByRole("button", { name: "Old Ashe Rework" }));
+
+    expect(screen.getByText("(4)")).toBeInTheDocument();
+    expect(screen.queryByText(/of 4/)).not.toBeInTheDocument();
+  });
+
+  /* A verdict recorded before briefs existed carries none, and a disclosure
+     that opens onto nothing is a broken promise. */
+  it("gives a verdict with no briefs a plain row", () => {
+    show({ repairable: [verdict("a", "repairable", { rules: [] })], unrepairable: [] });
+
+    expect(screen.getByText("Charizard Smolder")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Charizard Smolder" })).not.toBeInTheDocument();
+  });
+
+  /* The footer press repairs what is enabled, so the rows have to show which
+     ones those are. */
+  it("marks the enabled rows and only those", () => {
+    useInstalledMods.mockReturnValue({
+      data: [installedMod("a", "Charizard Smolder"), installedMod("b", "Old Ashe Rework", false)],
+    });
+    show({
+      repairable: [verdict("a", "repairable")],
+      unrepairable: [verdict("b", "unrepairable")],
+    });
+
+    expect(screen.getAllByLabelText("Enabled")).toHaveLength(1);
+  });
+
+  /* The press repairs the enabled mods, so those lead the list, and the mod
+     most is wrong with leads its half. */
+  it("leads with the enabled mods, worst first", () => {
+    useInstalledMods.mockReturnValue({
+      data: [
+        installedMod("a", "Alpha", false),
+        installedMod("b", "Beta"),
+        installedMod("c", "Gamma"),
+      ],
+    });
+    show({
+      repairable: [
+        verdict("a", "repairable", { findings: 9 }),
+        verdict("b", "repairable", { findings: 2 }),
+        verdict("c", "repairable", { findings: 5 }),
+      ],
+      unrepairable: [],
+    });
+
+    const names = screen.getAllByText(/^(Alpha|Beta|Gamma)$/).map((el) => el.textContent);
+    expect(names).toEqual(["Gamma", "Beta", "Alpha"]);
   });
 
   it("falls back to the mod id when the library no longer names it", () => {

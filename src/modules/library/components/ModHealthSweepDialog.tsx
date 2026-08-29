@@ -31,7 +31,7 @@ export function ModHealthSweepDialog({ open, onClose }: ModHealthSweepDialogProp
           initialFocus={panel}
           data-ui="ModHealthSweepDialog"
           aria-label="What the check found"
-          className="flex max-h-[70vh] flex-col overflow-hidden"
+          className="flex h-[70vh] max-w-[38.5rem] flex-col overflow-hidden"
         >
           <ModHealthSweepPanel onClose={onClose} />
         </Dialog.Overlay>

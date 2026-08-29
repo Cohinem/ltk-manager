@@ -132,6 +132,7 @@ export type { ProblemId } from "./ProblemId";
 export type { ProblemSeverity } from "./ProblemSeverity";
 export type { Profile } from "./Profile";
 export type { ProfileSlug } from "./ProfileSlug";
+export type { RuleBrief } from "./RuleBrief";
 export type { RuleFailure } from "./RuleFailure";
 export type { RuleId } from "./RuleId";
 export type { RuleInfo } from "./RuleInfo";

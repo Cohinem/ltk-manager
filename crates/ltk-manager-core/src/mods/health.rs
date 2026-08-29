@@ -41,11 +41,43 @@ pub struct ModHealthVerdict {
     pub fixable: u32,
     /// Every live finding by severity, fixable or not.
     pub counts: Counts,
+    /// The counts by rule, for a row a reader folds open.
+    ///
+    /// Defaulted for a verdict recorded before the field existed, which reads
+    /// as a row with nothing to unfold until its next check.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rules: Vec<RuleBrief>,
     /// ISO-8601 timestamp the check ran.
     pub checked_at: String,
     /// What the check was a claim about, for the sweep to compare against.
     #[serde(default)]
     pub basis: HealthCheckBasis,
+}
+
+/// One rule's live findings, folded to what a mod user reads.
+///
+/// A rule title and its counts, never a site or a property path - that is the
+/// modder's half, and it lives in the Problems panel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct RuleBrief {
+    /// The rule's stable id, which the row quotes as a chip.
+    pub rule: String,
+    /// A few words naming the state the rule objects to.
+    pub title: String,
+    /// One sentence saying what that state is, which is the cause a reader
+    /// gets - sites and property paths stay in the Problems panel.
+    pub description: String,
+    /// Live findings from this rule.
+    pub count: u32,
+    /// How many of them a repair would fix.
+    pub fixable: u32,
+    /// Why the rest stay unrepaired, present only when some do.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub unfixable: Option<String>,
 }
 
 /// What a check ran against, and therefore what makes an old one stale.
@@ -286,10 +318,37 @@ impl ModHealthVerdict {
             health,
             fixable,
             counts,
+            rules: rule_briefs(run),
             checked_at: chrono::Utc::now().to_rfc3339(),
             basis,
         }
     }
+}
+
+/// Fold a run's live findings by rule, in the order the run names its rules.
+fn rule_briefs(run: &Run) -> Vec<RuleBrief> {
+    run.rules
+        .iter()
+        .filter_map(|rule| {
+            let mut count = 0u32;
+            let mut fixable = 0u32;
+            for problem in run.live_problems().filter(|p| p.rule == rule.id) {
+                count += 1;
+                if problem.fix.is_some() {
+                    fixable += 1;
+                }
+            }
+            (count > 0).then(|| RuleBrief {
+                rule: rule.id.to_string(),
+                title: rule.title.clone(),
+                description: rule.description.clone(),
+                count,
+                fixable,
+                unfixable: (fixable < count && !rule.unfixable.is_empty())
+                    .then(|| rule.unfixable.clone()),
+            })
+        })
+        .collect()
 }
 
 /// The error a mod the run never finished reports.

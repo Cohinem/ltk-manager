@@ -19,6 +19,10 @@ title: string,
  */
 description: string, 
 /**
+ * Why some of this rule's findings stay unrepaired, or empty where none do.
+ */
+unfixable?: string, 
+/**
  * Whether this project is one the rule speaks about yet.
  */
 state: RuleState, };

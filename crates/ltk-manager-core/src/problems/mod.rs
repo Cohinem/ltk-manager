@@ -397,6 +397,10 @@ pub struct RuleInfo {
     pub title: String,
     /// One sentence saying what that state is.
     pub description: String,
+    /// Why some of this rule's findings stay unrepaired, or empty where none do.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    #[cfg_attr(feature = "ts", ts(as = "Option<String>", optional))]
+    pub unfixable: String,
     /// Whether this project is one the rule speaks about yet.
     pub state: RuleState,
 }
@@ -664,6 +668,14 @@ pub trait Rule: Send + Sync {
     /// One sentence saying what that state is, for a reader who has not met it.
     fn description(&self) -> &'static str;
 
+    /// One sentence saying which of this rule's findings no repair reaches, and why.
+    ///
+    /// Empty for a rule whose findings a repair always fixes - the sentence is
+    /// only shown beside a count the repair falls short of.
+    fn unfixable_description(&self) -> &'static str {
+        ""
+    }
+
     /// What this rule is, for the catalogue a [`Run`] carries.
     ///
     /// [`RuleState::Active`] here, because dormancy is a fact about a project
@@ -674,6 +686,7 @@ pub trait Rule: Send + Sync {
             id: self.id(),
             title: self.title().to_owned(),
             description: self.description().to_owned(),
+            unfixable: self.unfixable_description().to_owned(),
             state: RuleState::Active,
         }
     }

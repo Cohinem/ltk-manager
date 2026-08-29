@@ -1,3 +1,4 @@
+export * from "./Accordion";
 export * from "./AlertBox";
 export * from "./AutoPill";
 export * from "./Button";

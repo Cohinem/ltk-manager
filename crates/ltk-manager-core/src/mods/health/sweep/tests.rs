@@ -52,6 +52,33 @@ fn a_first_sweep_checks_every_mod_and_names_the_broken_ones() {
     );
 }
 
+/// Story: the user folds a broken mod's row open and reads which rules
+/// objected, by title and count, without being sent to the Problems panel.
+#[test]
+fn a_verdict_names_the_rules_behind_its_counts() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
+
+    library.sweep_mod_health(&config).unwrap();
+
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
+    let verdict = &verdicts["id-1"];
+    assert_eq!(verdict.rules.len(), 1);
+    let brief = &verdict.rules[0];
+    assert!(!brief.rule.is_empty());
+    assert!(!brief.title.is_empty());
+    assert!(!brief.description.is_empty());
+    let total = verdict.counts.fatals
+        + verdict.counts.errors
+        + verdict.counts.warnings
+        + verdict.counts.infos;
+    assert_eq!(brief.count, total);
+    assert_eq!(brief.fixable, verdict.fixable);
+}
+
 /// Story: nothing about the game or the manager moved, so the second launch
 /// costs the user nothing and draws no banner.
 #[test]

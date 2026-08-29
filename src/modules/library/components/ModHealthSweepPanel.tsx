@@ -1,24 +1,29 @@
 import {
+  CaretDownIcon,
   CaretUpIcon,
+  PackageIcon,
   PlugsIcon,
   StackIcon,
   WarningCircleIcon,
   WrenchIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import {
+  Accordion,
   Button,
   ButtonGroup,
+  Code,
   IconButton,
   Menu,
   Progress,
   ShockedPoroDuotoneIcon,
+  Tooltip,
   WolfIcon,
 } from "@/components";
-import { type ModHealthVerdict, type ModRepairProgress } from "@/lib/tauri";
+import { type ModHealthVerdict, type ModRepairProgress, type RuleBrief } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
 
 import {
@@ -37,7 +42,8 @@ interface ModHealthSweepPanelProps {
 }
 
 /**
- * What the sweep found: a header, a row per mod, and the press that repairs them.
+ * What the sweep found: a header, the verdicts as two groups, and the press
+ * that repairs them.
  *
  * Per "The status bar item and the drawer" in docs/ux/MOD_HEALTH.md. The shell
  * around it belongs to the caller, so the centred dialog and the sheet draw one
@@ -94,14 +100,14 @@ export function ModHealthSweepPanel({ onClose }: ModHealthSweepPanelProps) {
         />
       </header>
 
-      <ul className="flex min-h-0 flex-1 flex-col overflow-y-auto py-2 select-none">
-        {repairable.map((verdict) => (
-          <VerdictRow key={verdict.modId} verdict={verdict} />
-        ))}
-        {unrepairable.map((verdict) => (
-          <VerdictRow key={verdict.modId} verdict={verdict} />
-        ))}
-      </ul>
+      {/* Grouped by verdict rather than run flat, so what a row's neighbours
+          all share is said once, by the group - DS-REPORT-PANEL. */}
+      <div className="mx-2 my-2 min-h-0 flex-1 overflow-y-auto rounded-xl border border-surface-700 bg-surface-950/30 scrollbar-md">
+        <Accordion.Root variant="filled" multiple defaultValue={["repairable", "unrepairable"]}>
+          {repairable.length > 0 && <VerdictGroup fixable verdicts={repairable} />}
+          {unrepairable.length > 0 && <VerdictGroup fixable={false} verdicts={unrepairable} />}
+        </Accordion.Root>
+      </div>
 
       <PanelActions run={repair} fixable={fixable} onClose={onClose} />
     </>
@@ -236,13 +242,12 @@ function RepairPress({ run }: { run: RepairRun }) {
  * The band the panel is answered from, in a dialog's confirm seat.
  *
  * At the header's own padding rather than [`Dialog.Footer`]'s, so the presses
- * line up with the rows above them in a panel this dense.
+ * line up with the rows above them in a panel this dense. No rule and no top
+ * padding of its own: the inset panel's margin is already the separation.
  */
 function PanelFoot({ children }: { children: ReactNode }) {
   return (
-    <div className="flex shrink-0 justify-end gap-2 border-t border-surface-600 px-3 py-2.5 select-none">
-      {children}
-    </div>
+    <div className="flex shrink-0 justify-end gap-2 px-3 pt-0 pb-2.5 select-none">{children}</div>
   );
 }
 
@@ -340,55 +345,222 @@ function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
+/**
+ * One verdict class and every mod in it.
+ *
+ * The header says once what its rows all share - whether a repair can reach
+ * them - which is what lets a row be one line: a name and its count.
+ */
+function VerdictGroup({ fixable, verdicts }: { fixable: boolean; verdicts: ModHealthVerdict[] }) {
+  if (fixable) {
+    return (
+      <Accordion.Item variant="filled" value="repairable">
+        <Accordion.Trigger variant="filled">
+          <WrenchIcon weight="duotone" className="h-4 w-4 shrink-0 text-warning-text" />
+          <span className="min-w-0 flex-1 text-sm font-medium text-warning-text">
+            Can be repaired
+          </span>
+          <GroupCount count={verdicts.length} />
+        </Accordion.Trigger>
+        <GroupRows verdicts={verdicts} />
+      </Accordion.Item>
+    );
+  }
+
+  return (
+    <Accordion.Item variant="filled" value="unrepairable">
+      <Accordion.Trigger variant="filled">
+        <WarningCircleIcon weight="duotone" className="h-4 w-4 shrink-0 text-danger-text" />
+        <span className="min-w-0 flex-1 text-sm font-medium text-danger-text">
+          Cannot be repaired
+        </span>
+        <GroupCount count={verdicts.length} />
+      </Accordion.Trigger>
+      <GroupRows verdicts={verdicts} />
+    </Accordion.Item>
+  );
+}
+
+function GroupCount({ count }: { count: number }) {
+  return <span className="shrink-0 text-meta text-surface-400 tabular-nums">{count}</span>;
+}
+
+function GroupRows({ verdicts }: { verdicts: ModHealthVerdict[] }) {
+  const { data: mods = [] } = useInstalledMods();
+  const enabled = new Set(mods.filter((mod) => mod.enabled).map((mod) => mod.id));
+
+  /* The footer's targets lead, and within each half the worst mod does. */
+  const sorted = [...verdicts].sort((a, b) => {
+    const lead = Number(enabled.has(b.modId)) - Number(enabled.has(a.modId));
+    return lead !== 0 ? lead : totalOf(b) - totalOf(a);
+  });
+
+  return (
+    <Accordion.Panel variant="filled">
+      <ul className="flex flex-col py-1 select-none">
+        {sorted.map((verdict) => (
+          <VerdictRow key={verdict.modId} verdict={verdict} />
+        ))}
+      </ul>
+    </Accordion.Panel>
+  );
+}
+
+/**
+ * One mod's row: the mark, the name as a disclosure, and the count that gives
+ * its seat to the hover-revealed Repair.
+ */
 function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
   const { data: mods = [] } = useInstalledMods();
   const repair = useRepairMod();
-  const name = mods.find((mod) => mod.id === verdict.modId)?.displayName ?? verdict.modId;
+  const [open, setOpen] = useState(false);
+  const mod = mods.find((candidate) => candidate.id === verdict.modId);
+  const name = mod?.displayName ?? verdict.modId;
   const fixable = verdict.health === "repairable";
+  /* A verdict recorded before briefs existed has nothing to unfold until its
+     next check, and its row stays plain text. */
+  const rules = verdict.rules ?? [];
 
   return (
-    <li className="group/row flex items-start gap-2.5 px-3 py-1.5 text-row hover:bg-surface-veil-soft">
-      <RowIcon fixable={fixable} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium text-surface-100 select-text">{name}</span>
-        <span className="text-meta text-surface-400">{outcome(verdict)}</span>
-      </div>
-      {fixable && (
-        <Button
-          variant="ghost"
-          size="xs"
-          compact
-          loading={repair.isPending}
-          onClick={() => repair.mutate(verdict.modId)}
-          aria-label={`Repair ${name}`}
+    <li className="text-row">
+      <div className="group/row relative flex items-center gap-2 px-3 py-1.5 hover:bg-surface-veil-soft">
+        <RowMark enabled={mod?.enabled ?? false} />
+        {rules.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            aria-expanded={open}
+            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-sm text-left focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none focus-visible:ring-inset"
+          >
+            <span className="min-w-0 truncate font-medium text-surface-100">{name}</span>
+            <CaretDownIcon
+              weight="bold"
+              className={twMerge(
+                "h-3 w-3 shrink-0 text-surface-500 transition-transform",
+                open && "rotate-180",
+              )}
+            />
+          </button>
+        )}
+        {rules.length === 0 && (
+          <span className="min-w-0 flex-1 truncate font-medium text-surface-100 select-text">
+            {name}
+          </span>
+        )}
+        <span
           className={twMerge(
-            "shrink-0 self-center opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100",
-            repair.isPending && "opacity-100",
+            "shrink-0 text-meta text-surface-400 tabular-nums",
+            fixable &&
+              "transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0",
+            fixable && repair.isPending && "opacity-0",
           )}
         >
-          <PlugsIcon className="h-4 w-4" weight="duotone" />
-          Repair
-        </Button>
-      )}
+          {problems(verdict)}
+        </span>
+        {fixable && (
+          <Button
+            variant="ghost"
+            size="xs"
+            compact
+            loading={repair.isPending}
+            onClick={() => repair.mutate(verdict.modId)}
+            aria-label={`Repair ${name}`}
+            className={twMerge(
+              "absolute top-1/2 right-3 -translate-y-1/2 opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100",
+              repair.isPending && "opacity-100",
+            )}
+          >
+            <PlugsIcon className="h-4 w-4" weight="duotone" />
+            Repair
+          </Button>
+        )}
+      </div>
+      {open && <RuleList verdict={verdict} />}
     </li>
   );
 }
 
-/** Everything the two row glyphs share, so only the glyph and its hue differ. */
-const ROW_ICON = "mt-0.5 h-5 w-5 shrink-0";
-
-function RowIcon({ fixable }: { fixable: boolean }) {
-  if (fixable) {
-    return <WrenchIcon weight="duotone" className={`${ROW_ICON} text-warning-text`} />;
+/** The row's package mark: the accent for a mod the next game carries, dim otherwise. */
+function RowMark({ enabled }: { enabled: boolean }) {
+  if (!enabled) {
+    return <PackageIcon weight="duotone" className="h-4 w-4 shrink-0 text-surface-600" />;
   }
 
-  return <WarningCircleIcon weight="duotone" className={`${ROW_ICON} text-danger-text`} />;
+  return (
+    <Tooltip content="Enabled">
+      <span className="flex shrink-0" aria-label="Enabled">
+        <PackageIcon weight="duotone" className="h-4 w-4 text-accent-400" />
+      </span>
+    </Tooltip>
+  );
 }
 
-/** What this row's mod is owed, in the one line under its name. */
-function outcome(verdict: ModHealthVerdict): string {
+/**
+ * The rules behind a row's count, for the reader who folds it open.
+ *
+ * Each rule says its cause in its own sentence. Titles and sentences, never a
+ * site or a property path - that is the modder's half, and it lives in the
+ * Problems panel.
+ */
+function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
+  const fixable = verdict.health === "repairable";
+
+  return (
+    <ul className="flex flex-col gap-1.5 pt-0.5 pb-2 pl-9">
+      {(verdict.rules ?? []).map((brief) => (
+        <li key={brief.rule} className="flex flex-col gap-0.5 pr-3 text-meta">
+          <div className="flex items-center gap-1.5 text-surface-400">
+            <span className="min-w-0 truncate">{brief.title}</span>
+            <RuleCount brief={brief} />
+            {/* Only the exception is marked: a rule the press will not fix,
+                inside a mod the press is offered for. */}
+            {fixable && brief.fixable === 0 && (
+              <span className="shrink-0 text-surface-500">not auto-fixable</span>
+            )}
+            <Code className="ml-auto select-text">{brief.rule}</Code>
+          </div>
+          <p className="text-surface-500">{brief.description}</p>
+          {brief.unfixable != null && <p className="text-surface-500">{brief.unfixable}</p>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * A rule line's count, wearing the warning tone where a repair reaches it.
+ *
+ * The same rule can sit in both groups - fixable in one mod, not in another -
+ * and the tinted count is what tells two otherwise identical lines apart.
+ */
+function RuleCount({ brief }: { brief: RuleBrief }) {
+  if (brief.fixable === 0) {
+    return <span className="shrink-0 tabular-nums">({brief.count})</span>;
+  }
+
+  if (brief.fixable === brief.count) {
+    return (
+      <Tooltip content="A repair fixes all of these">
+        <span className="shrink-0 text-warning-text tabular-nums">({brief.count})</span>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip content={`A repair fixes ${brief.fixable} of the ${brief.count}`}>
+      <span className="shrink-0 text-warning-text tabular-nums">
+        ({brief.fixable} of {brief.count})
+      </span>
+    </Tooltip>
+  );
+}
+
+/** How much is wrong with this row's mod, in the one line it has. */
+function problems(verdict: ModHealthVerdict): string {
+  return plural(totalOf(verdict), "problem");
+}
+
+function totalOf(verdict: ModHealthVerdict): number {
   const { fatals, errors, warnings, infos } = verdict.counts;
-  const total = fatals + errors + warnings + infos;
-  if (verdict.health === "repairable") return plural(total, "problem");
-  return `${plural(total, "unfixable problem")} :(`;
+  return fatals + errors + warnings + infos;
 }
