@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import type { AppError, ErrorCode } from "@/lib/bindings";
+import type { AppError, ErrorCode, OverlayErrorCategory } from "@/lib/bindings";
 
-export type { AppError, ErrorCode } from "@/lib/bindings";
+export type { AppError, ErrorCode, OverlayErrorCategory } from "@/lib/bindings";
 
 /**
  * Type guard to check if an error has a specific code.
@@ -60,4 +60,32 @@ export function getModNotFoundContext(error: AppError): ModNotFoundContext | und
   }
   const result = ModNotFoundContextSchema.safeParse(error.context);
   return result.success ? result.data : undefined;
+}
+
+/**
+ * Schema for OVERLAY error context
+ */
+const overlayErrorCategories = [
+  "GAME_DIR",
+  "MOD_CONTENT",
+  "WAD_LIMIT",
+  "CORRUPT",
+  "BUG",
+  "OTHER",
+] as const satisfies readonly OverlayErrorCategory[];
+
+const OverlayContextSchema = z.object({
+  category: z.enum(overlayErrorCategories),
+});
+
+/**
+ * Get the failure category from an OVERLAY error.
+ * Returns undefined if the error code doesn't match or context validation fails.
+ */
+export function getOverlayErrorCategory(error: AppError): OverlayErrorCategory | undefined {
+  if (error.code !== "OVERLAY" || !error.context) {
+    return undefined;
+  }
+  const result = OverlayContextSchema.safeParse(error.context);
+  return result.success ? result.data.category : undefined;
 }

@@ -72,6 +72,49 @@ pub enum ErrorCode {
     Hashtable,
     /// An asset could not be previewed. The message says why.
     Preview,
+    /// An overlay build or analysis failed. The category is in `context.category`.
+    ///
+    /// One code, not one per category: the message already carries the
+    /// specific failure, and `ltk_overlay::Error` is `#[non_exhaustive]`, so
+    /// new categories arrive as [`OverlayErrorCategory::Other`] rather than
+    /// as codes the frontend has never heard of.
+    Overlay,
+}
+
+/// Which way an overlay build failed, as the remedy the frontend picks between.
+///
+/// Mirrors the categories of `ltk_overlay::Error`, which is not `Serialize`,
+/// so the category rides in `context.category` while the detail stays in the
+/// message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OverlayErrorCategory {
+    /// The game installation cannot be used. Point the user at their game dir.
+    GameDir,
+    /// A mod's content could not be used. Blame the mod, not the game.
+    ModContent,
+    /// The output would exceed a WAD format limit. Splitting a mod helps.
+    WadLimit,
+    /// A game file is not what its own metadata says. A repair may help.
+    Corrupt,
+    /// An `ltk_overlay` invariant broke. Nothing the user did; report it.
+    Bug,
+    /// An IO, parse or archive failure with no category of its own.
+    Other,
+}
+
+impl From<&ltk_overlay::Error> for OverlayErrorCategory {
+    fn from(error: &ltk_overlay::Error) -> Self {
+        match error {
+            ltk_overlay::Error::GameDir(_) => Self::GameDir,
+            ltk_overlay::Error::ModContent(_) => Self::ModContent,
+            ltk_overlay::Error::WadLimit(_) => Self::WadLimit,
+            ltk_overlay::Error::Corrupt(_) => Self::Corrupt,
+            ltk_overlay::Error::Bug(_) => Self::Bug,
+            _ => Self::Other,
+        }
+    }
 }
 
 /// Structured error response sent over IPC.
@@ -273,6 +316,12 @@ impl From<AppError> for AppErrorResponse {
 
             AppError::Preview(preview_err) => {
                 AppErrorResponse::new(ErrorCode::Preview, preview_err.to_string())
+            }
+
+            AppError::Overlay(overlay_err) => {
+                let category = OverlayErrorCategory::from(&overlay_err);
+                AppErrorResponse::new(ErrorCode::Overlay, overlay_err.to_string())
+                    .with_context(serde_json::json!({ "category": category }))
             }
         }
     }

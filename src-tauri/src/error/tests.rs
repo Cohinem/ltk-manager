@@ -77,6 +77,7 @@ fn error_code_round_trips() {
         ErrorCode::Launcher,
         ErrorCode::Hashtable,
         ErrorCode::Preview,
+        ErrorCode::Overlay,
     ] {
         let json = serde_json::to_string(&code).unwrap();
         let deserialized: ErrorCode = serde_json::from_str(&json).unwrap();
@@ -280,4 +281,75 @@ fn app_error_response_context_skipped_when_none() {
     let resp = AppErrorResponse::new(ErrorCode::Io, "err");
     let json = serde_json::to_value(&resp).unwrap();
     assert!(json.get("context").is_none());
+}
+
+/// The overlay's failure categories exist so the frontend can branch on the
+/// remedy - fix the game dir, blame a mod, split a mod, report a bug - and
+/// `context.category` is where each must land.
+#[test]
+fn every_overlay_category_reaches_the_frontend_distinguishable() {
+    use ltk_overlay::{CorruptionError, GameDirError, Invariant, ModContentError, WadLimitError};
+
+    let cases: [(ltk_overlay::Error, &str); 6] = [
+        (
+            GameDirError::MissingDataFinal {
+                path: "D:/Games/League".into(),
+            }
+            .into(),
+            "GAME_DIR",
+        ),
+        (ModContentError::FantomeInfoMissing.into(), "MOD_CONTENT"),
+        (
+            WadLimitError::TooManyChunks {
+                wad: "Map11.wad.client".into(),
+                count: u32::MAX as usize + 1,
+            }
+            .into(),
+            "WAD_LIMIT",
+        ),
+        (
+            CorruptionError::TruncatedWad {
+                wad: "Aatrox.wad.client".into(),
+                reach: 100,
+                len: 50,
+            }
+            .into(),
+            "CORRUPT",
+        ),
+        (
+            ltk_overlay::Error::Bug(Invariant::OverrideNeverPrepared),
+            "BUG",
+        ),
+        (
+            std::io::Error::from(std::io::ErrorKind::PermissionDenied).into(),
+            "OTHER",
+        ),
+    ];
+
+    for (error, expected_category) in cases {
+        let resp: AppErrorResponse = AppError::Overlay(error).into();
+        assert_eq!(resp.code, ErrorCode::Overlay);
+        assert_eq!(
+            resp.context.expect("an overlay context")["category"],
+            expected_category
+        );
+    }
+}
+
+/// The category names the remedy, but the user still reads the message, so
+/// the detail's own words must survive the mapping.
+#[test]
+fn overlay_response_message_carries_the_detail() {
+    use ltk_overlay::GameDirError;
+
+    let resp: AppErrorResponse = AppError::Overlay(
+        GameDirError::MissingDataFinal {
+            path: "D:/Games/League".into(),
+        }
+        .into(),
+    )
+    .into();
+
+    assert!(resp.message.contains("D:/Games/League"), "{}", resp.message);
+    assert!(resp.message.contains("DATA/FINAL"), "{}", resp.message);
 }

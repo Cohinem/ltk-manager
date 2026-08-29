@@ -20,7 +20,7 @@ use std::collections::BTreeSet;
 fn override_digest_set(
     content: &mut dyn ModContentProvider,
 ) -> AppResult<BTreeSet<(WadHash, [u8; 32])>> {
-    let content_error = |e: ltk_overlay::Error| AppError::Other(format!("{e}"));
+    let content_error = AppError::Overlay;
 
     let project = content.mod_project().map_err(content_error)?;
     let layer_names: Vec<String> = project.layers.iter().map(|l| l.name.clone()).collect();
@@ -45,8 +45,7 @@ fn override_digest_set(
 }
 
 fn digest_entry(rel_path: &Utf8Path, bytes: &[u8]) -> AppResult<(WadHash, [u8; 32])> {
-    let hash = ltk_overlay::utils::resolve_chunk_hash(rel_path, bytes)
-        .map_err(|e| AppError::Other(format!("Failed to resolve chunk hash: {e}")))?;
+    let hash = ltk_overlay::utils::resolve_chunk_hash(rel_path, bytes)?;
     Ok((hash, sha2::Sha256::digest(bytes).into()))
 }
 

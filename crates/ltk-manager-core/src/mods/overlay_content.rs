@@ -195,7 +195,7 @@ impl LibraryModEntry {
             // there since. ADR-0003 and ADR-0004.
             ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => Box::new(
                 FantomeContent::new(File::open(&archive_path)?)
-                    .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?
+                    .map_err(AppError::Overlay)?
                     .with_archive_path(archive_path),
             ),
         };

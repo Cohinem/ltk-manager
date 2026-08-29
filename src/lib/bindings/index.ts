@@ -114,6 +114,7 @@ export type { ModWadReport } from "./ModWadReport";
 export type { NodeAddress } from "./NodeAddress";
 export type { ObjectInfo } from "./ObjectInfo";
 export type { OriginKind } from "./OriginKind";
+export type { OverlayErrorCategory } from "./OverlayErrorCategory";
 export type { OverlayOutcome } from "./OverlayOutcome";
 export type { OverlayProgress } from "./OverlayProgress";
 export type { OverlayStage } from "./OverlayStage";

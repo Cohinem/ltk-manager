@@ -1,9 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
 
 import { useToast } from "@/components";
-import type { AppError, PatcherError } from "@/lib/tauri";
+import type { AppError, OverlayErrorCategory, PatcherError } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { type PatcherFailure, type PatcherFailureStage, usePatcherFailureStore } from "@/stores";
+import { getOverlayErrorCategory } from "@/utils/errors";
 
 type InjectionFailed = Extract<PatcherError, { kind: "INJECTION_FAILED" }>;
 
@@ -53,6 +54,27 @@ export function classifyPatcherError(error: AppError): PatcherFailure | null {
   return { stage: "BUILD", message: error.message };
 }
 
+/** Toast titles per overlay failure category, each naming what to go fix. */
+const overlayFailureTitles: Record<OverlayErrorCategory, string> = {
+  GAME_DIR: "Game Install Problem",
+  MOD_CONTENT: "Mod Content Problem",
+  WAD_LIMIT: "Mod Too Large",
+  CORRUPT: "Corrupt Game Files",
+  BUG: "Overlay Builder Bug",
+  OTHER: "Overlay Build Failure",
+};
+
+/**
+ * The toast title for a failed build, by what actually failed.
+ *
+ * An overlay failure names its category so a wrong game dir does not read as
+ * a broken mod. Anything else keeps the generic title.
+ */
+export function buildFailureTitle(error: AppError): string {
+  const category = getOverlayErrorCategory(error);
+  return category ? overlayFailureTitles[category] : "Patcher Error";
+}
+
 /**
  * Every `patcher-error`, as a toast and the session bar's failed-start line.
  *
@@ -69,7 +91,7 @@ export function usePatcherError() {
     if (failure) setFailure(failure);
 
     if (!failure || failure.stage === "BUILD") {
-      toast.error("Patcher Error", error.message, { notify: true });
+      toast.error(buildFailureTitle(error), error.message, { notify: true });
       return;
     }
 

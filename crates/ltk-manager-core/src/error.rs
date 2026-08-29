@@ -54,6 +54,7 @@ pub enum ErrorKind {
     Workshop,
     Hashtable,
     Preview,
+    Overlay,
 }
 
 impl fmt::Display for ErrorKind {
@@ -92,6 +93,7 @@ impl AppError {
             AppError::Workshop { .. } => ErrorKind::Workshop,
             AppError::Hashtable { .. } => ErrorKind::Hashtable,
             AppError::Preview { .. } => ErrorKind::Preview,
+            AppError::Overlay { .. } => ErrorKind::Overlay,
         }
     }
 }
@@ -176,6 +178,9 @@ pub enum AppError {
 
     #[error(transparent)]
     Preview(#[from] PreviewError),
+
+    #[error(transparent)]
+    Overlay(#[from] ltk_overlay::Error),
 }
 
 impl From<ltk_mod_project::ModProjectError> for AppError {

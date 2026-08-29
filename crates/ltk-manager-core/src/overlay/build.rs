@@ -7,7 +7,7 @@
 //! a CLI reuse this: it can supply its own mod list and print the offenders
 //! instead of persisting them for a badge UI.
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::events::{OverlayProgress, OverlayStage};
 use camino::Utf8PathBuf;
 
@@ -63,9 +63,7 @@ pub fn build_overlay(
 
     builder.set_enabled_mods(mods);
 
-    builder
-        .build()
-        .map_err(|e| AppError::Other(format!("Overlay build failed: {}", e)))?;
+    builder.build()?;
 
     Ok(OverlayBuildOutcome {
         linked_bin_offenders: builder.take_linked_bin_offenders(),
