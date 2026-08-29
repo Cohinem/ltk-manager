@@ -307,6 +307,7 @@ fn seeds() -> Vec<Seed> {
                 r,
                 SessionFailure::Build {
                     kind: ErrorKind::Io,
+                    category: None,
                     message: "Access is denied. (os error 5)".to_string(),
                 },
                 &[],

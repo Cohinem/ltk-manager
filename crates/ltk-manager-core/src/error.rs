@@ -65,7 +65,52 @@ impl fmt::Display for ErrorKind {
     }
 }
 
+/// Which way an overlay build failed, as the remedy a consumer picks between.
+///
+/// Mirrors the categories of `ltk_overlay::Error`, which is not `Serialize`,
+/// so records and IPC responses carry this while the detail stays in the
+/// message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OverlayErrorCategory {
+    /// The game installation cannot be used. Point the user at their game dir.
+    GameDir,
+    /// A mod's content could not be used. Blame the mod, not the game.
+    ModContent,
+    /// The output would exceed a WAD format limit. Splitting a mod helps.
+    WadLimit,
+    /// A game file is not what its own metadata says. A repair may help.
+    Corrupt,
+    /// An `ltk_overlay` invariant broke. Nothing the user did; report it.
+    Bug,
+    /// An IO, parse or archive failure with no category of its own.
+    Other,
+}
+
+impl From<&ltk_overlay::Error> for OverlayErrorCategory {
+    fn from(error: &ltk_overlay::Error) -> Self {
+        match error {
+            ltk_overlay::Error::GameDir(_) => Self::GameDir,
+            ltk_overlay::Error::ModContent(_) => Self::ModContent,
+            ltk_overlay::Error::WadLimit(_) => Self::WadLimit,
+            ltk_overlay::Error::Corrupt(_) => Self::Corrupt,
+            ltk_overlay::Error::Bug(_) => Self::Bug,
+            _ => Self::Other,
+        }
+    }
+}
+
 impl AppError {
+    /// The overlay failure's category, when this is one.
+    pub fn overlay_category(&self) -> Option<OverlayErrorCategory> {
+        match self {
+            AppError::Overlay(e) => Some(OverlayErrorCategory::from(e)),
+            _ => None,
+        }
+    }
+
     /// Which variant this is, without its message.
     pub fn kind(&self) -> ErrorKind {
         match self {

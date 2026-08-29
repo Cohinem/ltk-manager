@@ -435,6 +435,7 @@ mod tests {
         let record = recorder.session_failed(
             SessionFailure::Build {
                 kind: ErrorKind::Other,
+                category: None,
                 message: "Overlay build failed: bad wad".to_string(),
             },
             at(1),
@@ -449,6 +450,7 @@ mod tests {
             record.failure,
             Some(SessionFailure::Build {
                 kind: ErrorKind::Other,
+                category: None,
                 message: "Overlay build failed: bad wad".to_string()
             })
         );

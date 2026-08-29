@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { AppError, OverlayErrorCategory } from "@/lib/tauri";
 import { getOverlayErrorCategory } from "@/utils/errors";
 
-import { buildFailureTitle, classifyPatcherError } from "../usePatcherError";
+import { classifyPatcherError } from "../usePatcherError";
 
 function overlayError(category: OverlayErrorCategory, message = "build failed"): AppError {
   return { code: "OVERLAY", message, context: { category } };
@@ -31,7 +31,7 @@ describe("getOverlayErrorCategory", () => {
   });
 });
 
-describe("buildFailureTitle", () => {
+describe("classifyPatcherError", () => {
   // The categories exist so a wrong game dir does not read as a broken mod -
   // each must surface under its own title.
   it.each([
@@ -42,19 +42,17 @@ describe("buildFailureTitle", () => {
     ["BUG", "Overlay Builder Bug"],
     ["OTHER", "Overlay Build Failure"],
   ] as [OverlayErrorCategory, string][])("titles a %s failure", (category, title) => {
-    expect(buildFailureTitle(overlayError(category))).toBe(title);
-  });
-
-  it("keeps the generic title for a non-overlay error", () => {
-    expect(buildFailureTitle({ code: "UNKNOWN", message: "x" })).toBe("Patcher Error");
-  });
-});
-
-describe("classifyPatcherError", () => {
-  it("treats an overlay failure as a failed build", () => {
-    expect(classifyPatcherError(overlayError("CORRUPT", "chunk mismatch"))).toEqual({
+    expect(classifyPatcherError(overlayError(category, "chunk mismatch"))).toEqual({
       stage: "BUILD",
       message: "chunk mismatch",
+      title,
+    });
+  });
+
+  it("leaves a categoryless build failure to the stage's own title", () => {
+    expect(classifyPatcherError({ code: "UNKNOWN", message: "x" })).toEqual({
+      stage: "BUILD",
+      message: "x",
     });
   });
 

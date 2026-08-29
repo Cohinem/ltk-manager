@@ -9,6 +9,8 @@ export interface PatcherFailure {
   stage: PatcherFailureStage;
   /** The backend's own message, shown under the title. */
   message: string;
+  /** A title naming the failure's category, when the stage alone is too broad. */
+  title?: string;
 }
 
 interface PatcherFailureStore {

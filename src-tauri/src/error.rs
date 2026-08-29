@@ -9,7 +9,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-pub use ltk_manager_core::error::{AppError, AppResult, MutexResultExt, Utf8PathExt};
+pub use ltk_manager_core::error::{
+    AppError, AppResult, MutexResultExt, OverlayErrorCategory, Utf8PathExt,
+};
 
 /// Error codes that can be communicated across the IPC boundary.
 /// These are serialized as SCREAMING_SNAKE_CASE for TypeScript consumption.
@@ -79,42 +81,6 @@ pub enum ErrorCode {
     /// new categories arrive as [`OverlayErrorCategory::Other`] rather than
     /// as codes the frontend has never heard of.
     Overlay,
-}
-
-/// Which way an overlay build failed, as the remedy the frontend picks between.
-///
-/// Mirrors the categories of `ltk_overlay::Error`, which is not `Serialize`,
-/// so the category rides in `context.category` while the detail stays in the
-/// message.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum OverlayErrorCategory {
-    /// The game installation cannot be used. Point the user at their game dir.
-    GameDir,
-    /// A mod's content could not be used. Blame the mod, not the game.
-    ModContent,
-    /// The output would exceed a WAD format limit. Splitting a mod helps.
-    WadLimit,
-    /// A game file is not what its own metadata says. A repair may help.
-    Corrupt,
-    /// An `ltk_overlay` invariant broke. Nothing the user did; report it.
-    Bug,
-    /// An IO, parse or archive failure with no category of its own.
-    Other,
-}
-
-impl From<&ltk_overlay::Error> for OverlayErrorCategory {
-    fn from(error: &ltk_overlay::Error) -> Self {
-        match error {
-            ltk_overlay::Error::GameDir(_) => Self::GameDir,
-            ltk_overlay::Error::ModContent(_) => Self::ModContent,
-            ltk_overlay::Error::WadLimit(_) => Self::WadLimit,
-            ltk_overlay::Error::Corrupt(_) => Self::Corrupt,
-            ltk_overlay::Error::Bug(_) => Self::Bug,
-            _ => Self::Other,
-        }
-    }
 }
 
 /// Structured error response sent over IPC.

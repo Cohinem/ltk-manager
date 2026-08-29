@@ -51,10 +51,20 @@ export function classifyPatcherError(error: AppError): PatcherFailure | null {
     return { stage: error.context.stage, message: error.context.message };
   }
   if (error.code === "PATCHER") return null;
-  return { stage: "BUILD", message: error.message };
+  const category = getOverlayErrorCategory(error);
+  return {
+    stage: "BUILD",
+    message: error.message,
+    ...(category && { title: overlayFailureTitles[category] }),
+  };
 }
 
-/** Toast titles per overlay failure category, each naming what to go fix. */
+/**
+ * Failure titles per overlay category, each naming what to go fix.
+ *
+ * These exist so a wrong game dir does not read as a broken mod. A failure
+ * with no category keeps the stage's generic title.
+ */
 const overlayFailureTitles: Record<OverlayErrorCategory, string> = {
   GAME_DIR: "Game Install Problem",
   MOD_CONTENT: "Mod Content Problem",
@@ -63,17 +73,6 @@ const overlayFailureTitles: Record<OverlayErrorCategory, string> = {
   BUG: "Overlay Builder Bug",
   OTHER: "Overlay Build Failure",
 };
-
-/**
- * The toast title for a failed build, by what actually failed.
- *
- * An overlay failure names its category so a wrong game dir does not read as
- * a broken mod. Anything else keeps the generic title.
- */
-export function buildFailureTitle(error: AppError): string {
-  const category = getOverlayErrorCategory(error);
-  return category ? overlayFailureTitles[category] : "Patcher Error";
-}
 
 /**
  * Every `patcher-error`, as a toast and the session bar's failed-start line.
@@ -91,7 +90,7 @@ export function usePatcherError() {
     if (failure) setFailure(failure);
 
     if (!failure || failure.stage === "BUILD") {
-      toast.error(buildFailureTitle(error), error.message, { notify: true });
+      toast.error(failure?.title ?? "Patcher Error", error.message, { notify: true });
       return;
     }
 

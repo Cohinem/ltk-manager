@@ -1135,6 +1135,7 @@ mod tests {
         let mut incident = fixtures::incident("a", "2026-08-21T21:14:02+00:00");
         incident.failure = Some(SessionFailure::Build {
             kind: ErrorKind::Io,
+            category: None,
             message: r"could not read C:\Users\someone\mods\x.wad".to_string(),
         });
         let token = IncidentToken::from_incident(&incident, "1.14.0");

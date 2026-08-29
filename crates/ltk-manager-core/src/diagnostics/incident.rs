@@ -18,7 +18,7 @@ use super::binary_id::PatcherBinaries;
 use super::exit_status;
 use super::game_log::{CodeSighting, GameLogFacts, Record};
 use super::log_codes::{self, CodeKind, CodeRow, EvidenceMark};
-use crate::error::ErrorKind;
+use crate::error::{ErrorKind, OverlayErrorCategory};
 use crate::patcher::injector::WadScanFailure;
 use crate::patcher::{InjectionStage, SessionOrigin};
 
@@ -488,8 +488,15 @@ pub enum SessionFailure {
     /// `kind` is carried because `message` is [`Display`](std::fmt::Display)
     /// output and several [`AppError`](crate::error::AppError) variants render
     /// with no prefix of their own, so a thin inner error leaves nothing at all
-    /// to read. The kind is always there to say what failed.
-    Build { kind: ErrorKind, message: String },
+    /// to read. The kind is always there to say what failed. `category` is the
+    /// overlay's own word on which remedy applies, and `None` on records from
+    /// before it was recorded and on failures that never reached the builder.
+    Build {
+        kind: ErrorKind,
+        #[serde(default)]
+        category: Option<OverlayErrorCategory>,
+        message: String,
+    },
     /// The host did not start, or the DLL did not attach.
     Injection {
         stage: InjectionStage,
@@ -501,7 +508,7 @@ impl SessionFailure {
     /// The failure as one evidence line, naming what failed and how.
     pub fn line(&self) -> String {
         match self {
-            Self::Build { kind, message } => {
+            Self::Build { kind, message, .. } => {
                 format!("overlay build failed, {kind}: {message}")
             }
             Self::Injection { stage, message } => {
@@ -514,7 +521,7 @@ impl SessionFailure {
     /// host's message for an injection. The stage is the verdict's to say.
     pub fn summary(&self) -> String {
         match self {
-            Self::Build { kind, message } => failure_detail(*kind, message),
+            Self::Build { kind, message, .. } => failure_detail(*kind, message),
             Self::Injection { message, .. } => capitalized_sentence(message),
         }
     }
@@ -1292,6 +1299,7 @@ mod hint {
     pub const SYSTEM_CHECKS: &str = "Run the System checks on the Diagnostics page.";
     pub const UPDATE_MANAGER: &str = "Update LTK Manager.";
     pub const REBUILD_OVERLAY: &str = "Rebuild the overlay.";
+    pub const CHECK_GAME_PATH: &str = "Check the League of Legends installation path in Settings.";
     pub const TEXTURE_DIMENSIONS: &str = "A modded texture whose width or height is not a multiple of 4 is the common cause, so check the dimensions of any texture you changed.";
     pub const REPAIR_INSTALL: &str =
         "Repair the install in the Riot Client when the rebuild does not help.";

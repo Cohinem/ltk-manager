@@ -270,7 +270,9 @@ function FailureLine({ failure }: { failure: PatcherFailure }) {
   return (
     <RestingLine part="failure" detail={failure.message}>
       <WarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" weight="fill" />
-      <span className="font-medium text-danger-text">{patcherFailureTitle(failure.stage)}</span>
+      <span className="font-medium text-danger-text">
+        {failure.title ?? patcherFailureTitle(failure.stage)}
+      </span>
       <LineActions
         label="Diagnostics"
         onAction={() =>

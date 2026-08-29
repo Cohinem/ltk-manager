@@ -124,6 +124,7 @@ fn a_build_failure_is_the_whole_story() {
     let mut record = GameRecord::open(at(0), SessionOrigin::Library);
     record.failure = Some(SessionFailure::Build {
         kind: ErrorKind::Io,
+        category: None,
         message: "Overlay build failed: bad layer".to_string(),
     });
     let incident = classify(&record, &no_path).unwrap();
@@ -143,6 +144,60 @@ fn a_build_failure_is_the_whole_story() {
     assert!(incident.suspects.is_empty());
     assert!(incident.game.is_none());
     assert!(!incident.id.is_empty());
+}
+
+/// A build failure's hints follow the overlay's own category: a wrong game
+/// directory is fixed in Settings, corrupt game files by a repair, a builder
+/// bug by an update or a report. Rebuilding fixes none of those, so the
+/// rebuild hint stays only where nothing more specific is known.
+#[test]
+fn a_build_failure_hints_at_the_category_remedy() {
+    let cases: [(Option<OverlayErrorCategory>, &[&str]); 5] = [
+        (
+            Some(OverlayErrorCategory::GameDir),
+            &[hint::CHECK_GAME_PATH],
+        ),
+        (
+            Some(OverlayErrorCategory::Corrupt),
+            &[hint::REBUILD_OVERLAY, hint::REPAIR_INSTALL],
+        ),
+        (
+            Some(OverlayErrorCategory::Bug),
+            &[hint::UPDATE_MANAGER, hint::COPY_REPORT],
+        ),
+        (
+            Some(OverlayErrorCategory::ModContent),
+            &[hint::REBUILD_OVERLAY],
+        ),
+        (None, &[hint::REBUILD_OVERLAY]),
+    ];
+
+    for (category, hints) in cases {
+        let mut record = GameRecord::open(at(0), SessionOrigin::Library);
+        record.failure = Some(SessionFailure::Build {
+            kind: ErrorKind::Overlay,
+            category,
+            message: "it did not build".to_string(),
+        });
+        let incident = classify(&record, &no_path).unwrap();
+        assert_eq!(incident.verdict.hints, hints, "for {category:?}");
+    }
+}
+
+/// Records written before the category was kept load with `None`, so an
+/// upgrade never invalidates the incident store.
+#[test]
+fn a_build_failure_without_a_category_still_loads() {
+    let json = r#"{"build":{"kind":"IO","message":"Access is denied."}}"#;
+    let failure: SessionFailure = serde_json::from_str(json).unwrap();
+    assert_eq!(
+        failure,
+        SessionFailure::Build {
+            kind: ErrorKind::Io,
+            category: None,
+            message: "Access is denied.".to_string(),
+        }
+    );
 }
 
 #[test]
@@ -970,6 +1025,7 @@ fn a_failure_with_no_message_still_says_what_failed() {
     let mut record = GameRecord::open(at(0), SessionOrigin::Library);
     record.failure = Some(SessionFailure::Build {
         kind: ErrorKind::Preview,
+        category: None,
         message: String::new(),
     });
     let incident = classify(&record, &no_path).unwrap();

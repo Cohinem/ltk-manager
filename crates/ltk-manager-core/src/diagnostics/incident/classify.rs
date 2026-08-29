@@ -210,14 +210,23 @@ impl GameRecord {
             // The message is the builder's or the host's own words, which name
             // a part of the patcher the player has never heard of. Each cause
             // says what the step was for before quoting it.
-            SessionFailure::Build { kind, message } => Verdict::new(
-                VerdictKind::OverlayBuildFailed,
-                format!(
-                    "Your enabled mods are merged into one overlay before League starts, and that did not finish, so the game ran without them. {}",
-                    failure_detail(*kind, message)
-                ),
-            )
-            .with_hint(hint::REBUILD_OVERLAY),
+            SessionFailure::Build {
+                kind,
+                category,
+                message,
+            } => {
+                let mut verdict = Verdict::new(
+                    VerdictKind::OverlayBuildFailed,
+                    format!(
+                        "Your enabled mods are merged into one overlay before League starts, and that did not finish, so the game ran without them. {}",
+                        failure_detail(*kind, message)
+                    ),
+                );
+                for hint in build_failure_hints(*category) {
+                    verdict = verdict.with_hint(*hint);
+                }
+                verdict
+            }
             SessionFailure::Injection {
                 stage: InjectionStage::Host,
                 message,
@@ -651,5 +660,21 @@ impl GameRecord {
         rows.sort_by(|a, b| a.0.total_cmp(&b.0));
         rows.reverse();
         rows.into_iter().map(|(_, evidence)| evidence).collect()
+    }
+}
+
+/// The hints for a failed build, from the overlay's own word on which remedy
+/// applies.
+///
+/// Only the categories whose remedy is not a rebuild get their own hints: a
+/// wrong game directory is fixed in Settings, corrupt game files by a repair,
+/// and a builder bug by an update or a report. Everything else, including a
+/// record from before the category was kept, keeps the rebuild hint.
+fn build_failure_hints(category: Option<OverlayErrorCategory>) -> &'static [&'static str] {
+    match category {
+        Some(OverlayErrorCategory::GameDir) => &[hint::CHECK_GAME_PATH],
+        Some(OverlayErrorCategory::Corrupt) => &[hint::REBUILD_OVERLAY, hint::REPAIR_INSTALL],
+        Some(OverlayErrorCategory::Bug) => &[hint::UPDATE_MANAGER, hint::COPY_REPORT],
+        _ => &[hint::REBUILD_OVERLAY],
     }
 }
