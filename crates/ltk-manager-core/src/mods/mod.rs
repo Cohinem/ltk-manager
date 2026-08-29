@@ -11,6 +11,7 @@
 //! | `index`            | `library.json`: shape, versioning, reconciliation  |
 //! | `archive`          | Mod archives in, out, and read                     |
 //! | `analysis`         | What a mod touches and what that makes it          |
+//! | `health`           | The Problems rules over an installed mod           |
 //! | `organize`         | Folders and profiles                               |
 //! | `types`            | The shapes the frontend sees                       |
 //! | `library`          | Library reads and per-profile mod state            |
@@ -24,7 +25,7 @@
 
 mod analysis;
 mod archive;
-mod check;
+mod health;
 mod index;
 mod library;
 pub(crate) mod long_paths;
@@ -41,7 +42,11 @@ pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
 pub use archive::migration::*;
-pub use check::{ModCheckVerdict, ModHealth};
+pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
+pub use health::sweep::{HealthSweepReport, HealthSweepState};
+#[cfg(debug_assertions)]
+pub use health::timing::{HealthTiming, ModTiming};
+pub use health::{HealthCheckBasis, ModHealth, ModHealthVerdict};
 pub use index::document::{ModArchiveFormat, ModFault, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
 pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};
@@ -90,7 +95,19 @@ pub struct ModLibrary {
     /// hear it announced, so the outcome is kept for whoever asks next rather
     /// than only emitted.
     layout_migration: Arc<Mutex<LayoutMigrationState>>,
+    /// What the mod health sweep has to say, kept for the same reason
+    /// `layout_migration` is.
+    health_sweep: Arc<Mutex<HealthSweepState>>,
+    /// The budget the check or repair now running spends, for a cancel to
+    /// reach. `None` between runs.
+    health_budget: Arc<Mutex<Option<crate::problems::Budget>>>,
     index_lock: Arc<Mutex<()>>,
+    /// Serializes the read-modify-write of `mod-health-verdicts.json`.
+    ///
+    /// A startup sweep and an install's background check both record verdicts,
+    /// and each records by rewriting the whole file, so two at once would lose
+    /// whichever landed first.
+    verdict_lock: Arc<Mutex<()>>,
     /// Epoch-millis timestamp of the last `mutate_index` completion.
     /// The file watcher skips events that arrive within [`WATCHER_SUPPRESS_SECS`]
     /// of this timestamp.
@@ -107,7 +124,10 @@ impl Clone for ModLibrary {
             wad_reports: Arc::clone(&self.wad_reports),
             wad_resolver: Arc::clone(&self.wad_resolver),
             layout_migration: Arc::clone(&self.layout_migration),
+            health_sweep: Arc::clone(&self.health_sweep),
+            health_budget: Arc::clone(&self.health_budget),
             index_lock: Arc::clone(&self.index_lock),
+            verdict_lock: Arc::clone(&self.verdict_lock),
             last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
         }
     }
@@ -130,7 +150,10 @@ impl ModLibrary {
             wad_reports,
             wad_resolver,
             layout_migration: Arc::new(Mutex::new(LayoutMigrationState::default())),
+            health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
+            health_budget: Arc::new(Mutex::new(None)),
             index_lock: Arc::new(Mutex::new(())),
+            verdict_lock: Arc::new(Mutex::new(())),
             last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),
         }
     }
@@ -146,6 +169,50 @@ impl ModLibrary {
     pub(crate) fn record_layout_migration(&self, outcome: LayoutMigrationState) {
         if let Ok(mut state) = self.layout_migration.lock() {
             *state = outcome;
+        }
+    }
+
+    pub(in crate::mods) fn verdict_lock(&self) -> &Mutex<()> {
+        &self.verdict_lock
+    }
+
+    /// Take `budget` as the run now under way, so a cancel can reach it.
+    ///
+    /// A second run started while one is going replaces it. Two library-wide
+    /// health runs at once is not a thing any surface offers, and the newer one
+    /// is the one a user would mean.
+    pub(in crate::mods) fn begin_health_run(
+        &self,
+        budget: crate::problems::Budget,
+    ) -> crate::problems::Budget {
+        if let Ok(mut held) = self.health_budget.lock() {
+            *held = Some(budget.clone());
+        }
+        budget
+    }
+
+    /// Forget `budget`, so a later cancel cancels nothing.
+    ///
+    /// Only where it is still the run that is installed. A second run that
+    /// replaced it is still going, and clearing its handle would leave its
+    /// cancel reaching nothing.
+    pub(in crate::mods) fn end_health_run(&self, budget: &crate::problems::Budget) {
+        if let Ok(mut held) = self.health_budget.lock()
+            && held.as_ref().is_some_and(|running| running.is(budget))
+        {
+            *held = None;
+        }
+    }
+
+    /// Call off the check or repair now running, if one is.
+    ///
+    /// Every worker stops at its next file. A mod the run had not finished
+    /// records no verdict, so the next sweep picks it up.
+    pub fn cancel_mod_health_run(&self) {
+        if let Ok(held) = self.health_budget.lock()
+            && let Some(budget) = held.as_ref()
+        {
+            budget.cancel();
         }
     }
 

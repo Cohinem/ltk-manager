@@ -87,9 +87,14 @@ fn main() {
             commands::enable_mod_with_layers,
             commands::edit_mod_metadata,
             commands::set_mod_storage,
-            commands::check_mod,
+            commands::check_mod_health,
             commands::repair_mod,
-            commands::get_check_verdicts,
+            commands::repair_mods,
+            commands::get_mod_health_verdicts,
+            #[cfg(debug_assertions)]
+            commands::time_mod_health,
+            commands::cancel_mod_health_run,
+            commands::get_health_sweep,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
             commands::get_storage_directory,
@@ -183,8 +188,6 @@ fn main() {
             // Problems
             commands::analyze_project,
             commands::fix_problems,
-            commands::undo_fix_run,
-            commands::fix_runs,
             // Hashtables
             commands::get_hashtable_cache_status,
             commands::check_hashtable_updates,

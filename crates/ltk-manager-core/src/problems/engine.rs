@@ -17,6 +17,7 @@ use crate::error::AppResult;
 use crate::workshop::layer;
 use crate::workshop::{ProjectDir, WorkshopFileKind};
 
+use super::budget::Budget;
 use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
 
 /// The directory a project keeps its layers under.
@@ -37,6 +38,7 @@ pub struct ProjectFiles {
     layers: Vec<LayerFiles>,
     build: Option<GameBuild>,
     names: BinNames,
+    budget: Budget,
 }
 
 impl ProjectFiles {
@@ -47,6 +49,15 @@ impl ProjectFiles {
     /// Reports a project whose `content/` directory cannot be read at all. An
     /// unreadable file inside it is skipped and logged, never fatal.
     pub fn read(project_root: &Path, config: &Config) -> AppResult<Self> {
+        Self::within(project_root, config, Budget::repair())
+    }
+
+    /// [`read`](Self::read) under a caller's own budget.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`read`](Self::read).
+    pub fn within(project_root: &Path, config: &Config, budget: Budget) -> AppResult<Self> {
         let content_dir = project_root.join(CONTENT_DIR);
         let layers = if content_dir.exists() {
             layer::dirs_in(&content_dir)?
@@ -68,6 +79,7 @@ impl ProjectFiles {
             layers,
             build: GameBuild::installed(config),
             names: BinNames::open(),
+            budget,
         })
     }
 
@@ -95,6 +107,15 @@ impl ProjectFiles {
         &self.names
     }
 
+    /// The memory this run may hold parsed at once, and its cancel flag.
+    ///
+    /// A rule fans its own files out through this rather than over a pool of
+    /// its own, so every rule of every mod in flight spends one allowance.
+    #[must_use]
+    pub fn budget(&self) -> &Budget {
+        &self.budget
+    }
+
     /// Every file of every layer that reports `kind`.
     pub fn by_kind(
         &self,
@@ -107,6 +128,17 @@ impl ProjectFiles {
                 .filter(move |file| file.kind == kind)
                 .map(move |file| (layer, file))
         })
+    }
+
+    /// Every property bin of every layer, override bins included.
+    ///
+    /// The seam a bin rule reads through: it names the files and hands back a
+    /// handle rather than the bytes, so the day `ltk_meta` can read a bin
+    /// lazily, [`BinHandle::read`] is the only thing that changes.
+    pub fn bins(&self) -> impl Iterator<Item = BinHandle<'_>> {
+        self.by_kind(WorkshopFileKind::PropertyBin)
+            .chain(self.by_kind(WorkshopFileKind::PropertyBinOverride))
+            .map(|(layer, file)| BinHandle { layer, file })
     }
 
     /// How many files the whole project holds.
@@ -197,6 +229,54 @@ impl LayerFiles {
     }
 }
 
+/// One property bin of one layer, not yet read.
+///
+/// Names where the bin is and opens it on demand. A rule holds one per file and
+/// parses at most once, which is what keeps a check and the repair that follows
+/// it to a single read.
+#[derive(Debug, Clone, Copy)]
+pub struct BinHandle<'a> {
+    layer: &'a LayerFiles,
+    file: &'a ProjectFile,
+}
+
+impl<'a> BinHandle<'a> {
+    /// The layer this bin sits in, such as `base`.
+    #[must_use]
+    pub fn layer(&self) -> &'a str {
+        &self.layer.name
+    }
+
+    /// The bin's path, POSIX-style and relative to the layer root.
+    #[must_use]
+    pub fn path(&self) -> &'a str {
+        &self.file.path
+    }
+
+    /// The bin's size on disk, which is what a budget is spent in.
+    #[must_use]
+    pub fn size_bytes(&self) -> u64 {
+        self.file.size_bytes
+    }
+
+    /// Where the bin sits on disk.
+    #[must_use]
+    pub fn absolute(&self) -> PathBuf {
+        self.layer.absolute(self.file)
+    }
+
+    /// Parse the bin.
+    ///
+    /// # Errors
+    ///
+    /// Reports the file it could not open or parse, as one sentence a panel
+    /// can draw.
+    pub fn read(&self) -> Result<ltk_meta::Bin, String> {
+        let bytes = std::fs::read(self.absolute()).map_err(|e| e.to_string())?;
+        ltk_meta::Bin::from_reader(&mut std::io::Cursor::new(&bytes)).map_err(|e| e.to_string())
+    }
+}
+
 /// One file of one layer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectFile {
@@ -214,10 +294,19 @@ pub struct ProjectFile {
 /// be read. A rule that fails is recorded in [`Run::failed`] rather than
 /// failing the run.
 pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
+    analyze_within(project_root, config, Budget::repair())
+}
+
+/// [`analyze`] under a caller's own budget.
+///
+/// # Errors
+///
+/// The same as [`analyze`].
+pub fn analyze_within(project_root: &Path, config: &Config, budget: Budget) -> AppResult<Run> {
     let started = Instant::now();
 
     let project = ProjectDir::open(project_root)?;
-    let files = ProjectFiles::read(project.path(), config)?;
+    let files = ProjectFiles::within(project.path(), config, budget)?;
     let at = Utc::now();
 
     let mut report = Report::default();
@@ -252,7 +341,7 @@ pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
 
     let objects = ObjectInfo::catalogue(&problems, files.names());
 
-    tracing::debug!(
+    tracing::trace!(
         "Analyzed {} files of {}: {} problems, {} rule failures, in {:?}",
         files.file_count(),
         project.path().display(),

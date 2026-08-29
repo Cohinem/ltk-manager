@@ -19,7 +19,6 @@ import type {
   ExtractTarget,
   FantomePeekResult,
   FixReport,
-  FixRunSummary,
   GameDirListing,
   GameFindResult,
   GameIndexStats,
@@ -29,6 +28,8 @@ import type {
   HashtableCacheStatus,
   HashtableSyncReport,
   HashtableUpdateCheck,
+  HealthSweepState,
+  HealthTiming,
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
@@ -39,8 +40,9 @@ import type {
   LaunchTarget,
   LayoutMigrationState,
   LibraryFolder,
+  LibraryRepairReport,
   LinkedBinOffenderInfo,
-  ModCheckVerdict,
+  ModHealthVerdict,
   ModpkgInfo,
   ModStorage,
   ModWadReport,
@@ -57,7 +59,6 @@ import type {
   Settings,
   StorageMedium,
   StringKeySearchResult,
-  UndoReport,
   ValidationResult,
   WorkshopFileKind,
   WorkshopLayerInfo,
@@ -158,9 +159,20 @@ export const api = {
     invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
   analyzeModWads: (modId: string) => invokeResult<ModWadReport>("analyze_mod_wads", { modId }),
-  checkMod: (modId: string) => invokeResult<ModCheckVerdict>("check_mod", { modId }),
+  checkModHealth: (modId: string) => invokeResult<ModHealthVerdict>("check_mod_health", { modId }),
   repairMod: (modId: string) => invokeResult<FixReport>("repair_mod", { modId }),
-  getCheckVerdicts: () => invokeResult<Record<string, ModCheckVerdict>>("get_check_verdicts"),
+  repairMods: (modIds: string[]) => invokeResult<LibraryRepairReport>("repair_mods", { modIds }),
+  getModHealthVerdicts: () =>
+    invokeResult<Record<string, ModHealthVerdict>>("get_mod_health_verdicts"),
+  getHealthSweep: () => invokeResult<HealthSweepState>("get_health_sweep"),
+  cancelModHealthRun: () => invokeResult<null>("cancel_mod_health_run"),
+  /**
+   * Time a health pass over the real library, into the dev console.
+   *
+   * Registered only in a debug build. `repair` runs the real repair, which
+   * rewrites the mods it can fix and keeps no way back.
+   */
+  timeModHealth: (repair: boolean) => invokeResult<HealthTiming>("time_mod_health", { repair }),
 
   // Migration
   scanCslolMods: (directory: string) =>
@@ -321,9 +333,6 @@ export const api = {
   analyzeProject: (projectPath: string) => invokeResult<Run>("analyze_project", { projectPath }),
   fixProblems: (projectPath: string, problems: ProblemId[]) =>
     invokeResult<FixReport>("fix_problems", { projectPath, problems }),
-  undoFixRun: (projectPath: string, stamp: string) =>
-    invokeResult<UndoReport>("undo_fix_run", { projectPath, stamp }),
-  fixRuns: (projectPath: string) => invokeResult<FixRunSummary[]>("fix_runs", { projectPath }),
   setProjectThumbnail: (projectPath: string, imagePath: string) =>
     invokeResult<WorkshopProject>("set_project_thumbnail", { projectPath, imagePath }),
   removeProjectThumbnail: (projectPath: string) =>

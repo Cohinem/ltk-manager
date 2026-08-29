@@ -26,13 +26,13 @@ fn checking_a_stale_archived_fantome_reports_it_repairable_and_remembers() {
     let archive = storage.path().join("mods").join("stale-mod.fantome");
     let before = fs::read(&archive).unwrap();
 
-    let verdict = library.check_mod(&config, "id-1").unwrap();
+    let verdict = library.check_mod_health(&config, "id-1").unwrap();
 
     assert_eq!(verdict.health, ModHealth::Repairable);
     assert_eq!(verdict.fixable, 1);
     assert_eq!(fs::read(&archive).unwrap(), before, "a check never writes");
 
-    let verdicts = library.check_verdicts(&config).unwrap();
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(verdicts.get("id-1").unwrap(), &verdict);
 }
 
@@ -52,7 +52,7 @@ fn checking_a_stale_project_mod_reports_it_repairable() {
         )],
     );
 
-    let verdict = library.check_mod(&config, "id-1").unwrap();
+    let verdict = library.check_mod_health(&config, "id-1").unwrap();
 
     assert_eq!(verdict.health, ModHealth::Repairable);
     assert_eq!(verdict.fixable, 1);
@@ -79,10 +79,11 @@ fn checking_many_skips_the_mod_it_cannot_read() {
         ],
     );
 
-    let recorded = library.check_mods(&config, &["id-broken".to_string(), "id-good".to_string()]);
+    let recorded =
+        library.check_mods_health(&config, &["id-broken".to_string(), "id-good".to_string()]);
 
     assert_eq!(recorded, 1);
-    let verdicts = library.check_verdicts(&config).unwrap();
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(
         verdicts.get("id-good").unwrap().health,
         ModHealth::Repairable
@@ -100,11 +101,55 @@ fn a_repair_refreshes_the_stored_verdict() {
     place_bin_archived_fantome(storage.path(), "stale-mod", &stale_bin());
     seed_library(&library, &config, vec![archived_entry("id-1", "stale-mod")]);
 
-    let checked = library.check_mod(&config, "id-1").unwrap();
+    let checked = library.check_mod_health(&config, "id-1").unwrap();
     assert_eq!(checked.health, ModHealth::Repairable);
 
     library.repair_mod(&config, "id-1").unwrap();
 
-    let verdicts = library.check_verdicts(&config).unwrap();
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(verdicts.get("id-1").unwrap().health, ModHealth::Healthy);
+}
+
+/// Story: a repair that wrote and was then called off leaves a verdict about
+/// content that has since changed. The sweep compares only the basis, so a
+/// stale verdict would stand until the game patches - it has to go instead.
+#[test]
+fn forgetting_a_verdict_makes_the_sweep_owe_that_mod_a_check() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    crate::mods::test_support::place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-1",
+            "stale-mod",
+            ModArchiveFormat::Fantome,
+        )],
+    );
+    library.check_mod_health(&config, "id-1").unwrap();
+    assert!(
+        library
+            .mod_health_verdicts(&config)
+            .unwrap()
+            .contains_key("id-1")
+    );
+
+    library.forget_health_check(&library.storage_dir(&config).unwrap(), "id-1");
+
+    assert!(library.mod_health_verdicts(&config).unwrap().is_empty());
+}
+
+/// Forgetting a mod nothing remembers writes nothing, so a cancel over a mod
+/// the run never got to does not rewrite the whole file.
+#[test]
+fn forgetting_a_verdict_that_is_not_held_writes_nothing() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let storage_dir = library.storage_dir(&config).unwrap();
+
+    library.forget_health_check(&storage_dir, "never-checked");
+
+    assert!(!storage_dir.join("mod-health-verdicts.json").exists());
 }

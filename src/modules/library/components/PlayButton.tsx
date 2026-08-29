@@ -8,6 +8,8 @@ import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modu
 import { useSettings } from "@/modules/settings";
 import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
 
+import { type GuardedLaunch, ModHealthLaunchGuard } from "./ModHealthLaunchGuard";
+
 interface PlayButtonProps {
   /** Set while a library action that must not overlap a patch is in progress. */
   disabled?: boolean;
@@ -121,6 +123,25 @@ function LaunchMenuItem({ label, leagueRunning, disabled, onClick }: LaunchMenuI
  */
 export function PlayButton({ disabled = false }: PlayButtonProps) {
   const { data: platform } = usePlatformSupport();
+
+  // Both halves are Windows-only, so there is nothing to offer elsewhere.
+  // `PatcherUnsupported` already explains why on the page itself.
+  if (!(platform?.patcherAvailable ?? true)) return null;
+
+  return (
+    <ModHealthLaunchGuard>
+      {(ask) => <LaunchControls ask={ask} disabled={disabled} />}
+    </ModHealthLaunchGuard>
+  );
+}
+
+interface LaunchControlsProps {
+  /** Every action here that ends in a patch goes through this first. */
+  ask: GuardedLaunch;
+  disabled: boolean;
+}
+
+function LaunchControls({ ask, disabled }: LaunchControlsProps) {
   const { data: mods = [], isLoading } = useInstalledMods();
   const { data: status } = usePatcherStatus();
   const { data: availability } = useLaunchAvailability();
@@ -157,10 +178,6 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
   const patcherOnly = classic || leagueRunning;
 
   const primaryAction = patcherOnly ? handleStartPatcherOnly : handlePlay;
-
-  // Both halves are Windows-only, so there is nothing to offer elsewhere.
-  // `PatcherUnsupported` already explains why on the page itself.
-  if (!(platform?.patcherAvailable ?? true)) return null;
 
   if (isRunning && !isBusy) {
     const stopButton = (
@@ -213,6 +230,8 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup className="w-64">
+                {/* Unguarded: this starts the game without the patcher, so
+                    it carries no mods for the ask to be about. */}
                 <LaunchMenuItem
                   label="Launch League"
                   leagueRunning={leagueRunning}
@@ -242,7 +261,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
       <Button
         variant="filled"
         size="md"
-        onClick={primaryAction}
+        onClick={() => ask(primaryAction)}
         loading={isBusy || isBuilding}
         disabled={busy || (patcherOnly && !hasEnabledMods)}
         left={<PrimaryIcon patcherOnly={patcherOnly} />}
@@ -278,20 +297,21 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
                 <LaunchMenuItem
                   label="Play"
                   leagueRunning={leagueRunning}
-                  onClick={handlePlay}
+                  onClick={() => ask(handlePlay)}
                   disabled={!canLaunch}
                 />
               )}
               {!patcherOnly && (
                 <Menu.Item
                   icon={<CaretDoubleRightIcon weight="bold" className="h-4 w-4" />}
-                  onClick={handleStartPatcherOnly}
+                  onClick={() => ask(handleStartPatcherOnly)}
                   disabled={!hasEnabledMods}
                   shortcut="Ctrl+P"
                 >
                   Start patcher only
                 </Menu.Item>
               )}
+              {/* Unguarded, for the reason the other one is. */}
               <LaunchMenuItem
                 label="Launch League only"
                 leagueRunning={leagueRunning}
