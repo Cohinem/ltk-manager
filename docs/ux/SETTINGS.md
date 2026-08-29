@@ -805,7 +805,7 @@ separators do not carry.
 
 | Group       | Rows                                                      |
 | ----------- | --------------------------------------------------------- |
-| Storage     | Storage location, Keep mod archives                       |
+| Storage     | Storage location                                          |
 | Cataloguing | Automatically categorize mods, Watch for external changes |
 | Installing  | Trusted mod providers                                     |
 

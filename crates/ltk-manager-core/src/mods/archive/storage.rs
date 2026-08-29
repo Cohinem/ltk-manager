@@ -1,19 +1,21 @@
 //! Switching one mod between its archive and an unpacked project.
 //!
-//! ADR-0003 left both storage modes live at once: a fantome installed now is
-//! unpacked, and one the layout migration moved still reads out of the file
-//! beside it. This is the switch between them, per mod, after the fact.
+//! ADR-0003 left both storage modes live at once, and ADR-0007 made the
+//! archive the install default. This is the switch between them, per mod,
+//! after the fact.
 //!
-//! Unpacking is the install path pointed at a mod already in the library —
+//! Unpacking consumes the archive —
 //! [`ProjectImporter`](ltk_mod_project::ProjectImporter) writes a fresh project
-//! into staging, the user's own metadata is carried across, and the two
-//! directories swap. Repacking deletes the `content/` tree and nothing else,
-//! because everything else in the directory is metadata the archive cannot
-//! carry back.
+//! into staging, the user's own metadata is carried across, the two directories
+//! swap, and the archive is deleted: the tree carries everything it did, and
+//! keeping both would double the mod on disk. Repacking is the way back —
+//! [`ProjectPacker`](ltk_mod_project::ProjectPacker) packs the tree into a
+//! fresh archive, the same way a repair of an `archive` mod does, and the
+//! `content/` tree goes. What the fantome format can carry back is the pack
+//! format's contract, not decided here.
 //!
-//! The archive is what makes either direction possible, so it is never removed
-//! here, whatever `retain_mod_archives` says. A mod that lost it could not be
-//! unpacked again, and could not be repacked at all.
+//! Exactly one of the two — the tree or the archive — is the mod at any
+//! moment, so neither direction needs the other's leftovers to exist.
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt};
@@ -26,28 +28,29 @@ use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModStorage, get_active_profile};
 use crate::mods::long_paths;
 use crate::mods::types::InstalledMod;
-use ltk_mod_project::fantome::FantomeImporter;
-use ltk_mod_project::{ModProject, ProjectImporter};
+use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
+use ltk_mod_project::{ModProject, ProjectImporter, ProjectPacker};
 use std::collections::HashMap;
 use std::fs;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 impl ModLibrary {
     /// Read one mod's content from the other place from now on.
     ///
-    /// Unpacking materializes the archive as a mod project, repacking throws
-    /// the unpacked tree away and reads the archive again. Either way the
-    /// archive stays, and the mod keeps its id, its slug, its place in every
-    /// profile, and the metadata the user edited.
+    /// Unpacking materializes the archive as a mod project and deletes the
+    /// archive, repacking packs the tree back into a fresh archive and throws
+    /// the tree away. Either way the mod keeps its id, its slug, its place in
+    /// every profile, and the metadata the user edited.
     ///
     /// A mod already stored the way `storage` asks for is returned untouched.
     ///
     /// # Errors
     ///
     /// Fails when the mod is not in the library, has faulted, is a modpkg
-    /// (whose content only exists inside its archive), or has no archive beside
-    /// it to convert against.
+    /// (whose content only exists inside its archive), or asks to unpack with
+    /// no archive to read.
     pub fn set_mod_storage(
         &self,
         config: &Config,
@@ -70,8 +73,12 @@ impl ModLibrary {
 
         // Ahead of any report, so a mod that cannot convert at all fails through
         // the call's own error rather than through a toast that opened and then
-        // said nothing.
-        let archive = entry.convertible_archive(&storage_dir)?;
+        // said nothing. Only an unpack needs the archive on disk — a repack
+        // builds a fresh one from the tree.
+        match storage {
+            ModStorage::Project => drop(entry.convertible_archive(&storage_dir)?),
+            ModStorage::Archive => entry.convertible()?,
+        }
 
         let report = ConversionReport {
             events: self.events().as_ref(),
@@ -79,7 +86,7 @@ impl ModLibrary {
             storage,
         };
 
-        if let Err(e) = self.convert(config, &storage_dir, &entry, &archive, &report) {
+        if let Err(e) = self.convert(config, &storage_dir, &entry, &report) {
             report.stage(FantomeImportStage::Error);
             return Err(e);
         }
@@ -102,28 +109,29 @@ impl ModLibrary {
         config: &Config,
         storage_dir: &Path,
         entry: &LibraryModEntry,
-        archive: &Path,
         report: &ConversionReport<'_>,
     ) -> AppResult<()> {
         let mod_id = entry.id.as_str();
         let storage = report.storage;
+        let archive = entry.archive_path(storage_dir);
 
-        // Unpacking writes a whole content tree, which is far too slow to do
-        // under the index lock. Staging it first is the same split the install
-        // path makes, for the same reason.
+        // Either direction's slow half runs outside the index lock: unpacking
+        // writes a whole content tree, repacking reads one back into an
+        // archive. Staging first is the same split the install path makes,
+        // for the same reason.
         let staged = match storage {
-            ModStorage::Project => Some(stage_unpacked(
+            ModStorage::Project => Staged::Tree(stage_unpacked(
                 storage_dir,
-                archive,
+                &archive,
                 &entry.mod_dir(storage_dir),
                 self.wad_resolver().as_ref(),
                 report,
             )?),
             ModStorage::Archive => {
-                // A repack has no count to give, so it reports the one step it
-                // is: throwing the unpacked tree away.
+                // The pack has no per-unit count to give, so it reports the
+                // one step it is.
                 report.stage(FantomeImportStage::Finalizing);
-                None
+                Staged::Archive(stage_packed(storage_dir, &entry.mod_dir(storage_dir))?)
             }
         };
 
@@ -138,18 +146,32 @@ impl ModLibrary {
 
             let mod_dir = entry.mod_dir(storage_dir);
             match &staged {
-                Some(staging_dir) => swap_in_unpacked(staging_dir, &mod_dir)?,
-                None => drop_unpacked_content(&mod_dir)?,
+                Staged::Tree(staging_dir) => swap_in_unpacked(staging_dir, &mod_dir)?,
+                Staged::Archive(staged_archive) => {
+                    swap_in_packed(staged_archive, &archive)?;
+                    drop_unpacked_content(&mod_dir)?;
+                }
             }
             entry.storage = storage;
             Ok(())
         });
 
         if let Err(e) = moved {
-            if let Some(staging_dir) = &staged {
-                let _ = fs::remove_dir_all(staging_dir);
-            }
+            staged.discard();
             return Err(e);
+        }
+
+        // The tree is the mod now, and the archive would be a second copy of
+        // it on disk. Best-effort: a copy that survives is stale bytes the
+        // next repack replaces.
+        if storage == ModStorage::Project
+            && let Err(e) = fs::remove_file(&archive)
+        {
+            tracing::warn!(
+                "Failed to remove the unpacked mod's archive at {}: {}",
+                archive.display(),
+                e
+            );
         }
 
         Ok(())
@@ -166,6 +188,25 @@ impl ModLibrary {
             let (enabled, layer_states) = index.profile_state(mod_id);
             read_installed_mod(entry, enabled, storage_dir, layer_states)
         })
+    }
+}
+
+/// What a conversion's slow half left beside the index, per direction.
+#[derive(Debug)]
+enum Staged {
+    /// An unpacked project at `mods/.staging-<uuid>/`.
+    Tree(PathBuf),
+    /// A packed archive at `mods/.staging-<uuid>.fantome`.
+    Archive(PathBuf),
+}
+
+impl Staged {
+    /// Delete what staging left, for a swap that could not finish.
+    fn discard(&self) {
+        let _ = match self {
+            Staged::Tree(dir) => fs::remove_dir_all(dir),
+            Staged::Archive(file) => fs::remove_file(file),
+        };
     }
 }
 
@@ -225,14 +266,13 @@ impl LibraryIndex {
 }
 
 impl LibraryModEntry {
-    /// The archive a storage change reads from, or why this mod has none.
+    /// Whether this mod can change storage at all, whatever is on disk.
     ///
     /// # Errors
     ///
     /// Fails with [`AppError::ValidationFailed`] carrying what the user should
-    /// do about it: a faulted mod, a format with no unpacked form, or a mod
-    /// installed with archives turned off.
-    pub(in crate::mods) fn convertible_archive(&self, storage_dir: &Path) -> AppResult<PathBuf> {
+    /// do about it: a faulted mod, or a format with no unpacked form.
+    pub(in crate::mods) fn convertible(&self) -> AppResult<()> {
         if self.fault.is_some() {
             return Err(AppError::ValidationFailed(
                 "This mod is in a failed state. Remove it and install it again.".to_string(),
@@ -246,11 +286,23 @@ impl LibraryModEntry {
             ));
         }
 
+        Ok(())
+    }
+
+    /// The archive an unpack reads from, or why this mod has none.
+    ///
+    /// # Errors
+    ///
+    /// As [`convertible`](Self::convertible), plus a mod whose archive is not
+    /// on disk.
+    pub(in crate::mods) fn convertible_archive(&self, storage_dir: &Path) -> AppResult<PathBuf> {
+        self.convertible()?;
+
         let archive = self.archive_path(storage_dir);
         if !archive.is_file() {
             return Err(AppError::ValidationFailed(
-                "This mod has no archive beside it, so there is nothing to convert against. \
-                 Turn on \"Keep mod archives\" and install it again to get one."
+                "This mod has no archive beside it, so there is nothing to read. \
+                 Install it again to get one."
                     .to_string(),
             ));
         }
@@ -387,6 +439,59 @@ fn swap_in_unpacked(staging_dir: &Path, mod_dir: &Path) -> AppResult<()> {
     }
 
     let _ = fs::remove_dir_all(&replaced);
+    Ok(())
+}
+
+/// Pack the mod's tree into a staged archive, for the swap under the lock.
+///
+/// The same pack a repair of an `archive` mod runs, so a repacked mod is
+/// byte-compatible with a repaired one.
+fn stage_packed(storage_dir: &Path, mod_dir: &Path) -> AppResult<PathBuf> {
+    let staged = storage_dir
+        .join("mods")
+        .join(format!("{STAGING_PREFIX}{}.fantome", Uuid::new_v4()));
+
+    let project = load_mod_project(mod_dir)?;
+    let root = mod_dir.to_path_buf().try_into_utf8("mod directory")?;
+    let writer = BufWriter::new(fs::File::create(&staged)?);
+    ProjectPacker::new(project, root)
+        .pack(FantomeFormat::new(writer))
+        .map_err(|e| AppError::PackFailed(e.to_string()))
+        .inspect_err(|_| {
+            let _ = fs::remove_file(&staged);
+        })?;
+
+    Ok(staged)
+}
+
+/// Put the packed archive where the mod's archive belongs, keeping whatever
+/// was there until the new one is in place.
+///
+/// A leftover archive can be standing there — one an unpack failed to delete —
+/// and a fresh repack usually finds nothing at all.
+fn swap_in_packed(staged: &Path, archive: &Path) -> AppResult<()> {
+    let replaced = staged.with_extension("replaced");
+    if archive.exists() {
+        fs::rename(archive, &replaced).map_err(|e| {
+            AppError::Io(std::io::Error::new(
+                e.kind(),
+                format!("Failed to move {} aside: {e}", archive.display()),
+            ))
+        })?;
+    }
+
+    if let Err(e) = fs::rename(staged, archive) {
+        let _ = fs::rename(&replaced, archive);
+        return Err(AppError::Io(std::io::Error::new(
+            e.kind(),
+            format!(
+                "Failed to move the packed archive into {}: {e}",
+                archive.display()
+            ),
+        )));
+    }
+
+    let _ = fs::remove_file(&replaced);
     Ok(())
 }
 

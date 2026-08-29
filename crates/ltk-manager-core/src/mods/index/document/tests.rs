@@ -1,6 +1,7 @@
 use super::*;
 use crate::mods::test_support::{
-    make_slugged_entry, make_test_entry, place_installed_mod, place_mod_files,
+    make_slugged_entry, make_test_entry, make_unpacked_entry, place_installed_mod, place_mod_files,
+    place_unpacked_mod,
 };
 
 #[test]
@@ -173,13 +174,14 @@ fn a_slugged_entry_keeps_its_archive_beside_the_mod() {
     );
 }
 
-/// A modpkg is packed by design, and a legacy entry is packed by circumstance:
-/// its content is still in `archives/` whatever format it came from.
+/// Every install reads out of its archive, and only an unpack or a discovered
+/// project directory reads off disk.
 #[test]
-fn a_modpkg_and_anything_pre_migration_read_as_packed() {
+fn an_install_reads_as_packed_and_an_unpack_does_not() {
     assert!(make_slugged_entry("a", "a", ModArchiveFormat::Modpkg).is_packed());
-    assert!(!make_slugged_entry("a", "a", ModArchiveFormat::Fantome).is_packed());
+    assert!(make_slugged_entry("a", "a", ModArchiveFormat::Fantome).is_packed());
     assert!(!make_slugged_entry("a", "a", ModArchiveFormat::Unknown).is_packed());
+    assert!(!make_unpacked_entry("a", "a").is_packed());
 
     assert!(make_test_entry("a", ModArchiveFormat::Modpkg).is_packed());
     assert!(make_test_entry("a", ModArchiveFormat::Fantome).is_packed());
@@ -199,19 +201,14 @@ fn a_legacy_fantome_needs_its_archive_to_be_present() {
     assert!(!entry.is_present(storage.path()));
 }
 
-/// A fantome installed with archive retention off has no archive, and is still
+/// A fantome the user unpacked and whose archive later went missing is still
 /// perfectly readable — its content is the directory.
 #[test]
 fn an_unpacked_mod_is_present_without_an_archive() {
     let storage = tempfile::tempdir().unwrap();
-    place_installed_mod(
-        storage.path(),
-        "cool-skin",
-        ModArchiveFormat::Fantome,
-        false,
-    );
+    place_unpacked_mod(storage.path(), "cool-skin", false);
 
-    let entry = make_slugged_entry("id-1", "cool-skin", ModArchiveFormat::Fantome);
+    let entry = make_unpacked_entry("id-1", "cool-skin");
     assert!(entry.is_present(storage.path()));
 }
 

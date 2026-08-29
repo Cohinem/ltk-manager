@@ -253,7 +253,10 @@ export function SidePanel({
                 resizing && "transition-none",
               )}
             >
-              <div data-ui={`SidePanel:${section.id}`} className="h-full overflow-auto">
+              <div
+                data-ui={`SidePanel:${section.id}`}
+                className="h-full overflow-auto scrollbar-md"
+              >
                 <PanelContent section={section} onMeasure={reportContentHeight} />
               </div>
             </Accordion.Panel>

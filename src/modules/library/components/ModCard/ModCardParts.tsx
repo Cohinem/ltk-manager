@@ -42,7 +42,7 @@ type CardVariant = "grid" | "list";
 
 const THUMBNAIL_VARIANTS: Record<
   CardVariant,
-  { container: string; placeholder: string; placeholderOff: string; image: string }
+  { container: string; bare: string; placeholder: string; placeholderOff: string; image: string }
 > = {
   grid: {
     /* Its own corner, one border-width inside the card's. Left to the card's
@@ -50,16 +50,21 @@ const THUMBNAIL_VARIANTS: Record<
        two curves are drawn by different passes. */
     container:
       "relative aspect-video overflow-hidden rounded-t-[max(0px,calc(var(--radius-xl)-2px))] bg-linear-to-br from-surface-700 to-surface-800",
+    /* The flat panel sits tone-on-tone with the card, so its corner is read
+       against the outer silhouette rather than the border it hugs. The
+       concentric radius looks under-rounded there, and only art earns it. */
+    bare: "rounded-t-xl",
     placeholder: "text-4xl font-bold",
     placeholderOff: "text-surface-400",
     /* The card answers a hover here rather than by scaling itself. Any scale
        over the body resamples the name and the version under it, and text a
        hundredth larger is text redrawn slightly wrong. */
-    image: "transition-[scale] duration-200 ease-out group-hover:scale-[1.04]",
+    image: "transition-[scale] duration-200 ease-out group-hover:scale-[1.02]",
   },
   list: {
     container:
       "relative h-12 w-[5.25rem] shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-surface-700 to-surface-800",
+    bare: "",
     placeholder: "text-lg font-bold",
     placeholderOff: "text-surface-500",
     image: "",
@@ -80,7 +85,7 @@ export function ModCardThumbnail({
 }) {
   const styles = THUMBNAIL_VARIANTS[variant];
   return (
-    <div className={styles.container}>
+    <div className={twMerge(styles.container, !thumbnailUrl && styles.bare)}>
       {thumbnailUrl && (
         <img
           src={thumbnailUrl}

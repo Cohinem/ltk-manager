@@ -1,8 +1,9 @@
 # ADR-0001: A fantome unpacks, a modpkg stays packed
 
 Status: accepted (2026-08-26), amended by [ADR-0002](0002-library-json-is-the-only-record.md) and
-[ADR-0003](0003-the-layout-migration-moves-files-it-does-not-convert-them.md), and extended by
-[ADR-0004](0004-the-storage-mode-is-a-per-mod-choice.md)
+[ADR-0003](0003-the-layout-migration-moves-files-it-does-not-convert-them.md), extended by
+[ADR-0004](0004-the-storage-mode-is-a-per-mod-choice.md), and its install default reversed by
+[ADR-0007](0007-an-install-keeps-the-mod-in-its-archive.md)
 
 ADR-0003 narrows this one to mods arriving now. A mod already in the library is moved onto the slug
 layout rather than converted, and keeps reading out of its archive.

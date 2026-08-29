@@ -164,13 +164,6 @@ pub struct Config {
     /// of the same age. Default: 50.
     #[serde(default = "default_keep_incidents")]
     pub keep_incidents: u32,
-    /// Whether an installed fantome keeps its original archive inside the mod
-    /// directory. Read at install and at the layout migration only, so turning
-    /// it off frees nothing already on disk. Modpkg archives are exempt: the
-    /// overlay reads a modpkg's content out of the archive itself.
-    /// Default: true.
-    #[serde(default = "default_true")]
-    pub retain_mod_archives: bool,
 }
 
 impl Default for Config {
@@ -193,7 +186,6 @@ impl Default for Config {
             hide_riot_client_on_launch: true,
             read_game_log: true,
             keep_incidents: default_keep_incidents(),
-            retain_mod_archives: true,
         }
     }
 }
@@ -222,18 +214,14 @@ mod tests {
         assert!(config.hide_riot_client_on_launch);
         assert!(config.read_game_log);
         assert_eq!(config.keep_incidents, 50);
-        assert!(config.retain_mod_archives);
     }
 
-    /// An install that predates the flag kept its archives, so a missing key
-    /// has to come back on.
+    /// A config written before the retention setting was removed still carries
+    /// the key, so it has to parse as the noise it now is.
     #[test]
-    fn retaining_archives_defaults_on_and_can_be_turned_off() {
-        let config: Config = serde_json::from_str(r#"{ "patchTft": true }"#).unwrap();
-        assert!(config.retain_mod_archives);
-
+    fn a_config_with_the_removed_retention_key_still_parses() {
         let config: Config = serde_json::from_str(r#"{ "retainModArchives": false }"#).unwrap();
-        assert!(!config.retain_mod_archives);
+        assert!(config.league_path.is_none());
     }
 
     #[test]

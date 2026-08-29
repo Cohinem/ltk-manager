@@ -83,11 +83,20 @@ describe("useModCardController storage", () => {
     expect(view.current.canChangeStorage).toBe(false);
   });
 
-  /* The archive is the only thing either direction converts against. */
-  it("offers nothing once the archive is gone", () => {
-    const view = mount(createMockInstalledMod({ hasArchive: false }));
+  /* An archive mod is its archive, so with the file gone there is nothing to
+     unpack. */
+  it("offers nothing on an archive mod whose file is gone", () => {
+    const view = mount(createMockInstalledMod({ storage: "archive", hasArchive: false }));
 
     expect(view.current.canChangeStorage).toBe(false);
+  });
+
+  /* The unpack consumed the archive, and a repack packs the tree instead of
+     reading one — the round trip stays open. */
+  it("still offers the switch on an unpacked mod with no archive", () => {
+    const view = mount(createMockInstalledMod({ storage: "project", hasArchive: false }));
+
+    expect(view.current.canChangeStorage).toBe(true);
   });
 
   it("offers nothing on a mod that has faulted", () => {

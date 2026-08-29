@@ -201,7 +201,7 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
         <ContextMenu.Trigger
           data-ui="ContentTree"
           ref={scrollRef}
-          className="flex-1 overflow-auto font-mono text-xs outline-none"
+          className="flex-1 overflow-auto font-mono text-xs outline-none scrollbar-md scrollbar-track"
           role="tree"
           aria-label="Layer files"
           tabIndex={-1}

@@ -8,122 +8,23 @@ use crate::mods::types::LibraryFolder;
 use assert_matches::assert_matches;
 use ltk_wad::NoResolver;
 
-fn context(retain_archive: bool) -> InstallContext<'static> {
+fn context() -> InstallContext<'static> {
     InstallContext {
         resolver: &NoResolver,
-        retain_archive,
     }
 }
 
-fn install(storage: &Path, archive: &Path, retain_archive: bool) -> AppResult<LibraryModEntry> {
+fn install(storage: &Path, archive: &Path) -> AppResult<LibraryModEntry> {
     let mut index = LibraryIndex::default();
-    let staged = stage_mod_package(storage, archive.to_str().unwrap(), &context(retain_archive))?;
+    let staged = stage_mod_package(storage, archive.to_str().unwrap(), &context())?;
     let mut taken = TakenSlugs::collect(&index, &storage.join("mods"));
     let (entry, _) = register_staged_mod(storage, &mut index, staged, &mut taken)?;
     Ok(entry)
 }
 
-/// Whatever a staging run leaves is a directory the startup sweep has to clear
-/// and discovery has to ignore, so a refusal has to leave none.
-fn staging_dirs(storage: &Path) -> Vec<String> {
-    let Ok(entries) = fs::read_dir(storage.join("mods")) else {
-        return Vec::new();
-    };
-
-    entries
-        .flatten()
-        .map(|entry| entry.file_name().into_string().unwrap())
-        .filter(|name| name.starts_with(STAGING_PREFIX))
-        .collect()
-}
-
-/// An unpacked tree past the limit is one the user's own tools could not open,
-/// so the install is refused rather than written.
-#[test]
-fn an_install_past_the_path_limit_is_refused_and_stages_nothing() {
-    let storage = tempfile::tempdir().unwrap();
-    let source = tempfile::tempdir().unwrap();
-    let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
-
-    let _limit = long_paths::test_limit::just_past(&storage.path().join("mods"), 20);
-    let result = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context(true))
-        .map(|staged| staged.id);
-
-    assert_matches!(result, Err(AppError::ValidationFailed(_)));
-    assert_eq!(staging_dirs(storage.path()), Vec::<String>::new());
-}
-
-/// A staging directory is a uuid of a fixed length where a slug is whatever the
-/// mod is called, so a name longer than the uuid lands the tree deeper than
-/// staging ever held it. Measuring staging admits exactly what will not fit.
-#[test]
-fn an_install_is_measured_against_the_slug_not_the_staging_uuid() {
-    let storage = tempfile::tempdir().unwrap();
-    let source = tempfile::tempdir().unwrap();
-    let archive = source.path().join("long-name.fantome");
-    let name = "A Mod Whose Name Is Longer Than The Staging Uuid It Unpacks In";
-    crate::mods::test_support::make_full_fantome_zip_named(&archive, name);
-
-    let slug = ModSlug::assign(name, &TakenSlugs::default());
-    let _limit =
-        long_paths::test_limit::just_past(&storage.path().join("mods").join(slug.as_str()), 60);
-
-    assert_matches!(
-        install(storage.path(), &archive, false),
-        Err(AppError::ValidationFailed(_))
-    );
-
-    let leftovers: Vec<String> = fs::read_dir(storage.path().join("mods"))
-        .unwrap()
-        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .collect();
-    assert_eq!(leftovers, Vec::<String>::new());
-}
-
-/// A preflight can only measure a packed WAD at the hex name a chunk gets when
-/// nothing resolves it, so a resolver that names them writes paths it never
-/// predicted. Clearing the estimate by twenty characters and still being
-/// refused is the pass over the written tree doing what the estimate cannot.
-#[test]
-fn a_resolved_chunk_past_the_limit_is_caught_after_the_unpack() {
-    let storage = tempfile::tempdir().unwrap();
-    let source = tempfile::tempdir().unwrap();
-    let archive = source.path().join("packed.fantome");
-    crate::mods::test_support::make_long_chunk_fantome_zip(&archive);
-
-    // Measured at the directory the mod actually lands in, so the slug's own
-    // length is inside the estimate and only the resolved chunk is left to
-    // explain a refusal.
-    let mod_dir = storage
-        .path()
-        .join("mods")
-        .join(ModSlug::assign("Long Chunk Mod", &TakenSlugs::default()).as_str());
-    let predicted = long_paths::longest_fantome_import_path(&archive, &mod_dir).unwrap();
-
-    let resolver =
-        crate::mods::test_support::resolver_naming(&[crate::mods::test_support::LONG_CHUNK_PATH]);
-    let context = InstallContext {
-        resolver: &resolver,
-        retain_archive: false,
-    };
-
-    let _limit = long_paths::test_limit::of(predicted + 20);
-    let mut index = LibraryIndex::default();
-    let result =
-        stage_mod_package(storage.path(), archive.to_str().unwrap(), &context).and_then(|staged| {
-            let mut taken = TakenSlugs::collect(&index, &storage.path().join("mods"));
-            register_staged_mod(storage.path(), &mut index, staged, &mut taken).map(|(e, _)| e.id)
-        });
-
-    assert_matches!(result, Err(AppError::ValidationFailed(_)));
-    assert_eq!(staging_dirs(storage.path()), Vec::<String>::new());
-    assert!(!mod_dir.exists());
-}
-
 /// An extension nothing recognizes is read as a fantome, which is what
-/// `stage_into` documents. Guessing modpkg instead records `Archive` on a mod
-/// with no packed form to read, and a modpkg is not convertible, so nothing
+/// `stage_mod_package` documents. Guessing modpkg instead would hand the
+/// archive to the modpkg provider, and a modpkg is not convertible, so nothing
 /// afterwards can undo the guess.
 #[test]
 fn an_archive_whose_extension_names_nothing_is_read_as_a_fantome() {
@@ -132,40 +33,37 @@ fn an_archive_whose_extension_names_nothing_is_read_as_a_fantome() {
     let archive = source.path().join("renamed.bak");
     make_named_fantome_zip(&archive, "Renamed Mod");
 
-    let entry = install(storage.path(), &archive, false).unwrap();
+    let entry = install(storage.path(), &archive).unwrap();
 
     assert_eq!(entry.format, ModArchiveFormat::Fantome);
-    assert_eq!(entry.storage, ModStorage::Project);
+    assert_eq!(entry.storage, ModStorage::Archive);
     assert!(entry.format.is_convertible());
 }
 
 #[test]
 fn staging_a_missing_file_fails_before_anything_is_written() {
     let storage = tempfile::tempdir().unwrap();
-    let result = stage_mod_package(storage.path(), "/nonexistent/file.fantome", &context(true))
+    let result = stage_mod_package(storage.path(), "/nonexistent/file.fantome", &context())
         .map(|staged| staged.id);
     assert_matches!(result, Err(AppError::InvalidPath(_)));
 }
 
+/// A fantome stages as its archive plus a metadata directory: the content
+/// stays inside the file, so no tree is written. ADR-0007.
 #[test]
-fn a_staged_fantome_holds_its_content_tree_and_its_archive() {
+fn a_staged_fantome_holds_its_metadata_and_its_archive() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
     crate::mods::test_support::make_full_fantome_zip(&archive);
 
-    let staged =
-        stage_mod_package(storage.path(), archive.to_str().unwrap(), &context(true)).unwrap();
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
 
-    let base = staged.staging_dir.join("content").join("base");
-    assert!(base.join("Aatrox.wad.client").is_dir());
-    assert!(base.join("Ashe.wad.client").is_dir());
-    assert!(base.join("raw").join("assets").is_dir());
     assert!(staged.staging_dir.join("mod.config.json").exists());
+    assert!(!staged.staging_dir.join("content").exists());
 
-    let staged_archive = staged.staged_archive.as_ref().unwrap();
-    assert!(staged_archive.is_file());
-    assert_eq!(staged_archive.parent(), staged.staging_dir.parent());
+    assert!(staged.staged_archive.is_file());
+    assert_eq!(staged.staged_archive.parent(), staged.staging_dir.parent());
 }
 
 /// Fantome tools routinely write CRC32 values that describe nothing, and a
@@ -178,38 +76,26 @@ fn a_fantome_installs_despite_checksums_that_describe_nothing() {
     let archive = source.path().join("bad-crc.fantome");
     crate::mods::test_support::make_bad_crc_fantome_zip(&archive);
 
-    let staged =
-        stage_mod_package(storage.path(), archive.to_str().unwrap(), &context(true)).unwrap();
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
 
-    let base = staged.staging_dir.join("content").join("base");
-    assert_eq!(
-        fs::read(base.join("Aatrox.wad.client/data/characters/aatrox/skins/skin01.bin")).unwrap(),
-        b"aatrox skin bytes"
-    );
-    assert!(base.join("Ashe.wad.client").is_dir());
-    assert_eq!(
-        fs::read(base.join("raw/assets/maps/map11/scene.bin")).unwrap(),
-        b"raw scene bytes"
-    );
+    assert!(staged.staging_dir.join("mod.config.json").exists());
+    assert!(staged.staged_archive.is_file());
 }
 
-/// The retained archive is the only place a mod's own names survive until the
-/// importer writes declared tables into the project's `hashes/`, so the copy
+/// The archive is where the mod's own names live from here on, so the copy
 /// into the library is the preserve: names the resolver cannot recover are
 /// embedded on the way in.
 #[test]
-fn staging_embeds_unrecoverable_names_in_the_retained_archive() {
+fn staging_embeds_unrecoverable_names_in_the_archive() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
     crate::mods::test_support::make_full_fantome_zip(&archive);
 
-    let staged =
-        stage_mod_package(storage.path(), archive.to_str().unwrap(), &context(true)).unwrap();
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
 
-    let staged_archive = staged.staged_archive.as_ref().unwrap();
     let mut reader =
-        ltk_fantome::FantomeReader::new(fs::File::open(staged_archive).unwrap()).unwrap();
+        ltk_fantome::FantomeReader::new(fs::File::open(&staged.staged_archive).unwrap()).unwrap();
     let tables = reader.read_hashtables().unwrap();
     assert_eq!(tables.len(), 1);
     assert_eq!(
@@ -232,13 +118,12 @@ fn a_mod_the_resolver_covers_keeps_its_archive_unrewritten() {
         crate::mods::test_support::resolver_naming(&["data/characters/aatrox/skins/skin01.bin"]);
     let context = InstallContext {
         resolver: &resolver,
-        retain_archive: true,
     };
 
     let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context).unwrap();
 
     assert_eq!(
-        fs::read(staged.staged_archive.as_ref().unwrap()).unwrap(),
+        fs::read(&staged.staged_archive).unwrap(),
         fs::read(&archive).unwrap()
     );
 }
@@ -250,7 +135,7 @@ fn registering_puts_the_archive_beside_the_slug_directory() {
     let archive = source.path().join("test.fantome");
     make_named_fantome_zip(&archive, "Kept Copy");
 
-    let entry = install(storage.path(), &archive, true).unwrap();
+    let entry = install(storage.path(), &archive).unwrap();
 
     assert_eq!(
         entry.archive_path(storage.path()),
@@ -272,7 +157,7 @@ fn a_leftover_archive_keeps_its_slug_from_being_reused() {
     fs::create_dir_all(&mods_dir).unwrap();
     fs::write(mods_dir.join("orphan.fantome"), b"leftover").unwrap();
 
-    let entry = install(storage.path(), &archive, true).unwrap();
+    let entry = install(storage.path(), &archive).unwrap();
     assert_eq!(entry.slug.as_ref().unwrap().as_str(), "orphan-2");
     assert_eq!(
         fs::read(mods_dir.join("orphan.fantome")).unwrap(),
@@ -280,49 +165,25 @@ fn a_leftover_archive_keeps_its_slug_from_being_reused() {
     );
 }
 
-/// Until the importer writes declared tables into the project's `hashes/`, a
-/// rewritten archive is the only record of the embedded names — so a preserve
-/// that embedded anything overrides retention being off, and the archive stays.
-#[test]
-fn a_rewritten_archive_is_kept_even_with_retention_off() {
-    let storage = tempfile::tempdir().unwrap();
-    let source = tempfile::tempdir().unwrap();
-    let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
-
-    let entry = install(storage.path(), &archive, false).unwrap();
-
-    let kept = entry.archive_path(storage.path());
-    assert!(kept.is_file());
-    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(&kept).unwrap()).unwrap();
-    assert!(!reader.read_hashtables().unwrap().is_empty());
-}
-
-#[test]
-fn retention_off_keeps_no_fantome_archive() {
-    let storage = tempfile::tempdir().unwrap();
-    let source = tempfile::tempdir().unwrap();
-    let archive = source.path().join("test.fantome");
-    make_named_fantome_zip(&archive, "Retention Off");
-
-    let entry = install(storage.path(), &archive, false).unwrap();
-    assert!(!entry.archive_path(storage.path()).exists());
-    assert!(entry.is_present(storage.path()));
-}
-
-/// Names the preserve embedded survive the projectify: the unpacked tree holds
+/// Names the preserve embedded survive a later unpack: the unpacked tree holds
 /// the declared table and the manifest names it, so the project carries its own
 /// names wherever it goes next.
 #[test]
-fn harvested_names_land_in_the_projects_hashes_directory() {
+fn harvested_names_land_in_the_unpacked_projects_hashes_directory() {
     let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
     crate::mods::test_support::make_full_fantome_zip(&archive);
 
-    let entry = install(storage.path(), &archive, true).unwrap();
+    let installed = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+    library
+        .set_mod_storage(&config, &installed.id, ModStorage::Project)
+        .unwrap();
 
-    let mod_dir = entry.mod_dir(storage.path());
+    let mod_dir = PathBuf::from(&installed.mod_dir);
     let table = fs::read_to_string(mod_dir.join("hashes").join("game.hashes.txt")).unwrap();
     assert!(table.contains("data/characters/aatrox/skins/skin01.bin"));
 
@@ -333,19 +194,24 @@ fn harvested_names_land_in_the_projects_hashes_directory() {
 
 /// A packed WAD whose only name record is a bin inside it round-trips to a
 /// named file: the preserve harvests the name into the archive's table, and
-/// the import names the chunk from the mod's own table rather than hex.
+/// a later unpack names the chunk from the mod's own table rather than hex.
 #[test]
 fn a_packed_chunk_named_only_by_its_own_bin_unpacks_under_that_name() {
     let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("packed.fantome");
     let recovered_path = "assets/custom/recovered.tex";
     crate::mods::test_support::make_bin_named_chunk_fantome_zip(&archive, recovered_path);
 
-    let entry = install(storage.path(), &archive, true).unwrap();
+    let installed = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+    library
+        .set_mod_storage(&config, &installed.id, ModStorage::Project)
+        .unwrap();
 
-    let wad_dir = entry
-        .mod_dir(storage.path())
+    let wad_dir = PathBuf::from(&installed.mod_dir)
         .join("content")
         .join("base")
         .join("Ashe.wad.client");
@@ -391,8 +257,7 @@ fn registering_moves_staging_into_the_slug_directory_and_records_the_mod() {
     make_named_fantome_zip(&archive, "Dark Cosmic Jhin");
 
     let mut index = LibraryIndex::default();
-    let staged =
-        stage_mod_package(storage.path(), archive.to_str().unwrap(), &context(true)).unwrap();
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
     let mut taken = TakenSlugs::collect(&index, &storage.path().join("mods"));
     let (entry, installed) =
         register_staged_mod(storage.path(), &mut index, staged, &mut taken).unwrap();
@@ -461,7 +326,7 @@ fn a_failed_stage_leaves_nothing_behind() {
     let archive = source.path().join("corrupt.fantome");
     fs::write(&archive, b"not a zip").unwrap();
 
-    assert!(stage_mod_package(storage.path(), archive.to_str().unwrap(), &context(true)).is_err());
+    assert!(stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).is_err());
 
     let leftovers: Vec<_> = fs::read_dir(storage.path().join("mods"))
         .into_iter()
@@ -578,7 +443,7 @@ fn a_fantome_keeps_the_layers_its_metadata_declares() {
     let archive = source.path().join("layered.fantome");
     crate::mods::test_support::make_layered_fantome_zip(&archive);
 
-    let entry = install(storage.path(), &archive, true).unwrap();
+    let entry = install(storage.path(), &archive).unwrap();
     let project = load_mod_project(&entry.mod_dir(storage.path())).unwrap();
 
     let names: Vec<&str> = project.layers.iter().map(|l| l.name.as_str()).collect();

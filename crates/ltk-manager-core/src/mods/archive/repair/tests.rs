@@ -4,9 +4,9 @@
 use crate::mods::ModHealth;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::test_support::{
-    STALE_ICON, healthy_bin, make_slugged_entry, make_test_library, place_bin_archived_fantome,
-    place_bin_project_mod, place_installed_mod, point_at_installed_build,
-    property_in_unpacked_tree, seed_library, stale_bin,
+    STALE_ICON, healthy_bin, make_slugged_entry, make_test_library, make_unpacked_entry,
+    place_bin_archived_fantome, place_bin_project_mod, place_installed_mod,
+    point_at_installed_build, property_in_unpacked_tree, seed_library, stale_bin,
 };
 use ltk_hash::{Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
@@ -22,10 +22,7 @@ fn hold(path: &Path, held: bool) {
 }
 
 fn archived_entry(id: &str, slug: &str) -> LibraryModEntry {
-    LibraryModEntry {
-        storage: ModStorage::Archive,
-        ..make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
-    }
+    make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
 }
 
 fn migrated_property() -> PropertyValueEnum {
@@ -68,11 +65,7 @@ fn a_project_storage_mod_is_repaired_in_its_tree() {
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "unpacked-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "unpacked-mod")],
     );
     let marker = storage.path().join(".overlay-build-version");
     fs::write(&marker, "1").unwrap();
@@ -135,8 +128,8 @@ fn repairing_many_fixes_what_it_can_and_names_what_it_could_not() {
         &library,
         &config,
         vec![
-            make_slugged_entry("id-stale", "stale-mod", ModArchiveFormat::Fantome),
-            make_slugged_entry("id-fine", "fine-mod", ModArchiveFormat::Fantome),
+            make_unpacked_entry("id-stale", "stale-mod"),
+            make_unpacked_entry("id-fine", "fine-mod"),
             make_slugged_entry("id-pkg", "packed-mod", ModArchiveFormat::Modpkg),
         ],
     );
@@ -214,11 +207,7 @@ fn a_repaired_path_reads_back_out_of_the_mods_own_hashtable() {
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "unpacked-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "unpacked-mod")],
     );
 
     let report = library.repair_mod(&config, "id-1").unwrap();
@@ -251,11 +240,7 @@ fn a_refused_property_leaves_the_mod_repairable() {
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "unpacked-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "unpacked-mod")],
     );
 
     // A table narrow enough for two names to share a key, holding a different
@@ -321,8 +306,8 @@ fn a_cancelled_run_records_no_verdict_for_the_mods_it_did_not_reach() {
         &library,
         &config,
         vec![
-            make_slugged_entry("id-1", "first-mod", ModArchiveFormat::Fantome),
-            make_slugged_entry("id-2", "second-mod", ModArchiveFormat::Fantome),
+            make_unpacked_entry("id-1", "first-mod"),
+            make_unpacked_entry("id-2", "second-mod"),
         ],
     );
 
@@ -365,11 +350,7 @@ fn a_repair_a_rule_stopped_does_not_report_the_mod_healthy() {
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "locked-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "locked-mod")],
     );
 
     let bin = storage

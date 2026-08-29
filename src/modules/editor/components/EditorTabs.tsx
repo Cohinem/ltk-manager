@@ -108,7 +108,7 @@ export function EditorTabs({
       <Tabs.List
         ref={listRef}
         variant="plain"
-        className="hairline-scrollbars h-full min-w-0 flex-1 items-end gap-1.5 overflow-x-scroll px-2"
+        className="h-full min-w-0 flex-1 items-end gap-1.5 overflow-x-scroll px-2 scrollbar-sm"
         {...NO_OVERSCROLL}
       >
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>

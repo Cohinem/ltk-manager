@@ -3,8 +3,8 @@
 /**
  * Where a mod's content is, which is what picks its content provider.
  *
- * Recorded rather than derived: a fantome the layout migration has not reached
- * is [`Archive`](Self::Archive) while its format still says `Fantome`, and a
+ * Recorded rather than derived: a fantome installs as
+ * [`Archive`](Self::Archive) but the user can unpack it after the fact, and a
  * future sanitized-fantome mode would be another value here rather than
  * another guess from the layout.
  */

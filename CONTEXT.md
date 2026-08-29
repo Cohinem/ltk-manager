@@ -25,15 +25,14 @@ archives no longer live there.
 
 **Mod project** — the on-disk layout a mod is stored in: `mod.config.json` plus a `content/<layer>/`
 tree. The same layout the Creator Workshop authors in, and the one `ltk_overlay`'s `FsModContent`
-reads. A fantome installed now is one. A modpkg is not, and neither is a mod the layout migration
-moved — see ADR-0001 and ADR-0003.
+reads. A fantome the user unpacked is one. A modpkg is not, and neither is a mod as an install
+leaves it — see ADR-0001, ADR-0003 and ADR-0007.
 
 **Import** — turning a packaged mod into a mod project directory, whatever it arrived as. One driver
 serves every surface, `ltk_mod_project`'s `ProjectImporter`: it owns the output directory, a
 directory for every layer the config declares and the config write, leaving a per-format backend to
-decode. `FantomeImporter` and `ModpkgImporter` are those backends, so the library's install and
-unpack paths and the Creator Workshop's two import dialogs are four call sites over one
-implementation. `RAW/` routing, case-insensitive `WAD/` matching and reading past a bad CRC32 live
+decode. `FantomeImporter` and `ModpkgImporter` are those backends, so the library's unpack path
+and the Creator Workshop's two import dialogs are three call sites over one implementation. `RAW/` routing, case-insensitive `WAD/` matching and reading past a bad CRC32 live
 inside the fantome backend, so a second importer beside it is a second copy of those bugs — the
 workshop had one per format until they were collapsed onto this.
 
@@ -50,20 +49,20 @@ recoverable name at all (`unharvestable` — what tells a mod that preserved cle
 was already lossy).
 
 **Mod archive** — `mods/<slug>.fantome` or `mods/<slug>.modpkg`, the file the mod arrived as,
-beside its directory. Its role follows storage. For a mod stored `archive` it is the mod — the
-content provider reads from it — and a modpkg, which only ever has that storage, therefore
-always has one. For a fantome stored `project` it is optional: kept when the `retainModArchives`
-setting is on, and always kept when the preserve rewrote it — the standard has the project carry
-its tables in `hashes/`, but until the importer writes them there, the rewritten archive is the
-embedded names' only record.
+beside its directory. For a mod stored `archive` it is the mod — the content provider reads from
+it. An unpack consumes it and a repack packs the tree into a fresh one (ADR-0007), so exactly one
+of tree or archive is the mod at any moment. A fantome's copy is made through the preserve, so
+names the community tables cannot recover ride in the archive itself.
 
 **Storage** — where a mod's content is: `project` for the unpacked tree, `archive` for a mod read
-out of the file beside it. Recorded on the entry rather than derived, and the two coexist per mod: a
-fantome installed now is `project`, and one the layout migration moved is `archive` (ADR-0003).
+out of the file beside it. Recorded on the entry rather than derived. Every install lands as
+`archive` (ADR-0007), and `project` is what an unpack from the card, or a discovered project
+directory, records.
 
 **Unpack** and **repack** — moving one mod between the two storage modes, from its card in the
-library. Both need the archive still beside the mod, and neither is offered for a modpkg, which has
-no unpacked form. See ADR-0004.
+library. Unpack reads the archive and deletes it, repack packs the tree into a fresh archive and
+deletes the tree (ADR-0007). Neither is offered for a modpkg, which has no unpacked form. See
+ADR-0004.
 
 **Staging directory** — `mods/.staging-<uuid>/`, where an install or a conversion assembles a mod
 before it is renamed into place, with `mods/.staging-<uuid>.<ext>` beside it for the archive copy.

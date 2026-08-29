@@ -58,16 +58,16 @@ function WorkshopShell() {
           {!project && <WorkshopActiveFilterChips />}
         </Toolbar>
 
-        {/* A project's editor and its sidebar share one frame, and the fold is what
-            draws it: they round together against the ground, DS-GROUND. The grid
-            has no frame to share - its cards are the content and carry their own
-            edges - so there the fold is the ground, and the row above it is the
-            same surface rather than a lighter panel under one. */}
+        {/* Either route draws the fold as a panel over the ground, DS-GROUND. An
+            editor and its sidebar share the frame and round into the bar below
+            them, where the grid is an island framed as the library frames its own. */}
         <div
           data-ui="WorkshopShell:fold"
           className={twMerge(
             "min-h-0 flex-1 overflow-hidden",
-            project && "rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900",
+            project
+              ? "rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900"
+              : "mx-2 rounded-xl border border-surface-700 bg-surface-900/40",
           )}
         >
           <Outlet />

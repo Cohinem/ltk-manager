@@ -52,7 +52,7 @@ export function StringOverridesTable({
     >
       <ComposerRow onCommit={onCommitEntry} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-md">
         {entries.length === 0 && emptyState}
         {entries.length > 0 && (
           <ul className="flex flex-col">

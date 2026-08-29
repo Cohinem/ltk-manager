@@ -1,11 +1,11 @@
 //! Getting mods into and out of the library.
 //!
-//! Installing happens in two halves. Staging unpacks the archive into
-//! `mods/.staging-<uuid>/` and copies the archive itself to
-//! `mods/.staging-<uuid>.<ext>`, which is the slow part and holds no lock.
+//! Installing happens in two halves. Staging copies the archive to
+//! `mods/.staging-<uuid>.<ext>` and extracts its metadata into
+//! `mods/.staging-<uuid>/`, which is the slow part and holds no lock.
 //! Registering assigns the slug, renames both into place, and does the index
 //! bookkeeping under the index lock. Splitting them is what lets a bulk install
-//! unpack every file before taking the lock once.
+//! stage every file before taking the lock once.
 //!
 //! Uninstalling reverses both and scrubs the mod from every profile and folder.
 
@@ -14,11 +14,10 @@ use crate::error::{AppError, AppResult, Utf8PathExt};
 use crate::events::{BackendEvent, InstallProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
-    extract_modpkg_metadata, load_mod_project, read_installed_mod,
+    extract_fantome_metadata, extract_modpkg_metadata, load_mod_project, read_installed_mod,
 };
 use crate::mods::index::document::archive_path;
 use crate::mods::index::{HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat};
-use crate::mods::long_paths;
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::{BulkInstallError, BulkInstallResult, InstalledMod, ROOT_FOLDER_ID};
 use chrono::{DateTime, Utc};
@@ -40,20 +39,17 @@ pub(crate) struct InstallContext<'a> {
     /// Names for a packed WAD's chunks. Best-effort — with no tables the
     /// chunks land under their hex names, which the overlay reads either way.
     pub(crate) resolver: &'a dyn PathResolver,
-    /// Whether a fantome keeps a copy of its source archive. Modpkg archives
-    /// are always kept: the provider reads content out of them.
-    pub(crate) retain_archive: bool,
 }
 
-/// A mod unpacked into its staging directory, not yet in the index.
+/// A mod staged beside the index, not yet in it.
 #[derive(Debug)]
 pub(crate) struct StagedMod {
     id: String,
     installed_at: DateTime<Utc>,
     format: ModArchiveFormat,
     staging_dir: PathBuf,
-    /// The copy of the source archive, for a mod that keeps one.
-    staged_archive: Option<PathBuf>,
+    /// The copy of the source archive, which is where the content stays.
+    staged_archive: PathBuf,
     /// The project's `name`, which the slug is derived from. Not
     /// `display_name`: the directory should not move when a user renames a mod.
     project_name: String,
@@ -77,13 +73,12 @@ impl StagedMod {
             );
         }
 
-        if let Some(archive) = &self.staged_archive
-            && archive.exists()
-            && let Err(e) = fs::remove_file(archive)
+        if self.staged_archive.exists()
+            && let Err(e) = fs::remove_file(&self.staged_archive)
         {
             tracing::warn!(
                 "Failed to clean up staged archive {}: {}",
-                archive.display(),
+                self.staged_archive.display(),
                 e
             );
         }
@@ -95,8 +90,6 @@ impl StagedMod {
 struct StagedContent {
     /// The project's `name`, which the slug is derived from.
     project_name: String,
-    /// Whether the archive was copied beside the staging directory.
-    kept_archive: bool,
     /// What preserving the mod's names found. `None` for a modpkg.
     harvest: Option<HarvestSummary>,
 }
@@ -114,7 +107,6 @@ impl ModLibrary {
             file_path,
             &InstallContext {
                 resolver: resolver.as_ref(),
-                retain_archive: config.retain_mod_archives,
             },
         )?;
 
@@ -128,7 +120,7 @@ impl ModLibrary {
 
     /// Install multiple mods in a single batch operation.
     ///
-    /// Unpacks every archive first, then takes the index lock once to register
+    /// Stages every archive first, then takes the index lock once to register
     /// them all. Emits `"install-progress"` events per file.
     pub fn install_mods_from_packages(
         &self,
@@ -147,7 +139,6 @@ impl ModLibrary {
         let resolver = self.wad_resolver();
         let context = InstallContext {
             resolver: resolver.as_ref(),
-            retain_archive: config.retain_mod_archives,
         };
 
         let total = file_paths.len();
@@ -221,14 +212,13 @@ impl ModLibrary {
     }
 }
 
-/// Unpack `file_path` into `mods/.staging-<uuid>/`, with its archive beside it.
+/// Stage `file_path` as `mods/.staging-<uuid>.<ext>`, with its metadata beside it.
 ///
 /// Holds no lock, so a bulk install does this per file before taking one.
 ///
 /// # Errors
 ///
-/// Fails when the file is missing, the archive is malformed, or unpacking it
-/// would write past the legacy Windows path limit.
+/// Fails when the file is missing or the archive is malformed.
 pub(crate) fn stage_mod_package(
     storage_dir: &Path,
     file_path: &str,
@@ -241,7 +231,7 @@ pub(crate) fn stage_mod_package(
 
     // A fantome is a zip, which is what an archive arriving under a name
     // nothing recognizes most often turns out to be. Guessing modpkg instead
-    // would record `Archive` on a mod with no packed form, and a modpkg is not
+    // would hand the file to the modpkg provider, and a modpkg is not
     // convertible, so nothing afterwards could undo the guess.
     let format = file_path
         .extension()
@@ -266,17 +256,19 @@ pub(crate) fn stage_mod_package(
         installed_at: Utc::now(),
         format,
         staging_dir,
-        staged_archive: staged.kept_archive.then_some(staged_archive),
+        staged_archive,
         project_name: staged.project_name,
         source_path: file_path.display().to_string(),
         harvest: staged.harvest,
     })
 }
 
-/// Materialize one archive into `staging_dir`, copying the archive itself to
-/// `staged_archive` when the mod keeps one.
+/// Copy one archive to `staged_archive` and write its metadata into
+/// `staging_dir`.
 ///
-/// Which mods keep one: per "Mod archive" in CONTEXT.md.
+/// The archive is the mod: every install keeps it, and the content provider
+/// reads out of it. A fantome's copy is made through the name preserve, so the
+/// names its packed WADs carry survive into the library with it.
 fn stage_into(
     staging_dir: &Path,
     staged_archive: &Path,
@@ -288,18 +280,6 @@ fn stage_into(
         // `Unknown` never reaches here — it is what a discovered directory
         // records, and nothing installs one.
         ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
-            // The name this mod's slug comes from is inside the archive being
-            // read, so the directory it lands in is not knowable yet.
-            let floor = staging_dir
-                .parent()
-                .map(long_paths::shortest_install_dir)
-                .unwrap_or_else(|| staging_dir.to_path_buf());
-            long_paths::preflight_fantome_import(
-                file_path,
-                &floor,
-                long_paths::ImportRoot::ModStorage,
-            )?;
-
             let source = file_path.to_path_buf().try_into_utf8("archive path")?;
             let dest = staged_archive
                 .to_path_buf()
@@ -316,31 +296,10 @@ fn stage_into(
                 "Preserved the mod's names on import"
             );
 
-            // Unpacked from the preserved copy, not the source, so an importer
-            // that learns to carry declared tables into the tree reads them
-            // from here with no change to this flow.
-            let utf8_staging = staging_dir
-                .to_path_buf()
-                .try_into_utf8("staging directory")?;
-            let project = ltk_mod_project::ProjectImporter::new(&utf8_staging)
-                .import(
-                    ltk_mod_project::fantome::FantomeImporter::new(fs::File::open(staged_archive)?)
-                        .with_path_resolver(context.resolver),
-                )
-                .map_err(|e| AppError::Other(format!("Failed to import fantome archive: {e}")))?;
-
-            let kept_archive = context.retain_archive
-                || matches!(
-                    report.outcome,
-                    ltk_mod_project::PreserveOutcome::Rewritten { .. }
-                );
-            if !kept_archive {
-                fs::remove_file(staged_archive)?;
-            }
+            extract_fantome_metadata(staged_archive, staging_dir)?;
 
             Ok(StagedContent {
-                project_name: project.name,
-                kept_archive,
+                project_name: load_mod_project(staging_dir)?.name,
                 harvest: Some(report.into()),
             })
         }
@@ -350,7 +309,6 @@ fn stage_into(
 
             Ok(StagedContent {
                 project_name: load_mod_project(staging_dir)?.name,
-                kept_archive: true,
                 harvest: None,
             })
         }
@@ -383,30 +341,19 @@ pub(crate) fn register_staged_mod(
         )));
     }
 
-    // Only here is the tree standing where it will live, which is what the
-    // preflight against a one-character slug could not answer for.
-    if let Err(e) = long_paths::verify_unpacked(&mod_dir, long_paths::ImportRoot::ModStorage) {
+    let destination = archive_path(storage_dir, &slug, staged.format);
+    if let Err(e) = fs::rename(&staged.staged_archive, &destination) {
+        // A mod without its archive is not a mod: the content provider reads
+        // out of it.
         let _ = fs::remove_dir_all(&mod_dir);
         staged.discard();
-        return Err(e);
-    }
-
-    if let Some(source) = &staged.staged_archive {
-        let destination = archive_path(storage_dir, &slug, staged.format);
-        if let Err(e) = fs::rename(source, &destination) {
-            // A modpkg without its archive is not a mod, and a fantome that
-            // lost the copy the user asked to keep should not pass for one
-            // installed without retention.
-            let _ = fs::remove_dir_all(&mod_dir);
-            staged.discard();
-            return Err(AppError::Io(std::io::Error::new(
-                e.kind(),
-                format!(
-                    "Failed to move staged archive into {}: {e}",
-                    destination.display()
-                ),
-            )));
-        }
+        return Err(AppError::Io(std::io::Error::new(
+            e.kind(),
+            format!(
+                "Failed to move staged archive into {}: {e}",
+                destination.display()
+            ),
+        )));
     }
 
     taken.insert(&slug);

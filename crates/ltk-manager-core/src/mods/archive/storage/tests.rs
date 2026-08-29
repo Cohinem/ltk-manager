@@ -3,8 +3,8 @@ use crate::mods::index::document::load_library_index;
 use crate::mods::index::{ModArchiveFormat, ModFault};
 use crate::mods::test_support::{
     RecordingEventSink, make_bad_crc_fantome_zip, make_full_fantome_zip, make_library_with_events,
-    make_modpkg, make_slugged_entry, make_test_library, mod_project_named, place_installed_mod,
-    seed_library,
+    make_modpkg, make_slugged_entry, make_test_library, make_unpacked_entry, mod_project_named,
+    place_unpacked_mod, seed_library,
 };
 use assert_matches::assert_matches;
 use std::sync::Arc;
@@ -24,10 +24,7 @@ fn place_moved_fantome(storage: &Path, slug: &str) {
 }
 
 fn archived_entry(id: &str, slug: &str) -> LibraryModEntry {
-    LibraryModEntry {
-        storage: ModStorage::Archive,
-        ..make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
-    }
+    make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
 }
 
 fn stored_as(storage_dir: &Path, mod_id: &str) -> ModStorage {
@@ -41,7 +38,7 @@ fn stored_as(storage_dir: &Path, mod_id: &str) -> ModStorage {
 }
 
 #[test]
-fn unpacking_writes_the_content_tree_and_keeps_the_archive() {
+fn unpacking_writes_the_content_tree_and_consumes_the_archive() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
     place_moved_fantome(storage.path(), "full-mod");
@@ -52,7 +49,7 @@ fn unpacking_writes_the_content_tree_and_keeps_the_archive() {
         .unwrap();
 
     assert_eq!(updated.storage, ModStorage::Project);
-    assert!(updated.has_archive);
+    assert!(!updated.has_archive);
     assert_eq!(stored_as(storage.path(), "id-1"), ModStorage::Project);
 
     let mod_dir = storage.path().join("mods").join("full-mod");
@@ -61,11 +58,11 @@ fn unpacking_writes_the_content_tree_and_keeps_the_archive() {
     assert!(base.join("Ashe.wad.client").is_dir());
     assert!(base.join("raw").join("assets").is_dir());
     assert!(
-        storage
+        !storage
             .path()
             .join("mods")
             .join("full-mod.fantome")
-            .is_file()
+            .exists()
     );
 }
 
@@ -230,15 +227,11 @@ fn an_unpack_is_measured_against_the_directory_it_lands_in() {
 fn repacking_drops_the_content_tree_and_keeps_everything_else() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
-    place_installed_mod(storage.path(), "full-mod", ModArchiveFormat::Fantome, true);
+    place_unpacked_mod(storage.path(), "full-mod", true);
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "full-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "full-mod")],
     );
 
     let updated = library
@@ -260,35 +253,67 @@ fn repacking_drops_the_content_tree_and_keeps_everything_else() {
     );
 }
 
-/// The archive is the only thing that can hold the content once the tree is
-/// gone, so a mod installed with retention off cannot go back.
+/// A repack does not need the archive the unpack consumed: the tree is packed
+/// into a fresh one.
 #[test]
-fn repacking_without_an_archive_is_refused() {
+fn repacking_rebuilds_the_archive_from_the_tree() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
-    place_installed_mod(storage.path(), "full-mod", ModArchiveFormat::Fantome, false);
+    place_unpacked_mod(storage.path(), "full-mod", false);
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "full-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "full-mod")],
     );
 
-    assert_matches!(
-        library.set_mod_storage(&config, "id-1", ModStorage::Archive),
-        Err(AppError::ValidationFailed(_))
-    );
-    assert!(
-        storage
-            .path()
-            .join("mods")
-            .join("full-mod")
-            .join("content")
-            .is_dir()
-    );
+    let updated = library
+        .set_mod_storage(&config, "id-1", ModStorage::Archive)
+        .unwrap();
+
+    assert_eq!(updated.storage, ModStorage::Archive);
+    assert!(updated.has_archive);
+    assert_eq!(stored_as(storage.path(), "id-1"), ModStorage::Archive);
+
+    let mod_dir = storage.path().join("mods").join("full-mod");
+    assert!(!mod_dir.join("content").exists());
+    let archive = storage.path().join("mods").join("full-mod.fantome");
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(&archive).unwrap()).unwrap();
+    assert_eq!(reader.read_info().unwrap().name, "full-mod");
+}
+
+/// What the tree held is what the rebuilt archive holds, so switching back and
+/// forth is not a slow way to lose the mod.
+#[test]
+fn the_storage_switch_round_trips() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    place_moved_fantome(storage.path(), "full-mod");
+    seed_library(&library, &config, vec![archived_entry("id-1", "full-mod")]);
+
+    library
+        .set_mod_storage(&config, "id-1", ModStorage::Project)
+        .unwrap();
+    library
+        .set_mod_storage(&config, "id-1", ModStorage::Archive)
+        .unwrap();
+    let updated = library
+        .set_mod_storage(&config, "id-1", ModStorage::Project)
+        .unwrap();
+
+    assert_eq!(updated.storage, ModStorage::Project);
+    let chunk = storage
+        .path()
+        .join("mods")
+        .join("full-mod")
+        .join("content")
+        .join("base")
+        .join("Aatrox.wad.client")
+        .join("data")
+        .join("characters")
+        .join("aatrox")
+        .join("skins")
+        .join("skin01.bin");
+    assert_eq!(fs::read(chunk).unwrap(), b"aatrox skin bytes");
 }
 
 #[test]
@@ -345,19 +370,15 @@ fn a_faulted_mod_cannot_change_storage() {
 fn asking_for_the_storage_a_mod_already_has_leaves_it_alone() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
-    place_installed_mod(storage.path(), "full-mod", ModArchiveFormat::Fantome, false);
+    place_unpacked_mod(storage.path(), "full-mod", false);
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "full-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "full-mod")],
     );
 
-    // Retention was off, so the archive check this would otherwise run has
-    // nothing to find — reaching it at all is the regression.
+    // The mod has no archive, so the archive check this would otherwise run
+    // has nothing to find — reaching it at all is the regression.
     let updated = library
         .set_mod_storage(&config, "id-1", ModStorage::Project)
         .unwrap();
@@ -402,9 +423,7 @@ fn unpacking_leaves_nothing_beside_the_mod() {
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .collect();
-    assert_eq!(names.len(), 2, "{names:?}");
-    assert!(names.contains(&"full-mod".to_string()));
-    assert!(names.contains(&"full-mod.fantome".to_string()));
+    assert_eq!(names, vec!["full-mod".to_string()]);
 }
 
 /// The stages a conversion reported, with the unit named where it named one.
@@ -462,11 +481,23 @@ fn repacking_reports_a_finalizing_step_then_completes() {
     let storage = tempfile::tempdir().unwrap();
     let events = Arc::new(RecordingEventSink::default());
     let (library, config) = make_library_with_events(storage.path(), events.clone());
+    // An unpacked mod that still has its archive, as one unpacked before
+    // archives were consumed does.
     place_moved_fantome(storage.path(), "full-mod");
-    seed_library(&library, &config, vec![archived_entry("id-1", "full-mod")]);
-    library
-        .set_mod_storage(&config, "id-1", ModStorage::Project)
-        .unwrap();
+    fs::create_dir_all(
+        storage
+            .path()
+            .join("mods")
+            .join("full-mod")
+            .join("content")
+            .join("base"),
+    )
+    .unwrap();
+    seed_library(
+        &library,
+        &config,
+        vec![make_unpacked_entry("id-1", "full-mod")],
+    );
 
     let before = reported(&events).len();
     library

@@ -109,7 +109,7 @@ pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModE
     }
 }
 
-/// An entry in the slug layout.
+/// An entry in the slug layout, stored the way an install leaves it.
 pub(crate) fn make_slugged_entry(
     id: &str,
     slug: &str,
@@ -119,6 +119,14 @@ pub(crate) fn make_slugged_entry(
         slug: Some(ModSlug::from_dir_name(slug)),
         storage: format.installed_storage(),
         ..make_test_entry(id, format)
+    }
+}
+
+/// A fantome entry the user unpacked into a mod project after installing.
+pub(crate) fn make_unpacked_entry(id: &str, slug: &str) -> LibraryModEntry {
+    LibraryModEntry {
+        storage: ModStorage::Project,
+        ..make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
     }
 }
 
@@ -177,12 +185,11 @@ pub(crate) fn place_mod_files(storage_dir: &Path, id: &str, format: ModArchiveFo
     .unwrap();
 }
 
-/// Place a mod at `mods/<slug>` in the layout its format calls for, with the
+/// Place a mod at `mods/<slug>` the way an install leaves it, with the
 /// archive beside it when `with_archive` asks for one.
 ///
-/// A fantome gets a content tree, because that is where its content is. A
-/// modpkg gets the config and nothing else, which is all `extract_modpkg_metadata`
-/// writes — the archive holds the rest.
+/// The config is all the directory holds — the archive is where the content
+/// is. A mod the user unpacked afterwards is [`place_unpacked_mod`].
 pub(crate) fn place_installed_mod(
     storage_dir: &Path,
     slug: &str,
@@ -198,16 +205,6 @@ pub(crate) fn place_installed_mod(
     )
     .unwrap();
 
-    if format.installed_storage() == ModStorage::Project {
-        let wad_dir = mod_dir
-            .join("content")
-            .join("base")
-            .join("Aatrox.wad.client")
-            .join("data");
-        fs::create_dir_all(&wad_dir).unwrap();
-        fs::write(wad_dir.join("skin0.bin"), b"content bytes").unwrap();
-    }
-
     if with_archive {
         fs::write(
             mods_dir.join(format!("{}.{}", slug, format.extension())),
@@ -215,6 +212,22 @@ pub(crate) fn place_installed_mod(
         )
         .unwrap();
     }
+}
+
+/// Place a fantome the user unpacked at `mods/<slug>`: the config plus a
+/// content tree, and the archive beside it when `with_archive` asks for one.
+pub(crate) fn place_unpacked_mod(storage_dir: &Path, slug: &str, with_archive: bool) {
+    place_installed_mod(storage_dir, slug, ModArchiveFormat::Fantome, with_archive);
+
+    let wad_dir = storage_dir
+        .join("mods")
+        .join(slug)
+        .join("content")
+        .join("base")
+        .join("Aatrox.wad.client")
+        .join("data");
+    fs::create_dir_all(&wad_dir).unwrap();
+    fs::write(wad_dir.join("skin0.bin"), b"content bytes").unwrap();
 }
 
 /// A project config whose `name` is `name` and whose display name is its

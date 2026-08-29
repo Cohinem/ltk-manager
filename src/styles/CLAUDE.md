@@ -39,7 +39,7 @@ That is the whole budget. **Never write, in CSS:**
 
 A comment earns more than one line only for a mechanical fact a reader cannot recover
 from the code: declaration order a minifier would break, or which of two competing
-blocks wins. `global.css` has exactly two of those. Match that bar.
+blocks wins. `global.css` has exactly three of those. Match that bar.
 
 If a rule feels worth writing next to a token, it belongs in `src/CLAUDE.md` instead.
 
@@ -122,6 +122,25 @@ Keep `-webkit-backdrop-filter` **before** the standard property. The minifier co
 the pair into whichever comes last, and Chromium never aliased the prefixed form, so a
 bundle keeping only one of them ships no blur to either WebView2 or the macOS WKWebView.
 Tailwind's `backdrop-blur-*` utilities already emit both.
+
+## Scrollbars are three inputs and a sum
+
+`--scrollbar-thumb-size` is what the Scrollbars setting writes, `--scrollbar-scale` is the
+density a container applies over it, and `--scrollbar-inset` is the gutter around the thumb.
+The setting writes the inset through `--scrollbar-inset-base`, which no size utility
+touches, so `scrollbar-lg` can re-read it to opt a subtree back out of a denser ancestor.
+The thumb takes no width of its own. It fills the gutter less a transparent border, which it
+clips its own fill inside.
+
+The sum lives in the `::-webkit-scrollbar` rule and has to stay there. A custom property
+substitutes its `var()`s on the element that **declares** it, so a `--scrollbar-size` on
+`:root` would inherit down already resolved and no container override could move it. Only a
+`var()` read at the point of use sees what the container set.
+
+The per-container sizes are `@utility` blocks (`scrollbar-sm`/`-md`/`-lg`, and the
+`scrollbar-track` pair) rather than plain classes, so they sort as utilities and take
+variants. Which one a component reaches for is `DS-SCROLLBAR` in the `design-system`
+skill.
 
 ## Deliberately absent
 

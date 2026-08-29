@@ -39,8 +39,9 @@ export interface ModCardView {
   /**
    * Whether this mod can be moved between the two storage modes at all.
    *
-   * A modpkg has no unpacked form, and either direction needs the archive still
-   * beside the mod to convert against.
+   * A modpkg has no unpacked form. Unpacking reads the archive, so an archive
+   * mod whose file is gone offers nothing; repacking packs the tree and needs
+   * no archive.
    */
   canChangeStorage: boolean;
   storageChangePending: boolean;
@@ -124,7 +125,10 @@ export function useModCardController({
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
-  const canChangeStorage = mod.format === "fantome" && mod.hasArchive && faultReason === null;
+  const canChangeStorage =
+    mod.format === "fantome" &&
+    (mod.storage === "project" || mod.hasArchive) &&
+    faultReason === null;
 
   function handleToggle(modId: string, enabled: boolean) {
     toggleMod.mutate(

@@ -1,8 +1,8 @@
 use super::*;
 use crate::mods::index::document::{load_library_index, save_library_index};
 use crate::mods::test_support::{
-    make_fantome_zip, make_slugged_entry, make_test_entry, make_test_profile, mod_project_named,
-    place_installed_mod,
+    make_fantome_zip, make_slugged_entry, make_test_entry, make_test_profile, make_unpacked_entry,
+    mod_project_named, place_installed_mod, place_unpacked_mod,
 };
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
 use ltk_wad::NoResolver;
@@ -10,7 +10,6 @@ use ltk_wad::NoResolver;
 fn context() -> InstallContext<'static> {
     InstallContext {
         resolver: &NoResolver,
-        retain_archive: true,
     }
 }
 
@@ -116,7 +115,7 @@ fn valid_mods_survive_a_pass_that_removes_orphans() {
 fn every_profile_gets_the_full_mod_order() {
     let dir = tempfile::tempdir().unwrap();
     place_installed_mod(dir.path(), "mod-a", ModArchiveFormat::Modpkg, true);
-    place_installed_mod(dir.path(), "mod-b", ModArchiveFormat::Fantome, false);
+    place_installed_mod(dir.path(), "mod-b", ModArchiveFormat::Fantome, true);
 
     let mut index = LibraryIndex {
         profiles: vec![
@@ -342,7 +341,7 @@ fn a_content_tree_does_not_make_a_modpkg_unpacked() {
 #[test]
 fn a_retained_fantome_names_the_format_of_the_directory_beside_it() {
     let dir = tempfile::tempdir().unwrap();
-    place_installed_mod(dir.path(), "kept", ModArchiveFormat::Fantome, true);
+    place_unpacked_mod(dir.path(), "kept", true);
 
     let mut index = index_with(Vec::new(), Vec::new());
     assert!(reconcile(dir.path(), &mut index));
@@ -355,16 +354,9 @@ fn a_retained_fantome_names_the_format_of_the_directory_beside_it() {
 #[test]
 fn a_directory_an_entry_already_claims_is_not_adopted_twice() {
     let dir = tempfile::tempdir().unwrap();
-    place_installed_mod(dir.path(), "original", ModArchiveFormat::Fantome, false);
+    place_unpacked_mod(dir.path(), "original", false);
 
-    let mut index = index_with(
-        vec![make_slugged_entry(
-            "dup",
-            "original",
-            ModArchiveFormat::Fantome,
-        )],
-        vec!["dup"],
-    );
+    let mut index = index_with(vec![make_unpacked_entry("dup", "original")], vec!["dup"]);
 
     assert!(!reconcile(dir.path(), &mut index));
     assert_eq!(index.mods.len(), 1);

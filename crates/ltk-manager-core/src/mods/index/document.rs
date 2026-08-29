@@ -39,7 +39,6 @@ impl ModLibrary {
         let resolver = self.wad_resolver();
         let context = crate::mods::archive::install::InstallContext {
             resolver: resolver.as_ref(),
-            retain_archive: config.retain_mod_archives,
         };
 
         let _lock = self.index_lock.lock().mutex_err()?;
@@ -200,19 +199,22 @@ impl ModArchiveFormat {
         }
     }
 
-    /// How installing this format leaves the mod on disk: ADR-0001.
+    /// How installing this format leaves the mod on disk: ADR-0007.
+    ///
+    /// `Unknown` records a discovered project directory, which has no archive
+    /// for the mod to read out of.
     pub(crate) fn installed_storage(self) -> ModStorage {
         match self {
-            ModArchiveFormat::Modpkg => ModStorage::Archive,
-            ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => ModStorage::Project,
+            ModArchiveFormat::Modpkg | ModArchiveFormat::Fantome => ModStorage::Archive,
+            ModArchiveFormat::Unknown => ModStorage::Project,
         }
     }
 }
 
 /// Where a mod's content is, which is what picks its content provider.
 ///
-/// Recorded rather than derived: a fantome the layout migration has not reached
-/// is [`Archive`](Self::Archive) while its format still says `Fantome`, and a
+/// Recorded rather than derived: a fantome installs as
+/// [`Archive`](Self::Archive) but the user can unpack it after the fact, and a
 /// future sanitized-fantome mode would be another value here rather than
 /// another guess from the layout.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -332,9 +334,8 @@ impl LibraryModEntry {
 
     /// Path to the stored mod archive, beside the directory it belongs to.
     ///
-    /// Present for every modpkg (it is what the provider reads) and for a
-    /// fantome installed while [`retain_mod_archives`](crate::config::Config)
-    /// was on. In the legacy layout it is the shared `archives/` folder.
+    /// Every install keeps one — it is what the provider reads. In the legacy
+    /// layout it is the shared `archives/` folder.
     pub(crate) fn archive_path(&self, storage_dir: &Path) -> PathBuf {
         match &self.slug {
             Some(slug) => archive_path(storage_dir, slug, self.format),

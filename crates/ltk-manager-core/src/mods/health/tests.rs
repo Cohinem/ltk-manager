@@ -2,18 +2,15 @@
 //! fixtures the repair suite uses.
 
 use super::*;
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
-    make_slugged_entry, make_test_library, place_bin_archived_fantome, point_at_installed_build,
-    seed_library, stale_bin,
+    make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
+    point_at_installed_build, seed_library, stale_bin,
 };
 use std::fs;
 
 fn archived_entry(id: &str, slug: &str) -> LibraryModEntry {
-    LibraryModEntry {
-        storage: ModStorage::Archive,
-        ..make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
-    }
+    make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
 }
 
 #[test]
@@ -45,11 +42,7 @@ fn checking_a_stale_project_mod_reports_it_repairable() {
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "unpacked-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "unpacked-mod")],
     );
 
     let verdict = library.check_mod_health(&config, "id-1").unwrap();
@@ -122,11 +115,7 @@ fn forgetting_a_verdict_makes_the_sweep_owe_that_mod_a_check() {
     seed_library(
         &library,
         &config,
-        vec![make_slugged_entry(
-            "id-1",
-            "stale-mod",
-            ModArchiveFormat::Fantome,
-        )],
+        vec![make_unpacked_entry("id-1", "stale-mod")],
     );
     library.check_mod_health(&config, "id-1").unwrap();
     assert!(

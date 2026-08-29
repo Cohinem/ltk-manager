@@ -151,7 +151,7 @@ export function SourceTree({
       <ContextMenu.Trigger
         data-ui="SourceTree"
         ref={scrollRef}
-        className="flex-1 overflow-auto font-mono text-xs outline-none"
+        className="flex-1 overflow-auto font-mono text-xs outline-none scrollbar-md scrollbar-track"
         role="tree"
         aria-label={ariaLabel}
         tabIndex={-1}

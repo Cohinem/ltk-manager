@@ -1,6 +1,8 @@
 # ADR-0004: The storage mode is a per-mod choice
 
-Status: accepted (2026-08-26)
+Status: accepted (2026-08-26), its never-deleted clause amended by
+[ADR-0007](0007-an-install-keeps-the-mod-in-its-archive.md), which has an unpack
+consume the archive
 
 Builds on [ADR-0003](0003-the-layout-migration-moves-files-it-does-not-convert-them.md), which left
 both storage modes live at once and reserved the field that says which one a mod is in.

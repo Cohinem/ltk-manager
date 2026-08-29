@@ -145,7 +145,7 @@ export function ProblemsList({ query }: ProblemsListProps) {
       <ProblemsBody empty={problems.length === 0} filteredOut={matches.length === 0} query={query}>
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-auto rounded-lg border border-surface-700/60"
+          className="min-h-0 flex-1 overflow-auto rounded-lg border border-surface-700/60 scrollbar-md"
           {...NO_OVERSCROLL}
         >
           <div

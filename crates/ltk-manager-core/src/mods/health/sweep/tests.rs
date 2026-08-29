@@ -3,25 +3,23 @@
 
 use super::*;
 use crate::events::BackendEvent;
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
     RecordingEventSink, healthy_bin, make_library_with_events, make_library_with_version,
-    make_slugged_entry, make_test_library, place_bin_archived_fantome, place_bin_project_mod,
-    place_installed_mod, point_at_build, point_at_installed_build, seed_library, stale_bin,
+    make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
+    place_bin_project_mod, place_installed_mod, point_at_build, point_at_installed_build,
+    seed_library, stale_bin,
 };
 use assert_matches::assert_matches;
 use std::fs;
 use std::sync::Arc;
 
 fn project_entry(id: &str, slug: &str) -> LibraryModEntry {
-    make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
+    make_unpacked_entry(id, slug)
 }
 
 fn archived_entry(id: &str, slug: &str) -> LibraryModEntry {
-    LibraryModEntry {
-        storage: ModStorage::Archive,
-        ..make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
-    }
+    make_slugged_entry(id, slug, ModArchiveFormat::Fantome)
 }
 
 /// Story: the user opens the manager after a patch and learns, without asking,

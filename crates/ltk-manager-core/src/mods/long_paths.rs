@@ -201,18 +201,6 @@ pub(crate) fn verify_staged(staged: &Path, destination: &Path, root: ImportRoot)
     refuse_if_too_long(longest_path_at(staged, destination), max, root)
 }
 
-/// The shortest directory an install can land in, for a preflight that runs
-/// before the slug is known.
-///
-/// An install reads the name its slug comes from out of the archive it is
-/// unpacking, so where the mod ends up is not knowable until that work is
-/// already done. A slug is at least one character, which makes measuring
-/// against this a floor: it refuses only an archive that fits under no name at
-/// all, and [`verify_staged`] past the rename is what makes the answer exact.
-pub(crate) fn shortest_install_dir(mods_dir: &Path) -> std::path::PathBuf {
-    mods_dir.join("m")
-}
-
 /// Refuse an import of `modpkg` whose longest file would land past the limit.
 ///
 /// Takes the package already mounted, because the caller reads its metadata to

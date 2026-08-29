@@ -180,7 +180,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
     <ContextMenu.Root>
       <ContextMenu.Trigger
         ref={scrollRef}
-        className="min-h-0 flex-1 overflow-auto py-1 select-none"
+        className="min-h-0 flex-1 overflow-auto py-1 scrollbar-md select-none"
         onContextMenu={handleContextMenu}
         {...NO_OVERSCROLL}
       >

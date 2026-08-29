@@ -59,7 +59,7 @@ function WorkshopIndex() {
 
   return (
     <>
-      <div className="h-full overflow-auto px-6 pt-3 pb-6">{renderContent()}</div>
+      <div className="h-full overflow-auto p-6">{renderContent()}</div>
 
       <PackDialog />
       <BulkPackDialog />

@@ -1,10 +1,8 @@
 use super::*;
-use crate::mods::archive::install::{InstallContext, register_staged_mod, stage_mod_package};
 use crate::mods::index::{LibraryIndex, ModArchiveFormat, ModFault};
-use crate::mods::slug::TakenSlugs;
 use crate::mods::test_support::{
     make_full_fantome_zip, make_slugged_entry, make_test_library, make_test_profile,
-    place_installed_mod,
+    make_unpacked_entry, place_unpacked_mod,
 };
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -70,25 +68,22 @@ impl PathResolver for FixtureResolver {
     }
 }
 
-/// Import the shared fixture into a directory, returning (archive, mod dir).
+/// Unpack the shared fixture into a directory the way the storage conversion
+/// does, returning (archive, mod dir).
 fn import_fixture(root: &std::path::Path, resolver: &dyn PathResolver) -> (PathBuf, PathBuf) {
     let archive = root.join("full.fantome");
     make_full_fantome_zip(&archive);
 
-    let mut index = LibraryIndex::default();
-    let staged = stage_mod_package(
-        root,
-        archive.to_str().unwrap(),
-        &InstallContext {
-            resolver,
-            retain_archive: true,
-        },
-    )
-    .unwrap();
-    let mut taken = TakenSlugs::collect(&index, &root.join("mods"));
-    let (entry, _) = register_staged_mod(root, &mut index, staged, &mut taken).unwrap();
+    let mod_dir = root.join("mods").join("full-mod");
+    let utf8_mod_dir = Utf8PathBuf::from_path_buf(mod_dir.clone()).unwrap();
+    ltk_mod_project::ProjectImporter::new(&utf8_mod_dir)
+        .import(
+            ltk_mod_project::fantome::FantomeImporter::new(File::open(&archive).unwrap())
+                .with_path_resolver(resolver),
+        )
+        .unwrap();
 
-    (archive, entry.mod_dir(root))
+    (archive, mod_dir)
 }
 
 /// Golden A: with chunk names available, the unpacked directory answers with
@@ -139,9 +134,9 @@ fn an_imported_directory_matches_its_archive_without_a_resolver() {
 #[test]
 fn a_packed_modpkg_reads_through_its_archive_and_everything_else_off_disk() {
     let storage = tempfile::tempdir().unwrap();
-    place_installed_mod(storage.path(), "unpacked", ModArchiveFormat::Fantome, false);
+    place_unpacked_mod(storage.path(), "unpacked", false);
 
-    let fs_entry = make_slugged_entry("id-fs", "unpacked", ModArchiveFormat::Fantome);
+    let fs_entry = make_unpacked_entry("id-fs", "unpacked");
     let mut provider = fs_entry.content_provider(storage.path()).unwrap();
     assert_eq!(
         provider.list_layer_wads("base").unwrap(),
@@ -158,15 +153,10 @@ fn the_overlay_takes_a_fantome_with_no_archive_and_skips_a_faulted_mod() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    place_installed_mod(storage.path(), "keep-me", ModArchiveFormat::Fantome, false);
-    place_installed_mod(
-        storage.path(),
-        "broken-mod",
-        ModArchiveFormat::Fantome,
-        false,
-    );
+    place_unpacked_mod(storage.path(), "keep-me", false);
+    place_unpacked_mod(storage.path(), "broken-mod", false);
 
-    let mut faulted = make_slugged_entry("broken", "broken-mod", ModArchiveFormat::Fantome);
+    let mut faulted = make_unpacked_entry("broken", "broken-mod");
     let quarantine = faulted.quarantine_dir(storage.path());
     std::fs::create_dir_all(&quarantine).unwrap();
     faulted.fault = Some(ModFault::ConversionFailed {
@@ -177,9 +167,9 @@ fn the_overlay_takes_a_fantome_with_no_archive_and_skips_a_faulted_mod() {
     let index = LibraryIndex {
         version: 0,
         mods: vec![
-            make_slugged_entry("keep", "keep-me", ModArchiveFormat::Fantome),
+            make_unpacked_entry("keep", "keep-me"),
             faulted,
-            make_slugged_entry("gone", "not-on-disk", ModArchiveFormat::Fantome),
+            make_unpacked_entry("gone", "not-on-disk"),
         ],
         profiles: vec![make_test_profile(
             "p1",

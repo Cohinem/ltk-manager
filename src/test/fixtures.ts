@@ -42,7 +42,6 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     hideRiotClientOnLaunch: true,
     readGameLog: true,
     keepIncidents: 50,
-    retainModArchives: true,
     ...overrides,
   };
 }

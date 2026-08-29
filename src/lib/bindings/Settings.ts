@@ -208,12 +208,4 @@ readGameLog: boolean,
  * The oldest goes first, and a dismissed one before an undismissed one
  * of the same age. Default: 50.
  */
-keepIncidents: number, 
-/**
- * Whether an installed fantome keeps its original archive inside the mod
- * directory. Read at install and at the layout migration only, so turning
- * it off frees nothing already on disk. Modpkg archives are exempt: the
- * overlay reads a modpkg's content out of the archive itself.
- * Default: true.
- */
-retainModArchives: boolean, };
+keepIncidents: number, };
