@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 /// to reading one faithfully.
 fn override_digest_set(
     content: &mut dyn ModContentProvider,
-) -> AppResult<BTreeSet<(u64, [u8; 32])>> {
+) -> AppResult<BTreeSet<(WadHash, [u8; 32])>> {
     let content_error = |e: ltk_overlay::Error| AppError::Other(format!("{e}"));
 
     let project = content.mod_project().map_err(content_error)?;
@@ -44,7 +44,7 @@ fn override_digest_set(
     Ok(set)
 }
 
-fn digest_entry(rel_path: &Utf8Path, bytes: &[u8]) -> AppResult<(u64, [u8; 32])> {
+fn digest_entry(rel_path: &Utf8Path, bytes: &[u8]) -> AppResult<(WadHash, [u8; 32])> {
     let hash = ltk_overlay::utils::resolve_chunk_hash(rel_path, bytes)
         .map_err(|e| AppError::Other(format!("Failed to resolve chunk hash: {e}")))?;
     Ok((hash, sha2::Sha256::digest(bytes).into()))

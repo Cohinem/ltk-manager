@@ -1152,7 +1152,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.2",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1405,7 +1405,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2999,8 +2999,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_fantome"
-version = "0.9.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=086cf540aa0ee8eb79becec1fa008a30f9dfb0ed#086cf540aa0ee8eb79becec1fa008a30f9dfb0ed"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7452d865baef9bbed60349622a0fbb0c7af889c8114cf0e95ae1864c51270cf2"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
@@ -3048,7 +3049,8 @@ dependencies = [
 [[package]]
 name = "ltk_hashtable"
 version = "0.1.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=086cf540aa0ee8eb79becec1fa008a30f9dfb0ed#086cf540aa0ee8eb79becec1fa008a30f9dfb0ed"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcafdda26ff6fd2b3a28fcfe9120984fec1935e4c8d9b5ce0045e6564d788337"
 dependencies = [
  "camino",
  "ltk_hash",
@@ -3119,8 +3121,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mod_project"
-version = "0.8.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=086cf540aa0ee8eb79becec1fa008a30f9dfb0ed#086cf540aa0ee8eb79becec1fa008a30f9dfb0ed"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fa3080f4b7510d2dcd49a94188d3a92d0afee86b2c9c415c289f90812409588"
 dependencies = [
  "camino",
  "ignore",
@@ -3142,8 +3145,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_modpkg"
-version = "0.9.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=086cf540aa0ee8eb79becec1fa008a30f9dfb0ed#086cf540aa0ee8eb79becec1fa008a30f9dfb0ed"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f397aac0ab1b6cc9cfde938b0cc1f55caf35062d065543a229f24e2421177cf0"
 dependencies = [
  "binrw",
  "byteorder",
@@ -3161,8 +3165,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_overlay"
-version = "0.8.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=086cf540aa0ee8eb79becec1fa008a30f9dfb0ed#086cf540aa0ee8eb79becec1fa008a30f9dfb0ed"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4d62a01a8baaaa6c123e08213974d025ca21914833a1ae67872d133f0641274"
 dependencies = [
  "byteorder",
  "camino",
@@ -3247,6 +3252,7 @@ dependencies = [
  "memchr",
  "num_enum",
  "rsa",
+ "serde",
  "sha2",
  "thiserror 1.0.69",
  "xxhash-rust",
@@ -3412,7 +3418,7 @@ dependencies = [
  "png 0.18.1",
  "serde",
  "thiserror 2.0.18",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3541,7 +3547,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3653,7 +3659,7 @@ version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "680998035259dcfcafe653688bf2aa6d3e2dc05e98be6ab46afb089dc84f1df8"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.5.0",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -3960,7 +3966,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d8fae84b431384b68627d0f9b3b1245fcf9f46f6c0e3dc902e9dce64edd1967"
 dependencies = [
  "libc",
- "windows-sys 0.45.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4873,7 +4879,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4929,7 +4935,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5426,7 +5432,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6169,7 +6175,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6673,7 +6679,7 @@ dependencies = [
  "png 0.18.1",
  "serde",
  "thiserror 2.0.18",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6727,7 +6733,7 @@ checksum = "f2f6fb2847f6742cd76af783a2a2c49e9375d0a111c7bef6f71cd9e738c72d6e"
 dependencies = [
  "memoffset",
  "tempfile",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7160,7 +7166,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
