@@ -14,14 +14,12 @@ pub mod timing;
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
 use crate::mods::ModLibrary;
-use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::index::{LibraryModEntry, ModStorage};
 use crate::problems::{self, Budget, Counts, GameBuild, Run};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
-use uuid::Uuid;
 
 /// Where the library remembers its verdicts, beside `library.json`.
 const MOD_HEALTH_VERDICTS_FILENAME: &str = "mod-health-verdicts.json";
@@ -274,9 +272,9 @@ impl ModLibrary {
 
     /// One Problems run over the mod's content, whichever storage holds it.
     ///
-    /// A Project-storage mod is read where it lives. An Archive-storage mod is
-    /// unpacked into staging just to be read, and the staging is gone before
-    /// this returns — a check never leaves anything behind.
+    /// Both are read where they live: a Project-storage mod out of its tree,
+    /// an Archive-storage mod out of the archive. A check writes nothing, and
+    /// now has nothing to clean up either.
     fn run_over(
         &self,
         config: &Config,
@@ -288,18 +286,12 @@ impl ModLibrary {
             ModStorage::Project => {
                 problems::analyze_within(&entry.mod_dir(storage_dir), config, budget.clone())
             }
-            ModStorage::Archive => {
-                let archive = entry.convertible_archive(storage_dir)?;
-                let staging = storage_dir
-                    .join("mods")
-                    .join(format!("{STAGING_PREFIX}{}", Uuid::new_v4()));
-                fs::create_dir_all(&staging)?;
-                let run = self
-                    .unpack_for_rules(&staging, &archive)
-                    .and_then(|_| problems::analyze_within(&staging, config, budget.clone()));
-                let _ = fs::remove_dir_all(&staging);
-                run
-            }
+            ModStorage::Archive => problems::analyze_archive(
+                &entry.convertible_archive(storage_dir)?,
+                config,
+                budget.clone(),
+                self.wad_resolver().as_ref(),
+            ),
         }
     }
 }

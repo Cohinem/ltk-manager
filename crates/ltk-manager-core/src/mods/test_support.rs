@@ -460,6 +460,64 @@ pub(crate) fn make_long_chunk_fantome_zip(path: &Path) {
     zip.finish().unwrap();
 }
 
+/// An archive holding a loose WAD file beside a dot-file the directory walk
+/// would skip.
+///
+/// The walk filters any entry whose name starts with a dot, so a tree and an
+/// archive only agree about their content if the archive filters them too.
+pub(crate) fn make_dot_file_fantome_zip(path: &Path) {
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info("Dotted Mod"))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    zip.start_file("WAD/Ashe.wad.client/data/visible.bin", options)
+        .unwrap();
+    zip.write_all(b"visible").unwrap();
+    zip.start_file("WAD/Ashe.wad.client/data/.hidden.bin", options)
+        .unwrap();
+    zip.write_all(b"hidden").unwrap();
+
+    zip.finish().unwrap();
+}
+
+/// An archive whose manifest declares a hashtable file the archive does not
+/// hold.
+///
+/// The names such an archive resolves are not the names it claims to, so an
+/// import refuses it. A check that accepts it names chunks differently from
+/// the repair that follows.
+pub(crate) fn make_missing_hashtable_fantome_zip(path: &Path) {
+    let mut info = fantome_info("Missing Table Mod");
+    info.hashtables = vec![ltk_fantome::FantomeHashtable {
+        path: "META/hashes/game.hashes.txt".to_string(),
+        category: ltk_hashtable::Category::Game,
+        algorithm: ltk_hashtable::Algorithm::Xxh64,
+        bits: 64,
+    }];
+
+    let packed = build_packed_wad(&[("data/skin0.bin", &b"PROP"[..])]);
+
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(serde_json::to_string_pretty(&info).unwrap().as_bytes())
+        .unwrap();
+    zip.start_file("WAD/Ashe.wad.client", options).unwrap();
+    zip.write_all(&packed).unwrap();
+
+    zip.finish().unwrap();
+}
+
 /// An archive whose packed WAD holds one texture chunk and one bin, where the
 /// bin's strings are the only record of the texture's path.
 pub(crate) fn make_bin_named_chunk_fantome_zip(path: &Path, recovered_path: &str) {
@@ -558,6 +616,62 @@ pub(crate) fn make_bin_fantome_zip(path: &Path, name: &str, bin: &ltk_meta::Bin)
     zip.finish().unwrap();
 }
 
+/// A fantome archive holding `bin` as a `RAW/` entry.
+///
+/// An unpack writes those under the base layer rather than beside it, so a
+/// rule sees them - which is what this holds the archive reader to.
+pub(crate) fn make_raw_bin_fantome_zip(path: &Path, name: &str, bin: &ltk_meta::Bin) {
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(name))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+    zip.start_file(format!("RAW/{STALE_BIN_IN_WAD}"), options)
+        .unwrap();
+    zip.write_all(&bin_bytes(bin)).unwrap();
+    zip.finish().unwrap();
+}
+
+/// A fantome archive whose one WAD is packed into a single entry holding
+/// `bin`.
+///
+/// `compression` is the archive's half of the read-in-place seam: a stored
+/// entry is reached chunk by chunk where it lies, and a deflated one has to be
+/// inflated whole first.
+pub(crate) fn make_packed_bin_fantome_zip(
+    path: &Path,
+    name: &str,
+    bin: &ltk_meta::Bin,
+    compression: zip::CompressionMethod,
+) {
+    let packed = build_packed_wad(&[(STALE_BIN_IN_WAD, &bin_bytes(bin))]);
+
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(name))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    zip.start_file(
+        "WAD/Aatrox.wad.client",
+        options.compression_method(compression),
+    )
+    .unwrap();
+    zip.write_all(&packed).unwrap();
+    zip.finish().unwrap();
+}
+
 /// An archive-storage fantome in the slug layout: a metadata-only mod
 /// directory, an archive holding `bin` beside it.
 pub(crate) fn place_bin_archived_fantome(storage_dir: &Path, slug: &str, bin: &ltk_meta::Bin) {
@@ -570,6 +684,31 @@ pub(crate) fn place_bin_archived_fantome(storage_dir: &Path, slug: &str, bin: &l
     )
     .unwrap();
     make_bin_fantome_zip(&mods_dir.join(format!("{slug}.fantome")), slug, bin);
+}
+
+/// An archive-storage fantome whose WAD is packed rather than loose.
+///
+/// The shape a mod ships in before anything repacks it, and the one whose
+/// chunks are addressed by hash rather than by path.
+pub(crate) fn place_packed_bin_archived_fantome(
+    storage_dir: &Path,
+    slug: &str,
+    bin: &ltk_meta::Bin,
+) {
+    let mods_dir = storage_dir.join("mods");
+    let mod_dir = mods_dir.join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+    make_packed_bin_fantome_zip(
+        &mods_dir.join(format!("{slug}.fantome")),
+        slug,
+        bin,
+        zip::CompressionMethod::Stored,
+    );
 }
 
 /// A Project-storage fantome: `bin` sits in the unpacked tree, and no archive

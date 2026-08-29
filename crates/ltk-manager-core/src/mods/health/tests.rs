@@ -2,6 +2,7 @@
 //! fixtures the repair suite uses.
 
 use super::*;
+use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
     make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
@@ -31,6 +32,55 @@ fn checking_a_stale_archived_fantome_reports_it_repairable_and_remembers() {
 
     let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(verdicts.get("id-1").unwrap(), &verdict);
+}
+
+/// Story: a mod still shipping a packed WAD is checked without being unpacked,
+/// on a machine whose hashtables name none of its chunks.
+///
+/// Nothing names the bin, so the check reports nothing - deliberately. The
+/// repair unpacks under `NamingPolicy::Lossless`, which writes a nameless
+/// chunk as a bare hash with no extension, and every rule takes its kind from
+/// the extension; `repairing_a_packed_fantome_no_table_names_applies_nothing`
+/// pins that it therefore fixes nothing. Reporting the bin here would raise a
+/// problem on every sweep that no repair could ever clear. What this test does
+/// hold is that the check reads the archive where it lies, unpacking nothing
+/// and writing nothing.
+#[test]
+fn checking_a_stale_packed_fantome_unpacks_nothing_and_reports_what_a_repair_could_fix() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    crate::mods::test_support::place_packed_bin_archived_fantome(
+        storage.path(),
+        "packed-mod",
+        &stale_bin(),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "packed-mod")],
+    );
+    let mods_dir = storage.path().join("mods");
+    let before = fs::read(mods_dir.join("packed-mod.fantome")).unwrap();
+
+    let verdict = library.check_mod_health(&config, "id-1").unwrap();
+
+    assert_eq!(verdict.health, ModHealth::Healthy);
+    assert_eq!(verdict.fixable, 0);
+    assert_eq!(
+        fs::read(mods_dir.join("packed-mod.fantome")).unwrap(),
+        before,
+        "a check never writes"
+    );
+
+    let left: Vec<_> = fs::read_dir(&mods_dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        !left.iter().any(|name| name.starts_with(STAGING_PREFIX)),
+        "a check unpacks nothing: {left:?}"
+    );
 }
 
 #[test]

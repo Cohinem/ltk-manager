@@ -262,8 +262,9 @@ impl ModLibrary {
 
     /// Unpack `archive` into `staging` as the project the rules read.
     ///
-    /// Shared by repair and check, which both have to materialize an
-    /// archive-storage mod before a rule can see inside it.
+    /// A repair writes through a project root, so an archive-storage mod has
+    /// to be materialized before a fix can be applied to it. A check does not,
+    /// and reads the archive where it lies.
     pub(in crate::mods) fn unpack_for_rules(
         &self,
         staging: &Path,

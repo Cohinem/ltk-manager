@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use ltk_hash::{BinHash, Hash as _};
 use ltk_hashdb::LayeredHashDb;
-use ltk_hashtable::{Category, HashtableSet};
+use ltk_hashtable::{Category, Hashtable, HashtableEntry, HashtableSet};
 use ltk_mod_project::ModProject;
 
 use crate::hashtables::{BinHashTables, HashtableCache};
@@ -79,6 +79,22 @@ impl BinNames {
     /// way.
     #[must_use]
     pub fn open(project_root: &Path) -> Self {
+        let tables = camino::Utf8Path::from_path(project_root)
+            .and_then(|root| ModProject::load(root).ok())
+            .map_or_else(Vec::new, |project| {
+                super::preserve::read_tables(project_root, &project.hashtables)
+            });
+
+        Self::with_declared(tables)
+    }
+
+    /// The shared cache's tables, plus `declared`.
+    ///
+    /// What [`open`](Self::open) is once a project's own tables have been
+    /// read, and the way in for a caller that read them somewhere other than a
+    /// directory - an archive declares its tables inside itself.
+    #[must_use]
+    pub fn with_declared(declared: Vec<(HashtableEntry, Hashtable)>) -> Self {
         let (cache, wad) = match HashtableCache::shared() {
             Ok(cache) => (cache.bin_tables(), cache.wad_tables()),
             Err(e) => {
@@ -87,12 +103,7 @@ impl BinNames {
             }
         };
 
-        let tables = camino::Utf8Path::from_path(project_root)
-            .and_then(|root| ModProject::load(root).ok())
-            .map_or_else(Vec::new, |project| {
-                super::preserve::read_tables(project_root, &project.hashtables)
-            });
-        let declared_game = tables
+        let declared_game = declared
             .iter()
             .filter(|(entry, _)| *entry.category() == Category::Game)
             .flat_map(|(_, table)| table.names().map(str::to_owned))
@@ -100,7 +111,7 @@ impl BinNames {
 
         Self {
             cache,
-            declared: HashtableSet::build(tables),
+            declared: HashtableSet::build(declared),
             declared_game,
             wad,
             declared_fnv: OnceLock::new(),

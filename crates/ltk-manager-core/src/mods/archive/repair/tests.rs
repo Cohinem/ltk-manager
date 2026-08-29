@@ -183,6 +183,44 @@ fn repairing_an_archived_fantome_rewrites_the_stale_property_in_its_archive() {
     );
 }
 
+/// Story: a mod whose packed WAD holds a stale bin no table names, repaired on
+/// a machine whose hashtables name none of its chunks.
+///
+/// The repair unpacks under `NamingPolicy::Lossless`, which writes such a
+/// chunk as a bare hash and invents no extension, and every rule takes its
+/// kind from the extension. So whatever the check reported, the repair reads a
+/// tree in which that chunk is not a bin, and applies nothing. A check that
+/// reported it repairable would raise the same problem on every sweep for as
+/// long as the mod is installed.
+#[test]
+fn repairing_a_packed_fantome_no_table_names_applies_nothing() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    crate::mods::test_support::place_packed_bin_archived_fantome(
+        storage.path(),
+        "packed-mod",
+        &stale_bin(),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "packed-mod")],
+    );
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+
+    assert_eq!(
+        report.applied, 0,
+        "the unpacked tree names the chunk by its hash, so no rule reads it"
+    );
+
+    // And the check has to agree, or the mod sits repairable forever.
+    let verdict = library.check_mod_health(&config, "id-1").unwrap();
+    assert_eq!(verdict.health, ModHealth::Healthy);
+    assert_eq!(verdict.fixable, 0);
+}
+
 /// Every table the project declares, merged the way a reader would see them.
 fn embedded_names(mod_dir: &std::path::Path) -> ltk_hashtable::HashtableSet {
     let root = camino::Utf8Path::from_path(mod_dir).unwrap();
