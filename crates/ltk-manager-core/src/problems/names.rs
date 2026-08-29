@@ -15,15 +15,18 @@
 //! behind it. [`path_value`](BinNames::path_value) is that repair's lookup,
 //! and it reaches further than the reading ones: past `binhashes` it asks the
 //! game hashtables - whose names are paths keyed by `XXH64` - by hashing
-//! their names under `FNV1a32`, built as an index once and only on the first
-//! ask. A [`Site`](super::Site) still addresses a property by hash, so a
-//! cache that arrives or leaves between a run and a fix cannot change what a
-//! repair matches - only what a row draws, and whether that one conversion
-//! applies.
+//! their names under `FNV1a32`. Mimir's half of that index answers the same
+//! question for every mod and takes seconds to build over millions of names,
+//! so it is built once for the process. Only the names a mod declares itself
+//! are indexed per run. A [`Site`](super::Site) still addresses a property by
+//! hash, so a cache that arrives or leaves between a run and a fix cannot
+//! change what a repair matches - only what a row draws, and whether that one
+//! conversion applies.
 
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use ltk_hash::{BinHash, Hash as _};
 use ltk_hashdb::LayeredHashDb;
@@ -44,25 +47,28 @@ pub struct BinNames {
     declared_game: Vec<String>,
     /// The mimir WAD tables, whose names feed the FNV index.
     wad: LayeredHashDb,
-    /// `FNV1a32` over every game-table name, keyed to where the name can be
-    /// read back. `None` marks a hash two different names collide on, which a
-    /// repair must refuse rather than guess about.
+    /// `FNV1a32` over the mod's own game-table names, by position in
+    /// [`declared_game`](Self::declared_game).
     ///
-    /// Built on the first [`path_value`](Self::path_value) miss: the game
-    /// tables hold millions of names, and most runs never ask.
-    fnv_index: OnceLock<HashMap<u32, Option<GamePath>>>,
+    /// Per instance because this is the half that differs between mods, and it
+    /// is a few hundred names where mimir's is millions.
+    declared_fnv: OnceLock<FnvIndex<u32>>,
 }
 
-/// One game-table name, addressed the way its source reads it back.
+/// `FNV1a32` to whatever reads the name back, be that a key or a position.
 ///
-/// The index stores this rather than the name so millions of entries cost a
-/// key each instead of a string each.
-enum GamePath {
-    /// A mimir WAD table name, under its `XXH64` key.
-    Wad(u64),
-    /// A name of the mod's own game tables, by position.
-    Declared(u32),
-}
+/// The index stores that rather than the name so millions of entries cost a
+/// number each instead of a string each. `None` marks a hash two different
+/// names collide on, which a repair must refuse rather than guess about.
+type FnvIndex<T> = HashMap<u32, Option<T>>;
+
+/// `FNV1a32` over the mimir game-table names, under their `XXH64` keys.
+///
+/// Built once for the process rather than once per [`BinNames`]: every mod
+/// asks the same question of the same tables, and hashing two and a half
+/// million names takes seconds. A sync writes new tables under new names, so
+/// it ends with [`BinNames::invalidate_game_index`].
+static GAME_FNV: Mutex<Option<Arc<FnvIndex<u64>>>> = Mutex::new(None);
 
 impl BinNames {
     /// Open the bin tables of the shared cache, and `project_root`'s own.
@@ -97,8 +103,14 @@ impl BinNames {
             declared: HashtableSet::build(tables),
             declared_game,
             wad,
-            fnv_index: OnceLock::new(),
+            declared_fnv: OnceLock::new(),
         }
+    }
+
+    /// Drop the process-wide mimir index, so the next ask reads what a sync
+    /// just wrote.
+    pub fn invalidate_game_index() {
+        *GAME_FNV.lock().unwrap_or_else(PoisonError::into_inner) = None;
     }
 
     /// Name nothing, which is what a run with no cache does.
@@ -130,18 +142,14 @@ impl BinNames {
     ///
     /// Everything [`value`](Self::value) reads, and then the game hashtables -
     /// mimir's and the mod's own - whose names are the paths themselves,
-    /// checked under `FNV1a32`. The first ask that reaches them pays for the
-    /// index once, and a hash two game-table names collide on stays
+    /// checked under `FNV1a32`. A hash two game-table names collide on stays
     /// unresolved: a repair writing the wrong path is worse than no repair.
     #[must_use]
     pub fn path_value(&self, hash: BinHash) -> Option<String> {
         if let Some(name) = self.value(hash) {
             return Some(name);
         }
-        self.fnv_index()
-            .get(&hash.0)?
-            .as_ref()
-            .and_then(|key| self.game_path(key))
+        self.game_name(hash.0)
     }
 
     /// The path of an object, for the entry a site names.
@@ -164,60 +172,108 @@ impl BinNames {
             .map(str::to_owned)
     }
 
-    /// Read one indexed name back out of its source.
-    fn game_path(&self, key: &GamePath) -> Option<String> {
-        match key {
-            GamePath::Wad(hash) => Some(self.wad.get(*hash)?.into_owned()),
-            GamePath::Declared(at) => self.declared_game.get(*at as usize).cloned(),
+    /// One mimir game-table name, read back under its `XXH64` key.
+    fn wad_name(&self, key: u64) -> Option<String> {
+        Some(self.wad.get(key)?.into_owned())
+    }
+
+    /// One of the mod's own game-table names, by position.
+    fn declared_name(&self, at: u32) -> Option<String> {
+        self.declared_game.get(at as usize).cloned()
+    }
+
+    /// The game-table path one `FNV1a32` hash names, across both sources.
+    ///
+    /// Mimir answers where both hold the hash, which is the order one merged
+    /// index resolved them in. Two sources naming different paths poison the
+    /// hash exactly as two names inside one source do.
+    fn game_name(&self, fnv: u32) -> Option<String> {
+        let mimir = self.game_index();
+        let mimir = mimir.as_ref().and_then(|index| index.get(&fnv)).copied();
+        let declared = self.declared_index().get(&fnv).copied();
+
+        match (mimir, declared) {
+            (None, None) => None,
+            (Some(mimir), None) => self.wad_name(mimir?),
+            (None, Some(declared)) => self.declared_name(declared?),
+            (Some(mimir), Some(declared)) => {
+                let mimir = self.wad_name(mimir?)?;
+                let declared = self.declared_name(declared?)?;
+                mimir.eq_ignore_ascii_case(&declared).then_some(mimir)
+            }
         }
     }
 
-    /// The FNV index over the game-table names, built on the first ask.
-    fn fnv_index(&self) -> &HashMap<u32, Option<GamePath>> {
-        self.fnv_index.get_or_init(|| {
-            let started = std::time::Instant::now();
-            let mut index = HashMap::new();
+    /// The process-wide mimir index, built by whichever run asks first.
+    ///
+    /// `None` where this instance opened no game tables, which is a run with
+    /// no cache: it has nothing to put in the index and nothing to read back
+    /// out of it, and building an empty one would answer for every run after.
+    fn game_index(&self) -> Option<Arc<FnvIndex<u64>>> {
+        if self.wad.base_len() == 0 && self.wad.overlay_len() == 0 {
+            return None;
+        }
 
-            let wad = self
-                .wad
-                .iter()
-                .map(|(hash, path)| (GamePath::Wad(hash), path.into_owned()));
-            let declared = self
-                .declared_game
-                .iter()
-                .enumerate()
-                .map(|(at, name)| (GamePath::Declared(at as u32), name.clone()));
+        // Held across the build so a second run waits for the first rather
+        // than indexing the same tables beside it.
+        let mut held = GAME_FNV.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(index) = held.as_ref() {
+            return Some(Arc::clone(index));
+        }
 
-            for (key, name) in wad.chain(declared) {
-                let fnv = BinHash::hash_str(&name).0;
-                match index.entry(fnv) {
-                    std::collections::hash_map::Entry::Vacant(slot) => {
-                        slot.insert(Some(key));
-                    }
-                    std::collections::hash_map::Entry::Occupied(mut held) => {
-                        /* Two names on one FNV hash. Where they are the same
-                        path from two sources the first stays. Different paths
-                        poison the hash for good, because a repair must not
-                        pick one. */
-                        let kept = held
-                            .get()
-                            .as_ref()
-                            .and_then(|kept| self.game_path(kept))
-                            .is_some_and(|kept| kept.eq_ignore_ascii_case(&name));
-                        if !kept {
-                            held.insert(None);
-                        }
-                    }
-                }
+        let started = std::time::Instant::now();
+        let mut index = FnvIndex::new();
+        for (key, path) in self.wad.iter() {
+            insert_name(&mut index, path.as_str(), key, |kept| self.wad_name(kept));
+        }
+        tracing::debug!(
+            "Indexed {} mimir game-table names under FNV1a32 in {:?}",
+            index.len(),
+            started.elapsed()
+        );
+
+        let index = Arc::new(index);
+        *held = Some(Arc::clone(&index));
+        Some(index)
+    }
+
+    /// The index over the mod's own game-table names, built on the first ask.
+    fn declared_index(&self) -> &FnvIndex<u32> {
+        self.declared_fnv.get_or_init(|| {
+            let mut index = FnvIndex::new();
+            for (at, name) in self.declared_game.iter().enumerate() {
+                insert_name(&mut index, name, at as u32, |kept| self.declared_name(kept));
             }
-
-            tracing::debug!(
-                "Indexed {} game-table names under FNV1a32 in {:?}",
-                index.len(),
-                started.elapsed()
-            );
             index
         })
+    }
+}
+
+/// Index `name` under its `FNV1a32`, poisoning a hash two paths land on.
+///
+/// `read_back` names whatever the index already holds for that hash, because
+/// deciding between a duplicate and a collision means comparing the paths
+/// rather than the keys.
+fn insert_name<T: Copy>(
+    index: &mut FnvIndex<T>,
+    name: &str,
+    key: T,
+    read_back: impl Fn(T) -> Option<String>,
+) {
+    match index.entry(BinHash::hash_str(name).0) {
+        Entry::Vacant(slot) => {
+            slot.insert(Some(key));
+        }
+        Entry::Occupied(mut held) => {
+            /* The same path twice keeps the first. Two different paths poison
+            the hash for good, because a repair must not pick one. */
+            let same = (*held.get())
+                .and_then(&read_back)
+                .is_some_and(|kept| kept.eq_ignore_ascii_case(name));
+            if !same {
+                held.insert(None);
+            }
+        }
     }
 }
 
@@ -228,7 +284,7 @@ impl Default for BinNames {
             declared: HashtableSet::build(std::iter::empty()),
             declared_game: Vec::new(),
             wad: LayeredHashDb::new(),
-            fnv_index: OnceLock::new(),
+            declared_fnv: OnceLock::new(),
         }
     }
 }
