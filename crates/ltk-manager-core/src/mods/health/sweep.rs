@@ -6,9 +6,10 @@ use super::{HealthCheckBasis, LEGACY_VERDICTS_FILENAME, ModHealth, ModHealthVerd
 use crate::config::Config;
 use crate::error::{AppResult, MutexResultExt};
 use crate::events::{BackendEvent, HealthSweepProgress};
+use crate::hashtables::HashtableCache;
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryModEntry;
-use crate::problems::{Budget, budget};
+use crate::problems::{BinNames, Budget, budget};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::fs;
@@ -75,6 +76,21 @@ impl ModLibrary {
         let storage_dir = self.storage_dir(config)?;
 
         let kept = self.prune_verdicts(&storage_dir, &entries)?;
+
+        // Pruning first, because a mod the library no longer holds should lose
+        // its verdict whatever the tables say. Checking is what stands down:
+        // every verdict this pass could record would misjudge what a repair
+        // reaches - see `ModLibrary::hashtables_ready`.
+        if !self.hashtables_ready() {
+            tracing::warn!(
+                "Not sweeping mod health: the hashtable cache is empty, so every verdict would be \
+                 a claim about content the rules could not name"
+            );
+            let report = self.health_report(&storage_dir, basis, 0, 0);
+            self.record_health_sweep(HealthSweepState::Idle);
+            return Ok(report);
+        }
+
         let checkable = entries.iter().filter(|entry| entry.is_checkable()).count();
         let due = due_for_check(&entries, &kept, &basis);
         let (total, skipped) = (due.len(), checkable - due.len());
@@ -132,6 +148,47 @@ impl ModLibrary {
             .emit(BackendEvent::HealthSweepFinished(report.clone()));
 
         Ok(report)
+    }
+
+    /// Fill the shared hashtable cache, for the sweep that is about to read it.
+    ///
+    /// A cache that is empty or behind the published release is fetched first,
+    /// because a check with no tables to name a mod's content with is not a
+    /// check the sweep may run at all - see
+    /// [`hashtables_ready`](ModLibrary::hashtables_ready). A sync that fails is
+    /// logged and stepped over, and the sweep behind it then stands down.
+    ///
+    /// Answers whether new tables landed, which is the caller's cue to reopen
+    /// everything it read out of the old ones.
+    pub(in crate::mods) fn fill_hashtables(&self) -> bool {
+        let cache = match HashtableCache::shared() {
+            Ok(cache) => cache,
+            Err(e) => {
+                tracing::warn!("No hashtable cache to fill before the library sweep: {e}");
+                return false;
+            }
+        };
+
+        let user_agent = format!("ltk-manager/{}", self.app_version());
+        let report = match cache.sync(false, &user_agent, self.events().as_ref()) {
+            Ok(report) => report,
+            Err(e) => {
+                tracing::warn!("Could not sync the hashtables before the library sweep: {e}");
+                return false;
+            }
+        };
+        if report.installed.is_empty() {
+            return false;
+        }
+
+        tracing::info!(
+            "Installed {} hashtables before the library sweep: {}",
+            report.installed.len(),
+            report.installed.join(", ")
+        );
+        self.wad_resolver.invalidate();
+        BinNames::invalidate_game_index();
+        true
     }
 
     /// What the library sweep has to say for itself this launch.

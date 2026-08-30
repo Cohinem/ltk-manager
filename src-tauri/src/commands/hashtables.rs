@@ -3,11 +3,14 @@
 use super::off_thread;
 use crate::error::IpcResult;
 use crate::events::TauriEventSink;
+use crate::mods::ModLibraryState;
+use crate::state::SettingsState;
 use ltk_manager_core::game_index::GameIndexState;
 use ltk_manager_core::hashtables::{
     HashtableCache, HashtableCacheStatus, HashtableSyncReport, HashtableUpdateCheck,
     WadPathResolverState,
 };
+use ltk_manager_core::mods::HealthSweepState;
 use ltk_manager_core::problems::BinNames;
 use ltk_manager_core::strings::StringKeyIndexState;
 use tauri::{AppHandle, Manager};
@@ -47,13 +50,60 @@ pub async fn sync_hashtables(force: bool, app: AppHandle) -> IpcResult<Hashtable
         let report = HashtableCache::shared()?.sync(force, SYNC_USER_AGENT, &events)?;
 
         if !report.up_to_date {
-            app.state::<std::sync::Arc<WadPathResolverState>>()
-                .invalidate();
-            app.state::<StringKeyIndexState>().clear();
-            app.state::<GameIndexState>().clear()?;
-            BinNames::invalidate_game_index();
+            reopen_after_sync(&app);
+            sweep_after_sync(&app);
         }
         Ok(report)
     })
     .await
+}
+
+/// Drop everything read out of the tables a sync has just replaced.
+///
+/// The next caller opens what the sync wrote. Shared by the Settings sync and
+/// by the one the startup sweep runs in front of itself, so the two cannot
+/// forget different halves of it.
+pub fn reopen_after_sync(app: &AppHandle) {
+    app.state::<std::sync::Arc<WadPathResolverState>>()
+        .invalidate();
+    app.state::<StringKeyIndexState>().clear();
+    if let Err(e) = app.state::<GameIndexState>().clear() {
+        tracing::warn!("Could not drop the game index after a hashtable sync: {e}");
+    }
+    BinNames::invalidate_game_index();
+}
+
+/// Re-check the library against the tables the sync just installed.
+///
+/// A verdict's basis names the cache it was taken against, so every stored one
+/// is now stale - and a badge that waited for the next launch to say so would
+/// leave the user reading a verdict this press has already disproved. On a
+/// thread of its own, because a sweep reads every mod and the press it answers
+/// is a table download.
+///
+/// One sweep at a time. Two would share a verdict file, a progress event and
+/// one cancel between them, so the reader would watch two runs' counters fight
+/// over the status bar while the ✕ stopped whichever started last.
+fn sweep_after_sync(app: &AppHandle) {
+    let library = app.state::<ModLibraryState>().0.clone();
+    if let HealthSweepState::Running { .. } = library.health_sweep_state() {
+        tracing::info!("A library sweep is already running, so the sync leaves it to that one");
+        return;
+    }
+
+    let Ok(settings) = app
+        .state::<SettingsState>()
+        .0
+        .lock()
+        .map(|held| held.clone())
+    else {
+        tracing::warn!("Could not read the settings to sweep after a hashtable sync");
+        return;
+    };
+
+    std::thread::spawn(move || {
+        if let Err(e) = library.sweep_mod_health(&settings.config) {
+            tracing::warn!("Could not sweep mod health after a hashtable sync: {e}");
+        }
+    });
 }

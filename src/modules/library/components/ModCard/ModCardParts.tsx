@@ -11,6 +11,7 @@ import {
   PackageIcon,
   PencilSimpleIcon,
   ShieldWarningIcon,
+  SpinnerGapIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
 import { cloneElement, type ReactElement, type ReactNode } from "react";
@@ -29,7 +30,11 @@ import {
   useToast,
 } from "@/components";
 import type { InstalledMod, ModStorage } from "@/lib/tauri";
-import { useCheckModHealth, useModEffectiveCategories } from "@/modules/library/api";
+import {
+  useCheckModHealth,
+  useHealthCheckReadiness,
+  useModEffectiveCategories,
+} from "@/modules/library/api";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 
@@ -246,33 +251,6 @@ export function ModCardContextMenu({
  */
 function ModCardMenuItems({ view }: { view: ModCardView }) {
   const { mod, isFlagged, isInUserFolder, canChangeStorage } = view;
-  const checkModHealth = useCheckModHealth();
-  const toast = useToast();
-
-  // The badge only appears when something is wrong, so a clean check needs
-  // its own answer here or the click looks ignored.
-  function handleCheckHealth() {
-    checkModHealth.mutate(mod.id, {
-      onSuccess: (verdict) => {
-        if (verdict.health === "healthy") {
-          toast.success("No problems found");
-          return;
-        }
-        const total =
-          verdict.counts.fatals +
-          verdict.counts.errors +
-          verdict.counts.warnings +
-          verdict.counts.infos;
-        if (verdict.health === "repairable") {
-          toast.info(
-            `${verdict.fixable} repairable finding${verdict.fixable === 1 ? "" : "s"} found`,
-          );
-          return;
-        }
-        toast.warning(`${total} finding${total === 1 ? "" : "s"}, none repairable`);
-      },
-    });
-  }
 
   return (
     <>
@@ -313,13 +291,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
       >
         WAD Footprint
       </Menu.Item>
-      <Menu.Item
-        icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />}
-        disabled={checkModHealth.isPending}
-        onClick={handleCheckHealth}
-      >
-        Check Health
-      </Menu.Item>
+      <ModCardHealthItem modId={mod.id} />
       <Menu.Item icon={<CopyIcon className="h-4 w-4" weight="bold" />} onClick={view.onCopyId}>
         Copy ID
       </Menu.Item>
@@ -340,6 +312,68 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
         Uninstall
       </Menu.Item>
     </>
+  );
+}
+
+/**
+ * Check Health, or what the check is still waiting for.
+ *
+ * Per "What Check Health says while it waits" in docs/ux/MOD_HEALTH.md.
+ */
+export function ModCardHealthItem({ modId }: { modId: string }) {
+  const readiness = useHealthCheckReadiness();
+  const checkModHealth = useCheckModHealth();
+  const toast = useToast();
+
+  if (readiness === "syncing") {
+    return (
+      <Menu.Item icon={<SpinnerGapIcon className="h-4 w-4 animate-spin" weight="bold" />} disabled>
+        Syncing hashtables…
+      </Menu.Item>
+    );
+  }
+
+  if (readiness === "unsynced") {
+    return (
+      <Menu.Item icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />} disabled>
+        Hashtables not synced
+      </Menu.Item>
+    );
+  }
+
+  // The badge only appears when something is wrong, so a clean check needs
+  // its own answer here or the click looks ignored.
+  function handleCheckHealth() {
+    checkModHealth.mutate(modId, {
+      onSuccess: (verdict) => {
+        if (verdict.health === "healthy") {
+          toast.success("No problems found");
+          return;
+        }
+        const total =
+          verdict.counts.fatals +
+          verdict.counts.errors +
+          verdict.counts.warnings +
+          verdict.counts.infos;
+        if (verdict.health === "repairable") {
+          toast.info(
+            `${verdict.fixable} repairable finding${verdict.fixable === 1 ? "" : "s"} found`,
+          );
+          return;
+        }
+        toast.warning(`${total} finding${total === 1 ? "" : "s"}, none repairable`);
+      },
+    });
+  }
+
+  return (
+    <Menu.Item
+      icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />}
+      disabled={checkModHealth.isPending}
+      onClick={handleCheckHealth}
+    >
+      Check Health
+    </Menu.Item>
   );
 }
 

@@ -13,7 +13,9 @@ pub mod timing;
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::hashtables::HashtableCache;
 use crate::mods::ModLibrary;
+use crate::mods::health::sweep::HealthSweepState;
 use crate::mods::index::{LibraryModEntry, ModStorage};
 use crate::problems::{self, Budget, Counts, GameBuild, Run};
 use serde::{Deserialize, Serialize};
@@ -100,6 +102,15 @@ pub struct HealthCheckBasis {
     pub build: Option<GameBuild>,
     /// The manager version, which is what a migration table ships in.
     pub manager: String,
+    /// What the shared hashtable cache held, absent where it held nothing.
+    ///
+    /// The cache's own generation stamp, which moves only when a sync installs
+    /// a table. A check taken against different tables was a claim about
+    /// different names, so a sync makes every verdict due again without waiting
+    /// for a game patch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub tables: Option<String>,
 }
 
 impl LibraryModEntry {
@@ -126,6 +137,25 @@ pub enum ModHealth {
     Unrepairable,
 }
 
+/// Whether a check can run, and what it is waiting on when it cannot.
+///
+/// The precondition in [`hashtables_ready`](ModLibrary::hashtables_ready) as a
+/// control can be drawn from: a command a user may press now, one the app is
+/// already working towards, and one only they can clear. Per "The hashtables
+/// come first" in docs/ux/MOD_HEALTH.md.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum HealthCheckReadiness {
+    /// The tables are open, so a check runs.
+    Ready,
+    /// No tables yet, and a sync is on its way to fixing that.
+    Syncing,
+    /// No tables, and nothing fetching them but a sync the user starts.
+    Unsynced,
+}
+
 impl ModLibrary {
     /// Check one mod and remember the verdict.
     ///
@@ -135,10 +165,73 @@ impl ModLibrary {
     ///
     /// # Errors
     ///
-    /// Fails when the mod is not in the library, or its content cannot be
-    /// read.
+    /// Fails when the mod is not in the library, when its content cannot be
+    /// read, and when the hashtables a check needs are not synced yet - see
+    /// [`hashtables_ready`](Self::hashtables_ready).
     pub fn check_mod_health(&self, config: &Config, mod_id: &str) -> AppResult<ModHealthVerdict> {
         self.check_mod_health_within(config, mod_id, &Budget::repair())
+    }
+
+    /// Whether the hashtables a verdict rests on are open.
+    ///
+    /// **A check is not run without them.** The rules name a mod's content
+    /// through the shared mimir cache, and one repair - a `Hash` the game now
+    /// wants as a `File` - can only be derived from the path behind the hash.
+    /// A run with no tables therefore reports findings as unrepairable that a
+    /// synced machine repairs in one press, and "look for a new version" is the
+    /// one thing a verdict must not say wrongly.
+    ///
+    /// So the cache is a precondition rather than a caveat on the answer. A mod
+    /// the manager cannot see properly stays unchecked, which is a claim about
+    /// nothing, and the startup sync plus the sweep a manual sync starts are
+    /// what clear it. Per "The hashtables come first" in docs/ux/MOD_HEALTH.md.
+    #[must_use]
+    pub fn hashtables_ready(&self) -> bool {
+        self.wad_resolver().has_tables()
+    }
+
+    /// The error a check or a repair refuses with before the hashtables are
+    /// there.
+    ///
+    /// Worded from what the cache is doing, because "in a moment" is a lie on a
+    /// machine where nothing is fetching them and the reader is the only one
+    /// who can start it. A mod nobody asked about needs no sentence at all - it
+    /// simply stays unchecked.
+    #[must_use]
+    pub(in crate::mods) fn no_hashtables(&self, refused: Refused) -> AppError {
+        let subject = match refused {
+            Refused::Check => "this check",
+            Refused::Repair => "a repair",
+        };
+
+        AppError::ValidationFailed(match self.health_check_readiness() {
+            HealthCheckReadiness::Unsynced => format!(
+                "The hashtables {subject} needs are not synced. Sync them in Settings and try \
+                 again."
+            ),
+            _ => format!("Still syncing the hashtables {subject} needs. Try again in a moment."),
+        })
+    }
+
+    /// The same precondition, with the reason a control needs to draw the wait.
+    ///
+    /// A user who cannot check gets the answer before pressing rather than a
+    /// refusal after, so waiting on a download and waiting on the user have to
+    /// be told apart. The startup pass counts as a sync of its own until it
+    /// reports, since it fetches the tables in front of the sweep and holds the
+    /// update lock for only part of that.
+    #[must_use]
+    pub fn health_check_readiness(&self) -> HealthCheckReadiness {
+        if self.hashtables_ready() {
+            return HealthCheckReadiness::Ready;
+        }
+
+        let syncing = matches!(self.health_sweep_state(), HealthSweepState::Pending)
+            || HashtableCache::shared().is_ok_and(|cache| cache.is_syncing());
+        if syncing {
+            return HealthCheckReadiness::Syncing;
+        }
+        HealthCheckReadiness::Unsynced
     }
 
     /// [`check_mod_health`](Self::check_mod_health) under a caller's own budget.
@@ -156,6 +249,10 @@ impl ModLibrary {
         mod_id: &str,
         budget: &Budget,
     ) -> AppResult<ModHealthVerdict> {
+        if !self.hashtables_ready() {
+            return Err(self.no_hashtables(Refused::Check));
+        }
+
         let storage_dir = self.storage_dir(config)?;
         let entry = self.with_index(config, |_storage_dir, index| {
             index
@@ -216,6 +313,9 @@ impl ModLibrary {
         HealthCheckBasis {
             build: GameBuild::installed(config),
             manager: self.app_version().to_owned(),
+            tables: HashtableCache::shared()
+                .ok()
+                .and_then(|cache| cache.generation()),
         }
     }
 
@@ -383,14 +483,21 @@ pub(in crate::mods) fn cancelled(mod_id: &str) -> AppError {
     AppError::ValidationFailed(format!("The run was cancelled before {mod_id} finished"))
 }
 
-/// The stored shape's version, bumped when a brief gains data an old record
-/// never wrote - the type pairs, at 1.
+/// What a refusal names, since the sentence answers a press a user made.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::mods) enum Refused {
+    Check,
+    Repair,
+}
+
+/// The stored shape's version, bumped when a verdict gains data an old record
+/// never wrote - the type pairs at 1, the tables the basis names at 2.
 ///
 /// A file from an older shape is discarded on load rather than carried: its
 /// verdicts read as never checked, so the next sweep re-checks those mods and
 /// records what the old shape was missing. Sentences never force a bump,
 /// because the store holds none.
-const VERDICT_FILE_VERSION: u32 = 1;
+const VERDICT_FILE_VERSION: u32 = 2;
 
 /// The remembered verdicts, as every reader and writer holds them.
 ///

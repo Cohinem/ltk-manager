@@ -131,8 +131,13 @@ impl SyncHolder {
 }
 
 impl fmt::Display for SyncHolder {
+    /// The lock is per machine rather than per process, so this app can hold it
+    /// against itself - the sweep fills the cache in the background, and a
+    /// reader pressing Sync now meets that. Naming it "another process" there
+    /// sends them looking for a tool that is not running.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.0 {
+            Some(holder) if holder.pid == std::process::id() => f.write_str("this app"),
             Some(holder) => write!(
                 f,
                 "another process (pid {}, since {})",
@@ -354,6 +359,24 @@ impl HashtableCache {
         })
     }
 
+    /// What this cache holds, as one string a check can be a claim about.
+    ///
+    /// The manifest's generation stamp, which moves only when a sync installs
+    /// a table. `None` for a cache no sync has filled, and for one whose
+    /// manifest cannot be read - both name nothing, which is what a run over
+    /// them can say.
+    #[must_use]
+    pub fn generation(&self) -> Option<String> {
+        match self.store.manifest() {
+            Ok(manifest) => Some(manifest.generated_at),
+            Err(ManifestError::Missing(_)) => None,
+            Err(e) => {
+                tracing::debug!("Unreadable hashtable cache manifest: {e}");
+                None
+            }
+        }
+    }
+
     /// Bring the cache up to date with the latest published release.
     ///
     /// Emits [`BackendEvent::HashtableSyncProgress`] through `events` as the
@@ -431,6 +454,18 @@ impl HashtableCache {
     pub fn check(&self, user_agent: &str) -> Result<HashtableUpdateCheck, HashtableError> {
         let fetch = ReleaseFetch::new(Self::client(user_agent, CHECK_TIMEOUT)?);
         Ok(self.store.check(&fetch)?.into())
+    }
+
+    /// Whether a sync is under way, in this process or another.
+    ///
+    /// Peeks at the update lock rather than queueing for it, so this is safe to
+    /// ask on a timer and safe mid-sync. The lock belongs to the OS, so a
+    /// process that died holding it stops counting from that moment. A held
+    /// lock mimir cannot put a name to reads as no sync, since the record
+    /// beside it is written best-effort and nothing may depend on it.
+    #[must_use]
+    pub fn is_syncing(&self) -> bool {
+        matches!(self.store.lock_holder(), Ok(Some(_)))
     }
 
     /// Who is syncing, for the error that says someone already is.
@@ -836,6 +871,17 @@ impl WadPathResolver {
     #[must_use]
     pub fn tables(&self) -> &LayeredHashDb {
         &self.db
+    }
+
+    /// Whether any table is open to name a chunk with.
+    ///
+    /// False is a machine whose shared cache has never been synced. Every chunk
+    /// then keeps its hex name, which the overlay and the browser read either
+    /// way - a caller whose answer would be *wrong* rather than unnamed has to
+    /// ask this and wait.
+    #[must_use]
+    pub fn has_tables(&self) -> bool {
+        self.db.base_len() > 0 || self.db.overlay_len() > 0
     }
 
     /// Say once that a table stopped reading cleanly, which is the difference

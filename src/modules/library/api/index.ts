@@ -25,6 +25,7 @@ export {
   useToggleFolder,
 } from "./useFolderMutations";
 export { useFolderToggle } from "./useFolderToggle";
+export { useHealthCheckReadiness } from "./useHealthCheckReadiness";
 export { useHealthSweep } from "./useHealthSweep";
 export { useInstallMod } from "./useInstallMod";
 export { useInstallProgress } from "./useInstallProgress";

@@ -141,6 +141,69 @@ fn a_manager_release_makes_every_verdict_due_again() {
     assert_eq!(report.skipped, 0);
 }
 
+/// Story: the user syncs the hashtables in Settings, and the badges refresh
+/// without waiting for the next game patch.
+///
+/// A verdict taken against an empty cache is the one that reads Healthy on a
+/// mod that crashes the game, so a sync has to be able to disprove it.
+#[test]
+fn a_verdict_taken_against_other_hashtables_is_due_again() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
+    library.sweep_mod_health(&config).unwrap();
+    assert_eq!(library.sweep_mod_health(&config).unwrap().checked, 0);
+
+    let mut file = VerdictFile::load(storage.path());
+    for verdict in file.verdicts.values_mut() {
+        verdict.basis.tables = Some("the cache before the sync".to_owned());
+    }
+    file.save(storage.path()).unwrap();
+
+    assert_eq!(library.sweep_mod_health(&config).unwrap().checked, 1);
+}
+
+/// Story: the fresh install with no network. Nothing is checked and nothing is
+/// badged, because every verdict the sweep could take would misjudge what a
+/// repair reaches - and a library that says nothing beats one that says the
+/// wrong thing.
+#[test]
+fn a_sweep_stands_down_before_the_hashtables_are_there() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) =
+        crate::mods::test_support::make_library_without_hashtables(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
+
+    let report = library.sweep_mod_health(&config).unwrap();
+
+    assert_eq!(report.checked, 0);
+    assert!(report.repairable.is_empty());
+    assert!(library.mod_health_verdicts(&config).unwrap().is_empty());
+    assert_matches!(library.health_sweep_state(), HealthSweepState::Idle);
+}
+
+/// A mod the library dropped still loses its verdict, because that is true
+/// whatever the hashtables hold.
+#[test]
+fn a_sweep_that_stands_down_still_prunes() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
+    library.sweep_mod_health(&config).unwrap();
+
+    let (unsynced, _) = crate::mods::test_support::make_library_without_hashtables(storage.path());
+    seed_library(&unsynced, &config, Vec::new());
+    unsynced.sweep_mod_health(&config).unwrap();
+
+    assert!(library.mod_health_verdicts(&config).unwrap().is_empty());
+}
+
 /// Story: the cache under its old name is not left behind in the user's
 /// storage directory for good.
 #[test]

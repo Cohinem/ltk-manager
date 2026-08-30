@@ -29,6 +29,7 @@ import type {
   HashtableCacheStatus,
   HashtableSyncReport,
   HashtableUpdateCheck,
+  HealthCheckReadiness,
   HealthSweepState,
   HealthTiming,
   HotkeyAction,
@@ -166,6 +167,7 @@ export const api = {
   getModHealthVerdicts: () =>
     invokeResult<Record<string, ModHealthVerdict>>("get_mod_health_verdicts"),
   getHealthSweep: () => invokeResult<HealthSweepState>("get_health_sweep"),
+  getHealthCheckReadiness: () => invokeResult<HealthCheckReadiness>("get_health_check_readiness"),
   cancelModHealthRun: () => invokeResult<null>("cancel_mod_health_run"),
   /**
    * Time a health pass over the real library, into the dev console.

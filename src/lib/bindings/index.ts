@@ -69,6 +69,7 @@ export type { HashtableSyncReport } from "./HashtableSyncReport";
 export type { HashtableUpdate } from "./HashtableUpdate";
 export type { HashtableUpdateCheck } from "./HashtableUpdateCheck";
 export type { HealthCheckBasis } from "./HealthCheckBasis";
+export type { HealthCheckReadiness } from "./HealthCheckReadiness";
 export type { HealthSweepProgress } from "./HealthSweepProgress";
 export type { HealthSweepReport } from "./HealthSweepReport";
 export type { HealthSweepState } from "./HealthSweepState";

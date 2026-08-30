@@ -34,17 +34,15 @@ fn checking_a_stale_archived_fantome_reports_it_repairable_and_remembers() {
     assert_eq!(verdicts.get("id-1").unwrap(), &verdict);
 }
 
-/// Story: a mod still shipping a packed WAD is checked without being unpacked,
-/// on a machine whose hashtables name none of its chunks.
+/// Story: the Discord report. A mod still shipping a packed WAD, on a machine
+/// whose hashtables name none of its chunks, and 1.15 called it healthy.
 ///
-/// Nothing names the bin, so the check reports nothing - deliberately. The
-/// repair unpacks under `NamingPolicy::Lossless`, which writes a nameless
-/// chunk as a bare hash with no extension, and every rule takes its kind from
-/// the extension; `repairing_a_packed_fantome_no_table_names_applies_nothing`
-/// pins that it therefore fixes nothing. Reporting the bin here would raise a
-/// problem on every sweep that no repair could ever clear. What this test does
-/// hold is that the check reads the archive where it lies, unpacking nothing
-/// and writing nothing.
+/// Nothing names the bin, so it is listed under its hash and read as a bin by
+/// its first bytes. The repair reaches it at that same address -
+/// `repairing_a_packed_fantome_no_table_names_reaches_the_bin_by_its_hash` -
+/// so what is reported here is a finding a press can clear rather than one
+/// raised on every sweep forever. The check itself still reads the archive
+/// where it lies, unpacking nothing and writing nothing.
 #[test]
 fn checking_a_stale_packed_fantome_unpacks_nothing_and_reports_what_a_repair_could_fix() {
     let storage = tempfile::tempdir().unwrap();
@@ -65,8 +63,8 @@ fn checking_a_stale_packed_fantome_unpacks_nothing_and_reports_what_a_repair_cou
 
     let verdict = library.check_mod_health(&config, "id-1").unwrap();
 
-    assert_eq!(verdict.health, ModHealth::Healthy);
-    assert_eq!(verdict.fixable, 0);
+    assert_eq!(verdict.health, ModHealth::Repairable);
+    assert_eq!(verdict.fixable, 1);
     assert_eq!(
         fs::read(mods_dir.join("packed-mod.fantome")).unwrap(),
         before,
@@ -261,6 +259,74 @@ fn a_file_from_an_older_shape_loads_as_never_checked() {
     .unwrap();
 
     assert!(VerdictFile::load(storage.path()).verdicts.is_empty());
+}
+
+/// Story: the Discord report, answered. A check with no tables to name a mod's
+/// content with would misjudge what a repair reaches, so it does not run - and
+/// the mod stays unchecked rather than wearing a verdict nobody earned.
+#[test]
+fn a_check_refuses_to_run_before_the_hashtables_are_there() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) =
+        crate::mods::test_support::make_library_without_hashtables(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    crate::mods::test_support::place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_unpacked_entry("id-1", "stale-mod")],
+    );
+
+    let refused = library.check_mod_health(&config, "id-1");
+
+    assert!(refused.is_err(), "a check with no tables must not answer");
+    assert!(
+        library.mod_health_verdicts(&config).unwrap().is_empty(),
+        "an unchecked mod is a claim about nothing, and a verdict is a claim"
+    );
+}
+
+/// A machine with tables offers the check, with nothing to wait for.
+#[test]
+fn a_check_is_offered_where_the_tables_are_open() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, _config) = make_test_library(storage.path());
+
+    assert_eq!(
+        library.health_check_readiness(),
+        HealthCheckReadiness::Ready
+    );
+}
+
+/// The window this exists for: the startup pass is fetching the tables, so the
+/// menu row says so instead of offering a press that would be refused.
+#[test]
+fn a_check_reads_as_syncing_while_the_startup_pass_has_not_reported() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, _config) =
+        crate::mods::test_support::make_library_without_hashtables(storage.path());
+
+    assert_eq!(
+        library.health_check_readiness(),
+        HealthCheckReadiness::Syncing,
+        "a library that has not swept yet is still on its way to the tables"
+    );
+}
+
+/// The sweep reported and there are still no tables, so nothing is coming that
+/// the user did not ask for - a spinner there would wait on nobody.
+#[test]
+fn a_check_reads_as_unsynced_once_the_startup_pass_gave_up() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, _config) =
+        crate::mods::test_support::make_library_without_hashtables(storage.path());
+
+    library.record_health_sweep(HealthSweepState::Idle);
+
+    assert_eq!(
+        library.health_check_readiness(),
+        HealthCheckReadiness::Unsynced
+    );
 }
 
 /// Forgetting a mod nothing remembers writes nothing, so a cancel over a mod

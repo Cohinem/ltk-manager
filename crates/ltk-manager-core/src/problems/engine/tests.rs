@@ -1,6 +1,7 @@
 //! Unit tests for what a run sees: the files it lists, and how it reads them.
 
 use super::*;
+use crate::mods::test_support::bin_bytes;
 use std::fs;
 
 /// Write `contents` to `path`, creating every directory above it.
@@ -105,6 +106,60 @@ fn a_kind_comes_from_the_extension() {
     assert_ne!(base.files[0].kind, WorkshopFileKind::PropertyBin);
     assert_eq!(base.files[1].kind, WorkshopFileKind::PropertyBin);
     assert_eq!(base.files[1].size_bytes, 3);
+}
+
+/// Story: a mod imported before the hashtables were synced holds its bins under
+/// bare hashes, and a rule that reads only `.bin` never sees them.
+#[test]
+fn a_hex_named_file_in_a_tree_is_a_bin_when_its_first_bytes_are_one() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(
+        &base.join("Aatrox.wad.client").join("32fa9b1e0c4d5a67"),
+        &bin_bytes(&crate::mods::test_support::stale_bin()),
+    );
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+
+    let base = layer(&files, "base");
+    assert_eq!(paths(&base), ["Aatrox.wad.client/32fa9b1e0c4d5a67"]);
+    assert_eq!(base.files[0].kind, WorkshopFileKind::PropertyBin);
+    assert_eq!(files.bins().count(), 1);
+}
+
+/// The magic decides, so a hex name over something else is still not a bin.
+#[test]
+fn a_hex_named_file_that_is_not_a_bin_is_left_unknown() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(
+        &base.join("Aatrox.wad.client").join("32fa9b1e0c4d5a67"),
+        b"not a league file at all",
+    );
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+
+    assert_eq!(
+        layer(&files, "base").files[0].kind,
+        WorkshopFileKind::Unknown
+    );
+    assert_eq!(files.bins().count(), 0);
+}
+
+/// A named file keeps taking its kind from its extension, so nothing pays a
+/// read for content the tree already names.
+#[test]
+fn a_named_file_is_not_sniffed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("data").join("skin0.bin"), b"not really a bin");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+
+    assert_eq!(
+        layer(&files, "base").files[0].kind,
+        WorkshopFileKind::PropertyBin
+    );
 }
 
 #[test]
@@ -350,16 +405,15 @@ mod archive {
     }
 
     /// A chunk nothing names is listed under its bare hash, which is what the
-    /// unpack writes it as, and is not read as a bin.
+    /// unpack writes it as, and read as the bin its first bytes say it is.
     ///
-    /// Identifying it by its magic would let the check report a bin the tree
-    /// cannot see: the import runs under `NamingPolicy::Lossless`, which
-    /// invents no extension, and the tree derives a kind from the extension
-    /// alone. A problem only one side can see is one the repair can never
-    /// clear, so it would be raised on every sweep forever. The capability
-    /// comes back when the repair reads the archive too.
+    /// The hex path is what makes both halves possible: the import runs under
+    /// `NamingPolicy::Lossless`, which invents no extension, so naming the
+    /// chunk by its magic instead would put the check's site somewhere the
+    /// tree has no file. The kind is what the magic decides, and the path is
+    /// left exactly as it was.
     #[test]
-    fn a_chunk_no_table_names_is_listed_under_its_bare_hash_as_the_unpack_writes_it() {
+    fn a_chunk_no_table_names_is_read_as_a_bin_under_its_bare_hash() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = packed(tmp.path(), &stale_bin(), CompressionMethod::Stored);
 
@@ -376,8 +430,56 @@ mod archive {
             paths(&in_archive),
             [format!("Aatrox.wad.client/{:016x}", hash.0).as_str()]
         );
-        assert_eq!(in_archive.files[0].kind, WorkshopFileKind::Unknown);
-        assert_eq!(from_archive.bins().count(), from_tree.bins().count());
+        assert_eq!(in_archive.files[0].kind, WorkshopFileKind::PropertyBin);
+        assert_eq!(in_tree.files[0].kind, WorkshopFileKind::PropertyBin);
+        assert_eq!(from_archive.bins().count(), 1);
+        assert_eq!(from_tree.bins().count(), 1);
+    }
+
+    /// The bin reads back through its handle under the hex path, which is what
+    /// lets a rule parse a chunk no table names.
+    #[test]
+    fn a_chunk_no_table_names_reads_back_through_its_handle() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = packed(tmp.path(), &stale_bin(), CompressionMethod::Stored);
+
+        let files = files_in(&archive, &resolver_naming(&[]));
+
+        let handle = files.bins().next().expect("the nameless chunk is a bin");
+        assert_eq!(bin_bytes(&handle.read().unwrap()), bin_bytes(&stale_bin()));
+    }
+
+    /// A deflated WAD is inflated whole and read out of memory, so the sniff
+    /// has to reach the same answer through that path too.
+    #[test]
+    fn a_deflated_chunk_no_table_names_is_read_as_a_bin() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = packed(tmp.path(), &stale_bin(), CompressionMethod::Deflated);
+
+        let files = files_in(&archive, &resolver_naming(&[]));
+
+        assert_eq!(files.bins().count(), 1);
+    }
+
+    /// The magic decides, so a nameless chunk that is not a bin stays one the
+    /// bin rules never open.
+    #[test]
+    fn a_nameless_chunk_that_is_not_a_bin_is_left_unknown() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("opaque.fantome");
+        crate::mods::test_support::make_long_chunk_fantome_zip(&archive);
+
+        let files = files_in(&archive, &resolver_naming(&[]));
+
+        let base = layer(&files, "base");
+        assert_eq!(base.files.len(), 1);
+        assert!(
+            base.files[0].path.starts_with("Ashe.wad.client/"),
+            "the chunk is listed under its hash: {}",
+            base.files[0].path
+        );
+        assert_eq!(base.files[0].kind, WorkshopFileKind::Unknown);
+        assert_eq!(files.bins().count(), 0);
     }
 
     #[test]

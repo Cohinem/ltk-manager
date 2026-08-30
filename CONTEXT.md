@@ -77,26 +77,42 @@ migration drains it, retrying whatever it could not move every launch. See ADR-0
 ## Mod health
 
 **Check** — one pass of the Problems rules over an installed mod's content, summarized for a mod
-user. It reads and never writes: an `archive`-storage mod is unpacked into staging just to be
-read. A modder's view of the same rules is the Problems panel, and the split is deliberate — see
-`docs/ux/MOD_HEALTH.md`.
+user. It reads and never writes, and it reads a mod where it lies: an `archive`-storage mod is
+scanned inside its archive rather than unpacked to be looked at. A modder's view of the same rules
+is the Problems panel, and the split is deliberate — see `docs/ux/MOD_HEALTH.md`. A check requires
+the **hashtable cache** and does not run without it — see ADR-0009.
 
 **Verdict** — what a check concluded: `healthy`, `repairable`, or `unrepairable`, with the counts
 behind it. Remembered per mod in `mod-health-verdicts.json` beside the index. A cache of a
-computation, not a record — a lost file refills on the next check.
+computation, not a record — a lost file refills on the next check. There is no fourth word: a mod
+the manager could not judge is **unchecked** instead.
 
-**Basis** — what a check was a claim about: the installed game build, and the manager version the
-rules and their tables shipped in. Recorded on every verdict, and comparing it is how the health
-sweep decides which verdicts are stale.
+**Unchecked** — a mod carrying no verdict, which draws no badge and says nothing. Never checked,
+checked by a build whose stored shape has since been discarded, or declined because the hashtable
+cache was empty. A verdict is a claim, and an unchecked mod is a claim about nothing — the state
+ADR-0009 chose over a fourth verdict word.
+
+**Basis** — what a check was a claim about: the installed game build, the manager version the rules
+and their tables shipped in, and the **generation** of the hashtable cache the run read. Recorded
+on every verdict, and comparing it is how the health sweep decides which verdicts are stale.
+
+**Hashtable cache** — the shared mimir cache of community hashtables, one per machine rather than
+per library, which is how a WAD chunk and a bin's hashed properties get their names back. Its
+**generation** is the manifest stamp, which moves only when a sync installs a table, so a press
+that changes nothing makes no verdict stale. Filled by **Sync now** in Settings and by the startup
+sync that runs in front of the health sweep.
 
 **Health sweep** — the startup pass that re-checks every mod whose basis moved, and forgets the
-verdicts of mods the library no longer holds. Not the **staging sweep**, which is the same word
-for clearing `mods/.staging-*` and is unrelated. What it found draws as a banner above the
-library.
+verdicts of mods the library no longer holds. It forgets either way and checks only with the
+hashtable cache in hand, standing down without it rather than recording verdicts it could not
+earn. Not the **staging sweep**, which is the same word for clearing `mods/.staging-*` and is
+unrelated. What it found draws as a banner above the library.
 
 **Repair** — applying every fix the live rules derive for one mod. In the tree for a `project`
-mod. For an `archive` mod: unpack, fix, repack, and the repaired archive takes the original's
-place — see ADR-0005. Neither is reversible, and both are lossless: see **Preserved names**.
+mod. For an `archive` mod: unpack, fix, and edit the fixed files back into the archive where it
+lies, so a repair costs what changed rather than everything the mod holds. An archive that cannot
+be edited is repacked whole instead, which is the same outcome by a slower road — see ADR-0005.
+Neither is reversible, and both are lossless: see **Preserved names**.
 **Repair all** is the banner's one press over every repairable mod at once, and nothing is ever
 repaired without it.
 

@@ -24,9 +24,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ltk_fantome::{FantomeEntry, FantomeReader, classify_entry};
-use ltk_file::LeagueFileKind;
+use ltk_file::{LeagueFileKind, MAX_MAGIC_SIZE};
 use ltk_hashtable::{GameResolver, Hashtable, HashtableEntry, HashtableSet};
-use ltk_wad::{NameRecovery, PathResolver, Wad, WadChunk, WadHash, hex_name};
+use ltk_wad::{ChunkDecoder, NameRecovery, PathResolver, Wad, WadChunk, WadHash, hex_name};
 use zip::{CompressionMethod, ZipArchive};
 
 use crate::error::{AppError, AppResult};
@@ -294,26 +294,75 @@ fn scan_wad<S: std::io::Read + std::io::Seek>(
     let hashes: Vec<WadHash> = chunks.iter().map(|chunk| chunk.path_hash).collect();
     let named = resolver.resolve_all(&hashes);
 
-    Ok(chunks
-        .iter()
-        .zip(named)
-        .map(|(chunk, name)| {
-            // Sixteen hex digits and no extension, which is what the
-            // import writes a nameless chunk as: it runs under
-            // NamingPolicy::Lossless, and that policy invents none.
-            // Identifying the chunk by its magic instead would read better and
-            // be wrong - the tree takes a kind from the extension alone, so a
-            // bin named that way is one the check reports and the repair,
-            // which still unpacks, cannot see.
-            let path = name.unwrap_or_else(|| hex_name(chunk.path_hash));
-            ProjectFile {
-                kind: kind_of_path(&path),
-                path: format!("{wad_name}/{path}"),
-                size_bytes: chunk.uncompressed_size as u64,
-                chunk: Some(chunk.path_hash),
+    let mut decoder = ChunkDecoder::new();
+    let mut files = Vec::with_capacity(chunks.len());
+    for (chunk, name) in chunks.iter().zip(named) {
+        // Sixteen hex digits and no extension, which is what the import writes
+        // a nameless chunk as: it runs under NamingPolicy::Lossless, and that
+        // policy invents none. The path stays that, whatever the magic says -
+        // the tree has no file under any other name, and a site the repair
+        // cannot find is a problem raised on every sweep forever.
+        let (path, kind) = match name {
+            Some(named) => {
+                let kind = kind_of_path(&named);
+                (named, kind)
             }
-        })
-        .collect())
+            None => (
+                hex_name(chunk.path_hash),
+                sniffed_kind(wad, chunk, &mut decoder),
+            ),
+        };
+
+        files.push(ProjectFile {
+            kind,
+            path: format!("{wad_name}/{path}"),
+            size_bytes: chunk.uncompressed_size as u64,
+            chunk: Some(chunk.path_hash),
+        });
+    }
+
+    Ok(files)
+}
+
+/// Raw bytes the sniff reads from a chunk first.
+///
+/// The first block of nearly every chunk fits, and one whose block does not
+/// gets a second read of [`SNIFF_RAW_BYTES`]. Both are `ltk_wad`'s own numbers:
+/// its name recovery makes the same read over the same chunks.
+const SNIFF_FIRST_BYTES: usize = 16 * 1024;
+
+/// Most raw bytes the sniff reads from one chunk.
+///
+/// A zstd block decodes to at most 128 KiB and an incompressible block is no
+/// larger than that, so this always holds the first block and its headers.
+const SNIFF_RAW_BYTES: usize = 256 * 1024;
+
+/// What a chunk no table names is, from as little of it as decodes.
+///
+/// A header read rather than a decompression, because the scan is what a health
+/// check costs and a mod runs to hundreds of megabytes. A chunk that will not
+/// decode keeps [`WorkshopFileKind::Unknown`], which is all its name said
+/// either way.
+fn sniffed_kind<S: std::io::Read + std::io::Seek>(
+    wad: &mut Wad<S>,
+    chunk: &WadChunk,
+    decoder: &mut ChunkDecoder,
+) -> WorkshopFileKind {
+    let wanted = MAX_MAGIC_SIZE.min(chunk.uncompressed_size);
+    let mut limit = SNIFF_FIRST_BYTES;
+    loop {
+        let Ok(raw) = wad.load_chunk_raw_prefix(chunk, limit) else {
+            return WorkshopFileKind::Unknown;
+        };
+        match decoder.decompress_chunk_prefix(&raw, chunk, wad.subchunk_toc(), MAX_MAGIC_SIZE) {
+            Ok(head) if head.len() >= wanted => {
+                return WorkshopFileKind::from(LeagueFileKind::identify_from_bytes(&head));
+            }
+            /* The prefix cut the first block short, and the chunk holds more. */
+            _ if raw.len() == limit && limit < SNIFF_RAW_BYTES => limit = SNIFF_RAW_BYTES,
+            _ => return WorkshopFileKind::Unknown,
+        }
+    }
 }
 
 /// The archive's own declared tables, then whatever the caller supplied.

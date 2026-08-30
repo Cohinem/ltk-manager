@@ -13,7 +13,7 @@ use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
-use crate::mods::health::cancelled;
+use crate::mods::health::{Refused, cancelled};
 use crate::mods::index::ModStorage;
 use crate::problems::{self, Budget, FixReport, budget};
 use camino::Utf8Path;
@@ -70,8 +70,10 @@ impl ModLibrary {
     ///
     /// # Errors
     ///
-    /// Fails when the mod is not in the library, or is stored as an archive it
-    /// does not have or that has no unpacked form.
+    /// Fails when the mod is not in the library, when it is stored as an
+    /// archive it does not have or that has no unpacked form, and when the
+    /// hashtables are not there - see
+    /// [`hashtables_ready`](Self::hashtables_ready).
     pub fn repair_mod(&self, config: &Config, mod_id: &str) -> AppResult<FixReport> {
         /* A budget of its own, and not the run's: one mod from a row can be
         pressed while the startup sweep is going, and taking the run's handle
@@ -91,6 +93,15 @@ impl ModLibrary {
         mod_id: &str,
         budget: &Budget,
     ) -> AppResult<FixReport> {
+        // The same precondition the check runs under, and for a stronger
+        // reason: a repair with no names to derive from applies what it can,
+        // withholds the rest, and then records a verdict calling the remainder
+        // unrepairable. A press reaching here at all means a stored verdict
+        // outlived the tables it was taken against.
+        if !self.hashtables_ready() {
+            return Err(self.no_hashtables(Refused::Repair));
+        }
+
         let started = std::time::Instant::now();
         let storage_dir = self.storage_dir(config)?;
         let entry = self.with_index(config, |_storage_dir, index| {
@@ -164,7 +175,22 @@ impl ModLibrary {
     ///
     /// One mod that cannot be repaired is recorded and stepped over rather than
     /// ending the run.
-    pub fn repair_mods(&self, config: &Config, mod_ids: &[String]) -> LibraryRepairReport {
+    ///
+    /// # Errors
+    ///
+    /// Fails only for what stops the whole run before it starts: the hashtables
+    /// not being there. Stated once here as well as per mod, because a reader
+    /// who pressed Repair all is owed the one sentence that is true of every
+    /// mod in it rather than the same failure counted back at them.
+    pub fn repair_mods(
+        &self,
+        config: &Config,
+        mod_ids: &[String],
+    ) -> AppResult<LibraryRepairReport> {
+        if !self.hashtables_ready() {
+            return Err(self.no_hashtables(Refused::Repair));
+        }
+
         let started = std::time::Instant::now();
         tracing::info!("Repairing {} mods", mod_ids.len());
 
@@ -227,7 +253,7 @@ impl ModLibrary {
             report.failed.len(),
             report.cancelled.len()
         );
-        report
+        Ok(report)
     }
 
     /// Unpack `archive` into `staging`, fix what the rules find, and put the

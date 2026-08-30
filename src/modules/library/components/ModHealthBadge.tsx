@@ -8,7 +8,12 @@ import { formatDistanceToNow } from "date-fns";
 
 import { Button, IconButton, Popover, ShockedPoroDuotoneIcon, Tooltip } from "@/components";
 import { type ModHealthVerdict } from "@/lib/tauri";
-import { useCheckModHealth, useModHealthVerdict, useRepairMod } from "@/modules/library";
+import {
+  useCheckModHealth,
+  useHealthCheckReadiness,
+  useModHealthVerdict,
+  useRepairMod,
+} from "@/modules/library";
 
 import { toneOf } from "./modHealthNotice";
 
@@ -27,6 +32,37 @@ function PopoverMark({ repairable, tone }: { repairable: boolean; tone: string }
   if (repairable) return <WrenchIcon className={`h-10 w-10 shrink-0 ${tone}`} weight="duotone" />;
 
   return <ShockedPoroDuotoneIcon className={`h-10 w-10 shrink-0 ${tone}`} />;
+}
+
+/**
+ * Run the check again, from a verdict already on screen.
+ *
+ * Its own component so that the readiness it asks for is asked from inside the
+ * popover: the badge is mounted for every card in the library, and this is
+ * mounted only where someone can press it.
+ */
+function RecheckButton({ modId, repairing }: { modId: string; repairing: boolean }) {
+  const check = useCheckModHealth();
+  const readiness = useHealthCheckReadiness();
+
+  return (
+    <IconButton
+      variant="ghost"
+      size="sm"
+      compact
+      icon={
+        <ArrowsClockwiseIcon
+          weight="bold"
+          className={`h-4 w-4 ${check.isPending ? "animate-spin" : ""}`}
+        />
+      }
+      onClick={() => check.mutate(modId)}
+      /* A verdict outlives the tables it was taken against, so this popover can
+         open on a launch that has none. */
+      disabled={check.isPending || repairing || readiness !== "ready"}
+      aria-label="Re-check mod"
+    />
+  );
 }
 
 function totalFindings(verdict: ModHealthVerdict): number {
@@ -56,7 +92,6 @@ function findingsSentence(verdict: ModHealthVerdict): string {
  */
 export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
   const { data: verdict } = useModHealthVerdict(modId);
-  const check = useCheckModHealth();
   const repair = useRepairMod();
 
   if (!verdict || verdict.health === "healthy") return null;
@@ -108,20 +143,7 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
                 <Popover.Title className="font-medium">{headline}</Popover.Title>
                 <p className="text-xs text-surface-300">{findingsSentence(verdict)}</p>
               </div>
-              <IconButton
-                variant="ghost"
-                size="sm"
-                compact
-                icon={
-                  <ArrowsClockwiseIcon
-                    weight="bold"
-                    className={`h-4 w-4 ${check.isPending ? "animate-spin" : ""}`}
-                  />
-                }
-                onClick={() => check.mutate(modId)}
-                disabled={check.isPending || repair.isPending}
-                aria-label="Re-check mod"
-              />
+              <RecheckButton modId={modId} repairing={repair.isPending} />
               <span
                 aria-hidden="true"
                 className={`pointer-events-none absolute inset-x-0 bottom-0 h-px ${tone.rule}`}
