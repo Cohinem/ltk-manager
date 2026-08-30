@@ -4,6 +4,7 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-08-30 | A bin is recognized by its content, and repaired at its hash      |
 | 2026-08-28 | Preserve the names a fix hashes, and drop the restore point       |
 | 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md             |
 | 2026-08-24 | Draw the forward-looking lints by default, dimmed                 |
@@ -49,6 +50,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | -------------------- | --------- | ---------------------------------------------------------------------- |
 | The problem model    | Available | `Rule`, `Problem`, `Fix`, `Run`, in the core crate                     |
 | The run engine       | Available | Reads every layer, groups by file, holds the last run                  |
+| Bins found by magic  | Available | A chunk or hex file no table names is typed by its first bytes         |
 | Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one                |
 | The migration table  | Available | 395 rows, `include_str!` into the core crate                           |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
@@ -324,6 +326,20 @@ pub struct Run {
 
 A rule that throws does not take the run with it. A project with one unreadable `.bin` still
 gets every problem in the other forty, and the panel names the file it could not read.
+
+### What makes a file a bin
+
+An extension, wherever there is one to read. The exception is the bare sixteen hex digits an
+unpack writes a chunk as when nothing named it: that name says which chunk and never what, so
+those files are opened for the eight bytes that do say. A packed WAD's chunks are read the same
+way where no table names them, from as little of the chunk as decodes its first bytes rather
+than by inflating it.
+
+**The magic decides the kind and never the path.** An unpack runs under `NamingPolicy::Lossless`
+and invents no extension, so a check that renamed such a chunk `…​.bin` would put its findings at
+a site the tree has no file under - and a problem only one side can see is one no repair ever
+clears. The hex stays, the kind changes, and the fix reaches the file at the same address either
+way: through the tree for a project, and through the chunk that hex names for an archive.
 
 ### What rides on the run
 

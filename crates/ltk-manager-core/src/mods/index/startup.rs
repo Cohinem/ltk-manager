@@ -17,9 +17,17 @@ impl ModLibrary {
     /// Runs on a detached thread so the Tauri event loop starts immediately and
     /// IPC stays responsive instead of blocking on a disk scan. Emits
     /// `library-changed` when anything moved, so the frontend refetches.
-    pub fn maintain_in_background(&self, config: Config) {
+    ///
+    /// `tables_installed` is called when the startup sync installs new
+    /// hashtables. The library reopens what it holds itself, and this is for
+    /// everything else the app read out of the old tables.
+    pub fn maintain_in_background(
+        &self,
+        config: Config,
+        tables_installed: impl FnOnce() + Send + 'static,
+    ) {
         let library = self.clone();
-        std::thread::spawn(move || library.maintain(&config));
+        std::thread::spawn(move || library.maintain(&config, tables_installed));
     }
 
     /// The four startup passes, in the order their dependencies demand.
@@ -31,7 +39,12 @@ impl ModLibrary {
     /// pass has reported — it would read a mod mid-move as an orphan. The
     /// health sweep goes last because it reads every mod's content, and the
     /// three before it decide where that content is.
-    fn maintain(&self, config: &Config) {
+    ///
+    /// The hashtable sync sits immediately in front of the sweep rather than at
+    /// the head of the pass, because it is the only one of the four that waits
+    /// on a network and the three above it are what the library view is
+    /// drawing.
+    fn maintain(&self, config: &Config, tables_installed: impl FnOnce()) {
         if let Ok(storage_dir) = self.storage_dir(config) {
             super::reconcile::sweep_stale_staging(&storage_dir);
         }
@@ -60,6 +73,10 @@ impl ModLibrary {
         // draw what the two passes above just changed.
         if migrated || reconciled {
             self.events.emit(BackendEvent::LibraryChanged);
+        }
+
+        if self.fill_hashtables() {
+            tables_installed();
         }
 
         if let Err(e) = self.sweep_mod_health(config) {

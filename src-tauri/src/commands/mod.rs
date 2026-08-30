@@ -33,7 +33,7 @@ mod folders;
 mod game_extract;
 mod game_index;
 mod game_wads;
-mod hashtables;
+pub mod hashtables;
 mod health;
 pub(crate) mod hotkeys;
 pub(crate) mod launcher;

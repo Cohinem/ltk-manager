@@ -13,4 +13,13 @@ build: string | null,
 /**
  * The manager version, which is what a migration table ships in.
  */
-manager: string, };
+manager: string, 
+/**
+ * What the shared hashtable cache held, absent where it held nothing.
+ *
+ * The cache's own generation stamp, which moves only when a sync installs
+ * a table. A check taken against different tables was a claim about
+ * different names, so a sync makes every verdict due again without waiting
+ * for a game patch.
+ */
+tables?: string, };

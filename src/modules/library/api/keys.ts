@@ -11,6 +11,7 @@ export const libraryKeys = {
   wadReport: (modId: string) => [...libraryKeys.wadReports(), modId] as const,
   modHealthVerdicts: () => [...libraryKeys.all, "modHealthVerdicts"] as const,
   healthSweep: () => [...libraryKeys.all, "healthSweep"] as const,
+  healthCheckReadiness: () => [...libraryKeys.all, "healthCheckReadiness"] as const,
   linkedBinOffenders: () => [...libraryKeys.all, "linkedBinOffenders"] as const,
   checksumMismatches: () => [...libraryKeys.all, "checksumMismatches"] as const,
   migrationState: () => [...libraryKeys.all, "migrationState"] as const,

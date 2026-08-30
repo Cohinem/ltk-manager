@@ -116,8 +116,14 @@ fn a_corrupt_manifest_is_an_error() {
     assert!(matches!(err, HashtableError::Manifest(_)));
 }
 
+/// The lock is per machine, so this app holds it against itself while the
+/// startup sweep fills the cache and a reader presses Sync now.
+///
+/// Only this branch is reachable from a test: taking the lock names the process
+/// that took it, and `LockHolder` is `#[non_exhaustive]`, so a foreign pid
+/// cannot be staged.
 #[test]
-fn sync_reports_locked_when_another_updater_holds_the_lock() {
+fn sync_reports_locked_when_this_app_already_holds_the_lock() {
     let tmp = tempfile::tempdir().unwrap();
     let store = HashStore::at(tmp.path());
     let _lock = store.try_lock_update().unwrap().unwrap();
@@ -127,9 +133,10 @@ fn sync_reports_locked_when_another_updater_holds_the_lock() {
         .sync(false, "ltk-manager-tests", &NullEventSink)
         .unwrap_err();
     assert!(matches!(err, HashtableError::SyncLocked(_)));
-    assert!(
-        err.to_string().contains("pid "),
-        "the lock names its holder: {err}"
+    assert_eq!(
+        err.to_string(),
+        "this app is already syncing the hashtables",
+        "naming ourselves as another process sends the reader hunting for one"
     );
 }
 

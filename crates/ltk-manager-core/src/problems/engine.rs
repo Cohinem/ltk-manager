@@ -17,7 +17,7 @@ use std::time::Instant;
 
 use chrono::Utc;
 use ltk_file::LeagueFileKind;
-use ltk_wad::{PathResolver, WadHash};
+use ltk_wad::{PathResolver, WadHash, is_hex_chunk_path};
 use walkdir::WalkDir;
 
 use crate::config::Config;
@@ -227,6 +227,31 @@ fn absolute(root: &Path, file: &ProjectFile) -> PathBuf {
     root.join(file.path.replace('/', std::path::MAIN_SEPARATOR_STR))
 }
 
+/// What one file of a tree is, by its extension or by its first bytes.
+///
+/// An extension is what names a file, so it decides wherever there is one to
+/// read. The exception is the bare hex an unpack writes a chunk as when nothing
+/// named it: that name says only which chunk, never what, so the file is opened
+/// for the eight bytes that do say - a bin the tables could not name is still a
+/// bin the rules have to read.
+///
+/// `at` is where the file is, and `relative` the path a site names it by.
+fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
+    let extension = at.extension().and_then(|extension| extension.to_str());
+    let named = LeagueFileKind::from_extension(extension.unwrap_or_default());
+    if named != LeagueFileKind::Unknown || !is_hex_chunk_path(camino::Utf8Path::new(relative)) {
+        return WorkshopFileKind::from(named);
+    }
+
+    let sniffed = std::fs::File::open(at)
+        .and_then(|mut file| LeagueFileKind::identify_from_reader(&mut file))
+        .unwrap_or_else(|e| {
+            tracing::debug!("Could not read the first bytes of {}: {e}", at.display());
+            LeagueFileKind::Unknown
+        });
+    WorkshopFileKind::from(sniffed)
+}
+
 impl LayerFiles {
     /// Walk one layer's content directory, recursively.
     ///
@@ -269,15 +294,9 @@ impl LayerFiles {
                 .collect::<Vec<_>>()
                 .join("/");
 
-            let extension = entry
-                .path()
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .unwrap_or("");
-
             files.push(ProjectFile {
+                kind: kind_in_tree(entry.path(), &path),
                 path,
-                kind: WorkshopFileKind::from(LeagueFileKind::from_extension(extension)),
                 size_bytes: entry.metadata().map(|meta| meta.len()).unwrap_or(0),
                 chunk: None,
             });

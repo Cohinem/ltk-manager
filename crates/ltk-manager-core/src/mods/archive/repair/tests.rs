@@ -89,6 +89,64 @@ fn a_project_storage_mod_is_repaired_in_its_tree() {
     );
 }
 
+/// Story: a verdict outlives the tables it was taken against, so a badge can be
+/// on screen on a launch that has none. Pressing Repair there would apply what
+/// it could, withhold what needs a name, and then record a verdict calling the
+/// remainder unrepairable - the refusal ADR-0009 exists for, through the door
+/// the check does not watch.
+#[test]
+fn a_repair_refuses_to_run_before_the_hashtables_are_there() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) =
+        crate::mods::test_support::make_library_without_hashtables(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "unpacked-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_unpacked_entry("id-1", "unpacked-mod")],
+    );
+    let before = property_in_unpacked_tree(storage.path(), "unpacked-mod");
+
+    let refused = library.repair_mod(&config, "id-1");
+
+    assert!(refused.is_err(), "a repair with no names must not write");
+    assert_eq!(
+        property_in_unpacked_tree(storage.path(), "unpacked-mod"),
+        before,
+        "the mod is left exactly as it was"
+    );
+    assert!(
+        library.mod_health_verdicts(&config).unwrap().is_empty(),
+        "and it records no verdict the run could not earn"
+    );
+}
+
+/// Repair all refuses as one run rather than as a column of identical failures.
+/// The per-mod gate would catch every mod anyway, so this exists for what the
+/// reader is handed: one sentence that is true of the whole press.
+#[test]
+fn repairing_many_refuses_as_one_before_the_hashtables_are_there() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) =
+        crate::mods::test_support::make_library_without_hashtables(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    place_bin_project_mod(storage.path(), "other-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![
+            make_unpacked_entry("id-1", "stale-mod"),
+            make_unpacked_entry("id-2", "other-mod"),
+        ],
+    );
+
+    let refused = library.repair_mods(&config, &["id-1".to_string(), "id-2".to_string()]);
+
+    assert!(refused.is_err(), "the run does not start at all");
+}
+
 /// Story: a repair is never applied for a game patch the user is not on yet.
 #[test]
 fn a_game_before_the_migration_build_leaves_the_archive_alone() {
@@ -135,14 +193,16 @@ fn repairing_many_fixes_what_it_can_and_names_what_it_could_not() {
         ],
     );
 
-    let report = library.repair_mods(
-        &config,
-        &[
-            "id-stale".to_string(),
-            "id-fine".to_string(),
-            "id-pkg".to_string(),
-        ],
-    );
+    let report = library
+        .repair_mods(
+            &config,
+            &[
+                "id-stale".to_string(),
+                "id-fine".to_string(),
+                "id-pkg".to_string(),
+            ],
+        )
+        .unwrap();
 
     assert_eq!(report.repaired, vec!["id-stale".to_string()]);
     assert_eq!(report.unchanged, vec!["id-fine".to_string()]);
@@ -184,17 +244,16 @@ fn repairing_an_archived_fantome_rewrites_the_stale_property_in_its_archive() {
     );
 }
 
-/// Story: a mod whose packed WAD holds a stale bin no table names, repaired on
-/// a machine whose hashtables name none of its chunks.
+/// Story: the crashing mod from the Discord reports. Its packed WAD holds a
+/// stale bin no table names, and one Repair press has to reach it.
 ///
-/// The repair unpacks under `NamingPolicy::Lossless`, which writes such a
-/// chunk as a bare hash and invents no extension, and every rule takes its
-/// kind from the extension. So whatever the check reported, the repair reads a
-/// tree in which that chunk is not a bin, and applies nothing. A check that
-/// reported it repairable would raise the same problem on every sweep for as
-/// long as the mod is installed.
+/// The chunk is addressed by hash the whole way through: the unpack writes it
+/// as bare hex under `NamingPolicy::Lossless`, the tree reads it as a bin by
+/// its first bytes, and the delta puts the fixed bytes back into the chunk that
+/// hex names. Nothing in that chain needs a hashtable, which is the point - the
+/// user whose cache is empty is the user this mod crashes.
 #[test]
-fn repairing_a_packed_fantome_no_table_names_applies_nothing() {
+fn repairing_a_packed_fantome_no_table_names_reaches_the_bin_by_its_hash() {
     let storage = tempfile::tempdir().unwrap();
     let (library, mut config) = make_test_library(storage.path());
     point_at_installed_build(&mut config, storage.path());
@@ -211,15 +270,116 @@ fn repairing_a_packed_fantome_no_table_names_applies_nothing() {
 
     let report = library.repair_mod(&config, "id-1").unwrap();
 
-    assert_eq!(
-        report.applied, 0,
-        "the unpacked tree names the chunk by its hash, so no rule reads it"
-    );
+    assert_eq!(report.applied, 1);
 
-    // And the check has to agree, or the mod sits repairable forever.
+    // Re-checked against the archive where it lies, so the repair reached the
+    // chunk itself rather than a tree beside it.
     let verdict = library.check_mod_health(&config, "id-1").unwrap();
     assert_eq!(verdict.health, ModHealth::Healthy);
     assert_eq!(verdict.fixable, 0);
+
+    let left: Vec<String> = fs::read_dir(storage.path().join("mods"))
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        !left
+            .iter()
+            .any(|name| name.starts_with(crate::mods::archive::install::STAGING_PREFIX)),
+        "the repair cleared its staging and the re-check opened none: {left:?}"
+    );
+}
+
+/// Story: the same crashing mod, once its owner has unpacked it. The bin sits
+/// in the tree under the bare hex the import wrote, and Repair has to reach it
+/// there too.
+#[test]
+fn repairing_a_project_mod_reaches_a_bin_under_its_bare_hash() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    let hex = crate::mods::test_support::place_hex_named_bin_project_mod(
+        storage.path(),
+        "unpacked-mod",
+        &stale_bin(),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![make_unpacked_entry("id-1", "unpacked-mod")],
+    );
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+
+    assert_eq!(report.applied, 1);
+    assert_eq!(
+        report.files[0].path,
+        format!("Aatrox.wad.client/{hex}"),
+        "the fix writes the file at the address the check named"
+    );
+    assert_eq!(
+        property_at(storage.path(), "unpacked-mod", &hex),
+        migrated_property()
+    );
+}
+
+/// Story: a repair hashes a path away whether or not a table ever named the
+/// bin holding it, so the mod's own `hashes/` is what reads it back either way.
+///
+/// The chunk-addressed half of
+/// [`a_repaired_path_reads_back_out_of_the_mods_own_hashtable`], which is what
+/// a repair keeping no restore point rests on - ADR-0006.
+#[test]
+fn a_path_repaired_inside_a_nameless_chunk_is_kept_in_the_archives_own_table() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    crate::mods::test_support::place_packed_bin_archived_fantome(
+        storage.path(),
+        "packed-mod",
+        &stale_bin(),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "packed-mod")],
+    );
+
+    assert_eq!(library.repair_mod(&config, "id-1").unwrap().applied, 1);
+
+    // Read back out of the archive rather than a tree beside it: the edit has
+    // to carry the table into the mod the user still has.
+    library
+        .set_mod_storage(&config, "id-1", ModStorage::Project)
+        .unwrap();
+    let mod_dir = storage.path().join("mods").join("packed-mod");
+    assert_eq!(
+        embedded_names(&mod_dir).resolve_value(
+            &ltk_hashtable::Category::Game,
+            WadHash::hash_str(STALE_ICON).0
+        ),
+        Some(STALE_ICON),
+        "the repaired path must resolve out of the mod's own hashes/"
+    );
+}
+
+/// The one property of a hex-named bin, read back out of the mod's tree.
+fn property_at(storage_dir: &Path, slug: &str, hex: &str) -> PropertyValueEnum {
+    let bin_path = storage_dir
+        .join("mods")
+        .join(slug)
+        .join("content")
+        .join("base")
+        .join("Aatrox.wad.client")
+        .join(hex);
+    let bin = ltk_meta::Bin::from_reader(&mut fs::File::open(&bin_path).unwrap()).unwrap();
+    bin.objects
+        .get(&crate::mods::test_support::STALE_ENTRY)
+        .unwrap()
+        .properties
+        .get(&crate::mods::test_support::ICON_AVATAR)
+        .unwrap()
+        .clone()
 }
 
 /// Every table the project declares, merged the way a reader would see them.
@@ -453,7 +613,9 @@ fn a_cancelled_run_records_no_verdict_for_the_mods_it_did_not_reach() {
         }
     });
 
-    let report = library.repair_mods(&config, &["id-1".to_string(), "id-2".to_string()]);
+    let report = library
+        .repair_mods(&config, &["id-1".to_string(), "id-2".to_string()])
+        .unwrap();
 
     assert!(
         report.repaired.is_empty() && report.failed.is_empty(),

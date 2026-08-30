@@ -11,7 +11,7 @@ use crate::mods::{ModHealthVerdict, ModLibrary, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
-use ltk_manager_core::mods::{HealthSweepState, LibraryRepairReport};
+use ltk_manager_core::mods::{HealthCheckReadiness, HealthSweepState, LibraryRepairReport};
 use ltk_manager_core::problems::FixReport;
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager, State};
@@ -61,7 +61,7 @@ pub async fn repair_mods(
     };
 
     off_thread(move || {
-        let report = library.repair_mods(&config, &mod_ids);
+        let report = library.repair_mods(&config, &mod_ids)?;
         library.announce_change();
         Ok(report)
     })
@@ -104,6 +104,16 @@ pub fn cancel_mod_health_run(library: State<ModLibraryState>) -> IpcResult<()> {
     library.0.cancel_mod_health_run();
     let result: AppResult<()> = Ok(());
     result.into()
+}
+
+/// Whether a check can run now, for the controls that offer one.
+///
+/// Off the UI thread because the first caller of a launch is the one that opens
+/// the tables, which reads a manifest and maps two files.
+#[tauri::command]
+pub async fn get_health_check_readiness(app_handle: AppHandle) -> IpcResult<HealthCheckReadiness> {
+    let library = app_handle.state::<ModLibraryState>().0.clone();
+    off_thread(move || Ok(library.health_check_readiness())).await
 }
 
 /// What the mod health sweep has to say for itself this launch.

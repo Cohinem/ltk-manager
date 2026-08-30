@@ -4,16 +4,16 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-08-30 | A repair refuses in words when the tables are not there      |
+| 2026-08-30 | The rejected fourth verdict word moves to ADR-0009           |
+| 2026-08-30 | The menu row says what it waits for, before it is pressed    |
+| 2026-08-30 | A check waits for the hashtables instead of judging without  |
+| 2026-08-30 | A repair reaches a bin by its chunk hash, and the check does |
+| 2026-08-30 | The basis names the hashtables, and the sweep syncs first    |
 | 2026-08-28 | The footer answers the dialog, whether or not it can repair  |
 | 2026-08-29 | A rule line says its cause, and only the exception is marked |
 | 2026-08-29 | A row unfolds into rules, wears the dot, and frees its seat  |
 | 2026-08-29 | The list folds into two verdict groups, which say the word   |
-| 2026-08-28 | The press leads with the run that does something             |
-| 2026-08-28 | The tone fades off the mark, and the press takes a footer    |
-| 2026-08-28 | The panel moves to the middle of the page, over the blur     |
-| 2026-08-28 | The cell follows the library, and a run can be called off    |
-| 2026-08-28 | The footer press repairs what a patch carries, all behind it |
-| 2026-08-28 | A repair preserves names rather than keeping a restore point |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -46,8 +46,10 @@ This table holds every major feature of Mod health. A status word has one meanin
 | The badge             | Available | On the card, only when something is wrong                    |
 | The popover           | Available | Plain counts, Repair, re-check, and when it was checked      |
 | Check at import       | Available | A background check per install, and the import never waits   |
-| Check Health, by hand | Available | In the card menu, answered by a toast                        |
+| Check Health, by hand | Available | In the card menu. Says what it waits for, or answers a press |
 | The library sweep     | Available | Every mod whose basis moved, at startup, skipping the rest   |
+| The startup sync      | Available | The cache is filled in front of the sweep that reads it      |
+| Hashtables first      | Available | No check or repair runs without them - ADR-0009              |
 | The status bar item   | Available | A light cell at the right of the bar, and its drawer         |
 | Stopping a run        | Available | An ✕ beside the progress. What was written stays written     |
 | Repair all            | Available | Behind the footer's caret. The press repairs what is enabled |
@@ -69,7 +71,8 @@ A check runs every Problems rule over one mod's content and summarizes the run f
 | `basis`     | What the check was a claim about               |
 
 `repairable` means at least one finding carries a fix. `unrepairable` means findings exist and
-none does. The verdict counts only **live** findings: a dormant rule describes a patch the
+none does. There is no fourth word for a check that could not do its job - see
+[The hashtables come first](#the-hashtables-come-first). The verdict counts only **live** findings: a dormant rule describes a patch the
 installed game has not taken yet, and the Problems panel shows those findings with the fix
 withheld. A surface with no panel makes the same cut itself, which is why a repair can never
 break a mod on the build the user plays tonight.
@@ -82,22 +85,94 @@ reading it: every row in it predates the basis below, so all of them are due aga
 
 ### The basis
 
-A verdict is a claim about one mod under one set of rules on one game build, and it stays true
-only for as long as both of those hold. So each one records the pair it was taken under.
+A verdict is a claim about one mod under one set of rules, on one game build, against one set of
+names, and it stays true only for as long as all three hold. So each one records what it was
+taken under.
 
-| Field     | What it is                                                    |
-| --------- | ------------------------------------------------------------- |
-| `build`   | The installed game build, absent where none could be read     |
-| `manager` | The manager version, which is what a migration table ships in |
+| Field     | What it is                                                        |
+| --------- | ----------------------------------------------------------------- |
+| `build`   | The installed game build, absent where none could be read         |
+| `manager` | The manager version, which is what a migration table ships in     |
+| `tables`  | The shared hashtable cache's generation, absent where it is empty |
 
 The build is there because Riot ships a patch and a dormant rule wakes up. The manager version is
 there because a table update is a manager release - see
 ["Why the table ships in the build"](PROJECT_PROBLEMS.md#why-the-table-ships-in-the-build) - so a
 release adding a table has to make every verdict due again on the same game.
 
+**The tables are there because a check reads a different mod without them.** A newer cache names
+paths an older one did not, and one repair turns on exactly that - see
+[The hashtables come first](#the-hashtables-come-first). So a sync makes every stored verdict due
+again, which is what shipped broken in 1.15: syncing changed nothing, and the poisoned badges stood
+until the next game patch. The generation stamp moves only when a sync installs something, so a
+press that changes nothing makes nothing due.
+
 Nothing else is in the basis. A mod's own content is not, because the manager is the only thing
 that writes it: an install and a repair each record a fresh verdict as they finish, so a mod's
 verdict cannot fall behind its files without the manager knowing.
+
+### The hashtables come first
+
+**A check does not run until the hashtable cache is there.** The rules name a mod's content through
+it, and one repair - a `Hash` the game now wants as a `File` - can only be derived from the path
+behind that hash. A check with no tables therefore reports findings as unrepairable that a synced
+machine repairs in one press, and "look for a new version" is the one thing a verdict must not say
+wrongly.
+
+So the cache is a precondition, not a caveat on the answer. A mod the manager cannot judge properly
+stays **unchecked** - no verdict, no badge, no sentence - which is a claim about nothing, and the
+library already draws a never-checked mod exactly that way. The launch fills the cache in front of
+the sweep, and a manual sync sweeps as it finishes, so the state clears itself without the user
+learning what a hashtable is.
+
+**This is deliberately not a user-facing state.** An earlier draft gave the verdict a fourth word,
+a muted "couldn't fully check" pill and a line sending the reader to Settings, and was rejected for
+handing the manager's own unfinished setup to somebody who installed a skin - see
+[ADR-0009](../adr/0009-a-health-check-requires-the-hashtables.md). Standing down is the same fact
+with none of the cost.
+
+**It is machine-wide rather than per mod.** A mod shipping complete tables of its own could in
+principle be judged with an empty cache, but knowing that means scanning it first - which is most
+of what a check costs, thrown away when the answer is no. The window is seconds after launch, so
+the simple precondition is worth more than the mods it defers.
+
+### What Check Health says while it waits
+
+The card menu's Check Health is the one surface that offers the check by hand, so it is the one
+that has to answer **before** the press rather than after it. A live-looking row that refuses when
+clicked is how 1.15 taught users the command was broken. The row is therefore one of three things:
+
+| The tables          | The row reads         | The press             |
+| ------------------- | --------------------- | --------------------- |
+| Open                | Check Health          | Runs the check        |
+| On their way        | Syncing hashtables…   | Nothing, and it spins |
+| Absent, none coming | Hashtables not synced | Nothing               |
+
+"On their way" is a sync holding the cache's update lock - the launch's own, or one pressed in
+Settings - or a launch whose startup pass has not reported yet, since that pass fetches the tables
+in front of the sweep and holds the lock for only part of that. Anything else with no tables is the
+third row: nothing is fetching them but a sync the reader starts, and a spinner there would be
+waiting on nobody.
+
+The badge's re-check is disabled by the same fact. A verdict outlives the tables it was taken
+against, so that popover can open on a launch that has none.
+
+**Repair answers with an error rather than a drawn state.** It is on the same precondition - a
+repair with no names applies what it can, withholds the rest, and records a verdict calling the
+remainder unrepairable - but it is reached only by a stored verdict outliving its tables, which
+is rare enough that a permanently-drawn wait would cost every other reader for nobody. So the
+press refuses, in words.
+
+Those words are read off the same three states, because "try again in a moment" is a lie on a
+machine where nothing is fetching anything:
+
+| The tables   | The sentence                                                                       |
+| ------------ | ---------------------------------------------------------------------------------- |
+| On their way | Still syncing the hashtables a repair needs. Try again in a moment.                |
+| None coming  | The hashtables a repair needs are not synced. Sync them in Settings and try again. |
+
+Check Health refuses the same way, in its own noun, for the press that lands in the moment the
+answer changes.
 
 ## The check and the repair, per storage
 
@@ -105,10 +180,18 @@ The write is what once kept the rules out of the library - see "The library wait
 [Problems](PROJECT_PROBLEMS.md). The answer is that both operations meet the rules on a mod
 project, wherever the mod keeps its content:
 
-| Storage   | Check                              | Repair                                         |
-| --------- | ---------------------------------- | ---------------------------------------------- |
-| `project` | Analyze the mod's own tree         | Fix in the tree                                |
-| `archive` | Unpack to staging, analyze, delete | Unpack, fix, repack, swap the archive in place |
+| Storage   | Check                             | Repair                                        |
+| --------- | --------------------------------- | --------------------------------------------- |
+| `project` | Analyze the mod's own tree        | Fix in the tree                               |
+| `archive` | Analyze the archive where it lies | Unpack, fix, and edit the fixed files back in |
+
+**A bin no table names is reached by its chunk hash.** The check lists such a bin under the
+sixteen hex digits an unpack writes it as, the unpack writes the same, and the edit puts the fixed
+bytes back into the chunk that hex names - so the site a user pressed on and the file the fix
+rewrites are one address at every step. See
+["What makes a file a bin"](PROJECT_PROBLEMS.md#what-makes-a-file-a-bin). A repair keeps no way
+back either way, and the path it hashes away goes into the mod's own tables exactly as a named
+bin's would.
 
 A project-storage repair is the project editor's fix run on the mod's directory. An
 archive-storage repair replaces the archive with the repacked result and keeps no copy of the
@@ -162,16 +245,27 @@ finds nothing due, and is over.
 | Never checked                        | Checks it                |
 | Checked on an older build            | Checks it again          |
 | Checked by an older manager          | Checks it again          |
+| Checked against older hashtables     | Checks it again          |
+| Any of the above, with no hashtables | Stands down entirely     |
 | Checked under the basis it is on now | Skips it                 |
 | Faulted, or a modpkg                 | Never checked at all     |
 | Gone from the library                | Its verdict goes with it |
 
+**The sweep fills the cache before it reads it.** A launch whose hashtables are empty or behind the
+published release fetches first, because everything the sweep is about to conclude turns on what
+those tables name. It is the only one of the startup passes that waits on a network, so it sits
+immediately in front of the sweep rather than at the head of the four - the three above it are what
+the library view is drawing. A sync that fails takes the sweep with it: with no tables there is
+nothing a verdict could honestly say, so the pass prunes what the library dropped and stops there.
+
 One mod that cannot be read is logged and stepped over. It records no verdict, so the next sweep
 tries it again rather than treating an unreadable archive as an answer.
 
-**Startup is the only trigger.** A patch that lands while the manager is open is not noticed until
-the next launch, and neither is a League path pointed somewhere else in Settings. Both leave the
-badges and the bar's item describing the build the manager started on. Read
+**Startup is one of two triggers.** The other is a hashtable sync that installed something, which
+sweeps as it finishes rather than leaving the badges to the next launch - the press has just
+disproved every verdict on screen. A patch that lands while the manager is open is not noticed
+until the next launch, and neither is a League path pointed somewhere else in Settings. Both leave
+the badges and the bar's item describing the build the manager started on. Read
 [open question 1](#open-questions).
 
 **A sweep prunes before it checks.** Nothing else drops a verdict, so without that step the file
@@ -420,6 +514,7 @@ standing there naming mods that are already fixed.
 | -------------------------- | --------------------------------------------------------- |
 | A game patch               | The startup sweep, because every verdict's basis moved    |
 | A manager release          | The same, because a release is how a table ships          |
+| A hashtable sync           | The same, and the sync sweeps itself rather than waiting  |
 | An install, single or bulk | A background check per imported mod, off the install path |
 | Check Health, in the menu  | On demand, answered by a toast either way                 |
 | The badge's re-check       | On demand, from the popover                               |
@@ -438,7 +533,9 @@ would look ignored. "No problems found" is the answer.
 | Question                                         | Answer                                             |
 | ------------------------------------------------ | -------------------------------------------------- |
 | Where do verdicts live?                          | `mod-health-verdicts.json`, a map beside the index |
-| What makes a stored verdict stale?               | Its basis: the game build and the manager version  |
+| What makes a stored verdict stale?               | Its basis: the build, the manager, the hashtables  |
+| May a check run with no hashtables?              | No. The mod stays unchecked until they are there   |
+| Does a launch fetch hashtables before sweeping?  | Yes, and a failed fetch does not stop the sweep    |
 | Does the manager repair a mod on its own?        | No. Every run is a press, and it is the user's     |
 | Does the item draw when nothing was re-checked?  | Yes. It answers to the verdicts, not to the sweep  |
 | Where does the item sit?                         | A cell at the right of the status bar              |
@@ -446,6 +543,7 @@ would look ignored. "No problems found" is the answer.
 | Does it move the library when it appears?        | No. It overlays, so no card shifts under a reader  |
 | Does one mod failing stop Repair all?            | No. It is recorded, and the rest are repaired      |
 | Does a check write anything to the mod?          | No. The archive stays byte for byte                |
+| Can a repair reach a bin no hashtable names?     | Yes. It is addressed by its chunk hash throughout  |
 | What does a repair do with the original archive? | Replaces it, and keeps no copy - ADR-0005          |
 | Can a repair run for a build the user is not on? | No. Dormant rules' findings are cut from the run   |
 | Is a repaired mod repairable again next patch?   | Yes. The rules stay quiet about a repaired value   |

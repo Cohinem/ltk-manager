@@ -23,6 +23,10 @@ use std::path::Path;
 use std::sync::Arc;
 
 /// A library rooted at `storage_dir`, plus the config that points it there.
+///
+/// Its hashtables are synced, because that is the machine every test is about
+/// unless it says otherwise - a health check refuses to run without them.
+/// [`make_library_without_hashtables`] is the other machine.
 pub(crate) fn make_test_library(storage_dir: &Path) -> (ModLibrary, Config) {
     make_library_with_events(storage_dir, Arc::new(NullEventSink))
 }
@@ -33,7 +37,7 @@ pub(crate) fn make_library_with_events(
     storage_dir: &Path,
     events: Arc<dyn EventSink>,
 ) -> (ModLibrary, Config) {
-    make_library_with(storage_dir, events, "test", resolver_naming(&[]))
+    make_library_with(storage_dir, events, "test", synced_resolver())
 }
 
 /// [`make_test_library`] reporting an app version of the caller's choosing, for
@@ -46,6 +50,19 @@ pub(crate) fn make_library_with_version(
         storage_dir,
         Arc::new(NullEventSink),
         app_version,
+        synced_resolver(),
+    )
+}
+
+/// [`make_test_library`] on a machine whose shared cache has never been synced.
+///
+/// The fresh install with no network, which is the one a health check stands
+/// down on rather than recording what it could not see.
+pub(crate) fn make_library_without_hashtables(storage_dir: &Path) -> (ModLibrary, Config) {
+    make_library_with(
+        storage_dir,
+        Arc::new(NullEventSink),
+        "test",
         resolver_naming(&[]),
     )
 }
@@ -791,6 +808,35 @@ pub(crate) fn place_bin_project_mod(storage_dir: &Path, slug: &str, bin: &ltk_me
     fs::write(wad_dir.join(STALE_BIN_IN_WAD), bin_bytes(bin)).unwrap();
 }
 
+/// [`place_bin_project_mod`] with the bin under the bare hex an unpack writes a
+/// nameless chunk as.
+///
+/// The tree a fantome import leaves on a machine whose hashtables named none of
+/// its chunks. The file has no extension, so what it is has to come from its
+/// first bytes, and the hex is the chunk hash a repair addresses it by.
+pub(crate) fn place_hex_named_bin_project_mod(
+    storage_dir: &Path,
+    slug: &str,
+    bin: &ltk_meta::Bin,
+) -> String {
+    let mod_dir = storage_dir.join("mods").join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+
+    let hex = ltk_wad::hex_name(ltk_wad::WadHash::from(STALE_BIN_IN_WAD));
+    let wad_dir = mod_dir
+        .join("content")
+        .join("base")
+        .join("Aatrox.wad.client");
+    fs::create_dir_all(&wad_dir).unwrap();
+    fs::write(wad_dir.join(&hex), bin_bytes(bin)).unwrap();
+    hex
+}
+
 /// Point the config at a game install on the build the shipped table names,
 /// so the rule is live rather than dormant.
 pub(crate) fn point_at_installed_build(config: &mut Config, root: &Path) {
@@ -831,6 +877,15 @@ pub(crate) fn property_in_unpacked_tree(
         .get(&ICON_AVATAR)
         .unwrap()
         .clone()
+}
+
+/// A resolver standing in for a machine whose hashtables are synced.
+///
+/// The one name is deliberately not a path any fixture could hold, so it names
+/// nothing a test places - what it changes is that the library has tables at
+/// all, which is what a health check refuses to run without.
+fn synced_resolver() -> crate::hashtables::WadPathResolver {
+    resolver_naming(&["data/no-fixture-holds-this.bin"])
 }
 
 /// A resolver that names `paths`, so a packed WAD's chunks land under them

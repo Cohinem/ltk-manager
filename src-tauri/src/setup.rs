@@ -72,9 +72,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&wad_resolver),
     ));
 
-    mod_library
-        .0
-        .maintain_in_background(settings.config.clone());
+    let library = mod_library.0.clone();
 
     let hotkey_manager = crate::hotkeys::HotkeyManager::new(&app_handle);
     hotkey_manager.register_from_settings(&settings);
@@ -112,6 +110,14 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(workshop);
     app.manage(hotkey_manager);
     app.manage(deep_link_state);
+
+    // Started below the `manage` calls rather than beside the library it
+    // maintains: its hashtable sync ends by dropping what the app read out of
+    // the tables it replaced, and `state` on an unmanaged one is a panic.
+    let for_tables = app_handle.clone();
+    library.maintain_in_background(settings.config.clone(), move || {
+        crate::commands::hashtables::reopen_after_sync(&for_tables);
+    });
 
     crate::tray::setup(app)?;
 
