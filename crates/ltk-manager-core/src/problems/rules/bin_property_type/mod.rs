@@ -21,6 +21,13 @@
 //! run can be offered twice without doubling anything, and a file that disagrees
 //! with both schemas is a file the rule refuses to guess about.
 //!
+//! A property whose old value is already a hash - a `Hash`, which is FNV1a32
+//! of a path - has no arithmetic road to the XXH64 the game wants, so its
+//! repair goes through the path: `binhashes` and the game hashtables, mimir's
+//! and the mod's own, resolve the hash back to its path, and the path is
+//! rehashed under the new function. A hash no table resolves is the one
+//! finding this rule cannot repair.
+//!
 //! The walk descends into `Struct` and `Embedded` values, because those carry a
 //! class hash of their own and two rows of the table key on one.
 
@@ -78,8 +85,7 @@ impl Rule for BinPropertyType {
     }
 
     fn unfixable_description(&self) -> &'static str {
-        "Properties in override bins are never rewritten, and a hash-keyed value cannot be: \
-         only the path itself crosses hash functions, and the file holds just the hash"
+        "Couldn't rehash because source string is unknown"
     }
 
     /// The oldest table this project's game has not reached, in a modder's words.
@@ -158,11 +164,14 @@ impl Rule for BinPropertyType {
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
         let tables = table::tables();
-        /* A repair addresses a node by the hash form, which no table can move. */
-        let nothing = BinNames::none();
+        /* A repair addresses a node by the hash form, which no table can move.
+        The names ride along for one thing only: the rehashing conversions
+        rewrite a value from the path behind its hash, and this is where that
+        path comes from. */
+        let names = BinNames::open(run.project_root());
         let lens = Lens {
             tables,
-            names: &nothing,
+            names: &names,
         };
         let mut applied = Applied::default();
 
@@ -368,12 +377,13 @@ fn findings_of(
                 message: note(
                     hit.migration,
                     hit.value,
+                    lens.names,
                     project.build(),
                     hit.table_build,
                     &bin,
                 ),
                 fix: (!bin.is_override)
-                    .then(|| preview(hit.migration, hit.value))
+                    .then(|| preview(hit.migration, hit.value, lens.names))
                     .flatten(),
             },
         })
@@ -665,8 +675,8 @@ fn repair(
 
         if let Some((_, migration)) = lookup.hit
             && addressed.contains(trail.hashes().as_str())
-            && keep_names(value, migration, kept)
-            && convert(value, migration)
+            && keep_names(value, migration, lens.names, kept)
+            && convert(value, migration, lens.names)
         {
             applied += 1;
         }
@@ -691,14 +701,19 @@ fn repair(
 fn keep_names(
     value: &PropertyValueEnum,
     migration: &Migration,
+    names: &BinNames,
     kept: &mut PreservedNames<'_>,
 ) -> bool {
-    if migration.conversion != Conversion::HashValue {
-        return true;
+    match migration.conversion {
+        Conversion::HashValue => strings(value)
+            .into_iter()
+            .all(|path| kept.keep(path) == Preserved::Kept),
+        /* The paths a rehash writes from came out of a table, and keeping them
+        under the new hash is what lets a reader name the `File` it left. */
+        Conversion::Rehash | Conversion::HashKey => resolved_paths(value, migration, names)
+            .is_some_and(|paths| paths.iter().all(|path| kept.keep(path) == Preserved::Kept)),
+        Conversion::None => true,
     }
-    strings(value)
-        .into_iter()
-        .all(|path| kept.keep(path) == Preserved::Kept)
 }
 
 /// Walk `repair` into whatever object-like nodes `value` holds.
@@ -832,15 +847,64 @@ fn repair_container(
 }
 
 /// Rewrite one property under its new type. Reports whether it changed.
-fn convert(value: &mut PropertyValueEnum, migration: &Migration) -> bool {
+///
+/// A `Hash` is FNV1a32 of a path and a `File` is XXH64 of the same path, and
+/// there is no arithmetic between them - only the path crosses. So the two
+/// rehashing conversions look the path up in `names` first, and a hash no
+/// table names leaves the property as it is.
+fn convert(value: &mut PropertyValueEnum, migration: &Migration, names: &BinNames) -> bool {
     match migration.conversion {
         Conversion::HashValue => hash_value(value),
         Conversion::None => retag(value, migration),
-        /* A `Hash` is FNV1a32 of a path and a `File` is XXH64 of the same path,
-        and there is no arithmetic between them. Naming the hash needs the
-        mimir `binhashes` table, which nothing opens yet. */
-        Conversion::Rehash | Conversion::HashKey => false,
+        Conversion::Rehash => rehash(value, names),
+        Conversion::HashKey => rehash_keys(value, names),
     }
+}
+
+/// Rewrite a `Hash` as the `File` of the path behind it. Reports whether it
+/// changed, which needs a table naming the hash.
+fn rehash(value: &mut PropertyValueEnum, names: &BinNames) -> bool {
+    let PropertyValueEnum::Hash(hash) = value else {
+        return false;
+    };
+    let Some(path) = names.path_value(hash.value) else {
+        return false;
+    };
+    *value = link(&path).into();
+    true
+}
+
+/// Rebuild a map keyed by `Hash` under `File` keys, values untouched.
+///
+/// All or nothing, the way [`resolved_paths`] promises: one unnamed key
+/// leaves the whole map as it is, because a map read under two hash functions
+/// is broken in a way the old one is not.
+fn rehash_keys(value: &mut PropertyValueEnum, names: &BinNames) -> bool {
+    let PropertyValueEnum::Map(map) = value else {
+        return false;
+    };
+    if map.key_kind() != Kind::Hash {
+        return false;
+    }
+    let Some(paths) = map
+        .entries()
+        .iter()
+        .map(|(key, _)| key_path(key, names))
+        .collect::<Option<Vec<String>>>()
+    else {
+        return false;
+    };
+
+    let value_kind = map.value_kind();
+    let entries = std::mem::replace(map, values::Map::empty(Kind::Hash, value_kind)).into_entries();
+    let rekeyed = entries
+        .into_iter()
+        .zip(&paths)
+        .map(|((_, held), path)| (link(path).into(), held));
+    *value = values::Map::new(Kind::WadChunkLink, value_kind, rekeyed.collect())
+        .expect("rekeying a map moves no value, so the kinds it declared still hold")
+        .into();
+    true
 }
 
 /// Turn every `String` under this property into the `File` of the same path.
@@ -1032,6 +1096,7 @@ fn mismatch(migration: &Migration) -> TypeMismatch {
 fn note(
     migration: &Migration,
     value: &PropertyValueEnum,
+    names: &BinNames,
     installed: Option<GameBuild>,
     table: GameBuild,
     bin: &ltk_meta::Bin,
@@ -1041,15 +1106,19 @@ fn note(
     /* The sentence prints the hash the file holds, because that hash is the
     whole of what a person needs to go and find the path themselves. */
     match migration.conversion {
-        Conversion::Rehash => parts.push(format!(
-            "The game reads a chunk hash here and the file holds a name hash. Both hash the same path under a different function, so only the path itself crosses between them, and {} is all the file carries. There is no repair.",
-            unnamed(value)
-        )),
-        Conversion::HashKey => parts.push(format!(
-            "The game keys this map by chunk hash now and the file keys it by name hash. Both hash the same path under a different function, so only the path itself crosses between them, and {} is all the file carries. There is no repair.",
-            unnamed(value)
-        )),
-        Conversion::HashValue | Conversion::None => {}
+        Conversion::Rehash if resolved_paths(value, migration, names).is_none() => {
+            parts.push(format!(
+                "The FNV1a Hash value {} could not be converted to File, the 64-bit xxHash of the same path, because neither the Mimir hashtables nor the mod's own resolve it back to its original path. Adding the path to the mod's hashtables makes this repairable.",
+                unresolved(value, names)
+            ));
+        }
+        Conversion::HashKey if resolved_paths(value, migration, names).is_none() => {
+            parts.push(format!(
+                "This map's FNV1a Hash keys could not be converted to File keys, the 64-bit xxHash of the same paths, because neither the Mimir hashtables nor the mod's own resolve {} back to its original path. Adding the paths to the mod's hashtables makes this repairable.",
+                unresolved(value, names)
+            ));
+        }
+        Conversion::Rehash | Conversion::HashKey | Conversion::HashValue | Conversion::None => {}
     }
 
     if bin.is_override {
@@ -1061,19 +1130,59 @@ fn note(
     (!parts.is_empty()).then(|| parts.join(" "))
 }
 
-/// The hash a repair would have to name, as a row prints it.
+/// The hashes no table names, as a row prints them.
 ///
 /// A `rehash` row holds one, and a `hash_key` row holds one for each entry, so
-/// a map names the first and says how many followed.
-fn unnamed(value: &PropertyValueEnum) -> String {
+/// a map names the first unresolved one and says how many more went unnamed.
+fn unresolved(value: &PropertyValueEnum, names: &BinNames) -> String {
     match value {
         PropertyValueEnum::Hash(hash) => names::hex(hash.value),
-        PropertyValueEnum::Map(map) => match map.entries() {
-            [] => "its keys".to_owned(),
-            [(key, _)] => subscript(key),
-            [(key, _), rest @ ..] => format!("{} and {} more", subscript(key), rest.len()),
-        },
+        PropertyValueEnum::Map(map) => {
+            let missing: Vec<&PropertyValueEnum> = map
+                .entries()
+                .iter()
+                .map(|(key, _)| key)
+                .filter(|key| key_path(key, names).is_none())
+                .collect();
+            match missing.as_slice() {
+                [] => "its keys".to_owned(),
+                [key] => subscript(key),
+                [key, rest @ ..] => format!("{} and {} more", subscript(key), rest.len()),
+            }
+        }
         other => format!("this {}", word_of(other)),
+    }
+}
+
+/// The path behind one map key, where a table names it.
+fn key_path(key: &PropertyValueEnum, names: &BinNames) -> Option<String> {
+    let PropertyValueEnum::Hash(hash) = key else {
+        return None;
+    };
+    names.path_value(hash.value)
+}
+
+/// The paths a `rehash` or `hash_key` repair would write from, or `None`
+/// where any of them goes unnamed.
+///
+/// All or nothing, because a map half of whose keys convert would leave the
+/// game reading two hash functions out of one property. `None` is what makes
+/// the finding unrepairable, and the note names the hashes it is missing.
+fn resolved_paths(
+    value: &PropertyValueEnum,
+    migration: &Migration,
+    names: &BinNames,
+) -> Option<Vec<String>> {
+    match (migration.conversion, value) {
+        (Conversion::Rehash, PropertyValueEnum::Hash(hash)) => {
+            Some(vec![names.path_value(hash.value)?])
+        }
+        (Conversion::HashKey, PropertyValueEnum::Map(map)) => map
+            .entries()
+            .iter()
+            .map(|(key, _)| key_path(key, names))
+            .collect(),
+        _ => None,
     }
 }
 
@@ -1083,9 +1192,27 @@ fn word_of(value: &PropertyValueEnum) -> String {
 }
 
 /// What a repair would change, for a problem that has one.
-fn preview(migration: &Migration, value: &PropertyValueEnum) -> Option<FixPreview> {
+///
+/// A `rehash` or `hash_key` row has a repair exactly where every hash it holds
+/// resolves to its path, and the preview draws those paths - they are what the
+/// new value is computed from, and what a reader can check.
+fn preview(
+    migration: &Migration,
+    value: &PropertyValueEnum,
+    names: &BinNames,
+) -> Option<FixPreview> {
     match migration.conversion {
-        Conversion::Rehash | Conversion::HashKey => None,
+        Conversion::Rehash | Conversion::HashKey => {
+            let paths = resolved_paths(value, migration, names)?;
+            Some(match paths.as_slice() {
+                [] => FixPreview::default(),
+                [path] => FixPreview::value(
+                    quoted(path),
+                    format!("0x{:016x}", WadHash::hash_str(path).0),
+                ),
+                [first, rest @ ..] => FixPreview::sample(quoted(first), Some(more(rest.len()))),
+            })
+        }
         /* Nothing to draw beside the annotation: the type is the whole change. */
         Conversion::None => Some(FixPreview::default()),
         Conversion::HashValue => Some(value_preview(value)),

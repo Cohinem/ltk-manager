@@ -519,7 +519,17 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
             )}
             <Code className="ml-auto select-text">{brief.rule}</Code>
           </div>
-          <p className="text-surface-500">{brief.description}</p>
+          {(brief.mismatches ?? []).length > 0 ? (
+            /* The type pairs are the actual problem, so where the rule
+               reports them they stand in for the rule's own sentence. */
+            (brief.mismatches ?? []).map((mismatch) => (
+              <p key={`${mismatch.expected}-${mismatch.found}`} className="text-surface-500">
+                Expected <Code>{mismatch.expected}</Code>, found <Code>{mismatch.found}</Code>
+              </p>
+            ))
+          ) : (
+            <p className="text-surface-500">{brief.description}</p>
+          )}
           {brief.unfixable != null && <p className="text-surface-500">{brief.unfixable}</p>}
         </li>
       ))}

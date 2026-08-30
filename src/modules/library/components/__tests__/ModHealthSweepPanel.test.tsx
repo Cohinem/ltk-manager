@@ -132,16 +132,23 @@ describe("ModHealthSweepPanel", () => {
     await user.click(screen.getByRole("button", { name: "Charizard Smolder" }));
 
     expect(screen.getByText("Outdated bin properties")).toBeInTheDocument();
+    /* The type pair is the actual problem, and it stands in for the rule's
+       own sentence. */
     expect(
-      screen.getByText("A bin property's type does not match what the game expects"),
+      screen.getByText((_, node) => node?.textContent === "Expected File, found Hash"),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText("A bin property's type does not match what the game expects"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("bin-property-type")).toBeInTheDocument();
     /* The fixture's brief fixes 2 of 3, and the fraction is what separates a
        fixable line from the identical rule on an unrepairable mod. */
     expect(screen.getByText("(2 of 3)")).toBeInTheDocument();
     /* The repair falls short of the count, so the rule's own why-not sentence
        follows the cause. */
-    expect(screen.getByText("Properties in override bins are never rewritten")).toBeInTheDocument();
+    expect(
+      screen.getByText("Couldn't rehash because source string is unknown"),
+    ).toBeInTheDocument();
   });
 
   it("shows a plain count on a rule no repair reaches", async () => {

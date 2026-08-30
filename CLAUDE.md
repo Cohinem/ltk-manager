@@ -18,8 +18,9 @@ Guidance is scoped so backend work does not carry the frontend's:
 All commands run from the repo root. See `package.json` scripts for the full list.
 
 ```bash
-# Verbose backend logging
-RUST_LOG=ltk_manager=trace,tauri=info pnpm tauri dev
+# Verbose backend logging, any shell. The optional argument is a RUST_LOG
+# filter, defaulting to ltk_manager=trace,ltk_overlay=debug,tauri=info.
+pnpm dev:logged [ltk_overlay=debug]
 ```
 
 `pnpm generate:licenses` requires `cargo-about` on PATH, and its config is `about.toml`.

@@ -1,21 +1,31 @@
 //! One pass of every rule over one project.
 //!
-//! A run walks each layer's content directory, hands the files to each rule and
-//! collects what the rules report. A rule that throws does not take the run
-//! with it: a project with one unreadable `.bin` still gets every problem in
-//! the other forty, and the panel names the file it could not read.
+//! A run lists each layer's files, hands them to each rule and collects what
+//! the rules report. A rule that throws does not take the run with it: a
+//! project with one unreadable `.bin` still gets every problem in the other
+//! forty, and the panel names the file it could not read.
+//!
+//! Where those files are is [`LayerFiles`]'s business alone. A project's are a
+//! directory, and an archive's are the archive - read where it lies, never
+//! unpacked. Everything above [`BinHandle::read`] is written once for both.
+
+mod archive;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Instant;
 
 use chrono::Utc;
 use ltk_file::LeagueFileKind;
+use ltk_wad::{PathResolver, WadHash};
 use walkdir::WalkDir;
 
 use crate::config::Config;
 use crate::error::AppResult;
 use crate::workshop::layer;
 use crate::workshop::{ProjectDir, WorkshopFileKind};
+
+use archive::ArchiveFiles;
 
 use super::budget::Budget;
 use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
@@ -25,9 +35,9 @@ const CONTENT_DIR: &str = "content";
 
 /// The files of one project, and what else a run hands every rule.
 ///
-/// Built once for a run and shared by every rule, because walking the content
-/// directory is the one cost worth paying exactly once. Reading a file's bytes
-/// is each rule's own business.
+/// Built once for a run and shared by every rule, because listing the content
+/// is the one cost worth paying exactly once. Reading a file's bytes is each
+/// rule's own business.
 ///
 /// The installed build and the hash tables ride here too. A rule needs all
 /// three to decide what it has to say, and each of them costs the same
@@ -78,12 +88,45 @@ impl ProjectFiles {
             root: project_root.to_path_buf(),
             layers,
             build: GameBuild::installed(config),
-            names: BinNames::open(),
+            names: BinNames::open(project_root),
             budget,
         })
     }
 
-    /// The project's own directory.
+    /// List a fantome archive's files, reading them where the archive keeps
+    /// them.
+    ///
+    /// The archive is never unpacked. A packed WAD is read chunk by chunk and
+    /// a WAD kept as a directory of entries entry by entry, so a check costs
+    /// the bins it parses rather than the tree an unpack would have written.
+    ///
+    /// `resolver` names a packed WAD's chunks, the same resolver an unpack
+    /// would have named them with, so a site addresses the same path either
+    /// way. The archive's own declared tables are read from inside it, which
+    /// is where a project keeps them under `hashes/`.
+    ///
+    /// # Errors
+    ///
+    /// Reports an archive that cannot be opened or whose entry table cannot be
+    /// read. A single WAD that will not mount is logged and skipped.
+    pub fn in_archive(
+        archive: &Path,
+        config: &Config,
+        budget: Budget,
+        resolver: &dyn PathResolver,
+    ) -> AppResult<Self> {
+        let scan = ArchiveFiles::scan(archive, resolver)?;
+
+        Ok(Self {
+            root: archive.to_path_buf(),
+            layers: vec![scan.layer],
+            build: GameBuild::installed(config),
+            names: BinNames::with_declared(scan.tables),
+            budget,
+        })
+    }
+
+    /// Where the content was read from: a project's directory, or an archive.
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
@@ -147,14 +190,41 @@ impl ProjectFiles {
     }
 }
 
-/// The files inside one layer's content directory.
+/// The files of one layer, and where to read one.
 #[derive(Debug, Clone)]
 pub struct LayerFiles {
     /// The layer's own name, such as `base`.
     pub name: String,
-    /// The layer's content directory.
-    pub root: PathBuf,
     pub files: Vec<ProjectFile>,
+    source: LayerSource,
+}
+
+/// Where a layer's files are.
+///
+/// The seam between "which files a run sees" and "what a file's bytes are".
+/// Everything above it - the rules, the sites they report, the budget they
+/// spend - is written once and reads both.
+#[derive(Debug, Clone)]
+enum LayerSource {
+    /// A directory on disk, holding each file at its own path under this root.
+    Directory(PathBuf),
+    /// A fantome archive, shared by every handle that reads out of it.
+    Archive(Arc<ArchiveFiles>),
+}
+
+impl LayerSource {
+    /// The bytes of one of the layer's files.
+    fn read(&self, file: &ProjectFile) -> Result<Vec<u8>, String> {
+        match self {
+            Self::Directory(root) => std::fs::read(absolute(root, file)).map_err(|e| e.to_string()),
+            Self::Archive(archive) => archive.read(file),
+        }
+    }
+}
+
+/// Where `file` sits under a directory layer's `root`.
+fn absolute(root: &Path, file: &ProjectFile) -> PathBuf {
+    root.join(file.path.replace('/', std::path::MAIN_SEPARATOR_STR))
 }
 
 impl LayerFiles {
@@ -209,6 +279,7 @@ impl LayerFiles {
                 path,
                 kind: WorkshopFileKind::from(LeagueFileKind::from_extension(extension)),
                 size_bytes: entry.metadata().map(|meta| meta.len()).unwrap_or(0),
+                chunk: None,
             });
         }
 
@@ -216,16 +287,31 @@ impl LayerFiles {
 
         Self {
             name: name.to_owned(),
-            root: dir.to_path_buf(),
             files,
+            source: LayerSource::Directory(dir.to_path_buf()),
         }
     }
 
-    /// Where one of this layer's files is on disk.
+    /// The layer an archive holds, reading back through `source`.
+    fn in_archive(name: &str, files: Vec<ProjectFile>, source: ArchiveFiles) -> Self {
+        Self {
+            name: name.to_owned(),
+            files,
+            source: LayerSource::Archive(Arc::new(source)),
+        }
+    }
+
+    /// Where one of this layer's files is on disk, for a layer on disk.
+    ///
+    /// `None` for a layer read out of an archive, whose files have no path of
+    /// their own - which is what [`BinHandle::read`] exists to spare a rule
+    /// having to know.
     #[must_use]
-    pub fn absolute(&self, file: &ProjectFile) -> PathBuf {
-        self.root
-            .join(file.path.replace('/', std::path::MAIN_SEPARATOR_STR))
+    pub fn absolute(&self, file: &ProjectFile) -> Option<PathBuf> {
+        match &self.source {
+            LayerSource::Directory(root) => Some(absolute(root, file)),
+            LayerSource::Archive(_) => None,
+        }
     }
 }
 
@@ -259,9 +345,11 @@ impl<'a> BinHandle<'a> {
         self.file.size_bytes
     }
 
-    /// Where the bin sits on disk.
+    /// Where the bin sits on disk, where it sits on disk at all.
+    ///
+    /// See [`LayerFiles::absolute`] for the `None`.
     #[must_use]
-    pub fn absolute(&self) -> PathBuf {
+    pub fn absolute(&self) -> Option<PathBuf> {
         self.layer.absolute(self.file)
     }
 
@@ -272,7 +360,7 @@ impl<'a> BinHandle<'a> {
     /// Reports the file it could not open or parse, as one sentence a panel
     /// can draw.
     pub fn read(&self) -> Result<ltk_meta::Bin, String> {
-        let bytes = std::fs::read(self.absolute()).map_err(|e| e.to_string())?;
+        let bytes = self.layer.source.read(self.file)?;
         ltk_meta::Bin::from_reader(&mut std::io::Cursor::new(&bytes)).map_err(|e| e.to_string())
     }
 }
@@ -284,6 +372,12 @@ pub struct ProjectFile {
     pub path: String,
     pub kind: WorkshopFileKind,
     pub size_bytes: u64,
+    /// The chunk of a packed WAD this file is, where that is where it lives.
+    ///
+    /// A chunk is addressed by hash, and its path is only what a hashtable
+    /// made of that hash - so the hash cannot be read back out of the path,
+    /// and a chunk no table names has no path to read it out of at all.
+    pub chunk: Option<WadHash>,
 }
 
 /// Run every rule over one project.
@@ -303,310 +397,88 @@ pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
 ///
 /// The same as [`analyze`].
 pub fn analyze_within(project_root: &Path, config: &Config, budget: Budget) -> AppResult<Run> {
-    let started = Instant::now();
-
     let project = ProjectDir::open(project_root)?;
-    let files = ProjectFiles::within(project.path(), config, budget)?;
-    let at = Utc::now();
+    Ok(ProjectFiles::within(project.path(), config, budget)?.checked())
+}
 
-    let mut report = Report::default();
-    let mut rules = Vec::new();
-    for rule in super::rules::all() {
-        let mut info = rule.info();
-        if let Some(dormancy) = rule.dormant(&files) {
-            info.state = RuleState::Dormant {
-                waiting: dormancy.waiting,
-                reason: dormancy.reason,
-                detail: dormancy.detail,
-            };
+/// One pass of every rule over a fantome archive, read where it lies.
+///
+/// The archive is never unpacked, so a check costs the bins it parses rather
+/// than the whole of the tree an unpack would have written. `resolver` names
+/// a packed WAD's chunks, exactly as it does for an unpack, so a site
+/// addresses the same path either way.
+///
+/// # Errors
+///
+/// Reports an archive that cannot be opened or whose entry table cannot be
+/// read. A rule that fails is recorded in [`Run::failed`] rather than failing
+/// the run.
+pub fn analyze_archive(
+    archive: &Path,
+    config: &Config,
+    budget: Budget,
+    resolver: &dyn PathResolver,
+) -> AppResult<Run> {
+    Ok(ProjectFiles::in_archive(archive, config, budget, resolver)?.checked())
+}
+
+impl ProjectFiles {
+    /// Run every rule over these files, and collect what they report.
+    #[must_use]
+    fn checked(&self) -> Run {
+        let started = Instant::now();
+        let at = Utc::now();
+
+        let mut report = Report::default();
+        let mut rules = Vec::new();
+        for rule in super::rules::all() {
+            let mut info = rule.info();
+            if let Some(dormancy) = rule.dormant(self) {
+                info.state = RuleState::Dormant {
+                    waiting: dormancy.waiting,
+                    reason: dormancy.reason,
+                    detail: dormancy.detail,
+                };
+            }
+            rules.push(info);
+            rule.check(self, &mut report);
         }
-        rules.push(info);
-        rule.check(&files, &mut report);
+        let (mut problems, failed) = report.finish();
+
+        // The panel draws this list in the order it arrives, so the order is
+        // the engine's to decide: worst first, then by where the problem is.
+        problems.sort_by(|a, b| {
+            a.severity
+                .cmp(&b.severity)
+                .then_with(|| a.site.layer.cmp(&b.site.layer))
+                .then_with(|| a.site.path.cmp(&b.site.path))
+                .then_with(|| {
+                    let a = a.site.node.as_ref().map(|node| node.path.as_str());
+                    let b = b.site.node.as_ref().map(|node| node.path.as_str());
+                    a.cmp(&b)
+                })
+        });
+
+        let objects = ObjectInfo::catalogue(&problems, self.names());
+
+        tracing::trace!(
+            "Analyzed {} files of {}: {} problems, {} rule failures, in {:?}",
+            self.file_count(),
+            self.root.display(),
+            problems.len(),
+            failed.len(),
+            started.elapsed()
+        );
+
+        Run {
+            at,
+            rules,
+            objects,
+            problems,
+            failed,
+        }
     }
-    let (mut problems, failed) = report.finish();
-
-    // The panel draws this list in the order it arrives, so the order is the
-    // engine's to decide: worst first, then by where the problem is.
-    problems.sort_by(|a, b| {
-        a.severity
-            .cmp(&b.severity)
-            .then_with(|| a.site.layer.cmp(&b.site.layer))
-            .then_with(|| a.site.path.cmp(&b.site.path))
-            .then_with(|| {
-                let a = a.site.node.as_ref().map(|node| node.path.as_str());
-                let b = b.site.node.as_ref().map(|node| node.path.as_str());
-                a.cmp(&b)
-            })
-    });
-
-    let objects = ObjectInfo::catalogue(&problems, files.names());
-
-    tracing::trace!(
-        "Analyzed {} files of {}: {} problems, {} rule failures, in {:?}",
-        files.file_count(),
-        project.path().display(),
-        problems.len(),
-        failed.len(),
-        started.elapsed()
-    );
-
-    Ok(Run {
-        at,
-        rules,
-        objects,
-        problems,
-        failed,
-    })
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::fs;
-
-    /// Write `contents` to `path`, creating every directory above it.
-    fn touch(path: &Path, contents: &[u8]) {
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::write(path, contents).unwrap();
-    }
-
-    fn layer(files: &ProjectFiles, name: &str) -> LayerFiles {
-        files
-            .layers()
-            .iter()
-            .find(|layer| layer.name == name)
-            .unwrap_or_else(|| panic!("no layer named {name}"))
-            .clone()
-    }
-
-    fn paths(layer: &LayerFiles) -> Vec<&str> {
-        layer.files.iter().map(|file| file.path.as_str()).collect()
-    }
-
-    #[test]
-    fn every_layer_on_disk_is_read_with_base_first() {
-        let tmp = tempfile::tempdir().unwrap();
-        for name in ["zephyr", "base", "alt"] {
-            touch(
-                &tmp.path().join(CONTENT_DIR).join(name).join("a.bin"),
-                b"bin",
-            );
-        }
-
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-        let names: Vec<&str> = files
-            .layers()
-            .iter()
-            .map(|layer| layer.name.as_str())
-            .collect();
-        assert_eq!(names, ["base", "alt", "zephyr"]);
-    }
-
-    #[test]
-    fn a_dot_directory_under_content_is_not_a_layer() {
-        let tmp = tempfile::tempdir().unwrap();
-        touch(
-            &tmp.path().join(CONTENT_DIR).join("base").join("a.bin"),
-            b"bin",
-        );
-        touch(
-            &tmp.path().join(CONTENT_DIR).join(".git").join("HEAD"),
-            b"ref",
-        );
-
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-        assert_eq!(files.layers().len(), 1);
-        assert_eq!(files.layers()[0].name, "base");
-    }
-
-    #[test]
-    fn a_dot_file_inside_a_layer_is_skipped() {
-        let tmp = tempfile::tempdir().unwrap();
-        let base = tmp.path().join(CONTENT_DIR).join("base");
-        touch(&base.join("a.bin"), b"bin");
-        touch(&base.join(".hidden.bin"), b"bin");
-        touch(&base.join(".tools").join("b.bin"), b"bin");
-
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-        assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
-    }
-
-    /// A site's path crosses IPC and keys a fix, so it has to read the same on
-    /// Windows as it does anywhere else.
-    #[test]
-    fn a_path_is_posix_style_and_relative_to_the_layer_root() {
-        let tmp = tempfile::tempdir().unwrap();
-        let base = tmp.path().join(CONTENT_DIR).join("base");
-        touch(
-            &base
-                .join("Smolder.wad.client")
-                .join("data")
-                .join("characters")
-                .join("x.bin"),
-            b"bin",
-        );
-
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-        assert_eq!(
-            paths(&layer(&files, "base")),
-            ["Smolder.wad.client/data/characters/x.bin"]
-        );
-    }
-
-    #[test]
-    fn a_kind_comes_from_the_extension() {
-        let tmp = tempfile::tempdir().unwrap();
-        let base = tmp.path().join(CONTENT_DIR).join("base");
-        touch(&base.join("skin0.bin"), b"bin");
-        touch(&base.join("notes.txt"), b"hello");
-
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-        let base = layer(&files, "base");
-        assert_eq!(paths(&base), ["notes.txt", "skin0.bin"]);
-        assert_ne!(base.files[0].kind, WorkshopFileKind::PropertyBin);
-        assert_eq!(base.files[1].kind, WorkshopFileKind::PropertyBin);
-        assert_eq!(base.files[1].size_bytes, 3);
-    }
-
-    #[test]
-    fn a_project_with_no_content_directory_reports_no_layers() {
-        let tmp = tempfile::tempdir().unwrap();
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-
-        assert!(files.layers().is_empty());
-        assert_eq!(files.root(), tmp.path());
-    }
-
-    #[test]
-    fn by_kind_pairs_each_matching_file_with_its_layer() {
-        let tmp = tempfile::tempdir().unwrap();
-        let content = tmp.path().join(CONTENT_DIR);
-        touch(&content.join("base").join("skin0.bin"), b"bin");
-        touch(&content.join("base").join("notes.txt"), b"hello");
-        touch(&content.join("chroma").join("skin1.bin"), b"bin");
-
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-        let found: Vec<(&str, &str)> = files
-            .by_kind(WorkshopFileKind::PropertyBin)
-            .map(|(layer, file)| (layer.name.as_str(), file.path.as_str()))
-            .collect();
-
-        assert_eq!(found, [("base", "skin0.bin"), ("chroma", "skin1.bin")]);
-    }
-
-    #[test]
-    fn an_absolute_path_rebuilds_a_file_a_rule_can_open() {
-        let tmp = tempfile::tempdir().unwrap();
-        touch(
-            &tmp.path()
-                .join(CONTENT_DIR)
-                .join("base")
-                .join("data")
-                .join("x.bin"),
-            b"bin",
-        );
-
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-        let base = layer(&files, "base");
-        let absolute = base.absolute(&base.files[0]);
-
-        assert_eq!(fs::metadata(&absolute).unwrap().len(), 3);
-    }
-
-    #[test]
-    fn a_config_with_no_league_path_names_no_build() {
-        let tmp = tempfile::tempdir().unwrap();
-        let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
-
-        assert_eq!(files.build(), None);
-    }
-
-    #[test]
-    fn analyzing_a_directory_that_is_not_a_project_is_an_error() {
-        let tmp = tempfile::tempdir().unwrap();
-        let missing = tmp.path().join("charizard-smolder-x");
-
-        assert_matches::assert_matches!(
-            analyze(&missing, &Config::default()),
-            Err(crate::error::AppError::ProjectNotFound(_))
-        );
-    }
-
-    #[test]
-    fn analyzing_a_project_with_nothing_to_report_finds_nothing() {
-        let tmp = tempfile::tempdir().unwrap();
-        touch(
-            &tmp.path().join(CONTENT_DIR).join("base").join("notes.txt"),
-            b"hello",
-        );
-
-        let run = analyze(tmp.path(), &Config::default()).unwrap();
-        assert!(run.problems.is_empty());
-        assert!(run.failed.is_empty());
-    }
-
-    /// A run over a project with nothing to gate on lists every rule as
-    /// speaking, which is what a panel needs to tell a clean project from a
-    /// quiet one.
-    #[test]
-    fn a_rule_with_nothing_to_wait_for_is_listed_as_active() {
-        let tmp = tempfile::tempdir().unwrap();
-        touch(
-            &tmp.path().join(CONTENT_DIR).join("base").join("notes.txt"),
-            b"hello",
-        );
-
-        let run = analyze(tmp.path(), &Config::default()).unwrap();
-        assert!(!run.rules.is_empty());
-        assert!(run.rules.iter().all(|info| info.state == RuleState::Active));
-    }
-
-    /// A game install from before the one shipped table, so every rule keyed
-    /// on that build reports what it is waiting for.
-    fn project_on_an_older_game() -> (tempfile::TempDir, Config) {
-        let tmp = tempfile::tempdir().unwrap();
-        touch(
-            &tmp.path().join(CONTENT_DIR).join("base").join("notes.txt"),
-            b"hello",
-        );
-
-        let league = tmp.path().join("league");
-        touch(
-            &league.join("Game").join("content-metadata.json"),
-            br#"{ "version": "16.16.8049184+branch.releases-16-16.content.release" }"#,
-        );
-
-        let config = Config {
-            league_path: Some(league),
-            ..Config::default()
-        };
-        (tmp, config)
-    }
-
-    #[test]
-    fn a_rule_waiting_on_a_newer_game_says_so_on_the_run() {
-        let (tmp, config) = project_on_an_older_game();
-
-        let run = analyze(tmp.path(), &config).unwrap();
-        let dormant: Vec<_> = run
-            .rules
-            .iter()
-            .filter(|info| info.state != RuleState::Active)
-            .collect();
-
-        assert_eq!(dormant.len(), 1, "the bin retype rule is the keyed one");
-        let RuleState::Dormant {
-            waiting,
-            reason,
-            detail,
-        } = &dormant[0].state
-        else {
-            unreachable!("filtered on it")
-        };
-        assert_eq!(waiting, "Patch 16.17");
-        assert!(reason.contains("16.17"), "{reason}");
-        let detail = detail.as_deref().expect("the rule names both builds");
-        assert!(detail.contains("16.17.8087655"), "{detail}");
-        assert!(detail.contains("16.16.8049184"), "{detail}");
-    }
-}
+mod tests;

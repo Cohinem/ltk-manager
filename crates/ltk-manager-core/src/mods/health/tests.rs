@@ -2,6 +2,7 @@
 //! fixtures the repair suite uses.
 
 use super::*;
+use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
     make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
@@ -31,6 +32,55 @@ fn checking_a_stale_archived_fantome_reports_it_repairable_and_remembers() {
 
     let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(verdicts.get("id-1").unwrap(), &verdict);
+}
+
+/// Story: a mod still shipping a packed WAD is checked without being unpacked,
+/// on a machine whose hashtables name none of its chunks.
+///
+/// Nothing names the bin, so the check reports nothing - deliberately. The
+/// repair unpacks under `NamingPolicy::Lossless`, which writes a nameless
+/// chunk as a bare hash with no extension, and every rule takes its kind from
+/// the extension; `repairing_a_packed_fantome_no_table_names_applies_nothing`
+/// pins that it therefore fixes nothing. Reporting the bin here would raise a
+/// problem on every sweep that no repair could ever clear. What this test does
+/// hold is that the check reads the archive where it lies, unpacking nothing
+/// and writing nothing.
+#[test]
+fn checking_a_stale_packed_fantome_unpacks_nothing_and_reports_what_a_repair_could_fix() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    crate::mods::test_support::place_packed_bin_archived_fantome(
+        storage.path(),
+        "packed-mod",
+        &stale_bin(),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "packed-mod")],
+    );
+    let mods_dir = storage.path().join("mods");
+    let before = fs::read(mods_dir.join("packed-mod.fantome")).unwrap();
+
+    let verdict = library.check_mod_health(&config, "id-1").unwrap();
+
+    assert_eq!(verdict.health, ModHealth::Healthy);
+    assert_eq!(verdict.fixable, 0);
+    assert_eq!(
+        fs::read(mods_dir.join("packed-mod.fantome")).unwrap(),
+        before,
+        "a check never writes"
+    );
+
+    let left: Vec<_> = fs::read_dir(&mods_dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert!(
+        !left.iter().any(|name| name.starts_with(STAGING_PREFIX)),
+        "a check unpacks nothing: {left:?}"
+    );
 }
 
 #[test]
@@ -128,6 +178,89 @@ fn forgetting_a_verdict_makes_the_sweep_owe_that_mod_a_check() {
     library.forget_health_check(&library.storage_dir(&config).unwrap(), "id-1");
 
     assert!(library.mod_health_verdicts(&config).unwrap().is_empty());
+}
+
+/// Story: a build rewrites a rule's sentences, and the sweep sees no reason to
+/// re-check anything - the basis has not moved. The words must never come out
+/// of the store, so the file keeps the counts alone and a load reconstructs
+/// every sentence from the rules this build ships.
+#[test]
+fn the_store_keeps_no_sentences_and_a_load_reconstructs_them() {
+    let storage = tempfile::tempdir().unwrap();
+    let brief = RuleBrief {
+        rule: "bin/property-type".to_owned(),
+        title: "A title an older build wrote".to_owned(),
+        description: "A sentence an older build wrote".to_owned(),
+        count: 3,
+        fixable: 1,
+        mismatches: vec![problems::TypeMismatch {
+            expected: "File".to_owned(),
+            found: "Hash".to_owned(),
+        }],
+        unfixable: Some("A why-not an older build wrote".to_owned()),
+    };
+    let file = VerdictFile {
+        verdicts: std::iter::once((
+            "id-1".to_owned(),
+            ModHealthVerdict {
+                mod_id: "id-1".to_owned(),
+                health: ModHealth::Repairable,
+                fixable: 1,
+                counts: Counts::default(),
+                rules: vec![brief],
+                checked_at: "2026-08-28T10:00:00Z".to_owned(),
+                basis: HealthCheckBasis::default(),
+            },
+        ))
+        .collect(),
+    };
+    file.save(storage.path()).unwrap();
+
+    let written = fs::read_to_string(storage.path().join("mod-health-verdicts.json")).unwrap();
+    assert!(!written.contains("older build wrote"), "{written}");
+    assert!(!written.contains("title"), "{written}");
+
+    let loaded = VerdictFile::load(storage.path());
+    let brief = &loaded.verdicts["id-1"].rules[0];
+
+    let rule = problems::rules::all()
+        .into_iter()
+        .find(|rule| rule.id().0 == "bin/property-type")
+        .unwrap();
+    assert_eq!(brief.title, rule.title());
+    assert_eq!(brief.description, rule.description());
+    assert_eq!(
+        brief.unfixable.as_deref(),
+        Some(rule.unfixable_description())
+    );
+    assert_eq!((brief.count, brief.fixable), (3, 1));
+}
+
+/// Story: a build adds data the old shape never wrote - the type pairs - and
+/// the basis has not moved, so the sweep sees nothing due. A verdict from an
+/// older shape has to read as never checked, or its row would draw without
+/// the data every newer row has.
+#[test]
+fn a_file_from_an_older_shape_loads_as_never_checked() {
+    let storage = tempfile::tempdir().unwrap();
+    fs::write(
+        storage.path().join("mod-health-verdicts.json"),
+        r#"{
+          "version": 0,
+          "verdicts": {
+            "id-1": {
+              "modId": "id-1",
+              "health": "repairable",
+              "fixable": 1,
+              "counts": { "fatals": 3, "errors": 0, "warnings": 0, "infos": 0 },
+              "checkedAt": "2026-08-28T10:00:00Z"
+            }
+          }
+        }"#,
+    )
+    .unwrap();
+
+    assert!(VerdictFile::load(storage.path()).verdicts.is_empty());
 }
 
 /// Forgetting a mod nothing remembers writes nothing, so a cancel over a mod

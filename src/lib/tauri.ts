@@ -7,6 +7,7 @@ import type {
   AssetInfo,
   AssetRef,
   BulkInstallResult,
+  ChecksumMismatchInfo,
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
@@ -191,6 +192,8 @@ export const api = {
   getPatcherStatus: () => invokeResult<PatcherStatus>("get_patcher_status"),
   getLinkedBinOffenders: () =>
     invokeResult<Record<string, LinkedBinOffenderInfo>>("get_linked_bin_offenders"),
+  getChecksumMismatches: () =>
+    invokeResult<Record<string, ChecksumMismatchInfo[]>>("get_checksum_mismatches"),
 
   // Launcher
   // Resolves to null when a launch was already in flight - a redundant click.

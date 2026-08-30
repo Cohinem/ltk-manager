@@ -18,6 +18,7 @@
     "test:coverage": "vitest run --coverage",
     "check": "pnpm run --parallel \"/^(typecheck|lint|format:check)$/\" && pnpm run test",
     "prepare": "husky",
+    "dev:logged": "node scripts/dev-logged.mjs",
     "generate:types": "cargo test --workspace export_bindings --no-fail-fast",
     "generate:licenses": "node scripts/generate-licenses.mjs"
   },

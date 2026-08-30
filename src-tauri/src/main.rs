@@ -122,6 +122,7 @@ fn main() {
             commands::rebuild_overlay,
             commands::get_patcher_status,
             commands::get_linked_bin_offenders,
+            commands::get_checksum_mismatches,
             // Launcher
             commands::launch_league,
             commands::cancel_launch,

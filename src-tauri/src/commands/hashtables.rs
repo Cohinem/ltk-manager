@@ -8,6 +8,7 @@ use ltk_manager_core::hashtables::{
     HashtableCache, HashtableCacheStatus, HashtableSyncReport, HashtableUpdateCheck,
     WadPathResolverState,
 };
+use ltk_manager_core::problems::BinNames;
 use ltk_manager_core::strings::StringKeyIndexState;
 use tauri::{AppHandle, Manager};
 
@@ -50,6 +51,7 @@ pub async fn sync_hashtables(force: bool, app: AppHandle) -> IpcResult<Hashtable
                 .invalidate();
             app.state::<StringKeyIndexState>().clear();
             app.state::<GameIndexState>().clear()?;
+            BinNames::invalidate_game_index();
         }
         Ok(report)
     })

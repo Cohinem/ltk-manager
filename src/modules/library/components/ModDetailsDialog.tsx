@@ -1,9 +1,10 @@
+import { PackageIcon } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { Calendar, FolderOpen, Layers, Map, Sword, Tag, User } from "lucide-react";
 
 import { Button, Dialog } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
-import { useSetModLayers } from "@/modules/library/api";
+import { useModChecksumMismatches, useSetModLayers } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 
@@ -170,6 +171,8 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
       {/* Layers */}
       {mod.layers.length > 1 && <ModDetailsLayers mod={mod} />}
 
+      <ModDetailsPackaging modId={mod.id} />
+
       {/* File path */}
       <div>
         <h4 className="mb-1 text-xs font-medium tracking-wide text-surface-500 uppercase">
@@ -178,6 +181,49 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
         <p className="text-xs break-all text-surface-400">{mod.modDir}</p>
       </div>
     </>
+  );
+}
+
+/**
+ * Advisory about a badly-packed archive: the last overlay build found chunks
+ * whose container claimed checksums their own bytes don't have. Never blocks
+ * anything — the build carries the corrected values — so this renders nothing
+ * for a mod whose containers told the truth.
+ */
+function ModDetailsPackaging({ modId }: { modId: string }) {
+  const { data: mismatches } = useModChecksumMismatches(modId);
+  if (!mismatches || mismatches.length === 0) return null;
+
+  // Plain record: lucide's Map icon import shadows the global Map here.
+  const byWad: Record<string, number> = {};
+  for (const mismatch of mismatches) {
+    byWad[mismatch.wadName] = (byWad[mismatch.wadName] ?? 0) + 1;
+  }
+
+  return (
+    <div>
+      <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-surface-500 uppercase">
+        <PackageIcon className="h-3.5 w-3.5 text-warning-text" />
+        Packaging
+      </h4>
+      <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5">
+        <p className="text-xs leading-relaxed text-surface-300">
+          This mod&apos;s archive reports checksums its own files don&apos;t have. The mod still
+          works — the manager corrects them while building — but the tool that packed it wrote wrong
+          metadata, so it&apos;s worth re-exporting.
+        </p>
+        <ul className="flex flex-col gap-0.5">
+          {Object.entries(byWad).map(([wadName, count]) => (
+            <li key={wadName} className="flex items-baseline gap-2 text-xs text-surface-400">
+              <span className="font-mono text-code break-all">{wadName}</span>
+              <span className="shrink-0">
+                {count} chunk{count === 1 ? "" : "s"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 

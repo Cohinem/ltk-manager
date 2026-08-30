@@ -249,7 +249,7 @@ fn free_table_path(manifests: &[ModProjectHashtable]) -> String {
 ///
 /// A table that cannot be read is logged and left out. It is a name the mod
 /// loses the benefit of, which is not a reason to refuse the repair.
-fn read_tables(
+pub(super) fn read_tables(
     project_root: &Path,
     manifests: &[ModProjectHashtable],
 ) -> Vec<(ltk_hashtable::HashtableEntry, Hashtable)> {

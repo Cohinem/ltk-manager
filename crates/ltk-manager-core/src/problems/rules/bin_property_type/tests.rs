@@ -67,6 +67,46 @@ fn project_on(bin: &Bin, installed: Option<GameBuild>) -> (tempfile::TempDir, Pr
     (tmp, files)
 }
 
+/// Declare one hashtable of `category` on the project at `root`, naming
+/// `paths`.
+fn declare_table(root: &std::path::Path, category: ltk_hashtable::Category, paths: &[&str]) {
+    let (file, algorithm, bits) = match &category {
+        ltk_hashtable::Category::Game => ("game.hashes.txt", ltk_hashtable::Algorithm::Xxh64, 64),
+        _ => ("binhashes.txt", ltk_hashtable::Algorithm::Fnv1a32, 32),
+    };
+    let config = ltk_mod_project::ModProject {
+        hashtables: vec![ltk_mod_project::ModProjectHashtable {
+            path: format!("hashes/{file}"),
+            category,
+            algorithm,
+            bits,
+        }],
+        ..crate::mods::test_support::mod_project_named("rehash-fixture")
+    };
+    std::fs::write(
+        root.join("mod.config.json"),
+        config
+            .to_config_string(ltk_mod_project::ConfigFormat::Json)
+            .unwrap(),
+    )
+    .unwrap();
+    std::fs::create_dir_all(root.join("hashes")).unwrap();
+    std::fs::write(root.join("hashes").join(file), paths.join("\n") + "\n").unwrap();
+}
+
+/// Declare one `binhashes` table on the project at `root`, naming `paths`.
+fn declare_binhashes(root: &std::path::Path, paths: &[&str]) {
+    declare_table(root, ltk_hashtable::Category::BinHashes, paths);
+}
+
+/// A `BinNames` resolving exactly the `binhashes` names a fixture declares.
+fn names_of(paths: &[&str]) -> (tempfile::TempDir, BinNames) {
+    let tmp = tempfile::tempdir().unwrap();
+    declare_binhashes(tmp.path(), paths);
+    let names = BinNames::open(tmp.path());
+    (tmp, names)
+}
+
 fn found(bin: &Bin) -> Vec<Problem> {
     let (_tmp, files) = project(bin);
     check_with(&files)
@@ -163,24 +203,84 @@ fn the_ordinary_retype_says_nothing_the_rule_has_not_already_said() {
     assert_eq!(problems[0].message, None);
 }
 
-/// Each conversion is a different problem, and a reader needs the
-/// difference: `rehash` says why nothing can repair it.
-#[test]
-fn an_unrepairable_conversion_notes_that_no_repair_exists() {
+/// The `VfxAssetRemap:oldAsset` row, which is `Hash` to `File`.
+fn rehash_migration() -> &'static Migration {
     let vfx = BinHash::hash_str("VfxAssetRemap");
     let old_asset = BinHash::hash_str("oldAsset");
     let migration = table::tables()
         .iter()
         .find_map(|table| table.migration(vfx, old_asset))
         .expect("VfxAssetRemap:oldAsset is a rehash row");
+    assert_eq!(migration.conversion, Conversion::Rehash);
+    migration
+}
+
+/// The `UiElementParticleSystemData:TextureOverrides` row, whose map keys go
+/// from `Hash` to `File`.
+fn hash_key_migration() -> &'static Migration {
+    let class = BinHash::hash_str("UiElementParticleSystemData");
+    let field = BinHash::hash_str("TextureOverrides");
+    let migration = table::tables()
+        .iter()
+        .find_map(|table| table.migration(class, field))
+        .expect("UiElementParticleSystemData:TextureOverrides is a hash_key row");
+    assert_eq!(migration.conversion, Conversion::HashKey);
+    migration
+}
+
+/// Each conversion is a different problem, and a reader needs the
+/// difference: a `rehash` no table can name says why nothing repairs it.
+#[test]
+fn an_unresolvable_rehash_notes_what_the_repair_is_missing() {
+    let migration = rehash_migration();
 
     let value: PropertyValueEnum = values::Hash::new(BinHash(0x5ae4_1520)).into();
     let table_build = GameBuild::new(16, 17, 8_087_655);
     let bin = Bin::new([] as [BinObject<NoMeta>; 0], std::iter::empty::<&str>());
-    let text = note(migration, &value, None, table_build, &bin).expect("a rehash speaks up");
+    let text = note(
+        migration,
+        &value,
+        &BinNames::none(),
+        None,
+        table_build,
+        &bin,
+    )
+    .expect("an unresolvable rehash speaks up");
 
     assert!(text.contains("0x5ae41520"), "{text}");
-    assert!(text.contains("There is no repair."), "{text}");
+    assert!(text.contains("FNV1a Hash value"), "{text}");
+    assert!(text.contains("64-bit xxHash"), "{text}");
+    assert!(
+        text.contains("neither the Mimir hashtables nor the mod's own"),
+        "{text}"
+    );
+}
+
+/// A hash the mod's own table names is an ordinary repair, and an ordinary
+/// repair says nothing the rule has not already said.
+#[test]
+fn a_rehash_a_table_names_needs_no_note() {
+    const PATH: &str = "assets/fixture/rehash_target.dds";
+    let migration = rehash_migration();
+    let (_tmp, names) = names_of(&[PATH]);
+
+    let value: PropertyValueEnum = values::Hash::new(BinHash::hash_str(PATH)).into();
+    let table_build = GameBuild::new(16, 17, 8_087_655);
+    let bin = Bin::new([] as [BinObject<NoMeta>; 0], std::iter::empty::<&str>());
+
+    assert_eq!(
+        note(migration, &value, &names, None, table_build, &bin),
+        None
+    );
+    let drawn = preview(migration, &value, &names).expect("a named hash has a repair");
+    assert_eq!(
+        drawn.before.as_deref(),
+        Some("\"assets/fixture/rehash_target.dds\"")
+    );
+    assert_eq!(
+        drawn.after,
+        Some(format!("0x{:016x}", WadHash::hash_str(PATH).0))
+    );
 }
 
 /// A list of two hundred paths is not a thing a row reads, so a container
@@ -348,7 +448,11 @@ fn migration_for(field: BinHash) -> &'static Migration {
 #[test]
 fn hash_value_turns_a_string_into_the_link_of_the_same_path() {
     let mut value: PropertyValueEnum = text(ICON).into();
-    assert!(convert(&mut value, migration_for(ICON_AVATAR)));
+    assert!(convert(
+        &mut value,
+        migration_for(ICON_AVATAR),
+        &BinNames::none()
+    ));
 
     let PropertyValueEnum::WadChunkLink(link) = value else {
         panic!("expected a WadChunkLink");
@@ -362,8 +466,16 @@ fn hash_value_turns_a_string_into_the_link_of_the_same_path() {
 fn hash_value_lowercases_before_it_hashes() {
     let mut upper: PropertyValueEnum = text(&ICON.to_uppercase()).into();
     let mut lower: PropertyValueEnum = text(&ICON.to_lowercase()).into();
-    assert!(convert(&mut upper, migration_for(ICON_AVATAR)));
-    assert!(convert(&mut lower, migration_for(ICON_AVATAR)));
+    assert!(convert(
+        &mut upper,
+        migration_for(ICON_AVATAR),
+        &BinNames::none()
+    ));
+    assert!(convert(
+        &mut lower,
+        migration_for(ICON_AVATAR),
+        &BinNames::none()
+    ));
     assert_eq!(upper, lower);
 }
 
@@ -374,7 +486,11 @@ fn hash_value_rebuilds_a_container_under_the_new_item_type() {
         meta: NoMeta,
     }
     .into();
-    assert!(convert(&mut value, migration_for(ALTERNATE_ICONS_CIRCLE)));
+    assert!(convert(
+        &mut value,
+        migration_for(ALTERNATE_ICONS_CIRCLE),
+        &BinNames::none()
+    ));
 
     let PropertyValueEnum::Container(items) = &value else {
         panic!("expected a Container");
@@ -390,7 +506,11 @@ fn hash_value_rebuilds_an_optional_and_keeps_it_empty_when_it_was() {
         meta: NoMeta,
     }
     .into();
-    assert!(convert(&mut present, migration_for(ICON_CIRCLE)));
+    assert!(convert(
+        &mut present,
+        migration_for(ICON_CIRCLE),
+        &BinNames::none()
+    ));
     assert!(matches!(
         present,
         PropertyValueEnum::Optional(values::Optional::WadChunkLink { value: Some(_), .. })
@@ -401,7 +521,11 @@ fn hash_value_rebuilds_an_optional_and_keeps_it_empty_when_it_was() {
         meta: NoMeta,
     }
     .into();
-    assert!(convert(&mut absent, migration_for(ICON_CIRCLE)));
+    assert!(convert(
+        &mut absent,
+        migration_for(ICON_CIRCLE),
+        &BinNames::none()
+    ));
     assert!(matches!(
         absent,
         PropertyValueEnum::Optional(values::Optional::WadChunkLink { value: None, .. })
@@ -415,7 +539,11 @@ fn hash_value_rebuilds_a_map_and_leaves_its_keys_alone() {
     map.push(key.clone(), text(ICON).into()).unwrap();
     let mut value: PropertyValueEnum = map.into();
 
-    assert!(convert(&mut value, migration_for(UNCENSORED_ICON_CIRCLES)));
+    assert!(convert(
+        &mut value,
+        migration_for(UNCENSORED_ICON_CIRCLES),
+        &BinNames::none()
+    ));
 
     let PropertyValueEnum::Map(map) = &value else {
         panic!("expected a Map");
@@ -426,22 +554,118 @@ fn hash_value_rebuilds_a_map_and_leaves_its_keys_alone() {
 }
 
 /// A `Hash` is FNV1a32 of a path and a `File` is XXH64 of it, and there is
-/// no arithmetic between them, so this must write nothing at all.
+/// no arithmetic between them - only the path crosses. A hash no table
+/// names has no path, so this must write nothing at all.
 #[test]
-fn rehash_makes_no_change_and_offers_no_fix() {
-    let vfx = BinHash::hash_str("VfxAssetRemap");
-    let old_asset = BinHash::hash_str("oldAsset");
-    let migration = table::tables()
-        .iter()
-        .find_map(|table| table.migration(vfx, old_asset))
-        .expect("VfxAssetRemap:oldAsset is a rehash row");
-    assert_eq!(migration.conversion, Conversion::Rehash);
+fn a_rehash_no_table_names_makes_no_change_and_offers_no_fix() {
+    let migration = rehash_migration();
 
     let mut value: PropertyValueEnum = values::Hash::new(BinHash(0x1111_2222)).into();
     let before = value.clone();
-    assert!(!convert(&mut value, migration));
+    assert!(!convert(&mut value, migration, &BinNames::none()));
     assert_eq!(value, before);
-    assert!(preview(migration, &value).is_none());
+    assert!(preview(migration, &value, &BinNames::none()).is_none());
+}
+
+/// The game hashtables key their names by XXH64, and the name itself is the
+/// path - so a `Hash` resolves through them too, by hashing every name under
+/// FNV1a32.
+#[test]
+fn a_rehash_resolves_through_the_game_hashes_under_fnv() {
+    const PATH: &str = "assets/fixture/game_table_target.dds";
+    let migration = rehash_migration();
+
+    let tmp = tempfile::tempdir().unwrap();
+    declare_table(tmp.path(), ltk_hashtable::Category::Game, &[PATH]);
+    let names = BinNames::open(tmp.path());
+
+    let mut value: PropertyValueEnum = values::Hash::new(BinHash::hash_str(PATH)).into();
+    assert!(convert(&mut value, migration, &names));
+
+    let PropertyValueEnum::WadChunkLink(link) = &value else {
+        panic!("expected a WadChunkLink");
+    };
+    assert_eq!(link.value, WadHash::hash_str(PATH));
+}
+
+#[test]
+fn a_rehash_writes_the_link_of_the_path_a_table_names() {
+    const PATH: &str = "assets/fixture/rehash_target.dds";
+    let migration = rehash_migration();
+    let (_tmp, names) = names_of(&[PATH]);
+
+    let mut value: PropertyValueEnum = values::Hash::new(BinHash::hash_str(PATH)).into();
+    assert!(convert(&mut value, migration, &names));
+
+    let PropertyValueEnum::WadChunkLink(link) = &value else {
+        panic!("expected a WadChunkLink");
+    };
+    assert_eq!(link.value, WadHash::hash_str(PATH));
+}
+
+#[test]
+fn a_hash_key_map_is_rekeyed_and_keeps_its_values() {
+    const A: &str = "assets/fixture/override_a.dds";
+    const B: &str = "assets/fixture/override_b.dds";
+    let migration = hash_key_migration();
+    let (_tmp, names) = names_of(&[A, B]);
+
+    let mut map = values::Map::empty(Kind::Hash, Kind::String);
+    map.push(
+        values::Hash::new(BinHash::hash_str(A)).into(),
+        text("a").into(),
+    )
+    .unwrap();
+    map.push(
+        values::Hash::new(BinHash::hash_str(B)).into(),
+        text("b").into(),
+    )
+    .unwrap();
+    let mut value: PropertyValueEnum = map.into();
+
+    assert!(convert(&mut value, migration, &names));
+
+    let PropertyValueEnum::Map(rekeyed) = &value else {
+        panic!("expected a Map");
+    };
+    assert_eq!(rekeyed.key_kind(), Kind::WadChunkLink);
+    let entries = rekeyed.entries();
+    assert_eq!(
+        entries[0].0,
+        values::WadChunkLink::new(WadHash::hash_str(A)).into()
+    );
+    assert_eq!(entries[0].1, text("a").into(), "the value is untouched");
+    assert_eq!(
+        entries[1].0,
+        values::WadChunkLink::new(WadHash::hash_str(B)).into()
+    );
+}
+
+/// One unnamed key refuses the whole map, because a map read under two hash
+/// functions is broken in a way the old one is not.
+#[test]
+fn a_map_with_one_unnamed_key_stays_as_it_is() {
+    const A: &str = "assets/fixture/override_a.dds";
+    let migration = hash_key_migration();
+    let (_tmp, names) = names_of(&[A]);
+
+    let mut map = values::Map::empty(Kind::Hash, Kind::String);
+    map.push(
+        values::Hash::new(BinHash::hash_str(A)).into(),
+        text("a").into(),
+    )
+    .unwrap();
+    map.push(
+        values::Hash::new(BinHash(0x1111_2222)).into(),
+        text("b").into(),
+    )
+    .unwrap();
+    let mut value: PropertyValueEnum = map.into();
+    let before = value.clone();
+
+    assert!(!convert(&mut value, migration, &names));
+    assert_eq!(value, before);
+    assert!(preview(migration, &value, &names).is_none());
 }
 
 #[test]
@@ -458,7 +682,7 @@ fn none_moves_no_bytes_and_only_changes_the_tag() {
     assert_eq!(migration.conversion, Conversion::None);
 
     let mut value: PropertyValueEnum = embed.into();
-    assert!(convert(&mut value, migration));
+    assert!(convert(&mut value, migration, &BinNames::none()));
 
     let PropertyValueEnum::Struct(inner) = &value else {
         panic!("expected a Struct");
@@ -466,13 +690,14 @@ fn none_moves_no_bytes_and_only_changes_the_tag() {
     assert_eq!(inner.class_hash, BinHash(0x73b4_a2eb), "the class is kept");
 }
 
-/// The row has to print the hash the property holds, not the hash of the
-/// field naming it - the value is what a person takes away to go and find
-/// the path by hand.
+/// The row has to print the hashes the repair is missing, not the hash of
+/// the field naming them - they are what a person takes away to go and find
+/// the paths by hand.
 #[test]
-fn an_unrepairable_row_prints_the_hash_the_property_holds() {
+fn an_unrepairable_row_prints_the_hashes_no_table_names() {
+    let nothing = BinNames::none();
     assert_eq!(
-        unnamed(&values::Hash::new(BinHash(0x5ae4_1520)).into()),
+        unresolved(&values::Hash::new(BinHash(0x5ae4_1520)).into(), &nothing),
         "0x5ae41520"
     );
 
@@ -487,12 +712,36 @@ fn an_unrepairable_row_prints_the_hash_the_property_holds() {
         text("b").into(),
     )
     .unwrap();
-    assert_eq!(unnamed(&map.into()), "0x000000aa and 1 more");
+    assert_eq!(unresolved(&map.into(), &nothing), "0x000000aa and 1 more");
 
     assert_eq!(
-        unnamed(&values::Map::empty(Kind::Hash, Kind::String).into()),
+        unresolved(
+            &values::Map::empty(Kind::Hash, Kind::String).into(),
+            &nothing
+        ),
         "its keys"
     );
+}
+
+/// A map missing one name prints that one, not the keys a table already
+/// answered for.
+#[test]
+fn a_half_named_map_prints_only_what_is_missing() {
+    const A: &str = "assets/fixture/override_a.dds";
+    let (_tmp, names) = names_of(&[A]);
+
+    let mut map = values::Map::empty(Kind::Hash, Kind::String);
+    map.push(
+        values::Hash::new(BinHash::hash_str(A)).into(),
+        text("a").into(),
+    )
+    .unwrap();
+    map.push(
+        values::Hash::new(BinHash(0x0000_00bb)).into(),
+        text("b").into(),
+    )
+    .unwrap();
+    assert_eq!(unresolved(&map.into(), &names), "0x000000bb");
 }
 
 // ---- the fix, end to end ---------------------------------------------
@@ -541,6 +790,72 @@ fn a_fix_writes_the_link_and_the_run_reports_it() {
 fn a_second_run_over_a_repaired_file_finds_nothing() {
     let (_, written) = fix_all(&bin_with(ICON_AVATAR, text(ICON)));
     assert!(found(&written).is_empty());
+}
+
+/// The whole road end to end: the mod's own table names the hash, the check
+/// calls the finding repairable, the fix writes the link, and the path
+/// survives in the project's game table under the new hash.
+#[test]
+fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
+    const PATH: &str = "assets/fixture/rehash_target.dds";
+    let vfx = BinHash::hash_str("VfxAssetRemap");
+    let old_asset = BinHash::hash_str("oldAsset");
+    let bin = Bin::new(
+        [BinObject::<NoMeta>::builder(ENTRY, vfx)
+            .property(old_asset, values::Hash::new(BinHash::hash_str(PATH)))
+            .build()],
+        std::iter::empty::<&str>(),
+    );
+
+    let tmp = tempfile::tempdir().unwrap();
+    declare_binhashes(tmp.path(), &[PATH]);
+    let dir = tmp.path().join("content").join("base").join("data");
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("skin0.bin");
+    std::fs::write(&file, bytes_of(&bin)).unwrap();
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].fix.is_some(), "a named hash is repairable");
+
+    let borrowed: Vec<&Problem> = problems.iter().collect();
+    let mut run = FixRun::open(tmp.path(), vec!["16.17.8087655".to_owned()], None);
+    let applied = BinPropertyType::new().fix(&borrowed, &mut run).unwrap();
+    run.finish().unwrap();
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+
+    let written = read_bin(&file).unwrap();
+    let value = &written.objects[&ENTRY].properties[&old_asset];
+    let PropertyValueEnum::WadChunkLink(link) = value else {
+        panic!("expected a WadChunkLink");
+    };
+    assert_eq!(link.value, WadHash::hash_str(PATH));
+
+    let table = std::fs::read_to_string(tmp.path().join("hashes").join("game.hashes.txt")).unwrap();
+    assert!(table.contains(PATH), "{table}");
+}
+
+/// A hash nothing names stays a problem, and the run counts it skipped
+/// rather than pretending at it.
+#[test]
+fn a_fix_leaves_an_unnamed_hash_alone_and_counts_it_skipped() {
+    let vfx = BinHash::hash_str("VfxAssetRemap");
+    let old_asset = BinHash::hash_str("oldAsset");
+    let bin = Bin::new(
+        [BinObject::<NoMeta>::builder(ENTRY, vfx)
+            .property(old_asset, values::Hash::new(BinHash(0x1111_2222)))
+            .build()],
+        std::iter::empty::<&str>(),
+    );
+
+    let (applied, written) = fix_all(&bin);
+    assert_eq!(applied.applied, 0);
+    assert_eq!(applied.skipped, 1);
+
+    let value = &written.objects[&ENTRY].properties[&old_asset];
+    assert!(matches!(value, PropertyValueEnum::Hash(_)), "untouched");
 }
 
 #[test]

@@ -35,6 +35,7 @@ export { useLibraryContent } from "./useLibraryContent";
 export { useLibraryViewMode } from "./useLibraryViewMode";
 export { useLibraryWatcher } from "./useLibraryWatcher";
 export { useLinkedBinOffender, useLinkedBinOffenders } from "./useLinkedBinOffenders";
+export { useModChecksumMismatches } from "./useModChecksumMismatches";
 export { useModFileDrop } from "./useModFileDrop";
 export { useModHealthStatus } from "./useModHealthStatus";
 export { useModHealthVerdict, useModHealthVerdicts } from "./useModHealthVerdicts";

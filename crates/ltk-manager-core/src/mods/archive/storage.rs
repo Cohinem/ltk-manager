@@ -446,8 +446,9 @@ fn swap_in_unpacked(staging_dir: &Path, mod_dir: &Path) -> AppResult<()> {
 
 /// Pack the mod's tree into a staged archive, for the swap under the lock.
 ///
-/// The same pack a repair of an `archive` mod runs, so a repacked mod is
-/// byte-compatible with a repaired one.
+/// Each `.wad.client` directory becomes one stored WAD entry, which is the
+/// shape distributed mods have and the one a repair can edit in place rather
+/// than pack again.
 fn stage_packed(storage_dir: &Path, mod_dir: &Path) -> AppResult<PathBuf> {
     let staged = storage_dir
         .join("mods")

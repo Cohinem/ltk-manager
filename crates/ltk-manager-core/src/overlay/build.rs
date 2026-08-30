@@ -38,6 +38,11 @@ pub struct OverlayBuildOutcome {
     pub linked_bin_offenders: Vec<ltk_overlay::LinkedBinOffender>,
     /// Per-mod WAD footprints, a byproduct of the same pass.
     pub mod_wad_reports: Vec<ltk_overlay::ModWadReport>,
+    /// Chunks whose container claimed a checksum its own bytes do not have.
+    ///
+    /// Advisory, never fatal: the overlay carries the recomputed value, so the
+    /// content reaches the game intact. Upstream ADR-0001.
+    pub checksum_mismatches: Vec<ltk_overlay::ChecksumMismatch>,
 }
 
 /// Build the overlay described by `inputs`, reporting progress through `progress`.
@@ -63,11 +68,12 @@ pub fn build_overlay(
 
     builder.set_enabled_mods(mods);
 
-    builder.build()?;
+    let result = builder.build()?;
 
     Ok(OverlayBuildOutcome {
         linked_bin_offenders: builder.take_linked_bin_offenders(),
         mod_wad_reports: builder.take_mod_wad_reports(),
+        checksum_mismatches: result.checksum_mismatches,
     })
 }
 
