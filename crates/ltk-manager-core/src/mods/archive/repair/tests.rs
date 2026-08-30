@@ -4,9 +4,10 @@
 use crate::mods::ModHealth;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::test_support::{
-    STALE_ICON, healthy_bin, make_slugged_entry, make_test_library, make_unpacked_entry,
-    place_bin_archived_fantome, place_bin_project_mod, place_installed_mod,
-    point_at_installed_build, property_in_unpacked_tree, seed_library, stale_bin,
+    STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, make_library_naming, make_slugged_entry,
+    make_test_library, make_unpacked_entry, place_bin_archived_fantome, place_bin_project_mod,
+    place_installed_mod, place_packed_fantome_with_raw, point_at_installed_build,
+    property_in_unpacked_tree, seed_library, stale_bin,
 };
 use ltk_hash::{Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
@@ -327,6 +328,98 @@ fn a_refused_property_leaves_the_mod_repairable() {
             .unwrap()
             .health,
         ModHealth::Repairable
+    );
+}
+
+/// Every entry the archive at `path` holds, by name.
+fn entry_names(path: &Path) -> Vec<String> {
+    let mut archive = zip::ZipArchive::new(fs::File::open(path).unwrap()).unwrap();
+    (0..archive.len())
+        .map(|index| archive.by_index(index).unwrap().name().to_owned())
+        .collect()
+}
+
+/// Story: the shape a mod ships in - one packed WAD - repaired by editing the
+/// archive rather than packing the mod again.
+///
+/// The `RAW/` entry is the tell. Fantome packs the base layer's WAD directories
+/// and nothing else, so a repack drops it where an edit raw-copies everything
+/// the fixes did not name.
+#[test]
+fn repairing_a_packed_fantome_edits_it_and_leaves_the_rest_alone() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_library_naming(storage.path(), &[STALE_BIN_IN_WAD]);
+    point_at_installed_build(&mut config, storage.path());
+    place_packed_fantome_with_raw(
+        storage.path(),
+        "packed-mod",
+        &stale_bin(),
+        ("config.ini", b"kept"),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "packed-mod")],
+    );
+    let archive = storage.path().join("mods").join("packed-mod.fantome");
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+
+    assert_eq!(report.applied, 1);
+    assert!(report.failed.is_empty());
+
+    let names = entry_names(&archive);
+    assert!(
+        names.iter().any(|name| name == "RAW/config.ini"),
+        "an edit raw-copies what it did not name: {names:?}"
+    );
+    assert!(
+        names.iter().any(|name| name == "WAD/Aatrox.wad.client"),
+        "the WAD stays one packed entry: {names:?}"
+    );
+
+    library
+        .set_mod_storage(&config, "id-1", ModStorage::Project)
+        .unwrap();
+    assert_eq!(
+        property_in_unpacked_tree(storage.path(), "packed-mod"),
+        migrated_property(),
+    );
+}
+
+/// Story: an archive-storage repair keeps the names it hashed away, the same
+/// promise ADR-0006 makes for a project. The table and the metadata declaring
+/// it have to reach the archive for the mod to read its own hash back.
+#[test]
+fn a_repaired_archive_reads_its_own_names_back_after_a_round_trip() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_library_naming(storage.path(), &[STALE_BIN_IN_WAD]);
+    point_at_installed_build(&mut config, storage.path());
+    place_packed_fantome_with_raw(
+        storage.path(),
+        "packed-mod",
+        &stale_bin(),
+        ("config.ini", b"kept"),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "packed-mod")],
+    );
+
+    assert_eq!(library.repair_mod(&config, "id-1").unwrap().names_kept, 1);
+
+    library
+        .set_mod_storage(&config, "id-1", ModStorage::Project)
+        .unwrap();
+    let mod_dir = storage.path().join("mods").join("packed-mod");
+    assert_eq!(
+        embedded_names(&mod_dir).resolve_value(
+            &ltk_hashtable::Category::Game,
+            WadHash::hash_str(STALE_ICON).0
+        ),
+        Some(STALE_ICON),
+        "the repaired path must survive into the archive's own table"
     );
 }
 

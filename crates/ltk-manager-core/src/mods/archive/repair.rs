@@ -2,13 +2,13 @@
 //!
 //! A mod stored as its archive has no tree the Problems engine can write to,
 //! so a repair goes the long way round: unpack the archive into staging, run
-//! the rules there, apply every fix they derive, and pack the staged project
-//! back into a fantome that takes the archive's place. The library keeps
-//! reading the same path, and the mod stays in Archive storage throughout.
-//! Replacing the archive, and keeping no copy of the original, is ADR-0005.
+//! the rules there, apply every fix they derive, and write what changed back
+//! into the archive. The library keeps reading the same path, and the mod stays
+//! in Archive storage throughout. Replacing the archive, and keeping no copy of
+//! the original, is ADR-0005.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathExt};
+use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
 use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::install::STAGING_PREFIX;
@@ -16,6 +16,8 @@ use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::health::cancelled;
 use crate::mods::index::ModStorage;
 use crate::problems::{self, Budget, FixReport, budget};
+use camino::Utf8Path;
+use delta::RepairEdit;
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use serde::Serialize;
@@ -23,6 +25,8 @@ use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 use uuid::Uuid;
+
+mod delta;
 
 /// What one repair over several mods became of each of them.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -60,9 +64,9 @@ impl ModLibrary {
     ///
     /// A Project-storage mod is repaired in its own tree. An Archive-storage
     /// mod has no tree to write to, so its archive is unpacked into staging,
-    /// fixed there, repacked, and swapped back in place. Either way, a mod with
-    /// nothing to fix is left untouched, and neither is reversible - what a
-    /// repair keeps is the names it hashed away, per ADR-0006.
+    /// fixed there, and written back over. Either way, a mod with nothing to
+    /// fix is left untouched, and neither is reversible - what a repair keeps
+    /// is the names it hashed away, per ADR-0006.
     ///
     /// # Errors
     ///
@@ -227,10 +231,10 @@ impl ModLibrary {
     }
 
     /// Unpack `archive` into `staging`, fix what the rules find, and put the
-    /// repacked result where the archive was.
+    /// repaired result where the archive was.
     ///
-    /// A run that applies nothing leaves the archive alone: repacking would
-    /// rewrite the same content into different bytes for no reader's benefit.
+    /// A run that applies nothing leaves the archive alone: rewriting would
+    /// turn the same content into different bytes for no reader's benefit.
     fn repair_in_staging(
         &self,
         config: &Config,
@@ -247,14 +251,7 @@ impl ModLibrary {
             return Ok((report, run));
         }
 
-        let project = load_mod_project(staging)?;
-        let repacked = archive.with_extension("repacked");
-        let writer = BufWriter::new(fs::File::create(&repacked)?);
-        ltk_mod_project::ProjectPacker::new(project, staging_utf8)
-            .pack(FantomeFormat::new(writer))
-            .map_err(|e| AppError::PackFailed(e.to_string()))?;
-
-        swap_in_repacked(&repacked, archive)?;
+        write_repaired(staging, &staging_utf8, archive, &report)?;
 
         let checked = verified(staging, run, &wanted, &report, config)?;
         Ok((report, checked))
@@ -376,6 +373,55 @@ fn verified(
         .cloned()
         .collect();
     Ok(run.without(&repaired))
+}
+
+/// Put what the fix run wrote in `staging` back into `archive`.
+///
+/// An edit rewrites the fixed chunks and entries and raw-copies the rest, so it
+/// costs what changed where a repack costs everything the mod holds. Refused
+/// before anything is written for an archive `ltk_fantome` will not edit - most
+/// often one shipping its WADs as loose files, which have no packed bytes to
+/// rebase - and the repack is what answers for those.
+fn write_repaired(
+    staging: &Path,
+    staging_utf8: &Utf8Path,
+    archive: &Path,
+    report: &FixReport,
+) -> AppResult<()> {
+    let archive_utf8 = archive.try_as_utf8("mod archive")?;
+    let edited =
+        RepairEdit::read(staging, archive_utf8, report).and_then(|edit| edit.apply(archive_utf8));
+
+    match edited {
+        Ok(written) => {
+            tracing::debug!(
+                "Edited {archive_utf8}: {} chunks across {} WADs, {} entries",
+                written.chunks_replaced,
+                written.wads_rebased,
+                written.entries_replaced
+            );
+            Ok(())
+        }
+        Err(error) => {
+            tracing::info!("Repacking {archive_utf8} rather than editing it: {error}");
+            repack(staging, staging_utf8, archive)
+        }
+    }
+}
+
+/// Pack the staged project over `archive`, whole.
+fn repack(staging: &Path, staging_utf8: &Utf8Path, archive: &Path) -> AppResult<()> {
+    let project = load_mod_project(staging)?;
+    let repacked = archive.with_extension("repacked");
+    let writer = BufWriter::new(fs::File::create(&repacked)?);
+    ltk_mod_project::ProjectPacker::new(project, staging_utf8.to_path_buf())
+        .pack(FantomeFormat::new(writer))
+        .map_err(|e| AppError::PackFailed(e.to_string()))
+        .inspect_err(|_| {
+            let _ = fs::remove_file(&repacked);
+        })?;
+
+    swap_in_repacked(&repacked, archive)
 }
 
 /// Put the repacked archive where the original was, keeping the original until

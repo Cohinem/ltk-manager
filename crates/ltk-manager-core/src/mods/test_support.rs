@@ -33,7 +33,7 @@ pub(crate) fn make_library_with_events(
     storage_dir: &Path,
     events: Arc<dyn EventSink>,
 ) -> (ModLibrary, Config) {
-    make_library_with(storage_dir, events, "test")
+    make_library_with(storage_dir, events, "test", resolver_naming(&[]))
 }
 
 /// [`make_test_library`] reporting an app version of the caller's choosing, for
@@ -42,13 +42,30 @@ pub(crate) fn make_library_with_version(
     storage_dir: &Path,
     app_version: &str,
 ) -> (ModLibrary, Config) {
-    make_library_with(storage_dir, Arc::new(NullEventSink), app_version)
+    make_library_with(
+        storage_dir,
+        Arc::new(NullEventSink),
+        app_version,
+        resolver_naming(&[]),
+    )
+}
+
+/// [`make_test_library`] whose resolver names `paths`, for a test over a mod
+/// whose WAD ships packed and whose chunks are addressed by hash.
+pub(crate) fn make_library_naming(storage_dir: &Path, paths: &[&str]) -> (ModLibrary, Config) {
+    make_library_with(
+        storage_dir,
+        Arc::new(NullEventSink),
+        "test",
+        resolver_naming(paths),
+    )
 }
 
 fn make_library_with(
     storage_dir: &Path,
     events: Arc<dyn EventSink>,
     app_version: &str,
+    resolver: crate::hashtables::WadPathResolver,
 ) -> (ModLibrary, Config) {
     let library = ModLibrary::new(
         events,
@@ -57,9 +74,7 @@ fn make_library_with(
         Arc::new(LinkedBinState::default()),
         Arc::new(crate::mods::ChecksumMismatchState::default()),
         Arc::new(WadReportState::new(Some(storage_dir))),
-        Arc::new(WadPathResolverState::preloaded(
-            crate::hashtables::WadPathResolver::new(ltk_hashdb::LayeredHashDb::new()),
-        )),
+        Arc::new(WadPathResolverState::preloaded(resolver)),
     );
     let config = Config {
         mod_storage_path: Some(storage_dir.to_path_buf()),
@@ -709,6 +724,52 @@ pub(crate) fn place_packed_bin_archived_fantome(
         bin,
         zip::CompressionMethod::Stored,
     );
+}
+
+/// [`place_packed_bin_archived_fantome`] carrying a `RAW/` entry beside its WAD.
+///
+/// Fantome packs the base layer's WAD directories and nothing else, so the
+/// entry is content a repack drops and an edit raw-copies - which is how a test
+/// tells the two apart.
+pub(crate) fn place_packed_fantome_with_raw(
+    storage_dir: &Path,
+    slug: &str,
+    bin: &ltk_meta::Bin,
+    raw: (&str, &[u8]),
+) {
+    let mods_dir = storage_dir.join("mods");
+    let mod_dir = mods_dir.join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+
+    let packed = build_packed_wad(&[(STALE_BIN_IN_WAD, &bin_bytes(bin))]);
+    let file = fs::File::create(mods_dir.join(format!("{slug}.fantome"))).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(slug))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    let (raw_path, raw_bytes) = raw;
+    zip.start_file(format!("RAW/{raw_path}"), options).unwrap();
+    zip.write_all(raw_bytes).unwrap();
+
+    zip.start_file(
+        "WAD/Aatrox.wad.client",
+        options.compression_method(zip::CompressionMethod::Stored),
+    )
+    .unwrap();
+    zip.write_all(&packed).unwrap();
+    zip.finish().unwrap();
 }
 
 /// A Project-storage fantome: `bin` sits in the unpacked tree, and no archive
