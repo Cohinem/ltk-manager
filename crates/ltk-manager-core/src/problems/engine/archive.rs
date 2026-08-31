@@ -165,13 +165,15 @@ impl ArchiveFiles {
 
     /// Every file the archive holds loose, and its packed WAD entries.
     ///
-    /// Only the entry table is read, so listing an archive costs no
-    /// decompression however much content it holds.
+    /// Reads the entry table, so an extension that already names the content
+    /// costs no decompression. An entry with no extension has its head alone
+    /// inflated, there being nothing else to identify it by.
     fn loose_files(archive: &Path) -> AppResult<(Vec<ProjectFile>, Vec<PackedWad>)> {
         let mut zip = open_zip(archive)?;
 
         let mut files = Vec::new();
         let mut packed = Vec::new();
+        let mut nameless: Vec<(usize, usize)> = Vec::new();
         for index in 0..zip.len() {
             let entry = zip.by_index_raw(index)?;
             let (name, size) = (entry.name().to_owned(), entry.size());
@@ -184,6 +186,9 @@ impl ArchiveFiles {
                 continue;
             }
             if let Some(path) = layer_path(&name) {
+                if !has_extension(&path) {
+                    nameless.push((index, files.len()));
+                }
                 files.push(ProjectFile {
                     kind: kind_of_path(&path),
                     path,
@@ -191,6 +196,20 @@ impl ArchiveFiles {
                     chunk: None,
                 });
             }
+        }
+
+        /* A second pass, because the first reads the entry table alone and
+        this one decompresses. Only the head of an entry with no extension
+        is read, so listing an archive still costs nothing for the content
+        an extension already names. */
+        for (index, slot) in nameless {
+            let Ok(mut entry) = zip.by_index(index) else {
+                continue;
+            };
+            let mut head = [0u8; MAX_MAGIC_SIZE];
+            let read = read_head(&mut entry, &mut head);
+            files[slot].kind =
+                WorkshopFileKind::from(LeagueFileKind::identify_from_bytes(&head[..read]));
         }
 
         Ok((files, packed))
@@ -331,7 +350,13 @@ fn scan_wad<S: std::io::Read + std::io::Seek>(
         // cannot find is a problem raised on every sweep forever.
         let (path, kind) = match name {
             Some(named) => {
-                let kind = kind_of_path(&named);
+                let kind = match has_extension(&named) {
+                    true => kind_of_path(&named),
+                    /* Riot ships bins under a bare name, so a resolved path
+                    with no extension says nothing about what the chunk is
+                    and the magic is all there is to read it by. */
+                    false => sniffed_kind(wad, chunk, &mut decoder),
+                };
                 (named, kind)
             }
             None => (
@@ -476,6 +501,27 @@ fn layer_path(entry_name: &str) -> Option<String> {
     // apply a fix to.
     let hidden = path.split('/').any(|part| part.starts_with('.'));
     (!hidden).then_some(path)
+}
+
+/// Whether a path's last segment carries an extension at all.
+///
+/// An extension the mapping does not know is not content. No extension may
+/// still be a bin, whatever the entry is called.
+fn has_extension(path: &str) -> bool {
+    camino::Utf8Path::new(path).extension().is_some()
+}
+
+/// As much of `reader`'s head as a magic needs, and how much arrived.
+fn read_head<R: std::io::Read>(reader: &mut R, head: &mut [u8]) -> usize {
+    let mut filled = 0;
+    while filled < head.len() {
+        match reader.read(&mut head[filled..]) {
+            Ok(0) => break,
+            Ok(n) => filled += n,
+            Err(_) => break,
+        }
+    }
+    filled
 }
 
 /// The kind a path's extension claims, which is what the walk reads too.

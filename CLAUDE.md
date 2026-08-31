@@ -25,6 +25,9 @@ pnpm dev:logged [ltk_overlay=debug]
 
 `pnpm generate:licenses` requires `cargo-about` on PATH, and its config is `about.toml`.
 
+`pnpm generate:meta-schema` reaches the LTK Meta Wiki API, and writes nothing when the embedded
+snapshot already matches what the publisher serves.
+
 ## Code Style
 
 Avoid trivially descriptive comments. Only comment non-obvious business logic, workarounds, edge cases, or a decision the code cannot show. Document all public Rust APIs with `///` doc comments.

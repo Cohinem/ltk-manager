@@ -1,5 +1,6 @@
+import { SeverityTally } from "@/components";
+
 import { countBySeverity } from "./problemGroups";
-import { SeverityTally } from "./ProblemRows";
 import { useShownProblems } from "./runCatalogue";
 
 /**

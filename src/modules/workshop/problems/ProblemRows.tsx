@@ -1,17 +1,10 @@
-import {
-  CaretRightIcon,
-  InfoIcon,
-  WarningIcon,
-  WarningOctagonIcon,
-  WrenchIcon,
-  XCircleIcon,
-} from "@phosphor-icons/react";
+import { CaretRightIcon, WrenchIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Code, IconButton, Tooltip } from "@/components";
+import { Code, IconButton, SeverityGlyph, SeverityTally, Tooltip } from "@/components";
 import { useZoomedPx } from "@/hooks";
-import type { FixPreview, Problem, ProblemSeverity } from "@/lib/tauri";
+import type { FixPreview, Problem } from "@/lib/tauri";
 
 import { useFixProblems } from "../api";
 import { useProjectContext } from "../components/ProjectContext";
@@ -21,7 +14,6 @@ import {
   problemAddress,
   type ProblemGroup,
   type ProblemObject,
-  type SeverityCounts,
   splitWadPath,
 } from "./problemGroups";
 import { useMutedProblem, useObjectName, useRuleInfo } from "./runCatalogue";
@@ -33,54 +25,6 @@ export const PROBLEM_ROW_HEIGHT = 46;
 
 /** How long a row waits before it explains itself, in ms. */
 const TIP_DELAY = 500;
-
-/** The glyph a severity draws, at the size a dense row carries. */
-export function SeverityGlyph({ severity }: { severity: ProblemSeverity }) {
-  /* DS-TEXT. A fill is reserved for the one severity that crashes the game, so
-     the weights rank the four the same way the severities do. */
-  if (severity === "fatal") {
-    return <WarningOctagonIcon weight="fill" className="h-3.5 w-3.5 shrink-0 text-danger-text" />;
-  }
-  if (severity === "error") {
-    return <XCircleIcon weight="duotone" className="h-3.5 w-3.5 shrink-0 text-danger-text" />;
-  }
-  if (severity === "warning") {
-    return <WarningIcon weight="duotone" className="h-3.5 w-3.5 shrink-0 text-warning-text" />;
-  }
-  return <InfoIcon weight="duotone" className="h-3.5 w-3.5 shrink-0 text-info-text" />;
-}
-
-/** What a set of problems holds, by severity, with the empty rungs left out. */
-export function SeverityTally({ counts }: { counts: SeverityCounts }) {
-  return (
-    <span className="flex shrink-0 items-center gap-2 text-meta text-surface-400 tabular-nums">
-      {counts.fatals > 0 && (
-        <span className="flex items-center gap-1">
-          <SeverityGlyph severity="fatal" />
-          {counts.fatals}
-        </span>
-      )}
-      {counts.errors > 0 && (
-        <span className="flex items-center gap-1">
-          <SeverityGlyph severity="error" />
-          {counts.errors}
-        </span>
-      )}
-      {counts.warnings > 0 && (
-        <span className="flex items-center gap-1">
-          <SeverityGlyph severity="warning" />
-          {counts.warnings}
-        </span>
-      )}
-      {counts.infos > 0 && (
-        <span className="flex items-center gap-1">
-          <SeverityGlyph severity="info" />
-          {counts.infos}
-        </span>
-      )}
-    </span>
-  );
-}
 
 interface GroupRowProps {
   group: ProblemGroup;

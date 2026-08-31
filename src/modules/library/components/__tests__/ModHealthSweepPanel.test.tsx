@@ -8,7 +8,7 @@ import type { ModRepairProgress } from "@/lib/tauri";
 import type { BrokenMods } from "@/modules/library";
 
 import { ModHealthSweepPanel } from "../ModHealthSweepPanel";
-import { installedMod, verdict } from "./modHealthFixtures";
+import { brokenMods, installedMod, verdict } from "./modHealthFixtures";
 
 const useBrokenMods = vi.fn<() => BrokenMods>();
 const useInstalledMods = vi.fn<() => { data: ReturnType<typeof installedMod>[] }>();
@@ -37,8 +37,8 @@ vi.mock("../../api", () => ({
 
 let run: { repair: () => void; isRepairing: boolean; progress: ModRepairProgress | null };
 
-function show(broken: BrokenMods) {
-  useBrokenMods.mockReturnValue(broken);
+function show(broken: Partial<Omit<BrokenMods, "all">>) {
+  useBrokenMods.mockReturnValue(brokenMods(broken));
   render(<ModHealthSweepPanel onClose={onClose} />);
 }
 
@@ -77,22 +77,14 @@ describe("ModHealthSweepPanel", () => {
     expect(screen.getByText(/some will need updated versions instead/)).toBeInTheDocument();
   });
 
-  /* Both halves of the list count the same thing, so a repairable row shows
-     every finding rather than only the subset a repair can reach. */
-  it("names each mod and how many problems it has", () => {
-    show({
-      repairable: [verdict("a", "repairable", { fixable: 2, findings: 3 })],
-      unrepairable: [],
-    });
+  /* A row counts every finding rather than the subset a repair can reach, and
+     it counts them at the severity they were reported, because how bad is what
+     a reader triages a flat list by. */
+  it("names each mod and tallies what is wrong by severity", () => {
+    show({ repairable: [verdict("a", "repairable", { fixable: 2, findings: 3 })] });
 
     expect(screen.getByText("Charizard Smolder")).toBeInTheDocument();
-    expect(screen.getByText("3 problems")).toBeInTheDocument();
-  });
-
-  it("says problem rather than problems for a single one", () => {
-    show({ repairable: [verdict("a", "repairable", { findings: 1 })], unrepairable: [] });
-
-    expect(screen.getByText("1 problem")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
   });
 
   /* The row's own repair is a second door to the one press, for a reader who
@@ -113,14 +105,14 @@ describe("ModHealthSweepPanel", () => {
     expect(screen.queryByRole("button", { name: /^Repair / })).not.toBeInTheDocument();
   });
 
-  /* A missing Repair button is not a message. The group's header says the word
-     once over every row it covers, which is what lets the rows drop it. */
-  it("says outright that an unrepairable group cannot be fixed", () => {
-    show({ repairable: [], unrepairable: [verdict("b", "unrepairable", { findings: 4 })] });
+  /* A missing Repair button is not a message, and there is no longer a group
+     header to say the word once. The row answers in the seat the press would
+     have been in, which is where a reader looks for it. */
+  it("says in the press's own seat why an unrepairable row has none", () => {
+    show({ unrepairable: [verdict("b", "unrepairable", { findings: 4 })] });
 
-    expect(screen.getByText("Cannot be repaired")).toBeInTheDocument();
     expect(screen.getByText("Old Ashe Rework")).toBeInTheDocument();
-    expect(screen.getByText("4 problems")).toBeInTheDocument();
+    expect(screen.getByText("Needs an updated version")).toBeInTheDocument();
   });
 
   /* `3 problems` says how much and nothing else. The name is the disclosure,

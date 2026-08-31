@@ -395,3 +395,26 @@ fn a_sweep_announces_its_progress_and_its_result_only_when_it_ran() {
     again.sweep_mod_health(&config).unwrap();
     assert!(quiet.names().is_empty(), "nothing was due, so nothing said");
 }
+
+/// Story: the meta schema database moves, and it is the one thing that decides
+/// whether a property is the type the game holds. A verdict taken against the
+/// database as it was is a claim about types Riot has since retyped, so a sync
+/// that installs a newer one makes every badge due again.
+#[test]
+fn a_verdict_taken_against_another_meta_schema_is_due_again() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
+    library.sweep_mod_health(&config).unwrap();
+    assert_eq!(library.sweep_mod_health(&config).unwrap().checked, 0);
+
+    let mut file = VerdictFile::load(storage.path());
+    for verdict in file.verdicts.values_mut() {
+        verdict.basis.schema = Some("the database before the sync".to_owned());
+    }
+    file.save(storage.path()).unwrap();
+
+    assert_eq!(library.sweep_mod_health(&config).unwrap().checked, 1);
+}

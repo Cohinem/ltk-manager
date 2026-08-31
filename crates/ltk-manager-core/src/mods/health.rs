@@ -70,6 +70,11 @@ pub struct RuleBrief {
     /// One sentence saying what that state is, which is the cause a reader
     /// gets - sites and property paths stay in the Problems panel.
     pub description: String,
+    /// The worst this rule found here.
+    ///
+    /// Folded per problem rather than taken from the rule, since one rule can
+    /// report the same state at two severities.
+    pub severity: problems::Severity,
     /// Live findings from this rule.
     pub count: u32,
     /// How many of them a repair would fix.
@@ -111,6 +116,13 @@ pub struct HealthCheckBasis {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub tables: Option<String>,
+    /// What the meta schema database held, absent where none was open.
+    ///
+    /// It decides `bin/property-type` outright, so a check taken against
+    /// another database was a claim about other types.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub schema: Option<String>,
 }
 
 impl LibraryModEntry {
@@ -316,6 +328,11 @@ impl ModLibrary {
             tables: HashtableCache::shared()
                 .ok()
                 .and_then(|cache| cache.generation()),
+            schema: Some(
+                crate::meta_schema::shared(GameBuild::installed(config))
+                    .generation()
+                    .to_owned(),
+            ),
         }
     }
 
@@ -438,6 +455,7 @@ impl RuleBrief {
     /// localizes - reads correctly out of every remembered verdict.
     fn worded(
         info: &problems::RuleInfo,
+        severity: problems::Severity,
         count: u32,
         fixable: u32,
         mismatches: Vec<problems::TypeMismatch>,
@@ -446,6 +464,7 @@ impl RuleBrief {
             rule: info.id.to_string(),
             title: info.title.clone(),
             description: info.description.clone(),
+            severity,
             count,
             fixable,
             mismatches,
@@ -463,8 +482,11 @@ fn rule_briefs(run: &Run) -> Vec<RuleBrief> {
             let mut count = 0u32;
             let mut fixable = 0u32;
             let mut mismatches = Vec::new();
+            /* The ladder runs worst-first, so the worst finding is the least. */
+            let mut severity = problems::Severity::Info;
             for problem in run.live_problems().filter(|p| p.rule == rule.id) {
                 count += 1;
+                severity = severity.min(problem.severity);
                 if problem.fix.is_some() {
                     fixable += 1;
                 }
@@ -474,7 +496,7 @@ fn rule_briefs(run: &Run) -> Vec<RuleBrief> {
                     mismatches.push(mismatch.clone());
                 }
             }
-            (count > 0).then(|| RuleBrief::worded(rule, count, fixable, mismatches))
+            (count > 0).then(|| RuleBrief::worded(rule, severity, count, fixable, mismatches))
         })
         .collect()
 }
@@ -495,13 +517,14 @@ pub(in crate::mods) enum Refused {
 }
 
 /// The stored shape's version, bumped when a verdict gains data an old record
-/// never wrote - the type pairs at 1, the tables the basis names at 2.
+/// never wrote - the type pairs at 1, the tables the basis names at 2, the
+/// severity a brief carries at 3, the meta schema the basis names at 4.
 ///
 /// A file from an older shape is discarded on load rather than carried: its
 /// verdicts read as never checked, so the next sweep re-checks those mods and
 /// records what the old shape was missing. Sentences never force a bump,
 /// because the store holds none.
-const VERDICT_FILE_VERSION: u32 = 2;
+const VERDICT_FILE_VERSION: u32 = 4;
 
 /// The remembered verdicts, as every reader and writer holds them.
 ///
@@ -548,6 +571,7 @@ struct StoredVerdict {
 #[serde(rename_all = "camelCase")]
 struct StoredRuleBrief {
     rule: String,
+    severity: problems::Severity,
     count: u32,
     fixable: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -567,6 +591,7 @@ impl StoredVerdict {
                 .iter()
                 .map(|brief| StoredRuleBrief {
                     rule: brief.rule.clone(),
+                    severity: brief.severity,
                     count: brief.count,
                     fixable: brief.fixable,
                     mismatches: brief.mismatches.clone(),
@@ -587,13 +612,18 @@ impl StoredVerdict {
             .into_iter()
             .map(
                 |brief| match rules.iter().find(|info| info.id.to_string() == brief.rule) {
-                    Some(info) => {
-                        RuleBrief::worded(info, brief.count, brief.fixable, brief.mismatches)
-                    }
+                    Some(info) => RuleBrief::worded(
+                        info,
+                        brief.severity,
+                        brief.count,
+                        brief.fixable,
+                        brief.mismatches,
+                    ),
                     None => RuleBrief {
                         title: brief.rule.clone(),
                         description: String::new(),
                         rule: brief.rule,
+                        severity: brief.severity,
                         count: brief.count,
                         fixable: brief.fixable,
                         mismatches: brief.mismatches,

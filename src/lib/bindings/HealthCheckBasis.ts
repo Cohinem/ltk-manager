@@ -22,4 +22,11 @@ manager: string,
  * different names, so a sync makes every verdict due again without waiting
  * for a game patch.
  */
-tables?: string, };
+tables?: string, 
+/**
+ * What the meta schema database held, absent where none was open.
+ *
+ * It decides `bin/property-type` outright, so a check taken against
+ * another database was a claim about other types.
+ */
+schema?: string, };

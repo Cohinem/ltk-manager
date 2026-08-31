@@ -1,26 +1,20 @@
 //! `audio/bank-id` - a Wwise bank carrying no soundbank id.
 //!
-//! A bank's header carries the id the runtime addresses it by, and the Wwise
-//! toolchain derives that id from the bank's name when it builds one. A bank
-//! carrying zero was written by something that never assigned one.
+//! A bank's header carries an id, and the Wwise toolchain derives it from the
+//! bank's own name when it builds one. A bank carrying zero was written by
+//! something that never assigned one.
 //!
-//! **The id is the signal, and the version is not.** A census of the shipped
-//! game read the header of 7,829 banks: not one carries an unset id, and the
-//! versions run 125 through 145, so a rule keyed on the version would report
-//! the game's own content. Zero is the value the game never ships.
+//! **The id is the signal, and the version is not.** Across 7,829 shipped
+//! banks the versions run 125 through 145, so a version check would report the
+//! game's own content. Zero is the value the game never ships.
 //!
-//! What the runtime does with it is not claimed. What the two measured
-//! specimens have in common is a rebuilt SFX media bank at a real game path and
-//! audio that does not play, and whether the runtime also faults is inference.
-//!
-//! There is no repair. The id is the toolchain's to assign, and inventing one
-//! would give the bank an identity nothing in the mod refers to - so the whole
-//! of the finding is that the bank has to be built again.
+//! **What it costs is not established, so this reports at `Info`** - see
+//! docs/research/audio-bank-id-repairability.md.
 
 use crate::problems::budget;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixRun, Problem, ProjectFiles, Report, Rule, RuleId,
-    Severity, Site,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Problem, ProjectFiles, Report, Rule,
+    RuleId, Severity, Site,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -39,7 +33,13 @@ const HEADER_BYTES: usize = 16;
 /// then this.
 const BANK_ID_AT: usize = 12;
 
-/// Reports a Wwise bank nothing can address.
+/// The offset basis of the 32-bit FNV hash.
+const FNV_BASIS: u32 = 0x811C_9DC5;
+
+/// The prime of the 32-bit FNV hash.
+const FNV_PRIME: u32 = 0x0100_0193;
+
+/// Reports a Wwise bank carrying no soundbank id.
 #[derive(Debug, Default)]
 pub struct AudioBankId;
 
@@ -60,11 +60,11 @@ impl Rule for AudioBankId {
     }
 
     fn description(&self) -> &'static str {
-        "An audio bank whose header carries no soundbank id. The tool that builds a bank assigns one, so a bank without it was written by something that did not, and nothing can ask for it by name"
+        "An audio bank whose header carries no soundbank id. The tool that builds a bank derives one from the bank's name, so a bank without it was written by something that did not"
     }
 
     fn unfixable_description(&self) -> &'static str {
-        "Couldn't set an id because only the tool that builds a bank assigns one"
+        "Couldn't derive an id because this chunk is named by its hash rather than by the bank's name"
     }
 
     fn check(&self, project: &ProjectFiles, report: &mut Report) {
@@ -79,7 +79,9 @@ impl Rule for AudioBankId {
         for (handle, found) in handles.iter().zip(read) {
             let site = || Site::file(handle.layer(), handle.path());
             match found {
-                Some(Ok(Some(0))) => report.problem(ID, Severity::Error, site(), detail()),
+                Some(Ok(Some(0))) => {
+                    report.problem(ID, Severity::Info, site(), detail(handle.path()));
+                }
                 Some(Ok(_)) => {}
                 Some(Err(e)) => report.failure(ID, Some(site()), e),
                 /* Cancelled before this file was reached. Saying nothing about
@@ -89,18 +91,33 @@ impl Rule for AudioBankId {
         }
     }
 
-    /// Records every problem as skipped.
-    ///
-    /// The rule derives no repair, so a caller reaches this only by naming a
-    /// finding that never offered one.
+    /// Writes the id the bank's own name hashes to.
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
+        let mut applied = Applied::default();
+
         for problem in problems {
-            run.skipped(&problem.site.layer, &problem.site.path, 1);
+            let (layer, path) = (problem.site.layer.clone(), problem.site.path.clone());
+            let Some(id) = bank_id_for(&path) else {
+                applied.skipped += 1;
+                run.skipped(&layer, &path, 1);
+                continue;
+            };
+
+            let mut bytes = run.read(&layer, &path)?;
+            // Re-read from the file rather than trusted from the check, so a
+            // bank rebuilt since the run keeps the id its builder gave it.
+            if !carries_no_id(&bytes) {
+                applied.skipped += 1;
+                run.skipped(&layer, &path, 1);
+                continue;
+            }
+
+            bytes[BANK_ID_AT..BANK_ID_AT + 4].copy_from_slice(&id.to_le_bytes());
+            run.write(&layer, &path, &bytes, 1, 0)?;
+            applied.applied += 1;
         }
-        Ok(Applied {
-            applied: 0,
-            skipped: problems.len() as u32,
-        })
+
+        Ok(applied)
     }
 }
 
@@ -125,14 +142,58 @@ fn bank_id_of(handle: &FileHandle<'_>) -> Result<Option<u32>, String> {
         .map(u32::from_le_bytes))
 }
 
-/// What every one of this rule's findings says.
+/// Whether `bytes` is still a bank whose header carries no id.
+fn carries_no_id(bytes: &[u8]) -> bool {
+    bytes.first_chunk::<4>() == Some(&HEADER)
+        && bytes
+            .get(BANK_ID_AT..BANK_ID_AT + 4)
+            .and_then(|id| id.try_into().ok())
+            .map(u32::from_le_bytes)
+            == Some(0)
+}
+
+/// The id the engine will address the bank at `path` by.
 ///
-/// The same sentence on each of them, because an unset id is one state and
-/// there is nothing about a given bank that changes what to do about it.
-fn detail() -> Detail {
-    Detail::new(
-        "Every bank the game ships carries an id, and this one carries none, so nothing can ask for it by name and the sounds in it never play. The id is stamped in when a bank is built, so this has to be exported from Wwise again rather than edited.",
-    )
+/// `None` for a chunk an unpack named by its hash, where the file name is not
+/// the bank's and hashing it would write an id belonging to nothing.
+fn bank_id_for(path: &str) -> Option<u32> {
+    let name = path.rsplit('/').next()?;
+    let stem = name.rsplit_once('.').map_or(name, |(before, _)| before);
+    if stem.is_empty() || is_hash_named(stem) {
+        return None;
+    }
+    Some(bank_id_of_name(stem))
+}
+
+/// Whether `stem` is a WAD chunk hash written as hex rather than a bank name.
+fn is_hash_named(stem: &str) -> bool {
+    stem.len() == 16 && stem.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// `FNV-1` over the ASCII-lowercased bytes of `name`.
+///
+/// This is FNV-1 and not FNV-1a: the multiply comes first and the xor second,
+/// and swapping them gives an unrelated value.
+fn bank_id_of_name(name: &str) -> u32 {
+    name.bytes().fold(FNV_BASIS, |hash, byte| {
+        hash.wrapping_mul(FNV_PRIME) ^ u32::from(byte.to_ascii_lowercase())
+    })
+}
+
+/// What one finding says, and what the repair would write into it.
+fn detail(path: &str) -> Detail {
+    let message = String::from(
+        "Every bank the game ships carries an id, and this one carries none, so it was not built by Wwise. Nothing is known to read the field, and the repair writes the id the bank's own name hashes to.",
+    );
+
+    match bank_id_for(path) {
+        Some(id) => Detail {
+            mismatch: None,
+            message: Some(message),
+            fix: Some(FixPreview::value("0", format!("{id:#010X}"))),
+        },
+        None => Detail::new(message),
+    }
 }
 
 #[cfg(test)]

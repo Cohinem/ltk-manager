@@ -4,6 +4,7 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-09-01 | The meta schema judges, and a table speaks for later builds       |
 | 2026-08-30 | A bin is recognized by its content, and repaired at its hash      |
 | 2026-08-28 | Preserve the names a fix hashes, and drop the restore point       |
 | 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md             |
@@ -13,7 +14,6 @@
 | 2026-08-23 | Mute what waits for a build, rather than withholding it           |
 | 2026-08-22 | Wait for the build a table names, and let a modder ask anyway     |
 | 2026-08-22 | Group by object, open as a tab, and let a run carry its own words |
-| 2026-08-22 | Run on open, fix every layer, and keep three restore points       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -52,7 +52,8 @@ This table holds every major feature of Problems. A status word has one meaning.
 | The run engine       | Available | Reads every layer, groups by file, holds the last run                  |
 | Bins found by magic  | Available | A chunk or hex file no table names is typed by its first bytes         |
 | Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one                |
-| The migration table  | Available | 395 rows, `include_str!` into the core crate                           |
+| The meta schema      | Available | The wiki database. Judges the installed build, and ships a snapshot    |
+| The migration tables | Available | 395 rows, `include_str!` into the core crate. What a later build wants |
 | Texture size rule    | Available | `tex/block-alignment`. The one confirmed crash, and it repairs         |
 | Audio bank rule      | Available | `audio/bank-version`. A bank the game drops without a word             |
 | Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
@@ -85,7 +86,8 @@ Out of scope:
 - Editing a value by hand. That is the [bin editor](BIN_EDITOR.md), and this panel is one of
   the things that opens it
 - A second bin parser. The format belongs to `ltk_meta`
-- Deciding what Riot changed. The table is an input, and the manager does not derive one
+- Deciding what Riot changed. The schema database and the tables are both inputs, and the
+  manager derives neither
 
 ## Vocabulary
 
@@ -170,7 +172,7 @@ pub trait Rule {
     /// them. It changes nothing about what `check` reports - it is how the
     /// panel knows which rows to mute. Read
     /// [A rule that waits](#a-rule-that-waits).
-    fn dormant(&self, project: &ProjectFiles) -> Option<String>;
+    fn dormant(&self, project: &ProjectFiles) -> Option<Dormancy>;
 
     /// Find every problem this rule sees, and add it to `report`.
     fn check(&self, project: &ProjectFiles, report: &mut Report);
@@ -456,6 +458,26 @@ the game rejects. The value is not wrong. Its type is.
 `ltk_meta` calls the new type `WadChunkLink`, and the table calls it `File`. They are the same
 tag, 18, and the table's names are the meta dumper's.
 
+### What judges a property
+
+Two sources answer, and they answer different questions.
+
+| Source                | The question it answers                            | Keyed on            |
+| --------------------- | -------------------------------------------------- | ------------------- |
+| The **meta schema**   | What type does the game expect here at this build? | The installed build |
+| A **migration table** | What will a later build expect?                    | That table's build  |
+
+The schema is asked first. Where it names a type for the class and property at the installed
+build, its answer stands, and no table for that build or an older one is consulted, because the
+database has already superseded them. Where it says nothing - no install to judge against, a
+build past what the snapshot reaches, a class or property it does not describe, or a type name
+this build cannot map - the tables cover the whole question.
+
+So a table is not a fallback the database is slowly replacing. It is the only source that can
+speak about a build the game has not shipped yet, which is what the
+[forward-looking lint](#a-rule-that-waits) reads, and it is the only source for a build the
+database does not describe. Both stay.
+
 ### The table
 
 One JSONL file for each game build, in the core crate's `tables/`.
@@ -578,8 +600,12 @@ fix that would write a wrong `u64`.
 
 ### What the rule matches, and what it leaves
 
-For each object, the rule looks up the class hash. For each migration of that class, it looks
-up the property by field hash. Then it compares the property's actual kind.
+For each object, the rule looks up the class hash, and for each property it holds it looks up
+the field hash. Then it compares the property's actual kind against what the source said. The
+two sources are matched differently, because a table names both the type a property had and the
+type it has now, and the schema names only what it should be.
+
+Against a table:
 
 | The property's kind | The rule                                         |
 | ------------------- | ------------------------------------------------ |
@@ -588,9 +614,23 @@ up the property by field hash. Then it compares the property's actual kind.
 | Matches neither     | Raises nothing, and the file keeps what it holds |
 | Absent              | Raises nothing. A bin declares what it declares  |
 
-Those four rows are the whole safety argument. A run is idempotent, a fix run can be offered
-twice without doubling anything, and a file that disagrees with both schemas is a file the rule
+Those four rows are what make a run against a table idempotent. A fix run can be offered twice without
+doubling anything, and a file that disagrees with both sides of a migration is a file the table
 refuses to guess about.
+
+Against the schema:
+
+| The property's kind    | The rule                                        |
+| ---------------------- | ----------------------------------------------- |
+| Matches the named type | Raises nothing                                  |
+| Anything else          | Raises a problem, whatever the old type was     |
+| Absent                 | Raises nothing. A bin declares what it declares |
+
+**The schema is stricter, on purpose.** It is not describing one event, so there is no `from`
+side to miss: it holds what the game reads today, and a value that is not that type is wrong
+however it came to be. The `from` side of such a finding is read off the value itself, and where
+no conversion exists between that pair the finding **reports and offers no repair**. That is the
+one place this rule says something is wrong and hands a modder nothing to press.
 
 ### Why the table ships in the build
 
@@ -611,6 +651,10 @@ all, and every mod stays broken until a user updates. A release that adds a tabl
 its notes, the way a hash table update does. If the cadence turns out to hurt, the mimir cache
 is the pattern to copy.
 
+The schema snapshot ships in the build for the first reason only, so that a check works offline
+and before any sync. It is the one that took the cache pattern: a synced copy sits beside the
+hashtables and can move ahead of the build without a release.
+
 ### More than one table
 
 The manager holds every table it has shipped, in build order, and a run applies each of them.
@@ -624,20 +668,24 @@ panel mutes the second. A user one build behind therefore reads the older table'
 full and the newer table's dimmed, in one list, under one notice. Read
 [A rule that waits](#a-rule-that-waits).
 
-### A build the tables do not cover
+### A build nothing covers
 
-**The manager says nothing.** A game newer than every table it holds draws no row, no note and
-no warning.
+**The schema answers, as far as it reaches.** A game newer than every table the manager holds
+is still judged, because the database describes builds rather than one event, and a synced copy
+reaches further than the shipped snapshot does.
 
-This is what the retype rule is for, and this retype is one event. The manager cannot know
-whether a build it has no table for changed a schema at all, so a note about it would be a
-guess dressed as a finding - a row that says "something may be wrong" and gives a modder
-nothing to do about it. Silence is the honest reading of an absent table.
+**Past the database's own reach, the manager says nothing.** A build newer than the newest
+revision it holds draws no row, no note and no warning, and the rule stands down rather than
+judging against a change the database has not taken.
 
-The other reading becomes true the day a table stops being a one-time thing. A per-patch meta
-fixup, where each game build brings its own table as a matter of course, is a feature that
-knows which builds it covers and can therefore say when it does not. That is the shape this
-rule grows into, and the note belongs to it rather than to this one.
+The manager cannot know whether a build nothing describes changed a schema at all, so a note
+about it would be a guess dressed as a finding - a row that says "something may be wrong" and
+gives a modder nothing to do about it. Silence is the honest reading.
+
+What has changed is that the manager now holds the fact it would need to say otherwise. Unlike
+a table, the database names the newest build it describes, and standing down is already a test
+against that number rather than a guess. Whether a build past it deserves a note of its own is
+an open question, not a decided one.
 
 ### The build the table names
 
@@ -660,6 +708,10 @@ This matters because **a fix applied early breaks the mod on the client the user
 | Older than the table's | Warning  | Muted, or not at all | No         | Offered |
 | The table's, or newer  | Fatal    | Full                 | Yes        | Offered |
 | No install configured  | Warning  | Full                 | Yes        | Offered |
+
+**A schema finding is always Fatal.** The build it is a claim about is the installed one, so it
+cannot land in the first row, and it needs an install to exist at all. Only a table raises
+something the game has not reached, which is why the muting below is described in tables.
 
 **A table the installed game has not reached describes a change that has not happened.** Riot
 has not deployed it, no mod is wrong about it yet, and a repair derived from it breaks a mod
@@ -872,7 +924,9 @@ full 64 bits, so that second case is a guard rather than something a real mod re
 
 There is no restore point and no Undo. See
 [ADR-0006](../adr/0006-a-repair-preserves-names-instead-of-keeping-a-restore-point.md) for why
-losslessness replaced reversibility.
+preserved names replaced reversibility, and
+[ADR-0011](../adr/0011-a-repair-may-lose-fidelity-where-no-in-place-edit-exists.md) for the
+content that promise never covered.
 
 ### The write
 
@@ -1034,53 +1088,55 @@ yet. It is `MIT OR Apache-2.0`, which is the workspace's own license, so adding 
 1. Does the automatic run repeat while a project stays open? Files change under an editor -
    a save in another tool, a copy into a layer, a fix run of its own - and a run is a fact
    about a moment. The `⟳` is the manual answer, and a watcher is the other one.
-2. Where does a per-patch table come from, when a table stops being a one-time thing? The
-   [build a table does not cover](#a-build-the-tables-do-not-cover) is silent today because
-   the manager cannot know what it is missing. A feature that ships a table for each patch
-   knows, and it needs a source that keeps up.
+2. Should a build past the database's reach say so? The
+   [build nothing covers](#a-build-nothing-covers) is silent today. Unlike a table, the
+   database names the newest build it describes, so the manager holds the fact it would need,
+   and the cost is a row a modder can do nothing about.
 
 ### Answered
 
-| Question                                       | Answer                                               |
-| ---------------------------------------------- | ---------------------------------------------------- |
-| Where does the migration table live?           | In the build, as an `include_str!` in the core crate |
-| What does a run read?                          | The project's own `.bin` files, in every layer       |
-| Which parser reads them?                       | `ltk_meta`, eagerly. A project holds tens of files   |
-| What protects a file that a fix wrote?         | Nothing. The path it hashed is kept, not the file    |
-| Can a fix be derived back out of the file?     | Yes, out of the mod's own `hashes/game.hashes.txt`   |
-| What is the feature called?                    | Problems, because `diagnostics` names the launch one |
-| How does the manager know the game's build?    | `Game/content-metadata.json`, in one read            |
-| Does a stale problem apply?                    | No. A rule re-checks the file before it writes       |
-| Which conversions need a hash table?           | `rehash` and `hash_key`, 8 rows of 395               |
-| What happens when a hash has no name?          | The problem stays, with no fix, and prints the hash  |
-| Does a fix run before the build lands?         | Only where a user asks, and then at Warning          |
-| Does an error block Test or Pack?              | Neither. Both name the count, and Pack asks once     |
-| Where does the panel live?                     | Its own tab, beside Mod details and the game index   |
-| Does a run persist across a restart?           | No. It is a fact about files as they were            |
-| Do the library's installed mods get the rules? | Yes, as verdicts - [MOD_HEALTH.md](MOD_HEALTH.md)    |
-| When does a run happen?                        | When a project opens, and a user asks for nothing    |
-| Do two rules share one parse of a `.bin`?      | No. Each rule reads its own, and sharing waits       |
-| How far does Fix on the panel reach?           | Every layer, because a mod is every layer it ships   |
-| Is a repair reversible?                        | No. It is lossless instead - ADR-0006                |
-| Does an uncovered game build draw a note?      | No. An absent table knows nothing to report          |
-| Does the table stay in the build?              | Yes. The mimir cache is the escalation, unmeasured   |
-| Can a modder name a hash the tables lack?      | Not here. The row prints the hash, and that is all   |
-| Does a fix leave the list stale?               | No. A fix drops the run, and the next read re-runs   |
-| How does a row say which object it is in?      | The list groups by object, named out of `binentries` |
-| What does a row repeat from the rule?          | Nothing. A rule's words ride on the run              |
-| Which severity does a landed build get?        | Fatal. The game crashes rather than refusing the mod |
-| Does a run block the window while it reads?    | No. Every problems command answers off the UI thread |
-| Does a check run before Riot deploys it?       | Yes, and it is drawn until a modder says otherwise   |
-| Where is that switch?                          | Under the panel's filter, and in Settings as well    |
-| What does it say when nothing is waiting?      | Nothing. It draws only where it would reveal a row   |
-| Why run a check nobody can act on yet?         | The day it lands, every mod that shipped it breaks   |
-| Is the forward-looking linter on by default?   | Yes, dimmed. Off is one click, above the list        |
-| Why a patch number and not a build?            | 16.17 is what Riot's notes say. The build is detail  |
-| Is that setting per project?                   | No. It is how a modder reads, so it is the editor's  |
-| What if no install could be read?              | The check draws in full. Unknown is not a claim      |
-| Does the setting re-run the project?           | No. The findings were always there. It is a reading  |
-| Do the panel and the bar count the same rows?  | No. The panel counts the list, the bar what is owed  |
-| Is a crash ever hidden by that setting?        | No. Fatal is a crash today, whatever a rule waits on |
-| Who decides what a rule is waiting on?         | The rule. The engine records it and calls `check`    |
+| Question                                       | Answer                                                     |
+| ---------------------------------------------- | ---------------------------------------------------------- |
+| Where does the migration table live?           | In the build, as an `include_str!` in the core crate       |
+| Where does the meta schema come from?          | The wiki database. A snapshot ships, and a sync caches one |
+| Where does a per-patch schema come from?       | The same database. It describes builds, not one event      |
+| What does a run read?                          | The project's own `.bin` files, in every layer             |
+| Which parser reads them?                       | `ltk_meta`, eagerly. A project holds tens of files         |
+| What protects a file that a fix wrote?         | Nothing. The path it hashed is kept, not the file          |
+| Can a fix be derived back out of the file?     | Yes, out of the mod's own `hashes/game.hashes.txt`         |
+| What is the feature called?                    | Problems, because `diagnostics` names the launch one       |
+| How does the manager know the game's build?    | `Game/content-metadata.json`, in one read                  |
+| Does a stale problem apply?                    | No. A rule re-checks the file before it writes             |
+| Which conversions need a hash table?           | `rehash` and `hash_key`, 8 rows of 395                     |
+| What happens when a hash has no name?          | The problem stays, with no fix, and prints the hash        |
+| Does a fix run before the build lands?         | Only where a user asks, and then at Warning                |
+| Does an error block Test or Pack?              | Neither. Both name the count, and Pack asks once           |
+| Where does the panel live?                     | Its own tab, beside Mod details and the game index         |
+| Does a run persist across a restart?           | No. It is a fact about files as they were                  |
+| Do the library's installed mods get the rules? | Yes, as verdicts - [MOD_HEALTH.md](MOD_HEALTH.md)          |
+| When does a run happen?                        | When a project opens, and a user asks for nothing          |
+| Do two rules share one parse of a `.bin`?      | No. Each rule reads its own, and sharing waits             |
+| How far does Fix on the panel reach?           | Every layer, because a mod is every layer it ships         |
+| Is a repair reversible?                        | No. It keeps every name instead - ADR-0006                 |
+| Does an uncovered game build draw a note?      | No. An absent table knows nothing to report                |
+| Does the table stay in the build?              | Yes. The mimir cache is the escalation, unmeasured         |
+| Can a modder name a hash the tables lack?      | Not here. The row prints the hash, and that is all         |
+| Does a fix leave the list stale?               | No. A fix drops the run, and the next read re-runs         |
+| How does a row say which object it is in?      | The list groups by object, named out of `binentries`       |
+| What does a row repeat from the rule?          | Nothing. A rule's words ride on the run                    |
+| Which severity does a landed build get?        | Fatal. The game crashes rather than refusing the mod       |
+| Does a run block the window while it reads?    | No. Every problems command answers off the UI thread       |
+| Does a check run before Riot deploys it?       | Yes, and it is drawn until a modder says otherwise         |
+| Where is that switch?                          | Under the panel's filter, and in Settings as well          |
+| What does it say when nothing is waiting?      | Nothing. It draws only where it would reveal a row         |
+| Why run a check nobody can act on yet?         | The day it lands, every mod that shipped it breaks         |
+| Is the forward-looking linter on by default?   | Yes, dimmed. Off is one click, above the list              |
+| Why a patch number and not a build?            | 16.17 is what Riot's notes say. The build is detail        |
+| Is that setting per project?                   | No. It is how a modder reads, so it is the editor's        |
+| What if no install could be read?              | The check draws in full. Unknown is not a claim            |
+| Does the setting re-run the project?           | No. The findings were always there. It is a reading        |
+| Do the panel and the bar count the same rows?  | No. The panel counts the list, the bar what is owed        |
+| Is a crash ever hidden by that setting?        | No. Fatal is a crash today, whatever a rule waits on       |
+| Who decides what a rule is waiting on?         | The rule. The engine records it and calls `check`          |
 
 A row moves here when the body of this document carries the answer.

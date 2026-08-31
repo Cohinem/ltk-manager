@@ -968,3 +968,250 @@ fn a_file_that_is_not_a_bin_is_a_failure_and_not_a_panic() {
     assert_eq!(failed[0].rule, ID);
     assert_eq!(failed[0].site.as_ref().unwrap().path, "broken.bin");
 }
+
+/* The schema-driven half. The shipped table carries 395 rows for one build,
+and it covers that build's String -> File event completely. What the database
+adds is the other 166 of the 525 properties Riot has retyped, every one of the
+249 builds it knows rather than one, and a check over all 21,100 properties
+instead of the ones somebody wrote down. */
+
+/// `FloatTextIconData`, the class behind the icon on a floating combat text.
+const FLOAT_TEXT_ICON_DATA: BinHash = BinHash(0x16d8_8f43);
+
+/// `mIconFileName`, which Riot retyped `String` to `File` in 16.17.
+const M_ICON_FILE_NAME: BinHash = BinHash(0x1053_7b0c);
+
+/// The first build the database records that retype at.
+const AFTER_RETYPE: GameBuild = GameBuild::new(16, 17, 8_104_348);
+
+/// The last build it records the property as a `String` at.
+const BEFORE_RETYPE: GameBuild = GameBuild::new(16, 16, 8_049_184);
+
+const ICON_TEX: &str = "ASSETS/UX/FloatingText/GoldIcon.tex";
+
+/// A property no shipped table row names, retyped `U32` to `F32` long before the
+/// table's own build. It is here to check the database and nothing else.
+const GOLD_VALUES: BinHash = BinHash(0x0e6f_0047);
+const TURRET_GOLD_VALUE: BinHash = BinHash(0x0b97_305a);
+
+/// A build inside the revision that made it an `F32`.
+const AFTER_GOLD_RETYPE: GameBuild = GameBuild::new(13, 21, 5_876_777);
+
+fn object_bin(class: BinHash, field: BinHash, value: impl Into<PropertyValueEnum>) -> Bin {
+    Bin::new(
+        [BinObject::<NoMeta>::builder(ENTRY, class)
+            .property(field, value)
+            .build()],
+        std::iter::empty::<&str>(),
+    )
+}
+
+/// Story: this is the shape of defect that reached a player. A mod writes a
+/// texture reference as a `String`, the game on this build reads the field as a
+/// `File`, and the value is discarded without a word - the member keeps its
+/// constructor default, which for a retyped `File` field is `0` rather than an
+/// empty string. What loads is a null resource, and the crash lands far away.
+#[test]
+fn a_string_where_the_schema_says_file_is_reported() {
+    let bin = object_bin(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME, text(ICON_TEX));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].severity, Severity::Fatal);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "File");
+    assert_eq!(mismatch.found, "String");
+}
+
+/// Story: the same bytes are correct for the build they were authored against.
+/// A mod is not wrong in the abstract, it is wrong for a game, so the database
+/// is only ever asked about the build in front of it.
+#[test]
+fn the_same_string_is_correct_on_the_build_that_wanted_a_string() {
+    let bin = object_bin(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME, text(ICON_TEX));
+    let (_tmp, files) = project_on(&bin, Some(BEFORE_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert!(
+        problems
+            .iter()
+            .all(|problem| problem.severity == Severity::Warning),
+        "on this build the game reads a String, so anything said is about the change coming"
+    );
+}
+
+/// The repair is the one the whole `String` -> `File` migration takes: the path
+/// is in the file, so the fix is one hash and one tag.
+#[test]
+fn the_schema_finding_repairs_by_hashing_the_path_it_holds() {
+    let bin = object_bin(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME, text(ICON_TEX));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    let fix = problems[0].fix.as_ref().expect("the path is in the file");
+
+    assert_eq!(fix.before.as_deref(), Some(&*format!("\"{ICON_TEX}\"")));
+    assert_eq!(
+        fix.after.as_deref(),
+        Some(&*format!("0x{:016x}", WadHash::hash_str(ICON_TEX).0))
+    );
+}
+
+/// The premise the next tests rest on: no table row names this property, so
+/// anything found is the database's doing.
+#[test]
+fn no_shipped_table_row_names_the_database_only_property() {
+    assert!(
+        table::tables()
+            .iter()
+            .all(|table| table.migration(GOLD_VALUES, TURRET_GOLD_VALUE).is_none())
+    );
+}
+
+/// Story: the table is one build's worth of one migration. The database knows
+/// every build it was dumped at, so a retype years older than the table - and a
+/// kind pair the table never covered - is still caught.
+#[test]
+fn a_retype_no_table_row_covers_is_reported() {
+    let bin = object_bin(GOLD_VALUES, TURRET_GOLD_VALUE, values::U32::new(500));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_GOLD_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "F32");
+    assert_eq!(mismatch.found, "U32");
+}
+
+/// Nothing this build knows turns a `U32` into an `F32` that means the same, so
+/// the finding stands and offers no repair rather than guessing at one.
+#[test]
+fn a_kind_pair_with_no_known_conversion_is_reported_without_a_repair() {
+    let bin = object_bin(GOLD_VALUES, TURRET_GOLD_VALUE, values::U32::new(500));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_GOLD_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems[0].fix, None);
+    let message = problems[0].message.as_deref().unwrap_or_default();
+    assert!(message.contains("thrown away"), "{message}");
+}
+
+/// A property the database describes and is content about is silence, or the
+/// rule would report every mod that is already correct.
+#[test]
+fn a_property_the_schema_is_content_about_reports_nothing() {
+    let bin = object_bin(GOLD_VALUES, TURRET_GOLD_VALUE, values::F32::new(500.0));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_GOLD_RETYPE));
+
+    assert!(check_with(&files).is_empty());
+}
+
+/// Without an install there is no build to judge against, and a revision is
+/// keyed on one. Reporting anyway would pick a build the reader does not run.
+#[test]
+fn without_an_install_the_schema_is_asked_nothing() {
+    let bin = object_bin(GOLD_VALUES, TURRET_GOLD_VALUE, values::U32::new(500));
+    let (_tmp, files) = project(&bin);
+
+    assert!(check_with(&files).is_empty());
+}
+
+/// Story: Riot ships property bins under a bare name, and a mod that replaces
+/// one ships it the same way. `UX/FloatingText` is such a file, and until the
+/// walk read its first bytes it was classified by an extension it does not have
+/// so no bin rule ever opened it, and a mod carrying 27 wrong-typed properties
+/// checked clean.
+#[test]
+fn a_bin_with_no_extension_is_read_like_any_other() {
+    let bin = object_bin(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME, text(ICON_TEX));
+
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp
+        .path()
+        .join("content")
+        .join("base")
+        .join("UI.wad.client")
+        .join("UX");
+    std::fs::create_dir_all(&dir).unwrap();
+    // No extension, which is how the game itself names this file.
+    std::fs::write(dir.join("FloatingText"), bytes_of(&bin)).unwrap();
+
+    let league = tmp.path().join("league");
+    std::fs::create_dir_all(league.join("Game")).unwrap();
+    std::fs::write(
+        league.join("Game").join("content-metadata.json"),
+        format!(r#"{{ "version": "{AFTER_RETYPE}" }}"#),
+    )
+    .unwrap();
+    let config = Config {
+        league_path: Some(league),
+        ..Config::default()
+    };
+
+    let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1, "the file is a bin whatever it is named");
+    assert_eq!(problems[0].site.path, "UI.wad.client/UX/FloatingText");
+}
+
+/// A file whose extension names nothing is not content, and reading the first
+/// bytes of every `.txt` and `.md` in a project would be work for no finding.
+#[test]
+fn a_file_with_an_unrecognised_extension_is_left_alone() {
+    let bin = object_bin(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME, text(ICON_TEX));
+
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = tmp.path().join("content").join("base").join("data");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("notes.txt"), bytes_of(&bin)).unwrap();
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+
+    assert!(check_with(&files).is_empty());
+}
+
+/// Story: an archive-storage mod is checked where it lies, never unpacked, so
+/// the archive scan has to identify a bare-named bin the same way the walk does
+/// - by its first bytes. The mod that reached a player was exactly this shape.
+#[test]
+fn a_bin_with_no_extension_is_read_inside_an_archive_too() {
+    use crate::mods::test_support::{make_loose_bin_fantome_zip_at, resolver_naming};
+    use crate::problems::Budget;
+
+    let bin = object_bin(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME, text(ICON_TEX));
+    let tmp = tempfile::tempdir().unwrap();
+    let archive = tmp.path().join("mod.fantome");
+    make_loose_bin_fantome_zip_at(&archive, "Mod", "UI.wad.client/UX/FloatingText", &bin);
+
+    let league = tmp.path().join("league");
+    std::fs::create_dir_all(league.join("Game")).unwrap();
+    std::fs::write(
+        league.join("Game").join("content-metadata.json"),
+        format!(r#"{{ "version": "{AFTER_RETYPE}" }}"#),
+    )
+    .unwrap();
+    let config = Config {
+        league_path: Some(league),
+        ..Config::default()
+    };
+
+    let files = ProjectFiles::in_archive(
+        &archive,
+        &config,
+        Budget::repair(),
+        &resolver_naming(&[]),
+        None,
+    )
+    .unwrap();
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].site.path, "UI.wad.client/UX/FloatingText");
+}

@@ -338,6 +338,7 @@ fn status_serializes_as_camel_case() {
         installed: vec![],
         unknown_tables: vec![],
         unsupported_tables: vec![],
+        schema_installed: false,
     })
     .unwrap();
     assert_eq!(json["upToDate"], true);

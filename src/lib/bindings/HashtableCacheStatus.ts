@@ -20,4 +20,11 @@ tables: Array<HashtableStatus>,
 /**
  * Ids from [`Table::ALL`] absent from the manifest.
  */
-missing: Array<string>, };
+missing: Array<string>, 
+/**
+ * The generation of the meta schema database a check would read.
+ *
+ * The cached copy where a sync has installed one, and the snapshot this
+ * build ships otherwise, so it is never absent.
+ */
+schema: string, };

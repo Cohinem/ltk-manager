@@ -1,4 +1,5 @@
-//! Unit tests for what the rule reports and what it stays quiet about.
+//! Unit tests for what the rule reports, what it stays quiet about, and what
+//! its repair writes.
 
 use super::*;
 use crate::config::Config;
@@ -12,6 +13,13 @@ const BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/sett_base_sfx_audio.bnk";
 
 /// The name the archive builders give the one WAD they pack.
 const WAD: &str = "Aatrox.wad.client";
+
+/// The id the shipped game carries at `BANK_IN_WAD`.
+///
+/// From the worked example in the reversing notes: `sett_base_sfx_audio.bnk`
+/// ships at `0xE9B70B40`, which is `FNV-1` of its own name. This is the number
+/// the repair has to arrive at from the file name alone.
+const SETT_BANK_ID: u32 = 0xE9B7_0B40;
 
 /// The version the measured specimens carry, which the rule says nothing about.
 const SPECIMEN_VERSION: u32 = 134;
@@ -32,19 +40,23 @@ fn found_in(files: &ProjectFiles) -> Vec<Problem> {
     problems
 }
 
-/// A project holding one `.bnk` at `content/base/<WAD>/<BANK_IN_WAD>`.
-fn tree(bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
+/// A project holding one `.bnk` at `content/base/<WAD>/<at>`.
+fn tree_at(at: &str, bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
     let tmp = tempfile::tempdir().unwrap();
-    let at = tmp
+    let file = tmp
         .path()
         .join("content")
         .join("base")
-        .join(format!("{WAD}/{BANK_IN_WAD}").replace('/', std::path::MAIN_SEPARATOR_STR));
-    std::fs::create_dir_all(at.parent().unwrap()).unwrap();
-    std::fs::write(&at, bytes).unwrap();
+        .join(format!("{WAD}/{at}").replace('/', std::path::MAIN_SEPARATOR_STR));
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, bytes).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     (tmp, files)
+}
+
+fn tree(bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
+    tree_at(BANK_IN_WAD, bytes)
 }
 
 /// The same bank packed into an archive.
@@ -64,8 +76,27 @@ fn archive(bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
     (tmp, files)
 }
 
+/// The bytes the repair left at `at`.
+fn read_back(tmp: &tempfile::TempDir, at: &str) -> Vec<u8> {
+    std::fs::read(
+        tmp.path()
+            .join("content")
+            .join("base")
+            .join(format!("{WAD}/{at}").replace('/', std::path::MAIN_SEPARATOR_STR)),
+    )
+    .unwrap()
+}
+
+fn repair(tmp: &tempfile::TempDir, problems: &[Problem]) -> Applied {
+    let chosen: Vec<&Problem> = problems.iter().collect();
+    let mut run = FixRun::open(tmp.path(), Vec::new(), None, Config::default(), None);
+    let applied = AudioBankId::new().fix(&chosen, &mut run).unwrap();
+    run.finish().unwrap();
+    applied
+}
+
 #[test]
-fn a_bank_carrying_no_id_is_an_error() {
+fn a_bank_carrying_no_id_is_worth_knowing_and_nothing_more() {
     let (_tmp, files) = tree(&bank(0));
 
     let problems = found_in(&files);
@@ -73,7 +104,11 @@ fn a_bank_carrying_no_id_is_an_error() {
     assert_eq!(problems.len(), 1);
     let problem = &problems[0];
     assert_eq!(problem.rule, ID);
-    assert_eq!(problem.severity, Severity::Error);
+    assert_eq!(
+        problem.severity,
+        Severity::Info,
+        "nothing is known to read the field, so the mod is not broken by this"
+    );
     assert_eq!(problem.site.layer, "base");
     assert_eq!(problem.site.path, format!("{WAD}/{BANK_IN_WAD}"));
     assert_eq!(problem.site.node, None, "the rule reads the whole file");
@@ -142,15 +177,103 @@ fn a_bank_header_shorter_than_the_id_reports_nothing() {
     assert!(found_in(&files).is_empty());
 }
 
-/// The id is the toolchain's to assign, so the row says to build the bank
-/// again and offers nothing.
+/// The hash is `FNV-1` and not `FNV-1a`, which the shipped bank pins: the game
+/// carries `0xE9B70B40` at this path, and that is what the name alone gives.
 #[test]
-fn the_rule_offers_no_repair() {
+fn the_name_hashes_to_the_id_the_game_ships() {
+    assert_eq!(bank_id_of_name("sett_base_sfx_audio"), SETT_BANK_ID);
+}
+
+/// The toolchain lowercases before hashing and strips the extension, so the
+/// spelling of the file name on disk never changes the id.
+#[test]
+fn case_and_extension_do_not_change_the_id() {
+    assert_eq!(
+        bank_id_for("Aatrox.wad.client/assets/SETT_Base_SFX_Audio.BNK"),
+        Some(SETT_BANK_ID)
+    );
+}
+
+#[test]
+fn the_preview_names_the_id_the_repair_will_write() {
     let (_tmp, files) = tree(&bank(0));
 
     let problem = &found_in(&files)[0];
-    assert_eq!(problem.fix, None);
-    let message = problem.message.as_deref().unwrap_or_default();
-    assert!(message.contains("Wwise"), "{message}");
+    let fix = problem
+        .fix
+        .as_ref()
+        .expect("the id is derivable from a name");
+    assert_eq!(fix.before.as_deref(), Some("0"));
+    assert_eq!(fix.after.as_deref(), Some("0xE9B70B40"));
+}
+
+#[test]
+fn the_fix_writes_the_id_the_name_hashes_to() {
+    let (tmp, files) = tree(&bank(0));
+    let problems = found_in(&files);
+
+    let applied = repair(&tmp, &problems);
+
+    assert_eq!(
+        applied,
+        Applied {
+            applied: 1,
+            skipped: 0
+        }
+    );
+    let repaired = read_back(&tmp, BANK_IN_WAD);
+    assert_eq!(
+        u32::from_le_bytes(repaired[BANK_ID_AT..BANK_ID_AT + 4].try_into().unwrap()),
+        SETT_BANK_ID
+    );
+    assert_eq!(
+        repaired[..BANK_ID_AT],
+        bank(0)[..BANK_ID_AT],
+        "the repair touches four bytes and nothing else"
+    );
+    assert_eq!(repaired[BANK_ID_AT + 4..], bank(0)[BANK_ID_AT + 4..]);
+}
+
+/// A repaired bank is one the rule no longer objects to, so a repair offered
+/// twice writes once.
+#[test]
+fn a_second_fix_over_a_repaired_bank_skips_it() {
+    let (tmp, files) = tree(&bank(0));
+    let problems = found_in(&files);
+
+    repair(&tmp, &problems);
+    let applied = repair(&tmp, &problems);
+
+    assert_eq!(
+        applied,
+        Applied {
+            applied: 0,
+            skipped: 1
+        }
+    );
+}
+
+/// A chunk no hash table could name is unpacked under its own hash, and hashing
+/// that would write an id belonging to nothing. The finding stands and the
+/// repair declines.
+#[test]
+fn a_chunk_named_by_its_hash_is_reported_without_a_repair() {
+    let hashed = "assets/0123456789abcdef.bnk";
+    let (tmp, files) = tree_at(hashed, &bank(0));
+
+    let problems = found_in(&files);
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].fix, None);
+
+    let applied = repair(&tmp, &problems);
+
+    assert_eq!(
+        applied,
+        Applied {
+            applied: 0,
+            skipped: 1
+        }
+    );
+    assert_eq!(read_back(&tmp, hashed), bank(0), "nothing was written");
     assert!(!AudioBankId::new().unfixable_description().is_empty());
 }

@@ -5,6 +5,7 @@ import type {
   ModHealthVerdict,
   RuleBrief,
 } from "@/lib/tauri";
+import type { BrokenMods } from "@/modules/library";
 
 interface VerdictShape {
   /** Findings a repair would fix. Ignored for a verdict that is not repairable. */
@@ -35,6 +36,7 @@ export function verdict(
               rule: "bin-property-type",
               title: "Outdated bin properties",
               description: "A bin property's type does not match what the game expects",
+              severity: "fatal",
               count: findings,
               fixable: isFixable ? fixable : 0,
               mismatches: [{ expected: "File", found: "Hash" }],
@@ -84,4 +86,17 @@ export function finishedSweep(build: string | null = "16.17.8087655"): HealthSwe
       unrepairable: [],
     },
   };
+}
+
+/**
+ * The two lists a test names, plus the flat one the panel actually draws.
+ *
+ * `all` is derived rather than passed, so a test says which verdicts are
+ * repairable and never has to keep a third list in step with the two.
+ */
+export function brokenMods({
+  repairable = [],
+  unrepairable = [],
+}: Partial<Omit<BrokenMods, "all">> = {}): BrokenMods {
+  return { all: [...repairable, ...unrepairable], repairable, unrepairable };
 }

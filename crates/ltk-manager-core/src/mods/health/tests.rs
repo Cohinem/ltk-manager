@@ -189,6 +189,7 @@ fn the_store_keeps_no_sentences_and_a_load_reconstructs_them() {
         rule: "bin/property-type".to_owned(),
         title: "A title an older build wrote".to_owned(),
         description: "A sentence an older build wrote".to_owned(),
+        severity: problems::Severity::Fatal,
         count: 3,
         fixable: 1,
         mismatches: vec![problems::TypeMismatch {
@@ -232,6 +233,11 @@ fn the_store_keeps_no_sentences_and_a_load_reconstructs_them() {
         Some(rule.unfixable_description())
     );
     assert_eq!((brief.count, brief.fixable), (3, 1));
+    assert_eq!(
+        brief.severity,
+        problems::Severity::Fatal,
+        "severity is data the store keeps, not a sentence a build rewrites"
+    );
 }
 
 /// Story: a build adds data the old shape never wrote - the type pairs - and

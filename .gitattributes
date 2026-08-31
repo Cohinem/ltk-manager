@@ -2,3 +2,7 @@
 # CRLF worktree only desynced it from CI, which runs every format and lint check
 # on Linux.
 * text=auto eol=lf
+
+# Compressed artefacts, so their classification never rests on Git's NUL
+# heuristic. Only the embedded meta schema snapshot matches today.
+*.gz binary

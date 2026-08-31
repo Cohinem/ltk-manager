@@ -1,11 +1,10 @@
-import { Tooltip } from "@/components";
+import { SeverityGlyph, Tooltip } from "@/components";
 
 import { useProjectProblems } from "../api";
 import { useProjectContext } from "../components/ProjectContext";
 import { problemsDocument } from "../documents";
 import { useOpenDocument } from "../state";
 import { countBySeverity, isMuted, type SeverityCounts } from "./problemGroups";
-import { SeverityGlyph } from "./ProblemRows";
 import { useMutedRules } from "./runCatalogue";
 
 /**

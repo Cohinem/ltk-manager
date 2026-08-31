@@ -257,9 +257,9 @@ started, in local time, and holds three files.
 
 ```
 C:\Riot Games\League of Legends\Logs\GameLogs\2026-08-17T07-26-15\
-├─ 2026-08-17T07-26-15_r3dlog.txt     the game's log
-├─ 2026-08-17T07-26-15_netlog.txt     the network log
-└─ 2026-08-17T07-26-15_netstats.csv
+|- 2026-08-17T07-26-15_r3dlog.txt     the game's log
+|- 2026-08-17T07-26-15_netlog.txt     the network log
+`- 2026-08-17T07-26-15_netstats.csv
 ```
 
 A live install holds 44 of these at 1.6MB together. A short game writes 15KB. Nothing about
@@ -357,7 +357,7 @@ note on a row, no header beyond the column names, and no comment in the code tha
 ```
 code          kind          evidence   meaning
 ALE-9B39AA45  missing_data  confirmed  A file the game needed is in no mounted archive
-ALE-18967993  wad_mount     inferred   An archive could not be mounted, because it is corrupt
+ALE-18967993  wad_mount     confirmed  An archive could not be mounted, because it is corrupt
 ALE-D0D00022  texture       confirmed  A cube-map texture could not be created
 ALE-71BBD00F  memory        confirmed  The graphics device ran out of memory
 ALE-3112373   device        inferred   The graphics device was removed
@@ -596,11 +596,18 @@ action is to disable the suspect, or to open the path in the project editor when
 was a workshop test.
 
 **A corrupt archive.** `League could not mount an archive.` Five of the six codes are
-inferred rows, so this is a Lead, and it says `Probably`. `ALE-89b0dee7`, the invalid
-sub-chunk, is the confirmed one and reads as a fact. The code names no archive, so the
-suspects are the mods whose archives the DLL redirected this game, which is a list and not
-a name. The hint is the one the Patching settings already give: `Rebuild overlay`, and a
-repair of the install in the Riot Client when the rebuild does not help.
+confirmed rows and read as facts. `ALE-9D171D1D`, the chunk that failed verification, is
+the inferred one, and the verdict is then a Lead that says `Probably`. The code names no
+archive, so the suspects are the mods whose archives the DLL redirected this game, which is
+a list and not a name. The hint is the one the Patching settings already give:
+`Rebuild overlay`, and a repair of the install in the Riot Client when the rebuild does not
+help.
+
+`ALE-18967994` is the one of the six that asks for that repair itself: two mounted archives
+disagreeing about a file crashes the game and flags the install for repair. That flag changes
+nothing here. An overlay leaves the game's own files untouched, so the validation finds them
+sound and does no work, which is also why the second half of the hint is wasted on this code.
+A rebuild is the only half that helps.
 
 **A texture failed.** `A texture could not be created, and the crash came after it.` The
 texture code is not itself fatal. The game carries on without the texture, and the crash
@@ -838,9 +845,16 @@ keeps its place in an old incident under its display name.
 ### How one is assembled
 
 ```
- host: game found ─┬─▶ host: injected ──▶ dll: init done ──▶ the game ──▶ host: exited ──┐
- session-started ──┘                                                                      ├─▶ wait ──▶ read ──▶ classify ──▶ store ──▶ incident-recorded
-                                                                  client: session-ended ──┘
+ host: game found   or   session-started
+ |
+ v
+ host: injected --> dll: init done --> the game
+ |
+ v
+ host: exited   or   client: session-ended
+ |
+ v
+ wait --> read --> classify --> store --> incident-recorded
 ```
 
 1. A game record opens at the first sign of a game: the host's `game found`, or the
@@ -879,10 +893,10 @@ seconds. A crash is a question the player comes back to, so the toast stays as t
 announcement and the bar keeps the answer.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ ▲ League closed · Missing data in Aatrox.wad.client · Aatrox Justicar        │
-│   LIKELY                                                    Details     ×    │
-└──────────────────────────────────────────────────────────────────────────────┘
++------------------------------------------------------------------------------+
+| ! League closed - Missing data in Aatrox.wad.client - Aatrox Justicar        |
+|   LIKELY                                                    Details     x    |
++------------------------------------------------------------------------------+
 ```
 
 | Part    | Reads                                                              |
@@ -893,7 +907,7 @@ announcement and the bar keeps the answer.
 | Suspect | The first suspect's name, and `+2` where there are more            |
 | Cost    | A small chip saying what the game lost                             |
 | Details | Opens the Games tab on this incident                               |
-| `×`     | Dismisses the line, and marks the incident dismissed               |
+| `x`     | Dismisses the line, and marks the incident dismissed               |
 
 The line replaces the idle resting line and nothing else. A build or a start that begins
 takes the bar back, because the bar's job is the present, and the incident waits on the
@@ -912,32 +926,32 @@ alone would show.
 The Diagnostics page gains two tabs, and the sixteen checks move under the second.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│ ⚕ Diagnostics                                                                │
-│   Games   System                                                             │
-├────────────────────────┬─────────────────────────────────────────────────────┤
-│ TODAY                  │ ▲ Missing data                              LIKELY  │
-│ ▲ 21:14  Missing data  │ League stopped a read it could not finish. The path │
-│          Aatrox Justi… │ is assets/characters/aatrox/skins/skin12/aatrox_tx…  │
-│ ▲ 19:02  Stuck loading │                                                     │
-│          step 52 of 64 │ SUSPECTS                                            │
-│ YESTERDAY              │ Aatrox Justicar   writes Aatrox.wad.client   Disable│
-│ ▲ 22:40  Ended without │                                                     │
-│          a reason      │ HINTS                                               │
-│                        │ A mod that references a file it does not ship       │
-│                        │ crashes the read. Check the project's textures.     │
-│                        │                                                     │
-│                        │ EVIDENCE                                            │
-│                        │ 00:12.3  game    ALE-9B39AA45 Missing data: 0x1a2b… │
-│                        │          confirmed · a file the game needed is in…  │
-│                        │ 00:12.4  client  Interrupt, exit code -1073741819   │
-│                        │ 00:04.1  host    injected, pid 18232                │
-│                        │ 00:00.0  dll     redirected Aatrox.wad.client, +3   │
-│                        │                                                     │
-│                        │ 16.16.804.9184 · 12 s · Library · log found         │
-│                        │                                                     │
-│                        │ Open game log   Copy report   Rebuild overlay       │
-└────────────────────────┴─────────────────────────────────────────────────────┘
++------------------------------------------------------------------------------+
+| Diagnostics                                                                  |
+|   Games   System                                                             |
++------------------------+-----------------------------------------------------+
+| TODAY                  | ! Missing data                              LIKELY  |
+| ! 21:14  Missing data  | League stopped a read it could not finish. The path |
+|          Aatrox Jus... | is assets/characters/aatrox/skins/skin12/aatrox_... |
+| ! 19:02  Stuck loading |                                                     |
+|          step 52 of 64 | SUSPECTS                                            |
+| YESTERDAY              | Aatrox Justicar   writes Aatrox.wad.client  Disable |
+| ! 22:40  Ended without |                                                     |
+|          a reason      | HINTS                                               |
+|                        | A mod that references a file it does not ship       |
+|                        | crashes the read. Check the project's textures.     |
+|                        |                                                     |
+|                        | EVIDENCE                                            |
+|                        | 00:12.3  game    ALE-9B39AA45 Missing data: 0x1a... |
+|                        |          confirmed - a file the game needed is i... |
+|                        | 00:12.4  client  Interrupt, exit code -1073741819   |
+|                        | 00:04.1  host    injected, pid 18232                |
+|                        | 00:00.0  dll     redirected Aatrox.wad.client, +3   |
+|                        |                                                     |
+|                        | 16.16.804.9184 - 12 s - Library - log found         |
+|                        |                                                     |
+|                        | Open game log   Copy report   Rebuild overlay       |
++------------------------+-----------------------------------------------------+
 ```
 
 The list is on the left, newest first, grouped by day. A row carries the verdict's glyph,
