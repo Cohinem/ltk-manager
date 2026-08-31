@@ -116,12 +116,19 @@ impl ModLibrary {
         let (report, checked) = match entry.storage {
             ModStorage::Project => {
                 let mod_dir = entry.mod_dir(&storage_dir);
-                let run = problems::analyze_within(&mod_dir, config, budget.clone())?;
+                let game = self.game_content(config);
+                let run = problems::analyze_within(&mod_dir, config, budget.clone(), game.clone())?;
                 let wanted = run.live_fixable();
                 let resolver = self.wad_resolver();
-                let report =
-                    problems::apply(&mod_dir, &run, &wanted, config, Some(resolver.as_ref()))?;
-                let checked = verified(&mod_dir, run, &wanted, &report, config)?;
+                let report = problems::apply(
+                    &mod_dir,
+                    &run,
+                    &wanted,
+                    config,
+                    Some(resolver.as_ref()),
+                    game.clone(),
+                )?;
+                let checked = verified(&mod_dir, run, &wanted, &report, config, game)?;
                 (report, checked)
             }
             ModStorage::Archive => {
@@ -269,17 +276,25 @@ impl ModLibrary {
         budget: &Budget,
     ) -> AppResult<(FixReport, problems::Run)> {
         let staging_utf8 = self.unpack_for_rules(staging, archive)?;
-        let run = problems::analyze_within(staging, config, budget.clone())?;
+        let game = self.game_content(config);
+        let run = problems::analyze_within(staging, config, budget.clone(), game.clone())?;
         let wanted = run.live_fixable();
         let resolver = self.wad_resolver();
-        let report = problems::apply(staging, &run, &wanted, config, Some(resolver.as_ref()))?;
+        let report = problems::apply(
+            staging,
+            &run,
+            &wanted,
+            config,
+            Some(resolver.as_ref()),
+            game.clone(),
+        )?;
         if report.applied == 0 {
             return Ok((report, run));
         }
 
         write_repaired(staging, &staging_utf8, archive, &report)?;
 
-        let checked = verified(staging, run, &wanted, &report, config)?;
+        let checked = verified(staging, run, &wanted, &report, config, game)?;
         Ok((report, checked))
     }
 
@@ -388,9 +403,17 @@ fn verified(
     wanted: &[problems::ProblemId],
     report: &FixReport,
     config: &Config,
+    game: Option<std::sync::Arc<dyn problems::GameContent>>,
 ) -> AppResult<problems::Run> {
-    if !report.failed.is_empty() {
-        return problems::analyze(project_root, config);
+    // A rule that skips records a count against the file and not a
+    // `ProblemId`, because `FixRun::left` takes a bin node address a file-level
+    // finding has none of. So `remaining` names bin properties and nothing
+    // else, and `audio/bank-version` refusing at fix time - its guard re-reads
+    // the install, which may answer differently than it did at check time -
+    // would subtract as repaired. Re-read the mod whenever anything was
+    // skipped, rather than guessing which kind of skip it was.
+    if !report.failed.is_empty() || report.skipped > 0 {
+        return problems::analyze(project_root, config, game);
     }
 
     let repaired: Vec<problems::ProblemId> = wanted
@@ -421,10 +444,12 @@ fn write_repaired(
     match edited {
         Ok(written) => {
             tracing::debug!(
-                "Edited {archive_utf8}: {} chunks across {} WADs, {} entries",
-                written.chunks_replaced,
+                "Edited {archive_utf8} across {} WADs: {} chunks and {} entries written, {} chunks and {} entries removed",
                 written.wads_rebased,
-                written.entries_replaced
+                written.chunks_replaced,
+                written.entries_replaced,
+                written.chunks_removed,
+                written.entries_removed
             );
             Ok(())
         }

@@ -20,6 +20,7 @@ pub mod budget;
 pub mod build;
 mod engine;
 mod fix;
+pub mod game;
 pub mod names;
 pub mod preserve;
 pub mod rules;
@@ -34,9 +35,11 @@ use serde::{Deserialize, Serialize};
 pub use budget::Budget;
 pub use build::GameBuild;
 pub use engine::{
-    BinHandle, LayerFiles, ProjectFile, ProjectFiles, analyze, analyze_archive, analyze_within,
+    ChunkInfo, FileHandle, LayerFiles, ProjectFile, ProjectFiles, analyze, analyze_archive,
+    analyze_within,
 };
-pub use fix::{FileOutcome, FixError, FixReport, FixRun, apply};
+pub use fix::{FileChange, FileOutcome, FixError, FixReport, FixRun, apply};
+pub use game::{GameContent, InstalledContent};
 pub use names::BinNames;
 pub use preserve::{Preserved, PreservedNames};
 
@@ -413,6 +416,10 @@ pub struct RuleInfo {
 /// a modder wants to see what is coming. What it does not do is claim the mod
 /// is broken today: the panel draws those findings muted and leaves them out
 /// of the count in the project bar, and this is what tells it which they are.
+///
+/// A rule that compares the mod against the installed game and finds no install
+/// to compare with reports the same way, and reports nothing at all. A rule that
+/// said nothing without saying why would read as a rule that found nothing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -420,7 +427,11 @@ pub struct RuleInfo {
 pub enum RuleState {
     /// The project is one this rule has everything to say about.
     Active,
-    /// Some or all of what the rule checks waits for a newer game build.
+    /// Some or all of what the rule checks waits for the machine.
+    ///
+    /// A newer game build, or an install to read at all. Either way the rule
+    /// has run and has nothing to say, which reads exactly like a clean project
+    /// unless the panel is told which it is.
     Dormant {
         /// A few words a control can hold, such as `Patch 16.17`.
         waiting: String,

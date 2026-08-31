@@ -1,12 +1,12 @@
 //! What a repair changed, as the edit the archive it came out of takes.
 //!
 //! A fix run rewrites a handful of files in an archive that runs to hundreds of
-//! megabytes. Stated as an [`ArchiveDelta`], those files are all
-//! [`apply_delta`] writes and everything else is raw-copied, where packing the
-//! staged project again re-encodes every chunk the mod holds.
+//! megabytes. Stated as an [`ArchiveDelta`], those files are the
+//! [`apply_delta`] writes and removals and everything else is raw-copied, where
+//! packing the staged project again re-encodes every chunk the mod holds.
 
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
-use crate::problems::FixReport;
+use crate::problems::{FileChange, FixReport};
 use camino::Utf8Path;
 use ltk_fantome::{ArchiveDelta, DeltaReport, FantomeHashtable, FantomeReader, apply_delta};
 use ltk_mod_project::{HASHES_DIR_NAME, ModProject, ModProjectLayer};
@@ -41,8 +41,8 @@ impl RepairEdit {
     /// # Errors
     ///
     /// Reports a repaired file or the archive's metadata that could not be
-    /// read, and a fix the Fantome format has no place for. Every one of those
-    /// leaves the repack as the way to write the repair.
+    /// read, and a fix the Fantome format has no place for. Either leaves the
+    /// repack as the way to write the repair.
     pub(super) fn read(staging: &Path, archive: &Utf8Path, report: &FixReport) -> AppResult<Self> {
         let mut delta = ArchiveDelta::new();
 
@@ -59,11 +59,19 @@ impl RepairEdit {
                     file.layer, file.path
                 ))
             })?;
-            let bytes = fs::read(content_path(staging, &file.layer, &file.path))?;
 
-            match target {
-                DeltaTarget::Chunk { wad, hash } => delta.chunk(&wad, hash, bytes),
-                DeltaTarget::Entry { path } => delta.entry(&path, bytes),
+            match file.change {
+                FileChange::Removed => match target {
+                    DeltaTarget::Chunk { wad, hash } => delta.remove_chunk(&wad, hash),
+                    DeltaTarget::Entry { path } => delta.remove_entry(&path),
+                },
+                FileChange::Written => {
+                    let bytes = fs::read(content_path(staging, &file.layer, &file.path))?;
+                    match target {
+                        DeltaTarget::Chunk { wad, hash } => delta.chunk(&wad, hash, bytes),
+                        DeltaTarget::Entry { path } => delta.entry(&path, bytes),
+                    }
+                }
             };
         }
 

@@ -96,3 +96,30 @@ fn a_table_declared_elsewhere_maps_nowhere() {
     assert_eq!(archive_table_path("hashes/nested/game.hashes.txt"), None);
     assert_eq!(archive_table_path("hashes/"), None);
 }
+
+/// A repair that deleted a file states the deletion as a delta, and reads no
+/// bytes for it - the staged tree no longer holds any.
+#[test]
+fn a_removal_is_written_as_an_edit() {
+    let report = crate::problems::FixReport {
+        applied: 1,
+        skipped: 0,
+        names_kept: 0,
+        tables: Vec::new(),
+        remaining: Vec::new(),
+        files: vec![crate::problems::FileOutcome {
+            layer: "base".to_owned(),
+            path: "Aatrox.wad.client/data/skin0.bin".to_owned(),
+            applied: 1,
+            skipped: 0,
+            change: crate::problems::FileChange::Removed,
+        }],
+        failed: Vec::new(),
+    };
+
+    let tmp = tempfile::tempdir().unwrap();
+    let archive = camino::Utf8Path::new("mod.fantome");
+    let edit = RepairEdit::read(tmp.path(), archive, &report);
+
+    assert!(edit.is_ok(), "{:?}", edit.err());
+}

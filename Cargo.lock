@@ -2516,6 +2516,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "intel_tex_2"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7980d359170e7da4bc2421aa74c49d338a3153313e006d732a3430f1af375a60"
+dependencies = [
+ "ispc_rt",
+]
+
+[[package]]
 name = "interpolate_name"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2549,6 +2558,16 @@ checksum = "173609498df190136aa7dea1a91db051746d339e18476eed5ca40521f02d7aa5"
 dependencies = [
  "is-docker",
  "once_cell",
+]
+
+[[package]]
+name = "ispc_rt"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a396f76fd253fab9945bb4c6080f515d0c4036bc30219462d199b58886fd37b4"
+dependencies = [
+ "libc",
+ "num_cpus",
 ]
 
 [[package]]
@@ -2999,9 +3018,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_fantome"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dda25615629961ee0878b2f1f5f6f7afacfe07217674235090c39a86661f1c66"
+checksum = "6d7ce80d4f500e8225c5f48f364e75a09aa141e4f14bf4a41139a9e52edb474c"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
@@ -3124,9 +3143,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mod_project"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d5c62a2f897a7f7304223173c1eb6fb854777d9b68478620469248c8cec6bf0"
+checksum = "234d82c3cec335a53711c129910b07e8984d946cd639700f865ad650e4d13699"
 dependencies = [
  "camino",
  "ignore",
@@ -3169,9 +3188,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_overlay"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658f224be622eb829d6cfcaebdf188d86535875eef756adf82f167531cfababe"
+checksum = "546545bc1d3034d3395747c028c5adb7bbec6e35c5f53a4ce8ac24740681a52a"
 dependencies = [
  "byteorder",
  "camino",
@@ -3233,6 +3252,7 @@ dependencies = [
  "half",
  "image",
  "image_dds",
+ "intel_tex_2",
  "ltk_io_ext",
  "num_enum",
  "texpresso",
@@ -3645,6 +3665,16 @@ checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
  "libm",
+]
+
+[[package]]
+name = "num_cpus"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
+dependencies = [
+ "hermit-abi",
+ "libc",
 ]
 
 [[package]]
