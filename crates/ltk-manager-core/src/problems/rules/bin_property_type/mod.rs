@@ -968,14 +968,20 @@ fn hashed(value: PropertyValueEnum) -> Result<PropertyValueEnum, PropertyValueEn
             Err(items) => Err(values::UnorderedContainer(items).into()),
         },
         PropertyValueEnum::Optional(option) if option.item_kind() == Kind::String => {
-            let held = option
-                .into_inner()
-                .and_then(|held| match held {
-                    PropertyValueEnum::String(text) => Some(text),
-                    _ => None,
-                })
-                .map(|text| link(&text.value));
-            Ok(values::Optional::from(held).into())
+            /* The outer `None` is an option holding a value that is not the kind
+            it declared. That goes back untouched, the way `hashed_container`
+            hands its container back, rather than being dropped and counted as a
+            repair - the value is read before the option is consumed for that. */
+            let linked = match option.value() {
+                None => Some(None),
+                Some(held) => held
+                    .get::<values::String>()
+                    .map(|text| Some(link(&text.value))),
+            };
+            match linked {
+                Some(linked) => Ok(values::Optional::from(linked).into()),
+                None => Err(option.into()),
+            }
         }
         PropertyValueEnum::Map(map) => {
             let key_kind = map.key_kind();
