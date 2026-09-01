@@ -73,7 +73,8 @@ pub struct RuleBrief {
     /// The worst this rule found here.
     ///
     /// Folded per problem rather than taken from the rule, since one rule can
-    /// report the same state at two severities.
+    /// report the same state at two severities - see
+    /// [`Rule::severity`](problems::Rule::severity).
     pub severity: problems::Severity,
     /// Live findings from this rule.
     pub count: u32,
@@ -141,7 +142,11 @@ impl LibraryModEntry {
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum ModHealth {
-    /// Nothing a live rule objects to.
+    /// Nothing a live rule calls wrong.
+    ///
+    /// Findings at [`Severity::Info`](problems::Severity::Info) land here too.
+    /// They are worth knowing and say nothing is wrong, so a mod holding only
+    /// those is not one the library has to report.
     Healthy,
     /// At least one finding a repair can fix.
     Repairable,
@@ -425,9 +430,13 @@ impl ModHealthVerdict {
             .live_problems()
             .filter(|problem| problem.fix.is_some())
             .count() as u32;
-        let total = counts.fatals + counts.errors + counts.warnings + counts.infos;
+        /* Severity decides whether the mod is broken at all, because `Info`
+        says nothing is wrong and the verdict word is what draws the alarm. The
+        drawer no longer groups by repairability, so the word is free to mean
+        this. */
+        let wrong = counts.fatals + counts.errors + counts.warnings;
 
-        let health = if total == 0 {
+        let health = if wrong == 0 {
             ModHealth::Healthy
         } else if fixable > 0 {
             ModHealth::Repairable
@@ -448,14 +457,17 @@ impl ModHealthVerdict {
 }
 
 impl RuleBrief {
-    /// One rule's counts under the sentences `info` words it with.
+    /// One rule's counts under what `info` says about the rule itself.
     ///
-    /// The words always come from the build rather than from any record: the
-    /// store keeps counts alone, so a sentence a build rewrites - or one day
-    /// localizes - reads correctly out of every remembered verdict.
+    /// **Everything the build owns comes from the build rather than from any
+    /// record.** That is the sentences, so one a build rewrites - or one day
+    /// localizes - reads correctly out of every remembered verdict. It is also
+    /// the severity of a rule that declares one, which is as much this build's
+    /// word as its title is, and which `observed` therefore only answers for a
+    /// rule whose findings each decide their own.
     fn worded(
         info: &problems::RuleInfo,
-        severity: problems::Severity,
+        observed: problems::Severity,
         count: u32,
         fixable: u32,
         mismatches: Vec<problems::TypeMismatch>,
@@ -464,7 +476,7 @@ impl RuleBrief {
             rule: info.id.to_string(),
             title: info.title.clone(),
             description: info.description.clone(),
-            severity,
+            severity: info.severity.unwrap_or(observed),
             count,
             fixable,
             mismatches,
@@ -522,15 +534,15 @@ pub(in crate::mods) enum Refused {
 ///
 /// A file from an older shape is discarded on load rather than carried: its
 /// verdicts read as never checked, so the next sweep re-checks those mods and
-/// records what the old shape was missing. Sentences never force a bump,
-/// because the store holds none.
+/// records what the old shape was missing. What the build owns never forces a
+/// bump, because the store holds none of it.
 const VERDICT_FILE_VERSION: u32 = 4;
 
 /// The remembered verdicts, as every reader and writer holds them.
 ///
-/// Not the on-disk shape: that is [`StoredVerdictFile`], which keeps data
-/// alone. Loading is where the two meet, so a brief's sentences are always
-/// the running build's.
+/// Not the on-disk shape: that is [`StoredVerdictFile`], which keeps what the
+/// run observed. Loading is where the two meet, so what the build owns is
+/// always the running build's.
 #[derive(Debug, Default)]
 struct VerdictFile {
     verdicts: BTreeMap<String, ModHealthVerdict>,
@@ -538,11 +550,17 @@ struct VerdictFile {
 
 /// On-disk shape of `mod-health-verdicts.json`.
 ///
-/// A brief is persisted as its data alone - the rule id and the counts - and
-/// its sentences are reconstructed on load from the rules as this build words
-/// them. Persisted words go stale the moment a build rewrites them, because
-/// the sweep re-checks only when the basis moves, and words the store never
-/// holds are also words a later build can localize.
+/// **The store keeps what the run observed, and nothing the build owns.** A
+/// brief is persisted as its rule id and its counts, and everything the rules
+/// declare about themselves is reconstructed on load from this build. Anything
+/// the build owns goes stale the moment a build changes it, because the sweep
+/// re-checks only when the basis moves - and the basis is a fact about the
+/// machine, so no edit to a rule ever moves it.
+///
+/// The split is not sentences against numbers. It is who is entitled to answer:
+/// a rule's title, its why-not and the severity it declares are all this
+/// build's word, and only the counts and the severity of a rule that declares
+/// none are the run's.
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredVerdictFile {
@@ -550,7 +568,8 @@ struct StoredVerdictFile {
     verdicts: BTreeMap<String, StoredVerdict>,
 }
 
-/// One verdict as the file keeps it: [`ModHealthVerdict`] minus the words.
+/// One verdict as the file keeps it: [`ModHealthVerdict`] minus what the build
+/// answers for.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredVerdict {
@@ -565,12 +584,15 @@ struct StoredVerdict {
     basis: HealthCheckBasis,
 }
 
-/// One brief as the file keeps it: the rule id, the counts, and the type
-/// pairs - all data, no sentences.
+/// One brief as the file keeps it: the rule id, the counts, and the type pairs.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredRuleBrief {
     rule: String,
+    /// The worst severity the run saw, which a rule declaring one overrides on
+    /// load. Kept for the two that cannot be answered from this build: a rule
+    /// whose findings each answer for themselves, and a rule this build no
+    /// longer ships.
     severity: problems::Severity,
     count: u32,
     fixable: u32,

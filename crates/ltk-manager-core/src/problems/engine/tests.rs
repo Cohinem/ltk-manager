@@ -359,19 +359,13 @@ fn a_rule_waiting_on_a_newer_game_says_so_on_the_run() {
         .collect();
 
     assert_eq!(dormant.len(), 1, "the bin retype rule is the keyed one");
-    let RuleState::Dormant {
-        waiting,
-        reason,
-        detail,
-    } = &dormant[0].state
-    else {
+    let RuleState::Dormant { waiting, reason } = &dormant[0].state else {
         unreachable!("filtered on it")
     };
     assert_eq!(waiting, "Patch 16.17");
     assert!(reason.contains("16.17"), "{reason}");
-    let detail = detail.as_deref().expect("the rule names both builds");
-    assert!(detail.contains("16.17.8087655"), "{detail}");
-    assert!(detail.contains("16.16.8049184"), "{detail}");
+    assert!(reason.contains("16.16"), "{reason}");
+    assert!(!reason.contains("8087655"), "{reason}");
 }
 
 /* An archive read where it lies. The fixtures are the health suite's own, so

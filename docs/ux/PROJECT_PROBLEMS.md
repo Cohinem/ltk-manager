@@ -770,24 +770,21 @@ dimming their list reaches for them and nobody else pays.
 ```
 ⏳ Patch 16.17  12
 └─ Not broken yet
-   Riot changes how these values are stored in patch 16.17. Your game is on
-   16.16, so nothing here is broken yet, and repairing it now breaks the mod
-   on the patch you play.
-   Your game is on 16.16.8049184, and the change lands in 16.17.8087655
+   Riot changes how these values are stored in patch 16.17, and your game is
+   on 16.16, so repairing now breaks the mod on the patch you play.
    ───────────────────────────────────────────────────────
    Click to take them off the list
 ```
 
-**A rule says what it waits for at three lengths.** `waiting` is the few words the switch
-holds, `reason` is the sentence under it, and `detail` is the fine print under that. All three
-are the rule's own, sent once on the run beside its title, for the reason
-[everything else about a rule rides there](#what-rides-on-the-run).
+**A rule says what it waits for at two lengths.** `waiting` is the few words the switch holds
+and `reason` is the sentence under it. Both are the rule's own, sent once on the run beside its
+title, for the reason [everything else about a rule rides there](#what-rides-on-the-run).
 
-Splitting them is what keeps the build numbers out of the sentence a modder reads first. A
-patch is `16.17`, which is the number Riot's own notes carry, and `16.17.8087655` is a content
-build that means nothing to anybody who has not opened `content-metadata.json`. The sentence
-takes the patch. The two builds the rule actually compared go underneath, for the modder
-checking one install against another.
+The sentence carries patches and never builds. A patch is `16.17`, which is the number Riot's
+own notes carry, and `16.17.8087655` is a content build that means nothing to anybody who has
+not opened `content-metadata.json`. A third length held those two builds as fine print under the
+sentence, and it went: it opened on the words the sentence had just used, so the tooltip read as
+one fact written twice, and nobody was comparing two installs in a tooltip anyway.
 
 **The switch draws only where it would change something.** A run whose rules all speak about
 the installed game has no switch, and neither has a run where the waiting rule found nothing.
@@ -853,12 +850,12 @@ The row is the check, the two types, and where in the file it is.
   mClipDataMap{Spell1_Torun_-180}.mAnimationResourceData.mAnimationFilePath
 ```
 
-The tooltip is everything the row could not hold, in three parts: what kind of problem this is,
-where it is, and what is unusual about this one.
+The tooltip is everything the row could not hold, in three parts: what is wrong here, where it
+is, and which rule found it.
 
 ```
 ⚠ Meta property type mismatch
-  The type of a meta property in a bin file does not match what the game expects
+  The installed game still wants the old type.
   ─────────────────────────────────────────────────────────────────
   Layer   base
   File    Mordekaiser.wad.client/980dec1753a183d5.bin
@@ -866,9 +863,14 @@ where it is, and what is unusual about this one.
   Value   "ASSETS/…/Spell_1_torun_-180.anm"
           and 36 more
   ─────────────────────────────────────────────────────────────────
-  The installed game still wants the old type.
   bin/property-type
 ```
+
+**One sentence, and it is the most specific one there is.** The rule's description sat under the
+title and the problem's own message sat under the values, and on a rule whose message opens on
+what its description just said that reads as the panel saying one thing twice. The slot under the
+title takes the message where the problem has one and the description where it does not, which is
+[a row says nothing twice](#a-problem) read from the drawing end.
 
 **The tooltip draws the value, and not what a repair would make of it.** The repaired value is
 a 64-bit hash of the value above it, so a reader cannot check it against anything - what they

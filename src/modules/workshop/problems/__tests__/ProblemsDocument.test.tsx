@@ -194,8 +194,7 @@ const RETYPE_RULE: RuleInfo = {
 
 const WAITING_LABEL = "Patch 16.17";
 const WAITING_REASON =
-  "Riot changes how these values are stored in patch 16.17. Your game is on 16.16, so nothing here is broken yet.";
-const WAITING_DETAIL = "Your game is on 16.16.8049184, and the change lands in 16.17.8087655";
+  "Riot changes how these values are stored in patch 16.17, and your game is on 16.16, so repairing now breaks the mod on the patch you play.";
 
 /** The same rule on a machine whose game has not taken the change. */
 const WAITING_RULE: RuleInfo = {
@@ -204,7 +203,6 @@ const WAITING_RULE: RuleInfo = {
     kind: "dormant",
     waiting: WAITING_LABEL,
     reason: WAITING_REASON,
-    detail: WAITING_DETAIL,
   },
 };
 
@@ -826,15 +824,17 @@ describe("ProblemsDocument", () => {
     });
 
     /* The sentence a modder acts on is on the toggle rather than over the list,
-       and the builds behind it are under that sentence. */
-    it("explains itself on hover, fine print and all", async () => {
+       and it is the only sentence there: the build numbers under it opened on
+       the words it had just used, so the tooltip read as one fact written
+       twice. */
+    it("explains itself on hover, in one sentence", async () => {
       mockBackend({ ok: true, value: run({ rules: [WAITING_RULE], problems: [ICON_AVATAR] }) });
       renderPanel();
 
       await userEvent.hover(await aheadToggle());
 
       expect(await screen.findByText(WAITING_REASON)).toBeInTheDocument();
-      expect(screen.getByText(WAITING_DETAIL)).toBeInTheDocument();
+      expect(screen.queryByText(/8049184|8087655/)).toBeNull();
     });
 
     /* The findings were always in the run, so the setting is a way of reading

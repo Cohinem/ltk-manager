@@ -251,7 +251,7 @@ fn an_unresolvable_rehash_notes_what_the_repair_is_missing() {
     assert!(text.contains("FNV1a Hash value"), "{text}");
     assert!(text.contains("64-bit xxHash"), "{text}");
     assert!(
-        text.contains("neither the Mimir hashtables nor the mod's own"),
+        text.contains("Mimir hashtables nor the mod's own"),
         "{text}"
     );
 }
@@ -374,17 +374,15 @@ fn an_install_older_than_the_table_names_the_patch_it_waits_for() {
 }
 
 /// The build numbers a modder does not recognise stay out of the sentence
-/// and go under it, where somebody comparing two installs can find them.
+/// altogether, because the patches either side of the change are what they
+/// read in Riot's notes.
 #[test]
-fn the_builds_it_compared_are_the_fine_print() {
+fn the_builds_it_compared_stay_out_of_the_sentence() {
     let (_tmp, files) = project_on(&bin_with(ICON_AVATAR, text(ICON)), Some(BEFORE_TABLE));
 
     let dormancy = BinPropertyType::new().dormant(&files).unwrap();
     assert!(!dormancy.reason.contains("8087655"), "{}", dormancy.reason);
-
-    let detail = dormancy.detail.expect("the rule names both builds");
-    assert!(detail.contains("16.17.8087655"), "{detail}");
-    assert!(detail.contains("16.16.8049184"), "{detail}");
+    assert!(!dormancy.reason.contains("8049184"), "{}", dormancy.reason);
 }
 
 /// A modder wants to see what is coming, so waiting mutes the findings in
@@ -1098,7 +1096,7 @@ fn a_kind_pair_with_no_known_conversion_is_reported_without_a_repair() {
 
     assert_eq!(problems[0].fix, None);
     let message = problems[0].message.as_deref().unwrap_or_default();
-    assert!(message.contains("thrown away"), "{message}");
+    assert!(message.contains("Nothing rewrites"), "{message}");
 }
 
 /// A property the database describes and is content about is silence, or the

@@ -51,8 +51,7 @@
 //! Reference alone is the wrong axis. It says who asks, and only the install
 //! says who can answer.
 
-mod requests;
-
+use crate::problems::bank_units::BankUnits;
 use crate::problems::budget;
 use crate::problems::game::GameContent;
 use crate::problems::{
@@ -60,8 +59,6 @@ use crate::problems::{
     RuleId, Severity, Site,
 };
 use crate::workshop::WorkshopFileKind;
-
-use requests::BankRequests;
 
 /// The diagnostics code a request nothing can answer is recorded under.
 const UNANSWERED_CODE: &str = "ALE-9B39AA45";
@@ -137,11 +134,15 @@ impl Rule for AudioBankVersion {
     }
 
     fn description(&self) -> &'static str {
-        "An audio bank at a format version the game's reader rejects. It is dropped without a message, so the mod is silent rather than broken"
+        "An audio bank at a version the game's reader drops, so the mod plays no sound"
     }
 
     fn unfixable_description(&self) -> &'static str {
-        "Couldn't remove because something would still be asking for the file"
+        "Couldn't remove because the bank unit naming this file would have to be edited too"
+    }
+
+    fn severity(&self) -> Option<Severity> {
+        Some(Severity::Warning)
     }
 
     fn check(&self, project: &ProjectFiles, report: &mut Report) {
@@ -174,7 +175,7 @@ impl Rule for AudioBankVersion {
 
         // Every bin of the mod, parsed a second time. Worth it only now that
         // there is something to ask about.
-        let asked = BankRequests::of(project);
+        let asked = BankUnits::of(project);
         for (handle, bank) in rejected {
             report.problem(
                 ID,
@@ -198,7 +199,7 @@ impl Rule for AudioBankVersion {
                 return Ok(skip_all(problems, run));
             }
         };
-        let asked = BankRequests::of(&project);
+        let asked = BankUnits::of(&project);
 
         let mut applied = Applied::default();
         for problem in problems {
@@ -255,17 +256,17 @@ fn still_rejected(bytes: &[u8]) -> bool {
 fn removable(
     handle: &FileHandle<'_>,
     game: Option<&dyn GameContent>,
-    asked: &BankRequests,
+    asked: &BankUnits,
 ) -> Result<Removed, String> {
     let Some(chunk) = handle.wad_hash() else {
         return Err(String::from(
-            "This file is not inside one of the mod's WADs, so the manager cannot tell what would answer for it once it is gone.",
+            "This file is not in one of the mod's WADs, so the manager cannot tell what would answer for it once it is gone.",
         ));
     };
 
     let Some(game) = game else {
         return Err(String::from(
-            "Removing this bank is only safe where the game holds one at the same path, and there is no League install configured to ask.",
+            "Removing this bank is only safe where your game holds one at the same path, and there is no League install to ask.",
         ));
     };
 
@@ -274,7 +275,7 @@ fn removable(
     }
     if asked.asks_for(chunk) {
         return Err(format!(
-            "A bank unit in this mod asks for this file and your game holds nothing at that path, so removing it would leave a request nothing can answer - the crash a log records as {UNANSWERED_CODE}.",
+            "A bank unit asks for this file and your game holds nothing at that path, so removing it leaves a request nothing can answer, which a crash log records as {UNANSWERED_CODE}.",
         ));
     }
     Ok(Removed::NobodyAsks)
@@ -294,7 +295,7 @@ impl Removed {
     fn note(self) -> &'static str {
         match self {
             Self::GameAnswers => {
-                "Removed, and your game's own bank answers the request instead - so the mod's media still plays"
+                "Removed, and your game's own bank answers instead, so the mod's media still plays"
             }
             Self::NobodyAsks => "Removed. Nothing in the mod asks for this file",
         }
@@ -458,11 +459,11 @@ impl Rejected {
     fn sentence(&self) -> String {
         match self.reason {
             Reason::BelowTheFloor => format!(
-                "Version {} is older than the game's audio reader will read at all, so it drops the bank without a message and nothing in it plays.",
+                "Version {} is older than the game's audio reader reads at all, so it drops the bank without a word and nothing in it plays.",
                 self.version
             ),
             Reason::ContentAtAnOlderVersion => format!(
-                "The game's audio reader takes a bank at version {} only if it carries nothing but its media. This one carries its events and sounds too, so the reader drops the whole bank without a message and the mod is silent.",
+                "The game's audio reader takes a bank at version {} only if it carries nothing but media. This one carries its events and sounds too, so the reader drops the whole bank without a word and the mod is silent.",
                 self.version
             ),
         }

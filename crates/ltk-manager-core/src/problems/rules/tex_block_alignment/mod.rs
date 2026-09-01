@@ -70,11 +70,15 @@ impl Rule for TexBlockAlignment {
     fn description(&self) -> &'static str {
         // The code is on the rule rather than on each row, because it is the
         // same on every one of them.
-        "A block-compressed texture whose width or height is not a whole number of blocks. The game fails to create it and crashes, which a crash log records as ALE-D0D00020"
+        "A block-compressed texture whose size is not a whole number of blocks, which crashes the game with ALE-D0D00020"
     }
 
     fn unfixable_description(&self) -> &'static str {
-        "Couldn't resample because the texture cannot be written back as it is"
+        "Couldn't resample because the manager cannot write this texture back"
+    }
+
+    fn severity(&self) -> Option<Severity> {
+        Some(Severity::Fatal)
     }
 
     fn check(&self, project: &ProjectFiles, report: &mut Report) {
@@ -186,19 +190,19 @@ impl Ragged {
     fn repair(&self) -> Result<(u32, u32), String> {
         if self.depth > 1 {
             return Err(format!(
-                "This is a volume texture of {} slices, and the manager can only write a plain 2D one back",
+                "This is a volume texture of {} slices, and the manager writes back plain 2D ones only",
                 self.depth
             ));
         }
         if self.resource_type != ResourceType::Texture {
             return Err(format!(
-                "The header calls this a {:?} rather than a plain 2D texture, and the manager can only write a plain one back",
+                "The header calls this a {:?}, and the manager writes back plain 2D textures only",
                 self.resource_type
             ));
         }
         if EncodeFormat::try_from(self.format).is_err() {
             return Err(format!(
-                "The manager can read {:?} and cannot write it, so this one has to be re-exported at a size the format holds",
+                "The manager reads {:?} and cannot write it, so re-export this at a size the format holds",
                 self.format
             ));
         }

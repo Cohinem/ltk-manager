@@ -16,6 +16,7 @@
 //! them - so a file changed between the run and the fix cannot be written
 //! wrong, and a fix offered twice applies once.
 
+pub mod bank_units;
 pub mod budget;
 pub mod build;
 mod engine;
@@ -406,6 +407,11 @@ pub struct RuleInfo {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     #[cfg_attr(feature = "ts", ts(as = "Option<String>", optional))]
     pub unfixable: String,
+    /// The severity every finding of this rule carries - see
+    /// [`Rule::severity`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub severity: Option<Severity>,
     /// Whether this project is one the rule speaks about yet.
     pub state: RuleState,
 }
@@ -437,43 +443,31 @@ pub enum RuleState {
         waiting: String,
         /// One sentence a reader who has not met this check can act on.
         reason: String,
-        /// The values behind `reason`, for a reader who wants them.
-        detail: Option<String>,
     },
 }
 
-/// What a rule waits for, in the three lengths a panel draws it at.
+/// What a rule waits for, in the two lengths a panel draws it at.
 ///
-/// A control holds [`Dormancy::waiting`], the sentence under it is
-/// [`Dormancy::reason`], and [`Dormancy::detail`] is the fine print beneath
-/// that. Splitting them here is what keeps the exact build numbers out of the
-/// sentence a modder reads first.
+/// A control holds [`Dormancy::waiting`] and the sentence under it is
+/// [`Dormancy::reason`]. One sentence and no more: a second line under it drew
+/// the same fact in different numbers, which reads as the panel saying one
+/// thing twice.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dormancy {
     /// A few words a control can hold, such as `Patch 16.17`.
     pub waiting: String,
     /// One sentence a reader who has not met this check can act on.
     pub reason: String,
-    /// The values behind [`Dormancy::reason`], for a reader who wants them.
-    pub detail: Option<String>,
 }
 
 impl Dormancy {
-    /// A dormancy with no fine print under its sentence.
+    /// What a rule waits for, and the sentence saying why.
     #[must_use]
     pub fn new(waiting: impl Into<String>, reason: impl Into<String>) -> Self {
         Self {
             waiting: waiting.into(),
             reason: reason.into(),
-            detail: None,
         }
-    }
-
-    /// The same, carrying the values its sentence is derived from.
-    #[must_use]
-    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
-        self.detail = Some(detail.into());
-        self
     }
 }
 
@@ -689,6 +683,19 @@ pub trait Rule: Send + Sync {
         ""
     }
 
+    /// The severity every problem [`Rule::check`] reports carries.
+    ///
+    /// `None` where each finding answers for itself, because what it costs
+    /// depends on the machine the check ran on rather than on the rule.
+    ///
+    /// **A severity given here is this build's word, as much as the title is.**
+    /// That is what lets a remembered verdict take it from the running build
+    /// instead of from the record, so a rule demoted in a release stops drawing
+    /// the old glyph without waiting for a game patch to move the basis. It is
+    /// required rather than defaulted for the same reason: a rule that fell to
+    /// the wrong side of it by inheriting a default would go stale silently.
+    fn severity(&self) -> Option<Severity>;
+
     /// What this rule is, for the catalogue a [`Run`] carries.
     ///
     /// [`RuleState::Active`] here, because dormancy is a fact about a project
@@ -700,6 +707,7 @@ pub trait Rule: Send + Sync {
             title: self.title().to_owned(),
             description: self.description().to_owned(),
             unfixable: self.unfixable_description().to_owned(),
+            severity: self.severity(),
             state: RuleState::Active,
         }
     }

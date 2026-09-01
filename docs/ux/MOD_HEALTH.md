@@ -4,6 +4,8 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-09-01 | A rule's own severity comes from the build, not the store    |
+| 2026-09-01 | The count is a count, and the repair's reach is words beside |
 | 2026-09-01 | The basis names the meta schema, and its sync makes it due   |
 | 2026-08-30 | A repair refuses in words when the tables are not there      |
 | 2026-08-30 | The rejected fourth verdict word moves to ADR-0009           |
@@ -72,7 +74,19 @@ A check runs every Problems rule over one mod's content and summarizes the run f
 
 `repairable` means at least one finding carries a fix. `unrepairable` means findings exist and
 none does. There is no fourth word for a check that could not do its job - see
-[The hashtables come first](#the-hashtables-come-first). The verdict counts only **live** findings: a dormant rule is waiting on the
+[The hashtables come first](#the-hashtables-come-first).
+
+**Severity decides whether the mod is broken at all, and `Info` never is.** A finding at `Info` is
+worth knowing and says nothing is wrong, so a mod holding only those reads `healthy` and the
+badge, the drawer and the status bar item all stay quiet about it. `counts` still carries them, so
+anything drawing a tally draws them, and the Problems panel lists them as it lists everything else.
+This is what the flat drawer bought: the list is ordered by severity and no longer grouped under a
+repairable and an unrepairable heading, so the verdict word is free to mean "is anything wrong"
+rather than "did a rule say anything". The cost is that a repair reaching only informative findings
+is not offered from the library - `audio/bank-id` is the one - and is applied from the project's
+Problems panel instead.
+
+The verdict counts only **live** findings: a dormant rule is waiting on the
 machine - for a patch the installed game has not taken yet, or for an install to read at all - and
 the Problems panel shows those findings with the fix withheld. A surface with no panel makes the same cut itself, which is why a repair can never
 break a mod on the build the user plays tonight.
@@ -82,6 +96,31 @@ id. The file is a cache of a computation, not a record - a lost or unreadable fi
 and refills on the next check. It was `check-verdicts.json` before the feature took the word
 "health" everywhere, and the first sweep after that release deletes the old file rather than
 reading it: every row in it predates the basis below, so all of them are due again anyway.
+
+### What the store keeps
+
+**The store keeps what the run observed, and nothing the build owns.** A remembered brief is a rule
+id, the counts under it and the type pairs it found. Everything the rules declare about themselves
+is rebuilt on load from the manager that is running, so a release that rewrites a title, a why-not
+or a description reads correctly out of every verdict already on disk.
+
+That has to hold for more than the sentences. A rule that reports at one severity whatever it is
+run over is declaring a fact about the check, exactly as its title is - and a release that demotes
+one to `Info` because the state turned out to be worth knowing rather than wrong has to stop the
+amber triangle on every stored verdict at once. Nothing in [the basis](#the-basis) moves when a
+rule changes, so a remembered severity would stand until Riot shipped a patch.
+
+| What a brief holds | Who answers                                    |
+| ------------------ | ---------------------------------------------- |
+| Title, description | The running build, from the rule               |
+| Why-not sentence   | The running build, from the rule               |
+| Severity           | The running build, where the rule declares one |
+| Counts, type pairs | The run that found them                        |
+
+One rule declares none. `bin/property-type` costs a mod a crash on an install that has taken the
+change and a warning on one that has not, so what a finding costs is a question about the machine
+and only the run that read it can answer. The severity a brief keeps is there for that rule, and
+for a rule this build no longer ships, which has nobody left to answer for it.
 
 ### The basis
 
@@ -463,13 +502,23 @@ cause stops: never a site or a property path, per the line above.
 state at two costs - `bin/property-type` is fatal on an install that has taken the change and a
 warning on one that has not - so a group of findings is only as good as its worst member.
 
-The count wears the warning tone where a repair reaches those findings - as `(x of y)` when it
-reaches only some - and stays plain where none does, which is what tells the same rule apart on
-two mods. Where the repair falls short, the rule's own why-not sentence follows the cause -
-"Couldn't rehash because source string is unknown" - so the same rule being fixable on one mod and
-not on another stops being a mystery. The only word on a line is `not auto-fixable`, on a rule the
-press will not fix inside a mod the press is offered for. A verdict recorded before briefs existed
+**The count is a count.** How far a repair gets is said in words beside it, and only where the
+press falls short: `not auto-fixable` on a rule it will not touch, `1 not auto-fixable` where it
+reaches the rest. One line and one mechanism, so a rule the press half-reaches and a rule it cannot
+reach at all read the same way and differ by a number. `(1 of 3)` said it as a fraction, which is
+the shape of a page indicator rather than of a tally, and it borrowed the warning tone to say it -
+which put a second colour on a line whose glyph is already carrying severity.
+
+Those words are marked only inside a mod the press is offered for: a library no repair reaches at
+all is the header's one sentence, not twenty rows of it. A verdict recorded before briefs existed
 unfolds into nothing, so its row stays plain text until the next check rewrites it.
+
+**A rule line says its cause once.** The why-not sentence used to follow the cause on a line of its
+own, and the two read as the panel saying one thing twice: both are grey prose at the same size,
+and a rule whose description already names where the keys live does not need a second line saying
+they are not in the mod. The cause keeps the line, and the why-not becomes the count's tooltip -
+which is the seat the question is asked from, the same answer the row gives when a reader reaches
+for a Repair press that is not there.
 
 **An enabled mod's mark takes the accent.** The footer press repairs what the next game carries,
 and `Repair 2 enabled mods` is a promise about rows the list had no way to point at. The row's
@@ -573,6 +622,7 @@ would look ignored. "No problems found" is the answer.
 | ------------------------------------------------ | ------------------------------------------------------------------ |
 | Where do verdicts live?                          | `mod-health-verdicts.json`, a map beside the index                 |
 | What makes a stored verdict stale?               | Its basis: the build, the manager, the hashtables, the meta schema |
+| Which of a brief's fields does the store keep?   | The counts and the type pairs. The rest is the running build's     |
 | May a check run with no hashtables?              | No. The mod stays unchecked until they are there                   |
 | Does a launch fetch hashtables before sweeping?  | Yes, and a failed fetch does not stop the sweep                    |
 | Does the manager repair a mod on its own?        | No. Every run is a press, and it is the user's                     |

@@ -1,6 +1,10 @@
 //! Unit tests for what the rule reports, what it stays quiet about, and what
 //! its repair writes.
 
+use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_meta::property::{NoMeta, values};
+use ltk_meta::{Bin, BinObject, PropertyValueEnum};
+
 use super::*;
 use crate::config::Config;
 use crate::mods::test_support::{
@@ -188,10 +192,9 @@ fn the_name_hashes_to_the_id_the_game_ships() {
 /// spelling of the file name on disk never changes the id.
 #[test]
 fn case_and_extension_do_not_change_the_id() {
-    assert_eq!(
-        bank_id_for("Aatrox.wad.client/assets/SETT_Base_SFX_Audio.BNK"),
-        Some(SETT_BANK_ID)
-    );
+    let stem = named_stem("Aatrox.wad.client/assets/SETT_Base_SFX_Audio.BNK")
+        .expect("a named chunk keeps its stem");
+    assert_eq!(bank_id_of_name(stem), SETT_BANK_ID);
 }
 
 #[test]
@@ -276,4 +279,130 @@ fn a_chunk_named_by_its_hash_is_reported_without_a_repair() {
     );
     assert_eq!(read_back(&tmp, hashed), bank(0), "nothing was written");
     assert!(!AudioBankId::new().unfixable_description().is_empty());
+}
+
+/* The bin shape a bank's own name survives an unpack in. Written out here
+rather than read from the scanner, so a wrong constant there fails rather than
+agrees. */
+
+/// `SkinAudioProperties`.
+const SKIN_AUDIO: BinHash = BinHash(0x8f7b_194f);
+/// `bankUnits` on it.
+const BANK_UNITS: BinHash = BinHash(0xf8f2_9f92);
+/// `BankUnit`.
+const UNIT: BinHash = BinHash(0xa441_6515);
+/// `bankPath` on it.
+const UNIT_PATH: BinHash = BinHash(0x2a21_ad00);
+/// The object the fixture hangs its audio properties on.
+const BIN_ENTRY: BinHash = BinHash(0x1234_5678);
+
+/// Where the fixture's skin bin sits.
+const BIN_IN_WAD: &str = "data/characters/sett/skins/skin0.bin";
+
+/// A skin bin whose one bank unit names `paths` in plaintext.
+fn bin_naming(paths: &[&str]) -> Vec<u8> {
+    let unit = values::Struct {
+        class_hash: UNIT,
+        properties: [(
+            UNIT_PATH,
+            PropertyValueEnum::Container(values::Container::String {
+                items: paths
+                    .iter()
+                    .map(|path| values::String::new((*path).to_owned()))
+                    .collect(),
+                meta: NoMeta,
+            }),
+        )]
+        .into_iter()
+        .collect(),
+        meta: NoMeta,
+    };
+
+    let bin = Bin::new(
+        [BinObject::<NoMeta>::builder(BIN_ENTRY, SKIN_AUDIO)
+            .property(
+                BANK_UNITS,
+                PropertyValueEnum::Container(values::Container::Embedded {
+                    items: vec![values::Embedded(unit)],
+                    meta: NoMeta,
+                }),
+            )
+            .build()],
+        std::iter::empty::<&str>(),
+    );
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    out.into_inner()
+}
+
+/// A project holding the bank at `at` and one skin bin beside it.
+fn tree_with_bin(at: &str, bytes: &[u8], names: &[&str]) -> (tempfile::TempDir, ProjectFiles) {
+    let tmp = tempfile::tempdir().unwrap();
+    for (path, bytes) in [(at, bytes), (BIN_IN_WAD, bin_naming(names).as_slice())] {
+        let file = tmp
+            .path()
+            .join("content")
+            .join("base")
+            .join(format!("{WAD}/{path}").replace('/', std::path::MAIN_SEPARATOR_STR));
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(&file, bytes).unwrap();
+    }
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    (tmp, files)
+}
+
+/// The unpacked name of the chunk `BANK_IN_WAD` sits under.
+fn hashed_bank_path() -> String {
+    format!("assets/{:016x}.bnk", WadHash::hash_str(BANK_IN_WAD).0)
+}
+
+/// A bank has to be listed in a bank unit as plaintext or the game never loads
+/// it, so the name an unpack hashed away is still in the mod - in the one bin
+/// that asks for the bank.
+#[test]
+fn a_hash_named_chunk_takes_its_name_from_the_bank_unit_asking_for_it() {
+    let hashed = hashed_bank_path();
+    let (tmp, files) = tree_with_bin(&hashed, &bank(0), &[BANK_IN_WAD]);
+
+    let problems = found_in(&files);
+    assert_eq!(problems.len(), 1);
+    let fix = problems[0]
+        .fix
+        .as_ref()
+        .expect("the bank unit names the bank, so the id is derivable");
+    assert_eq!(
+        fix.after.as_deref(),
+        Some(format!("{SETT_BANK_ID:#010X}").as_str())
+    );
+
+    let applied = repair(&tmp, &problems);
+
+    assert_eq!(
+        applied,
+        Applied {
+            applied: 1,
+            skipped: 0
+        }
+    );
+    assert_eq!(read_back(&tmp, &hashed), bank(SETT_BANK_ID));
+}
+
+/// A bank no bank unit names is one the game never asks for and so never
+/// loads. The finding stands and the repair still declines, because hashing
+/// hex digits would write an id belonging to nothing.
+#[test]
+fn a_hash_named_chunk_no_bank_unit_asks_for_keeps_no_repair() {
+    let hashed = hashed_bank_path();
+    let (_tmp, files) = tree_with_bin(
+        &hashed,
+        &bank(0),
+        &["assets/sounds/wwise2016/sfx/other.bnk"],
+    );
+
+    let problems = found_in(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].fix, None);
 }
