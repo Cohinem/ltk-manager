@@ -6,6 +6,8 @@ import { useInstalledMods } from "./queries";
 import { useModHealthVerdicts } from "./useModHealthVerdicts";
 
 export interface BrokenMods {
+  /** Every unhealthy verdict, in library order. */
+  all: ModHealthVerdict[];
   /** Verdicts a repair would fix, in library order. */
   repairable: ModHealthVerdict[];
   /** Verdicts with findings and no fix for any, in library order. */
@@ -24,13 +26,19 @@ export function useBrokenMods(): BrokenMods {
   const { data: mods } = useInstalledMods();
 
   return useMemo(() => {
-    const found = (mods ?? [])
+    /* Healthy is a verdict like any other, so the unhealthy ones are what this
+       hook is about and every list it returns is drawn from them. */
+    const broken = (mods ?? [])
       .map((mod) => verdicts?.[mod.id])
-      .filter((verdict): verdict is ModHealthVerdict => verdict !== undefined);
+      .filter(
+        (verdict): verdict is ModHealthVerdict =>
+          verdict !== undefined && verdict.health !== "healthy",
+      );
 
     return {
-      repairable: found.filter((verdict) => verdict.health === "repairable"),
-      unrepairable: found.filter((verdict) => verdict.health === "unrepairable"),
+      all: broken,
+      repairable: broken.filter((verdict) => verdict.health === "repairable"),
+      unrepairable: broken.filter((verdict) => verdict.health === "unrepairable"),
     };
   }, [mods, verdicts]);
 }

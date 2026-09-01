@@ -71,16 +71,19 @@ jobs:
           # compatible version; --workspace only syncs the bumped member versions
           cargo update --workspace
           node scripts/generate-licenses.mjs
+          node scripts/generate-meta-schema.mjs
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add package.json src-tauri/Cargo.toml Cargo.lock public/third-party-licenses.json
+          git add package.json src-tauri/Cargo.toml Cargo.lock \
+            public/third-party-licenses.json \
+            crates/ltk-manager-core/src/meta_schema/schema-snapshot.json.gz
           git commit -m "chore: release v$VERSION"
           git push origin "$BRANCH"
 
           gh pr create \
             --title "chore: release v$VERSION" \
-            --body "Bumps version to **v$VERSION** in \`package.json\` and \`Cargo.toml\`." \
+            --body "Bumps version to **v$VERSION** in \`package.json\` and \`Cargo.toml\`, and re-runs the licenses manifest and meta schema snapshot generators." \
             --base main \
             --head "$BRANCH"

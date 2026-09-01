@@ -78,6 +78,7 @@ impl ModLibrary {
         if self.fill_hashtables() {
             tables_installed();
         }
+        self.fill_meta_schema();
 
         if let Err(e) = self.sweep_mod_health(config) {
             tracing::warn!("Failed to sweep mod health on startup: {}", e);

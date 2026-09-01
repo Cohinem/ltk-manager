@@ -14,6 +14,7 @@ use crate::mods::ModLibrary;
 use crate::mods::index::reconcile::reconcile_library_index;
 use crate::mods::slug::ModSlug;
 use crate::mods::types::{LibraryFolder, Profile, ProfileSlug, ROOT_FOLDER_ID};
+use crate::utils::fs::atomic_write;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -427,21 +428,7 @@ pub(crate) fn save_library_index(storage_dir: &Path, index: &LibraryIndex) -> Ap
     let mut to_save = index.clone();
     to_save.version = schema_migration::CURRENT_VERSION;
     let contents = serde_json::to_string_pretty(&to_save)?;
-    atomic_write_json(&path, &contents)?;
-    Ok(())
-}
-
-/// Write `contents` to `path` atomically via a sibling `.json.tmp` file.
-///
-/// A plain `fs::write` can leave `path` empty if the process is killed
-/// mid-write; the rename is atomic on all supported platforms so the
-/// destination is either the old version or the new version, never partial.
-pub(crate) fn atomic_write_json(path: &Path, contents: &str) -> AppResult<()> {
-    let tmp = path.with_extension("json.tmp");
-
-    fs::write(&tmp, contents)?;
-    fs::rename(&tmp, path)?;
-
+    atomic_write(&path, contents.as_bytes())?;
     Ok(())
 }
 

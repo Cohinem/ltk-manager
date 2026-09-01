@@ -187,6 +187,21 @@ pub struct HashtableCacheStatus {
     pub tables: Vec<HashtableStatus>,
     /// Ids from [`Table::ALL`] absent from the manifest.
     pub missing: Vec<String>,
+    /// The generation of the meta schema database a check would read.
+    ///
+    /// The cached copy where a sync has installed one, and the snapshot this
+    /// build ships otherwise, so it is never absent.
+    #[serde(default)]
+    pub schema: String,
+}
+
+impl HashtableCacheStatus {
+    /// Name the meta schema database beside what the tables hold.
+    #[must_use]
+    pub fn with_schema(mut self, generation: String) -> Self {
+        self.schema = generation;
+        self
+    }
 }
 
 /// One table the published release has a version of that this cache does not.
@@ -222,6 +237,25 @@ pub struct HashtableUpdateCheck {
     /// from [`behind`](Self::behind) because syncing cannot install them, so
     /// counting them as pending updates would promise a fix that is not there.
     pub unsupported_tables: Vec<String>,
+    /// The meta schema database that is published, when it is not the cached
+    /// one.
+    ///
+    /// Apart from [`behind`](Self::behind), which is tables and is drawn
+    /// against them, but counted in [`up_to_date`](Self::up_to_date) because
+    /// one sync covers both.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub schema_behind: Option<String>,
+}
+
+impl HashtableUpdateCheck {
+    /// Fold what the meta schema database check found into this report.
+    #[must_use]
+    pub fn with_schema(mut self, behind: Option<String>) -> Self {
+        self.up_to_date &= behind.is_none();
+        self.schema_behind = behind;
+        self
+    }
 }
 
 impl From<CheckReport> for HashtableUpdateCheck {
@@ -246,6 +280,7 @@ impl From<CheckReport> for HashtableUpdateCheck {
                 .map(|diff| diff.table.id().to_owned())
                 .collect(),
             unknown_tables: report.unknown_tables,
+            schema_behind: None,
         }
     }
 }
@@ -266,6 +301,19 @@ pub struct HashtableSyncReport {
     /// the cache keeps serving what it already holds and only a newer app can
     /// install these.
     pub unsupported_tables: Vec<String>,
+    /// Whether this run also installed a newer meta schema database.
+    #[serde(default)]
+    pub schema_installed: bool,
+}
+
+impl HashtableSyncReport {
+    /// Fold what the meta schema database sync did into this report.
+    #[must_use]
+    pub fn with_schema(mut self, installed: bool) -> Self {
+        self.up_to_date &= !installed;
+        self.schema_installed = installed;
+        self
+    }
 }
 
 /// The shared mimir hashtable cache on this machine.
@@ -314,6 +362,12 @@ impl HashtableCache {
         }
     }
 
+    /// The directory the tables live in.
+    #[must_use]
+    pub fn dir(&self) -> &std::path::Path {
+        self.store.dir()
+    }
+
     /// Report the manifest's view of the cache plus on-disk file sizes.
     ///
     /// A cache that was never populated is not an error: the report then has
@@ -356,6 +410,7 @@ impl HashtableCache {
             generated_at: manifest.as_ref().map(|m| m.generated_at.clone()),
             tables,
             missing,
+            schema: String::new(),
         })
     }
 
@@ -431,6 +486,7 @@ impl HashtableCache {
                         .iter()
                         .map(|t| t.table.id().to_owned())
                         .collect(),
+                    schema_installed: false,
                 })
             }
         }

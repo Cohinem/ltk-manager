@@ -4,26 +4,31 @@ import {
   PackageIcon,
   PlugsIcon,
   StackIcon,
-  WarningCircleIcon,
-  WrenchIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { type ReactNode, useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import {
-  Accordion,
   Button,
   ButtonGroup,
   Code,
   IconButton,
   Menu,
   Progress,
+  SeverityGlyph,
+  SeverityTally,
   ShockedPoroDuotoneIcon,
   Tooltip,
   WolfIcon,
+  worstOf,
 } from "@/components";
-import { type ModHealthVerdict, type ModRepairProgress, type RuleBrief } from "@/lib/tauri";
+import {
+  type ModHealthVerdict,
+  type ModRepairProgress,
+  type ProblemSeverity,
+  type RuleBrief,
+} from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
 
 import {
@@ -55,7 +60,7 @@ interface ModHealthSweepPanelProps {
  * once per row.
  */
 export function ModHealthSweepPanel({ onClose }: ModHealthSweepPanelProps) {
-  const { repairable, unrepairable } = useBrokenMods();
+  const { all, repairable, unrepairable } = useBrokenMods();
   const repair = useRepairMods();
   const { enabled } = useRepairTargets();
   const requested = useModHealthDrawerStore((s) => s.repairRequested);
@@ -100,13 +105,11 @@ export function ModHealthSweepPanel({ onClose }: ModHealthSweepPanelProps) {
         />
       </header>
 
-      {/* Grouped by verdict rather than run flat, so what a row's neighbours
-          all share is said once, by the group - DS-REPORT-PANEL. */}
+      {/* One mod per row, as the Problems panel lists one file per row -
+          DS-REPORT-PANEL. What a row is owed is its own severities, so it is
+          marked on the row rather than said by a heading over a class of them. */}
       <div className="mx-2 my-2 min-h-0 flex-1 overflow-y-auto rounded-xl border border-surface-700 bg-surface-950/30 scrollbar-md">
-        <Accordion.Root variant="filled" multiple defaultValue={["repairable", "unrepairable"]}>
-          {repairable.length > 0 && <VerdictGroup fixable verdicts={repairable} />}
-          {unrepairable.length > 0 && <VerdictGroup fixable={false} verdicts={unrepairable} />}
-        </Accordion.Root>
+        <VerdictRows verdicts={all} />
       </div>
 
       <PanelActions run={repair} fixable={fixable} onClose={onClose} />
@@ -346,69 +349,43 @@ function plural(count: number, noun: string): string {
 }
 
 /**
- * One verdict class and every mod in it.
+ * Every unhealthy mod, worst first.
  *
- * The header says once what its rows all share - whether a repair can reach
- * them - which is what lets a row be one line: a name and its count.
+ * The list is flat because the two verdicts were never a ranking: a mod one
+ * repair reaches and six hundred findings do not was filed above a mod with a
+ * single fatal nothing can reach. Severity is what a reader is triaging by, so
+ * it is what orders the rows, and the footer's own targets still lead.
  */
-function VerdictGroup({ fixable, verdicts }: { fixable: boolean; verdicts: ModHealthVerdict[] }) {
-  if (fixable) {
-    return (
-      <Accordion.Item variant="filled" value="repairable">
-        <Accordion.Trigger variant="filled">
-          <WrenchIcon weight="duotone" className="h-4 w-4 shrink-0 text-warning-text" />
-          <span className="min-w-0 flex-1 text-sm font-medium text-warning-text">
-            Can be repaired
-          </span>
-          <GroupCount count={verdicts.length} />
-        </Accordion.Trigger>
-        <GroupRows verdicts={verdicts} />
-      </Accordion.Item>
-    );
-  }
-
-  return (
-    <Accordion.Item variant="filled" value="unrepairable">
-      <Accordion.Trigger variant="filled">
-        <WarningCircleIcon weight="duotone" className="h-4 w-4 shrink-0 text-danger-text" />
-        <span className="min-w-0 flex-1 text-sm font-medium text-danger-text">
-          Cannot be repaired
-        </span>
-        <GroupCount count={verdicts.length} />
-      </Accordion.Trigger>
-      <GroupRows verdicts={verdicts} />
-    </Accordion.Item>
-  );
-}
-
-function GroupCount({ count }: { count: number }) {
-  return <span className="shrink-0 text-meta text-surface-400 tabular-nums">{count}</span>;
-}
-
-function GroupRows({ verdicts }: { verdicts: ModHealthVerdict[] }) {
+function VerdictRows({ verdicts }: { verdicts: ModHealthVerdict[] }) {
   const { data: mods = [] } = useInstalledMods();
   const enabled = new Set(mods.filter((mod) => mod.enabled).map((mod) => mod.id));
 
-  /* The footer's targets lead, and within each half the worst mod does. */
   const sorted = [...verdicts].sort((a, b) => {
     const lead = Number(enabled.has(b.modId)) - Number(enabled.has(a.modId));
-    return lead !== 0 ? lead : totalOf(b) - totalOf(a);
+    if (lead !== 0) return lead;
+    const worst = RANK[worstOf(a.counts)] - RANK[worstOf(b.counts)];
+    if (worst !== 0) return worst;
+    return totalOf(b) - totalOf(a);
   });
 
   return (
-    <Accordion.Panel variant="filled">
-      <ul className="flex flex-col py-1 select-none">
-        {sorted.map((verdict) => (
-          <VerdictRow key={verdict.modId} verdict={verdict} />
-        ))}
-      </ul>
-    </Accordion.Panel>
+    <ul className="flex flex-col py-1 select-none">
+      {sorted.map((verdict) => (
+        <VerdictRow key={verdict.modId} verdict={verdict} />
+      ))}
+    </ul>
   );
 }
 
+/** Where each severity sits when rows are ordered by the worst thing in them. */
+const RANK: Record<ProblemSeverity, number> = { fatal: 0, error: 1, warning: 2, info: 3 };
+
 /**
- * One mod's row: the mark, the name as a disclosure, and the count that gives
- * its seat to the hover-revealed Repair.
+ * One mod's row: the mark, the name as a disclosure, and what is wrong with it.
+ *
+ * The severities take the seat the total count had, because a reader triaging a
+ * list is asking how bad rather than how many, and the Repair press takes that
+ * seat back on hover.
  */
 function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
   const { data: mods = [] } = useInstalledMods();
@@ -449,13 +426,11 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
         )}
         <span
           className={twMerge(
-            "shrink-0 text-meta text-surface-400 tabular-nums",
-            fixable &&
-              "transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0",
+            "shrink-0 transition-opacity group-hover/row:opacity-0 group-has-[:focus-visible]/row:opacity-0",
             fixable && repair.isPending && "opacity-0",
           )}
         >
-          {problems(verdict)}
+          <SeverityTally counts={verdict.counts} />
         </span>
         {fixable && (
           <Button
@@ -473,6 +448,14 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
             <PlugsIcon className="h-4 w-4" weight="duotone" />
             Repair
           </Button>
+        )}
+        {/* The seat the press would be in. A reader asks why a row has none only
+            at the moment they reach for it, so the sentence the group header
+            used to hold over every such row is answered here instead. */}
+        {!fixable && (
+          <span className="absolute top-1/2 right-3 -translate-y-1/2 text-meta whitespace-nowrap text-surface-500 opacity-0 transition-opacity group-hover/row:opacity-100 group-has-[:focus-visible]/row:opacity-100">
+            Needs an updated version
+          </span>
         )}
       </div>
       {open && <RuleList verdict={verdict} />}
@@ -510,6 +493,7 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
       {(verdict.rules ?? []).map((brief) => (
         <li key={brief.rule} className="flex flex-col gap-0.5 pr-3 text-meta">
           <div className="flex items-center gap-1.5 text-surface-400">
+            <SeverityGlyph severity={brief.severity} />
             <span className="min-w-0 truncate">{brief.title}</span>
             <RuleCount brief={brief} />
             {/* Only the exception is marked: a rule the press will not fix,
@@ -563,11 +547,6 @@ function RuleCount({ brief }: { brief: RuleBrief }) {
       </span>
     </Tooltip>
   );
-}
-
-/** How much is wrong with this row's mod, in the one line it has. */
-function problems(verdict: ModHealthVerdict): string {
-  return plural(totalOf(verdict), "problem");
 }
 
 function totalOf(verdict: ModHealthVerdict): number {

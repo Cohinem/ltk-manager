@@ -32,6 +32,7 @@ export * from "./SectionCard";
 export * from "./SegmentedControl";
 export * from "./Select";
 export * from "./Separator";
+export * from "./Severity";
 export * from "./Skeleton";
 export * from "./Slider";
 export * from "./Spinner";

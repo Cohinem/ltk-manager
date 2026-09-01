@@ -46,6 +46,24 @@ pub enum Conversion {
     HashKey,
     /// A type tag or an embedded class hash changes, and no value moves.
     None,
+    /// Nothing this build knows turns the value into the type it should be.
+    Unknown,
+}
+
+impl Conversion {
+    /// How a value of `from` becomes one of `to`, where anything does.
+    ///
+    /// Derived from the pair rather than written per property, since the schema
+    /// names a type and not a recipe. A pair with no road between them is
+    /// [`Unknown`](Self::Unknown), which reports and offers no repair.
+    #[must_use]
+    pub fn between(from: Kind, to: Kind) -> Self {
+        match (from, to) {
+            (Kind::String, Kind::WadChunkLink) => Self::HashValue,
+            (Kind::Hash, Kind::WadChunkLink) => Self::Rehash,
+            _ => Self::Unknown,
+        }
+    }
 }
 
 /// A declared type, as one row of the table writes it.
@@ -67,6 +85,36 @@ pub struct TypeSpec {
 }
 
 impl TypeSpec {
+    /// The type naming nothing but a kind, which is all the schema gives.
+    #[must_use]
+    pub const fn bare(kind: Kind) -> Self {
+        Self {
+            kind,
+            key: None,
+            value: None,
+            class: None,
+            size: None,
+        }
+    }
+
+    /// The type `value` is written as, which is the `from` side of a
+    /// schema-derived row.
+    #[must_use]
+    pub fn of(value: &PropertyValueEnum) -> Self {
+        let mut spec = Self::bare(value.kind());
+        match value {
+            PropertyValueEnum::Container(items) => spec.value = Some(items.item_kind()),
+            PropertyValueEnum::UnorderedContainer(items) => spec.value = Some(items.0.item_kind()),
+            PropertyValueEnum::Optional(optional) => spec.value = Some(optional.item_kind()),
+            PropertyValueEnum::Map(map) => {
+                spec.key = Some(map.key_kind());
+                spec.value = Some(map.value_kind());
+            }
+            _ => {}
+        }
+        spec
+    }
+
     /// Whether `value` is declared as this type.
     ///
     /// Detection reads the value's own kind rather than a version, so a table

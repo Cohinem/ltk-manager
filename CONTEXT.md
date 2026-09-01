@@ -108,14 +108,22 @@ draw dimmed and count towards nothing, so a **verdict** is a claim only about th
 awake. Not **unchecked**, which is the whole mod saying nothing.
 
 **Basis** — what a check was a claim about: the installed game build, the manager version the rules
-and their tables shipped in, and the **generation** of the hashtable cache the run read. Recorded
-on every verdict, and comparing it is how the health sweep decides which verdicts are stale.
+and their tables shipped in, and the **generation** of the hashtable cache and the **meta schema**
+the run read. Recorded on every verdict, and comparing it is how the health sweep decides which
+verdicts are stale.
 
 **Hashtable cache** — the shared mimir cache of community hashtables, one per machine rather than
 per library, which is how a WAD chunk and a bin's hashed properties get their names back. Its
 **generation** is the manifest stamp, which moves only when a sync installs a table, so a press
 that changes nothing makes no verdict stale. Filled by **Sync now** in Settings and by the startup
 sync that runs in front of the health sweep.
+
+**Meta schema** — what type the game expects every bin property to hold, per build, published as
+one database by the LTK Meta Wiki. The game compares a bin's type tag against its own registrar by
+exact equality and silently discards a value that does not match, so this is the whole of what a
+type check needs. A build ships a snapshot so a check works offline, a cached copy sits beside the
+hashtables, and its **generation** is the publisher's stamp. Not the **schema migration**, which is
+`library.json`'s own versioning and unrelated.
 
 **Health sweep** — the startup pass that re-checks every mod whose basis moved, and forgets the
 verdicts of mods the library no longer holds. It forgets either way and checks only with the
@@ -146,9 +154,9 @@ idempotent, and it excludes what the community hashtables already resolve. It is
 the restore point and Undo — see ADR-0006. Not the same as the **harvest** at import, which
 recovers names off an incoming archive rather than keeping ones a write is about to destroy.
 
-## The three migrations
+## The four migrations
 
-Three different things, and the words do not overlap:
+Four different things, and the words do not overlap:
 
 **Layout migration** — the startup pass that moves every mod off the uuid layout and onto its slug.
 Two renames per mod and no unpack (ADR-0003), so it runs unasked, ahead of the first reconcile. A
@@ -160,6 +168,11 @@ old file up first, and never touches anything on disk outside that one document.
 
 **Cslol import** — bringing in mods from a cslol-manager installation. An _import_, not a migration,
 whatever the surrounding code is still called.
+
+**Migration table** — one JSONL file per game build, shipped in the core crate, naming the bin
+properties Riot retyped at that build and how a value crosses. What `bin/property-type` reads for
+a build later than the one installed, and wherever the **meta schema** does not reach. Riot
+migrating its own format, not a migration of anything the manager owns.
 
 ## The overlay
 

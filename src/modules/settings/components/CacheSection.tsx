@@ -11,7 +11,12 @@ import {
   Spinner,
   useToast,
 } from "@/components";
-import type { HashtableStatus, HashtableSyncProgress } from "@/lib/tauri";
+import type {
+  HashtableStatus,
+  HashtableSyncProgress,
+  HashtableSyncReport,
+  HashtableUpdateCheck,
+} from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import {
   useHashtableCacheStatus,
@@ -49,6 +54,25 @@ function sourceLabel(table: HashtableStatus): string | undefined {
 
 function updateLabel(count: number): string {
   return `${count} ${count === 1 ? "update" : "updates"} available`;
+}
+
+/* One Sync refreshes the tables and the meta schema, so one line counts both.
+   The schema is not a table and has no row of its own to mark, which is why it
+   is named here rather than folded into `behind`. */
+const SCHEMA_LABEL = "Meta schema";
+
+function behindLabels(updates: HashtableUpdateCheck): string[] {
+  const labels = updates.behind.map((update) => tableLabel(update.id));
+  return updates.schemaBehind ? [...labels, SCHEMA_LABEL] : labels;
+}
+
+/** What one sync run changed, named for what it installed rather than counted. */
+function syncedLabel(report: HashtableSyncReport): string {
+  const tables = report.installed.length;
+  const changed: string[] = [];
+  if (tables > 0) changed.push(`${tables} ${tables === 1 ? "table" : "tables"}`);
+  if (report.schemaInstalled) changed.push("the meta schema");
+  return `Updated ${changed.join(" and ")}.`;
 }
 
 function unsupportedLabel(ids: string[]): string {
@@ -95,14 +119,10 @@ export function CacheSection() {
     syncMutation.mutate(force, {
       onSuccess: (report) => {
         if (report.upToDate) {
-          toast.success("Already up to date", "The hashtable cache matches the latest release.");
+          toast.success("Already up to date", "The cache matches everything published.");
           return;
         }
-        const count = report.installed.length;
-        toast.success(
-          "Hashtables updated",
-          `Updated ${count} ${count === 1 ? "table" : "tables"}.`,
-        );
+        toast.success("Hashtables updated", syncedLabel(report));
       },
       onError: (err) => toast.error("Sync failed", err.message),
       onSettled: () => setProgress(null),
@@ -206,9 +226,9 @@ export function CacheSection() {
                 {updates && !updates.upToDate && (
                   <span
                     className="rounded-full bg-info/10 px-2 py-0.5 text-xs text-info-text"
-                    title={updates.behind.map((update) => tableLabel(update.id)).join(", ")}
+                    title={behindLabels(updates).join(", ")}
                   >
-                    {updateLabel(updates.behind.length)}
+                    {updateLabel(behindLabels(updates).length)}
                     {downloadSizeLabel(updates.downloadBytes)}
                   </span>
                 )}
@@ -242,6 +262,12 @@ export function CacheSection() {
                   <span className="text-surface-200 tabular-nums">{formatBytes(totalBytes)}</span>
                 </li>
               </ul>
+              {/* Beside the list rather than in it: the schema is not a table
+                  and carries none of the columns the rows draw. */}
+              <p className="text-xs text-surface-500">
+                {SCHEMA_LABEL} {formatUpdatedAt(status.schema)}
+                {updates?.schemaBehind && ` → ${formatUpdatedAt(updates.schemaBehind)}`}
+              </p>
               {status.missing.length > 0 && (
                 <p className="text-xs text-surface-500">
                   Not downloaded yet: {status.missing.map(tableLabel).join(", ")}.

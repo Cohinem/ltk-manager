@@ -1,9 +1,32 @@
 //! Filesystem moves the standard library does not offer.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::error::{AppError, AppResult};
+
+/// Write `contents` to `path` through a sibling temporary file.
+///
+/// A plain `fs::write` can leave `path` truncated if the process dies or the
+/// disk fills mid-write. The rename is atomic on every supported platform, so
+/// `path` is either the old bytes or the new ones.
+///
+/// # Errors
+///
+/// Fails when the temporary file cannot be written or renamed. A failed rename
+/// leaves the temporary file behind rather than the destination damaged.
+pub(crate) fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let tmp = temp_beside(path);
+    fs::write(&tmp, contents)?;
+    fs::rename(&tmp, path)
+}
+
+/// `path` with `.tmp` appended, keeping the extension the caller chose.
+fn temp_beside(path: &Path) -> PathBuf {
+    let mut name = path.as_os_str().to_os_string();
+    name.push(".tmp");
+    PathBuf::from(name)
+}
 
 /// Copy `source` and everything under it into `destination`.
 ///

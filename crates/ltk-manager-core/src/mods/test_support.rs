@@ -711,6 +711,31 @@ pub(crate) fn make_bin_fantome_zip(path: &Path, name: &str, bin: &ltk_meta::Bin)
     zip.finish().unwrap();
 }
 
+/// A fantome archive holding `bin` as a loose entry at `at`, verbatim.
+///
+/// For the paths Riot itself uses that carry no extension, which an archive
+/// scan can only identify by reading the entry's head.
+pub(crate) fn make_loose_bin_fantome_zip_at(
+    path: &Path,
+    name: &str,
+    at: &str,
+    bin: &ltk_meta::Bin,
+) {
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(name))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+    zip.start_file(format!("WAD/{at}"), options).unwrap();
+    zip.write_all(&bin_bytes(bin)).unwrap();
+    zip.finish().unwrap();
+}
+
 /// A fantome archive holding `bin` as a `RAW/` entry.
 ///
 /// An unpack writes those under the base layer rather than beside it, so a

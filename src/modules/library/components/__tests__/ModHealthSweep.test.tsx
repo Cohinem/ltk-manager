@@ -9,7 +9,7 @@ import { useLibrarySelectionStore, useModHealthDrawerStore } from "@/stores";
 
 import { ModHealthStatusItem } from "../ModHealthStatusItem";
 import { ModHealthSweep } from "../ModHealthSweep";
-import { installedMod, verdict } from "./modHealthFixtures";
+import { brokenMods, installedMod, verdict } from "./modHealthFixtures";
 
 const useBrokenMods = vi.fn<() => BrokenMods>();
 const repairMutate = vi.fn();
@@ -34,7 +34,7 @@ vi.mock("../../api", () => ({
 
 /** The bar's cell and the library's drawer, which is how they meet in the app. */
 function show(broken: Partial<BrokenMods>) {
-  useBrokenMods.mockReturnValue({ repairable: [], unrepairable: [], ...broken });
+  useBrokenMods.mockReturnValue(brokenMods(broken));
   render(
     <>
       <ModHealthStatusItem />
@@ -158,10 +158,7 @@ describe("ModHealthSweep", () => {
   /* Mod health is a library surface and the bar spans the app, so away from a
      library page the cell would be a press that opens nothing. */
   it("says nothing where no library page is there to host the drawer", () => {
-    useBrokenMods.mockReturnValue({
-      repairable: [verdict("a", "repairable")],
-      unrepairable: [],
-    });
+    useBrokenMods.mockReturnValue(brokenMods({ repairable: [verdict("a", "repairable")] }));
     render(<ModHealthStatusItem />);
 
     expect(item()).not.toBeInTheDocument();

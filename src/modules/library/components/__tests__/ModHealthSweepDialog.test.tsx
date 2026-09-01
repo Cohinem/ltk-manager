@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrokenMods } from "@/modules/library";
 
 import { ModHealthSweepDialog } from "../ModHealthSweepDialog";
-import { installedMod, verdict } from "./modHealthFixtures";
+import { brokenMods, installedMod, verdict } from "./modHealthFixtures";
 
 const useBrokenMods = vi.fn<() => BrokenMods>();
 const onClose = vi.fn();
@@ -27,7 +27,7 @@ vi.mock("../../api", () => ({
 }));
 
 function show() {
-  useBrokenMods.mockReturnValue({ repairable: [verdict("a", "repairable")], unrepairable: [] });
+  useBrokenMods.mockReturnValue(brokenMods({ repairable: [verdict("a", "repairable")] }));
   render(<ModHealthSweepDialog open onClose={onClose} />);
 }
 

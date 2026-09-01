@@ -7,6 +7,7 @@ use crate::config::Config;
 use crate::error::{AppResult, MutexResultExt};
 use crate::events::{BackendEvent, HealthSweepProgress};
 use crate::hashtables::HashtableCache;
+use crate::meta_schema::cache::{MetaSchemaCache, PublishedDb};
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryModEntry;
 use crate::problems::{BinNames, Budget, budget};
@@ -169,8 +170,7 @@ impl ModLibrary {
             }
         };
 
-        let user_agent = format!("ltk-manager/{}", self.app_version());
-        let report = match cache.sync(false, &user_agent, self.events().as_ref()) {
+        let report = match cache.sync(false, &self.user_agent(), self.events().as_ref()) {
             Ok(report) => report,
             Err(e) => {
                 tracing::warn!("Could not sync the hashtables before the library sweep: {e}");
@@ -189,6 +189,44 @@ impl ModLibrary {
         self.wad_resolver.invalidate();
         BinNames::invalidate_game_index();
         true
+    }
+
+    /// Fetch the meta schema database, for the sweep that is about to read it.
+    ///
+    /// Its own sync beside the hashtables', since the two publishers can be
+    /// down independently. A failure is logged and stepped over, leaving every
+    /// check on the shipped snapshot.
+    ///
+    /// Answers whether a newer database landed - see
+    /// [`HealthCheckBasis::schema`].
+    pub(in crate::mods) fn fill_meta_schema(&self) -> bool {
+        let cache = match MetaSchemaCache::discover() {
+            Ok(cache) => cache,
+            Err(e) => {
+                tracing::warn!("No meta schema cache to fill before the library sweep: {e}");
+                return false;
+            }
+        };
+
+        let fetch = match PublishedDb::new(&self.user_agent()) {
+            Ok(fetch) => fetch,
+            Err(e) => {
+                tracing::warn!("Could not build the meta schema client: {e}");
+                return false;
+            }
+        };
+
+        match cache.refresh(&fetch) {
+            Ok(report) => report.installed,
+            Err(e) => {
+                tracing::warn!("Could not sync the meta schema database: {e}");
+                false
+            }
+        }
+    }
+
+    pub(in crate::mods) fn user_agent(&self) -> String {
+        format!("ltk-manager/{}", self.app_version())
     }
 
     /// What the library sweep has to say for itself this launch.

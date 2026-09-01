@@ -56,6 +56,24 @@ cargo clippy -p ltk-manager
 cargo fmt -p ltk-manager
 ```
 
+## Generated Files
+
+Three artefacts are checked in and regenerated deliberately rather than at build time.
+
+```bash
+pnpm generate:types          # TypeScript bindings for the Tauri commands
+pnpm generate:licenses       # public/third-party-licenses.json, needs cargo-about on PATH
+pnpm generate:meta-schema    # the embedded meta schema snapshot
+```
+
+`generate:licenses` also runs from the pre-commit hook whenever `Cargo.lock` changes.
+
+`generate:meta-schema` reaches the LTK Meta Wiki API, so it stays out of the hook. It downloads
+nothing when the snapshot already matches what the publisher serves, and it takes `--check` and
+`--force`, both described in the script's own header. The release workflow refreshes the snapshot
+alongside the licenses manifest, because a snapshot older than the installed game build stands the
+`bin/property-type` check down for the offline user it exists to serve.
+
 ## Production Build
 
 ```bash

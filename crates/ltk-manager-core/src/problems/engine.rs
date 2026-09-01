@@ -303,7 +303,16 @@ fn absolute(root: &Path, file: &ProjectFile) -> PathBuf {
 fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
     let extension = at.extension().and_then(|extension| extension.to_str());
     let named = LeagueFileKind::from_extension(extension.unwrap_or_default());
-    if named != LeagueFileKind::Unknown || !is_hex_chunk_path(camino::Utf8Path::new(relative)) {
+    if named != LeagueFileKind::Unknown {
+        return WorkshopFileKind::from(named);
+    }
+
+    /* A file with no extension at all, or one an unpack named by its hash.
+    Riot ships bins under a bare name - `UX/FloatingText` is one - and an
+    extension is the only thing a walk has to go on, so without one the
+    first bytes are what says whether a rule should read it. A file whose
+    extension simply names nothing is left alone: it is not content. */
+    if extension.is_some() && !is_hex_chunk_path(camino::Utf8Path::new(relative)) {
         return WorkshopFileKind::from(named);
     }
 

@@ -20,7 +20,8 @@
     "prepare": "husky",
     "dev:logged": "node scripts/dev-logged.mjs",
     "generate:types": "cargo test --workspace export_bindings --no-fail-fast",
-    "generate:licenses": "node scripts/generate-licenses.mjs"
+    "generate:licenses": "node scripts/generate-licenses.mjs",
+    "generate:meta-schema": "node scripts/generate-meta-schema.mjs"
   },
   "lint-staged": {
     "./Cargo.lock": [

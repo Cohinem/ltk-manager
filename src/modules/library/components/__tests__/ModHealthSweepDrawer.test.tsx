@@ -8,7 +8,7 @@ import type { BrokenMods } from "@/modules/library";
 import { useModHealthDrawerStore } from "@/stores";
 
 import { ModHealthSweepDrawer } from "../ModHealthSweepDrawer";
-import { installedMod, verdict } from "./modHealthFixtures";
+import { brokenMods, installedMod, verdict } from "./modHealthFixtures";
 
 const useBrokenMods = vi.fn<() => BrokenMods>();
 const onClose = vi.fn();
@@ -28,7 +28,7 @@ vi.mock("../../api", () => ({
 }));
 
 function show() {
-  useBrokenMods.mockReturnValue({ repairable: [verdict("a", "repairable")], unrepairable: [] });
+  useBrokenMods.mockReturnValue(brokenMods({ repairable: [verdict("a", "repairable")] }));
   render(<ModHealthSweepDrawer open onClose={onClose} />);
 }
 

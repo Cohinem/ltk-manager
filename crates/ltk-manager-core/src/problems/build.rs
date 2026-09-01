@@ -38,6 +38,14 @@ impl GameBuild {
         }
     }
 
+    /// The content build, which is the number a schema revision is keyed on.
+    ///
+    /// The last of the three, so `16.17.8087655` gives `8087655`.
+    #[must_use]
+    pub const fn content(&self) -> u32 {
+        self.build
+    }
+
     /// The patch a player names, as `<major>.<minor>`.
     ///
     /// A build is `16.17.8087655` and the patch notes call it 16.17, so this is

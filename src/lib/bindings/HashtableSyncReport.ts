@@ -21,4 +21,8 @@ unknownTables: Array<string>,
  * the cache keeps serving what it already holds and only a newer app can
  * install these.
  */
-unsupportedTables: Array<string>, };
+unsupportedTables: Array<string>, 
+/**
+ * Whether this run also installed a newer meta schema database.
+ */
+schemaInstalled: boolean, };

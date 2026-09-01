@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-09-01 | The basis names the meta schema, and its sync makes it due   |
 | 2026-08-30 | A repair refuses in words when the tables are not there      |
 | 2026-08-30 | The rejected fourth verdict word moves to ADR-0009           |
 | 2026-08-30 | The menu row says what it waits for, before it is pressed    |
@@ -13,7 +14,6 @@
 | 2026-08-28 | The footer answers the dialog, whether or not it can repair  |
 | 2026-08-29 | A rule line says its cause, and only the exception is marked |
 | 2026-08-29 | A row unfolds into rules, wears the dot, and frees its seat  |
-| 2026-08-29 | The list folds into two verdict groups, which say the word   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -72,9 +72,9 @@ A check runs every Problems rule over one mod's content and summarizes the run f
 
 `repairable` means at least one finding carries a fix. `unrepairable` means findings exist and
 none does. There is no fourth word for a check that could not do its job - see
-[The hashtables come first](#the-hashtables-come-first). The verdict counts only **live** findings: a dormant rule describes a patch the
-installed game has not taken yet, and the Problems panel shows those findings with the fix
-withheld. A surface with no panel makes the same cut itself, which is why a repair can never
+[The hashtables come first](#the-hashtables-come-first). The verdict counts only **live** findings: a dormant rule is waiting on the
+machine - for a patch the installed game has not taken yet, or for an install to read at all - and
+the Problems panel shows those findings with the fix withheld. A surface with no panel makes the same cut itself, which is why a repair can never
 break a mod on the build the user plays tonight.
 
 Verdicts are remembered in `mod-health-verdicts.json` beside the library index, one row per mod
@@ -86,14 +86,15 @@ reading it: every row in it predates the basis below, so all of them are due aga
 ### The basis
 
 A verdict is a claim about one mod under one set of rules, on one game build, against one set of
-names, and it stays true only for as long as all three hold. So each one records what it was
-taken under.
+names and one set of types, and it stays true only for as long as all four hold. So each one
+records what it was taken under.
 
 | Field     | What it is                                                        |
 | --------- | ----------------------------------------------------------------- |
 | `build`   | The installed game build, absent where none could be read         |
 | `manager` | The manager version, which is what a migration table ships in     |
 | `tables`  | The shared hashtable cache's generation, absent where it is empty |
+| `schema`  | The meta schema database's generation, absent where none was open |
 
 The build is there because Riot ships a patch and a dormant rule wakes up. The manager version is
 there because a table update is a manager release - see
@@ -104,8 +105,14 @@ release adding a table has to make every verdict due again on the same game.
 paths an older one did not, and one repair turns on exactly that - see
 [The hashtables come first](#the-hashtables-come-first). So a sync makes every stored verdict due
 again, which is what shipped broken in 1.15: syncing changed nothing, and the poisoned badges stood
-until the next game patch. The generation stamp moves only when a sync installs something, so a
+until the next game patch. Its generation stamp moves only when a sync installs something, so a
 press that changes nothing makes nothing due.
+
+**The schema is there because it decides `bin/property-type` outright.** The game compares a bin's
+type tag against its own registrar by exact equality and silently discards a value that does not
+match, so a check taken against an older database was a claim about other types. Its generation is
+the publisher's own stamp, so - like the tables - a sync that installs nothing makes no verdict
+stale.
 
 Nothing else is in the basis. A mod's own content is not, because the manager is the only thing
 that writes it: an install and a repair each record a fresh verdict as they finish, so a mod's
@@ -198,11 +205,17 @@ archive-storage repair replaces the archive with the repacked result and keeps n
 original - see ADR-0005. Either way a repair that applied nothing leaves the mod untouched, byte
 for byte.
 
-**What a repair promises is losslessness, not reversal.** Neither storage keeps a way back. What
+**What a repair promises is a name, not reversal.** Neither storage keeps a way back. What
 both keep is the mod's own `hashes/game.hashes.txt`: every path a fix hashes away is written
 there first, so a repaired mod still names what it holds - see
 [ADR-0006](../adr/0006-a-repair-preserves-names-instead-of-keeping-a-restore-point.md). A user
 who wants the mod as it was reinstalls it.
+
+It is not a promise about content. Most repairs rewrite the value they came for and leave the
+rest of the file as they found it, but where a format admits no such edit the fix rebuilds what
+it touches and the author's fidelity goes with it - see
+[ADR-0011](../adr/0011-a-repair-may-lose-fidelity-where-no-in-place-edit-exists.md). Which
+repairs spend it is a property of each rule, and each says so.
 
 A repair records the mod's fresh verdict itself, so the badge updates without a second scan.
 Any repair that wrote also flushes the next overlay build, so the fix reaches the game without
@@ -217,16 +230,31 @@ The badge sits on the mod card beside the missing-dependency badge, and it
 draws only when something is wrong. A healthy mod shows nothing, and so does a mod never
 checked - a badge on every card would bury the few that matter.
 
-| Verdict        | Badge                                    |
-| -------------- | ---------------------------------------- |
-| `healthy`      | Nothing                                  |
-| `repairable`   | Amber wrench pill with the fixable count |
-| `unrepairable` | Red alert pill with the finding count    |
+**The verdict says what a repair can do. The severity says how much it matters.** The badge is
+the one surface that has to read both, because `unrepairable` covers a mod the game will refuse
+to load and a mod that plays with one effect missing, and those two do not deserve the same
+colour.
+
+| Verdict        | Findings                | Badge                                    |
+| -------------- | ----------------------- | ---------------------------------------- |
+| `healthy`      | none                    | Nothing                                  |
+| `repairable`   | any                     | Amber wrench pill with the fixable count |
+| `unrepairable` | a fatal or an error     | Red alert pill with the finding count    |
+| `unrepairable` | warnings and infos only | Muted pill with the finding count        |
 
 The popover behind the pill carries the verdict in plain counts, when the check ran, one
 Repair button, and a re-check. It never shows a property path - the full findings wait for the
-disclosure row above. An unrepairable mod's sentence says to look for an updated version of
-the mod, because "stop trying" is the actionable half of that verdict.
+disclosure row above.
+
+The two unrepairable rows say different things, because their users have different problems. The
+red one says to look for an updated version of the mod, because "stop trying" is the actionable
+half of that verdict. The muted one says the mod loads and something in it will not behave, and
+it does not tell anyone to go looking - a mod whose worst finding is a warning is a mod most
+people should keep and play.
+
+**Neither of them is a fourth word.** The stored verdict is still one of three, and the split is
+in what the badge reads rather than in what the check concludes, so nothing in
+`mod-health-verdicts.json` changes shape and the counts a badge needs are already on every row.
 
 ## The library sweep
 
@@ -246,6 +274,7 @@ finds nothing due, and is over.
 | Checked on an older build            | Checks it again          |
 | Checked by an older manager          | Checks it again          |
 | Checked against older hashtables     | Checks it again          |
+| Checked against an older meta schema | Checks it again          |
 | Any of the above, with no hashtables | Stands down entirely     |
 | Checked under the basis it is on now | Skips it                 |
 | Faulted, or a modpkg                 | Never checked at all     |
@@ -290,11 +319,10 @@ The launch ask is the exception that has to cross: its controls are in that same
   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│    Repairing is         │░░░░
                          ░░░░░░│    recommended, though… │░░░░
   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░├─────────────────────────┤░░░░
-                         ░░░░░░│ 🔧 Charizard  [⏻ Repair]│░░░░
-  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│    3 problems           │░░░░
-                         ░░░░░░│ ⚠  Old Ashe Rework      │░░░░
-  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│    4 unfixable problems │░░░░
-                         ░░░░░░├─────────────────────────┤░░░░
+                         ░░░░░░│ 📦 Charizard  [⏻ Repair]│░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│ 📦 Old Ashe Rework  ⛔2 │░░░░
+                         ░░░░░░│ 📦 Pengu Graves     ⚠ 4 │░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░├─────────────────────────┤░░░░
   ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│          [⏻ Repair 2 ▲] │░░░░
                          ░░░░░░╰─────────────────────────╯░░░░
 ─────────────────────────────────────────────────────────────
@@ -399,38 +427,49 @@ sitting where the button sat, because a progress bar reports a whole run and has
 the width of one press. The outcome stays a toast: by
 then the drawer has usually emptied itself and gone.
 
-**The drawer holds the whole finding.** A header that says what to do, the rows folded into two
-groups, and the one press. The groups are the two verdicts - `Can be repaired` and
-`Cannot be repaired` - each a full-bleed collapsible band with its count, so twenty broken mods
-read as two problems rather than twenty. A row is then one line, a mod name and how much is wrong with it -
-`3 problems`. Both groups count the same thing, so a repairable row shows every finding rather
-than only the subset a repair can reach. It never shows a property path, for the same reason the
-badge's popover does not: that is the modder's half, and it lives in the Problems panel.
+**The drawer holds the whole finding.** A header that says what to do, one row per mod, and the
+one press. The rows run flat, as the Problems panel lists one file per row, and a row is a mod
+name and a tally of what is wrong with it by severity - a glyph and a count per rung, with the
+empty rungs drawn as nothing. It counts every finding rather than only the subset a repair can
+reach. It never shows a property path, for the same reason the badge's popover does not: that is
+the modder's half, and it lives in the Problems panel.
 
-**The group says the word, once.** A missing Repair button is not a message: a reader scanning
-twenty rows sees one with nothing to press and has to work out why. `Cannot be repaired` on the
-group header puts that fact over every row it covers, and saying it there is what lets the rows
-drop it - a column of `unfixable` repeated per row was the noise the grouping folds away.
+**Severity orders the list, because severity is what a reader is triaging by.** The rows the
+footer press targets lead, then the worst mod, then the largest. Repairability was the old
+ordering and it ranked the list wrongly: a mod one repair reaches and six hundred findings do not
+sat above a mod with a single fatal, because the split asked whether _any_ finding was fixable
+rather than how much of the mod was owed.
+
+**A row with no repair says so in the press's own seat.** A missing Repair button is not a
+message, and a flat list has no header to say the word once over a class of rows. What replaces
+it is not a column of `unfixable` per row, which was the noise the old grouping folded away: the
+row stays clean at rest, and `Needs an updated version` appears in the seat the press would have
+taken, on hover and on focus. A reader asks the question only at the moment they reach for the
+button, so that is where it is answered.
 
 Where to go next is said once, by the header, and only where it is the whole story: a library no
 repair can reach at all reads "look for updated versions". A mixed list does not repeat it per
 row - the header's one line belongs to the repair that most of the list is still owed, and a row
 has no second line to spend on the same sentence twenty times.
 
-**A row unfolds into its rules.** `3 problems` says how much and nothing else, so the row's name
-is a disclosure: folding it open lists the rules behind the count - `Meta property type
-mismatch (2)` with the rule's id as a chip, and the actual disagreement under it: `Expected File,
-found Hash`, one line per type pair the findings hold, with the rule's own sentence standing in
-only where a rule reports no types. That line is where the cause stops: never a site or a
-property path, per the line above. The count wears the warning tone where a repair reaches those findings - as
-`(x of y)` when it reaches only some - and stays plain where none does, which is what tells the
-same rule apart across the two groups. Where the repair falls short, the rule's own why-not
-sentence follows the cause - "Couldn't rehash because source string is unknown" -
-so the same rule being fixable on one mod and not on another stops being a mystery. The only word on a line is `not auto-fixable`, on a rule
-the press will not fix inside a mod the press is offered for - everything else is already said by
-the group. A verdict
-recorded before briefs existed unfolds into nothing, so its row stays plain text until the next
-check rewrites it.
+**A row unfolds into its rules.** The tally says how much and nothing else, so the row's name
+is a disclosure: folding it open lists the rules behind it - `Meta property type
+mismatch (2)` behind its own severity glyph, with the rule's id as a chip, and the actual
+disagreement under it: `Expected File, found Hash`, one line per type pair the findings hold, with
+the rule's own sentence standing in only where a rule reports no types. That line is where the
+cause stops: never a site or a property path, per the line above.
+
+**The glyph is the rule's worst finding, not the rule's own rank.** A rule can report the same
+state at two costs - `bin/property-type` is fatal on an install that has taken the change and a
+warning on one that has not - so a group of findings is only as good as its worst member.
+
+The count wears the warning tone where a repair reaches those findings - as `(x of y)` when it
+reaches only some - and stays plain where none does, which is what tells the same rule apart on
+two mods. Where the repair falls short, the rule's own why-not sentence follows the cause -
+"Couldn't rehash because source string is unknown" - so the same rule being fixable on one mod and
+not on another stops being a mystery. The only word on a line is `not auto-fixable`, on a rule the
+press will not fix inside a mod the press is offered for. A verdict recorded before briefs existed
+unfolds into nothing, so its row stays plain text until the next check rewrites it.
 
 **An enabled mod's mark takes the accent.** The footer press repairs what the next game carries,
 and `Repair 2 enabled mods` is a promise about rows the list had no way to point at. The row's
@@ -530,30 +569,30 @@ would look ignored. "No problems found" is the answer.
 
 ## Decided questions
 
-| Question                                         | Answer                                             |
-| ------------------------------------------------ | -------------------------------------------------- |
-| Where do verdicts live?                          | `mod-health-verdicts.json`, a map beside the index |
-| What makes a stored verdict stale?               | Its basis: the build, the manager, the hashtables  |
-| May a check run with no hashtables?              | No. The mod stays unchecked until they are there   |
-| Does a launch fetch hashtables before sweeping?  | Yes, and a failed fetch does not stop the sweep    |
-| Does the manager repair a mod on its own?        | No. Every run is a press, and it is the user's     |
-| Does the item draw when nothing was re-checked?  | Yes. It answers to the verdicts, not to the sweep  |
-| Where does the item sit?                         | A cell at the right of the status bar              |
-| Can a reader dismiss it?                         | No. It leaves when nothing is wrong any more       |
-| Does it move the library when it appears?        | No. It overlays, so no card shifts under a reader  |
-| Does one mod failing stop Repair all?            | No. It is recorded, and the rest are repaired      |
-| Does a check write anything to the mod?          | No. The archive stays byte for byte                |
-| Can a repair reach a bin no hashtable names?     | Yes. It is addressed by its chunk hash throughout  |
-| What does a repair do with the original archive? | Replaces it, and keeps no copy - ADR-0005          |
-| Can a repair run for a build the user is not on? | No. Dormant rules' findings are cut from the run   |
-| Is a repaired mod repairable again next patch?   | Yes. The rules stay quiet about a repaired value   |
-| Does one broken mod stop a batch check?          | No. It is logged, skipped, and has no verdict      |
-| Does a repair disturb the mod's setup?           | No. Id, slug, profiles and layers all stay         |
-| Can the patcher run during a repair?             | No. A check yes - it only reads                    |
-| Does stopping a run put the repaired mods back?  | No. It stops the run. ADR-0006 is why              |
-| Does the cell draw outside the library?          | No. The drawer is the library's, so the cell is    |
-| Can the panel be dragged wider?                  | Only the sheet form. The dialog is centred         |
-| Is a mod's content part of what makes it stale?  | No. Only the manager writes it, and it re-checks   |
+| Question                                         | Answer                                                             |
+| ------------------------------------------------ | ------------------------------------------------------------------ |
+| Where do verdicts live?                          | `mod-health-verdicts.json`, a map beside the index                 |
+| What makes a stored verdict stale?               | Its basis: the build, the manager, the hashtables, the meta schema |
+| May a check run with no hashtables?              | No. The mod stays unchecked until they are there                   |
+| Does a launch fetch hashtables before sweeping?  | Yes, and a failed fetch does not stop the sweep                    |
+| Does the manager repair a mod on its own?        | No. Every run is a press, and it is the user's                     |
+| Does the item draw when nothing was re-checked?  | Yes. It answers to the verdicts, not to the sweep                  |
+| Where does the item sit?                         | A cell at the right of the status bar                              |
+| Can a reader dismiss it?                         | No. It leaves when nothing is wrong any more                       |
+| Does it move the library when it appears?        | No. It overlays, so no card shifts under a reader                  |
+| Does one mod failing stop Repair all?            | No. It is recorded, and the rest are repaired                      |
+| Does a check write anything to the mod?          | No. The archive stays byte for byte                                |
+| Can a repair reach a bin no hashtable names?     | Yes. It is addressed by its chunk hash throughout                  |
+| What does a repair do with the original archive? | Replaces it, and keeps no copy - ADR-0005                          |
+| Can a repair run for a build the user is not on? | No. Dormant rules' findings are cut from the run                   |
+| Is a repaired mod repairable again next patch?   | Yes. The rules stay quiet about a repaired value                   |
+| Does one broken mod stop a batch check?          | No. It is logged, skipped, and has no verdict                      |
+| Does a repair disturb the mod's setup?           | No. Id, slug, profiles and layers all stay                         |
+| Can the patcher run during a repair?             | No. A check yes - it only reads                                    |
+| Does stopping a run put the repaired mods back?  | No. It stops the run. ADR-0006 is why                              |
+| Does the cell draw outside the library?          | No. The drawer is the library's, so the cell is                    |
+| Can the panel be dragged wider?                  | Only the sheet form. The dialog is centred                         |
+| Is a mod's content part of what makes it stale?  | No. Only the manager writes it, and it re-checks                   |
 
 ## Open questions
 

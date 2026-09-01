@@ -27,4 +27,13 @@ unknownTables: Array<string>,
  * from [`behind`](Self::behind) because syncing cannot install them, so
  * counting them as pending updates would promise a fix that is not there.
  */
-unsupportedTables: Array<string>, };
+unsupportedTables: Array<string>, 
+/**
+ * The meta schema database that is published, when it is not the cached
+ * one.
+ *
+ * Apart from [`behind`](Self::behind), which is tables and is drawn
+ * against them, but counted in [`up_to_date`](Self::up_to_date) because
+ * one sync covers both.
+ */
+schemaBehind?: string, };

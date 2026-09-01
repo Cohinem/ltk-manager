@@ -10,6 +10,10 @@ use ltk_manager_core::hashtables::{
     HashtableCache, HashtableCacheStatus, HashtableSyncReport, HashtableUpdateCheck,
     WadPathResolverState,
 };
+use ltk_manager_core::meta_schema::{
+    self,
+    cache::{MetaSchemaCache, PublishedDb},
+};
 use ltk_manager_core::mods::HealthSweepState;
 use ltk_manager_core::problems::BinNames;
 use ltk_manager_core::strings::StringKeyIndexState;
@@ -23,17 +27,45 @@ const SYNC_USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"))
 /// A cache that was never synced is a normal report, not an error.
 #[tauri::command]
 pub async fn get_hashtable_cache_status() -> IpcResult<HashtableCacheStatus> {
-    off_thread(|| Ok(HashtableCache::shared()?.status()?)).await
+    off_thread(|| {
+        let tables = HashtableCache::shared()?.status()?;
+        Ok(tables.with_schema(meta_schema::shared(None).generation().to_owned()))
+    })
+    .await
 }
 
 /// Report what the latest published release has that the cache does not.
 ///
 /// Reads the remote manifest and nothing else: no download, no install, and no
 /// update lock, so this is safe to run unasked and safe while another process
-/// is midway through a sync.
+/// is midway through a sync. The meta schema database is asked the same
+/// question, and answers for itself.
 #[tauri::command]
 pub async fn check_hashtable_updates() -> IpcResult<HashtableUpdateCheck> {
-    off_thread(|| Ok(HashtableCache::shared()?.check(SYNC_USER_AGENT)?)).await
+    off_thread(|| {
+        let tables = HashtableCache::shared()?.check(SYNC_USER_AGENT)?;
+        Ok(tables.with_schema(check_meta_schema()))
+    })
+    .await
+}
+
+/// The meta schema database that is published, when it is not the cached one.
+///
+/// Best-effort, so a publisher that is down costs the card a line rather than
+/// its whole answer.
+fn check_meta_schema() -> Option<String> {
+    let cache = MetaSchemaCache::discover()
+        .inspect_err(|e| tracing::debug!("No meta schema cache to check: {e}"))
+        .ok()?;
+    let fetch = PublishedDb::new(SYNC_USER_AGENT)
+        .inspect_err(|e| tracing::warn!("Could not build the meta schema client: {e}"))
+        .ok()?;
+
+    cache
+        .check(&fetch)
+        .inspect_err(|e| tracing::warn!("Could not check the meta schema database: {e}"))
+        .ok()
+        .flatten()
 }
 
 /// Download the latest published hashtables into the shared cache.
@@ -47,7 +79,8 @@ pub async fn check_hashtable_updates() -> IpcResult<HashtableUpdateCheck> {
 pub async fn sync_hashtables(force: bool, app: AppHandle) -> IpcResult<HashtableSyncReport> {
     off_thread(move || {
         let events = TauriEventSink::new(app.clone());
-        let report = HashtableCache::shared()?.sync(force, SYNC_USER_AGENT, &events)?;
+        let tables = HashtableCache::shared()?.sync(force, SYNC_USER_AGENT, &events)?;
+        let report = tables.with_schema(sync_meta_schema());
 
         if !report.up_to_date {
             reopen_after_sync(&app);
@@ -56,6 +89,31 @@ pub async fn sync_hashtables(force: bool, app: AppHandle) -> IpcResult<Hashtable
         Ok(report)
     })
     .await
+}
+
+/// Bring the cached meta schema database up to date, and say whether it moved.
+///
+/// The counterpart of `ModLibrary::fill_meta_schema`, which the startup pass
+/// runs. A failure is logged and stepped over.
+fn sync_meta_schema() -> bool {
+    let Ok(cache) = MetaSchemaCache::discover()
+        .inspect_err(|e| tracing::warn!("No meta schema cache to sync: {e}"))
+    else {
+        return false;
+    };
+    let Ok(fetch) = PublishedDb::new(SYNC_USER_AGENT)
+        .inspect_err(|e| tracing::warn!("Could not build the meta schema client: {e}"))
+    else {
+        return false;
+    };
+
+    match cache.refresh(&fetch) {
+        Ok(report) => report.installed,
+        Err(e) => {
+            tracing::warn!("Could not sync the meta schema database: {e}");
+            false
+        }
+    }
 }
 
 /// Drop everything read out of the tables a sync has just replaced.
