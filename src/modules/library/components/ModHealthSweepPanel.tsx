@@ -481,9 +481,9 @@ function RowMark({ enabled }: { enabled: boolean }) {
 /**
  * The rules behind a row's count, for the reader who folds it open.
  *
- * Each rule says its cause in its own sentence. Titles and sentences, never a
- * site or a property path - that is the modder's half, and it lives in the
- * Problems panel.
+ * Each rule says its cause in one sentence. Titles and sentences, never a site
+ * or a property path - that is the modder's half, and it lives in the Problems
+ * panel.
  */
 function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
   const fixable = verdict.health === "repairable";
@@ -495,12 +495,8 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
           <div className="flex items-center gap-1.5 text-surface-400">
             <SeverityGlyph severity={brief.severity} />
             <span className="min-w-0 truncate">{brief.title}</span>
-            <RuleCount brief={brief} />
-            {/* Only the exception is marked: a rule the press will not fix,
-                inside a mod the press is offered for. */}
-            {fixable && brief.fixable === 0 && (
-              <span className="shrink-0 text-surface-500">not auto-fixable</span>
-            )}
+            <span className="shrink-0 tabular-nums">({brief.count})</span>
+            <RuleReach brief={brief} offered={fixable} />
             <Code className="ml-auto select-text">{brief.rule}</Code>
           </div>
           {(brief.mismatches ?? []).length > 0 ? (
@@ -514,7 +510,6 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
           ) : (
             <p className="text-surface-500">{brief.description}</p>
           )}
-          {brief.unfixable != null && <p className="text-surface-500">{brief.unfixable}</p>}
         </li>
       ))}
     </ul>
@@ -522,31 +517,32 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
 }
 
 /**
- * A rule line's count, wearing the warning tone where a repair reaches it.
+ * What the press will not reach on this line, and why.
  *
- * The same rule can sit in both groups - fixable in one mod, not in another -
- * and the tinted count is what tells two otherwise identical lines apart.
+ * Only the exception is marked, and only inside a mod the press is offered for:
+ * a library no repair reaches at all is the header's one sentence rather than
+ * twenty rows of it.
+ *
+ * The count beside this stays a count. A rule reporting the same state on two
+ * mods is told apart by these words rather than by a tint, because the line
+ * already spends colour on severity and a reader cannot be asked to read one
+ * hue as two things.
+ *
+ * The why-not is this phrase's tooltip, per "A rule line says its cause once"
+ * in docs/ux/MOD_HEALTH.md.
  */
-function RuleCount({ brief }: { brief: RuleBrief }) {
-  if (brief.fixable === 0) {
-    return <span className="shrink-0 tabular-nums">({brief.count})</span>;
-  }
+function RuleReach({ brief, offered }: { brief: RuleBrief; offered: boolean }) {
+  const missed = brief.count - brief.fixable;
+  if (!offered || missed === 0) return null;
 
-  if (brief.fixable === brief.count) {
-    return (
-      <Tooltip content="A repair fixes all of these">
-        <span className="shrink-0 text-warning-text tabular-nums">({brief.count})</span>
-      </Tooltip>
-    );
-  }
-
-  return (
-    <Tooltip content={`A repair fixes ${brief.fixable} of the ${brief.count}`}>
-      <span className="shrink-0 text-warning-text tabular-nums">
-        ({brief.fixable} of {brief.count})
-      </span>
-    </Tooltip>
+  const phrase = (
+    <span className="shrink-0 text-surface-500">
+      {missed === brief.count ? "not auto-fixable" : `${missed} not auto-fixable`}
+    </span>
   );
+
+  if (brief.unfixable == null) return phrase;
+  return <Tooltip content={brief.unfixable}>{phrase}</Tooltip>;
 }
 
 function totalOf(verdict: ModHealthVerdict): number {
