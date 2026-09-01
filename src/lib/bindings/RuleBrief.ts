@@ -26,7 +26,8 @@ description: string,
  * The worst this rule found here.
  *
  * Folded per problem rather than taken from the rule, since one rule can
- * report the same state at two severities.
+ * report the same state at two severities - see
+ * [`Rule::severity`](problems::Rule::severity).
  */
 severity: ProblemSeverity, 
 /**

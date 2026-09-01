@@ -117,7 +117,11 @@ fn a_resolver_holding_far_fewer_keys_than_the_games_is_reported() {
     assert_eq!(problems.len(), 1);
     let problem = &problems[0];
     assert_eq!(problem.rule, ID);
-    assert_eq!(problem.severity, Severity::Warning);
+    assert_eq!(
+        problem.severity,
+        Severity::Info,
+        "a miss degrades to a placeholder effect, so nothing here is broken"
+    );
     assert_eq!(problem.site.layer, "base");
     assert_eq!(problem.site.path, in_layer());
     let node = problem.site.node.as_ref().expect("the resolver object");
@@ -127,7 +131,7 @@ fn a_resolver_holding_far_fewer_keys_than_the_games_is_reported() {
 
 /// Story: the count is a fidelity loss and never a crash. The row says both
 /// counts, says what a miss actually costs, and denies the crash outright -
-/// because a reader meeting a red row assumes one.
+/// because a reader meeting a count in the hundreds assumes one.
 #[test]
 fn the_finding_names_both_counts_and_denies_a_crash() {
     let (_tmp, files) = tree(63, Some(install(231)));
@@ -219,7 +223,6 @@ fn a_run_with_no_install_records_the_rule_as_dormant() {
         info.state = RuleState::Dormant {
             waiting: dormancy.waiting,
             reason: dormancy.reason,
-            detail: dormancy.detail,
         };
     }
 

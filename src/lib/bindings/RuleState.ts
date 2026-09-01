@@ -20,8 +20,4 @@ waiting: string,
 /**
  * One sentence a reader who has not met this check can act on.
  */
-reason: string, 
-/**
- * The values behind `reason`, for a reader who wants them.
- */
-detail: string | null, };
+reason: string, };

@@ -52,9 +52,7 @@ export function AheadToggle() {
  * Why these findings are set apart, and what the pill does about them.
  *
  * The sentence is the rule's own, because what a check waits for is the check's
- * own business. Its detail is the builds the two sides compared, kept out of
- * that sentence and offered under it for a modder checking one install against
- * another.
+ * own business. One sentence per rule and no more.
  */
 function AheadTip() {
   const waiting = useDormantRules();
@@ -72,7 +70,6 @@ function AheadTip() {
           <div key={info.id} className="flex flex-col gap-1">
             {waiting.length > 1 && <span className="text-surface-300">{info.title}</span>}
             <span className="text-surface-200">{info.state.reason}</span>
-            {info.state.detail && <span className="text-surface-500">{info.state.detail}</span>}
           </div>
         );
       })}

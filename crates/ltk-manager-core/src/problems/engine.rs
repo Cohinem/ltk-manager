@@ -642,7 +642,6 @@ impl ProjectFiles {
                 info.state = RuleState::Dormant {
                     waiting: dormancy.waiting,
                     reason: dormancy.reason,
-                    detail: dormancy.detail,
                 };
             }
             rules.push(info);

@@ -133,13 +133,32 @@ describe("ModHealthSweepPanel", () => {
       screen.queryByText("A bin property's type does not match what the game expects"),
     ).not.toBeInTheDocument();
     expect(screen.getByText("bin-property-type")).toBeInTheDocument();
-    /* The fixture's brief fixes 2 of 3, and the fraction is what separates a
-       fixable line from the identical rule on an unrepairable mod. */
-    expect(screen.getByText("(2 of 3)")).toBeInTheDocument();
-    /* The repair falls short of the count, so the rule's own why-not sentence
-       follows the cause. */
+    /* The fixture's brief fixes 2 of 3, and the words beside the count are
+       what separate it from the identical rule on an unrepairable mod. */
+    expect(screen.getByText("(3)")).toBeInTheDocument();
+    expect(screen.getByText("1 not auto-fixable")).toBeInTheDocument();
+    /* The why-not is not a line. Drawn under the cause it read as the panel
+       saying one thing twice, so those words hold it instead. */
     expect(
-      screen.getByText("Couldn't rehash because source string is unknown"),
+      screen.queryByText("Couldn't rehash because source string is unknown"),
+    ).not.toBeInTheDocument();
+  });
+
+  /* Story: the count is a count, whatever a repair can reach. What the press
+     will miss is said in the words the list already uses for it, so a partial
+     line and a hopeless one read the same way and differ by a number. */
+  it("says how many of a rule's findings the repair will miss", async () => {
+    const user = userEvent.setup();
+    show({ repairable: [verdict("a", "repairable", { findings: 3 })], unrepairable: [] });
+
+    await user.click(screen.getByRole("button", { name: "Charizard Smolder" }));
+
+    expect(screen.getByText("(3)")).toBeInTheDocument();
+    expect(screen.queryByText("(2 of 3)")).not.toBeInTheDocument();
+
+    await user.hover(screen.getByText("1 not auto-fixable"));
+    expect(
+      await screen.findByText("Couldn't rehash because source string is unknown"),
     ).toBeInTheDocument();
   });
 

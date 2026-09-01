@@ -22,3 +22,6 @@ pub fn all() -> Vec<Box<dyn Rule>> {
         Box::new(bin_resolver_key_loss::BinResolverKeyLoss::new()),
     ]
 }
+
+#[cfg(test)]
+mod tests;

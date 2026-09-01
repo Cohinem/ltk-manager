@@ -84,11 +84,20 @@ impl Rule for BinPropertyType {
     }
 
     fn description(&self) -> &'static str {
-        "The type of a meta property in a bin file does not match what the game expects"
+        "A meta property at a type the game no longer reads, so its value is dropped"
     }
 
     fn unfixable_description(&self) -> &'static str {
-        "Couldn't rehash because source string is unknown"
+        "Couldn't rehash because the original path is unknown"
+    }
+
+    /// The one rule whose findings answer for themselves - see [`severity`].
+    ///
+    /// What a mismatch costs is a question about the install, so two machines
+    /// reading one mod are entitled to two answers and neither is this build's
+    /// to give.
+    fn severity(&self) -> Option<Severity> {
+        None
     }
 
     /// The oldest table this project's game has not reached, in a modder's words.
@@ -98,29 +107,23 @@ impl Rule for BinPropertyType {
     /// rather than a mod that is broken - which is what [`Severity::Warning`]
     /// already says of each of them, and what the panel mutes them for.
     ///
-    /// The sentence names the patch rather than the build, because a patch is
-    /// the number a modder reads in Riot's notes. The builds both sides compare
-    /// on are the fine print under it.
+    /// The sentence names the patches rather than the builds both sides compare
+    /// on, because a patch is the number a modder reads in Riot's notes.
     fn dormant(&self, project: &ProjectFiles) -> Option<Dormancy> {
         let installed = project.build()?;
-        let waiting = table::tables()
+        let patch = table::tables()
             .iter()
             .find(|table| table.build() > installed)?
-            .build();
-        let patch = waiting.patch();
+            .build()
+            .patch();
 
-        Some(
-            Dormancy::new(
-                format!("Patch {patch}"),
-                format!(
-                    "Riot changes how these values are stored in patch {patch}. Your game is on {}, so nothing here is broken yet, and repairing it now breaks the mod on the patch you play.",
-                    installed.patch()
-                ),
-            )
-            .with_detail(format!(
-                "Your game is on {installed}, and the change lands in {waiting}"
-            )),
-        )
+        Some(Dormancy::new(
+            format!("Patch {patch}"),
+            format!(
+                "Riot changes how these values are stored in patch {patch}, and your game is on {}, so repairing now breaks the mod on the patch you play.",
+                installed.patch()
+            ),
+        ))
     }
 
     fn check(&self, project: &ProjectFiles, report: &mut Report) {
@@ -1211,19 +1214,19 @@ fn note(
     match migration.conversion {
         Conversion::Rehash if resolved_paths(value, migration, names).is_none() => {
             parts.push(format!(
-                "The FNV1a Hash value {} could not be converted to File, the 64-bit xxHash of the same path, because neither the Mimir hashtables nor the mod's own resolve it back to its original path. Adding the path to the mod's hashtables makes this repairable.",
+                "Neither the Mimir hashtables nor the mod's own resolve the FNV1a Hash value {} back to its path, and only that path crosses to File, the 64-bit xxHash. Adding the path to the mod's hashtables makes this repairable.",
                 unresolved(value, names)
             ));
         }
         Conversion::HashKey if resolved_paths(value, migration, names).is_none() => {
             parts.push(format!(
-                "This map's FNV1a Hash keys could not be converted to File keys, the 64-bit xxHash of the same paths, because neither the Mimir hashtables nor the mod's own resolve {} back to its original path. Adding the paths to the mod's hashtables makes this repairable.",
+                "Neither the Mimir hashtables nor the mod's own resolve {} back to its path, and only those paths cross to File keys, the 64-bit xxHash. Adding the paths to the mod's hashtables makes this repairable.",
                 unresolved(value, names)
             ));
         }
         Conversion::Unknown => {
             parts.push(format!(
-                "The game reads this property as {}, and a value of another type is thrown away without a word. Nothing this build knows rewrites a {} into one, so the mod has to be rebuilt against the current game.",
+                "The game reads this property as {} and drops a value of any other type. Nothing rewrites a {} into one, so the mod has to be rebuilt against the current game.",
                 migration.to.label(),
                 migration.from.label()
             ));

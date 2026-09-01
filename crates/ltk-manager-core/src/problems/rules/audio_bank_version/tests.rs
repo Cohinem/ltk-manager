@@ -154,7 +154,7 @@ fn a_legacy_bank_carrying_its_hierarchy_is_reported() {
 
     let message = problem.message.as_deref().unwrap_or_default();
     assert!(message.contains("134"), "{message}");
-    assert!(message.contains("without a message"), "{message}");
+    assert!(message.contains("without a word"), "{message}");
 }
 
 /// The refusal that keeps the rule off the majority of legacy banks. Reporting

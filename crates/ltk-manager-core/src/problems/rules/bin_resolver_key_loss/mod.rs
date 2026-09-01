@@ -11,9 +11,14 @@
 //! same handful of keys repeated per skin, where the game's copy holds that
 //! skin's own set. One measured mod dropped 1,151 keys across 75 resolvers.
 //!
-//! **The finding does not claim a crash.** Resolution walks its tiers and, on
-//! total failure, logs and substitutes a placeholder effect, so what a lost key
-//! costs is the effect rather than the process.
+//! **A miss does not crash, so this reports at `Info`.** Effect-key resolution
+//! walks its tiers, and on total failure it logs the key that resolved to
+//! nothing and substitutes a placeholder effect - which it then resolves
+//! through the same last-resort tier. The one assert on that path is compiled
+//! out of a retail build. So what a lost resource costs is the effect rather
+//! than the process, and a mod that gives every skin one look drops these on
+//! purpose: the rule cannot tell that apart from an accident, which is what
+//! makes this worth knowing rather than something wrong.
 //!
 //! Two refusals keep the count honest:
 //!
@@ -72,15 +77,19 @@ impl Rule for BinResolverKeyLoss {
     }
 
     fn title(&self) -> &'static str {
-        "Resource resolver key loss"
+        "Partial resource resolver"
     }
 
     fn description(&self) -> &'static str {
-        "A resource resolver defining far fewer keys than the game's own copy of the same object. A spell asking for one of the missing keys gets a placeholder effect instead of the one it named"
+        "A mod's resource resolver doesn't define all of the expected resources"
     }
 
     fn unfixable_description(&self) -> &'static str {
-        "The missing keys are defined in your installed game rather than in the mod, so there is nothing in the mod's own files to correct"
+        "Couldn't restore the resources because writing the game's copy in would tie the mod to one patch"
+    }
+
+    fn severity(&self) -> Option<Severity> {
+        Some(Severity::Info)
     }
 
     /// Nothing to compare against is not the same as nothing to report.
@@ -88,7 +97,7 @@ impl Rule for BinResolverKeyLoss {
         project.game().is_none().then(|| {
             Dormancy::new(
                 "A League install",
-                "This check reads the game's own copy of each bin the mod replaces, and there is no League install configured to read.",
+                "This check reads the game's own copy of each bin the mod replaces, and there is no League install to read.",
             )
         })
     }
@@ -130,7 +139,7 @@ impl Rule for BinResolverKeyLoss {
             match found {
                 Some(Ok(losses)) => {
                     for loss in losses {
-                        report.problem(ID, Severity::Warning, site(loss.entry), loss.detail());
+                        report.problem(ID, Severity::Info, site(loss.entry), loss.detail());
                     }
                 }
                 Some(Err(e)) => {
@@ -240,7 +249,7 @@ impl Loss {
     /// What this one finding says.
     fn detail(&self) -> Detail {
         Detail::new(format!(
-            "The game's copy of this resolver maps {} keys and the mod's maps {}. Anything asking for one of the {} that are gone gets a placeholder effect rather than the one it named. That is a fidelity loss rather than a crash, and a mod that deliberately gives every skin one look drops these keys on purpose.",
+            "The game's copy defines {} resources and the mod's defines {}. Anything asking for one of the {} that are gone gets a placeholder effect rather than the one it named. That is a fidelity loss rather than a crash, and a mod that gives every skin one look drops these on purpose.",
             self.holds,
             self.keeps,
             self.holds - self.keeps

@@ -34,7 +34,6 @@ const DORMANT: RuleInfo["state"] = {
   kind: "dormant",
   waiting: "Patch 16.17",
   reason: "Riot changes how these values are stored in patch 16.17.",
-  detail: null,
 };
 
 function rule(state: RuleInfo["state"]): RuleInfo {

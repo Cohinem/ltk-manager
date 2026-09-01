@@ -179,11 +179,11 @@ fn forgetting_a_verdict_makes_the_sweep_owe_that_mod_a_check() {
 }
 
 /// Story: a build rewrites a rule's sentences, and the sweep sees no reason to
-/// re-check anything - the basis has not moved. The words must never come out
-/// of the store, so the file keeps the counts alone and a load reconstructs
-/// every sentence from the rules this build ships.
+/// re-check anything - the basis has not moved. Nothing the build owns may come
+/// out of the store, so the file keeps what the run saw and a load rebuilds the
+/// rest from the rules this build ships.
 #[test]
-fn the_store_keeps_no_sentences_and_a_load_reconstructs_them() {
+fn the_store_keeps_what_the_run_saw_and_a_load_rebuilds_the_rest() {
     let storage = tempfile::tempdir().unwrap();
     let brief = RuleBrief {
         rule: "bin/property-type".to_owned(),
@@ -236,8 +236,97 @@ fn the_store_keeps_no_sentences_and_a_load_reconstructs_them() {
     assert_eq!(
         brief.severity,
         problems::Severity::Fatal,
-        "severity is data the store keeps, not a sentence a build rewrites"
+        "this rule's findings each answer for themselves, so the run's is the only answer"
     );
+}
+
+/// Story: a build demotes a rule to `Info`, deciding the state it reports is
+/// worth knowing rather than wrong. No basis moves on a code edit, so the sweep
+/// owes nothing and the stored verdicts stand - and every one of them would go
+/// on drawing the amber triangle until the game patched. A severity the rule
+/// declares is this build's word, exactly as its title is.
+#[test]
+fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
+    let storage = tempfile::tempdir().unwrap();
+    let rule = problems::rules::all()
+        .into_iter()
+        .find(|rule| rule.id().0 == "bin/resolver-key-loss")
+        .unwrap();
+    assert_eq!(
+        rule.severity(),
+        Some(problems::Severity::Info),
+        "the rule this test is about has to be one that declares"
+    );
+
+    let file = VerdictFile {
+        verdicts: std::iter::once((
+            "id-1".to_owned(),
+            ModHealthVerdict {
+                mod_id: "id-1".to_owned(),
+                health: ModHealth::Unrepairable,
+                fixable: 0,
+                counts: Counts::default(),
+                rules: vec![RuleBrief {
+                    rule: "bin/resolver-key-loss".to_owned(),
+                    title: String::new(),
+                    description: String::new(),
+                    severity: problems::Severity::Warning,
+                    count: 75,
+                    fixable: 0,
+                    mismatches: Vec::new(),
+                    unfixable: None,
+                }],
+                checked_at: "2026-08-28T10:00:00Z".to_owned(),
+                basis: HealthCheckBasis::default(),
+            },
+        ))
+        .collect(),
+    };
+    file.save(storage.path()).unwrap();
+
+    let loaded = VerdictFile::load(storage.path());
+    let brief = &loaded.verdicts["id-1"].rules[0];
+
+    assert_eq!(brief.severity, problems::Severity::Info);
+    assert_eq!(brief.count, 75, "the counts are still the run's to answer");
+}
+
+/// A rule this build no longer ships has no one left to answer for it, so the
+/// severity the run saw is what the row keeps drawing.
+#[test]
+fn a_rule_the_build_dropped_keeps_the_severity_it_was_stored_with() {
+    let storage = tempfile::tempdir().unwrap();
+    let file = VerdictFile {
+        verdicts: std::iter::once((
+            "id-1".to_owned(),
+            ModHealthVerdict {
+                mod_id: "id-1".to_owned(),
+                health: ModHealth::Unrepairable,
+                fixable: 0,
+                counts: Counts::default(),
+                rules: vec![RuleBrief {
+                    rule: "bin/a-rule-this-build-retired".to_owned(),
+                    title: String::new(),
+                    description: String::new(),
+                    severity: problems::Severity::Error,
+                    count: 2,
+                    fixable: 0,
+                    mismatches: Vec::new(),
+                    unfixable: None,
+                }],
+                checked_at: "2026-08-28T10:00:00Z".to_owned(),
+                basis: HealthCheckBasis::default(),
+            },
+        ))
+        .collect(),
+    };
+    file.save(storage.path()).unwrap();
+
+    let loaded = VerdictFile::load(storage.path());
+    let brief = &loaded.verdicts["id-1"].rules[0];
+
+    assert_eq!(brief.severity, problems::Severity::Error);
+    assert_eq!(brief.title, "bin/a-rule-this-build-retired");
 }
 
 /// Story: a build adds data the old shape never wrote - the type pairs - and
@@ -346,4 +435,54 @@ fn forgetting_a_verdict_that_is_not_held_writes_nothing() {
     library.forget_health_check(&storage_dir, "never-checked");
 
     assert!(!storage_dir.join("mod-health-verdicts.json").exists());
+}
+
+/// A run holding one finding at `severity`, for the verdict tests below.
+fn run_of(severity: problems::Severity) -> Run {
+    let mut report = problems::Report::default();
+    report.problem(
+        problems::RuleId("audio/bank-id"),
+        severity,
+        problems::Site::file("base", "assets/sounds/sfx.bnk"),
+        problems::Detail::new("worth knowing"),
+    );
+    let (found, failed) = report.finish();
+    Run {
+        at: chrono::Utc::now(),
+        rules: Vec::new(),
+        objects: Vec::new(),
+        problems: found,
+        failed,
+    }
+}
+
+/// Story: `Info` is worth knowing and says nothing is wrong, so a mod whose
+/// findings are all informative is not one the library has to report. It reads
+/// healthy, and the drawer, the badge and the status bar all stay quiet - while
+/// the finding itself is still counted for anything that draws the tally.
+#[test]
+fn a_mod_whose_findings_are_all_informative_reads_healthy() {
+    let verdict = ModHealthVerdict::from_run(
+        "id-1",
+        &run_of(problems::Severity::Info),
+        HealthCheckBasis::default(),
+    );
+
+    assert_eq!(verdict.health, ModHealth::Healthy);
+    assert_eq!(
+        verdict.counts.infos, 1,
+        "the finding is still counted, it just says nothing is wrong"
+    );
+}
+
+/// The severity is what decides it, so the same shape one rung up is broken.
+#[test]
+fn one_rung_above_informative_is_a_mod_the_library_reports() {
+    let verdict = ModHealthVerdict::from_run(
+        "id-1",
+        &run_of(problems::Severity::Warning),
+        HealthCheckBasis::default(),
+    );
+
+    assert_ne!(verdict.health, ModHealth::Healthy);
 }

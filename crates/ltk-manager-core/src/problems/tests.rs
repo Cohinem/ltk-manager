@@ -151,17 +151,15 @@ fn a_rule_that_speaks_about_every_project_is_active() {
 }
 
 #[test]
-fn a_dormant_rule_serializes_with_every_length_of_its_reason() {
+fn a_dormant_rule_serializes_with_both_lengths_of_its_reason() {
     let json = serde_json::to_value(RuleState::Dormant {
         waiting: "Patch 16.17".to_owned(),
         reason: "These break when patch 16.17 arrives.".to_owned(),
-        detail: Some("Your game is on 16.16.8049184".to_owned()),
     })
     .unwrap();
     assert_eq!(json["kind"], "dormant");
     assert_eq!(json["waiting"], "Patch 16.17");
     assert_eq!(json["reason"], "These break when patch 16.17 arrives.");
-    assert_eq!(json["detail"], "Your game is on 16.16.8049184");
 }
 
 #[test]
@@ -213,6 +211,7 @@ fn active(id: RuleId) -> RuleInfo {
         title: "Meta property type mismatch".to_owned(),
         description: "The declared type is not the one the game reads".to_owned(),
         unfixable: String::new(),
+        severity: Some(Severity::Fatal),
         state: RuleState::Active,
     }
 }
@@ -266,7 +265,6 @@ fn only_a_fixable_problem_of_a_live_rule_is_offered_to_a_repair() {
                 state: RuleState::Dormant {
                     waiting: "Patch 16.18".to_owned(),
                     reason: "Not yet".to_owned(),
-                    detail: None,
                 },
                 ..active(dormant)
             },

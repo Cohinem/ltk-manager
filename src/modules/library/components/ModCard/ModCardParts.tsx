@@ -346,15 +346,21 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
   function handleCheckHealth() {
     checkModHealth.mutate(modId, {
       onSuccess: (verdict) => {
-        if (verdict.health === "healthy") {
-          toast.success("No problems found");
-          return;
-        }
         const total =
           verdict.counts.fatals +
           verdict.counts.errors +
           verdict.counts.warnings +
           verdict.counts.infos;
+        /* A healthy mod can still hold informative findings, and telling
+           somebody who just asked that nothing was found would be wrong. */
+        if (verdict.health === "healthy") {
+          if (total === 0) {
+            toast.success("No problems found");
+            return;
+          }
+          toast.info(`${total} finding${total === 1 ? "" : "s"}, nothing wrong`);
+          return;
+        }
         if (verdict.health === "repairable") {
           toast.info(
             `${verdict.fixable} repairable finding${verdict.fixable === 1 ? "" : "s"} found`,

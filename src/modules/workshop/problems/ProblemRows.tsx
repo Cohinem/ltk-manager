@@ -285,7 +285,10 @@ function ProblemTip({ problem }: { problem: Problem }) {
           <SeverityGlyph severity={problem.severity} />
           <span className="font-medium text-surface-50">{rule?.title ?? problem.rule}</span>
         </span>
-        {rule && <span className="text-surface-400">{rule.description}</span>}
+        {/* The finding's own sentence where it has one, the rule's where it
+            does not. One slot, because a rule that describes itself and a row
+            that describes itself say the same thing twice. */}
+        <span className="text-surface-400">{problem.message ?? rule?.description}</span>
       </div>
 
       <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 border-t border-surface-700 pt-2">
@@ -304,10 +307,6 @@ function ProblemTip({ problem }: { problem: Problem }) {
 
         {problem.fix && <TipValueRow fix={problem.fix} />}
       </dl>
-
-      {problem.message && (
-        <p className="border-t border-surface-700 pt-2 text-surface-200">{problem.message}</p>
-      )}
 
       <span className="text-surface-500">{problem.rule}</span>
     </div>
