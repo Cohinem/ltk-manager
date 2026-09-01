@@ -121,9 +121,13 @@ sync that runs in front of the health sweep.
 **Meta schema** — what type the game expects every bin property to hold, per build, published as
 one database by the LTK Meta Wiki. The game compares a bin's type tag against its own registrar by
 exact equality and silently discards a value that does not match, so this is the whole of what a
-type check needs. A build ships a snapshot so a check works offline, a cached copy sits beside the
-hashtables, and its **generation** is the publisher's stamp. Not the **schema migration**, which is
-`library.json`'s own versioning and unrelated.
+type check needs. The cached copy beside the hashtables is the one a check reads, and the **health
+sweep** refreshes it before it runs, so a newer schema reaches a user without waiting on a release.
+A build ships a snapshot as the floor under that, for the machine that has never synced or is
+offline, and its **generation** is the publisher's stamp. Which way round those two go is the point:
+the sync is how the schema is delivered and the snapshot is only what stands in until it lands, so a
+publisher that cannot be reached costs a check its freshness and never its result. Not the **schema
+migration**, which is `library.json`'s own versioning and unrelated.
 
 **Health sweep** — the startup pass that re-checks every mod whose basis moved, and forgets the
 verdicts of mods the library no longer holds. It forgets either way and checks only with the
