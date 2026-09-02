@@ -55,6 +55,12 @@ pub trait Declared<'a>: TreeValue<'a> {
 
     /// The class a `Struct` or `Embedded` carries, which is 0 for a null pointer.
     fn class_hash(&self) -> Option<BinHash>;
+
+    /// Whether this is an option whose header says it holds nothing.
+    ///
+    /// An option writes its item kind and its count apart, so an empty one
+    /// still declares the type it would hold. False for every other kind.
+    fn is_empty_option(&self) -> bool;
 }
 
 impl<'a, M> Declared<'a> for &'a PropertyValueEnum<M> {
@@ -82,6 +88,10 @@ impl<'a, M> Declared<'a> for &'a PropertyValueEnum<M> {
             _ => None,
         }
     }
+
+    fn is_empty_option(&self) -> bool {
+        matches!(self, PropertyValueEnum::Optional(optional) if optional.is_none())
+    }
 }
 
 impl<'a, M: Default> Declared<'a> for ValueView<'a, M> {
@@ -108,6 +118,10 @@ impl<'a, M: Default> Declared<'a> for ValueView<'a, M> {
             ValueView::Struct(object) | ValueView::Embedded(object) => Some(object.class_hash()),
             _ => None,
         }
+    }
+
+    fn is_empty_option(&self) -> bool {
+        matches!(self, ValueView::Optional(optional) if optional.is_none())
     }
 }
 

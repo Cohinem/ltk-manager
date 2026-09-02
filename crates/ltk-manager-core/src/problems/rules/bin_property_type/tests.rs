@@ -1393,3 +1393,422 @@ fn a_complex_property_is_repaired_on_its_subtypes_as_well() {
         .expect("the path it held, hashed");
     assert_eq!(link.value, WadHash::hash_str(ICON));
 }
+
+// ---- the roads that move no value ---------------------------------------
+
+/// `MatchmakingQueue`, whose `GameTypeConfigId` Riot widened from `U8` to `U32`.
+const MATCHMAKING_QUEUE: BinHash = BinHash(0xd99f_f7e6);
+const GAME_TYPE_CONFIG_ID: BinHash = BinHash(0x0ecb_2d58);
+
+/// A `fontWeight` Riot moved the other way, from `U32` down to `U8`.
+const TEXT_STYLE_DATA: BinHash = BinHash(0x92c8_c778);
+const FONT_WEIGHT: BinHash = BinHash(0x2bf7_7ed0);
+
+/// `TftScoreboardViewController`, whose `PlayerSelfTemplate` was an `Embed` and
+/// is a `Pointer`, beside the class it holds.
+const TFT_SCOREBOARD: BinHash = BinHash(0x4934_0fba);
+const PLAYER_SELF_TEMPLATE: BinHash = BinHash(0x9ad5_b45c);
+const PLAYER_TEMPLATE_CLASS: BinHash = BinHash(0x9034_7ed8);
+
+/// A `particleLifetime` that went the other way, from `Pointer` to `Embed`,
+/// beside the class it holds.
+const VFX_EMITTER: BinHash = BinHash(0x287a_50ff);
+const PARTICLE_LIFETIME: BinHash = BinHash(0x2a55_2694);
+const LIFETIME_CLASS: BinHash = BinHash(0xafe1_d569);
+
+/// A migration the way [`derived`] builds one, for a pair no table names.
+fn crossing(from: TypeSpec, to: TypeSpec) -> Migration {
+    Migration {
+        class: SKIN,
+        field: ICON_AVATAR,
+        class_name: None,
+        field_name: None,
+        conversion: Conversion::between(&from, &to),
+        from,
+        to,
+    }
+}
+
+/// Story: a mod authored before Riot widened the field writes the number in one
+/// byte, and the game now reads four. Every value of the narrow type is a value
+/// of the wide one, so the number crosses whole and only the tag changes.
+#[test]
+fn an_integer_the_game_widened_is_rewritten_at_the_wider_type() {
+    let bin = object_bin(MATCHMAKING_QUEUE, GAME_TYPE_CONFIG_ID, values::U8::new(42));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "U32");
+    assert_eq!(mismatch.found, "U8");
+    assert!(problems[0].fix.is_some(), "the number crosses whole");
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    assert_eq!(
+        written.objects()[&ENTRY].properties[&GAME_TYPE_CONFIG_ID],
+        values::U32::new(42).into()
+    );
+}
+
+/// The other direction drops the top of the number, so there is nothing to
+/// offer and the row stands without a repair rather than guessing at one.
+#[test]
+fn an_integer_the_game_narrowed_is_reported_without_a_repair() {
+    let bin = object_bin(TEXT_STYLE_DATA, FONT_WEIGHT, values::U32::new(700));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].fix, None);
+}
+
+/// A container crosses on what it holds, so a list of narrow integers is
+/// rebuilt item by item. No shipped revision retypes one, and a mod that
+/// declared the wrong item type reaches the same road.
+#[test]
+fn widening_rebuilds_a_container_under_the_wider_item_type() {
+    let list_of = |item| TypeSpec {
+        value: Some(item),
+        ..TypeSpec::bare(Kind::Container)
+    };
+    let migration = crossing(list_of(Kind::U8), list_of(Kind::U32));
+    let mut value: PropertyValueEnum = values::Container::new(
+        Kind::U8,
+        vec![values::U8::new(1).into(), values::U8::new(255).into()],
+    )
+    .expect("a list of bytes")
+    .into();
+
+    assert!(convert(&mut value, &migration, &BinNames::none()));
+
+    let PropertyValueEnum::Container(items) = &value else {
+        panic!("expected a List");
+    };
+    assert_eq!(items.item_kind(), Kind::U32);
+    assert_eq!(
+        items.items(),
+        [values::U32::new(1).into(), values::U32::new(255).into()]
+    );
+}
+
+/// A map crosses on its values and an option on what it holds. An option
+/// holding nothing crosses too, because it declares an item type either way.
+#[test]
+fn widening_reaches_a_map_value_and_an_option_that_holds_nothing() {
+    let map_of = |value| TypeSpec {
+        key: Some(Kind::String),
+        value: Some(value),
+        ..TypeSpec::bare(Kind::Map)
+    };
+    let mut map = values::Map::empty(Kind::String, Kind::U16).expect("kinds a map can hold");
+    map.push(text("small").into(), values::U16::new(9).into())
+        .unwrap();
+    let mut value: PropertyValueEnum = map.into();
+
+    assert!(convert(
+        &mut value,
+        &crossing(map_of(Kind::U16), map_of(Kind::U32)),
+        &BinNames::none()
+    ));
+
+    let PropertyValueEnum::Map(map) = &value else {
+        panic!("expected a Map");
+    };
+    assert_eq!(map.key_kind(), Kind::String, "the keys are untouched");
+    assert_eq!(map.value_kind(), Kind::U32);
+    assert_eq!(map.entries()[0].1, values::U32::new(9).into());
+
+    let option_of = |item| TypeSpec {
+        value: Some(item),
+        ..TypeSpec::bare(Kind::Optional)
+    };
+    let mut value: PropertyValueEnum = values::Optional::empty(Kind::I8)
+        .expect("an option of bytes")
+        .into();
+
+    assert!(convert(
+        &mut value,
+        &crossing(option_of(Kind::I8), option_of(Kind::I32)),
+        &BinNames::none()
+    ));
+
+    let PropertyValueEnum::Optional(option) = &value else {
+        panic!("expected an Optional");
+    };
+    assert_eq!(option.item_kind(), Kind::I32);
+    assert!(option.is_none());
+}
+
+/// Story: an option holding nothing still declares what it would hold, and this
+/// mod declares the type the game read a patch ago. There is no value under it
+/// to carry across, so the declaration is the whole repair - and it is one even
+/// where the two item types have no road between them, which `Hash` and `File`
+/// do not.
+#[test]
+fn an_empty_option_is_re_declared_under_the_item_type_the_game_reads() {
+    let empty = values::Optional::empty(Kind::Hash).expect("an option of hashes");
+    let bin = object_bin(SKIN, ICON_CIRCLE, empty);
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].fix.is_some(), "nothing under it has to cross");
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    let PropertyValueEnum::Optional(option) = &written.objects()[&ENTRY].properties[&ICON_CIRCLE]
+    else {
+        panic!("expected an Optional");
+    };
+    assert_eq!(option.item_kind(), Kind::WadChunkLink);
+    assert!(option.is_none(), "it held nothing and still holds nothing");
+}
+
+/// The same option holding a value is the one this cannot repair: a `Hash` is
+/// FNV1a32 of a path where a `File` is XXH64 of it, and inside an option
+/// neither the table nor the schema opens that road.
+#[test]
+fn an_option_that_holds_a_value_still_needs_a_road_for_it() {
+    let held = values::Optional::from(values::Hash::new(BinHash(0x5ae4_1520)));
+    let bin = object_bin(SKIN, ICON_CIRCLE, held);
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].fix, None);
+}
+
+/// Story: Riot has moved fields between `Embed` and `Pointer` 28 times in three
+/// years, and `PlayerSelfTemplate` is one of them. The two are one encoding
+/// under two tags, so the class hash and the body stay put.
+#[test]
+fn an_embed_the_game_reads_as_a_pointer_is_retagged() {
+    let embed = values::Embedded(values::Struct {
+        class_hash: PLAYER_TEMPLATE_CLASS,
+        properties: IndexMap::new(),
+        meta: NoMeta,
+    });
+    let bin = object_bin(TFT_SCOREBOARD, PLAYER_SELF_TEMPLATE, embed);
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].fix.is_some());
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    let PropertyValueEnum::Struct(pointer) =
+        &written.objects()[&ENTRY].properties[&PLAYER_SELF_TEMPLATE]
+    else {
+        panic!("expected a Pointer");
+    };
+    assert_eq!(
+        pointer.class_hash, PLAYER_TEMPLATE_CLASS,
+        "the class is kept"
+    );
+}
+
+/// And the same road the other way, which is the direction Riot took more
+/// often.
+#[test]
+fn a_pointer_the_game_reads_as_an_embed_is_retagged() {
+    let pointer = values::Struct {
+        class_hash: LIFETIME_CLASS,
+        properties: IndexMap::new(),
+        meta: NoMeta,
+    };
+    let bin = object_bin(VFX_EMITTER, PARTICLE_LIFETIME, pointer);
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].fix.is_some());
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    let PropertyValueEnum::Embedded(embed) =
+        &written.objects()[&ENTRY].properties[&PARTICLE_LIFETIME]
+    else {
+        panic!("expected an Embed");
+    };
+    assert_eq!(embed.0.class_hash, LIFETIME_CLASS, "the class is kept");
+}
+
+/// A repaired file is one the next run says nothing about, which is what lets
+/// the panel offer a fix twice.
+#[test]
+fn a_second_run_over_the_new_roads_finds_nothing() {
+    let bin = object_bin(MATCHMAKING_QUEUE, GAME_TYPE_CONFIG_ID, values::U8::new(42));
+    let (_, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+    let (_tmp, files) = project_on(written.as_prop().unwrap(), Some(AFTER_RETYPE));
+
+    assert!(check_with(&files).is_empty());
+}
+
+/// `TFTModeData`, whose `ItemTagOptions` Riot moved from `List` to `List2`.
+const TFT_MODE_DATA: BinHash = BinHash(0x01d7_548e);
+const ITEM_TAG_OPTIONS: BinHash = BinHash(0x12aa_f1d8);
+
+/// `VfxEmissionCylinder`, whose `IncludeCaps` Riot moved from `Bool` to `Flag`.
+const VFX_EMISSION_CYLINDER: BinHash = BinHash(0x0eea_aebe);
+const INCLUDE_CAPS: BinHash = BinHash(0xfb40_f022);
+
+/// A `FaceTarget` the schema has typed `Bool` throughout.
+const PERSISTENT_VFX_DATA: BinHash = BinHash(0x00fa_43e4);
+const FACE_TARGET: BinHash = BinHash(0x945b_0ec5);
+
+/// Story: a `List` and a `List2` are one vector under two tags - the ordering
+/// is a promise about the reader, not a difference in the bytes - and Riot has
+/// retagged 43 fields between them. Nothing under the tag moves.
+#[test]
+fn a_list_the_game_reads_as_a_list2_is_retagged() {
+    let hashes = values::Container::new(
+        Kind::Hash,
+        vec![
+            values::Hash::new(BinHash(0x1111_2222)).into(),
+            values::Hash::new(BinHash(0x3333_4444)).into(),
+        ],
+    )
+    .expect("a list of hashes");
+    let bin = object_bin(TFT_MODE_DATA, ITEM_TAG_OPTIONS, hashes.clone());
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "List2<Hash>");
+    assert_eq!(mismatch.found, "List<Hash>");
+    assert!(problems[0].fix.is_some());
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    let PropertyValueEnum::UnorderedContainer(items) =
+        &written.objects()[&ENTRY].properties[&ITEM_TAG_OPTIONS]
+    else {
+        panic!("expected a List2");
+    };
+    assert_eq!(items.0, hashes, "every item is where it was");
+}
+
+/// And the same road the other way, on a field the schema types `List`.
+#[test]
+fn a_list2_the_game_reads_as_a_list_is_retagged() {
+    let drivers = values::UnorderedContainer(
+        values::Container::new(
+            Kind::Struct,
+            vec![
+                values::Struct {
+                    class_hash: MAX_MATERIAL_DRIVER,
+                    properties: IndexMap::new(),
+                    meta: NoMeta,
+                }
+                .into(),
+            ],
+        )
+        .expect("a list of pointers"),
+    );
+    let bin = object_bin(MAX_MATERIAL_DRIVER, M_DRIVERS, drivers);
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].fix.is_some());
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    let PropertyValueEnum::Container(items) = &written.objects()[&ENTRY].properties[&M_DRIVERS]
+    else {
+        panic!("expected a List");
+    };
+    assert_eq!(items.item_kind(), Kind::Struct);
+    assert_eq!(items.len(), 1);
+}
+
+/// `HeroFloatingInfoCharacterStateIndicatorList`, whose `StateIndicatorList`
+/// changed its ordering and its item type in one go.
+const STATE_INDICATOR_LIST_CLASS: BinHash = BinHash(0x47c7_ce74);
+const STATE_INDICATOR_LIST: BinHash = BinHash(0xfd81_566b);
+
+/// Only the tag moves on this road, so a list whose items also disagree is one
+/// it cannot finish. `List<Hash>` to `List2<Embed>` would have to build the
+/// objects as well, and nothing does that.
+#[test]
+fn a_list_whose_items_also_disagree_is_reported_without_a_repair() {
+    let hashes = values::Container::new(
+        Kind::Hash,
+        vec![values::Hash::new(BinHash(0x1111_2222)).into()],
+    )
+    .expect("a list of hashes");
+    let bin = object_bin(STATE_INDICATOR_LIST_CLASS, STATE_INDICATOR_LIST, hashes);
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "List2<Embed>");
+    assert_eq!(mismatch.found, "List<Hash>");
+    assert_eq!(problems[0].fix, None);
+}
+
+/// Story: a `Flag` is one bit of a byte the game packs several of into one
+/// member, and a `Bool` is that byte on its own. On the wire both are one byte,
+/// zero or not, so the value the mod wrote survives the retag whole.
+#[test]
+fn a_bool_the_game_reads_as_a_flag_is_retagged() {
+    let bin = object_bin(VFX_EMISSION_CYLINDER, INCLUDE_CAPS, values::Bool::new(true));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "Flag", "the word the format uses");
+    assert_eq!(mismatch.found, "Bool");
+    assert!(problems[0].fix.is_some());
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    assert_eq!(
+        written.objects()[&ENTRY].properties[&INCLUDE_CAPS],
+        values::BitBool::new(true).into(),
+        "true stays true"
+    );
+}
+
+/// And the same road the other way, on a field the schema types `Bool`.
+#[test]
+fn a_flag_the_game_reads_as_a_bool_is_retagged() {
+    let bin = object_bin(PERSISTENT_VFX_DATA, FACE_TARGET, values::BitBool::new(true));
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 1);
+    assert!(problems[0].fix.is_some());
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 1);
+    assert_eq!(applied.skipped, 0);
+    assert_eq!(
+        written.objects()[&ENTRY].properties[&FACE_TARGET],
+        values::Bool::new(true).into()
+    );
+}
