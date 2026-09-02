@@ -6,8 +6,8 @@
 //! hundred properties from the first to the second, and a mod that ships the
 //! old type is a mod the game rejects. The value is not wrong. Its type is.
 //!
-//! Two sources answer, and they answer different questions - `Lookup::of` holds
-//! which one wins where. For each object the rule looks up the class hash, and
+//! Two sources answer, and they answer different questions - `Lens::objection`
+//! holds which one wins where. For each object the rule looks up the class hash, and
 //! for each property it holds it looks up the field hash. What counts as a
 //! mismatch then depends on which source answered.
 //!
@@ -35,8 +35,8 @@
 //! rehashed under the new function. A hash no table resolves is the one
 //! finding this rule cannot repair.
 //!
-//! The walk descends into `Struct` and `Embedded` values, because those carry a
-//! class hash of their own and two rows of the table key on one.
+//! The check is a visitor over `ltk_meta::walk`. Every node carries a class
+//! hash of its own, and two rows of the table key on one.
 
 pub mod kinds;
 pub mod table;
@@ -49,10 +49,12 @@ use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
+use ltk_meta::walk::{Node, TreeValue as _, Visit, Visitor};
 
 use crate::meta_schema::{self, MetaSchema};
 use crate::problems::budget;
 use crate::problems::names::{self, BinNames};
+use crate::problems::walk::{self, Address, Declared, FieldNames};
 use crate::problems::{
     Applied, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Preserved,
     PreservedNames, Problem, ProjectFiles, Report, Rule, RuleId, Severity, Site, TypeMismatch,
@@ -139,8 +141,7 @@ impl Rule for BinPropertyType {
         }
 
         // Each bin is read, parsed and checked on its own worker, and only
-        // the findings come back - a `Hit` borrows the parse that made it, and
-        // that parse is what the budget is holding.
+        // the findings come back. The parse is what the budget is holding.
         let handles: Vec<_> = project.bins().collect();
         let read = project.budget().map(
             &handles,
@@ -216,9 +217,9 @@ impl Rule for BinPropertyType {
             for (entry, hit) in check_bin(&bin, lens) {
                 if addressed
                     .get(&entry)
-                    .is_some_and(|paths| paths.contains(hit.address.hashes.as_str()))
+                    .is_some_and(|paths| paths.contains(hit.address.hashes()))
                 {
-                    run.left(ID, &layer, &path, entry, hit.address.hashes);
+                    run.left(ID, &layer, &path, entry, hit.address.into_hashes());
                 }
             }
 
@@ -244,38 +245,33 @@ impl Rule for BinPropertyType {
     }
 }
 
-/// One step of the path to a node, kept as what it is rather than as text.
+/// One step of the repair's path to a node, kept as what it is rather than as
+/// text.
 ///
-/// A walk descends far more nodes than it reports - a 25MB project is millions
-/// of properties and a handful of hits - so a step costs a hash and a table row
-/// on the way down, and becomes a string only where a hit is found.
+/// The check's trail is the walk's own. The repair walks mutably and keeps this
+/// one, rendered through the same [`Address`] as the check's, which is what
+/// keeps the two addressing the same node.
 #[derive(Clone)]
-enum Step<'a> {
-    /// A property, and its name where the schema or a table holds one.
-    ///
-    /// Borrowed rather than owned because a trail is pushed and popped for
-    /// every property of every object, and both sources outlive the walk.
-    Field(BinHash, Option<&'a str>),
+enum Step {
+    /// A property of the node.
+    Field(BinHash),
     /// One element of a container, or a present optional.
     Index(usize),
-    /// One entry of a map, subscripted by its key.
+    /// One entry of a map, subscripted by a copy of its key.
     ///
-    /// Written out on the way down rather than on the way out, because a key
-    /// borrows the map and a repair holds that map through a `&mut`.
-    Key {
-        hashes: String,
-        named: Option<String>,
-    },
+    /// Copied on the way down rather than borrowed, because a repair holds the
+    /// map through a `&mut`.
+    Key(PropertyValueEnum),
 }
 
-/// The path to the node a walk is standing on, pushed and popped as it goes.
+/// The path to the node a repair is standing on, pushed and popped as it goes.
 #[derive(Clone, Default)]
-struct Trail<'a>(Vec<Step<'a>>);
+struct Trail(Vec<Step>);
 
-impl<'a> Trail<'a> {
+impl Trail {
     /// Step into a property.
-    fn field(&mut self, field: BinHash, name: Option<&'a str>) {
-        self.0.push(Step::Field(field, name));
+    fn field(&mut self, field: BinHash) {
+        self.0.push(Step::Field(field));
     }
 
     /// Step into one element of a container or a present optional.
@@ -284,69 +280,30 @@ impl<'a> Trail<'a> {
     }
 
     /// Step into one entry of a map, subscripted by its key.
-    fn key(&mut self, key: &PropertyValueEnum, names: &BinNames) {
-        let hashes = format!("{{{}}}", subscript(key));
-        let named = format!("{{{}}}", subscript_named(key, names));
-        let named = (named != hashes).then_some(named);
-        self.0.push(Step::Key { hashes, named });
+    fn key(&mut self, key: &PropertyValueEnum) {
+        self.0.push(Step::Key(key.clone()));
     }
 
     fn back(&mut self) {
         self.0.pop();
     }
 
-    /// Write the path out, in the two forms a row and a repair each need.
-    ///
-    /// The hash form takes the migration table's own name where a row carries
-    /// one, because that table ships in the build and so reads the same on
-    /// every machine. Only the label consults the cache.
-    fn address(&self, names: &BinNames) -> Address {
-        let mut hashes = String::new();
-        let mut named = String::new();
-        let mut resolved = false;
-
-        for step in &self.0 {
-            match step {
-                Step::Field(field, row) => {
-                    if !hashes.is_empty() {
-                        hashes.push('.');
-                        named.push('.');
-                    }
-                    let hashed = row.map_or_else(|| names::hex(*field), str::to_owned);
-                    let readable = names.field(*field).unwrap_or_else(|| hashed.clone());
-                    resolved |= hashed != readable;
-                    hashes.push_str(&hashed);
-                    named.push_str(&readable);
-                }
-                Step::Index(index) => {
-                    let segment = format!("[{index}]");
-                    hashes.push_str(&segment);
-                    named.push_str(&segment);
-                }
-                Step::Key {
-                    hashes: raw,
-                    named: readable,
-                } => {
-                    hashes.push_str(raw);
-                    named.push_str(readable.as_deref().unwrap_or(raw));
-                    resolved |= readable.is_some();
-                }
-            }
-        }
-
-        Address {
-            hashes,
-            named,
-            resolved,
-        }
-    }
-
-    /// The hash form alone, for a repair matching against what a check recorded.
+    /// The hash form, for a repair matching against what a check recorded.
     ///
     /// A repair addresses a node by the hash form, which no table can move, so
-    /// it never pays for the readable one.
+    /// nothing is named.
     fn hashes(&self) -> String {
-        self.address(&BinNames::none()).hashes
+        let mut address = Address::default();
+        for step in &self.0 {
+            match step {
+                /* Nothing is named, so no class is asked with. 0 is the unknown
+                class (W15). */
+                Step::Field(field) => address.push_field(*field, BinHash(0), &()),
+                Step::Index(index) => address.push_index(*index),
+                Step::Key(key) => address.push_key(key, &()),
+            }
+        }
+        address.into_hashes()
     }
 }
 
@@ -373,19 +330,19 @@ fn findings_of(
             node: NodeAddress {
                 entry,
                 label: hit.address.label(),
-                path: hit.address.hashes,
+                path: hit.address.into_hashes(),
             },
             severity: severity(project.build(), hit.table_build),
             detail: Detail {
                 mismatch: Some(mismatch(&hit.migration)),
                 message: note(
                     &hit.migration,
-                    hit.value,
+                    &hit.value,
                     lens.names,
                     project.build(),
                     hit.table_build,
                 ),
-                fix: preview(&hit.migration, hit.value, lens.names),
+                fix: preview(&hit.migration, &hit.value, lens.names),
             },
         })
         .collect::<Vec<_>>();
@@ -401,28 +358,10 @@ fn findings_of(
     Ok(found)
 }
 
-/// The path to one node, written out.
-///
-/// `hashes` is what the file itself holds, and a repair matches on it, so it
-/// never moves with the hash tables. `named` is the same path for reading.
-struct Address {
-    hashes: String,
-    named: String,
-    /// Whether a table named anything `hashes` left as a number.
-    resolved: bool,
-}
-
-impl Address {
-    /// The label a row draws, or `None` where it would repeat `hashes`.
-    fn label(&self) -> Option<String> {
-        self.resolved.then(|| self.named.clone())
-    }
-}
-
 /// What the walk reads a bin with: what it checks against, and the names it
 /// draws.
 ///
-/// Two sources answering different questions - see [`Lookup::of`].
+/// Two sources answering different questions - see [`Lens::objection`].
 #[derive(Clone, Copy)]
 struct Lens<'a> {
     tables: &'static [MigrationTable],
@@ -432,11 +371,12 @@ struct Lens<'a> {
 }
 
 /// One property that is not the type it should be, and what says so.
-struct Hit<'a> {
+struct Hit {
     /// Borrowed for a table row, owned for one derived from the schema, which
     /// names a type rather than a migration.
     migration: Cow<'static, Migration>,
-    value: &'a PropertyValueEnum,
+    /// The value, read out of the tree once for the finding's wording.
+    value: PropertyValueEnum,
     /// Where inside the object it sits.
     address: Address,
     /// The build the objection is a claim about.
@@ -446,15 +386,15 @@ struct Hit<'a> {
     table_build: GameBuild,
 }
 
-/// What the schema and the tables say about one property, in one pass.
-struct Lookup<'a> {
-    /// The field's name, from whichever source holds one.
-    named: Option<&'a str>,
-    /// The objection to raise, and the build it is a claim about.
-    hit: Option<(GameBuild, Cow<'static, Migration>)>,
+/// The objection to one property, and the build it is a claim about.
+struct Objection {
+    migration: Cow<'static, Migration>,
+    /// The installed build from the schema, so the finding is live. A future
+    /// build from a table row, which mutes it until the game gets there.
+    build: GameBuild,
 }
 
-impl<'a> Lookup<'a> {
+impl Lens<'_> {
     /// Ask the schema and every table about one property.
     ///
     /// One pass, because this runs for every property of every node and a 23MB
@@ -467,27 +407,31 @@ impl<'a> Lookup<'a> {
     /// Where the database cannot answer, the tables cover the whole question. A
     /// revision names the builds it was dumped at, so a build between two dumps
     /// is silence rather than a property that is fine.
-    fn of(lens: Lens<'a>, class: BinHash, field: BinHash, value: &PropertyValueEnum) -> Self {
-        let mut found = Self {
-            named: None,
-            hit: None,
-        };
-
+    ///
+    /// # Errors
+    ///
+    /// Over a view, a header that does not decode. The owned tree never fails.
+    fn objection<'a>(
+        self,
+        class: BinHash,
+        field: BinHash,
+        value: impl Declared<'a>,
+    ) -> Result<Option<Objection>, ltk_meta::Error> {
         let mut answered = None;
-        if let Some((schema, build)) = lens.schema
+        if let Some((schema, build)) = self.schema
             && let Some(expected) = schema.expected(class, field, build)
+            && let Some(shape) = expected.shape
         {
-            found.named = expected.field_name;
-            if let Some(shape) = expected.shape {
-                answered = Some(build);
-                if !TypeSpec::from(shape).matches(value) {
-                    found.hit = Some((build, Cow::Owned(derived(class, field, expected, value))));
-                    return found;
-                }
+            answered = Some(build);
+            if !TypeSpec::from(shape).matches(value)? {
+                return Ok(Some(Objection {
+                    migration: Cow::Owned(derived(class, field, expected, value)),
+                    build,
+                }));
             }
         }
 
-        for table in lens.tables {
+        for table in self.tables {
             /* A row about the build the database answered for, or an older
             one, is one it has already superseded. */
             if answered.is_some_and(|installed| table.build() <= installed) {
@@ -496,19 +440,43 @@ impl<'a> Lookup<'a> {
             let Some(migration) = table.migration(class, field) else {
                 continue;
             };
-            if found.named.is_none() {
-                found.named = migration.field_name.as_deref();
-            }
-            if found.hit.is_none() && migration.from.matches(value) {
-                found.hit = Some((table.build(), Cow::Borrowed(migration)));
+            if migration.from.matches(value)? {
+                return Ok(Some(Objection {
+                    migration: Cow::Borrowed(migration),
+                    build: table.build(),
+                }));
             }
         }
-        found
+        Ok(None)
     }
 
-    /// Whether either source said anything at all.
-    fn is_silent(&self) -> bool {
-        self.named.is_none()
+    /// The field's name, from whichever of the rule's own sources holds one.
+    fn field_name(&self, class: BinHash, field: BinHash) -> Option<&str> {
+        if let Some((schema, build)) = self.schema
+            && let Some(name) = schema
+                .expected(class, field, build)
+                .and_then(|expected| expected.field_name)
+        {
+            return Some(name);
+        }
+        self.tables
+            .iter()
+            .find_map(|table| table.migration(class, field)?.field_name.as_deref())
+    }
+}
+
+/// The mod's and mimir's tables first, and the rule's own second, which ship
+/// with the build.
+impl FieldNames for Lens<'_> {
+    fn field(&self, field: BinHash, class: Option<BinHash>) -> Option<Cow<'_, str>> {
+        if let Some(name) = BinNames::field(self.names, field) {
+            return Some(Cow::Owned(name));
+        }
+        self.field_name(class?, field).map(Cow::Borrowed)
+    }
+
+    fn hash(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+        self.names.value(hash).map(Cow::Owned)
     }
 }
 
@@ -547,11 +515,11 @@ impl Judge {
 ///
 /// The `from` side is read off the value, since the schema names only the type
 /// a property should be.
-fn derived(
+fn derived<'a>(
     class: BinHash,
     field: BinHash,
     expected: meta_schema::Expected<'_>,
-    value: &PropertyValueEnum,
+    value: impl Declared<'a>,
 ) -> Migration {
     let to = TypeSpec::from(
         expected
@@ -570,125 +538,55 @@ fn derived(
     }
 }
 
-/// Whether this value can hold an object-like node worth descending into.
-///
-/// Most properties are leaves no table names, and skipping them here is what
-/// keeps a run from descending every value in the project.
-fn descends(value: &PropertyValueEnum) -> bool {
-    match value {
-        PropertyValueEnum::Struct(_) | PropertyValueEnum::Embedded(_) => true,
-        PropertyValueEnum::Container(items) => !items.item_kind().is_primitive(),
-        PropertyValueEnum::UnorderedContainer(items) => !items.0.item_kind().is_primitive(),
-        PropertyValueEnum::Optional(inner) => !inner.item_kind().is_primitive(),
-        PropertyValueEnum::Map(map) => !map.value_kind().is_primitive(),
-        _ => false,
-    }
-}
-
 /// Every property of one bin a table objects to.
 ///
 /// The check and the repair's own verification are the same call, so a bin
 /// repaired and then re-read is a tree walk rather than a second parse.
-fn check_bin<'a>(bin: &'a ltk_meta::BinFile, lens: Lens<'_>) -> Vec<(BinHash, Hit<'a>)> {
-    let mut found = Vec::new();
-    for (entry, object) in bin.objects() {
-        let mut here = Vec::new();
-        walk(
-            object.class_hash,
-            &object.properties,
-            &mut Trail::default(),
+fn check_bin(bin: &ltk_meta::BinFile, lens: Lens<'_>) -> Vec<(BinHash, Hit)> {
+    let mut check = Check::new(lens);
+    walk::owned(walk::bin(bin, &mut check));
+    check.found
+}
+
+/// The check as a visitor: every property a table objects to, and where it
+/// sits, over either tree.
+struct Check<'l> {
+    lens: Lens<'l>,
+    found: Vec<(BinHash, Hit)>,
+}
+
+impl<'l> Check<'l> {
+    fn new(lens: Lens<'l>) -> Self {
+        Self {
             lens,
-            &mut here,
-        );
-        found.extend(here.into_iter().map(|hit| (*entry, hit)));
-    }
-    found
-}
-
-/// Find every property of one object-like node a table objects to.
-///
-/// Recurses into `Struct` and `Embedded` values, and through the containers and
-/// maps that hold them, because each carries a class hash a row can key on.
-fn walk<'a, 'n>(
-    class: BinHash,
-    properties: &'a IndexMap<BinHash, PropertyValueEnum>,
-    trail: &mut Trail<'n>,
-    lens: Lens<'n>,
-    found: &mut Vec<Hit<'a>>,
-) {
-    for (field, value) in properties {
-        let lookup = Lookup::of(lens, class, *field, value);
-        let descend_into = descends(value);
-        if lookup.is_silent() && !descend_into {
-            continue;
+            found: Vec::new(),
         }
-
-        trail.field(*field, lookup.named);
-
-        if let Some((table_build, migration)) = lookup.hit {
-            found.push(Hit {
-                migration,
-                value,
-                address: trail.address(lens.names),
-                table_build,
-            });
-        }
-
-        if descend_into {
-            descend(value, trail, lens, found);
-        }
-
-        trail.back();
     }
 }
 
-/// Walk into whatever object-like nodes `value` holds.
-fn descend<'a, 'n>(
-    value: &'a PropertyValueEnum,
-    trail: &mut Trail<'n>,
-    lens: Lens<'n>,
-    found: &mut Vec<Hit<'a>>,
-) {
-    match value {
-        PropertyValueEnum::Struct(inner) => {
-            walk(inner.class_hash, &inner.properties, trail, lens, found);
-        }
-        PropertyValueEnum::Embedded(inner) => {
-            walk(inner.0.class_hash, &inner.0.properties, trail, lens, found);
-        }
-        PropertyValueEnum::Container(items) => descend_container(items, trail, lens, found),
-        PropertyValueEnum::UnorderedContainer(items) => {
-            descend_container(&items.0, trail, lens, found);
-        }
-        /* An `Optional` is indexed rather than descended: BIN_EDITOR.md. */
-        PropertyValueEnum::Optional(inner) => {
-            if let Some(held) = inner.value() {
-                trail.index(0);
-                descend(held, trail, lens, found);
-                trail.back();
-            }
-        }
-        PropertyValueEnum::Map(map) => {
-            for (key, held) in map.entries() {
-                trail.key(key, lens.names);
-                descend(held, trail, lens, found);
-                trail.back();
-            }
-        }
-        _ => {}
-    }
-}
+impl<'a, V: Declared<'a>> Visitor<'a, V> for Check<'_> {
+    type Error = ltk_meta::Error;
 
-fn descend_container<'a, 'n>(
-    items: &'a values::Container,
-    trail: &mut Trail<'n>,
-    lens: Lens<'n>,
-    found: &mut Vec<Hit<'a>>,
-) {
-    for (index, inner) in items.items().iter().enumerate() {
-        trail.index(index);
-        descend(inner, trail, lens, found);
-        trail.back();
+    /// Asked for every property of every node, so what it does per call is
+    /// what the whole run costs. The value is read out of the tree for a hit
+    /// and for nothing else.
+    fn enter_property(
+        &mut self,
+        field: BinHash,
+        value: V,
+        node: &Node<'_, 'a, V>,
+    ) -> Result<Visit, ltk_meta::Error> {
+        let class = node.class_hash();
+        if let Some(objection) = self.lens.objection(class, field, value)? {
+            let hit = Hit {
+                migration: objection.migration,
+                value: value.to_value()?,
+                address: Address::of(node.trail(), field, class, &self.lens),
+                table_build: objection.build,
+            };
+            self.found.push((node.object_hash(), hit));
+        }
+        Ok(Visit::Continue)
     }
 }
 
@@ -724,34 +622,34 @@ fn fix_bin(
     applied
 }
 
-fn repair<'n>(
+fn repair(
     class: BinHash,
     properties: &mut IndexMap<BinHash, PropertyValueEnum>,
-    trail: &mut Trail<'n>,
-    lens: Lens<'n>,
+    trail: &mut Trail,
+    lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
 ) -> u32 {
     let mut applied = 0;
 
     for (field, value) in properties.iter_mut() {
-        let lookup = Lookup::of(lens, class, *field, value);
-        let descend_into = descends(value);
-        if lookup.is_silent() && !descend_into {
+        let objection = walk::owned(lens.objection(class, *field, &*value));
+        let holds_node = walk::owned((&*value).holds_node());
+        if objection.is_none() && !holds_node {
             continue;
         }
 
-        trail.field(*field, lookup.named);
+        trail.field(*field);
 
-        if let Some((_, migration)) = lookup.hit
+        if let Some(objection) = objection
             && addressed.contains(trail.hashes().as_str())
-            && keep_names(value, &migration, lens.names, kept)
-            && convert(value, &migration, lens.names)
+            && keep_names(value, &objection.migration, lens.names, kept)
+            && convert(value, &objection.migration, lens.names)
         {
             applied += 1;
         }
 
-        if descend_into {
+        if holds_node {
             applied += repair_into(value.as_mut(), trail, lens, addressed, kept);
         }
 
@@ -793,10 +691,10 @@ fn keep_names(
 /// Takes the borrow that cannot change a value's kind, because a container, an
 /// option and a map each declare their item kind once and hand out no other.
 /// A repair only ever edits properties further down, so that is all it needs.
-fn repair_into<'n>(
+fn repair_into(
     value: ValueMut<'_>,
-    trail: &mut Trail<'n>,
-    lens: Lens<'n>,
+    trail: &mut Trail,
+    lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
 ) -> u32 {
@@ -839,16 +737,16 @@ fn repair_into<'n>(
 ///
 /// The key is written into the trail before the slot is taken, because a map
 /// lends its keys and its values apart and never both at once.
-fn repair_map<'n>(
+fn repair_map(
     map: &mut values::Map,
-    trail: &mut Trail<'n>,
-    lens: Lens<'n>,
+    trail: &mut Trail,
+    lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
 ) -> u32 {
     let mut applied = 0;
     for index in 0..map.entries().len() {
-        trail.key(&map.entries()[index].0, lens.names);
+        trail.key(&map.entries()[index].0);
         if let Some(mut slot) = map.slot(index) {
             applied += repair_into(slot.as_mut(), trail, lens, addressed, kept);
         }
@@ -858,10 +756,10 @@ fn repair_map<'n>(
 }
 
 /// Walk `repair` into the object-like items a container holds.
-fn repair_container<'n>(
+fn repair_container(
     items: &mut values::Container,
-    trail: &mut Trail<'n>,
-    lens: Lens<'n>,
+    trail: &mut Trail,
+    lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
 ) -> u32 {
@@ -1162,19 +1060,6 @@ fn subscript(key: &PropertyValueEnum) -> String {
         PropertyValueEnum::U32(v) => v.value.to_string(),
         PropertyValueEnum::I32(v) => v.value.to_string(),
         other => format!("{:?}", other.kind()),
-    }
-}
-
-/// The same subscript for reading, with a `Hash` key named where one is known.
-///
-/// A map key is usually the only thing telling two rows of a big animation
-/// graph apart, so naming it is what makes the list readable at all.
-fn subscript_named(key: &PropertyValueEnum, names: &BinNames) -> String {
-    match key {
-        PropertyValueEnum::Hash(hash) => names
-            .value(hash.value)
-            .unwrap_or_else(|| names::hex(hash.value)),
-        other => subscript(other),
     }
 }
 

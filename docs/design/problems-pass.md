@@ -3,7 +3,9 @@
 - **Status:** Proposed
 - **Crate:** `ltk-manager-core`, module `problems`
 - **PRD:** `docs/prd/001-problems-one-pass.md`
-- **ADRs:** ADR-0013, ADR-0014, ADR-0015, ADR-0016
+- **ADRs:** ADR-0013, ADR-0015, ADR-0016, ADR-0020, ADR-0021
+- **Toolkit:** `ltk_meta::walk`, specified in
+  [`value-walk.md`](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md), cited here by section
 
 ## <a id="s1"></a>1. Summary
 
@@ -61,15 +63,16 @@ What this document does not design, and the rule it leaves in its place:
   The pass reserves the largest weight among a file's subscribers, once.
 - **Object.** A top-level entry of a bin: a path hash, a class hash and its properties. The unit
   the bin round hands out.
-- **Node.** An object-like value inside a bin: a top-level object, or a `Struct` or `Embedded`
-  value nested anywhere beneath one. Each carries a class hash and properties. What a visitor is
-  called on.
-- **Visitor.** A `nodes` subscriber. It is called once per node the walk reaches for it, and it
-  says which values the walk enters on its behalf.
-- **Walk.** The one recursive descent the bin round makes through each object, driving every
-  visitor at once.
-- **Trail.** The steps from an object down to the node the walk stands on, held as hashes and
-  indices. **Address** is the trail rendered to text, which happens only for a node a visitor
+- **Node.** The toolkit's word, defined in [`value-walk.md` section 2](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s2): a
+  top-level object, or a `Struct` or `Embedded` value beneath one whose class hash is not 0.
+  What a visitor is called on.
+- **Visitor.** A `nodes` subscriber: a rule's `ltk_meta::walk::Visitor`, written once against
+  the tree traits and run over either tree. One instance per bin, folded at the bin's end.
+- **Walk.** `ltk_meta::walk`, the one traversal the bin round makes through each object. The
+  pass drives every subscribed visitor through it at once, and writes no traversal of its own.
+- **Trail.** The toolkit's `Trail`: the steps from an object down to the node the walk stands
+  on, as hashes, indices and the tree's own keys, with the class of each field's node beside
+  them. **Address** is the trail rendered to text, which happens only for a node a visitor
   reports on.
 - **Fact.** Data derived from every bin that more than one rule reads, such as which files the
   mod's bank units ask for. Computed once per pass, in the bin round, when any rule demands it.
@@ -84,11 +87,11 @@ What this document does not design, and the rule it leaves in its place:
 - **Coverage.** Whether every file a fact or a subscription asked for was read. A cancelled or
   unreadable file breaks it. A file a selection declined does not.
 
-Words this module does not use: _visitor_ for anything but a `nodes` subscriber, _check_ for
-what a rule does during a pass (a rule subscribes; the pass checks), _cache_ for a fact (a fact
-is computed once and never kept between runs), _fact_ for an index (an index outlives a run;
-a fact does not), _disabled_ for a rule of the wrong audience (it does not apply; nobody turned
-it off).
+Words this module does not use: _visitor_ for anything but a `nodes` subscriber, _node_ for
+anything the toolkit's walk does not call one, _check_ for what a rule does during a pass (a
+rule subscribes; the pass checks), _cache_ for a fact (a fact is computed once and never kept
+between runs), _fact_ for an index (an index outlives a run; a fact does not), _disabled_ for a
+rule of the wrong audience (it does not apply; nobody turned it off).
 
 ## <a id="s3"></a>3. Evidence
 
@@ -99,7 +102,7 @@ Read off the code at the commit this document was written against, not timed.
 | Parses of one bin, worst case, in one check         | 4       | 1              |
 | Full recursive walks of one bin                     | up to 3 | 1              |
 | `Budget::map` fan-outs per check                    | 5       | 2              |
-| Identical read-only recursive walkers in the tree   | 2       | 1              |
+| Hand-written recursive walkers in the tree          | 2       | 0              |
 | Places the "check was cancelled" failure is spelled | 5       | 1              |
 
 The four parses are `bin_property_type` (deep), `bin_resolver_key_loss` (top-level only),
@@ -107,9 +110,8 @@ and `BankUnits::of` once from each audio rule, each call site unaware of the oth
 rules guard the call behind "only once something was found", so the worst case is conditional;
 the best case is still two parses.
 
-The two walkers, `bank_units::walk` and `bin_property_type::walk`, recurse the same six
-variants - `Struct`, `Embedded`, `Container`, `UnorderedContainer`, `Optional`, `Map` - and act
-at `(class_hash, properties)`. Only one of them keeps a trail.
+`bank_units` and `bin_property_type` each hold a visitor over `ltk_meta::walk`
+([section 6](#s6)). Only one of them renders an address.
 
 ## <a id="s4"></a>4. The run
 
@@ -368,47 +370,43 @@ impl<'a, 'p> Bins<'a, 'p> {
     #[must_use]
     pub fn weighing(self, weight: Weight) -> Self;
 
-    /// Each bin's top-level objects, one at a time, keeping `R` for finish.
+    /// Each bin's top-level objects, one at a time, keeping what `read`
+    /// collects for finish.
     ///
-    /// The shallow subscription. Nothing beneath an object is walked on this
-    /// subscriber's behalf, so a rule that reads one map's length off one
-    /// class pays for that and no more.
-    pub fn collect<R>(
-        self,
-        read: impl Fn(&Objects<'_>) -> Result<R, String> + Send + Sync + 'p,
-    ) -> Collected<R>
-    where
-        R: Send + 'p;
+    /// The shallow subscription: a visitor pruned at the root. Nothing beneath
+    /// an object is walked on this subscriber's behalf, so a rule that reads
+    /// one map's length off one class pays for that and no more (FR-3).
+    pub fn collect<O: ObjectRead + 'p>(self, read: O) -> Collected<O::Kept>;
 
     /// Every node of every bin, through the shared walk.
     pub fn visit(self, visitor: impl BinVisitor + 'p);
 }
 
-pub struct Objects<'f> { /* handle, source */ }
+/// What a shallow subscriber reads off one top-level object, over either tree.
+pub trait ObjectRead: Send + Sync {
+    /// What one bin keeps for finish.
+    type Kept: Default + Send;
 
-impl<'f> Objects<'f> {
-    #[must_use] pub fn handle(&self) -> FileHandle<'f>;
-
-    /// Call `visit` with each top-level object, in file order.
-    ///
-    /// Internal iteration rather than an `Iterator`, because a streaming
-    /// source lends each object out of a buffer it reuses for the next one.
+    /// Called once per top-level object of a bin, in file order, with its
+    /// root node. `object.inner()` is the node's properties, undecoded until
+    /// read.
     ///
     /// # Errors
     ///
-    /// Reports an object the source could not read. Objects before it were
-    /// already visited.
-    pub fn each(&self, visit: impl FnMut(Object<'_>)) -> Result<(), String>;
-}
-
-pub struct Object<'o> { /* entry, class, properties */ }
-
-impl<'o> Object<'o> {
-    #[must_use] pub fn entry(&self) -> BinHash;
-    #[must_use] pub fn class(&self) -> BinHash;
-    #[must_use] pub fn properties(&self) -> &'o IndexMap<BinHash, PropertyValueEnum>;
+    /// Over a view, a header that does not decode. The pass reports it as a
+    /// failure of this rule at the file's site.
+    fn object<'a, V: TreeValue<'a>>(
+        &self,
+        object: &Node<'_, 'a, V>,
+        kept: &mut Self::Kept,
+    ) -> Result<(), ltk_meta::Error>;
 }
 ```
+
+`collect` is one `BinVisitor` written once: its instance calls `object` at every root and
+answers `Visit::Skip`, and the walk touches nothing beneath. It is internal iteration rather
+than an `Iterator`, because a streaming source lends each object out of a buffer it reuses for
+the next one (D14).
 
 An `objects` subscriber sees a `BinFile` of either kind as objects and never asks which. A
 `PTCH` contributes the objects it carries; its patch records are not objects and are outside
@@ -424,45 +422,43 @@ round, because a second round is the second parse this document exists to remove
 ### <a id="s5.3"></a>5.3 The bin round: `nodes` and the visitor
 
 ```rust
+/// A rule's bin visitor. One instance per bin, made on the worker, folded at
+/// the bin's end.
 pub trait BinVisitor: Send + Sync {
-    /// Whether the walk enters `value` on this visitor's behalf.
-    ///
-    /// Asked once per property of every node reached. The default enters a
-    /// `Struct` or `Embedded`, and a container, option or map whose item kind
-    /// is not primitive - which is every value that can hold a node. A
-    /// visitor that wants less overrides it; none can want more, because a
-    /// primitive holds no node to visit.
-    fn enters(&self, value: &PropertyValueEnum) -> bool {
-        walk::holds_a_node(value)
-    }
+    /// The walk-local state for one bin.
+    type Walk<'r, 'f>: Walk<'f> + Send
+    where
+        Self: 'r;
 
-    /// One node the walk reached for this visitor.
-    ///
-    /// Runs on a worker, for every node of every bin - millions on a large
-    /// project - so what it does per call is what the whole run costs.
-    fn node(&self, node: &Node<'_>, sink: &mut Sink<'_>);
+    /// One instance for one bin, on the worker. The sink is the instance's for
+    /// the bin.
+    fn begin<'r, 'f>(&'r self, sink: Sink<'f>) -> Self::Walk<'r, 'f>;
 }
 
-pub struct Node<'w> { /* entry, class, properties, trail */ }
-
-impl<'w> Node<'w> {
-    /// The top-level object this node sits in, or is.
-    #[must_use] pub fn entry(&self) -> BinHash;
-    #[must_use] pub fn class(&self) -> BinHash;
-    #[must_use] pub fn properties(&self) -> &'w IndexMap<BinHash, PropertyValueEnum>;
-    /// Whether this is the top-level object itself, with an empty trail.
-    #[must_use] pub fn is_object(&self) -> bool;
-
-    /// The path to this node, rendered. See section 6.3.
-    #[must_use] pub fn address(&self, namer: &dyn Namer) -> Address;
-    /// The path to one property of this node, rendered.
-    #[must_use] pub fn address_of(&self, field: BinHash, namer: &dyn Namer) -> Address;
+/// One instance's walk over one bin, over either tree.
+pub trait Walk<'f>:
+    for<'a> Visitor<'a, ValueView<'a>, Error = ltk_meta::Error>
+    + for<'a> Visitor<'a, &'a PropertyValueEnum, Error = ltk_meta::Error>
+{
+    /// After the bin: the sink back, and anything the rule keeps across bins
+    /// folded into the rule.
+    fn end(self: Box<Self>) -> Sink<'f>;
 }
 ```
 
-A visitor is `&self` across every worker. State it accumulates across nodes lives behind a
-`Mutex` or an atomic, which is what a fact's collector does ([section 7](#s7)); a visitor that
-only reports needs none.
+The callbacks are the toolkit's ([`value-walk.md` section 5](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s5)): `enter_node`
+and `exit_node` around every node, `enter_property` for every property, leaves included, and
+`exit_property` after each one descended. `Visit::Skip` from `enter_property` is the prune. A
+rule writes one generic implementation, `impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Check<'_>`,
+which satisfies both bounds of `Walk`, and never names `ValueView` or `PropertyValueEnum`
+(ADR-0020). The node is `ltk_meta::walk::Node`: `object_hash()` is the entry, `class_hash()`
+the class, `inner()` the properties, `trail()` where it is, `is_root()` whether it is the
+object itself.
+
+An instance runs on one worker, `&mut self`, for one bin. The rule's shared state stays behind
+the rule's `&self`. What an instance accumulates is its own, and the pass folds instances in
+file order (ADR-0021, FR-8). A fact's collector accumulates the same way and folds under its
+own lock once per bin ([section 7](#s7)).
 
 ### <a id="s5.4"></a>5.4 Weight
 
@@ -550,114 +546,132 @@ once the round is over. A visitor never holds a `Report` and never names a layer
 
 ## <a id="s6"></a>6. The walk
 
-### <a id="s6.1"></a>6.1 Traversal rules
+The walk is `ltk_meta::walk` ([`value-walk.md` section 5](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s5)): one read-only,
+pre-order traversal per object, driven by one `Visitor`, over the owned tree and the streaming
+view alike. The manager writes no traversal of its own. What it adds is `problems::walk`: the
+fan-out that drives every subscribed visitor through one walk, the address a finding names a
+node by, and the shape questions the tree traits leave to the tree.
 
-For every bin, for every top-level object in file order:
+### <a id="s6.1"></a>6.1 Fan-out
 
-1. The object is a node with an empty trail. Every visitor is **active** and is called on it.
-2. For each property `(field, value)` of a node, in property order, the walk asks each active
-   visitor `enters(value)`. The visitors that answer yes are the active set beneath that
-   property. If none does, the value is not entered.
-3. With `Field { class, field }` pushed on the trail, the walk descends `value`:
-   - `Struct` or `Embedded`: a node. Each active visitor is called on it, then rule 2 recurses.
-   - `Container` or `UnorderedContainer`: for each item, `Index(i)` is pushed and the item is
-     descended.
-   - `Optional` holding a value: `Index(0)` is pushed and the value is descended. An optional is
-     indexed rather than stepped through, as `BIN_EDITOR.md` addresses it.
-   - `Map`: for each entry, `Key(key)` is pushed and the value is descended.
-   - Anything else holds no node and is not entered.
-4. Every push is popped on the way out.
+`Fan` is one `ltk_meta::walk::Visitor` holding every subscribed rule's instance for the bin
+([section 5.3](#s5.3)) and an active-set stack. For every bin, for every top-level object in
+file order:
 
-**Pruning is per visitor and narrows monotonically.** A visitor that declined a value is not
-called on any node beneath it; a visitor that accepted it is called on every node beneath it
-that it also accepts on the way down. Two visitors never share a prune: the walk enters what
-any active visitor wants, and calls each only where that visitor wanted to be. The active set
-is a small set of visitor indices carried down the recursion, not a second walk.
+1. At the root every instance is **active**. `enter_node` reaches each active instance.
+2. `enter_property(field, value)` asks each active instance. The instances answering
+   `Visit::Continue` are the active set beneath that property, pushed on the stack. `Fan`
+   answers `Continue` where that set is non-empty and `Skip` where it is empty, so the walk
+   enters a value when any active instance wants it. Whether the value can hold a node at all
+   is the tree's answer, asked before any instance (W1, W7).
+3. Beneath the property, `enter_node`, `enter_property` and the exits reach the active set and
+   no other instance.
+4. `exit_property` pops the set. The exits are symmetric for exactly this (W8).
+5. An instance answering `Visit::Stop` or `Visit::Abort` leaves every set for the rest of the
+   bin. The walk goes on for the others.
 
-This is what keeps a shared walk from silently starving one visitor by a prune tuned to
-another. `Kind::is_primitive` in `ltk_meta` 0.8.1 is true of `String`, `Hash` and
-`WadChunkLink`, so the default `enters` declines a container of strings - which is right for a
-node visitor, since a string holds no node, and a visitor that reads strings reads them as
-properties of the node it is on. A future visitor that wanted to be called per string item
-would not be a node visitor, and the rules table says what it would be instead (D7).
+**Pruning is per visitor and narrows monotonically.** An instance that declined a value is not
+called on any node beneath it. An instance that accepted it is called on every node beneath it
+that it also accepts on the way down. Two instances never share a prune: the walk enters what
+any active instance wants, and calls each only where that instance wanted to be. The active set
+is a small set of instance indices carried down the recursion, not a second walk (D7).
 
-### <a id="s6.2"></a>6.2 The trail
+This is what keeps a shared walk from silently starving one visitor by a prune tuned to another
+(FR-5). The walk enters a `Struct` or `Embedded` whose class is not 0, and a container, option
+or map whose item kind is a node kind, and nothing else (W1, W2). A visitor that reads strings
+reads them as properties of the node it is on. A container of leaves is never entered, and a
+visitor that wanted to be called per string item would not be a node visitor.
 
-```rust
-enum Step<'w> {
-    /// A property of a node: the node's class, and the field.
-    Field { class: BinHash, field: BinHash },
-    /// One element of a container, or the value of a present optional.
-    Index(usize),
-    /// One entry of a map, subscripted by its key.
-    Key(&'w PropertyValueEnum),
-}
-```
+### <a id="s6.2"></a>6.2 The tree and the trail
 
-The trail holds hashes and borrows, never text. A step costs a push; a `Map` key is borrowed
-rather than rendered, so descending a map of ten thousand entries allocates nothing. Text is
-made only by `Node::address`, which a visitor calls only for a node it reports on. That is the
-behaviour `bin_property_type` already has, now owned by the walk.
+A visitor is written against `TreeValue` and `TreeNode` ([`value-walk.md` section 3](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s3))
+and runs over `ValueView` in the pass and over `&PropertyValueEnum` when a repair verifies its
+work (ADR-0020). `walk::Declared` extends `TreeValue` with what a header declares and the tree
+traits leave to the tree: the item kind of a container or an optional, the key and value kinds
+of a map, and the class a `Struct` or `Embedded` carries. A rule about a property's declared
+type asks it, and the answer is read off the header over either tree (D35).
 
-The class rides on every `Field` step so an address can be rendered with names after the fact:
-naming a field takes the class it is on, and the walk holds no names of its own.
+The trail is the toolkit's `Trail` ([`value-walk.md` section 5.2](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s5.2)): hashes,
+indices and the tree's own key values, with the class of every field's node beside the steps
+(W4). A step costs a push and a map key is borrowed, so descending a map of ten thousand
+entries allocates nothing. Text is made only by `Address::of`, which a visitor calls only for a
+node it reports on (FR-6, D8).
 
 ### <a id="s6.3"></a>6.3 Address and names
 
 ```rust
-/// What an address is rendered with. Every method has a default that names
-/// nothing, which renders every hash as hex.
-pub trait Namer {
-    /// The stable name of a field, for the hash form.
-    ///
-    /// A name that ships with the build - a migration table's own - so the
-    /// hash form reads the same on every machine. `None` renders hex.
-    fn stable(&self, class: BinHash, field: BinHash) -> Option<&str> { None }
-    /// The readable name of a field, from whatever tables this machine holds.
-    fn readable(&self, class: BinHash, field: BinHash) -> Option<String> { None }
-    /// The readable form of a map key, where a table names its hash.
-    fn key(&self, key: &PropertyValueEnum) -> Option<String> { None }
+/// Plaintext for the hashes an address carries. The shape
+/// `ltk_meta::path::FieldNames` takes (league-toolkit #219).
+pub trait FieldNames {
+    /// The plaintext of `field`, given the class of the node it was read on.
+    fn field(&self, field: BinHash, class: Option<BinHash>) -> Option<Cow<'_, str>>;
+    /// The plaintext behind a `Hash`-kind map key. Read for the named form only.
+    fn hash(&self, hash: BinHash) -> Option<Cow<'_, str>> { None }
 }
 
-pub struct Address {
+/// Names nothing: every hash renders as hex.
+impl FieldNames for () {}
+
+/// The path to one node, written out in the two forms a row and a repair each need.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Address { /* hashes, named, resolved */ }
+
+impl Address {
+    /// The address of `field` on the node `trail` stands on, whose class is `class`.
+    pub fn of<'a, V: TreeValue<'a>>(trail: &Trail<V>, field: BinHash, class: BinHash, names: &dyn FieldNames) -> Self;
+    pub fn push_field(&mut self, field: BinHash, class: BinHash, names: &dyn FieldNames);
+    pub fn push_index(&mut self, index: usize);
+    pub fn push_key<'a>(&mut self, key: impl TreeValue<'a>, names: &dyn FieldNames);
     /// What the file holds. A repair matches on this and no table moves it.
-    pub hashes: String,
-    /// The same path for reading.
-    pub named: String,
-    /// Whether any table named anything `hashes` left as a number.
-    pub resolved: bool,
+    pub fn hashes(&self) -> &str;
+    pub fn into_hashes(self) -> String;
+    /// The same path for reading, every hash a table spells spelled.
+    pub fn named(&self) -> &str;
+    /// `named` where a table named anything, else `None`.
+    pub fn label(&self) -> Option<String>;
 }
 ```
 
-`Address::label()` is `named` where `resolved`, else `None`, exactly as `bin_property_type`
-computes it today. The grammar of both forms is unchanged: `.` between fields, `[i]` for an
-index, `{key}` for a map entry, the key as the file holds it (`hex` for a hash, the text for
-a string, the decimal for an integer).
+The grammar of both forms is the toolkit's hash form ([`value-walk.md` section 4.2](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s4.2)):
+`.` between fields, `[i]` for an index, `{key}` for a map entry, every hash as lowercase
+zero-padded hex with no `0x`, a string key as a JSON string, an integer in decimal, `{}` for a
+`None` key and `{?}` for a key that does not decode. `hashes` is the toolkit's `Trail`
+rendering with the field appended, so the address a finding records is the address the
+toolkit's `ValuePath` writes for the same position (D34). `named` spells every hash a
+`FieldNames` can, and a `Hash` key as the JSON string of its name. A field is named with the
+class the walk saw it on, the concrete class as the file states it (W17).
 
-`bin_property_type`'s repair keeps a trail of its own for the mutable walk, and it renders
-through the same `Address` code with a `Namer` over the same tables. Its `Key` step owns its
-subscript rather than borrowing it, because the repair holds the map mutably. The hash form
-the check records and the hash form the repair matches on are built by one function.
+`bin_property_type`'s `Lens` implements `FieldNames` over the mimir tables first and its own
+tables second, keyed by class, and a name from either lands in `named` and never in `hashes`.
+The rule's tables ship with the build. A rule that names through the mimir tables alone
+implements it over `BinNames`, keyed by field. `NodeAddress::path` is `hashes` and
+`NodeAddress::label` is `Address::label`.
 
-### <a id="s6.4"></a>6.4 Standalone use
+The repair keeps a trail of its own for the mutable walk (D12), holding a copy of each map key
+because it holds the map through a `&mut`, and renders it through the same `Address`. The hash
+form the check records and the hash form the repair matches on are built by one function.
 
-The walk is a function over objects, not a method of the pass:
+### <a id="s6.4"></a>6.4 Outside the pass
 
 ```rust
-pub fn walk(objects: &Objects<'_>, visitors: &[&dyn BinVisitor], sinks: &mut [Sink<'_>]) -> Result<(), String>;
+/// Walk a bin of either kind: a `PROP`'s objects, or the objects a `PTCH` carries.
+pub fn bin<'a, W>(bin: &'a BinFile, visitor: &mut W) -> Result<WalkOutcome, W::Error>
+where
+    W: Visitor<'a, &'a PropertyValueEnum>;
 ```
 
-`bin_property_type::fix` verifies the tree it repaired, in memory, by running its check
-visitor over the owned `BinFile` through this function. The check and its verification are
-one visitor.
+`Bin::walk` for a `PROP`, `BinOverride::walk` for a `PTCH`, which visits the objects the
+patch carries and no patch record (W12, D17). A repair's verification, and a fact computed
+outside a check (FR-12), read through `FileHandle::bin` and walk through this.
 
 ## <a id="s7"></a>7. Facts
 
 ```rust
 /// Data every bin contributes to, that more than one rule reads.
 pub trait Fact: Sized + Send + Sync + 'static {
-    /// What rides the walk collecting it. `&self` on every worker, so it
-    /// accumulates behind a lock or an atomic.
+    /// What rides the walk collecting it. Its instance for a bin accumulates
+    /// on the worker and folds into it at the bin's end, under its own lock,
+    /// once per bin rather than once per node (ADR-0021).
     type Collector: BinVisitor + Default + 'static;
 
     /// The fact, once the bin round is over.
@@ -706,7 +720,7 @@ pub struct Demanded<F>(PhantomData<fn() -> F>);
 
 ```rust
 impl Fact for BankUnits {
-    type Collector = BankUnitCollector; // Mutex<HashMap<WadHash, String>>
+    type Collector = BankUnitCollector; // Mutex<HashMap<WadHash, String>>, extended once per bin
     fn assemble(collector: BankUnitCollector, coverage: Coverage) -> Self { /* ... */ }
 }
 ```
@@ -761,8 +775,9 @@ can serve. It stays outside the pass.
 What the pass gives it:
 
 - **Verification through the walk.** `bin_property_type::fix` re-checks the repaired tree by
-  running its check visitor over the owned `BinFile` through `walk` ([section 6.4](#s6.4)),
-  instead of a second walker that has to agree with the first.
+  running its check visitor over the owned `BinFile` through `walk::bin`
+  ([section 6.4](#s6.4)), instead of a second walker that has to agree with the first. The
+  check and its verification are one visitor over two trees (ADR-0020).
 - **Facts on demand.** `ProjectFiles::fact::<F>()` computes a fact over a project in one bin
   round, for the audio rules' repairs, which read the mod as it is now.
 - **One address renderer.** The hash form the repair matches on is rendered by the same
@@ -770,37 +785,45 @@ What the pass gives it:
 
 The repair's own mutable walk stays in `bin_property_type`. It is the only mutating traversal
 in the tree, and a mutable visitor seam with one adapter would be a hypothetical seam (D12).
+Its trail renders through the same `Address` as the check's ([section 6.3](#s6.3)).
 
 ## <a id="s10"></a>10. Bin sources
 
-Every bin the bin round reads comes through one function:
+Every bin the bin round reads is opened by one function and walked by the toolkit:
 
 ```rust
-/// A bin the round can hand out object by object.
-enum BinSource {
-    /// The whole file, parsed. Both kinds.
-    Eager(BinFile),
+/// A bin the round walks, opened by its kind.
+enum BinSource<R> {
+    /// A `PROP`, mounted. One object's bytes in memory at a time.
+    Stream(BinStream<R>),
+    /// A `PTCH`, parsed whole. The streaming reader refuses one.
+    Patch(BinOverride),
 }
 
-impl BinSource {
-    /// Open `handle` as a source of objects.
+impl<R: Read + Seek> BinSource<R> {
+    /// Open `handle` by its magic.
     fn open(handle: &FileHandle<'_>) -> Result<Self, String>;
-    /// Call `visit` with each object, in file order.
-    fn each_object(&self, visit: impl FnMut(Object<'_>)) -> Result<(), String>;
+
+    /// Walk every object through `fan`, in file order.
+    ///
+    /// # Errors
+    ///
+    /// An object the source could not read. Objects before it were walked, and
+    /// the pass reports the failure under every subscriber at the file's site.
+    fn walk(&mut self, fan: &mut Fan<'_>) -> Result<WalkOutcome, ltk_meta::Error>;
 }
 ```
 
-That is the whole streaming seam, and it is why the visitor sees a materialised `Object`
-rather than a view over bytes (ADR-0014). When `ltk_meta`'s streaming reader is adopted,
-`BinSource` gains a `Stream` variant that mounts a `PROP` through
-`ltk_meta::concrete::BinStream` and materialises one `BinObject` at a time, and `open` falls
-back to `Eager` for a `PTCH`, which the streaming reader refuses. No subscriber, no visitor and
-no rule changes. The budget's premise moves at the same time: a streamed bin costs its bytes
-plus its largest object's expansion rather than the whole file's, and `Weight::Bin` is
-re-measured then, not before.
+A `PROP` is walked through `BinStream::walk` ([`value-walk.md` section 5](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s5)):
+one buffered object at a time, nothing materialised, every leaf decoded only when a visitor
+reads it. A `PTCH` is walked through `BinOverride::walk`, over the objects it carries (D17).
+`BinStream::mount` refuses a `PTCH`, and the fallback lives in `open` and nowhere else. The
+visitor is the same value in both arms (ADR-0020, D13).
 
-Until then `open` is `FileHandle::bin`, and every rule that reads bins reads both kinds, as it
-does today.
+What a streamed bin costs the budget is its bytes plus its largest object's buffer, which the
+table of contents bounds before anything is decoded. `Weight::Bin` keeps the whole-file
+expansion until that cost is measured on a named project, and the measurement is
+[appendix A](#appendix-a)'s.
 
 ## <a id="s11"></a>11. Testing
 
@@ -816,8 +839,12 @@ project and assert on the `Run`; nothing tests the walk's active set or the plan
 - **Pruning is per visitor.** Two visitors, one declining a container the other enters: the
   first is never called beneath it, the second is called on every node in it. The regression
   this guards is the one no current test would catch.
-- **Address parity.** For every finding `bin_property_type` reports on a fixture, the hash
-  form the pass renders equals the hash form the repair's trail renders for the same node.
+- **Address parity.** For every property of a fixture reaching a node through every step
+  kind, `Address::of` renders the toolkit's own `Trail` text with the field appended. For every
+  finding `bin_property_type` reports on a fixture, the hash form the check records equals the
+  hash form the repair's trail renders for the same node.
+- **Tree parity.** `bin_property_type`'s visitor over a fixture mounted as a `BinStream`
+  reports the findings, at the addresses, it reports over the same bytes parsed whole.
 - **Facts.** Two rules demanding `BankUnits` share one collector; an unparseable bin makes it
   incomplete and `asks_for` answers yes.
 - **Failure fan-out.** One unreadable bin and three bin subscribers: three failures, one per
@@ -825,9 +852,8 @@ project and assert on the `Run`; nothing tests the walk's active set or the plan
   failure under every subscriber, and `complete` is false.
 - **Determinism.** The same fixture under one worker and under eight produces an identical
   `Run` after the engine's sort.
-- **A PTCH fixture** in the bin-round tests, so the day a streaming source lands the fallback
-  is covered. The handoff notes no fixture in the tree is a `PTCH`; one is added with the first
-  migrated bin rule.
+- **A PTCH fixture** in the walk tests: the objects a `PTCH` carries walk as a `PROP`'s do,
+  and the bin round's fallback for one is covered.
 - **Rule parity.** Each rule's existing tests keep their assertions on the `Run`; a rule moved
   onto the pass changes its `subscribe` and none of its expected output.
 - **Selection.** A `head` subscription selected by a fact over a fixture where the fact names
@@ -844,45 +870,50 @@ project and assert on the `Run`; nothing tests the walk's active set or the plan
 
 ## <a id="s12"></a>12. Rules
 
-| ID  | Rule                                                                                                                                                  | Instead of                                               | Why                                                                                          | Spec                 |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------- |
-| D1  | `Rule::check` is replaced by `Rule::subscribe`; `Pass::after` carries an unmigrated body                                                              | An additive `subscribe` beside `check`                   | One seam, and a rule cannot implement neither                                                | ADR-0013             |
-| D2  | The pass has two rounds, bins then files, each one `Budget::map`                                                                                      | One work list                                            | Header reads must not park behind a bin's reservation                                        | [section 4](#s4)     |
-| D3  | The widest read wins per file; each subscriber sees its own prefix                                                                                    | Per-subscriber reads                                     | One open per file                                                                            | [section 5.1](#s5.1) |
-| D4  | A subscription declares the largest read it may make                                                                                                  | Declaring the usual one                                  | The reservation must cover the fallback                                                      | [section 5.1](#s5.1) |
-| D5  | The reservation for a file is the largest weight among its subscribers, once                                                                          | Sum of weights                                           | The bytes are held once                                                                      | [section 5.4](#s5.4) |
-| D6  | `Finish::take` reports failed and cancelled files itself and returns successes                                                                        | Every rule matching on the outcome                       | Five copies of one match become none                                                         | [section 5.5](#s5.5) |
-| D7  | The walk enters what any active visitor wants and calls each only where it wanted to be                                                               | One shared prune predicate                               | A prune tuned to one visitor starves another with no failing test                            | [section 6.1](#s6.1) |
-| D8  | The trail holds hashes and borrows; text is rendered at report time through a `Namer`                                                                 | Names captured on the way down                           | The walk holds no rule's names; zero allocation per step                                     | [section 6.2](#s6.2) |
-| D9  | A demanded fact is computed unconditionally                                                                                                           | Demanding it from a file-round result                    | The conditional compensated for a second parse that no longer exists                         | [section 7](#s7)     |
-| D10 | A fact is available to every round after the one that assembles it, and at finish                                                                     | Facts scoped to one round                                | The rounds are ordered, so availability is an ordering, not a scope                          | [section 7](#s7)     |
-| D11 | A failure is reported once per subscribing rule at the file's site                                                                                    | Once per file                                            | The panel accounts per rule, and today's output is kept                                      | [section 8](#s8)     |
-| D12 | The repair's mutable walk stays in `bin_property_type`                                                                                                | A mutable visitor seam                                   | One adapter is a hypothetical seam                                                           | [section 9](#s9)     |
-| D13 | The visitor sees a materialised `Object`; the source materialises one object at a time                                                                | A view-abstract visitor                                  | Streaming drops in behind one enum with no visitor change                                    | ADR-0014             |
-| D14 | `Objects::each` is internal iteration                                                                                                                 | An `Iterator`                                            | A streaming source lends each object out of a reused buffer                                  | [section 5.2](#s5.2) |
-| D15 | `Demanded<F>` is a zero-sized `Copy` token required by `Finish::fact`                                                                                 | A fallible lookup                                        | An undemanded fact is unrepresentable rather than an error                                   | [section 5.5](#s5.5) |
-| D16 | `subscribe` runs on the calling thread and performs no IO                                                                                             | Letting it read                                          | What it reads would not be budgeted                                                          | [section 4](#s4)     |
-| D17 | PTCH patch records are outside the pass                                                                                                               | Visiting them                                            | Outside every rule today; new scope                                                          | [section 5.2](#s5.2) |
-| D18 | Bins are read before files, and a file subscription may be selected by a bin fact                                                                     | Files first, or a third round for dependent reads        | A file is checked by what the bin that names it says                                         | ADR-0015             |
-| D19 | A selection picks files, never a shape or a weight                                                                                                    | A per-file shape                                         | The file round's plan is known before it starts                                              | [section 5.1](#s5.1) |
-| D20 | A selection against an incomplete fact is ignored and every file is read; a declined file is not a failure                                            | Failing the rule                                         | Answer yes when unsure, the `asks_for` precedent                                             | [section 8](#s8)     |
-| D21 | A bin subscriber never depends on file data; file-to-bin comparisons join at finish                                                                   | A round after the file round                             | No rule needs bytes while walking; a third round waits for one                               | [section 5.2](#s5.2) |
-| D22 | An index is handed to the pass, never built by it, and outlives a run                                                                                 | Building the game or project index as a fact             | A fact is per run; an index is not                                                           | [section 2](#s2)     |
-| D23 | A rule declares the audiences it serves and whether each may turn it off; a rule a run does not keep never subscribes and is absent from `Run::rules` | Filtering outside the engine, or listing a disabled rule | The settings page is the inventory; a run lists what ran                                     | ADR-0016             |
-| D24 | A `RuleId` is stable forever, and an unknown id in the config is dropped on save                                                                      | Renaming freely                                          | A rename silently re-enables a rule a user turned off                                        | [section 4.2](#s4.2) |
-| D25 | Rules are independent: inputs are facts and indexes, no rule reads another's findings                                                                 | Declared inputs and outputs between rules                | Every shared condition decomposes into a fact                                                | [section 7](#s7)     |
-| D26 | What a rule keeps until finish is unbudgeted and small; a collector holds hashes and counts; `BankUnits` is the one exemption                         | Reserving it                                             | A retained tree defeats the budget with no reservation to show it                            | [section 5.5](#s5.5) |
-| D27 | A second parsed format gets a round of its own, written by hand                                                                                       | A `parsed::<T>()` subscription                           | One instance; a `Parse` trait would define weight and failure for formats nobody asked about | [section 1](#s1)     |
-| D28 | A finding about several files anchors at the highest-priority layer's copy and names the rest in `Detail`                                             | A multi-file `Site`                                      | That copy is what the game loads and what a repair touches                                   | [section 5.5](#s5.5) |
-| D29 | A rule about the project rather than any file's bytes works at finish from the project and the indexes                                                | `Pass::after`                                            | Index reads are not file reads; `after` is the migration hatch only                          | [section 4](#s4)     |
-| D30 | A toggle takes effect on the next run; cancellation is the only mid-run control                                                                       | Live toggling                                            | The plan is built at subscribe time                                                          | [section 4.2](#s4.2) |
-| D31 | A closure's own read is permitted only under a declared weight and becomes an index lookup when a second game-copy rule lands                         | Permitting it indefinitely                               | It is unbudgeted by shape and honest only by declaration                                     | [section 5.1](#s5.1) |
-| D32 | A check across bins collects both sides in the one bin round and diffs at finish                                                                      | A second bin round after a collecting one                | A second round is a second parse of every bin                                                | [section 5.2](#s5.2) |
-| D33 | A run with no kept rules is not made; the caller checks `rules::kept` first                                                                           | An empty `Run`                                           | An empty run reads as healthy                                                                | [section 4.2](#s4.2) |
+| ID  | Rule                                                                                                                                                    | Instead of                                                         | Why                                                                                                                                                            | Spec                                       |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| D1  | `Rule::check` is replaced by `Rule::subscribe`; `Pass::after` carries an unmigrated body                                                                | An additive `subscribe` beside `check`                             | One seam, and a rule cannot implement neither                                                                                                                  | ADR-0013                                   |
+| D2  | The pass has two rounds, bins then files, each one `Budget::map`                                                                                        | One work list                                                      | Header reads must not park behind a bin's reservation                                                                                                          | [section 4](#s4)                           |
+| D3  | The widest read wins per file; each subscriber sees its own prefix                                                                                      | Per-subscriber reads                                               | One open per file                                                                                                                                              | [section 5.1](#s5.1)                       |
+| D4  | A subscription declares the largest read it may make                                                                                                    | Declaring the usual one                                            | The reservation must cover the fallback                                                                                                                        | [section 5.1](#s5.1)                       |
+| D5  | The reservation for a file is the largest weight among its subscribers, once                                                                            | Sum of weights                                                     | The bytes are held once                                                                                                                                        | [section 5.4](#s5.4)                       |
+| D6  | `Finish::take` reports failed and cancelled files itself and returns successes                                                                          | Every rule matching on the outcome                                 | Five copies of one match become none                                                                                                                           | [section 5.5](#s5.5)                       |
+| D7  | The fan-out enters what any active visitor wants and calls each only where it wanted to be; one `ltk_meta::walk::Visitor`, the active set the manager's | A multi-visitor walk in the toolkit, or one shared prune           | A prune tuned to one visitor starves another with no failing test; the scheduling is one consumer's policy (toolkit ADR-0013)                                  | [section 6.1](#s6.1)                       |
+| D8  | The trail is the toolkit's, holding hashes and the tree's own keys, and text is rendered at report time through a `FieldNames`                          | Names captured on the way down, or a trail of the manager's own    | The walk holds no rule's names, a step allocates nothing, and one trail serves the toolkit's reports and the manager's                                         | [section 6.2](#s6.2), [section 6.3](#s6.3) |
+| D9  | A demanded fact is computed unconditionally                                                                                                             | Demanding it from a file-round result                              | The conditional compensated for a second parse that no longer exists                                                                                           | [section 7](#s7)                           |
+| D10 | A fact is available to every round after the one that assembles it, and at finish                                                                       | Facts scoped to one round                                          | The rounds are ordered, so availability is an ordering, not a scope                                                                                            | [section 7](#s7)                           |
+| D11 | A failure is reported once per subscribing rule at the file's site                                                                                      | Once per file                                                      | The panel accounts per rule, and today's output is kept                                                                                                        | [section 8](#s8)                           |
+| D12 | The repair's mutable walk stays in `bin_property_type`, and its trail renders through the same `Address` as the check's                                 | A mutable visitor seam                                             | One adapter is a hypothetical seam; one renderer keeps the two addressing one node                                                                             | [section 6.3](#s6.3), [section 9](#s9)     |
+| D13 | A visitor is generic over the tree and runs over `BinStream::walk` in the pass and `Bin::walk` for a repair's verification                              | A materialised object per visitor                                  | Nothing materialised in the pass; one visitor for the check and its verification                                                                               | ADR-0020                                   |
+| D14 | The shallow subscription is a visitor pruned at the root, driven by internal iteration                                                                  | An `Iterator` of objects                                           | A streaming source lends each object out of a reused buffer, and nothing beneath the root is walked                                                            | [section 5.2](#s5.2)                       |
+| D15 | `Demanded<F>` is a zero-sized `Copy` token required by `Finish::fact`                                                                                   | A fallible lookup                                                  | An undemanded fact is unrepresentable rather than an error                                                                                                     | [section 5.5](#s5.5)                       |
+| D16 | `subscribe` runs on the calling thread and performs no IO                                                                                               | Letting it read                                                    | What it reads would not be budgeted                                                                                                                            | [section 4](#s4)                           |
+| D17 | PTCH patch records are outside the pass                                                                                                                 | Visiting them                                                      | Outside every rule today; new scope                                                                                                                            | [section 5.2](#s5.2)                       |
+| D18 | Bins are read before files, and a file subscription may be selected by a bin fact                                                                       | Files first, or a third round for dependent reads                  | A file is checked by what the bin that names it says                                                                                                           | ADR-0015                                   |
+| D19 | A selection picks files, never a shape or a weight                                                                                                      | A per-file shape                                                   | The file round's plan is known before it starts                                                                                                                | [section 5.1](#s5.1)                       |
+| D20 | A selection against an incomplete fact is ignored and every file is read; a declined file is not a failure                                              | Failing the rule                                                   | Answer yes when unsure, the `asks_for` precedent                                                                                                               | [section 8](#s8)                           |
+| D21 | A bin subscriber never depends on file data; file-to-bin comparisons join at finish                                                                     | A round after the file round                                       | No rule needs bytes while walking; a third round waits for one                                                                                                 | [section 5.2](#s5.2)                       |
+| D22 | An index is handed to the pass, never built by it, and outlives a run                                                                                   | Building the game or project index as a fact                       | A fact is per run; an index is not                                                                                                                             | [section 2](#s2)                           |
+| D23 | A rule declares the audiences it serves and whether each may turn it off; a rule a run does not keep never subscribes and is absent from `Run::rules`   | Filtering outside the engine, or listing a disabled rule           | The settings page is the inventory; a run lists what ran                                                                                                       | ADR-0016                                   |
+| D24 | A `RuleId` is stable forever, and an unknown id in the config is dropped on save                                                                        | Renaming freely                                                    | A rename silently re-enables a rule a user turned off                                                                                                          | [section 4.2](#s4.2)                       |
+| D25 | Rules are independent: inputs are facts and indexes, no rule reads another's findings                                                                   | Declared inputs and outputs between rules                          | Every shared condition decomposes into a fact                                                                                                                  | [section 7](#s7)                           |
+| D26 | What a rule keeps until finish is unbudgeted and small; a collector holds hashes and counts; `BankUnits` is the one exemption                           | Reserving it                                                       | A retained tree defeats the budget with no reservation to show it                                                                                              | [section 5.5](#s5.5)                       |
+| D27 | A second parsed format gets a round of its own, written by hand                                                                                         | A `parsed::<T>()` subscription                                     | One instance; a `Parse` trait would define weight and failure for formats nobody asked about                                                                   | [section 1](#s1)                           |
+| D28 | A finding about several files anchors at the highest-priority layer's copy and names the rest in `Detail`                                               | A multi-file `Site`                                                | That copy is what the game loads and what a repair touches                                                                                                     | [section 5.5](#s5.5)                       |
+| D29 | A rule about the project rather than any file's bytes works at finish from the project and the indexes                                                  | `Pass::after`                                                      | Index reads are not file reads; `after` is the migration hatch only                                                                                            | [section 4](#s4)                           |
+| D30 | A toggle takes effect on the next run; cancellation is the only mid-run control                                                                         | Live toggling                                                      | The plan is built at subscribe time                                                                                                                            | [section 4.2](#s4.2)                       |
+| D31 | A closure's own read is permitted only under a declared weight and becomes an index lookup when a second game-copy rule lands                           | Permitting it indefinitely                                         | It is unbudgeted by shape and honest only by declaration                                                                                                       | [section 5.1](#s5.1)                       |
+| D32 | A check across bins collects both sides in the one bin round and diffs at finish                                                                        | A second bin round after a collecting one                          | A second round is a second parse of every bin                                                                                                                  | [section 5.2](#s5.2)                       |
+| D33 | A run with no kept rules is not made; the caller checks `rules::kept` first                                                                             | An empty `Run`                                                     | An empty run reads as healthy                                                                                                                                  | [section 4.2](#s4.2)                       |
+| D34 | The hash form is the toolkit's grammar: bare lowercase hex, a string key as a JSON string, `{?}` for a key that does not decode                         | The manager's own grammar, with `0x` and bare string keys          | The address a finding records is the address the toolkit's `ValuePath` writes for the same position, so no repair matches on a text the toolkit cannot produce | [section 6.3](#s6.3)                       |
+| D35 | `walk::Declared` extends `TreeValue` with the item kind, the key kind and the class a header declares                                                   | Materialising the value to ask, or a walk over the owned tree only | A rule about a declared type asks per property, and a decode per property is the cost the view exists to remove                                                | [section 6.2](#s6.2)                       |
+| D36 | One visitor instance per bin, made on the worker and folded in file order, with the rule's shared state behind `&self`                                  | `&self` visitors on every worker with `Mutex` state per node       | No lock on the hot path, and determinism by construction                                                                                                       | ADR-0021                                   |
 
 ## <a id="appendix-a"></a>Appendix A. Measurements
 
 None taken. The counts in [section 3](#s3) are read off the source at the commit this document
 was written against (`ltk-manager` `main` at `d8dd548`, `ltk_meta` 0.8.1) and are not timings.
 The first ticket that lands the pass records, on one named project, wall-clock and peak bytes
-reserved for a check before and after, and this appendix gains that row.
+reserved for a check before and after, and this appendix gains that row. The ticket that adopts
+`BinStream::walk` records the same pair for a streamed bin beside the eager parse, which is
+what re-measures `Weight::Bin` ([section 10](#s10)).

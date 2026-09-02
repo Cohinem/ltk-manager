@@ -14,14 +14,13 @@ use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use ltk_hash::{BinHash, Hash as _};
-use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::Kind;
-use ltk_meta::property::values::Container;
 use serde::Deserialize;
 
 use super::kinds;
 use crate::meta_schema::Shape;
 use crate::problems::GameBuild;
+use crate::problems::walk::Declared;
 
 /// The first table, and the one the deadline names.
 const TABLE_16_17: &str = include_str!("../../tables/binfile_migration_16.17.8087655.jsonl");
@@ -127,65 +126,67 @@ impl TypeSpec {
     /// The type `value` is written as, which is the `from` side of a
     /// schema-derived row.
     #[must_use]
-    pub fn of(value: &PropertyValueEnum) -> Self {
+    pub fn of<'a>(value: impl Declared<'a>) -> Self {
         let mut spec = Self::bare(value.kind());
-        match value {
-            PropertyValueEnum::Container(items) => spec.value = Some(items.item_kind()),
-            PropertyValueEnum::UnorderedContainer(items) => spec.value = Some(items.0.item_kind()),
-            PropertyValueEnum::Optional(optional) => spec.value = Some(optional.item_kind()),
-            PropertyValueEnum::Map(map) => {
-                spec.key = Some(map.key_kind());
-                spec.value = Some(map.value_kind());
-            }
-            _ => {}
-        }
+        spec.key = value.key_kind();
+        spec.value = value.item_kind();
         spec
     }
 
-    /// Whether `value` is declared as this type.
+    /// Whether `value` is declared as this type, over either tree.
     ///
     /// Detection reads the value's own kind rather than a version, so a table
     /// whose `from` no longer matches contributes nothing and costs one lookup.
-    #[must_use]
-    pub fn matches(&self, value: &PropertyValueEnum) -> bool {
+    ///
+    /// # Errors
+    ///
+    /// Over a view, a header that does not decode. The owned tree never fails.
+    pub fn matches<'a>(&self, value: impl Declared<'a>) -> Result<bool, ltk_meta::Error> {
         if value.kind() != self.kind {
-            return false;
+            return Ok(false);
         }
-        match value {
-            PropertyValueEnum::Container(items) => self.matches_items(items),
-            PropertyValueEnum::UnorderedContainer(items) => self.matches_items(&items.0),
-            PropertyValueEnum::Optional(optional) => {
-                self.value.is_none_or(|item| optional.item_kind() == item)
+        Ok(match value.kind() {
+            Kind::Container | Kind::UnorderedContainer => self.matches_items(value)?,
+            Kind::Optional => self
+                .value
+                .is_none_or(|item| value.item_kind() == Some(item)),
+            Kind::Map => {
+                self.key.is_none_or(|key| value.key_kind() == Some(key))
+                    && self
+                        .value
+                        .is_none_or(|item| value.item_kind() == Some(item))
             }
-            PropertyValueEnum::Map(map) => {
-                self.key.is_none_or(|key| map.key_kind() == key)
-                    && self.value.is_none_or(|value| map.value_kind() == value)
-            }
-            PropertyValueEnum::Struct(object) => self.matches_class(object.class_hash),
-            PropertyValueEnum::Embedded(object) => self.matches_class(object.0.class_hash),
+            Kind::Struct | Kind::Embedded => value
+                .class_hash()
+                .is_some_and(|class| self.matches_class(class)),
             _ => true,
-        }
+        })
     }
 
     /// Whether a container holds the item type, and the class, this names.
     ///
     /// An empty container matches, because a container holding nothing holds
     /// nothing of the wrong class.
-    fn matches_items(&self, container: &Container) -> bool {
-        if self.value.is_some_and(|item| container.item_kind() != item) {
-            return false;
+    fn matches_items<'a>(&self, container: impl Declared<'a>) -> Result<bool, ltk_meta::Error> {
+        if self
+            .value
+            .is_some_and(|item| container.item_kind() != Some(item))
+        {
+            return Ok(false);
         }
         let Some(class) = self.class else {
-            return true;
+            return Ok(true);
         };
-        if !matches!(container.item_kind(), Kind::Struct | Kind::Embedded) {
-            return false;
+        if !matches!(container.item_kind(), Some(Kind::Struct | Kind::Embedded)) {
+            return Ok(false);
         }
-        container.items().iter().all(|item| match item {
-            PropertyValueEnum::Embedded(it) => it.0.class_hash == class,
-            PropertyValueEnum::Struct(it) => it.class_hash == class,
-            _ => false,
-        })
+        for held in container.children()? {
+            let (_, item) = held?;
+            if item.class_hash() != Some(class) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     fn matches_class(&self, class: BinHash) -> bool {
@@ -436,6 +437,8 @@ mod tests {
     use ltk_meta::property::values;
 
     use super::*;
+    use ltk_meta::PropertyValueEnum;
+    use ltk_meta::property::values::Container;
 
     fn shipped() -> &'static MigrationTable {
         &tables()[0]
@@ -605,14 +608,14 @@ mod tests {
         let path = string("ASSETS/Characters/Smolder/HUD/Smolder_Circle.dds");
         let hashed = file(0xabe0_3fa5_cfa7_e5c0);
 
-        assert!(migration.from.matches(&path));
-        assert!(!migration.from.matches(&hashed));
-        assert!(migration.to.matches(&hashed));
-        assert!(!migration.to.matches(&path));
+        assert!(migration.from.matches(&path).unwrap());
+        assert!(!migration.from.matches(&hashed).unwrap());
+        assert!(migration.to.matches(&hashed).unwrap());
+        assert!(!migration.to.matches(&path).unwrap());
 
-        let neither = PropertyValueEnum::Hash(values::Hash::new(1u32));
-        assert!(!migration.from.matches(&neither));
-        assert!(!migration.to.matches(&neither));
+        let neither: PropertyValueEnum = PropertyValueEnum::Hash(values::Hash::new(1u32));
+        assert!(!migration.from.matches(&neither).unwrap());
+        assert!(!migration.to.matches(&neither).unwrap());
     }
 
     #[test]
@@ -628,20 +631,20 @@ mod tests {
                 string("a"),
             )
             .expect("a key and a value of the map's kinds");
-        let hashed = PropertyValueEnum::Map(hashed);
-        assert!(migration.from.matches(&hashed));
-        assert!(!migration.to.matches(&hashed));
+        let hashed: PropertyValueEnum = PropertyValueEnum::Map(hashed);
+        assert!(migration.from.matches(&hashed).unwrap());
+        assert!(!migration.to.matches(&hashed).unwrap());
 
-        let linked = PropertyValueEnum::Map(
+        let linked: PropertyValueEnum = PropertyValueEnum::Map(
             values::Map::empty(Kind::WadChunkLink, Kind::String).expect("kinds a map can hold"),
         );
-        assert!(migration.to.matches(&linked));
-        assert!(!migration.from.matches(&linked));
+        assert!(migration.to.matches(&linked).unwrap());
+        assert!(!migration.from.matches(&linked).unwrap());
 
-        let wrong_value = PropertyValueEnum::Map(
+        let wrong_value: PropertyValueEnum = PropertyValueEnum::Map(
             values::Map::empty(Kind::Hash, Kind::I32).expect("kinds a map can hold"),
         );
-        assert!(!migration.from.matches(&wrong_value));
+        assert!(!migration.from.matches(&wrong_value).unwrap());
     }
 
     /// An empty `Optional` still carries its variant, so the item kind reads
@@ -650,22 +653,22 @@ mod tests {
     fn an_optional_matches_on_its_item_kind_whether_or_not_it_holds_one() {
         let migration = row("SkinCharacterDataProperties", "iconCircle");
 
-        let empty = PropertyValueEnum::Optional(
+        let empty: PropertyValueEnum = PropertyValueEnum::Optional(
             values::Optional::empty(Kind::String).expect("a kind an optional can hold"),
         );
-        assert!(migration.from.matches(&empty));
-        assert!(!migration.to.matches(&empty));
+        assert!(migration.from.matches(&empty).unwrap());
+        assert!(!migration.to.matches(&empty).unwrap());
 
-        let held = PropertyValueEnum::Optional(
+        let held: PropertyValueEnum = PropertyValueEnum::Optional(
             values::Optional::new(Kind::String, Some(string("ASSETS/x.dds"))).expect("a string"),
         );
-        assert!(migration.from.matches(&held));
+        assert!(migration.from.matches(&held).unwrap());
 
-        let linked = PropertyValueEnum::Optional(
+        let linked: PropertyValueEnum = PropertyValueEnum::Optional(
             values::Optional::empty(Kind::WadChunkLink).expect("a kind an optional can hold"),
         );
-        assert!(migration.to.matches(&linked));
-        assert!(!migration.from.matches(&linked));
+        assert!(migration.to.matches(&linked).unwrap());
+        assert!(!migration.from.matches(&linked).unwrap());
     }
 
     #[test]
@@ -677,18 +680,18 @@ mod tests {
             Kind::String,
             vec![string("ASSETS/a.dds"), string("ASSETS/b.dds")],
         )));
-        assert!(migration.from.matches(&paths));
-        assert!(!migration.to.matches(&paths));
+        assert!(migration.from.matches(&paths).unwrap());
+        assert!(!migration.to.matches(&paths).unwrap());
 
         let links = PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(container(
             Kind::WadChunkLink,
             vec![file(1)],
         )));
-        assert!(migration.to.matches(&links));
+        assert!(migration.to.matches(&links).unwrap());
 
         // An ordered container is a different tag, so it is neither shape.
         let ordered = PropertyValueEnum::Container(container(Kind::String, vec![string("a")]));
-        assert!(!migration.from.matches(&ordered));
+        assert!(!migration.from.matches(&ordered).unwrap());
     }
 
     #[test]
@@ -700,21 +703,21 @@ mod tests {
             Kind::Embedded,
             vec![embedded(0x0a7c_a72c), embedded(0x0a7c_a72c)],
         )));
-        assert!(migration.from.matches(&old));
-        assert!(!migration.to.matches(&old));
+        assert!(migration.from.matches(&old).unwrap());
+        assert!(!migration.to.matches(&old).unwrap());
 
         let renamed = PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(container(
             Kind::Embedded,
             vec![embedded(0x3b8d_8b3f)],
         )));
-        assert!(migration.to.matches(&renamed));
+        assert!(migration.to.matches(&renamed).unwrap());
 
         let empty = PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(container(
             Kind::Embedded,
             vec![],
         )));
-        assert!(migration.from.matches(&empty));
-        assert!(migration.to.matches(&empty));
+        assert!(migration.from.matches(&empty).unwrap());
+        assert!(migration.to.matches(&empty).unwrap());
     }
 
     #[test]
@@ -722,15 +725,15 @@ mod tests {
         let migration = row("0x3b09052f", "value");
         assert_eq!(migration.conversion, Conversion::None);
 
-        assert!(migration.from.matches(&embedded(0x73b4_a2eb)));
-        assert!(!migration.from.matches(&embedded(0x0a7c_a72c)));
+        assert!(migration.from.matches(&embedded(0x73b4_a2eb)).unwrap());
+        assert!(!migration.from.matches(&embedded(0x0a7c_a72c)).unwrap());
 
-        let pointer = PropertyValueEnum::Struct(values::Struct {
+        let pointer: PropertyValueEnum = PropertyValueEnum::Struct(values::Struct {
             class_hash: BinHash(0x73b4_a2eb),
             ..Default::default()
         });
-        assert!(migration.to.matches(&pointer));
-        assert!(!migration.from.matches(&pointer));
+        assert!(migration.to.matches(&pointer).unwrap());
+        assert!(!migration.from.matches(&pointer).unwrap());
     }
 
     #[test]

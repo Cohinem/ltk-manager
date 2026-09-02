@@ -156,7 +156,50 @@ fn a_property_that_matches_from_raises_one_problem() {
     assert_eq!(problem.site.path, "data/skin0.bin");
     let node = problem.site.node.as_ref().unwrap();
     assert_eq!(node.entry, ENTRY);
-    assert_eq!(node.path, "iconAvatar", "the table names this field");
+    assert_eq!(
+        node.path, "089aff69",
+        "the hash form is what the file holds"
+    );
+    assert_eq!(
+        node.label.as_deref(),
+        Some("iconAvatar"),
+        "the table names this field"
+    );
+}
+
+/// The check is one visitor over either tree: mounted as a stream it reads
+/// the same findings, at the same addresses, as it reads off the parsed tree.
+#[test]
+fn the_check_reads_a_stream_as_it_reads_the_tree() {
+    let bytes = bytes_of(&every_shape());
+    let nothing = BinNames::none();
+    let lens = Lens {
+        tables: table::tables(),
+        schema: None,
+        names: &nothing,
+    };
+
+    let parsed = BinFile::from_reader(&mut std::io::Cursor::new(&bytes)).unwrap();
+    let owned: Vec<(BinHash, String, BinHash)> = check_bin(&parsed, lens)
+        .into_iter()
+        .map(|(entry, hit)| (entry, hit.address.into_hashes(), hit.migration.field))
+        .collect();
+
+    let mut stream = ltk_meta::BinStream::<_, NoMeta>::mount(std::io::Cursor::new(&bytes)).unwrap();
+    let mut check = Check::new(lens);
+    stream.walk::<ltk_meta::Error, _>(&mut check).unwrap();
+    let viewed: Vec<(BinHash, String, BinHash)> = check
+        .found
+        .into_iter()
+        .map(|(entry, hit)| (entry, hit.address.into_hashes(), hit.migration.field))
+        .collect();
+
+    assert_eq!(
+        owned.len(),
+        4,
+        "every shape the fixture carries is a finding"
+    );
+    assert_eq!(viewed, owned);
 }
 
 /// A file already carrying the new type is a file the run must stay quiet
@@ -744,6 +787,54 @@ fn a_half_named_map_prints_only_what_is_missing() {
 }
 
 // ---- the fix, end to end ---------------------------------------------
+
+/// A hit under an index and under a map key: the address the check records
+/// is the address the repair's own trail matches on.
+#[test]
+fn a_fix_reaches_a_property_under_an_index_and_a_key() {
+    const NESTED: BinHash = BinHash(0x0000_1111);
+    const KEYED: BinHash = BinHash(0x0000_2222);
+
+    let skin = || values::Struct {
+        class_hash: SKIN,
+        properties: IndexMap::from([(ICON_AVATAR, text(ICON).into())]),
+        meta: NoMeta,
+    };
+    let list = values::Container::new(Kind::Struct, vec![skin().into()])
+        .expect("a struct is a kind a container holds");
+    let mut map = values::Map::empty(Kind::String, Kind::Struct).expect("kinds a map can hold");
+    map.push(text("k").into(), skin().into()).unwrap();
+    let bin = Bin::new(
+        [BinObject::<NoMeta>::builder(ENTRY, SKIN)
+            .property(NESTED, list)
+            .property(KEYED, map)
+            .build()],
+        std::iter::empty::<&str>(),
+    );
+
+    let mut paths: Vec<String> = found(&bin)
+        .into_iter()
+        .map(|problem| problem.site.node.unwrap().path)
+        .collect();
+    paths.sort();
+    assert_eq!(paths, ["00001111[0].089aff69", r#"00002222{"k"}.089aff69"#]);
+
+    let (applied, repaired) = fix_all(&bin);
+    assert_eq!(
+        applied,
+        Applied {
+            applied: 2,
+            skipped: 0
+        }
+    );
+    let nothing = BinNames::none();
+    let lens = Lens {
+        tables: table::tables(),
+        schema: None,
+        names: &nothing,
+    };
+    assert!(check_bin(&repaired, lens).is_empty());
+}
 
 /// Builds a project, runs the check, applies every problem, and hands back
 /// what the run reported plus the bin that landed on disk.
