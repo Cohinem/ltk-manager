@@ -25,7 +25,6 @@ export type { DerivedCategorization } from "./DerivedCategorization";
 export type { DiagnosticReport } from "./DiagnosticReport";
 export type { EditModMetadataArgs } from "./EditModMetadataArgs";
 export type { Ending } from "./Ending";
-export type { ErrorCode } from "./ErrorCode";
 export type { Evidence } from "./Evidence";
 export type { EvidenceCode } from "./EvidenceCode";
 export type { EvidenceMark } from "./EvidenceMark";

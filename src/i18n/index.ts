@@ -1,2 +1,3 @@
-/** The compiled catalog, one typed function per message in `messages/en/`. */
+/** Every user-facing string: the compiled catalog `m`, and the describers that turn a backend error into copy. */
+export * from "./errors";
 export { m } from "@/paraglide/messages";

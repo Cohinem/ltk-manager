@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
+import { errorSummary } from "@/i18n";
 import { api, type AppError, type HealthSweepReport } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
 import { unwrapForQuery } from "@/utils/query";
@@ -24,7 +25,7 @@ export function useSweepModHealth() {
       if (report.repairable.length + report.unrepairable.length > 0) return;
       toast.success("No problems found", `Checked ${plural(report.checked, "mod")}`);
     },
-    onError: (error) => toast.error(error.message ?? "Failed to check the library"),
+    onError: (error) => toast.error("Failed to check the library", errorSummary(error)),
   });
 }
 

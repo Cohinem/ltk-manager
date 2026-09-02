@@ -243,3 +243,9 @@ codes, ids and typed fields — see ADR-0017.
 **Catalog** — `messages/` as a whole, every message the app can say, one file per module and
 `common.json` for the words every module shares. Its compiled form under `src/paraglide/` is
 generated and not committed — see ADR-0018.
+
+**Error copy** — what the frontend shows for one backend error: a **title** naming what went
+wrong, a **description** giving the remedy where one exists, and a **detail** carrying prose from
+outside the app, such as an OS or crate error, drawn as data. A **describer** in `src/i18n/`
+turns an error's code and fields into that copy, and nothing else reads an error's fields for
+display.

@@ -74,7 +74,7 @@ function WadScanFailedContent({
         onError: (error) => {
           // The injector may have already auto-stopped the thread by the time the
           // user clicks. A "not running" rejection here is a no-op, not a failure.
-          console.error("Failed to stop patcher:", error.message);
+          console.error("Failed to stop patcher:", error);
         },
       });
     }
