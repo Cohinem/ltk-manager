@@ -51,9 +51,17 @@ fn project_on(bin: &Bin, installed: Option<GameBuild>) -> (tempfile::TempDir, Pr
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("skin0.bin"), bytes_of(bin)).unwrap();
 
+    let config = config_beside(tmp.path(), installed);
+    let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
+    (tmp, files)
+}
+
+/// The config a project at `root` runs under, naming a game install on
+/// `installed` where there is one.
+fn config_beside(root: &std::path::Path, installed: Option<GameBuild>) -> Config {
     let mut config = Config::default();
     if let Some(build) = installed {
-        let league = tmp.path().join("league");
+        let league = root.join("league");
         std::fs::create_dir_all(league.join("Game")).unwrap();
         std::fs::write(
             league.join("Game").join("content-metadata.json"),
@@ -62,9 +70,24 @@ fn project_on(bin: &Bin, installed: Option<GameBuild>) -> (tempfile::TempDir, Pr
         .unwrap();
         config.league_path = Some(league);
     }
+    config
+}
 
-    let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
-    (tmp, files)
+/// One object carrying the four `hash_value` shapes, each still holding a path.
+fn every_shape() -> Bin {
+    let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
+    map.push(values::Hash::new(BinHash(1)).into(), text(ICON).into())
+        .unwrap();
+    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        .property(ICON_AVATAR, text(ICON))
+        .property(
+            ALTERNATE_ICONS_CIRCLE,
+            values::Container::from(vec![text("a.dds")]),
+        )
+        .property(ICON_CIRCLE, values::Optional::from(text(ICON)))
+        .property(UNCENSORED_ICON_CIRCLES, map)
+        .build();
+    Bin::new([object], std::iter::empty::<&str>())
 }
 
 /// Declare one hashtable of `category` on the project at `root`, naming
@@ -725,13 +748,19 @@ fn a_half_named_map_prints_only_what_is_missing() {
 /// Builds a project, runs the check, applies every problem, and hands back
 /// what the run reported plus the bin that landed on disk.
 fn fix_all(bin: &Bin) -> (Applied, BinFile) {
+    fix_all_on(bin, None)
+}
+
+/// [`fix_all`], beside a game install on `installed`.
+fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
     std::fs::write(&file, bytes_of(bin)).unwrap();
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    let config = config_beside(tmp.path(), installed);
+    let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
     let mut report = Report::default();
     let rule = BinPropertyType::new();
     rule.check(&files, &mut report);
@@ -742,7 +771,7 @@ fn fix_all(bin: &Bin) -> (Applied, BinFile) {
         tmp.path(),
         vec!["16.17.8087655".to_owned()],
         None,
-        Config::default(),
+        config,
         None,
     );
     let applied = rule.fix(&borrowed, &mut run).unwrap();
@@ -848,20 +877,7 @@ fn a_fix_leaves_an_unnamed_hash_alone_and_counts_it_skipped() {
 
 #[test]
 fn a_fix_repairs_every_shape_the_class_carries() {
-    let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
-    map.push(values::Hash::new(BinHash(1)).into(), text(ICON).into())
-        .unwrap();
-
-    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
-        .property(ICON_AVATAR, text(ICON))
-        .property(
-            ALTERNATE_ICONS_CIRCLE,
-            values::Container::from(vec![text("a.dds")]),
-        )
-        .property(ICON_CIRCLE, values::Optional::from(text(ICON)))
-        .property(UNCENSORED_ICON_CIRCLES, map)
-        .build();
-    let bin = Bin::new([object], std::iter::empty::<&str>());
+    let bin = every_shape();
 
     assert_eq!(found(&bin).len(), 4);
     let (applied, written) = fix_all(&bin);
@@ -1182,4 +1198,107 @@ fn a_bin_with_no_extension_is_read_inside_an_archive_too() {
 
     assert_eq!(problems.len(), 1);
     assert_eq!(problems[0].site.path, "UI.wad.client/UX/FloatingText");
+}
+
+/// Story: the database names an `Option` on both sides of the retype, so the
+/// kind alone agrees, and the table row that answer supersedes is never asked.
+/// A complex property is judged on what it holds as well.
+#[test]
+fn a_complex_property_is_checked_on_its_subtypes_as_well() {
+    let bin = every_shape();
+    assert_eq!(
+        found(&bin).len(),
+        4,
+        "without an install the table finds all four"
+    );
+
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+    let problems = check_with(&files);
+
+    let paths: Vec<_> = problems
+        .iter()
+        .map(|problem| problem.site.node.as_ref().unwrap().path.clone())
+        .collect();
+    assert_eq!(problems.len(), 4, "beside an install: {paths:?}");
+}
+
+/// `MaxMaterialDriver`, whose `mDrivers` the schema types `List<Pointer>`.
+const MAX_MATERIAL_DRIVER: BinHash = BinHash(0x0006_516a);
+const M_DRIVERS: BinHash = BinHash(0x7ace_ca0f);
+/// A `Pointer` on `SkinCharacterDataProperties`.
+const SECONDARY_RESOURCE_HUD: BinHash = BinHash(0xe431_b198);
+const DRIVER: BinHash = BinHash(0x2222_3333);
+
+/// Story: a mod writes `list[none]` where the game reads `list[pointer]`, and
+/// a `none` where it reads a `pointer`. Both point at nothing, and the format
+/// has one spelling for that: a pointer with a zero class hash.
+#[test]
+fn a_none_where_the_schema_says_pointer_is_repaired_as_a_null_pointer() {
+    let nones = values::Container::new(Kind::None, vec![Kind::None.default_value(); 2])
+        .expect("a list of none");
+    let skin = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        .property(SECONDARY_RESOURCE_HUD, Kind::None.default_value())
+        .build();
+    let driver = BinObject::<NoMeta>::builder(DRIVER, MAX_MATERIAL_DRIVER)
+        .property(M_DRIVERS, nones)
+        .build();
+    let bin = Bin::new([skin, driver], std::iter::empty::<&str>());
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+    let problems = check_with(&files);
+    assert_eq!(problems.len(), 2);
+    assert!(
+        problems.iter().all(|problem| problem.fix.is_some()),
+        "each is repairable"
+    );
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 2);
+    assert_eq!(applied.skipped, 0);
+    let PropertyValueEnum::Struct(pointer) =
+        &written.objects()[&ENTRY].properties[&SECONDARY_RESOURCE_HUD]
+    else {
+        panic!("expected a Pointer");
+    };
+    assert_eq!(pointer.class_hash, BinHash(0), "a pointer to nothing");
+    let PropertyValueEnum::Container(items) = &written.objects()[&DRIVER].properties[&M_DRIVERS]
+    else {
+        panic!("expected a List");
+    };
+    assert_eq!(items.item_kind(), Kind::Struct);
+    assert_eq!(items.len(), 2, "each none became a pointer");
+    assert!(items.items().iter().all(|item| matches!(
+        item,
+        PropertyValueEnum::Struct(inner) if inner.class_hash == BinHash(0)
+    )));
+}
+
+/// The repair judges against the same install the check did, so what the
+/// schema reports on a complex property it rewrites as well - by the same
+/// road the table row takes, since only what the property holds crosses.
+#[test]
+fn a_complex_property_is_repaired_on_its_subtypes_as_well() {
+    let bin = every_shape();
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+    assert!(
+        check_with(&files)
+            .iter()
+            .all(|problem| problem.fix.is_some()),
+        "each shape is repairable"
+    );
+
+    let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
+
+    assert_eq!(applied.applied, 4);
+    assert_eq!(applied.skipped, 0);
+    let value = &written.objects()[&ENTRY].properties[&ICON_CIRCLE];
+    let PropertyValueEnum::Optional(option) = value else {
+        panic!("expected an Optional");
+    };
+    assert_eq!(option.item_kind(), Kind::WadChunkLink);
+    let link = option
+        .value()
+        .and_then(|held| held.get::<values::WadChunkLink>())
+        .expect("the path it held, hashed");
+    assert_eq!(link.value, WadHash::hash_str(ICON));
 }

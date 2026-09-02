@@ -20,6 +20,7 @@ use ltk_meta::property::values::Container;
 use serde::Deserialize;
 
 use super::kinds;
+use crate::meta_schema::Shape;
 use crate::problems::GameBuild;
 
 /// The first table, and the one the deadline names.
@@ -46,6 +47,9 @@ pub enum Conversion {
     HashKey,
     /// A type tag or an embedded class hash changes, and no value moves.
     None,
+    /// Each `None` becomes the null `Pointer`, a zero class hash and nothing
+    /// behind it, which is the one `Pointer` a `None` can mean.
+    NullPointer,
     /// Nothing this build knows turns the value into the type it should be.
     Unknown,
 }
@@ -56,11 +60,34 @@ impl Conversion {
     /// Derived from the pair rather than written per property, since the schema
     /// names a type and not a recipe. A pair with no road between them is
     /// [`Unknown`](Self::Unknown), which reports and offers no repair.
+    ///
+    /// A list, an option or a map crosses on what it holds, and a map keyed
+    /// by `Hash` on its keys, which are the roads the tables take.
     #[must_use]
-    pub fn between(from: Kind, to: Kind) -> Self {
-        match (from, to) {
+    pub fn between(from: &TypeSpec, to: &TypeSpec) -> Self {
+        match (from.kind, to.kind) {
             (Kind::String, Kind::WadChunkLink) => Self::HashValue,
             (Kind::Hash, Kind::WadChunkLink) => Self::Rehash,
+            (Kind::None, Kind::Struct) => Self::NullPointer,
+            (Kind::Container | Kind::UnorderedContainer | Kind::Optional, same)
+                if same == from.kind =>
+            {
+                Self::held(from.value, to.value)
+            }
+            (Kind::Map, Kind::Map) if from.key == to.key => Self::held(from.value, to.value),
+            (Kind::Map, Kind::Map) if from.value == to.value => match (from.key, to.key) {
+                (Some(Kind::Hash), Some(Kind::WadChunkLink)) => Self::HashKey,
+                _ => Self::Unknown,
+            },
+            _ => Self::Unknown,
+        }
+    }
+
+    /// How what a container holds crosses, item by item.
+    fn held(from: Option<Kind>, to: Option<Kind>) -> Self {
+        match (from, to) {
+            (Some(Kind::String), Some(Kind::WadChunkLink)) => Self::HashValue,
+            (Some(Kind::None), Some(Kind::Struct)) => Self::NullPointer,
             _ => Self::Unknown,
         }
     }
@@ -173,6 +200,19 @@ impl TypeSpec {
             (Some(key), Some(value)) => format!("{kind}<{}, {}>", word(key), word(value)),
             (None, Some(value)) => format!("{kind}<{}>", word(value)),
             _ => kind,
+        }
+    }
+}
+
+impl From<Shape> for TypeSpec {
+    /// The type the schema holds, which names no class and no size.
+    fn from(shape: Shape) -> Self {
+        Self {
+            kind: shape.kind,
+            key: shape.key,
+            value: shape.value,
+            class: None,
+            size: None,
         }
     }
 }
@@ -752,5 +792,24 @@ not json at all
         let table = MigrationTable::parse(GameBuild::new(1, 2, 3), "\n\n   \n");
         assert!(table.is_empty());
         assert_eq!(table.len(), 0);
+    }
+
+    /// A `None` where the game wants a `Pointer` is a pointer to nothing,
+    /// which the format writes as a zero class hash, so that is the road.
+    #[test]
+    fn a_none_crosses_to_a_pointer_as_a_null_pointer() {
+        assert_eq!(
+            Conversion::between(&TypeSpec::bare(Kind::None), &TypeSpec::bare(Kind::Struct)),
+            Conversion::NullPointer
+        );
+
+        let list_of = |item| TypeSpec {
+            value: Some(item),
+            ..TypeSpec::bare(Kind::Container)
+        };
+        assert_eq!(
+            Conversion::between(&list_of(Kind::None), &list_of(Kind::Struct)),
+            Conversion::NullPointer
+        );
     }
 }

@@ -478,9 +478,9 @@ impl<'a> Lookup<'a> {
             && let Some(expected) = schema.expected(class, field, build)
         {
             found.named = expected.field_name;
-            if let Some(kind) = expected.kind {
+            if let Some(shape) = expected.shape {
                 answered = Some(build);
-                if value.kind() != kind {
+                if !TypeSpec::from(shape).matches(value) {
                     found.hit = Some((build, Cow::Owned(derived(class, field, expected, value))));
                     return found;
                 }
@@ -553,17 +553,20 @@ fn derived(
     expected: meta_schema::Expected<'_>,
     value: &PropertyValueEnum,
 ) -> Migration {
-    let to = expected
-        .kind
-        .expect("a mismatch needs a kind to disagree with");
+    let to = TypeSpec::from(
+        expected
+            .shape
+            .expect("a mismatch needs a type to disagree with"),
+    );
+    let from = TypeSpec::of(value);
     Migration {
         class,
         field,
         class_name: expected.class_name.map(str::to_owned),
         field_name: expected.field_name.map(str::to_owned),
-        from: TypeSpec::of(value),
-        to: TypeSpec::bare(to),
-        conversion: Conversion::between(value.kind(), to),
+        conversion: Conversion::between(&from, &to),
+        from,
+        to,
     }
 }
 
@@ -779,7 +782,7 @@ fn keep_names(
         under the new hash is what lets a reader name the `File` it left. */
         Conversion::Rehash | Conversion::HashKey => resolved_paths(value, migration, names)
             .is_some_and(|paths| paths.iter().all(|path| kept.keep(path) == Preserved::Kept)),
-        Conversion::None => true,
+        Conversion::None | Conversion::NullPointer => true,
         /* Nothing is written, so there is no path to keep. */
         Conversion::Unknown => false,
     }
@@ -886,6 +889,7 @@ fn convert(value: &mut PropertyValueEnum, migration: &Migration, names: &BinName
         Conversion::None => retag(value, migration),
         Conversion::Rehash => rehash(value, names),
         Conversion::HashKey => rehash_keys(value, names),
+        Conversion::NullPointer => null_pointers(value),
         /* No road from what it holds to what it should be. */
         Conversion::Unknown => false,
     }
@@ -1022,6 +1026,69 @@ fn hashed_container(items: values::Container) -> Result<values::Container, value
         /* The container disagrees with the item kind it declared. */
         None => Err(items),
     }
+}
+
+/// Write the null `Pointer` over every `None` under this property. Reports
+/// whether it changed.
+///
+/// A `None` carries nothing to read, so a wrapper keeps its count and each
+/// slot takes a pointer with a zero class hash, which is how the format spells
+/// a pointer to nothing.
+fn null_pointers(value: &mut PropertyValueEnum) -> bool {
+    let taken = std::mem::replace(value, Kind::None.default_value());
+    match nulled(taken) {
+        Ok(converted) => {
+            *value = converted;
+            true
+        }
+        Err(unchanged) => {
+            *value = unchanged;
+            false
+        }
+    }
+}
+
+/// The value with each `None` a null pointer, or the value back where it
+/// holds anything else.
+fn nulled(value: PropertyValueEnum) -> Result<PropertyValueEnum, PropertyValueEnum> {
+    match value {
+        PropertyValueEnum::None(_) => Ok(null_pointer()),
+        PropertyValueEnum::Container(items) if items.item_kind() == Kind::None => {
+            Ok(nulled_container(items.len()).into())
+        }
+        PropertyValueEnum::UnorderedContainer(items) if items.0.item_kind() == Kind::None => {
+            Ok(values::UnorderedContainer(nulled_container(items.0.len())).into())
+        }
+        PropertyValueEnum::Optional(option) if option.item_kind() == Kind::None => {
+            let held = option.is_some().then(null_pointer);
+            Ok(values::Optional::new(Kind::Struct, held)
+                .expect("a pointer is a kind an optional holds")
+                .into())
+        }
+        PropertyValueEnum::Map(map) if map.value_kind() == Kind::None => {
+            let key_kind = map.key_kind();
+            let entries = map
+                .into_entries()
+                .into_iter()
+                .map(|(key, _)| (key, null_pointer()))
+                .collect();
+            Ok(values::Map::new(key_kind, Kind::Struct, entries)
+                .expect("a pointer is a kind a map holds, and the keys are the ones it held")
+                .into())
+        }
+        other => Err(other),
+    }
+}
+
+/// A pointer to nothing, which is a `Pointer` with a zero class hash.
+fn null_pointer() -> PropertyValueEnum {
+    PropertyValueEnum::Struct(values::Struct::default())
+}
+
+/// A container of `count` null pointers.
+fn nulled_container(count: usize) -> values::Container {
+    values::Container::new(Kind::Struct, (0..count).map(|_| null_pointer()).collect())
+        .expect("a pointer is a kind a container holds")
 }
 
 /// Change a type tag or an embedded class hash, moving no value.
@@ -1171,7 +1238,11 @@ fn note(
                 migration.from.label()
             ));
         }
-        Conversion::Rehash | Conversion::HashKey | Conversion::HashValue | Conversion::None => {}
+        Conversion::Rehash
+        | Conversion::HashKey
+        | Conversion::HashValue
+        | Conversion::None
+        | Conversion::NullPointer => {}
     }
 
     if installed.is_some_and(|installed| installed < table) {
@@ -1265,7 +1336,7 @@ fn preview(
             })
         }
         /* Nothing to draw beside the annotation: the type is the whole change. */
-        Conversion::None => Some(FixPreview::default()),
+        Conversion::None | Conversion::NullPointer => Some(FixPreview::default()),
         Conversion::HashValue => Some(value_preview(value)),
         /* No repair, so nothing to preview. */
         Conversion::Unknown => None,
