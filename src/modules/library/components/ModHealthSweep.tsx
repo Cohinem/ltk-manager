@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { ShockedPoroDuotoneIcon, useToast } from "@/components";
-import { useModHealthDrawerStore } from "@/stores";
+import { useModHealthDrawerStore, useQueuedDialog } from "@/stores";
 
 import { useModHealthStatus } from "../api";
 import { alarmOver, announcementKey, HEADLINE, toneOf } from "./modHealthNotice";
@@ -27,6 +27,7 @@ export function ModHealthSweep() {
   const focusModId = useModHealthDrawerStore((s) => s.focusModId);
   const setHosted = useModHealthDrawerStore((s) => s.setHosted);
   const toast = useToast();
+  const showing = useQueuedDialog("mod-health", open);
 
   useEffect(() => {
     if (!status || !takeAnnouncement(announcementKey(status.all))) return;
@@ -61,5 +62,5 @@ export function ModHealthSweep() {
      nothing to say, which is the whole of what `focusModId` is for. */
   if (!status && !focusModId) return null;
 
-  return <ModHealthSweepDialog open={open} onClose={close} />;
+  return <ModHealthSweepDialog open={showing} onClose={close} />;
 }

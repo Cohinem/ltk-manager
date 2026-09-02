@@ -14,6 +14,7 @@ mod logging;
 mod mods;
 pub mod patcher;
 mod protocol;
+mod releases;
 mod setup;
 mod state;
 mod tray;
@@ -217,6 +218,8 @@ fn main() {
             // Deep Link
             commands::deep_link_install_mod,
             commands::take_pending_deep_link,
+            // Releases
+            commands::list_releases,
             // for dynamic icons
             tray::set_tray_state,
         ])

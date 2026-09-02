@@ -2,6 +2,7 @@ import { Copy, Package, Wrench } from "lucide-react";
 
 import { AlertBox, Button, Dialog, Spinner, useToast } from "@/components";
 import type { WadScanFailedPayload } from "@/lib/tauri";
+import { useQueuedDialog } from "@/stores";
 
 import { usePatcherStatus } from "../api/usePatcherStatus";
 import { useStopPatcher } from "../api/useStopPatcher";
@@ -38,10 +39,11 @@ function wadLabel(wad: string): string {
  */
 export function WadScanFailedDialog() {
   const { failure, clear } = useWadScanFailure();
+  const showing = useQueuedDialog("wad-scan-failed", failure !== null);
 
   // Render the content (and its mod/report queries) only while a failure is
   // active, so the dialog stays inert when idle.
-  if (!failure) return null;
+  if (!failure || !showing) return null;
 
   return <WadScanFailedContent failure={failure} onClose={clear} />;
 }

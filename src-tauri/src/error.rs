@@ -17,6 +17,8 @@ use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
 use ltk_manager_core::workshop::WorkshopError;
 
+use crate::releases::{ReleaseFeedError, ReleaseFeedErrorKind};
+
 /// What went wrong, as the fields the frontend translates over.
 ///
 /// The frontend owns every sentence a user reads (ADR-0017), so no variant
@@ -93,6 +95,11 @@ pub enum AppErrorResponse {
     /// never heard of.
     Overlay {
         category: OverlayErrorCategory,
+        detail: String,
+    },
+    /// The release feed could not be read. The kind says which remedy applies.
+    Releases {
+        kind: ReleaseFeedErrorKind,
         detail: String,
     },
 }
@@ -218,6 +225,15 @@ impl From<AppError> for AppErrorResponse {
                 category: OverlayErrorCategory::from(&e),
                 detail: e.to_string(),
             },
+        }
+    }
+}
+
+impl From<ReleaseFeedError> for AppErrorResponse {
+    fn from(error: ReleaseFeedError) -> Self {
+        Self::Releases {
+            kind: error.kind(),
+            detail: error.to_string(),
         }
     }
 }
