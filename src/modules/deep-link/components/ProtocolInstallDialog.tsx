@@ -3,7 +3,7 @@ import { CircleCheck, CircleX, Download, Globe, Package, User } from "lucide-rea
 import { Button, Dialog, Progress, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { ProtocolInstallProgress } from "@/lib/tauri";
-import { useDeepLinkStore } from "@/stores";
+import { useDeepLinkStore, useQueuedDialog } from "@/stores";
 
 import { useProtocolInstall } from "../api/useProtocolInstall";
 import { useProtocolInstallProgress } from "../api/useProtocolInstallProgress";
@@ -17,7 +17,7 @@ export function ProtocolInstallDialog() {
   const install = useProtocolInstall();
   const { progress } = useProtocolInstallProgress();
 
-  const open = request !== null;
+  const open = useQueuedDialog("protocol-install", request !== null);
   const isInstalling = status === "installing" || install.isPending;
   const isComplete = status === "complete";
   const isError = status === "error";
@@ -43,7 +43,7 @@ export function ProtocolInstallDialog() {
     install.reset();
   }
 
-  if (!request) return null;
+  if (!request || !open) return null;
 
   const displayName = request.name ?? "Unknown Mod";
 

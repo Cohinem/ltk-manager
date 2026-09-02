@@ -56,6 +56,7 @@ import type {
   PlatformSupport,
   ProblemId,
   Profile,
+  ReleasePage,
   Run,
   SaveProjectConfigArgs,
   SessionStarted,
@@ -128,6 +129,7 @@ export const api = {
   getPlatformSupport: () => invokeResult<PlatformSupport>("get_platform_support"),
   showMainWindow: () => invokeResult<void>("show_main_window"),
   prepareForUpdate: () => invokeResult<void>("prepare_for_update"),
+  listReleases: (page: number) => invokeResult<ReleasePage>("list_releases", { page }),
 
   // Settings
   getSettings: () => invokeResult<Settings>("get_settings"),

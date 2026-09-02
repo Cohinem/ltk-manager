@@ -8,6 +8,7 @@
       "./messages/{locale}/errors.json",
       "./messages/{locale}/launcher.json",
       "./messages/{locale}/patcher.json",
+      "./messages/{locale}/updater.json",
       "./messages/{locale}/workshop.json",
       "./messages/{locale}/common.json"
     ]
