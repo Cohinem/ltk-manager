@@ -1,6 +1,6 @@
 # ADR-0014: The pass hands a visitor one materialised object at a time
 
-- **Status:** Proposed
+- **Status:** Superseded by ADR-0020
 - **Date:** 2026-09-01
 - **Crates:** `ltk-manager-core`
 - **Related:** PRD-001 (FR-3, FR-10, FR-11), ADR-0013, and the spec sections that state the
