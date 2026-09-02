@@ -631,7 +631,7 @@ Nothing hard-blocks the first stage.
 
 | Item              | Where     | Status                                                 |
 | ----------------- | --------- | ------------------------------------------------------ |
-| `ltk_meta` 0.6.1  | crates.io | Published. `MIT OR Apache-2.0`, the workspace's        |
+| `ltk_meta` 0.6.1  | crates.io | Published. `MIT OR Apache-2.0`, GPL-compatible         |
 | `bin_tables()`    | This repo | A small addition to `hashtables.rs`                    |
 | `Bin::scan`       | Upstream  | Wanted by the object index, optional here              |
 | The write version | Upstream  | Read [The version-3 write](#the-version-3-write)       |
