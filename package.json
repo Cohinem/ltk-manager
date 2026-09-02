@@ -1,6 +1,7 @@
 {
   "name": "ltk-manager-ui",
   "private": true,
+  "license": "GPL-3.0-or-later",
   "version": "1.15.2",
   "type": "module",
   "scripts": {
