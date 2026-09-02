@@ -158,3 +158,18 @@ labels. See `docs/agents/triage-labels.md`.
 
 Single-context, with one `CONTEXT.md` and one `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
+
+### CodeGraph
+
+In a checkout indexed by CodeGraph (`.codegraph/` at the repo root), the index reads the code but
+has blind spots:
+
+- The Tauri command boundary has no edge. `api.fooBar` in `src/lib/tauri.ts` invokes the string
+  `"foo_bar"`, which is the Rust command of that name registered in `src-tauri/src/main.rs`. An
+  explore query that names both sides (`fooBar foo_bar`) returns the whole flow.
+- A cross-language `calls` or `imports` edge is a name collision (Rust `.unwrap()` resolves to
+  `src/utils/result.ts`), unless the target is a ts-rs binding type. Qualified Rust names such as
+  `GameDir::resolve` keep callers exact.
+- `codegraph affected` sees no Rust tests, because they are inline `#[cfg(test)]` modules. Rust
+  test impact is `cargo test`, scoped with `-p` to the crate touched.
+- `docs/` is outside the index. The reasons in `docs/ux/` and `docs/adr/` are found by grep.

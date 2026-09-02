@@ -658,9 +658,8 @@ beside `SettingsState` and `PatcherState`.
 | `bin_undo`     | The same                                      |
 | `bin_close`    | Nothing                                       |
 
-Errors carry an `ErrorCode` and their context the way
-[error handling](../ERROR_HANDLING.md) describes, with the node address in the context of a
-rejected patch.
+Errors carry a `code` and typed fields the way [error handling](../ERROR_HANDLING.md) describes,
+with the node address as a field of a rejected patch.
 
 ## The frontend
 

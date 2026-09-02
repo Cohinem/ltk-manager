@@ -1,6 +1,7 @@
 import { CircleCheck, CircleX, Download, Globe, Package, User } from "lucide-react";
 
 import { Button, Dialog, Progress, useToast } from "@/components";
+import { errorSummary } from "@/i18n";
 import type { ProtocolInstallProgress } from "@/lib/tauri";
 import { useDeepLinkStore } from "@/stores";
 
@@ -30,7 +31,7 @@ export function ProtocolInstallDialog() {
           toast.success("Mod Installed", mod.name ?? "Mod installed successfully");
         },
         onError: (err) => {
-          toast.error("Install Failed", err.message);
+          toast.error("Install Failed", errorSummary(err));
         },
       },
     );
