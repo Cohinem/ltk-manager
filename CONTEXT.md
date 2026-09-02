@@ -232,3 +232,14 @@ names no rule either, and for the same reason: each of the three defects that wo
 it was measured at zero, and each is a state the build should assert over the archives it just
 wrote rather than one a pass over a library should hunt for. So the naming rule now has no
 instance, which does not make it wrong — see ADR-0010.
+
+## User-facing copy
+
+**Message** — one string a user reads, as a key in `messages/en/<module>.json` and the typed
+function Paraglide compiles from it. A key is a slot, `library_empty_title`, or the domain id the
+backend sends, `rule.bin/property-type.title`. The frontend owns every message and the backend sends
+codes, ids and typed fields — see ADR-0017.
+
+**Catalog** — `messages/` as a whole, every message the app can say, one file per module and
+`common.json` for the words every module shares. Its compiled form under `src/paraglide/` is
+generated and not committed — see ADR-0018.

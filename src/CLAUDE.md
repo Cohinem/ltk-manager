@@ -175,6 +175,35 @@ drove the choice, cite its `DS-*` code and stop. The rare comment that earns its
 an outside constraint the classes cannot show, such as a layout gap the value must fit
 inside.
 
+## Messages
+
+Every string a user reads is a Paraglide message, called as a typed function. The catalog is
+`messages/en/<module>.json`. `pnpm generate:messages` compiles it to `src/paraglide/`, which
+`pnpm dev`, `pnpm build`, `pnpm typecheck` and Vitest each regenerate for themselves, and which is
+not committed (ADR-0018).
+
+```tsx
+import { m } from "@/i18n";
+
+<EmptyState title={m.library_empty_title()} description={m.library_empty_description()} />;
+```
+
+A key names the slot, never the sentence, so the copy can change without a rename. The shape is
+`<module>_<subject>_<role>` in snake_case, with the role one of `title`, `description`, `hint`,
+`action`, `label`, `placeholder` or `empty`. Copy that the backend keys by a domain id uses that
+id verbatim, `m["rule.bin/property-type.title"]()`, so the id in the catalog is the id on the wire.
+Keys stay sorted in the file.
+
+A message belongs to the module that owns the screen, and goes in `common.json` only once two
+modules say the same words. A new file is added to `pathPattern` in `project.inlang/settings.json`
+with `common.json` kept last. An unknown key or a missing input fails `tsc`, so a test never
+asserts on a key. A component test asserts on the rendered English, as it does today.
+
+`i18next/no-literal-string` warns on a literal that reads as copy. Migration is on touch: a file
+being changed for something else is the moment to move its strings into the catalog. The exclusion
+lists in `eslint.config.js` are a first draft, so a flagged literal that is not copy is a reason to
+tune them rather than to disable the rule.
+
 ## UI Copy
 
 **A description says what the thing is for, not what it is.** A reader arrives at a
