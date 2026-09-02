@@ -45,10 +45,26 @@ pub enum Conversion {
     /// A `Map` key goes the way [`Rehash`](Self::Rehash) does.
     HashKey,
     /// A type tag or an embedded class hash changes, and no value moves.
+    ///
+    /// Three pairs encode identically and differ only in the tag: `Embed` and
+    /// `Pointer`, `List` and `List2`, `Bool` and `Flag`.
     None,
     /// Each `None` becomes the null `Pointer`, a zero class hash and nothing
     /// behind it, which is the one `Pointer` a `None` can mean.
     NullPointer,
+    /// An integer becomes a wider one holding the same number.
+    ///
+    /// Admitted only for a pair every value of the old type crosses whole,
+    /// which is `Range::fits_in`: a `U8` reaches `U64` and an `I32` does not
+    /// reach `U32`.
+    Widen,
+    /// An option holding nothing is re-declared under the item type the game
+    /// reads.
+    ///
+    /// The wire writes an option's item type and its count apart, so an empty
+    /// option declares a type it holds no value of. There is nothing to cross,
+    /// whatever the two item types are.
+    EmptyOption,
     /// Nothing this build knows turns the value into the type it should be.
     Unknown,
 }
@@ -68,6 +84,19 @@ impl Conversion {
             (Kind::String, Kind::WadChunkLink) => Self::HashValue,
             (Kind::Hash, Kind::WadChunkLink) => Self::Rehash,
             (Kind::None, Kind::Struct) => Self::NullPointer,
+            /* Three pairs are one encoding under two tags. `Embed` is a
+            `Pointer`'s class hash and body, `List2` is a `List`'s vector, and a
+            `Flag` is a `Bool`'s byte, so each crosses on the tag alone. A
+            container also has to agree on what it holds, since only the tag
+            moves and the items stay as they are. */
+            (Kind::Embedded, Kind::Struct) | (Kind::Struct, Kind::Embedded) => Self::None,
+            (Kind::Bool, Kind::BitBool) | (Kind::BitBool, Kind::Bool) => Self::None,
+            (Kind::Container, Kind::UnorderedContainer)
+            | (Kind::UnorderedContainer, Kind::Container)
+                if to.value.is_none_or(|item| from.value == Some(item)) =>
+            {
+                Self::None
+            }
             (Kind::Container | Kind::UnorderedContainer | Kind::Optional, same)
                 if same == from.kind =>
             {
@@ -78,7 +107,7 @@ impl Conversion {
                 (Some(Kind::Hash), Some(Kind::WadChunkLink)) => Self::HashKey,
                 _ => Self::Unknown,
             },
-            _ => Self::Unknown,
+            (narrow, wide) => Self::widening(narrow, wide),
         }
     }
 
@@ -87,8 +116,50 @@ impl Conversion {
         match (from, to) {
             (Some(Kind::String), Some(Kind::WadChunkLink)) => Self::HashValue,
             (Some(Kind::None), Some(Kind::Struct)) => Self::NullPointer,
+            (Some(narrow), Some(wide)) => Self::widening(narrow, wide),
             _ => Self::Unknown,
         }
+    }
+
+    /// The road a wider integer opens, where the pair is one.
+    fn widening(from: Kind, to: Kind) -> Self {
+        match (Range::of(from), Range::of(to)) {
+            (Some(narrow), Some(wide)) if narrow.fits_in(wide) => Self::Widen,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+/// What an integer kind holds: its width in bits, and whether it carries a sign.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Range {
+    bits: u32,
+    signed: bool,
+}
+
+impl Range {
+    /// The range of an integer kind, or `None` for a kind that is not one.
+    fn of(kind: Kind) -> Option<Self> {
+        let (bits, signed) = match kind {
+            Kind::I8 => (8, true),
+            Kind::U8 => (8, false),
+            Kind::I16 => (16, true),
+            Kind::U16 => (16, false),
+            Kind::I32 => (32, true),
+            Kind::U32 => (32, false),
+            Kind::I64 => (64, true),
+            Kind::U64 => (64, false),
+            _ => return None,
+        };
+        Some(Self { bits, signed })
+    }
+
+    /// Whether every value of this range is a value of `wider`.
+    ///
+    /// A sign costs a bit, so an unsigned type reaches a signed one only by
+    /// growing: `U32` fits in `I64` and not in `I32`.
+    fn fits_in(self, wider: Self) -> bool {
+        wider.bits > self.bits && (wider.signed || !self.signed)
     }
 }
 
@@ -389,6 +460,8 @@ enum RowConversion {
     Rehash,
     HashKey,
     None,
+    Widen,
+    EmptyOption,
 }
 
 impl From<RowConversion> for Conversion {
@@ -398,6 +471,8 @@ impl From<RowConversion> for Conversion {
             RowConversion::Rehash => Self::Rehash,
             RowConversion::HashKey => Self::HashKey,
             RowConversion::None => Self::None,
+            RowConversion::Widen => Self::Widen,
+            RowConversion::EmptyOption => Self::EmptyOption,
         }
     }
 }
@@ -813,6 +888,138 @@ not json at all
         assert_eq!(
             Conversion::between(&list_of(Kind::None), &list_of(Kind::Struct)),
             Conversion::NullPointer
+        );
+    }
+
+    /// Every value of the narrow type is a value of the wide one, so the number
+    /// crosses whole and the tag is the only thing that moves.
+    #[test]
+    fn an_integer_crosses_to_any_type_that_holds_every_value_it_had() {
+        let crossings = [
+            (Kind::U8, Kind::U16),
+            (Kind::U8, Kind::U64),
+            (Kind::U16, Kind::U32),
+            (Kind::U32, Kind::U64),
+            (Kind::I8, Kind::I64),
+            (Kind::I16, Kind::I32),
+            (Kind::I32, Kind::I64),
+            /* A sign costs a bit, so an unsigned type reaches a signed one
+            only by growing. */
+            (Kind::U8, Kind::I16),
+            (Kind::U32, Kind::I64),
+        ];
+        for (from, to) in crossings {
+            assert_eq!(
+                Conversion::between(&TypeSpec::bare(from), &TypeSpec::bare(to)),
+                Conversion::Widen,
+                "{from:?} to {to:?}"
+            );
+        }
+    }
+
+    /// A pair that could drop a bit of the number is not a repair, whatever the
+    /// two widths are.
+    #[test]
+    fn an_integer_does_not_cross_to_a_type_that_would_lose_it() {
+        let refused = [
+            (Kind::U32, Kind::U8),
+            (Kind::I64, Kind::I32),
+            (Kind::U32, Kind::I32),
+            (Kind::I32, Kind::U32),
+            (Kind::I8, Kind::U64),
+            (Kind::U8, Kind::U8),
+            (Kind::U32, Kind::F32),
+        ];
+        for (from, to) in refused {
+            assert_eq!(
+                Conversion::between(&TypeSpec::bare(from), &TypeSpec::bare(to)),
+                Conversion::Unknown,
+                "{from:?} to {to:?}"
+            );
+        }
+    }
+
+    /// A container crosses on what it holds, so a list of narrow integers takes
+    /// the same road one of them does.
+    #[test]
+    fn a_container_of_integers_crosses_on_its_item_type() {
+        let list_of = |item| TypeSpec {
+            value: Some(item),
+            ..TypeSpec::bare(Kind::Container)
+        };
+        assert_eq!(
+            Conversion::between(&list_of(Kind::U8), &list_of(Kind::U32)),
+            Conversion::Widen
+        );
+        assert_eq!(
+            Conversion::between(&list_of(Kind::U32), &list_of(Kind::U8)),
+            Conversion::Unknown
+        );
+    }
+
+    /// Three pairs are one encoding under two tags, and Riot has moved fields
+    /// both ways across each, so every direction is a retype and no move.
+    #[test]
+    fn the_pairs_that_share_an_encoding_cross_on_the_tag_either_way() {
+        let pairs = [
+            (Kind::Embedded, Kind::Struct),
+            (Kind::Struct, Kind::Embedded),
+            (Kind::Bool, Kind::BitBool),
+            (Kind::BitBool, Kind::Bool),
+        ];
+        for (from, to) in pairs {
+            assert_eq!(
+                Conversion::between(&TypeSpec::bare(from), &TypeSpec::bare(to)),
+                Conversion::None,
+                "{from:?} to {to:?}"
+            );
+        }
+    }
+
+    /// A `List` and a `List2` are the same vector, so the ordering tag crosses
+    /// on its own - but only where both sides hold the same item type, because
+    /// nothing under the tag moves.
+    #[test]
+    fn a_list_and_a_list2_cross_where_they_hold_the_same_item() {
+        let list_of = |kind, item| TypeSpec {
+            value: Some(item),
+            ..TypeSpec::bare(kind)
+        };
+        assert_eq!(
+            Conversion::between(
+                &list_of(Kind::Container, Kind::Hash),
+                &list_of(Kind::UnorderedContainer, Kind::Hash)
+            ),
+            Conversion::None
+        );
+        assert_eq!(
+            Conversion::between(
+                &list_of(Kind::UnorderedContainer, Kind::Struct),
+                &list_of(Kind::Container, Kind::Struct)
+            ),
+            Conversion::None
+        );
+        assert_eq!(
+            Conversion::between(
+                &list_of(Kind::Container, Kind::String),
+                &list_of(Kind::UnorderedContainer, Kind::WadChunkLink)
+            ),
+            Conversion::Unknown,
+            "the items would have to cross as well, and one road cannot do both"
+        );
+    }
+
+    /// A schema that names no item type is a claim about the ordering alone,
+    /// which is the same claim `TypeSpec::matches` reads it as.
+    #[test]
+    fn a_list_crosses_where_the_other_side_names_no_item() {
+        let list = TypeSpec {
+            value: Some(Kind::Hash),
+            ..TypeSpec::bare(Kind::Container)
+        };
+        assert_eq!(
+            Conversion::between(&list, &TypeSpec::bare(Kind::UnorderedContainer)),
+            Conversion::None
         );
     }
 }
