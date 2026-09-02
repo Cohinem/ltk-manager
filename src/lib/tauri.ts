@@ -30,6 +30,7 @@ import type {
   HashtableSyncReport,
   HashtableUpdateCheck,
   HealthCheckReadiness,
+  HealthSweepReport,
   HealthSweepState,
   HealthTiming,
   HotkeyAction,
@@ -162,6 +163,9 @@ export const api = {
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
   analyzeModWads: (modId: string) => invokeResult<ModWadReport>("analyze_mod_wads", { modId }),
   checkModHealth: (modId: string) => invokeResult<ModHealthVerdict>("check_mod_health", { modId }),
+  /** Re-check `modIds`, or every mod in the library when none are named. */
+  sweepModHealth: (modIds?: string[]) =>
+    invokeResult<HealthSweepReport>("sweep_mod_health", { modIds: modIds ?? null }),
   repairMod: (modId: string) => invokeResult<FixReport>("repair_mod", { modId }),
   repairMods: (modIds: string[]) => invokeResult<LibraryRepairReport>("repair_mods", { modIds }),
   getModHealthVerdicts: () =>

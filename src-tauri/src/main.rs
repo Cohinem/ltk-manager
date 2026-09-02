@@ -95,6 +95,7 @@ fn main() {
             commands::time_mod_health,
             commands::cancel_mod_health_run,
             commands::get_health_sweep,
+            commands::sweep_mod_health,
             commands::get_health_check_readiness,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,

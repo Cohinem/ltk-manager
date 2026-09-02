@@ -40,6 +40,13 @@ this way, why a hook is mounted here - passes. Why the _product_ behaves as it d
 however true the sentence is. That belongs in `docs/ux/`, and repeating it here records one
 decision in two places that then drift apart.
 
+**A comment is smaller than the code it explains.** A doc comment longer than the function under it
+is the signal that the reason belongs in `docs/ux/` or an ADR with a citation left behind, or that
+the code already shows it. One line is the default and one line is what most symbols get. A second
+paragraph is for a decision the code cannot show, and it is a sentence or two rather than the case
+for it. Count the lines before committing: on a diff where the prose outweighs the statements, the
+prose is what is wrong.
+
 **No redundant comments.** Do not add inline comments that restate what the code already expresses. If the code is descriptive enough (clear variable names, well-known patterns like temp-file-then-rename, obvious API calls), leave it uncommented. This applies to AI-generated code and suggestions too - strip narration comments before committing. The same goes for what a symbol's own doc expresses: a call site that restates the constant or type it is using is writing that doc twice. Needing the explanation there usually means the code is in the wrong place - move it beside what it explains, and the comment stops being needed.
 
 **Cite a rule, do not restate it.** Code written to satisfy a documented design rule
@@ -52,6 +59,23 @@ The same holds for a `docs/ux/` spec: name the section and the file and stop - a
 header or a module's exported entry point, never on a statement, and only where prose was removed.
 It is the receipt for what is no longer written there. Never a relative path, because the code
 moves and the doc does not.
+
+**A doc's first line names the thing, it does not narrate it.** One line, a noun phrase or a single
+declarative sentence, saying what the symbol _is_ - the same shape a commit subject takes, on the
+codebase's own vocabulary. No `Returns`, no `This function`, no restating the signature, and no
+walk through the body:
+
+```
+Bad   /** This function takes the verdicts and builds a string out of them. */
+Good  /** What is wrong with a library, as one string two runs compare by. */
+
+Bad   /** Called by the sweep's effect to decide whether it should announce. */
+Good  /** Claim the unprompted announcement `key` is owed, if it is owed one. */
+```
+
+Third person and the present tense throughout, on the domain's nouns rather than the
+implementation's - `the reader`, `a mod`, `the run` - and never `we` or `you`. Drop `note that`,
+`simply`, `just` and `basically`: a sentence that survives deleting them never needed them.
 
 **No semicolons splicing sentences,** in comments, doc comments, or markdown. They read as
 compressed notes rather than prose. Use a full stop when the halves are two thoughts, or a comma

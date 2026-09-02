@@ -96,6 +96,20 @@ The three words say what a **repair** can do, and nothing about how badly the mo
 missing, because neither carries a fix. Severity is the other axis, it rides in the counts, and a
 surface that draws a verdict reads both.
 
+**Rung** — the two axes folded into the one thing a surface draws: `repairable`, `broken` or
+`flagged`. The hue is the severity's and the words stay the verdict's, so `broken` is a mod the
+game refuses and `flagged` is one that loads with a fault no repair reaches. It is not a fourth
+verdict word and nothing stores it — every surface derives it from the verdict and the counts
+already on the row. Over several mods a repair on offer leads, and below that the loudest wins. See
+"How loud a finding is drawn" in `docs/ux/MOD_HEALTH.md`.
+
+**Announcement** — the one unprompted thing mod health says about the library it just read: the
+drawer for a **rung** the game pays for, an info toast for one it does not. Spent against the
+findings rather than against the launch, so a library that has not moved since the reader met it
+says nothing at all and leaves the news to the status bar cell. What is compared is each unhealthy
+mod and its counts, which is why re-ordering the library is not a change. There is no dismiss —
+meeting it is what spends it.
+
 **Unchecked** — a mod carrying no verdict, which draws no badge and says nothing. Never checked,
 checked by a build whose stored shape has since been discarded, or declined because the hashtable
 cache was empty. A verdict is a claim, and an unchecked mod is a claim about nothing — the state
@@ -129,11 +143,13 @@ the sync is how the schema is delivered and the snapshot is only what stands in 
 publisher that cannot be reached costs a check its freshness and never its result. Not the **schema
 migration**, which is `library.json`'s own versioning and unrelated.
 
-**Health sweep** — the startup pass that re-checks every mod whose basis moved, and forgets the
-verdicts of mods the library no longer holds. It forgets either way and checks only with the
-hashtable cache in hand, standing down without it rather than recording verdicts it could not
-earn. Not the **staging sweep**, which is the same word for clearing `mods/.staging-*` and is
-unrelated. What it found draws as a banner above the library.
+**Health sweep** — a pass that re-checks a set of mods and forgets the verdicts of mods the
+library no longer holds. Its **scope** is what a caller chooses: the startup pass and the one a
+hashtable sync starts take every mod whose basis moved, and a press in the library takes every mod
+or the reader's selection, whatever their basis says. It forgets either way and checks only with
+the hashtable cache in hand — the automatic scope stands down without it, and a pressed one refuses
+in words, because that one has somebody waiting. Not the **staging sweep**, which is the same word
+for clearing `mods/.staging-*` and is unrelated.
 
 **Repair** — applying every fix the live rules derive for one mod. In the tree for a `project`
 mod. For an `archive` mod: unpack, fix, and edit the fixed files back into the archive where it
