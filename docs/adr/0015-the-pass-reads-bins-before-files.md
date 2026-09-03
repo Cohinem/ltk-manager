@@ -1,6 +1,6 @@
 # ADR-0015: The pass reads bins before files, and a bin fact may select which files are read
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-09-03)
 - **Date:** 2026-09-02
 - **Crates:** `ltk-manager-core`
 - **Related:** PRD-001 (FR-1, FR-4, FR-14), ADR-0013, and the spec sections that state the

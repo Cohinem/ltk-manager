@@ -113,9 +113,7 @@ fn project_with(
 }
 
 fn found_in(files: &ProjectFiles) -> Vec<Problem> {
-    let mut report = Report::default();
-    AudioBankVersion::new().check(files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&AudioBankVersion::new()]).finish();
     assert!(
         failed.is_empty(),
         "the fixture should read cleanly: {failed:?}"
@@ -246,9 +244,7 @@ fn a_large_media_only_bank_reports_nothing() {
 fn a_file_that_is_not_a_bank_is_reported_as_a_failure() {
     let (_tmp, files) = project(b"not a bank at all, whatever it is named");
 
-    let mut report = Report::default();
-    AudioBankVersion::new().check(&files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&AudioBankVersion::new()]).finish();
 
     assert!(problems.is_empty());
     assert_eq!(failed.len(), 1);

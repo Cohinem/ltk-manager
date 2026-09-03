@@ -1,6 +1,6 @@
 # ADR-0013: A rule subscribes to the pass instead of reading its files
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-09-03)
 - **Date:** 2026-09-01
 - **Crates:** `ltk-manager-core`
 - **Related:** PRD-001 (FR-1, FR-2, FR-4, FR-7), and the spec section that states the rule:
@@ -47,8 +47,9 @@ the only implementor and the only caller - so its shape costs one PR to change.
 
 **`Rule::check` is replaced by `Rule::subscribe(&self, pass: &mut Pass<'_>)`, and a rule
 performs no IO of its own during a check.** The pass performs every read, parses each bin
-once, walks it once, and hands each subscriber the part it asked for. Unmigrated rules run
-their old body through `Pass::after` until they are moved.
+once, walks it once, and hands each subscriber the part it asked for. The `Pass::after` hatch
+for an unmigrated rule was never needed: every rule moved in the one change that replaced
+`check`.
 
 The rule is stated in `docs/design/problems-pass.md` [section 4.1](../design/problems-pass.md#s4.1).
 

@@ -86,6 +86,13 @@ scanned inside its archive rather than unpacked to be looked at. A modder's view
 is the Problems panel, and the split is deliberate — see `docs/ux/MOD_HEALTH.md`. A check requires
 the **hashtable cache** and does not run without it — see ADR-0009.
 
+**Pass** — the engine's one traversal of a project's files during a check. A rule **subscribes**
+to what it reads and opens nothing itself: the pass reads each file once, parses and walks each
+bin once with every subscribed visitor riding the one walk, and hands each rule its part at
+finish. What more than one rule reads off the bins is a **fact**, computed once per pass and
+owned by no rule. The vocabulary in full is `docs/design/problems-pass.md` section 2, and the
+decision is ADR-0013.
+
 **Verdict** — what a check concluded: `healthy`, `repairable`, or `unrepairable`, with the counts
 behind it. Remembered per mod in `mod-health-verdicts.json` beside the index. A cache of a
 computation, not a record — a lost file refills on the next check. There is no fourth word: a mod

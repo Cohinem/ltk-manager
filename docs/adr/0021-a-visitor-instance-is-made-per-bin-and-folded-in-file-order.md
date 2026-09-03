@@ -1,6 +1,6 @@
 # ADR-0021: A visitor instance is made per bin and folded in file order
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-09-03)
 - **Date:** 2026-09-02
 - **Crates:** `ltk-manager-core`
 - **Related:** PRD-001 (FR-4, FR-8), ADR-0013, ADR-0020, toolkit ADR-0013 and `value-walk.md`

@@ -30,7 +30,8 @@ use archive::ArchiveFiles;
 
 use super::budget::Budget;
 use super::game::GameContent;
-use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
+use super::pass::Fact;
+use super::{BinNames, GameBuild, ObjectInfo, Report, Rule, RuleState, Run};
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";
@@ -45,8 +46,8 @@ const WAD_DIR_SUFFIX: &str = ".wad.client";
 /// The files of one project, and what else a run hands every rule.
 ///
 /// Built once for a run and shared by every rule, because listing the content
-/// is the one cost worth paying exactly once. Reading a file's bytes is each
-/// rule's own business.
+/// is the one cost worth paying exactly once. Reading a file's bytes is the
+/// pass's business, on a rule's subscription.
 ///
 /// The installed build, the hash tables and the installed game's content ride
 /// here too. A rule needs all of them to decide what it has to say, and each
@@ -260,6 +261,21 @@ impl LayerSource {
         }
     }
 
+    /// One of the layer's files, open for reading and seeking.
+    fn open(&self, file: &ProjectFile) -> Result<Opened, String> {
+        match self {
+            Self::Directory(root) => {
+                let at = absolute(root, file);
+                std::fs::File::open(&at)
+                    .map(Opened::File)
+                    .map_err(|e| format!("{}: {e}", at.display()))
+            }
+            Self::Archive(archive) => archive
+                .read(file)
+                .map(|bytes| Opened::Memory(std::io::Cursor::new(bytes))),
+        }
+    }
+
     /// At most `limit` bytes from the start of one of the layer's files.
     ///
     /// A file shorter than `limit` answers with what it has. An archive-backed
@@ -281,6 +297,35 @@ impl LayerSource {
                 Ok(bytes)
             }
             Self::Archive(archive) => archive.head(file, limit),
+        }
+    }
+}
+
+/// A project file open for reading, wherever its layer keeps it.
+#[derive(Debug)]
+pub enum Opened {
+    /// A file of a directory layer, read from disk as it is asked for, so a
+    /// reader that seeks holds only what it asked for.
+    File(std::fs::File),
+    /// An archive's entry, decompressed whole: the smallest unit its
+    /// compression hands out.
+    Memory(std::io::Cursor<Vec<u8>>),
+}
+
+impl std::io::Read for Opened {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::File(file) => file.read(buf),
+            Self::Memory(bytes) => bytes.read(buf),
+        }
+    }
+}
+
+impl std::io::Seek for Opened {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        match self {
+            Self::File(file) => file.seek(pos),
+            Self::Memory(bytes) => bytes.seek(pos),
         }
     }
 }
@@ -512,6 +557,15 @@ impl<'a> FileHandle<'a> {
         self.layer.source.read(self.file)
     }
 
+    /// The file, open for a reader that seeks, such as a streaming bin reader.
+    ///
+    /// # Errors
+    ///
+    /// Reports the file it could not open, as one sentence a panel can draw.
+    pub fn open(&self) -> Result<Opened, String> {
+        self.layer.source.open(self.file)
+    }
+
     /// Parse the file as a bin of either kind.
     ///
     /// A `PTCH` is as much a bin as a `PROP` and carries objects of its own, so
@@ -637,20 +691,22 @@ impl ProjectFiles {
         let started = Instant::now();
         let at = Utc::now();
 
-        let mut report = Report::default();
-        let mut rules = Vec::new();
-        for rule in super::rules::all() {
-            let mut info = rule.info();
-            if let Some(dormancy) = rule.dormant(self) {
-                info.state = RuleState::Dormant {
-                    waiting: dormancy.waiting,
-                    reason: dormancy.reason,
-                };
-            }
-            rules.push(info);
-            rule.check(self, &mut report);
-        }
-        let (mut problems, failed) = report.finish();
+        let all = super::rules::all();
+        let rules = all
+            .iter()
+            .map(|rule| {
+                let mut info = rule.info();
+                if let Some(dormancy) = rule.dormant(self) {
+                    info.state = RuleState::Dormant {
+                        waiting: dormancy.waiting,
+                        reason: dormancy.reason,
+                    };
+                }
+                info
+            })
+            .collect();
+        let subscribed: Vec<&dyn Rule> = all.iter().map(AsRef::as_ref).collect();
+        let (mut problems, failed) = self.report(&subscribed).finish();
 
         // The panel draws this list in the order it arrives, so the order is
         // the engine's to decide: worst first, then by where the problem is.
@@ -684,6 +740,24 @@ impl ProjectFiles {
             problems,
             failed,
         }
+    }
+
+    /// One pass of `rules` over these files, as the rules reported it.
+    ///
+    /// In file order and unsorted, which is what a test of one rule reads.
+    /// [`checked`](Self::checked) sorts it into a run.
+    #[must_use]
+    pub(crate) fn report(&self, rules: &[&dyn Rule]) -> Report {
+        super::pass::run(self, rules)
+    }
+
+    /// Compute one fact over these files, in a bin round of its own.
+    ///
+    /// For a repair, which reads the mod as it is now and cannot ride the
+    /// check's pass.
+    #[must_use]
+    pub fn fact<F: Fact>(&self) -> F {
+        super::pass::fact(self)
     }
 }
 

@@ -61,6 +61,10 @@ pub trait Declared<'a>: TreeValue<'a> {
     /// An option writes its item kind and its count apart, so an empty one
     /// still declares the type it would hold. False for every other kind.
     fn is_empty_option(&self) -> bool;
+
+    /// How many items a container or a map declares, and 1 or 0 for an
+    /// optional. `None` for a leaf and for a node.
+    fn item_count(&self) -> Option<usize>;
 }
 
 impl<'a, M> Declared<'a> for &'a PropertyValueEnum<M> {
@@ -92,6 +96,16 @@ impl<'a, M> Declared<'a> for &'a PropertyValueEnum<M> {
     fn is_empty_option(&self) -> bool {
         matches!(self, PropertyValueEnum::Optional(optional) if optional.is_none())
     }
+
+    fn item_count(&self) -> Option<usize> {
+        match self {
+            PropertyValueEnum::Container(items) => Some(items.len()),
+            PropertyValueEnum::UnorderedContainer(items) => Some(items.0.len()),
+            PropertyValueEnum::Optional(optional) => Some(usize::from(optional.is_some())),
+            PropertyValueEnum::Map(map) => Some(map.entries().len()),
+            _ => None,
+        }
+    }
 }
 
 impl<'a, M: Default> Declared<'a> for ValueView<'a, M> {
@@ -122,6 +136,17 @@ impl<'a, M: Default> Declared<'a> for ValueView<'a, M> {
 
     fn is_empty_option(&self) -> bool {
         matches!(self, ValueView::Optional(optional) if optional.is_none())
+    }
+
+    fn item_count(&self) -> Option<usize> {
+        match self {
+            ValueView::Container(items) | ValueView::UnorderedContainer(items) => {
+                Some(items.len() as usize)
+            }
+            ValueView::Optional(optional) => Some(usize::from(!optional.is_none())),
+            ValueView::Map(map) => Some(map.len() as usize),
+            _ => None,
+        }
     }
 }
 

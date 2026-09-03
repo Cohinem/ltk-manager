@@ -1,6 +1,8 @@
 # The problems pass: one traversal of a project for every rule
 
-- **Status:** Proposed
+- **Status:** Accepted. The pass, the walk and the streaming source landed on 2026-09-03 as
+  `problems::pass`. The audience ([section 4.1](#s4.1), [section 4.2](#s4.2), ADR-0016) is still
+  proposed. Where the code's shape differs from a sketch here, the sketch says so in place.
 - **Crate:** `ltk-manager-core`, module `problems`
 - **PRD:** `docs/prd/001-problems-one-pass.md`
 - **ADRs:** ADR-0013, ADR-0015, ADR-0016, ADR-0020, ADR-0021
@@ -271,15 +273,11 @@ impl<'p> Pass<'p> {
     /// Runs after both rounds, in rule order, on the calling thread. A rule
     /// whose findings come straight out of a visitor needs none.
     pub fn finish(&mut self, finish: impl FnOnce(&mut Finish<'_>) + Send + 'p);
-
-    /// A check body that reads the project itself, run after both rounds.
-    ///
-    /// The migration hatch: a rule moved here does exactly what it did under
-    /// `Rule::check`, and pays exactly what it paid. Deleted once no rule
-    /// uses it.
-    pub fn after(&mut self, check: impl FnOnce(&ProjectFiles, &mut Report) + Send + 'p);
 }
 ```
+
+The migration hatch the proposal named, `Pass::after`, was never built: every rule moved onto a
+subscription in the one change that replaced `check`, so there was no body for it to carry.
 
 ### <a id="s5.1"></a>5.1 The file round: `head` and `whole`
 
@@ -315,7 +313,7 @@ impl<'a, 'p> FileRead<'a, 'p> {
     pub fn selected_by<F: Fact>(
         self,
         fact: Demanded<F>,
-        select: impl Fn(&F, FileHandle<'_>) -> bool + Send + 'p,
+        select: impl Fn(&F, FileHandle<'_>) -> bool + Send + Sync + 'p,
     ) -> Self;
 
     /// Read each file, keeping `R` for finish.
@@ -395,18 +393,27 @@ pub trait ObjectRead: Send + Sync {
     ///
     /// Over a view, a header that does not decode. The pass reports it as a
     /// failure of this rule at the file's site.
-    fn object<'a, V: TreeValue<'a>>(
+    fn object<'a, V: Declared<'a>>(
         &self,
         object: &Node<'_, 'a, V>,
         kept: &mut Self::Kept,
     ) -> Result<(), ltk_meta::Error>;
+
+    /// After the bin's last object, on the worker, under the subscription's
+    /// weight. The default keeps what the objects left.
+    ///
+    /// The one place a bin subscriber may read a second bin beside the one
+    /// it was handed, under a declared `Weight::Bins` (D31). An `Err` is a
+    /// failure of this rule at the file, and the bin is absent from `take`.
+    fn end(&self, handle: FileHandle<'_>, kept: Self::Kept) -> Result<Self::Kept, String>;
 }
 ```
 
 `collect` is one `BinVisitor` written once: its instance calls `object` at every root and
 answers `Visit::Skip`, and the walk touches nothing beneath. It is internal iteration rather
 than an `Iterator`, because a streaming source lends each object out of a buffer it reuses for
-the next one (D14).
+the next one (D14). `end` is where `bin/resolver-key-loss` reads the game's copy, once per bin
+and only for a bin that held a resolver, which a per-object callback has no place for.
 
 An `objects` subscriber sees a `BinFile` of either kind as objects and never asks which. A
 `PTCH` contributes the objects it carries; its patch records are not objects and are outside
@@ -425,14 +432,9 @@ round, because a second round is the second parse this document exists to remove
 /// A rule's bin visitor. One instance per bin, made on the worker, folded at
 /// the bin's end.
 pub trait BinVisitor: Send + Sync {
-    /// The walk-local state for one bin.
-    type Walk<'r, 'f>: Walk<'f> + Send
-    where
-        Self: 'r;
-
     /// One instance for one bin, on the worker. The sink is the instance's for
     /// the bin.
-    fn begin<'r, 'f>(&'r self, sink: Sink<'f>) -> Self::Walk<'r, 'f>;
+    fn begin<'r, 'f: 'r>(&'r self, sink: Sink<'f>) -> Box<dyn Walk<'f> + 'r>;
 }
 
 /// One instance's walk over one bin, over either tree.
@@ -441,10 +443,15 @@ pub trait Walk<'f>:
     + for<'a> Visitor<'a, &'a PropertyValueEnum, Error = ltk_meta::Error>
 {
     /// After the bin: the sink back, and anything the rule keeps across bins
-    /// folded into the rule.
+    /// folded into the rule. Not called for a bin the walk failed on, which
+    /// is dropped with everything its instances saw of it.
     fn end(self: Box<Self>) -> Sink<'f>;
 }
 ```
+
+The proposal sketched the instance as a generic associated type. It is a box: the fan-out holds
+every rule's instance in one list and boxes it anyway, so the box is the same cost with less to
+write in every rule, and an instance never crosses a thread, so it need not be `Send`.
 
 The callbacks are the toolkit's ([`value-walk.md` section 5](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s5)): `enter_node`
 and `exit_node` around every node, `enter_property` for every property, leaves included, and
@@ -497,8 +504,9 @@ impl<'f> Finish<'f> {
     /// The successful reads of one subscription, in file order.
     ///
     /// A file the read failed on, and a file the run was cancelled before
-    /// reaching, are reported under this rule at that file's site before
-    /// this returns. A rule never sees them and never spells the message.
+    /// reaching, were reported under this rule at that file's site when the
+    /// round ended, once per rule however many of its subscriptions named
+    /// the file. A rule never sees them and never spells the message.
     pub fn take<R>(&mut self, collected: Collected<R>) -> Vec<(FileHandle<'f>, R)>;
 
     /// A fact this rule demanded.
@@ -568,7 +576,8 @@ file order:
    no other instance.
 4. `exit_property` pops the set. The exits are symmetric for exactly this (W8).
 5. An instance answering `Visit::Stop` or `Visit::Abort` leaves every set for the rest of the
-   bin. The walk goes on for the others.
+   bin, and no exit reaches it. The walk goes on for the others, and ends the bin early once
+   every instance has left.
 
 **Pruning is per visitor and narrows monotonically.** An instance that declined a value is not
 called on any node beneath it. An instance that accepted it is called on every node beneath it
@@ -588,7 +597,7 @@ A visitor is written against `TreeValue` and `TreeNode` ([`value-walk.md` sectio
 and runs over `ValueView` in the pass and over `&PropertyValueEnum` when a repair verifies its
 work (ADR-0020). `walk::Declared` extends `TreeValue` with what a header declares and the tree
 traits leave to the tree: the item kind of a container or an optional, the key and value kinds
-of a map, and the class a `Struct` or `Embedded` carries. A rule about a property's declared
+of a map, the item count either declares, and the class a `Struct` or `Embedded` carries. A rule about a property's declared
 type asks it, and the answer is read off the header over either tree (D35).
 
 The trail is the toolkit's `Trail` ([`value-walk.md` section 5.2](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s5.2)): hashes,
@@ -734,16 +743,21 @@ call, since a repair reads the mod as it is now and cannot ride the check's pass
 
 The pass owns every failure a read produces. A rule sees only the files it can act on.
 
-| What happened to a file                             | `head` / `whole` / `objects` subscriber                            | `nodes` visitor                              | Fact               |
-| --------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------- | ------------------ |
-| Read                                                | its closure ran; `R` reaches `take`                                | called on every node it entered              | contributes        |
-| Unreadable (open or read failed)                    | a failure under the rule at the file's site                        | a failure under the rule at the file's site  | `complete = false` |
-| Unparseable (bin only)                              | same                                                               | same                                         | `complete = false` |
-| Closure returned `Err`                              | a failure under the rule, with the message                         | n/a                                          | n/a                |
-| Not reached (cancelled)                             | a failure under the rule: `The check was cancelled`                | same                                         | `complete = false` |
-| Object unreadable partway (streaming source, later) | `each` returns `Err`; objects before it were visited               | nodes before it were visited; then a failure | `complete = false` |
-| Not selected (`head` / `whole` only)                | not read for this subscriber; nothing reported; absent from `take` | n/a                                          | n/a                |
-| Selected against an incomplete fact                 | the selection is ignored; the file is read                         | n/a                                          | n/a                |
+| What happened to a file                      | `head` / `whole` / `objects` subscriber                            | `nodes` visitor                                                                          | Fact               |
+| -------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------ |
+| Read                                         | its closure ran; `R` reaches `take`                                | called on every node it entered                                                          | contributes        |
+| Unreadable (open or read failed)             | a failure under the rule at the file's site                        | a failure under the rule at the file's site                                              | `complete = false` |
+| Unparseable (bin only)                       | same                                                               | same                                                                                     | `complete = false` |
+| Closure returned `Err`                       | a failure under the rule, with the message                         | n/a                                                                                      | n/a                |
+| Not reached (cancelled)                      | a failure under the rule: `The check was cancelled`                | same                                                                                     | `complete = false` |
+| Object unreadable partway (streaming source) | a failure under the rule; what it kept of the bin is dropped       | nodes before it were visited; then a failure, and what it reported of the bin is dropped | `complete = false` |
+| Not selected (`head` / `whole` only)         | not read for this subscriber; nothing reported; absent from `take` | n/a                                                                                      | n/a                |
+| Selected against an incomplete fact          | the selection is ignored; the file is read                         | n/a                                                                                      | n/a                |
+
+`Closure returned Err` is the file-round closure and `ObjectRead::end`, whose errors are the
+rule's own. A tree error inside a visitor or an `objects` callback, a header that does not decode
+over a view, is the file's fault: it ends the walk of that bin, and the pass reports it under
+every subscriber.
 
 A selection declining a file is a rule saying it does not want it, which is not a failure of
 anything. A selection made against a fact whose coverage is incomplete cannot be trusted to
@@ -762,8 +776,10 @@ A panic in a subscription closure or a visitor propagates out of the worker and 
 which is what a panic in `check` does today. This document does not change it.
 
 Determinism: `Budget::map` returns results in work order; visitors are called in registration
-order at each node; sinks merge in file order; finish closures run in rule order; the final sort
-is unchanged. A run over eight workers reports what a run over one reports.
+order at each node; sinks merge in file order; failures are listed in rule order, and within a
+rule in the order found; a fact's collector folds by the bin's position; finish closures run in
+rule order; the final sort is unchanged. A run over eight workers reports what a run over one
+reports.
 
 ## <a id="s9"></a>9. The fix side
 
@@ -829,6 +845,9 @@ expansion until that cost is measured on a named project, and the measurement is
 
 The interface is the test surface. Tests drive `subscribe` through a real `Pass` over a fixture
 project and assert on the `Run`; nothing tests the walk's active set or the plan by reaching in.
+The suite is `problems/pass/tests.rs` and each rule's own. Not yet written: the counting
+`LayerSource` behind "one read per file", the one-versus-eight-workers run, and the audience
+items, which wait on ADR-0016.
 
 - **One read per file.** A counting `LayerSource` fixture asserts each file is opened once per
   pass however many rules subscribe to it, and that a bin is parsed once.
@@ -872,12 +891,12 @@ project and assert on the `Run`; nothing tests the walk's active set or the plan
 
 | ID  | Rule                                                                                                                                                    | Instead of                                                         | Why                                                                                                                                                            | Spec                                       |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| D1  | `Rule::check` is replaced by `Rule::subscribe`; `Pass::after` carries an unmigrated body                                                                | An additive `subscribe` beside `check`                             | One seam, and a rule cannot implement neither                                                                                                                  | ADR-0013                                   |
+| D1  | `Rule::check` is replaced by `Rule::subscribe`, every rule moved in one change, and the `Pass::after` hatch was never built                             | An additive `subscribe` beside `check`                             | One seam, and a rule cannot implement neither                                                                                                                  | ADR-0013                                   |
 | D2  | The pass has two rounds, bins then files, each one `Budget::map`                                                                                        | One work list                                                      | Header reads must not park behind a bin's reservation                                                                                                          | [section 4](#s4)                           |
 | D3  | The widest read wins per file; each subscriber sees its own prefix                                                                                      | Per-subscriber reads                                               | One open per file                                                                                                                                              | [section 5.1](#s5.1)                       |
 | D4  | A subscription declares the largest read it may make                                                                                                    | Declaring the usual one                                            | The reservation must cover the fallback                                                                                                                        | [section 5.1](#s5.1)                       |
 | D5  | The reservation for a file is the largest weight among its subscribers, once                                                                            | Sum of weights                                                     | The bytes are held once                                                                                                                                        | [section 5.4](#s5.4)                       |
-| D6  | `Finish::take` reports failed and cancelled files itself and returns successes                                                                          | Every rule matching on the outcome                                 | Five copies of one match become none                                                                                                                           | [section 5.5](#s5.5)                       |
+| D6  | The pass reports failed and cancelled files once per rule at the run's end, in rule order, and `Finish::take` returns successes                         | Every rule matching on the outcome                                 | Five copies of one match become none                                                                                                                           | [section 5.5](#s5.5)                       |
 | D7  | The fan-out enters what any active visitor wants and calls each only where it wanted to be; one `ltk_meta::walk::Visitor`, the active set the manager's | A multi-visitor walk in the toolkit, or one shared prune           | A prune tuned to one visitor starves another with no failing test; the scheduling is one consumer's policy (toolkit ADR-0013)                                  | [section 6.1](#s6.1)                       |
 | D8  | The trail is the toolkit's, holding hashes and the tree's own keys, and text is rendered at report time through a `FieldNames`                          | Names captured on the way down, or a trail of the manager's own    | The walk holds no rule's names, a step allocates nothing, and one trail serves the toolkit's reports and the manager's                                         | [section 6.2](#s6.2), [section 6.3](#s6.3) |
 | D9  | A demanded fact is computed unconditionally                                                                                                             | Demanding it from a file-round result                              | The conditional compensated for a second parse that no longer exists                                                                                           | [section 7](#s7)                           |
@@ -900,7 +919,7 @@ project and assert on the `Run`; nothing tests the walk's active set or the plan
 | D26 | What a rule keeps until finish is unbudgeted and small; a collector holds hashes and counts; `BankUnits` is the one exemption                           | Reserving it                                                       | A retained tree defeats the budget with no reservation to show it                                                                                              | [section 5.5](#s5.5)                       |
 | D27 | A second parsed format gets a round of its own, written by hand                                                                                         | A `parsed::<T>()` subscription                                     | One instance; a `Parse` trait would define weight and failure for formats nobody asked about                                                                   | [section 1](#s1)                           |
 | D28 | A finding about several files anchors at the highest-priority layer's copy and names the rest in `Detail`                                               | A multi-file `Site`                                                | That copy is what the game loads and what a repair touches                                                                                                     | [section 5.5](#s5.5)                       |
-| D29 | A rule about the project rather than any file's bytes works at finish from the project and the indexes                                                  | `Pass::after`                                                      | Index reads are not file reads; `after` is the migration hatch only                                                                                            | [section 4](#s4)                           |
+| D29 | A rule about the project rather than any file's bytes works at finish from the project and the indexes                                                  | `Pass::after`                                                      | Index reads are not file reads, and a hatch for unmigrated bodies was never needed                                                                             | [section 4](#s4)                           |
 | D30 | A toggle takes effect on the next run; cancellation is the only mid-run control                                                                         | Live toggling                                                      | The plan is built at subscribe time                                                                                                                            | [section 4.2](#s4.2)                       |
 | D31 | A closure's own read is permitted only under a declared weight and becomes an index lookup when a second game-copy rule lands                           | Permitting it indefinitely                                         | It is unbudgeted by shape and honest only by declaration                                                                                                       | [section 5.1](#s5.1)                       |
 | D32 | A check across bins collects both sides in the one bin round and diffs at finish                                                                        | A second bin round after a collecting one                          | A second round is a second parse of every bin                                                                                                                  | [section 5.2](#s5.2)                       |
@@ -913,7 +932,6 @@ project and assert on the `Run`; nothing tests the walk's active set or the plan
 
 None taken. The counts in [section 3](#s3) are read off the source at the commit this document
 was written against (`ltk-manager` `main` at `d8dd548`, `ltk_meta` 0.8.1) and are not timings.
-The first ticket that lands the pass records, on one named project, wall-clock and peak bytes
-reserved for a check before and after, and this appendix gains that row. The ticket that adopts
-`BinStream::walk` records the same pair for a streamed bin beside the eager parse, which is
-what re-measures `Weight::Bin` ([section 10](#s10)).
+The pass and `BinStream::walk` landed together on 2026-09-03 without the row: no named project
+was to hand in the change that landed them. The row is owed by the next change that has one, and
+`Weight::Bin` keeps the whole-file expansion until it does ([section 10](#s10)).

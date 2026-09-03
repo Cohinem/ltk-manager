@@ -31,10 +31,8 @@ use image::imageops::FilterType;
 use ltk_texture::Tex;
 use ltk_texture::tex::{EncodeFormat, EncodeOptions, Format, MipmapFilter, ResourceType};
 
-use crate::problems::budget;
 use crate::problems::{
-    Applied, Detail, FixError, FixPreview, FixRun, Problem, ProjectFiles, Report, Rule, RuleId,
-    Severity, Site,
+    Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, Rule, RuleId, Severity, Site,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -81,33 +79,22 @@ impl Rule for TexBlockAlignment {
         Some(Severity::Fatal)
     }
 
-    fn check(&self, project: &ProjectFiles, report: &mut Report) {
-        let handles: Vec<_> = project.of_kind(WorkshopFileKind::Texture).collect();
-        let read = project.budget().map(
-            &handles,
-            budget::files_at_once(),
-            |_| HEADER_BYTES as u64,
-            |handle| {
-                handle
-                    .head(HEADER_BYTES)
-                    .and_then(|head| read_header(&head))
-                    .map(|tex| Ragged::of(&tex))
-            },
-        );
-
-        for (handle, found) in handles.iter().zip(read) {
-            let site = || Site::file(handle.layer(), handle.path());
-            match found {
-                Some(Ok(Some(ragged))) => {
-                    report.problem(ID, Severity::Fatal, site(), ragged.detail());
+    fn subscribe(&self, pass: &mut Pass<'_>) {
+        let headers = pass
+            .files(WorkshopFileKind::Texture)
+            .head(HEADER_BYTES)
+            .collect(|head| read_header(head.bytes()).map(|tex| Ragged::of(&tex)));
+        pass.finish(move |finish| {
+            for (handle, ragged) in finish.take(headers) {
+                if let Some(ragged) = ragged {
+                    finish.problem(
+                        Severity::Fatal,
+                        Site::file(handle.layer(), handle.path()),
+                        ragged.detail(),
+                    );
                 }
-                Some(Ok(None)) => {}
-                Some(Err(e)) => report.failure(ID, Some(site()), e),
-                /* Cancelled before this file was reached. Saying nothing about
-                it is what keeps a partial run from reading as a clean one. */
-                None => report.failure(ID, Some(site()), "The check was cancelled"),
             }
-        }
+        });
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {

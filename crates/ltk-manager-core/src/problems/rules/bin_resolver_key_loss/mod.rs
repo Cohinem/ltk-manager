@@ -33,14 +33,18 @@
 //!   so nothing bakes to one patch and nothing is written to a file that keeps
 //!   no copy of what it was.
 
+use std::collections::HashMap;
+
 use ltk_hash::BinHash;
+use ltk_meta::property::Kind;
+use ltk_meta::walk::{Node, TreeNode as _};
 use ltk_meta::{BinFile, PropertyValueEnum};
 
-use crate::problems::budget;
 use crate::problems::game::GameContent;
+use crate::problems::walk::Declared;
 use crate::problems::{
-    Applied, Detail, Dormancy, FileHandle, FixError, FixRun, NodeAddress, Problem, ProjectFiles,
-    Report, Rule, RuleId, Severity, Site,
+    Applied, Detail, Dormancy, FileHandle, FixError, FixRun, NodeAddress, ObjectRead, Pass,
+    Problem, ProjectFiles, Rule, RuleId, Severity, Site, Weight,
 };
 
 /// The id every row of this rule carries.
@@ -102,58 +106,32 @@ impl Rule for BinResolverKeyLoss {
         })
     }
 
-    fn check(&self, project: &ProjectFiles, report: &mut Report) {
-        let Some(game) = project.game() else {
+    fn subscribe(&self, pass: &mut Pass<'_>) {
+        let Some(game) = pass.game() else {
             return;
         };
-
-        let handles: Vec<_> = project
+        let losses = pass
             .bins()
-            .filter(|handle| handle.wad_hash().is_some())
-            .collect();
-        let read = project.budget().map(
-            &handles,
-            budget::files_at_once(),
             /* Both copies are parsed, and the game's is a bin of the same
             shape, so the mod's size stands in for the pair. */
-            |handle| {
-                handle
-                    .size_bytes()
-                    .saturating_mul(2 * budget::BIN_EXPANSION)
-            },
-            |handle| losses_in(handle, game),
-        );
-
-        for (handle, found) in handles.iter().zip(read) {
-            let site = |entry| {
-                Site::node(
-                    handle.layer(),
-                    handle.path(),
-                    NodeAddress {
-                        entry,
-                        path: String::new(),
-                        label: None,
-                    },
-                )
-            };
-            match found {
-                Some(Ok(losses)) => {
-                    for loss in losses {
-                        report.problem(ID, Severity::Info, site(loss.entry), loss.detail());
-                    }
+            .weighing(Weight::Bins(2))
+            .collect(Resolvers { game });
+        pass.finish(move |finish| {
+            for (handle, resolved) in finish.take(losses) {
+                for loss in resolved.lost {
+                    let site = Site::node(
+                        handle.layer(),
+                        handle.path(),
+                        NodeAddress {
+                            entry: loss.entry,
+                            path: String::new(),
+                            label: None,
+                        },
+                    );
+                    finish.problem(Severity::Info, site, loss.detail());
                 }
-                Some(Err(e)) => {
-                    report.failure(ID, Some(Site::file(handle.layer(), handle.path())), e);
-                }
-                /* Cancelled before this bin was reached. Saying nothing about
-                it is what keeps a partial run from reading as a clean one. */
-                None => report.failure(
-                    ID,
-                    Some(Site::file(handle.layer(), handle.path())),
-                    "The check was cancelled",
-                ),
             }
-        }
+        });
     }
 
     /// Records every problem as skipped.
@@ -171,41 +149,81 @@ impl Rule for BinResolverKeyLoss {
     }
 }
 
-/// Every resolver of one bin that holds far less than the game's copy.
-///
-/// The game's copy is read only where the mod's bin holds a resolver at all,
-/// so a mod shipping no skin bins never touches the install.
-///
-/// # Errors
-///
-/// Reports a bin of the mod, or the game's copy of it, that would not parse.
-fn losses_in(handle: &FileHandle<'_>, game: &dyn GameContent) -> Result<Vec<Loss>, String> {
-    let mine = handle.bin()?;
-    let ours = resolvers_in(&mine);
-    if ours.is_empty() {
-        return Ok(Vec::new());
+/// The mod's resolvers against the game's, one bin at a time.
+struct Resolvers<'p> {
+    game: &'p dyn GameContent,
+}
+
+/// What one bin's resolvers hold, and then what they lost.
+#[derive(Debug, Default)]
+struct Resolved {
+    /// How many keys each resolver of the bin holds, in file order.
+    keeps: Vec<(BinHash, usize)>,
+    lost: Vec<Loss>,
+}
+
+impl ObjectRead for Resolvers<'_> {
+    type Kept = Resolved;
+
+    /// Top-level objects only, which is where a resolver lives: it is
+    /// addressed by its own path hash, and one nested inside another object
+    /// would have no hash for a site to name it by.
+    fn object<'a, V: Declared<'a>>(
+        &self,
+        object: &Node<'_, 'a, V>,
+        kept: &mut Resolved,
+    ) -> Result<(), ltk_meta::Error> {
+        if object.class_hash() != RESOURCE_RESOLVER {
+            return Ok(());
+        }
+        let Some(map) = object.inner().property(RESOURCE_MAP)? else {
+            return Ok(());
+        };
+        if map.kind() != Kind::Map {
+            return Ok(());
+        }
+        if let Some(keys) = map.item_count() {
+            kept.keeps.push((object.object_hash(), keys));
+        }
+        Ok(())
     }
 
-    let Some(hash) = handle.wad_hash() else {
-        return Ok(Vec::new());
-    };
-    let Some(bytes) = game.read(hash)? else {
-        return Ok(Vec::new());
-    };
-    let theirs = resolvers_in(&parsed(&bytes)?);
+    /// The game's copy is read only where the mod's bin holds a resolver at
+    /// all, so a mod shipping no skin bins never touches the install.
+    ///
+    /// # Errors
+    ///
+    /// Reports a game copy that would not read or parse.
+    fn end(&self, handle: FileHandle<'_>, kept: Resolved) -> Result<Resolved, String> {
+        if kept.keeps.is_empty() {
+            return Ok(Resolved::default());
+        }
+        let Some(hash) = handle.wad_hash() else {
+            return Ok(Resolved::default());
+        };
+        let Some(bytes) = self.game.read(hash)? else {
+            return Ok(Resolved::default());
+        };
+        let theirs = resolvers_in(&parsed(&bytes)?);
 
-    Ok(ours
-        .into_iter()
-        .filter_map(|(entry, keeps)| {
-            let holds = *theirs.get(&entry)?;
-            let lost = holds.checked_sub(keeps)?;
-            (lost >= LOST_AT_LEAST).then_some(Loss {
-                entry,
-                keeps,
-                holds,
+        let lost = kept
+            .keeps
+            .into_iter()
+            .filter_map(|(entry, keeps)| {
+                let holds = *theirs.get(&entry)?;
+                let lost = holds.checked_sub(keeps)?;
+                (lost >= LOST_AT_LEAST).then_some(Loss {
+                    entry,
+                    keeps,
+                    holds,
+                })
             })
+            .collect();
+        Ok(Resolved {
+            keeps: Vec::new(),
+            lost,
         })
-        .collect())
+    }
 }
 
 /// Parse the game's own copy of a bin.
@@ -213,12 +231,8 @@ fn parsed(bytes: &[u8]) -> Result<BinFile, String> {
     BinFile::from_reader(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())
 }
 
-/// How many keys each of a bin's resolvers holds.
-///
-/// Top-level objects only, which is where a resolver lives: it is addressed by
-/// its own path hash, and one nested inside another object would have no hash
-/// for a site to name it by.
-fn resolvers_in(bin: &BinFile) -> std::collections::HashMap<BinHash, usize> {
+/// How many keys each of the game's resolvers holds, off the owned tree.
+fn resolvers_in(bin: &BinFile) -> HashMap<BinHash, usize> {
     bin.objects()
         .iter()
         .filter(|(_, object)| object.class_hash == RESOURCE_RESOLVER)

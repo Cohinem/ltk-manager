@@ -17,9 +17,8 @@
 //! **What it costs is not established, so this reports at `Info`.**
 
 use crate::problems::bank_units::BankUnits;
-use crate::problems::budget;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Problem, ProjectFiles, Report, Rule,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, ProjectFiles, Rule,
     RuleId, Severity, Site,
 };
 use crate::workshop::WorkshopFileKind;
@@ -77,47 +76,26 @@ impl Rule for AudioBankId {
         Some(Severity::Info)
     }
 
-    fn check(&self, project: &ProjectFiles, report: &mut Report) {
-        let handles: Vec<_> = project.of_kind(WorkshopFileKind::WwiseBank).collect();
-        let read = project.budget().map(
-            &handles,
-            budget::files_at_once(),
-            |_| HEADER_BYTES as u64,
-            bank_id_of,
-        );
-
-        let mut unset = Vec::new();
-        for (handle, found) in handles.iter().zip(read) {
-            let site = || Site::file(handle.layer(), handle.path());
-            match found {
-                Some(Ok(Some(0))) => unset.push(handle),
-                Some(Ok(_)) => {}
-                Some(Err(e)) => report.failure(ID, Some(site()), e),
-                /* Cancelled before this file was reached. Saying nothing about
-                it is what keeps a partial run from reading as a clean one. */
-                None => report.failure(ID, Some(site()), "The check was cancelled"),
+    fn subscribe(&self, pass: &mut Pass<'_>) {
+        let ids = pass
+            .files(WorkshopFileKind::WwiseBank)
+            .head(HEADER_BYTES)
+            .collect(|head| bank_id_in(head.bytes()));
+        let units = pass.demand::<BankUnits>();
+        pass.finish(move |finish| {
+            let units = finish.fact(units);
+            for (handle, id) in finish.take(ids) {
+                if id != Some(0) {
+                    continue;
+                }
+                let detail = detail(&handle, units);
+                finish.problem(
+                    Severity::Info,
+                    Site::file(handle.layer(), handle.path()),
+                    detail,
+                );
             }
-        }
-
-        // Every bin of the mod, parsed a second time. Only a chunk an unpack
-        // named by its hash needs one, so the parse waits until one turns up.
-        let units = if unset
-            .iter()
-            .any(|handle| named_stem(handle.path()).is_none())
-        {
-            BankUnits::of(project)
-        } else {
-            BankUnits::default()
-        };
-
-        for handle in unset {
-            report.problem(
-                ID,
-                Severity::Info,
-                Site::file(handle.layer(), handle.path()),
-                detail(handle, &units),
-            );
-        }
+        });
     }
 
     /// Writes the id the bank's own name hashes to.
@@ -125,7 +103,10 @@ impl Rule for AudioBankId {
         // The mod as it is now, because a bank unit naming a hash-named chunk
         // is a fact about the rest of it and the rest of it may have changed.
         let project = ProjectFiles::read(run.project_root(), run.config(), run.game()).ok();
-        let units = project.as_ref().map(BankUnits::of).unwrap_or_default();
+        let units = project
+            .as_ref()
+            .map(|project| project.fact::<BankUnits>())
+            .unwrap_or_default();
         let mut applied = Applied::default();
 
         for problem in problems {
@@ -162,17 +143,15 @@ impl Rule for AudioBankId {
     }
 }
 
-/// The soundbank id in one bank's header.
+/// The soundbank id in one bank's header, `head` being its first bytes.
 ///
 /// `None` for a bank whose header is shorter than the field, which is a file
 /// the rule says nothing about rather than one it reports.
 ///
 /// # Errors
 ///
-/// Reports a file it could not read, and one whose first bytes are not a bank
-/// at all.
-fn bank_id_of(handle: &FileHandle<'_>) -> Result<Option<u32>, String> {
-    let head = handle.head(HEADER_BYTES)?;
+/// Reports a file whose first bytes are not a bank at all.
+fn bank_id_in(head: &[u8]) -> Result<Option<u32>, String> {
     if head.first_chunk::<4>() != Some(&HEADER) {
         return Err(String::from("This is not an audio bank"));
     }

@@ -12,22 +12,30 @@
 //!
 //! The class rather than the class that holds it, because six classes hold bank
 //! units and they all ask the same way.
+//!
+//! A [`Fact`]: its collector rides the pass's one walk of every bin, for
+//! whichever rules demand it, and a repair computes it on its own through
+//! `ProjectFiles::fact`.
 
 use std::collections::HashMap;
+use std::sync::{Mutex, PoisonError};
 
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Leaf, Node, TreeNode as _, TreeValue, Visit, Visitor};
 
-use crate::problems::{ProjectFiles, budget, walk};
+use crate::problems::{BinVisitor, Coverage, Fact, Sink, Walk};
 
 /// `BankUnit`, the class naming the files one unit of a skin's audio needs.
-const BANK_UNIT: BinHash = BinHash(0xa441_6515);
+pub(crate) const BANK_UNIT: BinHash = BinHash(0xa441_6515);
 
 /// `bankPath` on that class, which is the list of those files.
-const BANK_PATH: BinHash = BinHash(0x2a21_ad00);
+pub(crate) const BANK_PATH: BinHash = BinHash(0x2a21_ad00);
 
 /// Every file this mod's bank units name, by the hash a WAD addresses it by.
+///
+/// The default is a fact nothing was read for, which answers as an incomplete
+/// one does.
 #[derive(Debug, Default)]
 pub struct BankUnits {
     /// The path each unit named, keyed by the hash of that path.
@@ -36,43 +44,25 @@ pub struct BankUnits {
     complete: bool,
 }
 
-impl BankUnits {
-    /// Read every bank unit of every bin of `project`.
-    ///
-    /// The second parse of every bin a run makes, so it is worth doing only
-    /// once something has been found worth asking about.
-    #[must_use]
-    pub fn of(project: &ProjectFiles) -> Self {
-        let handles: Vec<_> = project.bins().collect();
-        let read = project.budget().map(
-            &handles,
-            budget::files_at_once(),
-            |handle| handle.size_bytes().saturating_mul(budget::BIN_EXPANSION),
-            |handle| match handle.bin().and_then(|bin| asked_in(&bin)) {
-                Ok(paths) => Some(paths),
-                Err(e) => {
-                    tracing::debug!(
-                        "{} names no bank units it can be read for: {e}",
-                        handle.path()
-                    );
-                    None
-                }
-            },
-        );
+impl Fact for BankUnits {
+    type Collector = BankUnitCollector;
 
-        let mut units = Self {
-            asked: HashMap::new(),
-            complete: true,
-        };
-        for found in read {
-            match found.flatten() {
-                Some(paths) => units.asked.extend(paths),
-                None => units.complete = false,
-            }
+    /// Folded in file order, so two paths under one hash resolve the same way
+    /// on every run.
+    fn assemble(collector: BankUnitCollector, coverage: Coverage) -> Self {
+        let mut bins = collector
+            .asked
+            .into_inner()
+            .unwrap_or_else(PoisonError::into_inner);
+        bins.sort_by_key(|(index, _)| *index);
+        Self {
+            asked: bins.into_iter().flat_map(|(_, asked)| asked).collect(),
+            complete: coverage.complete,
         }
-        units
     }
+}
 
+impl BankUnits {
     /// Whether anything in the mod asks for the file at `chunk`.
     ///
     /// A bin that would not parse, or a read the budget called off, might hold
@@ -95,18 +85,33 @@ impl BankUnits {
     }
 }
 
-/// Every path the bank units of one bin name, each with the hash of it.
-fn asked_in(bin: &ltk_meta::BinFile) -> Result<Vec<(WadHash, String)>, String> {
-    let mut asked = Asked::default();
-    walk::bin(bin, &mut asked).map_err(|e| e.to_string())?;
-    Ok(asked.0)
+/// The paths one bin's units name, with the bin's position in the round.
+type BinPaths = (usize, Vec<(WadHash, String)>);
+
+/// Every path the bank units of every bin name, folded once per bin.
+#[derive(Debug, Default)]
+pub struct BankUnitCollector {
+    asked: Mutex<Vec<BinPaths>>,
 }
 
-/// The paths every `BankUnit` node names, wherever the node sits.
-#[derive(Debug, Default)]
-struct Asked(Vec<(WadHash, String)>);
+impl BinVisitor for BankUnitCollector {
+    fn begin<'r, 'f: 'r>(&'r self, sink: Sink<'f>) -> Box<dyn Walk<'f> + 'r> {
+        Box::new(Asked {
+            into: &self.asked,
+            found: Vec::new(),
+            sink,
+        })
+    }
+}
 
-impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Asked {
+/// The paths every `BankUnit` node of one bin names, wherever the node sits.
+struct Asked<'r, 'f> {
+    into: &'r Mutex<Vec<BinPaths>>,
+    found: Vec<(WadHash, String)>,
+    sink: Sink<'f>,
+}
+
+impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Asked<'_, '_> {
     type Error = ltk_meta::Error;
 
     fn enter_node(&mut self, node: &Node<'_, 'a, V>) -> Result<Visit, ltk_meta::Error> {
@@ -122,9 +127,19 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Asked {
         for item in paths.children()? {
             let (_, held) = item?;
             if let Some(Leaf::String(path)) = held.leaf()? {
-                self.0.push((WadHash::hash_str(path), path.to_owned()));
+                self.found.push((WadHash::hash_str(path), path.to_owned()));
             }
         }
         Ok(Visit::Continue)
+    }
+}
+
+impl<'f> Walk<'f> for Asked<'_, 'f> {
+    fn end(self: Box<Self>) -> Sink<'f> {
+        let Self { into, found, sink } = *self;
+        into.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((sink.index(), found));
+        sink
     }
 }

@@ -34,9 +34,7 @@ fn bank(id: u32) -> Vec<u8> {
 }
 
 fn found_in(files: &ProjectFiles) -> Vec<Problem> {
-    let mut report = Report::default();
-    AudioBankId::new().check(files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&AudioBankId::new()]).finish();
     assert!(
         failed.is_empty(),
         "the fixture should read cleanly: {failed:?}"
@@ -160,9 +158,7 @@ fn an_archive_reports_what_its_tree_reports() {
 fn a_file_that_is_not_a_bank_is_reported_as_unread() {
     let (_tmp, files) = tree(b"not a bank at all, whatever it is named");
 
-    let mut report = Report::default();
-    AudioBankId::new().check(&files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&AudioBankId::new()]).finish();
 
     assert!(problems.is_empty());
     assert_eq!(failed.len(), 1);
