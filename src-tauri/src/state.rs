@@ -118,6 +118,16 @@ pub enum Theme {
     Light,
 }
 
+/// The page the window opens on.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "lowercase")]
+pub enum OpenOn {
+    #[default]
+    Home,
+    Mods,
+}
+
 /// What the library's primary button is.
 ///
 /// `Classic` is the behaviour from before the manager could launch anything:
@@ -206,6 +216,10 @@ pub struct Settings {
     /// Always start the patcher automatically on launch. Default: false.
     #[serde(default)]
     pub always_start_patcher: bool,
+    /// The page the window opens on. Default: [`OpenOn::Home`], so a file
+    /// written before the page existed opens on it too.
+    #[serde(default)]
+    pub open_on: OpenOn,
     /// What the library's primary button does. Default: [`LaunchMode::Classic`],
     /// so an install that predates the launcher keeps the button it had.
     #[serde(default)]
@@ -269,6 +283,7 @@ impl Default for Settings {
             auto_run: false,
             start_in_tray_unless_update: false,
             always_start_patcher: false,
+            open_on: OpenOn::default(),
             launch_mode: LaunchMode::default(),
             stop_patcher_on_session_end: false,
             migration_dismissed: false,
@@ -332,6 +347,18 @@ mod tests {
     /// A settings file written before the manager could launch anything keeps
     /// the patcher-only button it was written with - the launcher is opt-in
     /// while it is experimental.
+    /// A file written before Home existed opens on it, as a fresh install does.
+    #[test]
+    fn open_on_defaults_to_home_when_absent() {
+        let json = r#"{"firstRunComplete": true, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.open_on, OpenOn::Home);
+
+        let json = r#"{"firstRunComplete": true, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false, "openOn": "mods"}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.open_on, OpenOn::Mods);
+    }
+
     #[test]
     fn launch_mode_defaults_to_classic_when_absent() {
         let json = r#"{"firstRunComplete": false, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false}"#;

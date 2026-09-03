@@ -6,6 +6,7 @@ export * from "./displayStore";
 export * from "./extractDialog";
 export * from "./extractRun";
 export * from "./gameBrowser";
+export * from "./home";
 export * from "./incidents";
 export * from "./libraryFilter";
 export * from "./librarySelection";

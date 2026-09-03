@@ -4,7 +4,7 @@ import skinhackMark from "@/assets/game/skinhack.png";
 import type { Incident } from "@/lib/tauri";
 import { scanRejectionCause } from "@/modules/patcher";
 
-import { isSkinhackRejection } from "../utils/incident";
+import { isSkinhackRejection, verdictTitle } from "../utils/incident";
 import { ConsequenceChip } from "./ConsequenceChip";
 import { VerdictGlyph } from "./VerdictGlyph";
 
@@ -12,19 +12,11 @@ interface VerdictCardProps {
   incident: Incident;
 }
 
-/**
- * The heading a caught skinhack reads under, in place of the verdict's own.
- *
- * The rail has room for the finding and the card has room for the verb, so the
- * two say the same thing at the length each has.
- */
-const SKINHACK_TITLE = "Skinhack detection triggered";
-
 /** The verdict as the player reads it first: the title, what it cost, and the cause. */
 export function VerdictCard({ incident }: VerdictCardProps) {
   const { verdict } = incident;
   const skinhack = isSkinhackRejection(incident);
-  const title = skinhack ? SKINHACK_TITLE : verdict.title;
+  const title = verdictTitle(incident);
 
   return (
     <section

@@ -30,6 +30,7 @@ export * from "./ModDetailsDialog";
 export * from "./ModHealthBadge";
 export * from "./ModHealthCheckAction";
 export * from "./ModHealthLaunchGuard";
+export * from "./modHealthNotice";
 export * from "./ModHealthStatusItem";
 export * from "./ModHealthSweep";
 export * from "./ModHealthSweepDialog";

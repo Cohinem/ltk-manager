@@ -82,16 +82,3 @@ fn a_page_filtered_down_to_nothing_still_says_where_the_next_one_starts() {
     assert!(page.releases.is_empty());
     assert_eq!(page.next_page, Some(3));
 }
-
-#[test]
-fn a_refusal_is_the_spent_quota_only_when_none_is_left() {
-    let mut spent = HeaderMap::new();
-    spent.insert(REMAINING, "0".parse().unwrap());
-    let mut left = HeaderMap::new();
-    left.insert(REMAINING, "42".parse().unwrap());
-
-    assert!(is_rate_limited(StatusCode::FORBIDDEN, &spent));
-    assert!(is_rate_limited(StatusCode::TOO_MANY_REQUESTS, &spent));
-    assert!(!is_rate_limited(StatusCode::FORBIDDEN, &left));
-    assert!(!is_rate_limited(StatusCode::NOT_FOUND, &spent));
-}

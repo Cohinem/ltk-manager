@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391            |
 | 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id     |
 | 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place        |
 | 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
@@ -880,7 +881,7 @@ separators do not carry.
 | Card              | Rows | Verdict                                                      |
 | ----------------- | ---- | ------------------------------------------------------------ |
 | League of Legends | 4    | Two groups. It draws a `Separator` today, per the count test |
-| Startup and tray  | 5    | Two groups. Renamed from `System Tray & Autostart`           |
+| Startup and tray  | 6    | Two groups. Renamed from `System Tray & Autostart`           |
 | Import            | -    | An action card, and not a row list                           |
 
 The tab goes single-column. `Startup and tray` runs the full width once it has groups, which leaves
@@ -896,10 +897,10 @@ Card `League of Legends`:
 
 Card `Startup and tray`:
 
-| Group   | Rows                                                                                              |
-| ------- | ------------------------------------------------------------------------------------------------- |
-| Startup | Auto run, and its dependent Start in tray unless update available. Always start patcher at launch |
-| Tray    | Minimize to system tray, Start minimized to tray                                                  |
+| Group   | Rows                                                                                                       |
+| ------- | ---------------------------------------------------------------------------------------------------------- |
+| Startup | Auto run, and its dependent Start in tray unless update available. Always start patcher at launch. Open on |
+| Tray    | Minimize to system tray, Start minimized to tray                                                           |
 
 ### The rest
 

@@ -8,6 +8,8 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import svgr from "vite-plugin-svgr";
 
+import { releaseNotes } from "./scripts/vite-release-notes";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
@@ -18,6 +20,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     svgr(),
+    releaseNotes(__dirname),
   ],
 
   // Prevent vite from obscuring rust errors

@@ -1,10 +1,15 @@
-import { MonitorDown } from "lucide-react";
+import { MonitorIcon } from "@phosphor-icons/react";
 
-import { SectionCard, Switch } from "@/components";
-import type { Settings } from "@/lib/tauri";
+import { SectionCard, SegmentedControl, Switch } from "@/components";
+import type { OpenOn, Settings } from "@/lib/tauri";
 
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
+
+const OPEN_ON_OPTIONS: { value: OpenOn; label: string }[] = [
+  { value: "home", label: "Home" },
+  { value: "mods", label: "Mods" },
+];
 
 interface StartupAndTraySectionProps {
   settings: Settings;
@@ -13,7 +18,7 @@ interface StartupAndTraySectionProps {
 
 export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectionProps) {
   return (
-    <SectionCard title="Startup and tray" icon={<MonitorDown className="h-5 w-5" />}>
+    <SectionCard title="Startup and tray" icon={<MonitorIcon className="h-5 w-5" />}>
       <SettingGroup id="general.startup" title="Startup">
         <SettingRow
           setting="autoRun"
@@ -48,6 +53,18 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
             <Switch
               checked={settings.alwaysStartPatcher}
               onCheckedChange={(checked) => onSave({ ...settings, alwaysStartPatcher: checked })}
+            />
+          }
+        />
+
+        <SettingRow
+          kind="action"
+          setting="openOn"
+          control={
+            <SegmentedControl
+              options={OPEN_ON_OPTIONS}
+              value={settings.openOn}
+              onChange={(openOn) => onSave({ ...settings, openOn })}
             />
           }
         />

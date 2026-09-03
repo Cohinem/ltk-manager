@@ -61,7 +61,7 @@ export function ModHealthLaunchGuard({ children }: ModHealthLaunchGuardProps) {
     /* The launch controls are in the app-wide status bar and the drawer is the
        library's, so the way out goes there first. The request outlives the
        navigation, and the drawer takes it when it mounts. */
-    void navigate({ to: "/" });
+    void navigate({ to: "/mods" });
     /* "Repair first" repairs. Opening the list and leaving the reader to find
        the button again is the same press asked for twice, and the drawer comes
        up either way so the run has somewhere to report. */

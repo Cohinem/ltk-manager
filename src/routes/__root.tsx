@@ -1,7 +1,7 @@
 import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import {
@@ -120,7 +120,8 @@ function RootLayout() {
   }, [scrollbarSize]);
 
   useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
-  useHotkeys("ctrl+2", () => navigate({ to: "/workshop" }), { preventDefault: true });
+  useHotkeys("ctrl+2", () => navigate({ to: "/mods" }), { preventDefault: true });
+  useHotkeys("ctrl+3", () => navigate({ to: "/workshop" }), { preventDefault: true });
   useHotkeys("ctrl+d", () => navigate({ to: "/diagnostics", search: { tab: "games" } }), {
     preventDefault: true,
   });
@@ -131,6 +132,16 @@ function RootLayout() {
       navigate({ to: "/settings", search: { firstRun: true } });
     }
   }, [setupRequired, navigate, location.pathname]);
+
+  /* Once, when the settings first arrive: a later save must not move a reader
+     off the page they are on. The first-run redirect above wins, since it
+     leaves `/` before this runs or sends the reader on from wherever this went. */
+  const landed = useRef(false);
+  useEffect(() => {
+    if (landed.current || !settings) return;
+    landed.current = true;
+    if (settings.openOn === "mods" && location.pathname === "/") navigate({ to: "/mods" });
+  }, [settings, navigate, location.pathname]);
 
   // Show loading state while checking setup
   if (isCheckingSetup) {

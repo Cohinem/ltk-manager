@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   AddFilesReport,
+  Announcement,
   AppError,
   AppInfo,
   AssetInfo,
@@ -49,6 +50,7 @@ import type {
   ModpkgInfo,
   ModStorage,
   ModWadReport,
+  Notice,
   PackProjectArgs,
   PackResult,
   PatcherConfig,
@@ -130,6 +132,8 @@ export const api = {
   showMainWindow: () => invokeResult<void>("show_main_window"),
   prepareForUpdate: () => invokeResult<void>("prepare_for_update"),
   listReleases: (page: number) => invokeResult<ReleasePage>("list_releases", { page }),
+  listAnnouncements: () => invokeResult<Announcement[]>("list_announcements"),
+  listNotices: () => invokeResult<Notice[]>("list_notices"),
 
   // Settings
   getSettings: () => invokeResult<Settings>("get_settings"),

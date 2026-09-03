@@ -2,6 +2,7 @@
 import type { AccentColor } from "./AccentColor";
 import type { AuthorProfile } from "./AuthorProfile";
 import type { LaunchMode } from "./LaunchMode";
+import type { OpenOn } from "./OpenOn";
 import type { Theme } from "./Theme";
 import type { WadBlocklistEntry } from "./WadBlocklistEntry";
 
@@ -51,6 +52,11 @@ startInTrayUnlessUpdate: boolean,
  * Always start the patcher automatically on launch. Default: false.
  */
 alwaysStartPatcher: boolean, 
+/**
+ * The page the window opens on. Default: [`OpenOn::Home`], so a file
+ * written before the page existed opens on it too.
+ */
+openOn: OpenOn, 
 /**
  * What the library's primary button does. Default: [`LaunchMode::Classic`],
  * so an install that predates the launcher keeps the button it had.

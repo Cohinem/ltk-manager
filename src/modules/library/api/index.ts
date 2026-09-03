@@ -33,6 +33,7 @@ export { useLayoutMigration } from "./useLayoutMigration";
 export { useLibraryActions } from "./useLibraryActions";
 export type { ContentView } from "./useLibraryContent";
 export { useLibraryContent } from "./useLibraryContent";
+export { useLibraryHotkeys } from "./useLibraryHotkeys";
 export { useLibraryViewMode } from "./useLibraryViewMode";
 export { useLibraryWatcher } from "./useLibraryWatcher";
 export { useLinkedBinOffender, useLinkedBinOffenders } from "./useLinkedBinOffenders";

@@ -66,6 +66,7 @@ notify-debouncer-mini = "0.5"
 walkdir = { workspace = true }
 
 reqwest = { workspace = true }
+quick-xml = { workspace = true }
 url = "2"
 flate2 = { workspace = true }
 tar = { workspace = true }

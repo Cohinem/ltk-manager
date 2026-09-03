@@ -279,3 +279,21 @@ wrong, a **description** giving the remedy where one exists, and a **detail** ca
 outside the app, such as an OS or crate error, drawn as data. A **describer** in `src/i18n/`
 turns an error's code and fields into that copy, and nothing else reads an error's fields for
 display.
+
+## Home
+
+**Home** — the page the manager opens on, at `/`, per `docs/ux/HOME.md`. It answers whether
+pressing Play is safe, what changed in the manager, and what the project has to say. The library
+is **Mods**, at `/mods`.
+
+**Status line** — Home's one sentence about the library and its one action, derived and never
+stored. The first row that holds wins, and its hue follows mod health's rungs.
+
+**Notice** — one line the project publishes that has to be seen, drawn as a banner under the
+status line until it is dismissed or expires. Its source is `news/notices.json` on the default
+branch, read raw, so a notice is a reviewed change. A `versions` range keeps it to the builds it
+concerns.
+
+**Announcement** — a post in the Announcements category of the repository's Discussions, read
+from the category's Atom feed and listed as news on Home. A title, a date and a link, and nothing
+the app translates: feed text is drawn as data.
