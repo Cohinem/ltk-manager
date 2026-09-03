@@ -18,10 +18,10 @@ off its table of contents and reads a chunk where it lies. The repair still wrot
 the mod to disk to change a handful of bins, and the unpack ran whether or not the check found
 anything to fix. Measured on two archive mods with nothing to fix, in a release build:
 
-| Mod                     | Unpack, then analyze the tree | Read where it lies |
-| ----------------------- | ----------------------------- | ------------------ |
-| `sett-flowerly` (50 MB) | 308 ms + 102 ms               | 197 ms             |
-| `dawnbringer-irelia`    | 603 ms + 71 ms                | 228 ms             |
+| Mod                     | Unpack, then analyze the tree | Streamed through |
+| ----------------------- | ----------------------------- | ---------------- |
+| `sett-flowerly` (50 MB) | 308 ms + 102 ms               | 197 ms           |
+| `dawnbringer-irelia`    | 603 ms + 71 ms                | 228 ms           |
 
 What pinned the repair to a directory was the fix run, not the rules. `FixRun` read and wrote
 under a project root, the audio rules opened the project themselves to compute a fact, and
