@@ -1,6 +1,6 @@
 # ADR-0020: A visitor is generic over the tree it walks
 
-- **Status:** Proposed
+- **Status:** Accepted (2026-09-03)
 - **Date:** 2026-09-02
 - **Crates:** `ltk-manager-core`
 - **Related:** PRD-001 (FR-3, FR-6, FR-9, FR-10), ADR-0013, supersedes ADR-0014, toolkit

@@ -136,9 +136,7 @@ fn found(bin: &Bin) -> Vec<Problem> {
 }
 
 fn check_with(files: &ProjectFiles) -> Vec<Problem> {
-    let mut report = Report::default();
-    BinPropertyType::new().check(files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&BinPropertyType::new()]).finish();
     assert!(failed.is_empty(), "the fixture should read cleanly");
     problems
 }
@@ -852,10 +850,8 @@ fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
 
     let config = config_beside(tmp.path(), installed);
     let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
-    let mut report = Report::default();
     let rule = BinPropertyType::new();
-    rule.check(&files, &mut report);
-    let (problems, _) = report.finish();
+    let (problems, _) = files.report(&[&rule]).finish();
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
     let mut run = FixRun::open(
@@ -1005,10 +1001,8 @@ fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
     std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, text(ICON)))).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
-    let mut report = Report::default();
     let rule = BinPropertyType::new();
-    rule.check(&files, &mut report);
-    let (problems, _) = report.finish();
+    let (problems, _) = files.report(&[&rule]).finish();
 
     std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, values::I32::new(7)))).unwrap();
 
@@ -1034,9 +1028,7 @@ fn a_file_that_is_not_a_bin_is_a_failure_and_not_a_panic() {
     std::fs::write(dir.join("broken.bin"), b"not a bin at all").unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
-    let mut report = Report::default();
-    BinPropertyType::new().check(&files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&BinPropertyType::new()]).finish();
 
     assert!(problems.is_empty());
     assert_eq!(failed.len(), 1);
@@ -1811,4 +1803,31 @@ fn a_flag_the_game_reads_as_a_bool_is_retagged() {
         written.objects()[&ENTRY].properties[&FACE_TARGET],
         values::Bool::new(true).into()
     );
+}
+
+/// The check over a project, which the pass mounts as a stream, reports what
+/// it reports over the same bytes parsed whole, at the same addresses.
+#[test]
+fn the_check_over_a_stream_matches_the_check_over_the_owned_tree() {
+    let bin = every_shape();
+    let mut streamed: Vec<String> = found(&bin)
+        .into_iter()
+        .map(|problem| problem.site.node.unwrap().path)
+        .collect();
+    streamed.sort();
+
+    let nothing = BinNames::none();
+    let lens = Lens {
+        tables: table::tables(),
+        schema: None,
+        names: &nothing,
+    };
+    let mut owned: Vec<String> = check_bin(&BinFile::Prop(bin), lens)
+        .into_iter()
+        .map(|(_, hit)| hit.address.into_hashes())
+        .collect();
+    owned.sort();
+
+    assert!(!owned.is_empty());
+    assert_eq!(streamed, owned);
 }

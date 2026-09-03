@@ -14,7 +14,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use ltk_hashtable::{Algorithm, Category, Hashtable, HashtableSet, Key, KeyWidth};
+use ltk_hashtable::{Algorithm, Category, Hashtable, HashtableEntry, HashtableSet, Key, KeyWidth};
 use ltk_mod_project::{ConfigFormat, HASHES_DIR_NAME, ModProject, ModProjectHashtable};
 use ltk_wad::{PathResolver, WadHash};
 
@@ -42,9 +42,15 @@ pub enum Preserved {
 /// is not added twice and a key two different names claim is caught before
 /// either is written.
 pub struct PreservedNames<'a> {
-    project_root: PathBuf,
+    /// The project the merged table is written back into, for a run over a
+    /// tree. A run over an archive has none, and hands its table to the edit
+    /// through [`merged`](Self::merged).
+    project_root: Option<PathBuf>,
     /// What the project's own tables already resolve.
     declared: HashtableSet,
+    /// The declared game table this run merges into, where the project
+    /// declares one this build can key.
+    game: Option<(HashtableEntry, Hashtable)>,
     /// The shape the project's [`Category::Game`] table keys at, which is its
     /// own where it declares one and the registry's where it does not.
     shape: (Algorithm, KeyWidth),
@@ -88,7 +94,37 @@ impl<'a> PreservedNames<'a> {
             .expect("the registry lists a shape for the game category");
 
         Self {
-            project_root: project_root.to_path_buf(),
+            project_root: Some(project_root.to_path_buf()),
+            game: game_table(&declared).cloned(),
+            declared: HashtableSet::build(declared),
+            shape,
+            fresh: BTreeMap::new(),
+            exclusions,
+        }
+    }
+
+    /// Merge into `declared`, the tables of a mod read somewhere other than a
+    /// directory.
+    ///
+    /// An archive declares its tables inside itself, and the run holds what it
+    /// writes for an edit rather than writing a project, so the merged table
+    /// comes back through [`merged`](Self::merged) and [`write`](Self::write)
+    /// has nowhere to go.
+    #[must_use]
+    pub fn over(
+        declared: Vec<(HashtableEntry, Hashtable)>,
+        exclusions: Option<&'a dyn PathResolver>,
+    ) -> Self {
+        let game = game_table(&declared).cloned();
+        let shape = game
+            .as_ref()
+            .map(|(entry, _)| (entry.algorithm().clone(), entry.width()))
+            .or_else(|| Category::Game.default_shape())
+            .expect("the registry lists a shape for the game category");
+
+        Self {
+            project_root: None,
+            game,
             declared: HashtableSet::build(declared),
             shape,
             fresh: BTreeMap::new(),
@@ -156,7 +192,12 @@ impl<'a> PreservedNames<'a> {
             return Ok(0);
         }
 
-        let root = self.project_root.try_as_utf8("project root")?;
+        let Some(root) = &self.project_root else {
+            return Err(AppError::Other(
+                "The kept names have no project to be written into".to_owned(),
+            ));
+        };
+        let root = root.try_as_utf8("project root")?;
         let mut project = ModProject::load(root)
             .map_err(|e| AppError::Other(format!("Could not read the mod project: {e}")))?;
 
@@ -210,12 +251,71 @@ impl<'a> PreservedNames<'a> {
         Ok(self.fresh.len())
     }
 
+    /// The mod's game table with the kept names merged in, for a caller that
+    /// places it.
+    ///
+    /// Merge-only, as [`write`](Self::write) is: every name the declared table
+    /// held stays. `None` for a run that kept nothing.
+    ///
+    /// # Errors
+    ///
+    /// Reports a name the table grammar refuses, which a kept path cannot be.
+    pub fn merged(&self) -> AppResult<Option<KeptTable>> {
+        if self.fresh.is_empty() {
+            return Ok(None);
+        }
+
+        let held = self.game.as_ref().map(|(_, table)| table);
+        let names = held
+            .into_iter()
+            .flat_map(Hashtable::names)
+            .chain(self.fresh.values().map(String::as_str));
+        let mut merged = Hashtable::from_names(names)
+            .map_err(|e| AppError::Other(format!("Could not build the mod's hashtable: {e}")))?;
+        merged.sort();
+
+        let mut bytes = Vec::new();
+        merged.write_to(&mut bytes)?;
+        Ok(Some(KeptTable {
+            into: self.game.as_ref().map(|(entry, _)| entry.clone()),
+            shape: self.shape.clone(),
+            bytes,
+        }))
+    }
+
     /// The name already standing at `key`, declared or kept by this run.
     fn claimant(&self, key: Key) -> Option<&str> {
         self.declared
             .resolve(&Category::Game, key)
             .or_else(|| self.fresh.get(&key.value()).map(String::as_str))
     }
+}
+
+/// The mod's game table with a run's names merged in, for a caller that
+/// places it.
+#[derive(Debug, Clone)]
+pub struct KeptTable {
+    /// The declared table the names merged into.
+    ///
+    /// `None` for a mod declaring no game table this build can key, which the
+    /// caller declares afresh under [`shape`](Self::shape).
+    pub into: Option<HashtableEntry>,
+    /// The algorithm and width the table keys at.
+    pub shape: (Algorithm, KeyWidth),
+    /// The whole table, held names and fresh, as a table file's bytes.
+    pub bytes: Vec<u8>,
+}
+
+/// The first [`Category::Game`] table of `declared` whose keys this build
+/// computes.
+///
+/// The same choice [`game_manifest`] makes over a project's manifest, over the
+/// tables that could be read.
+fn game_table(declared: &[(HashtableEntry, Hashtable)]) -> Option<&(HashtableEntry, Hashtable)> {
+    declared.iter().find(|(entry, _)| {
+        *entry.category() == Category::Game
+            && Key::of("", entry.algorithm(), entry.width()).is_some()
+    })
 }
 
 /// The first [`Category::Game`] manifest entry whose keys this build computes.

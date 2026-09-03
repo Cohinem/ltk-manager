@@ -43,7 +43,9 @@ impl ModLibrary {
     /// The hashtable sync sits immediately in front of the sweep rather than at
     /// the head of the pass, because it is the only one of the four that waits
     /// on a network and the three above it are what the library view is
-    /// drawing.
+    /// drawing. The game index is warmed between the two, whether or not the
+    /// sweep has anything to check, so the first check of the session never
+    /// waits on it.
     fn maintain(&self, config: &Config, tables_installed: impl FnOnce()) {
         if let Ok(storage_dir) = self.storage_dir(config) {
             super::reconcile::sweep_stale_staging(&storage_dir);
@@ -79,6 +81,7 @@ impl ModLibrary {
             tables_installed();
         }
         self.fill_meta_schema();
+        self.warm_game_content(config);
 
         if let Err(e) = self.sweep_mod_health(config, &SweepScope::Due) {
             tracing::warn!("Failed to sweep mod health on startup: {}", e);

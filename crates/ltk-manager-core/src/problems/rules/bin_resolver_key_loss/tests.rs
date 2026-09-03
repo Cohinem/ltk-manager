@@ -90,9 +90,7 @@ fn archive(keys: usize, game: Option<Arc<dyn GameContent>>) -> (tempfile::TempDi
 }
 
 fn found_in(files: &ProjectFiles) -> Vec<Problem> {
-    let mut report = Report::default();
-    BinResolverKeyLoss::new().check(files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&BinResolverKeyLoss::new()]).finish();
     assert!(
         failed.is_empty(),
         "the fixture should read cleanly: {failed:?}"

@@ -34,6 +34,12 @@ pub trait GameContent: std::fmt::Debug + Send + Sync {
     /// An archive that would not mount, or a chunk that would not decompress,
     /// as one sentence a panel can draw.
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String>;
+
+    /// Build whatever the content keeps lazily, ahead of the first ask.
+    ///
+    /// Nothing to build is the default, and content that is built once holds
+    /// what it built for the next ask.
+    fn warm(&self) {}
 }
 
 /// The installed game's archives, indexed by chunk hash on first use.
@@ -146,6 +152,10 @@ impl GameContent for InstalledContent {
         self.index().at.contains_key(&path)
     }
 
+    fn warm(&self) {
+        self.index();
+    }
+
     /// Read through a cached mount.
     ///
     /// One table of contents parse per archive, not per chunk.
@@ -209,3 +219,6 @@ impl GameContent for FakeContent {
         Ok(self.0.get(&path).cloned())
     }
 }
+
+#[cfg(test)]
+mod tests;

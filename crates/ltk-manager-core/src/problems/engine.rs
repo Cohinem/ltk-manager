@@ -11,6 +11,7 @@
 
 mod archive;
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -30,7 +31,8 @@ use archive::ArchiveFiles;
 
 use super::budget::Budget;
 use super::game::GameContent;
-use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
+use super::pass::Fact;
+use super::{BinNames, GameBuild, ObjectInfo, Report, Rule, RuleState, Run};
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";
@@ -45,8 +47,8 @@ const WAD_DIR_SUFFIX: &str = ".wad.client";
 /// The files of one project, and what else a run hands every rule.
 ///
 /// Built once for a run and shared by every rule, because listing the content
-/// is the one cost worth paying exactly once. Reading a file's bytes is each
-/// rule's own business.
+/// is the one cost worth paying exactly once. Reading a file's bytes is the
+/// pass's business, on a rule's subscription.
 ///
 /// The installed build, the hash tables and the installed game's content ride
 /// here too. A rule needs all of them to decide what it has to say, and each
@@ -60,7 +62,7 @@ pub struct ProjectFiles {
     root: PathBuf,
     layers: Vec<LayerFiles>,
     build: Option<GameBuild>,
-    names: BinNames,
+    names: Arc<BinNames>,
     budget: Budget,
     game: Option<Arc<dyn GameContent>>,
 }
@@ -115,7 +117,7 @@ impl ProjectFiles {
             root: project_root.to_path_buf(),
             layers,
             build: GameBuild::installed(config),
-            names: BinNames::open(project_root),
+            names: Arc::new(BinNames::open(project_root)),
             budget,
             game,
         })
@@ -150,7 +152,7 @@ impl ProjectFiles {
             root: archive.to_path_buf(),
             layers: vec![scan.layer],
             build: GameBuild::installed(config),
-            names: BinNames::with_declared(scan.tables),
+            names: Arc::new(BinNames::with_declared(scan.tables)),
             budget,
             game,
         })
@@ -187,6 +189,12 @@ impl ProjectFiles {
     #[must_use]
     pub fn names(&self) -> &BinNames {
         &self.names
+    }
+
+    /// The same names, shared, for a fix run that holds them across its
+    /// writes.
+    pub(crate) fn names_shared(&self) -> Arc<BinNames> {
+        Arc::clone(&self.names)
     }
 
     /// The memory this run may hold parsed at once, and its cancel flag.
@@ -227,6 +235,37 @@ impl ProjectFiles {
     fn file_count(&self) -> usize {
         self.layers.iter().map(|layer| layer.files.len()).sum()
     }
+
+    /// Lay `bytes` over the file at `path` of `layer`, for every read after.
+    ///
+    /// The file's size follows the bytes, so a budget charges what a reader
+    /// will hold. `false` for a file the project does not list, which a write
+    /// cannot add.
+    pub(crate) fn wrote(&mut self, layer: &str, path: &str, bytes: Arc<[u8]>) -> bool {
+        let Some(layer) = self.layers.iter_mut().find(|held| held.name == layer) else {
+            return false;
+        };
+        let Some(file) = layer.files.iter_mut().find(|file| file.path == path) else {
+            return false;
+        };
+        file.size_bytes = bytes.len() as u64;
+        layer.written.insert(path.to_owned(), bytes);
+        true
+    }
+
+    /// Drop the file at `path` of `layer` from the listing, as a removal
+    /// leaves it.
+    ///
+    /// `false` for a file the project does not list.
+    pub(crate) fn dropped(&mut self, layer: &str, path: &str) -> bool {
+        let Some(layer) = self.layers.iter_mut().find(|held| held.name == layer) else {
+            return false;
+        };
+        let listed = layer.files.len();
+        layer.files.retain(|file| file.path != path);
+        layer.written.remove(path);
+        layer.files.len() != listed
+    }
 }
 
 /// The files of one layer, and where to read one.
@@ -236,6 +275,13 @@ pub struct LayerFiles {
     pub name: String,
     pub files: Vec<ProjectFile>,
     source: LayerSource,
+    /// What a fix run wrote over this layer's files, by path, read ahead of
+    /// the source.
+    ///
+    /// A run over an archive has nowhere on disk to put a write, so the bytes
+    /// stay here until the edit, and a rule that runs after the one that wrote
+    /// reads them here.
+    written: HashMap<String, Arc<[u8]>>,
 }
 
 /// Where a layer's files are.
@@ -260,6 +306,21 @@ impl LayerSource {
         }
     }
 
+    /// One of the layer's files, open for reading and seeking.
+    fn open(&self, file: &ProjectFile) -> Result<Opened, String> {
+        match self {
+            Self::Directory(root) => {
+                let at = absolute(root, file);
+                std::fs::File::open(&at)
+                    .map(Opened::File)
+                    .map_err(|e| format!("{}: {e}", at.display()))
+            }
+            Self::Archive(archive) => archive
+                .read(file)
+                .map(|bytes| Opened::Memory(std::io::Cursor::new(bytes))),
+        }
+    }
+
     /// At most `limit` bytes from the start of one of the layer's files.
     ///
     /// A file shorter than `limit` answers with what it has. An archive-backed
@@ -281,6 +342,35 @@ impl LayerSource {
                 Ok(bytes)
             }
             Self::Archive(archive) => archive.head(file, limit),
+        }
+    }
+}
+
+/// A project file open for reading, wherever its layer keeps it.
+#[derive(Debug)]
+pub enum Opened {
+    /// A file of a directory layer, read from disk as it is asked for, so a
+    /// reader that seeks holds only what it asked for.
+    File(std::fs::File),
+    /// An archive's entry, decompressed whole: the smallest unit its
+    /// compression hands out.
+    Memory(std::io::Cursor<Vec<u8>>),
+}
+
+impl std::io::Read for Opened {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        match self {
+            Self::File(file) => file.read(buf),
+            Self::Memory(bytes) => bytes.read(buf),
+        }
+    }
+}
+
+impl std::io::Seek for Opened {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        match self {
+            Self::File(file) => file.seek(pos),
+            Self::Memory(bytes) => bytes.seek(pos),
         }
     }
 }
@@ -381,6 +471,7 @@ impl LayerFiles {
             name: name.to_owned(),
             files,
             source: LayerSource::Directory(dir.to_path_buf()),
+            written: HashMap::new(),
         }
     }
 
@@ -390,6 +481,7 @@ impl LayerFiles {
             name: name.to_owned(),
             files,
             source: LayerSource::Archive(Arc::new(source)),
+            written: HashMap::new(),
         }
     }
 
@@ -500,6 +592,9 @@ impl<'a> FileHandle<'a> {
     ///
     /// Reports the file it could not open, as one sentence a panel can draw.
     pub fn head(&self, limit: usize) -> Result<Vec<u8>, String> {
+        if let Some(written) = self.written() {
+            return Ok(written[..written.len().min(limit)].to_vec());
+        }
         self.layer.source.head(self.file, limit)
     }
 
@@ -509,7 +604,27 @@ impl<'a> FileHandle<'a> {
     ///
     /// Reports the file it could not open, as one sentence a panel can draw.
     pub fn bytes(&self) -> Result<Vec<u8>, String> {
+        if let Some(written) = self.written() {
+            return Ok(written.to_vec());
+        }
         self.layer.source.read(self.file)
+    }
+
+    /// The file, open for a reader that seeks, such as a streaming bin reader.
+    ///
+    /// # Errors
+    ///
+    /// Reports the file it could not open, as one sentence a panel can draw.
+    pub fn open(&self) -> Result<Opened, String> {
+        if let Some(written) = self.written() {
+            return Ok(Opened::Memory(std::io::Cursor::new(written.to_vec())));
+        }
+        self.layer.source.open(self.file)
+    }
+
+    /// What a fix run wrote over this file, where it wrote anything.
+    fn written(&self) -> Option<&'a Arc<[u8]>> {
+        self.layer.written.get(&self.file.path)
     }
 
     /// Parse the file as a bin of either kind.
@@ -633,24 +748,26 @@ pub fn analyze_archive(
 impl ProjectFiles {
     /// Run every rule over these files, and collect what they report.
     #[must_use]
-    fn checked(&self) -> Run {
+    pub(crate) fn checked(&self) -> Run {
         let started = Instant::now();
         let at = Utc::now();
 
-        let mut report = Report::default();
-        let mut rules = Vec::new();
-        for rule in super::rules::all() {
-            let mut info = rule.info();
-            if let Some(dormancy) = rule.dormant(self) {
-                info.state = RuleState::Dormant {
-                    waiting: dormancy.waiting,
-                    reason: dormancy.reason,
-                };
-            }
-            rules.push(info);
-            rule.check(self, &mut report);
-        }
-        let (mut problems, failed) = report.finish();
+        let all = super::rules::all();
+        let rules = all
+            .iter()
+            .map(|rule| {
+                let mut info = rule.info();
+                if let Some(dormancy) = rule.dormant(self) {
+                    info.state = RuleState::Dormant {
+                        waiting: dormancy.waiting,
+                        reason: dormancy.reason,
+                    };
+                }
+                info
+            })
+            .collect();
+        let subscribed: Vec<&dyn Rule> = all.iter().map(AsRef::as_ref).collect();
+        let (mut problems, failed) = self.report(&subscribed).finish();
 
         // The panel draws this list in the order it arrives, so the order is
         // the engine's to decide: worst first, then by where the problem is.
@@ -684,6 +801,24 @@ impl ProjectFiles {
             problems,
             failed,
         }
+    }
+
+    /// One pass of `rules` over these files, as the rules reported it.
+    ///
+    /// In file order and unsorted, which is what a test of one rule reads.
+    /// [`checked`](Self::checked) sorts it into a run.
+    #[must_use]
+    pub(crate) fn report(&self, rules: &[&dyn Rule]) -> Report {
+        super::pass::run(self, rules)
+    }
+
+    /// Compute one fact over these files, in a bin round of its own.
+    ///
+    /// For a repair, which reads the mod as it is now and cannot ride the
+    /// check's pass.
+    #[must_use]
+    pub fn fact<F: Fact>(&self) -> F {
+        super::pass::fact(self)
     }
 }
 

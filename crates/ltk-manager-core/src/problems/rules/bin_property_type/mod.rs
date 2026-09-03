@@ -48,8 +48,9 @@
 //! the schema names no class to check against. A list crosses only where both
 //! sides hold the same item type, since the tag is all that moves.
 //!
-//! The check is a visitor over `ltk_meta::walk`. Every node carries a class
-//! hash of its own, and two rows of the table key on one.
+//! The check is a visitor over `ltk_meta::walk`, riding the pass's one walk of
+//! each bin. Every node carries a class hash of its own, and two rows of the
+//! table key on one.
 
 pub mod kinds;
 pub mod table;
@@ -65,12 +66,12 @@ use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
 use ltk_meta::walk::{Node, TreeValue as _, Visit, Visitor};
 
 use crate::meta_schema::{self, MetaSchema};
-use crate::problems::budget;
 use crate::problems::names::{self, BinNames};
 use crate::problems::walk::{self, Address, Declared, FieldNames};
 use crate::problems::{
-    Applied, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Preserved,
-    PreservedNames, Problem, ProjectFiles, Report, Rule, RuleId, Severity, Site, TypeMismatch,
+    Applied, BinVisitor, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress,
+    Pass, Preserved, PreservedNames, Problem, ProjectFiles, Rule, RuleId, Severity, Sink,
+    TypeMismatch, Walk,
 };
 
 use table::{Conversion, Migration, MigrationTable, TypeSpec};
@@ -141,47 +142,19 @@ impl Rule for BinPropertyType {
         ))
     }
 
-    fn check(&self, project: &ProjectFiles, report: &mut Report) {
+    fn subscribe(&self, pass: &mut Pass<'_>) {
+        let project = pass.project();
         let tables = table::tables();
         let judge = Judge::opened(project.build());
-        let lens = Lens {
-            tables,
-            schema: judge.lens(),
-            names: project.names(),
-        };
-        if lens.tables.is_empty() && lens.schema.is_none() {
+        if tables.is_empty() && judge.lens().is_none() {
             return;
         }
-
-        // Each bin is read, parsed and checked on its own worker, and only
-        // the findings come back. The parse is what the budget is holding.
-        let handles: Vec<_> = project.bins().collect();
-        let read = project.budget().map(
-            &handles,
-            budget::files_at_once(),
-            |handle| handle.size_bytes().saturating_mul(budget::BIN_EXPANSION),
-            |handle| findings_of(handle, project, lens),
-        );
-
-        for (handle, found) in handles.iter().zip(read) {
-            let site = || Site::file(handle.layer(), handle.path());
-            match found {
-                Some(Ok(findings)) => {
-                    for finding in findings {
-                        report.problem(
-                            ID,
-                            finding.severity,
-                            Site::node(handle.layer(), handle.path(), finding.node),
-                            finding.detail,
-                        );
-                    }
-                }
-                Some(Err(e)) => report.failure(ID, Some(site()), e),
-                /* Cancelled before this file was reached. Saying nothing about
-                it is what keeps a partial run from reading as a clean one. */
-                None => report.failure(ID, Some(site()), "The check was cancelled"),
-            }
-        }
+        pass.bins().visit(TypeCheck {
+            tables,
+            judge,
+            names: project.names(),
+            build: project.build(),
+        });
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
@@ -190,7 +163,7 @@ impl Rule for BinPropertyType {
         The names ride along for one thing only: the rehashing conversions
         rewrite a value from the path behind its hash, and this is where that
         path comes from. */
-        let names = BinNames::open(run.project_root());
+        let names = run.names();
         /* The repair derives its changes again rather than replaying the check,
         so it has to judge against the same build the check did. */
         let judge = Judge::opened(GameBuild::installed(run.config()));
@@ -320,55 +293,75 @@ impl Trail {
     }
 }
 
-/// One finding of one bin, owned so it can outlive the parse that found it.
-struct Finding {
-    node: NodeAddress,
-    severity: Severity,
-    detail: Detail,
+/// The check as the pass runs it: what every bin is read with.
+struct TypeCheck<'p> {
+    tables: &'static [MigrationTable],
+    judge: Judge,
+    names: &'p BinNames,
+    build: Option<GameBuild>,
 }
 
-/// Read one bin and report everything the tables object to in it.
-fn findings_of(
-    handle: &crate::problems::FileHandle<'_>,
-    project: &ProjectFiles,
-    lens: Lens<'_>,
-) -> Result<Vec<Finding>, String> {
-    let started = std::time::Instant::now();
-    let bin = handle.bin()?;
-    let parsed = started.elapsed();
-
-    let found = check_bin(&bin, lens)
-        .into_iter()
-        .map(|(entry, hit)| Finding {
-            node: NodeAddress {
-                entry,
-                label: hit.address.label(),
-                path: hit.address.into_hashes(),
-            },
-            severity: severity(project.build(), hit.table_build),
-            detail: Detail {
-                mismatch: Some(mismatch(&hit.migration)),
-                message: note(
-                    &hit.migration,
-                    &hit.value,
-                    lens.names,
-                    project.build(),
-                    hit.table_build,
-                ),
-                fix: preview(&hit.migration, &hit.value, lens.names),
-            },
+impl BinVisitor for TypeCheck<'_> {
+    fn begin<'r, 'f: 'r>(&'r self, sink: Sink<'f>) -> Box<dyn Walk<'f> + 'r> {
+        Box::new(Reporting {
+            check: Check::new(Lens {
+                tables: self.tables,
+                schema: self.judge.lens(),
+                names: self.names,
+            }),
+            build: self.build,
+            sink,
         })
-        .collect::<Vec<_>>();
+    }
+}
 
-    tracing::trace!(
-        "{}/{}: {} bytes parsed in {parsed:?}, {} findings in {:?}",
-        handle.layer(),
-        handle.path(),
-        handle.size_bytes(),
-        found.len(),
-        started.elapsed() - parsed
-    );
-    Ok(found)
+/// One bin's [`Check`], wording each hit as a finding as it lands.
+struct Reporting<'l, 'f> {
+    check: Check<'l>,
+    build: Option<GameBuild>,
+    sink: Sink<'f>,
+}
+
+impl<'a, V: Declared<'a>> Visitor<'a, V> for Reporting<'_, '_> {
+    type Error = ltk_meta::Error;
+
+    fn enter_property(
+        &mut self,
+        field: BinHash,
+        value: V,
+        node: &Node<'_, 'a, V>,
+    ) -> Result<Visit, ltk_meta::Error> {
+        let visit = self.check.enter_property(field, value, node)?;
+        let names = self.check.lens.names;
+        for (entry, hit) in self.check.found.drain(..) {
+            self.sink.problem(
+                severity(self.build, hit.table_build),
+                Some(NodeAddress {
+                    entry,
+                    label: hit.address.label(),
+                    path: hit.address.into_hashes(),
+                }),
+                Detail {
+                    mismatch: Some(mismatch(&hit.migration)),
+                    message: note(
+                        &hit.migration,
+                        &hit.value,
+                        names,
+                        self.build,
+                        hit.table_build,
+                    ),
+                    fix: preview(&hit.migration, &hit.value, names),
+                },
+            );
+        }
+        Ok(visit)
+    }
+}
+
+impl<'f> Walk<'f> for Reporting<'_, 'f> {
+    fn end(self: Box<Self>) -> Sink<'f> {
+        self.sink
+    }
 }
 
 /// What the walk reads a bin with: what it checks against, and the names it

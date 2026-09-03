@@ -52,11 +52,10 @@
 //! says who can answer.
 
 use crate::problems::bank_units::BankUnits;
-use crate::problems::budget;
 use crate::problems::game::GameContent;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Problem, ProjectFiles, Report, Rule,
-    RuleId, Severity, Site,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Head, Pass, Problem, Rule, RuleId,
+    Severity, Site, Weight,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -145,76 +144,63 @@ impl Rule for AudioBankVersion {
         Some(Severity::Warning)
     }
 
-    fn check(&self, project: &ProjectFiles, report: &mut Report) {
-        let handles: Vec<_> = project.of_kind(WorkshopFileKind::WwiseBank).collect();
-        let read = project.budget().map(
-            &handles,
-            budget::files_at_once(),
+    fn subscribe(&self, pass: &mut Pass<'_>) {
+        let rejected = pass
+            .files(WorkshopFileKind::WwiseBank)
+            .head(HEAD_BYTES)
             /* The fallback holds the whole bank, and that is the read worth
             reserving for. */
-            |handle| handle.size_bytes(),
-            rejection_of,
-        );
-
-        let mut rejected = Vec::new();
-        for (handle, found) in handles.iter().zip(read) {
-            let site = || Site::file(handle.layer(), handle.path());
-            match found {
-                Some(Ok(Some(bank))) => rejected.push((handle, bank)),
-                Some(Ok(None)) => {}
-                Some(Err(e)) => report.failure(ID, Some(site()), e),
-                /* Cancelled before this file was reached. Saying nothing about
-                it is what keeps a partial run from reading as a clean one. */
-                None => report.failure(ID, Some(site()), "The check was cancelled"),
+            .weighing(Weight::Whole)
+            .collect(rejection_of);
+        let asked = pass.demand::<BankUnits>();
+        let game = pass.game();
+        pass.finish(move |finish| {
+            let asked = finish.fact(asked);
+            for (handle, bank) in finish.take(rejected) {
+                let Some(bank) = bank else {
+                    continue;
+                };
+                let removal = removable(&handle, game, asked);
+                finish.problem(
+                    Severity::Warning,
+                    Site::file(handle.layer(), handle.path()),
+                    bank.detail(removal),
+                );
             }
-        }
-
-        if rejected.is_empty() {
-            return;
-        }
-
-        // Every bin of the mod, parsed a second time. Worth it only now that
-        // there is something to ask about.
-        let asked = BankUnits::of(project);
-        for (handle, bank) in rejected {
-            report.problem(
-                ID,
-                Severity::Warning,
-                Site::file(handle.layer(), handle.path()),
-                bank.detail(removable(handle, project.game(), &asked)),
-            );
-        }
+        });
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        // The mod as it is now, because the guard is a claim about the rest of
-        // it and the rest of it may have changed since the check.
-        let project = match ProjectFiles::read(run.project_root(), run.config(), run.game()) {
-            Ok(project) => project,
+        // The mod as the run has left it, because the guard is a claim about
+        // the rest of it and the rest of it may have changed since the check.
+        let asked = match run.fact::<BankUnits>() {
+            Ok(asked) => asked,
             Err(e) => {
                 tracing::warn!(
                     "Removing nothing from {}, which would not read: {e}",
-                    run.project_root().display()
+                    run.root().display()
                 );
                 return Ok(skip_all(problems, run));
             }
         };
-        let asked = BankUnits::of(&project);
 
         let mut applied = Applied::default();
         for problem in problems {
             let (layer, path) = (problem.site.layer.clone(), problem.site.path.clone());
 
-            // Found in the tree before it is read, because a bank a previous
+            // Found in the listing before it is read, because a bank a previous
             // run already removed has no bytes to judge and is not an error.
-            let handle = project
-                .files()
-                .find(|handle| handle.layer() == layer && handle.path() == path);
-            let removes = match handle {
-                Some(handle) if removable(&handle, project.game(), &asked).is_ok() => {
-                    still_rejected(&run.read(&layer, &path)?)
-                }
-                _ => false,
+            let removes = match run.project() {
+                Ok(project) => match project
+                    .files()
+                    .find(|handle| handle.layer() == layer && handle.path() == path)
+                {
+                    Some(handle) if removable(&handle, project.game(), &asked).is_ok() => {
+                        still_rejected(&run.read(&layer, &path)?)
+                    }
+                    _ => false,
+                },
+                Err(_) => false,
             };
             if !removes {
                 applied.skipped += 1;
@@ -304,15 +290,19 @@ impl Removed {
 
 /// What the reader will refuse about one bank, or `None` for one it loads.
 ///
+/// `head` is the bank's first bytes. The shape that needs more reads the rest
+/// itself, under the [`Weight::Whole`] the subscription declares.
+///
 /// # Errors
 ///
 /// Reports a file it could not read, and one whose first bytes are not a bank
 /// at all.
-fn rejection_of(handle: &FileHandle<'_>) -> Result<Option<Rejected>, String> {
-    let head = handle.head(HEAD_BYTES)?;
-    let version = version_in(&head).ok_or_else(|| String::from("This is not an audio bank"))?;
+fn rejection_of(head: &Head<'_>) -> Result<Option<Rejected>, String> {
+    let handle = head.handle();
+    let head = head.bytes();
+    let version = version_in(head).ok_or_else(|| String::from("This is not an audio bank"))?;
 
-    match judged(version, &head, handle.size_bytes()) {
+    match judged(version, head, handle.size_bytes()) {
         Judged::Answered(rejected) => Ok(rejected),
         /* The shape where the hierarchy sits behind a large media blob: the
         chunk list runs past the prefix, and only the bytes say what is there. */

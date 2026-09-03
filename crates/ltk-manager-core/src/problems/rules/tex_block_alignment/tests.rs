@@ -5,6 +5,7 @@ use super::*;
 use crate::config::Config;
 use crate::mods::test_support::{make_packed_chunk_fantome_zip, resolver_naming};
 use crate::problems::Budget;
+use crate::problems::ProjectFiles;
 
 /// Where the fixture texture sits, in the tree and inside the archive's WAD.
 const TEX_IN_LAYER: &str = "data/characters/ashe/ashe_tx_cm.tex";
@@ -54,9 +55,7 @@ fn project(bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
 }
 
 fn found_in(files: &ProjectFiles) -> Vec<Problem> {
-    let mut report = Report::default();
-    TexBlockAlignment::new().check(files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&TexBlockAlignment::new()]).finish();
     assert!(
         failed.is_empty(),
         "the fixture should read cleanly: {failed:?}"

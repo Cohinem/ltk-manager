@@ -1,6 +1,6 @@
 # PRD-001: One pass of the problems engine over a project
 
-- **Status:** Draft
+- **Status:** Accepted (2026-09-03)
 - **Created:** 2026-09-01
 - **Crates:** `ltk-manager-core` (module `problems`)
 - **Tracking:** none yet
@@ -160,8 +160,8 @@ Ranked by what they cost. Each says what the design owes it.
   re-derive from disk - are not a read-only pass's to serve. It gains the walk for
   verification and facts on demand, and nothing else changes.
 - **Streaming.** The pass is designed so the streaming reader drops in behind one function.
-  Adopting it, re-measuring `BIN_EXPANSION`, and the `PTCH` fallback are the Phase 3 work,
-  not this.
+  The streaming reader and the `PTCH` fallback landed with the pass on 2026-09-03.
+  Re-measuring `BIN_EXPANSION` waits on a named project, per the spec's appendix A.
 - **Visiting `PTCH` patch records.** Outside every rule today; a type mismatch inside a patch
   value is invisible to `bin/property-type` before and after this work.
 - **Parallelism across rules or across mods.** The outer fan-out over mods and its constants
@@ -181,19 +181,19 @@ Ranked by what they cost. Each says what the design owes it.
 
 - [ ] **AC-1:** A counting file source shows each file opened once and each bin parsed once
       under all five rules.
-- [ ] **AC-2:** Every rule's existing tests pass with their assertions unchanged after the
+- [x] **AC-2:** Every rule's existing tests pass with their assertions unchanged after the
       rule is moved onto the pass.
-- [ ] **AC-3:** A two-visitor fixture where one visitor declines a subtree and the other
+- [x] **AC-3:** A two-visitor fixture where one visitor declines a subtree and the other
       enters it shows the second called on every node inside.
-- [ ] **AC-4:** A fixture with one unreadable bin under three bin readers yields three
+- [x] **AC-4:** A fixture with one unreadable bin under three bin readers yields three
       failures at that file, and a cancel after the first file yields a failure per unreached
       file per reader.
 - [ ] **AC-5:** The same fixture under one worker and eight workers produces byte-identical
       serialised `Run`s.
-- [ ] **AC-6:** `BankUnits::of` and the duplicate walker in `bank_units.rs` are deleted; the
+- [x] **AC-6:** `BankUnits::of` and the duplicate walker in `bank_units.rs` are deleted; the
       "parsed a second time" comments have nothing to describe.
-- [ ] **AC-7:** `Pass::after` has no caller and is deleted.
-- [ ] **AC-8:** A subscription selected by a fact over a fixture where the fact names one of
+- [x] **AC-7:** `Pass::after` has no caller and is deleted.
+- [x] **AC-8:** A subscription selected by a fact over a fixture where the fact names one of
       three files opens one file and reports nothing for the other two; the same fixture with
       one unparseable bin opens all three.
 - [ ] **AC-9:** A rule serving only the editor is absent from a library run; a rule disabled

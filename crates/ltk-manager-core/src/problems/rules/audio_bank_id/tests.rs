@@ -6,11 +6,13 @@ use ltk_meta::property::{NoMeta, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
+
 use crate::config::Config;
 use crate::mods::test_support::{
     BUILT_BANK_ID, audio_bank_with_id, make_packed_chunk_fantome_zip, resolver_naming,
 };
 use crate::problems::Budget;
+use crate::problems::ProjectFiles;
 
 /// Where the fixture bank sits inside the WAD holding it.
 const BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/sett_base_sfx_audio.bnk";
@@ -34,9 +36,7 @@ fn bank(id: u32) -> Vec<u8> {
 }
 
 fn found_in(files: &ProjectFiles) -> Vec<Problem> {
-    let mut report = Report::default();
-    AudioBankId::new().check(files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&AudioBankId::new()]).finish();
     assert!(
         failed.is_empty(),
         "the fixture should read cleanly: {failed:?}"
@@ -160,9 +160,7 @@ fn an_archive_reports_what_its_tree_reports() {
 fn a_file_that_is_not_a_bank_is_reported_as_unread() {
     let (_tmp, files) = tree(b"not a bank at all, whatever it is named");
 
-    let mut report = Report::default();
-    AudioBankId::new().check(&files, &mut report);
-    let (problems, failed) = report.finish();
+    let (problems, failed) = files.report(&[&AudioBankId::new()]).finish();
 
     assert!(problems.is_empty());
     assert_eq!(failed.len(), 1);

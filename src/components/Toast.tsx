@@ -1,6 +1,6 @@
-import { Toast as BaseToast } from "@base-ui/react/toast";
+import { Toast as BaseToast, type ToastManager } from "@base-ui/react/toast";
 import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { useNotificationStore } from "@/stores/notifications";
@@ -43,6 +43,58 @@ export interface ToastTask {
   /** Move the strip along the bottom, and say what is happening now. */
   report: (percent: number, description: string) => void;
   close: () => void;
+}
+
+/**
+ * The one manager every toast goes through, outside React.
+ *
+ * Base UI's `useToastManager` subscribes its caller to the list of toasts on
+ * screen, so a hook built on it re-rendered every caller on every report of a
+ * running task. Bound here, raising a toast subscribes to nothing.
+ */
+export const toastManager = heldUntilListened(BaseToast.createToastManager<ToastData>());
+
+/**
+ * `manager`, holding what is raised before the provider listens.
+ *
+ * The provider subscribes from its own effect, and effects run children first,
+ * so a toast raised from a mount effect under it would be emitted to nobody.
+ * The launch announcement of what the sweep found is one.
+ */
+function heldUntilListened(manager: ToastManager<ToastData>): ToastManager<ToastData> {
+  let listening = 0;
+  let held: Array<() => void> = [];
+  let raised = 0;
+  const once = (raise: () => void) => {
+    if (listening > 0) raise();
+    else held.push(raise);
+  };
+
+  return {
+    " subscribe": (listener) => {
+      const unsubscribe = manager[" subscribe"](listener);
+      listening += 1;
+      const pending = held;
+      held = [];
+      pending.forEach((raise) => raise());
+      return () => {
+        unsubscribe();
+        listening -= 1;
+      };
+    },
+    add: (options) => {
+      const id = options.id ?? `held-toast-${(raised += 1)}`;
+      once(() => manager.add({ ...options, id }));
+      return id;
+    },
+    close: (id) => once(() => manager.close(id)),
+    update: (id, updates) => once(() => manager.update(id, updates)),
+    promise: (value, options) => {
+      if (listening > 0) return manager.promise(value, options);
+      held.push(() => manager.promise(value, options));
+      return value;
+    },
+  };
 }
 
 const typeIcons: Record<ToastType, ReactNode> = {
@@ -151,7 +203,6 @@ interface ToastItemProps {
 }
 
 export function ToastItem({ toast }: ToastItemProps) {
-  const { close } = BaseToast.useToastManager();
   const type = toast.data?.type ?? "info";
   const timeout = toast.data?.timeout ?? 5000;
   const progress = toast.data?.progress;
@@ -192,7 +243,7 @@ export function ToastItem({ toast }: ToastItemProps) {
                  sitting there is a press the reader has to make twice. */
               onClick={() => {
                 toast.data?.action?.onClick();
-                close(toast.id);
+                toastManager.close(toast.id);
               }}
               className="mt-1 cursor-pointer text-sm font-medium text-accent-400 transition-colors hover:text-accent-300"
             >
@@ -212,7 +263,7 @@ export function ToastItem({ toast }: ToastItemProps) {
           timeout={timeout}
           type={type}
           paused={hovered}
-          onExpire={() => close(toast.id)}
+          onExpire={() => toastManager.close(toast.id)}
         />
       )}
       {progress !== undefined && <ToastTaskBar value={progress} />}
@@ -232,108 +283,107 @@ export function ToastList() {
   );
 }
 
-// Re-export hook for convenience
-export const useToastManager = BaseToast.useToastManager;
-
-// Helper function to create typed toasts
+/** The app's toasts, raised from anywhere. */
 export function useToast() {
-  const toastManager = BaseToast.useToastManager();
   const addNotification = useNotificationStore((s) => s.addNotification);
 
-  return {
-    toast: (options: {
-      title?: string;
-      description?: string;
-      type?: ToastType;
-      timeout?: number;
-      action?: ToastAction;
-      icon?: ReactNode;
-      notify?: boolean;
-    }) => {
-      const type = options.type ?? "info";
-      const timeout = options.timeout ?? 5000;
-      if (options.notify && options.title) {
-        addNotification({ title: options.title, description: options.description, type });
-      }
-      return toastManager.add({
-        title: options.title,
-        description: options.description,
-        data: { type, timeout, action: options.action, icon: options.icon },
-        timeout,
-      });
-    },
-    success: (title: string, description?: string, options?: ToastOptions) => {
-      if (options?.notify) {
-        addNotification({ title, description, type: "success" });
-      }
-      return toastManager.add({
-        title,
-        description,
-        data: { type: "success", timeout: 5000 },
-        timeout: 5000,
-      });
-    },
-    error: (title: string, description?: string, options?: ToastOptions) => {
-      if (options?.notify) {
-        addNotification({ title, description, type: "error" });
-      }
-      return toastManager.add({
-        title,
-        description,
-        data: { type: "error", timeout: 7000 },
-        timeout: 7000,
-      });
-    },
-    warning: (title: string, description?: string, options?: ToastOptions) => {
-      if (options?.notify) {
-        addNotification({ title, description, type: "warning" });
-      }
-      return toastManager.add({
-        title,
-        description,
-        data: { type: "warning", timeout: 6000 },
-        timeout: 6000,
-      });
-    },
-    info: (title: string, description?: string, options?: ToastOptions) => {
-      if (options?.notify) {
-        addNotification({ title, description, type: "info" });
-      }
-      return toastManager.add({
-        title,
-        description,
-        data: { type: "info", timeout: 5000 },
-        timeout: 5000,
-      });
-    },
-    /**
-     * A toast that stays until the work behind it ends, reporting how far it
-     * has got where a dismissing toast counts itself down.
-     *
-     * For work the user did not start and cannot cancel. Anything they can wait
-     * on belongs in the UI that started it.
-     */
-    task: (title: string, description?: string): ToastTask => {
-      const id = toastManager.add({
-        title,
-        description,
-        data: { type: "info", progress: 0 },
-        timeout: 0,
-      });
+  return useMemo(
+    () => ({
+      toast: (options: {
+        title?: string;
+        description?: string;
+        type?: ToastType;
+        timeout?: number;
+        action?: ToastAction;
+        icon?: ReactNode;
+        notify?: boolean;
+      }) => {
+        const type = options.type ?? "info";
+        const timeout = options.timeout ?? 5000;
+        if (options.notify && options.title) {
+          addNotification({ title: options.title, description: options.description, type });
+        }
+        return toastManager.add({
+          title: options.title,
+          description: options.description,
+          data: { type, timeout, action: options.action, icon: options.icon },
+          timeout,
+        });
+      },
+      success: (title: string, description?: string, options?: ToastOptions) => {
+        if (options?.notify) {
+          addNotification({ title, description, type: "success" });
+        }
+        return toastManager.add({
+          title,
+          description,
+          data: { type: "success", timeout: 5000 },
+          timeout: 5000,
+        });
+      },
+      error: (title: string, description?: string, options?: ToastOptions) => {
+        if (options?.notify) {
+          addNotification({ title, description, type: "error" });
+        }
+        return toastManager.add({
+          title,
+          description,
+          data: { type: "error", timeout: 7000 },
+          timeout: 7000,
+        });
+      },
+      warning: (title: string, description?: string, options?: ToastOptions) => {
+        if (options?.notify) {
+          addNotification({ title, description, type: "warning" });
+        }
+        return toastManager.add({
+          title,
+          description,
+          data: { type: "warning", timeout: 6000 },
+          timeout: 6000,
+        });
+      },
+      info: (title: string, description?: string, options?: ToastOptions) => {
+        if (options?.notify) {
+          addNotification({ title, description, type: "info" });
+        }
+        return toastManager.add({
+          title,
+          description,
+          data: { type: "info", timeout: 5000 },
+          timeout: 5000,
+        });
+      },
+      /**
+       * A toast that stays until the work behind it ends, reporting how far it
+       * has got where a dismissing toast counts itself down.
+       *
+       * For work the user did not start and cannot cancel. Anything they can wait
+       * on belongs in the UI that started it.
+       */
+      task: (title: string, description?: string): ToastTask => {
+        const id = toastManager.add({
+          title,
+          description,
+          data: { type: "info", progress: 0 },
+          timeout: 0,
+        });
 
-      return {
-        report: (percent: number, description: string) => {
-          toastManager.update(id, {
-            description,
-            data: { type: "info", progress: percent },
-          });
-        },
-        close: () => toastManager.close(id),
-      };
-    },
-    dismiss: (toastId: string) => {
-      toastManager.close(toastId);
-    },
-    promise: toastManager.promise,
-  };
+        return {
+          report: (percent: number, description: string) => {
+            toastManager.update(id, {
+              description,
+              data: { type: "info", progress: percent },
+            });
+          },
+          close: () => toastManager.close(id),
+        };
+      },
+      dismiss: (toastId: string) => {
+        toastManager.close(toastId);
+      },
+      promise: toastManager.promise,
+    }),
+    [addNotification],
+  );
 }

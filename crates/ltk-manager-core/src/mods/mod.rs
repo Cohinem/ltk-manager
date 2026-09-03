@@ -331,6 +331,16 @@ impl ModLibrary {
             .map(|(_, content)| Arc::clone(content) as Arc<dyn crate::problems::GameContent>)
     }
 
+    /// Build the installed game's index now, so no check waits on it.
+    ///
+    /// Every bin worker of every mod in a sweep blocks on the one build the
+    /// first rule to ask starts, so startup pays it once, ahead of the sweep.
+    pub fn warm_game_content(&self, config: &Config) {
+        if let Some(game) = self.game_content(config) {
+            game.warm();
+        }
+    }
+
     /// Epoch-millis timestamp of the last index mutation, for watchers that
     /// need to ignore the filesystem events their own writes produce.
     pub fn last_mutation_epoch_ms(&self) -> &Arc<AtomicI64> {

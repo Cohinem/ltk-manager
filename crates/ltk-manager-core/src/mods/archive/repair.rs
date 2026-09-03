@@ -1,11 +1,12 @@
 //! Repairing an archive-storage fantome in place.
 //!
 //! A mod stored as its archive has no tree the Problems engine can write to,
-//! so a repair goes the long way round: unpack the archive into staging, run
-//! the rules there, apply every fix they derive, and write what changed back
-//! into the archive. The library keeps reading the same path, and the mod stays
-//! in Archive storage throughout. Replacing the archive, and keeping no copy of
-//! the original, is ADR-0005.
+//! so a repair reads the archive where it lies, as the check does, holds every
+//! fix the rules derive, and edits what changed back into the archive. The
+//! library keeps reading the same path, and the mod stays in Archive storage
+//! throughout. An archive the edit refuses goes the long way round instead:
+//! unpacked into staging, fixed there, and repacked whole - ADR-0025.
+//! Replacing the archive, and keeping no copy of the original, is ADR-0005.
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
@@ -15,9 +16,10 @@ use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::health::{Refused, cancelled};
 use crate::mods::index::ModStorage;
-use crate::problems::{self, Budget, FixReport, budget};
+use crate::problems::{self, Budget, FixReport, ProjectFiles, budget};
 use camino::Utf8Path;
 use delta::RepairEdit;
+use ltk_fantome::{DeltaReport, FantomeReader};
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use serde::Serialize;
@@ -128,18 +130,25 @@ impl ModLibrary {
                     Some(resolver.as_ref()),
                     game.clone(),
                 )?;
-                let checked = verified(&mod_dir, run, &wanted, &report, config, game)?;
+                let checked = verified(run, &wanted, &report, || {
+                    problems::analyze(&mod_dir, config, game)
+                })?;
                 (report, checked)
             }
             ModStorage::Archive => {
                 let archive = entry.convertible_archive(&storage_dir)?;
-                let staging = storage_dir
-                    .join("mods")
-                    .join(format!("{STAGING_PREFIX}{}", Uuid::new_v4()));
-                fs::create_dir_all(&staging)?;
-                let outcome = self.repair_in_staging(config, &staging, &archive, budget);
-                let _ = fs::remove_dir_all(&staging);
-                outcome?
+                match self.repair_in_archive(config, &archive, budget)? {
+                    Some(outcome) => outcome,
+                    None => {
+                        let staging = storage_dir
+                            .join("mods")
+                            .join(format!("{STAGING_PREFIX}{}", Uuid::new_v4()));
+                        fs::create_dir_all(&staging)?;
+                        let outcome = self.repair_in_staging(config, &staging, &archive, budget);
+                        let _ = fs::remove_dir_all(&staging);
+                        outcome?
+                    }
+                }
             }
         };
 
@@ -263,11 +272,71 @@ impl ModLibrary {
         Ok(report)
     }
 
+    /// Fix what the rules find in `archive` where it lies, and edit the fixed
+    /// files back in.
+    ///
+    /// `None` where the edit refused the archive, which is the fallback's cue
+    /// and comes before anything is written - ADR-0025. A run that applies
+    /// nothing leaves the archive alone: rewriting would turn the same content
+    /// into different bytes for no reader's benefit.
+    fn repair_in_archive(
+        &self,
+        config: &Config,
+        archive: &Path,
+        budget: &Budget,
+    ) -> AppResult<Option<(FixReport, problems::Run)>> {
+        let game = self.game_content(config);
+        let resolver = self.wad_resolver();
+        let project = ProjectFiles::in_archive(
+            archive,
+            config,
+            budget.clone(),
+            resolver.as_ref(),
+            game.clone(),
+        )?;
+        let run = project.checked();
+        let wanted = run.live_fixable();
+        let declared = FantomeReader::new(fs::File::open(archive)?)
+            .and_then(|mut reader| reader.read_hashtables())
+            .map_err(|e| AppError::Fantome(e.to_string()))?;
+        let (report, held) = problems::apply_held(
+            project,
+            declared,
+            &run,
+            &wanted,
+            config,
+            Some(resolver.as_ref()),
+            game.clone(),
+        )?;
+        if report.applied == 0 {
+            return Ok(Some((report, run)));
+        }
+
+        let archive_utf8 = archive.try_as_utf8("mod archive")?;
+        let edited = RepairEdit::held(&held, archive_utf8, &report)
+            .and_then(|edit| edit.apply(archive_utf8));
+        match edited {
+            Ok(written) => report_edit(archive_utf8, &written),
+            Err(error) => {
+                tracing::info!(
+                    "Unpacking {archive_utf8} to repair it, since the edit refused it: {error}"
+                );
+                return Ok(None);
+            }
+        }
+
+        let checked = verified(run, &wanted, &report, || {
+            problems::analyze_archive(archive, config, budget.clone(), resolver.as_ref(), game)
+        })?;
+        Ok(Some((report, checked)))
+    }
+
     /// Unpack `archive` into `staging`, fix what the rules find, and put the
     /// repaired result where the archive was.
     ///
-    /// A run that applies nothing leaves the archive alone: rewriting would
-    /// turn the same content into different bytes for no reader's benefit.
+    /// The long way round, for an archive the edit refuses. A run that applies
+    /// nothing leaves the archive alone, as
+    /// [`repair_in_archive`](Self::repair_in_archive) does.
     fn repair_in_staging(
         &self,
         config: &Config,
@@ -294,15 +363,16 @@ impl ModLibrary {
 
         write_repaired(staging, &staging_utf8, archive, &report)?;
 
-        let checked = verified(staging, run, &wanted, &report, config, game)?;
+        let checked = verified(run, &wanted, &report, || {
+            problems::analyze(staging, config, game)
+        })?;
         Ok((report, checked))
     }
 
     /// Unpack `archive` into `staging` as the project the rules read.
     ///
-    /// A repair writes through a project root, so an archive-storage mod has
-    /// to be materialized before a fix can be applied to it. A check does not,
-    /// and reads the archive where it lies.
+    /// The long way round, for an archive the edit refuses - ADR-0025. A
+    /// repair the edit takes reads the archive where it lies, as a check does.
     pub(in crate::mods) fn unpack_for_rules(
         &self,
         staging: &Path,
@@ -396,14 +466,12 @@ impl RunProgress {
 /// A rule that stopped is the exception. It never reached the files after the
 /// one it stopped on, so their problems are neither applied nor reported as
 /// left, and subtracting them would call a mod healthy that was never touched.
-/// That run re-reads the project rather than deriving anything.
+/// That run re-reads the mod through `reread` rather than deriving anything.
 fn verified(
-    project_root: &Path,
     run: problems::Run,
     wanted: &[problems::ProblemId],
     report: &FixReport,
-    config: &Config,
-    game: Option<std::sync::Arc<dyn problems::GameContent>>,
+    reread: impl FnOnce() -> AppResult<problems::Run>,
 ) -> AppResult<problems::Run> {
     // A rule that skips records a count against the file and not a
     // `ProblemId`, because `FixRun::left` takes a bin node address a file-level
@@ -413,7 +481,7 @@ fn verified(
     // would subtract as repaired. Re-read the mod whenever anything was
     // skipped, rather than guessing which kind of skip it was.
     if !report.failed.is_empty() || report.skipped > 0 {
-        return problems::analyze(project_root, config, game);
+        return reread();
     }
 
     let repaired: Vec<problems::ProblemId> = wanted
@@ -443,14 +511,7 @@ fn write_repaired(
 
     match edited {
         Ok(written) => {
-            tracing::debug!(
-                "Edited {archive_utf8} across {} WADs: {} chunks and {} entries written, {} chunks and {} entries removed",
-                written.wads_rebased,
-                written.chunks_replaced,
-                written.entries_replaced,
-                written.chunks_removed,
-                written.entries_removed
-            );
+            report_edit(archive_utf8, &written);
             Ok(())
         }
         Err(error) => {
@@ -458,6 +519,18 @@ fn write_repaired(
             repack(staging, staging_utf8, archive)
         }
     }
+}
+
+/// Log what an edit of `archive` wrote.
+fn report_edit(archive: &Utf8Path, written: &DeltaReport) {
+    tracing::debug!(
+        "Edited {archive} across {} WADs: {} chunks and {} entries written, {} chunks and {} entries removed",
+        written.wads_rebased,
+        written.chunks_replaced,
+        written.entries_replaced,
+        written.chunks_removed,
+        written.entries_removed
+    );
 }
 
 /// Pack the staged project over `archive`, whole.

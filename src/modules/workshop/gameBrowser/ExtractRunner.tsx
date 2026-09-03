@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
-import { type ToastData, useToast, useToastManager } from "@/components";
+import { toastManager, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api, type ExtractProgress, type ExtractSummary } from "@/lib/tauri";
 import { type ExtractRequest, useExtractRunStore } from "@/stores";
@@ -31,7 +31,6 @@ export function ExtractRunner() {
   const extract = useExtractGameFiles();
   const { mutate: cancelExtract } = useCancelExtract();
   const { progress, reset } = useExtractProgress();
-  const { add, close, update } = useToastManager<ToastData>();
   const { toast, success, info, warning, error } = useToast();
   const queryClient = useQueryClient();
 
@@ -45,8 +44,8 @@ export function ExtractRunner() {
     const id = barId.current;
     const req = request.current;
     if (!id || !req || !progress) return;
-    update(id, taskToast(req, progress, cancelExtract));
-  }, [progress, update, cancelExtract]);
+    toastManager.update(id, taskToast(req, progress, cancelExtract));
+  }, [progress, cancelExtract]);
 
   useEffect(() => {
     if (!pending) return;
@@ -67,16 +66,16 @@ export function ExtractRunner() {
      the log. */
   useEffect(() => {
     return () => {
-      if (barId.current) close(barId.current);
+      if (barId.current) toastManager.close(barId.current);
       setRunning(false);
     };
-  }, [close, setRunning]);
+  }, [setRunning]);
 
   function begin(req: ExtractRequest) {
     request.current = req;
     reset();
     setRunning(true);
-    barId.current = add(taskToast(req, null, cancelExtract));
+    barId.current = toastManager.add(taskToast(req, null, cancelExtract));
 
     extract.mutate(
       { targets: req.targets, options: req.options },
@@ -106,7 +105,7 @@ export function ExtractRunner() {
   }
 
   function dismissBar() {
-    if (barId.current) close(barId.current);
+    if (barId.current) toastManager.close(barId.current);
     barId.current = null;
   }
 

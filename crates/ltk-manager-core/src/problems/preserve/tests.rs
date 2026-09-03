@@ -262,3 +262,62 @@ fn a_directory_that_is_not_a_project_cannot_keep_names() {
     assert_eq!(kept.keep(ICON), Preserved::Kept);
     assert!(kept.write().is_err());
 }
+
+/// A declared game table naming `names`, as an archive hands its tables over.
+fn declared_game(names: &[&str]) -> (HashtableEntry, Hashtable) {
+    let (algorithm, width) = Category::Game.default_shape().expect("a shape");
+    let entry = HashtableEntry::new(
+        "META/hashes/game.hashes.txt",
+        Category::Game,
+        algorithm,
+        width,
+    );
+    (
+        entry,
+        Hashtable::from_names(names.iter().copied()).expect("a table"),
+    )
+}
+
+#[test]
+fn a_run_over_declared_tables_merges_its_names_into_the_game_table() {
+    let mut kept = PreservedNames::over(vec![declared_game(&[OTHER])], None);
+    assert_eq!(kept.keep(ICON), Preserved::Kept);
+
+    let table = kept.merged().expect("the merge").expect("a table");
+
+    assert_eq!(
+        table.into.as_ref().map(|entry| entry.path().as_str()),
+        Some("META/hashes/game.hashes.txt")
+    );
+    let merged = Hashtable::from_reader(table.bytes.as_slice()).expect("the grammar");
+    let names: Vec<&str> = merged.names().collect();
+    assert!(names.contains(&ICON) && names.contains(&OTHER), "{names:?}");
+}
+
+#[test]
+fn a_run_over_no_declared_table_merges_into_none() {
+    let mut kept = PreservedNames::over(Vec::new(), None);
+    assert_eq!(kept.keep(ICON), Preserved::Kept);
+
+    let table = kept.merged().expect("the merge").expect("a table");
+
+    assert!(table.into.is_none());
+    let merged = Hashtable::from_reader(table.bytes.as_slice()).expect("the grammar");
+    assert_eq!(merged.names().collect::<Vec<_>>(), [ICON]);
+}
+
+#[test]
+fn a_name_a_declared_table_already_holds_merges_into_nothing() {
+    let mut kept = PreservedNames::over(vec![declared_game(&[ICON])], None);
+    assert_eq!(kept.keep(ICON), Preserved::Kept);
+
+    assert!(kept.merged().expect("the merge").is_none());
+}
+
+#[test]
+fn a_run_over_declared_tables_has_no_project_to_write_into() {
+    let mut kept = PreservedNames::over(Vec::new(), None);
+    assert_eq!(kept.keep(ICON), Preserved::Kept);
+
+    assert!(kept.write().is_err());
+}

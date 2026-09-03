@@ -86,6 +86,13 @@ scanned inside its archive rather than unpacked to be looked at. A modder's view
 is the Problems panel, and the split is deliberate — see `docs/ux/MOD_HEALTH.md`. A check requires
 the **hashtable cache** and does not run without it — see ADR-0009.
 
+**Pass** — the engine's one traversal of a project's files during a check. A rule **subscribes**
+to what it reads and opens nothing itself: the pass reads each file once, parses and walks each
+bin once with every subscribed visitor riding the one walk, and hands each rule its part at
+finish. What more than one rule reads off the bins is a **fact**, computed once per pass and
+owned by no rule. The vocabulary in full is `docs/design/problems-pass.md` section 2, and the
+decision is ADR-0013.
+
 **Verdict** — what a check concluded: `healthy`, `repairable`, or `unrepairable`, with the counts
 behind it. Remembered per mod in `mod-health-verdicts.json` beside the index. A cache of a
 computation, not a record — a lost file refills on the next check. There is no fourth word: a mod
@@ -152,9 +159,10 @@ in words, because that one has somebody waiting. Not the **staging sweep**, whic
 for clearing `mods/.staging-*` and is unrelated.
 
 **Repair** — applying every fix the live rules derive for one mod. In the tree for a `project`
-mod. For an `archive` mod: unpack, fix, and edit the fixed files back into the archive where it
-lies, so a repair costs what changed rather than everything the mod holds. An archive that cannot
-be edited is repacked whole instead, which is the same outcome by a slower road — see ADR-0005.
+mod. For an `archive` mod: fix what the check read where it lies, and edit the fixed files back
+into the archive, so a repair costs what changed rather than everything the mod holds — see
+ADR-0025. An archive that cannot be edited is unpacked, fixed and repacked whole instead, which is
+the same outcome by a slower road — see ADR-0005.
 Neither is reversible. Neither destroys a **name**, which is what preserved names guarantee, but a
 repair may lose fidelity where the defect admits no in-place correction — see ADR-0011.
 **Repair all** is the banner's one press over every repairable mod at once, and nothing is ever

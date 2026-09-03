@@ -23,6 +23,7 @@ mod engine;
 mod fix;
 pub mod game;
 pub mod names;
+pub mod pass;
 pub mod preserve;
 pub mod rules;
 pub mod walk;
@@ -37,13 +38,19 @@ use serde::{Deserialize, Serialize};
 pub use budget::Budget;
 pub use build::GameBuild;
 pub use engine::{
-    ChunkInfo, FileHandle, LayerFiles, ProjectFile, ProjectFiles, analyze, analyze_archive,
+    ChunkInfo, FileHandle, LayerFiles, Opened, ProjectFile, ProjectFiles, analyze, analyze_archive,
     analyze_within,
 };
-pub use fix::{FileChange, FileOutcome, FixError, FixReport, FixRun, apply};
+pub use fix::{
+    FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply, apply_held,
+};
 pub use game::{GameContent, InstalledContent};
 pub use names::BinNames;
-pub use preserve::{Preserved, PreservedNames};
+pub use pass::{
+    BinVisitor, Bins, Collected, Coverage, Demanded, Fact, FileRead, Files, Finish, Head,
+    ObjectRead, Pass, Sink, Walk, Weight,
+};
+pub use preserve::{KeptTable, Preserved, PreservedNames};
 
 /// The stable id a user reads, such as `bin/property-type`.
 ///
@@ -659,10 +666,9 @@ impl Counts {
 
 /// One check the manager runs over a project.
 ///
-/// A rule owns its own read and its own write. Two rules over one `.bin`
-/// therefore parse it twice, which is the cost of keeping a rule
-/// self-contained and is worth paying until a second bin rule exists to
-/// measure it against.
+/// A rule declares what it reads in [`subscribe`](Self::subscribe) and opens
+/// nothing itself. What the [`pass`] does with that is its own doc. The
+/// repair is the rule's own, reading and writing through a [`FixRun`].
 pub trait Rule: Send + Sync {
     /// The stable id a user reads, such as `bin/property-type`.
     fn id(&self) -> RuleId;
@@ -684,7 +690,7 @@ pub trait Rule: Send + Sync {
         ""
     }
 
-    /// The severity every problem [`Rule::check`] reports carries.
+    /// The severity every problem this rule reports carries.
     ///
     /// `None` where each finding answers for itself, because what it costs
     /// depends on the machine the check ran on rather than on the rule.
@@ -720,19 +726,22 @@ pub trait Rule: Send + Sync {
     /// about every project - which is most of them, since most checks are about
     /// the mod alone - reports `None` and never overrides this.
     ///
-    /// This changes nothing about what [`Rule::check`] reports. A finding
-    /// about a change that has not landed is still a finding, and the severity
-    /// it carries is what says the game has not taken it yet.
+    /// This changes nothing about what the rule reports. A finding about a
+    /// change that has not landed is still a finding, and the severity it
+    /// carries is what says the game has not taken it yet.
     fn dormant(&self, project: &ProjectFiles) -> Option<Dormancy> {
         let _ = project;
         None
     }
 
-    /// Find every problem this rule sees, and add it to `report`.
+    /// Declare every read this rule needs, and what to do with what comes back.
     ///
-    /// A rule that cannot read one file reports a failure for it and carries
-    /// on, so one unreadable `.bin` never costs the other forty.
-    fn check(&self, project: &ProjectFiles, report: &mut Report);
+    /// Runs once per run, before any file is opened, on the calling thread.
+    /// It performs no IO of its own: a rule that needs bytes asks the pass
+    /// for them here (D16). A file the pass cannot read is a failure it
+    /// reports under this rule and carries on from, so one unreadable `.bin`
+    /// never costs the other forty.
+    fn subscribe(&self, pass: &mut Pass<'_>);
 
     /// Repair `problems`, and record every write in `run`.
     ///

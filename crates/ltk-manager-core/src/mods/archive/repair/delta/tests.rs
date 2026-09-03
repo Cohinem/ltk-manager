@@ -123,3 +123,161 @@ fn a_removal_is_written_as_an_edit() {
 
     assert!(edit.is_ok(), "{:?}", edit.err());
 }
+
+/// The edit a held run states, applied to the archive the run read.
+mod held {
+    use super::*;
+
+    use crate::config::Config;
+    use crate::mods::test_support::{
+        STALE_BIN_IN_WAD, make_packed_bin_fantome_zip, resolver_naming, stale_bin,
+    };
+    use crate::problems::{Budget, FixRun, Preserved, ProjectFiles};
+
+    const CHUNK: &str = "Aatrox.wad.client/data/skin0.bin";
+    const ICON: &str = "ASSETS/Characters/Smolder/HUD/Smolder_Circle.dds";
+    const OTHER: &str = "ASSETS/Characters/Smolder/HUD/Smolder_Square.dds";
+    const TABLE: &str = "META/hashes/game.hashes.txt";
+
+    fn read_where_it_lies(archive: &Path, names: &[&str]) -> ProjectFiles {
+        ProjectFiles::in_archive(
+            archive,
+            &Config::default(),
+            Budget::repair(),
+            &resolver_naming(names),
+            None,
+        )
+        .expect("the archive")
+    }
+
+    fn tables_in(archive: &Path) -> Vec<(ltk_hashtable::HashtableEntry, ltk_hashtable::Hashtable)> {
+        FantomeReader::new(fs::File::open(archive).unwrap())
+            .unwrap()
+            .read_hashtables()
+            .unwrap()
+    }
+
+    /// A fantome declaring one game table holding `names`, and nothing else.
+    fn declaring_fantome(archive: &Path, names: &[&str]) {
+        let (algorithm, width) = Category::Game.default_shape().unwrap();
+        let info = ltk_fantome::FantomeInfo {
+            name: "declaring-mod".to_owned(),
+            author: "Author".to_owned(),
+            version: "1.0.0".to_owned(),
+            hashtables: vec![FantomeHashtable {
+                path: TABLE.to_owned(),
+                category: Category::Game,
+                algorithm,
+                bits: width.bits(),
+            }],
+            ..Default::default()
+        };
+        let mut table = Vec::new();
+        ltk_hashtable::Hashtable::from_names(names.iter().copied())
+            .unwrap()
+            .write_to(&mut table)
+            .unwrap();
+
+        let mut zip = zip::ZipWriter::new(fs::File::create(archive).unwrap());
+        let options = zip::write::SimpleFileOptions::default();
+        zip.start_file("META/info.json", options).unwrap();
+        std::io::Write::write_all(&mut zip, &serde_json::to_vec_pretty(&info).unwrap()).unwrap();
+        zip.start_file(TABLE, options).unwrap();
+        std::io::Write::write_all(&mut zip, &table).unwrap();
+        zip.finish().unwrap();
+    }
+
+    /// Story: the repair wrote one chunk and hashed one path away, and the
+    /// edit puts both into the archive without a tree ever having existed.
+    #[test]
+    fn a_held_write_and_its_kept_name_land_in_the_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = camino::Utf8PathBuf::from_path_buf(tmp.path().join("mod.fantome")).unwrap();
+        make_packed_bin_fantome_zip(
+            archive.as_std_path(),
+            "packed-mod",
+            &stale_bin(),
+            zip::CompressionMethod::Stored,
+        );
+        let files = read_where_it_lies(archive.as_std_path(), &[STALE_BIN_IN_WAD]);
+        let mut run = FixRun::held(files, Vec::new(), Vec::new(), None, Config::default(), None);
+        run.write("base", CHUNK, b"repaired", 1, 0).unwrap();
+        assert_eq!(run.kept_names().keep(ICON), Preserved::Kept);
+        let (report, held) = run.finish_held().unwrap();
+
+        let written = RepairEdit::held(&held, &archive, &report)
+            .unwrap()
+            .apply(&archive)
+            .unwrap();
+
+        assert_eq!(written.chunks_replaced, 1);
+        assert_eq!(
+            written.entries_replaced, 2,
+            "the table, and the metadata that now declares it"
+        );
+        let files = read_where_it_lies(archive.as_std_path(), &[STALE_BIN_IN_WAD]);
+        let chunk = files.files().find(|handle| handle.path() == CHUNK).unwrap();
+        assert_eq!(chunk.bytes().unwrap(), b"repaired");
+        let tables = tables_in(archive.as_std_path());
+        assert_eq!(tables.len(), 1);
+        assert_eq!(tables[0].0.path().as_str(), TABLE);
+        assert!(tables[0].1.names().any(|name| name == ICON));
+    }
+
+    /// Story: the archive already declares a game table, and the run's names
+    /// join it rather than displacing it or declaring a second.
+    #[test]
+    fn a_kept_name_joins_the_table_the_archive_already_declares() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = camino::Utf8PathBuf::from_path_buf(tmp.path().join("mod.fantome")).unwrap();
+        declaring_fantome(archive.as_std_path(), &[OTHER]);
+        let declared = tables_in(archive.as_std_path());
+        let files = read_where_it_lies(archive.as_std_path(), &[]);
+        let mut run = FixRun::held(files, declared, Vec::new(), None, Config::default(), None);
+        assert_eq!(run.kept_names().keep(ICON), Preserved::Kept);
+        let (report, held) = run.finish_held().unwrap();
+
+        let written = RepairEdit::held(&held, &archive, &report)
+            .unwrap()
+            .apply(&archive)
+            .unwrap();
+
+        assert_eq!(
+            written.entries_replaced, 1,
+            "the table alone, which the metadata already declares"
+        );
+        let tables = tables_in(archive.as_std_path());
+        assert_eq!(tables.len(), 1);
+        let names: Vec<&str> = tables[0].1.names().collect();
+        assert!(names.contains(&ICON) && names.contains(&OTHER), "{names:?}");
+    }
+
+    /// A file the report says was written but the run holds no bytes for is
+    /// a bug the edit refuses rather than writes around.
+    #[test]
+    fn a_written_file_the_run_does_not_hold_is_refused() {
+        let report = crate::problems::FixReport {
+            applied: 1,
+            skipped: 0,
+            names_kept: 0,
+            tables: Vec::new(),
+            remaining: Vec::new(),
+            files: vec![crate::problems::FileOutcome {
+                layer: "base".to_owned(),
+                path: CHUNK.to_owned(),
+                applied: 1,
+                skipped: 0,
+                change: crate::problems::FileChange::Written,
+            }],
+            failed: Vec::new(),
+        };
+
+        let edit = RepairEdit::held(
+            &crate::problems::HeldWrites::default(),
+            camino::Utf8Path::new("mod.fantome"),
+            &report,
+        );
+
+        assert!(edit.is_err());
+    }
+}
