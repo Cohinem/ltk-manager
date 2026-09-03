@@ -1,7 +1,7 @@
 import { Toast as BaseToast } from "@base-ui/react/toast";
 import type { ReactNode } from "react";
 
-import { ToastList } from "./Toast";
+import { ToastList, toastManager } from "./Toast";
 
 interface ToastProviderProps {
   children: ReactNode;
@@ -9,7 +9,7 @@ interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
   return (
-    <BaseToast.Provider timeout={5000}>
+    <BaseToast.Provider timeout={5000} toastManager={toastManager}>
       {children}
       <BaseToast.Portal>
         <BaseToast.Viewport
