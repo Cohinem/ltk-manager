@@ -220,6 +220,14 @@ describe("Home", () => {
       await waitFor(() => expect(calls("sync_hashtables")).toHaveLength(1));
     });
 
+    it("says the hashtables are syncing, and offers nothing until they have", async () => {
+      world.readiness = "syncing";
+      renderWithProviders(<Home />);
+
+      expect(await screen.findByText("Syncing the hashtables mod health needs")).toBeVisible();
+      expect(screen.queryByRole("button", { name: "Sync" })).toBeNull();
+    });
+
     /* A flagged mod loads and plays, so it is not one the line warns about, and
        a disabled one reaches no overlay. */
     it("counts the enabled mods the game will refuse, and shows them in the library", async () => {

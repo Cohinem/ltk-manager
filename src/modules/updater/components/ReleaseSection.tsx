@@ -47,7 +47,7 @@ export function ReleaseSection({
       <header className="mb-2 flex items-center gap-2">
         <h3 className="text-sm font-semibold text-surface-100 select-text">v{version}</h3>
         {installed && (
-          <span className={twMerge(CHIP, SURFACE_CHIP)}>{m.home_release_installed_label()}</span>
+          <span className={twMerge(CHIP, SURFACE_CHIP)}>{m.updater_release_installed_label()}</span>
         )}
         {pending && (
           <span className={twMerge(CHIP, PENDING_CHIP)}>{m.updater_release_pending_label()}</span>

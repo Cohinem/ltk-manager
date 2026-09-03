@@ -8,10 +8,9 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import { Button } from "@/components";
-import { m } from "@/i18n";
-import { PlayButton, useActiveProfile, useInstalledMods } from "@/modules/library";
+import { PlayButton } from "@/modules/library";
 
-import { type HomeStatusTone, useHomeStatus } from "../api";
+import { type HomeStatusTone, useHomeStatus, useLibraryFacts } from "../api";
 
 /* The hue is the severity's, and the words stay the verdict's: DS-KIND-HUE. */
 const TONE_CLASS: Record<HomeStatusTone, string> = {
@@ -39,10 +38,8 @@ interface HomeHeaderProps {
 /** The status line, the facts under it, and the library's Play button. */
 export function HomeHeader({ installing }: HomeHeaderProps) {
   const status = useHomeStatus({ installedGameBuild: INSTALLED_GAME_BUILD });
-  const { data: profile } = useActiveProfile();
-  const { data: mods = [] } = useInstalledMods();
+  const { profileName, enabledLabel } = useLibraryFacts();
   const Glyph = TONE_GLYPH[status.tone];
-  const enabled = mods.filter((mod) => mod.enabled).length;
 
   return (
     <header data-ui="HomeHeader" className="flex items-start justify-between gap-6 select-none">
@@ -69,9 +66,9 @@ export function HomeHeader({ installing }: HomeHeaderProps) {
           )}
         </div>
         <p data-ui="HomeHeader:facts" className="flex items-center gap-2 text-xs text-surface-400">
-          {profile && <span className="select-text">{profile.name}</span>}
-          {profile && <span aria-hidden>·</span>}
-          <span>{m.home_library_enabled_count_label({ enabled, total: mods.length })}</span>
+          {profileName && <span className="select-text">{profileName}</span>}
+          {profileName && <span aria-hidden>·</span>}
+          <span>{enabledLabel}</span>
           {INSTALLED_GAME_BUILD && <span aria-hidden>·</span>}
           {INSTALLED_GAME_BUILD && <span className="select-text">{INSTALLED_GAME_BUILD}</span>}
         </p>

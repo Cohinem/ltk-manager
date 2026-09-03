@@ -3,9 +3,9 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { Button, CollectionIcon, IconButton } from "@/components";
 import { m } from "@/i18n";
-import { useActiveProfile, useInstalledMods } from "@/modules/library";
 import { useSaveSettings, useSettings } from "@/modules/settings";
 
+import { useLibraryFacts } from "../api";
 import { Tile } from "./Tile";
 
 interface LibraryTileProps {
@@ -17,13 +17,11 @@ interface LibraryTileProps {
 
 /** The library's state on the front page, and the two ways into it. */
 export function LibraryTile({ onAddMod, onImportFromCslol }: LibraryTileProps) {
-  const { data: profile } = useActiveProfile();
-  const { data: mods = [] } = useInstalledMods();
+  const { profileName, enabledLabel } = useLibraryFacts();
   const { data: settings } = useSettings();
   const saveSettings = useSaveSettings();
   const navigate = useNavigate();
 
-  const enabled = mods.filter((mod) => mod.enabled).length;
   const offerImport = settings !== undefined && !settings.migrationDismissed;
 
   function dismissImport() {
@@ -35,10 +33,8 @@ export function LibraryTile({ onAddMod, onImportFromCslol }: LibraryTileProps) {
     <Tile title={m.home_library_title()} data-ui="LibraryTile">
       <div className="flex flex-col gap-3 px-4 pb-4">
         <div className="select-none">
-          <p className="text-sm font-medium text-surface-100 select-text">{profile?.name}</p>
-          <p className="text-xs text-surface-400">
-            {m.home_library_enabled_count_label({ enabled, total: mods.length })}
-          </p>
+          <p className="text-sm font-medium text-surface-100 select-text">{profileName}</p>
+          <p className="text-xs text-surface-400">{enabledLabel}</p>
         </div>
 
         {offerImport && (
@@ -55,7 +51,7 @@ export function LibraryTile({ onAddMod, onImportFromCslol }: LibraryTileProps) {
                 variant="ghost"
                 size="xs"
                 compact
-                aria-label={m.home_offer_dismiss_action()}
+                aria-label={m.home_library_import_dismiss_action()}
                 onClick={dismissImport}
               />
             </div>

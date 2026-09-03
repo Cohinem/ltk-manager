@@ -286,7 +286,6 @@ own sentences are here too, since no other surface says them as one line.
 | `home_status_repairable_label`          | {count} enabled mods need a repair                                    |
 | `home_status_build_moved_label`         | League updated to {build}. Your mods have not been checked against it |
 | `home_changes_title`                    | Recent changes                                                        |
-| `home_release_installed_label`          | Installed                                                             |
 | `home_release_update_action`            | Update                                                                |
 | `home_notice_link_action`               | What to do                                                            |
 | `home_library_title`                    | Your library                                                          |
@@ -299,6 +298,7 @@ own sentences are here too, since no other surface says them as one line.
 | `home_learn_troubleshooting_label`      | Troubleshooting                                                       |
 | `home_setup_title`                      | Getting started                                                       |
 
+The Installed chip is `ReleaseSection`'s, so its label is the updater's, and Retry is common.
 The `Open on` row is titled in the setting index, as every row of the Startup card is.
 
 ## How it is built

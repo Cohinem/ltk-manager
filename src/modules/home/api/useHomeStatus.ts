@@ -35,13 +35,7 @@ export interface HomeStatusInputs {
   installedGameBuild: string | null;
 }
 
-/**
- * Whether pressing Play is safe right now, per "The status line" in docs/ux/HOME.md.
- *
- * Derived and never stored, and the first row that holds wins. The line adds
- * no health logic: its counts are the launch guard's, and its way into the
- * drawer is the one the launch guard takes.
- */
+/** Whether pressing Play is safe right now, per "The status line" in docs/ux/HOME.md. */
 export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeStatus {
   const { data: platform } = usePlatformSupport();
   const { data: settings } = useSettings();
@@ -99,7 +93,7 @@ export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeSta
     };
   }
 
-  const repairable = brokenEnabled.filter((verdict) => verdict.health === "repairable").length;
+  const repairable = brokenEnabled.filter((verdict) => alarmOf(verdict) === "repairable").length;
   if (repairable > 0) {
     return {
       tone: "warning",

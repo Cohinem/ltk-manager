@@ -41,7 +41,7 @@ export function ReleaseHistory({
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
 
-  const rows = withPlaceholder(releases, placeholder);
+  const rows = withPlaceholder(releases, placeholder, isPending || error !== null);
 
   return (
     <div
@@ -76,14 +76,21 @@ export function ReleaseHistory({
   );
 }
 
-/** The feed's rows, led by the placeholder until the feed carries its version. */
+/**
+ * The feed's rows, with the placeholder where its version is not among them.
+ *
+ * It leads while the feed is `unread`, and follows once the feed has answered
+ * without it: a build older than every release read so far belongs under them,
+ * until the page that carries it arrives.
+ */
 function withPlaceholder(
   releases: ReleaseNote[],
   placeholder: ReleaseNote | null | undefined,
+  unread: boolean,
 ): ReleaseNote[] {
   if (!placeholder) return releases;
   if (releases.some((release) => release.version === placeholder.version)) return releases;
-  return [placeholder, ...releases];
+  return unread ? [placeholder, ...releases] : [...releases, placeholder];
 }
 
 interface HistoryFootProps {
@@ -112,7 +119,7 @@ function HistoryFoot({
           {copy.description ?? copy.title}
         </p>
         <Button variant="ghost" size="xs" compact onClick={onRetry}>
-          {m.updater_history_retry_action()}
+          {m.common_retry_action()}
         </Button>
       </div>
     );

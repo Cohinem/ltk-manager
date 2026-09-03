@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { type Announcement, api, type AppError } from "@/lib/tauri";
+import { isAfter } from "@/stores";
 import { queryFn } from "@/utils/query";
 
 import { homeKeys } from "./keys";
@@ -22,10 +23,7 @@ export function useAnnouncements() {
 export function newestPostAt(posts: Announcement[] | undefined): string | null {
   let newest: string | null = null;
   for (const post of posts ?? []) {
-    if (!post.publishedAt) continue;
-    if (newest === null || Date.parse(post.publishedAt) > Date.parse(newest)) {
-      newest = post.publishedAt;
-    }
+    if (post.publishedAt && isAfter(post.publishedAt, newest)) newest = post.publishedAt;
   }
   return newest;
 }

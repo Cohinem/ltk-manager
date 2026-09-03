@@ -12,14 +12,20 @@ const POSTS_SHOWN = 5;
 
 const WIKI = "https://wiki.leaguetoolkit.dev";
 
+/** A standing link: what it is called, and where it opens. */
+interface StandingLink {
+  label: () => string;
+  href: string;
+}
+
 /** The standing links, so the card is never empty. */
-const LEARN_LINKS: { label: () => string; href: string }[] = [
+const LEARN_LINKS: StandingLink[] = [
   { label: () => m.home_learn_getting_started_label(), href: `${WIKI}/start-here/` },
   { label: () => m.home_learn_managing_mods_label(), href: `${WIKI}/mod-management/` },
   { label: () => m.home_learn_troubleshooting_label(), href: `${WIKI}/start-here/faq/` },
 ];
 
-const COMMUNITY_LINKS: { label: () => string; href: string }[] = [
+const COMMUNITY_LINKS: StandingLink[] = [
   { label: () => m.home_learn_discord_label(), href: "https://discord.gg/yhzDVRyQex" },
   {
     label: () => m.home_learn_repository_label(),
@@ -45,7 +51,7 @@ export function NewsTile() {
       action={
         error !== null && (
           <Button variant="ghost" size="xs" compact onClick={() => void refetch()}>
-            {m.home_news_retry_action()}
+            {m.common_retry_action()}
           </Button>
         )
       }

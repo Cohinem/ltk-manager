@@ -105,8 +105,13 @@ fn current(document: Document, running: &Version, now: DateTime<Utc>) -> Vec<Not
         .filter(|notice| notice.concerns(running, now))
         .map(PublishedNotice::into_notice)
         .collect();
-    notices.sort_by(|a, b| b.published_at.cmp(&a.published_at));
+    notices.sort_by_key(|notice| std::cmp::Reverse(published_at(notice)));
     notices
+}
+
+/// When a notice went up, for ordering. One whose stamp does not parse sorts last.
+fn published_at(notice: &Notice) -> Option<DateTime<chrono::FixedOffset>> {
+    DateTime::parse_from_rfc3339(&notice.published_at).ok()
 }
 
 impl PublishedNotice {

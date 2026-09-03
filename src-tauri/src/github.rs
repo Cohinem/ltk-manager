@@ -18,7 +18,7 @@ const USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"));
 const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The header GitHub reports the address's remaining quota in.
-pub(crate) const REMAINING: &str = "x-ratelimit-remaining";
+const REMAINING: &str = "x-ratelimit-remaining";
 
 /// Which way a read of GitHub failed, as the remedy it has.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
@@ -122,7 +122,7 @@ fn transport_failure(error: reqwest::Error) -> GitHubError {
 }
 
 /// Whether a refusal is the quota running out rather than the request.
-pub(crate) fn is_rate_limited(status: StatusCode, headers: &HeaderMap) -> bool {
+fn is_rate_limited(status: StatusCode, headers: &HeaderMap) -> bool {
     (status == StatusCode::FORBIDDEN || status == StatusCode::TOO_MANY_REQUESTS)
         && headers
             .get(REMAINING)

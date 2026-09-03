@@ -344,9 +344,6 @@ mod tests {
         );
     }
 
-    /// A settings file written before the manager could launch anything keeps
-    /// the patcher-only button it was written with - the launcher is opt-in
-    /// while it is experimental.
     /// A file written before Home existed opens on it, as a fresh install does.
     #[test]
     fn open_on_defaults_to_home_when_absent() {
@@ -359,6 +356,9 @@ mod tests {
         assert_eq!(settings.open_on, OpenOn::Mods);
     }
 
+    /// A settings file written before the manager could launch anything keeps
+    /// the patcher-only button it was written with - the launcher is opt-in
+    /// while it is experimental.
     #[test]
     fn launch_mode_defaults_to_classic_when_absent() {
         let json = r#"{"firstRunComplete": false, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false}"#;
