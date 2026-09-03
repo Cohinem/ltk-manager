@@ -226,10 +226,10 @@ The write is what once kept the rules out of the library - see "The library wait
 [Problems](PROJECT_PROBLEMS.md). The answer is that both operations meet the rules on a mod
 project, wherever the mod keeps its content:
 
-| Storage   | Check                             | Repair                                        |
-| --------- | --------------------------------- | --------------------------------------------- |
-| `project` | Analyze the mod's own tree        | Fix in the tree                               |
-| `archive` | Analyze the archive where it lies | Unpack, fix, and edit the fixed files back in |
+| Storage   | Check                             | Repair                                              |
+| --------- | --------------------------------- | --------------------------------------------------- |
+| `project` | Analyze the mod's own tree        | Fix in the tree                                     |
+| `archive` | Analyze the archive where it lies | Fix where it lies, and edit the fixed files back in |
 
 **A bin no table names is reached by its chunk hash.** The check lists such a bin under the
 sixteen hex digits an unpack writes it as, the unpack writes the same, and the edit puts the fixed
@@ -240,9 +240,10 @@ back either way, and the path it hashes away goes into the mod's own tables exac
 bin's would.
 
 A project-storage repair is the project editor's fix run on the mod's directory. An
-archive-storage repair replaces the archive with the repacked result and keeps no copy of the
-original - see ADR-0005. Either way a repair that applied nothing leaves the mod untouched, byte
-for byte.
+archive-storage repair is the same fix run over the files the check read, holding what it writes
+until the archive is edited - see ADR-0025 - and it keeps no copy of the original - see ADR-0005.
+An archive the edit refuses is unpacked, fixed and repacked whole. Either way a repair that
+applied nothing leaves the mod untouched, byte for byte.
 
 **What a repair promises is a name, not reversal.** Neither storage keeps a way back. What
 both keep is the mod's own `hashes/game.hashes.txt`: every path a fix hashes away is written

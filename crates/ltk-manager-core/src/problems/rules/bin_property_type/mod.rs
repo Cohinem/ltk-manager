@@ -163,7 +163,7 @@ impl Rule for BinPropertyType {
         The names ride along for one thing only: the rehashing conversions
         rewrite a value from the path behind its hash, and this is where that
         path comes from. */
-        let names = BinNames::open(run.project_root());
+        let names = run.names();
         /* The repair derives its changes again rather than replaying the check,
         so it has to judge against the same build the check did. */
         let judge = Judge::opened(GameBuild::installed(run.config()));

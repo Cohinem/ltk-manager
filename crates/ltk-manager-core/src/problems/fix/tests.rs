@@ -196,3 +196,130 @@ fn a_fix_run_writes_no_restore_point() {
 
     assert!(!project.path().join(".ltk").exists());
 }
+
+/// A run that holds its writes, over an archive read where it lies.
+mod held {
+    use super::*;
+
+    use crate::mods::test_support::{
+        STALE_BIN_IN_WAD, bin_bytes, make_packed_bin_fantome_zip, resolver_naming, stale_bin,
+    };
+    use crate::problems::{Budget, Preserved};
+
+    const CHUNK: &str = "Aatrox.wad.client/data/skin0.bin";
+    const ICON: &str = "ASSETS/Characters/Smolder/HUD/Smolder_Circle.dds";
+
+    /// A packed fantome holding the stale bin, read where it lies.
+    fn archived() -> (tempfile::TempDir, ProjectFiles) {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let archive = dir.path().join("mod.fantome");
+        make_packed_bin_fantome_zip(
+            &archive,
+            "packed-mod",
+            &stale_bin(),
+            zip::CompressionMethod::Stored,
+        );
+        let files = ProjectFiles::in_archive(
+            &archive,
+            &Config::default(),
+            Budget::repair(),
+            &resolver_naming(&[STALE_BIN_IN_WAD]),
+            None,
+        )
+        .expect("the archive");
+        (dir, files)
+    }
+
+    fn held(files: ProjectFiles) -> FixRun<'static> {
+        FixRun::held(files, Vec::new(), Vec::new(), None, Config::default(), None)
+    }
+
+    #[test]
+    fn a_read_reports_the_bytes_in_the_archive() {
+        let (_dir, files) = archived();
+        let run = held(files);
+
+        assert_eq!(
+            run.read(BASE, CHUNK).expect("the chunk"),
+            bin_bytes(&stale_bin())
+        );
+    }
+
+    /// Story: the property-type fix wrote a bin, and the audio fix that runs
+    /// after it reads the mod as the run has left it, while the archive on
+    /// disk is as it was.
+    #[test]
+    fn a_write_is_read_back_by_the_rules_that_follow_and_lands_nowhere() {
+        let (dir, files) = archived();
+        let mut run = held(files);
+        let before = fs::read(dir.path().join("mod.fantome")).expect("the archive");
+
+        run.write(BASE, CHUNK, b"after", 1, 0).expect("the write");
+
+        assert_eq!(run.read(BASE, CHUNK).expect("the chunk"), b"after");
+        let project = run.project().expect("the files");
+        let handle = project
+            .files()
+            .find(|handle| handle.path() == CHUNK)
+            .expect("the listing");
+        assert_eq!(handle.bytes().expect("the chunk"), b"after");
+        assert_eq!(handle.size_bytes(), 5);
+        assert_eq!(
+            fs::read(dir.path().join("mod.fantome")).expect("the archive"),
+            before
+        );
+    }
+
+    #[test]
+    fn a_removal_drops_the_file_from_the_listing() {
+        let (_dir, files) = archived();
+        let mut run = held(files);
+
+        run.remove(BASE, CHUNK, 1).expect("the removal");
+
+        assert!(
+            run.project()
+                .expect("the files")
+                .files()
+                .all(|handle| handle.path() != CHUNK)
+        );
+        assert_matches!(run.read(BASE, CHUNK), Err(FixError::File { .. }));
+    }
+
+    #[test]
+    fn a_write_to_a_file_the_mod_does_not_hold_is_refused() {
+        let (_dir, files) = archived();
+        let mut run = held(files);
+
+        assert_matches!(
+            run.write(BASE, "Aatrox.wad.client/data/skin1.bin", b"new", 1, 0),
+            Err(FixError::File { .. })
+        );
+        assert!(run.finish_held().expect("the writes").0.files.is_empty());
+    }
+
+    #[test]
+    fn finishing_hands_back_what_was_written_and_the_names_kept() {
+        let (_dir, files) = archived();
+        let mut run = held(files);
+        run.write(BASE, CHUNK, b"after", 1, 0).expect("the write");
+        assert_eq!(run.kept_names().keep(ICON), Preserved::Kept);
+
+        let (report, held) = run.finish_held().expect("the writes");
+
+        assert_eq!(report.applied, 1);
+        assert_eq!(report.names_kept, 1);
+        assert_eq!(held.bytes(BASE, CHUNK), Some(&b"after"[..]));
+        let table = held.table().expect("the table");
+        assert!(table.into.is_none(), "the fixture declares no table");
+        assert!(String::from_utf8_lossy(&table.bytes).contains(ICON));
+    }
+
+    #[test]
+    fn a_run_over_a_tree_has_nothing_held_to_hand_back() {
+        let project = project(b"before");
+        let run = open(project.path());
+
+        assert!(run.finish_held().is_err());
+    }
+}

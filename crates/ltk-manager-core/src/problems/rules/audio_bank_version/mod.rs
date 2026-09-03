@@ -54,8 +54,8 @@
 use crate::problems::bank_units::BankUnits;
 use crate::problems::game::GameContent;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Head, Pass, Problem, ProjectFiles,
-    Rule, RuleId, Severity, Site, Weight,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Head, Pass, Problem, Rule, RuleId,
+    Severity, Site, Weight,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -171,34 +171,36 @@ impl Rule for AudioBankVersion {
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        // The mod as it is now, because the guard is a claim about the rest of
-        // it and the rest of it may have changed since the check.
-        let project = match ProjectFiles::read(run.project_root(), run.config(), run.game()) {
-            Ok(project) => project,
+        // The mod as the run has left it, because the guard is a claim about
+        // the rest of it and the rest of it may have changed since the check.
+        let asked = match run.fact::<BankUnits>() {
+            Ok(asked) => asked,
             Err(e) => {
                 tracing::warn!(
                     "Removing nothing from {}, which would not read: {e}",
-                    run.project_root().display()
+                    run.root().display()
                 );
                 return Ok(skip_all(problems, run));
             }
         };
-        let asked = project.fact::<BankUnits>();
 
         let mut applied = Applied::default();
         for problem in problems {
             let (layer, path) = (problem.site.layer.clone(), problem.site.path.clone());
 
-            // Found in the tree before it is read, because a bank a previous
+            // Found in the listing before it is read, because a bank a previous
             // run already removed has no bytes to judge and is not an error.
-            let handle = project
-                .files()
-                .find(|handle| handle.layer() == layer && handle.path() == path);
-            let removes = match handle {
-                Some(handle) if removable(&handle, project.game(), &asked).is_ok() => {
-                    still_rejected(&run.read(&layer, &path)?)
-                }
-                _ => false,
+            let removes = match run.project() {
+                Ok(project) => match project
+                    .files()
+                    .find(|handle| handle.layer() == layer && handle.path() == path)
+                {
+                    Some(handle) if removable(&handle, project.game(), &asked).is_ok() => {
+                        still_rejected(&run.read(&layer, &path)?)
+                    }
+                    _ => false,
+                },
+                Err(_) => false,
             };
             if !removes {
                 applied.skipped += 1;

@@ -6,11 +6,13 @@ use ltk_meta::property::{NoMeta, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
+
 use crate::config::Config;
 use crate::mods::test_support::{
     BUILT_BANK_ID, audio_bank_with_id, make_packed_chunk_fantome_zip, resolver_naming,
 };
 use crate::problems::Budget;
+use crate::problems::ProjectFiles;
 
 /// Where the fixture bank sits inside the WAD holding it.
 const BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/sett_base_sfx_audio.bnk";

@@ -41,14 +41,16 @@ pub use engine::{
     ChunkInfo, FileHandle, LayerFiles, Opened, ProjectFile, ProjectFiles, analyze, analyze_archive,
     analyze_within,
 };
-pub use fix::{FileChange, FileOutcome, FixError, FixReport, FixRun, apply};
+pub use fix::{
+    FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply, apply_held,
+};
 pub use game::{GameContent, InstalledContent};
 pub use names::BinNames;
 pub use pass::{
     BinVisitor, Bins, Collected, Coverage, Demanded, Fact, FileRead, Files, Finish, Head,
     ObjectRead, Pass, Sink, Walk, Weight,
 };
-pub use preserve::{Preserved, PreservedNames};
+pub use preserve::{KeptTable, Preserved, PreservedNames};
 
 /// The stable id a user reads, such as `bin/property-type`.
 ///

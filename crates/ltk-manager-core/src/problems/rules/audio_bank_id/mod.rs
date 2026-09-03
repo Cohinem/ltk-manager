@@ -18,8 +18,8 @@
 
 use crate::problems::bank_units::BankUnits;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, ProjectFiles, Rule,
-    RuleId, Severity, Site,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, Rule, RuleId,
+    Severity, Site,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -100,26 +100,21 @@ impl Rule for AudioBankId {
 
     /// Writes the id the bank's own name hashes to.
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        // The mod as it is now, because a bank unit naming a hash-named chunk
-        // is a fact about the rest of it and the rest of it may have changed.
-        let project = ProjectFiles::read(run.project_root(), run.config(), run.game()).ok();
-        let units = project
-            .as_ref()
-            .map(|project| project.fact::<BankUnits>())
-            .unwrap_or_default();
+        // The mod as the run has left it, because a bank unit naming a
+        // hash-named chunk is a fact about the rest of it and the rest of it
+        // may have changed.
+        let units = run.fact::<BankUnits>().unwrap_or_default();
         let mut applied = Applied::default();
 
         for problem in problems {
             let (layer, path) = (problem.site.layer.clone(), problem.site.path.clone());
-            let handle = project.as_ref().and_then(|project| {
-                project
+            let id = run.project().ok().and_then(|project| {
+                let handle = project
                     .files()
-                    .find(|handle| handle.layer() == layer && handle.path() == path)
+                    .find(|handle| handle.layer() == layer && handle.path() == path)?;
+                bank_id_for(&handle, &units)
             });
-            let Some(id) = handle
-                .as_ref()
-                .and_then(|handle| bank_id_for(handle, &units))
-            else {
+            let Some(id) = id else {
                 applied.skipped += 1;
                 run.skipped(&layer, &path, 1);
                 continue;

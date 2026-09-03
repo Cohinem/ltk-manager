@@ -6,9 +6,10 @@
 //! packing the staged project again re-encodes every chunk the mod holds.
 
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
-use crate::problems::{FileChange, FixReport};
+use crate::problems::{FileChange, FileOutcome, FixReport, HeldWrites, KeptTable};
 use camino::Utf8Path;
 use ltk_fantome::{ArchiveDelta, DeltaReport, FantomeHashtable, FantomeReader, apply_delta};
+use ltk_hashtable::Category;
 use ltk_mod_project::{HASHES_DIR_NAME, ModProject, ModProjectLayer};
 use ltk_wad::{WadHash, chunk_hash_of};
 use std::fs;
@@ -44,39 +45,48 @@ impl RepairEdit {
     /// read, and a fix the Fantome format has no place for. Either leaves the
     /// repack as the way to write the repair.
     pub(super) fn read(staging: &Path, archive: &Utf8Path, report: &FixReport) -> AppResult<Self> {
-        let mut delta = ArchiveDelta::new();
-
-        for file in &report.files {
-            // A file a rule read and left alone was never written, so its bytes
-            // are the archive's own and re-encoding them would change the mod.
-            if file.applied == 0 {
-                continue;
-            }
-
-            let target = DeltaTarget::of(&file.layer, &file.path).ok_or_else(|| {
-                AppError::Other(format!(
-                    "A Fantome archive has no place for {}/{}",
-                    file.layer, file.path
-                ))
-            })?;
-
-            match file.change {
-                FileChange::Removed => match target {
-                    DeltaTarget::Chunk { wad, hash } => delta.remove_chunk(&wad, hash),
-                    DeltaTarget::Entry { path } => delta.remove_entry(&path),
-                },
-                FileChange::Written => {
-                    let bytes = fs::read(content_path(staging, &file.layer, &file.path))?;
-                    match target {
-                        DeltaTarget::Chunk { wad, hash } => delta.chunk(&wad, hash, bytes),
-                        DeltaTarget::Entry { path } => delta.entry(&path, bytes),
-                    }
-                }
-            };
-        }
+        let mut delta = assemble(report, |file| {
+            Ok(fs::read(content_path(staging, &file.layer, &file.path))?)
+        })?;
 
         if report.names_kept > 0 {
             declare_kept_names(&mut delta, staging, archive)?;
+        }
+
+        Ok(Self(delta))
+    }
+
+    /// Read what `report` applied out of `held`, a run that wrote nothing to
+    /// disk.
+    ///
+    /// The bytes are the run's own, so nothing is read back, and the kept
+    /// names arrive as the one merged table rather than as a project's
+    /// `hashes/`. `archive` is read for the metadata that table has to be
+    /// declared in, and is not written to.
+    ///
+    /// # Errors
+    ///
+    /// Reports a fix the Fantome format has no place for, and a file the run
+    /// reports written but holds no bytes for. Either leaves the unpack and
+    /// the repack as the way to write the repair.
+    pub(super) fn held(
+        held: &HeldWrites,
+        archive: &Utf8Path,
+        report: &FixReport,
+    ) -> AppResult<Self> {
+        let mut delta = assemble(report, |file| {
+            held.bytes(&file.layer, &file.path)
+                .map(<[u8]>::to_vec)
+                .ok_or_else(|| {
+                    AppError::Other(format!(
+                        "The run holds no bytes for {}/{}",
+                        file.layer, file.path
+                    ))
+                })
+        })?;
+
+        if let Some(table) = held.table() {
+            declare_held_table(&mut delta, table, archive)?;
         }
 
         Ok(Self(delta))
@@ -93,6 +103,50 @@ impl RepairEdit {
         apply_delta(archive, archive, &self.0, None)
             .map_err(|e| AppError::Other(format!("Failed to edit {archive}: {e}")))
     }
+}
+
+/// The delta `report` states, with `bytes_of` answering for each written file.
+///
+/// # Errors
+///
+/// Reports a fix the Fantome format has no place for, and whatever `bytes_of`
+/// reports.
+fn assemble(
+    report: &FixReport,
+    bytes_of: impl Fn(&FileOutcome) -> AppResult<Vec<u8>>,
+) -> AppResult<ArchiveDelta<'static>> {
+    let mut delta = ArchiveDelta::new();
+
+    for file in &report.files {
+        // A file a rule read and left alone was never written, so its bytes
+        // are the archive's own and re-encoding them would change the mod.
+        if file.applied == 0 {
+            continue;
+        }
+
+        let target = DeltaTarget::of(&file.layer, &file.path).ok_or_else(|| {
+            AppError::Other(format!(
+                "A Fantome archive has no place for {}/{}",
+                file.layer, file.path
+            ))
+        })?;
+
+        match file.change {
+            FileChange::Removed => match target {
+                DeltaTarget::Chunk { wad, hash } => delta.remove_chunk(&wad, hash),
+                DeltaTarget::Entry { path } => delta.remove_entry(&path),
+            },
+            FileChange::Written => {
+                let bytes = bytes_of(file)?;
+                match target {
+                    DeltaTarget::Chunk { wad, hash } => delta.chunk(&wad, hash, bytes),
+                    DeltaTarget::Entry { path } => delta.entry(&path, bytes),
+                }
+            }
+        };
+    }
+
+    Ok(delta)
 }
 
 /// What one repaired file of a staged project is, to the archive it came out
@@ -192,6 +246,65 @@ fn declare_kept_names(
     }
 
     Ok(())
+}
+
+/// Carry the merged table into the edit, and declare it where the archive
+/// does not.
+///
+/// One table rather than every declared one: a held run merges into the table
+/// it names, and the rest are the archive's own bytes, which the edit
+/// raw-copies.
+fn declare_held_table(
+    delta: &mut ArchiveDelta<'static>,
+    table: &KeptTable,
+    archive: &Utf8Path,
+) -> AppResult<()> {
+    let mut info = FantomeReader::new(fs::File::open(archive)?)
+        .and_then(|mut reader| reader.read_info())
+        .map_err(|e| AppError::Other(format!("Could not read {archive}'s metadata: {e}")))?;
+
+    let path = match &table.into {
+        Some(entry) => entry.path().to_string(),
+        None => free_archive_table_path(&info.hashtables),
+    };
+    delta.entry(&path, table.bytes.clone());
+
+    if !info
+        .hashtables
+        .iter()
+        .any(|held| held.path.eq_ignore_ascii_case(&path))
+    {
+        let (algorithm, width) = &table.shape;
+        info.hashtables.push(FantomeHashtable {
+            path,
+            category: Category::Game,
+            algorithm: algorithm.clone(),
+            bits: width.bits(),
+        });
+        let written = serde_json::to_vec_pretty(&info)
+            .map_err(|e| AppError::Other(format!("Could not write {archive}'s metadata: {e}")))?;
+        delta.entry(ARCHIVE_INFO, written);
+    }
+
+    Ok(())
+}
+
+/// A conventional table path under the archive's `META/hashes/` that no
+/// manifest entry has claimed.
+///
+/// The same sequence a project's `hashes/` is named by, under the archive's
+/// own directory.
+fn free_archive_table_path(manifests: &[FantomeHashtable]) -> String {
+    let taken: Vec<String> = manifests
+        .iter()
+        .map(|manifest| manifest.path.to_ascii_lowercase())
+        .collect();
+    std::iter::once(format!("{ARCHIVE_HASHES_DIR}/game.hashes.txt"))
+        .chain(
+            (1..).map(|attempt| format!("{ARCHIVE_HASHES_DIR}/game.repaired{attempt}.hashes.txt")),
+        )
+        .find(|candidate| !taken.contains(&candidate.to_ascii_lowercase()))
+        .expect("the candidate sequence is unbounded")
 }
 
 /// Where the archive keeps the table a project declares at `declared`.
