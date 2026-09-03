@@ -8,6 +8,11 @@ resolver = "2"
 [profile.dev.package."*"]
 opt-level = 3
 
+# Our own crate too, at the level that keeps it steppable: the bin walk is a
+# generic instantiated here, so the override above never reaches it.
+[profile.dev.package.ltk-manager-core]
+opt-level = 1
+
 [workspace.dependencies]
 # Pinned to a rev until it ships on crates.io. Declared here rather than in
 # `ltk-manager-core` so moving the pin is one edit in the place every other
