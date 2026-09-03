@@ -10,10 +10,57 @@
   "home_learn_troubleshooting_label": "Troubleshooting",
   "home_library_add_action": "Add mod",
   "home_library_enabled_count_label": "{enabled} of {total} enabled",
+  "home_library_export_action": "Export mods",
+  "home_library_export_confirm_action": "Export",
+  "home_library_export_count_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod will be written",
+        "countPlural=other": "{count} mods will be written"
+      }
+    }
+  ],
+  "home_library_export_done_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Exported {count} mod",
+        "countPlural=other": "Exported {count} mods"
+      }
+    }
+  ],
+  "home_library_export_failed_title": "Could not export your mods",
+  "home_library_export_folder_title": "Export mods to",
+  "home_library_export_partial_title": "Exported {exported} of {total} mods",
+  "home_library_export_reveal_action": "Show me",
+  "home_library_export_running_label": "Exporting",
+  "home_library_export_scope_all_label": "Everything",
+  "home_library_export_scope_enabled_label": "Enabled",
+  "home_library_export_scope_label": "What to export",
+  "home_library_export_shape_folder_label": "A folder",
+  "home_library_export_shape_label": "As",
+  "home_library_export_shape_zip_label": "One .zip",
+  "home_library_export_skipped_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod has no archive to export",
+        "countPlural=other": "{count} mods have no archive to export"
+      }
+    }
+  ],
+  "home_library_export_title": "Export mods",
+  "home_library_export_zip_title": "Export mods as",
   "home_library_import_action": "Import from cslol-manager",
   "home_library_import_dismiss_action": "Dismiss",
   "home_library_import_title": "Migrating from cslol-manager?",
+  "home_library_more_action": "More library actions",
   "home_library_open_action": "Open Mods",
+  "home_library_storage_action": "Open mod storage",
   "home_library_title": "Your library",
   "home_nav_label": "Home",
   "home_news_title": "News",

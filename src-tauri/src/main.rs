@@ -100,6 +100,7 @@ fn main() {
             commands::get_health_sweep,
             commands::sweep_mod_health,
             commands::get_health_check_readiness,
+            commands::export_mods,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
             commands::get_storage_directory,

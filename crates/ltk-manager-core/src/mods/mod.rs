@@ -41,6 +41,7 @@ pub use analysis::categorize::{ChampionRoster, DerivedCategorization};
 pub use analysis::checksum_mismatches::{ChecksumMismatchInfo, ChecksumMismatchState};
 pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
+pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
 pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
 pub use archive::migration::*;
 pub use archive::repair::{LibraryRepairReport, ModRepairFailure};

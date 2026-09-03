@@ -78,6 +78,17 @@ pub struct InstallProgress {
     pub current_file: String,
 }
 
+/// Progress of a mod export, emitted per mod.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ExportProgress {
+    pub current: usize,
+    pub total: usize,
+    pub current_mod: String,
+}
+
 /// Which half of a cslol migration is running.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -373,6 +384,8 @@ declare_events! {
     LibraryChanged => "library-changed",
     /// A bulk install advanced.
     InstallProgress(InstallProgress) => "install-progress",
+    /// An export of installed mods advanced to the next mod.
+    ExportProgress(ExportProgress) => "export-progress",
     /// A cslol migration advanced.
     MigrationProgress(MigrationProgress) => "migration-progress",
     /// The library layout migration advanced to the next mod.

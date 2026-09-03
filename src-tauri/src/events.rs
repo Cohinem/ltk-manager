@@ -24,6 +24,7 @@ impl EventSink for TauriEventSink {
         let result = match &event {
             BackendEvent::OverlayProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::InstallProgress(progress) => self.app_handle.emit(name, progress),
+            BackendEvent::ExportProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::MigrationProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LayoutMigrationProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LayoutMigrationFinished(report) => self.app_handle.emit(name, report),

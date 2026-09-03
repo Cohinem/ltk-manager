@@ -1,6 +1,7 @@
 export { bundledReleaseNote } from "./bundledReleaseNote";
 export { homeKeys } from "./keys";
 export { newestPostAt, useAnnouncements } from "./useAnnouncements";
+export { type ModExport, useExportMods } from "./useExportMods";
 export {
   type HomeStatus,
   type HomeStatusAction,

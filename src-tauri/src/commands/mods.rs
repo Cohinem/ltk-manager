@@ -1,12 +1,14 @@
 use super::off_thread;
 use crate::error::{AppResult, IpcResult, MutexResultExt, Utf8PathExt};
 use crate::mods::{
-    inspect_modpkg_file, BulkInstallResult, EditModMetadataArgs, InstalledMod, ModLibraryState,
-    ModStorage, ModWadReport, ModpkgInfo, WadReportState,
+    inspect_modpkg_file, with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope,
+    ExportShape, ExportSummary, InstalledMod, ModLibraryState, ModStorage, ModWadReport,
+    ModpkgInfo, WadReportState,
 };
 use crate::patcher::{PatcherError, PatcherState};
 use crate::state::SettingsState;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
@@ -193,6 +195,38 @@ pub async fn set_mod_storage(
         let updated = library.set_mod_storage(&config, &mod_id, storage)?;
         library.announce_change();
         Ok(updated)
+    })
+    .await
+}
+
+/// Copy the mods `scope` selects out to `destination`.
+///
+/// Off-thread because a library is gigabytes, and the zip shape reads every
+/// archive through. Not rejected while the patcher runs: an export only reads.
+#[tauri::command]
+pub async fn export_mods(
+    scope: ExportScope,
+    shape: ExportShape,
+    destination: String,
+    app_handle: AppHandle,
+) -> IpcResult<ExportSummary> {
+    let setup: AppResult<_> = (|| {
+        let config = app_handle.state::<SettingsState>().config()?;
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        Ok((config, library))
+    })();
+
+    let (config, library) = match setup {
+        Ok(v) => v,
+        Err(e) => return IpcResult::from(Err::<ExportSummary, _>(e)),
+    };
+
+    off_thread(move || {
+        let destination = match shape {
+            ExportShape::Zip => with_zip_extension(Path::new(&destination)),
+            ExportShape::Folder => PathBuf::from(destination),
+        };
+        library.export_mods(&config, scope, shape, &destination)
     })
     .await
 }
