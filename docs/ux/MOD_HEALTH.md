@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-09-03 | An archive repair reads the archive where it lies            |
 | 2026-09-02 | A press about one mod opens the panel on that mod            |
 | 2026-09-02 | Select mode no longer withholds the panel from a press       |
 | 2026-09-02 | The library is checked by hand, over all of it or a pick     |
@@ -13,7 +14,6 @@
 | 2026-09-01 | The count is a count, and the repair's reach is words beside |
 | 2026-09-01 | The basis names the meta schema, and its sync makes it due   |
 | 2026-08-30 | A repair refuses in words when the tables are not there      |
-| 2026-08-30 | The rejected fourth verdict word moves to ADR-0009           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
