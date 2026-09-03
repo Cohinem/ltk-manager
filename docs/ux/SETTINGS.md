@@ -4,6 +4,8 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id     |
+| 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place        |
 | 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
 | 2026-08-25 | Phase 4b shipped. The index, the public id, the palette and the copy    |
 | 2026-08-25 | Phase 4a shipped. The gutter gear, the modified bar and three resets    |
@@ -72,35 +74,43 @@ A status word has one meaning.
 - **Deferred** - the team agreed on the feature, and it waits for a call site
 - **Proposed** - an idea for review, and not a decision
 
-| Feature                 | Status    | Note                                                               |
-| ----------------------- | --------- | ------------------------------------------------------------------ |
-| The tab rail            | Available | Eight tabs, `Tabs.List variant="pills"` in `Settings.tsx`          |
-| The section card        | Available | `SectionCard`. Heading on the ground, panel under it               |
-| The two-column grid     | Available | `SettingsGrid`, with `lg:col-span-2` for a wide card               |
-| The setting row         | Available | `SettingRow`, inline and stacked, toggle and action                |
-| The cluster separator   | Available | Survives on the Project editor card alone, between three rows      |
-| The dependent row       | Available | `SettingRow` `dependent` and `hidden`. Two instances               |
-| The defaults            | Available | `Settings::default()` in Rust, `APPEARANCE_DEFAULTS` in front      |
-| The card reset          | Available | `ResetAppearanceButton`, over the keys its card's scope collected  |
-| The group               | Available | `SettingGroup`. Five cards took groups, and General is one column  |
-| Group ids               | Available | Sixteen ids across five cards. The anchor, and a future search     |
-| `DS-SETTING-LEVEL`      | Available | In the `design-system` skill, cited by `SettingGroup`              |
-| The setting key         | Available | `SettingKey`, on every row. Nothing reads it until the reset lands |
-| The tab in the URL      | Available | `?tab=`, on a controlled rail written back with `replace`          |
-| The focus anchor        | Available | `?focus=`, addressing one group or one row. Two call sites aim it  |
-| `get_default_settings`  | Available | One command, one query that never goes stale, one default table    |
-| The gutter gear         | Available | On every row that can be put back. Right-click the row for it too  |
-| The modified bar        | Available | Dimmed accent on the edge of a row that is off its default         |
-| The group reset         | Available | On a group with two or more changed rows, with `Undo`              |
-| `DS-SETTING-GUTTER`     | Available | In the `design-system` skill, cited by the gutter and the group    |
-| The setting index       | Available | `SETTINGS_INDEX`. Id, key and title for 45 rows, in one table      |
-| The public setting id   | Available | `appearance.theme`. Group ids are namespaced beside them           |
-| Copy setting ID         | Available | In the gear's menu, on every row the index carries                 |
-| Settings in the palette | Available | A source of its own, so a resting box still lists the commands     |
-| `ltk://settings`        | Available | A route beside `ltk://install`, with `Copy link to setting` on it  |
-| The group action slot   | Available | The prop ships unused. No group needs one yet                      |
-| The collapsible group   | Deferred  | No card in the migration folds. It lands with the first that does  |
-| The changed dot         | Deferred  | It is drawn on a collapsed header alone                            |
+| Feature                 | Status    | Note                                                                   |
+| ----------------------- | --------- | ---------------------------------------------------------------------- |
+| The tab rail            | Available | Eight tabs, `Tabs.List variant="pills"` in `Settings.tsx`              |
+| The section card        | Available | `SectionCard`. Heading on the ground, panel under it                   |
+| The two-column grid     | Available | `SettingsGrid`, with `lg:col-span-2` for a wide card                   |
+| The setting row         | Available | `SettingRow`, inline and stacked, toggle and action                    |
+| The cluster separator   | Available | Survives on the Project editor card alone, between three rows          |
+| The dependent row       | Available | `SettingRow` `dependent` and `hidden`. Two instances                   |
+| The defaults            | Available | `Settings::default()` in Rust, `APPEARANCE_DEFAULTS` in front          |
+| The card reset          | Available | `ResetAppearanceButton`, over the keys its card's scope collected      |
+| The group               | Available | `SettingGroup`. Five cards took groups, and General is one column      |
+| Group ids               | Available | Sixteen ids across five cards. The anchor, and a future search         |
+| `DS-SETTING-LEVEL`      | Available | In the `design-system` skill, cited by `SettingGroup`                  |
+| The setting key         | Available | `SettingKey`, on every row. Nothing reads it until the reset lands     |
+| The tab in the URL      | Available | `?tab=`, on a controlled rail written back with `replace`              |
+| The focus anchor        | Available | `?focus=`, addressing one group or one row. Two call sites aim it      |
+| `get_default_settings`  | Available | One command, one query that never goes stale, one default table        |
+| The gutter gear         | Available | On every row that can be put back. Right-click the row for it too      |
+| The modified bar        | Available | Dimmed accent on the edge of a row that is off its default             |
+| The group reset         | Available | On a group with two or more changed rows, with `Undo`                  |
+| `DS-SETTING-GUTTER`     | Available | In the `design-system` skill, cited by the gutter and the group        |
+| The setting index       | Available | `SETTINGS_INDEX`. Id, key and title for 44 rows, in one table          |
+| The public setting id   | Available | `appearance.theme`. Group ids are namespaced beside them               |
+| Copy setting ID         | Available | In the gear's menu, on every row the index carries                     |
+| Settings in the palette | Available | A source of its own, so a resting box still lists the commands         |
+| `ltk://settings`        | Available | A route beside `ltk://install`, with `Copy link to setting` on it      |
+| The group action slot   | Available | The prop ships unused. No group needs one yet                          |
+| The settings catalog    | Planned   | `messages/en/settings.json`. Every title, description and hint         |
+| The domain setting id   | Planned   | `launch.mode`. Fifteen ids move, and the old ones retire               |
+| The UI path             | Planned   | A second space for tab, card and group. `general/league/launching`     |
+| The node menu           | Planned   | `Copy ID` and `Copy link` at four levels, out of one popup             |
+| Typed link minting      | Planned   | `settingSearch` and `settingLink`. A typo is a compile error           |
+| The id as the file key  | Planned   | `settings.json` keyed by id. An old file loads, the next save rewrites |
+| The retired id          | Planned   | Fifteen entries, and a toast when a link resolves through one          |
+| `Open settings.json`    | Proposed  | The key is the id now, so the file is editable by hand. Needs a reason |
+| The collapsible group   | Deferred  | No card in the migration folds. It lands with the first that does      |
+| The changed dot         | Deferred  | It is drawn on a collapsed header alone                                |
 
 The group was accepted in review on 2026-08-25, and the work is planned at
 `docs/plans/settings-groups.md`. Every phase shipped the same day, so the group, its ids, both
@@ -177,7 +187,7 @@ label sits over a block either way.
 
 | Part        | Required | Note                                                               |
 | ----------- | -------- | ------------------------------------------------------------------ |
-| Id          | Yes      | Stable and namespaced by its tab, `patching.mod-safety`            |
+| Id          | Yes      | Its UI path, `patching/mod-safety`, which moves with the page      |
 | Title       | Yes      | One or two words. See the copy rules below                         |
 | Description | No       | Rare. One line, and only when the title cannot carry the meaning   |
 | Hint        | No       | `HintIcon` after the title, for detail that would crowd the header |
@@ -186,8 +196,8 @@ label sits over a block either way.
 | Reset       | Auto     | An icon at the trailing edge, once two rows differ from default    |
 | Rows        | Yes      | Two, or one stacked editor                                         |
 
-`Auto` means the component decides and no card asks for it. An id is unique inside its **tab**
-rather than its card, because that is the scope an anchor addresses.
+`Auto` means the component decides and no card asks for it. A path carries its parent, so two
+cards may each hold a group called `storage`.
 
 Where a header carries both, the action comes first and the reset sits outermost. The action is
 this group's own control, and the reset is the one every group has.
@@ -238,20 +248,20 @@ Three design-system codes apply:
 
 ## Rules
 
-| Rule                                                                                   | Why                                                                        |
-| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| The rule above a group is drawn by that group, and never above the panel's first child | The first band needs no divider from the panel edge                        |
-| A group header carries no icon                                                         | The icon level is the card. Two icon levels in one panel read as two cards |
-| Once a card has one group, every row in it is in a group                               | An ungrouped row after a group has no readable membership                  |
-| A group holds rows, and never another group                                            | Three levels inside one panel is the wall of boxes with extra steps        |
-| A group holds two rows, or one stacked editor                                          | A one-row band labels the same thing twice                                 |
-| A card with groups runs the full page width                                            | A group header in a half-width column has no room to live in               |
-| A group title is a noun                                                                | It labels a band, and it does not instruct                                 |
-| A group never starts collapsed over a setting a first-run reader needs                 | Hiding the League path is hiding the app                                   |
-| A dependent row is not a group                                                         | Two meanings for one indent is one meaning too many                        |
-| A reset control sits at the level it resets, and reaches nothing else                  | Otherwise a reader has to guess how far a button goes                      |
-| A reset never removes a path a reader found or a list they built                       | A reset puts a choice back, and it does not delete work                    |
-| An anchor addresses an id, and never a label                                           | A label is copy, and copy gets rewritten                                   |
+| Rule                                                                                   | Why                                                                                                                        |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| The rule above a group is drawn by that group, and never above the panel's first child | The first band needs no divider from the panel edge                                                                        |
+| A group header carries no icon at rest                                                 | The icon level is the card. Two icon levels in one panel read as two cards, and a gear drawn on hover alone is not a level |
+| Once a card has one group, every row in it is in a group                               | An ungrouped row after a group has no readable membership                                                                  |
+| A group holds rows, and never another group                                            | Three levels inside one panel is the wall of boxes with extra steps                                                        |
+| A group holds two rows, or one stacked editor                                          | A one-row band labels the same thing twice                                                                                 |
+| A card with groups runs the full page width                                            | A group header in a half-width column has no room to live in                                                               |
+| A group title is a noun                                                                | It labels a band, and it does not instruct                                                                                 |
+| A group never starts collapsed over a setting a first-run reader needs                 | Hiding the League path is hiding the app                                                                                   |
+| A dependent row is not a group                                                         | Two meanings for one indent is one meaning too many                                                                        |
+| A reset control sits at the level it resets, and reaches nothing else                  | Otherwise a reader has to guess how far a button goes                                                                      |
+| A reset never removes a path a reader found or a list they built                       | A reset puts a choice back, and it does not delete work                                                                    |
+| An anchor addresses an id, and never a label                                           | A label is copy, and copy gets rewritten                                                                                   |
 
 The one exception to _every row is in a group_ is the **lede row**: a single row above the first
 group, allowed only when that row gates the whole card. It draws as a normal row, and the first
@@ -339,15 +349,26 @@ else. Its menu is where a row is put back, and where its id is taken:
 Reset setting
 Default: Off
 ─────────────────
-Copy setting ID
-Copy link to setting
+Copy ID
+Copy link
 ```
+
+The same popup serves a group, a card and a tab. A group's reset is worded for its scope, and it is
+disabled and drops its count - `Reset changed settings` - while nothing in the band is off default.
+A card and a tab have no reset: Appearance keeps the only card-level reset, and a tab is the level
+`Reset all settings, somewhere global` was refused at. The items lose their level from the label,
+because the menu is already anchored to the thing it names and `card` and `group` are words this
+document uses that the product never teaches. The toast names the node instead -
+`Copied link to "Launcher flow"` - which is one sentence at four levels.
+
+On a group and a card the gear sits after the title and draws on header hover alone, as the row's
+draws on row hover. A tab pill has no gear, and right-click opens its menu.
 
 The default reads as the reader would read it - `Off`, `Geist`, `100%`, `None` - and it is derived
 from the tables above rather than written beside the row. A hand-written label is a second copy of a
 value the backend already owns, and the two drift the first time a Rust default changes.
 
-**The gear takes no tab stop.** Forty-five rows would otherwise double the settings page's tab
+**The gear takes no tab stop.** Forty-four rows would otherwise double the settings page's tab
 order, and every second stop would be an affordance rather than a control. Right-clicking anywhere
 on the row opens the same menu, which is the desktop convention and the path that does not need a
 pointer to find a 20px target.
@@ -358,14 +379,13 @@ reader the row is already where a fresh install leaves it.
 
 **The gear is on every addressable row, and the reset is not.** An id is worth copying whether or
 not the value behind it can be put back, and the paths and the lists are exactly the rows someone
-links a teammate to. On those, `Copy setting ID` is the whole menu. `Reset setting` is absent
+links a teammate to. On those, the two copy items are the whole menu. `Reset setting` is absent
 rather than disabled, because an item that can never be enabled is a promise of a way back that
 would delete what a reader found or built.
 
-`Copy setting ID` copies the public id and nothing else. There is no settings file to paste it
-into, so what it is for is a person telling another person which setting they mean - a support
-thread, an issue, a message. `Copy link to setting` is the same act with somewhere to click, and
-it copies the `ltk://settings` link below.
+`Copy ID` copies the id and nothing else. It is the setting's key in `settings.json`, so it is what
+a person pastes into the file, into a support thread or an issue, or at the palette. `Copy link` is
+the same act with somewhere to click, and it copies the `ltk://settings` link below.
 
 ### The modified bar
 
@@ -436,15 +456,17 @@ something again.
 
 ### Copy
 
-| Where        | Text                                                                |
-| ------------ | ------------------------------------------------------------------- |
-| Gear label   | `Actions for Auto run`, so a card of gears is not one name repeated |
-| Gear menu    | `Reset setting`, `Default: Off` under it, then the two copies       |
-| Copy toast   | `Copied setting ID`, with `general.autoRun` as its description      |
-| Link toast   | `Copied link to setting`, with the `ltk://` URL as its description  |
-| Group button | `Reset 2 changed settings in this group`, as label and tip          |
-| Card button  | `Reset to default`, which is what the Appearance card says          |
-| Toast        | `Reset 2 settings`, with an `Undo` action                           |
+| Where         | Text                                                                       |
+| ------------- | -------------------------------------------------------------------------- |
+| Gear label    | `Actions for Auto run`, so a card of gears is not one name repeated        |
+| Gear menu     | `Reset setting`, `Default: Off` under it, then the two copies              |
+| Header gear   | `Actions for Mod safety`, the same shape at a group and a card             |
+| Copy toast    | `Copied ID of "Auto run"`, with `startup.autoRun` as its description       |
+| Link toast    | `Copied link to "Auto run"`, with the `ltk://` URL as its description      |
+| Retired toast | `general.autoRun is now startup.autoRun`, when a link resolves through one |
+| Group button  | `Reset 2 changed settings in this group`, as label and tip                 |
+| Card button   | `Reset to default`, which is what the Appearance card says                 |
+| Toast         | `Reset 2 settings`, with an `Undo` action                                  |
 
 ## Anchors
 
@@ -455,51 +477,80 @@ state says `Set up a workshop directory in Settings`, and then opens a tab that 
 
 ### The setting index
 
-`SETTINGS_INDEX` is one table with one row per addressable setting, holding its public id, the
-`SettingKey` it reads and its title. Everything that has to name a setting reads it there. The row
-draws its own title from it, the gear copies the id, `?focus=` resolves against it, and the palette
-builds a row per entry.
+`SETTINGS_INDEX` is one table with one row per addressable setting, holding its id and the tab it
+draws on. For the thirty-three the backend stores the id is also the key in `settings.json` - see
+ADR-0024 - and the eleven a frontend store owns carry their store key beside it. Everything that has
+to name a setting reads it there. The gear copies the id, `?focus=` resolves against it, and the
+palette builds a row per entry.
 
-The id is namespaced by the tab the setting is drawn on - `general.autoRun`, `appearance.theme` -
-and it is permanent. The namespace is not decoration. It is what lets a link resolve a tab before
-the panel holding its target has mounted, which is the whole reason one param can carry both halves
-of a link. Group ids are namespaced the same way, so `?focus=` has one id space and one rule rather
-than two.
+The id names a **domain**, and it is stable. `launch.mode`, `appearance.theme`. Five of the
+eight tabs are domain names, so the id usually reads as though it named the tab. `general` is a
+bucket rather than a domain, whose settings are really league, launch, startup and tray, and `cache`
+and `about` hold no setting. The tab a setting draws on is a column of the index rather than the
+id's first segment, so an id nothing knows opens the default tab.
 
 A row is addressable only if the table carries it, and `SettingRow` will not take a key the table
-does not - the prop is typed as the table's own key union. The title moving into the table is the
-same argument as the default's label: a name written beside the row is a second copy of a name
-something else already reads, and the copy is what goes stale when the row is reworded.
+does not - the prop is typed as the table's own key union.
 
-A setting that moves keeps its old spelling in `aliases`, so a link minted before the move still
-lands on it. Nothing has moved yet, and the column is empty.
+A setting that is renamed or removed leaves a **retired id** behind: the old id, the release it
+stopped in, and what replaced it or why it is gone. A link minted before the rename lands on the
+replacement. The fifteen ids that move in `docs/plans/settings-anchors.md` are the first entries,
+because `Copy setting ID` has been minting them since 2026-08-25.
+
+The table carries no title. A node's title is a message keyed by its own id - see ADR-0019 - so a
+node added without copy fails `tsc`.
+
+### The UI path
+
+A tab, a card and a group are addressable too, in a **second id space** whose values are
+slash-separated and name a position on the page: `general`, `general/league`,
+`general/league/launching`. `?focus=` takes either kind and dispatches on the separator.
+
+The two make different promises, and ADR-0023 holds the table: a setting id is stable and never
+truncates, and a UI path moves with the page, so a stale one falls back to its parent, down to the
+tab.
+
+Every tab, card and group a reader sees is a node, and a node renders inside the component its
+parent names. That is what lets a link to a band that has since been split open the card, then the
+tab. A card titled as its tab shares the tab's node, so `patching` is both the tab and its Patching
+card, and the groups under it are `patching/injector` and `patching/mod-safety` beside the
+`patching/overlay` card.
+
+A path is declared rather than derived. The kebab-case of the title is the convention when one is
+minted, and a retitle does not move it, so `general/migration` is the card titled
+`Import from cslol-manager`.
+
+See ADR-0023 for why one space cannot serve both, and `docs/plans/settings-anchors.md` for the
+phases.
 
 ### The URL
 
 `/settings` takes two more search params beside the `firstRun` it validates today.
 
-| Param   | Value                              | Effect                                                   |
-| ------- | ---------------------------------- | -------------------------------------------------------- |
-| `tab`   | A tab value from `TABS`            | Opens that tab. Defaults to `general`                    |
-| `focus` | A public setting id, or a group id | Opens the tab its namespace names, and points at one row |
+| Param   | Value                      | Effect                                            |
+| ------- | -------------------------- | ------------------------------------------------- |
+| `tab`   | A tab value from `TABS`    | Opens that tab. Defaults to `general`             |
+| `focus` | A setting id, or a UI path | Opens the tab holding it, and points at one thing |
 
-`?focus=patching.mod-safety` opens Patching and points at the group.
-`?focus=patching.patchTft` opens the same tab and points at the row. Neither needs a `tab=`
-beside it, because the namespace already carries one.
+`?focus=patching.patchTft` opens Patching and points at the row.
+`?focus=patching/mod-safety` opens the same tab and points at the group. Neither needs a
+`tab=` beside it, because resolving the target settles the tab.
 
 A search param, and not a `#` hash: this route already validates its search in one place, and what
 scrolls is a container inside the page rather than the document.
 
-The id is what the URL carries, so a link outlives every rewrite of the label above it. What it
-carries is the **public id** from the index rather than the `SettingKey` the row reads: the key is
-a name the frontend gives itself and would rather be free to change, and the id is the one the app
-promises to anyone holding a link.
+`focus` validates as a plain string rather than as the union of known values, so an inbound link
+minted against an older build still resolves. In-app minting goes through a typed helper instead, so
+a spelling nothing carries is a compile error at the call site.
+
+What the URL carries is the **id**, which is the setting's key in `settings.json` - see ADR-0024 -
+so the string in a link, in the file and under `Copy ID` is one string.
 
 A row excluded from reset is still a valid target. The two features share the id and nothing else.
 
 ### What focus does
 
-1. Reads the tab out of the id's namespace and selects it
+1. Resolves the value to a tab and a target, and selects the tab
 2. Scrolls the target into view, near the top of the panel rather than the bottom of it
 3. Marks it for two seconds with `ring-2 ring-accent-500/40`, which then fades
 4. Writes that tab into the URL and clears `focus`, both in one `replace: true`
@@ -515,6 +566,13 @@ seconds and then disappears.
 group knows the key is one of its own, and the reader lands on the header above the toggle that
 gates what they came for. Marking a row that draws nothing would be a link that appears to fail.
 
+**Resolution differs by space.** A setting id resolves exactly, then through the retired table to
+its replacement, with a toast saying so - `general.autoRun is now startup.autoRun` - and a removed
+setting opens the default tab with its reason. It never truncates, because a setting id names a
+domain and not a place. A UI path resolves exactly, and then drops its last segment and tries
+again, down to the tab. A bare tab resolves to a tab and no target, because the panel is the whole
+page and a ring around it says nothing.
+
 ### Tab state
 
 `Tabs.Root` moves from `defaultValue` to a controlled `value`, written back with
@@ -523,41 +581,45 @@ walk through. Back leaves settings.
 
 ### Who links
 
-| From                              | Today       | With the anchor                      |
-| --------------------------------- | ----------- | ------------------------------------ |
-| The workshop's empty state        | `/settings` | `?focus=workshop.workshopPath`       |
-| The game browser, with no League  | `/settings` | `?focus=general.leaguePath`          |
-| A patcher failure, on an injector | `/settings` | `?focus=patching.injector`           |
-| The titlebar gear, and `Ctrl+,`   | `/settings` | Unchanged. They mean the whole page  |
-| First run                         | `?firstRun` | Unchanged. The banner is the pointer |
+| From                             | Today       | With the anchor                      |
+| -------------------------------- | ----------- | ------------------------------------ |
+| The workshop's empty state       | `/settings` | `?focus=workshop.path`               |
+| The game browser, with no League | `/settings` | `?focus=league.path`                 |
+| The titlebar gear, and `Ctrl+,`  | `/settings` | Unchanged. They mean the whole page  |
+| First run                        | `?firstRun` | Unchanged. The banner is the pointer |
 
-The patcher failure is the one row with no link to rewrite. Nothing on the injection failure path
-navigates to settings today, so it is a link to add rather than a link to aim.
+Both existing links name a row, and both move onto the typed helper rather than a bare string.
+
+**Nothing in-app links to a card, a group or a tab.** The group ids have had none since they shipped,
+and the audience for a link to one is outside the binary - a Discord answer, a wiki page, a support
+macro - so the copy affordance is the whole feature at those levels.
 
 First run takes no `focus`, because it already draws a banner over the card telling the reader to
 configure the path below. A banner and a mark that fades after two seconds are one signal too many,
 and the banner is the half that explains auto-detection.
 
-The palette carries the search. Every entry of the index is a row of a `settings` source, matched
+The palette carries the search. Every setting and every tab is a row of a `settings` source, matched
 only once something is typed, and choosing one navigates with the id alone. A source of its own
-rather than more commands, because a resting box lists its commands and forty-five settings would
-bury the handful someone opened the bar to read. The id is one of the words a row matches on, so a
-reader who already knows the setting can type `appearance.theme` at it.
+rather than more commands, because a resting box lists its commands and fifty rows would bury the
+handful someone opened the bar to read. Cards and groups stay out: a band has no value to change,
+and every row inside it is already listed. The id is one of the words a row matches on, so a reader
+who already knows the setting can type `appearance.theme` at it.
 
 ### The deep link
 
-`ltk://settings?focus=<id>` opens the app on one setting, and `Copy link to setting` in the gear's
-menu is what mints one. It is `Copy setting ID` with somewhere to click.
+`ltk://settings?focus=<id>` opens the app on one setting or one place, and `Copy link` in the menu
+is what mints one. It is `Copy ID` with somewhere to click.
 
 `parse_deep_link_url` routes on the action rather than checking for one, so `install` and
 `settings` are two arms of one enum and a third route is an arm rather than a rewrite. The rate
 limiter, the scheme check and the unknown-action error were already there and are shared.
 
-`focus` is held to the id alphabet at the boundary - letters, digits, `.`, `-` and `_`, up to 128
-characters - because the value is handed to the frontend to put back into its own URL. Passing that
-is not the same as naming a setting the index carries, and it does not need to be: an id nothing
-resolves opens the tab its namespace names and marks nothing, which is what a link minted against a
-build that has since moved on should do.
+`focus` is held to the id alphabet at the boundary - letters, digits, `.`, `/`, `-` and `_`, up to
+128 characters, with no empty segment and never both separators in one value - because the value is
+handed to the frontend to put back into its own URL. Passing that is not the same as naming
+something the index carries, and it does not need to be: a value nothing resolves opens the
+default tab and marks nothing, which is what a link minted against a build that has since moved on
+should do.
 
 **A link followed while the app is closed is held rather than sent.** The window is created hidden,
 and the URL reaches the backend before the window's script has run, so an event carrying it would
@@ -603,8 +665,12 @@ that title holds four.
   ignores clicks on interactive descendants - the note `HintIcon` already carries
 - Its accessible name names the row, `Actions for Patch TFT files`, which the index is what makes
   possible. A card of identical gears otherwise reads out as `Setting actions` eleven times
-- The gear takes `tabIndex={-1}` and is reached by right-clicking the row rather than by Tab. Forty-five
-  rows of affordance between forty-five rows of control is a tab order nobody walks twice
+- The gear takes `tabIndex={-1}` and is reached by right-clicking the row rather than by Tab. Forty-four
+  rows of affordance between forty-four rows of control is a tab order nobody walks twice
+- A group's and a card's gear is the same `<button>` after the title, named `Actions for Mod safety`,
+  and takes `tabIndex={-1}` for the same reason. Right-click on the header reaches it
+- A tab pill has no gear. `onContextMenu` fires for Shift+F10 and the Menu key as well as for a
+  right-click, so the tab's menu needs no pointer, and the same holds at every level
 - The changed dot on a collapsed header is decorative. The header's accessible name carries the
   fact instead
 - A focus target takes `tabIndex={-1}` and takes focus after the scroll, so a keyboard reader lands
@@ -748,9 +814,9 @@ interface SettingsSearch {
 }
 ```
 
-`focus` is a string rather than a union, because the ids it addresses are spread across four
-sections and a union would have to be maintained beside them. An unknown `focus` selects the tab
-and does nothing else, which is the right failure for a link that outlived the setting it named.
+`focus` is a string rather than a union, so a link minted against an older build still parses.
+In-app minting goes through `settingSearch`, which is typed. An unknown `focus` opens the default
+tab and does nothing else, which is the right failure for a link that outlived the setting it named.
 
 Nothing about the group persists. The tab and the focus target live in the URL, and the two-second
 mark lives in the component. `settingsLayout` arrives with the collapsible group, and only to hold
@@ -888,8 +954,11 @@ Closed on 2026-08-25:
   group of four rows would hide that coupling behind a vaguer name than either has now
 - **Appearance keeps the only card-level reset.** Patching's four group resets cover its card
   between them, and a card button beside the League path is the widest scope on the page
-- **`focus` addresses a group or a row, and never a card.** Every row is addressable already, so a
-  card target buys a better-aimed link and a third kind of thing an id can name
+- ~~**`focus` addresses a group or a row, and never a card.**~~ Reopened and reversed on
+  2026-09-03. The objection was a third kind of thing an id can name, and it holds only while
+  everything shares one space. A card and a tab are places rather than settings, so they name
+  themselves in a space of their own with its own promise - see ADR-0023 and
+  `docs/plans/settings-anchors.md`
 - **A collapsible group's declaration is not needed yet.** The group ships without folding, so the
   question waits with it. `SettingRow.hidden` is the answer's likely shape: a row that stays mounted
   and draws nothing is what lets a group know its own scope without a second list, and a collapsed

@@ -233,6 +233,28 @@ it was measured at zero, and each is a state the build should assert over the ar
 wrote rather than one a pass over a library should hunt for. So the naming rule now has no
 instance, which does not make it wrong — see ADR-0010.
 
+## Settings
+
+**Setting id** — one setting's name everywhere: its key in `settings.json`, what a link calls it,
+and what `Copy ID` copies. Dot-separated and naming a **domain** rather than the tab it draws on:
+`launch.mode`, `appearance.theme`. Stable, and never silently changed: a rename or a removal leaves
+a **retired id** behind, the old id with the release it stopped in and what replaced it or why it
+is gone — see ADR-0024. The eleven settings a frontend store owns keep a store key of their own
+beside the id.
+
+**UI path** — what a link calls one _place_ in settings, slash-separated and naming a position on
+the page: `general`, `general/league`, `general/league/launching`. It moves when the page does, so a
+link to one falls back to its parent when the place is gone. A separate space from the setting id,
+with a separate promise — see ADR-0023.
+
+**Node** — anything a link can name: a setting by its id, or a tab, a card or a group by its UI
+path. A card titled as its tab shares the tab's node.
+
+**Card** and **group** — the two levels between a tab and a row. A card is a subject, drawn as a
+heading on the page ground with a panel under it. A group is a facet of that subject, drawn as an
+uppercase label over a band of rows. Neither is a **section**, which the codebase uses for the
+`*Section.tsx` component holding a whole tab's cards. See `docs/ux/SETTINGS.md`.
+
 ## User-facing copy
 
 **Message** — one string a user reads, as a key in `messages/en/<module>.json` and the typed
