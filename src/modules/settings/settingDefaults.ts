@@ -79,6 +79,7 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   autoRun: onOff,
   startInTrayUnlessUpdate: onOff,
   alwaysStartPatcher: onOff,
+  openOn: titleCase,
   minimizeToTray: onOff,
   startInTray: onOff,
   launchMode: titleCase,

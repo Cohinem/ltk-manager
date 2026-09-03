@@ -65,7 +65,7 @@ export function describeError(error: AppError): ErrorCopy {
     .with({ code: "HASHTABLE" }, (e) => withDetail(m["error.HASHTABLE.title"](), e.detail))
     .with({ code: "PREVIEW" }, (e) => withDetail(m["error.PREVIEW.title"](), e.detail))
     .with({ code: "OVERLAY" }, ({ category, detail }) => withDetail(overlayTitle(category), detail))
-    .with({ code: "RELEASES" }, (e) => describeReleasesError(e))
+    .with({ code: "GITHUB" }, (e) => describeGitHubError(e))
     .exhaustive();
 }
 
@@ -91,23 +91,20 @@ function overlayTitle(category: OverlayErrorCategory): string {
     .exhaustive();
 }
 
-/** The copy for an unread release history, each kind with its own remedy. */
-function describeReleasesError({
-  kind,
-  detail,
-}: Extract<AppError, { code: "RELEASES" }>): ErrorCopy {
+/** The copy for something GitHub publishes going unread, each kind with its own remedy. */
+function describeGitHubError({ kind, detail }: Extract<AppError, { code: "GITHUB" }>): ErrorCopy {
   const copy = match(kind)
     .with("OFFLINE", () => ({
-      title: m["error.RELEASES.OFFLINE.title"](),
-      description: m["error.RELEASES.OFFLINE.description"](),
+      title: m["error.GITHUB.OFFLINE.title"](),
+      description: m["error.GITHUB.OFFLINE.description"](),
     }))
     .with("RATE_LIMITED", () => ({
-      title: m["error.RELEASES.RATE_LIMITED.title"](),
-      description: m["error.RELEASES.RATE_LIMITED.description"](),
+      title: m["error.GITHUB.RATE_LIMITED.title"](),
+      description: m["error.GITHUB.RATE_LIMITED.description"](),
     }))
     .with("HTTP", () => ({
-      title: m["error.RELEASES.HTTP.title"](),
-      description: m["error.RELEASES.HTTP.description"](),
+      title: m["error.GITHUB.HTTP.title"](),
+      description: m["error.GITHUB.HTTP.description"](),
     }))
     .exhaustive();
   return { ...copy, detail };

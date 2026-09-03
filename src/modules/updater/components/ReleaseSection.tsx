@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
@@ -8,9 +9,10 @@ import { ChangelogContent } from "./ChangelogContent";
 const CHIP =
   "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[0.625rem] leading-tight font-medium";
 
-/* Accent marks the release on offer, and a pre-release names no status: DS-KIND-HUE. */
+/* Accent marks the release on offer. The installed one and a pre-release name
+   no status, so both take the surface: DS-KIND-HUE. */
 const PENDING_CHIP = "bg-accent-500/15 text-accent-400";
-const PRERELEASE_CHIP = "bg-surface-700 text-surface-300";
+const SURFACE_CHIP = "bg-surface-700 text-surface-300";
 
 interface ReleaseSectionProps {
   /** The release's version, without a leading `v`. */
@@ -22,6 +24,10 @@ interface ReleaseSectionProps {
   prerelease?: boolean;
   /** The release the dialog offers to install, which opens the scroll. */
   pending?: boolean;
+  /** The release the build runs, which is what Home marks. */
+  installed?: boolean;
+  /** A control at the header's trailing edge, such as the Update button Home gives a pending release. */
+  action?: ReactNode;
 }
 
 /** One release: which version it is, when it shipped, and what it changed. */
@@ -31,6 +37,8 @@ export function ReleaseSection({
   publishedAt,
   prerelease = false,
   pending = false,
+  installed = false,
+  action,
 }: ReleaseSectionProps) {
   const date = releaseDate(publishedAt);
 
@@ -38,19 +46,25 @@ export function ReleaseSection({
     <section data-ui="ReleaseSection" className="py-4">
       <header className="mb-2 flex items-center gap-2">
         <h3 className="text-sm font-semibold text-surface-100 select-text">v{version}</h3>
+        {installed && (
+          <span className={twMerge(CHIP, SURFACE_CHIP)}>{m.updater_release_installed_label()}</span>
+        )}
         {pending && (
           <span className={twMerge(CHIP, PENDING_CHIP)}>{m.updater_release_pending_label()}</span>
         )}
         {prerelease && (
-          <span className={twMerge(CHIP, PRERELEASE_CHIP)}>
+          <span className={twMerge(CHIP, SURFACE_CHIP)}>
             {m.updater_release_prerelease_label()}
           </span>
         )}
-        {date && (
-          <time dateTime={publishedAt ?? undefined} className="ml-auto text-xs text-surface-500">
-            {date}
-          </time>
-        )}
+        <span className="ml-auto flex items-center gap-2">
+          {date && (
+            <time dateTime={publishedAt ?? undefined} className="text-xs text-surface-500">
+              {date}
+            </time>
+          )}
+          {action}
+        </span>
       </header>
       <div className="select-text">
         <ChangelogContent body={stripReleasePreamble(body)} />

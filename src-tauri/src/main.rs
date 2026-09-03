@@ -7,11 +7,13 @@ mod commands;
 mod deep_link;
 mod error;
 mod events;
+mod github;
 mod hotkeys;
 #[cfg(debug_assertions)]
 mod log_layer;
 mod logging;
 mod mods;
+mod news;
 pub mod patcher;
 mod protocol;
 mod releases;
@@ -220,6 +222,9 @@ fn main() {
             commands::take_pending_deep_link,
             // Releases
             commands::list_releases,
+            // News
+            commands::list_announcements,
+            commands::list_notices,
             // for dynamic icons
             tray::set_tray_state,
         ])

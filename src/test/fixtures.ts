@@ -28,6 +28,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     autoRun: false,
     startInTrayUnlessUpdate: false,
     alwaysStartPatcher: false,
+    openOn: "home",
     launchMode: "classic",
     stopPatcherOnSessionEnd: false,
     hasSeenHddWarning: false,

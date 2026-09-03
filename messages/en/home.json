@@ -1,0 +1,53 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "home_changes_title": "Recent changes",
+  "home_last_game_review_action": "Review",
+  "home_last_game_title": "Last game",
+  "home_learn_discord_label": "Discord",
+  "home_learn_getting_started_label": "Getting started",
+  "home_learn_managing_mods_label": "Managing mods",
+  "home_learn_repository_label": "GitHub",
+  "home_learn_troubleshooting_label": "Troubleshooting",
+  "home_library_add_action": "Add mod",
+  "home_library_enabled_count_label": "{enabled} of {total} enabled",
+  "home_library_import_action": "Import from cslol-manager",
+  "home_library_import_dismiss_action": "Dismiss",
+  "home_library_import_title": "Migrating from cslol-manager?",
+  "home_library_open_action": "Open Mods",
+  "home_library_title": "Your library",
+  "home_nav_label": "Home",
+  "home_news_title": "News",
+  "home_notice_link_action": "What to do",
+  "home_release_update_action": "Update",
+  "home_status_broken_action": "Show",
+  "home_status_broken_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} enabled mod will break the game",
+        "countPlural=other": "{count} enabled mods will break the game"
+      }
+    }
+  ],
+  "home_status_build_moved_action": "Check",
+  "home_status_build_moved_label": "League updated to {build}. Your mods have not been checked against it",
+  "home_status_hashtables_action": "Sync",
+  "home_status_hashtables_syncing_label": "Syncing the hashtables mod health needs",
+  "home_status_hashtables_unsynced_label": "Mod health waits for the hashtables",
+  "home_status_league_unset_action": "Set it",
+  "home_status_league_unset_label": "League's folder is not set",
+  "home_status_platform_label": "The patcher does not run on this system yet",
+  "home_status_ready_label": "Good to go",
+  "home_status_repairable_action": "Repair",
+  "home_status_repairable_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} enabled mod needs a repair",
+        "countPlural=other": "{count} enabled mods need a repair"
+      }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import {
   FolderOpenIcon,
   GearIcon,
+  HouseIcon,
   MinusIcon,
   SquareIcon,
   StethoscopeIcon,
@@ -25,15 +26,18 @@ import {
   useToast,
 } from "@/components";
 import { usePlatformSupport } from "@/hooks";
+import { m } from "@/i18n";
 import { api, type AppInfo, unwrap, type VerdictKind } from "@/lib/tauri";
 import { isInformational, useLatestIncident, useLatestIncidentToken } from "@/modules/diagnostics";
+import { useHomeUnread } from "@/modules/home";
 import { type AppMark, useAppMark, useRollAppMark } from "@/stores";
 
 import { NotificationCenter } from "./NotificationCenter";
 import { UpdateButton } from "./UpdateButton";
 
 const navItems = [
-  { to: "/", label: "Mods", icon: CollectionIcon, exact: true },
+  { to: "/", label: m.home_nav_label(), icon: HouseIcon, exact: true },
+  { to: "/mods", label: "Mods", icon: CollectionIcon, exact: false },
   { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
 ] as const;
 
@@ -61,11 +65,14 @@ function NavLink({
   label,
   icon: Icon,
   exact,
+  dot = false,
 }: {
   to: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
   exact: boolean;
+  /** The page holds something the reader has not seen, in the diagnostics dot's shape. */
+  dot?: boolean;
 }) {
   return (
     <Link
@@ -76,7 +83,16 @@ function NavLink({
     >
       {({ isActive }) => (
         <>
-          <Icon className="h-4 w-4" />
+          <span className="relative">
+            <Icon className="h-4 w-4" />
+            {dot && (
+              <span
+                aria-hidden
+                data-ui="TitleBar:unread"
+                className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent-400"
+              />
+            )}
+          </span>
           {label}
           {isActive && <ActiveIndicator />}
         </>
@@ -171,6 +187,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   const isMacOS = platform?.os === "macos";
   const { latest, data: incidents } = useLatestIncident();
   const diagnosticToken = useLatestIncidentToken();
+  const homeUnread = useHomeUnread();
   const pendingIncidents = incidents?.filter((incident) => !incident.dismissed).length ?? 0;
 
   const version = appInfo?.version;
@@ -245,7 +262,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
         {/* Navigation tabs */}
         <nav className="flex h-full items-center">
           {navItems.map((item) => (
-            <NavLink key={item.to} {...item} />
+            <NavLink key={item.to} {...item} dot={item.to === "/" && homeUnread} />
           ))}
         </nav>
       </div>

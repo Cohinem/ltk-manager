@@ -5,10 +5,12 @@ import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import svgr from "vite-plugin-svgr";
 import { defineConfig } from "vitest/config";
 
+import { releaseNotes } from "./scripts/vite-release-notes";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [paraglideVitePlugin({ project: "./project.inlang" }), svgr()],
+  plugins: [paraglideVitePlugin({ project: "./project.inlang" }), svgr(), releaseNotes(__dirname)],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -15,7 +15,7 @@ export function FolderHeader({ folder, mods }: FolderHeaderProps) {
 
   return (
     <div className="flex items-center gap-3">
-      <Link to="/">
+      <Link to="/mods">
         <IconButton
           icon={<ArrowLeft />}
           variant="ghost"

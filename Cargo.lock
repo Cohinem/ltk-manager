@@ -2932,6 +2932,7 @@ dependencies = [
  "ltk_overlay",
  "notify",
  "notify-debouncer-mini",
+ "quick-xml",
  "regex",
  "reqwest 0.12.28",
  "semver",

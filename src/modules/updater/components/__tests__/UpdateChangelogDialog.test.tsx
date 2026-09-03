@@ -126,7 +126,7 @@ describe("UpdateChangelogDialog", () => {
     const refetch = vi.fn();
     useReleaseHistory.mockReturnValue(
       history({
-        error: { code: "RELEASES", kind: "OFFLINE", detail: "dns lookup failed" },
+        error: { code: "GITHUB", feed: "RELEASES", kind: "OFFLINE", detail: "dns lookup failed" },
         refetch,
       }),
     );

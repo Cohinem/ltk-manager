@@ -19,7 +19,7 @@ export function useSwitchProfile() {
       return unwrapForQuery(result);
     },
     onSuccess: () => {
-      navigate({ to: "/" });
+      navigate({ to: "/mods" });
       queryClient.invalidateQueries({ queryKey: libraryKeys.activeProfile() });
       queryClient.invalidateQueries({ queryKey: libraryKeys.mods() });
     },

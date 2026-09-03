@@ -6,6 +6,7 @@
   "plugin.inlang.messageFormat": {
     "pathPattern": [
       "./messages/{locale}/errors.json",
+      "./messages/{locale}/home.json",
       "./messages/{locale}/launcher.json",
       "./messages/{locale}/patcher.json",
       "./messages/{locale}/updater.json",

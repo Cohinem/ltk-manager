@@ -39,6 +39,7 @@ pub(crate) mod hotkeys;
 pub(crate) mod launcher;
 mod migration;
 mod mods;
+mod news;
 pub(crate) mod patcher;
 mod platform;
 mod preview;
@@ -65,6 +66,7 @@ pub use hotkeys::*;
 pub use launcher::*;
 pub use migration::*;
 pub use mods::*;
+pub use news::*;
 pub use patcher::*;
 pub use platform::*;
 pub use preview::*;
@@ -78,7 +80,8 @@ pub use storage::*;
 pub use strings::*;
 pub use workshop::*;
 
-use crate::error::{AppError, AppResult, IpcResult};
+use crate::error::{AppError, AppErrorResponse, AppResult, GitHubFeed, IpcResult};
+use crate::github::GitHubError;
 
 /// Run one piece of work on a blocking thread, as an IPC answer.
 ///
@@ -103,5 +106,21 @@ where
     tauri::async_runtime::spawn_blocking(work)
         .await
         .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
+        .into()
+}
+
+/// Read `feed` from GitHub on a blocking thread, as an IPC answer.
+///
+/// Beside [`off_thread`] rather than through it, because a GitHub read
+/// reports its own remedies rather than core's `AppError`.
+pub(crate) async fn github_feed<T, F>(feed: GitHubFeed, read: F) -> IpcResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, GitHubError> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(read)
+        .await
+        .unwrap_or_else(|e| Err(GitHubError::Interrupted(e.to_string())))
+        .map_err(|error| AppErrorResponse::github(feed, error))
         .into()
 }

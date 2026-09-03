@@ -208,3 +208,16 @@ export const OVERLAY_DETAIL_LABELS: Readonly<Partial<Record<OverlayOutcome, stri
   "hook-failed": "Hook",
   disabled: "Did not verify",
 };
+
+/**
+ * The heading a caught skinhack reads under, in place of the verdict's own.
+ *
+ * The rail has room for the finding and the card has room for the verb, so the
+ * two say the same thing at the length each has.
+ */
+const SKINHACK_TITLE = "Skinhack detection triggered";
+
+/** The verdict's heading as the player reads it, wherever the incident is drawn. */
+export function verdictTitle(incident: Incident): string {
+  return isSkinhackRejection(incident) ? SKINHACK_TITLE : incident.verdict.title;
+}

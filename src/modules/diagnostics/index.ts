@@ -16,4 +16,4 @@ export {
   useRevealGameLog,
 } from "./api";
 export * from "./components";
-export { isInformational } from "./utils/incident";
+export { isInformational, verdictTitle } from "./utils/incident";

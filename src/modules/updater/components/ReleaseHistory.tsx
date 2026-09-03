@@ -2,20 +2,29 @@ import { useEffect, useRef } from "react";
 
 import { Button, Spinner } from "@/components";
 import { describeError, m } from "@/i18n";
-import type { AppError } from "@/lib/tauri";
+import type { AppError, ReleaseNote } from "@/lib/tauri";
 
 import { useReleaseHistory } from "../api";
 import { ReleaseSection } from "./ReleaseSection";
 
 interface ReleaseHistoryProps {
-  /** Whether the dialog holding the history is open, so a closed one fetches nothing. */
+  /** Whether the surface holding the history is showing, so a hidden one fetches nothing. */
   enabled: boolean;
-  /** The version the dialog already draws as the pending release, so it is never drawn twice. */
+  /** The version the caller already draws as the pending release, so it is never drawn twice. */
   excludeVersion?: string;
+  /** The version the build runs, drawn with the Installed chip. */
+  installedVersion?: string;
+  /** A release drawn until the feed's own row for its version arrives, which carries the date. */
+  placeholder?: ReleaseNote | null;
 }
 
 /** Every release before the one on offer, paged in as the reader scrolls. */
-export function ReleaseHistory({ enabled, excludeVersion }: ReleaseHistoryProps) {
+export function ReleaseHistory({
+  enabled,
+  excludeVersion,
+  installedVersion,
+  placeholder,
+}: ReleaseHistoryProps) {
   const { releases, isPending, isFetchingNextPage, hasNextPage, error, fetchNextPage, refetch } =
     useReleaseHistory({ enabled, excludeVersion });
 
@@ -32,18 +41,21 @@ export function ReleaseHistory({ enabled, excludeVersion }: ReleaseHistoryProps)
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, error, fetchNextPage]);
 
+  const rows = withPlaceholder(releases, placeholder, isPending || error !== null);
+
   return (
     <div
       data-ui="ReleaseHistory"
       className="flex flex-col divide-y divide-surface-700 border-t border-surface-700"
     >
-      {releases.map((release) => (
+      {rows.map((release) => (
         <ReleaseSection
           key={release.tag}
           version={release.version}
           body={release.body}
           publishedAt={release.publishedAt}
           prerelease={release.prerelease}
+          installed={release.version === installedVersion}
         />
       ))}
       {/* The foot holds a row's height in every state, so a page arriving moves nothing above it. */}
@@ -62,6 +74,23 @@ export function ReleaseHistory({ enabled, excludeVersion }: ReleaseHistoryProps)
       </div>
     </div>
   );
+}
+
+/**
+ * The feed's rows, with the placeholder where its version is not among them.
+ *
+ * It leads while the feed is `unread`, and follows once the feed has answered
+ * without it: a build older than every release read so far belongs under them,
+ * until the page that carries it arrives.
+ */
+function withPlaceholder(
+  releases: ReleaseNote[],
+  placeholder: ReleaseNote | null | undefined,
+  unread: boolean,
+): ReleaseNote[] {
+  if (!placeholder) return releases;
+  if (releases.some((release) => release.version === placeholder.version)) return releases;
+  return unread ? [placeholder, ...releases] : [...releases, placeholder];
 }
 
 interface HistoryFootProps {
@@ -90,7 +119,7 @@ function HistoryFoot({
           {copy.description ?? copy.title}
         </p>
         <Button variant="ghost" size="xs" compact onClick={onRetry}>
-          {m.updater_history_retry_action()}
+          {m.common_retry_action()}
         </Button>
       </div>
     );

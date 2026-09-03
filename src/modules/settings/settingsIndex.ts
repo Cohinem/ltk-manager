@@ -44,6 +44,7 @@ const INDEX = [
     key: "alwaysStartPatcher",
     title: "Always start patcher at launch",
   },
+  { id: "general.openOn", key: "openOn", title: "Open on" },
   { id: "general.minimizeToTray", key: "minimizeToTray", title: "Minimize to system tray" },
   { id: "general.startInTray", key: "startInTray", title: "Start minimized to tray" },
 

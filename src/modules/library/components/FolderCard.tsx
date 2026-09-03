@@ -23,7 +23,7 @@ export function FolderCard({ folder, mods }: FolderCardProps) {
   return (
     <FolderContextMenu folderId={folder.id} folderName={folder.name}>
       <Link
-        to="/folder/$folderId"
+        to="/mods/folder/$folderId"
         params={{ folderId: folder.id }}
         className="group relative flex h-full w-full cursor-pointer flex-col rounded-xl border border-surface-600 bg-surface-900 text-left no-underline transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-px hover:border-accent-hover hover:shadow-md"
       >

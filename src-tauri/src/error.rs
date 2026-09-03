@@ -17,7 +17,7 @@ use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
 use ltk_manager_core::workshop::WorkshopError;
 
-use crate::releases::{ReleaseFeedError, ReleaseFeedErrorKind};
+use crate::github::{GitHubError, GitHubErrorKind};
 
 /// What went wrong, as the fields the frontend translates over.
 ///
@@ -97,11 +97,35 @@ pub enum AppErrorResponse {
         category: OverlayErrorCategory,
         detail: String,
     },
-    /// The release feed could not be read. The kind says which remedy applies.
-    Releases {
-        kind: ReleaseFeedErrorKind,
+    /// Something GitHub publishes could not be read. The kind says which
+    /// remedy applies, and the feed says what was being read.
+    #[serde(rename = "GITHUB")]
+    GitHub {
+        feed: GitHubFeed,
+        kind: GitHubErrorKind,
         detail: String,
     },
+}
+
+/// Which of the things GitHub publishes a read was after.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum GitHubFeed {
+    Releases,
+    Announcements,
+    Notices,
+}
+
+impl AppErrorResponse {
+    /// A failed read of `feed`, as the remedy the frontend translates over.
+    pub fn github(feed: GitHubFeed, error: GitHubError) -> Self {
+        Self::GitHub {
+            feed,
+            kind: error.kind(),
+            detail: error.to_string(),
+        }
+    }
 }
 
 /// Result type for IPC commands.
@@ -225,15 +249,6 @@ impl From<AppError> for AppErrorResponse {
                 category: OverlayErrorCategory::from(&e),
                 detail: e.to_string(),
             },
-        }
-    }
-}
-
-impl From<ReleaseFeedError> for AppErrorResponse {
-    fn from(error: ReleaseFeedError) -> Self {
-        Self::Releases {
-            kind: error.kind(),
-            detail: error.to_string(),
         }
     }
 }

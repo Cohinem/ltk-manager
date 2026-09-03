@@ -67,3 +67,7 @@ A seventh self-raising dialog is a line in `DIALOG_ORDER` and one hook call, and
 argument happens in one place instead of at each new pair. The cost is that a surface's `open`
 prop is no longer the whole truth about whether it wants the screen, so a reader tracing one has
 to look at the claim as well.
+
+The update claim is conditional on the route: a check that opens the dialog over Home drops its
+opening, because the notes are on the page under it and the title bar cell keeps the way back,
+while the order is unchanged and a press opens the dialog on any route (#391).

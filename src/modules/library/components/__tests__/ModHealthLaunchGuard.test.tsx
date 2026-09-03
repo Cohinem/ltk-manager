@@ -161,7 +161,7 @@ describe("ModHealthLaunchGuard", () => {
     await user.click(press());
     await user.click(screen.getByRole("button", { name: "Repair first" }));
 
-    expect(navigate).toHaveBeenCalledWith({ to: "/" });
+    expect(navigate).toHaveBeenCalledWith({ to: "/mods" });
   });
 
   /* Nothing here can be repaired, so the press only shows the list - asking for
