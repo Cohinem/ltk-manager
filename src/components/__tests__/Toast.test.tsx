@@ -2,6 +2,7 @@
 
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useEffect } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { type ToastTask, useToast } from "../Toast";
@@ -102,5 +103,26 @@ describe("useToast", () => {
 
     expect(await screen.findByText("30 of 41")).toBeInTheDocument();
     expect(renders).toBe(before);
+  });
+
+  /* Story: the sweep announced what it found from its mount effect, which ran
+     before the provider had started listening, and nothing was shown. */
+  it("shows a toast raised from a mount effect", async () => {
+    function Announcer() {
+      const toast = useToast();
+      useEffect(() => {
+        toast.info("Some of your mods contain non-fatal issues");
+      }, [toast]);
+      return null;
+    }
+    render(
+      <ToastProvider>
+        <Announcer />
+      </ToastProvider>,
+    );
+
+    expect(
+      await screen.findByText("Some of your mods contain non-fatal issues"),
+    ).toBeInTheDocument();
   });
 });

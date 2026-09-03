@@ -1,4 +1,4 @@
-import { Toast as BaseToast } from "@base-ui/react/toast";
+import { Toast as BaseToast, type ToastManager } from "@base-ui/react/toast";
 import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
@@ -52,7 +52,50 @@ export interface ToastTask {
  * screen, so a hook built on it re-rendered every caller on every report of a
  * running task. Bound here, raising a toast subscribes to nothing.
  */
-export const toastManager = BaseToast.createToastManager<ToastData>();
+export const toastManager = heldUntilListened(BaseToast.createToastManager<ToastData>());
+
+/**
+ * `manager`, holding what is raised before the provider listens.
+ *
+ * The provider subscribes from its own effect, and effects run children first,
+ * so a toast raised from a mount effect under it would be emitted to nobody.
+ * The launch announcement of what the sweep found is one.
+ */
+function heldUntilListened(manager: ToastManager<ToastData>): ToastManager<ToastData> {
+  let listening = 0;
+  let held: Array<() => void> = [];
+  let raised = 0;
+  const once = (raise: () => void) => {
+    if (listening > 0) raise();
+    else held.push(raise);
+  };
+
+  return {
+    " subscribe": (listener) => {
+      const unsubscribe = manager[" subscribe"](listener);
+      listening += 1;
+      const pending = held;
+      held = [];
+      pending.forEach((raise) => raise());
+      return () => {
+        unsubscribe();
+        listening -= 1;
+      };
+    },
+    add: (options) => {
+      const id = options.id ?? `held-toast-${(raised += 1)}`;
+      once(() => manager.add({ ...options, id }));
+      return id;
+    },
+    close: (id) => once(() => manager.close(id)),
+    update: (id, updates) => once(() => manager.update(id, updates)),
+    promise: (value, options) => {
+      if (listening > 0) return manager.promise(value, options);
+      held.push(() => manager.promise(value, options));
+      return value;
+    },
+  };
+}
 
 const typeIcons: Record<ToastType, ReactNode> = {
   success: <CircleCheck className="h-5 w-5 text-success-text" />,
