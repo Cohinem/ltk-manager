@@ -30,6 +30,8 @@
   "error.SCHEMA_VERSION_TOO_NEW.title": "Mod library requires a newer version",
   "error.SERIALIZATION.title": "JSON error",
   "error.UNKNOWN.title": "Unexpected error",
+  "error.UNTRUSTED_DOMAIN.description": "Add it to your trusted mod providers in Settings to install from it.",
+  "error.UNTRUSTED_DOMAIN.title": "{domain} is not a trusted provider",
   "error.VALIDATION_FAILED.title": "Validation failed",
   "error.WAD.title": "WAD error",
   "error.WORKSHOP_NOT_CONFIGURED.title": "Workshop directory not configured",

@@ -42,6 +42,11 @@ pub struct DeepLinkInstallRequest {
     pub name: Option<String>,
     pub author: Option<String>,
     pub source: Option<String>,
+    /// The host outside the allowlist, or `None` where the allowlist covers it.
+    ///
+    /// Stamped by [`handle_single`] rather than by parsing, since the trust is a
+    /// property of the reader's settings and not of the URL.
+    pub untrusted_domain: Option<String>,
 }
 
 /// Parsed representation of a `ltk://settings` deep-link URL.
@@ -258,6 +263,7 @@ fn parse_install(pairs: &HashMap<String, String>) -> AppResult<DeepLinkInstallRe
         name,
         author,
         source,
+        untrusted_domain: None,
     })
 }
 
@@ -297,6 +303,13 @@ pub fn is_domain_trusted(download_url: &str, trusted_domains: &[String]) -> bool
         .any(|d| host == d.as_str() || host.ends_with(&format!(".{d}")))
 }
 
+/// The host a download URL names, lower-cased, or `None` for a URL with no host.
+pub fn download_host(download_url: &str) -> Option<String> {
+    Url::parse(download_url)
+        .ok()
+        .and_then(|u| u.host_str().map(|h| h.to_lowercase()))
+}
+
 /// Process deep-link URLs and emit events to the frontend.
 pub fn handle_urls(app_handle: &tauri::AppHandle, urls: &[url::Url]) {
     for url in urls {
@@ -334,13 +347,11 @@ fn handle_single(app_handle: &tauri::AppHandle, raw_url: &str) {
     }
 
     match parse_deep_link_url(raw_url) {
-        Ok(request) => {
+        Ok(mut request) => {
             tracing::info!("Parsed deep-link request: {:?}", request);
 
-            if let DeepLinkRequest::Install(install) = &request {
-                if !allow_install(app_handle, install) {
-                    return;
-                }
+            if let DeepLinkRequest::Install(install) = &mut request {
+                install.untrusted_domain = untrusted_domain(app_handle, install);
             }
 
             deep_link_state.deliver(app_handle, request);
@@ -351,30 +362,25 @@ fn handle_single(app_handle: &tauri::AppHandle, raw_url: &str) {
     }
 }
 
-/// Whether an install may go on, reporting a domain outside the allowlist.
-fn allow_install(app_handle: &tauri::AppHandle, request: &DeepLinkInstallRequest) -> bool {
+/// The host an install would download from, where the allowlist does not cover it.
+///
+/// The link still reaches the frontend, which asks the reader to trust the domain
+/// or reject the install. Nothing downloads until they answer, because
+/// `deep_link_install_mod` reads the same allowlist.
+fn untrusted_domain(
+    app_handle: &tauri::AppHandle,
+    request: &DeepLinkInstallRequest,
+) -> Option<String> {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
-    let Ok(settings) = settings_state.0.lock() else {
-        return true;
-    };
+    let settings = settings_state.0.lock().ok()?;
 
     if is_domain_trusted(&request.url, &settings.trusted_domains) {
-        return true;
+        return None;
     }
 
-    let domain = Url::parse(&request.url)
-        .ok()
-        .and_then(|u| u.host_str().map(String::from))
-        .unwrap_or_default();
-    tracing::warn!("Deep-link blocked: domain '{}' not in trusted list", domain);
-    let _ = app_handle.emit(
-        "deep-link-blocked",
-        serde_json::json!({
-            "domain": domain,
-            "url": request.url,
-        }),
-    );
-    false
+    let domain = download_host(&request.url)?;
+    tracing::warn!("Deep-link domain '{domain}' is not in the trusted list, asking the reader");
+    Some(domain)
 }
 
 fn truncate_str(s: &str, max_chars: usize) -> &str {
@@ -680,6 +686,26 @@ mod tests {
             "https://files.cdn.runeforge.dev/mod.modpkg",
             &domains
         ));
+    }
+
+    #[test]
+    fn download_host_is_lower_cased() {
+        assert_eq!(
+            download_host("https://CDN.RuneForge.Dev/mod.modpkg").as_deref(),
+            Some("cdn.runeforge.dev")
+        );
+    }
+
+    #[test]
+    fn download_host_of_a_hostless_url() {
+        assert_eq!(download_host("not a url"), None);
+    }
+
+    /// Trust is the reader's setting, so parsing alone never claims a verdict.
+    #[test]
+    fn parsing_leaves_the_trust_unstamped() {
+        let req = install("ltk://install?url=https://cdn.example.com/mods/skin.modpkg").unwrap();
+        assert_eq!(req.untrusted_domain, None);
     }
 
     #[test]

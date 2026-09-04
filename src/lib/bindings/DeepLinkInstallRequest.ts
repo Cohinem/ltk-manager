@@ -3,4 +3,11 @@
 /**
  * Parsed representation of a `ltk://install` deep-link URL.
  */
-export type DeepLinkInstallRequest = { url: string, name: string | null, author: string | null, source: string | null, };
+export type DeepLinkInstallRequest = { url: string, name: string | null, author: string | null, source: string | null, 
+/**
+ * The host outside the allowlist, or `None` where the allowlist covers it.
+ *
+ * Stamped by [`handle_single`] rather than by parsing, since the trust is a
+ * property of the reader's settings and not of the URL.
+ */
+untrustedDomain: string | null, };

@@ -105,6 +105,8 @@ export type DeepLinkInstallRequest = {
   name: string | null;
   author: string | null;
   source: string | null;
+  /** The host the trusted providers list does not cover, or `null` where it does. */
+  untrustedDomain: string | null;
 };
 
 export type ProtocolInstallProgress = {
@@ -122,11 +124,6 @@ export type DeepLinkSettingsRequest = {
 export type PendingDeepLink =
   | ({ kind: "install" } & DeepLinkInstallRequest)
   | ({ kind: "settings" } & DeepLinkSettingsRequest);
-
-export type DeepLinkBlockedPayload = {
-  domain: string;
-  url: string;
-};
 
 // API functions
 export const api = {
