@@ -91,11 +91,7 @@ fn find_league_skin_package(
     let champion = champion_id.to_string();
     let skin = skin_id.to_string();
     let variant = chroma_id.unwrap_or(skin_id).to_string();
-    let mut parent_dirs = vec![
-        root.to_path_buf(),
-        root.join("classic"),
-        root.join("skins"),
-    ];
+    let mut parent_dirs = vec![root.to_path_buf(), root.join("classic"), root.join("skins")];
 
     if root.file_name().and_then(|name| name.to_str()) == Some("classic")
         || root.file_name().and_then(|name| name.to_str()) == Some("skins")
