@@ -1,8 +1,13 @@
 import type { LaunchProgress } from "@/lib/tauri";
 import { useTauriProgress } from "@/lib/useTauriProgress";
 
-/** Stages that end a launch. Anything else means one is still in flight. */
-const TERMINAL_STAGES = ["launched", "alreadyRunning", "error"];
+/**
+ * Stages that end a launch. Anything else means one is still in flight.
+ *
+ * `stopped` belongs here for the same reason `error` does - the request is over
+ * - and nowhere near an error dialog, because the user is the one who ended it.
+ */
+const TERMINAL_STAGES = ["launched", "alreadyRunning", "stopped", "error"];
 
 /**
  * Follow a launch request while it runs.

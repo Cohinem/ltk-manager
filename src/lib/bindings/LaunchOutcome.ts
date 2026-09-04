@@ -4,19 +4,20 @@ import type { LaunchRoute } from "./LaunchRoute";
 /**
  * The result of a successful launch request.
  *
- * "Successful" means the Riot Client took the request, not that the game is up:
- * the client may still be updating itself, or waiting for the user to log in.
+ * "Successful" means the Riot Client took the request, not that the game is
+ * up: the client may still be updating itself, or waiting for a login.
  */
 export type LaunchOutcome = { route: LaunchRoute, 
 /**
- * Pid of the Riot Client - the one we spawned on a cold start, the one
- * from the lockfile otherwise.
+ * Pid of the Riot Client - the one spawned on a cold start, the one from
+ * the lockfile otherwise.
  */
 riotClientPid: number | null, 
 /**
- * The session id the client minted, when it told us one. This is the key
- * into `/product-session/v1/external-sessions`, so it is what a future
- * "did the game actually start?" check should follow rather than scanning
- * for a process name.
+ * The session id the client minted, when it told us one.
+ *
+ * Present on every route that had one to give, [`LaunchRoute::AlreadyRunning`]
+ * included. It is what answers "did the game actually start?", and the
+ * manager follows it rather than scanning for a process name.
  */
 sessionId: string | null, };

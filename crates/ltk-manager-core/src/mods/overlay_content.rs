@@ -2,8 +2,16 @@
 //!
 //! The overlay builder wants content providers and an explicit layer set, not
 //! library rows. This module is the adapter: it opens each enabled mod's
-//! archive, resolves which of its layers the active profile wants, and hands
+//! content, resolves which of its layers the active profile wants, and hands
 //! back a list the builder can consume in priority order.
+//!
+//! Which provider a mod gets is decided by its **layout**, never by where it
+//! came from. A modpkg stays packed because it streams well, so it is read
+//! through [`ModpkgContent`]. An unpacked mod project is read through
+//! [`FsModContent`]. See `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md`.
+//!
+//! [`FantomeContent`] reads a mod whose content is still inside its archive:
+//! everything the layout migration moved, and everything it has not reached.
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt};
@@ -13,7 +21,7 @@ use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{Profile, ProfileSlug};
 use ltk_modpkg::Modpkg;
-use ltk_overlay::{FantomeContent, ModpkgContent};
+use ltk_overlay::{FantomeContent, FsModContent, ModContentProvider, ModpkgContent};
 use std::collections::HashSet;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -25,7 +33,7 @@ impl ModLibrary {
     /// doesn't need to be involved.
     ///
     /// Returns [`AppError::ModNotFound`] if the mod isn't in the library and
-    /// [`AppError::InvalidPath`] if the archive file is missing.
+    /// [`AppError::InvalidPath`] if its files are missing from disk.
     pub fn build_single_mod_provider(
         &self,
         config: &Config,
@@ -38,30 +46,14 @@ impl ModLibrary {
                 .find(|m| m.id == mod_id)
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
 
-            let archive_path = entry.archive_path(storage_dir);
-            if !archive_path.exists() {
+            if !entry.is_present(storage_dir) {
                 return Err(AppError::InvalidPath(format!(
-                    "Mod archive missing on disk: {}",
-                    archive_path.display()
+                    "Mod content missing on disk: {}",
+                    entry.mod_dir(storage_dir).display()
                 )));
             }
 
-            let utf8_archive_path = archive_path.clone().try_into_utf8("archive path")?;
-
-            let content: Box<dyn ltk_overlay::ModContentProvider> = match entry.format {
-                ModArchiveFormat::Fantome => Box::new(
-                    FantomeContent::new(File::open(&archive_path)?)
-                        .map_err(|e| {
-                            AppError::Other(format!("Failed to open fantome archive: {}", e))
-                        })?
-                        .with_archive_path(utf8_archive_path),
-                ),
-                ModArchiveFormat::Modpkg => Box::new(
-                    ModpkgContent::new(Modpkg::mount_from_reader(File::open(&archive_path)?)?)
-                        .with_archive_path(utf8_archive_path),
-                ),
-            };
-
+            let content = entry.content_provider(storage_dir)?;
             let active_profile = get_active_profile(index)?;
             let profile_dir = storage_dir
                 .join("profiles")
@@ -99,22 +91,10 @@ impl ModLibrary {
                     continue;
                 };
 
-                let archive_path = entry.archive_path(storage_dir);
-
-                if !archive_path.exists() {
-                    tracing::warn!(
-                        "Archive not found for mod {}: {}",
-                        entry.id,
-                        archive_path.display()
-                    );
+                if !entry.is_present(storage_dir) {
+                    tracing::warn!("Skipping mod {}: content missing on disk", entry.id);
                     continue;
                 }
-
-                tracing::info!(
-                    "Creating content provider for mod {} from archive {}",
-                    entry.id,
-                    archive_path.display()
-                );
 
                 let content = entry.content_provider(storage_dir)?;
                 let enabled_layers = active_profile.enabled_overlay_layers(entry, storage_dir)?;
@@ -154,7 +134,7 @@ impl Profile {
             ));
         }
 
-        let project = load_mod_project(&entry.metadata_dir(storage_dir))?;
+        let project = load_mod_project(&entry.mod_dir(storage_dir))?;
         if project.layers.len() <= 1 {
             return Ok(None);
         }
@@ -171,28 +151,42 @@ impl Profile {
 }
 
 impl LibraryModEntry {
-    /// Opens this mod's archive and wraps it in the overlay content provider
-    /// matching its format. The archive path is stored on the provider for
-    /// downstream WAD resolution.
-    fn content_provider(
+    /// Wraps this mod's content in the provider its layout calls for.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the path is not representable as UTF-8, or when the archive a
+    /// packed mod's content lives in cannot be opened.
+    pub(crate) fn content_provider(
         &self,
         storage_dir: &Path,
-    ) -> AppResult<Box<dyn ltk_overlay::ModContentProvider>> {
+    ) -> AppResult<Box<dyn ModContentProvider>> {
+        if !self.is_packed() {
+            let mod_dir = self.mod_dir(storage_dir).try_into_utf8("mod directory")?;
+            return Ok(Box::new(FsModContent::new(mod_dir).with_raw_overrides()));
+        }
+
         let archive_path = self
             .archive_path(storage_dir)
             .try_into_utf8("archive path")?;
 
-        let content: Box<dyn ltk_overlay::ModContentProvider> = match self.format {
-            ModArchiveFormat::Fantome => Box::new(
-                FantomeContent::new(File::open(&archive_path)?)
-                    .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {}", e)))?
-                    .with_archive_path(archive_path),
-            ),
+        let content: Box<dyn ModContentProvider> = match self.format {
             ModArchiveFormat::Modpkg => Box::new(
                 ModpkgContent::new(Modpkg::mount_from_reader(File::open(&archive_path)?)?)
+                    .with_archive_path(archive_path),
+            ),
+            // A fantome whose content is still inside its archive: one the
+            // layout migration moved rather than converted, or one repacked
+            // there since. ADR-0003 and ADR-0004.
+            ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => Box::new(
+                FantomeContent::new(File::open(&archive_path)?)
+                    .map_err(AppError::Overlay)?
                     .with_archive_path(archive_path),
             ),
         };
         Ok(content)
     }
 }
+
+#[cfg(test)]
+mod tests;

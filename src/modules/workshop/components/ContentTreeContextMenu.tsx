@@ -1,0 +1,119 @@
+import {
+  ArrowBendDoubleUpRightIcon,
+  ArrowSquareOutIcon,
+  CopyIcon,
+  FolderOpenIcon,
+  TabsIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
+
+import { ContextMenu } from "@/components";
+import { useCopyToClipboard } from "@/hooks";
+import { api } from "@/lib/tauri";
+
+import { fileKindFromPath } from "../gameBrowser/fileKind";
+import { isPropertyBin, useOpenInRitobin, useRitobinIntegration } from "../preview";
+import type { ContentTreeNode, FileNode } from "../utils/contentTree";
+
+interface ContentTreeContextMenuProps {
+  /** The row the menu was opened on. Absent while it has never been opened. */
+  node: ContentTreeNode | null;
+  projectPath: string;
+  layerName: string;
+  /** Opens a file row, the way a double click on it would. */
+  onOpen?: (node: FileNode) => void;
+  /** Asks for the row to go. The confirmation is the tree's, not this menu's. */
+  onDelete?: (node: ContentTreeNode) => void;
+}
+
+/**
+ * The tree's one menu, aimed at whichever row opened it.
+ *
+ * A menu per row costs an instance for every row the virtualizer has mounted, and
+ * rebuilds them all as the window slides.
+ */
+export function ContentTreeContextMenu({
+  node,
+  projectPath,
+  layerName,
+  onOpen,
+  onDelete,
+}: ContentTreeContextMenuProps) {
+  const copy = useCopyToClipboard();
+  const ritobin = useRitobinIntegration();
+  const openInRitobin = useOpenInRitobin();
+
+  if (!node) return null;
+
+  const relativePath = node.type === "dir" ? node.path : node.entry.relativePath;
+  const absolutePath = `${projectPath}/content/${layerName}/${relativePath}`;
+  const file = node.type === "file" ? node : null;
+  const bin = file !== null && isPropertyBin(fileKindFromPath(file.name)) && ritobin.data === true;
+
+  return (
+    <ContextMenu.Portal>
+      <ContextMenu.Positioner>
+        <ContextMenu.Popup className="w-52">
+          {file && onOpen && (
+            <ContextMenu.Item icon={<TabsIcon className="h-4 w-4" />} onClick={() => onOpen(file)}>
+              Open
+            </ContextMenu.Item>
+          )}
+          {bin && (
+            <ContextMenu.Item
+              icon={<ArrowSquareOutIcon className="h-4 w-4" />}
+              onClick={() =>
+                openInRitobin.mutate({
+                  asset: {
+                    kind: "layer",
+                    project: projectPath,
+                    layer: layerName,
+                    path: relativePath,
+                  },
+                  name: file.name,
+                })
+              }
+            >
+              Open in VS Code
+            </ContextMenu.Item>
+          )}
+          {((file && onOpen) || bin) && <ContextMenu.Separator />}
+          <ContextMenu.Item
+            icon={<CopyIcon className="h-4 w-4" />}
+            onClick={() => void copy(node.name, "name")}
+          >
+            Copy Name
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            icon={<ArrowBendDoubleUpRightIcon className="h-4 w-4" />}
+            onClick={() => void copy(relativePath, "relative path")}
+          >
+            Copy Relative Path
+          </ContextMenu.Item>
+          <ContextMenu.Separator />
+          <ContextMenu.Item
+            icon={<FolderOpenIcon className="h-4 w-4" />}
+            onClick={() => {
+              void api.revealInExplorer(absolutePath);
+            }}
+          >
+            Reveal in Explorer
+          </ContextMenu.Item>
+          {onDelete && (
+            <>
+              <ContextMenu.Separator />
+              <ContextMenu.Item
+                icon={<TrashIcon className="h-4 w-4" />}
+                variant="danger"
+                shortcut="Del"
+                onClick={() => onDelete(node)}
+              >
+                Delete
+              </ContextMenu.Item>
+            </>
+          )}
+        </ContextMenu.Popup>
+      </ContextMenu.Positioner>
+    </ContextMenu.Portal>
+  );
+}

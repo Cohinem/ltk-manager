@@ -1,106 +1,29 @@
-import {
-  AlertTriangle,
-  Copy,
-  type LucideIcon,
-  Package,
-  PackageX,
-  ShieldAlert,
-  Wrench,
-} from "lucide-react";
+import { Copy, Package, Wrench } from "lucide-react";
 
 import { AlertBox, Button, Dialog, Spinner, useToast } from "@/components";
 import type { WadScanFailedPayload } from "@/lib/tauri";
+import { useQueuedDialog } from "@/stores";
 
 import { usePatcherStatus } from "../api/usePatcherStatus";
 import { useStopPatcher } from "../api/useStopPatcher";
 import { useWadScanFailure } from "../api/useWadScanFailure";
 import { useWadScanOffenders } from "../api/useWadScanOffenders";
-
-type FailureKind = "skinhack" | "missingBin" | "corrupt" | "outOfMemory" | "unknown";
-
-/** Map an NTSTATUS-style code (e.g. `c0000225`) to a failure kind. */
-function classifyStatus(status: string): FailureKind {
-  const code = status.trim().toLowerCase().replace(/^0x/, "");
-  if (code === "c0000229") return "skinhack";
-  if (code === "c0000225") return "missingBin";
-  if (code === "c000003e") return "corrupt";
-  if (code === "c0000017" || code === "c000009a") return "outOfMemory";
-  return "unknown";
-}
-
-/**
- * Choose which failure kind drives the dialog's copy. A skinhack is the most
- * serious and always wins; a uniform burst uses its single kind; a mix of
- * different non-skinhack causes falls back to the generic copy so we never show
- * one cause's fix for a different cause's failure.
- */
-function pickPrimaryKind(kinds: FailureKind[]): FailureKind {
-  const uniqueKinds = [...new Set(kinds)];
-  if (uniqueKinds.includes("skinhack")) return "skinhack";
-  if (uniqueKinds.length === 1) return uniqueKinds[0] ?? "unknown";
-  return "unknown";
-}
-
-interface KindConfig {
-  title: string;
-  icon: LucideIcon;
-  tone: "red" | "amber";
-  lead: string;
-  fix: string;
-}
-
-const KIND_CONFIG: Record<FailureKind, KindConfig> = {
-  skinhack: {
-    title: "Skinhack detected",
-    icon: ShieldAlert,
-    tone: "red",
-    lead: "The patcher's safety scan found a skinhack — an official Riot skin ported onto a base champion — among your enabled mods. To avoid crashing your game, the patcher was stopped and no mods were applied this session.",
-    fix: "Remove or disable the offending mod(s), then start the patcher again.",
-  },
-  missingBin: {
-    title: "A mod is incomplete",
-    icon: PackageX,
-    tone: "amber",
-    lead: "The scan couldn't find a linked .bin file that a mod needs, so no mods were applied this session. This usually means the mod is broken or was built for a different game version.",
-    fix: "Re-import or update the offending mod(s), then start the patcher again.",
-  },
-  corrupt: {
-    title: "A mod file is corrupt",
-    icon: PackageX,
-    tone: "amber",
-    lead: "A modded WAD couldn't be read — it's corrupt or built for an unsupported version — so no mods were applied this session.",
-    fix: "Re-import the offending mod(s), then start the patcher again.",
-  },
-  outOfMemory: {
-    title: "Ran out of memory",
-    icon: AlertTriangle,
-    tone: "amber",
-    lead: "The game ran out of memory while loading mods, so no mods were applied this session.",
-    fix: "Close other programs or reduce the number of enabled mods, then try again.",
-  },
-  unknown: {
-    title: "Mods could not be applied",
-    icon: AlertTriangle,
-    tone: "amber",
-    lead: "A modded file failed the game's integrity scan, so no mods were applied this session.",
-    fix: "Remove or re-import the offending mod(s), then start the patcher again.",
-  },
-};
+import { pickPrimaryStatus, SCAN_STATUS_MESSAGES } from "../utils/scanStatus";
 
 const TONE = {
   red: {
-    badge: "bg-red-500/15 text-red-400",
-    wad: "bg-red-500/10 text-red-300",
-    close: "text-red-400 hover:bg-red-500/15 hover:text-red-300",
+    badge: "bg-danger/15 text-danger-text",
+    wad: "bg-danger/10 text-danger-text",
+    close: "text-danger-text hover:bg-danger/15 hover:text-danger-text",
   },
   amber: {
-    badge: "bg-amber-500/15 text-amber-400",
-    wad: "bg-amber-500/10 text-amber-300",
-    close: "text-amber-400 hover:bg-amber-500/15 hover:text-amber-300",
+    badge: "bg-warning/15 text-warning-text",
+    wad: "bg-warning/10 text-warning-text",
+    close: "text-warning-text hover:bg-warning/15 hover:text-warning-text",
   },
 };
 
-/** Strip the WAD extension for a readable label — `Ahri.wad.client` → `Ahri`. */
+/** Strip the WAD extension for a readable label, so `Ahri.wad.client` → `Ahri`. */
 function wadLabel(wad: string): string {
   return wad.replace(/\.wad(\.client|\.server)?$/i, "");
 }
@@ -111,15 +34,16 @@ function wadLabel(wad: string): string {
  * memory), so the DLL refused to load any mods and the patcher was auto-stopped.
  * The body pins the failure to the offending library mod(s) so the user knows
  * exactly what to fix. (Missing linked bins are non-fatal at injection and are
- * surfaced separately via the mod-card badges and `LinkedBinWarningDialog`; the
- * `missingBin` kind here is a defensive fallback.)
+ * surfaced separately via the mod-card badges and `LinkedBinWarningDialog`, so the
+ * `missing-bin` status here is a defensive fallback.)
  */
 export function WadScanFailedDialog() {
   const { failure, clear } = useWadScanFailure();
+  const showing = useQueuedDialog("wad-scan-failed", failure !== null);
 
   // Render the content (and its mod/report queries) only while a failure is
   // active, so the dialog stays inert when idle.
-  if (!failure) return null;
+  if (!failure || !showing) return null;
 
   return <WadScanFailedContent failure={failure} onClose={clear} />;
 }
@@ -136,9 +60,9 @@ function WadScanFailedContent({
   const toast = useToast();
   const { offenders, unmatchedWads, isLoading } = useWadScanOffenders(failure.failures);
 
-  const kinds = failure.failures.map((f) => classifyStatus(f.status));
-  const primaryKind = pickPrimaryKind(kinds);
-  const config = KIND_CONFIG[primaryKind];
+  const statuses = failure.failures.map((f) => f.reading);
+  const primaryStatus = pickPrimaryStatus(statuses);
+  const config = SCAN_STATUS_MESSAGES[primaryStatus];
   const tone = TONE[config.tone];
   const Icon = config.icon;
 
@@ -151,8 +75,8 @@ function WadScanFailedContent({
       stopPatcher.mutate(undefined, {
         onError: (error) => {
           // The injector may have already auto-stopped the thread by the time the
-          // user clicks; a "not running" rejection here is a no-op, not a failure.
-          console.error("Failed to stop patcher:", error.message);
+          // user clicks. A "not running" rejection here is a no-op, not a failure.
+          console.error("Failed to stop patcher:", error);
         },
       });
     }
@@ -160,7 +84,7 @@ function WadScanFailedContent({
   };
 
   const handleCopyDetails = () => {
-    const lines = [`LTK Manager — ${config.title}`];
+    const lines = [`LTK Manager - ${config.title}`];
     if (offenders.length > 0) {
       lines.push("Offending mods:");
       offenders.forEach((o) => lines.push(`  - ${o.displayName} (${o.wads.join(", ")})`));

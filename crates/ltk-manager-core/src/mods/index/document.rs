@@ -6,13 +6,15 @@
 //! index lock — concurrent commands would otherwise clobber each other's
 //! writes, since each one rewrites the whole document.
 
+use super::layout_migration::LayoutMigrationState;
 use super::schema_migration;
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};
-use crate::events::BackendEvent;
 use crate::mods::ModLibrary;
 use crate::mods::index::reconcile::reconcile_library_index;
+use crate::mods::slug::ModSlug;
 use crate::mods::types::{LibraryFolder, Profile, ProfileSlug, ROOT_FOLDER_ID};
+use crate::utils::fs::atomic_write;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,11 +38,24 @@ impl ModLibrary {
     /// and refresh stale metadata.
     /// Returns `true` if the index was modified.
     pub fn reconcile_index(&self, config: &Config) -> AppResult<bool> {
+        // Stand down until the startup migration pass has reported, or a
+        // watcher wakeup could read a mod mid-move as an orphan — ADR-0008.
+        if matches!(self.layout_migration_state(), LayoutMigrationState::Pending) {
+            tracing::info!("Skipping reconciliation: the layout migration has not reported yet");
+            return Ok(false);
+        }
+
+        let resolver = self.wad_resolver();
+        let context = crate::mods::archive::install::InstallContext {
+            resolver: resolver.as_ref(),
+        };
+
         let _lock = self.index_lock.lock().mutex_err()?;
         let storage_dir = self.storage_dir(config)?;
         let mut index = load_library_index(&storage_dir)?;
         let mut refreshed_ids: Vec<String> = Vec::new();
-        let reconciled = reconcile_library_index(&storage_dir, &mut index, &mut refreshed_ids);
+        let reconciled =
+            reconcile_library_index(&storage_dir, &mut index, &mut refreshed_ids, &context);
         if reconciled {
             save_library_index(&storage_dir, &index)?;
             self.stamp_mutation();
@@ -54,25 +69,6 @@ impl ModLibrary {
             let _ = store.prune_orphans(&valid_ids);
         }
         Ok(reconciled)
-    }
-
-    /// Run [`reconcile_index`](Self::reconcile_index) on a detached background
-    /// thread so the Tauri event loop starts immediately and IPC stays
-    /// responsive during startup instead of blocking on a disk scan.
-    ///
-    /// Emits `library-changed` when the index is modified so the frontend
-    /// refreshes its queries. [`WadReportState`] must already be managed before
-    /// calling this, since reconciliation reads it via `try_state`.
-    pub fn reconcile_in_background(&self, config: Config) {
-        let library = self.clone();
-        std::thread::spawn(move || match library.reconcile_index(&config) {
-            Ok(true) => {
-                tracing::info!("Library index reconciled on startup");
-                library.events.emit(BackendEvent::LibraryChanged);
-            }
-            Ok(false) => {}
-            Err(e) => tracing::warn!("Failed to reconcile library on startup: {}", e),
-        });
     }
 
     /// Read-only index access: acquire lock, load index, run closure.
@@ -112,7 +108,7 @@ impl ModLibrary {
         Ok(result)
     }
 
-    fn stamp_mutation(&self) {
+    pub(super) fn stamp_mutation(&self) {
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -168,19 +164,38 @@ impl Default for LibraryIndex {
     }
 }
 
+/// The file a mod arrived as. Provenance only — [`ModStorage`] is what decides
+/// how it is read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
-pub(crate) enum ModArchiveFormat {
+pub enum ModArchiveFormat {
     Modpkg,
     Fantome,
+    /// A mod project found under `mods/` that nothing here installed, so no
+    /// archive it came from is known.
+    ///
+    /// Every match on this enum groups it with [`Fantome`](Self::Fantome),
+    /// which is the only other format with an unpacked form to read.
+    Unknown,
 }
 
 impl ModArchiveFormat {
+    /// Whether a mod of this format can be stored either packed or unpacked.
+    ///
+    /// A modpkg cannot: its archive is where its content is, and there is no
+    /// unpacked form of it. An `Unknown` never has an archive to read.
+    pub(crate) fn is_convertible(self) -> bool {
+        matches!(self, ModArchiveFormat::Fantome)
+    }
+
     /// File extension for this format.
     pub(crate) fn extension(self) -> &'static str {
         match self {
             ModArchiveFormat::Modpkg => "modpkg",
             ModArchiveFormat::Fantome => "fantome",
+            ModArchiveFormat::Unknown => "unknown",
         }
     }
 
@@ -188,8 +203,67 @@ impl ModArchiveFormat {
     pub(crate) fn from_extension(ext: &str) -> Option<Self> {
         match ext.to_ascii_lowercase().as_str() {
             "modpkg" => Some(Self::Modpkg),
-            "fantome" => Some(Self::Fantome),
+            "fantome" | "zip" => Some(Self::Fantome),
             _ => None,
+        }
+    }
+
+    /// How installing this format leaves the mod on disk: ADR-0007.
+    ///
+    /// `Unknown` records a discovered project directory, which has no archive
+    /// for the mod to read out of.
+    pub(crate) fn installed_storage(self) -> ModStorage {
+        match self {
+            ModArchiveFormat::Modpkg | ModArchiveFormat::Fantome => ModStorage::Archive,
+            ModArchiveFormat::Unknown => ModStorage::Project,
+        }
+    }
+}
+
+/// Where a mod's content is, which is what picks its content provider.
+///
+/// Recorded rather than derived: a fantome installs as
+/// [`Archive`](Self::Archive) but the user can unpack it after the fact, and a
+/// future sanitized-fantome mode would be another value here rather than
+/// another guess from the layout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "lowercase")]
+pub enum ModStorage {
+    /// An unpacked mod project: `mod.config.json` plus a `content/` tree.
+    #[default]
+    Project,
+    /// Inside the mod's archive, which the provider reads without unpacking.
+    Archive,
+}
+
+/// What preserving a mod's names at import found.
+///
+/// Recorded on the entry rather than only logged: `unharvestable` is what
+/// tells a mod that preserved cleanly from one that arrived already lossy,
+/// and that distinction should outlive a log rotation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct HarvestSummary {
+    /// Names the archive gained on the way in. Zero means every recoverable
+    /// name was already declared or covered by the community tables.
+    pub names_added: usize,
+    /// Chunks with no recoverable name: hex-named, and named by nothing the
+    /// harvest could read.
+    pub unharvestable: usize,
+}
+
+impl From<ltk_mod_project::HarvestReport> for HarvestSummary {
+    fn from(report: ltk_mod_project::HarvestReport) -> Self {
+        Self {
+            names_added: match report.outcome {
+                ltk_mod_project::PreserveOutcome::Unchanged => 0,
+                ltk_mod_project::PreserveOutcome::Rewritten { names_added } => names_added,
+            },
+            unharvestable: report.unharvestable,
         }
     }
 }
@@ -199,21 +273,109 @@ impl ModArchiveFormat {
 pub(crate) struct LibraryModEntry {
     pub(crate) id: String,
     pub(crate) installed_at: DateTime<Utc>,
+    /// The format this mod arrived as. Provenance only — [`storage`](Self::storage)
+    /// is what the paths and the provider ask about.
     pub(crate) format: ModArchiveFormat,
+    /// Where this mod's content is.
+    ///
+    /// Defaulted only for an index written before the field existed, and the
+    /// schema migration fills those in — every mod in a v1 library kept its
+    /// content in `archives/`.
+    #[serde(default)]
+    pub(crate) storage: ModStorage,
+    /// The directory name under `mods/`.
+    ///
+    /// `None` means the entry still sits in the pre-slug uuid layout and the
+    /// layout migration has not reached it. Every legacy branch below is keyed
+    /// on that, and a release after the migration ships removes them.
+    #[serde(default)]
+    pub(crate) slug: Option<ModSlug>,
+    /// What preserving the mod's names found, for a fantome installed since
+    /// the preserve existed. `None` for a modpkg and for older entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) harvest: Option<HarvestSummary>,
 }
 
 impl LibraryModEntry {
-    /// Directory containing extracted metadata (mod.config.json, thumbnail, etc).
-    pub(crate) fn metadata_dir(&self, storage_dir: &Path) -> PathBuf {
-        storage_dir.join("mods").join(&self.id)
+    /// Whether this mod's content is read out of an archive rather than a tree.
+    pub(crate) fn is_packed(&self) -> bool {
+        matches!(self.storage, ModStorage::Archive)
     }
 
-    /// Path to the stored mod archive file.
-    pub(crate) fn archive_path(&self, storage_dir: &Path) -> PathBuf {
-        storage_dir
-            .join("archives")
-            .join(format!("{}.{}", self.id, self.format.extension()))
+    /// The mod's own directory: `mods/<slug>`, or `mods/<uuid>` before the
+    /// layout migration has reached it.
+    pub(crate) fn mod_dir(&self, storage_dir: &Path) -> PathBuf {
+        let name = self.slug.as_ref().map_or(self.id.as_str(), ModSlug::as_str);
+        storage_dir.join("mods").join(name)
     }
+
+    /// Path to the stored mod archive, beside the directory it belongs to.
+    ///
+    /// Every install keeps one — it is what the provider reads. In the legacy
+    /// layout it is the shared `archives/` folder.
+    pub(crate) fn archive_path(&self, storage_dir: &Path) -> PathBuf {
+        match &self.slug {
+            Some(slug) => archive_path(storage_dir, slug, self.format),
+            // Legacy layout: one flat `archives/` folder keyed by uuid.
+            None => storage_dir.join("archives").join(format!(
+                "{}.{}",
+                self.id,
+                self.format.extension()
+            )),
+        }
+    }
+
+    /// Whether the files this entry names are still on disk.
+    ///
+    /// The config is what makes a mod readable, plus the archive for any mod
+    /// whose content is still inside one. A converted fantome with no retained
+    /// archive is present — its content is the unpacked tree, and the archive
+    /// was only a keepsake.
+    pub(crate) fn is_present(&self, storage_dir: &Path) -> bool {
+        if !self.mod_dir(storage_dir).join("mod.config.json").exists() {
+            return false;
+        }
+
+        !self.is_packed() || self.archive_path(storage_dir).exists()
+    }
+
+    /// Delete everything on disk this entry names.
+    ///
+    /// The two places [`is_present`](Self::is_present) looks: the mod
+    /// directory and the archive beside it.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::Io`] on the first path that cannot be deleted,
+    /// which leaves the rest in place.
+    pub(crate) fn remove_files(&self, storage_dir: &Path) -> AppResult<()> {
+        let mod_dir = self.mod_dir(storage_dir);
+        if mod_dir.exists() {
+            std::fs::remove_dir_all(&mod_dir)?;
+        }
+
+        let archive_path = self.archive_path(storage_dir);
+        if archive_path.exists() {
+            std::fs::remove_file(&archive_path)?;
+            tracing::info!("Deleted mod archive at {}", archive_path.display());
+        }
+
+        Ok(())
+    }
+}
+
+/// A mod's archive as `mods/<slug>.<ext>`, the sibling of `mods/<slug>/`.
+///
+/// Taken apart from [`LibraryModEntry::archive_path`] because an install names
+/// the file before there is an entry to ask.
+pub(crate) fn archive_path(
+    storage_dir: &Path,
+    slug: &ModSlug,
+    format: ModArchiveFormat,
+) -> PathBuf {
+    storage_dir
+        .join("mods")
+        .join(format!("{slug}.{}", format.extension()))
 }
 
 pub(crate) fn library_index_path(storage_dir: &Path) -> PathBuf {
@@ -266,21 +428,7 @@ pub(crate) fn save_library_index(storage_dir: &Path, index: &LibraryIndex) -> Ap
     let mut to_save = index.clone();
     to_save.version = schema_migration::CURRENT_VERSION;
     let contents = serde_json::to_string_pretty(&to_save)?;
-    atomic_write_json(&path, &contents)?;
-    Ok(())
-}
-
-/// Write `contents` to `path` atomically via a sibling `.json.tmp` file.
-///
-/// A plain `fs::write` can leave `path` empty if the process is killed
-/// mid-write; the rename is atomic on all supported platforms so the
-/// destination is either the old version or the new version, never partial.
-pub(crate) fn atomic_write_json(path: &Path, contents: &str) -> AppResult<()> {
-    let tmp = path.with_extension("json.tmp");
-
-    fs::write(&tmp, contents)?;
-    fs::rename(&tmp, path)?;
-
+    atomic_write(&path, contents.as_bytes())?;
     Ok(())
 }
 
@@ -314,144 +462,4 @@ pub(crate) fn resolve_profile_dirs(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn library_index_default_has_one_profile() {
-        let index = LibraryIndex::default();
-        assert_eq!(index.profiles.len(), 1);
-        assert_eq!(index.profiles[0].name, "Default");
-        assert_eq!(index.profiles[0].slug.as_str(), "default");
-        assert_eq!(index.active_profile_id, index.profiles[0].id);
-        assert!(index.mods.is_empty());
-    }
-
-    #[test]
-    fn library_index_save_and_load_round_trip() {
-        let dir = tempfile::tempdir().unwrap();
-        let index = LibraryIndex::default();
-        save_library_index(dir.path(), &index).unwrap();
-        let loaded = load_library_index(dir.path()).unwrap();
-        assert_eq!(loaded.profiles.len(), 1);
-        assert_eq!(loaded.profiles[0].name, "Default");
-        assert_eq!(loaded.active_profile_id, loaded.profiles[0].id);
-    }
-
-    #[test]
-    fn load_library_index_returns_default_when_no_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let index = load_library_index(dir.path()).unwrap();
-        assert_eq!(index.profiles.len(), 1);
-        assert_eq!(index.profiles[0].name, "Default");
-    }
-
-    #[test]
-    fn get_active_profile_finds_profile() {
-        let index = LibraryIndex::default();
-        let profile = get_active_profile(&index).unwrap();
-        assert_eq!(profile.name, "Default");
-    }
-
-    #[test]
-    fn get_active_profile_returns_error_when_missing() {
-        let index = LibraryIndex {
-            version: 0,
-            mods: Vec::new(),
-            profiles: Vec::new(),
-            active_profile_id: "nonexistent".to_string(),
-            folders: vec![LibraryFolder {
-                id: ROOT_FOLDER_ID.to_string(),
-                name: String::new(),
-                mod_ids: Vec::new(),
-            }],
-            folder_order: vec![ROOT_FOLDER_ID.to_string()],
-        };
-        assert!(get_active_profile(&index).is_err());
-    }
-
-    #[test]
-    fn resolve_profile_dirs_produces_correct_paths() {
-        let storage_dir = Path::new("/storage");
-        let slug = ProfileSlug("my-profile".to_string());
-        let (overlay_dir, cache_dir) = resolve_profile_dirs(storage_dir, &slug);
-        assert!(overlay_dir.ends_with("profiles/my-profile/overlay"));
-        assert!(cache_dir.ends_with("profiles/my-profile/cache"));
-    }
-
-    #[test]
-    fn get_profile_by_id_not_found() {
-        let index = LibraryIndex::default();
-        assert!(get_profile_by_id(&index, "nonexistent-id").is_err());
-    }
-
-    #[test]
-    fn load_library_index_migrates_legacy_without_folders() {
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("library.json");
-
-        // Write a legacy JSON without folders or folder_order fields
-        let legacy_json = serde_json::json!({
-            "mods": [
-                {
-                    "id": "mod-a",
-                    "installedAt": "2026-01-01T00:00:00Z",
-                    "format": "modpkg"
-                },
-                {
-                    "id": "mod-b",
-                    "installedAt": "2026-01-01T00:00:00Z",
-                    "format": "modpkg"
-                }
-            ],
-            "profiles": [{
-                "id": "p1",
-                "name": "Default",
-                "slug": "default",
-                "modOrder": ["mod-a", "mod-b"],
-                "enabledMods": ["mod-a"],
-                "layerStates": {},
-                "createdAt": "2026-01-01T00:00:00Z",
-                "lastUsed": "2026-01-01T00:00:00Z"
-            }],
-            "activeProfileId": "p1"
-        });
-        fs::write(&path, serde_json::to_string_pretty(&legacy_json).unwrap()).unwrap();
-
-        let index = load_library_index(dir.path()).unwrap();
-
-        // Root folder should exist with all mods
-        let root = index.folders.iter().find(|f| f.id == ROOT_FOLDER_ID);
-        assert!(
-            root.is_some(),
-            "Root folder should be created during migration"
-        );
-        let root = root.unwrap();
-        assert_eq!(root.mod_ids, vec!["mod-a", "mod-b"]);
-
-        // folder_order should contain root
-        assert_eq!(index.folder_order, vec![ROOT_FOLDER_ID]);
-    }
-
-    #[test]
-    fn mod_archive_format_extension() {
-        assert_eq!(ModArchiveFormat::Fantome.extension(), "fantome");
-        assert_eq!(ModArchiveFormat::Modpkg.extension(), "modpkg");
-    }
-
-    #[test]
-    fn library_mod_entry_paths() {
-        let storage_dir = Path::new("/storage");
-        let entry = LibraryModEntry {
-            id: "abc-123".to_string(),
-            installed_at: Utc::now(),
-            format: ModArchiveFormat::Fantome,
-        };
-
-        let metadata_dir = entry.metadata_dir(storage_dir);
-        assert!(metadata_dir.ends_with("mods/abc-123"));
-
-        let archive_path = entry.archive_path(storage_dir);
-        assert!(archive_path.ends_with("archives/abc-123.fantome"));
-    }
-}
+mod tests;

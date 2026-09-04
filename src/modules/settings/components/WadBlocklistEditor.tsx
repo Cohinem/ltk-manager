@@ -8,11 +8,11 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { match, P } from "ts-pattern";
 
 import { Button, Field, IconButton, SelectField, Tabs } from "@/components";
-import { useClickOutside } from "@/hooks";
+import { useClickOutside, useZoomedPx } from "@/hooks";
 import type { Settings, WadBlocklistEntry } from "@/lib/tauri";
 import { useAvailableWads } from "@/modules/settings/api";
 import {
@@ -182,16 +182,11 @@ export function WadBlocklistEditor({ settings, onSave }: WadBlocklistEditorProps
           </span>
           {confirmingClear && (
             <div className="flex items-center gap-2">
-              <span className="text-red-400">Remove all {totalCount} entries?</span>
+              <span className="text-danger-text">Remove all {totalCount} entries?</span>
               <Button size="xs" variant="ghost" onClick={() => setConfirmingClear(false)}>
                 Cancel
               </Button>
-              <Button
-                size="xs"
-                variant="filled"
-                onClick={clearAll}
-                className="!bg-red-600 hover:!bg-red-500"
-              >
+              <Button size="xs" variant="danger" onClick={clearAll}>
                 Clear all
               </Button>
             </div>
@@ -201,7 +196,7 @@ export function WadBlocklistEditor({ settings, onSave }: WadBlocklistEditorProps
               size="xs"
               variant="ghost"
               onClick={() => setConfirmingClear(true)}
-              className="text-surface-400 hover:text-red-400"
+              className="text-surface-400 hover:text-danger-text"
             >
               <Trash2 className="h-3 w-3" />
               Clear all
@@ -282,9 +277,9 @@ function ExactAddRow({
         </Button>
       </div>
       {availableWadsError && (
-        <p className="flex items-center gap-1.5 text-xs text-amber-400">
+        <p className="flex items-center gap-1.5 text-xs text-warning-text">
           <AlertCircle className="h-3 w-3" />
-          Couldn&apos;t load WAD suggestions — check your League path in General settings.
+          Couldn&apos;t load WAD suggestions. Check your League path in General settings.
         </p>
       )}
       {noWadsAvailable && (
@@ -303,13 +298,20 @@ function WadSuggestionList({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const zoomed = useZoomedPx();
   const virtualizer = useVirtualizer({
     count: suggestions.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => SUGGESTION_ROW_HEIGHT,
+    estimateSize: () => zoomed(SUGGESTION_ROW_HEIGHT),
     overscan: 10,
     getItemKey: (index) => suggestions[index]!,
   });
+
+  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
+     one of the inputs the measurement memo watches. */
+  useEffect(() => {
+    virtualizer.measure();
+  }, [virtualizer, zoomed]);
 
   return (
     <div
@@ -380,7 +382,7 @@ function RegexAddRow({
           onChange={(e) => onDraftChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="e.g. ^map\d+\.en_us\.wad\.client$"
-          className={`flex-1 font-mono text-sm ${showError ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500" : ""}`}
+          className={`flex-1 font-mono text-sm ${showError ? "!border-danger focus:!border-danger focus:!ring-danger" : ""}`}
           autoComplete="off"
           spellCheck={false}
         />
@@ -397,7 +399,7 @@ function RegexAddRow({
         availableWadsReady,
       })
         .with({ showError: true }, () => (
-          <p className="flex items-center gap-1.5 text-xs text-red-400">
+          <p className="flex items-center gap-1.5 text-xs text-danger-text">
             <AlertCircle className="h-3 w-3" />
             Invalid regex pattern.
           </p>
@@ -497,7 +499,7 @@ function KindBadge({ kind }: { kind: WadBlocklistEntry["kind"] }) {
     kind === "exact" ? "bg-surface-700 text-surface-300" : "bg-accent-500/15 text-accent-300";
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase ${classes}`}
+      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[0.625rem] font-medium tracking-wide uppercase ${classes}`}
     >
       {kind}
     </span>

@@ -2,9 +2,11 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { useToast } from "@/components";
+import { errorSummary } from "@/i18n";
 import { api, type BulkInstallResult, type InstalledMod, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
+import { MOD_ARCHIVE_EXTENSIONS } from "./modArchive";
 import { useBulkInstallMods } from "./useBulkInstallMods";
 import { useInstallMod } from "./useInstallMod";
 import { useInstallProgress } from "./useInstallProgress";
@@ -24,10 +26,14 @@ export function useLibraryActions() {
   const [importResult, setImportResult] = useState<BulkInstallResult | null>(null);
   const { progress: installProgress, reset: resetInstallProgress } = useInstallProgress();
 
-  async function handleInstallMod() {
+  async function handleImportMods() {
     const files = await open({
       multiple: true,
-      filters: [{ name: "Mod Package", extensions: ["modpkg", "fantome"] }],
+      filters: [
+        { name: "Mod Archives", extensions: [...MOD_ARCHIVE_EXTENSIONS] },
+        { name: "Modpkg", extensions: ["modpkg"] },
+        { name: "Fantome", extensions: ["fantome", "zip"] },
+      ],
     });
 
     if (!files) return;
@@ -38,7 +44,7 @@ export function useLibraryActions() {
     if (filePaths.length === 1) {
       installMod.mutate(filePaths[0], {
         onError: (error) => {
-          console.error("Failed to install mod:", error.message);
+          console.error("Failed to install mod:", error);
         },
       });
     } else if (filePaths.length > 1) {
@@ -52,7 +58,7 @@ export function useLibraryActions() {
     if (filePaths.length === 1) {
       installMod.mutate(filePaths[0], {
         onError: (error) => {
-          console.error("Failed to install mod:", error.message);
+          console.error("Failed to install mod:", error);
         },
       });
       return;
@@ -91,7 +97,7 @@ export function useLibraryActions() {
       },
       onError: (error) => {
         handleCloseImportDialog();
-        toast.error("Import failed", error.message);
+        toast.error("Import failed", errorSummary(error));
       },
     });
   }
@@ -107,7 +113,7 @@ export function useLibraryActions() {
       { modId, enabled },
       {
         onError: (error) => {
-          console.error("Failed to toggle mod:", error.message);
+          console.error("Failed to toggle mod:", error);
         },
       },
     );
@@ -122,7 +128,7 @@ export function useLibraryActions() {
         { modId: mod.id, enabled },
         {
           onError: (error) => {
-            console.error("Failed to toggle mod:", error.message);
+            console.error("Failed to toggle mod:", error);
           },
         },
       );
@@ -132,7 +138,7 @@ export function useLibraryActions() {
   function handleUninstallMod(modId: string) {
     uninstallMod.mutate(modId, {
       onError: (error) => {
-        console.error("Failed to uninstall mod:", error.message);
+        console.error("Failed to uninstall mod:", error);
       },
     });
   }
@@ -158,7 +164,7 @@ export function useLibraryActions() {
     installMod,
     bulkInstallMods,
     toggleMod,
-    handleInstallMod,
+    handleImportMods,
     handleBulkInstallFiles,
     handleToggleMod,
     handleSetEnabledForMods,

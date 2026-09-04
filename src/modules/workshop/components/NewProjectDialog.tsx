@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { z } from "zod";
 
 import { Button, Dialog, Field, IconButton, Select, useToast } from "@/components";
+import { errorSummary } from "@/i18n";
 import { useAppForm } from "@/lib/form";
 import { useSettings } from "@/modules/settings";
 import { useWorkshopDialogsStore } from "@/stores";
@@ -78,7 +79,7 @@ export function NewProjectDialog() {
                 { projectPath: project.path, imagePath: selectedThumbnailPath },
                 {
                   onError: (err) =>
-                    toast.error("Project created, but thumbnail failed", err.message),
+                    toast.error("Project created, but thumbnail failed", errorSummary(err)),
                 },
               );
             }
@@ -86,7 +87,7 @@ export function NewProjectDialog() {
             handleClose();
           },
           onError: (err) => {
-            toast.error("Failed to create project", err.message);
+            toast.error("Failed to create project", errorSummary(err));
           },
         },
       );
@@ -167,7 +168,7 @@ export function NewProjectDialog() {
                     <button
                       type="button"
                       onClick={handlePickThumbnail}
-                      className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-surface-600 bg-surface-700/30 transition-colors hover:border-surface-400 hover:bg-surface-700/50"
+                      className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-surface-600 bg-surface-700/30 transition-colors hover:border-accent-hover hover:bg-surface-700/50"
                     >
                       <ImagePlus className="h-8 w-8 text-surface-400" />
                       <span className="text-xs text-surface-400">Add Thumbnail</span>

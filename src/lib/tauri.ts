@@ -2,37 +2,71 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type {
   AddFilesReport,
+  Announcement,
   AppError,
   AppInfo,
+  AssetInfo,
+  AssetRef,
   BulkInstallResult,
+  ChecksumMismatchInfo,
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
+  DecodedIncident,
   DiagnosticReport,
   EditModMetadataArgs,
+  ExtractOptions,
+  ExtractPlan,
+  ExtractSummary,
+  ExtractTarget,
   FantomePeekResult,
+  FixReport,
+  GameDirListing,
+  GameFindResult,
+  GameIndexStats,
+  GameSearchResult,
+  GameWadEntry,
+  GameWadSummary,
+  HashtableCacheStatus,
+  HashtableSyncReport,
+  HashtableUpdateCheck,
+  HealthCheckReadiness,
+  HealthSweepReport,
+  HealthSweepState,
+  HealthTiming,
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
+  Incident,
   InstalledMod,
   LaunchAvailability,
   LaunchOutcome,
   LaunchTarget,
+  LayoutMigrationState,
   LibraryFolder,
+  LibraryRepairReport,
   LinkedBinOffenderInfo,
+  ModHealthVerdict,
   ModpkgInfo,
+  ModStorage,
   ModWadReport,
+  Notice,
   PackProjectArgs,
   PackResult,
   PatcherConfig,
   PatcherStatus,
   PlatformSupport,
+  ProblemId,
   Profile,
+  ReleasePage,
+  Run,
   SaveProjectConfigArgs,
+  SessionStarted,
   Settings,
   StorageMedium,
   StringKeySearchResult,
   ValidationResult,
+  WorkshopFileKind,
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
@@ -77,6 +111,15 @@ export type ProtocolInstallProgress = {
   error: string | null;
 };
 
+export type DeepLinkSettingsRequest = {
+  focus: string;
+};
+
+/** A deep link that reached the backend before the frontend was listening for it. */
+export type PendingDeepLink =
+  | ({ kind: "install" } & DeepLinkInstallRequest)
+  | ({ kind: "settings" } & DeepLinkSettingsRequest);
+
 export type DeepLinkBlockedPayload = {
   domain: string;
   url: string;
@@ -88,9 +131,13 @@ export const api = {
   getPlatformSupport: () => invokeResult<PlatformSupport>("get_platform_support"),
   showMainWindow: () => invokeResult<void>("show_main_window"),
   prepareForUpdate: () => invokeResult<void>("prepare_for_update"),
+  listReleases: (page: number) => invokeResult<ReleasePage>("list_releases", { page }),
+  listAnnouncements: () => invokeResult<Announcement[]>("list_announcements"),
+  listNotices: () => invokeResult<Notice[]>("list_notices"),
 
   // Settings
   getSettings: () => invokeResult<Settings>("get_settings"),
+  getDefaultSettings: () => invokeResult<Settings>("get_default_settings"),
   saveSettings: (settings: Settings) => invokeResult<void>("save_settings", { settings }),
   autoDetectLeaguePath: () => invokeResult<string | null>("auto_detect_league_path"),
   validateLeaguePath: (path: string) => invokeResult<boolean>("validate_league_path", { path }),
@@ -102,7 +149,11 @@ export const api = {
   getInstalledMods: () => invokeResult<InstalledMod[]>("get_installed_mods"),
   installMod: (filePath: string) => invokeResult<InstalledMod>("install_mod", { filePath }),
   applyLeagueSkin: (championId: number, skinId: number, chromaId?: number | null) =>
-    invokeResult<InstalledMod>("apply_league_skin", { championId, skinId, chromaId: chromaId ?? null }),
+    invokeResult<InstalledMod>("apply_league_skin", {
+      championId,
+      skinId,
+      chromaId: chromaId ?? null,
+    }),
   installMods: (filePaths: string[]) =>
     invokeResult<BulkInstallResult>("install_mods", { filePaths }),
   uninstallMod: (modId: string) => invokeResult<void>("uninstall_mod", { modId }),
@@ -117,16 +168,37 @@ export const api = {
     invokeResult<void>("enable_mod_with_layers", { modId, layerStates }),
   editModMetadata: (modId: string, metadata: EditModMetadataArgs) =>
     invokeResult<InstalledMod>("edit_mod_metadata", { modId, metadata }),
+  setModStorage: (modId: string, storage: ModStorage) =>
+    invokeResult<InstalledMod>("set_mod_storage", { modId, storage }),
   getModWadReport: (modId: string) =>
     invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
   analyzeModWads: (modId: string) => invokeResult<ModWadReport>("analyze_mod_wads", { modId }),
+  checkModHealth: (modId: string) => invokeResult<ModHealthVerdict>("check_mod_health", { modId }),
+  /** Re-check `modIds`, or every mod in the library when none are named. */
+  sweepModHealth: (modIds?: string[]) =>
+    invokeResult<HealthSweepReport>("sweep_mod_health", { modIds: modIds ?? null }),
+  repairMod: (modId: string) => invokeResult<FixReport>("repair_mod", { modId }),
+  repairMods: (modIds: string[]) => invokeResult<LibraryRepairReport>("repair_mods", { modIds }),
+  getModHealthVerdicts: () =>
+    invokeResult<Record<string, ModHealthVerdict>>("get_mod_health_verdicts"),
+  getHealthSweep: () => invokeResult<HealthSweepState>("get_health_sweep"),
+  getHealthCheckReadiness: () => invokeResult<HealthCheckReadiness>("get_health_check_readiness"),
+  cancelModHealthRun: () => invokeResult<null>("cancel_mod_health_run"),
+  /**
+   * Time a health pass over the real library, into the dev console.
+   *
+   * Registered only in a debug build. `repair` runs the real repair, which
+   * rewrites the mods it can fix and keeps no way back.
+   */
+  timeModHealth: (repair: boolean) => invokeResult<HealthTiming>("time_mod_health", { repair }),
 
   // Migration
   scanCslolMods: (directory: string) =>
     invokeResult<CslolModInfo[]>("scan_cslol_mods", { directory }),
   importCslolMods: (directory: string, selectedFolders: string[]) =>
     invokeResult<BulkInstallResult>("import_cslol_mods", { directory, selectedFolders }),
+  getLayoutMigrationState: () => invokeResult<LayoutMigrationState>("get_layout_migration_state"),
 
   // Inspector
   inspectModpkg: (filePath: string) => invokeResult<ModpkgInfo>("inspect_modpkg", { filePath }),
@@ -138,12 +210,21 @@ export const api = {
   getPatcherStatus: () => invokeResult<PatcherStatus>("get_patcher_status"),
   getLinkedBinOffenders: () =>
     invokeResult<Record<string, LinkedBinOffenderInfo>>("get_linked_bin_offenders"),
+  getChecksumMismatches: () =>
+    invokeResult<Record<string, ChecksumMismatchInfo[]>>("get_checksum_mismatches"),
 
   // Launcher
   // Resolves to null when a launch was already in flight - a redundant click.
   launchLeague: (target?: LaunchTarget) =>
     invokeResult<LaunchOutcome | null>("launch_league", { target: target ?? null }),
+  // Resolves to false when nothing was in flight, which is what a Cancel
+  // pressed just as the request landed looks like.
+  cancelLaunch: () => invokeResult<boolean>("cancel_launch"),
+  stopLeague: () => invokeResult<void>("stop_league"),
   getLaunchAvailability: () => invokeResult<LaunchAvailability>("get_launch_availability"),
+  // Also starts following the session it reports, so a game already in progress
+  // when the app opened still reaches the session events.
+  getLeagueSession: () => invokeResult<SessionStarted | null>("get_league_session"),
 
   // Hotkeys
   pauseHotkeys: () => invokeResult<void>("pause_hotkeys"),
@@ -177,6 +258,45 @@ export const api = {
     invokeResult<void>("reorder_folder_mods", { folderId, modIds }),
   reorderFolders: (folderOrder: string[]) => invokeResult<void>("reorder_folders", { folderOrder }),
 
+  // Hashtables
+  getHashtableCacheStatus: () => invokeResult<HashtableCacheStatus>("get_hashtable_cache_status"),
+  checkHashtableUpdates: () => invokeResult<HashtableUpdateCheck>("check_hashtable_updates"),
+  syncHashtables: (force: boolean) =>
+    invokeResult<HashtableSyncReport>("sync_hashtables", { force }),
+
+  // Game WADs
+  getGameWads: () => invokeResult<GameWadSummary[]>("get_game_wads"),
+  readGameWad: (wadName: string) => invokeResult<GameWadEntry[]>("read_game_wad", { wadName }),
+
+  // Game index
+  getGameIndex: () => invokeResult<GameIndexStats>("get_game_index"),
+  readGameDir: (path: string) => invokeResult<GameDirListing>("read_game_dir", { path }),
+  refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
+  searchGameIndex: (query: string) =>
+    invokeResult<GameSearchResult>("search_game_index", { query }),
+  findInGameIndex: (pattern: string, regex: boolean) =>
+    invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
+
+  // Extract to disk
+  planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
+    invokeResult<ExtractPlan>("plan_game_extract", { targets, kinds }),
+  // Resolves to null when an extract was already in flight - a redundant click.
+  extractGameFiles: (targets: ExtractTarget[], options: ExtractOptions) =>
+    invokeResult<ExtractSummary | null>("extract_game_files", { targets, options }),
+  // Resolves to false when nothing was in flight, which is what a Cancel
+  // pressed just as the run finished looks like.
+  cancelExtract: () => invokeResult<boolean>("cancel_extract"),
+
+  // Asset preview
+  readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
+  saveAssetCopy: (asset: AssetRef, destination: string) =>
+    invokeResult<void>("save_asset_copy", { asset, destination }),
+
+  // Ritobin
+  detectRitobinIntegration: () => invokeResult<boolean>("detect_ritobin_integration"),
+  openAssetInRitobin: (asset: AssetRef, name?: string) =>
+    invokeResult<void>("open_asset_in_ritobin", { asset, name }),
+
   // Deep Link
   deepLinkInstallMod: (
     url: string,
@@ -184,6 +304,7 @@ export const api = {
     author?: string | null,
     source?: string | null,
   ) => invokeResult<InstalledMod>("deep_link_install_mod", { url, name, author, source }),
+  takePendingDeepLink: () => invokeResult<PendingDeepLink | null>("take_pending_deep_link"),
 
   // Shell
   revealInExplorer: (path: string) => invokeResult<void>("reveal_in_explorer", { path }),
@@ -197,6 +318,13 @@ export const api = {
   runDiagnostics: () => invokeResult<DiagnosticReport>("run_diagnostics"),
   openElevatedTerminal: (withBanner: boolean) =>
     invokeResult<void>("open_elevated_terminal", { withBanner }),
+  listIncidents: () => invokeResult<Incident[]>("list_incidents"),
+  dismissIncident: (id: string) => invokeResult<void>("dismiss_incident", { id }),
+  revealGameLog: (id: string) => invokeResult<void>("reveal_game_log", { id }),
+  incidentReport: (id: string) => invokeResult<string>("incident_report", { id }),
+  incidentToken: (id: string) => invokeResult<string>("incident_token", { id }),
+  decodeIncidentToken: (token: string) =>
+    invokeResult<DecodedIncident>("decode_incident_token", { token }),
 
   // Workshop
   getWorkshopProjects: () => invokeResult<WorkshopProject[]>("get_workshop_projects"),
@@ -223,6 +351,9 @@ export const api = {
     invokeResult<WorkshopProject>("import_from_git_repo", { args }),
   validateProject: (projectPath: string) =>
     invokeResult<ValidationResult>("validate_project", { projectPath }),
+  analyzeProject: (projectPath: string) => invokeResult<Run>("analyze_project", { projectPath }),
+  fixProblems: (projectPath: string, problems: ProblemId[]) =>
+    invokeResult<FixReport>("fix_problems", { projectPath, problems }),
   setProjectThumbnail: (projectPath: string, imagePath: string) =>
     invokeResult<WorkshopProject>("set_project_thumbnail", { projectPath, imagePath }),
   removeProjectThumbnail: (projectPath: string) =>
@@ -241,6 +372,8 @@ export const api = {
     }),
   searchStringKeys: (query: string, limit?: number) =>
     invokeResult<StringKeySearchResult>("search_string_keys", { query, limit }),
+  lookupStringValues: (keys: string[]) =>
+    invokeResult<Record<string, string>>("lookup_string_values", { keys }),
   getLayerContentPath: (projectPath: string, layerName: string) =>
     invokeResult<string>("get_layer_content_path", { projectPath, layerName }),
   getLayerInfo: (projectPath: string, layerNames: string[]) =>
@@ -275,4 +408,11 @@ export const api = {
     }),
   addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) =>
     invokeResult<AddFilesReport>("add_files_to_layer", { projectPath, layerName, sources }),
+  deleteLayerContent: (projectPath: string, layerName: string, relativePath: string) =>
+    invokeResult<void>("delete_layer_content", { projectPath, layerName, relativePath }),
+  // The editor state file is opaque to the backend, so both sides are strings.
+  getProjectEditorState: (projectPath: string) =>
+    invokeResult<string | null>("get_project_editor_state", { projectPath }),
+  saveProjectEditorState: (projectPath: string, content: string) =>
+    invokeResult<void>("save_project_editor_state", { projectPath, content }),
 };

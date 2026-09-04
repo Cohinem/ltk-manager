@@ -35,7 +35,7 @@ export const FieldLabel = forwardRef<HTMLLabelElement, FieldLabelProps>(
         {...props}
       >
         {children}
-        {required && <span className="ml-1 text-red-400">*</span>}
+        {required && <span className="ml-1 text-required">*</span>}
       </BaseField.Label>
     );
   },
@@ -72,7 +72,11 @@ export interface FieldErrorProps extends Omit<BaseField.Error.Props, "className"
 export const FieldError = forwardRef<HTMLParagraphElement, FieldErrorProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <BaseField.Error ref={ref} className={twMerge("text-xs text-red-500", className)} {...props}>
+      <BaseField.Error
+        ref={ref}
+        className={twMerge("text-xs text-danger-text", className)}
+        {...props}
+      >
         {children}
       </BaseField.Error>
     );
@@ -95,12 +99,12 @@ export const FieldControl = forwardRef<HTMLInputElement, FieldControlProps>(
       <BaseField.Control
         ref={ref}
         className={twMerge(
-          "h-8 w-full rounded-lg border px-4 py-1 text-sm transition-colors",
+          "h-8 w-full rounded-md border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50 placeholder:text-surface-400",
-          "border-surface-500 hover:border-surface-400",
+          "border-surface-500 hover:border-accent-hover",
           "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          hasError && "border-red-500 focus:border-red-500 focus:ring-red-500",
+          hasError && "border-danger focus:border-danger focus:ring-danger",
           className,
         )}
         {...props}
@@ -195,13 +199,13 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>
           id={fieldId}
           name={name}
           className={twMerge(
-            "w-full rounded-lg border px-4 py-2.5 text-sm transition-colors",
+            "w-full rounded-md border px-4 py-2.5 text-sm transition-colors",
             "bg-surface-700 text-surface-50 placeholder:text-surface-400",
-            "border-surface-500 hover:border-surface-400",
+            "border-surface-500 hover:border-accent-hover",
             "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
             "disabled:cursor-not-allowed disabled:opacity-50",
             "min-h-[80px] resize-y",
-            error && "border-red-500 focus:border-red-500 focus:ring-red-500",
+            error && "border-danger focus:border-danger focus:ring-danger",
             textareaClassName,
           )}
           {...props}

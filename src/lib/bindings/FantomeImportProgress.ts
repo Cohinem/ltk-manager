@@ -4,4 +4,9 @@ import type { FantomeImportStage } from "./FantomeImportStage";
 /**
  * Progress of a fantome import.
  */
-export type FantomeImportProgress = { stage: FantomeImportStage, currentWad: string | null, current: number, total: number, };
+export type FantomeImportProgress = { stage: FantomeImportStage, 
+/**
+ * The unit being unpacked, as the archive names it: a WAD, or `RAW` for
+ * the pass that unpacks everything the archive keeps outside one.
+ */
+currentItem: string | null, current: number, total: number, };

@@ -1,4 +1,4 @@
-use crate::deep_link;
+use crate::deep_link::{self, DeepLinkRequest};
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{InstalledMod, ModLibraryState};
 use crate::patcher::PatcherState;
@@ -6,6 +6,17 @@ use crate::state::SettingsState;
 use tauri::{AppHandle, State};
 
 use super::mods::reject_if_patcher_running;
+
+/// Take the deep link that arrived before the frontend could listen for it.
+///
+/// A URL handed to a cold start reaches the backend while the window's script is
+/// still loading, so the event carrying it would reach nobody. The frontend asks
+/// once, as its listener comes up, and the answer is `None` from then on.
+#[tauri::command]
+pub fn take_pending_deep_link(app_handle: AppHandle) -> IpcResult<Option<DeepLinkRequest>> {
+    let pending: AppResult<Option<DeepLinkRequest>> = Ok(deep_link::take_pending(&app_handle));
+    pending.into()
+}
 
 /// Install a mod from a deep-link protocol URL.
 ///

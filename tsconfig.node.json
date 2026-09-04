@@ -7,5 +7,10 @@
     "allowSyntheticDefaultImports": true,
     "strict": true
   },
-  "include": ["vite.config.ts", "vitest.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "vitest.config.ts",
+    "scripts/vite-release-notes.ts",
+    "project.inlang/paraglide.config.ts"
+  ]
 }

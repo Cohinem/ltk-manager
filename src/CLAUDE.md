@@ -57,10 +57,6 @@ TanStack Query deduplicates identical queries, so multiple components calling th
 
 For backend-to-frontend events (e.g., overlay progress), use `listen<T>()` from `@tauri-apps/api/event` in a `useEffect` with cleanup via `unlisten()`. See `modules/patcher/api/useOverlayProgress.ts` for the pattern.
 
-## Routing
-
-TanStack Router with file-based routing in `src/routes/`. Route tree is auto-generated in `routeTree.gen.ts`. The root route (`__root.tsx`) checks setup status and redirects to `/settings` on first run.
-
 ## Component Library (`src/components/`)
 
 **ALWAYS use reusable components from `@/components` instead of native HTML or raw base-ui imports.** Module code should never import from `@base-ui-components/react` directly - all base-ui primitives must be wrapped in `src/components/` first. See `src/components/index.ts` for what is already wrapped.
@@ -71,10 +67,6 @@ When adding a new base-ui component:
 2. Export from `src/components/index.ts`
 3. Import in modules via `@/components`, never from `@base-ui-components/react` directly
 
-## Form System (`src/lib/form/`)
-
-Uses `@tanstack/react-form` with Zod validation via `useAppForm()`. Field components are pre-registered on `form.AppField` / `form.AppForm` and integrate with the wrapped `@/components` primitives.
-
 ## Dependency Constraints
 
 - `zustand` - client-side state only. Never use it for server state - that is TanStack Query's job.
@@ -82,8 +74,9 @@ Uses `@tanstack/react-form` with Zod validation via `useAppForm()`. Field compon
 
 ## Icons
 
-All icons come from `@phosphor-icons/react`, imported by PascalCase name. Standard spinner is
-`<SpinnerGap className="animate-spin" />`.
+All icons come from `@phosphor-icons/react`, imported by PascalCase name **with the `Icon` suffix** -
+`GearIcon`, `TrashIcon`, `XIcon`. The bare `Gear` spelling still exports, but it is a deprecated
+alias and TypeScript flags it. Standard spinner is `<SpinnerGapIcon className="animate-spin" />`.
 
 `lucide-react` is still installed because most of the app still imports it, and it stays until those
 call sites are converted. **Write no new lucide imports** - a file being touched for something else
@@ -91,21 +84,41 @@ is a fine moment to convert the icons in it.
 
 Phosphor names things by shape rather than by role, so the lucide name is rarely the phosphor name:
 `ChevronDown` is `CaretDown`, `Search` is `MagnifyingGlass`, `Settings` is `Gear`, `Trash2` is
-`Trash`, `Loader2` is `SpinnerGap`. Look the name up rather than guessing.
+`Trash`, `Loader2` is `SpinnerGap`, `CircleCheck` is `CheckCircle`, `CircleAlert` is
+`WarningCircle`. There is no `Radar`. Look the name up rather than guessing.
 
 Phosphor's `regular` weight is lighter than lucide's 2px stroke, so a converted icon reads thinner
 beside one that has not been converted yet. Pass `weight="bold"` where an icon carries an action -
 buttons, toolbar controls - and leave `regular` for decorative and section-header icons.
 
-Riot's own marks are the exception, since neither icon set carries them. They live as inline-SVG
-components in `src/components/icons/`, lifted from the League and Riot Client asset sets:
-`LeagueIcon`, `RiotIcon`, `TftIcon`, and the cosmetics family `MaskIcon` / `ThreeMasksIcon` /
-`EvolutionIcon`. That folder has its own barrel, re-exported by `src/components/index.ts` - call
-sites still import from `@/components`.
+Icons inside a control are sized against the control, not the body text. A 16px glyph disappears
+in a 32px field, where 20px is right.
+
+Riot's own marks are the exception, since neither icon set carries them. They live in
+`src/components/icons/`, lifted from the League and Riot Client asset sets: `LeagueIcon`,
+`RiotIcon`, `TftIcon`, and the cosmetics family `MaskIcon` / `ThreeMasksIcon` / `EvolutionIcon` /
+`BattleBoostIcon` / `MaskCheckIcon` / `ChampionCheckIcon`. That folder has its own barrel,
+re-exported by `src/components/index.ts` - call sites still import from `@/components`.
+
+Each mark is a pair. The artwork is an `.svg` under `src/assets/icons/`, so any viewer can preview
+it, and `src/components/icons/Name.tsx` imports that through `vite-plugin-svgr` and is where the doc
+comment explaining the mark lives.
+
+Where the `.svg` sits says who drew it. Anything lifted from Riot goes in `assets/icons/game/`, and
+the root is for marks that are ours - the patcher crystal, the poro empty states. A new mark
+traced off a client asset belongs in `game/` even when the feature using it is ours.
+
+```tsx
+import Mark from "@/assets/icons/game/MaskIcon.svg?react";
+
+export function MaskIcon({ className }: MaskIconProps) {
+  return <Mark className={className} />;
+}
+```
 
 Keep the path data untouched, and change only what stops it behaving like an icon: swap the client's
-hardcoded fill (League gold `#C89B3C`, parchment `#F0E6D2`) for `currentColor`, drop any wrapping
-`opacity`, and take `className` so the call site sets the size.
+hardcoded fill (League gold `#C89B3C`, parchment `#F0E6D2`) for `currentColor` and drop any wrapping
+`opacity`. The wrapper takes `className` so the call site sets the size.
 
 Check the artwork's bounds against its `viewBox` too. The client pads these for its own layout, so a
 mark can sit at half the height of its box and read a size smaller than the icons beside it - crop
@@ -114,39 +127,143 @@ the `viewBox` to the artwork rather than compensating with a bigger `className` 
 Redrawing the paths to match the icon set's stroke weight is not worth it - at 16px the fill reads
 fine next to a stroked icon, and a hand-traced mark is just a worse copy.
 
+Some of these marks ship only as small bitmaps. Trace nothing: build them by placing the paths the
+folder already holds and drawing whatever the bitmap adds on top, the way `MaskCheckIcon` reuses
+`MaskIcon`'s silhouette twice under a fresh check. The bitmaps separate overlapping shapes with a
+dark outline, which a single-color mark on an unknown background cannot borrow - knock the channel
+out instead, with an `<svg>` `<mask>`.
+
+A mask needs an id, and an id in a static file repeats once the same icon is on screen twice. That
+is safe only because every copy defines the same mask under that name, so whichever one a reference
+resolves to draws the same thing. Name the id for its own file (`maskCheckChannel`, not `channel`)
+so two different marks never share one, and if a mask ever has to vary per instance, it stops being
+a static file and goes back to a component with `useId`.
+
+## Debug IDs
+
+Key structural elements carry `data-ui`, so an element picked in devtools names the
+code that drew it. The value is `Component` for a component's own root and
+`Component:part` for a landmark inside it - `ContentSidebar`,
+`ContentSidebar:project-row`, `EditorTabs:tab`. The half before the colon is a real
+exported symbol, so it resolves with a symbol search.
+
+This is for the regions someone inspects while working on a screen, not for every
+node. A list gets one on its container rather than on each item, unless the item is
+the thing being debugged - the content tree rows carry one, because they are.
+
+Interpolate when one component draws a family of them:
+``data-ui={`SidePanel:${section.id}`}``. Never read `data-ui` from code. It is a
+label for a human, and a selector built on it turns a debugging aid into a contract.
+
 ## Styling
 
-Tailwind CSS v4 via `@tailwindcss/vite`. `src/styles/tailwind.css` is the **single CSS entry point** imported in `main.tsx`.
+Tailwind CSS v4 via `@tailwindcss/vite`. Tokens live in `src/styles/`.
 
-Inter is self-hosted through `@fontsource-variable/inter`, imported at the top of that entry point - a
-packaged build has no network to fetch a webfont from. The family it registers is **`Inter Variable`**,
-which is what `--font-sans` has to name; plain `"Inter"` alone silently falls through to `system-ui`.
-Fonts are not interchangeable here: the system fallback is not metric-compatible, and its asymmetric
-descent leaves text sitting low in its line box, which reads as icons and labels disagreeing about
-where the middle of a button is.
+**Colors are always a token, never a literal.** No raw Tailwind palette color, no hex, no
+`rgb()` in a class or a stylesheet rule - `text-red-400`, `bg-emerald-500/15` and `#22c55e`
+are all wrong. There are no exceptions left in `src/`, so a raw palette color in a diff is a
+regression, not a style preference. The same goes for bare `rounded`, which is Tailwind's own
+hardcoded 4px and bypasses the radius scale.
 
-**Design tokens** use numbered scales defined as CSS custom properties:
+**Load the `design-system` skill before any styling or visual work** - which token to reach
+for, how the surface rungs stack, what the `-text` status variants are for, and how a choice
+behaves in light mode. Editing the stylesheets themselves is `src/styles/CLAUDE.md`.
 
-| Category   | Pattern            | Example                          |
-| ---------- | ------------------ | -------------------------------- |
-| Spacing    | `--space-{NNN}`    | `--space-004` → 24px (NNN × 6px) |
-| Radius     | `--radius-{NNN}`   | `--radius-003` → 8px             |
-| Icon sizes | `--icon-{NNN}`     | `--icon-003` → 16px              |
-| Shadows    | `--shadow-{name}`  | `--shadow-sm`, `--shadow-glass`  |
-| Z-index    | `--z-{name}`       | `--z-modal`, `--z-toast`         |
-| Duration   | `--duration-{NNN}` | `--duration-004` → 200ms         |
-| Easing     | `--ease-{name}`    | `--ease-spring`                  |
+**Do not explain a style in a comment.** Borders, overlap, stacking and hover fills are
+primitive CSS that any reader follows from the classes. Where a rule from the design system
+drove the choice, cite its `DS-*` code and stop. The rare comment that earns its place names
+an outside constraint the classes cannot show, such as a layout gap the value must fit
+inside.
 
-**Color tokens:** `surface-{50..950}` for neutrals, `accent-{50..950}` for the dynamic accent color (HSL-based via `--accent-hue`). Dark theme is default; light theme uses `[data-theme="light"]` attribute on `<html>`.
+## Messages
 
-**Important:** `global.css` must NOT use `@apply` with Tailwind utilities - use raw CSS custom property references instead (e.g., `background-color: var(--surface-900)`).
+Every string a user reads is a Paraglide message, called as a typed function. The catalog is
+`messages/en/<module>.json`. `pnpm generate:messages` compiles it to `src/paraglide/`, which
+`pnpm dev`, `pnpm build`, `pnpm typecheck` and Vitest each regenerate for themselves, and which is
+not committed (ADR-0018).
 
-Density modes are applied via `[data-density]` on `<html>` and affect `--space-*` and `--icon-*` only - never `--radius-*`, `--shadow-*`, `--z-*`, or colors.
+```tsx
+import { m } from "@/i18n";
+
+<EmptyState title={m.library_empty_title()} description={m.library_empty_description()} />;
+```
+
+A key names the slot, never the sentence, so the copy can change without a rename. The shape is
+`<module>_<subject>_<role>` in snake_case, with the role one of `title`, `description`, `hint`,
+`action`, `label`, `placeholder` or `empty`. Copy that the backend keys by a domain id uses that
+id verbatim, `m["rule.bin/property-type.title"]()`, so the id in the catalog is the id on the wire.
+Keys stay sorted in the file.
+
+A backend error carries a `code` and typed fields, never a sentence. `describeError` from `@/i18n`
+turns one into a title, a remedy and any outside prose, and `errorSummary` gives the one line a
+toast's description takes under a title of its own. A log line takes the error object. No
+component reads a field off an `AppError` for display, and a new `AppError` variant is a `tsc`
+error in the describer until its copy exists.
+
+A message belongs to the module that owns the screen, and goes in `common.json` only once two
+modules say the same words. A new file is added to `pathPattern` in `project.inlang/settings.json`
+with `common.json` kept last. An unknown key or a missing input fails `tsc`, so a test never
+asserts on a key. A component test asserts on the rendered English, as it does today.
+
+`i18next/no-literal-string` warns on a literal that reads as copy. Migration is on touch: a file
+being changed for something else is the moment to move its strings into the catalog. A mechanical
+sweep across many files, such as a type change, is the exception, and leaves each file's own copy
+for the change that comes for it. The exclusion
+lists in `eslint.config.js` are a first draft, so a flagged literal that is not copy is a reason to
+tune them rather than to disable the rule.
+
+## UI Copy
+
+**A description says what the thing is for, not what it is.** A reader arrives at a
+settings card, a field or a dialog to change something, so name the options rather than
+define the subject. Definitions belong in a hint, if anywhere.
+
+```
+Bad   The layered filesystem the patcher builds from your enabled mods.
+Good  Options for the layered filesystem that the patcher uses
+```
+
+**Do not list what is inside.** The rows under a description enumerate themselves, so
+summarising them writes the section twice. Name the subject and stop.
+
+```
+Bad   Options for where installed mods live and how they are catalogued
+Good  Options for your mod library
+```
+
+**Lead with what changes, not with the app doing it.** The row already implies "this
+setting", so the subject is the thing the reader owns rather than the verb the app runs.
+
+```
+Bad   Verifies modded archives as the game loads them.
+Good  Archives get verified on demand when mounting.
+```
+
+**Never define by contrast.** A switch already carries its other state, so naming the
+alternative doubles the length and adds nothing.
+
+```
+Bad   Archives get verified on demand when mounting, not all of them up front.
+Good  Archives get verified on demand when mounting.
+```
+
+**Use the domain's word.** These readers mod League, so `mount`, `locale`, `overlay` and
+`WAD` land better than a plain-English paraphrase of them.
+
+```
+Bad   as the game loads them
+Good  when mounting
+```
+
+A description written this way is often a fragment, and a fragment takes no full stop.
+Copy that is a complete sentence, such as a field's helper text or an error, ends with
+one as usual.
 
 ## Text Selection
 
 This is a desktop app, not a web page - selectable-by-default is the browser's assumption, not ours.
-Chrome gets `select-none`; selection is reserved for text a user would want to take somewhere else.
+Chrome gets `select-none`. Selection is reserved for text a user would want to take
+somewhere else.
 
 The test is **whose text it is**. Text the app wrote about itself is chrome. Text that came from the
 user, their disk, or the backend is data.
@@ -174,3 +291,15 @@ established pattern here (`CheckRow` for the fix command, `useModCardController`
 ## Reduce Motion
 
 Three-option system applied via `[data-reduce-motion]` on `<html>`: System Default (follows OS `prefers-reduced-motion`), On, Off. Use `useReducedMotion()` from `@/hooks` for component-level checks.
+
+## Scrolling
+
+Two-option system applied via `[data-scroll-mode]` on `<html>`: Smooth and Spring. Both ease a
+scroll the app asks for - `scrollIntoView`, an anchor, a log pane pinning itself to the bottom -
+and Spring adds the rubber-band overscroll from `useOverscrollSpring()`, a wheel handler of our
+own because Chromium has no bounce to turn on. Reduce motion outranks the setting and returns
+every scroll to instant.
+
+CSS `scroll-behavior: auto` is deliberately not offered as a third option. The property never
+reaches the wheel, which the browser animates either way, so it would read to a user as a
+setting that does nothing.

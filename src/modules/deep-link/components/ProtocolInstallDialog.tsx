@@ -1,8 +1,9 @@
 import { CircleCheck, CircleX, Download, Globe, Package, User } from "lucide-react";
 
 import { Button, Dialog, Progress, useToast } from "@/components";
+import { errorSummary } from "@/i18n";
 import type { ProtocolInstallProgress } from "@/lib/tauri";
-import { useDeepLinkStore } from "@/stores";
+import { useDeepLinkStore, useQueuedDialog } from "@/stores";
 
 import { useProtocolInstall } from "../api/useProtocolInstall";
 import { useProtocolInstallProgress } from "../api/useProtocolInstallProgress";
@@ -16,7 +17,7 @@ export function ProtocolInstallDialog() {
   const install = useProtocolInstall();
   const { progress } = useProtocolInstallProgress();
 
-  const open = request !== null;
+  const open = useQueuedDialog("protocol-install", request !== null);
   const isInstalling = status === "installing" || install.isPending;
   const isComplete = status === "complete";
   const isError = status === "error";
@@ -30,7 +31,7 @@ export function ProtocolInstallDialog() {
           toast.success("Mod Installed", mod.name ?? "Mod installed successfully");
         },
         onError: (err) => {
-          toast.error("Install Failed", err.message);
+          toast.error("Install Failed", errorSummary(err));
         },
       },
     );
@@ -42,7 +43,7 @@ export function ProtocolInstallDialog() {
     install.reset();
   }
 
-  if (!request) return null;
+  if (!request || !open) return null;
 
   const displayName = request.name ?? "Unknown Mod";
 
@@ -98,8 +99,8 @@ export function ProtocolInstallDialog() {
 
             {isComplete && (
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15">
-                  <CircleCheck className="h-5 w-5 text-emerald-400" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-success/15">
+                  <CircleCheck className="h-5 w-5 text-success-text" />
                 </div>
                 <p className="text-sm text-surface-300">
                   <span className="font-medium text-surface-100">{displayName}</span> has been
@@ -110,14 +111,14 @@ export function ProtocolInstallDialog() {
 
             {isError && error && (
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/15">
-                  <CircleX className="h-5 w-5 text-red-400" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-danger/15">
+                  <CircleX className="h-5 w-5 text-danger-text" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-surface-100">
                     Failed to install {displayName}
                   </p>
-                  <p className="mt-1 text-sm text-red-300">{error}</p>
+                  <p className="mt-1 text-sm text-danger-text">{error}</p>
                 </div>
               </div>
             )}

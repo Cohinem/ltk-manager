@@ -22,6 +22,9 @@ jobs:
       )
     permissions:
       contents: write
+      # The cache service refuses a write unless the token carries `actions`.
+      # Without it every dependency in Cargo.lock is rebuilt from cold.
+      actions: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -84,6 +87,44 @@ jobs:
           config: cliff.toml
           args: --latest --strip header
 
+      # A release body is read by whoever installs the build, and a commit
+      # subject is written in the codebase's own vocabulary. `docs/releases/`
+      # is where the first is said, and the generated commit list stands in
+      # only for a release nobody wrote notes for.
+      - name: Compose release notes
+        id: notes
+        shell: bash
+        env:
+          GENERATED: ${{ steps.changelog.outputs.content }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          REPO="https://github.com/LeagueToolkit/ltk-manager"
+          MSI="LTK.Manager_${VERSION}_x64_en-US.msi"
+          WRITTEN="docs/releases/$VERSION.md"
+
+          if [ -f "$WRITTEN" ]; then
+            BODY=$(cat "$WRITTEN")
+          else
+            echo "::warning::No $WRITTEN. Falling back to the generated commit list."
+            BODY="$GENERATED"
+          fi
+
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          {
+            echo "👉 **Download** [\`$MSI\`]($REPO/releases/download/$TAG/$MSI)"
+            echo
+            echo "## [$VERSION]($REPO/releases/tag/$TAG) - $(date -u +%Y-%m-%d)"
+            echo
+            printf '%s\n' "$BODY"
+          } > "$NOTES"
+
+          {
+            echo "body<<RELEASE_NOTES_EOF"
+            cat "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -91,25 +132,46 @@ jobs:
 
       - uses: pnpm/action-setup@v4
 
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\pnpm\store
-          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-          restore-keys: pnpm-
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
 
+      # Both restore only. This job runs on `refs/pull/N/merge`, and a cache
+      # written from a pull request ref is unreadable by the next release.
+      # ci.yml's `warm-release-cache` writes these on `main`.
+      - name: Restore pnpm store
+        uses: actions/cache/restore@v4
+        with:
+          path: ~\AppData\Local\pnpm\store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-
+
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: release
-          cache-on-failure: true
+          save-if: false
 
+      # Building this from source cost four minutes a release. Upstream renamed
+      # the crate to artifact-signing-cli, but the signCommand in
+      # tauri.conf.json still invokes it under the old name.
       - name: Install trusted-signing-cli
-        run: cargo install trusted-signing-cli
+        shell: pwsh
+        env:
+          SIGNING_CLI_VERSION: "0.11.0"
+          SIGNING_CLI_SHA256: "ddc6f6ef68631bf367ad051d7d37109e58d46095406e1fbba60d553b10f94393"
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "signing-cli"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $exe = Join-Path $dir "trusted-signing-cli.exe"
+          $url = "https://github.com/Levminer/trusted-signing-cli/releases/download/$env:SIGNING_CLI_VERSION/artifact-signing-cli.exe"
+          Invoke-WebRequest -Uri $url -OutFile $exe
+          # This binary runs with the Azure signing credentials in its environment.
+          $hash = (Get-FileHash -Algorithm SHA256 $exe).Hash
+          if ($hash -ne $env:SIGNING_CLI_SHA256) {
+            throw "Checksum mismatch for $url (got $hash)"
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value $dir
 
       - name: Locate signtool.exe
         id: signtool
@@ -150,10 +212,9 @@ jobs:
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           SIGNTOOL_PATH: ${{ steps.signtool.outputs.SIGNTOOL_PATH }}
         with:
-          args: --verbose
           tagName: ${{ steps.version.outputs.tag }}
           releaseName: "LTK Manager v${{ steps.version.outputs.version }}"
-          releaseBody: ${{ steps.changelog.outputs.content }}
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: ${{ steps.version.outputs.prerelease }}
           updaterJsonPreferNsis: true

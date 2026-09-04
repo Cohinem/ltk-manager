@@ -2,5 +2,10 @@
 
 /**
  * Stage of a fantome import.
+ *
+ * Coarser than the stages `ltk_mod_project`'s importer reports: everything
+ * past the content is `Finalizing`, because none of it carries a count a bar
+ * could be drawn from. `Error` has no counterpart there at all, since a failed
+ * import returns rather than reporting, so the caller emits it.
  */
 export type FantomeImportStage = "extracting" | "finalizing" | "complete" | "error";

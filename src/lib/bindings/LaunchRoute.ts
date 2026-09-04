@@ -3,4 +3,4 @@
 /**
  * How the launch request was delivered.
  */
-export type LaunchRoute = "EXISTING_CLIENT" | "COLD_START" | "ALREADY_RUNNING";
+export type LaunchRoute = "EXISTING_CLIENT" | "COLD_START" | "ALREADY_RUNNING" | "ADOPTED" | "UNKNOWN";

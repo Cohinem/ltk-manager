@@ -9,6 +9,16 @@ import { type PlayStep, usePlaySessionStore } from "@/stores";
 import { useLaunchErrorToast } from "./useLaunchErrorToast";
 import { useLaunchLeague } from "./useLaunchLeague";
 
+/**
+ * Steps where an action of ours is in flight.
+ *
+ * Not the same as "the run is over": a live session keeps the step off idle for
+ * the length of a game, and the Play button has to stay usable through that -
+ * the patcher is still stoppable, and a second launch would only find the game
+ * that is already up.
+ */
+const BUSY_STEPS = new Set<PlayStep>(["starting-patcher", "launching", "cancelling"]);
+
 /** How long `start_patcher` gets to move the phase off idle at all. */
 const STARTUP_TIMEOUT_MS = 10_000;
 /** How long the overlay build itself may take - a first build on an HDD is minutes. */
@@ -65,6 +75,11 @@ async function waitForPatcher(): Promise<boolean> {
  * That second case is also why a running League client is not an error: mods
  * are injected into the game process, which the client starts later, so the
  * patcher half still does its job when the launch half has nothing left to do.
+ *
+ * A run does not end where the launch does. `launch_league` returns when the
+ * Riot Client accepts the request, seconds to minutes before the game exists,
+ * so the session the outcome names carries it from there - and the store's
+ * session events, not this hook, are what return the step to idle.
  */
 export function usePlay() {
   const maybeShowHddWarning = useHddWarning();
@@ -75,6 +90,7 @@ export function usePlay() {
 
   const step = usePlaySessionStore((s) => s.step);
   const setStep = usePlaySessionStore((s) => s.setStep);
+  const launchDelivered = usePlaySessionStore((s) => s.launchDelivered);
 
   const launch = useCallback(async (): Promise<LaunchOutcome | null> => {
     try {
@@ -87,40 +103,78 @@ export function usePlay() {
 
   // Read through the store rather than the subscribed value: two clicks in the
   // same tick would both see a stale `step` from the render they closed over.
-  const isIdle = () => usePlaySessionStore.getState().step === "idle";
+  const isFree = () => !BUSY_STEPS.has(usePlaySessionStore.getState().step);
+
+  /**
+   * Hand the run over to the session, or end it here when there is none.
+   *
+   * A null outcome is a refused launch, a cancelled one, or a request the
+   * backend was already handling. None of those has a session to wait on.
+   */
+  const handOver = useCallback(
+    (outcome: LaunchOutcome | null) => {
+      if (!outcome) {
+        setStep("idle");
+        return;
+      }
+      launchDelivered(Boolean(outcome.sessionId));
+    },
+    [launchDelivered, setStep],
+  );
 
   const play = useCallback(async () => {
-    if (!isIdle()) return;
+    if (!isFree()) return;
     setStep("starting-patcher");
 
     try {
       await maybeShowHddWarning();
       await start({});
-      if (!(await waitForPatcher())) return;
+      if (!(await waitForPatcher())) {
+        setStep("idle");
+        return;
+      }
 
       setStep("launching");
-      await launch();
-    } finally {
+      handOver(await launch());
+    } catch {
       setStep("idle");
     }
-  }, [maybeShowHddWarning, start, launch, setStep]);
+  }, [maybeShowHddWarning, start, launch, handOver, setStep]);
 
   const launchOnly = useCallback(async () => {
-    if (!isIdle()) return;
+    if (!isFree()) return;
     setStep("launching");
 
     try {
       const outcome = await launch();
-      if (outcome?.route === "ALREADY_RUNNING") {
-        toast.info(
-          "League is already running",
-          "There was nothing to launch, so your open client was left alone.",
-        );
+      handOver(outcome);
+
+      if (outcome && alreadyUp(outcome)) {
+        toast.info("League is already running", alreadyUpDetail(outcome.route));
       }
-    } finally {
+    } catch {
       setStep("idle");
     }
-  }, [launch, setStep, toast]);
+  }, [launch, handOver, setStep, toast]);
 
-  return { play, launchOnly, step, isBusy: step !== "idle" };
+  return { play, launchOnly, step, isBusy: BUSY_STEPS.has(step) };
+}
+
+/**
+ * Whether the launch found a game rather than starting one.
+ *
+ * `ADOPTED` is the same news with a better ending: the Riot Client had lost
+ * track of the game and has now been handed it, so there is a session to follow
+ * where before there was nothing.
+ */
+function alreadyUp(outcome: LaunchOutcome): boolean {
+  return outcome.route === "ALREADY_RUNNING" || outcome.route === "ADOPTED";
+}
+
+/** Whether anything came of finding the game, beyond leaving it alone. */
+function alreadyUpDetail(route: LaunchOutcome["route"]): string {
+  if (route === "ADOPTED") {
+    return "There was nothing to launch. The manager is following the game you already had open.";
+  }
+  return "There was nothing to launch, so your open client was left alone.";
 }

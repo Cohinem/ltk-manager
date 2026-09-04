@@ -73,7 +73,7 @@ export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps
       <BaseContextMenu.Popup
         ref={ref}
         className={twMerge(
-          "w-44 rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
+          "min-w-40 rounded-xl border border-surface-700 bg-surface-800 p-1 shadow-xl outline-none",
           "transition-[opacity,transform] duration-150 ease-out",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
@@ -88,7 +88,7 @@ export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps
 );
 ContextMenuPopup.displayName = "ContextMenu.Popup";
 
-// Item — reuse same styling as Menu.Item
+// Item, styled the same as Menu.Item
 export type ContextMenuItemVariant = "default" | "danger";
 
 export interface ContextMenuItemProps extends Omit<BaseContextMenu.Item.Props, "className"> {
@@ -100,8 +100,9 @@ export interface ContextMenuItemProps extends Omit<BaseContextMenu.Item.Props, "
 }
 
 const itemVariantClasses: Record<ContextMenuItemVariant, string> = {
-  default: "text-surface-200 data-[highlighted]:bg-surface-600",
-  danger: "text-red-400 data-[highlighted]:bg-surface-600 data-[highlighted]:text-red-300",
+  default: "text-surface-200 data-[highlighted]:bg-surface-veil data-[highlighted]:text-surface-50",
+  /* The highlight is a fill because the label is already at its own shade: DS-TEXT. */
+  danger: "text-danger-text data-[highlighted]:bg-danger/15",
 };
 
 export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(
@@ -110,14 +111,19 @@ export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(
       <BaseContextMenu.Item
         ref={ref}
         className={twMerge(
-          "flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-sm outline-none select-none",
+          "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm outline-none select-none",
+          // Base UI stops a disabled item responding but leaves it looking
+          // identical to a live one, so it needs its own resting color.
+          "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400",
           itemVariantClasses[variant],
           className,
         )}
         {...props}
       >
-        {icon && <span className="h-4 w-4 shrink-0">{icon}</span>}
-        <span className="flex-1">{children}</span>
+        {icon && <span className="h-4 w-4 shrink-0 opacity-70">{icon}</span>}
+        {/* A menu item is one line, so a long label loses its tail rather than
+            taking the popup's width past what the call site set. */}
+        <span className="min-w-0 flex-1 truncate">{children}</span>
         {shortcut && <Kbd shortcut={shortcut} />}
       </BaseContextMenu.Item>
     );
@@ -138,7 +144,7 @@ export const ContextMenuSeparator = forwardRef<HTMLDivElement, ContextMenuSepara
     return (
       <BaseContextMenu.Separator
         ref={ref}
-        className={twMerge("my-1 border-t border-surface-600", className)}
+        className={twMerge("-mx-1 my-1 border-t border-surface-700", className)}
         {...props}
       />
     );

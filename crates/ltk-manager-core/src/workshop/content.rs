@@ -1,7 +1,8 @@
 use super::Workshop;
+use super::layer;
 use crate::error::{AppError, AppResult};
 use ltk_file::LeagueFileKind;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -41,7 +42,7 @@ pub struct ContentEntry {
 /// Mirror of [`ltk_file::LeagueFileKind`] with `ts-rs` bindings. Kept in sync
 /// manually — the upstream enum is small and stable, and mirroring lets us
 /// export a TypeScript union without fighting external crate attributes.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "snake_case")]
@@ -99,6 +100,35 @@ impl From<LeagueFileKind> for WorkshopFileKind {
     }
 }
 
+impl From<WorkshopFileKind> for LeagueFileKind {
+    fn from(value: WorkshopFileKind) -> Self {
+        match value {
+            WorkshopFileKind::Animation => Self::Animation,
+            WorkshopFileKind::Jpeg => Self::Jpeg,
+            WorkshopFileKind::LightGrid => Self::LightGrid,
+            WorkshopFileKind::LuaObj => Self::LuaObj,
+            WorkshopFileKind::MapGeometry => Self::MapGeometry,
+            WorkshopFileKind::Png => Self::Png,
+            WorkshopFileKind::Tga => Self::Tga,
+            WorkshopFileKind::Preload => Self::Preload,
+            WorkshopFileKind::PropertyBin => Self::PropertyBin,
+            WorkshopFileKind::PropertyBinOverride => Self::PropertyBinOverride,
+            WorkshopFileKind::RiotStringTable => Self::RiotStringTable,
+            WorkshopFileKind::SimpleSkin => Self::SimpleSkin,
+            WorkshopFileKind::Skeleton => Self::Skeleton,
+            WorkshopFileKind::StaticMeshAscii => Self::StaticMeshAscii,
+            WorkshopFileKind::StaticMeshBinary => Self::StaticMeshBinary,
+            WorkshopFileKind::Svg => Self::Svg,
+            WorkshopFileKind::Texture => Self::Texture,
+            WorkshopFileKind::TextureDds => Self::TextureDds,
+            WorkshopFileKind::Unknown => Self::Unknown,
+            WorkshopFileKind::WorldGeometry => Self::WorldGeometry,
+            WorkshopFileKind::WwiseBank => Self::WwiseBank,
+            WorkshopFileKind::WwisePackage => Self::WwisePackage,
+        }
+    }
+}
+
 impl Workshop {
     /// Walk the project's `content/` directory and return the per-layer file
     /// listing. Hidden files and symlinks are skipped. The frontend virtualizes
@@ -114,27 +144,7 @@ impl Workshop {
             return Ok(ContentTree { layers: Vec::new() });
         }
 
-        let mut layer_dirs: Vec<PathBuf> = std::fs::read_dir(&content_dir)?
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .filter(|p| p.is_dir())
-            .filter(|p| {
-                p.file_name()
-                    .and_then(|n| n.to_str())
-                    .is_some_and(|n| !n.starts_with('.'))
-            })
-            .collect();
-
-        layer_dirs.sort_by(|a, b| {
-            let a_name = a.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            let b_name = b.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            match (a_name, b_name) {
-                ("base", "base") => std::cmp::Ordering::Equal,
-                ("base", _) => std::cmp::Ordering::Less,
-                (_, "base") => std::cmp::Ordering::Greater,
-                (a, b) => a.cmp(b),
-            }
-        });
+        let layer_dirs = layer::dirs_in(&content_dir)?;
 
         let mut layers = Vec::with_capacity(layer_dirs.len());
         for layer_dir in &layer_dirs {
@@ -224,7 +234,9 @@ fn scan_layer(layer_dir: &Path, name: &str) -> AppResult<LayerContent> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::events::NullEventSink;
     use std::fs;
+    use std::sync::Arc;
 
     fn touch(path: &Path, contents: &[u8]) {
         if let Some(parent) = path.parent() {
@@ -319,26 +331,12 @@ mod tests {
         touch(&content.join("alpha/a.bin"), b"");
         touch(&content.join("zeta/a.bin"), b"");
 
-        let mut layer_dirs: Vec<PathBuf> = std::fs::read_dir(&content)
-            .unwrap()
-            .filter_map(Result::ok)
-            .map(|e| e.path())
-            .filter(|p| p.is_dir())
-            .collect();
-        layer_dirs.sort_by(|a, b| {
-            let a_name = a.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            let b_name = b.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-            match (a_name, b_name) {
-                ("base", "base") => std::cmp::Ordering::Equal,
-                ("base", _) => std::cmp::Ordering::Less,
-                (_, "base") => std::cmp::Ordering::Greater,
-                (a, b) => a.cmp(b),
-            }
-        });
-        let names: Vec<_> = layer_dirs
-            .iter()
-            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
-            .collect();
-        assert_eq!(names, vec!["base", "alpha", "zeta"]);
+        let workshop = Workshop::new(Arc::new(NullEventSink));
+        let tree = workshop
+            .get_project_content_tree(project_dir.path().to_str().unwrap())
+            .unwrap();
+
+        let names: Vec<&str> = tree.layers.iter().map(|l| l.name.as_str()).collect();
+        assert_eq!(names, ["base", "alpha", "zeta"]);
     }
 }

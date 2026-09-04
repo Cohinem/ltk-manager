@@ -7,7 +7,7 @@
 //! a CLI reuse this: it can supply its own mod list and print the offenders
 //! instead of persisting them for a badge UI.
 
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::events::{OverlayProgress, OverlayStage};
 use camino::Utf8PathBuf;
 
@@ -38,6 +38,11 @@ pub struct OverlayBuildOutcome {
     pub linked_bin_offenders: Vec<ltk_overlay::LinkedBinOffender>,
     /// Per-mod WAD footprints, a byproduct of the same pass.
     pub mod_wad_reports: Vec<ltk_overlay::ModWadReport>,
+    /// Chunks whose container claimed a checksum its own bytes do not have.
+    ///
+    /// Advisory, never fatal: the overlay carries the recomputed value, so the
+    /// content reaches the game intact. Upstream ADR-0001.
+    pub checksum_mismatches: Vec<ltk_overlay::ChecksumMismatch>,
 }
 
 /// Build the overlay described by `inputs`, reporting progress through `progress`.
@@ -63,13 +68,12 @@ pub fn build_overlay(
 
     builder.set_enabled_mods(mods);
 
-    builder
-        .build()
-        .map_err(|e| AppError::Other(format!("Overlay build failed: {}", e)))?;
+    let result = builder.build()?;
 
     Ok(OverlayBuildOutcome {
         linked_bin_offenders: builder.take_linked_bin_offenders(),
         mod_wad_reports: builder.take_mod_wad_reports(),
+        checksum_mismatches: result.checksum_mismatches,
     })
 }
 

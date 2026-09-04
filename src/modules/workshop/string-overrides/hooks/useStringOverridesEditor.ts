@@ -1,104 +1,195 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useToast } from "@/components";
-import type { StringKeySuggestion } from "@/lib/tauri";
+import { errorSummary } from "@/i18n";
+import type { StringKeySuggestion, WorkshopProject } from "@/lib/tauri";
 
 import { useSaveStringOverrides } from "../../api/useSaveStringOverrides";
 import { useProjectContext } from "../../components/ProjectContext";
-import { LOCALES } from "../constants";
-import type { OverrideEntry, OverrideEntryField } from "../types";
+import { serializeDraft, validateEntries } from "../draft";
+import type { OverrideEntry, OverrideEntryField, OverrideSaveState } from "../types";
 
-function validateEntries(entries: OverrideEntry[]): Record<string, string> {
-  const errors: Record<string, string> = {};
-  const seenKeys = new Set<string>();
+/* Long enough to batch a burst of composer commits, short enough that the
+   work is on disk before the author thinks to wonder. */
+const SAVE_DELAY_MS = 600;
 
-  for (const entry of entries) {
-    const trimmedKey = entry.key.trim();
-
-    if (!trimmedKey) {
-      errors[entry.id] = "Field name cannot be empty";
-    } else if (seenKeys.has(trimmedKey)) {
-      errors[entry.id] = "Duplicate field name";
-    }
-    seenKeys.add(trimmedKey);
-  }
-
-  return errors;
+function savedOverridesOf(
+  project: WorkshopProject,
+  layerName: string,
+  locale: string,
+): Record<string, string> {
+  const layer = project.layers.find((candidate) => candidate.name === layerName);
+  return layer?.stringOverrides?.[locale] ?? {};
 }
 
 /**
- * All state and behavior for the string-overrides editor: layer/locale
- * selection, the editable entry list with filtering and validation, and
- * saving back to the project.
+ * The editable override list for one layer and locale, saving itself back.
+ *
+ * Every settled edit autosaves after a short debounce - there is no save
+ * button to reach. A draft that fails validation holds the save and says so
+ * through `saveState`, a failed write waits for a retry or the next edit,
+ * and switching locale or closing the document flushes whatever the debounce
+ * still held. The draft is reloaded when the layer or locale changes, not
+ * when the project object does, so a background refetch cannot swallow
+ * unsaved edits.
  */
-export function useStringOverridesEditor() {
+export function useStringOverridesEditor(layerName: string, locale: string) {
   const project = useProjectContext();
   const toast = useToast();
 
-  const [selectedLayer, setSelectedLayer] = useState<string>("base");
-  const [selectedLocale, setSelectedLocale] = useState<string>("default");
   const [entries, setEntries] = useState<OverrideEntry[]>([]);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState("");
-  const [pendingFocusId, setPendingFocusId] = useState<string | null>(null);
+  /** What the project file holds, in {@link serializeDraft}'s shape. */
+  const [saved, setSaved] = useState(() => serializeDraft([]));
+  /** The draft a save rejected, so a hard failure retries once, not forever. */
+  const [failedDraft, setFailedDraft] = useState<string | null>(null);
+  const [filter, setFilterState] = useState("");
+  /* The row the composer last committed stays visible under an active filter
+     it does not match, so a commit never looks like it vanished. */
+  const [lastCommittedId, setLastCommittedId] = useState<string | null>(null);
+
+  const errors = useMemo(() => validateEntries(entries), [entries]);
+  const draft = serializeDraft(entries);
 
   const nextIdRef = useRef(0);
   const makeId = () => `ov-${nextIdRef.current++}`;
 
   const saveOverrides = useSaveStringOverrides();
+  const isSaving = saveOverrides.isPending;
 
-  const currentLayer = project.layers.find((l) => l.name === selectedLayer);
+  const projectRef = useRef(project);
+  useEffect(() => {
+    projectRef.current = project;
+  });
 
   function toEntries(localeOverrides: Record<string, string>): OverrideEntry[] {
     return Object.entries(localeOverrides).map(([key, value]) => ({ id: makeId(), key, value }));
   }
 
-  // Reset selected layer when project changes
   useEffect(() => {
-    if (project.layers.length) {
-      setSelectedLayer(project.layers[0].name);
-      setSelectedLocale("default");
-    }
-  }, [project.path, project.layers]);
+    const loaded = toEntries(savedOverridesOf(projectRef.current, layerName, locale));
+    setEntries(loaded);
+    setSaved(serializeDraft(loaded));
+    setFailedDraft(null);
+    setFilterState("");
+    setLastCommittedId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layerName, locale, project.path]);
 
-  // Reset entries when layer/locale changes
+  function performSave() {
+    const layer = project.layers.find((candidate) => candidate.name === layerName);
+    if (!layer) return;
+
+    const attempted = draft;
+
+    const localeOverrides: Record<string, string> = {};
+    for (const entry of entries) {
+      const trimmedKey = entry.key.trim();
+      if (trimmedKey) {
+        localeOverrides[trimmedKey] = entry.value;
+      }
+    }
+
+    const allOverrides: Record<string, Record<string, string>> = { ...layer.stringOverrides };
+
+    if (Object.keys(localeOverrides).length > 0) {
+      allOverrides[locale] = localeOverrides;
+    } else {
+      delete allOverrides[locale];
+    }
+
+    saveOverrides.mutate(
+      { projectPath: project.path, layerName, stringOverrides: allOverrides },
+      {
+        onSuccess: () => {
+          setSaved(attempted);
+          setFailedDraft(null);
+        },
+        onError: (error) => {
+          setFailedDraft(attempted);
+          toast.error("Couldn't save the overrides", errorSummary(error));
+        },
+      },
+    );
+  }
+
+  const hasErrors = Object.keys(errors).length > 0;
+  const differs = draft !== saved;
+
+  /* The timeout and the cleanup below fire these, and a ref keeps them from
+     holding the render they were scheduled in. */
+  const performSaveRef = useRef(performSave);
+  const flushRef = useRef(() => {});
   useEffect(() => {
-    if (!currentLayer) {
-      setEntries([]);
+    performSaveRef.current = performSave;
+    flushRef.current = () => {
+      if (differs && !hasErrors && !isSaving) performSave();
+    };
+  });
+
+  useEffect(() => {
+    if (!differs || hasErrors || isSaving) return;
+    /* A rejected draft schedules nothing more - retrying is `saveNow`'s, or
+       the next edit's, to ask - so a hard failure cannot loop. */
+    if (draft === failedDraft) return;
+
+    const timer = setTimeout(() => performSaveRef.current(), SAVE_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [differs, hasErrors, isSaving, draft, failedDraft]);
+
+  /* Whatever the debounce still holds goes to disk when this locale's editor
+     ends - a switch to another locale, or the document closing. */
+  useEffect(() => {
+    return () => flushRef.current();
+  }, [layerName, locale]);
+
+  function saveNow() {
+    if (differs && !hasErrors && !isSaving) performSave();
+  }
+
+  function saveStateOf(): OverrideSaveState {
+    if (!differs) return "clean";
+    if (isSaving) return "saving";
+    if (hasErrors) return "blocked";
+    if (draft === failedDraft) return "failed";
+    return "pending";
+  }
+
+  function setFilter(next: string) {
+    setFilterState(next);
+    /* A new filter is a new question, so the fresh-row exemption lapses. */
+    setLastCommittedId(null);
+  }
+
+  /** Add a row from the composer, or retarget the row that already holds the key. */
+  function commitEntry(key: string, value: string) {
+    const trimmed = key.trim();
+    if (!trimmed) return;
+
+    const existing = entries.find(
+      (entry) => entry.key.trim().toLowerCase() === trimmed.toLowerCase(),
+    );
+    if (existing) {
+      setEntries((prev) =>
+        prev.map((entry) => (entry.id === existing.id ? { ...entry, value } : entry)),
+      );
+      setLastCommittedId(existing.id);
       return;
     }
 
-    setEntries(toEntries(currentLayer.stringOverrides?.[selectedLocale] ?? {}));
-    setHasChanges(false);
-    setErrors({});
-    setFilter("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLayer, selectedLocale, project.path]);
-
-  function addEntry() {
+    /* Prepended, so the new row lands right under the composer. */
     const id = makeId();
-    setEntries((prev) => [...prev, { id, key: "", value: "" }]);
-    setHasChanges(true);
-    setPendingFocusId(id);
+    setEntries((prev) => [{ id, key: trimmed, value }, ...prev]);
+    setLastCommittedId(id);
   }
 
   function removeEntry(id: string) {
     setEntries((prev) => prev.filter((entry) => entry.id !== id));
-    setErrors((prev) => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    setHasChanges(true);
   }
 
   function updateEntry(id: string, field: OverrideEntryField, value: string) {
     setEntries((prev) =>
-      prev.map((entry) => (entry.id === id ? { ...entry, [field]: value } : entry)),
+      prev.map((candidate) => (candidate.id === id ? { ...candidate, [field]: value } : candidate)),
     );
-    setHasChanges(true);
   }
 
   function pickSuggestion(id: string, suggestion: StringKeySuggestion) {
@@ -115,95 +206,19 @@ export function useStringOverridesEditor() {
         };
       }),
     );
-
-    setHasChanges(true);
   }
-
-  function clearPendingFocus() {
-    setPendingFocusId(null);
-  }
-
-  function discard() {
-    setEntries(toEntries(currentLayer?.stringOverrides?.[selectedLocale] ?? {}));
-    setHasChanges(false);
-    setErrors({});
-  }
-
-  function save() {
-    if (!currentLayer) return;
-
-    const validationErrors = validateEntries(entries);
-    setErrors(validationErrors);
-
-    if (Object.keys(validationErrors).length > 0) {
-      // Clear the filter so every highlighted entry is visible.
-      setFilter("");
-      toast.error("Can't save overrides", "Fix the highlighted entries first.");
-      return;
-    }
-
-    const localeOverrides: Record<string, string> = {};
-    for (const entry of entries) {
-      const trimmedKey = entry.key.trim();
-      if (trimmedKey) {
-        localeOverrides[trimmedKey] = entry.value;
-      }
-    }
-
-    const allOverrides: Record<string, Record<string, string>> = {
-      ...currentLayer.stringOverrides,
-    };
-
-    if (Object.keys(localeOverrides).length > 0) {
-      allOverrides[selectedLocale] = localeOverrides;
-    } else {
-      delete allOverrides[selectedLocale];
-    }
-
-    saveOverrides.mutate(
-      {
-        projectPath: project.path,
-        layerName: selectedLayer,
-        stringOverrides: allOverrides,
-      },
-      {
-        onSuccess: () => {
-          setHasChanges(false);
-          toast.success("String overrides saved");
-        },
-      },
-    );
-  }
-
-  const localeOptions = LOCALES.map((locale) => {
-    const count = Object.keys(currentLayer?.stringOverrides?.[locale.value] ?? {}).length;
-
-    return {
-      value: locale.value,
-      label: count > 0 ? `${locale.label} · ${count}` : locale.label,
-    };
-  });
 
   return {
-    layers: project.layers,
-    selectedLayer,
-    setSelectedLayer,
-    selectedLocale,
-    setSelectedLocale,
-    localeOptions,
     entries,
     filter,
     setFilter,
     errors,
-    hasChanges,
-    isSaving: saveOverrides.isPending,
-    pendingFocusId,
-    clearPendingFocus,
-    addEntry,
+    lastCommittedId,
+    saveState: saveStateOf(),
+    saveNow,
+    commitEntry,
     removeEntry,
     updateEntry,
     pickSuggestion,
-    discard,
-    save,
   };
 }

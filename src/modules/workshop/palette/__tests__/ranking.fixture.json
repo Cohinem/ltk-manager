@@ -1,0 +1,45 @@
+{
+  "comment": "Query and candidate pairs that fix the order both palette matchers must agree on. The frontend suite reads this file through rank.ts and the Rust suite reads it through GameIndex::search. `expect` is the exact order the query returns, and `reject` names paths the query must not return at all.",
+  "cases": [
+    {
+      "name": "a name the query opens outranks one that only holds it",
+      "query": "nasus",
+      "expect": [
+        "assets/characters/nasus/nasus.bin",
+        "assets/characters/nasus/hud/nasus_circle.dds",
+        "assets/characters/nasus/old_nasus.bin"
+      ]
+    },
+    {
+      "name": "a term opening a word outranks the same term buried inside one",
+      "query": "base",
+      "expect": [
+        "assets/skins/base.bin",
+        "assets/skins/base_skin.bin",
+        "assets/skins/databases.bin"
+      ]
+    },
+    {
+      "name": "a name match outranks a match that reaches the directory",
+      "query": "aatrox",
+      "expect": ["assets/characters/aatrox/aatrox.bin", "assets/characters/aatrox/skin01.bin"]
+    },
+    {
+      "name": "equal scores put the shorter path first",
+      "query": "mat",
+      "expect": ["assets/aatrox/mat.bin", "assets/characters/aatrox/skins/base/mat.bin"]
+    },
+    {
+      "name": "every term of a query has to appear",
+      "query": "nasus tx",
+      "expect": ["assets/characters/nasus/nasus_base_tx_cm.dds"],
+      "reject": ["assets/characters/nasus/nasus.bin"]
+    },
+    {
+      "name": "a query is a run of characters and not a subsequence of a path",
+      "query": "nasus",
+      "expect": ["assets/characters/nasus/nasus.skn"],
+      "reject": ["assets/characters/smolder/sounds/charizard_sfx_audio.bnk"]
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "comment": "Name orderings that compareNames (naturalOrder.ts) and compare_names (natural_order.rs) must both produce. Some file listings sort in the frontend and some arrive sorted from the backend, so a name has to land in the same place either way. Change one comparator and the other's fixture test fails. `input` is the order the names are given in, `expect` the order they sort into.",
+  "cases": [
+    {
+      "name": "digit runs compare as numbers",
+      "input": ["skin50.bin", "skin5.bin", "skin9.bin", "skin45.bin", "skin0.bin"],
+      "expect": ["skin0.bin", "skin5.bin", "skin9.bin", "skin45.bin", "skin50.bin"]
+    },
+    {
+      "name": "a number too large for u64 still orders by value",
+      "input": ["a99999999999999999999999.bin", "a100000000000000000000000.bin"],
+      "expect": ["a99999999999999999999999.bin", "a100000000000000000000000.bin"]
+    },
+    {
+      "name": "padding orders before the number it pads",
+      "input": ["skin5.bin", "skin05.bin"],
+      "expect": ["skin05.bin", "skin5.bin"]
+    },
+    {
+      "name": "letters compare without regard to case",
+      "input": ["Beta", "alpha"],
+      "expect": ["alpha", "Beta"]
+    },
+    {
+      "name": "case alone is a stable tie-break, not a tie",
+      "input": ["beta", "Beta"],
+      "expect": ["Beta", "beta"]
+    },
+    {
+      "name": "an underscore orders after the digits it sits beside",
+      "input": ["skin_1.bin", "skin1.bin"],
+      "expect": ["skin1.bin", "skin_1.bin"]
+    },
+    {
+      "name": "a prefix precedes the name it prefixes",
+      "input": ["ahri.bin", "ahri", "ahribot.dat"],
+      "expect": ["ahri", "ahri.bin", "ahribot.dat"]
+    },
+    {
+      "name": "a digit orders before a letter in the same place",
+      "input": ["skina", "skin1"],
+      "expect": ["skin1", "skina"]
+    },
+    {
+      "name": "the real names of one champion's animation directory",
+      "input": [
+        "skin17.bin",
+        "skin3.bin",
+        "skin0.bin",
+        "skin89.bin",
+        "skin14.bin",
+        "skin1.bin",
+        "ahri_multi_skins_skin0.bin",
+        "ahri.bin"
+      ],
+      "expect": [
+        "ahri.bin",
+        "ahri_multi_skins_skin0.bin",
+        "skin0.bin",
+        "skin1.bin",
+        "skin3.bin",
+        "skin14.bin",
+        "skin17.bin",
+        "skin89.bin"
+      ]
+    },
+    {
+      "name": "a run of nothing but zeros is the number zero",
+      "input": ["skin00.bin", "skin0.bin", "skin1.bin"],
+      "expect": ["skin0.bin", "skin00.bin", "skin1.bin"]
+    }
+  ]
+}

@@ -1,13 +1,17 @@
-//! Tauri command for running the diagnostic suite.
+//! Tauri commands for the diagnostic suite and for League diagnostics.
 //!
-//! Resolves the bundled hook DLL the injector loads into the game, snapshots
-//! settings, and runs every check in [`ltk_manager_core::diagnostics::run_all`]. The
-//! command never returns an error — checks that fail to gather data report
-//! `Severity::Warn` or `Severity::Bad` instead.
+//! `run_diagnostics` resolves the bundled hook DLL the injector loads into the
+//! game, snapshots settings, and runs every check in
+//! [`ltk_manager_core::diagnostics::run_all`]. It never returns an error, since
+//! checks that fail to gather data report `Severity::Warn` or `Severity::Bad`
+//! instead. The incident commands read the store the patcher thread writes.
 
+use crate::commands::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::patcher::host::HOOK_DLL_NAME;
-use crate::state::{get_app_data_dir, SettingsState};
+use crate::state::{get_app_data_dir, IncidentStoreState, SettingsState};
+use ltk_manager_core::diagnostics::incident::Incident;
+use ltk_manager_core::diagnostics::token::{DecodedIncident, IncidentToken};
 use ltk_manager_core::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
@@ -15,7 +19,7 @@ use tauri::{AppHandle, Manager, State};
 /// Same lookup chain as `commands::patcher::resolve_resource`, but returns
 /// `None` instead of an error so we can still report the rest of the
 /// diagnostics when the DLL is missing.
-fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
+pub(crate) fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
     if let Ok(dir) = app_handle.path().resource_dir() {
         let p = dir.join(HOOK_DLL_NAME);
         if p.exists() {
@@ -156,4 +160,75 @@ fn run_diagnostics_inner(
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         checks,
     })
+}
+
+/// Every incident the store holds, newest first.
+#[tauri::command]
+pub fn list_incidents(incidents: State<IncidentStoreState>) -> IpcResult<Vec<Incident>> {
+    incidents.0.list().into()
+}
+
+/// Marks an incident dismissed. The verdict line goes, and the row dims.
+#[tauri::command]
+pub fn dismiss_incident(id: String, incidents: State<IncidentStoreState>) -> IpcResult<()> {
+    incidents.0.dismiss(&id).into()
+}
+
+/// Reveals the incident's game log in the file manager.
+#[tauri::command]
+pub fn reveal_game_log(id: String, incidents: State<IncidentStoreState>) -> IpcResult<()> {
+    reveal_game_log_inner(&id, &incidents).into()
+}
+
+fn reveal_game_log_inner(id: &str, incidents: &State<IncidentStoreState>) -> AppResult<()> {
+    let incident = find_incident(incidents, id)?;
+    let Some(game) = incident.game else {
+        return Err(AppError::Other(
+            "This incident has no game log to open".to_string(),
+        ));
+    };
+    reveal_in_explorer_inner(&game.log_path)
+}
+
+/// The incident as the text a support thread wants, with its token on the
+/// second line.
+#[tauri::command]
+pub fn incident_report(id: String, incidents: State<IncidentStoreState>) -> IpcResult<String> {
+    find_incident(&incidents, &id)
+        .map(|incident| {
+            let token = incident.token(env!("CARGO_PKG_VERSION"));
+            incident.report_text(env!("CARGO_PKG_VERSION"), Some(&token))
+        })
+        .into()
+}
+
+/// The incident folded into one short string, for a URL or a chat.
+#[tauri::command]
+pub fn incident_token(id: String, incidents: State<IncidentStoreState>) -> IpcResult<String> {
+    find_incident(&incidents, &id)
+        .map(|incident| incident.token(env!("CARGO_PKG_VERSION")))
+        .into()
+}
+
+/// Reads a token back, from the token alone or from a pasted report or URL
+/// that carries one, against this build's tables.
+#[tauri::command]
+pub fn decode_incident_token(token: String) -> IpcResult<DecodedIncident> {
+    decode_incident_token_inner(&token).into()
+}
+
+/// The errors read as sentences, because the decoder shows them as they are.
+fn decode_incident_token_inner(text: &str) -> AppResult<DecodedIncident> {
+    let token = IncidentToken::find_in(text)
+        .ok_or_else(|| AppError::Other("The text holds no incident token.".to_string()))?;
+    IncidentToken::decode(token)
+        .map(|token| token.resolve())
+        .map_err(|e| AppError::Other(e.to_string()))
+}
+
+fn find_incident(incidents: &State<IncidentStoreState>, id: &str) -> AppResult<Incident> {
+    incidents
+        .0
+        .get(id)?
+        .ok_or_else(|| AppError::Other(format!("Incident {id} not found")))
 }

@@ -1,4 +1,5 @@
-const CDRAGON_BASE = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default";
+const CDRAGON_BASE =
+  "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default";
 const CDRAGON_SKINS = `${CDRAGON_BASE}/v1/skins.json`;
 
 export type CdChampion = {
@@ -84,7 +85,9 @@ function stringValue(value: unknown): string {
 }
 
 function stringList(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function normalizeChampionChroma(raw: unknown, championId: number): CdChroma | null {
@@ -132,12 +135,16 @@ function normalizeChampionSkin(raw: unknown, championId: number): CdChampionSkin
 }
 
 export async function fetchCdChampion(championId: string): Promise<CdChampion> {
-  const response = await fetch(`${CDRAGON_BASE}/v1/champions/${encodeURIComponent(championId)}.json`);
+  const response = await fetch(
+    `${CDRAGON_BASE}/v1/champions/${encodeURIComponent(championId)}.json`,
+  );
   if (!response.ok) throw new Error(`cdragon champion ${championId} ${response.status}`);
   const raw = (await response.json()) as Record<string, unknown>;
   const id = typeof raw.id === "number" ? raw.id : Number(championId);
   const skins = Array.isArray(raw.skins)
-    ? raw.skins.map((skin) => normalizeChampionSkin(skin, id)).filter((skin): skin is CdChampionSkin => skin !== null)
+    ? raw.skins
+        .map((skin) => normalizeChampionSkin(skin, id))
+        .filter((skin): skin is CdChampionSkin => skin !== null)
     : [];
   return {
     id,
@@ -163,7 +170,10 @@ export async function fetchCdSkin(champName: string, ddSkinName: string): Promis
   return byFolder ?? candidates[0] ?? null;
 }
 
-export async function fetchChromasForSkin(champName: string, ddSkinName: string): Promise<CdChroma[]> {
+export async function fetchChromasForSkin(
+  champName: string,
+  ddSkinName: string,
+): Promise<CdChroma[]> {
   const skin = await fetchCdSkin(champName, ddSkinName);
   return skin?.chromas ?? [];
 }

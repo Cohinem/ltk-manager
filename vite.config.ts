@@ -1,16 +1,27 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import svgr from "vite-plugin-svgr";
+
+import { releaseNotes } from "./scripts/vite-release-notes";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react(), tailwindcss()],
+  plugins: [
+    tanstackRouter({ target: "react", autoCodeSplitting: true }),
+    paraglideVitePlugin({ project: "./project.inlang" }),
+    react(),
+    tailwindcss(),
+    svgr(),
+    releaseNotes(__dirname),
+  ],
 
   // Prevent vite from obscuring rust errors
   clearScreen: false,

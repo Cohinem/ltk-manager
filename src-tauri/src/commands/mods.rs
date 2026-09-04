@@ -1,14 +1,15 @@
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt, Utf8PathExt};
+use super::off_thread;
+use crate::error::{AppResult, IpcResult, MutexResultExt, Utf8PathExt};
 use crate::mods::{
     inspect_modpkg_file, BulkInstallResult, EditModMetadataArgs, InstalledMod, ModLibraryState,
-    ModWadReport, ModpkgInfo, WadReportState,
+    ModStorage, ModWadReport, ModpkgInfo, WadReportState,
 };
 use crate::patcher::{PatcherError, PatcherState};
 use crate::state::SettingsState;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 /// Get all installed mods from the mod library.
 #[tauri::command]
@@ -38,6 +39,9 @@ pub fn install_mod(
         library
             .0
             .spawn_categorization(&config, vec![installed.id.clone()]);
+        library
+            .0
+            .spawn_health_check(&config, vec![installed.id.clone()]);
         Ok(installed)
     })();
     result.into()
@@ -70,6 +74,9 @@ pub fn apply_league_skin(
         library
             .0
             .spawn_categorization(&config, vec![installed.id.clone()]);
+        library
+            .0
+            .spawn_health_check(&config, vec![installed.id.clone()]);
         Ok(installed)
     })();
     result.into()
@@ -132,8 +139,9 @@ pub fn install_mods(
         reject_if_patcher_running(&patcher)?;
         let config = settings.config()?;
         let result = library.0.install_mods_from_packages(&config, &file_paths)?;
-        let ids = result.installed.iter().map(|m| m.id.clone()).collect();
-        library.0.spawn_categorization(&config, ids);
+        let ids: Vec<String> = result.installed.iter().map(|m| m.id.clone()).collect();
+        library.0.spawn_categorization(&config, ids.clone());
+        library.0.spawn_health_check(&config, ids);
         Ok(result)
     })();
     result.into()
@@ -239,6 +247,37 @@ pub fn edit_mod_metadata(
     result.into()
 }
 
+/// Read a mod's content from its archive or from an unpacked tree from now on.
+///
+/// Off-thread because unpacking writes the mod's whole content tree, which is
+/// the one direction that is not instant.
+#[tauri::command]
+pub async fn set_mod_storage(
+    mod_id: String,
+    storage: ModStorage,
+    app_handle: AppHandle,
+) -> IpcResult<InstalledMod> {
+    let setup: AppResult<_> = (|| {
+        let patcher = app_handle.state::<PatcherState>();
+        reject_if_patcher_running(&patcher)?;
+        let config = app_handle.state::<SettingsState>().config()?;
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        Ok((config, library))
+    })();
+
+    let (config, library) = match setup {
+        Ok(v) => v,
+        Err(e) => return IpcResult::from(Err::<InstalledMod, _>(e)),
+    };
+
+    off_thread(move || {
+        let updated = library.set_mod_storage(&config, &mod_id, storage)?;
+        library.announce_change();
+        Ok(updated)
+    })
+    .await
+}
+
 /// Inspect a `.modpkg` file and return its metadata.
 #[tauri::command]
 pub fn inspect_modpkg(file_path: String) -> IpcResult<ModpkgInfo> {
@@ -331,8 +370,7 @@ pub fn analyze_mod_wads(
             &game_dir,
             &state_dir,
             &mut enabled_mod,
-        )
-        .map_err(|e| AppError::Other(format!("Mod analysis failed: {}", e)))?;
+        )?;
 
         let mut report = ModWadReport::from_upstream(upstream);
         library

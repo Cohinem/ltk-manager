@@ -6,22 +6,31 @@ import { match } from "ts-pattern";
 
 import { Button, Checkbox, IconButton, Menu, Tooltip } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
+import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
+import { useSettings } from "@/modules/settings";
+import { useWorkshopDialogsStore, useWorkshopSelectionStore, type ViewMode } from "@/stores";
 
 import { useProjectThumbnail } from "../api/useProjectThumbnail";
 import { useTestProjects } from "../api/useTestProject";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
-import type { ViewMode } from "./WorkshopToolbar";
 
 interface ProjectCardProps {
   project: WorkshopProject;
   viewMode: ViewMode;
   onEdit: (project: WorkshopProject) => void;
+  /** The grid's roving stop, so `0` on the one card the tab order reaches. */
+  tabIndex: number;
 }
 
-export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
+/* Accent-500 rather than the dimmed one the pointer gets: DS-HOVER. */
+const FOCUS_RING = "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none";
+
+/* The grid draws on the ground, so a card is the default raised surface over
+   it: DS-GROUND. */
+
+export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCardProps) {
   const { data: thumbnailUrl } = useProjectThumbnail(project.path, project.thumbnailPath);
 
   const selected = useWorkshopSelectionStore((s) => s.selectedPaths.has(project.path));
@@ -40,7 +49,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   function handleTest() {
     testProjects.mutate(
       { projects: [{ path: project.path, displayName: project.displayName }] },
-      { onError: (err) => console.error("Failed to test project:", err.message) },
+      { onError: (err) => console.error("Failed to test project:", err) },
     );
   }
 
@@ -79,7 +88,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
       }}
       disabled={stopPatcher.isPending}
       title="Stop test"
-      className="group/pill flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400 transition-colors hover:bg-green-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+      className="group/pill flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
     >
       Testing
       <X className="h-3 w-3 opacity-60 group-hover/pill:opacity-100" />
@@ -87,7 +96,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   );
 
   const listBorderClass = isTestingThis
-    ? "border-green-500/40"
+    ? "border-success/40"
     : selected
       ? "border-accent-500/40"
       : "border-surface-700";
@@ -95,8 +104,12 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   if (viewMode === "list") {
     return (
       <div
+        role="button"
+        tabIndex={tabIndex}
+        aria-label={project.displayName}
         className={twMerge(
-          "group flex cursor-pointer items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-600 hover:shadow-md",
+          "group flex cursor-pointer items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-[background-color,border-color] duration-150 ease-out hover:border-accent-hover hover:bg-surface-800",
+          FOCUS_RING,
           listBorderClass,
           isPatcherActive && !isTestingThis && "opacity-50",
         )}
@@ -111,7 +124,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
           />
         </div>
 
-        <div className="relative h-12 w-21 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-surface-700 to-surface-800">
+        <div className="relative h-12 w-21 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-surface-600 to-surface-700">
           {thumbnailUrl ? (
             <img
               src={thumbnailUrl}
@@ -134,7 +147,10 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
           <p className="truncate text-sm text-surface-500">
             v{project.version} • {project.authors.map((a) => a.name).join(", ") || "Unknown author"}
           </p>
-          <ProjectPills project={project} max={3} />
+          <div className="flex flex-wrap items-center gap-1.5 empty:hidden">
+            <ProjectPills project={project} max={3} />
+            <SuspectBadge projectPath={project.path} />
+          </div>
         </div>
 
         {isTestingThis && stopPill}
@@ -193,15 +209,19 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   }
 
   const gridBorderClass = isTestingThis
-    ? "border-green-500/40"
+    ? "border-success/40"
     : selected
       ? "border-accent-500/40"
       : "border-surface-600";
 
   return (
     <div
+      role="button"
+      tabIndex={tabIndex}
+      aria-label={project.displayName}
       className={twMerge(
-        "group relative cursor-pointer rounded-xl border bg-surface-800 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-400 hover:shadow-md",
+        "group relative cursor-pointer rounded-xl border bg-surface-900 transition-[background-color,border-color] duration-150 ease-out hover:border-accent-hover hover:bg-surface-800",
+        FOCUS_RING,
         gridBorderClass,
         isPatcherActive && !isTestingThis && "opacity-50",
       )}
@@ -225,7 +245,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
         />
       </div>
 
-      <div className="relative aspect-video overflow-hidden rounded-t-xl bg-linear-to-br from-surface-700 to-surface-800">
+      <div className="relative aspect-video overflow-hidden rounded-t-xl bg-linear-to-br from-surface-600 to-surface-700">
         {thumbnailUrl ? (
           <img src={thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -239,10 +259,13 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
 
       <div className="flex items-start gap-1 p-3">
         <div className="min-w-0 flex-1">
-          <h3 className="mb-1 text-sm font-medium text-surface-100">
-            <span className="line-clamp-1">{project.displayName}</span>
+          <h3 className="mb-1 truncate text-sm font-medium text-surface-100">
+            {project.displayName}
           </h3>
-          <ProjectPills project={project} max={3} className="mb-1" />
+          <div className="mb-1 flex flex-wrap items-center gap-1.5 empty:hidden">
+            <ProjectPills project={project} max={3} />
+            <SuspectBadge projectPath={project.path} />
+          </div>
           <div className="flex items-center gap-1.5 text-xs text-surface-500">
             <span>v{project.version}</span>
             <span>•</span>
@@ -331,23 +354,23 @@ function renderTestButton({
         loading={isStopping}
         left={
           !isStopping && (
-            <span className="inline-flex h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]" />
+            <span className="inline-flex h-2 w-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
           )
         }
-        className="border-green-500/40 bg-green-500/10 text-green-400 hover:border-green-500/60 hover:bg-green-500/20"
+        className="border-success/40 bg-success/10 text-success-text hover:border-success/60 hover:bg-success/20"
       >
         {isStopping ? "Stopping…" : "Stop Test"}
       </Button>
     ))
     .with({ kind: "building-other" }, { kind: "running-other" }, ({ otherLabel }) => (
-      <Tooltip content={`Testing "${otherLabel}" — stop it first`}>
+      <Tooltip content={`Testing "${otherLabel}" - stop it first`}>
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
           Test
         </Button>
       </Tooltip>
     ))
     .with({ kind: "building-library" }, { kind: "running-library" }, () => (
-      <Tooltip content="Patcher is running — stop it first">
+      <Tooltip content="Patcher is running - stop it first">
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
           Test
         </Button>
@@ -402,18 +425,22 @@ function ProjectPills({
   max: number;
   className?: string;
 }) {
+  const { data: settings } = useSettings();
+
   const pills = [
-    ...project.tags.map((t) => ({ label: getTagLabel(t), color: "brand" as const })),
-    ...project.champions.map((c) => ({ label: c, color: "emerald" as const })),
+    ...project.tags.map((t) => ({ label: getTagLabel(t), color: "tag" as const })),
+    ...project.champions.map((c) => ({ label: c, color: "champion" as const })),
   ];
   if (pills.length === 0) return null;
+  if (settings && !settings.showModTags) return null;
 
   const visible = pills.slice(0, max);
   const overflow = pills.length - max;
 
+  // Same categorical hues as the library's ModPills.
   const colorClasses = {
-    brand: "bg-accent-500/15 text-accent-400",
-    emerald: "bg-emerald-500/15 text-emerald-400",
+    tag: "bg-accent-500/15 text-accent-400",
+    champion: "bg-cat-champion/15 text-cat-champion-text",
   } as const;
 
   return (
@@ -421,12 +448,12 @@ function ProjectPills({
       {visible.map((pill) => (
         <span
           key={`${pill.color}:${pill.label}`}
-          className={`rounded px-1.5 py-0.5 text-[10px] leading-tight ${colorClasses[pill.color]}`}
+          className={`rounded px-1.5 py-0.5 text-[0.625rem] leading-tight ${colorClasses[pill.color]}`}
         >
           {pill.label}
         </span>
       ))}
-      {overflow > 0 && <span className="text-[10px] text-surface-500">+{overflow}</span>}
+      {overflow > 0 && <span className="text-[0.625rem] text-surface-500">+{overflow}</span>}
     </div>
   );
 }

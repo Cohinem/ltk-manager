@@ -1,10 +1,12 @@
-import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
-import type { InstalledMod } from "@/lib/tauri";
+import { errorSummary } from "@/i18n";
+import { api, type InstalledMod, type ModStorage } from "@/lib/tauri";
 import {
   useMoveModToFolder,
+  useSetModStorage,
   useSkinhackFlag,
   useToggleMod,
   useUninstallMod,
@@ -33,20 +35,44 @@ export interface ModCardView {
   thumbnailUrl: string | undefined;
   isFlagged: boolean;
   skinhackReason: string;
+  /**
+   * Whether this mod can be moved between the two storage modes at all.
+   *
+   * A modpkg has no unpacked form. Unpacking reads the archive, so an archive
+   * mod whose file is gone offers nothing; repacking packs the tree and needs
+   * no archive.
+   */
+  canChangeStorage: boolean;
+  storageChangePending: boolean;
   disabled: boolean;
   interactionsDisabled: boolean;
+  /**
+   * Whether the card's menu is closed to the reader.
+   *
+   * Narrower than [`interactionsDisabled`], which also covers a mod that
+   * cannot be switched on. A blocked mod still needs its menu, or there would
+   * be no way left to act on it.
+   */
+  menuDisabled: boolean;
   isInUserFolder: boolean;
   isMultiLayer: boolean;
   selectMode: boolean;
   isSelected: boolean;
   inSelectedState: boolean;
   inEnabledState: boolean;
+  /** Whether the mod cannot be used at all, which is not the same as being off. */
+  blocked: boolean;
+  isInteractive: boolean;
   cursorClass: string;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
+  wadFootprintOpen: boolean;
+  setWadFootprintOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
+  onCardKeyDown: (e: React.KeyboardEvent) => void;
   onToggle: (modId: string, enabled: boolean) => void;
   onUninstall: () => void;
+  onSetStorage: (storage: ModStorage) => void;
   onCopyId: () => void;
   onOpenLocation: () => void;
   onRemoveFromFolder: () => void;
@@ -68,6 +94,7 @@ export function useModCardController({
   const toggleMod = useToggleMod();
   const uninstallMod = useUninstallMod();
   const moveModToFolder = useMoveModToFolder();
+  const setModStorage = useSetModStorage();
   const { data: patcherStatus } = usePatcherStatus();
 
   const selectMode = useLibrarySelectionStore((s) => s.selectMode);
@@ -82,23 +109,44 @@ export function useModCardController({
     setInfoOpen: setSkinhackInfoOpen,
   } = useSkinhackFlag(mod);
 
+  const [wadFootprintOpen, setWadFootprintOpen] = useState(false);
   const patcherRunning = patcherStatus?.running ?? false;
   const disabled = isFlagged || patcherRunning;
   const interactionsDisabled = disabled || selectMode;
+  // Select mode is a mode over the whole grid, and a patcher run owns the
+  // library. Being unusable is neither, and is the state most in need of a menu.
+  const menuDisabled = patcherRunning || selectMode;
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
+
+  // "Legacy is transient": ADR-0008.
+  const canChangeStorage =
+    mod.format === "fantome" && (mod.storage === "project" || mod.hasArchive) && mod.slug != null;
 
   function handleToggle(modId: string, enabled: boolean) {
     toggleMod.mutate(
       { modId, enabled },
-      { onError: (error) => console.error("Failed to toggle mod:", error.message) },
+      { onError: (error) => console.error("Failed to toggle mod:", error) },
     );
   }
 
   function handleUninstall() {
     uninstallMod.mutate(mod.id, {
-      onError: (error) => console.error("Failed to uninstall mod:", error.message),
+      onError: (error) => console.error("Failed to uninstall mod:", error),
     });
+  }
+
+  /* Success is announced by `useModStorageToast`, off the backend's own report,
+     so the toast can track the conversion rather than only its end. */
+  function handleSetStorage(storage: ModStorage) {
+    if (!canChangeStorage || storage === mod.storage) return;
+    setModStorage.mutate(
+      { modId: mod.id, storage },
+      {
+        onError: (error) =>
+          toast.error("Could not change how this mod is stored", errorSummary(error)),
+      },
+    );
   }
 
   async function handleCopyId() {
@@ -107,10 +155,9 @@ export function useModCardController({
   }
 
   async function handleOpenLocation() {
-    try {
-      await invoke("reveal_in_explorer", { path: mod.modDir });
-    } catch (error) {
-      console.error("Failed to open location:", error);
+    const result = await api.revealInExplorer(mod.modDir);
+    if (!result.ok) {
+      console.error("Failed to open location:", result.error);
     }
   }
 
@@ -118,12 +165,10 @@ export function useModCardController({
     moveModToFolder.mutate({ modId: mod.id, folderId: ROOT_FOLDER_ID });
   }
 
-  function handleCardClick(e: React.MouseEvent) {
-    if ((e.target as HTMLElement).closest("[data-no-toggle]")) {
-      return;
-    }
+  /** The grid card has no toggle of its own, so the card itself is the control. */
+  function activateCard(shiftKey: boolean) {
     if (selectMode) {
-      if (e.shiftKey) selectRangeTo(mod.id);
+      if (shiftKey) selectRangeTo(mod.id);
       else toggleSelection(mod.id);
       return;
     }
@@ -131,12 +176,25 @@ export function useModCardController({
     handleToggle(mod.id, !mod.enabled);
   }
 
-  const inSelectedState = selectMode && isSelected;
-  const inEnabledState = mod.enabled && !isFlagged;
-  const isInteractive = !isFlagged && (selectMode || !disabled);
+  function handleCardClick(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest("[data-no-toggle]")) return;
+    activateCard(e.shiftKey);
+  }
 
-  const cursorClass = match({ isFlagged, isInteractive })
-    .with({ isFlagged: true }, () => "cursor-default opacity-50")
+  function handleCardKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if ((e.target as HTMLElement).closest("[data-no-toggle]")) return;
+    e.preventDefault();
+    activateCard(e.shiftKey);
+  }
+
+  const blocked = isFlagged;
+  const inSelectedState = selectMode && isSelected;
+  const inEnabledState = mod.enabled && !blocked;
+  const isInteractive = !blocked && (selectMode || !disabled);
+
+  const cursorClass = match({ blocked, isInteractive })
+    .with({ blocked: true }, () => "cursor-default opacity-50")
     .with({ isInteractive: true }, () => "cursor-pointer")
     .otherwise(() => "cursor-default");
 
@@ -145,20 +203,29 @@ export function useModCardController({
     thumbnailUrl,
     isFlagged,
     skinhackReason,
+    canChangeStorage,
+    storageChangePending: setModStorage.isPending,
     disabled,
     interactionsDisabled,
+    menuDisabled,
     isInUserFolder,
     isMultiLayer,
     selectMode,
     isSelected,
     inSelectedState,
     inEnabledState,
+    blocked,
+    isInteractive,
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
+    wadFootprintOpen,
+    setWadFootprintOpen,
     onCardClick: handleCardClick,
+    onCardKeyDown: handleCardKeyDown,
     onToggle: handleToggle,
     onUninstall: handleUninstall,
+    onSetStorage: handleSetStorage,
     onCopyId: handleCopyId,
     onOpenLocation: handleOpenLocation,
     onRemoveFromFolder: handleRemoveFromFolder,

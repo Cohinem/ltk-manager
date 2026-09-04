@@ -1,16 +1,24 @@
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
+use crate::mods::{
+    ChecksumMismatchInfo, ChecksumMismatchState, LinkedBinOffenderInfo, LinkedBinState,
+    ModLibraryState,
+};
+use crate::patcher::host::HOOK_DLL_NAME;
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
 use crate::patcher::{
-    PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherState, PatcherThread,
-    SessionParams, StoredPatcherConfig,
+    PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherSession, PatcherState,
+    PatcherThread, SessionParams, StoredPatcherConfig,
 };
-use crate::state::SettingsState;
+use crate::state::{IncidentStoreState, SettingsState};
+use ltk_manager_core::diagnostics::binary_id::PatcherBinaries;
+use ltk_manager_core::utils::client_settings::LeagueClientSettings;
+use ltk_manager_core::utils::game::GameDir;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use super::mods::reject_if_patcher_running;
+use super::off_thread;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
@@ -39,10 +47,10 @@ pub struct PatcherConfig {
 pub struct PatcherStatus {
     /// Whether the patcher is currently running.
     pub running: bool,
-    /// Overlay prefix the running session was started with. `null` while idle.
-    pub overlay_prefix: Option<String>,
     /// Current phase of the patcher lifecycle.
     pub phase: PatcherPhase,
+    /// The session in flight. `null` while idle.
+    pub session: Option<PatcherSession>,
 }
 
 /// Resolve a bundled resource file (e.g. the injector executable) from the
@@ -119,6 +127,7 @@ pub fn start_patcher(
     host_state: State<PatcherHostState>,
     settings: State<SettingsState>,
     library: State<ModLibraryState>,
+    incidents: State<IncidentStoreState>,
 ) -> IpcResult<()> {
     let result = start_patcher_inner(
         config,
@@ -127,6 +136,7 @@ pub fn start_patcher(
         &host_state,
         &settings,
         &library,
+        &incidents,
     );
     if let Err(ref e) = result {
         tracing::error!(error = ?e, "Start patcher failed");
@@ -141,6 +151,7 @@ pub(crate) fn start_patcher_inner(
     host_state: &State<PatcherHostState>,
     settings: &State<SettingsState>,
     library: &State<ModLibraryState>,
+    incidents: &State<IncidentStoreState>,
 ) -> AppResult<()> {
     if cfg!(not(target_os = "windows")) {
         return Err(PatcherError::UnsupportedPlatform.into());
@@ -150,12 +161,12 @@ pub(crate) fn start_patcher_inner(
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
 
-    // Decides which tray icon set this session drives (workshop vs library).
-    let is_workshop = config
-        .workshop_projects
-        .as_ref()
-        .map(|v| !v.is_empty())
-        .unwrap_or(false);
+    let stored_config = StoredPatcherConfig {
+        flags: config.flags,
+        workshop_projects: config.workshop_projects.clone(),
+    };
+    // Decides which tray icon set this session drives.
+    let is_workshop = stored_config.origin().is_workshop();
 
     let workshop_paths: Vec<PathBuf> = config
         .workshop_projects
@@ -184,23 +195,52 @@ pub(crate) fn start_patcher_inner(
     if !config_snapshot.enforce_skinhack_scan {
         host_flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1;
     }
-    if config_snapshot.lazy_wad_scan {
-        host_flags |= crate::patcher::host::hook_flags::LAZY_WAD_SCAN;
+    if config_snapshot.full_wad_scan {
+        host_flags |= crate::patcher::host::hook_flags::FULL_WAD_SCAN;
+    }
+
+    // The client rewrites its own settings when it exits, so the preference is
+    // re-applied at every start rather than once.
+    if config_snapshot.disable_crash_reporting {
+        match GameDir::resolve(&config_snapshot)
+            .and_then(|game_dir| LeagueClientSettings::disable_crash_reporting(&game_dir))
+        {
+            Ok(true) => tracing::info!("Turned the League client's crash reporting off"),
+            Ok(false) => {}
+            Err(e) => {
+                tracing::warn!("Could not turn the League client's crash reporting off: {e}")
+            }
+        }
     }
 
     let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);
 
+    let dll_path = crate::commands::diagnostics::resolve_patcher_dll(app_handle)
+        .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))
+        .unwrap_or_else(|| PathBuf::from(HOOK_DLL_NAME));
+    let patcher_binaries = PatcherBinaries::identify(
+        &dll_path,
+        &injector_exe,
+        option_env!("LTK_BUNDLED_DLL_HASH").unwrap_or_default(),
+        option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
+    );
+
     let events: Arc<dyn PatcherEvents> =
         Arc::new(TauriPatcherEvents::new(app_handle.clone(), is_workshop));
+    // The cap is a setting, so the session's store reads it as a snapshot.
+    let incident_store = Arc::new(
+        incidents
+            .0
+            .as_ref()
+            .clone()
+            .with_keep(config_snapshot.keep_incidents as usize),
+    );
 
     PatcherThread::start(
         events,
         state.handle(),
         host_state.handle(),
-        StoredPatcherConfig {
-            flags: config.flags,
-            workshop_projects: config.workshop_projects,
-        },
+        stored_config,
         SessionParams {
             injector_exe,
             config: config_snapshot,
@@ -208,6 +248,8 @@ pub(crate) fn start_patcher_inner(
             workshop_paths,
             host_flags,
             should_elevate,
+            patcher_binaries,
+            incident_store,
         },
     )
 }
@@ -250,10 +292,7 @@ pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
         Err(e) => return IpcResult::from(Err::<(), _>(e)),
     };
 
-    tauri::async_runtime::spawn_blocking(move || library.rebuild_overlay(&config).map(|_| ()))
-        .await
-        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-        .into()
+    off_thread(move || library.rebuild_overlay(&config).map(|_| ())).await
 }
 
 /// Get the current status of the patcher.
@@ -273,18 +312,17 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherSta
                 "Patcher thread dead but phase was {:?}, resetting to Idle",
                 patcher_state.phase
             );
-            patcher_state.phase = PatcherPhase::Idle;
-            patcher_state.overlay_prefix = None;
+            patcher_state.end_session();
         }
 
         PatcherStatus {
             running,
-            overlay_prefix: if running {
-                patcher_state.overlay_prefix.clone()
+            phase: patcher_state.phase,
+            session: if running {
+                patcher_state.session.clone()
             } else {
                 None
             },
-            phase: patcher_state.phase,
         }
     })
 }
@@ -328,4 +366,18 @@ pub fn get_linked_bin_offenders(
             .collect())
     })();
     result.into()
+}
+
+/// Checksum mismatches found in the most recent overlay build, keyed by mod id.
+///
+/// Recorded as a byproduct of the same build that records linked-bin offenders,
+/// so this is a cheap read with no IO. A mismatch marks a badly-packed mod: its
+/// container claimed a checksum its own bytes do not have. Never fatal - the
+/// overlay carries the recomputed value, so this is advisory, surfaced per-mod
+/// in mod details.
+#[tauri::command]
+pub fn get_checksum_mismatches(
+    checksum_mismatches: State<Arc<ChecksumMismatchState>>,
+) -> IpcResult<HashMap<String, Vec<ChecksumMismatchInfo>>> {
+    checksum_mismatches.by_mod().into()
 }

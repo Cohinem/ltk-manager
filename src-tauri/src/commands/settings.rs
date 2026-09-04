@@ -1,8 +1,9 @@
+use crate::commands::launcher::LauncherState;
 use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_autostart::ManagerExt;
 
 /// Get current settings.
@@ -41,10 +42,29 @@ fn save_settings_inner(
 
     persist_settings(app_handle, &settings)?;
 
+    // The launcher is built from the install root and re-reads the window
+    // hider, both of which the user may just have moved. Logged rather than
+    // propagated: the settings are already saved, and failing the save for a
+    // launcher that cannot be rebuilt would report the wrong thing.
+    let launcher: State<'_, LauncherState> = app_handle.state();
+    if let Err(e) = launcher.launcher().reconfigure(&settings.config) {
+        tracing::error!(error = ?e, "Could not apply the new settings to the launcher");
+    }
+
     let mut current = state.0.lock().mutex_err()?;
     *current = settings;
 
     Ok(())
+}
+
+/// The settings a fresh install starts with.
+///
+/// Read once by the settings UI, so a row can say whether it is still at its
+/// default and what resetting it would put back. The `get_` prefix is against
+/// C-GETTER and stays, because `get_settings` is its neighbour.
+#[tauri::command]
+pub fn get_default_settings() -> IpcResult<Settings> {
+    IpcResult::ok(Settings::default())
 }
 
 /// Auto-detect League of Legends installation path.

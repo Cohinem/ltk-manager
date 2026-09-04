@@ -1,41 +1,65 @@
+import {
+  FolderOpenIcon,
+  GearIcon,
+  HouseIcon,
+  MinusIcon,
+  SquareIcon,
+  StethoscopeIcon,
+  WheelchairIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
-import {
-  Accessibility,
-  FolderOpen,
-  Hammer,
-  Layers,
-  Minus,
-  Settings,
-  Square,
-  Stethoscope,
-  X,
-} from "lucide-react";
-import { type ComponentType, useEffect, useState } from "react";
+import { type ComponentType, useEffect, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { IconButton, MaskIcon, Separator, Tooltip, useToast } from "@/components";
+import {
+  CollectionIcon,
+  IconButton,
+  LayerIcon,
+  LootIcon,
+  MinionIcon,
+  PoroIcon,
+  ScuttleIcon,
+  Separator,
+  Tooltip,
+  useToast,
+} from "@/components";
 import { usePlatformSupport } from "@/hooks";
-import { api, type AppInfo, unwrap } from "@/lib/tauri";
-import { ProfileSelector } from "@/modules/library";
+import { m } from "@/i18n";
+import { api, type AppInfo, unwrap, type VerdictKind } from "@/lib/tauri";
+import { isInformational, useLatestIncident, useLatestIncidentToken } from "@/modules/diagnostics";
+import { useHomeUnread } from "@/modules/home";
+import { type AppMark, useAppMark, useRollAppMark } from "@/stores";
 
 import { NotificationCenter } from "./NotificationCenter";
+import { UpdateButton } from "./UpdateButton";
 
 const navItems = [
-  { to: "/", label: "Library", icon: MaskIcon, exact: true },
-  { to: "/native", label: "Native", icon: Layers, exact: true },
-  { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
+  { to: "/", label: m.home_nav_label(), icon: HouseIcon, exact: true },
+  { to: "/native", label: "Native", icon: LayerIcon, exact: true },
+  { to: "/mods", label: "Mods", icon: CollectionIcon, exact: false },
+  { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
 ] as const;
 
-const linkBaseClass =
-  "relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors";
-const settingsLinkBase = "relative flex h-full items-center px-3 transition-colors";
-const activeLinkClass = "text-accent-400";
-const inactiveLinkClass = "text-surface-400 hover:text-surface-200";
+const iconLiftClass =
+  "[&_svg]:transition-transform [&_svg]:duration-150 [&_svg]:ease-out hover:[&_svg]:scale-110";
+
+const tabBaseClass = `relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700 ${iconLiftClass}`;
+const tabActiveClass = "text-accent-400";
+const tabInactiveClass = "text-surface-400 hover:text-surface-200";
+
+const actionCellClass = `h-full w-9 shrink-0 rounded-none ${iconLiftClass}`;
+const iconNavBase = `flex h-full w-9 shrink-0 items-center justify-center transition-colors ${iconLiftClass}`;
+const iconNavActive = "bg-accent-500/15 text-accent-300";
+const iconNavInactive = "text-surface-400 hover:bg-surface-700 hover:text-surface-200";
+const windowControlClass = "h-full w-10 rounded-none text-surface-400 hover:text-surface-200";
 
 function ActiveIndicator() {
-  return <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-accent-500" />;
+  return (
+    <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-linear-to-r from-accent-500 to-accent-400" />
+  );
 }
 
 function NavLink({
@@ -43,22 +67,34 @@ function NavLink({
   label,
   icon: Icon,
   exact,
+  dot = false,
 }: {
   to: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
   exact: boolean;
+  /** The page holds something the reader has not seen, in the diagnostics dot's shape. */
+  dot?: boolean;
 }) {
   return (
     <Link
       to={to}
       activeOptions={{ exact }}
-      activeProps={{ className: twMerge(linkBaseClass, activeLinkClass) }}
-      inactiveProps={{ className: twMerge(linkBaseClass, inactiveLinkClass) }}
+      activeProps={{ className: twMerge(tabBaseClass, tabActiveClass) }}
+      inactiveProps={{ className: twMerge(tabBaseClass, tabInactiveClass) }}
     >
       {({ isActive }) => (
         <>
-          <Icon className="h-4 w-4" />
+          <span className="relative">
+            <Icon className="h-4 w-4" />
+            {dot && (
+              <span
+                aria-hidden
+                data-ui="TitleBar:unread"
+                className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent-400"
+              />
+            )}
+          </span>
           {label}
           {isActive && <ActiveIndicator />}
         </>
@@ -67,16 +103,80 @@ function NavLink({
   );
 }
 
-function buildBugReportUrl(appInfo: AppInfo | undefined): string {
-  const base = "https://github.com/LeagueToolkit/ltk-manager/issues/new?template=bug_report.yml";
-  if (!appInfo) return base;
+/**
+ * A verdict that reports facts without blaming anything is information. One
+ * that names a failure is a warning, and the dot says which is waiting.
+ */
+const incidentDotClass: Record<"informational" | "failure", string> = {
+  informational: "bg-warning",
+  failure: "bg-danger",
+};
 
-  const params = new URLSearchParams();
-  params.set("template", "bug_report.yml");
-  params.set("version", appInfo.version);
-  params.set("os", `${appInfo.os} ${appInfo.arch}`);
+function incidentDotKind(kind: VerdictKind) {
+  return isInformational(kind) ? "informational" : "failure";
+}
+
+function diagnosticsTooltip(pending: number): string {
+  if (pending === 0) return "Diagnostics";
+  if (pending === 1) return "Diagnostics · 1 incident to review";
+  return `Diagnostics · ${pending} incidents to review`;
+}
+
+function buildBugReportUrl(appInfo: AppInfo | undefined, diagnosticToken: string | null): string {
+  const params = new URLSearchParams({ template: "bug_report.yml" });
+  if (appInfo) {
+    params.set("version", appInfo.version);
+    params.set("os", `${appInfo.os} ${appInfo.arch}`);
+  }
+  if (diagnosticToken) params.set("diagnostic", diagnosticToken);
 
   return `https://github.com/LeagueToolkit/ltk-manager/issues/new?${params.toString()}`;
+}
+
+const mascotMarks = {
+  poro: PoroIcon,
+  minion: MinionIcon,
+  scuttle: ScuttleIcon,
+};
+
+const UNLOCK_CLICKS = 10;
+const UNLOCK_GAP = 1500;
+
+function MarkGlyph({ mark }: { mark: AppMark }) {
+  if (mark === "ltk") return <img src="/icon.svg" alt="LTK" className="size-5" />;
+
+  const Mascot = mascotMarks[mark];
+  return <Mascot className="size-6" />;
+}
+
+function TitleMark() {
+  const mark = useAppMark();
+  const rollAppMark = useRollAppMark();
+  const run = useRef({ count: 0, expiresAt: 0 });
+
+  function handleClick() {
+    const now = Date.now();
+    const count = now < run.current.expiresAt ? run.current.count + 1 : 1;
+
+    if (count < UNLOCK_CLICKS) {
+      run.current = { count, expiresAt: now + UNLOCK_GAP };
+      return;
+    }
+
+    run.current = { count: 0, expiresAt: 0 };
+    rollAppMark();
+  }
+
+  return (
+    <span
+      className="-m-1.5 flex size-8 shrink-0 items-center justify-center p-1"
+      onClick={handleClick}
+      data-tauri-drag-region="false"
+      data-ui="TitleBar:mark"
+    >
+      <MarkGlyph mark={mark} />
+    </span>
+  );
 }
 
 interface TitleBarProps {
@@ -87,9 +187,13 @@ interface TitleBarProps {
 export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   const { data: platform } = usePlatformSupport();
   const isMacOS = platform?.os === "macos";
+  const { latest, data: incidents } = useLatestIncident();
+  const diagnosticToken = useLatestIncidentToken();
+  const homeUnread = useHomeUnread();
+  const pendingIncidents = incidents?.filter((incident) => !incident.dismissed).length ?? 0;
 
   const version = appInfo?.version;
-  const bugReportUrl = buildBugReportUrl(appInfo);
+  const bugReportUrl = buildBugReportUrl(appInfo, diagnosticToken);
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
   const toast = useToast();
@@ -130,147 +234,154 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   return (
     <header
       className={twMerge(
-        "title-bar flex h-10 shrink-0 items-center justify-between border-b border-surface-600 bg-surface-950 select-none",
+        "title-bar flex h-9 shrink-0 items-center justify-between border-b border-surface-600 bg-surface-900 select-none",
         isMacOS && "pl-20",
       )}
       data-tauri-drag-region
     >
       {/* Left: App icon, title, version, and navigation */}
       <div className="flex h-full items-center" data-tauri-drag-region>
-        <div className="flex items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
-          <img src="/icon.svg" alt="LTK" className="h-5 w-5" data-tauri-drag-region />
-          <span className="text-sm font-medium text-surface-100" data-tauri-drag-region>
-            {title}
-          </span>
-          {version && (
-            <span className="text-xs text-surface-500" data-tauri-drag-region>
-              v{version}
+        <div className="flex shrink-0 items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
+          <TitleMark />
+          <div className="flex flex-col" data-tauri-drag-region>
+            <span
+              className="font-display text-sm leading-tight font-bold tracking-tight whitespace-nowrap text-accent-400"
+              data-tauri-drag-region
+            >
+              {title}
             </span>
-          )}
+            {version && (
+              <span
+                className="text-[0.625rem] leading-none whitespace-nowrap text-surface-500"
+                data-tauri-drag-region
+              >
+                v{version}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Navigation tabs */}
-        <nav className="flex h-full items-center gap-1">
+        <nav className="flex h-full items-center">
           {navItems.map((item) => (
-            <NavLink key={item.to} {...item} />
+            <NavLink key={item.to} {...item} dot={item.to === "/" && homeUnread} />
           ))}
         </nav>
-
-        <Separator orientation="vertical" />
-
-        <ProfileSelector />
       </div>
 
       {/* Right: Notifications, Settings, and window controls */}
       <div className="flex h-full items-center">
-        <Tooltip content="Open storage directory">
-          <IconButton
-            icon={<FolderOpen className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenStorageDirectory}
-            aria-label="Open storage directory"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+        <div className="flex h-full items-center">
+          <UpdateButton />
 
-        <NotificationCenter />
+          <Tooltip content="Open storage directory">
+            <IconButton
+              icon={<FolderOpenIcon className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenStorageDirectory}
+              aria-label="Open storage directory"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
+            />
+          </Tooltip>
 
-        <Tooltip content="Report a Bug">
-          <IconButton
-            icon={<Accessibility className="h-5 w-5" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open(bugReportUrl)}
-            aria-label="Report a Bug"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+          <NotificationCenter />
 
-        <Tooltip content="Join our Discord">
-          <IconButton
-            icon={<DiscordIcon className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open("https://discord.gg/yhzDVRyQex")}
-            aria-label="Join our Discord"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+          <Tooltip content="Report a Bug">
+            <IconButton
+              icon={<WheelchairIcon weight="bold" className="h-5 w-5" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open(bugReportUrl)}
+              aria-label="Report a Bug"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
+            />
+          </Tooltip>
 
-        <Tooltip content="Diagnostics">
+          <Tooltip content="Join our Discord">
+            <IconButton
+              icon={<DiscordIcon className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open("https://discord.gg/yhzDVRyQex")}
+              aria-label="Join our Discord"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
+            />
+          </Tooltip>
+
+          <Tooltip content={diagnosticsTooltip(pendingIncidents)}>
+            <Link
+              to="/diagnostics"
+              activeProps={{ className: twMerge(iconNavBase, iconNavActive) }}
+              inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
+              aria-label={diagnosticsTooltip(pendingIncidents)}
+              data-ui="TitleBar:diagnostics"
+            >
+              <span className="relative">
+                <StethoscopeIcon className="h-4 w-4" />
+                {latest && (
+                  <span
+                    aria-hidden
+                    className={twMerge(
+                      "absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full",
+                      incidentDotClass[incidentDotKind(latest.verdict.kind)],
+                    )}
+                  />
+                )}
+              </span>
+            </Link>
+          </Tooltip>
+
+          {/* Settings button */}
           <Link
-            to="/diagnostics"
-            activeProps={{
-              className: twMerge(settingsLinkBase, activeLinkClass),
-            }}
-            inactiveProps={{
-              className: twMerge(settingsLinkBase, inactiveLinkClass),
-            }}
-            aria-label="Diagnostics"
+            to="/settings"
+            activeProps={{ className: twMerge(iconNavBase, iconNavActive) }}
+            inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
+            aria-label="Settings"
           >
-            {({ isActive }) => (
-              <>
-                <Stethoscope className="h-4 w-4" />
-                {isActive && <ActiveIndicator />}
-              </>
-            )}
+            <GearIcon className="h-4 w-4" />
           </Link>
-        </Tooltip>
-
-        {/* Settings button */}
-        <Link
-          to="/settings"
-          activeProps={{
-            className: twMerge(settingsLinkBase, activeLinkClass),
-          }}
-          inactiveProps={{
-            className: twMerge(settingsLinkBase, inactiveLinkClass),
-          }}
-          aria-label="Settings"
-        >
-          {({ isActive }) => (
-            <>
-              <Settings className="h-4 w-4" />
-              {isActive && <ActiveIndicator />}
-            </>
-          )}
-        </Link>
+        </div>
 
         {!isMacOS && (
           <>
-            <Separator orientation="vertical" />
+            <Separator orientation="vertical" className="mx-0 h-full" />
 
-            <IconButton
-              icon={<Minus className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="sm"
-              onClick={handleMinimize}
-              aria-label="Minimize"
-              className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-amber-500 hover:text-white active:scale-90 active:opacity-80"
-            />
-            <IconButton
-              icon={
-                isMaximized ? (
-                  <OverlappingSquares className="h-3 w-3" />
-                ) : (
-                  <Square className="h-3 w-3" />
-                )
-              }
-              variant="ghost"
-              size="sm"
-              onClick={handleMaximize}
-              aria-label={isMaximized ? "Restore" : "Maximize"}
-              className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-green-500 hover:text-white active:scale-90 active:opacity-80"
-            />
-            <IconButton
-              icon={<X className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              aria-label="Close"
-              className="mx-0.5 mr-2 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-red-500 hover:text-white active:scale-90 active:opacity-80"
-            />
+            <div className="flex h-full">
+              <IconButton
+                icon={<MinusIcon className="h-3.5 w-3.5" />}
+                variant="ghost"
+                size="sm"
+                onClick={handleMinimize}
+                aria-label="Minimize"
+                className={windowControlClass}
+              />
+              <IconButton
+                icon={
+                  isMaximized ? (
+                    <OverlappingSquares className="h-3 w-3" />
+                  ) : (
+                    <SquareIcon className="h-3 w-3" />
+                  )
+                }
+                variant="ghost"
+                size="sm"
+                onClick={handleMaximize}
+                aria-label={isMaximized ? "Restore" : "Maximize"}
+                className={windowControlClass}
+              />
+              <IconButton
+                icon={<XIcon className="h-4 w-4" />}
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                aria-label="Close"
+                className={twMerge(
+                  windowControlClass,
+                  "hover:bg-danger/15 hover:text-danger-text active:bg-danger/25",
+                )}
+              />
+            </div>
           </>
         )}
       </div>

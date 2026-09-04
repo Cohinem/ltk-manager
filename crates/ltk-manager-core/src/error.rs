@@ -6,13 +6,142 @@
 //! to exit codes and stderr. Keeping that mapping out of core is what lets both
 //! exist without one dictating the other's vocabulary.
 
-use camino::Utf8PathBuf;
-use std::path::PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+use crate::hashtables::HashtableError;
 use crate::launcher::LauncherError;
 use crate::patcher::PatcherError;
+use crate::preview::PreviewError;
 use crate::workshop::WorkshopError;
+
+/// Which [`AppError`] a failure was, as a name that outlives its message.
+///
+/// A message is for a reader and can be empty. This is the part a consumer
+/// switches on, so it survives being recorded, stored and read back long after
+/// the error value is gone. The Tauri shell maps it to its own `ErrorCode`, and
+/// a CLI could map the same names to exit codes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[non_exhaustive]
+pub enum ErrorKind {
+    Io,
+    Serialization,
+    Modpkg,
+    LeagueNotFound,
+    InvalidPath,
+    ModNotFound,
+    ValidationFailed,
+    InternalState,
+    MutexLockFailed,
+    Other,
+    WorkshopNotConfigured,
+    ProjectNotFound,
+    ProjectAlreadyExists,
+    PackFailed,
+    Fantome,
+    WadError,
+    WadBuilderError,
+    Patcher,
+    Launcher,
+    ZipError,
+    SchemaVersionTooNew,
+    Workshop,
+    Hashtable,
+    Preview,
+    Overlay,
+}
+
+impl fmt::Display for ErrorKind {
+    /// The variant's own name, which is what a report and an evidence line show.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = serde_json::to_string(self).map_err(|_| fmt::Error)?;
+        f.pad(name.trim_matches('"'))
+    }
+}
+
+/// Which way an overlay build failed, as the remedy a consumer picks between.
+///
+/// Mirrors the categories of `ltk_overlay::Error`, which is not `Serialize`,
+/// so records and IPC responses carry this while the detail stays in the
+/// message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OverlayErrorCategory {
+    /// The game installation cannot be used. Point the user at their game dir.
+    GameDir,
+    /// A mod's content could not be used. Blame the mod, not the game.
+    ModContent,
+    /// The output would exceed a WAD format limit. Splitting a mod helps.
+    WadLimit,
+    /// A game file is not what its own metadata says. A repair may help.
+    Corrupt,
+    /// An `ltk_overlay` invariant broke. Nothing the user did; report it.
+    Bug,
+    /// An IO, parse or archive failure with no category of its own.
+    Other,
+}
+
+impl From<&ltk_overlay::Error> for OverlayErrorCategory {
+    fn from(error: &ltk_overlay::Error) -> Self {
+        match error {
+            ltk_overlay::Error::GameDir(_) => Self::GameDir,
+            ltk_overlay::Error::ModContent(_) => Self::ModContent,
+            ltk_overlay::Error::WadLimit(_) => Self::WadLimit,
+            ltk_overlay::Error::Corrupt(_) => Self::Corrupt,
+            ltk_overlay::Error::Bug(_) => Self::Bug,
+            _ => Self::Other,
+        }
+    }
+}
+
+impl AppError {
+    /// The overlay failure's category, when this is one.
+    pub fn overlay_category(&self) -> Option<OverlayErrorCategory> {
+        match self {
+            AppError::Overlay(e) => Some(OverlayErrorCategory::from(e)),
+            _ => None,
+        }
+    }
+
+    /// Which variant this is, without its message.
+    pub fn kind(&self) -> ErrorKind {
+        match self {
+            AppError::Io { .. } => ErrorKind::Io,
+            AppError::Serialization { .. } => ErrorKind::Serialization,
+            AppError::Modpkg { .. } => ErrorKind::Modpkg,
+            AppError::LeagueNotFound => ErrorKind::LeagueNotFound,
+            AppError::InvalidPath { .. } => ErrorKind::InvalidPath,
+            AppError::ModNotFound { .. } => ErrorKind::ModNotFound,
+            AppError::ValidationFailed { .. } => ErrorKind::ValidationFailed,
+            AppError::InternalState { .. } => ErrorKind::InternalState,
+            AppError::MutexLockFailed => ErrorKind::MutexLockFailed,
+            AppError::Other { .. } => ErrorKind::Other,
+            AppError::WorkshopNotConfigured => ErrorKind::WorkshopNotConfigured,
+            AppError::ProjectNotFound { .. } => ErrorKind::ProjectNotFound,
+            AppError::ProjectAlreadyExists { .. } => ErrorKind::ProjectAlreadyExists,
+            AppError::PackFailed { .. } => ErrorKind::PackFailed,
+            AppError::Fantome { .. } => ErrorKind::Fantome,
+            AppError::WadError { .. } => ErrorKind::WadError,
+            AppError::WadBuilderError { .. } => ErrorKind::WadBuilderError,
+            AppError::Patcher { .. } => ErrorKind::Patcher,
+            AppError::Launcher { .. } => ErrorKind::Launcher,
+            AppError::ZipError { .. } => ErrorKind::ZipError,
+            AppError::SchemaVersionTooNew { .. } => ErrorKind::SchemaVersionTooNew,
+            AppError::Workshop { .. } => ErrorKind::Workshop,
+            AppError::Hashtable { .. } => ErrorKind::Hashtable,
+            AppError::Preview { .. } => ErrorKind::Preview,
+            AppError::Overlay { .. } => ErrorKind::Overlay,
+        }
+    }
+}
 
 /// Internal application error type with rich error information.
 #[derive(Debug, Error)]
@@ -88,20 +217,26 @@ pub enum AppError {
 
     #[error(transparent)]
     Workshop(#[from] WorkshopError),
+
+    #[error(transparent)]
+    Hashtable(#[from] HashtableError),
+
+    #[error(transparent)]
+    Preview(#[from] PreviewError),
+
+    #[error(transparent)]
+    Overlay(#[from] ltk_overlay::Error),
 }
 
 impl From<ltk_mod_project::ModProjectError> for AppError {
     fn from(error: ltk_mod_project::ModProjectError) -> Self {
+        use ltk_mod_project::ModProjectError;
+
         match error {
-            ltk_mod_project::ModProjectError::ConfigNotFound(path) => {
-                AppError::ProjectNotFound(path.display().to_string())
-            }
-            ltk_mod_project::ModProjectError::Io(e) => AppError::Io(e),
-            ltk_mod_project::ModProjectError::Json(e) => AppError::Serialization(e),
-            ltk_mod_project::ModProjectError::Toml(e) => AppError::Other(e.to_string()),
-            ltk_mod_project::ModProjectError::UnsupportedExtension(ext) => {
-                AppError::Other(format!("Unsupported config file extension: {}", ext))
-            }
+            ModProjectError::ConfigNotFound(path) => AppError::ProjectNotFound(path.into_string()),
+            ModProjectError::Io { source, .. } => AppError::Io(source),
+            ModProjectError::Json { source, .. } => AppError::Serialization(source),
+            other => AppError::Other(other.to_string()),
         }
     }
 }
@@ -131,6 +266,19 @@ impl Utf8PathExt for PathBuf {
     fn try_into_utf8(self, label: &str) -> AppResult<Utf8PathBuf> {
         Utf8PathBuf::from_path_buf(self)
             .map_err(|p| AppError::InvalidPath(format!("Non-UTF-8 {label}: {}", p.display())))
+    }
+}
+
+/// The borrowing counterpart to [`Utf8PathExt`], for the many `&Path` values
+/// the workshop still holds while the mod-project crates speak camino.
+pub trait Utf8PathRefExt {
+    fn try_as_utf8(&self, label: &str) -> AppResult<&Utf8Path>;
+}
+
+impl Utf8PathRefExt for Path {
+    fn try_as_utf8(&self, label: &str) -> AppResult<&Utf8Path> {
+        Utf8Path::from_path(self)
+            .ok_or_else(|| AppError::InvalidPath(format!("Non-UTF-8 {label}: {}", self.display())))
     }
 }
 

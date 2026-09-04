@@ -51,9 +51,9 @@ export const DialogBackdrop = forwardRef<HTMLDivElement, DialogBackdropProps>(
       <BaseDialog.Backdrop
         ref={ref}
         className={twMerge(
-          "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm",
+          "fixed inset-0 z-40 bg-scrim backdrop-blur-sm",
           "transition-opacity duration-200",
-          "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+          "data-ending-style:opacity-0 data-starting-style:opacity-0",
           className,
         )}
         {...props}
@@ -86,10 +86,10 @@ export const DialogOverlay = forwardRef<HTMLDivElement, DialogOverlayProps>(
         ref={ref}
         className={twMerge(
           "fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2",
-          "rounded-xl border border-surface-600 bg-surface-800 shadow-2xl",
+          "rounded-xl border border-surface-600 bg-surface-800 shadow-2xl outline-none",
           "transition-[opacity,transform] duration-200 ease-out",
-          "data-[starting-style]:scale-95 data-[starting-style]:opacity-0",
-          "data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
+          "data-starting-style:scale-95 data-starting-style:opacity-0",
+          "data-ending-style:scale-95 data-ending-style:opacity-0",
           overlaySizeClasses[size],
           className,
         )}
@@ -101,6 +101,51 @@ export const DialogOverlay = forwardRef<HTMLDivElement, DialogOverlayProps>(
   },
 );
 DialogOverlay.displayName = "Dialog.Overlay";
+
+// Sheet (a dialog that arrives from an edge rather than the middle)
+export type DialogSheetSide = "left" | "right";
+
+const sheetSideClasses: Record<DialogSheetSide, string> = {
+  left: "inset-y-0 left-0 data-ending-style:-translate-x-full data-starting-style:-translate-x-full",
+  right:
+    "inset-y-0 right-0 data-ending-style:translate-x-full data-starting-style:translate-x-full",
+};
+
+export interface DialogSheetProps extends Omit<BaseDialog.Popup.Props, "className"> {
+  /** Which edge it arrives from, and returns to. */
+  side?: DialogSheetSide;
+  className?: string;
+  children?: ReactNode;
+}
+
+/**
+ * A dialog anchored to an edge, for content the reader works through beside
+ * their page rather than instead of it.
+ *
+ * It slides rather than scales, because a panel the height of the window has no
+ * centre to grow from. Width is the caller's - `Dialog.Overlay`'s size ramp is
+ * about how much text a centred dialog should hold, which is a different
+ * question.
+ */
+export const DialogSheet = forwardRef<HTMLDivElement, DialogSheetProps>(
+  ({ side = "right", className, children, ...props }, ref) => {
+    return (
+      <BaseDialog.Popup
+        ref={ref}
+        className={twMerge(
+          "fixed z-50 flex max-w-full flex-col bg-surface-800 shadow-2xl outline-none",
+          "transition-transform duration-200 ease-out",
+          sheetSideClasses[side],
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </BaseDialog.Popup>
+    );
+  },
+);
+DialogSheet.displayName = "Dialog.Sheet";
 
 // Title
 export interface DialogTitleProps extends Omit<BaseDialog.Title.Props, "className"> {
@@ -156,9 +201,11 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
         ref={ref}
         className={twMerge(
           "inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md",
-          "text-surface-200 transition-colors hover:bg-surface-700 active:bg-surface-800",
+          "text-surface-200 transition-colors hover:bg-danger/15 hover:text-danger-text",
+          "active:bg-danger/25",
           className,
         )}
+        aria-label="Close"
         {...props}
       >
         <X className="h-5 w-5" />
@@ -169,18 +216,27 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
 DialogClose.displayName = "Dialog.Close";
 
 // Header (layout: title + close button row)
+export type DialogHeaderTone = "default" | "accent";
+
+const headerToneClasses: Record<DialogHeaderTone, string> = {
+  default: "border-surface-600",
+  accent: "border-accent-500/20 bg-linear-to-r from-accent-600/12 to-accent-500/5",
+};
+
 export interface DialogHeaderProps {
+  tone?: DialogHeaderTone;
   className?: string;
   children?: ReactNode;
 }
 
 export const DialogHeader = forwardRef<HTMLDivElement, DialogHeaderProps>(
-  ({ className, children }, ref) => {
+  ({ tone = "default", className, children }, ref) => {
     return (
       <div
         ref={ref}
         className={twMerge(
-          "flex items-center justify-between border-b border-surface-600 px-6 py-4",
+          "flex items-center justify-between border-b px-6 py-4",
+          headerToneClasses[tone],
           className,
         )}
       >
@@ -238,6 +294,7 @@ export const Dialog = {
   Portal: DialogPortal,
   Backdrop: DialogBackdrop,
   Overlay: DialogOverlay,
+  Sheet: DialogSheet,
   Title: DialogTitle,
   Description: DialogDescription,
   Close: DialogClose,

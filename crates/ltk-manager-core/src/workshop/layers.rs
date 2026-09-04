@@ -3,14 +3,17 @@ use super::{
     is_valid_project_name,
 };
 use crate::error::{AppError, AppResult};
+use crate::hashtables::WadPathResolver;
+use crate::utils::fs::copy_dir_all;
 use camino::Utf8Path;
 use indexmap::IndexMap;
 use ltk_mod_project::ModProjectLayer;
-use ltk_wad::{HexPathResolver, Wad, WadExtractor};
+use ltk_wad::{NamingPolicy, PathResolver, Wad, WadExtractor};
 use std::collections::HashMap;
 use std::fs;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+use std::time::Instant;
 
 impl ProjectDir {
     /// Create a new layer.
@@ -266,60 +269,108 @@ fn is_wad_entry(name: &str) -> bool {
     lower.ends_with(".wad.client") || lower.ends_with(".wad") || lower.ends_with(".wad.mobile")
 }
 
-/// Extract a packed WAD file into `dst` using hex-named paths (no hashtable).
-fn extract_wad_into_dir(src: &Path, dst: &Path) -> AppResult<()> {
+/// Extract a packed WAD file into `dst`, naming chunks through `resolver`.
+fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) -> AppResult<()> {
     fs::create_dir_all(dst)?;
 
     let file = fs::File::open(src)?;
     let mut wad = Wad::mount(BufReader::new(file))?;
 
-    let resolver = HexPathResolver;
-    let extractor = WadExtractor::new(&resolver);
+    let mut extractor = WadExtractor::new(resolver)
+        .with_naming_policy(NamingPolicy::Lossless)
+        .with_name_recovery();
     let utf8_dst = Utf8Path::from_path(dst).ok_or_else(|| {
         AppError::Other(format!(
             "WAD output path is not valid UTF-8: {}",
             dst.display()
         ))
     })?;
-    extractor.extract_all(&mut wad, utf8_dst)?;
+    let started = Instant::now();
+    let report = extractor.extract_all(&mut wad, utf8_dst)?;
+
+    tracing::debug!(
+        wad = %src.display(),
+        extracted = report.extracted,
+        recovered = report.recovered.names.len(),
+        bins_scanned = report.recovered.bins_scanned,
+        renamed = report.renamed(),
+        rejected = report.rejected(),
+        duplicates = report.duplicates(),
+        elapsed_ms = started.elapsed().as_millis(),
+        "Extracted packed WAD into layer"
+    );
+
     Ok(())
 }
 
-/// Recursively copy `src` directory into `dst`, skipping symlinks.
-fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<()> {
-    fs::create_dir_all(dst)?;
-    for entry in walkdir::WalkDir::new(src).follow_links(false).into_iter() {
-        let entry = entry.map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
-        let file_type = entry.file_type();
-        if file_type.is_symlink() {
-            continue;
+/// Resolve a layer-relative path to somewhere the layer genuinely holds.
+///
+/// Deleting is permanent, so this is deliberately stricter than joining. Every
+/// segment has to be one plain name, which rejects `..` and an absolute path
+/// before anything reaches the disk, and the directory the entry sits in is
+/// then canonicalized and checked against the layer - which is what a symlink
+/// partway down the path cannot get past.
+fn resolve_in_layer(layer_dir: &Path, relative_path: &str) -> AppResult<PathBuf> {
+    let reject = || {
+        AppError::ValidationFailed(format!(
+            "'{}' is not a path inside this layer",
+            relative_path
+        ))
+    };
+
+    let mut target = layer_dir.to_path_buf();
+    let mut depth = 0usize;
+    for segment in relative_path.split('/').filter(|s| !s.is_empty()) {
+        let mut parts = Path::new(segment).components();
+        match (parts.next(), parts.next()) {
+            (Some(Component::Normal(name)), None) => target.push(name),
+            _ => return Err(reject()),
         }
-        let rel = entry
-            .path()
-            .strip_prefix(src)
-            .map_err(|e| AppError::Other(e.to_string()))?;
-        let target = dst.join(rel);
-        if file_type.is_dir() {
-            fs::create_dir_all(&target)?;
-        } else if file_type.is_file() {
-            if let Some(parent) = target.parent() {
-                fs::create_dir_all(parent)?;
-            }
-            fs::copy(entry.path(), &target)?;
-        }
+        depth += 1;
     }
-    Ok(())
+
+    // The layer itself is not one of its own entries.
+    if depth == 0 {
+        return Err(reject());
+    }
+
+    let parent = target.parent().ok_or_else(&reject)?;
+    if !fs::canonicalize(parent)?.starts_with(fs::canonicalize(layer_dir)?) {
+        return Err(reject());
+    }
+
+    Ok(target)
+}
+
+/// Remove the directories a delete just emptied, up to the layer root.
+///
+/// A listing is built from files, so a directory holding none has no row and no
+/// size. Leaving one behind means the layer keeps offering an archive the tree
+/// shows as gone. `remove_dir` refuses a directory that still holds anything,
+/// which is both the stop condition and the reason this cannot overreach.
+fn prune_empty_parents(layer_dir: &Path, deleted: &Path) {
+    let mut cursor = deleted.parent();
+    while let Some(dir) = cursor {
+        if dir == layer_dir || fs::remove_dir(dir).is_err() {
+            return;
+        }
+        cursor = dir.parent();
+    }
 }
 
 impl ProjectDir {
     /// Add files or directories (`.wad`, `.wad.client`, `.wad.mobile`) into a layer's content
-    /// directory. Packed WAD files are extracted into a same-named directory using hex-named
-    /// paths (no hashtable); directory sources are copied as-is. If any source conflicts with
-    /// an existing entry, no source is imported.
+    /// directory.
+    ///
+    /// Packed WAD files are extracted into a same-named directory, with chunk
+    /// paths named from the shared mimir hashtables and anything they do not
+    /// know left under its hex name. Directory sources are copied as-is. If
+    /// any source conflicts with an existing entry, no source is imported.
     pub fn add_files_to_layer(
         &self,
         layer_name: &str,
         sources: Vec<PathBuf>,
+        resolver: &WadPathResolver,
     ) -> AppResult<AddFilesReport> {
         let layer_dir = self.layer_content_path(layer_name)?;
 
@@ -384,9 +435,9 @@ impl ProjectDir {
 
             let was_packed = src.is_file();
             let result = if was_packed {
-                extract_wad_into_dir(&src, &temp)
+                extract_wad_into_dir(&src, &temp, resolver)
             } else {
-                copy_dir_recursive(&src, &temp)
+                copy_dir_all(&src, &temp)
             };
 
             if let Err(e) = result {
@@ -409,6 +460,45 @@ impl ProjectDir {
         }
 
         Ok(AddFilesReport { added })
+    }
+
+    /// Delete one file or directory from a layer's content directory.
+    ///
+    /// `relative_path` addresses it from the layer root, the way the content
+    /// listing names its entries, and a directory goes with everything below
+    /// it. The entry itself is removed without being followed, so a symlink
+    /// costs the link rather than what it points at.
+    pub fn delete_layer_content(&self, layer_name: &str, relative_path: &str) -> AppResult<()> {
+        let layer_dir = self.layer_content_path(layer_name)?;
+        let target = resolve_in_layer(&layer_dir, relative_path)?;
+
+        let metadata = fs::symlink_metadata(&target).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                AppError::ValidationFailed(format!(
+                    "'{}' is no longer in this layer",
+                    relative_path
+                ))
+            } else {
+                AppError::Io(e)
+            }
+        })?;
+
+        let is_dir = metadata.is_dir();
+        if is_dir {
+            fs::remove_dir_all(&target)?;
+        } else {
+            fs::remove_file(&target)?;
+        }
+        prune_empty_parents(&layer_dir, &target);
+
+        tracing::info!(
+            layer = %layer_name,
+            path = %relative_path,
+            directory = is_dir,
+            "Deleted layer content"
+        );
+
+        Ok(())
     }
 
     /// Collect runtime info about each layer's content directory.
@@ -532,403 +622,24 @@ impl Workshop {
         project_path: &str,
         layer_name: &str,
         sources: Vec<String>,
+        resolver: &WadPathResolver,
     ) -> AppResult<AddFilesReport> {
         let source_paths = sources.into_iter().map(PathBuf::from).collect();
         self.project(project_path)?
-            .add_files_to_layer(layer_name, source_paths)
+            .add_files_to_layer(layer_name, source_paths, resolver)
+    }
+
+    /// Delete one file or directory from a layer's content directory.
+    pub fn delete_layer_content(
+        &self,
+        project_path: &str,
+        layer_name: &str,
+        relative_path: &str,
+    ) -> AppResult<()> {
+        self.project(project_path)?
+            .delete_layer_content(layer_name, relative_path)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::error::AppError;
-
-    fn make_project_with_layers(dir: &std::path::Path, layers: Vec<ModProjectLayer>) {
-        let mod_project = ltk_mod_project::ModProject {
-            name: "test-mod".to_string(),
-            display_name: "Test Mod".to_string(),
-            version: "1.0.0".to_string(),
-            description: "".to_string(),
-            authors: Vec::new(),
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers,
-            thumbnail: None,
-        };
-        fs::write(
-            dir.join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-    }
-
-    fn load_layers(dir: &std::path::Path) -> Vec<ModProjectLayer> {
-        ltk_mod_project::ModProject::load(dir).unwrap().layers
-    }
-
-    #[test]
-    fn create_layer_adds_to_config() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        let project = ProjectDir::open(dir.path())
-            .unwrap()
-            .create_layer("chroma", None, None)
-            .unwrap();
-
-        assert_eq!(project.layers.len(), 2);
-        assert_eq!(project.layers[1].name, "chroma");
-        assert_eq!(project.layers[1].priority, 1);
-
-        let layers = load_layers(dir.path());
-        assert_eq!(layers.len(), 2);
-        assert_eq!(layers[1].name, "chroma");
-
-        let chroma_content_dir = dir.path().join("content").join("chroma");
-        assert!(chroma_content_dir.exists());
-    }
-
-    #[test]
-    fn create_layer_invalid_name_rejected() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        assert!(matches!(
-            ProjectDir::open(dir.path())
-                .unwrap()
-                .create_layer("Bad Name", None, None),
-            Err(AppError::ValidationFailed(_))
-        ));
-        assert!(matches!(
-            ProjectDir::open(dir.path())
-                .unwrap()
-                .create_layer("UPPER", None, None),
-            Err(AppError::ValidationFailed(_))
-        ));
-    }
-
-    #[test]
-    fn create_layer_duplicate_name_detected() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        assert!(matches!(
-            ProjectDir::open(dir.path()).unwrap().create_layer("base", None, None),
-            Err(AppError::ValidationFailed(msg)) if msg.contains("already exists")
-        ));
-    }
-
-    #[test]
-    fn delete_base_layer_rejected() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        assert!(matches!(
-            ProjectDir::open(dir.path()).unwrap().delete_layer("base"),
-            Err(AppError::ValidationFailed(msg)) if msg.contains("base")
-        ));
-    }
-
-    #[test]
-    fn delete_nonexistent_layer_detected() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        assert!(matches!(
-            ProjectDir::open(dir.path()).unwrap().delete_layer("nonexistent"),
-            Err(AppError::ValidationFailed(msg)) if msg.contains("not found")
-        ));
-    }
-
-    #[test]
-    fn delete_layer_removes_from_config() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(
-            dir.path(),
-            vec![
-                ModProjectLayer::base(),
-                ModProjectLayer {
-                    name: "chroma".to_string(),
-                    display_name: None,
-                    priority: 1,
-                    description: None,
-                    string_overrides: IndexMap::new(),
-                },
-            ],
-        );
-        fs::create_dir_all(dir.path().join("content").join("chroma")).unwrap();
-
-        let project = ProjectDir::open(dir.path())
-            .unwrap()
-            .delete_layer("chroma")
-            .unwrap();
-
-        assert_eq!(project.layers.len(), 1);
-        assert_eq!(project.layers[0].name, "base");
-
-        let layers = load_layers(dir.path());
-        assert_eq!(layers.len(), 1);
-        assert_eq!(layers[0].name, "base");
-    }
-
-    #[test]
-    fn reorder_layers_base_included_rejected() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(
-            dir.path(),
-            vec![
-                ModProjectLayer::base(),
-                ModProjectLayer {
-                    name: "chroma".to_string(),
-                    display_name: None,
-                    priority: 1,
-                    description: None,
-                    string_overrides: IndexMap::new(),
-                },
-            ],
-        );
-
-        let result = ProjectDir::open(dir.path())
-            .unwrap()
-            .reorder_layers(vec!["base".to_string(), "chroma".to_string()]);
-        match result {
-            Err(AppError::ValidationFailed(msg)) => {
-                assert!(
-                    msg.to_lowercase().contains("base"),
-                    "expected 'base' in message, got: {msg}"
-                );
-            }
-            other => panic!("expected ValidationFailed, got: {:?}", other),
-        }
-    }
-
-    #[test]
-    fn reorder_layers_wrong_set_rejected() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(
-            dir.path(),
-            vec![
-                ModProjectLayer::base(),
-                ModProjectLayer {
-                    name: "chroma".to_string(),
-                    display_name: None,
-                    priority: 1,
-                    description: None,
-                    string_overrides: IndexMap::new(),
-                },
-                ModProjectLayer {
-                    name: "vfx".to_string(),
-                    display_name: None,
-                    priority: 2,
-                    description: None,
-                    string_overrides: IndexMap::new(),
-                },
-            ],
-        );
-
-        assert!(matches!(
-            ProjectDir::open(dir.path())
-                .unwrap()
-                .reorder_layers(vec!["chroma".to_string(), "wrong".to_string()]),
-            Err(AppError::ValidationFailed(_))
-        ));
-    }
-
-    #[test]
-    fn reorder_layers_reassigns_priorities() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(
-            dir.path(),
-            vec![
-                ModProjectLayer::base(),
-                ModProjectLayer {
-                    name: "chroma".to_string(),
-                    display_name: None,
-                    priority: 1,
-                    description: None,
-                    string_overrides: IndexMap::new(),
-                },
-                ModProjectLayer {
-                    name: "vfx".to_string(),
-                    display_name: None,
-                    priority: 2,
-                    description: None,
-                    string_overrides: IndexMap::new(),
-                },
-            ],
-        );
-
-        let project = ProjectDir::open(dir.path())
-            .unwrap()
-            .reorder_layers(vec!["vfx".to_string(), "chroma".to_string()])
-            .unwrap();
-
-        assert_eq!(project.layers[0].name, "base");
-        assert_eq!(project.layers[0].priority, 0);
-        assert_eq!(project.layers[1].name, "vfx");
-        assert_eq!(project.layers[1].priority, 1);
-        assert_eq!(project.layers[2].name, "chroma");
-        assert_eq!(project.layers[2].priority, 2);
-
-        let layers = load_layers(dir.path());
-        assert_eq!(layers[1].name, "vfx");
-        assert_eq!(layers[1].priority, 1);
-    }
-
-    fn build_test_wad(path: &std::path::Path, chunk_paths: &[&str]) {
-        use ltk_wad::{WadBuilder, WadChunkBuilder};
-        use std::io::Write;
-
-        let mut builder = WadBuilder::default();
-        for chunk_path in chunk_paths {
-            builder = builder.with_chunk(WadChunkBuilder::default().with_path(*chunk_path));
-        }
-
-        let mut file = fs::File::create(path).unwrap();
-        builder
-            .build_to_writer(&mut file, |_path_hash, cursor| {
-                cursor.write_all(&[0xAA; 64])?;
-                Ok(())
-            })
-            .unwrap();
-    }
-
-    #[test]
-    fn add_files_to_layer_extracts_wad_file() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        let src_dir = tempfile::tempdir().unwrap();
-        let src_file = src_dir.path().join("Aatrox.wad.client");
-        build_test_wad(&src_file, &["assets/test1.bin", "assets/test2.bin"]);
-
-        let report = ProjectDir::open(dir.path())
-            .unwrap()
-            .add_files_to_layer("base", vec![src_file])
-            .unwrap();
-
-        assert_eq!(report.added, vec!["Aatrox.wad.client".to_string()]);
-        let dest = dir
-            .path()
-            .join("content")
-            .join("base")
-            .join("Aatrox.wad.client");
-        assert!(
-            dest.is_dir(),
-            "expected extracted directory at {}",
-            dest.display()
-        );
-
-        let extracted: Vec<_> = fs::read_dir(&dest)
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .collect();
-        assert!(
-            !extracted.is_empty(),
-            "expected at least one extracted entry under {}",
-            dest.display()
-        );
-    }
-
-    #[test]
-    fn add_files_to_layer_copies_directory() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        let src_dir = tempfile::tempdir().unwrap();
-        let wad_dir = src_dir.path().join("Champion.wad.client");
-        fs::create_dir_all(wad_dir.join("nested")).unwrap();
-        fs::write(wad_dir.join("meta.json"), "{}").unwrap();
-        fs::write(wad_dir.join("nested").join("a.bin"), b"x").unwrap();
-
-        let report = ProjectDir::open(dir.path())
-            .unwrap()
-            .add_files_to_layer("base", vec![wad_dir])
-            .unwrap();
-
-        assert_eq!(report.added, vec!["Champion.wad.client".to_string()]);
-        let dest = dir
-            .path()
-            .join("content")
-            .join("base")
-            .join("Champion.wad.client");
-        assert!(dest.is_dir());
-        assert!(dest.join("meta.json").is_file());
-        assert!(dest.join("nested").join("a.bin").is_file());
-    }
-
-    #[test]
-    fn add_files_to_layer_rejects_non_wad() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        let src_dir = tempfile::tempdir().unwrap();
-        let bad = src_dir.path().join("readme.txt");
-        fs::write(&bad, b"hi").unwrap();
-
-        let result = ProjectDir::open(dir.path())
-            .unwrap()
-            .add_files_to_layer("base", vec![bad]);
-        assert!(matches!(result, Err(AppError::ValidationFailed(_))));
-    }
-
-    #[test]
-    fn add_files_to_layer_aborts_on_conflict() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        let layer_dir = dir.path().join("content").join("base");
-        fs::create_dir_all(&layer_dir).unwrap();
-        fs::write(layer_dir.join("Aatrox.wad.client"), b"existing").unwrap();
-
-        let src_dir = tempfile::tempdir().unwrap();
-        let new_a = src_dir.path().join("Aatrox.wad.client");
-        let new_b = src_dir.path().join("Sona.wad.client");
-        fs::write(&new_a, b"new").unwrap();
-        fs::write(&new_b, b"new").unwrap();
-
-        let result = ProjectDir::open(dir.path())
-            .unwrap()
-            .add_files_to_layer("base", vec![new_a, new_b]);
-        match result {
-            Err(AppError::Workshop(WorkshopError::LayerFileConflict { conflicts })) => {
-                assert_eq!(conflicts, vec!["Aatrox.wad.client".to_string()]);
-            }
-            other => panic!("expected LayerFileConflict, got: {:?}", other),
-        }
-
-        // Sona.wad.client must not have been copied.
-        assert!(!layer_dir.join("Sona.wad.client").exists());
-        // Existing file untouched.
-        assert_eq!(
-            fs::read(layer_dir.join("Aatrox.wad.client")).unwrap(),
-            b"existing"
-        );
-    }
-
-    #[test]
-    fn update_layer_description_persists() {
-        let dir = tempfile::tempdir().unwrap();
-        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
-
-        let project = ProjectDir::open(dir.path())
-            .unwrap()
-            .update_layer_description("base", Some("Updated description".to_string()))
-            .unwrap();
-
-        assert_eq!(
-            project.layers[0].description.as_deref(),
-            Some("Updated description")
-        );
-
-        let layers = load_layers(dir.path());
-        assert_eq!(
-            layers[0].description.as_deref(),
-            Some("Updated description")
-        );
-    }
-}
+mod tests;

@@ -3,12 +3,14 @@ import { useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { IconButton, useToast } from "@/components";
+import { errorSummary } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { useRenameProject } from "@/modules/workshop";
 
 interface ProjectInfoSectionProps {
   project: WorkshopProject;
-  onRenamed: (newName: string) => void;
+  /** Takes the whole project, because a rename moves its path as well as its slug. */
+  onRenamed: (project: WorkshopProject) => void;
 }
 
 export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionProps) {
@@ -31,10 +33,10 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
         onSuccess: (renamed) => {
           setIsEditingSlug(false);
           toast.success("Project renamed successfully");
-          onRenamed(renamed.name);
+          onRenamed(renamed);
         },
         onError: (err) => {
-          toast.error(`Failed to rename: ${err.message}`);
+          toast.error(`Failed to rename: ${errorSummary(err)}`);
         },
       },
     );
@@ -46,7 +48,7 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
   }
 
   return (
-    <div className="rounded-xl border border-surface-700/50 bg-surface-900/80">
+    <div className="rounded-xl border border-surface-700/50 bg-surface-800">
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}

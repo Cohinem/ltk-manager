@@ -65,7 +65,9 @@ export async function fetchLatestVersion(): Promise<string> {
   return versionPromise;
 }
 
-export async function fetchChampionList(version: string): Promise<Record<string, DdChampionSummary>> {
+export async function fetchChampionList(
+  version: string,
+): Promise<Record<string, DdChampionSummary>> {
   const res = await fetch(`${DDRAGON_BASE}/cdn/${version}/data/en_US/champion.json`);
   if (!res.ok) throw new Error(`champion list ${res.status}`);
   const json = (await res.json()) as { data: Record<string, DdChampionSummary> };
@@ -83,7 +85,10 @@ function stripChromaVariants(skins: DdSkin[]): DdSkin[] {
   });
 }
 
-export async function fetchChampionDetail(version: string, champId: string): Promise<DdChampionDetail> {
+export async function fetchChampionDetail(
+  version: string,
+  champId: string,
+): Promise<DdChampionDetail> {
   const res = await fetch(`${DDRAGON_BASE}/cdn/${version}/data/en_US/champion/${champId}.json`);
   if (!res.ok) throw new Error(`champion ${champId} ${res.status}`);
   const json = (await res.json()) as { data: Record<string, DdChampionDetail> };

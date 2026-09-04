@@ -1,0 +1,7 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_cancel_action": "Cancel",
+  "common_close_action": "Close",
+  "common_retry_action": "Retry",
+  "common_save_action": "Save"
+}

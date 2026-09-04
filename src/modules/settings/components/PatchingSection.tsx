@@ -1,10 +1,23 @@
-import { AlertTriangle, RefreshCw, ShieldAlert, ShieldCheck, Wrench } from "lucide-react";
+import { ArrowsClockwiseIcon, ShieldWarningIcon, StackIcon } from "@phosphor-icons/react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 
-import { AlertBox, Button, SectionCard, Switch, TftIcon, useToast } from "@/components";
+import {
+  AlertBox,
+  Button,
+  FieldControl,
+  SectionCard,
+  Switch,
+  TftIcon,
+  useToast,
+} from "@/components";
+import { errorSummary } from "@/i18n";
 import type { Settings } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
 
+import { SettingGroup } from "./SettingGroup";
+import { SettingRow } from "./SettingRow";
+import { SettingRows } from "./SettingRows";
 import { WadBlocklistEditor } from "./WadBlocklistEditor";
 
 interface PatchingSectionProps {
@@ -24,219 +37,267 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
     rebuildOverlay(undefined, {
       onSuccess: () =>
         toast.success("Overlay rebuilt", "The overlay was regenerated from scratch."),
-      onError: (error) => toast.error("Rebuild failed", error.message),
+      onError: (error) => toast.error("Rebuild failed", errorSummary(error)),
     });
   };
 
   return (
-    <div className="space-y-4">
-      <SectionCard title="Patching" icon={<ShieldAlert className="h-5 w-5" />}>
-        <div className="space-y-3">
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="flex items-center gap-2.5 text-sm font-medium text-surface-200">
-                <TftIcon className="h-4 w-4 shrink-0" />
-                Patch TFT files
-              </span>
-              <span className="block text-sm text-surface-400">
-                Apply mods to Teamfight Tactics game files (Map22.wad.client). Disable this if you
-                only play Summoner&apos;s Rift.
-              </span>
-            </div>
-            <Switch
-              checked={settings.patchTft}
-              onCheckedChange={(checked) => onSave({ ...settings, patchTft: checked })}
-            />
-          </label>
+    <div className="flex flex-col gap-6">
+      <SectionCard title="Patching" icon={<ShieldWarningIcon className="h-5 w-5" />}>
+        <SettingGroup id="patching.injector" title="Injector">
+          <SettingRow
+            setting="patchTft"
+            icon={<TftIcon className="h-4 w-4 shrink-0" />}
+            description="Turn this off if you only play Summoner's Rift."
+            hint="Applies mods to Map22.wad.client, the Teamfight Tactics map archive."
+            control={
+              <Switch
+                checked={settings.patchTft}
+                onCheckedChange={(checked) => onSave({ ...settings, patchTft: checked })}
+              />
+            }
+          />
 
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="block text-sm font-medium text-surface-200">
-                Apply string overrides to all locales
-              </span>
-              <span className="block text-sm text-surface-400">
-                Patch mods&apos; text overrides into every installed game language instead of only
-                the language your League client is set to. Enable this if you switch languages
-                often.
-              </span>
-            </div>
-            <Switch
-              checked={settings.applyStringOverridesToAllLocales}
-              onCheckedChange={(checked) =>
-                onSave({ ...settings, applyStringOverridesToAllLocales: checked })
-              }
-            />
-          </label>
-
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="block text-sm font-medium text-surface-200">
-                Run injector elevated
-              </span>
-              <span className="block text-sm text-surface-400">
-                Runs the injection host with administrator privileges. Required when League itself
-                runs as administrator. Leave this off unless mods fail to load — when on, Windows
-                shows a UAC prompt each time the patcher starts (unless LTK Manager is already
-                running as admin).
-              </span>
-            </div>
-            <Switch
-              checked={settings.elevateInjector}
-              onCheckedChange={(checked) => onSave({ ...settings, elevateInjector: checked })}
-            />
-          </label>
+          <SettingRow
+            setting="elevateInjector"
+            description="Leave off unless mods fail to load."
+            hint="Required when League itself runs as administrator. Windows shows a UAC prompt each time the patcher starts, unless LTK Manager is already elevated."
+            control={
+              <Switch
+                checked={settings.elevateInjector}
+                onCheckedChange={(checked) => onSave({ ...settings, elevateInjector: checked })}
+              />
+            }
+          />
 
           {leagueRunsAsAdmin && (
             <AlertBox variant="warning">
-              League is configured to run as administrator, so the injector will be elevated
-              automatically. You may see a UAC prompt when the patcher starts even with this setting
-              off.
+              League runs as administrator, so the injector elevates automatically. Expect a UAC
+              prompt even with this off.
             </AlertBox>
           )}
-        </div>
-      </SectionCard>
 
-      <SectionCard title="Safety & Integrity" icon={<ShieldCheck className="h-5 w-5" />}>
-        <div className="space-y-3">
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="block text-sm font-medium text-surface-200">
-                Block Scripts.wad.client
-              </span>
-              <span className="block text-sm text-surface-400">
-                Prevents mods from modifying game scripts. Disabling this allows mods to execute
-                arbitrary game scripts.
-              </span>
-            </div>
-            <Switch
-              checked={settings.blockScriptsWad}
-              onCheckedChange={(checked) => onSave({ ...settings, blockScriptsWad: checked })}
-            />
-          </label>
+          <SettingRow
+            setting="verbosePatcherLogging"
+            description="Logs injector internals to the app log. Noisy, so keep it for bug reports."
+            hint="Takes effect the next time the patcher starts."
+            control={
+              <Switch
+                checked={settings.verbosePatcherLogging}
+                onCheckedChange={(checked) =>
+                  onSave({ ...settings, verbosePatcherLogging: checked })
+                }
+              />
+            }
+          />
+        </SettingGroup>
+
+        <SettingGroup id="patching.mod-safety" title="Mod safety">
+          <SettingRow
+            setting="blockScriptsWad"
+            description="Stops mods from modifying Lua game scripts"
+            control={
+              <Switch
+                checked={settings.blockScriptsWad}
+                onCheckedChange={(checked) => onSave({ ...settings, blockScriptsWad: checked })}
+              />
+            }
+          />
 
           {!settings.blockScriptsWad && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-              <p className="text-sm text-amber-300">
-                Script modding is enabled. Only install mods from sources you trust.
-              </p>
-            </div>
+            <AlertBox variant="warning">
+              Modding allows running Lua scripts. Only install from sources you trust.
+            </AlertBox>
           )}
 
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="block text-sm font-medium text-surface-200">
-                Warn about missing dependencies
-              </span>
-              <span className="block text-sm text-surface-400">
-                Flag enabled mods whose property-bins reference files removed from the game.
-              </span>
-              <span className="block text-sm text-surface-400">
-                Shown as a badge on each affected mod plus a one-time warning when you start the
-                patcher. Disabling this hides the badges and the warning.
-              </span>
-            </div>
-            <Switch
-              checked={settings.linkedBinCheckEnabled}
-              onCheckedChange={(checked) => onSave({ ...settings, linkedBinCheckEnabled: checked })}
-            />
-          </label>
+          <SettingRow
+            setting="linkedBinCheckEnabled"
+            description="Flags enabled mods that reference files removed from the game."
+            hint="Shown as a badge on each affected mod, plus a one-time warning when you start the patcher."
+            control={
+              <Switch
+                checked={settings.linkedBinCheckEnabled}
+                onCheckedChange={(checked) =>
+                  onSave({ ...settings, linkedBinCheckEnabled: checked })
+                }
+              />
+            }
+          />
 
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
-                Enforce anti-skinhack scan
-              </span>
-              <span className="text-sm text-surface-400">
-                Tells the patcher to scan modded files for skinhacks and abort if any are found.
-                This is a temporary measure to prevent skinhacks from being loaded while third-party
-                mod managers adapt to the new anti-skinhack requirements.{" "}
-              </span>
-              <span className="block text-sm font-bold text-amber-400">
-                This setting will be removed in a future update once third-party mod managers have
-                adapted to the new anti-skinhack requirements.
-              </span>
-            </div>
-            <Switch
-              checked={settings.enforceSkinhackScan}
-              onCheckedChange={(checked) => onSave({ ...settings, enforceSkinhackScan: checked })}
-            />
-          </label>
+          <SettingRow
+            setting="enforceSkinhackScan"
+            description="Scans modded files for skinhacks and aborts patching if any are found."
+            hint="Temporary. It goes away once third-party mod managers have adapted to the new anti-skinhack requirements."
+            control={
+              <Switch
+                checked={settings.enforceSkinhackScan}
+                onCheckedChange={(checked) => onSave({ ...settings, enforceSkinhackScan: checked })}
+              />
+            }
+          />
 
           {!settings.enforceSkinhackScan && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-              <p className="text-sm text-amber-300">
-                Anti-skinhack enforcement is off. Mods flagged as skinhacks will be allowed to load.
-              </p>
-            </div>
+            <AlertBox variant="warning">
+              Enforcement is off, so mods flagged as skinhacks will load.
+            </AlertBox>
           )}
+        </SettingGroup>
 
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="block text-sm font-medium text-surface-200">Lazy WAD scan</span>
-              <span className="block text-sm text-surface-400">
-                Verifies modded archives as the game loads them instead of scanning every archive up
-                front.
-              </span>
-              <span className="block text-sm text-surface-400">
-                Because of how the overlay serves files this can cause sporadic crashes, so it only
-                applies when League&apos;s &quot;Automatically Send Crash Reports&quot; setting is
-                turned off. With crash reporting on, the patcher just scans up front as usual.
-              </span>
-            </div>
-            <Switch
-              checked={settings.lazyWadScan}
-              onCheckedChange={(checked) => onSave({ ...settings, lazyWadScan: checked })}
-            />
-          </label>
-        </div>
+        <SettingGroup id="patching.game-archives" title="Game archives">
+          <SettingRow
+            setting="fullWadScan"
+            description="Every archive gets verified up front at startup."
+            hint="On-demand scanning can cause sporadic crashes, so the patcher only does it while League's Automatically Send Crash Reports setting is off. With crash reporting on, every WAD is scanned up front regardless."
+            control={
+              <Switch
+                checked={settings.fullWadScan}
+                onCheckedChange={(checked) => onSave({ ...settings, fullWadScan: checked })}
+              />
+            }
+          />
+
+          <SettingRow
+            setting="disableCrashReporting"
+            description="League's crash reporting gets turned off when the patcher starts."
+            hint="Archives are only verified on demand while Riot's crash reporting is off. It lives in LeagueClientSettings.yaml, which the client rewrites when it exits, so the patcher reapplies this at every start."
+            control={
+              <Switch
+                checked={settings.disableCrashReporting}
+                onCheckedChange={(checked) =>
+                  onSave({ ...settings, disableCrashReporting: checked })
+                }
+              />
+            }
+          />
+        </SettingGroup>
+
+        <SettingGroup id="patching.incidents" title="Incidents">
+          <SettingRow
+            setting="readGameLog"
+            description="The incident reporter reads the game log to see what went wrong."
+            hint="Turn this off to keep the manager from opening anything under the League install. An incident still records how the game ended, and the archives the patcher saw."
+            control={
+              <Switch
+                checked={settings.readGameLog}
+                onCheckedChange={(checked) => onSave({ ...settings, readGameLog: checked })}
+              />
+            }
+          />
+
+          <SettingRow
+            setting="keepIncidents"
+            description="How many incidents to keep"
+            hint="The newest are kept, under 1 MB together, and the oldest goes first."
+            control={
+              <KeepIncidentsField
+                value={settings.keepIncidents}
+                onCommit={(keepIncidents) => onSave({ ...settings, keepIncidents })}
+              />
+            }
+          />
+        </SettingGroup>
       </SectionCard>
 
-      <SectionCard title="WAD Blocklist" icon={<ShieldAlert className="h-5 w-5" />}>
-        <WadBlocklistEditor settings={settings} onSave={onSave} />
-      </SectionCard>
+      <SectionCard
+        title="Overlay"
+        icon={<StackIcon className="h-5 w-5" />}
+        description="Options for the layered filesystem that the patcher uses"
+      >
+        <SettingRows>
+          <SettingRow
+            setting="applyStringOverridesToAllLocales"
+            description="Every client locale will be overridden with Default or English."
+            control={
+              <Switch
+                checked={settings.applyStringOverridesToAllLocales}
+                onCheckedChange={(checked) =>
+                  onSave({ ...settings, applyStringOverridesToAllLocales: checked })
+                }
+              />
+            }
+          />
 
-      <SectionCard title="Troubleshooting" icon={<Wrench className="h-5 w-5" />}>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <span className="block text-sm font-medium text-surface-200">Rebuild overlay</span>
-              <span className="block text-sm text-surface-400">
-                Discards the cached overlay and regenerates it from scratch. Use this if a mod looks
-                applied in the manager but isn&apos;t showing in-game, or the game crashes with the
-                patcher on. The patcher must be stopped.
-              </span>
-            </div>
-            <Button
-              variant="outline"
-              loading={isRebuilding}
-              disabled={isPatcherRunning}
-              left={<RefreshCw className="h-4 w-4" />}
-              onClick={handleRebuildOverlay}
-            >
-              Rebuild
-            </Button>
-          </div>
+          <SettingRow
+            kind="action"
+            title="Rebuild overlay"
+            description="Discards the cached overlay and builds it again. Stop the patcher first."
+            hint="Use this when a mod looks applied here but not in-game, or the game crashes with the patcher on."
+            control={
+              <Button
+                variant="outline"
+                size="sm"
+                loading={isRebuilding}
+                disabled={isPatcherRunning}
+                left={<ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />}
+                onClick={handleRebuildOverlay}
+              >
+                Rebuild
+              </Button>
+            }
+          />
 
-          <label className="flex items-center justify-between gap-4">
-            <div>
-              <span className="block text-sm font-medium text-surface-200">
-                Verbose patcher logging
-              </span>
-              <span className="block text-sm text-surface-400">
-                Makes the injector and the injected DLL log their internals to the app log file.
-                Turn this on only when gathering a log for a bug report — it is noisy. Takes effect
-                the next time the patcher starts.
-              </span>
-            </div>
-            <Switch
-              checked={settings.verbosePatcherLogging}
-              onCheckedChange={(checked) => onSave({ ...settings, verbosePatcherLogging: checked })}
-            />
-          </label>
-        </div>
+          <SettingRow
+            kind="action"
+            layout="stacked"
+            setting="wadBlocklist"
+            control={<WadBlocklistEditor settings={settings} onSave={onSave} />}
+          />
+        </SettingRows>
       </SectionCard>
     </div>
+  );
+}
+
+const MIN_KEPT_INCIDENTS = 1;
+const MAX_KEPT_INCIDENTS = 200;
+
+interface KeepIncidentsFieldProps {
+  value: number;
+  onCommit: (value: number) => void;
+}
+
+/**
+ * A count that commits on blur or Enter, clamped to the store's range.
+ *
+ * A keystroke is not a save, because typing `150` would otherwise write `1`
+ * and `15` on the way there.
+ */
+function KeepIncidentsField({ value, onCommit }: KeepIncidentsFieldProps) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  function commit() {
+    const parsed = draft.trim() === "" ? Number.NaN : Math.round(Number(draft));
+    if (!Number.isFinite(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    const next = Math.min(MAX_KEPT_INCIDENTS, Math.max(MIN_KEPT_INCIDENTS, parsed));
+    setDraft(String(next));
+    if (next !== value) onCommit(next);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") event.currentTarget.blur();
+    if (event.key === "Escape") setDraft(String(value));
+  }
+
+  return (
+    <FieldControl
+      type="number"
+      inputMode="numeric"
+      min={MIN_KEPT_INCIDENTS}
+      max={MAX_KEPT_INCIDENTS}
+      step={1}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={handleKeyDown}
+      aria-label="Keep incidents"
+      className="w-20 px-2.5 text-right tabular-nums"
+    />
   );
 }

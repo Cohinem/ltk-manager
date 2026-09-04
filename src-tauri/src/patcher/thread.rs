@@ -11,6 +11,7 @@ use ts_rs::TS;
 
 use crate::error::{AppError, AppErrorResponse};
 use crate::tray::AppTrayState;
+use ltk_manager_core::diagnostics::incident::{Incident, OverlayOutcome, ScanStatus};
 use ltk_manager_core::patcher::events::PatcherEvents;
 use ltk_manager_core::patcher::injector::WadScanFailure;
 use ltk_manager_core::patcher::PatcherPhase;
@@ -22,9 +23,12 @@ use ltk_manager_core::patcher::PatcherPhase;
 pub struct WadScanFailureInfo {
     /// The offending archive (e.g. `TahmKench.wad.client`), if its name parsed.
     pub wad: Option<String>,
-    /// The NTSTATUS-style code the scan reported (e.g. `c0000229` skinhack,
-    /// `c000003e` corrupt WAD).
+    /// The code the scan reported, an NTSTATUS-style one the game raised
+    /// (`c0000229`), or a word the DLL's own checks named (`mod_wad`).
     pub status: String,
+    /// What [`ScanStatus::parse`] makes of `status`, so the dialog reads a
+    /// rejection the way the Games tab does instead of keeping a second table.
+    pub reading: ScanStatus,
 }
 
 /// Payload for the `patcher-wad-scan-failed` event, emitted when the injected
@@ -50,6 +54,26 @@ pub struct WadScanFailedPayload {
 pub struct LinkedBinWarningPayload {
     /// Number of enabled mods flagged in the latest build.
     pub count: u32,
+}
+
+/// Payload for the `patcher-game-attached` event: the DLL is in the game,
+/// which says nothing yet about whether the overlay went live.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct GameAttachedPayload {
+    /// The game's process id, when a `dll` line named it.
+    #[ts(type = "number | null")]
+    pub pid: Option<u64>,
+}
+
+/// Payload for the `patcher-game-overlay` event: what the DLL said about the
+/// overlay after it attached.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct GameOverlayPayload {
+    pub outcome: OverlayOutcome,
 }
 
 /// Maps core patcher notifications to Tauri UI events and the tray icon.
@@ -88,6 +112,7 @@ impl PatcherEvents for TauriPatcherEvents {
                 .into_iter()
                 .map(|f| WadScanFailureInfo {
                     wad: f.wad,
+                    reading: ScanStatus::parse(&f.status),
                     status: f.status,
                 })
                 .collect(),
@@ -99,6 +124,26 @@ impl PatcherEvents for TauriPatcherEvents {
         let _ = self
             .app_handle
             .emit("linked-bins-warning", LinkedBinWarningPayload { count });
+    }
+
+    fn game_attached(&self, pid: Option<u64>) {
+        let _ = self
+            .app_handle
+            .emit("patcher-game-attached", GameAttachedPayload { pid });
+    }
+
+    fn game_overlay(&self, outcome: OverlayOutcome) {
+        let _ = self
+            .app_handle
+            .emit("patcher-game-overlay", GameOverlayPayload { outcome });
+    }
+
+    fn game_exited(&self) {
+        let _ = self.app_handle.emit("patcher-game-exited", ());
+    }
+
+    fn incident_recorded(&self, incident: Incident) {
+        let _ = self.app_handle.emit("incident-recorded", incident);
     }
 }
 

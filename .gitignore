@@ -36,9 +36,13 @@ target/
 src-tauri/bindings/
 src-tauri/src/lib/bindings/
 
+# Paraglide output, compiled from messages/ (see ADR-0018)
+src/paraglide/
+
 # AI local settings
 .claude/
 .mcp.json
+.scratch/
 
 # Windows
 nul

@@ -1,6 +1,7 @@
-import { AlertTriangle, Filter, Plus, Search, Upload } from "lucide-react";
+import { DownloadSimpleIcon, WarningIcon } from "@phosphor-icons/react";
 
-import { Button, Skeleton } from "@/components";
+import { Button, EmptyState, Skeleton } from "@/components";
+import { describeError } from "@/i18n";
 import type { AppError } from "@/lib/tauri";
 import { useLibraryActions } from "@/modules/library/api";
 import { hasErrorCode } from "@/utils/errors";
@@ -23,27 +24,28 @@ export function LibraryLoadingState() {
 }
 
 export function LibraryErrorState({ error }: { error: AppError }) {
+  const copy = describeError(error);
+
   if (hasErrorCode(error, "SCHEMA_VERSION_TOO_NEW")) {
     return (
       <div className="flex h-64 flex-col items-center justify-center text-center">
-        <div className="mb-4 rounded-full bg-amber-500/10 p-4">
-          <AlertTriangle className="h-8 w-8 text-amber-400" />
+        <div className="mb-4 rounded-full bg-warning/10 p-4">
+          <WarningIcon weight="bold" className="h-8 w-8 text-warning-text" />
         </div>
-        <h3 className="mb-1 text-lg font-medium text-surface-300">
-          Mod library requires a newer version
-        </h3>
-        <p className="mb-2 max-w-md text-surface-500">{error.message}</p>
+        <h3 className="mb-1 text-lg font-medium text-surface-300">{copy.title}</h3>
+        <p className="mb-2 max-w-md text-surface-500">{copy.description}</p>
       </div>
     );
   }
 
   return (
     <div className="flex h-64 flex-col items-center justify-center text-center">
-      <div className="mb-4 rounded-full bg-red-500/10 p-4">
+      <div className="mb-4 rounded-full bg-danger/10 p-4">
         <span className="text-2xl">⚠️</span>
       </div>
       <h3 className="mb-1 text-lg font-medium text-surface-300">Failed to load mods</h3>
-      <p className="mb-2 text-surface-500">{error.message}</p>
+      <p className="mb-2 text-surface-500">{copy.title}</p>
+      {copy.detail && <p className="mb-2 text-surface-500">{copy.detail}</p>}
       <p className="text-sm text-surface-600">Error code: {error.code}</p>
     </div>
   );
@@ -59,34 +61,27 @@ export function LibraryEmptyState({ hasSearch, hasFilters }: LibraryEmptyStatePr
 
   if (hasSearch || hasFilters) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center text-center">
-        {hasFilters ? (
-          <Filter className="mb-4 h-12 w-12 text-surface-600" />
-        ) : (
-          <Search className="mb-4 h-12 w-12 text-surface-600" />
-        )}
-        <h3 className="mb-1 text-lg font-medium text-surface-300">No mods found</h3>
-        <p className="text-surface-500">
-          {hasFilters ? "Try adjusting your filters" : "Try adjusting your search query"}
-        </p>
-      </div>
+      <EmptyState
+        title="No mods found"
+        description={hasFilters ? "Try adjusting your filters" : "Try adjusting your search query"}
+      />
     );
   }
 
   return (
-    <div className="flex h-64 flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl">
-        <Upload className="h-10 w-10 text-surface-600" />
-      </div>
-      <h3 className="mb-1 text-lg font-medium text-surface-300">No mods installed</h3>
-      <p className="mb-4 text-surface-500">Get started by adding your first mod</p>
-      <Button
-        variant="filled"
-        onClick={actions.handleInstallMod}
-        left={<Plus className="h-4 w-4" />}
-      >
-        Add Mod
-      </Button>
-    </div>
+    <EmptyState
+      icon={<DownloadSimpleIcon className="h-16 w-16" />}
+      title="No mods installed"
+      description="Get started by importing your first mod"
+      action={
+        <Button
+          variant="filled"
+          onClick={actions.handleImportMods}
+          left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
+        >
+          Import Mods
+        </Button>
+      }
+    />
   );
 }

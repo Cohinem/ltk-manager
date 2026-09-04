@@ -1,25 +1,28 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ArrowLeft, FolderTree, Globe, Package } from "lucide-react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { Button, NavTabs } from "@/components";
+import { Button } from "@/components";
+import type { WorkshopProject } from "@/lib/tauri";
 import {
+  ContentBrowser,
   DeleteConfirmDialog,
+  ExtractDialog,
+  ExtractRunner,
   LoadingState,
   PackDialog,
-  ProjectHeader,
-  ProjectProvider,
+  useEditorPersistence,
   useWorkshopProjects,
 } from "@/modules/workshop";
 
 export const Route = createFileRoute("/workshop/$projectName")({
-  component: ProjectDetailLayout,
+  component: ProjectDetail,
 });
 
-function ProjectDetailLayout() {
+function ProjectDetail() {
   const { projectName } = Route.useParams();
 
   const { data: projects, isLoading } = useWorkshopProjects();
-  const project = projects?.find((p) => p.name === projectName);
+  const project = projects?.find((candidate) => candidate.name === projectName);
 
   if (isLoading) {
     return <LoadingState />;
@@ -30,7 +33,7 @@ function ProjectDetailLayout() {
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-surface-400">Project not found: {projectName}</p>
         <Link to="/workshop">
-          <Button variant="outline" left={<ArrowLeft className="h-4 w-4" />}>
+          <Button variant="outline" left={<ArrowLeftIcon className="h-4 w-4" />}>
             Back to Workshop
           </Button>
         </Link>
@@ -38,43 +41,28 @@ function ProjectDetailLayout() {
     );
   }
 
-  const tabIconClass = "h-3.5 w-3.5";
-  const tabs = [
-    {
-      to: "/workshop/$projectName",
-      params: { projectName },
-      label: "Overview",
-      icon: <Package className={tabIconClass} />,
-      exact: true,
-    },
-    {
-      to: "/workshop/$projectName/content",
-      params: { projectName },
-      label: "Content",
-      icon: <FolderTree className={tabIconClass} />,
-    },
-    {
-      to: "/workshop/$projectName/strings",
-      params: { projectName },
-      label: "Strings",
-      icon: <Globe className={tabIconClass} />,
-    },
-  ];
-
   return (
-    <ProjectProvider project={project}>
-      <div className="flex h-full flex-col">
-        <ProjectHeader project={project} />
-
-        <NavTabs tabs={tabs} />
-
-        <div className="flex-1 overflow-auto">
-          <Outlet />
-        </div>
-      </div>
+    <>
+      {/* The editor holds one project, so another one is a fresh editor and
+          not this one re-pointed. The route reuses this component across a
+          change of param, and document ids repeat between projects, so
+          without the key a pane carries its scroll and focus over. */}
+      <HydratedContentBrowser key={project.path} project={project} />
 
       <PackDialog />
       <DeleteConfirmDialog />
-    </ProjectProvider>
+      <ExtractDialog />
+      <ExtractRunner />
+    </>
   );
+}
+
+/* The editor mounts only once its state is hydrated from `.ltk/editor.json`.
+   Any earlier and ContentBrowser's bootstrap opens its defaults into an empty
+   store, which the arriving hydration then overwrites. */
+function HydratedContentBrowser({ project }: { project: WorkshopProject }) {
+  const ready = useEditorPersistence(project.path);
+
+  if (!ready) return <LoadingState />;
+  return <ContentBrowser project={project} />;
 }

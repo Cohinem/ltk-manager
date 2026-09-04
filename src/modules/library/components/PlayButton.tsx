@@ -1,12 +1,14 @@
-import { ChevronDown, ChevronsRight } from "lucide-react";
+import { CaretDoubleRightIcon, CaretDownIcon, XCircleIcon } from "@phosphor-icons/react";
 
 import { Button, ButtonGroup, IconButton, Kbd, LeagueIcon, Menu, Tooltip } from "@/components";
 import { useHddWarning, usePlatformSupport } from "@/hooks";
-import { useLaunchAvailability, usePlay } from "@/modules/launcher";
+import { useLaunchAvailability, usePlay, useStopLeague } from "@/modules/launcher";
 import { useInstalledMods } from "@/modules/library/api";
 import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
-import { usePatcherSessionStore } from "@/stores";
+import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
+
+import { type GuardedLaunch, ModHealthLaunchGuard } from "./ModHealthLaunchGuard";
 
 interface PlayButtonProps {
   /** Set while a library action that must not overlap a patch is in progress. */
@@ -19,6 +21,7 @@ function playLabel(
   patcherOnly: boolean,
 ): string {
   if (step === "launching") return "Launching...";
+  if (step === "cancelling") return "Cancelling...";
   if (isBuilding) return "Building...";
   if (step === "starting-patcher") return "Starting...";
   if (patcherOnly) return "Start Patcher";
@@ -42,11 +45,35 @@ function primaryTooltip(
 /**
  * The League mark deliberately overflows `Button`'s icon slot. It is the brand
  * on the app's primary action, not a glyph labelling it, so it is sized past
- * what the surrounding lucide icons sit at.
+ * what the surrounding icons sit at.
  */
 function PrimaryIcon({ patcherOnly }: { patcherOnly: boolean }) {
-  if (patcherOnly) return <ChevronsRight className="h-5 w-5 shrink-0" />;
+  if (patcherOnly) return <CaretDoubleRightIcon weight="bold" className="h-5 w-5 shrink-0" />;
   return <LeagueIcon className="h-6 w-6 shrink-0" />;
+}
+
+/**
+ * Ends the game through the Riot Client, which is the only thing that can.
+ *
+ * In the menu rather than on the button, and only while a session is live: the
+ * client refuses to close a product it never started, so an entry offered at any
+ * other time would be an entry that cannot work.
+ */
+function StopLeagueMenuItem() {
+  const session = usePlaySessionStore((s) => s.session);
+  const stopLeague = useStopLeague();
+
+  if (!session) return null;
+
+  return (
+    <Menu.Item
+      icon={<XCircleIcon weight="bold" className="h-4 w-4" />}
+      onClick={() => stopLeague.mutate()}
+      disabled={stopLeague.isPending}
+    >
+      Close League
+    </Menu.Item>
+  );
 }
 
 interface LaunchMenuItemProps {
@@ -96,6 +123,25 @@ function LaunchMenuItem({ label, leagueRunning, disabled, onClick }: LaunchMenuI
  */
 export function PlayButton({ disabled = false }: PlayButtonProps) {
   const { data: platform } = usePlatformSupport();
+
+  // Both halves are Windows-only, so there is nothing to offer elsewhere.
+  // `PatcherUnsupported` already explains why on the page itself.
+  if (!(platform?.patcherAvailable ?? true)) return null;
+
+  return (
+    <ModHealthLaunchGuard>
+      {(ask) => <LaunchControls ask={ask} disabled={disabled} />}
+    </ModHealthLaunchGuard>
+  );
+}
+
+interface LaunchControlsProps {
+  /** Every action here that ends in a patch goes through this first. */
+  ask: GuardedLaunch;
+  disabled: boolean;
+}
+
+function LaunchControls({ ask, disabled }: LaunchControlsProps) {
   const { data: mods = [], isLoading } = useInstalledMods();
   const { data: status } = usePatcherStatus();
   const { data: availability } = useLaunchAvailability();
@@ -133,10 +179,6 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
 
   const primaryAction = patcherOnly ? handleStartPatcherOnly : handlePlay;
 
-  // Both halves are Windows-only, so there is nothing to offer elsewhere.
-  // `PatcherUnsupported` already explains why on the page itself.
-  if (!(platform?.patcherAvailable ?? true)) return null;
-
   if (isRunning && !isBusy) {
     const stopButton = (
       <Tooltip
@@ -159,7 +201,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
           disabled={disabled || stopping}
           left={
             !stopping && (
-              <span className="inline-flex h-3 w-3 rounded-full bg-green-500 shadow-[0_0_5px_1px_rgba(74,222,128,0.5)]" />
+              <span className="inline-flex h-3 w-3 rounded-full bg-success shadow-[0_0_5px_1px] shadow-success/50" />
             )
           }
         >
@@ -177,7 +219,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<ChevronDown className="h-4 w-4" />}
+                icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
                 variant="outline"
                 size="md"
                 aria-label="More launch options"
@@ -188,12 +230,15 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup className="w-64">
+                {/* Unguarded: this starts the game without the patcher, so
+                    it carries no mods for the ask to be about. */}
                 <LaunchMenuItem
                   label="Launch League"
                   leagueRunning={leagueRunning}
                   onClick={launchOnly}
                   disabled={!canLaunch || isBusy}
                 />
+                <StopLeagueMenuItem />
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>
@@ -216,7 +261,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
       <Button
         variant="filled"
         size="md"
-        onClick={primaryAction}
+        onClick={() => ask(primaryAction)}
         loading={isBusy || isBuilding}
         disabled={busy || (patcherOnly && !hasEnabledMods)}
         left={<PrimaryIcon patcherOnly={patcherOnly} />}
@@ -236,7 +281,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
         <Menu.Trigger
           render={
             <IconButton
-              icon={<ChevronDown className="h-4 w-4" />}
+              icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
               variant="filled"
               size="md"
               disabled={busy}
@@ -252,26 +297,28 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
                 <LaunchMenuItem
                   label="Play"
                   leagueRunning={leagueRunning}
-                  onClick={handlePlay}
+                  onClick={() => ask(handlePlay)}
                   disabled={!canLaunch}
                 />
               )}
               {!patcherOnly && (
                 <Menu.Item
-                  icon={<ChevronsRight className="h-4 w-4" />}
-                  onClick={handleStartPatcherOnly}
+                  icon={<CaretDoubleRightIcon weight="bold" className="h-4 w-4" />}
+                  onClick={() => ask(handleStartPatcherOnly)}
                   disabled={!hasEnabledMods}
                   shortcut="Ctrl+P"
                 >
                   Start patcher only
                 </Menu.Item>
               )}
+              {/* Unguarded, for the reason the other one is. */}
               <LaunchMenuItem
                 label="Launch League only"
                 leagueRunning={leagueRunning}
                 onClick={launchOnly}
                 disabled={!canLaunch}
               />
+              <StopLeagueMenuItem />
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>

@@ -60,6 +60,25 @@ pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path, app_vers
     }
 }
 
+/// Drop the build-version marker so the next build flushes every profile.
+///
+/// For a change that moves what a mod's content *is* without moving the app
+/// version — the library layout migration, which repoints every provider at a
+/// directory — where the builder would otherwise reuse overlays built from the
+/// archives.
+pub(crate) fn force_flush_on_next_build(storage_dir: &Path) {
+    let marker = storage_dir.join(".overlay-build-version");
+    match std::fs::remove_file(&marker) {
+        Ok(()) => tracing::info!("Cleared the overlay build-version marker"),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+        Err(e) => tracing::warn!(
+            "Failed to clear overlay build-version marker {}: {}",
+            marker.display(),
+            e
+        ),
+    }
+}
+
 /// Remove a profile's cached overlay artifacts so the next build starts clean.
 ///
 /// Always removes the patched-WAD `overlay/` tree, the `overlay.json` state

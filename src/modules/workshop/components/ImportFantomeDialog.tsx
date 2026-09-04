@@ -53,7 +53,7 @@ export function ImportFantomeDialog() {
             form.reset();
             closeDialog();
           },
-          onError: (err) => console.error("Failed to import fantome:", err.message),
+          onError: (err) => console.error("Failed to import fantome:", err),
         },
       );
     },
@@ -155,7 +155,7 @@ export function ImportFantomeDialog() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-surface-400">
-                      {progress.stage === "extracting" && "Extracting WADs..."}
+                      {progress.stage === "extracting" && "Extracting content..."}
                       {progress.stage === "finalizing" && "Finalizing..."}
                       {progress.stage === "error" && "Error occurred"}
                     </span>
@@ -165,9 +165,9 @@ export function ImportFantomeDialog() {
                       </span>
                     )}
                   </div>
-                  {progress.currentWad && (
+                  {progress.currentItem && (
                     <p className="truncate font-mono text-xs text-surface-500">
-                      {progress.currentWad}
+                      {progress.currentItem}
                     </p>
                   )}
                   <div className="h-2 overflow-hidden rounded-full bg-surface-700">

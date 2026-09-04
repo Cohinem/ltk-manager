@@ -245,7 +245,7 @@ impl ModLibrary {
                 .find(|m| m.id == mod_id)
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
 
-            let mod_dir = entry.metadata_dir(storage_dir);
+            let mod_dir = entry.mod_dir(storage_dir);
             let mut project = load_mod_project(&mod_dir)?;
 
             if let Some(dn) = args.display_name {
@@ -346,27 +346,28 @@ impl ModLibrary {
                 .find(|m| m.id == mod_id)
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
 
-            let metadata_dir = entry.metadata_dir(storage_dir);
+            let mod_dir = entry.mod_dir(storage_dir);
 
-            // Check for already-cached thumbnail
             for filename in ["thumbnail.webp", "thumbnail.png"] {
-                let cached = metadata_dir.join(filename);
+                let cached = mod_dir.join(filename);
                 if cached.exists() {
                     return Ok(Some(cached.display().to_string()));
                 }
             }
 
-            // Lazy migration: extract from archive and cache
+            // Nothing cached: a mod whose archive is still around can still be
+            // asked. A fantome installed with archive retention off has none,
+            // and simply has no thumbnail.
             let archive_path = entry.archive_path(storage_dir);
             if !archive_path.exists() {
-                return Err(AppError::InvalidPath(archive_path.display().to_string()));
+                return Ok(None);
             }
 
             let cached_path = match entry.format {
-                ModArchiveFormat::Fantome => {
-                    extract_fantome_thumbnail(&archive_path, &metadata_dir)?
+                ModArchiveFormat::Modpkg => extract_modpkg_thumbnail(&archive_path, &mod_dir)?,
+                ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
+                    extract_fantome_thumbnail(&archive_path, &mod_dir)?
                 }
-                ModArchiveFormat::Modpkg => extract_modpkg_thumbnail(&archive_path, &metadata_dir)?,
             };
 
             Ok(cached_path.map(|p| p.display().to_string()))

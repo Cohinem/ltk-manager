@@ -4,7 +4,15 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
-export type ButtonVariant = "default" | "filled" | "light" | "outline" | "ghost" | "transparent";
+export type ButtonVariant =
+  | "default"
+  | "filled"
+  | "danger" // TODO: `danger` should not be a variant, it should be a color modifier over any of the other ones
+  | "light"
+  | "duotone"
+  | "outline"
+  | "ghost"
+  | "transparent";
 
 export type ButtonSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -53,11 +61,16 @@ const compactIconOnlySizeClasses: Record<ButtonSize, string> = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: "bg-surface-700 text-surface-100 hover:bg-surface-600 active:bg-surface-800",
-  filled: "bg-accent-600 text-white hover:bg-accent-500 active:bg-accent-700",
-  light: "bg-accent-600/15 text-accent-400 hover:bg-accent-600/25 active:bg-accent-600/35",
+  filled: "bg-accent-600 text-on-accent hover:bg-accent-500 active:bg-accent-700",
+  danger: "bg-danger-strong text-brand-on hover:bg-danger active:brightness-90",
+  light: "bg-accent-500/25 text-accent-300 hover:bg-accent-500/35 active:bg-accent-500/45",
+  /* Two tints of one hue: a wash to sit in, and an edge to be found by. */
+  duotone:
+    "bg-accent-500/15 text-accent-400 border border-accent-400/50 hover:bg-accent-500/25 active:bg-accent-500/35",
+  /* Edge and hover both from the veil: DS-VEIL. */
   outline:
-    "bg-transparent text-surface-200 border border-surface-600 hover:bg-surface-800 active:bg-surface-700",
-  ghost: "bg-transparent text-surface-200 hover:bg-surface-700 active:bg-surface-800",
+    "bg-transparent text-surface-200 border border-surface-veil-strong hover:bg-surface-veil active:bg-surface-veil-strong",
+  ghost: "bg-transparent text-surface-200 hover:bg-surface-veil active:bg-surface-veil-strong",
   transparent: "bg-transparent text-surface-300 hover:text-surface-100",
 };
 
@@ -73,7 +86,7 @@ const spinnerSizeClasses: Record<ButtonSize, string> = {
 };
 
 const iconSlotSizeClasses: Record<ButtonSize, string> = {
-  xs: "h-3 w-3",
+  xs: "h-4 w-4",
   sm: "h-4 w-4",
   md: "h-4 w-4",
   lg: "h-5 w-5",

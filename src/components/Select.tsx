@@ -26,13 +26,13 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
       <BaseSelect.Trigger
         ref={ref}
         className={twMerge(
-          "flex h-8 w-full items-center justify-between rounded-lg border px-4 py-1 text-sm transition-colors",
+          "flex h-8 w-full items-center justify-between rounded-md border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50",
-          "border-surface-500 hover:border-surface-400",
+          "border-surface-500 hover:border-accent-hover",
           "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "data-[placeholder]:text-surface-400",
-          hasError && "border-red-500 focus:border-red-500 focus:ring-red-500",
+          hasError && "border-danger focus:border-danger focus:ring-danger",
           className,
         )}
         {...props}
@@ -150,7 +150,7 @@ export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
         ref={ref}
         className={twMerge(
           "max-h-60 overflow-y-auto",
-          "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
+          "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl outline-none",
           "transition-[opacity,transform] duration-150 ease-out",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
@@ -310,7 +310,7 @@ export function SelectField({
       {label && (
         <label className="text-sm font-medium text-surface-200">
           {label}
-          {required && <span className="ml-1 text-red-400">*</span>}
+          {required && <span className="ml-1 text-required">*</span>}
         </label>
       )}
       {description && <p className="text-xs text-surface-400">{description}</p>}
@@ -341,7 +341,7 @@ export function SelectField({
           </SelectPositioner>
         </SelectPortal>
       </SelectRoot>
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger-text">{error}</p>}
     </div>
   );
 }

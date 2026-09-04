@@ -11,9 +11,20 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Launch progress is defined by the crate that produces it, and re-exported
-/// here so every payload in the registry below can be named from one module.
-pub use ritoclient_api::{LaunchProgress, LaunchStage};
+use crate::mods::ModStorage;
+
+/// The launcher's payloads are defined alongside the code that produces them,
+/// and re-exported here so every payload in the registry below can be named
+/// from one module.
+pub use crate::launcher::{
+    LaunchProgress, LaunchStage, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
+};
+
+/// As above, for the payload the layout migration defines beside itself.
+pub use crate::mods::LayoutMigrationReport;
+
+/// As above, for what a mod health sweep concludes.
+pub use crate::mods::HealthSweepReport;
 
 /// Receives notifications from domain operations.
 ///
@@ -89,8 +100,62 @@ pub struct MigrationProgress {
     pub current_file: String,
 }
 
+/// Progress of the library layout migration, emitted per mod.
+///
+/// Separate from [`MigrationProgress`], which is the cslol import: the two run
+/// at different moments, mean different things, and share nothing but the word.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct LayoutMigrationProgress {
+    pub current: usize,
+    pub total: usize,
+    pub current_mod: String,
+}
+
+/// Progress of a mod health sweep, emitted per mod.
+///
+/// The mod is named by id rather than by title: the library view already holds
+/// every mod's name, and looking one up here would mean a `mod.config.json`
+/// read per mod on top of the check itself.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct HealthSweepProgress {
+    /// Mods the sweep has finished, however they turned out.
+    pub completed: usize,
+    pub total: usize,
+    /// The mods being read right now, by id. Several, because the sweep reads
+    /// more than one at a time.
+    pub in_flight: Vec<String>,
+}
+
+/// Progress of a repair over several mods, emitted per mod.
+///
+/// Its own payload rather than [`HealthSweepProgress`] reused: the two run at
+/// different moments and a surface drawing one must not be driven by the other.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ModRepairProgress {
+    /// Mods the run has finished, however they turned out.
+    pub completed: usize,
+    pub total: usize,
+    /// The mods being repaired right now, by id. Several, because a repair
+    /// works on more than one at a time.
+    pub in_flight: Vec<String>,
+}
+
 /// Stage of a fantome import.
-#[derive(Clone, Debug, Serialize)]
+///
+/// Coarser than the stages `ltk_mod_project`'s importer reports: everything
+/// past the content is `Finalizing`, because none of it carries a count a bar
+/// could be drawn from. `Error` has no counterpart there at all, since a failed
+/// import returns rather than reporting, so the caller emits it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
@@ -108,9 +173,120 @@ pub enum FantomeImportStage {
 #[serde(rename_all = "camelCase")]
 pub struct FantomeImportProgress {
     pub stage: FantomeImportStage,
-    pub current_wad: Option<String>,
+    /// The unit being unpacked, as the archive names it: a WAD, or `RAW` for
+    /// the pass that unpacks everything the archive keeps outside one.
+    pub current_item: Option<String>,
     pub current: u32,
     pub total: u32,
+}
+
+/// Progress of one mod moving between the two storage modes.
+///
+/// Its own event though an unpack is a fantome import, because the workshop's
+/// import dialog listens on `fantome-import-progress` and a library conversion
+/// must not drive it. The stage is shared, since the two report the same four
+/// states.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ModStorageProgress {
+    pub mod_id: String,
+    /// The storage the mod is moving to, which is what names the work.
+    pub storage: ModStorage,
+    pub stage: FantomeImportStage,
+    /// As [`FantomeImportProgress::current_item`].
+    pub current_item: Option<String>,
+    pub current: u32,
+    pub total: u32,
+}
+
+impl ModStorageProgress {
+    /// A stage with nothing named and no counters, for the steps that have none.
+    pub fn new(mod_id: &str, storage: ModStorage, stage: FantomeImportStage) -> Self {
+        Self {
+            mod_id: mod_id.to_owned(),
+            storage,
+            stage,
+            current_item: None,
+            current: 0,
+            total: 0,
+        }
+    }
+
+    /// The same, carrying the counters an unpack reached before it stopped.
+    pub fn at(mut self, current: u32, total: u32) -> Self {
+        self.current = current;
+        self.total = total;
+        self
+    }
+}
+
+impl From<ltk_mod_project::ImportProgress<'_>> for FantomeImportProgress {
+    fn from(progress: ltk_mod_project::ImportProgress<'_>) -> Self {
+        use ltk_mod_project::ImportStage as Upstream;
+
+        let (stage, current_item) = match progress.stage {
+            Upstream::Extracting { item } => {
+                (FantomeImportStage::Extracting, Some(item.to_owned()))
+            }
+            Upstream::WritingMetadata => (FantomeImportStage::Finalizing, None),
+            Upstream::Complete => (FantomeImportStage::Complete, None),
+        };
+
+        Self {
+            stage,
+            current_item,
+            current: progress.current,
+            total: progress.total,
+        }
+    }
+}
+
+/// Progress of a hashtable sync, as its tables stream in.
+///
+/// Every figure describes the whole run rather than the table in flight, so a
+/// reader draws one bar for the sync instead of one that restarts per file.
+/// The tables are tens of megabytes each, so the emitter throttles rather than
+/// sending one of these per chunk.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct HashtableSyncProgress {
+    /// Id of the table being fetched, e.g. `game`.
+    pub table: String,
+    /// Which table of the run this is, counting from 1.
+    pub current: u32,
+    /// How many tables the run fetches.
+    pub total: u32,
+    /// Bytes of the whole run written so far.
+    pub downloaded: u64,
+    /// Bytes the whole run will write, absent against a release that recorded
+    /// no sizes.
+    pub total_bytes: Option<u64>,
+}
+
+/// Progress of an extract of game chunks to disk.
+///
+/// One extract runs over any number of archives, so `current` and `total`
+/// count the whole run rather than the archive being read. The extractor
+/// reports every chunk it finishes, which is tens of thousands for a large
+/// archive, so the emitter throttles rather than sending one of these each
+/// time.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ExtractProgress {
+    pub current: u32,
+    pub total: u32,
+    /// The chunk just written, or its hex hash when nothing names it.
+    pub current_path: Option<String>,
+    /// Bytes written so far across the whole run.
+    pub bytes: u64,
+    /// The `DATA/FINAL`-relative archive being read.
+    pub archive: String,
 }
 
 /// Stage of a git repository import.
@@ -179,147 +355,55 @@ declare_events! {
     OverlayProgress(OverlayProgress) => "overlay-progress",
     /// The set of mods with unresolved linked-bin dependencies changed.
     LinkedBinsUpdated => "linked-bins-updated",
+    /// The set of chunks whose containers claimed wrong checksums changed.
+    ChecksumMismatchesUpdated => "checksum-mismatches-updated",
     /// Per-mod WAD analysis results changed.
     WadReportsUpdated => "wad-reports-updated",
+    /// Per-mod health verdicts changed.
+    ModHealthVerdictsUpdated => "mod-health-verdicts-updated",
+    /// A mod health sweep advanced to the next mod.
+    HealthSweepProgress(HealthSweepProgress) => "health-sweep-progress",
+    /// A mod health sweep ended, with what the library now looks like. Emitted
+    /// only for a run that had mods to check, so a library already current
+    /// announces nothing.
+    HealthSweepFinished(HealthSweepReport) => "health-sweep-finished",
+    /// A repair over several mods advanced to the next mod.
+    ModRepairProgress(ModRepairProgress) => "mod-repair-progress",
     /// The library index changed and any cached view of it is stale.
     LibraryChanged => "library-changed",
     /// A bulk install advanced.
     InstallProgress(InstallProgress) => "install-progress",
     /// A cslol migration advanced.
     MigrationProgress(MigrationProgress) => "migration-progress",
+    /// The library layout migration advanced to the next mod.
+    LayoutMigrationProgress(LayoutMigrationProgress) => "layout-migration-progress",
+    /// The library layout migration ended. Emitted only for a run that had
+    /// mods to move, so a library already on the slug layout announces nothing.
+    LayoutMigrationFinished(LayoutMigrationReport) => "layout-migration-finished",
     /// A fantome import advanced.
     FantomeImportProgress(FantomeImportProgress) => "fantome-import-progress",
+    /// One mod's storage conversion advanced.
+    ModStorageProgress(ModStorageProgress) => "mod-storage-progress",
     /// A git repository import advanced.
     GitImportProgress(GitImportProgress) => "git-import-progress",
     /// A League launch request advanced.
     LaunchProgress(LaunchProgress) => "launch-progress",
+    /// The Riot Client opened a session for League. Emitted once per session,
+    /// including for one the manager adopted or recovered rather than started.
+    SessionStarted(SessionStarted) => "session-started",
+    /// A live session moved to another phase - what the match is doing, which
+    /// is not whether League is up.
+    SessionChanged(SessionChanged) => "session-changed",
+    /// League appeared or went away during a live session. The one the status
+    /// bar and the patcher act on.
+    SessionGameRunning(SessionGameRunning) => "session-game-running",
+    /// A live session ended, with the client's own reason when it gave one.
+    SessionEnded(SessionEnded) => "session-ended",
+    /// A hashtable sync advanced. Throttled by its emitter.
+    HashtableSyncProgress(HashtableSyncProgress) => "hashtable-sync-progress",
+    /// An extract of game chunks to disk advanced. Throttled by its emitter.
+    ExtractProgress(ExtractProgress) => "extract-progress",
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn event_names_are_stable() {
-        assert_eq!(
-            BackendEvent::LinkedBinsUpdated.name(),
-            "linked-bins-updated"
-        );
-        assert_eq!(
-            BackendEvent::WadReportsUpdated.name(),
-            "wad-reports-updated"
-        );
-        assert_eq!(
-            BackendEvent::OverlayProgress(OverlayProgress {
-                stage: OverlayStage::Indexing,
-                current_file: None,
-                current: 0,
-                total: 0,
-            })
-            .name(),
-            "overlay-progress"
-        );
-    }
-
-    #[test]
-    fn payload_carrying_event_names_are_stable() {
-        assert_eq!(BackendEvent::LibraryChanged.name(), "library-changed");
-        assert_eq!(
-            BackendEvent::InstallProgress(InstallProgress {
-                current: 1,
-                total: 2,
-                current_file: "a.modpkg".to_string(),
-            })
-            .name(),
-            "install-progress"
-        );
-        assert_eq!(
-            BackendEvent::MigrationProgress(MigrationProgress {
-                phase: MigrationPhase::Packaging,
-                current: 0,
-                total: 1,
-                current_file: String::new(),
-            })
-            .name(),
-            "migration-progress"
-        );
-        assert_eq!(
-            BackendEvent::FantomeImportProgress(FantomeImportProgress {
-                stage: FantomeImportStage::Extracting,
-                current_wad: None,
-                current: 0,
-                total: 0,
-            })
-            .name(),
-            "fantome-import-progress"
-        );
-        assert_eq!(
-            BackendEvent::GitImportProgress(GitImportProgress {
-                stage: GitImportStage::Downloading,
-                message: None,
-            })
-            .name(),
-            "git-import-progress"
-        );
-        assert_eq!(
-            BackendEvent::LaunchProgress(LaunchProgress::at(LaunchStage::Resolving)).name(),
-            "launch-progress"
-        );
-    }
-
-    /// Payload field names cross the IPC boundary, so the camelCase rename must
-    /// survive the move into core.
-    #[test]
-    fn payloads_serialize_as_camel_case() {
-        let json = serde_json::to_value(InstallProgress {
-            current: 1,
-            total: 3,
-            current_file: "x".to_string(),
-        })
-        .unwrap();
-        assert_eq!(json["currentFile"], "x");
-
-        let json = serde_json::to_value(OverlayProgress {
-            stage: OverlayStage::Patching,
-            current_file: Some("test.wad.client".to_string()),
-            current: 5,
-            total: 10,
-        })
-        .unwrap();
-        assert_eq!(json["stage"], "patching");
-        assert_eq!(json["currentFile"], "test.wad.client");
-        assert_eq!(json["current"], 5);
-        assert_eq!(json["total"], 10);
-
-        let json = serde_json::to_value(FantomeImportProgress {
-            stage: FantomeImportStage::Finalizing,
-            current_wad: Some("w".to_string()),
-            current: 1,
-            total: 2,
-        })
-        .unwrap();
-        assert_eq!(json["currentWad"], "w");
-        assert_eq!(json["stage"], "finalizing");
-    }
-
-    /// Every overlay stage is a distinct string the frontend switches on, so a
-    /// renamed variant must not silently change what it serializes to.
-    #[test]
-    fn overlay_stages_serialize_to_their_wire_names() {
-        for (stage, expected) in [
-            (OverlayStage::Indexing, "\"indexing\""),
-            (OverlayStage::Collecting, "\"collecting\""),
-            (OverlayStage::Patching, "\"patching\""),
-            (OverlayStage::Strings, "\"strings\""),
-            (OverlayStage::Complete, "\"complete\""),
-        ] {
-            assert_eq!(serde_json::to_string(&stage).unwrap(), expected);
-        }
-    }
-
-    #[test]
-    fn null_sink_accepts_events() {
-        let sink = NullEventSink;
-        sink.emit(BackendEvent::LinkedBinsUpdated);
-    }
-}
+mod tests;

@@ -1,7 +1,12 @@
-import { Sparkles } from "lucide-react";
+import { BooksIcon } from "@phosphor-icons/react";
 
-import { SectionCard, Switch } from "@/components";
+import { PathField, SectionCard, Switch } from "@/components";
 import type { Settings } from "@/lib/tauri";
+
+import { ExperimentalChip } from "./ExperimentalChip";
+import { SettingGroup } from "./SettingGroup";
+import { SettingRow } from "./SettingRow";
+import { TrustedDomainsEditor } from "./TrustedDomainsEditor";
 
 interface LibrarySectionProps {
   settings: Settings;
@@ -10,23 +15,68 @@ interface LibrarySectionProps {
 
 export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
   return (
-    <SectionCard title="Mod Categorization" icon={<Sparkles className="h-5 w-5" />}>
-      <label className="flex items-center justify-between gap-4">
-        <div>
-          <span className="block text-sm font-medium text-surface-200">
-            Automatically categorize mods
-          </span>
-          <span className="block text-sm text-surface-400">
-            Detect champions, maps and content tags from each mod&apos;s files and surface them as
-            suggested categories and library filters. Disable this to rely only on the categories
-            you set yourself.
-          </span>
-        </div>
-        <Switch
-          checked={settings.autoCategorizationEnabled}
-          onCheckedChange={(checked) => onSave({ ...settings, autoCategorizationEnabled: checked })}
+    <SectionCard
+      title="Library"
+      icon={<BooksIcon className="h-5 w-5" />}
+      description="Options for your mod library"
+    >
+      <SettingGroup id="library.storage" title="Storage">
+        <SettingRow
+          kind="action"
+          layout="stacked"
+          setting="modStoragePath"
+          description="Leave empty for the app data directory."
+          control={
+            <PathField
+              pick="directory"
+              aria-label="Storage location"
+              value={settings.modStoragePath}
+              onSelect={(path) => onSave({ ...settings, modStoragePath: path })}
+              placeholder="Default (app data directory)"
+              dialogTitle="Select Mod Storage Location"
+            />
+          }
         />
-      </label>
+      </SettingGroup>
+
+      <SettingGroup id="library.cataloguing" title="Cataloguing">
+        <SettingRow
+          setting="autoCategorizationEnabled"
+          description="Champions, maps and tags get read from each mod's files."
+          hint="They are offered as suggested categories and as library filters. Turn this off to rely only on the categories you set yourself."
+          control={
+            <Switch
+              checked={settings.autoCategorizationEnabled}
+              onCheckedChange={(checked) =>
+                onSave({ ...settings, autoCategorizationEnabled: checked })
+              }
+            />
+          }
+        />
+
+        <SettingRow
+          setting="watcherEnabled"
+          badge={<ExperimentalChip />}
+          description="Mods added or removed outside the app show up in the library."
+          hint="Filesystem notifications vary across platforms and antivirus software, so watching can miss an update or fire falsely. Requires a restart to take effect."
+          control={
+            <Switch
+              checked={settings.watcherEnabled}
+              onCheckedChange={(checked) => onSave({ ...settings, watcherEnabled: checked })}
+            />
+          }
+        />
+      </SettingGroup>
+
+      <SettingGroup id="library.installing" title="Installing">
+        <SettingRow
+          kind="action"
+          layout="stacked"
+          setting="trustedDomains"
+          description="One-click links only install from these domains. Remove all of them to allow any source."
+          control={<TrustedDomainsEditor settings={settings} onSave={onSave} />}
+        />
+      </SettingGroup>
     </SectionCard>
   );
 }

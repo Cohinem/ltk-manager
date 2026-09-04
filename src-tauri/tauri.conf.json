@@ -20,11 +20,11 @@
         "resizable": true,
         "transparent": false,
         "visible": false,
-        "backgroundColor": "#1c1c1f"
+        "backgroundColor": "#0c0d18"
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self' ipc: http://ipc.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost ltk-asset: http://ltk-asset.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self' ipc: http://ipc.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org",
       "assetProtocol": {
         "enable": true,
         "scope": [

@@ -41,6 +41,16 @@ export function useOverlayProgress() {
     };
   }, [queryClient]);
 
+  // Same for the checksum-mismatch advisories in mod details.
+  useEffect(() => {
+    const unlisten = listen("checksum-mismatches-updated", () => {
+      queryClient.invalidateQueries({ queryKey: libraryKeys.checksumMismatches() });
+    });
+    return () => {
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
+  }, [queryClient]);
+
   useEffect(() => {
     const isPatcherRunning = patcherStatus?.running ?? false;
 

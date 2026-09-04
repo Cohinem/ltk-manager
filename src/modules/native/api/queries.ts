@@ -12,7 +12,8 @@ import {
 export const nativeKeys = {
   version: () => ["native", "version"] as const,
   champions: (version: string) => ["native", "champions", version] as const,
-  championDetail: (version: string, champId: string) => ["native", "champion", version, champId] as const,
+  championDetail: (version: string, champId: string) =>
+    ["native", "champion", version, champId] as const,
   cdChampion: (championId: string) => ["native", "cdragon-champion", championId] as const,
 };
 
@@ -26,7 +27,9 @@ export function useNativeVersion() {
 
 export function useChampionList(version: string | undefined) {
   return useQuery<Record<string, DdChampionSummary>>({
-    queryKey: version ? nativeKeys.champions(version) : (["native", "champions", "pending"] as const),
+    queryKey: version
+      ? nativeKeys.champions(version)
+      : (["native", "champions", "pending"] as const),
     queryFn: () => fetchChampionList(version!),
     enabled: !!version,
     staleTime: 1000 * 60 * 30,
@@ -36,7 +39,9 @@ export function useChampionList(version: string | undefined) {
 export function useChampionDetail(version: string | undefined, champId: string | null) {
   return useQuery<DdChampionDetail>({
     queryKey:
-      version && champId ? nativeKeys.championDetail(version, champId) : (["native", "champion", "pending", champId] as const),
+      version && champId
+        ? nativeKeys.championDetail(version, champId)
+        : (["native", "champion", "pending", champId] as const),
     queryFn: () => fetchChampionDetail(version!, champId!),
     enabled: !!version && !!champId,
     staleTime: 1000 * 60 * 30,
@@ -45,7 +50,9 @@ export function useChampionDetail(version: string | undefined, champId: string |
 
 export function useCdChampion(championId: string | null) {
   return useQuery<CdChampion>({
-    queryKey: championId ? nativeKeys.cdChampion(championId) : (["native", "cdragon-champion", "pending"] as const),
+    queryKey: championId
+      ? nativeKeys.cdChampion(championId)
+      : (["native", "cdragon-champion", "pending"] as const),
     queryFn: () => fetchCdChampion(championId!),
     enabled: !!championId,
     staleTime: 1000 * 60 * 30,

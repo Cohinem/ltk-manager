@@ -19,10 +19,11 @@ if (
   !isVitest &&
   !(window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
 ) {
-  const APP_VERSION = "1.13.2";
+  const APP_VERSION = "1.15.4";
 
   const mockSettings = {
     leaguePath: null,
+    leagueSkinsPath: null,
     modStoragePath: null,
     workshopPath: null,
     firstRunComplete: true,
@@ -117,116 +118,137 @@ if (
   mockWindows("main");
   mockConvertFileSrc("linux");
 
-  mockIPC((cmd, args) => {
-    // Plugin commands (window, event, updater, dialog, etc.) — just no-op.
-    if (cmd.startsWith("plugin:")) {
-      return null;
-    }
-
-    switch (cmd) {
-      case "get_app_info":
-        return {
-          ok: true,
-          value: {
-            name: "LTK Manager",
-            version: APP_VERSION,
-            logFilePath: null,
-            os: "browser",
-            arch: "x86_64",
-          },
-        };
-      case "get_platform_support":
-        return { ok: true, value: { os: "browser", patcherAvailable: false, hotkeysAvailable: false } };
-      case "get_settings":
-        return { ok: true, value: mockSettings };
-      case "save_settings": {
-        const next = (args as { settings?: typeof mockSettings })?.settings;
-        if (next) {
-          Object.assign(mockSettings, next);
-          try {
-            localStorage.setItem("ltk-preview-settings", JSON.stringify(mockSettings));
-          } catch {
-            // ignore
-          }
-        }
-        return { ok: true, value: null };
+  mockIPC(
+    (cmd, args) => {
+      // Plugin commands (window, event, updater, dialog, etc.) — just no-op.
+      if (cmd.startsWith("plugin:")) {
+        return null;
       }
-      case "check_setup_required":
-        return { ok: true, value: false };
-      case "show_main_window":
-      case "prepare_for_update":
-      case "pause_hotkeys":
-      case "resume_hotkeys":
-      case "minimize_to_tray":
-        return { ok: true, value: null };
-      case "get_installed_mods":
-        return { ok: true, value: sampleMods };
-      case "get_folders":
-        return { ok: true, value: [] };
-      case "get_folder_order":
-        return { ok: true, value: [] };
-      case "list_mod_profiles":
-        return { ok: true, value: [sampleProfile] };
-      case "get_active_mod_profile":
-        return { ok: true, value: sampleProfile };
-      case "get_patcher_status":
-        return { ok: true, value: { running: false, overlayPrefix: null, phase: "idle" } };
-      case "get_launch_availability":
-        return {
-          ok: true,
-          value: {
-            canLaunch: false,
-            riotClientPath: null,
-            riotClientRunning: false,
-            leagueRunning: false,
-          },
-        };
-      case "get_storage_directory":
-        return { ok: true, value: "/tmp/ltk-manager" };
-      case "list_available_wads":
-        return { ok: true, value: [] };
-      case "get_all_mod_wad_reports":
-        return { ok: true, value: {} };
-      case "get_linked_bin_offenders":
-        return { ok: true, value: {} };
-      case "get_mod_wad_report":
-        return { ok: true, value: null };
-      case "get_mod_thumbnail":
-        return { ok: true, value: null };
-      case "get_workshop_projects":
-        return { ok: true, value: [] };
-      case "run_diagnostics":
-        return {
-          ok: true,
-          value: { generatedAt: new Date().toISOString(), appVersion: APP_VERSION, checks: [] },
-        };
-      case "detect_storage_medium":
-        return { ok: true, value: "unknown" };
-      case "validate_league_path":
-        return { ok: true, value: true };
-      case "auto_detect_league_path":
-        return { ok: true, value: null };
-      case "detect_league_run_as_admin":
-        return { ok: true, value: false };
-      case "get_project_content_tree":
-        return { ok: true, value: { layers: [] } };
-      case "search_string_keys":
-        return { ok: true, value: { suggestions: [], totalKeys: 0, locale: null } };
-      case "get_layer_info":
-        return { ok: true, value: {} };
-      case "get_layer_content_path":
-        return { ok: true, value: "/preview/layer" };
-      default:
-        // Generic fallback — keep the app from crashing on any other command.
-        return { ok: true, value: null };
-    }
-  }, { shouldMockEvents: true });
+
+      switch (cmd) {
+        case "get_app_info":
+          return {
+            ok: true,
+            value: {
+              name: "LTK Manager",
+              version: APP_VERSION,
+              logFilePath: null,
+              os: "browser",
+              arch: "x86_64",
+            },
+          };
+        case "get_platform_support":
+          return {
+            ok: true,
+            value: { os: "browser", patcherAvailable: false, hotkeysAvailable: false },
+          };
+        case "get_settings":
+          return { ok: true, value: mockSettings };
+        case "save_settings": {
+          const next = (args as { settings?: typeof mockSettings })?.settings;
+          if (next) {
+            Object.assign(mockSettings, next);
+            try {
+              localStorage.setItem("ltk-preview-settings", JSON.stringify(mockSettings));
+            } catch {
+              // ignore
+            }
+          }
+          return { ok: true, value: null };
+        }
+        case "check_setup_required":
+          return { ok: true, value: false };
+        case "show_main_window":
+        case "prepare_for_update":
+        case "pause_hotkeys":
+        case "resume_hotkeys":
+        case "minimize_to_tray":
+          return { ok: true, value: null };
+        case "get_installed_mods":
+          return { ok: true, value: sampleMods };
+        case "apply_league_skin": {
+          // Preview stand-in: hand back a sample mod so the Native page flow completes.
+          const championId = (args as { championId?: number })?.championId ?? 0;
+          const skinId = (args as { skinId?: number })?.skinId ?? 0;
+          const base = sampleMods[0];
+          return {
+            ok: true,
+            value: {
+              ...base,
+              id: `preview-league-skin-${championId}-${skinId}`,
+              name: `league-skin-${championId}-${skinId}`,
+              displayName: `LeagueSkin ${championId}/${skinId} (preview)`,
+            },
+          };
+        }
+        case "get_folders":
+          return { ok: true, value: [] };
+        case "get_folder_order":
+          return { ok: true, value: [] };
+        case "list_mod_profiles":
+          return { ok: true, value: [sampleProfile] };
+        case "get_active_mod_profile":
+          return { ok: true, value: sampleProfile };
+        case "get_patcher_status":
+          return { ok: true, value: { running: false, overlayPrefix: null, phase: "idle" } };
+        case "get_launch_availability":
+          return {
+            ok: true,
+            value: {
+              canLaunch: false,
+              riotClientPath: null,
+              riotClientRunning: false,
+              leagueRunning: false,
+            },
+          };
+        case "get_storage_directory":
+          return { ok: true, value: "/tmp/ltk-manager" };
+        case "list_available_wads":
+          return { ok: true, value: [] };
+        case "get_all_mod_wad_reports":
+          return { ok: true, value: {} };
+        case "get_linked_bin_offenders":
+          return { ok: true, value: {} };
+        case "get_mod_wad_report":
+          return { ok: true, value: null };
+        case "get_mod_thumbnail":
+          return { ok: true, value: null };
+        case "get_workshop_projects":
+          return { ok: true, value: [] };
+        case "run_diagnostics":
+          return {
+            ok: true,
+            value: { generatedAt: new Date().toISOString(), appVersion: APP_VERSION, checks: [] },
+          };
+        case "detect_storage_medium":
+          return { ok: true, value: "unknown" };
+        case "validate_league_path":
+          return { ok: true, value: true };
+        case "auto_detect_league_path":
+          return { ok: true, value: null };
+        case "detect_league_run_as_admin":
+          return { ok: true, value: false };
+        case "get_project_content_tree":
+          return { ok: true, value: { layers: [] } };
+        case "search_string_keys":
+          return { ok: true, value: { suggestions: [], totalKeys: 0, locale: null } };
+        case "get_layer_info":
+          return { ok: true, value: {} };
+        case "get_layer_content_path":
+          return { ok: true, value: "/preview/layer" };
+        default:
+          // Generic fallback — keep the app from crashing on any other command.
+          return { ok: true, value: null };
+      }
+    },
+    { shouldMockEvents: true },
+  );
 
   // Tag the document so you can spot preview mode in CSS if needed.
   document.documentElement.dataset.preview = "browser";
 
   // Friendly console hint.
   console.info(
-    "[LTK Manager] Browser preview mock active — Tauri backend is stubbed with sample data. Run `pnpm tauri dev` for the full desktop app."
+    "[LTK Manager] Browser preview mock active — Tauri backend is stubbed with sample data. Run `pnpm tauri dev` for the full desktop app.",
   );
 }

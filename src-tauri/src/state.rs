@@ -1,9 +1,10 @@
 use crate::error::{AppResult, MutexResultExt};
 use ltk_manager_core::config::Config;
+use ltk_manager_core::diagnostics::store::IncidentStore;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
 
@@ -74,6 +75,9 @@ pub fn persist_settings(app_handle: &AppHandle, settings: &Settings) -> Result<(
 /// Application settings state.
 pub struct SettingsState(pub Mutex<Settings>);
 
+/// Tauri-managed handle to the incident store, under `<app_data_dir>/incidents`.
+pub struct IncidentStoreState(pub Arc<IncidentStore>);
+
 impl SettingsState {
     pub fn new(app_handle: &AppHandle) -> Self {
         let settings = match get_settings_file_path(app_handle) {
@@ -114,6 +118,16 @@ pub enum Theme {
     Light,
 }
 
+/// The page the window opens on.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, TS)]
+#[ts(export)]
+#[serde(rename_all = "lowercase")]
+pub enum OpenOn {
+    #[default]
+    Home,
+    Mods,
+}
+
 /// What the library's primary button is.
 ///
 /// `Classic` is the behaviour from before the manager could launch anything:
@@ -139,7 +153,9 @@ pub enum LaunchMode {
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct AccentColor {
-    /// Preset color name: "blue", "purple", "green", "orange", "pink", "red", "teal"
+    /// Preset name: "ltk" (the brand accent), or one of the generated hues
+    /// "blue", "purple", "green", "orange", "pink", "red", "teal". `None` is
+    /// read as "ltk" by the frontend.
     pub preset: Option<String>,
     /// Custom hue value (0-360) for custom colors
     pub custom_hue: Option<f32>,
@@ -200,10 +216,22 @@ pub struct Settings {
     /// Always start the patcher automatically on launch. Default: false.
     #[serde(default)]
     pub always_start_patcher: bool,
+    /// The page the window opens on. Default: [`OpenOn::Home`], so a file
+    /// written before the page existed opens on it too.
+    #[serde(default)]
+    pub open_on: OpenOn,
     /// What the library's primary button does. Default: [`LaunchMode::Classic`],
     /// so an install that predates the launcher keeps the button it had.
     #[serde(default)]
     pub launch_mode: LaunchMode,
+    /// Whether the end of a League session also stops the patcher. Default:
+    /// false.
+    ///
+    /// Off because the patcher running until it is told to stop is right for
+    /// someone who plays several games in a row, and only wrong for someone who
+    /// plays one. Which of those a person is, is not ours to guess.
+    #[serde(default)]
+    pub stop_patcher_on_session_end: bool,
     /// Whether the user has dismissed the migration banner.
     #[serde(default)]
     pub migration_dismissed: bool,
@@ -222,6 +250,13 @@ pub struct Settings {
     /// Whether the library file watcher is enabled. Default: false.
     #[serde(default)]
     pub watcher_enabled: bool,
+    /// Whether a mod card shows its category pills.
+    ///
+    /// The tags, champions and maps a mod declares, plus whatever
+    /// categorization derived. Display only, and on by default, since the pills
+    /// are how a crowded grid stays readable. Filtering is unaffected either way.
+    #[serde(default = "default_true")]
+    pub show_mod_tags: bool,
     #[serde(default)]
     pub author_profiles: Vec<AuthorProfile>,
     #[serde(default)]
@@ -252,13 +287,16 @@ impl Default for Settings {
             auto_run: false,
             start_in_tray_unless_update: false,
             always_start_patcher: false,
+            open_on: OpenOn::default(),
             launch_mode: LaunchMode::default(),
+            stop_patcher_on_session_end: false,
             migration_dismissed: false,
             reload_mods_hotkey: None,
             kill_league_hotkey: None,
             kill_league_stops_patcher: true,
             trusted_domains: default_trusted_domains(),
             watcher_enabled: false,
+            show_mod_tags: true,
             author_profiles: vec![],
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
@@ -291,10 +329,12 @@ mod tests {
         assert!(settings.config.linked_bin_check_enabled);
         assert!(settings.config.wad_blocklist.is_empty());
         assert!(settings.config.auto_categorization_enabled);
+        assert!(settings.show_mod_tags);
         assert!(settings.config.enforce_skinhack_scan);
         assert!(!settings.config.apply_string_overrides_to_all_locales);
         assert!(!settings.config.verbose_patcher_logging);
-        assert!(!settings.config.lazy_wad_scan);
+        assert!(!settings.config.full_wad_scan);
+        assert!(settings.config.disable_crash_reporting);
         assert_eq!(settings.launch_mode, LaunchMode::Classic);
     }
 
@@ -308,6 +348,18 @@ mod tests {
             serde_json::to_string(&LaunchMode::Modern).unwrap(),
             "\"modern\""
         );
+    }
+
+    /// A file written before Home existed opens on it, as a fresh install does.
+    #[test]
+    fn open_on_defaults_to_home_when_absent() {
+        let json = r#"{"firstRunComplete": true, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.open_on, OpenOn::Home);
+
+        let json = r#"{"firstRunComplete": true, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false, "openOn": "mods"}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.open_on, OpenOn::Mods);
     }
 
     /// A settings file written before the manager could launch anything keeps
@@ -372,8 +424,8 @@ mod tests {
         assert!(deserialized.config.patch_tft);
     }
 
-    /// The `Config` flatten must keep the on-disk format flat — config keys at
-    /// the top level, no nested `config` object.
+    /// The `Config` flatten must keep the on-disk format flat, with config keys
+    /// at the top level and no nested `config` object.
     #[test]
     fn settings_serialize_flat() {
         let settings = Settings {

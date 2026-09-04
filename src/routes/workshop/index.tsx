@@ -7,22 +7,17 @@ import {
   BulkPackDialog,
   DeleteConfirmDialog,
   ErrorState,
-  ImportFantomeDialog,
-  ImportGitRepoDialog,
   LoadingState,
-  NewProjectDialog,
   NoProjectsState,
   NoSearchResultsState,
   PackDialog,
   ProjectGrid,
   useFilteredProjects,
-  useWorkshopFilterOptions,
   useWorkshopProjects,
-  WorkshopToolbar,
+  useWorkshopTestState,
 } from "@/modules/workshop";
 import {
   useHasActiveWorkshopFilters,
-  useWorkshopDialogsStore,
   useWorkshopSelectionStore,
   useWorkshopViewStore,
 } from "@/stores";
@@ -33,18 +28,19 @@ export const Route = createFileRoute("/workshop/")({
 
 function WorkshopIndex() {
   const navigate = useNavigate();
-  const { data: allProjects = [], isLoading, error } = useWorkshopProjects();
+  const { isLoading, error } = useWorkshopProjects();
   const searchQuery = useWorkshopViewStore((s) => s.searchQuery);
   const filteredProjects = useFilteredProjects();
-  const filterOptions = useWorkshopFilterOptions(allProjects);
   const hasActiveFilters = useHasActiveWorkshopFilters();
 
-  const openNewProjectDialog = useWorkshopDialogsStore((s) => s.openNewProjectDialog);
   const selectAll = useWorkshopSelectionStore((s) => s.selectAll);
 
-  useHotkeys("ctrl+n", () => openNewProjectDialog(), { preventDefault: true });
+  /* Gated with the button it doubles for, or the key would rewrite a selection
+     a running session was started over. */
+  const testState = useWorkshopTestState();
   useHotkeys("ctrl+a", () => selectAll(filteredProjects.map((p) => p.path)), {
     preventDefault: true,
+    enabled: testState.kind === "idle",
   });
 
   function handleEditProject(project: WorkshopProject) {
@@ -62,16 +58,13 @@ function WorkshopIndex() {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <WorkshopToolbar filterOptions={filterOptions} />
-      <div className="flex-1 overflow-auto p-6">{renderContent()}</div>
+    <>
+      <div className="h-full overflow-auto p-6">{renderContent()}</div>
+
       <PackDialog />
       <BulkPackDialog />
       <DeleteConfirmDialog />
       <BulkDeleteDialog />
-      <NewProjectDialog />
-      <ImportFantomeDialog />
-      <ImportGitRepoDialog />
-    </div>
+    </>
   );
 }

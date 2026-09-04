@@ -2,6 +2,7 @@
 import type { AccentColor } from "./AccentColor";
 import type { AuthorProfile } from "./AuthorProfile";
 import type { LaunchMode } from "./LaunchMode";
+import type { OpenOn } from "./OpenOn";
 import type { Theme } from "./Theme";
 import type { WadBlocklistEntry } from "./WadBlocklistEntry";
 
@@ -52,10 +53,24 @@ startInTrayUnlessUpdate: boolean,
  */
 alwaysStartPatcher: boolean, 
 /**
+ * The page the window opens on. Default: [`OpenOn::Home`], so a file
+ * written before the page existed opens on it too.
+ */
+openOn: OpenOn, 
+/**
  * What the library's primary button does. Default: [`LaunchMode::Classic`],
  * so an install that predates the launcher keeps the button it had.
  */
 launchMode: LaunchMode, 
+/**
+ * Whether the end of a League session also stops the patcher. Default:
+ * false.
+ *
+ * Off because the patcher running until it is told to stop is right for
+ * someone who plays several games in a row, and only wrong for someone who
+ * plays one. Which of those a person is, is not ours to guess.
+ */
+stopPatcherOnSessionEnd: boolean, 
 /**
  * Whether the user has dismissed the migration banner.
  */
@@ -79,7 +94,15 @@ trustedDomains: Array<string>,
 /**
  * Whether the library file watcher is enabled. Default: false.
  */
-watcherEnabled: boolean, authorProfiles: Array<AuthorProfile>, defaultAuthorProfileId: string | null, 
+watcherEnabled: boolean, 
+/**
+ * Whether a mod card shows its category pills.
+ *
+ * The tags, champions and maps a mod declares, plus whatever
+ * categorization derived. Display only, and on by default, since the pills
+ * are how a crowded grid stays readable. Filtering is unaffected either way.
+ */
+showModTags: boolean, authorProfiles: Array<AuthorProfile>, defaultAuthorProfileId: string | null, 
 /**
  * Whether the user has dismissed the HDD-performance warning. Once true,
  * we suppress the warning on subsequent patcher starts. Reset by toggling
@@ -144,13 +167,27 @@ applyStringOverridesToAllLocales: boolean,
  */
 verbosePatcherLogging: boolean, 
 /**
- * Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
- * WAD scan to the load stage instead of scanning every archive up front.
- * The overlay makes lazy scanning crash-prone, so the DLL only honours the
- * flag when the game has crash reporting disabled - with it enabled this is
- * inert rather than harmful. Default: false.
+ * Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
+ * up front instead of the DLL's default of verifying each one as the game
+ * loads it. The overlay makes lazy scanning crash-prone, so the DLL only
+ * scans lazily when the game has crash reporting disabled, which is what
+ * [`Self::disable_crash_reporting`] is for - with crash reporting on, the
+ * up-front scan happens either way and this flag changes nothing.
+ * Default: false.
  */
-lazyWadScan: boolean, 
+fullWadScan: boolean, 
+/**
+ * Whether to turn the League client's crash reporting off when the
+ * patcher starts, by clearing `install.crash_reporting.enabled` in its
+ * `LeagueClientSettings.yaml`.
+ *
+ * The DLL verifies archives as the game loads them only while crash
+ * reporting is off, so leaving it on costs every session the up-front
+ * scan of every archive. The client rewrites its settings when it exits,
+ * which is why the patcher applies this at every start rather than once.
+ * Default: true.
+ */
+disableCrashReporting: boolean, 
 /**
  * Whether to hide the Riot Client's window once the game is up. Nobody
  * launching through the manager wants the launcher left sitting on their
@@ -163,4 +200,18 @@ lazyWadScan: boolean,
  * `hide_for_play_session` re-asserts the hide. Reversible from the tray
  * icon at any point. Default: true.
  */
-hideRiotClientOnLaunch: boolean, };
+hideRiotClientOnLaunch: boolean, 
+/**
+ * Whether to read League's own game log after a game ends, for the
+ * verdict on a game that went wrong. Turns the reader off. An incident
+ * still records the ending, the game's boundaries and what the DLL said,
+ * and with this off the manager opens nothing under the League install.
+ * Default: true.
+ */
+readGameLog: boolean, 
+/**
+ * How many incidents the app data directory keeps, under 1MB together.
+ * The oldest goes first, and a dismissed one before an undismissed one
+ * of the same age. Default: 50.
+ */
+keepIncidents: number, };

@@ -16,6 +16,10 @@ fn default_wad_blocklist() -> Vec<WadBlocklistEntry> {
     vec![]
 }
 
+fn default_keep_incidents() -> u32 {
+    50
+}
+
 /// A single entry in the WAD blocklist.
 ///
 /// `Exact` matches a literal filename (case-insensitively). `Regex` matches
@@ -116,13 +120,26 @@ pub struct Config {
     /// takes effect on the next start. Default: false.
     #[serde(default)]
     pub verbose_patcher_logging: bool,
-    /// Whether to set the `LAZY_WAD_SCAN` hook flag, which delays the anti-hack
-    /// WAD scan to the load stage instead of scanning every archive up front.
-    /// The overlay makes lazy scanning crash-prone, so the DLL only honours the
-    /// flag when the game has crash reporting disabled - with it enabled this is
-    /// inert rather than harmful. Default: false.
+    /// Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
+    /// up front instead of the DLL's default of verifying each one as the game
+    /// loads it. The overlay makes lazy scanning crash-prone, so the DLL only
+    /// scans lazily when the game has crash reporting disabled, which is what
+    /// [`Self::disable_crash_reporting`] is for - with crash reporting on, the
+    /// up-front scan happens either way and this flag changes nothing.
+    /// Default: false.
     #[serde(default)]
-    pub lazy_wad_scan: bool,
+    pub full_wad_scan: bool,
+    /// Whether to turn the League client's crash reporting off when the
+    /// patcher starts, by clearing `install.crash_reporting.enabled` in its
+    /// `LeagueClientSettings.yaml`.
+    ///
+    /// The DLL verifies archives as the game loads them only while crash
+    /// reporting is off, so leaving it on costs every session the up-front
+    /// scan of every archive. The client rewrites its settings when it exits,
+    /// which is why the patcher applies this at every start rather than once.
+    /// Default: true.
+    #[serde(default = "default_true")]
+    pub disable_crash_reporting: bool,
     /// Whether to hide the Riot Client's window once the game is up. Nobody
     /// launching through the manager wants the launcher left sitting on their
     /// desktop behind the game, so this is on by default.
@@ -135,6 +152,18 @@ pub struct Config {
     /// icon at any point. Default: true.
     #[serde(default = "default_true")]
     pub hide_riot_client_on_launch: bool,
+    /// Whether to read League's own game log after a game ends, for the
+    /// verdict on a game that went wrong. Turns the reader off. An incident
+    /// still records the ending, the game's boundaries and what the DLL said,
+    /// and with this off the manager opens nothing under the League install.
+    /// Default: true.
+    #[serde(default = "default_true")]
+    pub read_game_log: bool,
+    /// How many incidents the app data directory keeps, under 1MB together.
+    /// The oldest goes first, and a dismissed one before an undismissed one
+    /// of the same age. Default: 50.
+    #[serde(default = "default_keep_incidents")]
+    pub keep_incidents: u32,
 }
 
 impl Default for Config {
@@ -152,8 +181,11 @@ impl Default for Config {
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
-            lazy_wad_scan: false,
+            full_wad_scan: false,
+            disable_crash_reporting: true,
             hide_riot_client_on_launch: true,
+            read_game_log: true,
+            keep_incidents: default_keep_incidents(),
         }
     }
 }
@@ -177,8 +209,19 @@ mod tests {
         assert!(config.enforce_skinhack_scan);
         assert!(!config.apply_string_overrides_to_all_locales);
         assert!(!config.verbose_patcher_logging);
-        assert!(!config.lazy_wad_scan);
+        assert!(!config.full_wad_scan);
+        assert!(config.disable_crash_reporting);
         assert!(config.hide_riot_client_on_launch);
+        assert!(config.read_game_log);
+        assert_eq!(config.keep_incidents, 50);
+    }
+
+    /// A config written before the retention setting was removed still carries
+    /// the key, so it has to parse as the noise it now is.
+    #[test]
+    fn a_config_with_the_removed_retention_key_still_parses() {
+        let config: Config = serde_json::from_str(r#"{ "retainModArchives": false }"#).unwrap();
+        assert!(config.league_path.is_none());
     }
 
     #[test]
@@ -202,6 +245,20 @@ mod tests {
         let config: Config =
             serde_json::from_str(r#"{ "hideRiotClientOnLaunch": false }"#).unwrap();
         assert!(!config.hide_riot_client_on_launch);
+    }
+
+    /// The reader is on for an install whose settings predate it, and a user
+    /// who turned it off stays off.
+    #[test]
+    fn reading_the_game_log_defaults_on_and_can_be_turned_off() {
+        let config: Config = serde_json::from_str(r#"{ "patchTft": true }"#).unwrap();
+        assert!(config.read_game_log);
+        assert_eq!(config.keep_incidents, 50);
+
+        let config: Config =
+            serde_json::from_str(r#"{ "readGameLog": false, "keepIncidents": 10 }"#).unwrap();
+        assert!(!config.read_game_log);
+        assert_eq!(config.keep_incidents, 10);
     }
 
     #[test]

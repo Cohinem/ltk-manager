@@ -83,10 +83,10 @@ function CountsHeader({ checks }: { checks: Check[] }) {
   for (const c of checks) counts[c.severity]++;
 
   const items: { sev: Severity; label: string; cls: string }[] = [
-    { sev: "bad", label: "Issues", cls: "text-red-300" },
-    { sev: "warn", label: "Warnings", cls: "text-amber-300" },
-    { sev: "ok", label: "Passing", cls: "text-green-300" },
-    { sev: "info", label: "Info", cls: "text-blue-300" },
+    { sev: "bad", label: "Issues", cls: "text-danger-text" },
+    { sev: "warn", label: "Warnings", cls: "text-warning-text" },
+    { sev: "ok", label: "Passing", cls: "text-success-text" },
+    { sev: "info", label: "Info", cls: "text-info-text" },
   ];
 
   return (
@@ -96,7 +96,7 @@ function CountsHeader({ checks }: { checks: Check[] }) {
           key={it.sev}
           className="flex flex-col items-baseline gap-1 rounded-md border border-surface-700/40 bg-surface-950/40 px-3 py-2"
         >
-          <span className="text-[10px] font-medium tracking-wider text-surface-500 uppercase">
+          <span className="text-[0.625rem] font-medium tracking-wider text-surface-500 uppercase">
             {it.label}
           </span>
           <span className={`text-xl font-semibold tabular-nums ${it.cls}`}>{counts[it.sev]}</span>

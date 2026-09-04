@@ -1,19 +1,37 @@
-import { CircleCheck } from "lucide-react";
-
+import { Popover, Tooltip } from "@/components";
 import type { Settings } from "@/lib/tauri";
 
-import { ACCENT_PRESETS } from "../../api";
+import { ACCENT_PRESETS, BRAND_HUE, LTK_PRESET } from "../../api";
 import { useDebouncedSlider } from "./useDebouncedSlider";
 
-const ACCENT_PRESET_DISPLAY: { key: string; label: string; color: string }[] = [
-  { key: "blue", label: "Blue", color: "hsl(207, 100%, 50%)" },
-  { key: "purple", label: "Purple", color: "hsl(271, 100%, 50%)" },
-  { key: "green", label: "Green", color: "hsl(122, 100%, 35%)" },
-  { key: "orange", label: "Orange", color: "hsl(36, 100%, 50%)" },
-  { key: "pink", label: "Pink", color: "hsl(340, 100%, 50%)" },
-  { key: "red", label: "Red", color: "hsl(4, 100%, 50%)" },
-  { key: "teal", label: "Teal", color: "hsl(174, 100%, 35%)" },
+const HUE_WHEEL = `conic-gradient(
+  hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%),
+  hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%), hsl(360, 100%, 50%)
+)`;
+
+const HUE_RAMP = `linear-gradient(to right,
+  hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%),
+  hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%), hsl(360, 100%, 50%)
+)`;
+
+const ACCENT_PRESET_DISPLAY: { key: string; label: string; background: string }[] = [
+  {
+    key: LTK_PRESET,
+    label: "LeagueToolkit",
+    background: "linear-gradient(135deg, var(--ltk-blue), var(--ltk-violet))",
+  },
+  { key: "blue", label: "Blue", background: "hsl(207, 100%, 50%)" },
+  { key: "purple", label: "Purple", background: "hsl(271, 100%, 50%)" },
+  { key: "green", label: "Green", background: "hsl(122, 100%, 35%)" },
+  { key: "orange", label: "Orange", background: "hsl(36, 100%, 50%)" },
+  { key: "pink", label: "Pink", background: "hsl(340, 100%, 50%)" },
+  { key: "red", label: "Red", background: "hsl(4, 100%, 50%)" },
+  { key: "teal", label: "Teal", background: "hsl(174, 100%, 35%)" },
 ];
+
+const swatchClass =
+  "h-6 w-6 rounded-md transition-[filter] hover:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
+const activeSwatchClass = "ring-2 ring-surface-400 ring-offset-2 ring-offset-surface-900";
 
 interface AccentColorPickerProps {
   settings: Settings;
@@ -25,97 +43,83 @@ export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) 
   const settingsHue = isCustomHue
     ? settings.accentColor.customHue!
     : settings.accentColor?.preset
-      ? (ACCENT_PRESETS[settings.accentColor.preset] ?? 207)
-      : 207;
+      ? (ACCENT_PRESETS[settings.accentColor.preset] ?? BRAND_HUE)
+      : BRAND_HUE;
+
+  // An unset preset is the brand, matching the fallback in useTheme.
+  const activePreset = isCustomHue ? null : (settings.accentColor?.preset ?? LTK_PRESET);
 
   const [localHue, handleHueChange] = useDebouncedSlider(settingsHue, (hue) => {
-    onSave({
-      ...settings,
-      accentColor: { preset: null, customHue: hue },
-    });
+    onSave({ ...settings, accentColor: { preset: null, customHue: hue } });
   });
 
   function handlePresetClick(preset: string) {
-    onSave({
-      ...settings,
-      accentColor: { preset, customHue: null },
-    });
+    onSave({ ...settings, accentColor: { preset, customHue: null } });
   }
 
   return (
-    <div className="space-y-3">
-      <span className="block text-sm font-medium text-surface-400">Accent Color</span>
-
-      {/* Preset Colors */}
-      <div className="flex flex-wrap gap-2">
-        {ACCENT_PRESET_DISPLAY.map(({ key, label, color }) => (
+    <div className="flex items-center gap-1.5">
+      {ACCENT_PRESET_DISPLAY.map(({ key, label, background }) => (
+        <Tooltip key={key} content={label}>
           <button
-            key={key}
+            type="button"
             onClick={() => handlePresetClick(key)}
-            className={`group relative h-8 w-8 rounded-full transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 ${
-              settings.accentColor?.preset === key && !isCustomHue
-                ? "ring-2 ring-surface-100 ring-offset-2 ring-offset-surface-900"
-                : ""
-            }`}
-            style={{ backgroundColor: color }}
-            title={label}
-          >
-            {settings.accentColor?.preset === key && !isCustomHue && (
-              <span className="absolute inset-0 flex items-center justify-center">
-                <CircleCheck className="h-4 w-4 text-white drop-shadow-md" />
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
+            aria-label={label}
+            aria-pressed={activePreset === key}
+            className={activePreset === key ? `${swatchClass} ${activeSwatchClass}` : swatchClass}
+            style={{ background }}
+          />
+        </Tooltip>
+      ))}
 
-      {/* Custom Color Slider */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-surface-500">Custom Color</span>
-          {isCustomHue && (
-            <span className="text-xs text-surface-400">Hue: {Math.round(localHue)}°</span>
-          )}
-        </div>
-        <div className="relative">
-          <input
-            type="range"
-            min="0"
-            max="360"
-            value={localHue}
-            onChange={(e) => handleHueChange(Number(e.target.value))}
-            className="h-3 w-full cursor-pointer appearance-none rounded-full"
-            style={{
-              background: `linear-gradient(to right,
-                hsl(0, 100%, 50%),
-                hsl(60, 100%, 50%),
-                hsl(120, 100%, 50%),
-                hsl(180, 100%, 50%),
-                hsl(240, 100%, 50%),
-                hsl(300, 100%, 50%),
-                hsl(360, 100%, 50%)
-              )`,
-            }}
-          />
-          {/* Custom thumb indicator */}
-          <div
-            className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white shadow-md"
-            style={{
-              left: `calc(${(localHue / 360) * 100}% - 10px)`,
-              backgroundColor: `hsl(${localHue}, 100%, 50%)`,
-            }}
-          />
-        </div>
-
-        {/* Preview */}
-        <div className="flex items-center gap-3">
-          <div
-            className="h-6 w-6 rounded"
-            style={{ backgroundColor: `hsl(${localHue}, 100%, 50%)` }}
-          />
-          <span className="text-sm text-surface-400">Preview</span>
-        </div>
-      </div>
+      <Popover.Root>
+        <Popover.Trigger
+          render={
+            <button
+              type="button"
+              aria-label="Custom hue"
+              aria-pressed={isCustomHue}
+              className={isCustomHue ? `${swatchClass} ${activeSwatchClass}` : swatchClass}
+              style={{ background: HUE_WHEEL }}
+            />
+          }
+        />
+        <Popover.Portal>
+          <Popover.Positioner sideOffset={8}>
+            <Popover.Popup className="w-60 p-3">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <Popover.Title className="text-sm font-medium text-surface-100">
+                    Custom hue
+                  </Popover.Title>
+                  <span className="font-mono text-xs text-surface-400">
+                    {Math.round(localHue)}&deg;
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="range"
+                    min="0"
+                    max="360"
+                    value={localHue}
+                    onChange={(e) => handleHueChange(Number(e.target.value))}
+                    aria-label="Custom hue"
+                    className="h-3 w-full cursor-pointer appearance-none rounded-full"
+                    style={{ background: HUE_RAMP }}
+                  />
+                  <div
+                    className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-md border-2 border-brand-on shadow-md"
+                    style={{
+                      left: `calc(${(localHue / 360) * 100}% - 10px)`,
+                      backgroundColor: `hsl(${localHue}, 100%, 50%)`,
+                    }}
+                  />
+                </div>
+              </div>
+            </Popover.Popup>
+          </Popover.Positioner>
+        </Popover.Portal>
+      </Popover.Root>
     </div>
   );
 }

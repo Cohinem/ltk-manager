@@ -1,14 +1,24 @@
-import { HelpCircle } from "lucide-react";
+import { QuestionIcon } from "@phosphor-icons/react";
 
-import { ExternalLink, Popover } from "@/components";
+import { ExternalLink, IconButton, Popover, Tooltip } from "@/components";
 
+/** The guide to overrides, as a glyph sized for the toolbar row it sits in. */
 export function StringOverridesHelpPopover() {
   return (
     <Popover.Root>
-      <Popover.Trigger className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200">
-        <HelpCircle className="h-4 w-4" />
-        How it works
-      </Popover.Trigger>
+      <Tooltip content="How it works">
+        <Popover.Trigger
+          render={
+            <IconButton
+              icon={<QuestionIcon className="h-4 w-4" />}
+              variant="ghost"
+              size="xs"
+              compact
+              aria-label="How overrides are applied"
+            />
+          }
+        />
+      </Tooltip>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
           <Popover.Popup className="w-96 space-y-2 rounded-xl border border-surface-600 bg-surface-800 p-4 text-sm text-surface-300 shadow-xl">
@@ -26,9 +36,10 @@ export function StringOverridesHelpPopover() {
               this to every installed language.
             </p>
             <p>
-              Field names are matched case-insensitively. To target an entry whose name is unknown,
-              use its full 64-bit hash as the field name: exactly 16 hex digits, padded with leading
-              zeros, e.g.{" "}
+              Field names usually come from the game&rsquo;s .bin files, in locations that vary by
+              context (champion, item, or UI data), and are matched case-insensitively. To target an
+              entry whose name is unknown, use its full 64-bit hash as the field name: exactly 16
+              hex digits, padded with leading zeros, e.g.{" "}
               <code className="rounded bg-surface-700 px-1 py-0.5 text-xs">f772a83b33773223</code>.
             </p>
             <p>

@@ -2,11 +2,12 @@ use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
-use crate::state::{persist_settings, SettingsState};
+use crate::state::{persist_settings, IncidentStoreState, SettingsState};
 use std::path::Path;
 use std::process::Command;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
+use super::off_thread;
 use super::patcher::{start_patcher_inner, PatcherConfig};
 
 // ── Hotkey action implementations (called from shortcut callbacks) ──
@@ -17,6 +18,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     let host_state = app_handle.state::<PatcherHostState>();
     let settings_state = app_handle.state::<SettingsState>();
     let library_state = app_handle.state::<ModLibraryState>();
+    let incidents_state = app_handle.state::<IncidentStoreState>();
 
     // Get the last config before stopping
     let last_config = patcher_state.with(|ps| ps.last_config.clone())?;
@@ -37,8 +39,6 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     kill_league_process();
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let workshop_projects = config.workshop_projects.clone();
-
     let patcher_config = PatcherConfig {
         flags: config.flags,
         workshop_projects: config.workshop_projects,
@@ -52,6 +52,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         &host_state,
         &settings_state,
         &library_state,
+        &incidents_state,
     )?;
 
     // Best-effort LCU reconnect (in background - retries take time)
@@ -60,8 +61,6 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         std::thread::spawn(move || try_lcu_reconnect(&path));
     }
 
-    // Emit workshop project paths so frontend can re-sync testing state
-    let _ = app_handle.emit("hotkey-reload-complete", workshop_projects);
     Ok(())
 }
 
@@ -176,10 +175,7 @@ fn set_hotkey_inner(
 /// hotkey path so the two cannot drift.
 #[tauri::command]
 pub async fn kill_league(app_handle: AppHandle) -> IpcResult<()> {
-    tauri::async_runtime::spawn_blocking(move || execute_kill_league(&app_handle))
-        .await
-        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-        .into()
+    off_thread(move || execute_kill_league(&app_handle)).await
 }
 
 // ── Helpers ──

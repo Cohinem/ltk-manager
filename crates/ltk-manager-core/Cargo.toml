@@ -3,36 +3,48 @@ name = "ltk-manager-core"
 version = "0.1.0"
 description = "UI-agnostic core library for LTK Manager"
 edition = "2024"
-license = "MIT OR Apache-2.0"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/LeagueToolkit/ltk-manager"
 
 [features]
 # Derive `ts_rs::TS` on core types so the Tauri shell can export bindings for
 # types that cross IPC (e.g. `Config` flattened into `Settings`).
-ts = ["dep:ts-rs", "ritoclient-api/ts"]
+# The `ts-rs` impl features belong with the derive rather than with the shell
+# that consumes it, so this crate builds and tests on its own.
+ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl"]
 
 [dependencies]
-ritoclient-api = { workspace = true }
+ritoclient = { workspace = true }
 
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }
+ltk_hash = { workspace = true }
+ltk_hashdb = { workspace = true }
+ltk_hashtable = { workspace = true }
+ltk_meta = { workspace = true }
+ltk_mimir_cache = { workspace = true }
 ltk_modpkg = { workspace = true }
 ltk_mod_project = { workspace = true }
 ltk_overlay = { workspace = true }
 ltk_rst = { workspace = true }
+ltk_texture = { workspace = true }
 ltk_wad = { workspace = true }
 
+base64 = { workspace = true }
 camino = { workspace = true }
 chrono = { workspace = true }
 flate2 = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
+lru = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
+rmp-serde = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }
+sha2 = { workspace = true }
 slug = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }
@@ -62,4 +74,3 @@ windows-sys = { workspace = true, features = [
 [dev-dependencies]
 assert_matches = { workspace = true }
 filetime = { workspace = true }
-xxhash-rust = { workspace = true }

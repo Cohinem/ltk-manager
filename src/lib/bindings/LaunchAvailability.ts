@@ -3,8 +3,8 @@
 /**
  * Whether a launch is possible right now, and why not if it isn't.
  *
- * The manager's own view of [`ritoclient_api::Availability`]: same answers,
- * but named for the one game this application is about, which is what the UI
+ * The manager's own view of [`ritoclient::Availability`]: same answers, but
+ * named for the one game this application is about, which is what the UI
  * renders against.
  */
 export type LaunchAvailability = { 

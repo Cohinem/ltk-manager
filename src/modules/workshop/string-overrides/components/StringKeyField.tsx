@@ -9,16 +9,33 @@ interface StringKeyFieldProps {
   value: string;
   error?: string;
   inputRef?: Ref<HTMLInputElement>;
+  placeholder?: string;
+  autoFocus?: boolean;
   onChange: (key: string) => void;
   onPick: (suggestion: StringKeySuggestion) => void;
+  /** Mirrors the suggestion popup's state, for callers whose blur or Escape handling must not fire while it is up. */
+  onOpenChange?: (open: boolean) => void;
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
+  onBlur?: React.FocusEventHandler<HTMLInputElement>;
 }
 
 /**
  * Field-name input with autocomplete over every known stringtable key,
- * previewing what each one currently says in game. Free text is allowed —
- * suggestions are an aid, not a constraint.
+ * matching the name or the current in-game text and previewing what each
+ * field says. Free text is allowed — suggestions are an aid, not a constraint.
  */
-export function StringKeyField({ value, error, inputRef, onChange, onPick }: StringKeyFieldProps) {
+export function StringKeyField({
+  value,
+  error,
+  inputRef,
+  placeholder = "Field name",
+  autoFocus,
+  onChange,
+  onPick,
+  onOpenChange,
+  onKeyDown,
+  onBlur,
+}: StringKeyFieldProps) {
   const [open, setOpen] = useState(false);
   const search = useStringKeySearch(value, open);
   const suggestions = search.data?.suggestions ?? [];
@@ -39,15 +56,21 @@ export function StringKeyField({ value, error, inputRef, onChange, onPick }: Str
           if (suggestion) onPick(suggestion);
         }}
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(next) => {
+          setOpen(next);
+          onOpenChange?.(next);
+        }}
         filter={() => true}
         itemToStringLabel={(suggestion) => suggestion.key}
         itemToStringValue={(suggestion) => suggestion.key}
       >
         <Combobox.Input
           ref={inputRef}
-          placeholder="game_character_displayname_Ahri"
+          placeholder={placeholder}
           hasError={!!error}
+          autoFocus={autoFocus}
+          onKeyDown={onKeyDown}
+          onBlur={onBlur}
         />
         <Combobox.Portal>
           <Combobox.Positioner side="bottom" sideOffset={4} className="z-50">
@@ -76,7 +99,10 @@ export function StringKeyField({ value, error, inputRef, onChange, onPick }: Str
                 <p className="px-3 py-4 text-center text-sm text-surface-400">
                   {search.isPending && "Loading field names… (first load can take a moment)"}
                   {search.isError && "Field name search is unavailable right now."}
-                  {search.isSuccess && "No matching field names."}
+                  {search.isSuccess &&
+                    (search.data?.totalKeys === 0
+                      ? "No field names yet. Sync the hashtables in Settings."
+                      : "No field name or in-game text matches.")}
                 </p>
               </Combobox.Empty>
             </Combobox.Popup>

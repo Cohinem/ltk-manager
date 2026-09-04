@@ -1,36 +1,64 @@
 import { Slider as BaseSlider } from "@base-ui/react/slider";
 import { twMerge } from "tailwind-merge";
 
+/** A mark along the slider. */
 interface Mark {
   value: number;
   label?: string;
 }
 
+export type SliderVariant = "default" | "ruler";
+
 interface SliderProps {
+  /** The current value of the slider. */
   value: number;
+  /** Fires on every pointer move, not just when the drag ends. */
   onValueChange: (value: number) => void;
+  /** Fires once the drag ends rather than on every pointer move. */
+  onValueCommitted?: (value: number) => void;
+  /** The minimum value of the slider. */
   min?: number;
+  /** The maximum value of the slider. */
   max?: number;
+  /** The step increment of the slider. */
   step?: number;
+  /** Marks to display along the slider. */
   marks?: Mark[];
+  /** The label to display above the slider. */
   label?: string;
   "aria-label"?: string;
+  /** The visual variant of the slider. */
+  variant?: SliderVariant;
+  /** Whether the slider is disabled. */
   disabled?: boolean;
+  /** Additional class names to apply to the slider. */
   className?: string;
 }
+
+function labelShift(index: number, count: number): string {
+  if (index === 0) return "translate-x-0";
+  if (index === count - 1) return "-translate-x-full";
+  return "-translate-x-1/2";
+}
+
+const indicatorMotion = "transition-[width] duration-300 ease-[var(--ease-spring)]";
 
 export function Slider({
   value,
   onValueChange,
+  onValueCommitted,
   min = 0,
   max = 100,
   step = 1,
   marks,
   label,
   "aria-label": ariaLabel,
+  variant = "default",
   disabled,
   className,
 }: SliderProps) {
+  const isRuler = variant === "ruler";
+
   return (
     <BaseSlider.Root
       value={value}
@@ -38,70 +66,110 @@ export function Slider({
         const next = typeof val === "number" ? val : val[0];
         onValueChange(next);
       }}
+      onValueCommitted={(val) => {
+        const next = typeof val === "number" ? val : val[0];
+        onValueCommitted?.(next);
+      }}
       min={min}
       max={max}
       step={step}
       disabled={disabled}
-      className={twMerge("flex w-full flex-col gap-2", className)}
+      className={twMerge("flex w-full flex-col", isRuler ? "gap-1.5" : "gap-2", className)}
     >
       {label && <span className="text-sm font-medium text-surface-200">{label}</span>}
 
       <BaseSlider.Control className="relative flex h-4 w-full touch-none items-center">
         <BaseSlider.Track
           className={twMerge(
-            "relative h-1.5 w-full rounded-full bg-surface-700",
+            "relative w-full overflow-hidden rounded-full bg-surface-700",
+            isRuler ? "h-1" : "h-1.5",
             disabled && "opacity-50",
           )}
         >
-          <BaseSlider.Indicator className="absolute h-full rounded-full bg-accent-500" />
-
-          {/* Step dots along the rail */}
-          {marks &&
-            marks.map((mark) => {
-              const pct = ((mark.value - min) / (max - min)) * 100;
-              const isActive = mark.value <= value;
-              return (
-                <span
-                  key={mark.value}
-                  className={twMerge(
-                    "absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full",
-                    isActive ? "bg-accent-400" : "bg-surface-500",
-                  )}
-                  style={{ left: `${pct}%` }}
-                />
-              );
-            })}
-
-          <BaseSlider.Thumb
-            aria-label={ariaLabel ?? label}
-            className={twMerge(
-              "absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md",
-              "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
-              "data-[dragging]:scale-110",
-              "transition-[transform,box-shadow]",
-              disabled ? "cursor-not-allowed" : "cursor-pointer data-[dragging]:cursor-grabbing",
-            )}
+          <BaseSlider.Indicator
+            className={twMerge("absolute h-full rounded-full bg-accent-500", indicatorMotion)}
           />
         </BaseSlider.Track>
-      </BaseSlider.Control>
 
-      {marks && marks.length > 0 && (
-        <div className="relative h-5 w-full">
-          {marks.map((mark) => {
-            const pct = ((mark.value - min) / (max - min)) * 100;
+        {/* Outside the rail, so clipping the fill's overshoot leaves them alone. */}
+        {marks?.map((mark) => {
+          const pct = ((mark.value - min) / (max - min)) * 100;
+          const isActive = mark.value <= value;
+
+          if (isRuler) {
             return (
               <span
                 key={mark.value}
                 className={twMerge(
-                  "absolute -translate-x-1/2 text-xs",
-                  mark.value === value ? "font-medium text-surface-100" : "text-surface-400",
+                  "group/mark absolute top-1/2 flex h-4 w-6 -translate-x-1/2 -translate-y-1/2",
+                  "items-center justify-center",
+                  disabled ? "cursor-not-allowed" : "cursor-pointer",
                 )}
                 style={{ left: `${pct}%` }}
               >
-                {mark.label ?? mark.value}
+                <span
+                  className={twMerge(
+                    "h-3 w-0.5 rounded-full transition-colors",
+                    isActive ? "bg-accent-400" : "bg-surface-500",
+                    !disabled && "group-hover/mark:bg-accent-300",
+                  )}
+                />
               </span>
             );
-          })}
+          }
+
+          return (
+            <span
+              key={mark.value}
+              className={twMerge(
+                "absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full",
+                isActive ? "bg-accent-400" : "bg-surface-500",
+              )}
+              style={{ left: `${pct}%` }}
+            />
+          );
+        })}
+
+        {/* The handle still carries the slider's role, value and key handling,
+            so the ruler hides it rather than dropping it.
+
+            Squared and accent-toned rather than a white disc: DS-RADIUS. Its edge
+            is an accent rung because the slider sits on a card, and a ring darker
+            than that card reads as a hole in it: DS-GROUND. 700 rather than a
+            lighter rung because a green or teal accent leaves 400 and 500 inside
+            one JND of each other, so only the dark end of the ramp separates the
+            knob from its own fill at every hue.
+
+            Dragging grows it lengthways. A knob this narrow has too little width
+            for a uniform scale to register. */}
+        <BaseSlider.Thumb
+          aria-label={ariaLabel ?? label}
+          className={twMerge(
+            "absolute top-1/2 -translate-x-1/2 -translate-y-1/2",
+            isRuler
+              ? "h-4 w-1 rounded-full bg-transparent focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none"
+              : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300 data-dragging:scale-y-125",
+            !isRuler && !disabled && "hover:bg-accent-300",
+            disabled ? "cursor-not-allowed" : "cursor-pointer data-dragging:cursor-grabbing",
+          )}
+        />
+      </BaseSlider.Control>
+
+      {marks && marks.length > 0 && (
+        <div className={twMerge("relative w-full", isRuler ? "h-4" : "h-5")}>
+          {marks.map((mark, index) => (
+            <span
+              key={mark.value}
+              className={twMerge(
+                "absolute text-xs tabular-nums",
+                labelShift(index, marks.length),
+                mark.value === value ? "font-medium text-surface-100" : "text-surface-400",
+              )}
+              style={{ left: `${((mark.value - min) / (max - min)) * 100}%` }}
+            >
+              {mark.label ?? mark.value}
+            </span>
+          ))}
         </div>
       )}
     </BaseSlider.Root>

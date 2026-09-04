@@ -1,4 +1,6 @@
 export {
+  patcherFailureTab,
+  patcherFailureTitle,
   patcherKeys,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
@@ -11,3 +13,4 @@ export {
   useStopPatcher,
 } from "./api";
 export * from "./components";
+export * from "./utils/scanStatus";

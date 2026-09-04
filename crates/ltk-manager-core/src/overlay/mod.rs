@@ -9,6 +9,7 @@ mod artifacts;
 mod build;
 mod resolve;
 
+pub(crate) use artifacts::force_flush_on_next_build;
 pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
@@ -155,6 +156,14 @@ impl ModLibrary {
         match self.linked_bins().record(outcome.linked_bin_offenders) {
             Ok(()) => self.events().emit(BackendEvent::LinkedBinsUpdated),
             Err(e) => tracing::warn!("Failed to record linked-bin offenders: {}", e),
+        }
+
+        match self
+            .checksum_mismatches()
+            .record(outcome.checksum_mismatches)
+        {
+            Ok(()) => self.events().emit(BackendEvent::ChecksumMismatchesUpdated),
+            Err(e) => tracing::warn!("Failed to record checksum mismatches: {}", e),
         }
 
         if outcome.mod_wad_reports.is_empty() {

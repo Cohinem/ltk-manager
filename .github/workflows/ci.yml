@@ -6,8 +6,21 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CARGO_TERM_COLOR: always
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_PROFILE_TEST_DEBUG: line-tables-only
+
+# `actions` is what the cache service checks before allowing a write. Spelled
+# out here so a change to the repository default cannot silently turn every
+# job cold.
+permissions:
+  contents: read
+  actions: write
 
 jobs:
   frontend-check:
@@ -20,23 +33,6 @@ jobs:
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-
-  check:
-    name: Cargo Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: actions/setup-node@v4
-        with: { node-version: "22" }
-      - uses: pnpm/action-setup@v4
-      - run: pnpm install --frozen-lockfile && pnpm build
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo check --all-targets --all-features
 
   test:
     name: Test
@@ -53,6 +49,8 @@ jobs:
       - run: pnpm install --frozen-lockfile && pnpm build
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test --all-features
 
   clippy:
@@ -71,6 +69,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { components: clippy }
       - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo clippy --all-targets --all-features -- -D warnings
 
   fmt:
@@ -94,4 +94,42 @@ jobs:
         with: { node-version: "22" }
       - run: node scripts/generate-licenses.mjs
       - name: Verify committed license manifest is up to date
-        run: git diff --exit-code public/third-party-licenses.json
+        run: |
+          if ! git diff --exit-code public/third-party-licenses.json; then
+            echo "::error file=public/third-party-licenses.json::Stale license manifest. Run 'pnpm generate:licenses' and commit the result."
+            exit 1
+          fi
+
+  # release.yml runs on `refs/pull/N/merge`, and a cache written from a pull
+  # request ref is readable only by that one pull request. Only the default
+  # branch can write a cache every later run restores, so the Windows release
+  # dependencies are built here and the release job restores them.
+  warm-release-cache:
+    name: Warm Release Cache
+    runs-on: windows-latest
+    if: github.event_name == 'push' && github.repository_owner == 'LeagueToolkit'
+    concurrency:
+      group: warm-release-cache
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: pnpm/action-setup@v4
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pnpm\store
+          key: pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-
+      - run: pnpm install --frozen-lockfile && pnpm build
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release
+          cache-on-failure: true
+      # Matching what `tauri build` compiles. Building the workspace instead
+      # would unify features differently and the release job would miss.
+      - run: cargo build --release --manifest-path src-tauri/Cargo.toml

@@ -46,7 +46,7 @@ export function ImportGitRepoDialog() {
             form.reset();
             closeDialog();
           },
-          onError: (err) => console.error("Failed to import from git repo:", err.message),
+          onError: (err) => console.error("Failed to import from git repo:", err),
         },
       );
     },
@@ -102,7 +102,7 @@ export function ImportGitRepoDialog() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     {progress.stage === "error" && (
-                      <span className="text-red-400">Error occurred</span>
+                      <span className="text-danger-text">Error occurred</span>
                     )}
                     {progress.stage === "downloading" && (
                       <span className="text-surface-400">Downloading repository...</span>

@@ -1,4 +1,6 @@
-import { useDisplayStore } from "@/stores/displayStore";
+// @vitest-environment happy-dom
+
+import { useDisplayStore, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "@/stores/displayStore";
 
 describe("displayStore", () => {
   beforeEach(() => {
@@ -17,6 +19,25 @@ describe("displayStore", () => {
     it("has reduceMotion 'system' by default", () => {
       expect(useDisplayStore.getState().reduceMotion).toBe("system");
     });
+
+    it("has scrollbarSize 'default' by default", () => {
+      expect(useDisplayStore.getState().scrollbarSize).toBe("default");
+    });
+  });
+
+  describe("setScrollbarSize", () => {
+    it("thins every scrollbar", () => {
+      useDisplayStore.getState().setScrollbarSize("thin");
+      expect(useDisplayStore.getState().scrollbarSize).toBe("thin");
+    });
+
+    /* A reset covers it, so it belongs to the Appearance panel rather than
+       being a stray preference the button leaves behind. */
+    it("comes back on a reset", () => {
+      useDisplayStore.getState().setScrollbarSize("wide");
+      useDisplayStore.getState().resetAppearance();
+      expect(useDisplayStore.getState().scrollbarSize).toBe("default");
+    });
   });
 
   describe("setZoomLevel", () => {
@@ -34,6 +55,29 @@ describe("displayStore", () => {
       useDisplayStore.getState().setZoomLevel(70);
       useDisplayStore.getState().setZoomLevel(100);
       expect(useDisplayStore.getState().zoomLevel).toBe(100);
+    });
+
+    it("clamps past either end of the range", () => {
+      useDisplayStore.getState().setZoomLevel(ZOOM_MAX + 50);
+      expect(useDisplayStore.getState().zoomLevel).toBe(ZOOM_MAX);
+
+      useDisplayStore.getState().setZoomLevel(ZOOM_MIN - 50);
+      expect(useDisplayStore.getState().zoomLevel).toBe(ZOOM_MIN);
+    });
+
+    it("snaps a level off the grid onto it", () => {
+      useDisplayStore.getState().setZoomLevel(101);
+      expect(useDisplayStore.getState().zoomLevel).toBe(102);
+
+      useDisplayStore.getState().setZoomLevel(100.4);
+      expect(useDisplayStore.getState().zoomLevel).toBe(100);
+    });
+
+    it("reaches every step between the ends", () => {
+      for (let level = ZOOM_MIN; level <= ZOOM_MAX; level += ZOOM_STEP) {
+        useDisplayStore.getState().setZoomLevel(level);
+        expect(useDisplayStore.getState().zoomLevel).toBe(level);
+      }
     });
   });
 
