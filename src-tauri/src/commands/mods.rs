@@ -1,5 +1,5 @@
 use super::off_thread;
-use crate::error::{AppResult, IpcResult, MutexResultExt, Utf8PathExt};
+use crate::error::{AppError, AppResult, IpcResult, MutexResultExt, Utf8PathExt};
 use crate::mods::{
     inspect_modpkg_file, BulkInstallResult, EditModMetadataArgs, InstalledMod, ModLibraryState,
     ModStorage, ModWadReport, ModpkgInfo, WadReportState,
