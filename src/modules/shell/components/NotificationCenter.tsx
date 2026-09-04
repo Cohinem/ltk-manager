@@ -1,9 +1,12 @@
 import { formatDistanceToNow } from "date-fns";
 import { Bell, CircleAlert, CircleCheck, CircleX, Info, Trash2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { twMerge } from "tailwind-merge";
 
 import { EmptyState, IconButton, Popover, type ToastType, Tooltip } from "@/components";
 import { type Notification, useNotificationStore } from "@/stores/notifications";
+
+import { cellBase, cellInactive } from "./cells";
 
 const typeIcons: Record<ToastType, React.ReactNode> = {
   success: <CircleCheck className="h-4 w-4 text-success-text" />,
@@ -64,13 +67,9 @@ export function NotificationCenter() {
         }
       }}
     >
-      {/* The rounded cell the titlebar's other action buttons use, rather than a
-          full-height one - see the shape split in TitleBar. The hover lift is
-          TitleBar's iconLiftClass, repeated rather than imported back into a
-          file TitleBar itself imports. */}
       <Popover.Trigger
         aria-label="Notifications"
-        className="relative flex h-full w-9 shrink-0 items-center justify-center text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200 [&_svg]:transition-transform [&_svg]:duration-150 [&_svg]:ease-out hover:[&_svg]:scale-110"
+        className={twMerge(cellBase, cellInactive, "relative")}
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
