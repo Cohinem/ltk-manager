@@ -86,6 +86,8 @@ export default tseslint.config(
               "src",
               "rel",
               "target",
+              // A key combination the Kbd splits on "+", not a sentence.
+              "shortcut",
             ],
           },
           callees: {

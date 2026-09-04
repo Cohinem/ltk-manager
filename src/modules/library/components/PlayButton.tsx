@@ -1,7 +1,17 @@
-import { CaretDoubleRightIcon, CaretDownIcon, XCircleIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, XCircleIcon } from "@phosphor-icons/react";
 
-import { Button, ButtonGroup, IconButton, Kbd, LeagueIcon, Menu, Tooltip } from "@/components";
+import {
+  Button,
+  ButtonGroup,
+  IconButton,
+  Kbd,
+  LeagueIcon,
+  Menu,
+  PatcherIcon,
+  Tooltip,
+} from "@/components";
 import { useHddWarning, usePlatformSupport } from "@/hooks";
+import { m } from "@/i18n";
 import { useLaunchAvailability, usePlay, useStopLeague } from "@/modules/launcher";
 import { useInstalledMods } from "@/modules/library/api";
 import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modules/patcher";
@@ -13,6 +23,8 @@ import { type GuardedLaunch, ModHealthLaunchGuard } from "./ModHealthLaunchGuard
 interface PlayButtonProps {
   /** Set while a library action that must not overlap a patch is in progress. */
   disabled?: boolean;
+  /** Drawn as a block of its own rather than one control in a toolbar row. */
+  block?: boolean;
 }
 
 function playLabel(
@@ -20,12 +32,12 @@ function playLabel(
   isBuilding: boolean,
   patcherOnly: boolean,
 ): string {
-  if (step === "launching") return "Launching...";
-  if (step === "cancelling") return "Cancelling...";
-  if (isBuilding) return "Building...";
-  if (step === "starting-patcher") return "Starting...";
-  if (patcherOnly) return "Start Patcher";
-  return "Play";
+  if (step === "launching") return m.library_play_launching_label();
+  if (step === "cancelling") return m.library_play_cancelling_label();
+  if (isBuilding) return m.library_play_building_label();
+  if (step === "starting-patcher") return m.library_play_starting_label();
+  if (patcherOnly) return m.library_patcher_start_action();
+  return m.library_play_action();
 }
 
 function primaryTooltip(
@@ -33,22 +45,21 @@ function primaryTooltip(
   leagueRunning: boolean,
   hasEnabledMods: boolean,
 ): string {
-  if (leagueRunning && !hasEnabledMods)
-    return "League is already running - enable a mod to patch it";
-  if (leagueRunning) return "League is already running - your mods will apply to your next game";
-  if (patcherOnly && !hasEnabledMods) return "No mods are enabled - there is nothing to patch";
-  if (patcherOnly) return "Start the patcher, then launch League yourself";
-  if (!hasEnabledMods) return "No mods are enabled - League will launch unmodded";
-  return "Start the patcher and launch League";
+  if (leagueRunning && !hasEnabledMods) return m.library_play_league_running_no_mods_hint();
+  if (leagueRunning) return m.library_play_league_running_hint();
+  if (patcherOnly && !hasEnabledMods) return m.library_patcher_no_mods_hint();
+  if (patcherOnly) return m.library_patcher_start_hint();
+  if (!hasEnabledMods) return m.library_play_no_mods_hint();
+  return m.library_play_hint();
 }
 
 /**
- * The League mark deliberately overflows `Button`'s icon slot. It is the brand
- * on the app's primary action, not a glyph labelling it, so it is sized past
- * what the surrounding icons sit at.
+ * Either mark deliberately overflows `Button`'s icon slot. It is the brand on
+ * the app's primary action, not a glyph labelling it, so it is sized past what
+ * the surrounding icons sit at.
  */
 function PrimaryIcon({ patcherOnly }: { patcherOnly: boolean }) {
-  if (patcherOnly) return <CaretDoubleRightIcon weight="bold" className="h-5 w-5 shrink-0" />;
+  if (patcherOnly) return <PatcherIcon className="h-6 w-6 shrink-0" />;
   return <LeagueIcon className="h-6 w-6 shrink-0" />;
 }
 
@@ -71,7 +82,7 @@ function StopLeagueMenuItem() {
       onClick={() => stopLeague.mutate()}
       disabled={stopLeague.isPending}
     >
-      Close League
+      {m.library_league_close_action()}
     </Menu.Item>
   );
 }
@@ -97,7 +108,9 @@ function LaunchMenuItem({ label, leagueRunning, disabled, onClick }: LaunchMenuI
     return (
       <Menu.Item icon={icon} disabled>
         {label}
-        <span className="ml-2 text-xs text-surface-500">already running</span>
+        <span className="ml-2 text-xs text-surface-500">
+          {m.library_launch_already_running_label()}
+        </span>
       </Menu.Item>
     );
   }
@@ -120,8 +133,11 @@ function LaunchMenuItem({ label, leagueRunning, disabled, onClick }: LaunchMenuI
  * Classic mode drops the split: it is the app as it was before it could launch
  * anything, and a menu whose every entry is the launcher is not that. Settings
  * is where that choice is made and unmade.
+ *
+ * `block` is Home's shape for it: the head of the rail, a size up and the full
+ * width of the column, where the toolbar wants one control in a row of them.
  */
-export function PlayButton({ disabled = false }: PlayButtonProps) {
+export function PlayButton({ disabled = false, block = false }: PlayButtonProps) {
   const { data: platform } = usePlatformSupport();
 
   // Both halves are Windows-only, so there is nothing to offer elsewhere.
@@ -129,8 +145,8 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
   if (!(platform?.patcherAvailable ?? true)) return null;
 
   return (
-    <ModHealthLaunchGuard>
-      {(ask) => <LaunchControls ask={ask} disabled={disabled} />}
+    <ModHealthLaunchGuard className={block ? "w-full" : undefined}>
+      {(ask) => <LaunchControls ask={ask} disabled={disabled} block={block} />}
     </ModHealthLaunchGuard>
   );
 }
@@ -139,9 +155,10 @@ interface LaunchControlsProps {
   /** Every action here that ends in a patch goes through this first. */
   ask: GuardedLaunch;
   disabled: boolean;
+  block: boolean;
 }
 
-function LaunchControls({ ask, disabled }: LaunchControlsProps) {
+function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
   const { data: mods = [], isLoading } = useInstalledMods();
   const { data: status } = usePatcherStatus();
   const { data: availability } = useLaunchAvailability();
@@ -151,6 +168,9 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
   const stopPatcher = useStopPatcher();
   const stopping = usePatcherSessionStore((s) => s.stopping);
   const maybeShowHddWarning = useHddWarning();
+
+  const size = block ? "lg" : "md";
+  const groupClass = block ? "w-full" : undefined;
 
   const isRunning = status?.running ?? false;
   const isBuilding = status?.phase === "building";
@@ -184,28 +204,30 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
       <Tooltip
         content={
           <>
-            {stopping && "Stopping the patcher..."}
+            {stopping && m.library_patcher_stopping_hint()}
             {!stopping && (
               <>
-                Stop patcher <Kbd shortcut="Ctrl+P" />
+                {m.library_patcher_stop_hint()} <Kbd shortcut="Ctrl+P" />
               </>
             )}
           </>
         }
       >
         <Button
-          variant="outline"
-          size="md"
+          variant="duotone"
+          size={size}
           onClick={() => stopPatcher.mutate()}
           loading={stopping}
           disabled={disabled || stopping}
+          className="grow font-bold tracking-wide uppercase"
           left={
             !stopping && (
               <span className="inline-flex h-3 w-3 rounded-full bg-success shadow-[0_0_5px_1px] shadow-success/50" />
             )
           }
         >
-          {stopping ? "Stopping..." : "Stop Patcher"}
+          {stopping && m.library_patcher_stopping_label()}
+          {!stopping && m.library_patcher_stop_action()}
         </Button>
       </Tooltip>
     );
@@ -213,16 +235,16 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
     if (classic) return stopButton;
 
     return (
-      <ButtonGroup>
+      <ButtonGroup className={groupClass}>
         {stopButton}
         <Menu.Root>
           <Menu.Trigger
             render={
               <IconButton
                 icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
-                variant="outline"
-                size="md"
-                aria-label="More launch options"
+                variant="duotone"
+                size={size}
+                aria-label={m.library_launch_options_label()}
                 className="w-auto px-2"
               />
             }
@@ -233,7 +255,7 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
                 {/* Unguarded: this starts the game without the patcher, so
                     it carries no mods for the ask to be about. */}
                 <LaunchMenuItem
-                  label="Launch League"
+                  label={m.library_launch_league_action()}
                   leagueRunning={leagueRunning}
                   onClick={launchOnly}
                   disabled={!canLaunch || isBusy}
@@ -259,13 +281,13 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
       }
     >
       <Button
-        variant="filled"
-        size="md"
+        variant="duotone"
+        size={size}
         onClick={() => ask(primaryAction)}
         loading={isBusy || isBuilding}
         disabled={busy || (patcherOnly && !hasEnabledMods)}
         left={<PrimaryIcon patcherOnly={patcherOnly} />}
-        className="gap-3"
+        className="grow gap-3 font-bold tracking-wide uppercase"
       >
         {playLabel(step, isBuilding, patcherOnly)}
       </Button>
@@ -275,17 +297,17 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
   if (classic) return primaryButton;
 
   return (
-    <ButtonGroup>
+    <ButtonGroup className={groupClass}>
       {primaryButton}
       <Menu.Root>
         <Menu.Trigger
           render={
             <IconButton
               icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
-              variant="filled"
-              size="md"
+              variant="duotone"
+              size={size}
               disabled={busy}
-              aria-label="More launch options"
+              aria-label={m.library_launch_options_label()}
               className="w-auto px-2"
             />
           }
@@ -295,7 +317,7 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
             <Menu.Popup className="w-64">
               {patcherOnly && (
                 <LaunchMenuItem
-                  label="Play"
+                  label={m.library_play_action()}
                   leagueRunning={leagueRunning}
                   onClick={() => ask(handlePlay)}
                   disabled={!canLaunch}
@@ -303,17 +325,17 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
               )}
               {!patcherOnly && (
                 <Menu.Item
-                  icon={<CaretDoubleRightIcon weight="bold" className="h-4 w-4" />}
+                  icon={<PatcherIcon className="h-4 w-4" />}
                   onClick={() => ask(handleStartPatcherOnly)}
                   disabled={!hasEnabledMods}
                   shortcut="Ctrl+P"
                 >
-                  Start patcher only
+                  {m.library_patcher_only_action()}
                 </Menu.Item>
               )}
               {/* Unguarded, for the reason the other one is. */}
               <LaunchMenuItem
-                label="Launch League only"
+                label={m.library_launch_league_only_action()}
                 leagueRunning={leagueRunning}
                 onClick={launchOnly}
                 disabled={!canLaunch}

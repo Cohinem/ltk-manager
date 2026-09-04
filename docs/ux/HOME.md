@@ -2,11 +2,16 @@
 
 ## Changes
 
-| Date       | Change                                                                |
-| ---------- | --------------------------------------------------------------------- |
-| 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot |
-| 2026-09-03 | Specify v1 in #391: stubs for the checklist and the game build        |
-| 2026-09-03 | Propose the page: the status line, two feeds, four tiles, the landing |
+| Date       | Change                                                                 |
+| ---------- | ---------------------------------------------------------------------- |
+| 2026-09-03 | Draw Play as an accent edge over a wash rather than a solid fill       |
+| 2026-09-03 | Cap the page's width, and draw Play as the rail's own block            |
+| 2026-09-03 | Move Play to the head of the right rail, over the tiles it scrolls     |
+| 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats    |
+| 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast |
+| 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot  |
+| 2026-09-03 | Specify v1 in #391: stubs for the checklist and the game build         |
+| 2026-09-03 | Propose the page: the status line, two feeds, four tiles, the landing  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -59,6 +64,7 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | News                       | Available | The Announcements category's Atom feed, read as the release feed is    |
 | Notices                    | Available | `news/notices.json` on the default branch, per `news/README.md`        |
 | Your library               | Available | Profile, counts and the way in. The status line carries health         |
+| Export                     | Available | The tile's overflow. Archives copied out, as a folder or one zip       |
 | Last game                  | Available | The latest incident's verdict, hidden while there is none              |
 | News and Learn             | Available | One card. The links under the posts, so the card is never empty        |
 | Getting started            | Proposed  | A checklist for a new install. The migration offer stands in for it    |
@@ -68,23 +74,32 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 
 ## Layout
 
-The default window is about 900 by 850. The page does not scroll. The header holds the status
-line and the primary button, a notice sits under it while there is one, and two columns fill the
-rest. The left column is one tall card, Recent changes, which scrolls inside itself as the
-changelog dialog does. The right column is a stack of tiles, and it scrolls as a column when the
-stack is taller than the window.
+The default window is about 900 by 850. The page does not scroll. The status line takes a row of
+its own while one holds and no room at all otherwise, a notice sits under it while there is one,
+and two columns fill the rest. The left column is one tall card, Recent changes, which scrolls
+inside itself as the changelog dialog does.
+
+The right column is the rail. Play heads it, full width and a size up, and under the button a
+stack of tiles scrolls as a column when the stack is taller than the window. The button sits
+outside that scroller, so the primary action is in the same place whatever the tiles are doing.
+
+The page holds a maximum width and centres above it. Recent changes is a reading surface, and
+without the cap every pixel a wider window gained went to that one card, until its lines ran
+past what anyone reads comfortably and the rail sat in dead space. A wider window buys margins
+instead, and the page keeps the proportions it was drawn at from the default size up.
 
 ```
 +------------------------------------------------------------------------------+
 | (mark) LTK Manager  v1.15.4   Home*  Mods  Workshop        (bell)(gear) - o x |
 +------------------------------------------------------------------------------+
 |                                                                              |
-|  Good to go.                                                 [ (L) Play  v ] |
-|  Default  -  4 of 7 mods enabled  -  League 26.9                             |
+|  (!) 2 enabled mods need a repair  [Repair]                                  |
 |                                                                              |
 |  +-- notice ---------------------------------------------------------------+ |
 |  | (!) Patch 26.9: the patcher takes longer to hook.  What to do       [x] | |
 |  +-------------------------------------------------------------------------+ |
+|                                                                              |
+|                                                 [ (L) Play               v ] |
 |                                                                              |
 |  +-- Recent changes -------------------------+  +-- Your library ----------+ |
 |  | v1.15.4  [Installed]        Sep 3, 2026   |  | Default                  | |
@@ -113,8 +128,16 @@ stack is taller than the window.
 +------------------------------------------------------------------------------+
 ```
 
-The primary button is the library's `PlayButton`, the same component with the same menu and the
-same launch guard, so Play from Home is Play from the library. A reader who opens the app to play
+Play heads the rail rather than the page, over the library it launches. It is the library's
+`PlayButton`, the same component with the same menu and the same launch guard, so Play from Home
+is Play from the library. Home asks it for its block shape, which is the toolbar's control drawn
+full width and one size up, since here it is the page's one primary action rather than one press
+in a row of them.
+
+The block shape is an accent edge over a wash rather than the toolbar's solid fill. Filled is what
+a press in a row of peers wears to be found among them, and at the head of the rail, alone and the
+width of the column, the same fill reads as a banner instead of a button. The edge is what carries
+it there. A reader who opens the app to play
 presses it here and never visits the library, which is what lets Home be the landing page without
 costing that reader a click.
 
@@ -137,11 +160,11 @@ is a new claim.
 | An enabled mod is unrepairable         | {n} enabled mods will break the game                                  | Show, opens the health drawer            |
 | An enabled mod is repairable           | {n} enabled mods need a repair                                        | Repair                                   |
 | The game build is newer than the basis | League updated to {build}. Your mods have not been checked against it | Check                                    |
-| Otherwise                              | Good to go                                                            | none                                     |
+| Otherwise                              | nothing, the row is not drawn                                         | none                                     |
 
-Under the line, one row of facts in muted text: the active profile, enabled of total, and the
-installed game build. The facts stay in every state, so the line above them is read against the
-same ground.
+The all-clear is drawn as no row at all. A line saying the library is fine is a line the reader
+learns to read past, and the rail already carries the profile, the counts and the build, so the
+row costs the page nothing while nothing holds.
 
 An update on offer is not a state of the library, so it never takes the line. It is the New chip
 in Recent changes, and the title bar's Update cell, which it already is.
@@ -223,7 +246,8 @@ later schema.
 item derives, and the build the last check ran against, from `HealthCheckBasis`. Two buttons:
 Open Mods, and Add mod, which is the library's import. While the migration banner's condition
 holds the tile offers Import from cslol-manager in the banner's place, and the banner leaves the
-library.
+library. The header carries an overflow for what a reader wants only sometimes: Export mods, and
+Open mod storage.
 
 **Last game.** The latest incident's verdict in one line, when it happened, the consequence chip,
 and Review into the Games tab. It is hidden while there is no incident or the latest is dismissed.
@@ -240,6 +264,26 @@ done or dismissed: set League's folder, add a mod or import from cslol-manager, 
 join the Discord. Each row reads its own done state from the app, so the card empties itself. The
 first-run redirect to Settings stays, since the folder is what everything else waits on, and the
 card is what the reader comes back to.
+
+## Export
+
+A reader who wants their mods out of the manager should not have to find the mod storage in
+Explorer first. Export mods opens a chooser anchored to the tile's overflow over a blurred page:
+what to export, Everything or Enabled, and whether to write a folder of archives or one `.zip`.
+
+The scope is two options rather than three because a new profile is created holding every mod in
+the library. Profiles differ in what they have on, not in what they hold, so "this profile" and
+"everything" are one set and only Enabled narrows it.
+
+**The scrim is for the decision, not for the work.** Once a destination is picked the chooser
+closes and the run reports in the tile, so a click outside cannot take the progress away. The
+result is a toast carrying the destination and Show me, because the run outlives the surface that
+asked for it, and nothing about a finished export stays on the page.
+
+An export is a copy. A mod's archive is still beside it after an install, so nothing is repacked
+and a mod costs one read and one write. A mod whose archive is gone - a fantome converted to a
+project that kept no keepsake - has nothing to copy, and the toast says how many were left behind
+rather than inventing an archive for them.
 
 ## The landing, the tab and the dot
 
@@ -274,29 +318,48 @@ New strings, in `messages/en/home.json`, keyed as `src/CLAUDE.md` shapes a key. 
 tile draws that another surface already decided stays that surface's string. The status line's
 own sentences are here too, since no other surface says them as one line.
 
-| Key                                     | Text                                                                  |
-| --------------------------------------- | --------------------------------------------------------------------- |
-| `home_nav_label`                        | Home                                                                  |
-| `home_status_ready_label`               | Good to go                                                            |
-| `home_status_platform_label`            | The patcher does not run on this system yet                           |
-| `home_status_league_unset_label`        | League's folder is not set                                            |
-| `home_status_hashtables_unsynced_label` | Mod health waits for the hashtables                                   |
-| `home_status_hashtables_syncing_label`  | Syncing the hashtables mod health needs                               |
-| `home_status_broken_label`              | {count} enabled mods will break the game                              |
-| `home_status_repairable_label`          | {count} enabled mods need a repair                                    |
-| `home_status_build_moved_label`         | League updated to {build}. Your mods have not been checked against it |
-| `home_changes_title`                    | Recent changes                                                        |
-| `home_release_update_action`            | Update                                                                |
-| `home_notice_link_action`               | What to do                                                            |
-| `home_library_title`                    | Your library                                                          |
-| `home_library_enabled_count_label`      | {enabled} of {total} enabled                                          |
-| `home_library_import_title`             | Migrating from cslol-manager?                                         |
-| `home_last_game_title`                  | Last game                                                             |
-| `home_news_title`                       | News                                                                  |
-| `home_learn_getting_started_label`      | Getting started                                                       |
-| `home_learn_managing_mods_label`        | Managing mods                                                         |
-| `home_learn_troubleshooting_label`      | Troubleshooting                                                       |
-| `home_setup_title`                      | Getting started                                                       |
+| Key                                       | Text                                                                  |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| `home_nav_label`                          | Home                                                                  |
+| `home_status_platform_label`              | The patcher does not run on this system yet                           |
+| `home_status_league_unset_label`          | League's folder is not set                                            |
+| `home_status_hashtables_unsynced_label`   | Mod health waits for the hashtables                                   |
+| `home_status_hashtables_syncing_label`    | Syncing the hashtables mod health needs                               |
+| `home_status_broken_label`                | {count} enabled mods will break the game                              |
+| `home_status_repairable_label`            | {count} enabled mods need a repair                                    |
+| `home_status_build_moved_label`           | League updated to {build}. Your mods have not been checked against it |
+| `home_changes_title`                      | Recent changes                                                        |
+| `home_release_update_action`              | Update                                                                |
+| `home_notice_link_action`                 | What to do                                                            |
+| `home_library_title`                      | Your library                                                          |
+| `home_library_enabled_count_label`        | {enabled} of {total} enabled                                          |
+| `home_library_import_title`               | Migrating from cslol-manager?                                         |
+| `home_library_more_action`                | More library actions                                                  |
+| `home_library_storage_action`             | Open mod storage                                                      |
+| `home_library_export_action`              | Export mods                                                           |
+| `home_library_export_title`               | Export mods                                                           |
+| `home_library_export_scope_label`         | What to export                                                        |
+| `home_library_export_scope_all_label`     | Everything                                                            |
+| `home_library_export_scope_enabled_label` | Enabled                                                               |
+| `home_library_export_shape_label`         | As                                                                    |
+| `home_library_export_shape_folder_label`  | A folder                                                              |
+| `home_library_export_shape_zip_label`     | One .zip                                                              |
+| `home_library_export_count_hint`          | {count} mods will be written                                          |
+| `home_library_export_confirm_action`      | Export                                                                |
+| `home_library_export_running_label`       | Exporting                                                             |
+| `home_library_export_done_title`          | Exported {count} mods                                                 |
+| `home_library_export_partial_title`       | Exported {exported} of {total} mods                                   |
+| `home_library_export_skipped_hint`        | {count} mods have no archive to export                                |
+| `home_library_export_failed_title`        | Could not export your mods                                            |
+| `home_library_export_reveal_action`       | Show me                                                               |
+| `home_library_export_folder_title`        | Export mods to                                                        |
+| `home_library_export_zip_title`           | Export mods as                                                        |
+| `home_last_game_title`                    | Last game                                                             |
+| `home_news_title`                         | News                                                                  |
+| `home_learn_getting_started_label`        | Getting started                                                       |
+| `home_learn_managing_mods_label`          | Managing mods                                                         |
+| `home_learn_troubleshooting_label`        | Troubleshooting                                                       |
+| `home_setup_title`                        | Getting started                                                       |
 
 The Installed chip is `ReleaseSection`'s, so its label is the updater's, and Retry is common.
 The `Open on` row is titled in the setting index, as every row of the Startup card is.
@@ -313,6 +376,8 @@ The `Open on` row is titled in the setting index, as every row of the Startup ca
   `docs/releases/<version>.md?raw` at build, keyed by the package version
 - News and notices are two commands beside `list_releases`: one parsing the Atom feed, one
   reading the JSON. Both blocking, both timed out, both with the release feed's error kinds
+- Export is `export_mods` over `ModLibrary::export_mods`, which resolves the scope under the index
+  lock and copies outside it, and reports per mod on `export-progress`
 - The unread marks are one persisted store: the last seen version, the last seen post date, the
   dismissed notice ids
 - The dot is a hook the nav link reads, the way the diagnostics link reads its incidents

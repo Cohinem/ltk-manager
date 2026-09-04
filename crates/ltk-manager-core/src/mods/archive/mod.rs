@@ -7,6 +7,7 @@
 //! brings in a whole cslol-manager directory at once, and [`storage`] switches
 //! an installed mod between reading its archive and reading an unpacked tree.
 
+pub(super) mod export;
 pub(super) mod inspect;
 pub(super) mod install;
 pub(super) mod metadata;

@@ -15,6 +15,9 @@ import type {
   DecodedIncident,
   DiagnosticReport,
   EditModMetadataArgs,
+  ExportScope,
+  ExportShape,
+  ExportSummary,
   ExtractOptions,
   ExtractPlan,
   ExtractSummary,
@@ -157,6 +160,8 @@ export const api = {
   installMods: (filePaths: string[]) =>
     invokeResult<BulkInstallResult>("install_mods", { filePaths }),
   uninstallMod: (modId: string) => invokeResult<void>("uninstall_mod", { modId }),
+  exportMods: (scope: ExportScope, shape: ExportShape, destination: string) =>
+    invokeResult<ExportSummary>("export_mods", { scope, shape, destination }),
   toggleMod: (modId: string, enabled: boolean) =>
     invokeResult<void>("toggle_mod", { modId, enabled }),
   getModThumbnail: (modId: string) => invokeResult<string | null>("get_mod_thumbnail", { modId }),
