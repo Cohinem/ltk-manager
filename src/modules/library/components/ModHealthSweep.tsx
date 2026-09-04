@@ -1,9 +1,11 @@
 import { useEffect } from "react";
+import { match } from "ts-pattern";
 
 import { ShockedPoroDuotoneIcon, useToast } from "@/components";
+import { m } from "@/i18n";
 import { useModHealthDrawerStore, useQueuedDialog } from "@/stores";
 
-import { useModHealthStatus } from "../api";
+import { useHealthVerdicts } from "../api";
 import { alarmOver, announcementKey, HEADLINE, toneOf } from "./modHealthNotice";
 import { ModHealthSweepDialog } from "./ModHealthSweepDialog";
 
@@ -18,7 +20,7 @@ import { ModHealthSweepDialog } from "./ModHealthSweepDialog";
  * here is the only place that knows the drawer would be seen.
  */
 export function ModHealthSweep() {
-  const status = useModHealthStatus();
+  const broken = useHealthVerdicts({ health: "broken" });
   const open = useModHealthDrawerStore((s) => s.open);
   const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
   const takeAnnouncement = useModHealthDrawerStore((s) => s.takeAnnouncement);
@@ -30,26 +32,25 @@ export function ModHealthSweep() {
   const showing = useQueuedDialog("mod-health", open);
 
   useEffect(() => {
-    if (!status || !takeAnnouncement(announcementKey(status.all))) return;
+    if (broken.length === 0 || !takeAnnouncement(announcementKey(broken))) return;
 
-    if (alarmOver(status.all) === "flagged") {
-      toast.toast({
-        type: "info",
-        title: HEADLINE,
-        description: "Some of your mods contain non-fatal issues which are not repairable",
-        /* The drawer's own mark for this rung, so the line the reader is sent
-           from and the panel they land on are the same finding. */
-        icon: <ShockedPoroDuotoneIcon className={`h-5 w-5 ${toneOf("flagged").chip}`} />,
-        timeout: 8000,
-        action: { label: "Show me", onClick: openDrawer },
-      });
-      return;
-    }
-
-    openDrawer();
+    match(alarmOver(broken))
+      .with("flagged", () =>
+        toast.toast({
+          type: "info",
+          title: HEADLINE,
+          description: m.library_health_flagged_hint(),
+          /* The drawer's own mark for this rung, so the line the reader is sent
+             from and the panel they land on are the same finding. */
+          icon: <ShockedPoroDuotoneIcon className={`h-5 w-5 ${toneOf("flagged").chip}`} />,
+          timeout: 8000,
+          action: { label: m.library_health_show_action(), onClick: openDrawer },
+        }),
+      )
+      .otherwise(() => openDrawer());
     // `announced` so a press that reopens the question is heard: the verdicts
-    // it refreshed can come back identical, and `status` would not move.
-  }, [status, announced, takeAnnouncement, openDrawer, toast]);
+    // it refreshed can come back identical, and `broken` would not move.
+  }, [broken, announced, takeAnnouncement, openDrawer, toast]);
 
   // Unconditional: this is where a drawer can be mounted, which is what the
   // cell needs to know. Whether one is showing right now is `open`.
@@ -60,7 +61,7 @@ export function ModHealthSweep() {
 
   /* A press about one mod is answered even where the library-wide surfaces have
      nothing to say, which is the whole of what `focusModId` is for. */
-  if (!status && !focusModId) return null;
+  if (broken.length === 0 && !focusModId) return null;
 
   return <ModHealthSweepDialog open={showing} onClose={close} />;
 }

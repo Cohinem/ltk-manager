@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
+import { match } from "ts-pattern";
 
 import {
   Button,
@@ -23,6 +24,7 @@ import {
   WolfIcon,
   worstOf,
 } from "@/components";
+import { m, Marked } from "@/i18n";
 import {
   type ModHealthVerdict,
   type ModRepairProgress,
@@ -33,13 +35,12 @@ import { useModHealthDrawerStore } from "@/stores";
 
 import {
   type RepairRun,
-  useBrokenMods,
   useCancelModHealthRun,
+  useHealthVerdicts,
   useInstalledMods,
   useModHealthVerdicts,
   useRepairMod,
   useRepairMods,
-  useRepairTargets,
 } from "../api";
 import {
   alarmOf,
@@ -69,21 +70,26 @@ interface ModHealthSweepPanelProps {
  * once per row.
  */
 export function ModHealthSweepPanel({ onClose }: ModHealthSweepPanelProps) {
-  const { all, repairable, unrepairable } = useBrokenMods();
+  const all = useHealthVerdicts({ health: "broken" });
+  const repairable = useHealthVerdicts({ health: "repairable" });
+  const unrepairable = useHealthVerdicts({ health: "unrepairable" });
   const repair = useRepairMods();
-  const { enabled } = useRepairTargets();
+  const enabled = useHealthVerdicts({ health: "repairable", enabled: true });
   const requested = useModHealthDrawerStore((s) => s.repairRequested);
   const takeRequest = useModHealthDrawerStore((s) => s.takeRepairRequest);
   const focusModId = useModHealthDrawerStore((s) => s.focusModId);
+  const informational = useHealthVerdicts({ health: "informational" });
   const { data: verdicts } = useModHealthVerdicts();
 
   /* A press about one mod is answered about that mod, so its row joins a list
-     the library-wide surfaces would have left it out of. */
+     the library-wide surfaces would have left it out of. An info-only mod is
+     already under the fold, which the press opens. */
   const rows = useMemo(() => {
     const focused = focusModId ? verdicts?.[focusModId] : undefined;
-    if (!focused || all.some((verdict) => verdict.modId === focused.modId)) return all;
+    const listed = [...all, ...informational];
+    if (!focused || listed.some((verdict) => verdict.modId === focused.modId)) return all;
     return [...all, focused];
-  }, [all, focusModId, verdicts]);
+  }, [all, informational, focusModId, verdicts]);
 
   /* The launch guard's "Repair first" opens the panel and asks for the run in
      one press, and the run is this component's to start. */
@@ -118,7 +124,7 @@ export function ModHealthSweepPanel({ onClose }: ModHealthSweepPanelProps) {
           compact
           icon={<XIcon className="h-4 w-4" weight="bold" />}
           onClick={onClose}
-          aria-label="Close"
+          aria-label={m.common_close_action()}
         />
         <span
           aria-hidden="true"
@@ -175,7 +181,7 @@ function PanelActions({
     return (
       <PanelFoot>
         <Button size="sm" variant="filled" onClick={onClose}>
-          Close
+          {m.common_close_action()}
         </Button>
       </PanelFoot>
     );
@@ -184,7 +190,7 @@ function PanelActions({
   return (
     <PanelFoot>
       <Button size="sm" variant="ghost" onClick={onClose}>
-        Close
+        {m.common_close_action()}
       </Button>
       <RepairPress run={run} />
     </PanelFoot>
@@ -199,7 +205,8 @@ function PanelActions({
  * the whole library is the deliberate second choice behind the caret.
  */
 function RepairPress({ run }: { run: RepairRun }) {
-  const { enabled, all } = useRepairTargets();
+  const all = useHealthVerdicts({ health: "repairable" });
+  const enabled = useHealthVerdicts({ health: "repairable", enabled: true });
 
   const start = (verdicts: ModHealthVerdict[]) =>
     run.repair(verdicts.map((verdict) => verdict.modId));
@@ -210,7 +217,7 @@ function RepairPress({ run }: { run: RepairRun }) {
     return (
       <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
         <PlugsIcon className="h-4 w-4" weight="duotone" />
-        Repair {plural(all.length, "mod")}
+        {m.library_health_repair_action({ count: all.length })}
       </Button>
     );
   }
@@ -222,7 +229,7 @@ function RepairPress({ run }: { run: RepairRun }) {
     return (
       <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
         <StackIcon className="h-4 w-4" weight="duotone" />
-        Repair all {all.length}
+        {m.library_health_repair_all_action({ count: all.length })}
       </Button>
     );
   }
@@ -231,7 +238,7 @@ function RepairPress({ run }: { run: RepairRun }) {
     <ButtonGroup>
       <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(enabled)}>
         <PlugsIcon className="h-4 w-4" weight="duotone" />
-        Repair {plural(enabled.length, "enabled mod")}
+        {m.library_health_repair_enabled_action({ count: enabled.length })}
       </Button>
       <Menu.Root>
         <Menu.Trigger
@@ -240,7 +247,7 @@ function RepairPress({ run }: { run: RepairRun }) {
               icon={<CaretUpIcon weight="bold" className="h-4 w-4" />}
               variant="filled"
               size="sm"
-              aria-label="More repair options"
+              aria-label={m.library_health_repair_options_label()}
               className="w-auto px-2"
               disabled={run.isRepairing}
             />
@@ -253,7 +260,7 @@ function RepairPress({ run }: { run: RepairRun }) {
                 icon={<StackIcon weight="duotone" className="h-4 w-4" />}
                 onClick={() => start(all)}
               >
-                Repair all {all.length}
+                {m.library_health_repair_all_action({ count: all.length })}
               </Menu.Item>
             </Menu.Popup>
           </Menu.Positioner>
@@ -306,7 +313,7 @@ function RepairProgress({ progress }: { progress: ModRepairProgress }) {
             icon={<XIcon className="h-3.5 w-3.5" weight="bold" />}
             onClick={() => cancel.mutate()}
             disabled={cancel.isPending}
-            aria-label="Stop the repair"
+            aria-label={m.library_health_repair_stop_label()}
             className="-my-1 h-5 w-5 shrink-0"
           />
         </div>
@@ -326,9 +333,9 @@ function RepairProgress({ progress }: { progress: ModRepairProgress }) {
  */
 function repairingLabel(names: string[]) {
   const [first, ...rest] = names;
-  if (!first) return "Repairing your mods";
-  if (rest.length === 0) return `Repairing ${first}`;
-  return `Repairing ${first} and ${rest.length} more`;
+  if (!first) return m.library_health_repairing_label();
+  if (rest.length === 0) return m.library_health_repairing_one_label({ name: first });
+  return m.library_health_repairing_more_label({ name: first, count: rest.length });
 }
 
 /**
@@ -349,45 +356,32 @@ function Recommendation({
   repairable: ModHealthVerdict[];
   unrepairable: ModHealthVerdict[];
 }) {
-  const replaceable = alarmOver(unrepairable) === "broken";
-
-  if (repairable.length + unrepairable.length === 0) {
-    return <>These findings are worth knowing, and none of them is a fault</>;
-  }
-
-  if (repairable.length === 0) {
-    if (replaceable) return <>None of them are auto-fixable, so look for updated versions</>;
-    return <>None of them are auto-fixable, though none of them stops a mod loading</>;
-  }
-
-  if (unrepairable.length === 0) {
-    return (
-      <>
-        All of them can be repaired automatically, so{" "}
-        <strong className="font-medium text-surface-200">repairing is recommended</strong>
-      </>
-    );
-  }
-
-  if (replaceable) {
-    return (
-      <>
-        <strong className="font-medium text-surface-200">Repairing is recommended</strong>, though
-        some will need updated versions instead
-      </>
-    );
-  }
-
-  return (
-    <>
-      <strong className="font-medium text-surface-200">Repairing is recommended</strong>, and what
-      it misses will still load
-    </>
-  );
+  return match({
+    repairable: repairable.length,
+    unrepairable: unrepairable.length,
+    replaceable: alarmOver(unrepairable) === "broken",
+  })
+    .with({ repairable: 0, unrepairable: 0 }, () => (
+      <>{m.library_health_informational_only_description()}</>
+    ))
+    .with({ repairable: 0, replaceable: true }, () => <>{m.library_health_replace_description()}</>)
+    .with({ repairable: 0 }, () => <>{m.library_health_no_repair_description()}</>)
+    .with({ unrepairable: 0 }, () => (
+      <Recommended text={m.library_health_all_repairable_description()} />
+    ))
+    .with({ replaceable: true }, () => (
+      <Recommended text={m.library_health_some_replaceable_description()} />
+    ))
+    .otherwise(() => <Recommended text={m.library_health_mixed_description()} />);
 }
 
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+/** The recommendation, with whichever clause the sentence marks as its errand. */
+function Recommended({ text }: { text: string }) {
+  return (
+    <Marked text={text}>
+      {(clause) => <strong className="font-medium text-surface-200">{clause}</strong>}
+    </Marked>
+  );
 }
 
 /**
@@ -400,22 +394,61 @@ function plural(count: number, noun: string): string {
  */
 function VerdictRows({ verdicts }: { verdicts: ModHealthVerdict[] }) {
   const { data: mods = [] } = useInstalledMods();
+  const informational = useHealthVerdicts({ health: "informational" });
+  const showing = useModHealthDrawerStore((s) => s.showInformational);
   const enabled = new Set(mods.filter((mod) => mod.enabled).map((mod) => mod.id));
 
-  const sorted = [...verdicts].sort((a, b) => {
-    const lead = Number(enabled.has(b.modId)) - Number(enabled.has(a.modId));
-    if (lead !== 0) return lead;
-    const worst = RANK[worstOf(a.counts)] - RANK[worstOf(b.counts)];
-    if (worst !== 0) return worst;
-    return totalOf(b) - totalOf(a);
-  });
+  const order = (rows: ModHealthVerdict[]) =>
+    [...rows].sort((a, b) => {
+      const lead = Number(enabled.has(b.modId)) - Number(enabled.has(a.modId));
+      if (lead !== 0) return lead;
+      const worst = RANK[worstOf(a.counts)] - RANK[worstOf(b.counts)];
+      if (worst !== 0) return worst;
+      return totalOf(b) - totalOf(a);
+    });
 
   return (
     <ul className="flex flex-col py-1 select-none">
-      {sorted.map((verdict) => (
+      {order(verdicts).map((verdict) => (
         <VerdictRow key={verdict.modId} verdict={verdict} />
       ))}
+      {informational.length > 0 && <InformationalFold count={informational.length} />}
+      {showing &&
+        order(informational).map((verdict) => <VerdictRow key={verdict.modId} verdict={verdict} />)}
     </ul>
+  );
+}
+
+/**
+ * The line the mods holding nothing worse than an `Info` fold away behind.
+ *
+ * A line rather than a row: what is below it is not what the panel is reporting,
+ * and a reader triaging the list above should be able to see where that list
+ * ends. It sits last because severity is what orders the rows either way, and
+ * nothing under it outranks anything over it.
+ */
+function InformationalFold({ count }: { count: number }) {
+  const showing = useModHealthDrawerStore((s) => s.showInformational);
+  const toggle = useModHealthDrawerStore((s) => s.toggleInformational);
+
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={showing}
+        className="flex w-full items-center gap-1.5 rounded-sm px-3 py-1.5 text-meta text-surface-400 hover:bg-surface-veil-soft focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none focus-visible:ring-inset"
+      >
+        <SeverityGlyph severity="info" />
+        <span>{m.library_health_informational_toggle_label()}</span>
+        <span className="tabular-nums">{count}</span>
+        <CaretDownIcon
+          weight="bold"
+          className={twMerge("h-3 w-3 shrink-0 transition-transform", showing && "rotate-180")}
+        />
+        <span aria-hidden="true" className="ml-1 h-px flex-1 bg-surface-600" />
+      </button>
+    </li>
   );
 }
 
@@ -491,14 +524,14 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
             compact
             loading={repair.isPending}
             onClick={() => repair.mutate(verdict.modId)}
-            aria-label={`Repair ${name}`}
+            aria-label={m.library_health_repair_mod_label({ name })}
             className={twMerge(
               "absolute top-1/2 right-3 -translate-y-1/2 opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100",
               repair.isPending && "opacity-100",
             )}
           >
             <PlugsIcon className="h-4 w-4" weight="duotone" />
-            Repair
+            {m.library_health_repair_one_action()}
           </Button>
         )}
         {/* The seat the press would be in. A reader asks why a row has none only
@@ -506,7 +539,7 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
             used to hold over every such row is answered here instead. */}
         {verdict.health !== "healthy" && alarm !== "repairable" && (
           <span className="absolute top-1/2 right-3 -translate-y-1/2 text-meta whitespace-nowrap text-surface-500 opacity-0 transition-opacity group-hover/row:opacity-100 group-has-[:focus-visible]/row:opacity-100">
-            {NO_PRESS[alarm]}
+            {NO_PRESS[alarm]()}
           </span>
         )}
       </div>
@@ -522,9 +555,9 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
  * being told what the press would not have done, and nothing more. A row with
  * nothing wrong in it says neither, since it is missing no press.
  */
-const NO_PRESS: Record<Exclude<SweepAlarm, "repairable">, string> = {
-  broken: "Needs an updated version",
-  flagged: "Not auto-fixable",
+const NO_PRESS: Record<Exclude<SweepAlarm, "repairable">, () => string> = {
+  broken: m.library_health_needs_update_label,
+  flagged: m.library_health_not_fixable_label,
 };
 
 /** The row's package mark: the accent for a mod the next game carries, dim otherwise. */
@@ -534,8 +567,8 @@ function RowMark({ enabled }: { enabled: boolean }) {
   }
 
   return (
-    <Tooltip content="Enabled">
-      <span className="flex shrink-0" aria-label="Enabled">
+    <Tooltip content={m.library_health_enabled_label()}>
+      <span className="flex shrink-0" aria-label={m.library_health_enabled_label()}>
         <PackageIcon weight="duotone" className="h-4 w-4 text-accent-400" />
       </span>
     </Tooltip>
@@ -568,7 +601,14 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
                reports them they stand in for the rule's own sentence. */
             (brief.mismatches ?? []).map((mismatch) => (
               <p key={`${mismatch.expected}-${mismatch.found}`} className="text-surface-500">
-                Expected <Code>{mismatch.expected}</Code>, found <Code>{mismatch.found}</Code>
+                <Marked
+                  text={m.library_health_type_mismatch_description({
+                    expected: mismatch.expected,
+                    found: mismatch.found,
+                  })}
+                >
+                  {(value) => <Code>{value}</Code>}
+                </Marked>
               </p>
             ))
           ) : (
@@ -601,7 +641,9 @@ function RuleReach({ brief, offered }: { brief: RuleBrief; offered: boolean }) {
 
   const phrase = (
     <span className="shrink-0 text-surface-500">
-      {missed === brief.count ? "not auto-fixable" : `${missed} not auto-fixable`}
+      {missed === brief.count
+        ? m.library_health_rule_not_fixable_label()
+        : m.library_health_rule_partly_fixable_label({ count: missed })}
     </span>
   );
 

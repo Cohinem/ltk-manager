@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, type AppError, type FixReport } from "@/lib/tauri";
-import { hasErrorCode } from "@/utils/errors";
 import { unwrapForQuery } from "@/utils/query";
 
-import { libraryKeys } from "./keys";
+import { libraryKeys } from "../keys";
 
 /**
  * Repair what a machine can repair in one mod.
@@ -28,17 +28,16 @@ export function useRepairMod() {
       void queryClient.invalidateQueries({ queryKey: libraryKeys.modHealthVerdicts() });
       if (report.applied > 0) {
         void queryClient.invalidateQueries({ queryKey: libraryKeys.wadReports() });
-        toast.success(`Repaired ${report.applied} finding${report.applied === 1 ? "" : "s"}`);
+        toast.success(m.library_health_repaired_findings_title({ count: report.applied }));
       } else {
-        toast.info("Nothing to repair");
+        toast.info(m.library_health_nothing_to_repair_title());
       }
     },
-    onError: (error) => {
-      if (hasErrorCode(error, "MOD_NOT_FOUND")) {
-        toast.error("Mod no longer exists in the library");
-        return;
-      }
-      toast.error("Failed to repair mod", errorSummary(error));
-    },
+    onError: (error) =>
+      match(error)
+        .with({ code: "MOD_NOT_FOUND" }, () => toast.error(m.library_mod_missing_title()))
+        .otherwise(() =>
+          toast.error(m.library_health_repair_mod_failed_title(), errorSummary(error)),
+        ),
   });
 }

@@ -11,11 +11,11 @@ import { useModHealthDrawerStore } from "@/stores";
 import { ModHealthLaunchGuard } from "../ModHealthLaunchGuard";
 import { verdict } from "./modHealthFixtures";
 
-const useBrokenEnabledMods = vi.fn<() => ModHealthVerdict[]>();
+const brokenEnabled = vi.fn<() => ModHealthVerdict[]>();
 const onConfirm = vi.fn();
 
 vi.mock("../../api", () => ({
-  useBrokenEnabledMods: () => useBrokenEnabledMods(),
+  useHealthVerdicts: () => brokenEnabled(),
 }));
 
 const navigate = vi.fn();
@@ -25,7 +25,7 @@ const fromTheMenu = vi.fn();
 
 /** The button and one menu entry, which is the shape the toolbar puts them in. */
 function show(broken: ModHealthVerdict[]) {
-  useBrokenEnabledMods.mockReturnValue(broken);
+  brokenEnabled.mockReturnValue(broken);
   render(
     <ModHealthLaunchGuard>
       {(ask) => (

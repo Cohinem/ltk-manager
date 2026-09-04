@@ -4,32 +4,29 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BrokenMods } from "@/modules/library";
+import type { ModHealthVerdict } from "@/lib/tauri";
+import type { HealthFilter } from "@/modules/library";
 import { useModHealthDrawerStore } from "@/stores";
 
 import { ModHealthSweepDrawer } from "../ModHealthSweepDrawer";
-import { brokenMods, installedMod, verdict } from "./modHealthFixtures";
+import { healthVerdicts, installedMod, verdict } from "./modHealthFixtures";
 
-const useBrokenMods = vi.fn<() => BrokenMods>();
+const health = vi.fn<(filter: HealthFilter) => ModHealthVerdict[]>();
 const onClose = vi.fn();
 
 /* The panel inside the sheet is `ModHealthSweepPanel`'s to test, so these mocks
    only have to keep it drawing something. */
 vi.mock("../../api", () => ({
   useModHealthVerdicts: () => ({ data: {} }),
-  useBrokenMods: () => useBrokenMods(),
+  useHealthVerdicts: (filter: HealthFilter) => health(filter),
   useInstalledMods: () => ({ data: [installedMod("a", "Charizard Smolder")] }),
   useRepairMod: () => ({ mutate: vi.fn(), isPending: false }),
   useRepairMods: () => ({ repair: vi.fn(), isRepairing: false, progress: null }),
   useCancelModHealthRun: () => ({ mutate: vi.fn(), isPending: false }),
-  useRepairTargets: () => {
-    const all = useBrokenMods().repairable;
-    return { enabled: all, all };
-  },
 }));
 
 function show() {
-  useBrokenMods.mockReturnValue(brokenMods({ repairable: [verdict("a", "repairable")] }));
+  health.mockImplementation(healthVerdicts({ repairable: [verdict("a", "repairable")] }));
   render(<ModHealthSweepDrawer open onClose={onClose} />);
 }
 

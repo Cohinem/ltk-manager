@@ -1,14 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, type AppError, type LibraryRepairReport, type ModRepairProgress } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { hasErrorCode } from "@/utils/errors";
 import { unwrapForQuery } from "@/utils/query";
 
-import { libraryKeys } from "./keys";
+import { libraryKeys } from "../keys";
 
 /** A library-wide repair, and how far along it is. */
 export interface RepairRun {
@@ -54,26 +54,39 @@ export function useRepairMods(): RepairRun {
       void queryClient.invalidateQueries({ queryKey: libraryKeys.wadReports() });
     },
     onSuccess: (report) => {
-      const repaired = `${report.repaired.length} mod${report.repaired.length === 1 ? "" : "s"}`;
-
       if (report.failed.length > 0) {
-        const failed = `${report.failed.length} could not be repaired`;
-        toast.warning("Repaired what we could", `${repaired} repaired, and ${failed}.`);
+        toast.warning(
+          m.library_health_repair_partial_title(),
+          m.library_health_repair_partial_hint({
+            repaired: report.repaired.length,
+            failed: report.failed.length,
+          }),
+        );
         return;
       }
       if (report.repaired.length === 0) {
-        toast.info("Nothing to repair", "Your mods were already up to date.");
+        toast.info(
+          m.library_health_nothing_to_repair_title(),
+          m.library_health_nothing_to_repair_hint(),
+        );
         return;
       }
-      toast.success(`Repaired ${repaired}`, "They are ready for your next game.");
+      toast.success(
+        m.library_health_repaired_title({ count: report.repaired.length }),
+        m.library_health_repaired_hint(),
+      );
     },
-    onError: (error) => {
-      if (hasErrorCode(error, "PATCHER")) {
-        toast.error("Stop the patcher first", "A repair rewrites mods the overlay is reading.");
-        return;
-      }
-      toast.error("Failed to repair mods", errorSummary(error));
-    },
+    onError: (error) =>
+      match(error)
+        .with({ code: "PATCHER" }, () =>
+          toast.error(
+            m.library_health_patcher_running_title(),
+            m.library_health_patcher_running_hint(),
+          ),
+        )
+        .otherwise(() =>
+          toast.error(m.library_health_repair_library_failed_title(), errorSummary(error)),
+        ),
   });
 
   return { repair: run.mutate, isRepairing: run.isPending, progress };

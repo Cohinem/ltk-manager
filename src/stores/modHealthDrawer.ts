@@ -23,6 +23,15 @@ interface ModHealthDrawerStore {
    */
   focusModId: string | null;
   /**
+   * Whether the panel also lists the mods whose findings are all informative.
+   *
+   * Off until a reader asks, because nothing under it is a fault and the panel
+   * is answering what is wrong with the library. It outlives a close, so a
+   * reader who wants the fuller list is not asked for the press every time.
+   */
+  showInformational: boolean;
+  toggleInformational: () => void;
+  /**
    * Whether a drawer is mounted for the trigger to open.
    *
    * Mod health is a library surface, and the cell that opens it sits in the
@@ -32,7 +41,12 @@ interface ModHealthDrawerStore {
   hosted: boolean;
   setHosted: (hosted: boolean) => void;
   openDrawer: () => void;
-  /** Open the drawer on one mod, wherever the rest of the library stands. */
+  /**
+   * Open the drawer on one mod, wherever the rest of the library stands.
+   *
+   * Unfolds the informative rows with it, because the mod a press asks about is
+   * one of them and a fold left shut answers with a line rather than a row.
+   */
   showMod: (modId: string) => void;
   /**
    * Open the drawer and have it repair what the next game would carry.
@@ -79,10 +93,12 @@ export const useModHealthDrawerStore = create<ModHealthDrawerStore>()(
       announcedFor: null,
       repairRequested: false,
       focusModId: null,
+      showInformational: false,
       hosted: false,
       setHosted: (hosted) => set({ hosted }),
+      toggleInformational: () => set({ showInformational: !get().showInformational }),
       openDrawer: () => set({ open: true, focusModId: null }),
-      showMod: (modId) => set({ open: true, focusModId: modId }),
+      showMod: (modId) => set({ open: true, focusModId: modId, showInformational: true }),
       requestRepair: () => set({ open: true, repairRequested: true, focusModId: null }),
       takeRepairRequest: () => set({ repairRequested: false }),
       setWidth: (width) => set({ width }),
@@ -98,7 +114,10 @@ export const useModHealthDrawerStore = create<ModHealthDrawerStore>()(
     {
       name: "mod-health-drawer",
       /* The panel's own state belongs to the session that shaped it. */
-      partialize: (state) => ({ announcedFor: state.announcedFor }),
+      partialize: (state) => ({
+        announcedFor: state.announcedFor,
+        showInformational: state.showInformational,
+      }),
     },
   ),
 );

@@ -200,6 +200,19 @@ toast's description takes under a title of its own. A log line takes the error o
 component reads a field off an `AppError` for display, and a new `AppError` variant is a `tsc`
 error in the describer until its copy exists.
 
+**A sentence with markup inside it is still one message.** The span a component draws differently -
+a `<strong>`, a `<Code>` - is wrapped in `*` in the catalog, and `Marked` from `@/i18n` draws it:
+
+```tsx
+<Marked text={m.library_health_mixed_description()}>
+  {(clause) => <strong className="font-medium text-surface-200">{clause}</strong>}
+</Marked>
+```
+
+The alternative is two keys cut at the markup's own boundary, which leaves a translator holding
+fragments and fixes the emphasis where English happened to put it. One key per sentence is what
+lets it move.
+
 A message belongs to the module that owns the screen, and goes in `common.json` only once two
 modules say the same words. A new file is added to `pathPattern` in `project.inlang/settings.json`
 with `common.json` kept last. An unknown key or a missing input fails `tsc`, so a test never

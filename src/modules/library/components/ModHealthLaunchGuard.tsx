@@ -6,7 +6,7 @@ import { twMerge } from "tailwind-merge";
 import { Button, Popover } from "@/components";
 import { useModHealthDrawerStore } from "@/stores";
 
-import { useBrokenEnabledMods } from "../api";
+import { useHealthVerdicts } from "../api";
 import { alarmOf } from "./modHealthNotice";
 
 /** Starts a launch, or holds it until the reader has answered for what it carries. */
@@ -32,7 +32,7 @@ interface ModHealthLaunchGuardProps {
  * reader answers, and something has to still be holding what they pressed.
  */
 export function ModHealthLaunchGuard({ children, className }: ModHealthLaunchGuardProps) {
-  const broken = useBrokenEnabledMods();
+  const broken = useHealthVerdicts({ health: "broken", enabled: true });
   const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
   const requestRepair = useModHealthDrawerStore((s) => s.requestRepair);
   const navigate = useNavigate();

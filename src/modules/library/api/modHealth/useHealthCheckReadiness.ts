@@ -4,7 +4,7 @@ import { api, type AppError, type HealthCheckReadiness } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { queryFn } from "@/utils/query";
 
-import { libraryKeys } from "./keys";
+import { libraryKeys } from "../keys";
 
 /** How often to ask again while the tables are still landing. */
 const READINESS_POLL_MS = 1000;

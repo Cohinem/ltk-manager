@@ -4,54 +4,56 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ModRepairProgress } from "@/lib/tauri";
-import type { BrokenMods } from "@/modules/library";
+import type { ModHealthVerdict, ModRepairProgress } from "@/lib/tauri";
+import type { HealthFilter } from "@/modules/library";
 import { useModHealthDrawerStore } from "@/stores";
 
 import { ModHealthSweepPanel } from "../ModHealthSweepPanel";
-import { brokenMods, installedMod, verdict } from "./modHealthFixtures";
+import { type HealthLists, healthVerdicts, installedMod, verdict } from "./modHealthFixtures";
 
-const useBrokenMods = vi.fn<() => BrokenMods>();
-const useInstalledMods = vi.fn<() => { data: ReturnType<typeof installedMod>[] }>();
+const health = vi.fn<(filter: HealthFilter) => ModHealthVerdict[]>();
+const installedMods = vi.fn<() => { data: ReturnType<typeof installedMod>[] }>();
 const repairOne = vi.fn();
 const cancelRun = vi.fn();
 const onClose = vi.fn();
 
 vi.mock("../../api", () => ({
   useModHealthVerdicts: () => ({ data: verdicts }),
-  useBrokenMods: () => useBrokenMods(),
-  useInstalledMods: () => useInstalledMods(),
+  useHealthVerdicts: (filter: HealthFilter) => health(filter),
+  useInstalledMods: () => installedMods(),
   useRepairMod: () => ({ mutate: repairOne, isPending: false }),
   useRepairMods: () => run,
   useCancelModHealthRun: () => ({ mutate: cancelRun, isPending: false }),
-  /* The real hook over the two mocked ones, so a test that switches a mod off
-     exercises the split the panel actually draws. */
-  useRepairTargets: () => {
-    const all = useBrokenMods().repairable;
-    const on = new Set(
-      useInstalledMods()
-        .data.filter((mod) => mod.enabled)
-        .map((mod) => mod.id),
-    );
-    return { enabled: all.filter((verdict) => on.has(verdict.modId)), all };
-  },
 }));
 
 let run: { repair: () => void; isRepairing: boolean; progress: ModRepairProgress | null };
 /** What the library remembers, which is more than the unhealthy mods. */
 let verdicts: Record<string, ReturnType<typeof verdict>>;
 
-function show(broken: Partial<Omit<BrokenMods, "all">>) {
-  useBrokenMods.mockReturnValue(brokenMods(broken));
+/* The fold and the split press are answered off the two mocks the real hook
+   reads, so a test that switches a mod off or leaves it an info exercises what
+   the panel actually draws. */
+function show(broken: HealthLists) {
+  const mods = installedMods().data;
+  health.mockImplementation(
+    healthVerdicts(
+      { ...broken, informational: mods.map((mod) => verdicts[mod.id]).filter(isInformational) },
+      (modId) => mods.find((mod) => mod.id === modId)?.enabled ?? false,
+    ),
+  );
   render(<ModHealthSweepPanel onClose={onClose} />);
+}
+
+function isInformational(held: ModHealthVerdict | undefined): held is ModHealthVerdict {
+  return held?.health === "healthy" && held.counts.infos > 0;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   run = { repair: vi.fn(), isRepairing: false, progress: null };
   verdicts = {};
-  useModHealthDrawerStore.setState({ focusModId: null });
-  useInstalledMods.mockReturnValue({
+  useModHealthDrawerStore.setState({ focusModId: null, showInformational: false });
+  installedMods.mockReturnValue({
     data: [installedMod("a", "Charizard Smolder"), installedMod("b", "Old Ashe Rework")],
   });
 });
@@ -61,7 +63,7 @@ describe("ModHealthSweepPanel", () => {
      answer with a count in a toast, which named them without showing them. */
   it("lists the mod a press asked about, though nothing about it is wrong", () => {
     verdicts = { a: verdict("a", "healthy", { findings: 3, severity: "info" }) };
-    useModHealthDrawerStore.setState({ focusModId: "a" });
+    useModHealthDrawerStore.getState().showMod("a");
     show({});
 
     expect(screen.getByText("Charizard Smolder")).toBeInTheDocument();
@@ -70,7 +72,7 @@ describe("ModHealthSweepPanel", () => {
   /* The panel cannot call them issues in its title while it draws them. */
   it("does not call a list with nothing wrong in it a list of issues", () => {
     verdicts = { a: verdict("a", "healthy", { findings: 3, severity: "info" }) };
-    useModHealthDrawerStore.setState({ focusModId: "a" });
+    useModHealthDrawerStore.getState().showMod("a");
     show({});
 
     expect(screen.getByRole("heading", { name: "No problems found" })).toBeInTheDocument();
@@ -83,7 +85,7 @@ describe("ModHealthSweepPanel", () => {
      "Not auto-fixable" over a mod that is fine is the wrong errand. */
   it("sends a healthy row nowhere", () => {
     verdicts = { a: verdict("a", "healthy", { findings: 3, severity: "info" }) };
-    useModHealthDrawerStore.setState({ focusModId: "a" });
+    useModHealthDrawerStore.getState().showMod("a");
     show({});
 
     expect(screen.queryByText("Not auto-fixable")).not.toBeInTheDocument();
@@ -97,6 +99,95 @@ describe("ModHealthSweepPanel", () => {
     show({ repairable: [verdict("a", "repairable")] });
 
     expect(screen.getAllByText("Charizard Smolder")).toHaveLength(1);
+  });
+
+  /* Story: a sweep of the whole library dropped the very findings a press on one
+     mod had just shown, because no library-wide surface draws an `Info`. */
+  it("reveals the mods holding nothing worse than an info, on a press", async () => {
+    const user = userEvent.setup();
+    verdicts = {
+      a: verdict("a", "repairable"),
+      b: verdict("b", "healthy", { findings: 3, severity: "info" }),
+    };
+    show({ repairable: [verdict("a", "repairable")] });
+    expect(screen.queryByText("Old Ashe Rework")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Info/ }));
+
+    expect(screen.getByText("Old Ashe Rework")).toBeInTheDocument();
+  });
+
+  /* The offer names how many rows are behind it, so a reader knows whether the
+     press is worth making before they make it. */
+  it("counts what the press would reveal", () => {
+    verdicts = {
+      a: verdict("a", "repairable"),
+      b: verdict("b", "healthy", { findings: 3, severity: "info" }),
+    };
+    show({ repairable: [verdict("a", "repairable")] });
+
+    expect(screen.getByRole("button", { name: "Info 1" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  /* A footer carrying an offer with nothing behind it is one more thing to read
+     in a panel that is already a list. */
+  it("makes no offer where every mod's findings are faults", () => {
+    verdicts = { a: verdict("a", "repairable") };
+    show({ repairable: [verdict("a", "repairable")] });
+
+    expect(screen.queryByRole("button", { name: /^Info/ })).not.toBeInTheDocument();
+  });
+
+  /* An info-only mod is not a fault, so revealing one cannot change the errand
+     the header sends the reader on. */
+  it("leaves the headline to the mods something is wrong with", async () => {
+    const user = userEvent.setup();
+    verdicts = {
+      a: verdict("a", "repairable"),
+      b: verdict("b", "healthy", { findings: 3, severity: "info" }),
+    };
+    show({ repairable: [verdict("a", "repairable")] });
+
+    await user.click(screen.getByRole("button", { name: /^Info/ }));
+
+    expect(screen.getByRole("heading", { name: "Detected issues with mods" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Repair 1 mod" })).toBeInTheDocument();
+  });
+
+  /* The mod a press asked about is already listed, so the toggle must not file
+     it a second time. */
+  it("does not repeat the mod a press asked about", () => {
+    verdicts = { a: verdict("a", "healthy", { findings: 3, severity: "info" }) };
+    useModHealthDrawerStore.getState().showMod("a");
+    show({});
+
+    expect(screen.getAllByText("Charizard Smolder")).toHaveLength(1);
+  });
+
+  /* A press about a mod under the fold that left the fold shut would answer with
+     a line the reader has to find and open for themselves. */
+  it("opens the fold for the mod a press asked about", () => {
+    verdicts = { a: verdict("a", "healthy", { findings: 3, severity: "info" }) };
+    useModHealthDrawerStore.getState().showMod("a");
+    show({});
+
+    expect(screen.getByRole("button", { name: "Info 1" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  /* The line marks where the list the panel is reporting on ends, so it is drawn
+     whether or not the rows under it are. */
+  it("draws the line above the rows it folds away", () => {
+    verdicts = {
+      a: verdict("a", "repairable"),
+      b: verdict("b", "healthy", { findings: 3, severity: "info" }),
+    };
+    show({ repairable: [verdict("a", "repairable")] });
+
+    const rows = screen.getAllByRole("listitem");
+    expect(rows[rows.length - 1]).toContainElement(screen.getByRole("button", { name: "Info 1" }));
   });
 
   /* The title says what was found. Which of the two errands the reader is on is
@@ -266,7 +357,7 @@ describe("ModHealthSweepPanel", () => {
   /* The footer press repairs what is enabled, so the rows have to show which
      ones those are. */
   it("marks the enabled rows and only those", () => {
-    useInstalledMods.mockReturnValue({
+    installedMods.mockReturnValue({
       data: [installedMod("a", "Charizard Smolder"), installedMod("b", "Old Ashe Rework", false)],
     });
     show({
@@ -280,7 +371,7 @@ describe("ModHealthSweepPanel", () => {
   /* The press repairs the enabled mods, so those lead the list, and the mod
      most is wrong with leads its half. */
   it("leads with the enabled mods, worst first", () => {
-    useInstalledMods.mockReturnValue({
+    installedMods.mockReturnValue({
       data: [
         installedMod("a", "Alpha", false),
         installedMod("b", "Beta"),
@@ -301,7 +392,7 @@ describe("ModHealthSweepPanel", () => {
   });
 
   it("falls back to the mod id when the library no longer names it", () => {
-    useInstalledMods.mockReturnValue({ data: [] });
+    installedMods.mockReturnValue({ data: [] });
     show({ repairable: [verdict("ghost-id", "repairable")], unrepairable: [] });
 
     expect(screen.getByText("ghost-id")).toBeInTheDocument();
@@ -382,7 +473,7 @@ describe("ModHealthSweepPanel", () => {
      game needs and the library stays behind the caret. */
   it("splits the press when a broken mod is switched off", async () => {
     const user = userEvent.setup();
-    useInstalledMods.mockReturnValue({
+    installedMods.mockReturnValue({
       data: [
         installedMod("a", "Charizard Smolder"),
         { ...installedMod("b", "Old Ashe Rework"), enabled: false },
@@ -403,7 +494,7 @@ describe("ModHealthSweepPanel", () => {
 
   it("repairs only what is switched on from the press itself", async () => {
     const user = userEvent.setup();
-    useInstalledMods.mockReturnValue({
+    installedMods.mockReturnValue({
       data: [
         installedMod("a", "Charizard Smolder"),
         { ...installedMod("b", "Old Ashe Rework"), enabled: false },
@@ -424,7 +515,7 @@ describe("ModHealthSweepPanel", () => {
      behind a caret. */
   it("offers the whole library when nothing broken is switched on", async () => {
     const user = userEvent.setup();
-    useInstalledMods.mockReturnValue({
+    installedMods.mockReturnValue({
       data: [
         { ...installedMod("a", "Charizard Smolder"), enabled: false },
         { ...installedMod("b", "Old Ashe Rework"), enabled: false },

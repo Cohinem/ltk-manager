@@ -161,8 +161,7 @@ impl ModLibrary {
                  a claim about content the rules could not name"
             );
             let report = self.health_report(&storage_dir, basis, 0, 0);
-            self.record_health_sweep(HealthSweepState::Idle);
-            return Ok(report);
+            return Ok(self.report_sweep(scope, HealthSweepState::Idle, report));
         }
 
         let checkable = entries.iter().filter(|entry| entry.is_checkable()).count();
@@ -171,8 +170,7 @@ impl ModLibrary {
 
         if total == 0 {
             let report = self.health_report(&storage_dir, basis, 0, skipped);
-            self.record_health_sweep(HealthSweepState::Idle);
-            return Ok(report);
+            return Ok(self.report_sweep(scope, HealthSweepState::Idle, report));
         }
 
         tracing::info!("Sweeping mod health: {total} to check, {skipped} already current");
@@ -212,14 +210,36 @@ impl ModLibrary {
             report.repairable.len(),
             report.unrepairable.len()
         );
-        self.record_health_sweep(HealthSweepState::Finished {
-            report: report.clone(),
-        });
-        self.events().emit(BackendEvent::ModHealthVerdictsUpdated);
-        self.events()
-            .emit(BackendEvent::HealthSweepFinished(report.clone()));
+        Ok(self.report_sweep(
+            scope,
+            HealthSweepState::Finished {
+                report: report.clone(),
+            },
+            report,
+        ))
+    }
 
-        Ok(report)
+    /// Record `state` as what the sweep concluded, and say so where it is owed.
+    ///
+    /// Every path out of a started sweep goes through here, including the two
+    /// that check nothing. A press is answered whichever path it took, because
+    /// a reader is waiting on it and the run has pruned whatever the check did.
+    /// The automatic pass stays quiet unless it ran, so a launch with nothing
+    /// due says nothing at all.
+    fn report_sweep(
+        &self,
+        scope: &SweepScope,
+        state: HealthSweepState,
+        report: HealthSweepReport,
+    ) -> HealthSweepReport {
+        let ran = matches!(state, HealthSweepState::Finished { .. });
+        self.record_health_sweep(state);
+        if ran || scope.pressed() {
+            self.events().emit(BackendEvent::ModHealthVerdictsUpdated);
+            self.events()
+                .emit(BackendEvent::HealthSweepFinished(report.clone()));
+        }
+        report
     }
 
     /// Fill the shared hashtable cache, for the sweep that is about to read it.

@@ -5,8 +5,8 @@ import { m } from "@/i18n";
 import type { ModHealthVerdict } from "@/lib/tauri";
 import {
   alarmOf,
-  useBrokenEnabledMods,
   useHealthCheckReadiness,
+  useHealthVerdicts,
   useModHealthVerdicts,
   useSweepModHealth,
 } from "@/modules/library";
@@ -40,7 +40,7 @@ export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeSta
   const { data: platform } = usePlatformSupport();
   const { data: settings } = useSettings();
   const readiness = useHealthCheckReadiness();
-  const brokenEnabled = useBrokenEnabledMods();
+  const brokenEnabled = useHealthVerdicts({ health: "broken", enabled: true });
   const { data: verdicts } = useModHealthVerdicts();
   const syncHashtables = useSyncHashtables();
   const sweep = useSweepModHealth();

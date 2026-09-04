@@ -408,7 +408,7 @@ The `Open on` row is titled in the setting index, as every row of the Startup ca
   take the library, and `src/pages/Home.tsx` composes the page from the tiles in
   `src/modules/home/`
 - The status line is one hook over `usePlatformSupport`, `useSettings`,
-  `useHealthCheckReadiness`, `useBrokenEnabledMods` and the basis. The installed game build needs
+  `useHealthCheckReadiness`, `useHealthVerdicts` and the basis. The installed game build needs
   a query the frontend does not have yet, over the reader core already uses for the basis
 - Recent changes is `useReleaseHistory` with no exclusion, plus a module that imports
   `docs/releases/<version>.md?raw` at build, keyed by the package version

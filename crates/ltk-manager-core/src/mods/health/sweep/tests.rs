@@ -501,6 +501,30 @@ fn a_sweep_announces_its_progress_and_its_result_only_when_it_ran() {
     assert!(quiet.names().is_empty(), "nothing was due, so nothing said");
 }
 
+/// Story: a press whose selection turned out to be uncheckable reported to
+/// nobody, so the panel behind it kept drawing the verdicts of the sweep
+/// before. A run that checked nothing has still pruned, and the reader is
+/// waiting either way.
+#[test]
+fn a_pressed_sweep_reports_even_where_it_checked_nothing() {
+    let storage = tempfile::tempdir().unwrap();
+    let events = Arc::new(RecordingEventSink::default());
+    let (library, mut config) = make_library_with_events(storage.path(), events.clone());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
+
+    let report = library
+        .sweep_mod_health(&config, &SweepScope::Only(vec!["id-gone".to_owned()]))
+        .unwrap();
+
+    assert_eq!(report.checked, 0);
+    assert_eq!(
+        events.names(),
+        vec!["mod-health-verdicts-updated", "health-sweep-finished"]
+    );
+}
+
 /// Story: the meta schema database moves, and it is the one thing that decides
 /// whether a property is the type the game holds. A verdict taken against the
 /// database as it was is a claim about types Riot has since retyped, so a sync
