@@ -96,21 +96,9 @@
   "library_health_show_action": "Show me",
   "library_health_some_replaceable_description": "*Repairing is recommended*, though some will need updated versions instead",
   "library_health_status_broken_hint": "Some of your mods are broken and no repair reaches them. Open the list.",
-  "library_health_status_broken_label": "{count} broken",
   "library_health_status_flagged_hint": "Some of your mods load with something that will not behave. Open the list.",
-  "library_health_status_flagged_label": "{count} flagged",
   "library_health_status_hide_hint": "Hide the mods this found something in.",
   "library_health_status_repairable_hint": "Some of your mods require attention. Open the list and repair them.",
-  "library_health_status_repairs_label": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} repair",
-        "countPlural=other": "{count} repairs"
-      }
-    }
-  ],
   "library_health_type_mismatch_description": "Expected *{expected}*, found *{found}*",
   "library_launch_already_running_label": "already running",
   "library_launch_league_action": "Launch League",

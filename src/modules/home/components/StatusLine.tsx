@@ -11,12 +11,9 @@ const VARIANT: Record<HomeStatusTone, AlertBoxVariant> = {
   danger: "error",
 };
 
-/** The build League is on, once a query reads it. `null` keeps the build's row off the page. */
-const INSTALLED_GAME_BUILD: string | null = null;
-
 /** What stands between the reader and Play, drawn under the button it qualifies. */
 export function StatusLine() {
-  const status = useHomeStatus({ installedGameBuild: INSTALLED_GAME_BUILD });
+  const status = useHomeStatus();
 
   if (!status) return null;
 

@@ -55,6 +55,12 @@
   ],
   "home_library_export_title": "Export mods",
   "home_library_export_zip_title": "Export mods as",
+  "home_library_health_checking_label": "Checking",
+  "home_library_health_clean_label": "Healthy",
+  "home_library_health_stale_label": "Not checked",
+  "home_library_health_syncing_label": "Syncing",
+  "home_library_health_title": "Health status",
+  "home_library_health_unsynced_label": "No hashtables",
   "home_library_import_action": "Import from cslol-manager",
   "home_library_import_dismiss_action": "Dismiss",
   "home_library_import_title": "Migrating from cslol-manager?",
@@ -66,34 +72,7 @@
   "home_news_title": "News",
   "home_notice_link_action": "What to do",
   "home_release_update_action": "Update",
-  "home_status_broken_action": "Show",
-  "home_status_broken_label": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} enabled mod failed its health check",
-        "countPlural=other": "{count} enabled mods failed their health check"
-      }
-    }
-  ],
-  "home_status_build_moved_action": "Check",
-  "home_status_build_moved_label": "League updated to {build}. Your mods have not been checked against it",
-  "home_status_hashtables_action": "Sync",
-  "home_status_hashtables_syncing_label": "Syncing the hashtables mod health needs",
-  "home_status_hashtables_unsynced_label": "Mod health waits for the hashtables",
   "home_status_league_unset_action": "Set it",
   "home_status_league_unset_label": "League's folder is not set",
-  "home_status_platform_label": "The patcher does not run on this system yet",
-  "home_status_repairable_action": "Repair",
-  "home_status_repairable_label": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} enabled mod needs a repair",
-        "countPlural=other": "{count} enabled mods need a repair"
-      }
-    }
-  ]
+  "home_status_platform_label": "The patcher does not run on this system yet"
 }

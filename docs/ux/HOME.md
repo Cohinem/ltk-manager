@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-04 | Move mod health off the status line, into the library tile's marker     |
 | 2026-09-04 | Move the status line under Play, hedge its words, rebuild the News card |
 | 2026-09-04 | Turn the launch control green while the patcher is up                   |
 | 2026-09-03 | Draw Play as an accent edge over a wash rather than a solid fill        |
@@ -13,7 +14,6 @@
 | 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast  |
 | 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot   |
 | 2026-09-03 | Specify v1 in #391: stubs for the checklist and the game build          |
-| 2026-09-03 | Propose the page: the status line, two feeds, four tiles, the landing   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -57,22 +57,23 @@ Out of scope:
 
 The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status) defines.
 
-| Feature                    | Status    | Note                                                                   |
-| -------------------------- | --------- | ---------------------------------------------------------------------- |
-| The page, at `/`           | Available | Mods moved to `/mods`, and the folder route under it                   |
-| The status line            | Available | The game build's row waits on a query, so it never holds yet           |
-| Recent changes             | Available | The feed the changelog dialog reads, with the installed version marked |
-| Notes shipped in the build | Available | `docs/releases/<version>.md`, so the installed notes need no network   |
-| News                       | Available | The Announcements category's Atom feed, read as the release feed is    |
-| Notices                    | Available | `news/notices.json` on the default branch, per `news/README.md`        |
-| Your library               | Available | Profile, counts and the way in. The status line carries health         |
-| Export                     | Available | The tile's overflow. Archives copied out, as a folder or one zip       |
-| Last game                  | Available | The latest incident's verdict, hidden while there is none              |
-| News and Learn             | Available | One card. The links under the posts, so the card is never empty        |
-| Getting started            | Proposed  | A checklist for a new install. The migration offer stands in for it    |
-| The unread dot             | Available | On the Home tab, in the diagnostics dot's shape                        |
-| Open on                    | Available | A Startup setting: Home or Mods                                        |
-| A drop on Home             | Available | Mounted on Home as on the library. Lifting both to the root is later   |
+| Feature                    | Status    | Note                                                                         |
+| -------------------------- | --------- | ---------------------------------------------------------------------------- |
+| The page, at `/`           | Available | Mods moved to `/mods`, and the folder route under it                         |
+| The status line            | Available | The game build's row waits on a query, so it never holds yet                 |
+| Recent changes             | Available | The feed the changelog dialog reads, with the installed version marked       |
+| Notes shipped in the build | Available | `docs/releases/<version>.md`, so the installed notes need no network         |
+| News                       | Available | The Announcements category's Atom feed, read as the release feed is          |
+| Notices                    | Available | `news/notices.json` on the default branch, per `news/README.md`              |
+| Your library               | Available | Profile, counts and the way in, over the health marker                       |
+| The health marker          | Available | The library tile's own row. Red through green, and the press each state owes |
+| Export                     | Available | The tile's overflow. Archives copied out, as a folder or one zip             |
+| Last game                  | Available | The latest incident's verdict, hidden while there is none                    |
+| News and Learn             | Available | One card. The links under the posts, so the card is never empty              |
+| Getting started            | Proposed  | A checklist for a new install. The migration offer stands in for it          |
+| The unread dot             | Available | On the Home tab, in the diagnostics dot's shape                              |
+| Open on                    | Available | A Startup setting: Home or Mods                                              |
+| A drop on Home             | Available | Mounted on Home as on the library. Lifting both to the root is later         |
 
 ## Layout
 
@@ -101,13 +102,14 @@ instead, and the page keeps the proportions it was drawn at from the default siz
 |                                                                              |
 |  +-- Recent changes -------------------------+  [ (L) Play               v ] |
 |  | v1.15.4  [Installed]        Sep 3, 2026   |  +--------------------------+ |
-|  |   Mod fixer                               |  | (!) 2 enabled mods need  | |
-|  |   - Added additional fixes for ...        |  |     a repair    Repair > | |
+|  |   Mod fixer                               |  | (!) League's folder is   | |
+|  |   - Added additional fixes for ...        |  |     not set     Set it > | |
 |  |   Release notes                           |  +--------------------------+ |
 |  |   - The Update dialog is now scrollable   |  +-- Your library ----- (:) + |
 |  |                                           |  | Default                  | |
 |  | v1.15.3                     Sep 2, 2026   |  | 4 of 7 enabled           | |
-|  |   ...                                     |  | [Open Mods]  [Add mod]   | |
+|  |   ...                                     |  | (!) Health status 2 rep >| |
+|  |                                           |  | [Open Mods]  [Add mod]   | |
 |  |                                           |  +--------------------------+ |
 |  | v1.15.2                     Sep 1, 2026   |  +-- Last game -------------+ |
 |  |   ...                                     |  | Crashed while loading    | |
@@ -158,9 +160,7 @@ before a session starts, and the bar says what the session is doing once one has
 ## The status line
 
 One sentence, and at most one errand folded into it. It is derived, never stored, and the first row
-that holds wins. The hue follows the severity per "How loud a finding is drawn" in
-[MOD_HEALTH.md](MOD_HEALTH.md), and the words are the app's own for each state, so nothing here
-is a new claim.
+that holds wins. The words are the app's own for each state, so nothing here is a new claim.
 
 **It sits under Play, not over the page.** The line is in the rail, under the button it qualifies,
 in the frame and at the size a notice is drawn at. Over both columns at heading size it was the
@@ -177,34 +177,81 @@ sentence that wraps runs under itself rather than pushing a button onto a row of
 with no errand is the same frame without the caret. It is `AlertBox`, the component the notice
 below it is drawn with.
 
-| Holds when                             | Line                                                                  | Action                                   |
-| -------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------- |
-| The platform has no patcher            | The patcher does not run on this system yet                           | none, `PatcherUnsupported` says the rest |
-| League's folder is not set             | League's folder is not set                                            | Set it, to the settings anchor           |
-| The hashtables are absent              | Mod health waits for the hashtables                                   | Sync, what the readiness hook offers     |
-| An enabled mod is unrepairable         | {n} enabled mods failed their health check                            | Show, opens the health drawer            |
-| An enabled mod is repairable           | {n} enabled mods need a repair                                        | Repair                                   |
-| The game build is newer than the basis | League updated to {build}. Your mods have not been checked against it | Check                                    |
-| Otherwise                              | nothing, the row is not drawn                                         | none                                     |
+| Holds when                  | Line                                        | Action                                   |
+| --------------------------- | ------------------------------------------- | ---------------------------------------- |
+| The platform has no patcher | The patcher does not run on this system yet | none, `PatcherUnsupported` says the rest |
+| League's folder is not set  | League's folder is not set                  | Set it, to the settings anchor           |
+| Otherwise                   | nothing, the row is not drawn               | none                                     |
 
-**The line says what the check found, not what the game will do.** "will break the game" is a
-certainty the check cannot back. The sweep is still gaining checks, and a mod it passes can still
-fail in play, which the 1.15.3 notes say in as many words. MOD_HEALTH.md records the same mistake
-one level down, where the hue asserted more than the verdict knew and readers went looking for
-replacements that did not exist. Show carries the consequence, and the drawer is where the finding
-is.
+**Mod health is not one of these rows.** It is the library's state rather than the page's, and it
+is the one state a reader wants a standing answer to, so it is a marker in the library tile and the
+next section is what it says. What is left on the line is what no tile owns: the platform the app
+was installed on, and a folder the whole app waits for.
 
 The all-clear is drawn as no row at all. A line saying the library is fine is a line the reader
-learns to read past, and the rail already carries the profile, the counts and the build, so the
+learns to read past, and the rail already carries the profile, the counts and the marker, so the
 row costs the page nothing while nothing holds.
 
 An update on offer is not a state of the library, so it never takes the line. It is the New chip
 in Recent changes, and the title bar's Update cell, which it already is.
 
-The line is a readout and never an announcement. Mod health spends its one unprompted announcement
-on the findings, per "The library sweep" in MOD_HEALTH.md, and the line does not spend a second
-one. It is the same words, standing still, with the way into the drawer the status bar item
-already offers.
+## The health marker
+
+One row of the library tile, drawn in every state a library has. The title is `Health status` and
+never varies. What varies is the hue, a reading in the trailing seat, and what a press does. It is
+the status line's `AlertBox`, at the tile's width, so the two read as one family and the hue stays
+the frame's and the glyph's rather than the words'.
+
+**A fixed title is what makes it a marker.** A row whose first words change is read from the start
+each time it changes, and this one is read on every launch. The reader learns where it sits and
+what it is called once, and after that a glance at the hue is the whole reading. The count and the
+state word take the trailing seat, where the errand's word used to sit.
+
+| Holds when                         | Hue   | Reading       | Press                                |
+| ---------------------------------- | ----- | ------------- | ------------------------------------ |
+| The hashtables are absent          | Grey  | No hashtables | Sync, what the readiness hook offers |
+| The hashtables are landing         | Grey  | Syncing       | none, and the reading spins          |
+| A check is running                 | Grey  | Checking      | none, and the reading spins          |
+| An enabled mod is unrepairable     | Red   | {n} broken    | Opens the health drawer              |
+| An enabled mod is repairable       | Amber | {n} repairs   | Opens it, asking for the repair      |
+| No verdict answers for the library | Amber | Not checked   | Sweeps the library                   |
+| An enabled mod loads with a fault  | Grey  | {n} flagged   | Opens the health drawer              |
+| Otherwise                          | Green | Healthy       | Sweeps the library again             |
+
+The first state that holds wins. The three counted readings are the status bar item's own words, so
+one library says the same thing in the bar and on the page.
+
+**The hue is the rung's, per "How loud a finding is drawn" in [MOD_HEALTH.md](MOD_HEALTH.md).** The
+three coloured findings are that table's three rungs. Grey is what the table has no word for - a
+check that cannot run, one that is running, and one whose answer does not describe this library -
+and it is the grey a flagged mod already wears, because both mean the reader has nothing to do
+here. Green is the state that table never needed, since it only ever describes a finding.
+
+**Green presses to check again, because there is nothing else left to do.** Every other state leads
+somewhere: the drawer, the sync, a sweep of a library nothing has swept. A healthy library has no
+panel worth opening, and a reader pressing a green row is asking whether it is still true. The
+sweep's own progress toast reports, so the marker only spins.
+
+**A library nothing has checked is not a healthy one.** Verdicts are stored per mod and a fresh
+install has none, so a marker reading the verdicts alone would go green off an empty answer. That
+state and a library checked before League moved are the same news - what the reader was told does
+not answer for what they have - so they are one amber row with one press.
+
+**The marker says what the check found, not what the game will do.** "will break the game" is a
+certainty the check cannot back. The sweep is still gaining checks, and a mod it passes can still
+fail in play, which the 1.15.3 notes say in as many words. MOD_HEALTH.md records the same mistake
+one level down, where the hue asserted more than the verdict knew and readers went looking for
+replacements that did not exist. The press carries the consequence, and the drawer is where the
+finding is.
+
+**It counts the mods a patch would carry.** A disabled mod reaches no overlay, so it cannot stand
+between the reader and Play, and the line above the marker already says how much of the library is
+on.
+
+The marker is a readout and never an announcement. Mod health spends its one unprompted
+announcement on the findings, per "The library sweep" in MOD_HEALTH.md, and the marker does not
+spend a second one. It is the same words, standing still, with the way into the drawer the status
+bar item already offers.
 
 ## Recent changes
 
@@ -274,9 +321,8 @@ later schema.
 
 ## The tiles
 
-**Your library.** The active profile's name, enabled of total, the health line the status bar
-item derives, and the build the last check ran against, from `HealthCheckBasis`. Two buttons:
-Open Mods, and Add mod, which is the library's import. While the migration banner's condition
+**Your library.** The active profile's name, enabled of total, and the health marker under them.
+Two buttons: Open Mods, and Add mod, which is the library's import. While the migration banner's condition
 holds the tile offers Import from cslol-manager in the banner's place, and the banner leaves the
 library. The header carries an overflow for what a reader wants only sometimes: Export mods, and
 Open mod storage.
@@ -356,48 +402,54 @@ New strings, in `messages/en/home.json`, keyed as `src/CLAUDE.md` shapes a key. 
 tile draws that another surface already decided stays that surface's string. The status line's
 own sentences are here too, since no other surface says them as one line.
 
-| Key                                       | Text                                                                  |
-| ----------------------------------------- | --------------------------------------------------------------------- |
-| `home_nav_label`                          | Home                                                                  |
-| `home_status_platform_label`              | The patcher does not run on this system yet                           |
-| `home_status_league_unset_label`          | League's folder is not set                                            |
-| `home_status_hashtables_unsynced_label`   | Mod health waits for the hashtables                                   |
-| `home_status_hashtables_syncing_label`    | Syncing the hashtables mod health needs                               |
-| `home_status_broken_label`                | {count} enabled mods failed their health check                        |
-| `home_status_repairable_label`            | {count} enabled mods need a repair                                    |
-| `home_status_build_moved_label`           | League updated to {build}. Your mods have not been checked against it |
-| `home_changes_title`                      | Recent changes                                                        |
-| `home_release_update_action`              | Update                                                                |
-| `home_notice_link_action`                 | What to do                                                            |
-| `home_library_title`                      | Your library                                                          |
-| `home_library_enabled_count_label`        | {enabled} of {total} enabled                                          |
-| `home_library_import_title`               | Migrating from cslol-manager?                                         |
-| `home_library_more_action`                | More library actions                                                  |
-| `home_library_storage_action`             | Open mod storage                                                      |
-| `home_library_export_action`              | Export mods                                                           |
-| `home_library_export_title`               | Export mods                                                           |
-| `home_library_export_scope_label`         | What to export                                                        |
-| `home_library_export_scope_all_label`     | Everything                                                            |
-| `home_library_export_scope_enabled_label` | Enabled                                                               |
-| `home_library_export_shape_label`         | As                                                                    |
-| `home_library_export_shape_folder_label`  | A folder                                                              |
-| `home_library_export_shape_zip_label`     | One .zip                                                              |
-| `home_library_export_count_hint`          | {count} mods will be written                                          |
-| `home_library_export_confirm_action`      | Export                                                                |
-| `home_library_export_running_label`       | Exporting                                                             |
-| `home_library_export_done_title`          | Exported {count} mods                                                 |
-| `home_library_export_partial_title`       | Exported {exported} of {total} mods                                   |
-| `home_library_export_skipped_hint`        | {count} mods have no archive to export                                |
-| `home_library_export_failed_title`        | Could not export your mods                                            |
-| `home_library_export_reveal_action`       | Show me                                                               |
-| `home_library_export_folder_title`        | Export mods to                                                        |
-| `home_library_export_zip_title`           | Export mods as                                                        |
-| `home_last_game_title`                    | Last game                                                             |
-| `home_news_title`                         | News                                                                  |
-| `home_learn_getting_started_label`        | Getting started                                                       |
-| `home_learn_managing_mods_label`          | Managing mods                                                         |
-| `home_learn_troubleshooting_label`        | Troubleshooting                                                       |
-| `home_setup_title`                        | Getting started                                                       |
+| Key                                       | Text                                        |
+| ----------------------------------------- | ------------------------------------------- |
+| `home_nav_label`                          | Home                                        |
+| `home_status_platform_label`              | The patcher does not run on this system yet |
+| `home_status_league_unset_label`          | League's folder is not set                  |
+| `home_changes_title`                      | Recent changes                              |
+| `home_release_update_action`              | Update                                      |
+| `home_notice_link_action`                 | What to do                                  |
+| `home_library_title`                      | Your library                                |
+| `home_library_health_title`               | Health status                               |
+| `home_library_health_unsynced_label`      | No hashtables                               |
+| `home_library_health_syncing_label`       | Syncing                                     |
+| `home_library_health_checking_label`      | Checking                                    |
+| `home_library_health_stale_label`         | Not checked                                 |
+| `home_library_health_clean_label`         | Healthy                                     |
+| `home_library_enabled_count_label`        | {enabled} of {total} enabled                |
+| `home_library_import_title`               | Migrating from cslol-manager?               |
+| `home_library_more_action`                | More library actions                        |
+| `home_library_storage_action`             | Open mod storage                            |
+| `home_library_export_action`              | Export mods                                 |
+| `home_library_export_title`               | Export mods                                 |
+| `home_library_export_scope_label`         | What to export                              |
+| `home_library_export_scope_all_label`     | Everything                                  |
+| `home_library_export_scope_enabled_label` | Enabled                                     |
+| `home_library_export_shape_label`         | As                                          |
+| `home_library_export_shape_folder_label`  | A folder                                    |
+| `home_library_export_shape_zip_label`     | One .zip                                    |
+| `home_library_export_count_hint`          | {count} mods will be written                |
+| `home_library_export_confirm_action`      | Export                                      |
+| `home_library_export_running_label`       | Exporting                                   |
+| `home_library_export_done_title`          | Exported {count} mods                       |
+| `home_library_export_partial_title`       | Exported {exported} of {total} mods         |
+| `home_library_export_skipped_hint`        | {count} mods have no archive to export      |
+| `home_library_export_failed_title`        | Could not export your mods                  |
+| `home_library_export_reveal_action`       | Show me                                     |
+| `home_library_export_folder_title`        | Export mods to                              |
+| `home_library_export_zip_title`           | Export mods as                              |
+| `home_last_game_title`                    | Last game                                   |
+| `home_news_title`                         | News                                        |
+| `home_learn_getting_started_label`        | Getting started                             |
+| `home_learn_managing_mods_label`          | Managing mods                               |
+| `home_learn_troubleshooting_label`        | Troubleshooting                             |
+| `home_setup_title`                        | Getting started                             |
+
+The marker's three counted readings are not here. `{n} broken`, `{n} repairs` and `{n} flagged` are
+the status bar item's words about the same library, so they moved to `common.json` as
+`common_health_broken_label`, `common_health_repairs_label` and `common_health_flagged_label` and
+both surfaces call them.
 
 The Installed chip is `ReleaseSection`'s, so its label is the updater's, and Retry is common.
 The `Open on` row is titled in the setting index, as every row of the Startup card is.
@@ -407,9 +459,11 @@ The `Open on` row is titled in the setting index, as every row of the Startup ca
 - `src/routes/index.tsx` becomes Home, `src/routes/mods.tsx` and `mods.folder.$folderId.tsx`
   take the library, and `src/pages/Home.tsx` composes the page from the tiles in
   `src/modules/home/`
-- The status line is one hook over `usePlatformSupport`, `useSettings`,
-  `useHealthCheckReadiness`, `useHealthVerdicts` and the basis. The installed game build needs
-  a query the frontend does not have yet, over the reader core already uses for the basis
+- The status line is one hook over `usePlatformSupport` and `useSettings`
+- The health marker is `useLibraryHealth`, one hook over `useHealthCheckReadiness`,
+  `useHealthVerdicts`, the stored verdicts and the two mutations a press runs. The installed game
+  build needs a query the frontend does not have yet, over the reader core already uses for the
+  basis, so the marker takes it as an input and is handed `null`
 - Recent changes is `useReleaseHistory` with no exclusion, plus a module that imports
   `docs/releases/<version>.md?raw` at build, keyed by the package version
 - News and notices are two commands beside `list_releases`: one parsing the Atom feed, one
@@ -433,9 +487,9 @@ anchor already answers, so a note about a new setting is a click to it.
 `ProfileSelector` in its place makes patch day a switch to a safe profile without leaving Home.
 It costs the row a control, and the tile already offers the way into the library.
 
-**Check on a moved build.** The status line asks the reader to check when League updated. The
-sweep could run itself on that condition, which "When a check runs" in MOD_HEALTH.md would have
-to admit as a trigger.
+**Check on a moved build.** The marker asks the reader to check when League updated. The sweep
+could run itself on that condition, which "When a check runs" in MOD_HEALTH.md would have to admit
+as a trigger.
 
 **A tip in the news.** A post kind the card draws differently, for "did you know" copy about a
 feature that shipped a while ago. It is a feed schema question before it is a design one.

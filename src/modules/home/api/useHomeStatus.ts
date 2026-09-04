@@ -2,16 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
-import type { ModHealthVerdict } from "@/lib/tauri";
-import {
-  alarmOf,
-  useHealthCheckReadiness,
-  useHealthVerdicts,
-  useModHealthVerdicts,
-  useSweepModHealth,
-} from "@/modules/library";
-import { useSettings, useSyncHashtables } from "@/modules/settings";
-import { useModHealthDrawerStore } from "@/stores";
+import { useSettings } from "@/modules/settings";
 
 /** How loud the line is drawn, per "How loud a finding is drawn" in docs/ux/MOD_HEALTH.md. */
 export type HomeStatusTone = "muted" | "warning" | "danger";
@@ -30,23 +21,16 @@ export interface HomeStatus {
   action: HomeStatusAction | null;
 }
 
-export interface HomeStatusInputs {
-  /** The game build League is on, or `null` while nothing reads it. */
-  installedGameBuild: string | null;
-}
-
-/** What stands between the reader and Play, or `null` when nothing does. */
-export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeStatus | null {
+/**
+ * What stands between the reader and Play, or `null` when nothing does.
+ *
+ * Mod health is not among them. It is the library tile's own marker, per "The
+ * health marker" in docs/ux/HOME.md, so what is left here is what no tile owns.
+ */
+export function useHomeStatus(): HomeStatus | null {
   const { data: platform } = usePlatformSupport();
   const { data: settings } = useSettings();
-  const readiness = useHealthCheckReadiness();
-  const brokenEnabled = useHealthVerdicts({ health: "broken", enabled: true });
-  const { data: verdicts } = useModHealthVerdicts();
-  const syncHashtables = useSyncHashtables();
-  const sweep = useSweepModHealth();
   const navigate = useNavigate();
-  const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
-  const requestRepair = useModHealthDrawerStore((s) => s.requestRepair);
 
   if (platform && !platform.patcherAvailable) {
     return { tone: "muted", line: m.home_status_platform_label(), action: null };
@@ -63,70 +47,5 @@ export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeSta
     };
   }
 
-  if (readiness === "unsynced") {
-    return {
-      tone: "warning",
-      line: m.home_status_hashtables_unsynced_label(),
-      action: {
-        label: m.home_status_hashtables_action(),
-        run: () => syncHashtables.mutate(false),
-        pending: syncHashtables.isPending,
-      },
-    };
-  }
-  if (readiness === "syncing") {
-    return { tone: "muted", line: m.home_status_hashtables_syncing_label(), action: null };
-  }
-
-  const broken = brokenEnabled.filter((verdict) => alarmOf(verdict) === "broken").length;
-  if (broken > 0) {
-    return {
-      tone: "danger",
-      line: m.home_status_broken_label({ count: broken }),
-      action: {
-        label: m.home_status_broken_action(),
-        run: () => {
-          void navigate({ to: "/mods" });
-          openDrawer();
-        },
-      },
-    };
-  }
-
-  const repairable = brokenEnabled.filter((verdict) => alarmOf(verdict) === "repairable").length;
-  if (repairable > 0) {
-    return {
-      tone: "warning",
-      line: m.home_status_repairable_label({ count: repairable }),
-      action: {
-        label: m.home_status_repairable_action(),
-        run: () => {
-          void navigate({ to: "/mods" });
-          requestRepair();
-        },
-      },
-    };
-  }
-
-  if (installedGameBuild !== null && checkedBuild(verdicts) !== installedGameBuild) {
-    return {
-      tone: "warning",
-      line: m.home_status_build_moved_label({ build: installedGameBuild }),
-      action: {
-        label: m.home_status_build_moved_action(),
-        run: () => sweep.mutate(undefined),
-        pending: sweep.isPending,
-      },
-    };
-  }
-
-  return null;
-}
-
-/** The game build the stored verdicts were taken on, or `null` before any were. */
-function checkedBuild(verdicts: Record<string, ModHealthVerdict> | undefined): string | null {
-  for (const verdict of Object.values(verdicts ?? {})) {
-    return verdict.basis.build;
-  }
   return null;
 }

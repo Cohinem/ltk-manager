@@ -14,6 +14,7 @@ import { api, type ExportScope, type ExportShape } from "@/lib/tauri";
 import { useSaveSettings, useSettings } from "@/modules/settings";
 
 import { useExportMods, useLibraryFacts } from "../api";
+import { LibraryHealthMarker } from "./LibraryHealthMarker";
 import { Tile } from "./Tile";
 
 interface LibraryTileProps {
@@ -162,6 +163,8 @@ export function LibraryTile({ onAddMod, onImportFromCslol }: LibraryTileProps) {
           <p className="text-sm font-medium text-surface-100 select-text">{profileName}</p>
           <p className="text-xs text-surface-400">{enabledLabel}</p>
         </div>
+
+        <LibraryHealthMarker />
 
         {exportMods.running && (
           <div data-ui="LibraryTile:export-run" className="flex flex-col gap-1.5 select-none">

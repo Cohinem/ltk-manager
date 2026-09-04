@@ -91,8 +91,8 @@ function hint(alarm: SweepAlarm, shown: boolean): string {
  */
 function label(alarm: SweepAlarm, count: number): string {
   return match(alarm)
-    .with("repairable", () => m.library_health_status_repairs_label({ count }))
-    .with("broken", () => m.library_health_status_broken_label({ count }))
-    .with("flagged", () => m.library_health_status_flagged_label({ count }))
+    .with("repairable", () => m.common_health_repairs_label({ count }))
+    .with("broken", () => m.common_health_broken_label({ count }))
+    .with("flagged", () => m.common_health_flagged_label({ count }))
     .exhaustive();
 }
