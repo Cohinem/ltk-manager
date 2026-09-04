@@ -1,42 +1,30 @@
-import {
-  closestCenter,
-  type CollisionDetection,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  pointerWithin,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import {
-  rectSortingStrategy,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { type CollisionDetection, DndContext } from "@dnd-kit/core";
+import { SortableContext } from "@dnd-kit/sortable";
 
+import { useReorderTransition } from "@/hooks";
 import type { InstalledMod } from "@/lib/tauri";
-import { useSortableModDnd } from "@/modules/library/api";
-import { REMOVE_FROM_FOLDER_ID } from "@/modules/library/utils";
+import { useLibraryDndSensors, useSortableModDnd } from "@/modules/library/api";
+import {
+  closestToPointer,
+  dropLineFor,
+  noSorting,
+  pointerInRemoveZone,
+  REMOVE_FROM_FOLDER_ID,
+} from "@/modules/library/utils";
 
 import { DndDragOverlay } from "./DndDragOverlay";
 import { ModCard } from "./ModCard";
 import { RemoveFromFolderZone } from "./RemoveFromFolderZone";
 import { SortableModCard } from "./SortableModCard";
 
-/**
- * Checks pointer-within for the remove zone first; if the pointer is
- * inside it, that wins. Otherwise falls back to closestCenter for
- * normal sortable reordering.
- */
+/** The remove zone wins wherever it is under the pointer, cards decide the rest. */
 const removeZoneFirstCollision: CollisionDetection = (args) => {
-  const pointerCollisions = pointerWithin(args);
-  const removeHit = pointerCollisions.find((c) => c.id === REMOVE_FROM_FOLDER_ID);
+  const removeHit = pointerInRemoveZone(args);
   if (removeHit) return [removeHit];
 
-  const withoutRemoveZone = args.droppableContainers.filter((c) => c.id !== REMOVE_FROM_FOLDER_ID);
-  if (withoutRemoveZone.length === 0) return [];
-  return closestCenter({ ...args, droppableContainers: withoutRemoveZone });
+  const cards = args.droppableContainers.filter((c) => c.id !== REMOVE_FROM_FOLDER_ID);
+  if (cards.length === 0) return [];
+  return closestToPointer({ ...args, droppableContainers: cards });
 };
 
 interface SortableModListProps {
@@ -61,20 +49,19 @@ export function SortableModList({
   folderId,
 }: SortableModListProps) {
   const {
-    localOrder,
+    order,
     orderedMods,
     activeId,
     activeMod,
+    dropLine,
     handleDragStart,
     handleDragOver,
     handleDragEnd,
     handleDragCancel,
   } = useSortableModDnd({ mods, onReorder, folderId });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const gridRef = useReorderTransition<HTMLDivElement>(!activeId);
+  const sensors = useLibraryDndSensors();
 
   if (disabled) {
     return (
@@ -95,23 +82,21 @@ export function SortableModList({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={folderId ? removeZoneFirstCollision : closestCenter}
+      collisionDetection={folderId ? removeZoneFirstCollision : closestToPointer}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <SortableContext
-        items={localOrder}
-        strategy={viewMode === "list" ? verticalListSortingStrategy : rectSortingStrategy}
-      >
+      <SortableContext items={order} strategy={noSorting}>
         {folderId && <RemoveFromFolderZone visible={!!activeId} />}
-        <div className={className}>
+        <div ref={gridRef} className={className}>
           {orderedMods.map((mod) => (
             <SortableModCard
               key={mod.id}
               mod={mod}
               viewMode={viewMode}
+              dropLine={dropLineFor(dropLine, mod.id)}
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />

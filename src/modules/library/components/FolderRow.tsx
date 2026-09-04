@@ -1,10 +1,12 @@
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext } from "@dnd-kit/sortable";
 import { ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { useMemo } from "react";
 
 import { Button, Checkbox, EmptyState } from "@/components";
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
+import type { LingeringSlot } from "@/modules/library/api";
 import { useFolderToggle } from "@/modules/library/api";
+import { dropLineFor, noSorting } from "@/modules/library/utils";
 import { useLibraryViewStore } from "@/stores/libraryView";
 
 import { FolderContextMenu } from "./FolderContextMenu";
@@ -14,6 +16,8 @@ import { SortableModCard } from "./SortableModCard";
 interface FolderRowProps {
   folder: LibraryFolder;
   mods: InstalledMod[];
+  /** The gap a mod would land in among this folder's mods. */
+  modDropLine?: LingeringSlot;
   dndDisabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
@@ -22,6 +26,7 @@ interface FolderRowProps {
 export function FolderRow({
   folder,
   mods,
+  modDropLine,
   dndDisabled = true,
   onViewDetails,
   onEditMetadata,
@@ -84,10 +89,11 @@ export function FolderRow({
                 ))}
               </div>
             ) : (
-              <SortableContext items={modIds} strategy={verticalListSortingStrategy}>
+              <SortableContext items={modIds} strategy={noSorting}>
                 <div className="flex flex-col gap-2">
                   {mods.map((mod) => (
                     <SortableModCard
+                      dropLine={dropLineFor(modDropLine, mod.id)}
                       key={mod.id}
                       mod={mod}
                       viewMode="list"

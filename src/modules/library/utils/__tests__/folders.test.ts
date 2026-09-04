@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { createMockInstalledMod } from "@/test/fixtures";
 
-import { formatToggleMessage, getFolderEnabledState, getFolderSummary } from "../folders";
+import {
+  formatToggleMessage,
+  getFolderEnabledState,
+  getFolderSummary,
+  promoteToFolderFront,
+} from "../folders";
 
 describe("getFolderEnabledState", () => {
   it("returns all false for empty mods", () => {
@@ -112,5 +117,40 @@ describe("formatToggleMessage", () => {
   it("formats zero mods correctly", () => {
     const msg = formatToggleMessage(false, 0, "Empty");
     expect(msg.title).toBe("Disabled 0 mods");
+  });
+});
+
+describe("promoteToFolderFront", () => {
+  const ids = (mods: { id: string }[]) => mods.map((mod) => mod.id);
+
+  it("moves a root mod to the top of the root run", () => {
+    const mods = [
+      createMockInstalledMod({ id: "a", folderId: null }),
+      createMockInstalledMod({ id: "b", folderId: null }),
+      createMockInstalledMod({ id: "c", folderId: null }),
+    ];
+    expect(ids(promoteToFolderFront(mods, "c"))).toEqual(["c", "a", "b"]);
+  });
+
+  it("moves a foldered mod to the top of its own folder only", () => {
+    const mods = [
+      createMockInstalledMod({ id: "a", folderId: null }),
+      createMockInstalledMod({ id: "b", folderId: "f1" }),
+      createMockInstalledMod({ id: "c", folderId: "f1" }),
+    ];
+    expect(ids(promoteToFolderFront(mods, "c"))).toEqual(["a", "c", "b"]);
+  });
+
+  it("leaves a mod that already leads its folder", () => {
+    const mods = [
+      createMockInstalledMod({ id: "a", folderId: null }),
+      createMockInstalledMod({ id: "b", folderId: null }),
+    ];
+    expect(promoteToFolderFront(mods, "a")).toBe(mods);
+  });
+
+  it("leaves a list that does not hold the mod", () => {
+    const mods = [createMockInstalledMod({ id: "a", folderId: null })];
+    expect(promoteToFolderFront(mods, "gone")).toBe(mods);
   });
 });

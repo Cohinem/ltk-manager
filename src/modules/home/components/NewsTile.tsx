@@ -1,5 +1,14 @@
+import {
+  BookOpenIcon,
+  DiscordLogoIcon,
+  GithubLogoIcon,
+  type Icon,
+  LifebuoyIcon,
+  StackIcon,
+} from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-shell";
 import type { MouseEvent } from "react";
+import { twMerge } from "tailwind-merge";
 
 import { Button, ExternalLink } from "@/components";
 import { m } from "@/i18n";
@@ -11,25 +20,32 @@ import { Tile } from "./Tile";
 const POSTS_SHOWN = 5;
 
 const WIKI = "https://wiki.leaguetoolkit.dev";
+const DISCORD = "https://discord.gg/yhzDVRyQex";
+const REPOSITORY = "https://github.com/LeagueToolkit/ltk-manager";
 
-/** A standing link: what it is called, and where it opens. */
+/** A standing link: what it is called, what it is drawn with, and where it opens. */
 interface StandingLink {
   label: () => string;
+  icon: Icon;
   href: string;
 }
 
 /** The standing links, so the card is never empty. */
 const LEARN_LINKS: StandingLink[] = [
-  { label: () => m.home_learn_getting_started_label(), href: `${WIKI}/start-here/` },
-  { label: () => m.home_learn_managing_mods_label(), href: `${WIKI}/mod-management/` },
-  { label: () => m.home_learn_troubleshooting_label(), href: `${WIKI}/start-here/faq/` },
-];
-
-const COMMUNITY_LINKS: StandingLink[] = [
-  { label: () => m.home_learn_discord_label(), href: "https://discord.gg/yhzDVRyQex" },
   {
-    label: () => m.home_learn_repository_label(),
-    href: "https://github.com/LeagueToolkit/ltk-manager",
+    label: () => m.home_learn_getting_started_label(),
+    icon: BookOpenIcon,
+    href: `${WIKI}/start-here/`,
+  },
+  {
+    label: () => m.home_learn_managing_mods_label(),
+    icon: StackIcon,
+    href: `${WIKI}/mod-management/`,
+  },
+  {
+    label: () => m.home_learn_troubleshooting_label(),
+    icon: LifebuoyIcon,
+    href: `${WIKI}/start-here/faq/`,
   },
 ];
 
@@ -55,47 +71,78 @@ export function NewsTile() {
           </Button>
         )
       }
+      foot={<Community />}
     >
-      <div className="flex flex-col gap-3 px-4 pb-4">
+      <div className="flex flex-col gap-3 px-2 pb-2">
         {shown.length > 0 && (
-          <ul data-ui="NewsTile:posts" className="flex flex-col gap-1.5">
+          <ul data-ui="NewsTile:posts" className="flex flex-col">
             {shown.map((post) => (
-              <li key={post.id} className="flex items-baseline gap-2 text-sm">
-                <time
-                  dateTime={post.publishedAt ?? undefined}
-                  className="w-12 shrink-0 text-xs text-surface-500 tabular-nums select-none"
-                >
-                  {postDate(post.publishedAt)}
-                </time>
+              <li key={post.id}>
                 <ExternalLink
                   href={post.url}
                   hideIcon
                   onClick={openInBrowser}
-                  className="min-w-0 truncate text-surface-200 hover:text-accent-300"
+                  className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-surface-200 hover:bg-surface-800/60 hover:text-accent-300"
                 >
-                  {post.title}
+                  <span className="line-clamp-2 text-sm leading-snug">{post.title}</span>
+                  <time
+                    dateTime={post.publishedAt ?? undefined}
+                    className="text-xs text-surface-500 tabular-nums select-none"
+                  >
+                    {postDate(post.publishedAt)}
+                  </time>
                 </ExternalLink>
               </li>
             ))}
           </ul>
         )}
 
-        <nav data-ui="NewsTile:learn" className="flex flex-col gap-1 text-sm select-none">
-          {LEARN_LINKS.map((link) => (
-            <ExternalLink key={link.href} href={link.href} onClick={openInBrowser}>
-              {link.label()}
+        <nav
+          data-ui="NewsTile:learn"
+          className={twMerge(
+            "flex flex-col select-none",
+            shown.length > 0 && "border-t border-surface-700/50 pt-2",
+          )}
+        >
+          {LEARN_LINKS.map(({ label, icon: Glyph, href }) => (
+            <ExternalLink
+              key={href}
+              href={href}
+              hideIcon
+              onClick={openInBrowser}
+              className="gap-2 rounded-md px-2 py-1.5 text-sm text-surface-200 hover:bg-surface-800/60 hover:text-accent-300"
+            >
+              <Glyph className="h-4 w-4 shrink-0 text-surface-400" />
+              {label()}
             </ExternalLink>
           ))}
-          <div className="mt-1 flex items-center gap-3">
-            {COMMUNITY_LINKS.map((link) => (
-              <ExternalLink key={link.href} href={link.href} onClick={openInBrowser}>
-                {link.label()}
-              </ExternalLink>
-            ))}
-          </div>
         </nav>
       </div>
     </Tile>
+  );
+}
+
+/** Where the project answers, as two presses rather than two more links. */
+function Community() {
+  return (
+    <div data-ui="NewsTile:community" className="grid grid-cols-2 gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        left={<DiscordLogoIcon weight="duotone" className="h-4 w-4" />}
+        onClick={() => void open(DISCORD)}
+      >
+        {m.home_learn_discord_label()}
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        left={<GithubLogoIcon weight="duotone" className="h-4 w-4" />}
+        onClick={() => void open(REPOSITORY)}
+      >
+        {m.home_learn_repository_label()}
+      </Button>
+    </div>
   );
 }
 

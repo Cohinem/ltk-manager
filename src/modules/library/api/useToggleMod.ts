@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { beginReorderHold } from "@/hooks";
 import { api, type AppError, type InstalledMod } from "@/lib/tauri";
+import { promoteToFolderFront } from "@/modules/library/utils";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
@@ -23,6 +25,8 @@ export function useToggleMod() {
       return unwrapForQuery(result);
     },
     onMutate: async ({ modId, enabled }) => {
+      beginReorderHold();
+
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: libraryKeys.mods() });
 
@@ -30,9 +34,11 @@ export function useToggleMod() {
       const previous = queryClient.getQueryData<InstalledMod[]>(libraryKeys.mods());
 
       // Optimistically update
-      queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
-        old?.map((mod) => (mod.id === modId ? { ...mod, enabled } : mod)),
-      );
+      queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) => {
+        if (!old) return old;
+        const next = old.map((mod) => (mod.id === modId ? { ...mod, enabled } : mod));
+        return enabled ? promoteToFolderFront(next, modId) : next;
+      });
 
       return { previous };
     },

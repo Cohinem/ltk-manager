@@ -201,7 +201,7 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       expect(await screen.findByText("League's folder is not set")).toBeVisible();
-      await userEvent.click(screen.getByRole("button", { name: "Set it" }));
+      await userEvent.click(screen.getByRole("button", { name: /Set it$/ }));
 
       expect(navigate).toHaveBeenCalledWith({
         to: "/settings",
@@ -214,7 +214,7 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       expect(await screen.findByText("Mod health waits for the hashtables")).toBeVisible();
-      await userEvent.click(screen.getByRole("button", { name: "Sync" }));
+      await userEvent.click(screen.getByRole("button", { name: /Sync$/ }));
 
       await waitFor(() => expect(calls("sync_hashtables")).toHaveLength(1));
     });
@@ -224,12 +224,12 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       expect(await screen.findByText("Syncing the hashtables mod health needs")).toBeVisible();
-      expect(screen.queryByRole("button", { name: "Sync" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Sync$/ })).toBeNull();
     });
 
     /* A flagged mod loads and plays, so it is not one the line warns about, and
        a disabled one reaches no overlay. */
-    it("counts the enabled mods the game will refuse, and shows them in the library", async () => {
+    it("counts the enabled mods no repair reaches, and shows them in the library", async () => {
       world.verdicts = {
         a: verdict("a", "unrepairable"),
         b: verdict("b", "unrepairable", { severity: "warning" }),
@@ -237,8 +237,8 @@ describe("Home", () => {
       };
       renderWithProviders(<Home />);
 
-      expect(await screen.findByText("1 enabled mod will break the game")).toBeVisible();
-      await userEvent.click(screen.getByRole("button", { name: "Show" }));
+      expect(await screen.findByText("1 enabled mod failed its health check")).toBeVisible();
+      await userEvent.click(screen.getByRole("button", { name: /Show$/ }));
 
       expect(navigate).toHaveBeenCalledWith({ to: "/mods" });
       expect(useModHealthDrawerStore.getState().open).toBe(true);
@@ -250,7 +250,7 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       expect(await screen.findByText("2 enabled mods need a repair")).toBeVisible();
-      await userEvent.click(screen.getByRole("button", { name: "Repair" }));
+      await userEvent.click(screen.getByRole("button", { name: /Repair$/ }));
 
       expect(navigate).toHaveBeenCalledWith({ to: "/mods" });
       expect(useModHealthDrawerStore.getState().repairRequested).toBe(true);
@@ -322,13 +322,13 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       expect(
-        await screen.findByRole("link", { name: "[IMPORTANT] Patch 26.9 - Patcher Issues FAQ" }),
+        await screen.findByRole("link", { name: /Patch 26.9 - Patcher Issues FAQ/ }),
       ).toBeVisible();
-      expect(screen.getByRole("link", { name: "The new manager" })).toBeVisible();
+      expect(screen.getByRole("link", { name: /The new manager/ })).toBeVisible();
       expect(screen.getByRole("link", { name: "Getting started" })).toBeVisible();
-      expect(screen.getByRole("link", { name: "Discord" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "Discord" })).toBeVisible();
 
-      await userEvent.click(screen.getByRole("link", { name: "The new manager" }));
+      await userEvent.click(screen.getByRole("link", { name: /The new manager/ }));
       expect(open).toHaveBeenCalledWith(POSTS[1].url);
     });
 
@@ -342,7 +342,14 @@ describe("Home", () => {
         within(tile)
           .getAllByRole("link")
           .map((link) => link.textContent),
-      ).toEqual(["Getting started", "Managing mods", "Troubleshooting", "Discord", "GitHub"]);
+      ).toEqual(["Getting started", "Managing mods", "Troubleshooting"]);
+
+      /* The community pair is the foot, and a press rather than a fourth link. */
+      expect(
+        within(tile)
+          .getAllByRole("button")
+          .map((button) => button.textContent),
+      ).toEqual(["Discord", "GitHub"]);
     });
   });
 

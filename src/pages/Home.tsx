@@ -2,12 +2,12 @@ import { useState } from "react";
 
 import { usePlatformSupport } from "@/hooks";
 import {
-  HomeHeader,
   LastGameTile,
   LibraryTile,
   NewsTile,
   NoticeBanners,
   RecentChanges,
+  StatusLine,
   useMarkHomeSeen,
 } from "@/modules/home";
 import {
@@ -48,7 +48,6 @@ export function Home() {
       {/* Capped and centred: a wider window buys margins, not one wider card. */}
       <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 px-4 pt-4">
         {!patcherAvailable && <PatcherUnsupported />}
-        <HomeHeader />
         <NoticeBanners />
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_20rem] gap-4">
@@ -56,6 +55,7 @@ export function Home() {
           <div data-ui="Home:rail" className="flex min-h-0 flex-col gap-4">
             {/* Outside the scroller: the primary action stays put while the tiles move. */}
             <PlayButton block disabled={installing} />
+            <StatusLine />
             <div data-ui="Home:tiles" className="flex min-h-0 flex-col gap-4 overflow-y-auto">
               <LibraryTile
                 onAddMod={actions.handleImportMods}

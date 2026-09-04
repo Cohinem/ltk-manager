@@ -69,40 +69,38 @@ impl ModLibrary {
     }
 
     /// Reorder all mods for the active profile.
-    /// The provided `mod_ids` must exactly match the active profile's mod order.
-    /// The `enabled_mods` order is derived from the new display order.
+    ///
+    /// The provided `mod_ids` must exactly match the active profile's mod
+    /// order. The order is written into the folders rather than onto the
+    /// profile, which is what makes it survive the next sync, and
+    /// `mod_order` and `enabled_mods` are re-derived from there.
     pub fn reorder_mods(&self, config: &Config, mod_ids: Vec<String>) -> AppResult<()> {
         self.mutate_index(config, |_storage_dir, index| {
             let active_profile_id = index.active_profile_id.clone();
-            let profile = index
-                .profiles
-                .iter_mut()
-                .find(|p| p.id == active_profile_id)
-                .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
 
-            // Validate that the provided IDs exactly match the profile's mod order
-            let mut expected_sorted: Vec<&str> =
-                profile.mod_order.iter().map(|s| s.as_str()).collect();
-            expected_sorted.sort();
-            let mut new_sorted: Vec<&str> = mod_ids.iter().map(|s| s.as_str()).collect();
-            new_sorted.sort();
+            let matches_profile = {
+                let profile = index
+                    .profiles
+                    .iter()
+                    .find(|p| p.id == active_profile_id)
+                    .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
 
-            if expected_sorted != new_sorted {
+                let mut expected_sorted: Vec<&str> =
+                    profile.mod_order.iter().map(|s| s.as_str()).collect();
+                expected_sorted.sort_unstable();
+                let mut new_sorted: Vec<&str> = mod_ids.iter().map(|s| s.as_str()).collect();
+                new_sorted.sort_unstable();
+
+                expected_sorted == new_sorted
+            };
+
+            if !matches_profile {
                 return Err(AppError::ValidationFailed(
                     "Provided mod IDs do not match the profile's mod order".to_string(),
                 ));
             }
 
-            // Derive enabled_mods order from new display order
-            let enabled_set: std::collections::HashSet<&str> =
-                profile.enabled_mods.iter().map(|s| s.as_str()).collect();
-            profile.enabled_mods = mod_ids
-                .iter()
-                .filter(|id| enabled_set.contains(id.as_str()))
-                .cloned()
-                .collect();
-
-            profile.mod_order = mod_ids;
+            index.apply_flat_mod_order(&mod_ids);
 
             Ok(())
         })
@@ -128,31 +126,15 @@ impl ModLibrary {
                 .find(|p| p.id == active_profile_id)
                 .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
 
-            if enabled {
-                if !profile.enabled_mods.contains(&mod_id.to_string()) {
-                    // Insert at position preserving relative order from mod_order
-                    let insert_pos = if let Some(order_pos) =
-                        profile.mod_order.iter().position(|id| id == mod_id)
-                    {
-                        profile
-                            .enabled_mods
-                            .iter()
-                            .position(|id| {
-                                profile
-                                    .mod_order
-                                    .iter()
-                                    .position(|oid| oid == id)
-                                    .is_none_or(|p| p > order_pos)
-                            })
-                            .unwrap_or(profile.enabled_mods.len())
-                    } else {
-                        0
-                    };
-                    profile.enabled_mods.insert(insert_pos, mod_id.to_string());
-                }
-            } else {
+            if !enabled {
                 profile.enabled_mods.retain(|id| id != mod_id);
+                return Ok(());
             }
+
+            if !profile.enabled_mods.iter().any(|id| id == mod_id) {
+                profile.enabled_mods.push(mod_id.to_string());
+            }
+            index.promote_mod_to_folder_front(mod_id);
 
             Ok(())
         })
@@ -204,29 +186,15 @@ impl ModLibrary {
                 .find(|p| p.id == active_profile_id)
                 .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
 
-            if !profile.enabled_mods.contains(&mod_id.to_string()) {
-                let insert_pos =
-                    if let Some(order_pos) = profile.mod_order.iter().position(|id| id == mod_id) {
-                        profile
-                            .enabled_mods
-                            .iter()
-                            .position(|id| {
-                                profile
-                                    .mod_order
-                                    .iter()
-                                    .position(|oid| oid == id)
-                                    .is_none_or(|p| p > order_pos)
-                            })
-                            .unwrap_or(profile.enabled_mods.len())
-                    } else {
-                        0
-                    };
-                profile.enabled_mods.insert(insert_pos, mod_id.to_string());
+            if !profile.enabled_mods.iter().any(|id| id == mod_id) {
+                profile.enabled_mods.push(mod_id.to_string());
             }
 
             profile
                 .layer_states
                 .insert(mod_id.to_string(), layer_states);
+
+            index.promote_mod_to_folder_front(mod_id);
 
             Ok(())
         })

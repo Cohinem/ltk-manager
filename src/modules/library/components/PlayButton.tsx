@@ -1,4 +1,5 @@
 import { CaretDownIcon, XCircleIcon } from "@phosphor-icons/react";
+import { twMerge } from "tailwind-merge";
 
 import {
   Button,
@@ -19,6 +20,12 @@ import { useSettings } from "@/modules/settings";
 import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
 
 import { type GuardedLaunch, ModHealthLaunchGuard } from "./ModHealthLaunchGuard";
+
+/* The patcher is live, so the control wears the running hue over the accent it
+   wears at rest. Slower than the button's own 150ms: this is a state to notice
+   rather than a hover to acknowledge. */
+const RUNNING_SKIN =
+  "border-success/50 bg-success/15 text-success-text transition-colors duration-500 hover:bg-success/25 active:bg-success/35";
 
 interface PlayButtonProps {
   /** Set while a library action that must not overlap a patch is in progress. */
@@ -219,7 +226,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
           onClick={() => stopPatcher.mutate()}
           loading={stopping}
           disabled={disabled || stopping}
-          className="grow font-bold tracking-wide uppercase"
+          className={twMerge("grow font-bold tracking-wide uppercase", RUNNING_SKIN)}
           left={
             !stopping && (
               <span className="inline-flex h-3 w-3 rounded-full bg-success shadow-[0_0_5px_1px] shadow-success/50" />
@@ -245,7 +252,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
                 variant="duotone"
                 size={size}
                 aria-label={m.library_launch_options_label()}
-                className="w-auto px-2"
+                className={twMerge("w-auto px-2", RUNNING_SKIN)}
               />
             }
           />

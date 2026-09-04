@@ -1,86 +1,94 @@
 import type { DragEndEvent, DragOverEvent, DragStartEvent } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { LibraryFolder } from "@/lib/tauri";
 import {
+  applyDropSlot,
+  type DropSlot,
+  dropSlotFor,
   hasOrderChanged,
+  isSameSlot,
   parseSortableFolderId,
   toSortableFolderId,
 } from "@/modules/library/utils";
 
+import { useLingeringSlot } from "./useLingeringSlot";
 import { useReorderFolders } from "./useMoveMod";
 
 interface UseFolderDndArgs {
   folders: LibraryFolder[];
 }
 
+/**
+ * Drag state for the folders, marking the gap a drop lands in.
+ *
+ * The row holds still for the whole drag and a line marks the gap, which is
+ * how a mod drag already answers. Shuffling the folders under the pointer was
+ * a second order to keep in step with the query cache as well.
+ */
 export function useFolderDnd({ folders }: UseFolderDndArgs) {
   const reorderFolders = useReorderFolders();
 
-  const folderSortableIds = useMemo(() => folders.map((f) => toSortableFolderId(f.id)), [folders]);
+  const folderOrder = useMemo(() => folders.map((f) => toSortableFolderId(f.id)), [folders]);
   const folderMap = useMemo(() => new Map(folders.map((f) => [f.id, f])), [folders]);
 
   const [activeFolderId, setActiveFolderId] = useState<string | null>(null);
-  const [localOrder, setLocalOrder] = useState<string[]>(folderSortableIds);
-  const lastPropsOrder = useRef<string[]>(folderSortableIds);
-
-  useEffect(() => {
-    if (hasOrderChanged(folderSortableIds, lastPropsOrder.current)) {
-      lastPropsOrder.current = folderSortableIds;
-      if (!activeFolderId) setLocalOrder(folderSortableIds);
-    }
-  }, [folderSortableIds, activeFolderId]);
+  const [dropSlot, setDropSlot] = useState<DropSlot | null>(null);
 
   const activeFolder = activeFolderId ? (folderMap.get(activeFolderId) ?? null) : null;
+  const dropLine = useLingeringSlot(dropSlot);
 
   const handleFolderDragStart = useCallback((event: DragStartEvent) => {
     const folderId = parseSortableFolderId(event.active.id as string);
     if (!folderId) return;
     setActiveFolderId(folderId);
+    setDropSlot(null);
   }, []);
 
-  const handleFolderDragOver = useCallback((event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleFolderDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const activeId = event.active.id as string;
+      if (!parseSortableFolderId(activeId)) return;
 
-    const activeIsFolder = parseSortableFolderId(active.id as string);
-    if (!activeIsFolder) return;
+      const overId = event.over?.id as string | undefined;
+      const overFolder = overId ? parseSortableFolderId(overId) : null;
+      const next = overFolder ? dropSlotFor(folderOrder, activeId, overId as string) : null;
 
-    const overIsFolder = parseSortableFolderId(over.id as string);
-    if (!overIsFolder) return;
-
-    setLocalOrder((prev) => {
-      const oldIndex = prev.indexOf(active.id as string);
-      const newIndex = prev.indexOf(over.id as string);
-      if (oldIndex === -1 || newIndex === -1) return prev;
-      return arrayMove(prev, oldIndex, newIndex);
-    });
-  }, []);
+      setDropSlot((prev) => (isSameSlot(prev, next) ? prev : next));
+    },
+    [folderOrder],
+  );
 
   const handleFolderDragEnd = useCallback(
-    (_event: DragEndEvent) => {
+    (event: DragEndEvent) => {
+      const activeId = event.active.id as string;
+      const slot = dropSlot;
       setActiveFolderId(null);
+      setDropSlot(null);
+      if (!slot) return;
 
-      if (hasOrderChanged(localOrder, folderSortableIds)) {
-        const realIds = localOrder
-          .map((sid) => parseSortableFolderId(sid))
-          .filter(Boolean) as string[];
-        reorderFolders.mutate(realIds);
-      }
+      const next = applyDropSlot(folderOrder, activeId, slot);
+      if (!hasOrderChanged(next, folderOrder)) return;
+
+      const folderIds = next
+        .map((sortableId) => parseSortableFolderId(sortableId))
+        .filter(Boolean) as string[];
+      reorderFolders.mutate(folderIds);
     },
-    [localOrder, folderSortableIds, reorderFolders],
+    [dropSlot, folderOrder, reorderFolders],
   );
 
   const handleFolderDragCancel = useCallback(() => {
     setActiveFolderId(null);
-    setLocalOrder(folderSortableIds);
-  }, [folderSortableIds]);
+    setDropSlot(null);
+  }, []);
 
   return {
-    folderLocalOrder: localOrder,
+    folderOrder,
     activeFolder,
     activeFolderId,
+    dropSlot,
+    dropLine,
     handleFolderDragStart,
     handleFolderDragOver,
     handleFolderDragEnd,

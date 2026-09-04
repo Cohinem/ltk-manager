@@ -5,13 +5,15 @@ interface TileProps {
   title: string;
   /** One control at the header's trailing edge. */
   action?: ReactNode;
+  /** A row ruled off under the body, for what the tile leads out to. */
+  foot?: ReactNode;
   children: ReactNode;
   className?: string;
   "data-ui": string;
 }
 
 /** One titled panel of the right column, framed as the library frames its own. */
-export function Tile({ title, action, children, className, "data-ui": dataUi }: TileProps) {
+export function Tile({ title, action, foot, children, className, "data-ui": dataUi }: TileProps) {
   return (
     <section
       data-ui={dataUi}
@@ -26,6 +28,7 @@ export function Tile({ title, action, children, className, "data-ui": dataUi }: 
         {action}
       </header>
       {children}
+      {foot && <div className="border-t border-surface-700/50 px-2 py-2">{foot}</div>}
     </section>
   );
 }

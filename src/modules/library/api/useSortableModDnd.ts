@@ -1,11 +1,18 @@
 import type { DragEndEvent, DragOverEvent, DragStartEvent } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
-import { REMOVE_FROM_FOLDER_ID } from "@/modules/library/utils";
+import {
+  applyDropSlot,
+  type DropSlot,
+  dropSlotFor,
+  hasOrderChanged,
+  isSameSlot,
+  REMOVE_FROM_FOLDER_ID,
+} from "@/modules/library/utils";
 import { useReorderDisabled } from "@/stores";
 
+import { useLingeringSlot } from "./useLingeringSlot";
 import { useMoveModToFolder } from "./useMoveMod";
 
 const ROOT_FOLDER_ID = "root";
@@ -16,78 +23,78 @@ interface UseSortableModDndArgs {
   folderId?: string;
 }
 
+/**
+ * Drag state for a list of mods, marking the gap a drop lands in.
+ *
+ * The list holds still for the whole drag and a line marks the gap instead.
+ * Shuffling the cards under the pointer fed dnd-kit a new item order on every
+ * hover, which it answered with a fresh collision result and another hover.
+ */
 export function useSortableModDnd({ mods, onReorder, folderId }: UseSortableModDndArgs) {
   const reorderDisabled = useReorderDisabled();
   const moveModToFolder = useMoveModToFolder();
 
-  const propsOrder = useMemo(() => mods.map((m) => m.id), [mods]);
+  const order = useMemo(() => mods.map((m) => m.id), [mods]);
   const modMap = useMemo(() => new Map(mods.map((m) => [m.id, m])), [mods]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [localOrder, setLocalOrder] = useState<string[]>(propsOrder);
-  const lastPropsOrder = useRef<string[]>(propsOrder);
-
-  useEffect(() => {
-    if (propsOrder.join() !== lastPropsOrder.current.join()) {
-      lastPropsOrder.current = propsOrder;
-      if (!activeId) setLocalOrder(propsOrder);
-    }
-  }, [propsOrder, activeId]);
-
-  const orderedMods = useMemo(
-    () => localOrder.map((id) => modMap.get(id)).filter(Boolean) as InstalledMod[],
-    [localOrder, modMap],
-  );
+  const [dropSlot, setDropSlot] = useState<DropSlot | null>(null);
 
   const activeMod = activeId ? (modMap.get(activeId) ?? null) : null;
 
+  const dropLine = useLingeringSlot(dropSlot);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    setDropSlot(null);
   }, []);
 
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
       const { active, over } = event;
-      if (!over || active.id === over.id) return;
-      if (over.id === REMOVE_FROM_FOLDER_ID) return;
       if (reorderDisabled) return;
 
-      setLocalOrder((prev) => {
-        const oldIndex = prev.indexOf(active.id as string);
-        const newIndex = prev.indexOf(over.id as string);
-        if (oldIndex === -1 || newIndex === -1) return prev;
-        return arrayMove(prev, oldIndex, newIndex);
-      });
+      const next =
+        !over || over.id === REMOVE_FROM_FOLDER_ID
+          ? null
+          : dropSlotFor(order, active.id as string, over.id as string);
+
+      setDropSlot((prev) => (isSameSlot(prev, next) ? prev : next));
     },
-    [reorderDisabled],
+    [order, reorderDisabled],
   );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
+      const slot = dropSlot;
       setActiveId(null);
+      setDropSlot(null);
 
       if (folderId && event.over?.id === REMOVE_FROM_FOLDER_ID) {
         moveModToFolder.mutate({ modId: event.active.id as string, folderId: ROOT_FOLDER_ID });
         return;
       }
 
-      if (!reorderDisabled && localOrder.join() !== propsOrder.join()) {
-        onReorder(localOrder);
-      }
+      if (reorderDisabled || !slot) return;
+
+      const next = applyDropSlot(order, event.active.id as string, slot);
+      if (hasOrderChanged(next, order)) onReorder(next);
     },
-    [folderId, localOrder, propsOrder, onReorder, moveModToFolder, reorderDisabled],
+    [folderId, dropSlot, order, onReorder, moveModToFolder, reorderDisabled],
   );
 
   const handleDragCancel = useCallback(() => {
     setActiveId(null);
-    setLocalOrder(propsOrder);
-  }, [propsOrder]);
+    setDropSlot(null);
+  }, []);
 
   return {
-    localOrder,
-    orderedMods,
+    order,
+    orderedMods: mods,
     activeId,
     activeMod,
+    dropSlot,
+    dropLine,
     handleDragStart,
     handleDragOver,
     handleDragEnd,
