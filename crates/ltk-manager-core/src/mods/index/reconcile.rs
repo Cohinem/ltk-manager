@@ -9,7 +9,6 @@ use crate::mods::archive::install::{self, InstallContext, STAGING_PREFIX};
 use crate::mods::archive::metadata;
 use crate::mods::index::document::archive_path;
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat, ModSource, ModStorage};
-use crate::mods::organize::folders;
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::ROOT_FOLDER_ID;
 use std::collections::HashSet;
@@ -21,7 +20,7 @@ use std::path::{Path, PathBuf};
 /// 1. Remove orphaned mod entries (missing files on disk)
 /// 2. Register mod directories the index doesn't know about
 /// 3. Install archives dropped into `archives/`
-/// 4. Sync profile mod_order lists with the valid mod set
+/// 4. Reconcile the folders, then re-derive every profile order from them
 /// 5. Re-extract modpkg metadata when the archive is newer than its cached config
 ///
 /// Returns `true` if changes were made.
@@ -35,7 +34,8 @@ pub(crate) fn reconcile_library_index(
     changed |= remove_orphaned_entries(storage_dir, index);
     changed |= discover_mod_directories(storage_dir, index);
     changed |= discover_new_archives(storage_dir, index, context);
-    changed |= sync_profile_mod_orders(index);
+    changed |= index.sync_folders();
+    changed |= index.sync_profile_orders();
     changed |= refresh_stale_modpkg_metadata(storage_dir, index, refreshed_ids);
     changed
 }
@@ -82,49 +82,6 @@ fn remove_orphaned_entries(storage_dir: &Path, index: &mut LibraryIndex) -> bool
         orphaned_ids.len()
     );
     true
-}
-
-/// Ensure all profiles contain all valid mods in their `mod_order` and
-/// that `item_order` + folders are consistent with the mod set.
-fn sync_profile_mod_orders(index: &mut LibraryIndex) -> bool {
-    let mut changed = false;
-
-    // Sync folders and folder_order with valid mods
-    changed |= folders::sync_folders(index);
-
-    // Derive flat mod order from folder_order + folder contents
-    let flat = folders::flatten_folder_order(index);
-    let valid_ids: HashSet<&str> = index.mods.iter().map(|m| m.id.as_str()).collect();
-
-    for profile in &mut index.profiles {
-        let before = profile.mod_order.len() + profile.enabled_mods.len();
-        profile
-            .enabled_mods
-            .retain(|id| valid_ids.contains(id.as_str()));
-
-        // Replace mod_order with the flattened item_order
-        if profile.mod_order != flat {
-            profile.mod_order = flat.clone();
-            changed = true;
-        }
-
-        // Re-derive enabled_mods order from the new flat order
-        let enabled_set: HashSet<&str> = profile.enabled_mods.iter().map(|s| s.as_str()).collect();
-        let new_enabled: Vec<String> = flat
-            .iter()
-            .filter(|id| enabled_set.contains(id.as_str()))
-            .cloned()
-            .collect();
-        if profile.enabled_mods != new_enabled {
-            profile.enabled_mods = new_enabled;
-        }
-
-        if profile.mod_order.len() + profile.enabled_mods.len() != before {
-            changed = true;
-        }
-    }
-
-    changed
 }
 
 /// Register mod project directories under `mods/` that no entry claims.

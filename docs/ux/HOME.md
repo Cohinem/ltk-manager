@@ -2,16 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                 |
-| ---------- | ---------------------------------------------------------------------- |
-| 2026-09-03 | Draw Play as an accent edge over a wash rather than a solid fill       |
-| 2026-09-03 | Cap the page's width, and draw Play as the rail's own block            |
-| 2026-09-03 | Move Play to the head of the right rail, over the tiles it scrolls     |
-| 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats    |
-| 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast |
-| 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot  |
-| 2026-09-03 | Specify v1 in #391: stubs for the checklist and the game build         |
-| 2026-09-03 | Propose the page: the status line, two feeds, four tiles, the landing  |
+| Date       | Change                                                                  |
+| ---------- | ----------------------------------------------------------------------- |
+| 2026-09-04 | Move the status line under Play, hedge its words, rebuild the News card |
+| 2026-09-04 | Turn the launch control green while the patcher is up                   |
+| 2026-09-03 | Draw Play as an accent edge over a wash rather than a solid fill        |
+| 2026-09-03 | Cap the page's width, and draw Play as the rail's own block             |
+| 2026-09-03 | Move Play to the head of the right rail, over the tiles it scrolls      |
+| 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats     |
+| 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast  |
+| 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot   |
+| 2026-09-03 | Specify v1 in #391: stubs for the checklist and the game build          |
+| 2026-09-03 | Propose the page: the status line, two feeds, four tiles, the landing   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -74,14 +76,14 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 
 ## Layout
 
-The default window is about 900 by 850. The page does not scroll. The status line takes a row of
-its own while one holds and no room at all otherwise, a notice sits under it while there is one,
-and two columns fill the rest. The left column is one tall card, Recent changes, which scrolls
-inside itself as the changelog dialog does.
+The default window is about 900 by 850. The page does not scroll. A notice takes a row of its own
+while there is one, and two columns fill the rest. The left column is one tall card, Recent
+changes, which scrolls inside itself as the changelog dialog does.
 
-The right column is the rail. Play heads it, full width and a size up, and under the button a
-stack of tiles scrolls as a column when the stack is taller than the window. The button sits
-outside that scroller, so the primary action is in the same place whatever the tiles are doing.
+The right column is the rail. Play heads it, full width and a size up, the status line sits under
+the button while one holds, and under them a stack of tiles scrolls as a column when the stack is
+taller than the window. The button and the line sit outside that scroller, so the primary action
+and what qualifies it are in the same place whatever the tiles are doing.
 
 The page holds a maximum width and centres above it. Recent changes is a reading surface, and
 without the cap every pixel a wider window gained went to that one card, until its lines ran
@@ -93,36 +95,38 @@ instead, and the page keeps the proportions it was drawn at from the default siz
 | (mark) LTK Manager  v1.15.4   Home*  Mods  Workshop        (bell)(gear) - o x |
 +------------------------------------------------------------------------------+
 |                                                                              |
-|  (!) 2 enabled mods need a repair  [Repair]                                  |
-|                                                                              |
 |  +-- notice ---------------------------------------------------------------+ |
 |  | (!) Patch 26.9: the patcher takes longer to hook.  What to do       [x] | |
 |  +-------------------------------------------------------------------------+ |
 |                                                                              |
-|                                                 [ (L) Play               v ] |
-|                                                                              |
-|  +-- Recent changes -------------------------+  +-- Your library ----------+ |
-|  | v1.15.4  [Installed]        Sep 3, 2026   |  | Default                  | |
-|  |   Mod fixer                               |  | 4 of 7 enabled           | |
-|  |   - Added additional fixes for ...        |  | 1 needs a repair [Repair]| |
-|  |   Release notes                           |  | Checked against 26.9     | |
-|  |   - The Update dialog is now scrollable   |  | [Open Mods]  [Add mod]   | |
+|  +-- Recent changes -------------------------+  [ (L) Play               v ] |
+|  | v1.15.4  [Installed]        Sep 3, 2026   |  +--------------------------+ |
+|  |   Mod fixer                               |  | (!) 2 enabled mods need  | |
+|  |   - Added additional fixes for ...        |  |     a repair    Repair > | |
+|  |   Release notes                           |  +--------------------------+ |
+|  |   - The Update dialog is now scrollable   |  +-- Your library ----- (:) + |
+|  |                                           |  | Default                  | |
+|  | v1.15.3                     Sep 2, 2026   |  | 4 of 7 enabled           | |
+|  |   ...                                     |  | [Open Mods]  [Add mod]   | |
 |  |                                           |  +--------------------------+ |
-|  | v1.15.3                     Sep 2, 2026   |  +-- Last game -------------+ |
+|  | v1.15.2                     Sep 1, 2026   |  +-- Last game -------------+ |
 |  |   ...                                     |  | Crashed while loading    | |
 |  |                                           |  | 2 hours ago   [the game] | |
-|  | v1.15.2                     Sep 1, 2026   |  | Noxus Rift is suspected  | |
-|  |   ...                                     |  | [Review]                 | |
+|  |                                           |  | [Review]                 | |
 |  |                                           |  +--------------------------+ |
 |  |                                           |  +-- News ------------------+ |
-|  |                                           |  | Sep 1   Patch 26.9 FAQ   | |
-|  |                                           |  | May 15  The new manager  | |
+|  |                                           |  | Patch 26.9 FAQ           | |
+|  |                                           |  | Sep 1                    | |
 |  |                                           |  |                          | |
-|  |                                           |  | Getting started          | |
-|  |                                           |  | Managing mods            | |
-|  |                                           |  | Troubleshooting          | |
-|  |           No older releases               |  | Discord  -  GitHub       | |
-|  +-------------------------------------------+  +--------------------------+ |
+|  |                                           |  | The new manager          | |
+|  |                                           |  | May 15                   | |
+|  |                                           |  |--------------------------| |
+|  |                                           |  | (book)  Getting started  | |
+|  |           No older releases               |  | (stack) Managing mods    | |
+|  |                                           |  | (ring)  Troubleshooting  | |
+|  |                                           |  |--------------------------| |
+|  +-------------------------------------------+  | [Discord]     [GitHub]   | |
+|                                                 +--------------------------+ |
 +------------------------------------------------------------------------------+
 | (status bar: the session, and the health item)                               |
 +------------------------------------------------------------------------------+
@@ -137,7 +141,13 @@ in a row of them.
 The block shape is an accent edge over a wash rather than the toolbar's solid fill. Filled is what
 a press in a row of peers wears to be found among them, and at the head of the rail, alone and the
 width of the column, the same fill reads as a banner instead of a button. The edge is what carries
-it there. A reader who opens the app to play
+it there.
+
+**The control goes green while the patcher is up, and eases into it.** Idle it is the accent's edge
+over the accent's wash, and running it is the same shape in the success hue, which is the hue the
+live dot on it already wears. The colour crosses over half a second rather than cutting, because a
+patcher that came up is a state to notice and an instant swap reads as a redraw. This is the
+control's own chrome wherever it is drawn, so the library's toolbar turns with the rail. A reader who opens the app to play
 presses it here and never visits the library, which is what lets Home be the landing page without
 costing that reader a click.
 
@@ -147,20 +157,42 @@ before a session starts, and the bar says what the session is doing once one has
 
 ## The status line
 
-One sentence, and at most one action beside it. It is derived, never stored, and the first row
+One sentence, and at most one errand folded into it. It is derived, never stored, and the first row
 that holds wins. The hue follows the severity per "How loud a finding is drawn" in
 [MOD_HEALTH.md](MOD_HEALTH.md), and the words are the app's own for each state, so nothing here
 is a new claim.
+
+**It sits under Play, not over the page.** The line is in the rail, under the button it qualifies,
+in the frame and at the size a notice is drawn at. Over both columns at heading size it was the
+loudest thing on the page - above the project's own notice, above Play - so an inferred verdict
+outranked both, and the reader met an alarm before they met anything they came for. Under the
+button it still answers "can I play" before the press.
+
+**The hue is the frame's and the glyph's, and never the sentence's.** A sentence set in the
+severity's colour is the same mistake the rung table fixed one level down: it asserts with type
+what the verdict only suspects. The frame carries the rung, and the words stay the body's colour.
+
+**The whole box is the press.** The errand's word rides the first line with a caret after it, so a
+sentence that wraps runs under itself rather than pushing a button onto a row of its own. A row
+with no errand is the same frame without the caret. It is `AlertBox`, the component the notice
+below it is drawn with.
 
 | Holds when                             | Line                                                                  | Action                                   |
 | -------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------- |
 | The platform has no patcher            | The patcher does not run on this system yet                           | none, `PatcherUnsupported` says the rest |
 | League's folder is not set             | League's folder is not set                                            | Set it, to the settings anchor           |
 | The hashtables are absent              | Mod health waits for the hashtables                                   | Sync, what the readiness hook offers     |
-| An enabled mod is unrepairable         | {n} enabled mods will break the game                                  | Show, opens the health drawer            |
+| An enabled mod is unrepairable         | {n} enabled mods failed their health check                            | Show, opens the health drawer            |
 | An enabled mod is repairable           | {n} enabled mods need a repair                                        | Repair                                   |
 | The game build is newer than the basis | League updated to {build}. Your mods have not been checked against it | Check                                    |
 | Otherwise                              | nothing, the row is not drawn                                         | none                                     |
+
+**The line says what the check found, not what the game will do.** "will break the game" is a
+certainty the check cannot back. The sweep is still gaining checks, and a mod it passes can still
+fail in play, which the 1.15.3 notes say in as many words. MOD_HEALTH.md records the same mistake
+one level down, where the hue asserted more than the verdict knew and readers went looking for
+replacements that did not exist. Show carries the consequence, and the drawer is where the finding
+is.
 
 The all-clear is drawn as no row at all. A line saying the library is fine is a line the reader
 learns to read past, and the rail already carries the profile, the counts and the build, so the
@@ -254,10 +286,16 @@ and Review into the Games tab. It is hidden while there is no incident or the la
 The tile changes no copy: [LEAGUE_DIAGNOSTICS.md](LEAGUE_DIAGNOSTICS.md) decided the verdict's
 words, and the title bar's dot keeps pointing at the same incident.
 
-**News, then Learn.** One card. The posts sit at the top and the standing links under them:
-Getting started, Managing mods and Troubleshooting on the wiki, then Discord and the repository.
-A card with no post is a card of links, so it is never empty. That is why the two are one card
-and not two.
+**News, then Learn.** One card in three bands. A post is its title on one line with its date
+under it, so a real title wraps instead of truncating against a date gutter. A rule, then the wiki
+links - Getting started, Managing mods, Troubleshooting - each behind its own mark and none behind
+the trailing arrow every row used to repeat. A rule, then Discord and the repository as two buttons
+in the card's foot. A card with no post is a card of links, so it is never empty. That is why the
+two are one card and not two.
+
+The bands are what stop five accent-coloured rows reading as one list, where a wiki page and a
+Discord invite looked alike. A button is the last two saying they leave the documentation
+behind.
 
 **Getting started.** A checklist on a fresh install, in the place of the tiles above until it is
 done or dismissed: set League's folder, add a mod or import from cslol-manager, press Play once,
@@ -325,7 +363,7 @@ own sentences are here too, since no other surface says them as one line.
 | `home_status_league_unset_label`          | League's folder is not set                                            |
 | `home_status_hashtables_unsynced_label`   | Mod health waits for the hashtables                                   |
 | `home_status_hashtables_syncing_label`    | Syncing the hashtables mod health needs                               |
-| `home_status_broken_label`                | {count} enabled mods will break the game                              |
+| `home_status_broken_label`                | {count} enabled mods failed their health check                        |
 | `home_status_repairable_label`            | {count} enabled mods need a repair                                    |
 | `home_status_build_moved_label`           | League updated to {build}. Your mods have not been checked against it |
 | `home_changes_title`                      | Recent changes                                                        |

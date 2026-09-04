@@ -72,8 +72,8 @@
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
       "match": {
-        "countPlural=one": "{count} enabled mod will break the game",
-        "countPlural=other": "{count} enabled mods will break the game"
+        "countPlural=one": "{count} enabled mod failed its health check",
+        "countPlural=other": "{count} enabled mods failed their health check"
       }
     }
   ],

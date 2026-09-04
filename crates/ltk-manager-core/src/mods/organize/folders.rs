@@ -1,105 +1,169 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryIndex;
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
 
-/// Flatten folder_order + folder contents into a linear mod ID sequence.
+/// The folder-shaped view of the index: what groups a mod, and in what order.
 ///
-/// Iterates folders in `folder_order` order, expanding each folder's `mod_ids`
-/// in place. This is the canonical derivation of `Profile.mod_order`.
-pub(crate) fn flatten_folder_order(index: &LibraryIndex) -> Vec<String> {
-    let mut result = Vec::new();
-    for folder_id in &index.folder_order {
-        if let Some(folder) = index.folders.iter().find(|f| &f.id == folder_id) {
-            result.extend(folder.mod_ids.iter().cloned());
+/// `folder_order` and each folder's `mod_ids` are the record, and every
+/// profile's `mod_order` is derived from them. Anything that edits one edits
+/// both, which is why these sit together rather than beside their callers.
+impl LibraryIndex {
+    /// The mod IDs of every folder, in folder order, as one flat sequence.
+    ///
+    /// Iterates folders in `folder_order`, expanding each folder's `mod_ids` in
+    /// place. This is the canonical derivation of `Profile.mod_order`.
+    pub(crate) fn flattened_mod_order(&self) -> Vec<String> {
+        let mut result = Vec::new();
+        for folder_id in &self.folder_order {
+            if let Some(folder) = self.folders.iter().find(|f| &f.id == folder_id) {
+                result.extend(folder.mod_ids.iter().cloned());
+            }
         }
+        result
     }
-    result
-}
 
-/// Reconcile folders and folder_order with the current mod set.
-///
-/// - Removes orphaned mod IDs from all folders.
-/// - Removes folder_order entries referencing nonexistent folders.
-/// - Appends untracked mods to the root folder.
-/// - Ensures all folders appear in folder_order.
-pub(crate) fn sync_folders(index: &mut LibraryIndex) -> bool {
-    let mut changed = false;
-    let valid_ids: HashSet<&str> = index.mods.iter().map(|m| m.id.as_str()).collect();
+    /// Reconcile folders and folder_order with the current mod set.
+    ///
+    /// - Removes orphaned mod IDs from all folders.
+    /// - Removes folder_order entries referencing nonexistent folders.
+    /// - Appends untracked mods to the root folder.
+    /// - Ensures all folders appear in folder_order.
+    pub(crate) fn sync_folders(&mut self) -> bool {
+        let mut changed = false;
+        let valid_ids: HashSet<&str> = self.mods.iter().map(|m| m.id.as_str()).collect();
 
-    // Remove orphaned mods from all folders
-    for folder in &mut index.folders {
-        let before = folder.mod_ids.len();
-        folder.mod_ids.retain(|id| valid_ids.contains(id.as_str()));
-        if folder.mod_ids.len() != before {
+        // Remove orphaned mods from all folders
+        for folder in &mut self.folders {
+            let before = folder.mod_ids.len();
+            folder.mod_ids.retain(|id| valid_ids.contains(id.as_str()));
+            if folder.mod_ids.len() != before {
+                changed = true;
+            }
+        }
+
+        // Remove folder_order entries for nonexistent folders
+        let valid_folder_ids: HashSet<&str> = self.folders.iter().map(|f| f.id.as_str()).collect();
+        let before = self.folder_order.len();
+        self.folder_order
+            .retain(|id| valid_folder_ids.contains(id.as_str()));
+        if self.folder_order.len() != before {
             changed = true;
         }
-    }
 
-    // Remove folder_order entries for nonexistent folders
-    let valid_folder_ids: HashSet<&str> = index.folders.iter().map(|f| f.id.as_str()).collect();
-    let before = index.folder_order.len();
-    index
-        .folder_order
-        .retain(|id| valid_folder_ids.contains(id.as_str()));
-    if index.folder_order.len() != before {
-        changed = true;
-    }
-
-    // Ensure all folders appear in folder_order
-    for folder in &index.folders {
-        if !index.folder_order.contains(&folder.id) {
-            index.folder_order.push(folder.id.clone());
-            changed = true;
+        // Ensure all folders appear in folder_order
+        for folder in &self.folders {
+            if !self.folder_order.contains(&folder.id) {
+                self.folder_order.push(folder.id.clone());
+                changed = true;
+            }
         }
-    }
 
-    // Find mods not in any folder and add them to the root folder
-    let tracked: HashSet<String> = index
-        .folders
-        .iter()
-        .flat_map(|f| f.mod_ids.iter().cloned())
-        .collect();
-
-    let untracked: Vec<String> = index
-        .mods
-        .iter()
-        .filter(|m| !tracked.contains(&m.id))
-        .map(|m| m.id.clone())
-        .collect();
-
-    if !untracked.is_empty()
-        && let Some(root) = index.folders.iter_mut().find(|f| f.id == ROOT_FOLDER_ID)
-    {
-        root.mod_ids.extend(untracked);
-        changed = true;
-    }
-
-    changed
-}
-
-/// Re-derive `profile.mod_order` for all profiles from folder_order + folders.
-fn sync_all_profile_mod_orders(index: &mut LibraryIndex) {
-    let flat = flatten_folder_order(index);
-    let flat_set: HashSet<&str> = flat.iter().map(|s| s.as_str()).collect();
-
-    for profile in &mut index.profiles {
-        profile.mod_order = flat.clone();
-
-        let enabled_set: HashSet<&str> = profile.enabled_mods.iter().map(|s| s.as_str()).collect();
-        profile.enabled_mods = flat
+        // Find mods not in any folder and add them to the root folder
+        let tracked: HashSet<String> = self
+            .folders
             .iter()
-            .filter(|id| enabled_set.contains(id.as_str()))
-            .cloned()
+            .flat_map(|f| f.mod_ids.iter().cloned())
             .collect();
 
-        profile
-            .layer_states
-            .retain(|id, _| flat_set.contains(id.as_str()));
+        let untracked: Vec<String> = self
+            .mods
+            .iter()
+            .filter(|m| !tracked.contains(&m.id))
+            .map(|m| m.id.clone())
+            .collect();
+
+        if !untracked.is_empty()
+            && let Some(root) = self.folders.iter_mut().find(|f| f.id == ROOT_FOLDER_ID)
+        {
+            root.mod_ids.extend(untracked);
+            changed = true;
+        }
+
+        changed
+    }
+
+    /// Write a flat mod order back into the folders it is derived from.
+    ///
+    /// [`flattened_mod_order`](Self::flattened_mod_order) is what
+    /// `Profile.mod_order` is re-derived from, so an order saved only on the
+    /// profile is dropped by the next sync. Each folder keeps its own mods,
+    /// resequenced by where `mod_ids` puts them. A mod the list does not name
+    /// sinks to the end of its folder.
+    pub(crate) fn apply_flat_mod_order(&mut self, mod_ids: &[String]) {
+        let rank: HashMap<&str, usize> = mod_ids
+            .iter()
+            .enumerate()
+            .map(|(position, id)| (id.as_str(), position))
+            .collect();
+
+        for folder in &mut self.folders {
+            folder
+                .mod_ids
+                .sort_by_key(|id| rank.get(id.as_str()).copied().unwrap_or(usize::MAX));
+        }
+
+        self.sync_profile_orders();
+    }
+
+    /// Move `mod_id` to the front of the folder holding it.
+    ///
+    /// The front of the folder, not of the library, is as far as enabling a mod
+    /// can promote it without moving it out of the folder it was filed under.
+    pub(crate) fn promote_mod_to_folder_front(&mut self, mod_id: &str) {
+        if let Some(folder) = self
+            .folders
+            .iter_mut()
+            .find(|f| f.mod_ids.iter().any(|id| id == mod_id))
+        {
+            folder.mod_ids.retain(|id| id != mod_id);
+            folder.mod_ids.insert(0, mod_id.to_string());
+        }
+
+        self.sync_profile_orders();
+    }
+
+    /// Re-derive every profile's mod order from folder_order + folders.
+    ///
+    /// A mod no folder holds is one no profile can carry, so the flat order is
+    /// what `enabled_mods` and `layer_states` are pruned against. Returns
+    /// whether any profile moved, which is what tells reconciliation the index
+    /// is worth writing back.
+    pub(crate) fn sync_profile_orders(&mut self) -> bool {
+        let flat = self.flattened_mod_order();
+        let flat_set: HashSet<&str> = flat.iter().map(|s| s.as_str()).collect();
+        let mut changed = false;
+
+        for profile in &mut self.profiles {
+            if profile.mod_order != flat {
+                profile.mod_order = flat.clone();
+                changed = true;
+            }
+
+            let enabled_set: HashSet<&str> =
+                profile.enabled_mods.iter().map(|s| s.as_str()).collect();
+            let enabled: Vec<String> = flat
+                .iter()
+                .filter(|id| enabled_set.contains(id.as_str()))
+                .cloned()
+                .collect();
+            if profile.enabled_mods != enabled {
+                profile.enabled_mods = enabled;
+                changed = true;
+            }
+
+            let states = profile.layer_states.len();
+            profile
+                .layer_states
+                .retain(|id, _| flat_set.contains(id.as_str()));
+            changed |= profile.layer_states.len() != states;
+        }
+
+        changed
     }
 }
 
@@ -177,7 +241,7 @@ impl ModLibrary {
                 root.mod_ids.extend(folder.mod_ids);
             }
 
-            sync_all_profile_mod_orders(index);
+            index.sync_profile_orders();
             Ok(())
         })
     }
@@ -226,7 +290,7 @@ impl ModLibrary {
                 .unwrap();
             target.mod_ids.push(mod_id.to_string());
 
-            sync_all_profile_mod_orders(index);
+            index.sync_profile_orders();
             Ok(())
         })
     }
@@ -318,7 +382,7 @@ impl ModLibrary {
             }
 
             folder.mod_ids = mod_ids;
-            sync_all_profile_mod_orders(index);
+            index.sync_profile_orders();
             Ok(())
         })
     }
@@ -338,7 +402,7 @@ impl ModLibrary {
             }
 
             index.folder_order = folder_order;
-            sync_all_profile_mod_orders(index);
+            index.sync_profile_orders();
             Ok(())
         })
     }
@@ -406,7 +470,7 @@ mod tests {
     #[test]
     fn flatten_folder_order_empty_index() {
         let index = make_index(vec![], vec![], vec![]);
-        assert!(flatten_folder_order(&index).is_empty());
+        assert!(index.flattened_mod_order().is_empty());
     }
 
     #[test]
@@ -419,7 +483,7 @@ mod tests {
             ],
             vec![ROOT_FOLDER_ID, "f1"],
         );
-        assert_eq!(flatten_folder_order(&index), vec!["m3", "m1", "m2"]);
+        assert_eq!(index.flattened_mod_order(), vec!["m3", "m1", "m2"]);
     }
 
     #[test]
@@ -429,7 +493,7 @@ mod tests {
             vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1"])],
             vec![ROOT_FOLDER_ID, "nonexistent"],
         );
-        assert_eq!(flatten_folder_order(&index), vec!["m1"]);
+        assert_eq!(index.flattened_mod_order(), vec!["m1"]);
     }
 
     #[test]
@@ -439,7 +503,7 @@ mod tests {
             vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m_gone"])],
             vec![ROOT_FOLDER_ID],
         );
-        let changed = sync_folders(&mut index);
+        let changed = index.sync_folders();
         assert!(changed);
         assert_eq!(index.folders[0].mod_ids, vec!["m1"]);
     }
@@ -451,7 +515,7 @@ mod tests {
             vec![make_folder(ROOT_FOLDER_ID, "Root", vec![])],
             vec![ROOT_FOLDER_ID, "gone_folder"],
         );
-        let changed = sync_folders(&mut index);
+        let changed = index.sync_folders();
         assert!(changed);
         assert_eq!(index.folder_order, vec![ROOT_FOLDER_ID]);
     }
@@ -463,7 +527,7 @@ mod tests {
             vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1"])],
             vec![ROOT_FOLDER_ID],
         );
-        let changed = sync_folders(&mut index);
+        let changed = index.sync_folders();
         assert!(changed);
         assert_eq!(index.folders[0].mod_ids, vec!["m1", "m2"]);
     }
@@ -478,9 +542,167 @@ mod tests {
             ],
             vec![ROOT_FOLDER_ID],
         );
-        let changed = sync_folders(&mut index);
+        let changed = index.sync_folders();
         assert!(changed);
         assert_eq!(index.folder_order, vec![ROOT_FOLDER_ID, "f1"]);
+    }
+
+    #[test]
+    fn apply_flat_mod_order_resequences_each_folder() {
+        let mut index = make_index(
+            vec!["m1", "m2", "m3", "m4"],
+            vec![
+                make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2"]),
+                make_folder("f1", "Folder 1", vec!["m3", "m4"]),
+            ],
+            vec![ROOT_FOLDER_ID, "f1"],
+        );
+
+        let order: Vec<String> = ["m2", "m1", "m4", "m3"]
+            .into_iter()
+            .map(String::from)
+            .collect();
+        index.apply_flat_mod_order(&order);
+
+        assert_eq!(index.folders[0].mod_ids, vec!["m2", "m1"]);
+        assert_eq!(index.folders[1].mod_ids, vec!["m4", "m3"]);
+        assert_eq!(index.profiles[0].mod_order, order);
+    }
+
+    #[test]
+    fn apply_flat_mod_order_survives_a_later_sync() {
+        let mut index = make_index(
+            vec!["m1", "m2", "m3"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2", "m3"])],
+            vec![ROOT_FOLDER_ID],
+        );
+
+        let order: Vec<String> = ["m3", "m1", "m2"].into_iter().map(String::from).collect();
+        index.apply_flat_mod_order(&order);
+        index.sync_profile_orders();
+
+        assert_eq!(index.flattened_mod_order(), order);
+        assert_eq!(index.profiles[0].mod_order, order);
+    }
+
+    #[test]
+    fn apply_flat_mod_order_rederives_enabled_order() {
+        let mut index = make_index(
+            vec!["m1", "m2", "m3"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2", "m3"])],
+            vec![ROOT_FOLDER_ID],
+        );
+        index.profiles[0].enabled_mods = vec!["m1".to_string(), "m3".to_string()];
+
+        let order: Vec<String> = ["m3", "m2", "m1"].into_iter().map(String::from).collect();
+        index.apply_flat_mod_order(&order);
+
+        assert_eq!(index.profiles[0].enabled_mods, vec!["m3", "m1"]);
+    }
+
+    #[test]
+    fn apply_flat_mod_order_sinks_an_unnamed_mod() {
+        let mut index = make_index(
+            vec!["m1", "m2", "m3"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2", "m3"])],
+            vec![ROOT_FOLDER_ID],
+        );
+
+        let order: Vec<String> = ["m3", "m1"].into_iter().map(String::from).collect();
+        index.apply_flat_mod_order(&order);
+
+        assert_eq!(index.folders[0].mod_ids, vec!["m3", "m1", "m2"]);
+    }
+
+    #[test]
+    fn promote_mod_to_folder_front_leads_its_own_folder() {
+        let mut index = make_index(
+            vec!["m1", "m2", "m3", "m4"],
+            vec![
+                make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2"]),
+                make_folder("f1", "Folder 1", vec!["m3", "m4"]),
+            ],
+            vec![ROOT_FOLDER_ID, "f1"],
+        );
+
+        index.promote_mod_to_folder_front("m4");
+
+        assert_eq!(index.folders[1].mod_ids, vec!["m4", "m3"]);
+        assert_eq!(index.folders[0].mod_ids, vec!["m1", "m2"]);
+        assert_eq!(index.profiles[0].mod_order, vec!["m1", "m2", "m4", "m3"]);
+    }
+
+    #[test]
+    fn promote_mod_to_folder_front_raises_it_among_the_enabled() {
+        let mut index = make_index(
+            vec!["m1", "m2", "m3"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2", "m3"])],
+            vec![ROOT_FOLDER_ID],
+        );
+        index.profiles[0].enabled_mods = vec!["m1".to_string(), "m3".to_string()];
+
+        index.promote_mod_to_folder_front("m3");
+
+        assert_eq!(index.profiles[0].enabled_mods, vec!["m3", "m1"]);
+    }
+
+    #[test]
+    fn promote_mod_to_folder_front_ignores_a_mod_in_no_folder() {
+        let mut index = make_index(
+            vec!["m1", "m2"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2"])],
+            vec![ROOT_FOLDER_ID],
+        );
+
+        index.promote_mod_to_folder_front("m_gone");
+
+        assert_eq!(index.folders[0].mod_ids, vec!["m1", "m2"]);
+        assert_eq!(index.profiles[0].mod_order, vec!["m1", "m2"]);
+    }
+
+    #[test]
+    fn sync_profile_orders_reports_a_profile_that_moved() {
+        let mut index = make_index(
+            vec!["m1", "m2"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m2", "m1"])],
+            vec![ROOT_FOLDER_ID],
+        );
+        index.profiles[0].mod_order = vec!["m1".to_string(), "m2".to_string()];
+
+        assert!(index.sync_profile_orders());
+        assert_eq!(index.profiles[0].mod_order, vec!["m2", "m1"]);
+    }
+
+    #[test]
+    fn sync_profile_orders_reports_nothing_when_settled() {
+        let mut index = make_index(
+            vec!["m1", "m2"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1", "m2"])],
+            vec![ROOT_FOLDER_ID],
+        );
+        index.profiles[0].mod_order = vec!["m1".to_string(), "m2".to_string()];
+        index.profiles[0].enabled_mods = vec!["m1".to_string()];
+
+        assert!(!index.sync_profile_orders());
+    }
+
+    #[test]
+    fn sync_profile_orders_drops_layer_states_no_folder_holds() {
+        let mut index = make_index(
+            vec!["m1", "m2"],
+            vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1"])],
+            vec![ROOT_FOLDER_ID],
+        );
+        index.profiles[0].layer_states = HashMap::from([
+            ("m1".to_string(), HashMap::new()),
+            ("m2".to_string(), HashMap::new()),
+        ]);
+
+        assert!(index.sync_profile_orders());
+        assert_eq!(
+            index.profiles[0].layer_states.keys().collect::<Vec<_>>(),
+            vec!["m1"]
+        );
     }
 
     #[test]
@@ -490,7 +712,7 @@ mod tests {
             vec![make_folder(ROOT_FOLDER_ID, "Root", vec!["m1"])],
             vec![ROOT_FOLDER_ID],
         );
-        let changed = sync_folders(&mut index);
+        let changed = index.sync_folders();
         assert!(!changed);
     }
 }

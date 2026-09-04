@@ -43,3 +43,24 @@ export function getFolderSummary(mods: InstalledMod[]): string {
   if (tags.size > 0) parts.push(`${tags.size} tag${tags.size !== 1 ? "s" : ""}`);
   return parts.join(" · ");
 }
+
+/**
+ * `mods` with `modId` moved to the front of its folder's run.
+ *
+ * Mirrors what enabling a mod does on the backend, so the card moves under the
+ * pointer rather than jumping once the refetch lands. The cached list is the
+ * profile's mod order, which groups each folder's mods together.
+ */
+export function promoteToFolderFront(mods: InstalledMod[], modId: string): InstalledMod[] {
+  const from = mods.findIndex((mod) => mod.id === modId);
+  if (from === -1) return mods;
+
+  const folderId = mods[from].folderId ?? null;
+  const to = mods.findIndex((mod) => (mod.folderId ?? null) === folderId);
+  if (to === -1 || to === from) return mods;
+
+  const next = [...mods];
+  const [promoted] = next.splice(from, 1);
+  next.splice(to, 0, promoted);
+  return next;
+}

@@ -1,6 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+import { beginReorderHold } from "@/hooks";
 import { api, type AppError, type InstalledMod } from "@/lib/tauri";
+import { promoteToFolderFront } from "@/modules/library/utils";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
@@ -19,12 +21,15 @@ export function useEnableModWithLayers() {
       return unwrapForQuery(result);
     },
     onMutate: async ({ modId, layerStates }) => {
+      beginReorderHold();
+
       await queryClient.cancelQueries({ queryKey: libraryKeys.mods() });
 
       const previous = queryClient.getQueryData<InstalledMod[]>(libraryKeys.mods());
 
-      queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
-        old?.map((mod) =>
+      queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) => {
+        if (!old) return old;
+        const next = old.map((mod) =>
           mod.id === modId
             ? {
                 ...mod,
@@ -35,8 +40,9 @@ export function useEnableModWithLayers() {
                 })),
               }
             : mod,
-        ),
-      );
+        );
+        return promoteToFolderFront(next, modId);
+      });
 
       return { previous };
     },

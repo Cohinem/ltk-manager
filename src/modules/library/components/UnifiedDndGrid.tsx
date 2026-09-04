@@ -1,15 +1,11 @@
-import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import {
-  rectSortingStrategy,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { DndContext } from "@dnd-kit/core";
+import { SortableContext } from "@dnd-kit/sortable";
 import { useRef } from "react";
 
+import { useReorderTransition } from "@/hooks";
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
-import { useUnifiedDnd } from "@/modules/library/api";
-import { gridClass, parseSortableFolderId } from "@/modules/library/utils";
+import { useLibraryDndSensors, useUnifiedDnd } from "@/modules/library/api";
+import { dropLineFor, gridClass, noSorting, parseSortableFolderId } from "@/modules/library/utils";
 
 import { DndDragOverlay } from "./DndDragOverlay";
 import { FolderCard } from "./FolderCard";
@@ -144,12 +140,15 @@ function DndGrid({
   onEditMetadata,
 }: DndGridProps) {
   const {
-    folderLocalOrder,
+    folderOrder,
     orderedRootMods,
     activeFolder,
     activeModForOverlay,
     isDraggingMod,
     isDraggingFolderMod,
+    dropLine,
+    folderDropLine,
+    folderModDropLine,
     sortableItems,
     collisionDetection,
     handleDragStart,
@@ -158,10 +157,8 @@ function DndGrid({
     handleDragCancel,
   } = useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const gridRef = useReorderTransition<HTMLDivElement>(!isDraggingMod && !isDraggingFolderMod);
+  const sensors = useLibraryDndSensors();
 
   return (
     <DndContext
@@ -172,12 +169,9 @@ function DndGrid({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <SortableContext
-        items={sortableItems}
-        strategy={viewMode === "list" ? verticalListSortingStrategy : rectSortingStrategy}
-      >
-        <div className={gridClass(viewMode)}>
-          {folderLocalOrder.map((sortableId) => {
+      <SortableContext items={sortableItems} strategy={noSorting}>
+        <div ref={gridRef} className={gridClass(viewMode)}>
+          {folderOrder.map((sortableId) => {
             const folderId = parseSortableFolderId(sortableId);
             if (!folderId) return null;
             const folder = folders.find((f) => f.id === folderId);
@@ -192,6 +186,8 @@ function DndGrid({
                   folder={folder}
                   mods={folderMods}
                   sortDisabled={isDraggingMod || isDraggingFolderMod}
+                  dropLine={dropLineFor(folderDropLine, sortableId)}
+                  modDropLine={folderModDropLine}
                   onViewDetails={onViewDetails}
                   onEditMetadata={onEditMetadata}
                 />
@@ -204,6 +200,7 @@ function DndGrid({
                 folder={folder}
                 mods={folderMods}
                 sortDisabled={isDraggingMod || isDraggingFolderMod}
+                dropLine={dropLineFor(folderDropLine, sortableId)}
               />
             );
           })}
@@ -213,6 +210,7 @@ function DndGrid({
               key={mod.id}
               mod={mod}
               viewMode={viewMode}
+              dropLine={dropLineFor(dropLine, mod.id)}
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />

@@ -9,6 +9,7 @@ export { useOverscrollSpring } from "./useOverscrollSpring";
 export { usePlatformSupport } from "./usePlatformSupport";
 export { usePrevious } from "./usePrevious";
 export { useReducedMotion } from "./useReducedMotion";
+export { beginReorderHold, useReorderTransition } from "./useReorderTransition";
 export { useResizeObserver } from "./useResizeObserver";
 export { useSurfaceLinkedBinWarning } from "./useSurfaceLinkedBinWarning";
 export { useZoomedPx } from "./useZoomedPx";

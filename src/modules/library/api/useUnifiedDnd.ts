@@ -1,5 +1,4 @@
 import {
-  closestCenter,
   type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
@@ -10,13 +9,22 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import {
+  applyDropSlot,
+  closestToPointer,
+  type DropSlot,
+  dropSlotFor,
+  hasOrderChanged,
+  isSameSlot,
+  nearestToPointer,
   parseSortableFolderId,
+  pointerInRemoveZone,
   REMOVE_FROM_FOLDER_ID,
   resolveFolderId,
 } from "@/modules/library/utils";
 import { useReorderDisabled } from "@/stores";
 
 import { useFolderDnd } from "./useFolderDnd";
+import { useLingeringSlot } from "./useLingeringSlot";
 import { useMoveModToFolder, useReorderFolderMods } from "./useMoveMod";
 import { useRootModDnd } from "./useRootModDnd";
 
@@ -30,9 +38,10 @@ interface UseUnifiedDndArgs {
 export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: UseUnifiedDndArgs) {
   const reorderDisabled = useReorderDisabled();
   const {
-    localOrder: modLocalOrder,
+    order: rootOrder,
     orderedRootMods,
     activeMod,
+    dropLine,
     handleDragStart: handleModDragStart,
     handleDragOver: handleModDragOver,
     handleDragEnd: handleModDragEnd,
@@ -40,8 +49,9 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
   } = useRootModDnd({ rootMods, onReorder });
 
   const {
-    folderLocalOrder,
+    folderOrder,
     activeFolder,
+    dropLine: folderDropLine,
     handleFolderDragStart,
     handleFolderDragOver,
     handleFolderDragEnd,
@@ -53,6 +63,8 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
 
   const [activeFolderMod, setActiveFolderMod] = useState<InstalledMod | null>(null);
   const [activeFolderModSource, setActiveFolderModSource] = useState<string | null>(null);
+  const [folderModDropSlot, setFolderModDropSlot] = useState<DropSlot | null>(null);
+  const folderModDropLine = useLingeringSlot(folderModDropSlot);
 
   const folderModLookup = useMemo(() => {
     const map = new Map<string, { mod: InstalledMod; folderId: string }>();
@@ -70,11 +82,7 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
   const isDraggingFolderMod = !!activeFolderMod;
   const activeModForOverlay = activeMod ?? activeFolderMod;
 
-  const sortableItems = useMemo(() => {
-    if (isDraggingMod) return modLocalOrder;
-    if (isDraggingFolder) return folderLocalOrder;
-    return [...folderLocalOrder, ...modLocalOrder];
-  }, [folderLocalOrder, modLocalOrder, isDraggingMod, isDraggingFolder]);
+  const sortableItems = useMemo(() => [...folderOrder, ...rootOrder], [folderOrder, rootOrder]);
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
@@ -102,11 +110,16 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
         return;
       }
       if (folderModLookup.has(id)) {
+        const source = folderModLookup.get(id)?.folderId;
+        const overId = event.over?.id as string | undefined;
+        const siblings = (modsByFolder.get(source ?? "") ?? []).map((m) => m.id);
+        const next = !overId || reorderDisabled ? null : dropSlotFor(siblings, id, overId);
+        setFolderModDropSlot((prev) => (isSameSlot(prev, next) ? prev : next));
         return;
       }
       handleModDragOver(event);
     },
-    [handleFolderDragOver, handleModDragOver, folderModLookup],
+    [handleFolderDragOver, handleModDragOver, folderModLookup, modsByFolder, reorderDisabled],
   );
 
   const handleDragEnd = useCallback(
@@ -120,8 +133,10 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
 
       if (activeFolderMod && activeFolderModSource) {
         const overId = event.over?.id as string | undefined;
+        const slot = folderModDropSlot;
         setActiveFolderMod(null);
         setActiveFolderModSource(null);
+        setFolderModDropSlot(null);
 
         if (overId) {
           if (overId === REMOVE_FROM_FOLDER_ID) {
@@ -136,14 +151,10 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
 
           const overFolderMod = folderModLookup.get(overId);
           if (overFolderMod && overFolderMod.folderId === activeFolderModSource) {
-            if (reorderDisabled) return;
+            if (reorderDisabled || !slot) return;
             const currentOrder = (modsByFolder.get(activeFolderModSource) ?? []).map((m) => m.id);
-            const oldIndex = currentOrder.indexOf(id);
-            const newIndex = currentOrder.indexOf(overId);
-            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-              const newOrder = [...currentOrder];
-              newOrder.splice(oldIndex, 1);
-              newOrder.splice(newIndex, 0, id);
+            const newOrder = applyDropSlot(currentOrder, id, slot);
+            if (hasOrderChanged(newOrder, currentOrder)) {
               reorderFolderMods.mutate({ folderId: activeFolderModSource, modIds: newOrder });
             }
           }
@@ -158,6 +169,7 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
       handleModDragEnd,
       activeFolderMod,
       activeFolderModSource,
+      folderModDropSlot,
       folderModLookup,
       modsByFolder,
       moveModToFolder,
@@ -171,17 +183,24 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
     handleModDragCancel();
     setActiveFolderMod(null);
     setActiveFolderModSource(null);
+    setFolderModDropSlot(null);
   }, [handleFolderDragCancel, handleModDragCancel]);
 
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
       const activeId = args.active.id as string;
 
+      /* A folder lands between folders, never inside a mod, so the mods are not
+         candidates for it at all. */
       if (parseSortableFolderId(activeId)) {
-        return closestCenter(args);
+        const folderCards = args.droppableContainers.filter((c) =>
+          parseSortableFolderId(c.id as string),
+        );
+        if (folderCards.length === 0) return [];
+        return closestToPointer({ ...args, droppableContainers: folderCards });
       }
 
-      const removeHit = pointerWithin(args).find((c) => c.id === REMOVE_FROM_FOLDER_ID);
+      const removeHit = pointerInRemoveZone(args);
       if (removeHit) return [removeHit];
 
       const activeSourceFolderId = folderModLookup.get(activeId)?.folderId;
@@ -205,17 +224,18 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
             })
             .filter(Boolean) as ReturnType<CollisionDetection>;
         }
-        const folderHit = pointerWithin({ ...args, droppableContainers: withoutSource }).find((c) =>
-          parseSortableFolderId(c.id as string),
-        );
+        const hits = pointerWithin({ ...args, droppableContainers: withoutSource });
+        const folderHit = hits.find((c) => parseSortableFolderId(c.id as string));
         if (folderHit) return [folderHit];
 
-        const siblingsOnly = withoutSource.filter((c) => {
-          const mod = folderModLookup.get(c.id as string);
-          return mod && mod.folderId === activeSourceFolderId;
-        });
+        const isSibling = (id: string) =>
+          folderModLookup.get(id)?.folderId === activeSourceFolderId;
+        const siblingHit = hits.find((c) => isSibling(c.id as string));
+        if (siblingHit) return [siblingHit];
+
+        const siblingsOnly = withoutSource.filter((c) => isSibling(c.id as string));
         if (siblingsOnly.length === 0) return [];
-        return closestCenter({ ...args, droppableContainers: siblingsOnly });
+        return nearestToPointer({ ...args, droppableContainers: siblingsOnly });
       }
 
       if (reorderDisabled) {
@@ -229,28 +249,38 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
         });
       }
 
-      const withoutFolderMods = args.droppableContainers.filter(
-        (c) => !folderModLookup.has(c.id as string),
-      );
-      // Use pointerWithin for folder drops (requires pointer inside folder),
-      // closestCenter for mod reorder (works by proximity to center)
-      const folderHit = pointerWithin({ ...args, droppableContainers: withoutFolderMods }).find(
-        (c) => parseSortableFolderId(c.id as string),
-      );
-      if (folderHit) return [folderHit];
+      // One pass: this runs on every pointer move, over every card in the library.
+      const withoutFolderMods: typeof args.droppableContainers = [];
+      const rootModsOnly: typeof args.droppableContainers = [];
+      for (const container of args.droppableContainers) {
+        const id = container.id as string;
+        if (folderModLookup.has(id)) continue;
+        withoutFolderMods.push(container);
+        if (!parseSortableFolderId(id) && id !== REMOVE_FROM_FOLDER_ID) {
+          rootModsOnly.push(container);
+        }
+      }
 
-      const rootModsOnly = withoutFolderMods.filter(
-        (c) => !parseSortableFolderId(c.id as string) && c.id !== REMOVE_FROM_FOLDER_ID,
-      );
+      /* A folder takes the drop only with the pointer inside it, so both answers
+         come out of the one pointer pass and only a pointer in a gutter pays for
+         a second sweep. */
+      const hits = pointerWithin({ ...args, droppableContainers: withoutFolderMods });
+      const folderHit = hits.find((c) => parseSortableFolderId(c.id as string));
+      if (folderHit) return [folderHit];
+      if (hits.length > 0) return [hits[0]];
+
       if (rootModsOnly.length === 0) return [];
-      return closestCenter({ ...args, droppableContainers: rootModsOnly });
+      return nearestToPointer({ ...args, droppableContainers: rootModsOnly });
     },
     [folderModLookup, reorderDisabled],
   );
 
   return {
-    folderLocalOrder,
+    folderOrder,
     orderedRootMods,
+    dropLine,
+    folderDropLine,
+    folderModDropLine,
     activeFolder,
     activeModForOverlay,
     isDraggingMod,

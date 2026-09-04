@@ -4,14 +4,21 @@ import { GripVertical } from "lucide-react";
 import type { CSSProperties } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
+import type { LingeringSlot } from "@/modules/library/api";
+import { type CardDropLine, NO_DROP_LINE, parseSortableFolderId } from "@/modules/library/utils";
 import { useReorderDisabled } from "@/stores";
 
+import { DropLine } from "./DropLine";
 import { FolderRow } from "./FolderRow";
 
 interface SortableFolderRowProps {
   sortableId: string;
   folder: LibraryFolder;
   mods: InstalledMod[];
+  /** The gap this folder would land beside. */
+  dropLine?: CardDropLine;
+  /** The gap a mod would land in among the folder's own mods. */
+  modDropLine?: LingeringSlot;
   sortDisabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
@@ -21,13 +28,15 @@ export function SortableFolderRow({
   sortableId,
   folder,
   mods,
+  dropLine = NO_DROP_LINE,
+  modDropLine,
   sortDisabled,
   onViewDetails,
   onEditMetadata,
 }: SortableFolderRowProps) {
   const reorderDisabled = useReorderDisabled();
   const disabled = sortDisabled || reorderDisabled;
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
+  const { active, attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
     useSortable({ id: sortableId, disabled: disabled ? { draggable: true } : false });
 
   const style: CSSProperties = {
@@ -36,16 +45,24 @@ export function SortableFolderRow({
     willChange: transform ? "transform" : undefined,
   };
 
+  /* A folder is reordered past this one, so it lands in a gap the line marks.
+     Only a mod lands in the folder itself, which is what the ring says. */
+  const receivingMod = isOver && !isDragging && !parseSortableFolderId(String(active?.id ?? ""));
+
   return (
     <div
       ref={setNodeRef}
+      data-flip-id={sortableId}
       style={style}
       className={`group/sortable-folder relative rounded-lg transition-all duration-150 ${
-        isOver && !isDragging ? "bg-accent-500/10 ring-2 ring-accent-500" : ""
+        receivingMod ? "bg-accent-500/10 ring-2 ring-accent-500" : ""
       } ${isDragging ? "z-0" : ""}`}
     >
       {isDragging && (
         <div className="absolute inset-0 rounded-lg border-2 border-dashed border-accent-500/40 bg-accent-500/5" />
+      )}
+      {dropLine.side && (
+        <DropLine orientation="horizontal" side={dropLine.side} visible={dropLine.visible} />
       )}
       <div className={`flex items-start ${isDragging ? "invisible" : ""}`}>
         {!disabled && (
@@ -63,6 +80,7 @@ export function SortableFolderRow({
           <FolderRow
             folder={folder}
             mods={mods}
+            modDropLine={modDropLine}
             dndDisabled={false}
             onViewDetails={onViewDetails}
             onEditMetadata={onEditMetadata}

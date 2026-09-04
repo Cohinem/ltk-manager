@@ -40,19 +40,12 @@ describe("useSortableModDnd", () => {
     vi.clearAllMocks();
   });
 
-  it("initializes localOrder from mods", () => {
+  it("takes its order from mods", () => {
     const { result } = renderHook(() =>
       useSortableModDnd({ mods: makeMods(["a", "b", "c"]), onReorder }),
     );
 
-    expect(result.current.localOrder).toEqual(["a", "b", "c"]);
-  });
-
-  it("returns orderedMods matching localOrder", () => {
-    const { result } = renderHook(() =>
-      useSortableModDnd({ mods: makeMods(["a", "b", "c"]), onReorder }),
-    );
-
+    expect(result.current.order).toEqual(["a", "b", "c"]);
     expect(result.current.orderedMods.map((m) => m.id)).toEqual(["a", "b", "c"]);
   });
 
@@ -67,7 +60,7 @@ describe("useSortableModDnd", () => {
     expect(result.current.activeMod?.id).toBe("a");
   });
 
-  it("reorders on drag over", () => {
+  it("holds the order still and marks the gap instead", () => {
     const { result } = renderHook(() =>
       useSortableModDnd({ mods: makeMods(["a", "b", "c"]), onReorder }),
     );
@@ -75,10 +68,35 @@ describe("useSortableModDnd", () => {
     act(() => result.current.handleDragStart(dragStart("a")));
     act(() => result.current.handleDragOver(dragOver("a", "c")));
 
-    expect(result.current.localOrder).toEqual(["b", "c", "a"]);
+    expect(result.current.order).toEqual(["a", "b", "c"]);
+    expect(result.current.dropSlot).toEqual({ id: "c", side: "after" });
   });
 
-  it("skips reorder when hovering remove-from-folder zone", () => {
+  it("marks the near edge when dragging back up the list", () => {
+    const { result } = renderHook(() =>
+      useSortableModDnd({ mods: makeMods(["a", "b", "c"]), onReorder }),
+    );
+
+    act(() => result.current.handleDragStart(dragStart("c")));
+    act(() => result.current.handleDragOver(dragOver("c", "a")));
+
+    expect(result.current.dropSlot).toEqual({ id: "a", side: "before" });
+  });
+
+  it("keeps the same slot object while the pointer stays on one gap", () => {
+    const { result } = renderHook(() =>
+      useSortableModDnd({ mods: makeMods(["a", "b", "c"]), onReorder }),
+    );
+
+    act(() => result.current.handleDragStart(dragStart("a")));
+    act(() => result.current.handleDragOver(dragOver("a", "c")));
+    const first = result.current.dropSlot;
+    act(() => result.current.handleDragOver(dragOver("a", "c")));
+
+    expect(result.current.dropSlot).toBe(first);
+  });
+
+  it("marks no gap over the remove-from-folder zone", () => {
     const { result } = renderHook(() =>
       useSortableModDnd({ mods: makeMods(["a", "b"]), onReorder }),
     );
@@ -86,10 +104,10 @@ describe("useSortableModDnd", () => {
     act(() => result.current.handleDragStart(dragStart("a")));
     act(() => result.current.handleDragOver(dragOver("a", "remove-from-folder")));
 
-    expect(result.current.localOrder).toEqual(["a", "b"]);
+    expect(result.current.dropSlot).toBeNull();
   });
 
-  it("calls onReorder on drag end when order changed", () => {
+  it("reorders into the marked gap on drop", () => {
     const { result } = renderHook(() =>
       useSortableModDnd({ mods: makeMods(["a", "b", "c"]), onReorder }),
     );
@@ -100,9 +118,10 @@ describe("useSortableModDnd", () => {
 
     expect(onReorder).toHaveBeenCalledWith(["b", "c", "a"]);
     expect(result.current.activeId).toBeNull();
+    expect(result.current.dropSlot).toBeNull();
   });
 
-  it("does not call onReorder when order unchanged", () => {
+  it("does not reorder when no gap was marked", () => {
     const { result } = renderHook(() =>
       useSortableModDnd({ mods: makeMods(["a", "b"]), onReorder }),
     );
@@ -113,19 +132,19 @@ describe("useSortableModDnd", () => {
     expect(onReorder).not.toHaveBeenCalled();
   });
 
-  it("resets order on drag cancel", () => {
+  it("clears the gap on drag cancel", () => {
     const { result } = renderHook(() =>
       useSortableModDnd({ mods: makeMods(["a", "b", "c"]), onReorder }),
     );
 
     act(() => result.current.handleDragStart(dragStart("a")));
     act(() => result.current.handleDragOver(dragOver("a", "c")));
-    expect(result.current.localOrder).toEqual(["b", "c", "a"]);
 
     act(() => result.current.handleDragCancel());
 
-    expect(result.current.localOrder).toEqual(["a", "b", "c"]);
+    expect(result.current.dropSlot).toBeNull();
     expect(result.current.activeId).toBeNull();
+    expect(result.current.order).toEqual(["a", "b", "c"]);
   });
 
   it("calls moveModToFolder when dropped on remove zone with folderId", () => {
@@ -151,27 +170,14 @@ describe("useSortableModDnd", () => {
     expect(mockMutate).not.toHaveBeenCalled();
   });
 
-  it("syncs localOrder when mods prop changes", () => {
-    const { result, rerender } = renderHook(({ mods }) => useSortableModDnd({ mods, onReorder }), {
-      initialProps: { mods: makeMods(["a", "b"]) },
-    });
-
-    expect(result.current.localOrder).toEqual(["a", "b"]);
-
-    rerender({ mods: makeMods(["a", "b", "c"]) });
-
-    expect(result.current.localOrder).toEqual(["a", "b", "c"]);
-  });
-
-  it("does not sync localOrder during active drag", () => {
+  it("follows the mods prop, mid-drag included", () => {
     const { result, rerender } = renderHook(({ mods }) => useSortableModDnd({ mods, onReorder }), {
       initialProps: { mods: makeMods(["a", "b"]) },
     });
 
     act(() => result.current.handleDragStart(dragStart("a")));
+    rerender({ mods: makeMods(["a", "b", "c"]) });
 
-    rerender({ mods: makeMods(["b", "a"]) });
-
-    expect(result.current.localOrder).toEqual(["a", "b"]);
+    expect(result.current.order).toEqual(["a", "b", "c"]);
   });
 });
