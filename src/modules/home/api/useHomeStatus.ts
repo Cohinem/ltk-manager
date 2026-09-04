@@ -14,7 +14,7 @@ import { useSettings, useSyncHashtables } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
 
 /** How loud the line is drawn, per "How loud a finding is drawn" in docs/ux/MOD_HEALTH.md. */
-export type HomeStatusTone = "ready" | "muted" | "warning" | "danger";
+export type HomeStatusTone = "muted" | "warning" | "danger";
 
 export interface HomeStatusAction {
   label: string;
@@ -35,8 +35,8 @@ export interface HomeStatusInputs {
   installedGameBuild: string | null;
 }
 
-/** Whether pressing Play is safe right now, per "The status line" in docs/ux/HOME.md. */
-export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeStatus {
+/** What stands between the reader and Play, or `null` when nothing does. */
+export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeStatus | null {
   const { data: platform } = usePlatformSupport();
   const { data: settings } = useSettings();
   const readiness = useHealthCheckReadiness();
@@ -120,7 +120,7 @@ export function useHomeStatus({ installedGameBuild }: HomeStatusInputs): HomeSta
     };
   }
 
-  return { tone: "ready", line: m.home_status_ready_label(), action: null };
+  return null;
 }
 
 /** The game build the stored verdicts were taken on, or `null` before any were. */

@@ -85,7 +85,6 @@
   "home_status_league_unset_action": "Set it",
   "home_status_league_unset_label": "League's folder is not set",
   "home_status_platform_label": "The patcher does not run on this system yet",
-  "home_status_ready_label": "Good to go",
   "home_status_repairable_action": "Repair",
   "home_status_repairable_label": [
     {

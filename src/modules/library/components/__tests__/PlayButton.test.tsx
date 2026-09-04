@@ -184,7 +184,7 @@ describe("PlayButton", () => {
     // the split one, and the node found before that is detached by the time it
     // would be clicked.
     await screen.findByRole("button", { name: "More launch options" });
-    await userEvent.click(screen.getByRole("button", { name: "Start Patcher" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start" }));
 
     await waitFor(() => expect(invokedCommands()).toContain("start_patcher"));
     expect(invokedCommands()).not.toContain("launch_league");
@@ -202,9 +202,7 @@ describe("PlayButton", () => {
     );
 
     await screen.findByTestId("mods-ready");
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Start Patcher" })).toBeDisabled(),
-    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Start" })).toBeDisabled());
   });
 
   /// Classic mode is the setting for people who start League themselves, so the
@@ -213,7 +211,7 @@ describe("PlayButton", () => {
     mockBackend();
     render(<PlayButton />, { wrapper });
 
-    const button = await screen.findByRole("button", { name: "Start Patcher" });
+    const button = await screen.findByRole("button", { name: "Start" });
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
 
@@ -227,7 +225,7 @@ describe("PlayButton", () => {
     mockBackend();
     render(<PlayButton />, { wrapper });
 
-    await screen.findByRole("button", { name: "Start Patcher" });
+    await screen.findByRole("button", { name: "Start" });
     expect(screen.queryByRole("button", { name: "More launch options" })).not.toBeInTheDocument();
   });
 

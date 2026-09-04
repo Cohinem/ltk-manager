@@ -1,6 +1,7 @@
 import { PlugsIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useRef, useState } from "react";
+import { twMerge } from "tailwind-merge";
 
 import { Button, Popover } from "@/components";
 import { useModHealthDrawerStore } from "@/stores";
@@ -14,6 +15,8 @@ export type GuardedLaunch = (launch: () => void) => void;
 interface ModHealthLaunchGuardProps {
   /** The launch controls, given the wrapper every one of their actions goes through. */
   children: (ask: GuardedLaunch) => ReactNode;
+  /** Laid over the anchor, which is what decides how wide the controls may run. */
+  className?: string;
 }
 
 /**
@@ -28,7 +31,7 @@ interface ModHealthLaunchGuardProps {
  * held launch lives here: a menu item is gone from the screen by the time the
  * reader answers, and something has to still be holding what they pressed.
  */
-export function ModHealthLaunchGuard({ children }: ModHealthLaunchGuardProps) {
+export function ModHealthLaunchGuard({ children, className }: ModHealthLaunchGuardProps) {
   const broken = useBrokenEnabledMods();
   const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
   const requestRepair = useModHealthDrawerStore((s) => s.requestRepair);
@@ -73,7 +76,7 @@ export function ModHealthLaunchGuard({ children }: ModHealthLaunchGuardProps) {
   }
 
   return (
-    <div ref={anchor} className="inline-flex">
+    <div ref={anchor} className={twMerge("inline-flex", className)}>
       {children(ask)}
       <Popover.Root open={held !== null} onOpenChange={(next) => !next && setHeld(null)}>
         <Popover.Portal>

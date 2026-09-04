@@ -4,6 +4,10 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-03 | Draw Play as an accent edge over a wash rather than a solid fill       |
+| 2026-09-03 | Cap the page's width, and draw Play as the rail's own block            |
+| 2026-09-03 | Move Play to the head of the right rail, over the tiles it scrolls     |
+| 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats    |
 | 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast |
 | 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot  |
 | 2026-09-03 | Specify v1 in #391: stubs for the checklist and the game build         |
@@ -70,23 +74,32 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 
 ## Layout
 
-The default window is about 900 by 850. The page does not scroll. The header holds the status
-line and the primary button, a notice sits under it while there is one, and two columns fill the
-rest. The left column is one tall card, Recent changes, which scrolls inside itself as the
-changelog dialog does. The right column is a stack of tiles, and it scrolls as a column when the
-stack is taller than the window.
+The default window is about 900 by 850. The page does not scroll. The status line takes a row of
+its own while one holds and no room at all otherwise, a notice sits under it while there is one,
+and two columns fill the rest. The left column is one tall card, Recent changes, which scrolls
+inside itself as the changelog dialog does.
+
+The right column is the rail. Play heads it, full width and a size up, and under the button a
+stack of tiles scrolls as a column when the stack is taller than the window. The button sits
+outside that scroller, so the primary action is in the same place whatever the tiles are doing.
+
+The page holds a maximum width and centres above it. Recent changes is a reading surface, and
+without the cap every pixel a wider window gained went to that one card, until its lines ran
+past what anyone reads comfortably and the rail sat in dead space. A wider window buys margins
+instead, and the page keeps the proportions it was drawn at from the default size up.
 
 ```
 +------------------------------------------------------------------------------+
 | (mark) LTK Manager  v1.15.4   Home*  Mods  Workshop        (bell)(gear) - o x |
 +------------------------------------------------------------------------------+
 |                                                                              |
-|  Good to go.                                                 [ (L) Play  v ] |
-|  Default  -  4 of 7 mods enabled  -  League 26.9                             |
+|  (!) 2 enabled mods need a repair  [Repair]                                  |
 |                                                                              |
 |  +-- notice ---------------------------------------------------------------+ |
 |  | (!) Patch 26.9: the patcher takes longer to hook.  What to do       [x] | |
 |  +-------------------------------------------------------------------------+ |
+|                                                                              |
+|                                                 [ (L) Play               v ] |
 |                                                                              |
 |  +-- Recent changes -------------------------+  +-- Your library ----------+ |
 |  | v1.15.4  [Installed]        Sep 3, 2026   |  | Default                  | |
@@ -115,8 +128,16 @@ stack is taller than the window.
 +------------------------------------------------------------------------------+
 ```
 
-The primary button is the library's `PlayButton`, the same component with the same menu and the
-same launch guard, so Play from Home is Play from the library. A reader who opens the app to play
+Play heads the rail rather than the page, over the library it launches. It is the library's
+`PlayButton`, the same component with the same menu and the same launch guard, so Play from Home
+is Play from the library. Home asks it for its block shape, which is the toolbar's control drawn
+full width and one size up, since here it is the page's one primary action rather than one press
+in a row of them.
+
+The block shape is an accent edge over a wash rather than the toolbar's solid fill. Filled is what
+a press in a row of peers wears to be found among them, and at the head of the rail, alone and the
+width of the column, the same fill reads as a banner instead of a button. The edge is what carries
+it there. A reader who opens the app to play
 presses it here and never visits the library, which is what lets Home be the landing page without
 costing that reader a click.
 
@@ -139,11 +160,11 @@ is a new claim.
 | An enabled mod is unrepairable         | {n} enabled mods will break the game                                  | Show, opens the health drawer            |
 | An enabled mod is repairable           | {n} enabled mods need a repair                                        | Repair                                   |
 | The game build is newer than the basis | League updated to {build}. Your mods have not been checked against it | Check                                    |
-| Otherwise                              | Good to go                                                            | none                                     |
+| Otherwise                              | nothing, the row is not drawn                                         | none                                     |
 
-Under the line, one row of facts in muted text: the active profile, enabled of total, and the
-installed game build. The facts stay in every state, so the line above them is read against the
-same ground.
+The all-clear is drawn as no row at all. A line saying the library is fine is a line the reader
+learns to read past, and the rail already carries the profile, the counts and the build, so the
+row costs the page nothing while nothing holds.
 
 An update on offer is not a state of the library, so it never takes the line. It is the New chip
 in Recent changes, and the title bar's Update cell, which it already is.
@@ -300,7 +321,6 @@ own sentences are here too, since no other surface says them as one line.
 | Key                                       | Text                                                                  |
 | ----------------------------------------- | --------------------------------------------------------------------- |
 | `home_nav_label`                          | Home                                                                  |
-| `home_status_ready_label`                 | Good to go                                                            |
 | `home_status_platform_label`              | The patcher does not run on this system yet                           |
 | `home_status_league_unset_label`          | League's folder is not set                                            |
 | `home_status_hashtables_unsynced_label`   | Mod health waits for the hashtables                                   |

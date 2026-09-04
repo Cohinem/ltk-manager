@@ -13,6 +13,7 @@ import {
 import {
   DragDropOverlay,
   ImportProgressDialog,
+  PlayButton,
   useLibraryActions,
   useLibraryHotkeys,
   useModFileDrop,
@@ -41,21 +42,29 @@ export function Home() {
   const installing = actions.installMod.isPending || actions.bulkInstallMods.isPending;
 
   return (
-    <div data-ui="Home" className="relative flex h-full flex-col gap-4 p-4">
+    <div data-ui="Home" className="relative h-full">
       <DragDropOverlay visible={isDragOver} />
-      {!patcherAvailable && <PatcherUnsupported />}
-      <HomeHeader installing={installing} />
-      <NoticeBanners />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_20rem] gap-4">
-        <RecentChanges />
-        <div data-ui="Home:tiles" className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-          <LibraryTile
-            onAddMod={actions.handleImportMods}
-            onImportFromCslol={() => setMigrationOpen(true)}
-          />
-          <LastGameTile />
-          <NewsTile />
+      {/* Capped and centred: a wider window buys margins, not one wider card. */}
+      <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 px-4 pt-4">
+        {!patcherAvailable && <PatcherUnsupported />}
+        <HomeHeader />
+        <NoticeBanners />
+
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_20rem] gap-4">
+          <RecentChanges />
+          <div data-ui="Home:rail" className="flex min-h-0 flex-col gap-4">
+            {/* Outside the scroller: the primary action stays put while the tiles move. */}
+            <PlayButton block disabled={installing} />
+            <div data-ui="Home:tiles" className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+              <LibraryTile
+                onAddMod={actions.handleImportMods}
+                onImportFromCslol={() => setMigrationOpen(true)}
+              />
+              <LastGameTile />
+              <NewsTile />
+            </div>
+          </div>
         </div>
       </div>
 

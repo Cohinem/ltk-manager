@@ -179,14 +179,13 @@ describe("Home", () => {
   });
 
   describe("the status line", () => {
-    it("says it is good to go, over the facts it is read against", async () => {
+    it("says nothing when nothing stands between the reader and Play", async () => {
       renderWithProviders(<Home />);
 
-      expect(await screen.findByText("Good to go")).toBeVisible();
-      /* Once in the facts row and once in the library tile. */
-      expect(await screen.findAllByText("Default")).toHaveLength(2);
-      expect(screen.getAllByText("2 of 3 enabled")).toHaveLength(2);
-      expect(screen.getByRole("button", { name: /^Play$/ })).toBeVisible();
+      expect(await screen.findByRole("button", { name: /^Play$/ })).toBeVisible();
+      /* The library tile is the only place the facts are said. */
+      expect(await screen.findAllByText("Default")).toHaveLength(1);
+      expect(screen.getAllByText("2 of 3 enabled")).toHaveLength(1);
     });
 
     it("says the patcher does not run here, and offers nothing for it", async () => {
