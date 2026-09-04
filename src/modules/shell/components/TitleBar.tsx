@@ -38,8 +38,8 @@ import { UpdateButton } from "./UpdateButton";
 
 const navItems = [
   { to: "/", label: m.home_nav_label(), icon: HouseIcon, exact: true },
-  { to: "/native", label: "Native", icon: LayerIcon, exact: true },
   { to: "/mods", label: "Mods", icon: CollectionIcon, exact: false },
+  { to: "/native", label: "Native", icon: LayerIcon, exact: true },
   { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
 ] as const;
 
