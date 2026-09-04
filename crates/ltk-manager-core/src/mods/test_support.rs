@@ -12,7 +12,7 @@ use crate::hashtables::WadPathResolverState;
 use crate::mods::ModLibrary;
 use crate::mods::analysis::linked_bins::LinkedBinState;
 use crate::mods::analysis::wad_reports::WadReportState;
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModSource, ModStorage};
 use crate::mods::slug::ModSlug;
 use crate::mods::types::{Profile, ProfileSlug};
 use chrono::Utc;
@@ -138,6 +138,7 @@ pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModE
         storage: ModStorage::Archive,
         slug: None,
         harvest: None,
+        source: ModSource::Import,
     }
 }
 

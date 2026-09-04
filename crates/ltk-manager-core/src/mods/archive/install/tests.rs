@@ -18,7 +18,8 @@ fn install(storage: &Path, archive: &Path) -> AppResult<LibraryModEntry> {
     let mut index = LibraryIndex::default();
     let staged = stage_mod_package(storage, archive.to_str().unwrap(), &context())?;
     let mut taken = TakenSlugs::collect(&index, &storage.join("mods"));
-    let (entry, _) = register_staged_mod(storage, &mut index, staged, &mut taken)?;
+    let (entry, _) =
+        register_staged_mod(storage, &mut index, staged, ModSource::Import, &mut taken)?;
     Ok(entry)
 }
 
@@ -292,8 +293,14 @@ fn registering_moves_staging_into_the_slug_directory_and_records_the_mod() {
     let mut index = LibraryIndex::default();
     let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
     let mut taken = TakenSlugs::collect(&index, &storage.path().join("mods"));
-    let (entry, installed) =
-        register_staged_mod(storage.path(), &mut index, staged, &mut taken).unwrap();
+    let (entry, installed) = register_staged_mod(
+        storage.path(),
+        &mut index,
+        staged,
+        ModSource::Import,
+        &mut taken,
+    )
+    .unwrap();
 
     assert_eq!(entry.slug.as_ref().unwrap().as_str(), "dark-cosmic-jhin");
     assert!(
@@ -333,7 +340,9 @@ fn two_mods_with_one_name_get_distinct_directories() {
         paths.push(archive.to_str().unwrap().to_string());
     }
 
-    let result = library.install_mods_from_packages(&config, &paths).unwrap();
+    let result = library
+        .install_mods_from_packages(&config, &paths, ModSource::Import)
+        .unwrap();
     assert!(result.failed.is_empty());
     assert_eq!(result.installed.len(), 3);
 
@@ -421,6 +430,137 @@ fn uninstalling_a_legacy_entry_clears_both_of_its_old_paths() {
     library.uninstall_mod_by_id(&config, "legacy").unwrap();
     assert!(!entry.mod_dir(storage.path()).exists());
     assert!(!entry.archive_path(storage.path()).exists());
+}
+
+/// The Native page's apply is a slot, not a pile: the skin applied before
+/// leaves the library with its files, and the new one takes its place.
+#[test]
+fn applying_a_league_skin_replaces_the_previous_one() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let source = tempfile::tempdir().unwrap();
+
+    let first = source.path().join("first.fantome");
+    make_named_fantome_zip(&first, "First Skin");
+    let second = source.path().join("second.fantome");
+    make_named_fantome_zip(&second, "Second Skin");
+
+    let replaced = library
+        .install_mod_replacing_source(&config, first.to_str().unwrap(), ModSource::LeagueSkins)
+        .unwrap();
+    assert!(PathBuf::from(&replaced.mod_dir).is_dir());
+
+    let installed = library
+        .install_mod_replacing_source(&config, second.to_str().unwrap(), ModSource::LeagueSkins)
+        .unwrap();
+
+    assert_ne!(installed.id, replaced.id);
+    assert!(!PathBuf::from(&replaced.mod_dir).exists());
+    assert!(
+        !storage
+            .path()
+            .join("mods")
+            .join("first-skin.fantome")
+            .exists()
+    );
+    library
+        .with_index(&config, |_storage, index| {
+            assert_eq!(index.mods.len(), 1);
+            assert_eq!(index.mods[0].id, installed.id);
+            assert_eq!(index.mods[0].source, ModSource::LeagueSkins);
+            assert_eq!(index.profiles[0].enabled_mods, vec![installed.id.clone()]);
+            assert_eq!(index.folders[0].mod_ids, vec![installed.id.clone()]);
+            Ok(())
+        })
+        .unwrap();
+}
+
+/// An import is not a slot: the Native page replaces only what it applied.
+#[test]
+fn applying_a_league_skin_leaves_imported_mods_alone() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let source = tempfile::tempdir().unwrap();
+
+    let handpicked = source.path().join("handpicked.fantome");
+    make_named_fantome_zip(&handpicked, "Handpicked");
+    let imported = library
+        .install_mod_from_package(&config, handpicked.to_str().unwrap())
+        .unwrap();
+
+    let skin = source.path().join("skin.fantome");
+    make_named_fantome_zip(&skin, "Skin");
+    let applied = library
+        .install_mod_replacing_source(&config, skin.to_str().unwrap(), ModSource::LeagueSkins)
+        .unwrap();
+
+    let other = source.path().join("other.fantome");
+    make_named_fantome_zip(&other, "Other Skin");
+    let reapplied = library
+        .install_mod_replacing_source(&config, other.to_str().unwrap(), ModSource::LeagueSkins)
+        .unwrap();
+
+    assert_ne!(reapplied.id, applied.id);
+    library
+        .with_index(&config, |_storage, index| {
+            assert_eq!(index.mods.len(), 2);
+            assert!(index.mods.iter().any(|m| m.id == imported.id));
+            assert!(!index.mods.iter().any(|m| m.id == applied.id));
+            Ok(())
+        })
+        .unwrap();
+}
+
+/// The replaced mod's slug is freed before the replacement takes one, so
+/// re-applying a skin keeps its directory name instead of stacking -2, -3.
+#[test]
+fn reapplying_a_league_skin_keeps_the_directory_name_of_the_mod_it_replaces() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("same.fantome");
+    make_named_fantome_zip(&archive, "Same Skin");
+
+    let first = library
+        .install_mod_replacing_source(&config, archive.to_str().unwrap(), ModSource::LeagueSkins)
+        .unwrap();
+    let second = library
+        .install_mod_replacing_source(&config, archive.to_str().unwrap(), ModSource::LeagueSkins)
+        .unwrap();
+
+    assert_ne!(first.id, second.id);
+    assert_eq!(first.mod_dir, second.mod_dir);
+}
+
+/// Staging happens before the index transaction, so a package that cannot be
+/// read never touches the skin it would have replaced.
+#[test]
+fn a_failed_league_skin_apply_leaves_the_previous_skin_standing() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let source = tempfile::tempdir().unwrap();
+
+    let good = source.path().join("good.fantome");
+    make_named_fantome_zip(&good, "Good Skin");
+    let applied = library
+        .install_mod_replacing_source(&config, good.to_str().unwrap(), ModSource::LeagueSkins)
+        .unwrap();
+
+    let broken = source.path().join("broken.fantome");
+    fs::write(&broken, b"not a zip").unwrap();
+    assert!(
+        library
+            .install_mod_replacing_source(&config, broken.to_str().unwrap(), ModSource::LeagueSkins)
+            .is_err()
+    );
+
+    library
+        .with_index(&config, |_storage, index| {
+            assert_eq!(index.mods.len(), 1);
+            assert_eq!(index.mods[0].id, applied.id);
+            Ok(())
+        })
+        .unwrap();
 }
 
 /// Write an index holding exactly `mods`, with one profile that names them all.

@@ -268,6 +268,22 @@ impl From<ltk_mod_project::HarvestReport> for HarvestSummary {
     }
 }
 
+/// How a mod entered the library.
+///
+/// Recorded rather than derived: the Native page replaces what it applied
+/// before, and only mods the Native page applied should be replaced — a user's
+/// own import that happens to hold the same skin stays untouched.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ModSource {
+    /// Installed by the user: a picked file, a deep link, or reconciliation
+    /// discovering a directory under `mods/`.
+    #[default]
+    Import,
+    /// Applied from the Native page's LeagueSkins folder.
+    LeagueSkins,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct LibraryModEntry {
@@ -294,6 +310,11 @@ pub(crate) struct LibraryModEntry {
     /// the preserve existed. `None` for a modpkg and for older entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) harvest: Option<HarvestSummary>,
+    /// How the mod entered the library. Defaulted for an index written before
+    /// the field existed — everything installed before then was imported,
+    /// because nothing else could install.
+    #[serde(default)]
+    pub(crate) source: ModSource,
 }
 
 impl LibraryModEntry {

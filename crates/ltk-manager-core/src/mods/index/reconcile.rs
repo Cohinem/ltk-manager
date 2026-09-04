@@ -8,7 +8,7 @@
 use crate::mods::archive::install::{self, InstallContext, STAGING_PREFIX};
 use crate::mods::archive::metadata;
 use crate::mods::index::document::archive_path;
-use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat, ModStorage};
+use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat, ModSource, ModStorage};
 use crate::mods::organize::folders;
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::ROOT_FOLDER_ID;
@@ -231,6 +231,7 @@ fn adopt_mod_directory(storage_dir: &Path, path: &Path, dir_name: &str) -> Optio
         // point at it, and re-slugging would break them for no gain.
         slug: Some(slug),
         harvest: None,
+        source: ModSource::Import,
     })
 }
 
@@ -293,6 +294,7 @@ fn discover_new_archives(
             index,
             &path_str,
             context,
+            ModSource::Import,
             &mut taken,
         ) {
             Ok((_entry, installed)) => {

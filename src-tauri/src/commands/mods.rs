@@ -2,7 +2,7 @@ use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult, MutexResultExt, Utf8PathExt};
 use crate::mods::{
     inspect_modpkg_file, with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope,
-    ExportShape, ExportSummary, InstalledMod, ModLibraryState, ModStorage, ModWadReport,
+    ExportShape, ExportSummary, InstalledMod, ModLibraryState, ModSource, ModStorage, ModWadReport,
     ModpkgInfo, WadReportState,
 };
 use crate::patcher::{PatcherError, PatcherState};
@@ -69,9 +69,11 @@ pub fn apply_league_skin(
         })?;
         let package_path = find_league_skin_package(&skins_root, champion_id, skin_id, chroma_id)?;
         let config = settings_snapshot.config;
-        let installed = library
-            .0
-            .install_mod_from_package(&config, package_path.to_string_lossy().as_ref())?;
+        let installed = library.0.install_mod_replacing_source(
+            &config,
+            package_path.to_string_lossy().as_ref(),
+            ModSource::LeagueSkins,
+        )?;
         library
             .0
             .spawn_categorization(&config, vec![installed.id.clone()]);
@@ -135,7 +137,10 @@ pub fn install_mods(
     let result: AppResult<BulkInstallResult> = (|| {
         reject_if_patcher_running(&patcher)?;
         let config = settings.config()?;
-        let result = library.0.install_mods_from_packages(&config, &file_paths)?;
+        let result =
+            library
+                .0
+                .install_mods_from_packages(&config, &file_paths, ModSource::Import)?;
         let ids: Vec<String> = result.installed.iter().map(|m| m.id.clone()).collect();
         library.0.spawn_categorization(&config, ids.clone());
         library.0.spawn_health_check(&config, ids);

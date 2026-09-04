@@ -49,7 +49,7 @@ pub use health::sweep::{HealthSweepReport, HealthSweepState, SweepScope};
 #[cfg(debug_assertions)]
 pub use health::timing::{HealthTiming, ModTiming};
 pub use health::{HealthCheckBasis, HealthCheckReadiness, ModHealth, ModHealthVerdict};
-pub use index::document::{ModArchiveFormat, ModStorage};
+pub use index::document::{ModArchiveFormat, ModSource, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
 pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};
 

@@ -7,6 +7,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use crate::mods::ModLibrary;
+use crate::mods::ModSource;
 use crate::mods::types::BulkInstallResult;
 
 /// Metadata for a discovered cslol-manager mod, shown in the UI selection step.
@@ -122,7 +123,7 @@ pub fn import_cslol_mods(
         }
     }
 
-    let result = library.install_mods_from_packages(config, &temp_paths);
+    let result = library.install_mods_from_packages(config, &temp_paths, ModSource::Import);
 
     for path in &temp_paths {
         let _ = fs::remove_file(path);

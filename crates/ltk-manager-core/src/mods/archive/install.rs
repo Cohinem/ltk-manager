@@ -17,7 +17,9 @@ use crate::mods::archive::metadata::{
     extract_fantome_metadata, extract_modpkg_metadata, load_mod_project, read_installed_mod,
 };
 use crate::mods::index::document::archive_path;
-use crate::mods::index::{HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat};
+use crate::mods::index::{
+    HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat, ModSource,
+};
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::{BulkInstallError, BulkInstallResult, InstalledMod, ROOT_FOLDER_ID};
 use chrono::{DateTime, Utc};
@@ -100,6 +102,23 @@ impl ModLibrary {
         config: &Config,
         file_path: &str,
     ) -> AppResult<InstalledMod> {
+        self.install_mod_replacing_source(config, file_path, ModSource::Import)
+    }
+
+    /// Install `file_path`, replacing what that source applied before.
+    ///
+    /// [`ModSource::Import`] installs additively. Any other source is a slot:
+    /// entries already tagged with it are uninstalled as part of the same
+    /// index transaction, so a failed install leaves the old mod standing and
+    /// a successful one leaves exactly one mod behind. Removing first also
+    /// frees the old slug, so re-applying a skin keeps the directory name it
+    /// already had.
+    pub fn install_mod_replacing_source(
+        &self,
+        config: &Config,
+        file_path: &str,
+        source: ModSource,
+    ) -> AppResult<InstalledMod> {
         let storage_dir = self.storage_dir(config)?;
         let resolver = self.wad_resolver();
         let staged = stage_mod_package(
@@ -111,9 +130,18 @@ impl ModLibrary {
         )?;
 
         self.mutate_index(config, |storage_dir, index| {
+            if source != ModSource::Import {
+                for entry in replaced_entries(index, source) {
+                    remove_entry(index, &entry);
+                    entry.remove_files(storage_dir).unwrap_or_else(|e| {
+                        tracing::warn!("Failed to remove files of the replaced mod: {e}");
+                    });
+                }
+            }
+
             let mut taken = TakenSlugs::collect(index, &storage_dir.join("mods"));
             let (_entry, installed_mod) =
-                register_staged_mod(storage_dir, index, staged, &mut taken)?;
+                register_staged_mod(storage_dir, index, staged, source, &mut taken)?;
             Ok(installed_mod)
         })
     }
@@ -126,6 +154,7 @@ impl ModLibrary {
         &self,
         config: &Config,
         file_paths: &[String],
+        source: ModSource,
     ) -> AppResult<BulkInstallResult> {
         if file_paths.is_empty() {
             return Ok(BulkInstallResult {
@@ -171,7 +200,7 @@ impl ModLibrary {
             let mut taken = TakenSlugs::collect(index, &storage_dir.join("mods"));
             for mod_package in staged {
                 let source_path = mod_package.source_path.clone();
-                match register_staged_mod(storage_dir, index, mod_package, &mut taken) {
+                match register_staged_mod(storage_dir, index, mod_package, source, &mut taken) {
                     Ok((_entry, mod_info)) => installed.push(mod_info),
                     Err(e) => {
                         tracing::warn!("Failed to register {}: {}", source_path, e);
@@ -195,17 +224,8 @@ impl ModLibrary {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
             };
 
-            let entry = index.mods.remove(pos);
-
-            for folder in &mut index.folders {
-                folder.mod_ids.retain(|id| id != mod_id);
-            }
-
-            for profile in &mut index.profiles {
-                profile.mod_order.retain(|id| id != mod_id);
-                profile.enabled_mods.retain(|id| id != mod_id);
-                profile.layer_states.remove(mod_id);
-            }
+            let entry = index.mods[pos].clone();
+            remove_entry(index, &entry);
 
             entry.remove_files(storage_dir)
         })
@@ -319,6 +339,33 @@ fn stage_into(
     }
 }
 
+/// Collect clones of every entry `source` applied, for replacement.
+fn replaced_entries(index: &LibraryIndex, source: ModSource) -> Vec<LibraryModEntry> {
+    index
+        .mods
+        .iter()
+        .filter(|entry| entry.source == source)
+        .cloned()
+        .collect()
+}
+
+/// Remove `entry` from the index: the mod list, every folder, and every
+/// profile's order, enabled set and layer states.
+fn remove_entry(index: &mut LibraryIndex, entry: &LibraryModEntry) {
+    let id = &entry.id;
+    index.mods.retain(|m| m.id != *id);
+
+    for folder in &mut index.folders {
+        folder.mod_ids.retain(|mid| mid != id);
+    }
+
+    for profile in &mut index.profiles {
+        profile.mod_order.retain(|mid| mid != id);
+        profile.enabled_mods.retain(|mid| mid != id);
+        profile.layer_states.remove(id);
+    }
+}
+
 /// Assign a slug, move the staged files into place, and record the mod.
 ///
 /// Runs under the index lock. On any failure everything staging wrote is
@@ -332,6 +379,7 @@ pub(crate) fn register_staged_mod(
     storage_dir: &Path,
     index: &mut LibraryIndex,
     staged: StagedMod,
+    source: ModSource,
     taken: &mut TakenSlugs,
 ) -> AppResult<(LibraryModEntry, InstalledMod)> {
     let slug = ModSlug::assign(&staged.project_name, taken);
@@ -369,6 +417,7 @@ pub(crate) fn register_staged_mod(
         storage: staged.format.installed_storage(),
         slug: Some(slug),
         harvest: staged.harvest,
+        source,
     };
     let id = entry.id.clone();
     index.mods.push(entry.clone());
@@ -414,10 +463,11 @@ pub(crate) fn install_single_mod_to_index(
     index: &mut LibraryIndex,
     file_path: &str,
     context: &InstallContext<'_>,
+    source: ModSource,
     taken: &mut TakenSlugs,
 ) -> AppResult<(LibraryModEntry, InstalledMod)> {
     let staged = stage_mod_package(storage_dir, file_path, context)?;
-    register_staged_mod(storage_dir, index, staged, taken)
+    register_staged_mod(storage_dir, index, staged, source, taken)
 }
 
 fn file_name_of(file_path: &str) -> String {
