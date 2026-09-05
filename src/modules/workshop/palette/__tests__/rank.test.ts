@@ -30,6 +30,31 @@ function file(relativePath: string, layerName = "base"): PaletteCandidate {
   };
 }
 
+/** An object candidate built the way `useProjectCandidates` builds one. */
+function object(objectPath: string, layerName = "base"): PaletteCandidate {
+  const cut = objectPath.lastIndexOf("/");
+  const nameLower = objectPath.toLowerCase();
+
+  return {
+    id: `object:${layerName}:data/objects.bin:${objectPath}`,
+    source: "projectObjects",
+    name: objectPath,
+    nameCut: cut < 0 ? undefined : cut + 1,
+    path: "Object · data/objects.bin",
+    layerName,
+    icon: null,
+    target: {
+      kind: "layerObject",
+      layerName,
+      path: "data/objects.bin",
+      objectHash: objectPath,
+    },
+    nameLower,
+    fullLower: nameLower,
+    mask: letterMask(nameLower),
+  };
+}
+
 function command(title: string, keywords: string): PaletteCandidate {
   const nameLower = title.toLowerCase();
   return {
@@ -166,6 +191,39 @@ describe("rankCandidates", () => {
       expect(rows.map((row) => row.row.target)).toEqual(
         testCase.expect.map((path) => ({ kind: "layerFile", layerName: "base", path })),
       );
+    });
+  }
+});
+
+describe("an object path as one name", () => {
+  it("bands the last segment as the name and marks it in place", () => {
+    const row = rankCandidate("skin0", object("characters/aatrox/skins/skin0"), NO_CONTEXT);
+
+    expect(row?.band).toBe(0);
+    expect(row?.nameRanges).toEqual([["characters/aatrox/skins/".length, 29]]);
+    expect(row?.pathRanges).toEqual([]);
+  });
+
+  it("bands a match the rest of the path is needed for third", () => {
+    const row = rankCandidate("aatrox", object("characters/aatrox/skins/skin0"), NO_CONTEXT);
+
+    expect(row?.band).toBe(2);
+    expect(row?.nameRanges).toEqual([[11, 17]]);
+  });
+
+  it("never reads the description under it as a location", () => {
+    expect(rankCandidate("objects.bin", object("characters/aatrox"), NO_CONTEXT)).toBeNull();
+  });
+
+  /* The same fixture cases, as the project's objects rather than as files.
+     The Rust suite reads them as the install's. */
+  for (const testCase of fixture.cases.filter((c) => !c.expect[0]!.includes("."))) {
+    it(testCase.name, () => {
+      const reject: string[] = testCase.reject ?? [];
+      const held = [...testCase.expect, ...reject].reverse().map((path) => object(path));
+      const rows = rankCandidates(testCase.query, held, NO_CONTEXT);
+
+      expect(rows.map((row) => row.row.name)).toEqual(testCase.expect);
     });
   }
 });

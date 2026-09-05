@@ -4,6 +4,7 @@ import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { buildCandidate, buildCommandCandidate } from "../candidate";
+import { rankCandidate } from "../rank";
 import { parseQuery, PROJECT_SOURCES, WORKSHOP_SOURCES } from "../sources";
 import type {
   BackendRankedGroups,
@@ -120,7 +121,27 @@ describe("usePaletteSearch", () => {
   });
 
   it("lists every prefix a project can reach", () => {
-    expect(search("?", PROJECT_SOURCES)[0]!.rows).toHaveLength(4);
+    const rows = search("?", PROJECT_SOURCES)[0]!.rows;
+
+    expect(rows.filter((row) => row.row.target.kind === "prefix")).toHaveLength(4);
+  });
+
+  it("lists a key a source reads under that source's prefix", () => {
+    const names = search("?", PROJECT_SOURCES)[0]!.rows.map((row) => row.row.name);
+
+    expect(names.indexOf("$  class:")).toBe(names.indexOf("$  Objects") + 1);
+  });
+
+  it("filters the listing by the key as well as by the label", () => {
+    const names = search("?cla", PROJECT_SOURCES)[0]!.rows.map((row) => row.row.name);
+
+    expect(names).toEqual(["$  class:"]);
+  });
+
+  it("puts the key in the box, scoped to its source, rather than opening anything", () => {
+    const row = search("?class", PROJECT_SOURCES)[0]!.rows[0]!;
+
+    expect(row.row.target).toEqual({ kind: "query", query: "class:", scope: "objects" });
   });
 
   it("keeps the alias off the listing, so the help stays one row per source", () => {
@@ -334,6 +355,75 @@ describe("a backend-ranked source", () => {
     expect(groups[0]!.rows).toHaveLength(12);
   });
 
+  /* The project's objects carry no prefix, so `$` reaches them through the
+     install's, and the project's group stands first on a tie. */
+  it("reaches the project's objects under the install's scope, ahead of them", () => {
+    const projectObjects = [
+      buildCandidate({
+        id: "object:base:data/skin.bin:0x1",
+        source: "projectObjects",
+        name: "characters/aatrox/skins/skin0",
+        nameCut: "characters/aatrox/skins/".length,
+        path: "SkinCharacterDataProperties · data/skin.bin",
+        icon: null,
+        target: {
+          kind: "layerObject",
+          layerName: "base",
+          path: "data/skin.bin",
+          objectHash: "0x1",
+        },
+      }),
+    ];
+    const ranked = rankCandidate("skin0", projectObjects[0]!, { selectedLayer: null, recent: [] })!;
+    const install = objectsGroup(1);
+    const tied = {
+      ...install,
+      rows: [{ ...install.rows[0]!, band: ranked.band, score: ranked.score }],
+    };
+
+    const groups = searchRanked("skin0", "objects", { objects: tied }, { files, projectObjects });
+
+    expect(groups.map((group) => group.source)).toEqual(["projectObjects", "objects"]);
+  });
+
+  it("keeps the project's objects ahead of the install's when the install's row is better", () => {
+    const projectObjects = [
+      buildCandidate({
+        id: "object:base:data/skin.bin:0x1",
+        source: "projectObjects",
+        name: "characters/aatrox/skins/skin0/resources",
+        nameCut: "characters/aatrox/skins/skin0/".length,
+        path: "ResourceResolver · data/skin.bin",
+        icon: null,
+        target: {
+          kind: "layerObject",
+          layerName: "base",
+          path: "data/skin.bin",
+          objectHash: "0x1",
+        },
+      }),
+    ];
+    const install = objectsGroup(1);
+    const better = { ...install, rows: [{ ...install.rows[0]!, band: 0, score: 100 }] };
+
+    const groups = searchRanked("skin0", null, { objects: better }, { files, projectObjects });
+
+    expect(groups.map((group) => group.source)).toEqual(["projectObjects", "objects"]);
+  });
+
+  it("takes the label a context gives a source over the declared one", () => {
+    const { result } = renderHook(() =>
+      usePaletteSearch({
+        parsed: parseQuery("settings", null),
+        sources: PROJECT_SOURCES,
+        candidates: { files },
+        labels: { files: "Files · Demo" },
+      }),
+    );
+
+    expect(result.current[0]!.label).toBe("Files · Demo");
+  });
+
   /* The band and score are the backend's own verdict, carried through so the
      group sorts against the frontend's by the same rule. */
   it("orders the group against the frontend's by its best row", () => {
@@ -345,5 +435,99 @@ describe("a backend-ranked source", () => {
 
     expect(orderOf({ game: behind })).toEqual(["files", "game"]);
     expect(orderOf({ game: ahead })).toEqual(["game", "files"]);
+  });
+});
+
+describe("the project's objects under a class term", () => {
+  function object(path: string, className: string, hash: string) {
+    const cut = path.lastIndexOf("/");
+    return buildCandidate({
+      id: `object:base:data/skin.bin:${path}`,
+      source: "projectObjects",
+      name: path,
+      nameCut: cut < 0 ? undefined : cut + 1,
+      objectClass: { name: className, hash },
+      path: `${className} · data/skin.bin`,
+      icon: null,
+      target: { kind: "layerObject", layerName: "base", path: "data/skin.bin", objectHash: path },
+    });
+  }
+
+  const projectObjects = [
+    object("characters/smolder/skins/skin0", "SkinCharacterDataProperties", "0x0000000a"),
+    object("characters/smolder/skins/skin1", "SkinCharacterDataProperties", "0x0000000a"),
+    object("characters/smolder/skins/skin0/resources", "ResourceResolver", "0x0000000b"),
+    object("characters/smolder/skins/skin0/vfx", "VfxSystemDefinitionData", "0x0000000c"),
+    object("characters/smolder/skins/skin0/mat", "StaticMaterialDef", "0x0000000d"),
+  ];
+
+  function rows(query: string) {
+    const groups = search(query, PROJECT_SOURCES, { projectObjects });
+    return groups.find((group) => group.source === "projectObjects") ?? null;
+  }
+
+  it("narrows the rows to the classes a prefix opens before the path matches", () => {
+    const group = rows("class:skinchar smolder")!;
+
+    expect(group.rows.map((row) => row.row.name)).toEqual([
+      "characters/smolder/skins/skin0",
+      "characters/smolder/skins/skin1",
+    ]);
+  });
+
+  it("narrows to one class by its hex, with or without the 0x", () => {
+    expect(rows("class:0x0000000B skin0")!.rows.map((row) => row.row.name)).toEqual([
+      "characters/smolder/skins/skin0/resources",
+    ]);
+    expect(rows("class:0000000b skin0")!.rows).toHaveLength(1);
+  });
+
+  it("offers the classes an ambiguous last term opens, with their counts", () => {
+    const group = rows("smolder class:s")!;
+
+    expect(group.label).toBe("Classes");
+    expect(group.rows.map((row) => row.row.name)).toEqual([
+      "SkinCharacterDataProperties",
+      "StaticMaterialDef",
+    ]);
+    expect(group.rows[0]!.row.trailing).toBe("2 objects");
+    expect(group.rows[0]!.row.target).toEqual({
+      kind: "query",
+      query: "smolder class:SkinCharacterDataProperties ",
+    });
+  });
+
+  it("lists every class under a bare key, one row each", () => {
+    const group = rows("class:")!;
+
+    expect(group.rows.map((row) => row.row.name)).toEqual([
+      "ResourceResolver",
+      "SkinCharacterDataProperties",
+      "StaticMaterialDef",
+      "VfxSystemDefinitionData",
+    ]);
+  });
+
+  it("shows the rows once one class is left, even as the last term", () => {
+    const group = rows("skin0 class:resource")!;
+
+    expect(group.label).toBe("Objects");
+    expect(group.rows.map((row) => row.row.name)).toEqual([
+      "characters/smolder/skins/skin0/resources",
+    ]);
+  });
+
+  it("lists a class in full, by name, when nothing else is typed", () => {
+    const group = rows("class:skincharacterdataproperties")!;
+
+    expect(group.rows.map((row) => row.row.name)).toEqual([
+      "characters/smolder/skins/skin0",
+      "characters/smolder/skins/skin1",
+    ]);
+    expect(group.rows[0]!.band).toBe(0);
+  });
+
+  it("draws nothing for a class no row declares", () => {
+    expect(rows("class:zzz skin0")).toBeNull();
   });
 });

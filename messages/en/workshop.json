@@ -18,5 +18,19 @@
   ],
   "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
   "workshop_objects_building_label": "Indexing the game's bin objects…",
+  "workshop_objects_class_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} object",
+        "countPlural=other": "{count} objects"
+      }
+    }
+  ],
+  "workshop_objects_classes_label": "Classes",
+  "workshop_objects_game_label": "Objects · game",
+  "workshop_objects_overrides_label": "overrides",
+  "workshop_objects_project_label": "Objects · {project}",
   "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings"
 }

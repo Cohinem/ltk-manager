@@ -769,6 +769,24 @@ objects source wherever it runs, a row id of object and file, ties between decla
 on archive order and then on path, a build ticket that drops a result arriving after a Rebuild
 or a switch-off, no progress events, and one `info` line per build.
 
+### The cache, decided
+
+Decided on 2026-09-05 against a cache, from the first streaming build over the live install.
+The build's `info` line, read through the measurement test in `src-tauri` on a release build,
+over 392 archives on a warm file cache:
+
+```
+archives=200 files=41330 sniffed=88 unnamed_bins=13 rows=373991 objects=350008 skipped=3
+bytes=2209501269 elapsed_ms=445 workers=8
+```
+
+Naming the 350,008 objects out of the mimir tables took a further 399ms and named 92.0% of
+them. Under half a second at startup, off the thread that draws the window and behind a switch
+that is off by default, is less than a cache section costs to keep correct across a game patch
+and a table sync. The cold-cache figure was not taken, and the decision stands until one says
+otherwise. "Where it is kept" in the project editor says so, and "The build, measured" carries
+the row.
+
 ### The tickets
 
 Published on 2026-09-05 as sub-issues of ltk-manager #394, with GitHub's own blocked-by edges.

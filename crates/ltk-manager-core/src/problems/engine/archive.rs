@@ -30,6 +30,7 @@ use ltk_wad::{ChunkDecoder, NameRecovery, PathResolver, Wad, WadChunk, WadHash, 
 use zip::{CompressionMethod, ZipArchive};
 
 use crate::error::{AppError, AppResult};
+use crate::game_wads::chunk_head;
 use crate::workshop::WorkshopFileKind;
 
 use super::{ChunkInfo, LayerFiles, ProjectFile};
@@ -374,49 +375,6 @@ fn scan_wad<S: std::io::Read + std::io::Seek>(
     }
 
     Ok(files)
-}
-
-/// Raw bytes a bounded read takes from a chunk first.
-///
-/// The first block of nearly every chunk fits, and one whose block does not
-/// gets a second read of [`HEAD_MAX_RAW`]. Both are `ltk_wad`'s own numbers:
-/// its name recovery makes the same read over the same chunks.
-const HEAD_FIRST_RAW: usize = 16 * 1024;
-
-/// Most raw bytes a bounded read takes from one chunk.
-///
-/// A zstd block decodes to at most 128 KiB and an incompressible block is no
-/// larger than that, so this always holds the first block and its headers.
-const HEAD_MAX_RAW: usize = 256 * 1024;
-
-/// At most `want` bytes from the start of `chunk`, decompressing no further.
-///
-/// The one place the escalation is written. The scan calls it with the WAD it
-/// is already walking and a rule calls it through
-/// [`ArchiveFiles::head`](ArchiveFiles::head), which remounts - so it takes a
-/// mounted WAD rather than knowing how to find one.
-///
-/// A chunk holding fewer than `want` bytes answers with what it holds, and so
-/// does one whose first block will not decode past that.
-fn chunk_head<S: std::io::Read + std::io::Seek>(
-    wad: &mut Wad<S>,
-    chunk: &WadChunk,
-    decoder: &mut ChunkDecoder,
-    want: usize,
-) -> Result<Vec<u8>, ltk_wad::WadError> {
-    let want = want.min(chunk.uncompressed_size);
-    let ceiling = HEAD_MAX_RAW.max(want);
-    let mut raw_limit = HEAD_FIRST_RAW.max(want);
-    loop {
-        let raw = wad.load_chunk_raw_prefix(chunk, raw_limit)?;
-        /* The prefix cut the first block short, and the chunk holds more. */
-        let cut_short = raw.len() == raw_limit && raw_limit < ceiling;
-        match decoder.decompress_chunk_prefix(&raw, chunk, wad.subchunk_toc(), want) {
-            Ok(head) if head.len() >= want || !cut_short => return Ok(head),
-            Err(e) if !cut_short => return Err(e),
-            _ => raw_limit = ceiling,
-        }
-    }
 }
 
 /// What a chunk no table names is, from as little of it as decodes.

@@ -599,6 +599,17 @@ impl GameIndex {
         self.visit_files(0, &mut path, &mut visit);
     }
 
+    /// Visit every chunk no hash table names as `(path hash, archive ordinal)`.
+    ///
+    /// The other half of [`for_each_named_file`](Self::for_each_named_file),
+    /// in the order the unnamed group is kept: by hex name. The ordinal
+    /// indexes [`wads`](Self::wads).
+    pub fn for_each_unnamed_file(&self, mut visit: impl FnMut(u64, u32)) {
+        for file in &self.unknown {
+            visit(file.path_hash, file.wad);
+        }
+    }
+
     /// Archive names in merge order, which a file's ordinal indexes.
     pub fn wads(&self) -> &[String] {
         &self.wads

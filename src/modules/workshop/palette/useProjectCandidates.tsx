@@ -1,5 +1,8 @@
-import { TranslateIcon } from "@phosphor-icons/react";
+import { CubeIcon, TranslateIcon } from "@phosphor-icons/react";
 import { type ReactNode, useMemo } from "react";
+
+import { m } from "@/i18n";
+import type { LayerContent } from "@/lib/tauri";
 
 import { useProjectContentTree } from "../api/useProjectContentTree";
 import { LayerGlyph } from "../components/LayerGlyph";
@@ -11,6 +14,7 @@ import {
   stringsDocument,
   useContentEditors,
 } from "../documents";
+import { useDeclaredObjects } from "../gameBrowser";
 import { useOpenDocuments } from "../state";
 import { describeFileKind } from "../utils/fileKindIcon";
 import { buildCandidate, buildCommandCandidate } from "./candidate";
@@ -41,6 +45,7 @@ export function useProjectCandidates(): PaletteCandidates {
     strings: useStringCandidates(),
     commands: useCommandCandidates(),
     settings: useSettingRows(),
+    projectObjects: useProjectObjectCandidates(),
   };
 }
 
@@ -116,6 +121,75 @@ function useFileCandidates(): readonly PaletteCandidate[] {
       });
     });
   }, [layers, project]);
+}
+
+/**
+ * The bin objects of every layer, matched here rather than by the backend.
+ *
+ * The content scan carries them beside the files, so a keystroke costs a scan
+ * of a few thousand rows and no trip over IPC. A row's `nameCut` marks the
+ * object path's last segment for the ranker. The install's index says which
+ * of them the project overrides, and that word lands on the trailing edge.
+ */
+function useProjectObjectCandidates(): readonly PaletteCandidate[] {
+  const project = useProjectContext();
+  const { data } = useProjectContentTree(project.path);
+  const layers = data?.layers;
+
+  const hashes = useMemo(() => (layers ? declaredHashes(layers) : []), [layers]);
+  const overridden = useDeclaredObjects(hashes);
+
+  return useMemo(() => {
+    if (!layers) return NONE;
+
+    return layers.flatMap((layer) => {
+      const title = layerTitle(project, layer.name);
+
+      return layer.entries.flatMap((entry) =>
+        entry.objects.map((object) => {
+          const cut = object.path.lastIndexOf("/");
+          const trailing = overridden.has(object.objectHash)
+            ? `${title} · ${m.workshop_objects_overrides_label()}`
+            : title;
+
+          return buildCandidate({
+            id: `object:${layer.name}:${entry.relativePath}:${object.objectHash}`,
+            source: "projectObjects",
+            name: object.path,
+            nameCut: cut < 0 ? undefined : cut + 1,
+            objectClass: { name: object.class, hash: object.classHash },
+            path: `${object.class} · ${entry.relativePath}`,
+            trailing,
+            layerName: layer.name,
+            documentId: previewDocumentId({
+              kind: "layer",
+              project: project.path,
+              layer: layer.name,
+              path: entry.relativePath,
+            }),
+            icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+            target: {
+              kind: "layerObject",
+              layerName: layer.name,
+              path: entry.relativePath,
+              objectHash: object.objectHash,
+            },
+          });
+        }),
+      );
+    });
+  }, [layers, overridden, project]);
+}
+
+/** Every distinct object hash the layers declare, sorted, as one stable key. */
+function declaredHashes(layers: readonly LayerContent[]): readonly string[] {
+  const hashes = new Set<string>();
+  for (const layer of layers) {
+    for (const entry of layer.entries) {
+      for (const object of entry.objects) hashes.add(object.objectHash);
+    }
+  }
+  return [...hashes].sort();
 }
 
 function useLayerCandidates(): readonly PaletteCandidate[] {

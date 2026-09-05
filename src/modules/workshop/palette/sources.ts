@@ -17,6 +17,17 @@ interface SourceDeclaration {
   readonly cap?: number;
   /** What the source holds, for the row `?` lists it under. */
   readonly hint: string;
+  /** The terms the source reads specially, for the rows `?` lists under its prefix. */
+  readonly keys?: readonly SourceKey[];
+  /** The source whose prefix also reaches this one, which carries none of its own. */
+  readonly scopedWith?: PaletteSourceId;
+}
+
+/** One `key:` term a source reads, and what it narrows to. */
+export interface SourceKey {
+  /** The term as typed, colon included. */
+  readonly key: string;
+  readonly hint: string;
 }
 
 interface LocalSource extends SourceDeclaration {
@@ -39,7 +50,9 @@ export type PaletteSource = LocalSource | BackendRankedSource;
  * The game is last but one because it is a source that costs a scan of the
  * install, so a project of one’s own always reads first. Objects come after
  * it, capped low unscoped so a modder typing a skin's name meets the object
- * beside the file without being told `$` exists.
+ * beside the file without being told `$` exists. The project's own objects
+ * stand just before the install's, which is the tiebreak `compareGroups`
+ * falls to when both found equally good rows.
  *
  * Projects leads, because it is the one source both contexts hold and the only
  * row that can leave the surface the bar is drawn over.
@@ -60,11 +73,19 @@ export const PALETTE_SOURCES: readonly PaletteSource[] = [
   { id: "settings", label: "Settings", hint: "Every setting a link can open" },
   { id: "game", label: "Game", hint: "Every file of the installed game", backendRanked: true },
   {
+    id: "projectObjects",
+    label: "Objects",
+    cap: 4,
+    hint: "Every bin object this project declares",
+    scopedWith: "objects",
+  },
+  {
     id: "objects",
     label: "Objects",
     prefix: "$",
     cap: 4,
     hint: "Every bin object the installed game declares",
+    keys: [{ key: "class:", hint: "Narrow to a class, by name prefix or by hex" }],
     backendRanked: true,
   },
 ];
@@ -108,6 +129,8 @@ export interface ParsedQuery {
   readonly help: boolean;
   /** What the matcher sees, trimmed and lowercased. */
   readonly term: string;
+  /** The text as typed, after the `?` under help, which a completion rewrites. */
+  readonly query: string;
 }
 
 /**
@@ -129,7 +152,8 @@ function opensWithPrefix(raw: string, source: PaletteSource): boolean {
 /** Split what the user typed into the help flag and the term to match on. */
 export function parseQuery(raw: string, scope: PaletteSourceId | null): ParsedQuery {
   if (scope === null && raw.startsWith(HELP_PREFIX)) {
-    return { scope: null, help: true, term: raw.slice(1).trim().toLowerCase() };
+    const query = raw.slice(1);
+    return { scope: null, help: true, term: query.trim().toLowerCase(), query };
   }
-  return { scope, help: false, term: raw.trim().toLowerCase() };
+  return { scope, help: false, term: raw.trim().toLowerCase(), query: raw };
 }

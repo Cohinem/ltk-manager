@@ -108,10 +108,7 @@ fn build(wads: &[(&str, &[Chunk<'_>])], workers: usize) -> (TempDir, ObjectIndex
 
 /// Each row as `(object path, class name, declaring file)`, in row order.
 fn declared(index: &ObjectIndex) -> Vec<(BinHash, BinHash, String)> {
-    index
-        .rows()
-        .map(|(object, class, file)| (object, class, file.to_owned()))
-        .collect()
+    index.rows().collect()
 }
 
 fn row(object: &str, class: &str, file: &str) -> (BinHash, BinHash, String) {
@@ -181,9 +178,268 @@ fn build_reads_a_prop_and_a_patch_and_skips_what_will_not_read() {
     let stats = index.stats();
     assert_eq!(stats.archives, 1);
     assert_eq!(stats.files, 3, "every named .bin chunk, read or not");
+    assert_eq!(stats.sniffed, 0, "every chunk was named");
     assert_eq!(stats.rows, 3);
     assert_eq!(stats.skipped, 1, "the chunk that would not read");
     assert_eq!(stats.workers, 1, "one archive is one job");
+}
+
+#[test]
+fn an_unnamed_chunk_is_sniffed_and_read_only_when_its_magic_is_a_bins() {
+    let chunks: &[Chunk<'_>] = &[
+        (
+            "data/named.bin",
+            prop(&[("characters/aatrox", "Character")]),
+        ),
+        (
+            "data/secret.bin",
+            prop(&[("characters/secret", "Character")]),
+        ),
+        ("assets/secret.dds", vec![0xAA; 4096]),
+    ];
+    let tmp = game_with(&[("Aatrox.wad.client", chunks)]);
+    let archives = GameArchives::at(tmp.path());
+    let game = GameIndex::build(&archives, &resolver_for(&["data/named.bin"])).unwrap();
+    let index = ObjectIndex::build(&game, &archives, 1, &|| false).unwrap();
+    let secret = WadHash::hash_str("data/secret.bin");
+
+    assert_eq!(
+        declared(&index),
+        [
+            row("characters/aatrox", "Character", "data/named.bin"),
+            row("characters/secret", "Character", &hex_name(secret)),
+        ],
+        "the named chunk first, then the sniffed bin under its hex"
+    );
+
+    let stats = index.stats();
+    assert_eq!(stats.sniffed, 2, "both unnamed chunks were sniffed");
+    assert_eq!(stats.unnamed_bins, 1, "one of them was a bin");
+    assert_eq!(stats.files, 2, "the named bin and the sniffed one");
+    assert_eq!(stats.skipped, 0, "a non-bin sniffed is not a skip");
+
+    let hit = &index
+        .search(&hex(BinHash::hash_str("characters/secret")), || false)
+        .hits[0];
+    assert_eq!(hit.file, hex_name(secret));
+    assert_eq!(hit.file_hash, hex_name(secret));
+    assert_eq!(hit.wad, "Aatrox.wad.client");
+}
+
+#[test]
+fn a_sniffed_file_takes_the_name_a_later_table_gives_it() {
+    let chunks: &[Chunk<'_>] = &[(
+        "data/secret.bin",
+        prop(&[("characters/secret", "Character")]),
+    )];
+    let tmp = game_with(&[("Aatrox.wad.client", chunks)]);
+    let archives = GameArchives::at(tmp.path());
+    let game = GameIndex::build(&archives, &resolver_for(&[])).unwrap();
+    let index = ObjectIndex::build(&game, &archives, 1, &|| false).unwrap();
+
+    let names =
+        TestNames::over(&["characters/secret"], &["Character"]).with_files(&["data/secret.bin"]);
+    let index = index.named(&names);
+
+    assert_eq!(ranked(&index, "secret"), ["characters/secret"]);
+    let hit = &index.search("secret", || false).hits[0];
+    assert_eq!(hit.file, "data/secret.bin");
+    assert_eq!(
+        declared(&index),
+        [row("characters/secret", "Character", "data/secret.bin")]
+    );
+}
+
+mod class_term {
+    use super::*;
+
+    fn term(value: &str, last: bool) -> Option<ClassTerm<'_>> {
+        Some(ClassTerm { value, last })
+    }
+
+    #[test]
+    fn splits_the_class_term_off_the_rest_of_the_query() {
+        assert_eq!(
+            ClassTerm::split("class:skinchar smolder"),
+            (term("skinchar", false), Cow::from("smolder"))
+        );
+        assert_eq!(
+            ClassTerm::split("smolder Class:SkinChar"),
+            (term("SkinChar", true), Cow::from("smolder")),
+            "the term is read in any case, and last means last"
+        );
+        assert_eq!(
+            ClassTerm::split("smolder skin0"),
+            (None, Cow::from("smolder skin0"))
+        );
+        assert_eq!(
+            ClassTerm::split("class:"),
+            (term("", true), Cow::from("")),
+            "an empty value is a term, and matches every class"
+        );
+    }
+
+    /// An index over three classes, every object and class named.
+    fn classed() -> (TempDir, ObjectIndex) {
+        named_index(&[
+            (
+                "characters/smolder/skins/skin0",
+                "SkinCharacterDataProperties",
+            ),
+            (
+                "characters/smolder/skins/skin1",
+                "SkinCharacterDataProperties",
+            ),
+            ("characters/smolder/skins/skin0/resources", "SkinResources"),
+            (
+                "characters/smolder/skins/skin0/vfx",
+                "VfxSystemDefinitionData",
+            ),
+        ])
+    }
+
+    #[test]
+    fn a_class_prefix_narrows_the_rows_and_the_rest_matches_the_path() {
+        let (_tmp, index) = classed();
+
+        assert_eq!(
+            ranked(&index, "class:skinchar skin0"),
+            ["characters/smolder/skins/skin0"],
+            "the resource's class starts with skin, not skinchar"
+        );
+        assert_eq!(
+            ranked(&index, "class:SKINRES skin0"),
+            ["characters/smolder/skins/skin0/resources"],
+            "case-insensitively"
+        );
+        assert!(ranked(&index, "class:nothing skin0").is_empty());
+    }
+
+    #[test]
+    fn a_class_hash_narrows_to_that_class_alone() {
+        let (_tmp, index) = classed();
+        let vfx = BinHash::hash_str("VfxSystemDefinitionData");
+
+        assert_eq!(
+            ranked(&index, &format!("class:{} smolder", hex(vfx))),
+            ["characters/smolder/skins/skin0/vfx"]
+        );
+        assert_eq!(
+            ranked(&index, &format!("class:{:08X} smolder", vfx.0)),
+            ["characters/smolder/skins/skin0/vfx"],
+            "with or without the 0x, either case"
+        );
+    }
+
+    #[test]
+    fn a_class_no_table_names_is_reached_by_its_hex_and_reads_as_hex() {
+        let chunks: &[Chunk<'_>] = &[(
+            "data/objects.bin",
+            prop(&[("characters/smolder", "Unnamed")]),
+        )];
+        let (_tmp, index) = build(&[("Objects.wad.client", chunks)], 1);
+        let index = index.named(&TestNames::over(&["characters/smolder"], &[]));
+        let class = BinHash::hash_str("Unnamed");
+
+        let result = index.search(&format!("class:{} smolder", hex(class)), || false);
+        assert_eq!(result.hits.len(), 1);
+        assert_eq!(result.hits[0].class, hex(class));
+        assert!(
+            ranked(&index, "class:unn smolder").is_empty(),
+            "a prefix reads names, and the class has none"
+        );
+    }
+
+    #[test]
+    fn an_ambiguous_last_class_term_lists_the_classes_with_their_counts() {
+        let (_tmp, index) = classed();
+
+        let result = index.search("smolder class:skin", || false);
+        assert!(result.hits.is_empty());
+        let classes: Vec<(&str, u32)> = result
+            .classes
+            .iter()
+            .map(|class| (class.class.as_str(), class.rows))
+            .collect();
+        assert_eq!(
+            classes,
+            [("SkinCharacterDataProperties", 2), ("SkinResources", 1)],
+            "by name, each with the rows it would narrow to"
+        );
+        assert_eq!(
+            result.classes[0].class_hash,
+            hex(BinHash::hash_str("SkinCharacterDataProperties"))
+        );
+        assert_eq!(result.total, 2);
+    }
+
+    #[test]
+    fn an_empty_class_term_lists_every_class() {
+        let (_tmp, index) = classed();
+
+        let result = index.search("class:", || false);
+        assert_eq!(result.classes.len(), 3);
+        assert!(result.hits.is_empty());
+    }
+
+    #[test]
+    fn an_ambiguous_class_term_that_is_not_last_narrows_to_every_class_it_matches() {
+        let (_tmp, index) = classed();
+
+        assert_eq!(
+            ranked(&index, "class:skin skin0"),
+            [
+                "characters/smolder/skins/skin0",
+                "characters/smolder/skins/skin0/resources",
+            ],
+            "both classes starting with skin, and no completions"
+        );
+        assert!(
+            index
+                .search("class:skin skin0", || false)
+                .classes
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn one_class_left_lists_its_rows_even_with_no_path_term() {
+        let (_tmp, index) = classed();
+
+        let result = index.search("class:skinchar", || false);
+        assert!(result.classes.is_empty());
+        let paths: Vec<&str> = result.hits.iter().map(|hit| hit.path.as_str()).collect();
+        assert_eq!(
+            paths,
+            [
+                "characters/smolder/skins/skin0",
+                "characters/smolder/skins/skin1",
+            ],
+            "every row of the class, by path"
+        );
+        assert_eq!(result.total, 2);
+        assert!(result.hits[0].ranges.is_empty());
+    }
+
+    #[test]
+    fn a_hash_query_under_a_class_term_still_looks_the_object_up() {
+        let (_tmp, index) = classed();
+        let skin0 = BinHash::hash_str("characters/smolder/skins/skin0");
+
+        assert_eq!(
+            ranked(&index, &format!("class:skinchar {}", hex(skin0))),
+            ["characters/smolder/skins/skin0"]
+        );
+        assert!(ranked(&index, &format!("class:vfx {}", hex(skin0))).is_empty());
+    }
+}
+
+#[test]
+fn declares_answers_by_object_hash() {
+    let (_tmp, index) = named_index(&[("characters/aatrox", "Character")]);
+
+    assert!(index.declares(BinHash::hash_str("characters/aatrox")));
+    assert!(!index.declares(BinHash::hash_str("characters/ahri")));
 }
 
 #[test]
@@ -218,6 +474,7 @@ fn a_build_that_was_called_off_stops_rather_than_finishing() {
 struct TestNames {
     entries: HashMap<BinHash, String>,
     classes: HashMap<BinHash, String>,
+    files: HashMap<WadHash, String>,
 }
 
 impl TestNames {
@@ -231,7 +488,17 @@ impl TestNames {
                 .iter()
                 .map(|class| (BinHash::hash_str(class), (*class).to_owned()))
                 .collect(),
+            files: HashMap::new(),
         }
+    }
+
+    /// The same names, with `paths` naming declaring chunks too.
+    fn with_files(mut self, paths: &[&str]) -> Self {
+        self.files = paths
+            .iter()
+            .map(|path| (WadHash::hash_str(path), (*path).to_owned()))
+            .collect();
+        self
     }
 }
 
@@ -246,6 +513,14 @@ impl ObjectNames for TestNames {
 
     fn class(&self, hash: BinHash) -> Option<String> {
         self.classes.get(&hash).cloned()
+    }
+
+    fn for_each_file(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str)) {
+        for (at, hash) in hashes.iter().enumerate() {
+            if let Some(path) = self.files.get(hash) {
+                visit(at, path);
+            }
+        }
     }
 }
 
