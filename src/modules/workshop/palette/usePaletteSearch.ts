@@ -4,6 +4,8 @@ import { letterMask } from "./matcher";
 import { compareRows, rankCandidates } from "./rank";
 import { HELP_PREFIX, PALETTE_SOURCES, type ParsedQuery, sourceCap } from "./sources";
 import type {
+  BackendRankedGroups,
+  LocalSourceId,
   PaletteCandidate,
   PaletteCandidates,
   PaletteGroup,
@@ -14,6 +16,7 @@ import type {
 const NO_RANGES = [] as const;
 const NO_CANDIDATES: readonly PaletteCandidate[] = [];
 const NO_RECENT: readonly string[] = [];
+const NO_RANKED: BackendRankedGroups = {};
 
 export interface PaletteSearchParams {
   /** The query split into its scope, its help flag and the term to match on. */
@@ -21,8 +24,8 @@ export interface PaletteSearchParams {
   /** Which sources this context holds, read against the declared order. */
   readonly sources: readonly PaletteSourceId[];
   readonly candidates: PaletteCandidates;
-  /** What the installed game contributes, for a context that reads it. */
-  readonly game?: PaletteGroup | null;
+  /** What each backend-ranked source contributes, for a context that reads one. */
+  readonly ranked?: BackendRankedGroups;
   /** The layer the side panels are reading, whose files rank above the rest. */
   readonly selectedLayer?: string | null;
   /** Visited document ids, nearest first. */
@@ -41,7 +44,7 @@ export function usePaletteSearch({
   parsed,
   sources,
   candidates,
-  game = null,
+  ranked = NO_RANKED,
   selectedLayer = null,
   recent = NO_RECENT,
 }: PaletteSearchParams): readonly PaletteGroup[] {
@@ -57,9 +60,10 @@ export function usePaletteSearch({
     const found = active.flatMap((source) => {
       /* The backend already capped and ordered this one, so the group is only
          trimmed again where it has to share the list. */
-      if (source.id === "game") {
-        if (!game) return [];
-        return [{ ...game, rows: game.rows.slice(0, sourceCap(source, parsed.scope)) }];
+      if (source.backendRanked) {
+        const group = ranked[source.id];
+        if (!group) return [];
+        return [{ ...group, rows: group.rows.slice(0, sourceCap(source, parsed.scope)) }];
       }
 
       const rows = matchSource(source.id, candidates[source.id] ?? NO_CANDIDATES, parsed, listing, {
@@ -84,7 +88,7 @@ export function usePaletteSearch({
       return found.sort((a, b) => listing.indexOf(a.source) - listing.indexOf(b.source));
     }
     return found.sort(compareGroups);
-  }, [candidates, game, parsed, recent, selectedLayer, sources]);
+  }, [candidates, parsed, ranked, recent, selectedLayer, sources]);
 }
 
 /**
@@ -125,7 +129,7 @@ function listingSources(sources: readonly PaletteSourceId[]): readonly PaletteSo
 }
 
 function matchSource(
-  id: Exclude<PaletteSourceId, "game">,
+  id: LocalSourceId,
   candidates: readonly PaletteCandidate[],
   parsed: ParsedQuery,
   listing: readonly PaletteSourceId[],

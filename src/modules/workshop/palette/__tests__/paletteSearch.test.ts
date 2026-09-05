@@ -5,7 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import { buildCandidate, buildCommandCandidate } from "../candidate";
 import { parseQuery, PROJECT_SOURCES, WORKSHOP_SOURCES } from "../sources";
-import type { PaletteCandidates, PaletteSourceId } from "../types";
+import type {
+  BackendRankedGroups,
+  PaletteCandidates,
+  PaletteGroup,
+  PaletteSourceId,
+} from "../types";
 import { usePaletteSearch } from "../usePaletteSearch";
 
 const commands = [
@@ -211,5 +216,86 @@ describe("the settings source", () => {
     expect(sourcesOf("appearance.theme", WORKSHOP_SOURCES, { settings })).toEqual(
       new Set(["settings"]),
     );
+  });
+});
+
+describe("a backend-ranked source", () => {
+  /* Scores rising down the list and names the query does not hold, so a group
+     the hook matched or sorted itself cannot come back looking untouched. */
+  function rankedGroup(count: number, total = count): PaletteGroup {
+    const rows = Array.from({ length: count }, (_, at) => ({
+      row: {
+        id: `game:${at}`,
+        source: "game" as const,
+        name: `chunk-${at}.bin`,
+        path: "data",
+        icon: null,
+        target: {
+          kind: "gameChunk" as const,
+          wad: "Aatrox.wad.client",
+          pathHash: `${at}`,
+          path: `data/chunk-${at}.bin`,
+        },
+      },
+      band: 2,
+      score: at,
+      nameRanges: [],
+      pathRanges: [],
+    }));
+    return { source: "game", label: "Game", rows, total };
+  }
+
+  function searchRanked(
+    query: string,
+    scope: PaletteSourceId | null,
+    ranked: BackendRankedGroups,
+    candidates: PaletteCandidates = {},
+  ) {
+    const { result } = renderHook(() =>
+      usePaletteSearch({
+        parsed: parseQuery(query, scope),
+        sources: PROJECT_SOURCES,
+        candidates,
+        ranked,
+      }),
+    );
+    return result.current;
+  }
+
+  it("takes the group as handed, neither matching nor ranking its rows", () => {
+    const group = rankedGroup(3);
+
+    expect(searchRanked("settings", null, { game: group })).toEqual([group]);
+  });
+
+  it("trims a shared list to the cap and keeps the backend's total", () => {
+    const group = searchRanked("settings", null, { game: rankedGroup(12, 40) })[0]!;
+
+    expect(group.rows).toHaveLength(8);
+    expect(group.total).toBe(40);
+  });
+
+  it("lists the group in full under its own scope", () => {
+    const group = searchRanked("settings", "game", { game: rankedGroup(12) })[0]!;
+
+    expect(group.rows).toHaveLength(12);
+  });
+
+  it("draws nothing for a source that answered nothing", () => {
+    expect(searchRanked("settings", null, { game: null })).toEqual([]);
+    expect(searchRanked("settings", null, {})).toEqual([]);
+  });
+
+  /* The band and score are the backend's own verdict, carried through so the
+     group sorts against the frontend's by the same rule. */
+  it("orders the group against the frontend's by its best row", () => {
+    const behind = rankedGroup(1);
+    const ahead = { ...behind, rows: [{ ...behind.rows[0]!, band: 0, score: 100 }] };
+
+    const orderOf = (ranked: BackendRankedGroups) =>
+      searchRanked("settings", null, ranked, { files }).map((group) => group.source);
+
+    expect(orderOf({ game: behind })).toEqual(["files", "game"]);
+    expect(orderOf({ game: ahead })).toEqual(["game", "files"]);
   });
 });

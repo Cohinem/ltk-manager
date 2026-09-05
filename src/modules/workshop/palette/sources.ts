@@ -1,7 +1,6 @@
-import type { PaletteSourceId } from "./types";
+import type { BackendRankedSourceId, LocalSourceId, PaletteSourceId } from "./types";
 
-export interface PaletteSource {
-  readonly id: PaletteSourceId;
+interface SourceDeclaration {
   /** The group header, and the chip a scope draws before the caret. */
   readonly label: string;
   /** Typed at the start of a query to scope to this source, where one exists. */
@@ -19,6 +18,18 @@ export interface PaletteSource {
   /** What the source holds, for the row `?` lists it under. */
   readonly hint: string;
 }
+
+interface LocalSource extends SourceDeclaration {
+  readonly id: LocalSourceId;
+  readonly backendRanked?: false;
+}
+
+interface BackendRankedSource extends SourceDeclaration {
+  readonly id: BackendRankedSourceId;
+  readonly backendRanked: true;
+}
+
+export type PaletteSource = LocalSource | BackendRankedSource;
 
 /**
  * Every source the bar reads, in the order its groups stack.
@@ -45,7 +56,7 @@ export const PALETTE_SOURCES: readonly PaletteSource[] = [
   { id: "strings", label: "Strings", prefix: "#", hint: "Every string override key" },
   { id: "commands", label: "Commands", prefix: ">", cap: 5, hint: "What the editor can do" },
   { id: "settings", label: "Settings", hint: "Every setting a link can open" },
-  { id: "game", label: "Game", hint: "Every file of the installed game" },
+  { id: "game", label: "Game", hint: "Every file of the installed game", backendRanked: true },
 ];
 
 /** Every source a project's bar reads, which is all of them. */

@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                            |
-| ---------- | ----------------------------------------------------------------- |
-| 2026-09-01 | The meta schema judges, and a table speaks for later builds       |
-| 2026-08-30 | A bin is recognized by its content, and repaired at its hash      |
-| 2026-08-28 | Preserve the names a fix hashes, and drop the restore point       |
-| 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md             |
-| 2026-08-24 | Draw the forward-looking lints by default, dimmed                 |
-| 2026-08-24 | Give the forward-looking switch a row, and drop the notice        |
-| 2026-08-23 | Put the forward-looking lints behind one editor setting           |
-| 2026-08-23 | Mute what waits for a build, rather than withholding it           |
-| 2026-08-22 | Wait for the build a table names, and let a modder ask anyway     |
-| 2026-08-22 | Group by object, open as a tab, and let a run carry its own words |
+| Date       | Change                                                        |
+| ---------- | ------------------------------------------------------------- |
+| 2026-09-05 | Point the lazy-read link at the reader that landed            |
+| 2026-09-01 | The meta schema judges, and a table speaks for later builds   |
+| 2026-08-30 | A bin is recognized by its content, and repaired at its hash  |
+| 2026-08-28 | Preserve the names a fix hashes, and drop the restore point   |
+| 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md         |
+| 2026-08-24 | Draw the forward-looking lints by default, dimmed             |
+| 2026-08-24 | Give the forward-looking switch a row, and drop the notice    |
+| 2026-08-23 | Put the forward-looking lints behind one editor setting       |
+| 2026-08-23 | Mute what waits for a build, rather than withholding it       |
+| 2026-08-22 | Wait for the build a table names, and let a modder ask anyway |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -429,8 +429,8 @@ project editor measured that read at 194.8MB in 760ms over the install's bins, w
 A run therefore needs no progress events and no cancel. It is one command that answers, on a
 blocking thread rather than on the thread that draws the window - 234ms there is fourteen
 dropped frames, and the first run of a session also pays for the hashtable cache. The
-[lazy read](PROJECT_EDITOR.md#what-has-to-land-first) that the object index waits on is not a
-blocker here, because this rule reads properties and the eager parse is the read it wants.
+[lazy read](PROJECT_EDITOR.md#the-reader-it-has) the object index sweeps with is no concern
+here, because this rule reads properties, and a sweep reads none.
 
 ### The state
 

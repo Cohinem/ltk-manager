@@ -3,16 +3,25 @@ import type { ReactNode } from "react";
 import type { ContentDocument } from "../documents";
 import type { MatchRange } from "./matcher";
 
-/** Where a palette row came from, which is also the group it lands in. */
-export type PaletteSourceId =
+/** The sources whose rows the frontend matches, from candidates built for them. */
+export type LocalSourceId =
   | "projects"
   | "documents"
   | "files"
   | "layers"
   | "strings"
   | "commands"
-  | "settings"
-  | "game";
+  | "settings";
+
+/**
+ * The sources whose rows arrive from the backend already ranked and grouped.
+ *
+ * `PALETTE_SOURCES` flags each of these too, and the compiler holds the two to one answer.
+ */
+export type BackendRankedSourceId = "game";
+
+/** Where a palette row came from, which is also the group it lands in. */
+export type PaletteSourceId = LocalSourceId | BackendRankedSourceId;
 
 /**
  * One action the project bar can run.
@@ -89,8 +98,8 @@ export interface PaletteRowData {
  *
  * `nameLower`, `fullLower` and `mask` are built once with the array. Lowercasing
  * a few thousand rows per keystroke is the cost that shows up in a scan, and
- * this is what removes it. The game's rows arrive ranked from the backend and
- * so carry none of it.
+ * this is what removes it. A backend-ranked source's rows arrive already ranked
+ * and so carry none of it.
  */
 export interface PaletteCandidate extends PaletteRowData {
   /**
@@ -110,12 +119,12 @@ export interface PaletteCandidate extends PaletteRowData {
  * What each locally-matched source contributes, source by source.
  *
  * Partial because a context holds only the sources it has: the workshop's own
- * surface carries commands and no files. The game is absent from every one of
- * them, because its rows are ranked in Rust and reach the bar already grouped,
- * through `useGameRows`.
+ * surface carries commands and no files. A backend-ranked source is absent from
+ * every one of them, because its rows reach the bar already grouped, as
+ * [`BackendRankedGroups`].
  */
 export type PaletteCandidates = Partial<
-  Readonly<Record<Exclude<PaletteSourceId, "game">, readonly PaletteCandidate[]>>
+  Readonly<Record<LocalSourceId, readonly PaletteCandidate[]>>
 >;
 
 /** A row that matched, with what it marks and how it sorts against its group. */
@@ -138,6 +147,16 @@ export interface PaletteGroup {
   /** A fresh answer is on its way, so what is here is the last one. */
   readonly pending?: boolean;
 }
+
+/**
+ * What each backend-ranked source contributes, already grouped, source by source.
+ *
+ * Partial for the same reason [`PaletteCandidates`] is, and null for a source
+ * the context reads that has nothing to say to this query.
+ */
+export type BackendRankedGroups = Partial<
+  Readonly<Record<BackendRankedSourceId, PaletteGroup | null>>
+>;
 
 /** How `Enter` and its modifiers ask for a row to open. */
 export type OpenIntent = "default" | "beside" | "permanent";

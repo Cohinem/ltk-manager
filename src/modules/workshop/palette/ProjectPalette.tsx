@@ -32,12 +32,13 @@ export function ProjectPalette(props: PaletteBranchProps) {
      in wherever its group sits. */
   const wantsGame = !parsed.help && (parsed.scope === null || parsed.scope === "game");
   const game = useGameRows(parsed.term, wantsGame);
+  const ranked = useMemo(() => ({ game }), [game]);
 
   const groups = usePaletteSearch({
     parsed,
     sources: PROJECT_SOURCES,
     candidates,
-    game,
+    ranked,
     selectedLayer,
     recent,
   });
