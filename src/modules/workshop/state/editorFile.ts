@@ -181,6 +181,7 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("game-wads") }),
   z.object({ id: z.string(), kind: z.literal("game-wad"), wadName: z.string() }),
   z.object({ id: z.string(), kind: z.literal("objects") }),
+  z.object({ id: z.string(), kind: z.literal("references") }),
   z.object({
     id: z.string(),
     kind: z.literal("preview"),

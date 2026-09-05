@@ -18,6 +18,7 @@ export * from "./objectsBrowser";
 export * from "./patcherFailure";
 export * from "./patcherSession";
 export * from "./playSession";
+export * from "./references";
 export * from "./updater";
 export * from "./workshopDialogs";
 export * from "./workshopEditor";

@@ -1,4 +1,4 @@
-import { CopyIcon, HashIcon } from "@phosphor-icons/react";
+import { CopyIcon, HashIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -7,6 +7,9 @@ import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import type { ClassSchema, FieldSchema } from "@/lib/tauri";
 
+/* The leaf rather than the references barrel, which pulls the document that draws a
+   class card of its own. */
+import { classReferences, useFindReferences } from "../references/useFindReferences";
 import { shapeTag } from "./kindTag";
 import { useClassSchema } from "./useClassSchema";
 
@@ -60,6 +63,7 @@ function keepRowShut(event: ReactMouseEvent<HTMLButtonElement>) {
 
 function ClassCardBody({ classHash, name }: ClassCardProps) {
   const copy = useCopyToClipboard();
+  const find = useFindReferences();
   const { data, error, isPending } = useClassSchema(classHash);
 
   return (
@@ -78,7 +82,15 @@ function ClassCardBody({ classHash, name }: ClassCardProps) {
         <span className="text-surface-400">{m.workshop_bin_class_unknown_empty()}</span>
       )}
       {data && <Fields schema={data} />}
-      <footer className="flex gap-1">
+      <footer className="flex flex-wrap gap-1">
+        <Button
+          variant="ghost"
+          size="xs"
+          left={<MagnifyingGlassIcon />}
+          onClick={() => find(classReferences(classHash, name))}
+        >
+          {m.workshop_references_find_class_action()}
+        </Button>
         {name !== null && (
           <Button
             variant="ghost"

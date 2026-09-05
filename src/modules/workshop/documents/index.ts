@@ -21,6 +21,8 @@ export {
   previewDocumentId,
   PROBLEMS_DOCUMENT_ID,
   problemsDocument,
+  REFERENCES_DOCUMENT_ID,
+  referencesDocument,
   stringsDocument,
 } from "./contentDocument";
 export { DetailsDocument } from "./DetailsDocument";

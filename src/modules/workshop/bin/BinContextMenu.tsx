@@ -2,6 +2,7 @@ import {
   ArrowSquareOutIcon,
   HashIcon,
   LinkIcon,
+  MagnifyingGlassIcon,
   PathIcon,
   TreeStructureIcon,
 } from "@phosphor-icons/react";
@@ -14,6 +15,7 @@ import type { BinRow, BinValue } from "@/lib/tauri";
 import type { ContentDocument } from "../documents/contentDocument";
 import { useRevealInObjects } from "../objectsBrowser/useRevealInObjects";
 import type { OpenIntent } from "../palette/types";
+import { objectReferences, useFindReferences } from "../references/useFindReferences";
 import { useOpenDocumentAs } from "../state";
 import type { VisibleRow } from "./binRows";
 import { decideLink, type LinkDecision } from "./linkDecision";
@@ -38,6 +40,7 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const copy = useCopyToClipboard();
   const open = useOpenDocumentAs();
   const revealInObjects = useRevealInObjects();
+  const findReferences = useFindReferences();
   const targets = useLinkTargets();
   const { wantOpen } = useLinkOpen();
   const row = line?.kind === "row" ? line.row : null;
@@ -84,6 +87,12 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
           )}
           {object && (
             <>
+              <ContextMenu.Item
+                icon={<MagnifyingGlassIcon />}
+                onClick={() => findReferences(objectReferences(row.entry, row.name))}
+              >
+                {m.workshop_references_find_object_action()}
+              </ContextMenu.Item>
               <ContextMenu.Item
                 icon={<TreeStructureIcon />}
                 onClick={() => revealInObjects(row.name)}

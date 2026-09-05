@@ -1,6 +1,7 @@
 import {
   FileArchiveIcon,
   FilesIcon,
+  MagnifyingGlassIcon,
   TranslateIcon,
   TreeStructureIcon,
   WarningDiamondIcon,
@@ -30,6 +31,7 @@ import {
 import { ObjectsDocument, useRevealInObjects } from "../objectsBrowser";
 import { assetPath, PreviewDocument } from "../preview";
 import { ProblemsDocument } from "../problems";
+import { objectReferences, ReferencesDocument, useFindReferences } from "../references";
 import { describeFileKind } from "../utils/fileKindIcon";
 import {
   type ContentDocument,
@@ -102,6 +104,11 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       label: () => ({ title: m.workshop_objects_title() }),
       component: ObjectsDocument,
     },
+    references: {
+      icon: () => <MagnifyingGlassIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      label: () => ({ title: m.workshop_references_title(), path: project.path }),
+      component: ReferencesDocument,
+    },
     preview: {
       icon: (document) => <PreviewGlyph title={document.title} />,
       label: (document) => ({
@@ -132,22 +139,39 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         path: document.objectPath,
       }),
       component: ObjectDocument,
-      tabMenu: (document) => <ObjectTabMenu objectPath={document.objectPath} />,
+      tabMenu: (document) => (
+        <ObjectTabMenu objectHash={document.objectHash} objectPath={document.objectPath} />
+      ),
     },
   };
 }
 
-/** Reveal in Objects, per "The object tab" in docs/ux/BIN_EDITOR.md. */
-function ObjectTabMenu({ objectPath }: { objectPath: string }) {
+interface ObjectTabMenuProps {
+  /** `0x` and eight hex digits. */
+  objectHash: string;
+  objectPath: string;
+}
+
+/** Find references and Reveal in Objects, per "The object tab" in docs/ux/BIN_EDITOR.md. */
+function ObjectTabMenu({ objectHash, objectPath }: ObjectTabMenuProps) {
   const reveal = useRevealInObjects();
+  const find = useFindReferences();
 
   return (
-    <ContextMenu.Item
-      icon={<TreeStructureIcon className="h-4 w-4" />}
-      onClick={() => reveal(objectPath)}
-    >
-      {m.workshop_objects_reveal_action()}
-    </ContextMenu.Item>
+    <>
+      <ContextMenu.Item
+        icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+        onClick={() => find(objectReferences(objectHash, objectPath))}
+      >
+        {m.workshop_references_find_object_action()}
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        icon={<TreeStructureIcon className="h-4 w-4" />}
+        onClick={() => reveal(objectPath)}
+      >
+        {m.workshop_objects_reveal_action()}
+      </ContextMenu.Item>
+    </>
   );
 }
 

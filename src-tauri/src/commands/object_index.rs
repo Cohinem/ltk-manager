@@ -12,11 +12,11 @@ use ltk_manager_core::hashtables::{
 use ltk_manager_core::object_index::{
     self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDirListing,
     ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
-    ObjectSearchGeneration, ObjectSearchResult,
+    ObjectReferenceGeneration, ObjectSearchGeneration, ObjectSearchResult, ReferenceResult,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
@@ -234,6 +234,100 @@ pub async fn find_objects(
             "Ran a full search of the bin object index"
         );
         Ok(ObjectFind::Ready(result))
+    })
+    .await
+}
+
+/// What a reference query asks the index for.
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ReferenceQuery {
+    /// Every object of one class.
+    #[serde(rename_all = "camelCase")]
+    Class {
+        /// The class hash, `0x` and eight hex digits.
+        class_hash: String,
+    },
+    /// Every declaration of one object.
+    #[serde(rename_all = "camelCase")]
+    Object {
+        /// The object's path hash, `0x` and eight hex digits.
+        object_hash: String,
+    },
+}
+
+impl ReferenceQuery {
+    /// The hash the query names, whichever it names.
+    fn hash_text(&self) -> &str {
+        let (Self::Class { class_hash: text } | Self::Object { object_hash: text }) = self;
+        text
+    }
+}
+
+/// What a reference query found, given the slot the index is in.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum ObjectReferences {
+    /// Nothing has warmed the index, or the switch that gates it is off.
+    Absent,
+    /// A build is running. The groups follow it.
+    Building,
+    /// The last build failed, and the next warm retries it.
+    Failed { error: AppErrorResponse },
+    /// The index answered.
+    Ready(ReferenceResult),
+}
+
+/// What `query` names, grouped by the file that declares it.
+///
+/// A class answers with every object the install declares as it, and an object with
+/// every file declaring that object. The scan carries a generation of its own, so a
+/// re-run gives up only the reference scan it overtakes.
+///
+/// "The References document" in `docs/ux/PROJECT_EDITOR.md`.
+#[tauri::command]
+pub async fn find_references(
+    query: ReferenceQuery,
+    app_handle: AppHandle,
+) -> IpcResult<ObjectReferences> {
+    let asked = query.hash_text().to_owned();
+    let Some(hash) = parse_hash(&asked) else {
+        let e = AppError::ValidationFailed(format!("Not an object index hash: {asked}"));
+        return IpcResult::from(Err::<ObjectReferences, _>(e));
+    };
+
+    let ticket = app_handle.state::<ObjectReferenceGeneration>().claim();
+    let overtaken = {
+        let app_handle = app_handle.clone();
+        move || {
+            app_handle
+                .state::<ObjectReferenceGeneration>()
+                .overtook(ticket)
+        }
+    };
+
+    off_thread(move || {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+            ObjectIndexSnapshot::Absent => return Ok(ObjectReferences::Absent),
+            ObjectIndexSnapshot::Building => return Ok(ObjectReferences::Building),
+            ObjectIndexSnapshot::Failed(error) => return Ok(ObjectReferences::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => index,
+        };
+
+        let result = match query {
+            ReferenceQuery::Class { .. } => index.class_references(hash, overtaken),
+            ReferenceQuery::Object { .. } => index.object_references(hash),
+        };
+        tracing::debug!(
+            hash = %asked,
+            groups = result.groups.len(),
+            total = result.total,
+            superseded = result.superseded,
+            "Answered a reference query from the bin object index"
+        );
+        Ok(ObjectReferences::Ready(result))
     })
     .await
 }

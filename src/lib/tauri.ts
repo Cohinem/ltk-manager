@@ -62,6 +62,7 @@ import type {
   Notice,
   ObjectDir,
   ObjectFind,
+  ObjectReferences,
   ObjectSearch,
   PackProjectArgs,
   PackResult,
@@ -70,6 +71,7 @@ import type {
   PlatformSupport,
   ProblemId,
   Profile,
+  ReferenceQuery,
   ReleasePage,
   Run,
   SaveProjectConfigArgs,
@@ -294,6 +296,8 @@ export const api = {
   objectDir: (prefix: string) => invokeResult<ObjectDir>("object_dir", { prefix }),
   findObjects: (pattern: string, regex: boolean, cls: string | null) =>
     invokeResult<ObjectFind>("find_objects", { pattern, regex, class: cls }),
+  findReferences: (query: ReferenceQuery) =>
+    invokeResult<ObjectReferences>("find_references", { query }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>

@@ -1,4 +1,5 @@
-//! The measurement "The build, measured" in `docs/ux/PROJECT_EDITOR.md` reads.
+//! The measurement "The build, measured" in `docs/ux/PROJECT_EDITOR.md` reads, and the
+//! wire shape a reference query arrives in.
 
 use std::path::PathBuf;
 
@@ -39,4 +40,19 @@ fn measure_the_live_install() {
 
     let stats = named.stats();
     assert!(stats.rows > 0, "an install declares objects");
+}
+
+#[test]
+fn a_reference_query_arrives_tagged_by_what_it_asks_for() {
+    use super::ReferenceQuery;
+
+    let class: ReferenceQuery =
+        serde_json::from_str(r#"{"kind":"class","classHash":"0x12345678"}"#).unwrap();
+    assert!(matches!(class, ReferenceQuery::Class { class_hash } if class_hash == "0x12345678"));
+
+    let object: ReferenceQuery =
+        serde_json::from_str(r#"{"kind":"object","objectHash":"0x9abcdef0"}"#).unwrap();
+    assert!(
+        matches!(object, ReferenceQuery::Object { object_hash } if object_hash == "0x9abcdef0")
+    );
 }

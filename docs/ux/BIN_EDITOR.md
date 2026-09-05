@@ -37,34 +37,34 @@ This table holds every major feature of the bin editor. A status word has one me
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature              | Status    | Note                                                          |
-| -------------------- | --------- | ------------------------------------------------------------- |
-| VS Code handoff      | Available | Opens the file as ritobin text in VS Code. `BinPreview.tsx`   |
-| Object list          | Available | The objects of one file, collapsed, with their classes        |
-| Property rows        | Available | Every leaf kind, drawn read-only                              |
-| Container rows       | Available | The eight complex kinds, expandable                           |
-| Hash names           | Available | The four mimir bin tables, through `bin_tables()`             |
-| Property paths       | Available | The game's path syntax, as the address and as Copy path       |
-| Open at object       | Available | A `$` hit opens the declaring file scrolled to its object     |
-| Type tags            | Available | Every row's kind after its name, in ritobin's words           |
-| Class cards          | Available | A class or a field, pinned by a click, from the meta schema   |
-| Object tab           | Available | One declaration as a document. ADR-0028                       |
-| Object links         | Available | A chip that opens the object tab, resolved through the index  |
-| Hash links           | Available | A `hash` the index declares, opening the same way             |
-| WAD chunk links      | Available | A chip that opens the chunk in a preview tab                  |
-| Texture swatch       | Available | A `file` link to a texture, at row height and on a hover card |
-| Find all references  | Planned   | The objects of a class from the index. The walk for the rest  |
-| In-document search   | Planned   | The bar's `@` scope over the open rows                        |
-| Leaf editing         | Proposed  | The primitive widgets, and the patch that carries an edit     |
-| Container editing    | Proposed  | Add, remove, reorder, and a `Map` key                         |
-| Autosave             | Proposed  | The strings editor's debounce and save state                  |
-| Undo                 | Proposed  | An inverse-patch stack per document                           |
-| Class views          | Proposed  | A bespoke block for a class that earns one                    |
-| Schema-aware editing | Proposed  | The meta dump, for a field's declared type and its subclasses |
-| Copy into a layer    | Proposed  | The route from a read-only game chunk to an editable copy     |
-| Ritobin text view    | Proposed  | A read-only text pane, once `ltk_ritobin` publishes           |
-| Patch bin records    | Planned   | `BinOverride` reads them. Drawn by nothing, so read-only      |
-| Patch authoring      | Proposed  | An edit written as a patch record rather than a rewrite       |
+| Feature              | Status      | Note                                                          |
+| -------------------- | ----------- | ------------------------------------------------------------- |
+| VS Code handoff      | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`   |
+| Object list          | Available   | The objects of one file, collapsed, with their classes        |
+| Property rows        | Available   | Every leaf kind, drawn read-only                              |
+| Container rows       | Available   | The eight complex kinds, expandable                           |
+| Hash names           | Available   | The four mimir bin tables, through `bin_tables()`             |
+| Property paths       | Available   | The game's path syntax, as the address and as Copy path       |
+| Open at object       | Available   | A `$` hit opens the declaring file scrolled to its object     |
+| Type tags            | Available   | Every row's kind after its name, in ritobin's words           |
+| Class cards          | Available   | A class or a field, pinned by a click, from the meta schema   |
+| Object tab           | Available   | One declaration as a document. ADR-0028                       |
+| Object links         | Available   | A chip that opens the object tab, resolved through the index  |
+| Hash links           | Available   | A `hash` the index declares, opening the same way             |
+| WAD chunk links      | Available   | A chip that opens the chunk in a preview tab                  |
+| Texture swatch       | Available   | A `file` link to a texture, at row height and on a hover card |
+| Find all references  | In progress | The objects of a class from the index. The walk for the rest  |
+| In-document search   | Planned     | The bar's `@` scope over the open rows                        |
+| Leaf editing         | Proposed    | The primitive widgets, and the patch that carries an edit     |
+| Container editing    | Proposed    | Add, remove, reorder, and a `Map` key                         |
+| Autosave             | Proposed    | The strings editor's debounce and save state                  |
+| Undo                 | Proposed    | An inverse-patch stack per document                           |
+| Class views          | Proposed    | A bespoke block for a class that earns one                    |
+| Schema-aware editing | Proposed    | The meta dump, for a field's declared type and its subclasses |
+| Copy into a layer    | Proposed    | The route from a read-only game chunk to an editable copy     |
+| Ritobin text view    | Proposed    | A read-only text pane, once `ltk_ritobin` publishes           |
+| Patch bin records    | Planned     | `BinOverride` reads them. Drawn by nothing, so read-only      |
+| Patch authoring      | Proposed    | An edit written as a patch record rather than a rewrite       |
 
 ## Scope
 

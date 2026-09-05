@@ -72,7 +72,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
 | Object tab             | Available   | One declaration as a document. ADR-0028                            |
 | Objects browser        | Available   | Every object of the install, one tree over its paths               |
-| References document    | Planned     | A class's objects from the index. The walk for the rest            |
+| References document    | In progress | A class's objects from the index. The walk for the rest            |
 | Mesh preview           | Planned     | A model in a small viewport                                        |
 | Modified time          | Planned     | Needs a time field in the content scan                             |
 | Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |

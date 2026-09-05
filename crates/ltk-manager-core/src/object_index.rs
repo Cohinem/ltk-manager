@@ -263,6 +263,50 @@ impl ObjectFindResult {
     }
 }
 
+/// One object a reference query found, in the file that declares it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceHit {
+    /// The object's path hash, as `0x` and eight hex digits.
+    pub object_hash: String,
+    /// The object's path, or its hash when no table names it.
+    pub path: String,
+    /// The class hash, as `0x` and eight hex digits.
+    pub class_hash: String,
+    /// The class's name, or its hash when no table names it.
+    pub class: String,
+}
+
+/// The objects one file declares, as a reference query groups them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceGroup {
+    /// The declaring file, as an open reads it.
+    pub asset: AssetRef,
+    /// The declaring file's path, or its hash when no table names it.
+    pub file: String,
+    /// The objects in natural path order, the ones no table names last.
+    pub objects: Vec<ReferenceHit>,
+}
+
+/// What one reference query found.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceResult {
+    /// The declaring files in archive order, holding [`FIND_LIMIT`] objects in all.
+    pub groups: Vec<ReferenceGroup>,
+    /// How many objects matched in all, counted on past the cap.
+    pub total: u32,
+    /// A newer query overtook this one. The groups are a part of the answer.
+    pub superseded: bool,
+}
+
 /// What a build measured.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectIndexStats {
@@ -853,6 +897,90 @@ impl ObjectIndex {
         })
     }
 
+    /// Every object of `class`, grouped by the file that declares it.
+    ///
+    /// The class scan of [`find`](Self::find) with the objects grouped rather than
+    /// listed: the files come in archive order, the objects of one file in natural
+    /// path order, and the total counts on past the [`FIND_LIMIT`] the groups hold.
+    ///
+    /// `is_overtaken` is tested every few thousand rows, the contract
+    /// [`GameIndex::search`] sets.
+    #[must_use]
+    pub fn class_references(
+        &self,
+        class: BinHash,
+        is_overtaken: impl Fn() -> bool,
+    ) -> ReferenceResult {
+        self.class_references_capped(class, FIND_LIMIT, is_overtaken)
+    }
+
+    /// [`class_references`](Self::class_references) with the cap a test can afford to fill.
+    fn class_references_capped(
+        &self,
+        class: BinHash,
+        limit: usize,
+        is_overtaken: impl Fn() -> bool,
+    ) -> ReferenceResult {
+        let mut scan = ReferenceScan::new(limit);
+        for (at, row) in self.declared.rows.iter().enumerate() {
+            if scan.tick(&is_overtaken) {
+                break;
+            }
+            if row.class == class {
+                scan.keep(row.file, at as u32);
+            }
+        }
+        scan.finish(self)
+    }
+
+    /// Every declaration of `object`, grouped by the file that declares it.
+    ///
+    /// One file is one group of one object, the shape
+    /// [`class_references`](Self::class_references) answers in. Nothing declaring
+    /// `object` is no group at all.
+    #[must_use]
+    pub fn object_references(&self, object: BinHash) -> ReferenceResult {
+        let rows = self.declared.rows_of(object);
+        ReferenceResult {
+            groups: rows.iter().map(|at| self.reference_group(&[*at])).collect(),
+            total: rows.len() as u32,
+            superseded: false,
+        }
+    }
+
+    /// The rows of one declaring file as a group, its objects in natural path order.
+    ///
+    /// # Panics
+    ///
+    /// Panics on an empty `rows`, which no scan builds: a group exists because a row
+    /// landed in it.
+    fn reference_group(&self, rows: &[u32]) -> ReferenceGroup {
+        let declaration = self.declaration(rows[0]);
+        let mut objects: Vec<ReferenceHit> =
+            rows.iter().map(|at| self.reference_hit(*at)).collect();
+        objects.sort_by(|a, b| {
+            unnamed_hit(a)
+                .cmp(&unnamed_hit(b))
+                .then_with(|| compare_names(&a.path, &b.path))
+        });
+        ReferenceGroup {
+            asset: declaration.asset,
+            file: declaration.file,
+            objects,
+        }
+    }
+
+    /// The row at `at` as one object of a group.
+    fn reference_hit(&self, at: u32) -> ReferenceHit {
+        let row = &self.declared.rows[at as usize];
+        ReferenceHit {
+            object_hash: hex(row.object),
+            path: self.object_name(row.object),
+            class_hash: hex(row.class),
+            class: self.class_name(row.class),
+        }
+    }
+
     /// The row at `at` as a declaration on the wire.
     fn declaration(&self, at: u32) -> ObjectDeclaration {
         let row = &self.declared.rows[at as usize];
@@ -1309,6 +1437,78 @@ impl FindScan {
     }
 }
 
+/// Whether no table named the object of `hit`, which leaves its hex in place of a path.
+fn unnamed_hit(hit: &ReferenceHit) -> bool {
+    hit.path == hit.object_hash
+}
+
+/// One reference query's rows as they are met, gathered under their declaring file.
+#[derive(Debug)]
+struct ReferenceScan {
+    /// The rows of each file, in the order the files were first met.
+    groups: Vec<(WadHash, Vec<u32>)>,
+    /// Where a file's rows sit in `groups`.
+    at: HashMap<WadHash, usize>,
+    limit: usize,
+    kept: usize,
+    total: u32,
+    since_check: u32,
+    overtaken: bool,
+}
+
+impl ReferenceScan {
+    fn new(limit: usize) -> Self {
+        Self {
+            groups: Vec::new(),
+            at: HashMap::new(),
+            limit,
+            kept: 0,
+            total: 0,
+            since_check: 0,
+            overtaken: false,
+        }
+    }
+
+    /// Count the row at `at`, and gather it under `file` while under the cap.
+    fn keep(&mut self, file: WadHash, at: u32) {
+        self.total += 1;
+        if self.kept >= self.limit {
+            return;
+        }
+        self.kept += 1;
+        match self.at.get(&file) {
+            Some(group) => self.groups[*group].1.push(at),
+            None => {
+                self.at.insert(file, self.groups.len());
+                self.groups.push((file, vec![at]));
+            }
+        }
+    }
+
+    /// Test the generation on the first row and every few thousand after, and report
+    /// whether to stop.
+    fn tick(&mut self, is_overtaken: &impl Fn() -> bool) -> bool {
+        if self.since_check == 0 {
+            self.overtaken = is_overtaken();
+        }
+        self.since_check = (self.since_check + 1) % STALE_CHECK_INTERVAL;
+        self.overtaken
+    }
+
+    /// The groups on the wire, each resolved through `index`.
+    fn finish(self, index: &ObjectIndex) -> ReferenceResult {
+        ReferenceResult {
+            groups: self
+                .groups
+                .iter()
+                .map(|(_, rows)| index.reference_group(rows))
+                .collect(),
+            total: self.total,
+            superseded: self.overtaken,
+        }
+    }
+}
+
 /// The `class:` term of a query, and whether it was the last term typed.
 ///
 /// Read by the objects source alone. Every other source sees the term as
@@ -1682,6 +1882,26 @@ impl ObjectFindGeneration {
     }
 
     /// Whether a later search holds a newer ticket than `ticket`.
+    #[must_use]
+    pub fn overtook(&self, ticket: u64) -> bool {
+        self.0.overtook(ticket)
+    }
+}
+
+/// The newest reference query asked for, on a line of its own.
+///
+/// Apart from [`ObjectFindGeneration`]. A re-run in the References tab gives up no
+/// scan the objects browser waits on.
+#[derive(Debug, Default)]
+pub struct ObjectReferenceGeneration(SearchGeneration);
+
+impl ObjectReferenceGeneration {
+    /// Take the newest ticket. Every scan already running is behind it.
+    pub fn claim(&self) -> u64 {
+        self.0.claim()
+    }
+
+    /// Whether a later query holds a newer ticket than `ticket`.
     #[must_use]
     pub fn overtook(&self, ticket: u64) -> bool {
         self.0.overtook(ticket)

@@ -2,45 +2,59 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
 import type { OpenIntent } from "../palette/types";
-import { activation, expandable, type ObjectTreeNode, type ObjectTreeRow } from "./objectTree";
 
-interface UseObjectsTreeNavParams {
-  rows: readonly ObjectTreeRow[];
-  isExpanded: (node: ObjectTreeNode) => boolean;
-  onToggle: (node: ObjectTreeNode) => void;
-  /** The keyboard route to what a click on an object row does. */
-  onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
+/** What a row's node answers a key with: the tab it opens, or the branch it folds. */
+export type NodeActivation = "open" | "toggle" | "none";
+
+/** A row of a flattened tree: its node, and how deep the node sits. */
+interface DepthRow<Node> {
+  readonly node: Node;
+  readonly depth: number;
+}
+
+interface UseReadOnlyTreeNavParams<Node, Row extends DepthRow<Node>> {
+  rows: readonly Row[];
+  isExpanded: (node: Node) => boolean;
+  onToggle: (node: Node) => void;
+  /** The keyboard route to what a click on a row does. */
+  onOpen: (node: Node, intent: OpenIntent) => void;
+  /** Whether the node has children to fold. */
+  expandable: (node: Node) => boolean;
+  /** What `Enter` on the node does. */
+  activation: (node: Node) => NodeActivation;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
 
-interface UseObjectsTreeNavReturn {
+interface UseReadOnlyTreeNavReturn {
   focusedIndex: number;
-  setFocusedIndex: (i: number) => void;
+  setFocusedIndex: (at: number) => void;
   /** Focus the row at `index`, scrolled into view. */
   moveFocus: (index: number) => void;
-  handleKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void;
+  handleKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
 }
 
 /**
- * Roving-tabindex keyboard navigation for the objects tree.
+ * Roving-tabindex keyboard navigation for a read-only tree of the editor.
  *
- * The source tree's key rules, retargeted at the object row model. `Enter` opens an
- * object and toggles a prefix. A node that is both opens on `Enter` and expands from
- * `ArrowRight` alone, the rule a click obeys.
+ * The source tree's key rules over any row model: `expandable` and `activation` are what
+ * the caller's node type answers with. A node that both opens and folds opens on `Enter`
+ * and expands from `ArrowRight` alone, the rule a click obeys.
  */
-export function useObjectsTreeNav({
+export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
   rows,
   isExpanded,
   onToggle,
   onOpen,
+  expandable,
+  activation,
   virtualizer,
   scrollElementRef,
-}: UseObjectsTreeNavParams): UseObjectsTreeNavReturn {
+}: UseReadOnlyTreeNavParams<Node, Row>): UseReadOnlyTreeNavReturn {
   const [focusedIndex, setFocusedIndex] = useState(0);
 
   useEffect(() => {
-    setFocusedIndex((i) => (rows.length === 0 ? 0 : Math.max(0, Math.min(i, rows.length - 1))));
+    setFocusedIndex((at) => (rows.length === 0 ? 0 : Math.max(0, Math.min(at, rows.length - 1))));
   }, [rows.length]);
 
   const moveFocus = useCallback(
@@ -49,9 +63,8 @@ export function useObjectsTreeNav({
       setFocusedIndex(clamped);
       virtualizer.scrollToIndex(clamped, { align: "auto", behavior: "auto" });
       requestAnimationFrame(() => {
-        /* Scoped to the rows themselves: the pinned band carries a second copy
-           of an ancestor row under the same index, and it is not the one to
-           focus. */
+        /* Scoped to the rows themselves: the pinned band carries a second copy of an
+           ancestor row under the same index, and it is not the one to focus. */
         const el = scrollElementRef.current?.querySelector<HTMLElement>(
           `[data-tree-rows] [data-treeitem-index="${clamped}"]`,
         );
@@ -69,7 +82,7 @@ export function useObjectsTreeNav({
 
       switch (e.key) {
         case "Enter": {
-          const does = activation(node, "row");
+          const does = activation(node);
           if (does === "open") {
             e.preventDefault();
             onOpen(node, e.ctrlKey || e.metaKey ? "beside" : "default");
@@ -108,9 +121,9 @@ export function useObjectsTreeNav({
             onToggle(node);
           } else if (row.depth > 0) {
             e.preventDefault();
-            for (let i = focusedIndex - 1; i >= 0; i--) {
-              if (rows[i]!.depth < row.depth) {
-                moveFocus(i);
+            for (let at = focusedIndex - 1; at >= 0; at -= 1) {
+              if (rows[at]!.depth < row.depth) {
+                moveFocus(at);
                 break;
               }
             }
@@ -118,7 +131,7 @@ export function useObjectsTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, isExpanded, onToggle, onOpen, moveFocus],
+    [rows, focusedIndex, isExpanded, onToggle, onOpen, expandable, activation, moveFocus],
   );
 
   return { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown };

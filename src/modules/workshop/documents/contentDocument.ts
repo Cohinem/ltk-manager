@@ -41,6 +41,10 @@ interface ObjectsDoc extends EditorDocumentBase {
   kind: "objects";
 }
 
+interface ReferencesDoc extends EditorDocumentBase {
+  kind: "references";
+}
+
 interface PreviewDoc extends EditorDocumentBase {
   kind: "preview";
   asset: AssetRef;
@@ -79,6 +83,7 @@ export type ContentDocument =
   | GameWadsDoc
   | GameWadDoc
   | ObjectsDoc
+  | ReferencesDoc
   | PreviewDoc
   | ObjectDoc;
 
@@ -135,6 +140,13 @@ export const OBJECTS_DOCUMENT_ID = "objects";
 
 export function objectsDocument(): ContentDocument {
   return { id: OBJECTS_DOCUMENT_ID, kind: "objects" };
+}
+
+/** One project answers one query at a time, so its document needs nothing to key on. */
+export const REFERENCES_DOCUMENT_ID = "references";
+
+export function referencesDocument(): ContentDocument {
+  return { id: REFERENCES_DOCUMENT_ID, kind: "references" };
 }
 
 /**

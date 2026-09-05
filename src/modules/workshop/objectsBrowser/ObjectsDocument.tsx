@@ -1,10 +1,9 @@
-import { SpinnerGapIcon } from "@phosphor-icons/react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import type { AppError, ObjectFindResult } from "@/lib/tauri";
+import type { ObjectFindResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import {
   useExpandedObjectPrefixes,
@@ -27,8 +26,12 @@ import { useProjectContext } from "../components/ProjectContext";
 import { TreeSearchBox } from "../components/TreeSearchBox";
 import type { ContentDocumentOf } from "../documents/contentDocument";
 import { GameLoadingState, GameWadsErrorState } from "../gameBrowser/GameBrowserStates";
-import { useGameIndex } from "../gameBrowser/useGameIndex";
-import { useWarmObjectIndex } from "../gameBrowser/useObjectIndex";
+import { useWarmOnAbsent } from "../gameBrowser/useObjectIndex";
+import {
+  ObjectIndexBuildingState,
+  ObjectIndexFailedState,
+  ObjectIndexUnnamedHint,
+} from "./ObjectIndexStates";
 import { ObjectsTree } from "./ObjectsTree";
 import {
   buildFindTree,
@@ -157,51 +160,6 @@ function useLayerDeclarations(): LayerDeclarations {
   return useMemo(() => layerDeclarationsOf(tree, project), [tree, project]);
 }
 
-/**
- * The body while the index builds: a spinner over the archive count.
- *
- * With the Objects switch off, the band above it offers to keep the index on for the
- * project bar.
- */
-function BuildingState() {
-  const { data: game } = useGameIndex();
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 text-meta text-surface-400 select-none">
-      <SpinnerGapIcon className="h-5 w-5 animate-spin" />
-      {game !== undefined && (
-        <span>{m.workshop_objects_indexing_label({ count: game.archives })}</span>
-      )}
-      {game === undefined && <span>{m.workshop_objects_building_label()}</span>}
-    </div>
-  );
-}
-
-/** The build failed. The next warm retries it, and a missing install points at Settings. */
-function FailedState({ error, onRetry }: { error: AppError; onRetry: () => void }) {
-  if (hasErrorCode(error, "LEAGUE_NOT_FOUND")) return <GameWadsErrorState error={error} />;
-  return (
-    <EmptyState
-      size="sm"
-      title={m.workshop_objects_index_failed_title()}
-      description={errorSummary(error)}
-      action={
-        <Button variant="outline" size="xs" onClick={onRetry}>
-          {m.workshop_objects_retry_action()}
-        </Button>
-      }
-    />
-  );
-}
-
-/** Every object is a bare hash, which is what an unsynced hash table leaves. */
-function UnnamedHint() {
-  return (
-    <p className="shrink-0 border-b border-surface-700/50 px-3 py-1.5 text-xs text-surface-400 select-none">
-      {m.workshop_objects_unnamed_label()}
-    </p>
-  );
-}
-
 /** The index this view warmed goes at the end of the session. The band offers to keep it. */
 function SwitchOffHint() {
   const on = useSearchObjects();
@@ -222,24 +180,10 @@ function ObjectsIndexTree() {
   const toggle = useToggleObjectPrefix();
   const open = useOpenObjectNode();
   const layers = useLayerDeclarations();
-  const warm = useWarmObjectIndex();
-  const warmMutate = warm.mutate;
 
   const root = useObjectDir("");
-  const status = root.data?.status;
-
-  /* Opening the view warms the index whatever the Objects switch says. Once per
-     absence. A build the state is already running is asked for no second time. */
-  const asked = useRef(false);
-  useEffect(() => {
-    if (status !== "absent") {
-      asked.current = false;
-      return;
-    }
-    if (asked.current) return;
-    asked.current = true;
-    warmMutate();
-  }, [status, warmMutate]);
+  /* Opening the view warms the index whatever the Objects switch says. */
+  const retry = useWarmOnAbsent(root.data?.status);
 
   const expandedPaths = useMemo(() => [...expanded].sort(), [expanded]);
   const listings = useObjectDirs(expandedPaths);
@@ -260,13 +204,13 @@ function ObjectsIndexTree() {
   if (root.isPending) return <GameLoadingState />;
   if (root.isError) return <GameWadsErrorState error={root.error} />;
   if (root.data.status === "failed") {
-    return <FailedState error={root.data.error} onRetry={() => warmMutate()} />;
+    return <ObjectIndexFailedState error={root.data.error} onRetry={retry} />;
   }
   if (root.data.status !== "ready") {
     return (
       <>
         <SwitchOffHint />
-        <BuildingState />
+        <ObjectIndexBuildingState />
       </>
     );
   }
@@ -286,7 +230,7 @@ function ObjectsIndexTree() {
   return (
     <>
       <SwitchOffHint />
-      {holdsOnlyUnnamed(root.data) && <UnnamedHint />}
+      {holdsOnlyUnnamed(root.data) && <ObjectIndexUnnamedHint />}
       <ObjectsTree
         nodes={tree}
         ariaLabel={m.workshop_objects_title()}
@@ -312,7 +256,7 @@ function FindResults() {
   const { data, error, isFetching } = useObjectFind(pattern, regex);
   const open = useOpenObjectNode();
   const layers = useLayerDeclarations();
-  const warm = useWarmObjectIndex();
+  const retry = useWarmOnAbsent(data?.status);
 
   /* The parse error belongs under the box. Its fix is the next keystroke. Every other
      failure replaces the tree. */
@@ -333,9 +277,9 @@ function FindResults() {
   if (error && !patternError) return <GameWadsErrorState error={error} />;
   if (!data && !patternError) return <GameLoadingState />;
   if (data?.status === "failed") {
-    return <FailedState error={data.error} onRetry={() => warm.mutate()} />;
+    return <ObjectIndexFailedState error={data.error} onRetry={retry} />;
   }
-  if (data && data.status !== "ready") return <BuildingState />;
+  if (data && data.status !== "ready") return <ObjectIndexBuildingState />;
 
   return (
     <>
@@ -344,7 +288,7 @@ function FindResults() {
           {errorSummary(patternError)}
         </p>
       )}
-      {data && data.unnamed && <UnnamedHint />}
+      {data && data.unnamed && <ObjectIndexUnnamedHint />}
       {data && data.hits.length === 0 && (
         <EmptyState
           size="sm"

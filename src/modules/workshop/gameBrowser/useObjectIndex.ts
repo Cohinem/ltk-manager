@@ -1,5 +1,5 @@
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { api, type AppError, type DeclaredObjects } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
@@ -35,6 +35,33 @@ export function useWarmObjectIndex() {
 /** Drop the object index, so the bar stops answering for objects. */
 export function useDropObjectIndex() {
   return useObjectIndexStep(api.dropObjectIndex);
+}
+
+/** The slot an answer of the object index reports it in. */
+export type ObjectIndexSlot = "absent" | "building" | "failed" | "ready";
+
+/**
+ * Warm the index for a view whose answer reports it absent, and the retry that asks again.
+ *
+ * Once per absence: the poll behind the answer asks again until the build lands, and a
+ * build the state is already running is asked for no second time.
+ */
+export function useWarmOnAbsent(slot: ObjectIndexSlot | undefined): () => void {
+  const warm = useWarmObjectIndex();
+  const warmMutate = warm.mutate;
+
+  const asked = useRef(false);
+  useEffect(() => {
+    if (slot !== "absent") {
+      asked.current = false;
+      return;
+    }
+    if (asked.current) return;
+    asked.current = true;
+    warmMutate();
+  }, [slot, warmMutate]);
+
+  return useCallback(() => warmMutate(), [warmMutate]);
 }
 
 /**

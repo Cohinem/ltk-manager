@@ -12,51 +12,27 @@ import { m } from "@/i18n";
 
 import { useShowInFile } from "../bin/useShowInFile";
 import type { OpenIntent } from "../palette/types";
-/* The leaf rather than the references barrel, which reaches this module back through
-   the documents registry mid-evaluation. */
-import { objectReferences, useFindReferences } from "../references/useFindReferences";
-import type { ObjectTreeNode } from "./objectTree";
-import { declarationOf } from "./useOpenObjectNode";
+import type { ReferenceNode, ReferenceObjectNode } from "./referenceTree";
+import { objectReferences, useFindReferences } from "./useFindReferences";
 
-interface ObjectsContextMenuProps {
+interface ReferencesContextMenuProps {
   /** The row the menu was opened on. Absent while it has never been opened. */
-  node: ObjectTreeNode | null;
-  onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
+  node: ReferenceNode | null;
+  onOpen: (node: ReferenceObjectNode, intent: OpenIntent) => void;
 }
 
 /**
- * The objects tree's one menu, aimed at whichever row opened it.
+ * The References tree's one menu, aimed at whichever row opened it.
  *
- * "What a row opens" in docs/ux/PROJECT_EDITOR.md. A prefix is a fold of the tree and
- * has a path to copy and nothing else.
+ * The objects browser's items over one declaration: the file is the group the row sits
+ * in, so Show in file goes there rather than anywhere else.
  */
-export function ObjectsContextMenu({ node, onOpen }: ObjectsContextMenuProps) {
+export function ReferencesContextMenu({ node, onOpen }: ReferencesContextMenuProps) {
   const copy = useCopyToClipboard();
   const showInFile = useShowInFile();
   const find = useFindReferences();
 
-  if (node?.type === "prefix") {
-    if (node.unnamed) return null;
-    return (
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          <ContextMenu.Popup className="w-56">
-            <ContextMenu.Item
-              icon={<PathIcon className="h-4 w-4" />}
-              onClick={() => void copy(node.id, m.workshop_bin_path_label())}
-            >
-              {m.workshop_objects_copy_path_action()}
-            </ContextMenu.Item>
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
-    );
-  }
-
   if (node?.type !== "object") return null;
-  const declaration = declarationOf(node);
-  if (!declaration) return null;
-  const classUnnamed = declaration.class === declaration.classHash;
 
   return (
     <ContextMenu.Portal>
@@ -77,7 +53,7 @@ export function ObjectsContextMenu({ node, onOpen }: ObjectsContextMenuProps) {
           <ContextMenu.Separator />
           <ContextMenu.Item
             icon={<FileIcon className="h-4 w-4" />}
-            onClick={() => showInFile(declaration.asset, node.objectHash, declaration.file)}
+            onClick={() => showInFile(node.asset, node.objectHash, node.file)}
           >
             {m.workshop_objects_show_in_file_action()}
           </ContextMenu.Item>
@@ -100,10 +76,10 @@ export function ObjectsContextMenu({ node, onOpen }: ObjectsContextMenuProps) {
           >
             {m.workshop_objects_copy_hash_action()}
           </ContextMenu.Item>
-          {classUnnamed && (
+          {node.class === null && (
             <ContextMenu.Item
               icon={<HashIcon className="h-4 w-4" />}
-              onClick={() => void copy(declaration.classHash, m.workshop_bin_hash_label())}
+              onClick={() => void copy(node.classHash, m.workshop_bin_hash_label())}
             >
               {m.workshop_objects_copy_class_hash_action()}
             </ContextMenu.Item>

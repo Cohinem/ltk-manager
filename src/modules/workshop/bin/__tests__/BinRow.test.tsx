@@ -7,10 +7,11 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { BinRow, ClassSchema } from "@/lib/tauri";
+import type { BinRow, ClassSchema, WorkshopProject } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
+import { ProjectProvider } from "../../components/ProjectContext";
 import { BinRowLine } from "../BinRow";
 import type { RowLine } from "../binRows";
 
@@ -69,11 +70,30 @@ const SCHEMA: ClassSchema = {
   ],
 };
 
+/* The class card offers Find all references, which opens a document of the project the
+   card is mounted in. */
+const PROJECT: WorkshopProject = {
+  path: "C:/mods/skin",
+  name: "skin",
+  displayName: "Skin",
+  version: "1.0.0",
+  description: "",
+  authors: [],
+  tags: [],
+  champions: [],
+  maps: [],
+  layers: [],
+  thumbnailPath: null,
+  lastModified: "2026-08-21T21:14:02Z",
+};
+
 function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(() => createTestQueryClient());
   return (
     <QueryClientProvider client={client}>
-      <ToastProvider>{children}</ToastProvider>
+      <ProjectProvider project={PROJECT}>
+        <ToastProvider>{children}</ToastProvider>
+      </ProjectProvider>
     </QueryClientProvider>
   );
 }

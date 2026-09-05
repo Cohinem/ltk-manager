@@ -215,6 +215,7 @@ fn main() {
             commands::declared_objects,
             commands::object_dir,
             commands::find_objects,
+            commands::find_references,
             // Bin viewer
             commands::bin_open,
             commands::bin_children,
