@@ -43,6 +43,14 @@ interface WorkshopLayoutStore {
    */
   searchGame: boolean;
   /**
+   * Whether the project bar searches the bin objects the install declares.
+   *
+   * Off by default, because the index behind it reads every bin of the install
+   * once a session. The switch is the consent: turning it on builds the index
+   * at once, and turning it off drops it.
+   */
+  searchObjects: boolean;
+  /**
    * Whether Problems draws the lints for Meta changes Riot has not deployed.
    *
    * On, because the day a change lands is the day every mod that shipped the
@@ -62,16 +70,21 @@ interface WorkshopLayoutStore {
   setTabOpenMode: (tabOpenMode: TabOpenMode) => void;
   setPreviewCheckered: (previewCheckered: boolean) => void;
   setSearchGame: (searchGame: boolean) => void;
+  setSearchObjects: (searchObjects: boolean) => void;
   setForwardLookingMeta: (forwardLookingMeta: boolean) => void;
 }
 
 /* What the Project editor card shows. The rest of this store is geometry, which is
-   remembered rather than chosen, so a settings key exists only for these three. */
+   remembered rather than chosen, so a settings key exists only for these four. */
 const PROJECT_EDITOR_DEFAULTS = {
   tabOpenMode: "append",
   searchGame: true,
+  searchObjects: false,
   forwardLookingMeta: true,
-} satisfies Pick<WorkshopLayoutStore, "tabOpenMode" | "searchGame" | "forwardLookingMeta">;
+} satisfies Pick<
+  WorkshopLayoutStore,
+  "tabOpenMode" | "searchGame" | "searchObjects" | "forwardLookingMeta"
+>;
 
 type ProjectEditorKey = keyof typeof PROJECT_EDITOR_DEFAULTS;
 
@@ -99,6 +112,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setTabOpenMode: (tabOpenMode) => set({ tabOpenMode }),
       setPreviewCheckered: (previewCheckered) => set({ previewCheckered }),
       setSearchGame: (searchGame) => set({ searchGame }),
+      setSearchObjects: (searchObjects) => set({ searchObjects }),
       setForwardLookingMeta: (forwardLookingMeta) => set({ forwardLookingMeta }),
     }),
     { name: "ltk-workshop-layout", version: 1 },
@@ -127,6 +141,8 @@ export const usePreviewCheckered = () => useWorkshopLayoutStore((s) => s.preview
 export const useSetPreviewCheckered = () => useWorkshopLayoutStore((s) => s.setPreviewCheckered);
 export const useSearchGame = () => useWorkshopLayoutStore((s) => s.searchGame);
 export const useSetSearchGame = () => useWorkshopLayoutStore((s) => s.setSearchGame);
+export const useSearchObjects = () => useWorkshopLayoutStore((s) => s.searchObjects);
+export const useSetSearchObjects = () => useWorkshopLayoutStore((s) => s.setSearchObjects);
 export const useForwardLookingMeta = () => useWorkshopLayoutStore((s) => s.forwardLookingMeta);
 export const useSetForwardLookingMeta = () =>
   useWorkshopLayoutStore((s) => s.setForwardLookingMeta);

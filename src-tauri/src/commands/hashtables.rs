@@ -129,6 +129,7 @@ pub fn reopen_after_sync(app: &AppHandle) {
         tracing::warn!("Could not drop the game index after a hashtable sync: {e}");
     }
     BinNames::invalidate_game_index();
+    super::object_index::rename_after_sync(app);
 }
 
 /// Re-check the library against the tables the sync just installed.

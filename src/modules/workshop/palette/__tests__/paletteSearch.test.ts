@@ -120,7 +120,7 @@ describe("usePaletteSearch", () => {
   });
 
   it("lists every prefix a project can reach", () => {
-    expect(search("?", PROJECT_SOURCES)[0]!.rows).toHaveLength(3);
+    expect(search("?", PROJECT_SOURCES)[0]!.rows).toHaveLength(4);
   });
 
   it("keeps the alias off the listing, so the help stays one row per source", () => {
@@ -284,6 +284,54 @@ describe("a backend-ranked source", () => {
   it("draws nothing for a source that answered nothing", () => {
     expect(searchRanked("settings", null, { game: null })).toEqual([]);
     expect(searchRanked("settings", null, {})).toEqual([]);
+  });
+
+  /* The same rows under the objects source, which is the second backend-ranked
+     one and the reason the flag replaced a hard-coded id. */
+  function objectsGroup(count: number, total = count): PaletteGroup {
+    const rows = Array.from({ length: count }, (_, at) => ({
+      row: {
+        id: `object:${at}`,
+        source: "objects" as const,
+        name: `characters/aatrox/skins/skin${at}`,
+        path: "SkinCharacterDataProperties · data/skin.bin",
+        icon: null,
+        target: {
+          kind: "object" as const,
+          wad: "Aatrox.wad.client",
+          pathHash: "0",
+          path: "data/skin.bin",
+          objectHash: `0x${at}`,
+        },
+      },
+      band: 2,
+      score: at,
+      nameRanges: [],
+      pathRanges: [],
+    }));
+    return { source: "objects", label: "Objects", rows, total };
+  }
+
+  it("folds every backend-ranked group in, each trimmed to its own cap", () => {
+    const groups = searchRanked("skin", null, {
+      game: rankedGroup(12, 20),
+      objects: objectsGroup(12, 30),
+    });
+
+    expect(groups.map((group) => group.source)).toEqual(["game", "objects"]);
+    expect(groups[0]!.rows).toHaveLength(8);
+    expect(groups[1]!.rows).toHaveLength(4);
+    expect(groups[1]!.total).toBe(30);
+  });
+
+  it("lists the objects alone and in full under their own scope", () => {
+    const groups = searchRanked("skin", "objects", {
+      game: rankedGroup(3),
+      objects: objectsGroup(12),
+    });
+
+    expect(groups.map((group) => group.source)).toEqual(["objects"]);
+    expect(groups[0]!.rows).toHaveLength(12);
   });
 
   /* The band and score are the backend's own verdict, carried through so the

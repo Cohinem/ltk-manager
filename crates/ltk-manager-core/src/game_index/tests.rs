@@ -726,3 +726,43 @@ fn an_install_with_no_archives_builds_an_empty_tree() {
     assert!(root.files.is_empty());
     assert_eq!(index.stats().files, 0);
 }
+
+#[test]
+fn for_each_named_file_visits_every_named_file_with_its_archive() {
+    let game = game_with(&[
+        (
+            "A.wad.client",
+            &["assets/aatrox/aatrox.bin", "assets/mystery.bin"],
+        ),
+        (
+            "B.wad.client",
+            &["data/menu/main_menu.bin", "assets/aatrox/aatrox.bin"],
+        ),
+    ]);
+    let index = build(
+        game.path(),
+        &["assets/aatrox/aatrox.bin", "data/menu/main_menu.bin"],
+    );
+
+    let mut seen = Vec::new();
+    index.for_each_named_file(|hash, path, wad| seen.push((hash, path.to_owned(), wad)));
+    seen.sort_by(|a, b| a.1.cmp(&b.1));
+
+    assert_eq!(
+        seen,
+        [
+            (
+                path_hash("assets/aatrox/aatrox.bin"),
+                "assets/aatrox/aatrox.bin".to_owned(),
+                0
+            ),
+            (
+                path_hash("data/menu/main_menu.bin"),
+                "data/menu/main_menu.bin".to_owned(),
+                1
+            ),
+        ],
+        "the fold keeps the first archive's copy, and an unnamed chunk is not visited"
+    );
+    assert_eq!(index.wads(), ["A.wad.client", "B.wad.client"]);
+}

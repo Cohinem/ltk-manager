@@ -8,10 +8,12 @@ import {
 import { useCallback } from "react";
 
 import { api, type AppError, type GameDirListing, type GameIndexStats } from "@/lib/tauri";
+import { useSearchObjects } from "@/stores";
 import { mutationFn, queryFn, queryFnWithArgs } from "@/utils/query";
 
 import type { SourceDirListing } from "./sourceIndex";
 import { GAME_STALE_MS, gameKeys } from "./useGameWads";
+import { useWarmObjectIndex } from "./useObjectIndex";
 
 /* The tree speaks plain numbers, so the wire format's bigint stays behind this
    adapter. Directory rows arrive sorted and folded, which is the index's work. */
@@ -84,9 +86,17 @@ export function useGameIndex() {
   });
 }
 
-/** Drop the built index, so the next read walks the install again. */
+/**
+ * Drop the built index, so the next read walks the install again.
+ *
+ * The object index goes with it, and is warmed again while the Objects switch
+ * is on, because the game index it is fed by has just been declared stale.
+ */
 export function useRefreshGameIndex() {
   const queryClient = useQueryClient();
+  const searchObjects = useSearchObjects();
+  const warmObjects = useWarmObjectIndex();
+  const warmMutate = warmObjects.mutate;
 
   return useMutation<void, AppError, void>({
     mutationFn: mutationFn(api.refreshGameIndex),
@@ -94,6 +104,8 @@ export function useRefreshGameIndex() {
       queryClient.invalidateQueries({ queryKey: gameKeys.index });
       queryClient.invalidateQueries({ queryKey: gameKeys.dirs });
       queryClient.invalidateQueries({ queryKey: gameKeys.wads });
+      queryClient.invalidateQueries({ queryKey: gameKeys.objectSearches });
+      if (searchObjects) warmMutate();
     },
   });
 }

@@ -31,6 +31,7 @@ import {
 import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
 import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
 import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
+import { useObjectIndexLifecycle } from "@/modules/workshop";
 import { useDisplayStore, useUpdaterUpdate } from "@/stores";
 
 function RootLayout() {
@@ -62,6 +63,7 @@ function RootLayout() {
   useIncidentListeners();
   useCleanGameWatch();
   useLeagueSession();
+  useObjectIndexLifecycle();
   useOverscrollSpring();
   useZoomHotkeys();
 

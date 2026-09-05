@@ -54,6 +54,7 @@ import type {
   ModStorage,
   ModWadReport,
   Notice,
+  ObjectSearch,
   PackProjectArgs,
   PackResult,
   PatcherConfig,
@@ -272,6 +273,12 @@ export const api = {
     invokeResult<GameSearchResult>("search_game_index", { query }),
   findInGameIndex: (pattern: string, regex: boolean) =>
     invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
+
+  // Object index
+  searchObjectIndex: (query: string) =>
+    invokeResult<ObjectSearch>("search_object_index", { query }),
+  warmObjectIndex: () => invokeResult<void>("warm_object_index"),
+  dropObjectIndex: () => invokeResult<void>("drop_object_index"),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>

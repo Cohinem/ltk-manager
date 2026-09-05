@@ -824,6 +824,22 @@ impl BinHashTables {
         Self::read(self.entries.as_ref(), hash)
     }
 
+    /// Visit the path of every object in `hashes` the table names, with its index.
+    ///
+    /// One batch rather than one [`entry`](Self::entry) per hash, because the
+    /// table resolves a batch in arena order and decompresses each frame once.
+    pub fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        let Some(db) = self.entries.as_ref() else {
+            return;
+        };
+        let keys: Vec<u64> = hashes.iter().map(|hash| u64::from(hash.0)).collect();
+        for (at, (_, path)) in db.get_batch(&keys).enumerate() {
+            if let Some(path) = path {
+                visit(at, path.as_str());
+            }
+        }
+    }
+
     /// The name of a class, out of `bintypes`.
     #[must_use]
     pub fn class(&self, hash: BinHash) -> Option<String> {

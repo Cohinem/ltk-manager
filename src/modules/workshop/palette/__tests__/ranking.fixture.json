@@ -40,6 +40,25 @@
       "query": "nasus",
       "expect": ["assets/characters/nasus/nasus.skn"],
       "reject": ["assets/characters/smolder/sounds/charizard_sfx_audio.bnk"]
+    },
+    {
+      "name": "an object path's last segment is its name, and a match there outranks one reaching the path",
+      "query": "skin0",
+      "expect": ["characters/aatrox/skins/skin0", "characters/aatrox/skins/skin0/resources"]
+    },
+    {
+      "name": "an object segment the query opens outranks one that only holds it",
+      "query": "resources",
+      "expect": [
+        "characters/aatrox/skins/skin0/resources",
+        "characters/aatrox/skins/skin0/oldresources"
+      ]
+    },
+    {
+      "name": "every term of a query has to appear somewhere in the object path",
+      "query": "aatrox resources",
+      "expect": ["characters/aatrox/skins/skin0/resources"],
+      "reject": ["characters/ahri/skins/skin0/resources"]
     }
   ]
 }

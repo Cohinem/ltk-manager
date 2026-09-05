@@ -120,5 +120,6 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
 
   "layout.tabOpenMode": titleCase,
   "layout.searchGame": onOff,
+  "layout.searchObjects": onOff,
   "layout.forwardLookingMeta": onOff,
 };

@@ -36,8 +36,10 @@ export type PaletteSource = LocalSource | BackendRankedSource;
  *
  * Files, layers, documents and the game carry no prefix. `Tab` on a row reaches
  * those, and a prefix for each would be a table nobody can hold in their head.
- * The game is last because it is the one source that costs a scan of the
- * install, so a project of one’s own always reads first.
+ * The game is last but one because it is a source that costs a scan of the
+ * install, so a project of one’s own always reads first. Objects come after
+ * it, capped low unscoped so a modder typing a skin's name meets the object
+ * beside the file without being told `$` exists.
  *
  * Projects leads, because it is the one source both contexts hold and the only
  * row that can leave the surface the bar is drawn over.
@@ -57,6 +59,14 @@ export const PALETTE_SOURCES: readonly PaletteSource[] = [
   { id: "commands", label: "Commands", prefix: ">", cap: 5, hint: "What the editor can do" },
   { id: "settings", label: "Settings", hint: "Every setting a link can open" },
   { id: "game", label: "Game", hint: "Every file of the installed game", backendRanked: true },
+  {
+    id: "objects",
+    label: "Objects",
+    prefix: "$",
+    cap: 4,
+    hint: "Every bin object the installed game declares",
+    backendRanked: true,
+  },
 ];
 
 /** Every source a project's bar reads, which is all of them. */

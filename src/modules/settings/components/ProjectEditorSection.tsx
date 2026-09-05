@@ -4,8 +4,10 @@ import { SectionCard, SegmentedControl, Separator, Switch } from "@/components";
 import {
   useForwardLookingMeta,
   useSearchGame,
+  useSearchObjects,
   useSetForwardLookingMeta,
   useSetSearchGame,
+  useSetSearchObjects,
   useSetTabOpenMode,
   useTabOpenMode,
 } from "@/stores";
@@ -23,6 +25,8 @@ export function ProjectEditorSection() {
   const setTabOpenMode = useSetTabOpenMode();
   const searchGame = useSearchGame();
   const setSearchGame = useSetSearchGame();
+  const searchObjects = useSearchObjects();
+  const setSearchObjects = useSetSearchObjects();
   const forwardLookingMeta = useForwardLookingMeta();
   const setForwardLookingMeta = useSetForwardLookingMeta();
 
@@ -52,6 +56,15 @@ export function ProjectEditorSection() {
           description="The project bar reads every file of the install alongside your own."
           hint="The first search of a session indexes every archive, which takes a moment. Your project, layers, strings and commands are searched either way."
           control={<Switch checked={searchGame} onCheckedChange={setSearchGame} />}
+        />
+
+        <Separator className="my-0" />
+
+        <SettingRow
+          setting="layout.searchObjects"
+          description="The project bar reads every bin object the install declares."
+          hint="Building the index reads every bin of the install once a session, after the game index, and takes a few seconds."
+          control={<Switch checked={searchObjects} onCheckedChange={setSearchObjects} />}
         />
 
         <Separator className="my-0" />

@@ -18,7 +18,7 @@ export type LocalSourceId =
  *
  * `PALETTE_SOURCES` flags each of these too, and the compiler holds the two to one answer.
  */
-export type BackendRankedSourceId = "game";
+export type BackendRankedSourceId = "game" | "objects";
 
 /** Where a palette row came from, which is also the group it lands in. */
 export type PaletteSourceId = LocalSourceId | BackendRankedSourceId;
@@ -63,6 +63,21 @@ export type PaletteTarget =
       readonly pathHash: string;
       /** The resolved path, or empty for a chunk no hash table names. */
       readonly path: string;
+    }
+  | {
+      /**
+       * A bin object of the install, opened through the chunk that declares it.
+       *
+       * The object's hash rides along so the bin editor, when it lands, can
+       * scroll the same row to the object. Until then the chunk opens as the
+       * preview a game row opens.
+       */
+      readonly kind: "object";
+      readonly wad: string;
+      readonly pathHash: string;
+      readonly path: string;
+      /** `0x` and eight hex digits. */
+      readonly objectHash: string;
     }
   | { readonly kind: "document"; readonly document: ContentDocument }
   | { readonly kind: "command"; readonly command: ProjectCommand }
