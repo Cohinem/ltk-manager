@@ -1,9 +1,11 @@
 import { type Icon, WarningCircleIcon, WarningIcon, WrenchIcon } from "@phosphor-icons/react";
+import { match } from "ts-pattern";
 
 import { Button, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import { useModHealthDrawerStore } from "@/stores";
 
-import { useModHealthStatus } from "../api";
+import { useHealthVerdicts } from "../api";
 import { alarmOver, type SweepAlarm, toneOf } from "./modHealthNotice";
 
 /**
@@ -14,7 +16,8 @@ import { alarmOver, type SweepAlarm, toneOf } from "./modHealthNotice";
  * icon runs most of its height.
  */
 export function ModHealthStatusItem() {
-  const status = useModHealthStatus();
+  const broken = useHealthVerdicts({ health: "broken" });
+  const repairable = useHealthVerdicts({ health: "repairable" });
   const shown = useModHealthDrawerStore((s) => s.open);
   const hosted = useModHealthDrawerStore((s) => s.hosted);
   const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
@@ -22,14 +25,14 @@ export function ModHealthStatusItem() {
 
   // The bar spans the app and the drawer is the library's, so away from it this
   // cell would be a press that does nothing.
-  if (!status || !hosted) return null;
+  if (broken.length === 0 || !hosted) return null;
 
-  const alarm = alarmOver(status.all);
+  const alarm = alarmOver(broken);
   const tone = toneOf(alarm);
   const ItemIcon = GLYPHS[alarm];
   /* Only the repairable rung counts a subset: the other two are reached only
      when no repair is on offer, so every broken mod is one of theirs. */
-  const count = alarm === "repairable" ? status.repairable.length : status.all.length;
+  const count = alarm === "repairable" ? repairable.length : broken.length;
 
   function toggle() {
     if (shown) {
@@ -70,15 +73,14 @@ const GLYPHS: Record<SweepAlarm, Icon> = {
 
 /** What the press will do, since the cell's own words only ever say the count. */
 function hint(alarm: SweepAlarm, shown: boolean): string {
-  if (shown) return "Hide the mods this found something in.";
-  return HINTS[alarm];
-}
+  if (shown) return m.library_health_status_hide_hint();
 
-const HINTS: Record<SweepAlarm, string> = {
-  repairable: "Some of your mods require attention. Open the list and repair them.",
-  broken: "Some of your mods are broken and no repair reaches them. Open the list.",
-  flagged: "Some of your mods load with something that will not behave. Open the list.",
-};
+  return match(alarm)
+    .with("repairable", () => m.library_health_status_repairable_hint())
+    .with("broken", () => m.library_health_status_broken_hint())
+    .with("flagged", () => m.library_health_status_flagged_hint())
+    .exhaustive();
+}
 
 /**
  * The cell's own words, which have room for a count and little else.
@@ -88,6 +90,9 @@ const HINTS: Record<SweepAlarm, string> = {
  * looking for a replacement they did not need.
  */
 function label(alarm: SweepAlarm, count: number): string {
-  if (alarm === "repairable") return `${count} ${count === 1 ? "repair" : "repairs"}`;
-  return `${count} ${alarm}`;
+  return match(alarm)
+    .with("repairable", () => m.common_health_repairs_label({ count }))
+    .with("broken", () => m.common_health_broken_label({ count }))
+    .with("flagged", () => m.common_health_flagged_label({ count }))
+    .exhaustive();
 }

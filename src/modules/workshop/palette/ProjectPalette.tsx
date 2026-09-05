@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
 
+import { m } from "@/i18n";
+
 import { useProjectContext } from "../components/ProjectContext";
 import { type ContentDocument, previewDocument } from "../documents/contentDocument";
 import {
@@ -16,10 +18,11 @@ import { type PaletteBranchProps, ResultsPalette } from "./ResultsPalette";
 import { parseQuery, PROJECT_SOURCES } from "./sources";
 import type { OpenIntent, PaletteRowData, PaletteTarget } from "./types";
 import { useGameRows } from "./useGameRows";
+import { useObjectRows } from "./useObjectRows";
 import { usePaletteSearch } from "./usePaletteSearch";
 import { useProjectCandidates } from "./useProjectCandidates";
 
-/** The bar's palette under a project: its tabs, its files, its strings, the game. */
+/** The bar's palette under a project: its tabs, its files, its strings, the game and its objects. */
 export function ProjectPalette(props: PaletteBranchProps) {
   const { query, scope, onClose } = props;
 
@@ -28,16 +31,26 @@ export function ProjectPalette(props: PaletteBranchProps) {
   const selectedLayer = useSelectedLayerName();
   const recent = useRecentDocumentIds();
 
-  /* The one source that crosses IPC, so it is asked for on its own and folded
+  /* The two sources that cross IPC, so each is asked for on its own and folded
      in wherever its group sits. */
   const wantsGame = !parsed.help && (parsed.scope === null || parsed.scope === "game");
   const game = useGameRows(parsed.term, wantsGame);
+  const wantsObjects = !parsed.help && (parsed.scope === null || parsed.scope === "objects");
+  const objects = useObjectRows(parsed.term, query, wantsObjects);
+  const ranked = useMemo(() => ({ game, objects }), [game, objects]);
+
+  const project = useProjectContext();
+  const labels = useMemo(
+    () => ({ projectObjects: m.workshop_objects_project_label({ project: project.displayName }) }),
+    [project.displayName],
+  );
 
   const groups = usePaletteSearch({
     parsed,
     sources: PROJECT_SOURCES,
     candidates,
-    game,
+    ranked,
+    labels,
     selectedLayer,
     recent,
   });
@@ -56,18 +69,22 @@ export function ProjectPalette(props: PaletteBranchProps) {
 }
 
 /** A target that opens a tab, which is every one but a command and a prefix. */
-type OpeningTarget = Extract<PaletteTarget, { kind: "document" | "layerFile" | "gameChunk" }>;
+type OpeningTarget = Extract<
+  PaletteTarget,
+  { kind: "document" | "layerFile" | "gameChunk" | "object" | "layerObject" }
+>;
 
 /**
  * The tab a row opens, built at the moment it is chosen.
  *
  * A file of a layer and a chunk of the game each name their asset rather than
  * carrying a built document, because a project of a few thousand files and an
- * install of eight hundred thousand build one row apiece.
+ * install of eight hundred thousand build one row apiece. An object opens the
+ * file that declares it, the same tab a file row of the same side opens.
  */
 function documentFor(target: OpeningTarget, projectPath: string): ContentDocument {
   if (target.kind === "document") return target.document;
-  if (target.kind === "gameChunk") {
+  if (target.kind === "gameChunk" || target.kind === "object") {
     return previewDocument(
       { kind: "gameChunk", wad: target.wad, pathHash: target.pathHash },
       target.path.length > 0 ? target.path : undefined,
@@ -92,7 +109,8 @@ function useRunTarget(close: () => void) {
 
   return useCallback(
     ({ target }: PaletteRowData, intent: OpenIntent) => {
-      if (target.kind === "prefix") return;
+      /* Both keep the palette open, and the results palette runs them itself. */
+      if (target.kind === "prefix" || target.kind === "query") return;
 
       close();
 
@@ -114,7 +132,9 @@ function useRunTarget(close: () => void) {
 
       /* Only a file of the project has a tree standing open beside the editor
          to scroll. The game browser opens on its own. */
-      if (target.kind === "layerFile") reveal(target.layerName, target.path);
+      if (target.kind === "layerFile" || target.kind === "layerObject") {
+        reveal(target.layerName, target.path);
+      }
     },
     [close, openBeside, openDocument, openProject, openTab, project.path, reveal],
   );

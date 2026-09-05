@@ -54,6 +54,7 @@ import type {
   ModStorage,
   ModWadReport,
   Notice,
+  ObjectSearch,
   PackProjectArgs,
   PackResult,
   PatcherConfig,
@@ -105,6 +106,8 @@ export type DeepLinkInstallRequest = {
   name: string | null;
   author: string | null;
   source: string | null;
+  /** The host the trusted providers list does not cover, or `null` where it does. */
+  untrustedDomain: string | null;
 };
 
 export type ProtocolInstallProgress = {
@@ -122,11 +125,6 @@ export type DeepLinkSettingsRequest = {
 export type PendingDeepLink =
   | ({ kind: "install" } & DeepLinkInstallRequest)
   | ({ kind: "settings" } & DeepLinkSettingsRequest);
-
-export type DeepLinkBlockedPayload = {
-  domain: string;
-  url: string;
-};
 
 // API functions
 export const api = {
@@ -281,6 +279,14 @@ export const api = {
     invokeResult<GameSearchResult>("search_game_index", { query }),
   findInGameIndex: (pattern: string, regex: boolean) =>
     invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
+
+  // Object index
+  searchObjectIndex: (query: string) =>
+    invokeResult<ObjectSearch>("search_object_index", { query }),
+  warmObjectIndex: () => invokeResult<void>("warm_object_index"),
+  dropObjectIndex: () => invokeResult<void>("drop_object_index"),
+  declaredObjects: (objectHashes: string[]) =>
+    invokeResult<string[]>("declared_objects", { objectHashes }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>

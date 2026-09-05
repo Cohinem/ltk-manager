@@ -5,38 +5,28 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { BrokenMods } from "@/modules/library";
+import type { ModHealthVerdict } from "@/lib/tauri";
+import type { HealthFilter } from "@/modules/library";
 import { useLibrarySelectionStore, useModHealthDrawerStore } from "@/stores";
 
 import { ModHealthStatusItem } from "../ModHealthStatusItem";
 import { ModHealthSweep } from "../ModHealthSweep";
-import { brokenMods, installedMod, verdict } from "./modHealthFixtures";
+import { type HealthLists, healthVerdicts, installedMod, verdict } from "./modHealthFixtures";
 
-const useBrokenMods = vi.fn<() => BrokenMods>();
+const health = vi.fn<(filter: HealthFilter) => ModHealthVerdict[]>();
 const repairMutate = vi.fn();
 
-/* `useModHealthStatus` reaches its own module for `useBrokenMods` rather than
-   the barrel, so it is restated here over the same mock. */
 vi.mock("../../api", () => ({
   useModHealthVerdicts: () => ({ data: {} }),
-  useBrokenMods: () => useBrokenMods(),
-  useModHealthStatus: () => {
-    const broken = useBrokenMods();
-    if (broken.repairable.length + broken.unrepairable.length === 0) return null;
-    return broken;
-  },
+  useHealthVerdicts: (filter: HealthFilter) => health(filter),
   useRepairMod: () => ({ mutate: vi.fn(), isPending: false }),
   useRepairMods: () => ({ repair: repairMutate, isRepairing: false, progress: null }),
   useInstalledMods: () => ({ data: [installedMod("a", "Charizard Smolder")] }),
-  useRepairTargets: () => {
-    const all = useBrokenMods().repairable;
-    return { enabled: all, all };
-  },
 }));
 
 /** The bar's cell and the library's drawer, which is how they meet in the app. */
-function show(broken: Partial<BrokenMods>) {
-  useBrokenMods.mockReturnValue(brokenMods(broken));
+function show(broken: HealthLists) {
+  health.mockImplementation(healthVerdicts(broken));
   render(
     <ToastProvider>
       <ModHealthStatusItem />
@@ -288,7 +278,7 @@ describe("ModHealthSweep", () => {
   /* Mod health is a library surface and the bar spans the app, so away from a
      library page the cell would be a press that opens nothing. */
   it("says nothing where no library page is there to host the drawer", () => {
-    useBrokenMods.mockReturnValue(brokenMods({ repairable: [verdict("a", "repairable")] }));
+    health.mockImplementation(healthVerdicts({ repairable: [verdict("a", "repairable")] }));
     render(<ModHealthStatusItem />);
 
     expect(item()).not.toBeInTheDocument();

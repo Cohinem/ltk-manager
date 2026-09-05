@@ -589,6 +589,58 @@ impl GameIndex {
             self.collect_files(child, &child_path, out);
         }
     }
+    /// Visit every named file as `(path hash, path, archive ordinal)`, in tree order.
+    ///
+    /// For a build fed by this index, which reads the files it names and wants
+    /// no owned row per file. The chunks no hash table names are not visited.
+    /// The ordinal indexes [`wads`](Self::wads).
+    pub fn for_each_named_file(&self, mut visit: impl FnMut(u64, &str, u32)) {
+        let mut path = String::with_capacity(160);
+        self.visit_files(0, &mut path, &mut visit);
+    }
+
+    /// Visit every chunk no hash table names as `(path hash, archive ordinal)`.
+    ///
+    /// The other half of [`for_each_named_file`](Self::for_each_named_file),
+    /// in the order the unnamed group is kept: by hex name. The ordinal
+    /// indexes [`wads`](Self::wads).
+    pub fn for_each_unnamed_file(&self, mut visit: impl FnMut(u64, u32)) {
+        for file in &self.unknown {
+            visit(file.path_hash, file.wad);
+        }
+    }
+
+    /// Archive names in merge order, which a file's ordinal indexes.
+    pub fn wads(&self) -> &[String] {
+        &self.wads
+    }
+
+    /// Visit this directory's files and every descendant's, depth first.
+    ///
+    /// `path` is the directory the walk stands in, pushed and popped in place so
+    /// a file's full path is built without allocating one per file.
+    fn visit_files(&self, dir: usize, path: &mut String, visit: &mut impl FnMut(u64, &str, u32)) {
+        let node = &self.dirs[dir];
+        for file in &node.files {
+            let restore = path.len();
+            if !path.is_empty() {
+                path.push('/');
+            }
+            path.push_str(&file.name);
+            visit(file.path_hash, path, file.wad);
+            path.truncate(restore);
+        }
+        for (name, &child) in &node.children {
+            let restore = path.len();
+            if !path.is_empty() {
+                path.push('/');
+            }
+            path.push_str(name);
+            self.visit_files(child, path, visit);
+            path.truncate(restore);
+        }
+    }
+
     /// The arena index of `path`, where `""` is the root.
     fn resolve(&self, path: &str) -> Option<usize> {
         let mut cursor = 0usize;

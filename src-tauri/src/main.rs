@@ -209,6 +209,10 @@ fn main() {
             commands::refresh_game_index,
             commands::search_game_index,
             commands::find_in_game_index,
+            commands::warm_object_index,
+            commands::drop_object_index,
+            commands::search_object_index,
+            commands::declared_objects,
             // Extract to disk
             commands::plan_game_extract,
             commands::extract_game_files,

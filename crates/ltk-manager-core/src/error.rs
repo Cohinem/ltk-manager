@@ -55,6 +55,7 @@ pub enum ErrorKind {
     Hashtable,
     Preview,
     Overlay,
+    UntrustedDomain,
 }
 
 impl fmt::Display for ErrorKind {
@@ -139,6 +140,7 @@ impl AppError {
             AppError::Hashtable { .. } => ErrorKind::Hashtable,
             AppError::Preview { .. } => ErrorKind::Preview,
             AppError::Overlay { .. } => ErrorKind::Overlay,
+            AppError::UntrustedDomain { .. } => ErrorKind::UntrustedDomain,
         }
     }
 }
@@ -226,6 +228,9 @@ pub enum AppError {
 
     #[error(transparent)]
     Overlay(#[from] ltk_overlay::Error),
+
+    #[error("{0} is not a trusted mod provider")]
+    UntrustedDomain(String),
 }
 
 impl From<ltk_mod_project::ModProjectError> for AppError {

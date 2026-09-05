@@ -12,7 +12,7 @@ import { gameKeys } from "./useGameWads";
  * The project's own rows render on the keystroke. This one crosses IPC and
  * walks the whole install, so it waits for the typing to settle.
  */
-const SEARCH_DEBOUNCE_MS = 120;
+export const SEARCH_DEBOUNCE_MS = 120;
 
 /**
  * Rank every file of the installed game against `query`.

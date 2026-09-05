@@ -1,10 +1,111 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "library_health_all_repairable_description": "All of them can be repaired automatically, so *repairing is recommended*",
+  "library_health_cancel_failed_title": "Couldn't stop the run",
+  "library_health_check_clean_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Checked {count} mod",
+        "countPlural=other": "Checked {count} mods"
+      }
+    }
+  ],
+  "library_health_check_clean_title": "No problems found",
+  "library_health_check_library_failed_title": "Failed to check the library",
+  "library_health_check_mod_failed_title": "Failed to check mod",
+  "library_health_checking_label": "Checking your mods",
+  "library_health_enabled_label": "Enabled",
+  "library_health_flagged_hint": "Some of your mods contain non-fatal issues which are not repairable",
+  "library_health_informational_only_description": "These findings are worth knowing, and none of them is a fault",
+  "library_health_informational_toggle_label": "Info",
+  "library_health_mixed_description": "*Repairing is recommended*, and what it misses will still load",
+  "library_health_needs_update_label": "Needs an updated version",
+  "library_health_no_repair_description": "None of them are auto-fixable, though none of them stops a mod loading",
+  "library_health_not_fixable_label": "Not auto-fixable",
+  "library_health_nothing_to_repair_hint": "Your mods were already up to date.",
+  "library_health_nothing_to_repair_title": "Nothing to repair",
+  "library_health_patcher_running_hint": "A repair rewrites mods the overlay is reading.",
+  "library_health_patcher_running_title": "Stop the patcher first",
+  "library_health_repair_action": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Repair {count} mod",
+        "countPlural=other": "Repair {count} mods"
+      }
+    }
+  ],
+  "library_health_repair_all_action": "Repair all {count}",
+  "library_health_repair_enabled_action": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Repair {count} enabled mod",
+        "countPlural=other": "Repair {count} enabled mods"
+      }
+    }
+  ],
+  "library_health_repair_library_failed_title": "Failed to repair mods",
+  "library_health_repair_mod_failed_title": "Failed to repair mod",
+  "library_health_repair_mod_label": "Repair {name}",
+  "library_health_repair_one_action": "Repair",
+  "library_health_repair_options_label": "More repair options",
+  "library_health_repair_partial_hint": [
+    {
+      "declarations": ["input repaired", "input failed", "local repairedPlural = repaired: plural"],
+      "selectors": ["repairedPlural"],
+      "match": {
+        "repairedPlural=one": "{repaired} mod repaired, and {failed} could not be repaired.",
+        "repairedPlural=other": "{repaired} mods repaired, and {failed} could not be repaired."
+      }
+    }
+  ],
+  "library_health_repair_partial_title": "Repaired what we could",
+  "library_health_repair_stop_label": "Stop the repair",
+  "library_health_repaired_findings_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Repaired {count} finding",
+        "countPlural=other": "Repaired {count} findings"
+      }
+    }
+  ],
+  "library_health_repaired_hint": "They are ready for your next game.",
+  "library_health_repaired_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Repaired {count} mod",
+        "countPlural=other": "Repaired {count} mods"
+      }
+    }
+  ],
+  "library_health_repairing_label": "Repairing your mods",
+  "library_health_repairing_more_label": "Repairing {name} and {count} more",
+  "library_health_repairing_one_label": "Repairing {name}",
+  "library_health_replace_description": "None of them are auto-fixable, so look for updated versions",
+  "library_health_rule_not_fixable_label": "not auto-fixable",
+  "library_health_rule_partly_fixable_label": "{count} not auto-fixable",
+  "library_health_show_action": "Show me",
+  "library_health_some_replaceable_description": "*Repairing is recommended*, though some will need updated versions instead",
+  "library_health_status_broken_hint": "Some of your mods are broken and no repair reaches them. Open the list.",
+  "library_health_status_flagged_hint": "Some of your mods load with something that will not behave. Open the list.",
+  "library_health_status_hide_hint": "Hide the mods this found something in.",
+  "library_health_status_repairable_hint": "Some of your mods require attention. Open the list and repair them.",
+  "library_health_type_mismatch_description": "Expected *{expected}*, found *{found}*",
   "library_launch_already_running_label": "already running",
   "library_launch_league_action": "Launch League",
   "library_launch_league_only_action": "Launch League only",
   "library_launch_options_label": "More launch options",
   "library_league_close_action": "Close League",
+  "library_mod_missing_title": "Mod no longer exists in the library",
   "library_patcher_no_mods_hint": "No mods are enabled - there is nothing to patch",
   "library_patcher_only_action": "Start patcher only",
   "library_patcher_start_action": "Start",

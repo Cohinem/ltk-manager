@@ -108,8 +108,14 @@ export default tseslint.config(
             // "transform" is a CSS value in a keyframe, never copy.
             exclude: ["to", "search", "key", "id", "className", "data-ui", "transform"],
           },
-          // Ids, paths and class tokens: copy has a capital or a space.
-          words: { exclude: ["^[a-z0-9_./:-]+$"] },
+          words: {
+            exclude: [
+              // Ids, paths and class tokens: copy has a capital or a space.
+              "^[a-z0-9_./:-]+$",
+              // Punctuation bracketing a value the code interpolates, never a sentence.
+              "^[\\s(){}\\[\\]<>,.:;/|·–—-]+$",
+            ],
+          },
         },
       ],
     },

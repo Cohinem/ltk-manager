@@ -1,8 +1,12 @@
 //! Read-only browsing of the game's archives folded into one tree.
 
+use std::sync::Arc;
+
+use super::object_index::ObjectIndexState;
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
+use ltk_manager_core::config::Config;
 use ltk_manager_core::game_index::{
     FindGeneration, GameDirListing, GameFindResult, GameIndex, GameIndexState, GameIndexStats,
     GameSearchResult, SearchGeneration,
@@ -129,15 +133,17 @@ pub async fn find_in_game_index(
 
 /// Drop the built index, so the next read walks the install again.
 ///
-/// Unmounts the cached archives with it. Asking for a fresh index is the one
-/// signal the app gets that the install changed under it, and a mount taken
-/// before a patch would keep answering from the chunk table it read then.
+/// Unmounts the cached archives with it, and drops the object index, which
+/// was fed by this one. Asking for a fresh index is the one signal the app
+/// gets that the install changed under it, and a mount taken before a patch
+/// would keep answering from the chunk table it read then.
 #[tauri::command]
 pub async fn refresh_game_index(app_handle: AppHandle) -> IpcResult<()> {
     app_handle
         .state::<GameIndexState>()
         .clear()
         .and_then(|()| app_handle.state::<WadCache>().clear())
+        .and_then(|()| app_handle.state::<ObjectIndexState>().clear())
         .into()
 }
 
@@ -156,14 +162,30 @@ where
     };
 
     off_thread(move || {
-        let archives = GameArchives::resolve(&config)?;
-        let resolver = app_handle
-            .state::<std::sync::Arc<WadPathResolverState>>()
-            .get()?;
-        let index = app_handle
-            .state::<GameIndexState>()
-            .get_or_build(&archives, resolver.tables())?;
+        let (index, _) = built_game_index(&app_handle, &config)?;
         read(&index)
     })
     .await
+}
+
+/// The game index over the install `config` names, and the archives it was read from.
+///
+/// Builds the index when this is the first call, on the thread it is called
+/// from, so a caller reaches for it from a blocking thread. The object index
+/// build takes the archives too, which is why they come back beside it.
+///
+/// # Errors
+///
+/// Fails when the install cannot be resolved, the hash tables cannot be
+/// opened, or the build fails.
+pub(super) fn built_game_index(
+    app_handle: &AppHandle,
+    config: &Config,
+) -> AppResult<(Arc<GameIndex>, GameArchives)> {
+    let archives = GameArchives::resolve(config)?;
+    let resolver = app_handle.state::<Arc<WadPathResolverState>>().get()?;
+    let index = app_handle
+        .state::<GameIndexState>()
+        .get_or_build(&archives, resolver.tables())?;
+    Ok((index, archives))
 }

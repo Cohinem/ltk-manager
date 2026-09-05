@@ -1,5 +1,6 @@
 export { type BarMode, barMode, barPlaceholder } from "./barMode";
 export { buildCandidate, buildCommandCandidate } from "./candidate";
+export { completeClassTerm } from "./classTerm";
 export {
   compileQuery,
   letterMask,
@@ -23,9 +24,11 @@ export {
   prefixScope,
   PROJECT_SOURCES,
   sourceCap,
+  type SourceKey,
   WORKSHOP_SOURCES,
 } from "./sources";
 export type {
+  BackendRankedGroups,
   OpenIntent,
   PaletteCandidate,
   PaletteCandidates,

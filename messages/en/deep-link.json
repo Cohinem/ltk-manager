@@ -1,0 +1,18 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "deep_link_install_action": "Install",
+  "deep_link_install_complete_title": "Install Complete",
+  "deep_link_install_done_action": "Done",
+  "deep_link_install_downloading_label": "Downloading...",
+  "deep_link_install_failed_description": "Failed to install {name}",
+  "deep_link_install_failed_title": "Install Failed",
+  "deep_link_install_succeeded_description": "*{name}* has been installed successfully.",
+  "deep_link_install_succeeded_title": "Mod Installed",
+  "deep_link_install_title": "Install Mod",
+  "deep_link_install_unknown_mod_label": "Unknown Mod",
+  "deep_link_install_validating_label": "Validating...",
+  "deep_link_untrusted_description": "Trusting it installs this mod, and lets links from this domain install from now on.",
+  "deep_link_untrusted_reject_action": "Reject",
+  "deep_link_untrusted_title": "{domain} is not a trusted provider",
+  "deep_link_untrusted_trust_action": "Trust and install"
+}

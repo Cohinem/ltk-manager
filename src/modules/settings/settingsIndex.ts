@@ -61,6 +61,7 @@ const INDEX = [
   { id: "workshop.workshopPath", key: "workshopPath", title: "Workshop directory" },
   { id: "workshop.tabOpenMode", key: "layout.tabOpenMode", title: "Opening a file" },
   { id: "workshop.searchGame", key: "layout.searchGame", title: "Search the game" },
+  { id: "workshop.searchObjects", key: "layout.searchObjects", title: "Search bin objects" },
   {
     id: "workshop.forwardLookingMeta",
     key: "layout.forwardLookingMeta",

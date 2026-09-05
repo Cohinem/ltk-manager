@@ -2,6 +2,18 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "common_cancel_action": "Cancel",
   "common_close_action": "Close",
+  "common_health_broken_label": "{count} broken",
+  "common_health_flagged_label": "{count} flagged",
+  "common_health_repairs_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} repair",
+        "countPlural=other": "{count} repairs"
+      }
+    }
+  ],
   "common_retry_action": "Retry",
   "common_save_action": "Save"
 }

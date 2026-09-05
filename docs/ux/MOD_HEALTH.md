@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-09-04 | The list ends in a line the informative findings fold under  |
 | 2026-09-03 | An archive repair reads the archive where it lies            |
 | 2026-09-02 | A press about one mod opens the panel on that mod            |
 | 2026-09-02 | Select mode no longer withholds the panel from a press       |
@@ -13,7 +14,6 @@
 | 2026-09-01 | A rule's own severity comes from the build, not the store    |
 | 2026-09-01 | The count is a count, and the repair's reach is words beside |
 | 2026-09-01 | The basis names the meta schema, and its sync makes it due   |
-| 2026-08-30 | A repair refuses in words when the tables are not there      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -563,6 +563,25 @@ the row is sent nowhere, since it is missing no press.
 That row leaves with the panel. Nothing about it is remembered, because nothing about it is wrong -
 the next time the panel opens it holds what the library is carrying and no more.
 
+**The same offer stands over the whole library, on a line at the end of the list.** A reader who
+checked one mod that way learns those findings exist, and then a sweep of the library draws none of
+them - the list is what is wrong, and an `Info` never is. So the list ends in an `Info` line
+counting the mods that hold nothing worse, and folding open onto their rows.
+
+**A line rather than a pill in the footer, because the boundary is the point.** What is under it is
+not what the panel is reporting, and a reader triaging the list above has to be able to see where
+that list ends - a pill by the Close button reveals rows without ever saying which rows it revealed.
+It sits last because severity is what orders the rows either way and nothing under it outranks
+anything over it, so the line falls exactly where the list was already going to trail off. It is
+drawn only where there is something to fold.
+
+What the fold does not touch is anything the panel is announcing. The title, the sentence under it,
+the hue and the repair's own count all still read the mods something is wrong with, so opening the
+line can never send a reader on an errand. The choice outlives a close, unlike the pressed row: a
+reader who wants the fuller list is not asked for the press every time the panel opens. A press
+about one mod under the line opens the line with it, since a press answered by a row the reader
+still has to go and find is not answered.
+
 **The drawer holds the whole finding.** A header that says what to do, one row per mod, and the
 one press. The rows run flat, as the Problems panel lists one file per row, and a row is a mod
 name and a tally of what is wrong with it by severity - a glyph and a count per rung, with the
@@ -724,39 +743,42 @@ count in a toast names those findings without showing them.
 
 ## Decided questions
 
-| Question                                         | Answer                                                             |
-| ------------------------------------------------ | ------------------------------------------------------------------ |
-| Where do verdicts live?                          | `mod-health-verdicts.json`, a map beside the index                 |
-| What makes a stored verdict stale?               | Its basis: the build, the manager, the hashtables, the meta schema |
-| Which of a brief's fields does the store keep?   | The counts and the type pairs. The rest is the running build's     |
-| May a check run with no hashtables?              | No. The mod stays unchecked until they are there                   |
-| Does a launch fetch hashtables before sweeping?  | Yes, and a failed fetch does not stop the sweep                    |
-| Does the manager repair a mod on its own?        | No. Every run is a press, and it is the user's                     |
-| What decides the hue a finding is drawn in?      | Its severity. The verdict decides the words beside it              |
-| Does a warning with no repair read as broken?    | No. It is `flagged`, and it sends the reader nowhere               |
-| Does every unhealthy library open the drawer?    | No. A library the game still loads announces itself as a toast     |
-| Does the same library announce itself twice?     | No. The announcement is spent on the findings, not on the run      |
-| Does a pressed check skip a current verdict?     | No. A press takes them again, which is what a press is for         |
-| Does select mode withhold the panel?             | No. Every press that opens it is answered, whatever mode is up     |
-| Can the panel list a mod with nothing wrong?     | Yes, for the one press that asked about it. It leaves with it      |
-| Does a `flagged` mod hold up a launch?           | No. Only a repair on offer or a mod the game refuses does          |
-| Does the item draw when nothing was re-checked?  | Yes. It answers to the verdicts, not to the sweep                  |
-| Where does the item sit?                         | A cell at the right of the status bar                              |
-| Can a reader dismiss it?                         | No. It leaves when nothing is wrong any more                       |
-| Does it move the library when it appears?        | No. It overlays, so no card shifts under a reader                  |
-| Does one mod failing stop Repair all?            | No. It is recorded, and the rest are repaired                      |
-| Does a check write anything to the mod?          | No. The archive stays byte for byte                                |
-| Can a repair reach a bin no hashtable names?     | Yes. It is addressed by its chunk hash throughout                  |
-| What does a repair do with the original archive? | Replaces it, and keeps no copy - ADR-0005                          |
-| Can a repair run for a build the user is not on? | No. Dormant rules' findings are cut from the run                   |
-| Is a repaired mod repairable again next patch?   | Yes. The rules stay quiet about a repaired value                   |
-| Does one broken mod stop a batch check?          | No. It is logged, skipped, and has no verdict                      |
-| Does a repair disturb the mod's setup?           | No. Id, slug, profiles and layers all stay                         |
-| Can the patcher run during a repair?             | No. A check yes - it only reads                                    |
-| Does stopping a run put the repaired mods back?  | No. It stops the run. ADR-0006 is why                              |
-| Does the cell draw outside the library?          | No. The drawer is the library's, so the cell is                    |
-| Can the panel be dragged wider?                  | Only the sheet form. The dialog is centred                         |
-| Is a mod's content part of what makes it stale?  | No. Only the manager writes it, and it re-checks                   |
+| Question                                         | Answer                                                              |
+| ------------------------------------------------ | ------------------------------------------------------------------- |
+| Where do verdicts live?                          | `mod-health-verdicts.json`, a map beside the index                  |
+| What makes a stored verdict stale?               | Its basis: the build, the manager, the hashtables, the meta schema  |
+| Which of a brief's fields does the store keep?   | The counts and the type pairs. The rest is the running build's      |
+| May a check run with no hashtables?              | No. The mod stays unchecked until they are there                    |
+| Does a launch fetch hashtables before sweeping?  | Yes, and a failed fetch does not stop the sweep                     |
+| Does the manager repair a mod on its own?        | No. Every run is a press, and it is the user's                      |
+| What decides the hue a finding is drawn in?      | Its severity. The verdict decides the words beside it               |
+| Does a warning with no repair read as broken?    | No. It is `flagged`, and it sends the reader nowhere                |
+| Does every unhealthy library open the drawer?    | No. A library the game still loads announces itself as a toast      |
+| Does the same library announce itself twice?     | No. The announcement is spent on the findings, not on the run       |
+| Does a pressed check skip a current verdict?     | No. A press takes them again, which is what a press is for          |
+| Does select mode withhold the panel?             | No. Every press that opens it is answered, whatever mode is up      |
+| Can the panel list a mod with nothing wrong?     | Yes, for the one press that asked about it. It leaves with it       |
+| Can it list every such mod at once?              | Yes, behind the `Info` line the list ends in. That outlives a close |
+| Does revealing them change what the panel says?  | No. The title, the hue and the repair read the faults alone         |
+| Does a press that checked nothing still report?  | Yes. Somebody is waiting on it, and the run has pruned either way   |
+| Does a `flagged` mod hold up a launch?           | No. Only a repair on offer or a mod the game refuses does           |
+| Does the item draw when nothing was re-checked?  | Yes. It answers to the verdicts, not to the sweep                   |
+| Where does the item sit?                         | A cell at the right of the status bar                               |
+| Can a reader dismiss it?                         | No. It leaves when nothing is wrong any more                        |
+| Does it move the library when it appears?        | No. It overlays, so no card shifts under a reader                   |
+| Does one mod failing stop Repair all?            | No. It is recorded, and the rest are repaired                       |
+| Does a check write anything to the mod?          | No. The archive stays byte for byte                                 |
+| Can a repair reach a bin no hashtable names?     | Yes. It is addressed by its chunk hash throughout                   |
+| What does a repair do with the original archive? | Replaces it, and keeps no copy - ADR-0005                           |
+| Can a repair run for a build the user is not on? | No. Dormant rules' findings are cut from the run                    |
+| Is a repaired mod repairable again next patch?   | Yes. The rules stay quiet about a repaired value                    |
+| Does one broken mod stop a batch check?          | No. It is logged, skipped, and has no verdict                       |
+| Does a repair disturb the mod's setup?           | No. Id, slug, profiles and layers all stay                          |
+| Can the patcher run during a repair?             | No. A check yes - it only reads                                     |
+| Does stopping a run put the repaired mods back?  | No. It stops the run. ADR-0006 is why                               |
+| Does the cell draw outside the library?          | No. The drawer is the library's, so the cell is                     |
+| Can the panel be dragged wider?                  | Only the sheet form. The dialog is centred                          |
+| Is a mod's content part of what makes it stale?  | No. Only the manager writes it, and it re-checks                    |
 
 ## Open questions
 

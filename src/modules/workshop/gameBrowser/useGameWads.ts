@@ -14,6 +14,12 @@ export const gameKeys = {
   dirs: ["game-dir"] as const,
   dir: (path: string) => ["game-dir", path] as const,
   search: (query: string) => ["game-search", query] as const,
+  objectSearches: ["object-search"] as const,
+  objectSearch: (query: string) => ["object-search", query] as const,
+  /* Under the searches, so the invalidation that follows a warm or a drop
+     refetches this answer with them. */
+  declaredObjects: (objectHashes: readonly string[]) =>
+    ["object-search", "declared", objectHashes] as const,
   find: (pattern: string, regex: boolean) => ["game-find", pattern, regex] as const,
 };
 

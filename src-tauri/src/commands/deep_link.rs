@@ -1,11 +1,31 @@
 use crate::deep_link::{self, DeepLinkRequest};
-use crate::error::{AppError, AppResult, IpcResult};
+use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::mods::{InstalledMod, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use tauri::{AppHandle, State};
 
 use super::mods::reject_if_patcher_running;
+
+/// Refuse a download from a domain the reader's allowlist does not cover.
+///
+/// The deep-link handler already marks such a link, and the dialog it opens asks
+/// the reader to trust the domain. Reading the list here too is what makes that
+/// answer the gate rather than a formality, so a download only ever runs against
+/// a domain the settings already hold.
+///
+/// # Errors
+///
+/// Returns [`AppError::UntrustedDomain`] naming the domain that was refused.
+fn reject_if_untrusted(url: &str, settings: &State<SettingsState>) -> AppResult<()> {
+    let trusted = settings.0.lock().mutex_err()?.trusted_domains.clone();
+    if deep_link::is_domain_trusted(url, &trusted) {
+        return Ok(());
+    }
+
+    let domain = deep_link::download_host(url).unwrap_or_else(|| url.to_owned());
+    Err(AppError::UntrustedDomain(domain))
+}
 
 /// Take the deep link that arrived before the frontend could listen for it.
 ///
@@ -44,6 +64,8 @@ pub fn deep_link_install_mod(
                 "Download URL must use HTTPS".into(),
             ));
         }
+
+        reject_if_untrusted(&url, &settings)?;
 
         tracing::info!(
             "Protocol install: downloading from {} (name: {:?}, author: {:?}, source: {:?})",

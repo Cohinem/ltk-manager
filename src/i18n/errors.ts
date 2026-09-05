@@ -65,6 +65,10 @@ export function describeError(error: AppError): ErrorCopy {
     .with({ code: "HASHTABLE" }, (e) => withDetail(m["error.HASHTABLE.title"](), e.detail))
     .with({ code: "PREVIEW" }, (e) => withDetail(m["error.PREVIEW.title"](), e.detail))
     .with({ code: "OVERLAY" }, ({ category, detail }) => withDetail(overlayTitle(category), detail))
+    .with({ code: "UNTRUSTED_DOMAIN" }, ({ domain }) => ({
+      title: m["error.UNTRUSTED_DOMAIN.title"]({ domain }),
+      description: m["error.UNTRUSTED_DOMAIN.description"](),
+    }))
     .with({ code: "GITHUB" }, (e) => describeGitHubError(e))
     .exhaustive();
 }

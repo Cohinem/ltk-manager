@@ -97,6 +97,8 @@ pub enum AppErrorResponse {
         category: OverlayErrorCategory,
         detail: String,
     },
+    /// A download was asked for from a domain the trusted providers list omits.
+    UntrustedDomain { domain: String },
     /// Something GitHub publishes could not be read. The kind says which
     /// remedy applies, and the feed says what was being read.
     #[serde(rename = "GITHUB")]
@@ -249,6 +251,7 @@ impl From<AppError> for AppErrorResponse {
                 category: OverlayErrorCategory::from(&e),
                 detail: e.to_string(),
             },
+            AppError::UntrustedDomain(domain) => Self::UntrustedDomain { domain },
         }
     }
 }

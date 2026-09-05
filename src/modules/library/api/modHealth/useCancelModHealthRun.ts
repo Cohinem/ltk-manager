@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, type AppError } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -22,7 +22,7 @@ export function useCancelModHealthRun() {
   return useMutation<null, AppError, void>({
     mutationFn: async () => unwrapForQuery(await api.cancelModHealthRun()),
     onError: (error) => {
-      toast.error("Couldn't stop the run", errorSummary(error));
+      toast.error(m.library_health_cancel_failed_title(), errorSummary(error));
     },
   });
 }

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type AppError, type ModHealthVerdict } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
-import { libraryKeys } from "./keys";
+import { libraryKeys } from "../keys";
 
 /**
  * Batch-fetch every remembered mod health verdict in a single IPC call.

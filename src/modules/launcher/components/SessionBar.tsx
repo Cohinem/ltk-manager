@@ -13,7 +13,7 @@ import { Button, IconButton, Progress, Tooltip } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { Incident, LaunchProgress, OverlayProgress, VerdictKind } from "@/lib/tauri";
 import { ConsequenceChip, isInformational, useDismissIncident } from "@/modules/diagnostics";
-import { ModHealthStatusItem, useModHealthStatus } from "@/modules/library";
+import { ModHealthStatusItem, useHealthVerdicts } from "@/modules/library";
 import {
   patcherFailureTab,
   patcherFailureTitle,
@@ -348,7 +348,7 @@ export function SessionBar() {
   const failure = usePatcherFailureStore((s) => s.failure);
   const clearFailure = usePatcherFailureStore((s) => s.clear);
   const { data: platform } = usePlatformSupport();
-  const health = useModHealthStatus();
+  const broken = useHealthVerdicts({ health: "broken" });
 
   const patcherAvailable = platform?.patcherAvailable ?? true;
   const phase = patcherStatus?.phase ?? "idle";
@@ -391,7 +391,7 @@ export function SessionBar() {
     // Where the patcher cannot run, "idle" is a permanent fact rather than a
     // state the user can act on, and `PatcherUnsupported` already explains why.
     // The bar still draws for an item, which answers to none of that.
-    if (!patcherAvailable) return health ? <Bar /> : null;
+    if (!patcherAvailable) return broken.length > 0 ? <Bar /> : null;
 
     // The incident is the classified record of a failure, so it outranks the
     // raw start failure that preceded it.

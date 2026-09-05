@@ -2,12 +2,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
 import { type ToastTask, useToast } from "@/components";
+import { m } from "@/i18n";
 import { api, type AppError, type HealthSweepProgress, type HealthSweepState } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { queryFn } from "@/utils/query";
 
-import { libraryKeys } from "./keys";
-import { useInstalledMods } from "./queries";
+import { libraryKeys } from "../keys";
+import { useInstalledMods } from "../queries";
 
 /** How often to ask again while the sweep has not reported. */
 const SWEEP_POLL_MS = 400;
@@ -42,7 +43,7 @@ export function useHealthSweep(): HealthSweepState | undefined {
   });
 
   useTauriEvent<HealthSweepProgress>("health-sweep-progress", (progress) => {
-    task.current ??= toast.task("Checking your mods");
+    task.current ??= toast.task(m.library_health_checking_label());
 
     const [id] = progress.inFlight;
     const name = id ? (mods.find((mod) => mod.id === id)?.displayName ?? id) : "";

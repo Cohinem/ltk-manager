@@ -84,6 +84,14 @@ function answer(cmd: string): unknown {
       return world.verdicts;
     case "get_health_check_readiness":
       return world.readiness;
+    case "sweep_mod_health":
+      return {
+        basis: { build: "16.17.8087655", manager: "1.15.4" },
+        checked: world.mods.length,
+        skipped: 0,
+        repairable: [],
+        unrepairable: [],
+      };
     case "list_announcements":
       return world.posts;
     case "list_notices":
@@ -208,27 +216,43 @@ describe("Home", () => {
         search: { focus: "general.leaguePath" },
       });
     });
+  });
 
-    it("offers the sync while the hashtables are absent", async () => {
+  describe("the health marker", () => {
+    /** The marker, which is titled the same whatever it reads. */
+    function marker() {
+      return screen.getByRole("button", { name: /^Health status/ });
+    }
+
+    it("waits for the hashtables, and offers the sync", async () => {
       world.readiness = "unsynced";
       renderWithProviders(<Home />);
 
-      expect(await screen.findByText("Mod health waits for the hashtables")).toBeVisible();
-      await userEvent.click(screen.getByRole("button", { name: /Sync$/ }));
+      expect(await screen.findByText("No hashtables")).toBeVisible();
+      await userEvent.click(marker());
 
       await waitFor(() => expect(calls("sync_hashtables")).toHaveLength(1));
     });
 
-    it("says the hashtables are syncing, and offers nothing until they have", async () => {
+    it("says the hashtables are syncing, and takes no press until they have", async () => {
       world.readiness = "syncing";
       renderWithProviders(<Home />);
 
-      expect(await screen.findByText("Syncing the hashtables mod health needs")).toBeVisible();
-      expect(screen.queryByRole("button", { name: /Sync$/ })).toBeNull();
+      expect(await screen.findByText("Syncing")).toBeVisible();
+      expect(screen.queryByRole("button", { name: /^Health status/ })).toBeNull();
     });
 
-    /* A flagged mod loads and plays, so it is not one the line warns about, and
-       a disabled one reaches no overlay. */
+    it("offers a check while no verdict covers the library", async () => {
+      renderWithProviders(<Home />);
+
+      expect(await screen.findByText("Not checked")).toBeVisible();
+      await userEvent.click(marker());
+
+      await waitFor(() => expect(calls("sweep_mod_health")).toHaveLength(1));
+    });
+
+    /* A flagged mod loads and plays, so it is not what the count is spent on,
+       and a disabled one reaches no overlay. */
     it("counts the enabled mods no repair reaches, and shows them in the library", async () => {
       world.verdicts = {
         a: verdict("a", "unrepairable"),
@@ -237,8 +261,8 @@ describe("Home", () => {
       };
       renderWithProviders(<Home />);
 
-      expect(await screen.findByText("1 enabled mod failed its health check")).toBeVisible();
-      await userEvent.click(screen.getByRole("button", { name: /Show$/ }));
+      expect(await screen.findByText("1 broken")).toBeVisible();
+      await userEvent.click(marker());
 
       expect(navigate).toHaveBeenCalledWith({ to: "/mods" });
       expect(useModHealthDrawerStore.getState().open).toBe(true);
@@ -249,11 +273,32 @@ describe("Home", () => {
       world.verdicts = { a: verdict("a", "repairable"), b: verdict("b", "repairable") };
       renderWithProviders(<Home />);
 
-      expect(await screen.findByText("2 enabled mods need a repair")).toBeVisible();
-      await userEvent.click(screen.getByRole("button", { name: /Repair$/ }));
+      expect(await screen.findByText("2 repairs")).toBeVisible();
+      await userEvent.click(marker());
 
       expect(navigate).toHaveBeenCalledWith({ to: "/mods" });
       expect(useModHealthDrawerStore.getState().repairRequested).toBe(true);
+    });
+
+    it("counts what loads with a fault without spending a louder word on it", async () => {
+      world.verdicts = { a: verdict("a", "unrepairable", { severity: "warning" }) };
+      renderWithProviders(<Home />);
+
+      expect(await screen.findByText("1 flagged")).toBeVisible();
+    });
+
+    it("reads healthy once every mod has a verdict, and re-checks on a press", async () => {
+      world.verdicts = {
+        a: verdict("a", "healthy"),
+        b: verdict("b", "healthy"),
+        c: verdict("c", "healthy"),
+      };
+      renderWithProviders(<Home />);
+
+      expect(await screen.findByText("Healthy")).toBeVisible();
+      await userEvent.click(marker());
+
+      await waitFor(() => expect(calls("sweep_mod_health")).toHaveLength(1));
     });
   });
 

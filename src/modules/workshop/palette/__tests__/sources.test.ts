@@ -13,6 +13,7 @@ describe("prefixScope", () => {
   it("names the source a leading prefix asks for", () => {
     expect(prefixScope(">test")).toBe("commands");
     expect(prefixScope("#greeting")).toBe("strings");
+    expect(prefixScope("$smolder skin0")).toBe("objects");
   });
 
   it("ignores a prefix character anywhere but the start", () => {
@@ -41,11 +42,24 @@ describe("prefixScope", () => {
       if (source.altPrefix !== undefined) expect(source.prefix).toBeDefined();
     }
   });
+
+  /* The project's objects carry no prefix of their own, so `$` has to reach
+     them through the install's. */
+  it("lets a source share a prefix only with one that carries it", () => {
+    for (const source of PALETTE_SOURCES) {
+      if (source.scopedWith === undefined) continue;
+      expect(source.prefix).toBeUndefined();
+      expect(paletteSource(source.scopedWith).prefix).toBeDefined();
+    }
+    expect(paletteSource("projectObjects").scopedWith).toBe("objects");
+  });
 });
 
 describe("parseQuery", () => {
-  it("lowercases and trims the term", () => {
-    expect(parseQuery("  AatroX  ", null).term).toBe("aatrox");
+  it("lowercases and trims the term, and keeps the query as typed", () => {
+    const parsed = parseQuery("  AatroX  ", null);
+    expect(parsed.term).toBe("aatrox");
+    expect(parsed.query).toBe("  AatroX  ");
   });
 
   it("carries the chip through as the scope", () => {
@@ -53,19 +67,30 @@ describe("parseQuery", () => {
       scope: "files",
       help: false,
       term: "aatrox",
+      query: "aatrox",
     });
   });
 
   it("reads a bare question mark as the request to list the prefixes", () => {
-    expect(parseQuery("?", null)).toEqual({ scope: null, help: true, term: "" });
+    expect(parseQuery("?", null)).toEqual({ scope: null, help: true, term: "", query: "" });
   });
 
   it("filters the prefix list by what follows the question mark", () => {
-    expect(parseQuery("?comm", null)).toEqual({ scope: null, help: true, term: "comm" });
+    expect(parseQuery("?comm", null)).toEqual({
+      scope: null,
+      help: true,
+      term: "comm",
+      query: "comm",
+    });
   });
 
   it("takes a question mark as a character once a scope is set", () => {
-    expect(parseQuery("?", "strings")).toEqual({ scope: "strings", help: false, term: "?" });
+    expect(parseQuery("?", "strings")).toEqual({
+      scope: "strings",
+      help: false,
+      term: "?",
+      query: "?",
+    });
   });
 });
 
@@ -82,8 +107,9 @@ describe("the source lists", () => {
     expect(PROJECT_SOURCES).toEqual(PALETTE_SOURCES.map((source) => source.id));
   });
 
-  it("keeps the game off the workshop's own surface, where no row could open", () => {
+  it("keeps the game and its objects off the workshop's own surface, where no row could open", () => {
     expect(WORKSHOP_SOURCES).not.toContain("game");
+    expect(WORKSHOP_SOURCES).not.toContain("objects");
   });
 
   it("gives the workshop the projects, which is what a prefix reaches there", () => {

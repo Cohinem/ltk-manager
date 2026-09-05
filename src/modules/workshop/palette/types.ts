@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import type { ContentDocument } from "../documents";
 import type { MatchRange } from "./matcher";
 
-/** Where a palette row came from, which is also the group it lands in. */
-export type PaletteSourceId =
+/** The sources whose rows the frontend matches, from candidates built for them. */
+export type LocalSourceId =
   | "projects"
   | "documents"
   | "files"
@@ -12,7 +12,17 @@ export type PaletteSourceId =
   | "strings"
   | "commands"
   | "settings"
-  | "game";
+  | "projectObjects";
+
+/**
+ * The sources whose rows arrive from the backend already ranked and grouped.
+ *
+ * `PALETTE_SOURCES` flags each of these too, and the compiler holds the two to one answer.
+ */
+export type BackendRankedSourceId = "game" | "objects";
+
+/** Where a palette row came from, which is also the group it lands in. */
+export type PaletteSourceId = LocalSourceId | BackendRankedSourceId;
 
 /**
  * One action the project bar can run.
@@ -55,9 +65,43 @@ export type PaletteTarget =
       /** The resolved path, or empty for a chunk no hash table names. */
       readonly path: string;
     }
+  | {
+      /**
+       * A bin object of the install, opened through the chunk that declares it.
+       *
+       * The object's hash rides along so the bin editor, when it lands, can
+       * scroll the same row to the object. Until then the chunk opens as the
+       * preview a game row opens.
+       */
+      readonly kind: "object";
+      readonly wad: string;
+      readonly pathHash: string;
+      readonly path: string;
+      /** `0x` and eight hex digits. */
+      readonly objectHash: string;
+    }
+  | {
+      /**
+       * A bin object of the project, opened through the layer file that declares it.
+       *
+       * The object's hash rides along for the bin editor, as it does on `object`.
+       */
+      readonly kind: "layerObject";
+      readonly layerName: string;
+      readonly path: string;
+      /** `0x` and eight hex digits. */
+      readonly objectHash: string;
+    }
   | { readonly kind: "document"; readonly document: ContentDocument }
   | { readonly kind: "command"; readonly command: ProjectCommand }
-  | { readonly kind: "prefix"; readonly prefix: string };
+  | { readonly kind: "prefix"; readonly prefix: string }
+  | {
+      /** Text put into the box in place of what is there, with the palette kept open. */
+      readonly kind: "query";
+      readonly query: string;
+      /** The source the box scopes to first, where the text belongs under one. */
+      readonly scope?: PaletteSourceId;
+    };
 
 /** One row of the list, whoever ranked it. */
 export interface PaletteRowData {
@@ -89,8 +133,8 @@ export interface PaletteRowData {
  *
  * `nameLower`, `fullLower` and `mask` are built once with the array. Lowercasing
  * a few thousand rows per keystroke is the cost that shows up in a scan, and
- * this is what removes it. The game's rows arrive ranked from the backend and
- * so carry none of it.
+ * this is what removes it. A backend-ranked source's rows arrive already ranked
+ * and so carry none of it.
  */
 export interface PaletteCandidate extends PaletteRowData {
   /**
@@ -100,6 +144,16 @@ export interface PaletteCandidate extends PaletteRowData {
    * words it matched are not on screen.
    */
   readonly keywords?: string;
+  /**
+   * Where the last `/` segment of `name` starts, for a name that is a whole object path.
+   *
+   * That segment takes the band a file name takes, and the rest of the path the
+   * band a directory takes. `path` is then a description rather than a location,
+   * and no match reads it.
+   */
+  readonly nameCut?: number;
+  /** The class an object row declares, which a `class:` term narrows on. */
+  readonly objectClass?: { readonly name: string; readonly hash: string };
   readonly nameLower: string;
   /** `path/name`, which is what a match reaching the directory is scored on. */
   readonly fullLower: string;
@@ -110,12 +164,12 @@ export interface PaletteCandidate extends PaletteRowData {
  * What each locally-matched source contributes, source by source.
  *
  * Partial because a context holds only the sources it has: the workshop's own
- * surface carries commands and no files. The game is absent from every one of
- * them, because its rows are ranked in Rust and reach the bar already grouped,
- * through `useGameRows`.
+ * surface carries commands and no files. A backend-ranked source is absent from
+ * every one of them, because its rows reach the bar already grouped, as
+ * [`BackendRankedGroups`].
  */
 export type PaletteCandidates = Partial<
-  Readonly<Record<Exclude<PaletteSourceId, "game">, readonly PaletteCandidate[]>>
+  Readonly<Record<LocalSourceId, readonly PaletteCandidate[]>>
 >;
 
 /** A row that matched, with what it marks and how it sorts against its group. */
@@ -138,6 +192,16 @@ export interface PaletteGroup {
   /** A fresh answer is on its way, so what is here is the last one. */
   readonly pending?: boolean;
 }
+
+/**
+ * What each backend-ranked source contributes, already grouped, source by source.
+ *
+ * Partial for the same reason [`PaletteCandidates`] is, and null for a source
+ * the context reads that has nothing to say to this query.
+ */
+export type BackendRankedGroups = Partial<
+  Readonly<Record<BackendRankedSourceId, PaletteGroup | null>>
+>;
 
 /** How `Enter` and its modifiers ask for a row to open. */
 export type OpenIntent = "default" | "beside" | "permanent";

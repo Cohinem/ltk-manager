@@ -104,6 +104,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_core::game_index::SearchGeneration::default());
     app.manage(ltk_manager_core::game_index::FindGeneration::default());
     app.manage(ltk_manager_core::game_wads::WadCache::default());
+    app.manage(crate::commands::ObjectIndexState::default());
+    app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
     app.manage(ltk_manager_core::problems::ProblemsState::default());
     app.manage(crate::commands::ExtractState::default());
     app.manage(mod_library);

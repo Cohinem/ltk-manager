@@ -15,5 +15,12 @@ export { useGameSearch } from "./useGameSearch";
 export { useRevealGameSearch } from "./useGameSearchReveal";
 export { useGameWadEntries } from "./useGameWadEntries";
 export { GAME_STALE_MS, gameKeys, useGameWads } from "./useGameWads";
+export {
+  useDeclaredObjects,
+  useDropObjectIndex,
+  useObjectIndexLifecycle,
+  useWarmObjectIndex,
+} from "./useObjectIndex";
+export { useObjectSearch } from "./useObjectSearch";
 export { type OpenSourceFile, useSourcePreview } from "./useSourcePreview";
 export { useSourceTreeNav } from "./useSourceTreeNav";

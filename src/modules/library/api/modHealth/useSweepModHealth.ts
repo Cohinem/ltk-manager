@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, type AppError, type HealthSweepReport } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
 import { unwrapForQuery } from "@/utils/query";
@@ -23,12 +23,12 @@ export function useSweepModHealth() {
     onSuccess: (report) => {
       forgetAnnouncement();
       if (report.repairable.length + report.unrepairable.length > 0) return;
-      toast.success("No problems found", `Checked ${plural(report.checked, "mod")}`);
+      toast.success(
+        m.library_health_check_clean_title(),
+        m.library_health_check_clean_hint({ count: report.checked }),
+      );
     },
-    onError: (error) => toast.error("Failed to check the library", errorSummary(error)),
+    onError: (error) =>
+      toast.error(m.library_health_check_library_failed_title(), errorSummary(error)),
   });
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }

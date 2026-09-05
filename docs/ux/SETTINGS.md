@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings     |
 | 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391            |
 | 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id     |
 | 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place        |
@@ -14,7 +15,6 @@
 | 2026-08-25 | Phases 1 to 3 shipped. The group, the keys and the anchor are available |
 | 2026-08-25 | Accept the group, defer the collapse, and close three open questions    |
 | 2026-08-24 | Decide the defaults source, the scoped reset and the setting anchor     |
-| 2026-08-24 | Propose the group, the level between a section card and a row           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -626,6 +626,21 @@ should do.
 and the URL reaches the backend before the window's script has run, so an event carrying it would
 reach nobody. The frontend asks for the held link once, as its listener comes up. `ltk://install`
 was losing a cold start's link the same way, and now does not.
+
+**A domain outside the trusted providers list is a question, not a dead end.** `ltk://install` used
+to report a blocked domain in a toast and drop the link, so a reader who wanted the mod had to find
+the row in Settings, type the host by hand and follow the link a second time. The link now travels
+with that host stamped on it, and the install dialog draws it over the mod it would fetch: `Reject`,
+or `Trust and install`, which writes the host into the list and downloads in the same press.
+
+**The stamp is not the gate.** `deep_link_install_mod` reads the same list, so a download only ever
+runs against a host the settings already hold, and the dialog saves before it installs rather than
+alongside. What that command refuses is `UNTRUSTED_DOMAIN`, which carries the host and no sentence,
+per ADR-0017.
+
+The dialog reads the list rather than the stamp, so a host trusted from the Settings page while the
+dialog stands takes the band down on its own. The stamp says what was true when the link arrived,
+and the list says what is true now.
 
 ## Copy
 

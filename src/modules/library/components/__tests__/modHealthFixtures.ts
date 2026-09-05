@@ -7,7 +7,7 @@ import type {
   ProblemSeverity,
   RuleBrief,
 } from "@/lib/tauri";
-import type { BrokenMods } from "@/modules/library";
+import type { HealthClass, HealthFilter } from "@/modules/library";
 
 interface VerdictShape {
   /** Findings a repair would fix. Ignored for a verdict that is not repairable. */
@@ -111,15 +111,31 @@ export function finishedSweep(build: string | null = "16.17.8087655"): HealthSwe
   };
 }
 
+/** The lists a test names, which `healthVerdicts` answers a filter out of. */
+export interface HealthLists {
+  repairable?: ModHealthVerdict[];
+  unrepairable?: ModHealthVerdict[];
+  /** Healthy verdicts that still found something, which only the fold draws. */
+  informational?: ModHealthVerdict[];
+}
+
 /**
- * The two lists a test names, plus the flat one the panel actually draws.
+ * `useHealthVerdicts` over the lists a test names, in place of the two queries.
  *
- * `all` is derived rather than passed, so a test says which verdicts are
+ * `broken` is derived rather than passed, so a test says which verdicts are
  * repairable and never has to keep a third list in step with the two.
  */
-export function brokenMods({
-  repairable = [],
-  unrepairable = [],
-}: Partial<Omit<BrokenMods, "all">> = {}): BrokenMods {
-  return { all: [...repairable, ...unrepairable], repairable, unrepairable };
+export function healthVerdicts(
+  { repairable = [], unrepairable = [], informational = [] }: HealthLists = {},
+  isEnabled: (modId: string) => boolean = () => true,
+) {
+  const lists: Record<HealthClass, ModHealthVerdict[]> = {
+    repairable,
+    unrepairable,
+    informational,
+    broken: [...repairable, ...unrepairable],
+  };
+
+  return ({ health, enabled }: HealthFilter): ModHealthVerdict[] =>
+    lists[health].filter((held) => enabled === undefined || isEnabled(held.modId) === enabled);
 }
