@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
 
+import { m } from "@/i18n";
+
 import { useProjectContext } from "../components/ProjectContext";
 import { type ContentDocument, previewDocument } from "../documents/contentDocument";
 import {
@@ -34,14 +36,21 @@ export function ProjectPalette(props: PaletteBranchProps) {
   const wantsGame = !parsed.help && (parsed.scope === null || parsed.scope === "game");
   const game = useGameRows(parsed.term, wantsGame);
   const wantsObjects = !parsed.help && (parsed.scope === null || parsed.scope === "objects");
-  const objects = useObjectRows(parsed.term, wantsObjects);
+  const objects = useObjectRows(parsed.term, query, wantsObjects);
   const ranked = useMemo(() => ({ game, objects }), [game, objects]);
+
+  const project = useProjectContext();
+  const labels = useMemo(
+    () => ({ projectObjects: m.workshop_objects_project_label({ project: project.displayName }) }),
+    [project.displayName],
+  );
 
   const groups = usePaletteSearch({
     parsed,
     sources: PROJECT_SOURCES,
     candidates,
     ranked,
+    labels,
     selectedLayer,
     recent,
   });
@@ -62,7 +71,7 @@ export function ProjectPalette(props: PaletteBranchProps) {
 /** A target that opens a tab, which is every one but a command and a prefix. */
 type OpeningTarget = Extract<
   PaletteTarget,
-  { kind: "document" | "layerFile" | "gameChunk" | "object" }
+  { kind: "document" | "layerFile" | "gameChunk" | "object" | "layerObject" }
 >;
 
 /**
@@ -71,7 +80,7 @@ type OpeningTarget = Extract<
  * A file of a layer and a chunk of the game each name their asset rather than
  * carrying a built document, because a project of a few thousand files and an
  * install of eight hundred thousand build one row apiece. An object opens the
- * chunk that declares it, the same tab a game row opens.
+ * file that declares it, the same tab a file row of the same side opens.
  */
 function documentFor(target: OpeningTarget, projectPath: string): ContentDocument {
   if (target.kind === "document") return target.document;
@@ -100,7 +109,8 @@ function useRunTarget(close: () => void) {
 
   return useCallback(
     ({ target }: PaletteRowData, intent: OpenIntent) => {
-      if (target.kind === "prefix") return;
+      /* Both keep the palette open, and the results palette runs them itself. */
+      if (target.kind === "prefix" || target.kind === "query") return;
 
       close();
 
@@ -122,7 +132,9 @@ function useRunTarget(close: () => void) {
 
       /* Only a file of the project has a tree standing open beside the editor
          to scroll. The game browser opens on its own. */
-      if (target.kind === "layerFile") reveal(target.layerName, target.path);
+      if (target.kind === "layerFile" || target.kind === "layerObject") {
+        reveal(target.layerName, target.path);
+      }
     },
     [close, openBeside, openDocument, openProject, openTab, project.path, reveal],
   );

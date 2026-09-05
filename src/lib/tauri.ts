@@ -279,6 +279,8 @@ export const api = {
     invokeResult<ObjectSearch>("search_object_index", { query }),
   warmObjectIndex: () => invokeResult<void>("warm_object_index"),
   dropObjectIndex: () => invokeResult<void>("drop_object_index"),
+  declaredObjects: (objectHashes: string[]) =>
+    invokeResult<string[]>("declared_objects", { objectHashes }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>

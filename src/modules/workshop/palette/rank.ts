@@ -65,6 +65,10 @@ export function rankCandidate(
 
   const bonus = contextBonus(candidate, context);
 
+  if (candidate.nameCut !== undefined) {
+    return rankObjectPath(compiled, candidate, candidate.nameCut, bonus);
+  }
+
   const byName = matchQuery(compiled, candidate.name);
   if (byName) {
     return {
@@ -86,6 +90,44 @@ export function rankCandidate(
 
   const { pathRanges, nameRanges } = splitRanges(byPath, candidate.path.length);
   return { row: candidate, band: 2, score: byPath.score + bonus, nameRanges, pathRanges };
+}
+
+/**
+ * Band, score and marked runs for a name that is a whole object path.
+ *
+ * The segment after `cut` is the name: a query that opens it is band 0, one it
+ * holds is band 1, and a query the rest of the path is needed for is band 2.
+ * The runs are offsets into the whole name either way, and `path` is never
+ * read. The rule the backend's `rank` applies to the install's rows.
+ */
+function rankObjectPath(
+  query: Query,
+  candidate: PaletteCandidate,
+  cut: number,
+  bonus: number,
+): RankedRow | null {
+  const bySegment = matchQuery(query, candidate.name.slice(cut));
+  if (bySegment) {
+    return {
+      row: candidate,
+      band: startsQuery(query, candidate.name.slice(cut)) ? 0 : 1,
+      score: bySegment.score + bonus,
+      nameRanges: bySegment.ranges.map(([start, end]) => [start + cut, end + cut]),
+      pathRanges: NO_RANGES,
+    };
+  }
+
+  if (cut === 0) return matchKeywords(query, candidate, bonus);
+
+  const byPath = matchQuery(query, candidate.name);
+  if (!byPath) return matchKeywords(query, candidate, bonus);
+  return {
+    row: candidate,
+    band: 2,
+    score: byPath.score + bonus,
+    nameRanges: byPath.ranges,
+    pathRanges: NO_RANGES,
+  };
 }
 
 /**

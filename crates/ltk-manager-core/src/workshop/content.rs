@@ -1,8 +1,15 @@
 use super::Workshop;
 use super::layer;
 use crate::error::{AppError, AppResult};
+use crate::hashtables::{BinHashTables, HashtableCache};
+use crate::object_index::{Declaration, for_each_declaration};
+use crate::problems::names::hex;
 use ltk_file::LeagueFileKind;
+use ltk_hash::BinHash;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -37,6 +44,24 @@ pub struct ContentEntry {
     pub relative_path: String,
     pub size_bytes: u64,
     pub kind: WorkshopFileKind,
+    /// The objects a `.bin` declares, and empty for any other file.
+    pub objects: Vec<ContentObject>,
+}
+
+/// One object a layer's `.bin` declares.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ContentObject {
+    /// The object's path hash, as `0x` and eight hex digits.
+    pub object_hash: String,
+    /// The object's path, or its hash when no table names it.
+    pub path: String,
+    /// The class the object declares, or its hash when no table names it.
+    pub class: String,
+    /// The class hash, as `0x` and eight hex digits.
+    pub class_hash: String,
 }
 
 /// Mirror of [`ltk_file::LeagueFileKind`] with `ts-rs` bindings. Kept in sync
@@ -146,25 +171,138 @@ impl Workshop {
 
         let layer_dirs = layer::dirs_in(&content_dir)?;
 
-        let mut layers = Vec::with_capacity(layer_dirs.len());
+        let mut scanned = Vec::with_capacity(layer_dirs.len());
         for layer_dir in &layer_dirs {
             let name = layer_dir
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or_default()
                 .to_string();
-            layers.push(scan_layer(layer_dir, &name)?);
+            scanned.push(scan_layer(layer_dir, &name)?);
         }
 
-        Ok(ContentTree { layers })
+        let names = ResolvedNames::resolve(&scanned);
+        Ok(ContentTree {
+            layers: scanned
+                .into_iter()
+                .map(|layer| layer.named(&names))
+                .collect(),
+        })
     }
 }
 
-/// Scan a single layer directory into a [`LayerContent`]. Returns every file
-/// under the directory, recursively — no truncation.
-fn scan_layer(layer_dir: &Path, name: &str) -> AppResult<LayerContent> {
-    let mut entries: Vec<ContentEntry> = Vec::new();
-    let mut total_size_bytes: u64 = 0;
+/// One file as the walk read it.
+#[derive(Debug)]
+struct ScannedEntry {
+    relative_path: String,
+    size_bytes: u64,
+    kind: WorkshopFileKind,
+    declared: Vec<Declaration>,
+}
+
+/// A layer as the walk read it, its objects still hashes.
+#[derive(Debug)]
+struct ScannedLayer {
+    name: String,
+    entries: Vec<ScannedEntry>,
+}
+
+impl ScannedLayer {
+    /// The layer as the frontend lists it, every object named through `names`.
+    fn named(self, names: &ResolvedNames) -> LayerContent {
+        let file_count = self.entries.len();
+        let total_size_bytes = self.entries.iter().map(|entry| entry.size_bytes).sum();
+        let entries = self
+            .entries
+            .into_iter()
+            .map(|entry| ContentEntry {
+                relative_path: entry.relative_path,
+                size_bytes: entry.size_bytes,
+                kind: entry.kind,
+                objects: entry
+                    .declared
+                    .iter()
+                    .map(|declared| names.object(*declared))
+                    .collect(),
+            })
+            .collect();
+
+        LayerContent {
+            name: self.name,
+            file_count,
+            total_size_bytes,
+            entries,
+        }
+    }
+}
+
+/// The names the shared tables hold for what a scan declared.
+#[derive(Debug, Default)]
+struct ResolvedNames {
+    objects: HashMap<BinHash, String>,
+    classes: HashMap<BinHash, String>,
+}
+
+impl ResolvedNames {
+    /// Every object and class name the tables hold for `scanned`, in one batch.
+    ///
+    /// A machine whose cache is missing or never synced names nothing, and
+    /// every object then reads as its hex.
+    fn resolve(scanned: &[ScannedLayer]) -> Self {
+        let declared = scanned
+            .iter()
+            .flat_map(|layer| layer.entries.iter())
+            .flat_map(|entry| entry.declared.iter());
+        let mut objects: Vec<BinHash> = declared.clone().map(|d| d.object).collect();
+        let mut classes: Vec<BinHash> = declared.map(|d| d.class).collect();
+        if objects.is_empty() {
+            return Self::default();
+        }
+        objects.sort_unstable();
+        objects.dedup();
+        classes.sort_unstable();
+        classes.dedup();
+
+        let tables: BinHashTables = match HashtableCache::shared() {
+            Ok(cache) => cache.bin_tables(),
+            Err(e) => {
+                tracing::debug!("No hashtable cache to name a project's objects from: {e}");
+                return Self::default();
+            }
+        };
+
+        let mut names = Self::default();
+        tables.for_each_entry(&objects, &mut |at, path| {
+            names.objects.insert(objects[at], path.to_owned());
+        });
+        names.classes = classes
+            .into_iter()
+            .filter_map(|class| Some((class, tables.class(class)?)))
+            .collect();
+        names
+    }
+
+    /// `declared` as the frontend lists it, hex wherever a name is missing.
+    fn object(&self, declared: Declaration) -> ContentObject {
+        ContentObject {
+            object_hash: hex(declared.object),
+            path: self
+                .objects
+                .get(&declared.object)
+                .map_or_else(|| hex(declared.object), Clone::clone),
+            class: self
+                .classes
+                .get(&declared.class)
+                .map_or_else(|| hex(declared.class), Clone::clone),
+            class_hash: hex(declared.class),
+        }
+    }
+}
+
+/// Scan a single layer directory. Returns every file under the directory,
+/// recursively — no truncation.
+fn scan_layer(layer_dir: &Path, name: &str) -> AppResult<ScannedLayer> {
+    let mut entries: Vec<ScannedEntry> = Vec::new();
 
     for dent in WalkDir::new(layer_dir)
         .follow_links(false)
@@ -195,7 +333,6 @@ fn scan_layer(layer_dir: &Path, name: &str) -> AppResult<LayerContent> {
         }
 
         let size_bytes = dent.metadata().map(|m| m.len()).unwrap_or(0);
-        total_size_bytes += size_bytes;
 
         let relative_path = dent
             .path()
@@ -214,129 +351,38 @@ fn scan_layer(layer_dir: &Path, name: &str) -> AppResult<LayerContent> {
             .unwrap_or("");
         let kind = WorkshopFileKind::from(LeagueFileKind::from_extension(extension));
 
-        entries.push(ContentEntry {
+        let declared = if kind == WorkshopFileKind::PropertyBin {
+            declarations(dent.path()).unwrap_or_else(|e| {
+                tracing::debug!("Skipping the objects of {}: {e}", dent.path().display());
+                Vec::new()
+            })
+        } else {
+            Vec::new()
+        };
+
+        entries.push(ScannedEntry {
             relative_path,
             size_bytes,
             kind,
+            declared,
         });
     }
 
     entries.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
 
-    Ok(LayerContent {
+    Ok(ScannedLayer {
         name: name.to_string(),
-        file_count: entries.len(),
-        total_size_bytes,
         entries,
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::events::NullEventSink;
-    use std::fs;
-    use std::sync::Arc;
-
-    fn touch(path: &Path, contents: &[u8]) {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).unwrap();
-        }
-        fs::write(path, contents).unwrap();
-    }
-
-    #[test]
-    fn scan_layer_empty_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        let layer = scan_layer(dir.path(), "base").unwrap();
-        assert_eq!(layer.file_count, 0);
-        assert_eq!(layer.total_size_bytes, 0);
-        assert!(layer.entries.is_empty());
-    }
-
-    #[test]
-    fn scan_layer_classifies_known_extensions() {
-        let dir = tempfile::tempdir().unwrap();
-        touch(&dir.path().join("assets/tex/skin.dds"), b"DDS content");
-        touch(&dir.path().join("data/config.bin"), b"bin content");
-        touch(&dir.path().join("mystery.xyz"), b"?");
-
-        let layer = scan_layer(dir.path(), "base").unwrap();
-        assert_eq!(layer.entries.len(), 3);
-
-        let by_path: std::collections::HashMap<_, _> = layer
-            .entries
-            .iter()
-            .map(|e| (e.relative_path.clone(), e.kind))
-            .collect();
-        assert!(matches!(
-            by_path["assets/tex/skin.dds"],
-            WorkshopFileKind::TextureDds
-        ));
-        assert!(matches!(
-            by_path["data/config.bin"],
-            WorkshopFileKind::PropertyBin
-        ));
-        assert!(matches!(by_path["mystery.xyz"], WorkshopFileKind::Unknown));
-    }
-
-    #[test]
-    fn scan_layer_skips_dotfiles() {
-        let dir = tempfile::tempdir().unwrap();
-        touch(&dir.path().join(".DS_Store"), b"junk");
-        touch(&dir.path().join("visible.png"), b"png");
-
-        let layer = scan_layer(dir.path(), "base").unwrap();
-        assert_eq!(layer.entries.len(), 1);
-        assert_eq!(layer.entries[0].relative_path, "visible.png");
-    }
-
-    #[test]
-    fn scan_layer_returns_every_file() {
-        let dir = tempfile::tempdir().unwrap();
-        for i in 0..50 {
-            touch(&dir.path().join(format!("file_{i}.bin")), b"xx");
-        }
-
-        let layer = scan_layer(dir.path(), "base").unwrap();
-        assert_eq!(layer.file_count, 50);
-        assert_eq!(layer.entries.len(), 50);
-        assert_eq!(layer.total_size_bytes, 100);
-    }
-
-    #[test]
-    fn scan_layer_sorts_entries_by_path() {
-        let dir = tempfile::tempdir().unwrap();
-        touch(&dir.path().join("z.bin"), b"");
-        touch(&dir.path().join("a.bin"), b"");
-        touch(&dir.path().join("m/n.bin"), b"");
-
-        let layer = scan_layer(dir.path(), "base").unwrap();
-        let paths: Vec<_> = layer
-            .entries
-            .iter()
-            .map(|e| e.relative_path.as_str())
-            .collect();
-        assert_eq!(paths, vec!["a.bin", "m/n.bin", "z.bin"]);
-    }
-
-    #[test]
-    fn content_tree_orders_base_first() {
-        let project_dir = tempfile::tempdir().unwrap();
-        let content = project_dir.path().join("content");
-        fs::create_dir_all(content.join("zeta")).unwrap();
-        fs::create_dir_all(content.join("alpha")).unwrap();
-        fs::create_dir_all(content.join("base")).unwrap();
-        touch(&content.join("base/a.bin"), b"");
-        touch(&content.join("alpha/a.bin"), b"");
-        touch(&content.join("zeta/a.bin"), b"");
-
-        let workshop = Workshop::new(Arc::new(NullEventSink));
-        let tree = workshop
-            .get_project_content_tree(project_dir.path().to_str().unwrap())
-            .unwrap();
-
-        let names: Vec<&str> = tree.layers.iter().map(|l| l.name.as_str()).collect();
-        assert_eq!(names, ["base", "alpha", "zeta"]);
-    }
+/// Every object the bin at `path` declares, in file order.
+fn declarations(path: &Path) -> Result<Vec<Declaration>, ltk_meta::Error> {
+    let file = BufReader::new(fs::File::open(path)?);
+    let mut declared = Vec::new();
+    for_each_declaration(file, |declaration| declared.push(declaration))?;
+    Ok(declared)
 }
+
+#[cfg(test)]
+mod tests;

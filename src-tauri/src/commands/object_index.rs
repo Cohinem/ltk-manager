@@ -5,12 +5,14 @@ use super::off_thread;
 use crate::error::{AppErrorResponse, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
-use ltk_manager_core::hashtables::HashtableCache;
+use ltk_manager_core::hashtables::{HashtableCache, WadPathResolverState};
 use ltk_manager_core::object_index::{
-    self, BuildTicket, ObjectIndex, ObjectIndexSnapshot, ObjectSearchGeneration, ObjectSearchResult,
+    self, parse_hash, BuildTicket, CacheNames, ObjectIndex, ObjectIndexSnapshot,
+    ObjectSearchGeneration, ObjectSearchResult,
 };
 use ltk_manager_core::problems::budget::files_at_once;
 use serde::Serialize;
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
 
@@ -70,13 +72,15 @@ fn build(
         !state.is_current(ticket)
     })?;
 
-    Ok(match HashtableCache::shared() {
-        Ok(cache) => index.named(&cache.bin_tables()),
+    let cache = match HashtableCache::shared() {
+        Ok(cache) => cache,
         Err(e) => {
             tracing::debug!("No hashtable cache to name the object index from: {e}");
-            index
+            return Ok(index);
         }
-    })
+    };
+    let wad = app.state::<Arc<WadPathResolverState>>().get()?;
+    Ok(index.named(&CacheNames::new(&cache.bin_tables(), &wad)))
 }
 
 /// Drop the object index, and the result of any build still running.
@@ -124,6 +128,29 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
     .await
 }
 
+/// Which of `object_hashes` the install declares, as the index holds them.
+///
+/// Answers nothing while the index is absent, building or failed: the project
+/// rows then say nothing about overrides rather than something wrong.
+#[tauri::command]
+pub async fn declared_objects(
+    object_hashes: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<String>> {
+    off_thread(move || {
+        let ObjectIndexSnapshot::Ready(index) =
+            app_handle.state::<ObjectIndexState>().snapshot()?
+        else {
+            return Ok(Vec::new());
+        };
+        Ok(object_hashes
+            .into_iter()
+            .filter(|text| parse_hash(text).is_some_and(|hash| index.declares(hash)))
+            .collect())
+    })
+    .await
+}
+
 /// Resolve the index's names again out of the tables a sync just installed.
 ///
 /// The rows are the install's and stay. A slot that holds no ready index is
@@ -136,11 +163,22 @@ pub fn rename_after_sync(app: &AppHandle) {
             return;
         }
     };
-    let tables = cache.bin_tables();
+    let wad = match app.state::<Arc<WadPathResolverState>>().get() {
+        Ok(wad) => wad,
+        Err(e) => {
+            tracing::warn!("Could not open the WAD tables to rename the object index: {e}");
+            return;
+        }
+    };
+    let bin = cache.bin_tables();
+    let names = CacheNames::new(&bin, &wad);
     if let Err(e) = app
         .state::<ObjectIndexState>()
-        .rename(|index| index.named(&tables))
+        .rename(|index| index.named(&names))
     {
         tracing::warn!("Could not rename the object index after a hashtable sync: {e}");
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -3,7 +3,13 @@ import { useMemo } from "react";
 import { CommandPalette, type PaletteGroupModel, type PaletteSelectModifiers } from "@/components";
 
 import { paletteSource, type ParsedQuery } from "./sources";
-import type { OpenIntent, PaletteGroup, PaletteRowData, PaletteSourceId } from "./types";
+import type {
+  OpenIntent,
+  PaletteGroup,
+  PaletteRowData,
+  PaletteSourceId,
+  PaletteTarget,
+} from "./types";
 
 /** What the bar hands whichever palette its route mounts. */
 export interface PaletteBranchProps {
@@ -76,11 +82,15 @@ export function ResultsPalette({
     const candidate = byId.get(rowId);
     if (!candidate) return;
 
-    /* A prefix row narrows the box rather than leaving it, so it is the one
-       target that keeps the palette open. */
+    /* A prefix row narrows the box rather than leaving it, and a query row
+       rewrites it, so those two are the targets that keep the palette open. */
     if (candidate.target.kind === "prefix") {
       onScopeTo(candidate.source);
       onQueryClear();
+      return;
+    }
+    if (candidate.target.kind === "query") {
+      rewrite(candidate.target);
       return;
     }
 
@@ -91,10 +101,20 @@ export function ResultsPalette({
     const candidate = byId.get(rowId);
     if (!candidate) return;
 
+    if (candidate.target.kind === "query") {
+      rewrite(candidate.target);
+      return;
+    }
+
     onScopeTo(candidate.source);
     /* The prefixes are the query while `?` lists them, so a scope taken from
        one of those rows leaves nothing behind to match on. */
     if (parsed.help) onQueryClear();
+  }
+
+  function rewrite(target: Extract<PaletteTarget, { kind: "query" }>) {
+    if (target.scope !== undefined) onScopeTo(target.scope);
+    onQueryChange(target.query);
   }
 
   return (

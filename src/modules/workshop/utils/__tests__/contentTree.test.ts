@@ -18,6 +18,7 @@ function entry(relativePath: string, sizeBytes = 0): ContentEntry {
     relativePath,
     sizeBytes: BigInt(sizeBytes),
     kind: "unknown",
+    objects: [],
   };
 }
 

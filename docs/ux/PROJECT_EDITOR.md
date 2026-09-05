@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-05 | Sniff unnamed chunks, filter by class, and match the project's objects |
 | 2026-09-05 | Settle the rows, the `class:` filter, the sniff and the lifecycle      |
 | 2026-09-05 | Decide the object build, its row, its trigger, and the order of halves |
 | 2026-09-05 | Record the lazy read as landed, and unblock the object index           |
@@ -13,7 +14,6 @@
 | 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself       |
 | 2026-08-22 | Extract with no dialog, and copy a game file into a layer              |
 | 2026-08-22 | Implement the extract to disk, on the branch's extractor               |
-| 2026-08-21 | Key every chunk by `WadHash` upstream, the bin tooling's own hash type |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -91,10 +91,10 @@ This table holds every major feature of the editor. A status word has one meanin
 | Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                    |
 | Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
 | Project bar            | Available   | Takes the header's middle, from the project name title             |
-| Command palette        | In progress | The project and the game are in. The bin objects remain            |
-| Bin object search      | Planned     | The project's objects, and the install's on the streaming read     |
-| Project object index   | Planned     | The layers' own bins, rebuilt with the content scan                |
-| Bin object index       | Planned     | The install's half, on `BinStream::entries`. Unblocked upstream    |
+| Command palette        | Available   | The project, the game and the bin objects of both halves           |
+| Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions |
+| Project object index   | Available   | The layers' own bins, read with the content scan, matched in place |
+| Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed |
 | Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
 | Navigation history     | Available   | The `←` `→` arrows, one stack for the whole workshop shell         |
 | Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
@@ -685,27 +685,27 @@ that carries the walk until a release does.
 
 ### The build, measured
 
-The install is the one the rest of this document measures, at 456 archives and 939,329 chunks,
-read on 2026-08-20 through the eager reader. The install has moved on since, to 392 archives,
-and [the research note](../research/bin-object-index.md) records which of these figures do not
-reconcile with each other. The table is owed a fresh row from the streaming build.
+Read on 2026-09-05 from the build's own `info` line, on a release build over an install of 392
+archives, through the streaming reader on a warm file cache. The line is what the measurement
+test in `src-tauri` logs, and the build it runs is the one the Objects switch warms. The
+2026-08-20 figures the table carried before, read through the eager reader, stay in
+[the research note](../research/bin-object-index.md) with the note on which of them did not
+reconcile.
 
-| Measurement                               | Value                             |
-| ----------------------------------------- | --------------------------------- |
-| `.bin` chunks                             | 50,390, and 42,306 after the fold |
-| What they hold                            | 2,261MB, decompressed             |
-| The build, on a cold file cache           | 4.7s                              |
-| The build, on a warm one                  | 1.3s                              |
-| Of which the header scan                  | 14ms                              |
-| Object declarations                       | 383,357                           |
-| Distinct objects                          | 359,095                           |
-| Named by the mimir table                  | 325,357, which is 90.6%           |
-| Declared by more than one file            | 5,965                             |
-| Distinct classes                          | 539                               |
-| Dependency edges                          | 121,665, of which 116,201 resolve |
-| Files that would not scan                 | 3                                 |
-| The index, at 16 bytes a declaration      | 6.1MB                             |
-| Resolving every hash to its name, at load | 200ms, for 21.1MB of names        |
+| Measurement                               | Value                                              |
+| ----------------------------------------- | -------------------------------------------------- |
+| Archives holding a bin, of 392            | 200                                                |
+| `.bin` chunks                             | 41,330, of which 13 sniffed from 88 unnamed chunks |
+| What they hold                            | 2,210MB, decompressed                              |
+| The build, on a warm file cache           | 445ms, on 8 workers                                |
+| The build, on a cold file cache           | Not measured                                       |
+| Object declarations                       | 373,991                                            |
+| Distinct objects                          | 350,008                                            |
+| Named by the mimir table                  | 321,980, which is 92.0%                            |
+| Distinct classes                          | 382                                                |
+| Files that would not scan                 | 3                                                  |
+| The index, at 16 bytes a declaration      | 6.0MB                                              |
+| Resolving every hash to its name, at load | 399ms                                              |
 
 The build is decompression and nothing else. Every millisecond above belongs to zstd, so the
 work spreads across archives: one job per archive in ordinal order, each mounting its archive
@@ -725,11 +725,13 @@ which is why the sniff is worth its decode.
 ### Where it is kept
 
 In memory, for the session, and rebuilt from the archives the next time the application
-starts. The first cut writes nothing to disk. The build is the decompression the table above
-measures, so the first live build logs its files, objects, bytes and elapsed time, and
-whether the index earns a cache is decided from that line rather than before it.
+starts. Nothing is written to disk, and nothing will be on the figures above: the build costs
+under half a second on a warm file cache, runs off the thread that draws the window, and sits
+behind a switch that is off by default, so a cache would save less than keeping it correct
+across a game patch and a table sync would cost. The decision and the line it was taken on are
+in [the research note](../research/bin-object-index.md), section 10.
 
-When it does, the object table is a section of the memory-mapped cache that
+Were one ever asked for, the object table is a section of the memory-mapped cache that
 [One cache, not two](#one-cache-not-two) describes, under the same archive checksums. A game
 patch rebuilds the archives it changed and no others, and a format version in the header
 forces a full rebuild when this manager writes the section differently.
@@ -907,11 +909,11 @@ change upstream.
 | Step | Holds                                                                       | Status |
 | ---- | --------------------------------------------------------------------------- | ------ |
 | 1    | The lazy read upstream, `BinStream::entries` in `ltk_meta` 0.8.1            | Landed |
-| 2    | The install's build behind the Objects switch, logged, and the `$` source   | -      |
-| 3    | Unnamed chunks, sniffed by their magic                                      | -      |
-| 4    | The `class:` filter and its completions                                     | -      |
-| 5    | The project's own objects, the override line, and the `@` scope             | -      |
-| 6    | The measured row, and the cache if it asks for one                          | -      |
+| 2    | The install's build behind the Objects switch, logged, and the `$` source   | Landed |
+| 3    | Unnamed chunks, sniffed by their magic                                      | Landed |
+| 4    | The `class:` filter and its completions                                     | Landed |
+| 5    | The project's own objects and the override line. The `@` scope remains      | Landed |
+| 6    | The measured row, and the cache decision, which went against one            | Landed |
 | 7    | The object pickers that **#190** and **#191** want, and the edges they read | -      |
 
 The install's half ships first, as one change from the build to the bar, because the whole

@@ -2,11 +2,11 @@ import { CubeIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { errorSummary, m } from "@/i18n";
-import type { ObjectSearchHit } from "@/lib/tauri";
+import type { ObjectClassHit, ObjectSearchHit } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
 
 import { useObjectSearch, wadBasename } from "../gameBrowser";
-import { paletteSource } from "./sources";
+import { completeClassTerm } from "./classTerm";
 import type { PaletteGroup, RankedRow } from "./types";
 
 /**
@@ -15,9 +15,10 @@ import type { PaletteGroup, RankedRow } from "./types";
  * The backend ranks these as it ranks the game's files, so this dresses them
  * as rows and says what the index is doing when it cannot answer yet: a build
  * in flight, a build that failed, and a table that names nothing each get a
- * row rather than a group that quietly does not appear.
+ * row rather than a group that quietly does not appear. `query` is the text as
+ * typed, which a completion rewrites.
  */
-export function useObjectRows(term: string, enabled: boolean): PaletteGroup | null {
+export function useObjectRows(term: string, query: string, enabled: boolean): PaletteGroup | null {
   const setting = useSearchObjects();
   const wanted = enabled && setting;
 
@@ -26,7 +27,7 @@ export function useObjectRows(term: string, enabled: boolean): PaletteGroup | nu
   return useMemo(() => {
     if (!wanted || term.length === 0) return null;
 
-    const label = paletteSource("objects").label;
+    const label = m.workshop_objects_game_label();
 
     if (error) return group(label, [noticeRow("objects:error", errorSummary(error))]);
     if (!data) return { ...group(label, []), pending: isFetching };
@@ -41,6 +42,16 @@ export function useObjectRows(term: string, enabled: boolean): PaletteGroup | nu
     }
 
     if (data.superseded) return null;
+
+    if (data.classes.length > 0) {
+      return {
+        source: "objects",
+        label: m.workshop_objects_classes_label(),
+        rows: data.classes.map((hit) => toClassRow(hit, query)),
+        total: data.classes.length,
+        pending: isFetching,
+      };
+    }
 
     /* A hash finds its object with no table at all, so the notice waits for a
        query that came back empty. */
@@ -58,7 +69,7 @@ export function useObjectRows(term: string, enabled: boolean): PaletteGroup | nu
       total: data.total,
       pending: isFetching,
     };
-  }, [data, error, isFetching, term, wanted]);
+  }, [data, error, isFetching, query, term, wanted]);
 }
 
 function group(label: string, rows: readonly RankedRow[]): PaletteGroup {
@@ -89,6 +100,25 @@ function toRow(hit: ObjectSearchHit): RankedRow {
     band: hit.band,
     score: hit.score,
     nameRanges: hit.ranges,
+    pathRanges: [],
+  };
+}
+
+/** One class as a completion: choosing it writes the class term out in full. */
+function toClassRow(hit: ObjectClassHit, query: string): RankedRow {
+  return {
+    row: {
+      id: `class:${hit.classHash}`,
+      source: "objects",
+      name: hit.class,
+      path: "",
+      trailing: m.workshop_objects_class_count_label({ count: hit.rows }),
+      icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+      target: { kind: "query", query: completeClassTerm(query, hit.class) },
+    },
+    band: 0,
+    score: 0,
+    nameRanges: [],
     pathRanges: [],
   };
 }

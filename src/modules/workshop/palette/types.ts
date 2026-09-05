@@ -11,7 +11,8 @@ export type LocalSourceId =
   | "layers"
   | "strings"
   | "commands"
-  | "settings";
+  | "settings"
+  | "projectObjects";
 
 /**
  * The sources whose rows arrive from the backend already ranked and grouped.
@@ -79,9 +80,28 @@ export type PaletteTarget =
       /** `0x` and eight hex digits. */
       readonly objectHash: string;
     }
+  | {
+      /**
+       * A bin object of the project, opened through the layer file that declares it.
+       *
+       * The object's hash rides along for the bin editor, as it does on `object`.
+       */
+      readonly kind: "layerObject";
+      readonly layerName: string;
+      readonly path: string;
+      /** `0x` and eight hex digits. */
+      readonly objectHash: string;
+    }
   | { readonly kind: "document"; readonly document: ContentDocument }
   | { readonly kind: "command"; readonly command: ProjectCommand }
-  | { readonly kind: "prefix"; readonly prefix: string };
+  | { readonly kind: "prefix"; readonly prefix: string }
+  | {
+      /** Text put into the box in place of what is there, with the palette kept open. */
+      readonly kind: "query";
+      readonly query: string;
+      /** The source the box scopes to first, where the text belongs under one. */
+      readonly scope?: PaletteSourceId;
+    };
 
 /** One row of the list, whoever ranked it. */
 export interface PaletteRowData {
@@ -124,6 +144,16 @@ export interface PaletteCandidate extends PaletteRowData {
    * words it matched are not on screen.
    */
   readonly keywords?: string;
+  /**
+   * Where the last `/` segment of `name` starts, for a name that is a whole object path.
+   *
+   * That segment takes the band a file name takes, and the rest of the path the
+   * band a directory takes. `path` is then a description rather than a location,
+   * and no match reads it.
+   */
+  readonly nameCut?: number;
+  /** The class an object row declares, which a `class:` term narrows on. */
+  readonly objectClass?: { readonly name: string; readonly hash: string };
   readonly nameLower: string;
   /** `path/name`, which is what a match reaching the directory is scored on. */
   readonly fullLower: string;
