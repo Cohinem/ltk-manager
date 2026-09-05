@@ -16,6 +16,7 @@ export { useRevealGameSearch } from "./useGameSearchReveal";
 export { useGameWadEntries } from "./useGameWadEntries";
 export { GAME_STALE_MS, gameKeys, useGameWads } from "./useGameWads";
 export {
+  BUILDING_POLL_MS,
   useDeclaredObjects,
   useDropObjectIndex,
   useObjectDeclarations,

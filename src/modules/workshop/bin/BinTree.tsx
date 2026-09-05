@@ -12,13 +12,18 @@ import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
+import { useWarmObjectIndex } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
+import { useOpenDocumentAs } from "../state";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
 import { flattenRows, isUnder, pagesWanted, rowKey, toggled, type VisibleRow } from "./binRows";
+import { decideObjectLink } from "./linkDecision";
 import { type ChildrenRequest, useBinChildren } from "./useBinDocument";
 import {
   LinkAssetContext,
+  type LinkOpen,
+  LinkOpenContext,
   LinkTargetsContext,
   type RowGroup,
   useCheckLinkTargets,
@@ -103,6 +108,37 @@ export function BinTree({
   );
   const linkTargets = useCheckLinkTargets(document, groups);
 
+  /* A link clicked while the index is absent: the build runs, and the click lands on
+     the answer. A target the answer lacks is forgotten. */
+  const warm = useWarmObjectIndex();
+  const open = useOpenDocumentAs();
+  const [wanting, setWanting] = useState<ReadonlyMap<string, OpenIntent>>(() => new Map());
+  const warmMutate = warm.mutate;
+  const linkOpen = useMemo<LinkOpen>(
+    () => ({
+      wantOpen: (hash, intent) => {
+        setWanting((current) => new Map(current).set(hash, intent));
+        warmMutate();
+      },
+      wanting: new Set(wanting.keys()),
+    }),
+    [wanting, warmMutate],
+  );
+  useEffect(() => {
+    if (linkTargets.index?.status !== "ready" && linkTargets.index?.status !== "failed") return;
+    const settled = [...wanting].filter(([hash, intent]) => {
+      const decision = decideObjectLink(hash, linkTargets);
+      if (decision.kind === "chip") open(decision.document, intent);
+      return decision.kind !== "pending" && decision.kind !== "warm";
+    });
+    if (settled.length === 0) return;
+    setWanting((current) => {
+      const next = new Map(current);
+      for (const [hash] of settled) next.delete(hash);
+      return next;
+    });
+  }, [linkTargets, open, wanting]);
+
   const toggle = useCallback((key: string) => {
     setFocused(null);
     setExpanded((current) => {
@@ -175,45 +211,47 @@ export function BinTree({
   return (
     <LinkAssetContext value={asset}>
       <LinkTargetsContext value={linkTargets}>
-        <ContextMenu.Root>
-          <ContextMenu.Trigger
-            ref={scrollRef}
-            role="tree"
-            aria-label={label}
-            className="min-h-0 flex-1 overflow-auto px-1 py-1 outline-none scrollbar-md select-none"
-            onContextMenu={handleContextMenu}
-            {...NO_OVERSCROLL}
-          >
-            <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-              {virtualItems.map((item) => {
-                const line = visible[item.index];
-                if (!line) return null;
-                return (
-                  <div
-                    key={item.key}
-                    ref={virtualizer.measureElement}
-                    data-index={item.index}
-                    className="absolute top-0 left-0 w-full"
-                    style={{ transform: `translateY(${item.start}px)` }}
-                  >
-                    {line.kind === "row" && (
-                      <BinRowLine
-                        line={line}
-                        focused={line.key === focused}
-                        error={loaded.get(line.key)?.error}
-                        onToggle={toggle}
-                        onOpenObject={onOpenObject}
-                      />
-                    )}
-                    {line.kind === "more" && <MoreRow line={line} />}
-                  </div>
-                );
-              })}
-            </div>
-          </ContextMenu.Trigger>
+        <LinkOpenContext value={linkOpen}>
+          <ContextMenu.Root>
+            <ContextMenu.Trigger
+              ref={scrollRef}
+              role="tree"
+              aria-label={label}
+              className="min-h-0 flex-1 overflow-auto px-1 py-1 outline-none scrollbar-md select-none"
+              onContextMenu={handleContextMenu}
+              {...NO_OVERSCROLL}
+            >
+              <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+                {virtualItems.map((item) => {
+                  const line = visible[item.index];
+                  if (!line) return null;
+                  return (
+                    <div
+                      key={item.key}
+                      ref={virtualizer.measureElement}
+                      data-index={item.index}
+                      className="absolute top-0 left-0 w-full"
+                      style={{ transform: `translateY(${item.start}px)` }}
+                    >
+                      {line.kind === "row" && (
+                        <BinRowLine
+                          line={line}
+                          focused={line.key === focused}
+                          error={loaded.get(line.key)?.error}
+                          onToggle={toggle}
+                          onOpenObject={onOpenObject}
+                        />
+                      )}
+                      {line.kind === "more" && <MoreRow line={line} />}
+                    </div>
+                  );
+                })}
+              </div>
+            </ContextMenu.Trigger>
 
-          <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
-        </ContextMenu.Root>
+            <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
+          </ContextMenu.Root>
+        </LinkOpenContext>
       </LinkTargetsContext>
     </LinkAssetContext>
   );

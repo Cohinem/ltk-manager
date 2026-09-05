@@ -5,11 +5,12 @@ import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { BinRow, BinValue } from "@/lib/tauri";
 
+import type { ContentDocument } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
 import { useOpenDocumentAs } from "../state";
 import type { VisibleRow } from "./binRows";
-import { decideLink } from "./linkDecision";
-import { useLayerCopy, useLinkTargets } from "./useLinkTargets";
+import { decideLink, type LinkDecision } from "./linkDecision";
+import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
 interface BinContextMenuProps {
   /** The line the menu was opened on. Absent while it has never been opened. */
@@ -30,6 +31,7 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const copy = useCopyToClipboard();
   const open = useOpenDocumentAs();
   const targets = useLinkTargets();
+  const { wantOpen } = useLinkOpen();
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(row?.value.type === "wadChunkLink" ? row.value.path : null);
 
@@ -38,18 +40,18 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
   const valueHash = unnamedValueHash(row.value);
   const link = decideLink(row.value, targets, () => layer);
-  const target = link?.kind === "chip" ? link.document : null;
+  const openLink = linkOpener(row.value, link, open, wantOpen);
 
   return (
     <ContextMenu.Portal>
       <ContextMenu.Positioner>
         <ContextMenu.Popup className="w-56">
-          {target && (
+          {openLink && (
             <>
-              <ContextMenu.Item icon={<LinkIcon />} onClick={() => open(target, "default")}>
+              <ContextMenu.Item icon={<LinkIcon />} onClick={() => openLink("default")}>
                 {m.workshop_bin_open_link_action()}
               </ContextMenu.Item>
-              <ContextMenu.Item icon={<LinkIcon />} onClick={() => open(target, "beside")}>
+              <ContextMenu.Item icon={<LinkIcon />} onClick={() => openLink("beside")}>
                 {m.workshop_bin_open_link_beside_action()}
               </ContextMenu.Item>
               <ContextMenu.Separator />
@@ -98,6 +100,20 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
       </ContextMenu.Positioner>
     </ContextMenu.Portal>
   );
+}
+
+/** What Open link does for a row, or null where the row's value opens nothing. */
+function linkOpener(
+  value: BinValue,
+  link: LinkDecision | null,
+  open: (document: ContentDocument, intent: OpenIntent) => void,
+  wantOpen: (hash: string, intent: OpenIntent) => void,
+): ((intent: OpenIntent) => void) | null {
+  if (link?.kind === "chip") return (intent) => open(link.document, intent);
+  if (link?.kind === "warm" && value.type === "objectLink") {
+    return (intent) => wantOpen(value.hash, intent);
+  }
+  return null;
 }
 
 /** The hash a value shows in place of a name, or null where a table named it. */

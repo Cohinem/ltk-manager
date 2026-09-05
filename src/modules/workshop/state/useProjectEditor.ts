@@ -236,6 +236,11 @@ export function useOpenDocumentAs() {
   );
 }
 
+/** The intent a click carries: beside with `Ctrl` or `Cmd` held, the tab mode without. */
+export function clickIntent(event: { ctrlKey: boolean; metaKey: boolean }): OpenIntent {
+  return event.ctrlKey || event.metaKey ? "beside" : "default";
+}
+
 export function usePromoteDocument() {
   const projectPath = useProjectPath();
   const promoteDocument = useWorkshopEditorStore((s) => s.promoteDocument);

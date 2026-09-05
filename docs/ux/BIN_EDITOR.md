@@ -825,15 +825,16 @@ nothing about Tauri.
 `src-tauri/src/commands/bin.rs` is the seam, and `BinDocuments` is a third managed state
 beside `SettingsState` and `PatcherState`.
 
-| Command            | Answers                                                             |
-| ------------------ | ------------------------------------------------------------------- |
-| `bin_open`         | A handle, the header facts, and the root rows                       |
-| `bin_children`     | The rows under one address                                          |
-| `bin_patch`        | The rows that changed, or a rejection                               |
-| `bin_undo`         | The same                                                            |
-| `bin_close`        | Nothing                                                             |
-| `class_schema`     | One class's fields and their declared kinds, at the install's build |
-| `declared_objects` | Which of a page's link and hash targets the index declares          |
+| Command             | Answers                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| `bin_open`          | A handle, the header facts, and the root rows                       |
+| `bin_children`      | The rows under one address                                          |
+| `bin_patch`         | The rows that changed, or a rejection                               |
+| `bin_undo`          | The same                                                            |
+| `bin_close`         | Nothing                                                             |
+| `class_schema`      | One class's fields and their declared kinds, at the install's build |
+| `declared_objects`  | What declares each of a page's link and hash targets, in link order |
+| `locate_game_files` | The install's copy of each of a page's `file` targets               |
 
 An object tab is `bin_open` with an entry named, answering that object's rows at depth zero and
 the header facts of the object. A file tab and the object tabs over one asset share one held

@@ -1,4 +1,4 @@
-import { type MouseEvent as ReactMouseEvent, type ReactNode, useEffect, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Code, Popover } from "@/components";
@@ -6,11 +6,10 @@ import { m } from "@/i18n";
 import type { DeclaredObject } from "@/lib/tauri";
 
 import { declaringFileContext } from "../documents/contentDocument";
-import { useWarmObjectIndex } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
-import { useOpenDocumentAs } from "../state";
+import { clickIntent, useOpenDocumentAs } from "../state";
 import { decideFileLink, decideHash, decideObjectLink } from "./linkDecision";
-import { useLayerCopy, useLinkTargets } from "./useLinkTargets";
+import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
 /** Hover for this long opens the card, the tooltip delay. */
 const CARD_DELAY = 600;
@@ -28,43 +27,33 @@ interface ObjectChipProps {
  * A `link` or a `hash` as a chip that opens the object tab, per "Links" in
  * docs/ux/BIN_EDITOR.md.
  *
- * A click that lands while the index is absent builds it. The chip opens its target
+ * A click that lands while the index is absent builds it. The tree opens the target
  * on the check's answer.
  */
 export function ObjectChip({ hash, name, kind }: ObjectChipProps) {
   const targets = useLinkTargets();
   const declared = targets.declared.get(hash);
   const decision = kind === "link" ? decideObjectLink(hash, targets) : decideHash(hash, targets);
-  const warm = useWarmObjectIndex();
+  const { wantOpen, wanting } = useLinkOpen();
   const open = useOpenDocumentAs();
-  const [wanted, setWanted] = useState<OpenIntent | null>(null);
-
-  useEffect(() => {
-    if (wanted === null || decision.kind !== "chip") return;
-    setWanted(null);
-    open(decision.document, wanted);
-  }, [decision, open, wanted]);
 
   const label = name ?? declared?.path ?? hash;
-  if (decision.kind === "text" && kind === "link" && name === null) return <Hex>{hash}</Hex>;
+  if (decision.kind === "text" && kind === "link") return <Hex>{hash}</Hex>;
   if (decision.kind === "text") return <Text mono={name === null}>{label}</Text>;
   if (decision.kind === "pending") return <Text mono={name === null}>{label}</Text>;
   if (decision.kind === "warm") {
     return (
-      <Chip
+      <LinkChip
         label={label}
         mono={name === null}
-        pending={wanted !== null}
-        onOpen={(intent) => {
-          setWanted(intent);
-          warm.mutate();
-        }}
+        pending={wanting.has(hash)}
+        onOpen={(intent) => wantOpen(hash, intent)}
       />
     );
   }
 
   return (
-    <Chip
+    <LinkChip
       label={label}
       mono={name === null}
       card={declared && <TargetCard hash={hash} declared={declared} />}
@@ -95,7 +84,7 @@ export function FileChip({ hash, path }: FileChipProps) {
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <Chip label={path} mono onOpen={(intent) => open(decision.document, intent)} />
+      <LinkChip label={path} mono onOpen={(intent) => open(decision.document, intent)} />
       {decision.side !== undefined && (
         <span className="shrink-0 text-meta text-surface-400">{decision.side}</span>
       )}
@@ -103,7 +92,7 @@ export function FileChip({ hash, path }: FileChipProps) {
   );
 }
 
-interface ChipProps {
+interface LinkChipProps {
   label: string;
   /** The label is a hash or a path rather than a name. */
   mono: boolean;
@@ -115,7 +104,7 @@ interface ChipProps {
 }
 
 /** A mono `Code` chip, per DS-CODE-CHIP, opening on click and beside on `Ctrl+click`. */
-function Chip({ label, mono, pending = false, card, onOpen }: ChipProps) {
+export function LinkChip({ label, mono, pending = false, card, onOpen }: LinkChipProps) {
   const button = (
     <button
       type="button"
@@ -126,7 +115,7 @@ function Chip({ label, mono, pending = false, card, onOpen }: ChipProps) {
       )}
       onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
-        onOpen(event.ctrlKey || event.metaKey ? "beside" : "default");
+        onOpen(clickIntent(event));
       }}
     >
       <Code

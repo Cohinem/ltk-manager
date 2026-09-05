@@ -10,8 +10,8 @@ use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
 use ltk_manager_core::object_index::{
-    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDeclaration, ObjectIndex,
-    ObjectIndexSnapshot, ObjectSearchGeneration, ObjectSearchResult,
+    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectIndex, ObjectIndexSnapshot,
+    ObjectSearchGeneration, ObjectSearchResult,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
@@ -140,7 +140,7 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
 pub enum ObjectIndexStatus {
     /// Nothing has warmed the index, or the switch that gates it is off.
     Absent,
-    /// A build is running. The answer is on its way.
+    /// A build is running. The answer follows it.
     Building,
     /// The last build failed, and the next warm retries it.
     Failed { error: AppErrorResponse },
@@ -217,19 +217,18 @@ fn fold_own_declarations(
     let file = own_file_name(&asset, &wad);
 
     let (dependencies, own) = store.read(document, |open| {
-        let own: Vec<(&str, BinObjectHeader, ObjectDeclaration)> = object_hashes
+        let own: Vec<(&str, BinObjectHeader)> = object_hashes
             .iter()
             .filter_map(|text| {
-                let hash = parse_hash(text)?;
-                let header = open.object(hash, &names).ok()?;
-                let declaration = open.declaration(hash, &asset, &file, &names)?;
-                Some((text.as_str(), header, declaration))
+                let header = open.object(parse_hash(text)?, &names).ok()?;
+                Some((text.as_str(), header))
             })
             .collect();
         Ok((open.dependency_hashes(), own))
     })?;
 
-    for (text, header, declaration) in own {
+    for (text, header) in own {
+        let declaration = header.declared_in(&asset, &file);
         let declared = objects
             .entry(text.to_owned())
             .or_insert_with(|| DeclaredObject {

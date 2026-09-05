@@ -11,7 +11,7 @@ import { declaringFileContext, layerTitle, objectDocument } from "../documents/c
 import { useObjectDeclarations, useWarmObjectIndex } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
 import { assetContext, assetKey } from "../preview/assetRef";
-import { useOpenDocumentAs } from "../state";
+import { clickIntent, useOpenDocumentAs } from "../state";
 
 interface OtherDeclarationsProps {
   /** The declaration the tab is over, which the list leaves out. */
@@ -40,11 +40,11 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
     const self = assetKey(asset);
     const install = data?.objects[objectHash]?.declarations ?? [];
     const layers = (tree?.layers ?? []).flatMap((layer) =>
-      layer.entries
-        .filter((entry) => entry.objects.some((object) => object.objectHash === objectHash))
-        .map((entry): ObjectDeclaration => {
-          const object = entry.objects.find((candidate) => candidate.objectHash === objectHash);
-          return {
+      layer.entries.flatMap((entry): ObjectDeclaration[] => {
+        const object = entry.objects.find((candidate) => candidate.objectHash === objectHash);
+        if (!object) return [];
+        return [
+          {
             asset: {
               kind: "layer",
               project: project.path,
@@ -52,10 +52,11 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
               path: entry.relativePath,
             },
             file: entry.relativePath,
-            classHash: object?.classHash ?? "",
-            class: object?.class ?? "",
-          };
-        }),
+            classHash: object.classHash,
+            class: object.class,
+          },
+        ];
+      }),
     );
     return [...install, ...layers].filter((declaration) => assetKey(declaration.asset) !== self);
   }, [asset, data, objectHash, project.path, tree]);
@@ -145,7 +146,7 @@ function DeclarationRow({ declaration, layerName, onOpen }: DeclarationRowProps)
         /* DS-VEIL, DS-RADIUS */
         className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left text-meta hover:bg-surface-veil"
         title={declaringFileContext(declaration.asset, declaration.file)}
-        onClick={(event) => onOpen(event.ctrlKey || event.metaKey ? "beside" : "default")}
+        onClick={(event) => onOpen(clickIntent(event))}
       >
         <CubeIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
         <span className="min-w-0 flex-1 truncate font-mono text-code text-surface-200">

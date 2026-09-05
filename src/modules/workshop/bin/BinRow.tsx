@@ -13,6 +13,7 @@ import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue } from "@/lib/tauri";
 
 import type { OpenIntent } from "../palette/types";
+import { clickIntent } from "../state";
 import { canExpand, fieldHash, type RowLine, type VisibleRow } from "./binRows";
 import { ClassCard } from "./ClassCard";
 import { DeclaredLine, FieldCard } from "./FieldCard";
@@ -89,7 +90,7 @@ function OpenObjectAction({ onOpen }: { onOpen: (intent: OpenIntent) => void }) 
         className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/row:opacity-100 hover:bg-surface-veil hover:text-surface-200 focus-visible:opacity-100"
         onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
           event.stopPropagation();
-          onOpen(event.ctrlKey || event.metaKey ? "beside" : "default");
+          onOpen(clickIntent(event));
         }}
       >
         <ArrowSquareOutIcon weight="bold" className="h-3.5 w-3.5" />

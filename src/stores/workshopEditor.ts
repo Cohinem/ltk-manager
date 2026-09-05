@@ -311,6 +311,11 @@ function dropStops(stack: Stack, gone: (entry: HistoryEntry) => boolean): Stack 
   return { history, historyIndex: Math.max(-1, Math.min(index, history.length - 1)) };
 }
 
+/* An object tab is a preview document: ADR-0028. */
+function isPreviewKind(kind: ContentDocument["kind"]): boolean {
+  return kind === "preview" || kind === "object";
+}
+
 /**
  * The group a document opens into, with the layout that holds it.
  *
@@ -320,11 +325,6 @@ function dropStops(stack: Stack, gone: (entry: HistoryEntry) => boolean): Stack 
  * screen. The first preview splits that group off, and every later one joins
  * the group it left behind.
  */
-/* An object tab is a preview document: ADR-0028. */
-function isPreviewKind(kind: ContentDocument["kind"]): boolean {
-  return kind === "preview" || kind === "object";
-}
-
 function openGroup(
   editor: ProjectEditor,
   document: ContentDocument,

@@ -18,6 +18,10 @@ use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::GameBuild;
 use tauri::{AppHandle, Manager};
 
+/// The window an object open reads its properties under: every one of them. A class
+/// declares tens of fields, and a page is for a container.
+const WHOLE: usize = usize::MAX;
+
 /// Hold `asset` open as a bin, answering the header and the rows at depth zero.
 ///
 /// With no `entry`, the rows are one per object. With one, `0x` and eight hex digits,
@@ -50,7 +54,7 @@ pub async fn bin_open(
         store.read(document, |open| {
             let (rows, object) = match (entry, &schema) {
                 (Some(entry), Some((schema, build))) => (
-                    open.children(entry, "", 0, usize::MAX, &names, Some(schema.at(*build)))?
+                    open.children(entry, "", 0, WHOLE, &names, Some(schema.at(*build)))?
                         .rows,
                     Some(open.object(entry, &names)?),
                 ),

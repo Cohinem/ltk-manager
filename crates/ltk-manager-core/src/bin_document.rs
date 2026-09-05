@@ -77,10 +77,10 @@ struct Store {
     held: LruCache<AssetRef, Held>,
 }
 
-/// One parsed asset, and how many ids are over it.
+/// One parsed asset, and how many ids hold it.
 struct Held {
     document: BinDocument,
-    ids: usize,
+    holders: usize,
 }
 
 impl Store {
@@ -147,7 +147,7 @@ impl BinDocuments {
         {
             let mut store = self.inner.lock().mutex_err()?;
             if let Some(held) = store.held.get_mut(&asset) {
-                held.ids += 1;
+                held.holders += 1;
                 return Ok(store.issue(asset));
             }
         }
@@ -156,9 +156,12 @@ impl BinDocuments {
 
         let mut store = self.inner.lock().mutex_err()?;
         match store.held.get_mut(&asset) {
-            Some(held) => held.ids += 1,
+            Some(held) => held.holders += 1,
             None => {
-                let held = Held { document, ids: 1 };
+                let held = Held {
+                    document,
+                    holders: 1,
+                };
                 if let Some((evicted, _)) = store.held.push(asset.clone(), held) {
                     store.ids.retain(|_, over| *over != evicted);
                 }
@@ -213,8 +216,8 @@ impl BinDocuments {
             return Ok(());
         };
         let last = store.held.peek_mut(&asset).is_some_and(|held| {
-            held.ids = held.ids.saturating_sub(1);
-            held.ids == 0
+            held.holders = held.holders.saturating_sub(1);
+            held.holders == 0
         });
         if last {
             store.held.pop(&asset);
@@ -314,28 +317,6 @@ impl BinDocument {
     /// The path hash of every object, in file order.
     pub fn entries(&self) -> impl Iterator<Item = BinHash> + '_ {
         self.file.objects().keys().copied()
-    }
-
-    /// The document's own declaration of `entry`, or `None` where the file declares no
-    /// such object.
-    ///
-    /// `asset` is what the document was read from and `file` the path the tab names it
-    /// by. A class no table names reads as its hex.
-    #[must_use]
-    pub fn declaration(
-        &self,
-        entry: BinHash,
-        asset: &AssetRef,
-        file: &str,
-        names: &dyn RowNames,
-    ) -> Option<ObjectDeclaration> {
-        let header = self.object(entry, names).ok()?;
-        Some(ObjectDeclaration {
-            asset: asset.clone(),
-            file: file.to_owned(),
-            class: header.class.unwrap_or_else(|| header.class_hash.clone()),
-            class_hash: header.class_hash,
-        })
     }
 
     /// The header's dependencies, hashed as the WAD paths they name.
@@ -509,12 +490,32 @@ pub struct BinObjectHeader {
     pub entry: String,
     /// The object's path, or its hex where no table names it.
     pub name: String,
+    /// The name is a hash no table names.
     pub unnamed: bool,
     /// `0x` and eight hex digits.
     pub class_hash: String,
+    /// The class as the tables name it. Absent where no table does.
     pub class: Option<String>,
     /// How many properties the object holds.
     pub properties: usize,
+}
+
+impl BinObjectHeader {
+    /// The object as a declaration of `asset`, the file the tab names `file`.
+    ///
+    /// A class no table names reads as its hex.
+    #[must_use]
+    pub fn declared_in(&self, asset: &AssetRef, file: &str) -> ObjectDeclaration {
+        ObjectDeclaration {
+            asset: asset.clone(),
+            file: file.to_owned(),
+            class: self
+                .class
+                .clone()
+                .unwrap_or_else(|| self.class_hash.clone()),
+            class_hash: self.class_hash.clone(),
+        }
+    }
 }
 
 /// What an open answers: the id, the header, and the rows at depth zero.

@@ -20,7 +20,7 @@ export { BinTree, type TreeReveal } from "./BinTree";
 export { ClassCard } from "./ClassCard";
 export { FieldCard } from "./FieldCard";
 export { rowShape, rowTag, shapeTag } from "./kindTag";
-export { FileChip, ObjectChip } from "./LinkChip";
+export { FileChip, LinkChip, ObjectChip } from "./LinkChip";
 export {
   decideFileLink,
   decideHash,
@@ -41,16 +41,22 @@ export {
 } from "./useBinDocument";
 export { classSchemaKeys, useClassSchema } from "./useClassSchema";
 export {
+  joinDeclarations,
+  layerDeclarations,
   LinkAssetContext,
   linkHashes,
   linkKeys,
+  type LinkOpen,
+  LinkOpenContext,
   linkPaths,
   type LinkTargets,
   LinkTargetsContext,
+  NO_LINK_OPEN,
   NO_LINK_TARGETS,
   type RowGroup,
   useCheckLinkTargets,
   useLayerCopy,
+  useLinkOpen,
   useLinkTargets,
 } from "./useLinkTargets";
 export { useShowInFile } from "./useShowInFile";

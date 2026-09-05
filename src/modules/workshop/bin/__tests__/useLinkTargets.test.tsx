@@ -5,11 +5,18 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { BinRow, DeclaredObjects, GameFileEntry } from "@/lib/tauri";
+import type { BinRow, ContentTree, DeclaredObjects, GameFileEntry } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
-import { linkHashes, linkPaths, type RowGroup, useCheckLinkTargets } from "../useLinkTargets";
+import {
+  joinDeclarations,
+  layerDeclarations,
+  linkHashes,
+  linkPaths,
+  type RowGroup,
+  useCheckLinkTargets,
+} from "../useLinkTargets";
 
 const ENTRY = "0x2a1f3c7d";
 
@@ -117,5 +124,69 @@ describe("useCheckLinkTargets", () => {
 
     expect(result.current.pending).toBe(false);
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+});
+
+describe("layerDeclarations and joinDeclarations", () => {
+  const tree: ContentTree = {
+    layers: [
+      {
+        name: "base",
+        fileCount: 1,
+        totalSizeBytes: 1n,
+        entries: [
+          {
+            relativePath: "data/aatrox.bin",
+            sizeBytes: 1n,
+            kind: "property_bin",
+            objects: [
+              {
+                objectHash: "0x00000002",
+                path: "Characters/Aatrox",
+                class: "CharacterRecord",
+                classHash: "0x1",
+              },
+              {
+                objectHash: "0x00000009",
+                path: "Characters/Ahri",
+                class: "CharacterRecord",
+                classHash: "0x1",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("reads the layers' declarations of the wanted hashes out of the content scan", () => {
+    const declared = layerDeclarations(tree, "C:/mods/skin", new Set(["0x00000002"]));
+
+    expect([...declared.keys()]).toEqual(["0x00000002"]);
+    expect(declared.get("0x00000002")).toEqual({
+      path: "Characters/Aatrox",
+      declarations: [
+        {
+          asset: { kind: "layer", project: "C:/mods/skin", layer: "base", path: "data/aatrox.bin" },
+          file: "data/aatrox.bin",
+          classHash: "0x1",
+          class: "CharacterRecord",
+        },
+      ],
+    });
+  });
+
+  /* The install's order leads, which is the resolution order the backend set. */
+  it("folds the layers' declarations in after the install's, and none twice", () => {
+    const layers = layerDeclarations(tree, "C:/mods/skin", new Set(["0x00000002", "0x00000009"]));
+    const install = new Map(Object.entries(DECLARED.objects));
+
+    const joined = joinDeclarations(install, layers);
+    expect(joined.get("0x00000002")?.declarations.map((d) => d.file)).toEqual([
+      "data/characters/aatrox/aatrox.bin",
+      "data/aatrox.bin",
+    ]);
+    expect(joined.get("0x00000009")?.declarations.map((d) => d.file)).toEqual(["data/aatrox.bin"]);
+    expect(joinDeclarations(joined, layers)).toEqual(joined);
   });
 });

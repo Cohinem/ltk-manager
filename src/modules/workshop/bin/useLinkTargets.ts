@@ -7,21 +7,22 @@ import {
   type AssetRef,
   type BinDocumentId,
   type BinRow,
+  type ContentTree,
   type DeclaredObject,
   type DeclaredObjects,
   type GameFileEntry,
+  type ObjectDeclaration,
   type ObjectIndexStatus,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { useProjectContentTree } from "../api/useProjectContentTree";
-import { useProjectContext } from "../components/ProjectContext";
+import { useOptionalProjectContext, useProjectContext } from "../components/ProjectContext";
 import { layerTitle } from "../documents/contentDocument";
-import { gameKeys } from "../gameBrowser";
+import { BUILDING_POLL_MS, gameKeys } from "../gameBrowser";
+import type { OpenIntent } from "../palette/types";
+import { assetKey } from "../preview/assetRef";
 import type { LayerCopy } from "./linkDecision";
-
-/** How often a check the build has not answered yet asks again. */
-const BUILDING_POLL_MS = 1000;
 
 /** One group of rows checked together: a node's rows, or the tab's roots. */
 export interface RowGroup {
@@ -56,10 +57,28 @@ export function useLinkTargets(): LinkTargets {
   return use(LinkTargetsContext);
 }
 
+/** The tree's way to open a link whose target the index has not answered for. */
+export interface LinkOpen {
+  /** Build the index, and open `hash` with `intent` on the answer. */
+  readonly wantOpen: (hash: string, intent: OpenIntent) => void;
+  /** The hashes a click is waiting on. */
+  readonly wanting: ReadonlySet<string>;
+}
+
+export const NO_LINK_OPEN: LinkOpen = { wantOpen: () => {}, wanting: new Set() };
+
+/** The enclosing tree's warm-and-open, shared by a chip and the row menu. */
+export const LinkOpenContext = createContext<LinkOpen>(NO_LINK_OPEN);
+
+export function useLinkOpen(): LinkOpen {
+  return use(LinkOpenContext);
+}
+
 export const linkKeys = {
   declared: (document: BinDocumentId, key: string, hashes: readonly string[]) =>
     [...gameKeys.objectSearches, "links", document, key, hashes] as const,
-  located: (key: string, paths: readonly string[]) => ["game-files", key, paths] as const,
+  located: (key: string, paths: readonly string[]) =>
+    [...gameKeys.dirs, "files", key, paths] as const,
 };
 
 /** The object hashes a group's `link` and `hash` values name, sorted, each once. */
@@ -80,6 +99,69 @@ export function linkPaths(rows: readonly BinRow[]): string[] {
   return [...paths].sort();
 }
 
+/**
+ * The project's declarations of `hashes` out of the content scan, by hash.
+ *
+ * The layer side of "Elsewhere in the install or a layer" in docs/ux/BIN_EDITOR.md. The
+ * scan carries every object a layer's bins declare, and no call is made.
+ */
+export function layerDeclarations(
+  tree: ContentTree | undefined,
+  projectPath: string,
+  hashes: ReadonlySet<string>,
+): ReadonlyMap<string, DeclaredObject> {
+  const declared = new Map<string, DeclaredObject>();
+  if (!tree || hashes.size === 0) return declared;
+  for (const layer of tree.layers) {
+    for (const entry of layer.entries) {
+      for (const object of entry.objects) {
+        if (!hashes.has(object.objectHash)) continue;
+        const declaration: ObjectDeclaration = {
+          asset: {
+            kind: "layer",
+            project: projectPath,
+            layer: layer.name,
+            path: entry.relativePath,
+          },
+          file: entry.relativePath,
+          classHash: object.classHash,
+          class: object.class,
+        };
+        const known = declared.get(object.objectHash);
+        if (known) known.declarations.push(declaration);
+        else declared.set(object.objectHash, { path: object.path, declarations: [declaration] });
+      }
+    }
+  }
+  return declared;
+}
+
+/**
+ * `install` with `layers` folded in, each hash's layer declarations after its install
+ * ones and none twice.
+ */
+export function joinDeclarations(
+  install: ReadonlyMap<string, DeclaredObject>,
+  layers: ReadonlyMap<string, DeclaredObject>,
+): ReadonlyMap<string, DeclaredObject> {
+  const joined = new Map(install);
+  for (const [hash, fromLayers] of layers) {
+    const known = joined.get(hash);
+    if (!known) {
+      joined.set(hash, fromLayers);
+      continue;
+    }
+    const seen = new Set(known.declarations.map((declaration) => assetKey(declaration.asset)));
+    const added = fromLayers.declarations.filter(
+      (declaration) => !seen.has(assetKey(declaration.asset)),
+    );
+    if (added.length > 0) {
+      joined.set(hash, { ...known, declarations: [...known.declarations, ...added] });
+    }
+  }
+  return joined;
+}
+
 type DeclaredQuery = UseQueryOptions<
   DeclaredObjects,
   AppError,
@@ -95,8 +177,8 @@ type LocatedQuery = UseQueryOptions<
 >;
 
 /**
- * Check every group's link and hash targets against the index, and its `file` targets
- * against the install, one call per group and per kind.
+ * Check every group's link and hash targets against the index and the project's
+ * layers, and its `file` targets against the install, one call per group and per kind.
  *
  * "Links" in docs/ux/BIN_EDITOR.md. The declared checks sit under the object searches,
  * and a warm or a drop settling asks them again. A check the build has not answered
@@ -106,6 +188,9 @@ export function useCheckLinkTargets(
   document: BinDocumentId,
   groups: readonly RowGroup[],
 ): LinkTargets {
+  const project = useOptionalProjectContext();
+  const { data: tree } = useProjectContentTree(project?.path);
+
   const targets = useMemo(
     () =>
       groups.map((group) => ({
@@ -138,24 +223,30 @@ export function useCheckLinkTargets(
     }));
   const locatedResults = useQueries({ queries: locatedQueries });
 
-  const declared = new Map<string, DeclaredObject>();
-  let index: ObjectIndexStatus | null = null;
-  let pending = false;
-  for (const result of declaredResults) {
-    if (result.isPending) pending = true;
-    if (!result.data) continue;
-    index = result.data.index;
-    for (const [hash, object] of Object.entries(result.data.objects)) declared.set(hash, object);
-  }
+  return useMemo(() => {
+    const install = new Map<string, DeclaredObject>();
+    let index: ObjectIndexStatus | null = null;
+    let pending = false;
+    for (const result of declaredResults) {
+      if (result.isPending) pending = true;
+      if (!result.data) continue;
+      index = result.data.index;
+      for (const [hash, object] of Object.entries(result.data.objects)) install.set(hash, object);
+    }
 
-  const located = new Map<string, GameFileEntry>();
-  for (const result of locatedResults) {
-    if (result.isPending) pending = true;
-    if (!result.data) continue;
-    for (const [path, entry] of Object.entries(result.data)) located.set(path, entry);
-  }
+    const located = new Map<string, GameFileEntry>();
+    for (const result of locatedResults) {
+      if (result.isPending) pending = true;
+      if (!result.data) continue;
+      for (const [path, entry] of Object.entries(result.data)) located.set(path, entry);
+    }
 
-  return { index, declared, located, pending };
+    const wanted = new Set(targets.flatMap((group) => group.hashes));
+    const declared = project
+      ? joinDeclarations(install, layerDeclarations(tree, project.path, wanted))
+      : install;
+    return { index, declared, located, pending };
+  }, [declaredResults, locatedResults, project, targets, tree]);
 }
 
 /** The tree's asset, for the layer side of a `file` link. Null outside a tree. */
@@ -164,8 +255,8 @@ export const LinkAssetContext = createContext<AssetRef | null>(null);
 /**
  * The layer's copy of `path`, where the tree's asset sits in a layer that holds one.
  *
- * Matched without regard to case: a layer spells a path as its author did, and the
- * tables spell it lowercase.
+ * Matched without regard to case: a layer spells a path as its author spells it, and
+ * the tables spell it lowercase.
  */
 export function useLayerCopy(path: string | null): LayerCopy | null {
   const asset = use(LinkAssetContext);

@@ -9,8 +9,8 @@ import { gameKeys } from "./useGameWads";
 
 const NO_OBJECTS = new Set<string>();
 
-/** How often an answer the build has not given yet asks again. */
-const BUILDING_POLL_MS = 1000;
+/** How often an answer the build has not given asks again. */
+export const BUILDING_POLL_MS = 1000;
 
 /**
  * One step of the index's lifecycle, after which every held object search is

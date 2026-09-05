@@ -5,6 +5,7 @@ import {
   objectDocument,
   previewDocument,
 } from "../documents/contentDocument";
+import { assetContext } from "../preview/assetRef";
 import type { LinkTargets } from "./useLinkTargets";
 
 /** How a link value draws, and what its chip opens. "Links" in docs/ux/BIN_EDITOR.md. */
@@ -42,7 +43,7 @@ const PENDING: LinkDecision = { kind: "pending" };
 /**
  * What an `ObjectLink` draws as.
  *
- * A declared target opens its first declaration, which the backend ordered per
+ * A declared target opens its first declaration, which the backend orders per
  * ADR-0028. While the index is absent or building, a target outside the file is a chip
  * whose click warms the index. A target the ready index does not hold is text.
  */
@@ -90,14 +91,8 @@ export function decideFileLink(
   }
   const located = targets.located.get(path);
   if (located) {
-    return {
-      kind: "chip",
-      document: previewDocument(
-        { kind: "gameChunk", wad: located.wad, pathHash: located.pathHash },
-        path,
-      ),
-      side: wadWord(located.wad),
-    };
+    const asset = { kind: "gameChunk", wad: located.wad, pathHash: located.pathHash } as const;
+    return { kind: "chip", document: previewDocument(asset, path), side: assetContext(asset) };
   }
   return targets.pending ? PENDING : TEXT;
 }
@@ -118,11 +113,4 @@ export function decideLink(
     default:
       return null;
   }
-}
-
-/** The archive's name without its `.wad.client`, the word the palette's game rows use. */
-function wadWord(wad: string): string {
-  const cut = Math.max(wad.lastIndexOf("/"), wad.lastIndexOf("\\"));
-  const name = cut < 0 ? wad : wad.slice(cut + 1);
-  return name.replace(/\.wad\.client$/i, "");
 }

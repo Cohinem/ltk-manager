@@ -1110,30 +1110,21 @@ fn an_objects_own_declaration_names_its_asset_and_file() {
     let tables = named();
 
     let declaration = document
-        .declaration(h("Characters/Aatrox"), &asset, "data/skin0.bin", &tables)
-        .unwrap();
+        .object(h("Characters/Aatrox"), &tables)
+        .unwrap()
+        .declared_in(&asset, "data/skin0.bin");
     assert_eq!(declaration.asset, asset);
     assert_eq!(declaration.file, "data/skin0.bin");
     assert_eq!(declaration.class, "CharacterRecord");
     assert_eq!(declaration.class_hash, hex(h("CharacterRecord")));
 
     let unnamed = document
-        .declaration(
-            BinHash::from(UNNAMED_OBJECT),
-            &asset,
-            "data/skin0.bin",
-            &tables,
-        )
-        .unwrap();
+        .object(BinHash::from(UNNAMED_OBJECT), &tables)
+        .unwrap()
+        .declared_in(&asset, "data/skin0.bin");
     assert_eq!(
         unnamed.class, "0xabcdef01",
         "a class no table names is its hex"
-    );
-
-    assert!(
-        document
-            .declaration(h("Characters/Ahri"), &asset, "data/skin0.bin", &tables)
-            .is_none()
     );
 }
 

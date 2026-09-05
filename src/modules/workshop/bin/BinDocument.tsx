@@ -20,6 +20,8 @@ interface BinDocumentProps {
   asset: AssetRef;
   /** The file name, which the document resolved. A reference may hold a hash. */
   name: string;
+  /** The file's path as an object tab names its declaring file: inside the archive or the layer. */
+  file: string;
   active: boolean;
   /** The preview tab's own actions, drawn after the header facts. */
   actions: ReactNode;
@@ -31,7 +33,7 @@ interface BinDocumentProps {
  * One row per object at depth zero, each expanding to its properties. A file that does
  * not parse lands in the handoff pane, with the error and the VS Code action.
  */
-export function BinDocument({ documentId, asset, name, active, actions }: BinDocumentProps) {
+export function BinDocument({ documentId, asset, name, file, active, actions }: BinDocumentProps) {
   const { state, reopen } = useBinDocument(asset);
 
   if (state.status === "failed") {
@@ -62,6 +64,7 @@ export function BinDocument({ documentId, asset, name, active, actions }: BinDoc
       documentId={documentId}
       asset={asset}
       name={name}
+      file={file}
       handle={state.handle}
       active={active}
       actions={actions}
@@ -74,13 +77,14 @@ interface OpenBinProps {
   documentId: string;
   asset: AssetRef;
   name: string;
+  file: string;
   handle: BinDocumentHandle;
   active: boolean;
   actions: ReactNode;
   reopen: () => void;
 }
 
-function OpenBin({ documentId, asset, name, handle, active, actions, reopen }: OpenBinProps) {
+function OpenBin({ documentId, asset, name, file, handle, active, actions, reopen }: OpenBinProps) {
   const roots = handle.rows;
   const rootByKey = useMemo(() => new Map(roots.map((row) => [rowKey(row), row])), [roots]);
 
@@ -103,8 +107,8 @@ function OpenBin({ documentId, asset, name, handle, active, actions, reopen }: O
   const open = useOpenDocumentAs();
   const openObject = useCallback(
     (row: BinRow, intent: OpenIntent) =>
-      open(objectDocument(asset, row.entry, row.name, name), intent),
-    [asset, name, open],
+      open(objectDocument(asset, row.entry, row.name, file), intent),
+    [asset, file, open],
   );
 
   return (

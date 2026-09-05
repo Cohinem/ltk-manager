@@ -9,6 +9,7 @@ import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import type { ContentDocumentOf } from "../documents/contentDocument";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
 import { BinPreview } from "../preview/BinPreview";
+import { clickIntent } from "../state";
 import { Dot } from "./BinDocument";
 import { BinTree } from "./BinTree";
 import { ClassCard } from "./ClassCard";
@@ -90,14 +91,7 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
           variant="ghost"
           size="xs"
           left={<FileIcon className="h-4 w-4" />}
-          onClick={(event) =>
-            showInFile(
-              asset,
-              object.entry,
-              file,
-              event.ctrlKey || event.metaKey ? "beside" : "default",
-            )
-          }
+          onClick={(event) => showInFile(asset, object.entry, file, clickIntent(event))}
         >
           {m.workshop_bin_show_in_file_action()}
         </Button>
