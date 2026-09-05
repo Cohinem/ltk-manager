@@ -18,6 +18,7 @@ use ltk_meta::property::Kind;
 use serde::Deserialize;
 
 use super::kinds;
+use crate::bin_document::PropertyKind;
 use crate::meta_schema::Shape;
 use crate::problems::GameBuild;
 use crate::problems::walk::Declared;
@@ -264,14 +265,15 @@ impl TypeSpec {
         self.class.is_none_or(|named| named == class)
     }
 
-    /// The type as a row draws it, such as `List2<String>` or `Map<Hash, String>`.
+    /// The type as a row draws it, in the words a bin row's tag uses: `list2[string]`
+    /// or `map[hash,string]`.
     #[must_use]
     pub fn label(&self) -> String {
-        let kind = word(self.kind);
+        let kind = tag(self.kind);
         match (self.key, self.value) {
-            (Some(key), Some(value)) => format!("{kind}<{}, {}>", word(key), word(value)),
-            (None, Some(value)) => format!("{kind}<{}>", word(value)),
-            _ => kind,
+            (Some(key), Some(value)) => format!("{kind}[{},{}]", tag(key), tag(value)),
+            (None, Some(value)) => format!("{kind}[{}]", tag(value)),
+            _ => kind.to_owned(),
         }
     }
 }
@@ -289,12 +291,9 @@ impl From<Shape> for TypeSpec {
     }
 }
 
-/// The table's word for a kind, or `ltk_meta`'s where the table has none.
-///
-/// [`TypeSpec`]'s fields are public, so a kind no row ever writes can reach
-/// here. Naming it in the other vocabulary beats drawing a placeholder.
-fn word(kind: Kind) -> String {
-    kinds::name(kind).map_or_else(|| format!("{kind:?}"), str::to_owned)
+/// The word a bin row's tag draws for a kind, which a finding shares.
+fn tag(kind: Kind) -> &'static str {
+    PropertyKind::from(kind).tag()
 }
 
 /// One row of the table: a class, a field, the old type, and the new one.
@@ -811,33 +810,40 @@ mod tests {
         assert!(!migration.from.matches(&pointer).unwrap());
     }
 
+    /// The finding and a bin row's tag are one vocabulary, ritobin's, composed the way
+    /// the meta wiki writes a container.
     #[test]
-    fn a_label_reads_in_the_tables_own_vocabulary() {
+    fn a_label_reads_in_the_words_a_bin_rows_tag_draws() {
         let leaf = row("AnimationResourceData", "mAnimationFilePath");
-        assert_eq!(leaf.from.label(), "String");
-        assert_eq!(leaf.to.label(), "File");
+        assert_eq!(leaf.from.label(), "string");
+        assert_eq!(leaf.to.label(), "file");
 
         let list2 = row("AugmentLevelTextureData", "0x8c2ded48");
-        assert_eq!(list2.from.label(), "List2<String>");
-        assert_eq!(list2.to.label(), "List2<File>");
+        assert_eq!(list2.from.label(), "list2[string]");
+        assert_eq!(list2.to.label(), "list2[file]");
 
         let map = row("UiElementParticleSystemData", "TextureOverrides");
-        assert_eq!(map.from.label(), "Map<Hash, String>");
-        assert_eq!(map.to.label(), "Map<File, String>");
+        assert_eq!(map.from.label(), "map[hash,string]");
+        assert_eq!(map.to.label(), "map[file,string]");
 
         let optional = row("SkinCharacterDataProperties", "iconCircle");
-        assert_eq!(optional.from.label(), "Option<String>");
+        assert_eq!(optional.from.label(), "option[string]");
 
         let sized = row(
             "TftTrovesCelebrationViewControllerV2",
             "StandardItemStarLevelTexturePaths",
         );
         assert_eq!(sized.from.size, Some(3));
-        assert_eq!(sized.from.label(), "List<String>");
+        assert_eq!(sized.from.label(), "list[string]");
 
         let embed = row("0x3b09052f", "value");
-        assert_eq!(embed.from.label(), "Embed");
-        assert_eq!(embed.to.label(), "Pointer");
+        assert_eq!(embed.from.label(), "embed");
+        assert_eq!(embed.to.label(), "pointer");
+
+        assert_eq!(
+            TypeSpec::bare(Kind::Color).label(),
+            PropertyKind::Color.tag()
+        );
     }
 
     /// A row it cannot read is a row it must not act on, so a bad line costs

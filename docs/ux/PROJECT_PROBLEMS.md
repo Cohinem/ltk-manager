@@ -240,7 +240,7 @@ The two arrive apart rather than as one sentence, because the panel sets each of
 type inside prose it writes itself.
 
 ```
-Expected `File`, found `String`
+Expected `file`, found `string`
 ```
 
 ### Where a problem is
@@ -846,7 +846,7 @@ the wrench, and the values a repair would swap read in the row's tooltip - a ren
 The row is the check, the two types, and where in the file it is.
 
 ```
-⚠ Meta property type mismatch            Expected `File`, found `String`
+⚠ Meta property type mismatch            Expected `file`, found `string`
   mClipDataMap{Spell1_Torun_-180}.mAnimationResourceData.mAnimationFilePath
 ```
 
@@ -976,10 +976,10 @@ the layout.
 │ ▾ ⊗ 14  base · …/skins/skin0.bin                 │
 │   ▾ Characters/Smolder/Skins/Skin0               │
 │     ⊗ Meta property type mismatch                │
-│       Expected `File`, found `String`            │
+│       Expected `file`, found `string`            │
 │       iconPath                              Fix  │
 │     ⊗ Meta property type mismatch                │
-│       Expected `List2<File>`, …                  │
+│       Expected `list2[file]`, …                  │
 │       particlePaths                         Fix  │
 │   ▸ Characters/…/Particles/Smolder_Base_R        │
 │ ▸ ⊗  9  base · …/smolder_skins_skin0.bin         │

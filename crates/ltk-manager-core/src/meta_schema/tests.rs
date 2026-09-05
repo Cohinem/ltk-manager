@@ -85,6 +85,169 @@ fn schema() -> MetaSchema {
     MetaSchema::parse(published().as_bytes()).expect("the fixture is the published shape")
 }
 
+/// The field of `card` called `name`.
+fn field<'a>(card: &'a ClassSchema, name: &str) -> &'a FieldSchema {
+    card.fields
+        .iter()
+        .find(|field| field.name.as_deref() == Some(name))
+        .unwrap_or_else(|| panic!("the class has a field named {name}"))
+}
+
+#[test]
+fn a_class_answers_its_fields_named_first_with_their_types_at_a_build() {
+    let card = schema()
+        .class_schema(FLOAT_TEXT_ICON_DATA, Some(AFTER_RETYPE))
+        .expect("a class the database describes");
+
+    assert_eq!(card.name.as_deref(), Some("FloatTextIconData"));
+    assert_eq!(card.build, 8_104_348);
+    let names: Vec<_> = card
+        .fields
+        .iter()
+        .map(|field| field.name.as_deref().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "iconCircle",
+            "mHoldsSomethingNew",
+            "mIconFileName",
+            "mOffset",
+            "mUnnameable",
+            "mValues",
+            "uncensoredIconCircles",
+        ]
+    );
+
+    let icon = field(&card, "mIconFileName");
+    assert_eq!(icon.hash, "0x10537b0c");
+    assert_eq!(
+        icon.declared,
+        Some(KindShape::bare(PropertyKind::WadChunkLink))
+    );
+    assert_eq!(
+        icon.revisions,
+        vec![
+            FieldRevision {
+                from: 5_229_820,
+                to: Some(8_049_184),
+                shape: Some(KindShape::bare(PropertyKind::String)),
+            },
+            FieldRevision {
+                from: 8_104_348,
+                to: None,
+                shape: Some(KindShape::bare(PropertyKind::WadChunkLink)),
+            },
+        ]
+    );
+    assert_eq!(
+        field(&card, "uncensoredIconCircles").declared,
+        Some(KindShape {
+            kind: PropertyKind::Map,
+            key: Some(PropertyKind::Hash),
+            value: Some(PropertyKind::WadChunkLink),
+        })
+    );
+    assert_eq!(
+        field(&card, "mValues").declared,
+        Some(KindShape {
+            kind: PropertyKind::Container,
+            key: None,
+            value: Some(PropertyKind::F32),
+        })
+    );
+    assert_eq!(field(&card, "mUnnameable").declared, None);
+    assert_eq!(
+        field(&card, "mUnnameable").revisions,
+        vec![FieldRevision {
+            from: 5_229_820,
+            to: None,
+            shape: None,
+        }]
+    );
+}
+
+#[test]
+fn a_class_without_a_build_answers_at_the_newest_the_database_names() {
+    let card = schema().class_schema(FLOAT_TEXT_ICON_DATA, None).unwrap();
+
+    assert_eq!(card.build, 8_104_348);
+    assert_eq!(
+        field(&card, "mIconFileName").declared,
+        Some(KindShape::bare(PropertyKind::WadChunkLink))
+    );
+}
+
+#[test]
+fn a_build_past_the_database_answers_at_the_newest_it_names() {
+    let card = schema()
+        .class_schema(FLOAT_TEXT_ICON_DATA, Some(GameBuild::new(17, 1, 9_000_000)))
+        .unwrap();
+
+    assert_eq!(card.build, 8_104_348);
+}
+
+#[test]
+fn a_field_no_revision_covers_has_no_type_at_that_build() {
+    let between = GameBuild::new(16, 16, 8_060_000);
+    let card = schema()
+        .class_schema(FLOAT_TEXT_ICON_DATA, Some(between))
+        .unwrap();
+
+    assert_eq!(card.build, 8_060_000);
+    assert_eq!(field(&card, "mIconFileName").declared, None);
+    assert_eq!(
+        field(&card, "mOffset").declared,
+        Some(KindShape::bare(PropertyKind::Vector2))
+    );
+}
+
+#[test]
+fn a_class_the_database_does_not_describe_answers_nothing() {
+    assert_eq!(schema().class_schema(BinHash(0x1), None), None);
+}
+
+#[test]
+fn the_schema_at_a_build_declares_types_only_where_it_describes_the_build() {
+    let schema = schema();
+
+    let unbuilt = schema.at(None);
+    assert_eq!(unbuilt.build(), None);
+    assert!(
+        unbuilt
+            .expected(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME)
+            .is_none()
+    );
+    assert_eq!(
+        schema.at(Some(GameBuild::new(17, 1, 9_000_000))).build(),
+        None
+    );
+
+    let at = schema.at(Some(AFTER_RETYPE));
+    assert_eq!(at.build(), Some(AFTER_RETYPE));
+    assert_eq!(
+        at.expected(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME)
+            .unwrap()
+            .shape,
+        Some(Shape::bare(Kind::WadChunkLink))
+    );
+    assert!(at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0x1)).is_none());
+}
+
+#[test]
+fn the_schema_names_a_field_at_every_build() {
+    let schema = schema();
+
+    assert_eq!(
+        schema
+            .at(None)
+            .field_name(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME),
+        Some("mIconFileName")
+    );
+    assert_eq!(schema.field_name(FLOAT_TEXT_ICON_DATA, BinHash(0x1)), None);
+    assert_eq!(schema.field_name(BinHash(0x1), M_ICON_FILE_NAME), None);
+}
+
 /// Story: this is the case the whole rule exists for. A mod writes the field as
 /// a `String`, the game on 16.17 registers it as a `File`, and the game throws
 /// the value away without a word.

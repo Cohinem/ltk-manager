@@ -20,8 +20,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::error::{AppResult, MutexResultExt};
+use crate::meta_schema::{Expected, KindShape, SchemaAt};
 use crate::object_index::CacheNames;
 use crate::problems::names::hex;
+use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
 
 /// How many documents the store keeps open at once. ADR-0026.
@@ -223,6 +225,7 @@ impl BinDocument {
                         class: named.classes.get(&object.class_hash).cloned(),
                         len: object.properties.len(),
                     },
+                    declared: None,
                 }
             })
             .collect()
@@ -231,7 +234,9 @@ impl BinDocument {
     /// The rows under one node: `offset` in, at most `limit` of them, and the total.
     ///
     /// `path` is the wire form of ADR-0027, empty for the object itself. A leaf, a null
-    /// struct and an absent optional have no rows under them.
+    /// struct and an absent optional have no rows under them. `schema` is the database
+    /// at the install's build. `None` leaves every declared kind absent and every
+    /// field the tables miss as hex.
     ///
     /// # Errors
     ///
@@ -244,6 +249,7 @@ impl BinDocument {
         offset: usize,
         limit: usize,
         names: &dyn RowNames,
+        schema: Option<SchemaAt<'_>>,
     ) -> Result<BinRows, BinDocumentError> {
         let not_found = || BinDocumentError::NodeNotFound {
             address: format!("{}:{path}", hex(entry)),
@@ -259,7 +265,7 @@ impl BinDocument {
         let mut wanted = Wanted::default();
         for step in &trace {
             match step {
-                Trace::Field(field) => wanted.fields.push(*field),
+                Trace::Field { field, .. } => wanted.fields.push(*field),
                 Trace::Key(key) => wanted.key(key),
                 Trace::Index(_) => {}
             }
@@ -277,13 +283,21 @@ impl BinDocument {
                 }
             }
         }
-        let named = wanted.resolve(names);
+        let lens = Lens {
+            named: wanted.resolve(names),
+            schema,
+        };
 
-        let parent_label = label_of(&trace, &named);
+        let class = node.class();
+        let parent_label = label_of(&trace, &lens);
         let entry_hex = hex(entry);
         let rows = window
             .map(|child| {
-                let segment = Segment::of(*child, path, &parent_label, &named);
+                let segment = Segment::of(*child, path, &parent_label, &lens, class);
+                let declared = match child {
+                    Child::Field(field, value) => lens.declared(class, *field, value),
+                    Child::Element(..) | Child::Entry(..) => None,
+                };
                 BinRow {
                     entry: entry_hex.clone(),
                     path: format!("{path}{}", segment.wire),
@@ -292,7 +306,8 @@ impl BinDocument {
                     name: segment.name,
                     unnamed: segment.unnamed,
                     kind: Some(segment.value.kind().into()),
-                    value: named.value_of(segment.value),
+                    value: lens.named.value_of(segment.value),
+                    declared,
                 }
             })
             .collect();
@@ -388,43 +403,124 @@ pub struct BinRow {
     /// The value's kind. An object row has none.
     pub kind: Option<PropertyKind>,
     pub value: BinValue,
+    /// What the schema declares for the field at the install's build. Absent for an
+    /// object, an element, an entry, and a field the schema has no line for.
+    pub declared: Option<DeclaredKind>,
+}
+
+/// What the schema declares for a field, beside whether the file's kind is that.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct DeclaredKind {
+    pub shape: KindShape,
+    /// The file's kind is not the declared one, as the Problems rule for a property
+    /// type reads the two.
+    pub mismatch: bool,
 }
 
 /// The 27 kinds `ltk_meta` reads, as they cross IPC.
 ///
-/// A mirror of [`Kind`]. An upstream rename or addition is a compile error here.
+/// A mirror of [`Kind`], spelled in ritobin's words. The spelling is the tag a row
+/// draws and the word a Problems finding writes. An upstream rename or addition is a
+/// compile error here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum PropertyKind {
+    #[serde(rename = "none")]
     None,
+    #[serde(rename = "bool")]
     Bool,
+    #[serde(rename = "i8")]
     I8,
+    #[serde(rename = "u8")]
     U8,
+    #[serde(rename = "i16")]
     I16,
+    #[serde(rename = "u16")]
     U16,
+    #[serde(rename = "i32")]
     I32,
+    #[serde(rename = "u32")]
     U32,
+    #[serde(rename = "i64")]
     I64,
+    #[serde(rename = "u64")]
     U64,
+    #[serde(rename = "f32")]
     F32,
+    #[serde(rename = "vec2")]
     Vector2,
+    #[serde(rename = "vec3")]
     Vector3,
+    #[serde(rename = "vec4")]
     Vector4,
+    #[serde(rename = "mtx44")]
     Matrix44,
+    #[serde(rename = "rgba")]
     Color,
+    #[serde(rename = "string")]
     String,
+    #[serde(rename = "hash")]
     Hash,
+    #[serde(rename = "file")]
     WadChunkLink,
+    #[serde(rename = "list")]
     Container,
+    #[serde(rename = "list2")]
     UnorderedContainer,
+    #[serde(rename = "pointer")]
     Struct,
+    #[serde(rename = "embed")]
     Embedded,
+    #[serde(rename = "link")]
     ObjectLink,
+    #[serde(rename = "option")]
     Optional,
+    #[serde(rename = "map")]
     Map,
+    #[serde(rename = "flag")]
     BitBool,
+}
+
+impl PropertyKind {
+    /// The kind in ritobin's word, which is its spelling on the wire.
+    ///
+    /// The serde renames above spell the same words. A test holds the two lists equal.
+    #[must_use]
+    pub const fn tag(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Bool => "bool",
+            Self::I8 => "i8",
+            Self::U8 => "u8",
+            Self::I16 => "i16",
+            Self::U16 => "u16",
+            Self::I32 => "i32",
+            Self::U32 => "u32",
+            Self::I64 => "i64",
+            Self::U64 => "u64",
+            Self::F32 => "f32",
+            Self::Vector2 => "vec2",
+            Self::Vector3 => "vec3",
+            Self::Vector4 => "vec4",
+            Self::Matrix44 => "mtx44",
+            Self::Color => "rgba",
+            Self::String => "string",
+            Self::Hash => "hash",
+            Self::WadChunkLink => "file",
+            Self::Container => "list",
+            Self::UnorderedContainer => "list2",
+            Self::Struct => "pointer",
+            Self::Embedded => "embed",
+            Self::ObjectLink => "link",
+            Self::Optional => "option",
+            Self::Map => "map",
+            Self::BitBool => "flag",
+        }
+    }
 }
 
 impl From<Kind> for PropertyKind {
@@ -518,9 +614,10 @@ pub enum BinValue {
         hash: String,
         name: Option<String>,
     },
-    /// A `Container` or an `UnorderedContainer`.
+    /// A `Container` or an `UnorderedContainer`, and the kind of every item.
     Container {
         len: usize,
+        item_kind: PropertyKind,
     },
     /// A `Struct` with a class, or an `Embedded`.
     Struct {
@@ -530,8 +627,10 @@ pub enum BinValue {
     },
     /// A `Struct` with a class hash of zero.
     Null,
+    /// Whether a value is held, and the kind it is or would be.
     Optional {
         present: bool,
+        item_kind: PropertyKind,
     },
     /// The entries, and the kinds the map declares for its keys and its values.
     Map {
@@ -690,11 +789,29 @@ impl<'a> Node<'a> {
             Self::Value(_) => None,
         }
     }
+
+    /// The class the node's properties are declared on. `None` where it has none.
+    fn class(self) -> Option<BinHash> {
+        match self {
+            Self::Object(object) => Some(object.class_hash),
+            Self::Value(PropertyValueEnum::Embedded(values::Embedded(inner))) => {
+                Some(inner.class_hash)
+            }
+            Self::Value(PropertyValueEnum::Struct(inner)) if !is_null(inner) => {
+                Some(inner.class_hash)
+            }
+            Self::Value(_) => None,
+        }
+    }
 }
 
 /// What a step passed through, for the readable path of the node it reached.
 enum Trace<'a> {
-    Field(BinHash),
+    /// A field, and the class of the node it was read on.
+    Field {
+        class: Option<BinHash>,
+        field: BinHash,
+    },
     Index(usize),
     Key(&'a PropertyValueEnum),
 }
@@ -706,8 +823,12 @@ fn descend<'a>(object: &'a BinObject, steps: &[Step]) -> Option<(Node<'a>, Vec<T
     for step in steps {
         node = match (step, node) {
             (Step::Field(field), node) => {
+                let class = node.class();
                 let value = node.properties()?.get(field)?;
-                trace.push(Trace::Field(*field));
+                trace.push(Trace::Field {
+                    class,
+                    field: *field,
+                });
                 Node::Value(value)
             }
             (Step::Index(index), Node::Value(value)) => {
@@ -760,11 +881,18 @@ struct Segment<'a> {
 }
 
 impl<'a> Segment<'a> {
-    /// The segment of `child` under the node at `path`, whose readable path is `parent_label`.
-    fn of(child: Child<'a>, path: &str, parent_label: &str, named: &Named) -> Self {
+    /// The segment of `child` under the node at `path`, whose readable path is
+    /// `parent_label` and whose class is `class`.
+    fn of(
+        child: Child<'a>,
+        path: &str,
+        parent_label: &str,
+        lens: &Lens<'_>,
+        class: Option<BinHash>,
+    ) -> Self {
         match child {
             Child::Field(field, value) => {
-                let (name, unnamed) = named.field(field);
+                let (name, unnamed) = lens.field(class, field);
                 Self {
                     value,
                     node: RowNode::Property,
@@ -786,7 +914,7 @@ impl<'a> Segment<'a> {
                 }
             }
             Child::Entry(key, value) => {
-                let (text, unnamed) = key_label(key, named);
+                let (text, unnamed) = key_label(key, &lens.named);
                 Self {
                     value,
                     node: RowNode::Entry,
@@ -866,23 +994,67 @@ fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
 }
 
 /// The readable path of the node `trace` reached.
-fn label_of(trace: &[Trace<'_>], named: &Named) -> String {
+fn label_of(trace: &[Trace<'_>], lens: &Lens<'_>) -> String {
     let mut label = String::new();
     for step in trace {
         match step {
-            Trace::Field(field) => {
+            Trace::Field { class, field } => {
                 label.push_str(dot(&label));
-                label.push_str(&named.field(*field).0);
+                label.push_str(&lens.field(*class, *field).0);
             }
             Trace::Index(index) => {
                 let _ = write!(label, "[{index}]");
             }
             Trace::Key(key) => {
-                let _ = write!(label, "{{{}}}", key_label(key, named).0);
+                let _ = write!(label, "{{{}}}", key_label(key, &lens.named).0);
             }
         }
     }
     label
+}
+
+/// What a projection reads a row's name and declared kind from: the tables, and the
+/// schema at the install's build.
+struct Lens<'a> {
+    named: Named,
+    schema: Option<SchemaAt<'a>>,
+}
+
+impl<'a> Lens<'a> {
+    /// A property's name, or its hex and the flag that says so.
+    ///
+    /// The tables answer first and the schema second. A field neither names is hex.
+    fn field(&self, class: Option<BinHash>, field: BinHash) -> (String, bool) {
+        if let Some(name) = self.named.fields.get(&field) {
+            return (name.clone(), false);
+        }
+        match self
+            .schema
+            .and_then(|schema| schema.field_name(class?, field))
+        {
+            Some(name) => (name.to_owned(), false),
+            None => (hex(field), true),
+        }
+    }
+
+    /// What the schema declares for `field` of `class`, beside whether `value` is that.
+    fn declared(
+        &self,
+        class: Option<BinHash>,
+        field: BinHash,
+        value: &PropertyValueEnum,
+    ) -> Option<DeclaredKind> {
+        let shape = self.expected(class, field)?.shape?;
+        let mismatch = matches!(TypeSpec::from(shape).matches(value), Ok(false));
+        Some(DeclaredKind {
+            shape: shape.into(),
+            mismatch,
+        })
+    }
+
+    fn expected(&self, class: Option<BinHash>, field: BinHash) -> Option<Expected<'a>> {
+        self.schema?.expected(class?, field)
+    }
 }
 
 /// The hashes one projection needs named.
@@ -966,16 +1138,7 @@ struct Named {
 impl Named {
     /// An object's path, or its hex and the flag that says so.
     fn entry(&self, hash: BinHash) -> (String, bool) {
-        Self::name_or_hex(self.entries.get(&hash), hash)
-    }
-
-    /// A property's name, or its hex and the flag that says so.
-    fn field(&self, hash: BinHash) -> (String, bool) {
-        Self::name_or_hex(self.fields.get(&hash), hash)
-    }
-
-    fn name_or_hex(name: Option<&String>, hash: BinHash) -> (String, bool) {
-        match name {
+        match self.entries.get(&hash) {
             Some(name) => (name.clone(), false),
             None => (hex(hash), true),
         }
@@ -984,12 +1147,17 @@ impl Named {
     /// `value` in the shape its widget draws.
     fn value_of(&self, value: &PropertyValueEnum) -> BinValue {
         match value {
-            PropertyValueEnum::Container(items) => BinValue::Container { len: items.len() },
-            PropertyValueEnum::UnorderedContainer(items) => {
-                BinValue::Container { len: items.len() }
-            }
+            PropertyValueEnum::Container(items) => BinValue::Container {
+                len: items.len(),
+                item_kind: items.item_kind().into(),
+            },
+            PropertyValueEnum::UnorderedContainer(items) => BinValue::Container {
+                len: items.len(),
+                item_kind: items.item_kind().into(),
+            },
             PropertyValueEnum::Optional(optional) => BinValue::Optional {
                 present: optional.is_some(),
+                item_kind: optional.item_kind().into(),
             },
             PropertyValueEnum::Map(map) => BinValue::Map {
                 len: map.entries().len(),

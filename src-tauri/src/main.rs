@@ -216,6 +216,7 @@ fn main() {
             commands::bin_open,
             commands::bin_children,
             commands::bin_close,
+            commands::class_schema,
             // Extract to disk
             commands::plan_game_extract,
             commands::extract_game_files,

@@ -18,11 +18,25 @@
   ],
   "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
   "workshop_bin_absent_label": "absent",
+  "workshop_bin_at_build_label": "at build {build}",
+  "workshop_bin_class_fields_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} field",
+        "countPlural=other": "{count} fields"
+      }
+    }
+  ],
+  "workshop_bin_class_unknown_empty": "Not in the schema",
   "workshop_bin_command_label": "command",
   "workshop_bin_copy_command_action": "Copy the command",
   "workshop_bin_copy_hash_action": "Copy hash",
+  "workshop_bin_copy_name_action": "Copy name",
   "workshop_bin_copy_path_action": "Copy path",
   "workshop_bin_copy_value_hash_action": "Copy value hash",
+  "workshop_bin_declared_label": "Declared",
   "workshop_bin_dependencies_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -44,6 +58,7 @@
       }
     }
   ],
+  "workshop_bin_field_undeclared_label": "Not declared at this build",
   "workshop_bin_hash_label": "hash",
   "workshop_bin_install_command_label": "Run this from its command palette",
   "workshop_bin_install_extension_label": "Get the *ritobin-lsp extension*",
@@ -57,9 +72,10 @@
       }
     }
   ],
-  "workshop_bin_map_kinds_label": "{key} → {value}",
   "workshop_bin_matrix_label": "4×4 matrix",
+  "workshop_bin_mismatch_label": "Type mismatch",
   "workshop_bin_more_label": "{loaded} of {total}",
+  "workshop_bin_name_label": "name",
   "workshop_bin_no_viewer_description": "Open it as ritobin text in VS Code instead",
   "workshop_bin_no_viewer_title": "No viewer for a property bin",
   "workshop_bin_none_label": "none",
@@ -98,7 +114,11 @@
   ],
   "workshop_bin_path_label": "path",
   "workshop_bin_present_label": "present",
+  "workshop_bin_revision_open_label": "since {from}",
+  "workshop_bin_revision_span_label": "{from} – {to}",
+  "workshop_bin_revisions_label": "Revisions",
   "workshop_bin_undrawn_label": "Not drawn by this viewer",
+  "workshop_bin_unmapped_kind_label": "unmapped type",
   "workshop_bin_unreadable_title": "This bin could not be read",
   "workshop_bin_unsupported_description": "Bin preview is not supported yet",
   "workshop_bin_version_label": "v{version}",

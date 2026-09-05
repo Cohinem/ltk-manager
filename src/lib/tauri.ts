@@ -12,6 +12,7 @@ import type {
   BinRows,
   BulkInstallResult,
   ChecksumMismatchInfo,
+  ClassSchema,
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
@@ -305,6 +306,8 @@ export const api = {
     limit: number,
   ) => invokeResult<BinRows>("bin_children", { document, entry, path, offset, limit }),
   binClose: (document: BinDocumentId) => invokeResult<void>("bin_close", { document }),
+  classSchema: (classHash: string) =>
+    invokeResult<ClassSchema | null>("class_schema", { classHash }),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),

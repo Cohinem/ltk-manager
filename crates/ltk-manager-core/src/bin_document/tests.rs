@@ -2,6 +2,8 @@
 //! toolkit's writer, the address in both forms, and the store the app keeps documents in.
 
 use super::*;
+use crate::meta_schema::MetaSchema;
+use crate::problems::GameBuild;
 use ltk_hash::Hash as _;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::NoMeta;
@@ -218,7 +220,7 @@ impl RowNames for Tables {
     }
 }
 
-/// The rows under `path` of the skin object, all of them, named.
+/// The rows under `path` of the skin object, all of them, named, with no schema.
 fn under(path: &str) -> Vec<BinRow> {
     document()
         .children(
@@ -227,6 +229,7 @@ fn under(path: &str) -> Vec<BinRow> {
             0,
             usize::MAX,
             &named(),
+            None,
         )
         .unwrap()
         .rows
@@ -327,6 +330,7 @@ fn nothing_named_draws_every_hash_as_hex() {
             0,
             usize::MAX,
             &(),
+            None,
         )
         .unwrap()
         .rows;
@@ -386,7 +390,13 @@ fn an_embedded_expands_through_its_class_and_names_what_its_leaves_point_at() {
 fn a_container_indexes_its_elements() {
     let rows = under("");
     let list = row(&rows, "armorMaterial");
-    assert_eq!(list.value, BinValue::Container { len: 3 });
+    assert_eq!(
+        list.value,
+        BinValue::Container {
+            len: 3,
+            item_kind: PropertyKind::I32,
+        }
+    );
 
     let items = under(&list.path);
     let names: Vec<_> = items.iter().map(|row| row.name.as_str()).collect();
@@ -407,7 +417,13 @@ fn an_unordered_container_indexes_its_elements_like_an_ordered_one() {
     let rows = under("");
     let list = row(&rows, "unordered");
     assert_eq!(list.kind, Some(PropertyKind::UnorderedContainer));
-    assert_eq!(list.value, BinValue::Container { len: 1 });
+    assert_eq!(
+        list.value,
+        BinValue::Container {
+            len: 1,
+            item_kind: PropertyKind::U8,
+        }
+    );
 
     let items = under(&list.path);
     assert_eq!(items.len(), 1);
@@ -457,6 +473,7 @@ fn a_range_answers_a_window_and_the_total() {
             1,
             1,
             &named(),
+            None,
         )
         .unwrap();
 
@@ -471,6 +488,7 @@ fn a_range_answers_a_window_and_the_total() {
             5,
             1,
             &named(),
+            None,
         )
         .unwrap();
     assert_eq!(past_the_end.total, 3);
@@ -519,7 +537,13 @@ fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
     let rows = under("");
 
     let maybe = row(&rows, "maybe");
-    assert_eq!(maybe.value, BinValue::Optional { present: true });
+    assert_eq!(
+        maybe.value,
+        BinValue::Optional {
+            present: true,
+            item_kind: PropertyKind::F32,
+        }
+    );
     let inside = under(&maybe.path);
     assert_eq!(inside.len(), 1);
     assert_eq!(inside[0].name, "[0]");
@@ -527,7 +551,13 @@ fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
     assert_eq!(inside[0].value, BinValue::Float { value: 1.5 });
 
     let never = row(&rows, "never");
-    assert_eq!(never.value, BinValue::Optional { present: false });
+    assert_eq!(
+        never.value,
+        BinValue::Optional {
+            present: false,
+            item_kind: PropertyKind::I32,
+        }
+    );
     assert!(under(&never.path).is_empty());
 }
 
@@ -601,7 +631,7 @@ fn an_address_the_document_does_not_hold_is_an_error() {
     let entry = h("Characters/Aatrox/Skins/Skin0/Resources");
     let not_found = |entry: BinHash, path: &str| {
         let error = document
-            .children(entry, path, 0, usize::MAX, &())
+            .children(entry, path, 0, usize::MAX, &(), None)
             .unwrap_err();
         assert!(
             matches!(error, BinDocumentError::NodeNotFound { .. }),
@@ -725,4 +755,266 @@ fn a_closed_document_is_not_open_and_closing_it_again_is_nothing() {
     assert!(!store.is_open(id).unwrap());
     let error = store.read(id, |_| Ok(())).unwrap_err();
     assert!(error.to_string().contains("is not open"), "{error}");
+}
+
+#[test]
+fn a_container_and_an_optional_carry_the_kind_of_what_they_hold() {
+    let rows = under("");
+
+    assert_eq!(
+        row(&rows, "armorMaterial").value,
+        BinValue::Container {
+            len: 3,
+            item_kind: PropertyKind::I32,
+        }
+    );
+    assert_eq!(
+        row(&rows, "parts").value,
+        BinValue::Container {
+            len: 1,
+            item_kind: PropertyKind::Embedded,
+        }
+    );
+    assert_eq!(
+        row(&rows, "unordered").value,
+        BinValue::Container {
+            len: 1,
+            item_kind: PropertyKind::U8,
+        }
+    );
+    assert_eq!(
+        row(&rows, "maybe").value,
+        BinValue::Optional {
+            present: true,
+            item_kind: PropertyKind::F32,
+        }
+    );
+    assert_eq!(
+        row(&rows, "never").value,
+        BinValue::Optional {
+            present: false,
+            item_kind: PropertyKind::I32,
+        }
+    );
+}
+
+/// The wire spelling of a kind is the tag a row draws and the word a Problems finding
+/// writes. The three are one vocabulary.
+#[test]
+fn every_kind_crosses_as_the_tag_a_row_draws() {
+    /* The format numbers the nineteen primitive kinds from 0 and the eight complex
+    kinds from 128. */
+    let kinds: Vec<Kind> = (0..=18u8)
+        .chain(128..=135)
+        .map(|byte| Kind::try_from(byte).expect("a kind the reader holds"))
+        .collect();
+    assert_eq!(kinds.len(), 27);
+
+    for kind in kinds {
+        let property = PropertyKind::from(kind);
+        let json = serde_json::to_value(property).unwrap();
+        assert_eq!(json.as_str(), Some(property.tag()), "{kind:?}");
+    }
+
+    assert_eq!(PropertyKind::BitBool.tag(), "flag");
+    assert_eq!(PropertyKind::Vector3.tag(), "vec3");
+    assert_eq!(PropertyKind::Matrix44.tag(), "mtx44");
+    assert_eq!(PropertyKind::Color.tag(), "rgba");
+    assert_eq!(PropertyKind::WadChunkLink.tag(), "file");
+    assert_eq!(PropertyKind::ObjectLink.tag(), "link");
+    assert_eq!(PropertyKind::Container.tag(), "list");
+    assert_eq!(PropertyKind::UnorderedContainer.tag(), "list2");
+    assert_eq!(PropertyKind::Struct.tag(), "pointer");
+    assert_eq!(PropertyKind::Embedded.tag(), "embed");
+    assert_eq!(PropertyKind::Optional.tag(), "option");
+}
+
+/// The build the fixture's rows are judged at. Every revision of [`schema`] opens at 1.
+const JUDGED_AT: GameBuild = GameBuild::new(16, 17, 100);
+
+/// A database naming the fixture's two classes, with one line per field a case turns on.
+fn schema() -> MetaSchema {
+    let key = |name: &str| format!("0x{:08x}", h(name).0);
+    let line = |name: &str, r#type: &str| {
+        format!(
+            r#""{}": {{ "name": "{name}", "revisions": [{{ "from": 1, "type": [{type}] }}] }}"#,
+            key(name)
+        )
+    };
+    let json = format!(
+        r#"{{
+          "formatVersion": 1,
+          "hashSource": {{ "fetchedAt": "2026-09-05T00:00:00Z" }},
+          "latest": 9000000,
+          "classes": {{
+            "{skin}": {{
+              "name": "SkinCharacterDataProperties",
+              "properties": {{
+                {champion_skin_name},
+                {skin_classification},
+                {armor_material},
+                {lookup},
+                {skin_mesh_properties},
+                "0x{UNNAMED_FIELD:08x}": {{ "name": "schemaNamed", "revisions": [{{ "from": 1, "type": ["Bool", "0x0", "0x0", "0x0"] }}] }}
+              }}
+            }},
+            "{mesh}": {{
+              "name": "SkinMeshDataProperties",
+              "properties": {{ {material} }}
+            }}
+          }}
+        }}"#,
+        skin = key("SkinCharacterDataProperties"),
+        mesh = key("SkinMeshDataProperties"),
+        champion_skin_name = line("championSkinName", r#""String", "0x0", "0x0", "0x0""#),
+        skin_classification = line("skinClassification", r#""File", "0x0", "0x0", "0x0""#),
+        armor_material = line("armorMaterial", r#""List", "0x0", "I32", "0x0""#),
+        lookup = line("lookup", r#""Map", "File", "String", "0x0""#),
+        skin_mesh_properties = line("skinMeshProperties", r#""Embed", "0x0", "0x0", "0x0""#),
+        material = line("material", r#""Hash", "0x0", "0x0", "0x0""#),
+    );
+    MetaSchema::parse(json.as_bytes()).expect("the fixture is the published shape")
+}
+
+fn at(schema: &MetaSchema) -> SchemaAt<'_> {
+    schema.at(Some(JUDGED_AT))
+}
+
+/// The rows under `path` of the skin object, named by `tables`, judged by `schema`.
+fn judged_under(schema: &MetaSchema, tables: &Tables, path: &str) -> Vec<BinRow> {
+    document()
+        .children(
+            h("Characters/Aatrox/Skins/Skin0/Resources"),
+            path,
+            0,
+            usize::MAX,
+            tables,
+            Some(at(schema)),
+        )
+        .unwrap()
+        .rows
+}
+
+fn declared(kind: PropertyKind, mismatch: bool) -> Option<DeclaredKind> {
+    Some(DeclaredKind {
+        shape: KindShape::bare(kind),
+        mismatch,
+    })
+}
+
+#[test]
+fn a_property_row_carries_what_the_schema_declares_and_marks_a_mismatch() {
+    let schema = schema();
+    let rows = judged_under(&schema, &named(), "");
+
+    assert_eq!(
+        row(&rows, "championSkinName").declared,
+        declared(PropertyKind::String, false)
+    );
+
+    let retyped = row(&rows, "skinClassification");
+    assert_eq!(retyped.kind, Some(PropertyKind::I32));
+    assert_eq!(retyped.declared, declared(PropertyKind::WadChunkLink, true));
+
+    assert_eq!(
+        row(&rows, "armorMaterial").declared,
+        Some(DeclaredKind {
+            shape: KindShape {
+                kind: PropertyKind::Container,
+                key: None,
+                value: Some(PropertyKind::I32),
+            },
+            mismatch: false,
+        })
+    );
+    assert_eq!(
+        row(&rows, "lookup").declared,
+        Some(DeclaredKind {
+            shape: KindShape {
+                kind: PropertyKind::Map,
+                key: Some(PropertyKind::WadChunkLink),
+                value: Some(PropertyKind::String),
+            },
+            mismatch: true,
+        })
+    );
+
+    assert_eq!(row(&rows, "link").declared, None);
+}
+
+#[test]
+fn without_a_schema_no_row_carries_a_declared_kind() {
+    assert!(under("").iter().all(|row| row.declared.is_none()));
+}
+
+#[test]
+fn a_field_no_table_names_takes_the_schemas_name() {
+    let schema = schema();
+    let rows = judged_under(&schema, &named(), "");
+    let named_by_schema = row(&rows, "schemaNamed");
+
+    assert!(!named_by_schema.unnamed);
+    assert_eq!(named_by_schema.label, "schemaNamed");
+    assert_eq!(named_by_schema.path, format!("{UNNAMED_FIELD:08x}"));
+    assert_eq!(
+        named_by_schema.declared,
+        declared(PropertyKind::Bool, false)
+    );
+}
+
+/// A name is the database's at every build. A declared kind is a revision's.
+#[test]
+fn without_a_build_the_schema_names_a_field_and_declares_nothing() {
+    let schema = schema();
+    let rows = document()
+        .children(
+            h("Characters/Aatrox/Skins/Skin0/Resources"),
+            "",
+            0,
+            usize::MAX,
+            &named(),
+            Some(schema.at(None)),
+        )
+        .unwrap()
+        .rows;
+
+    let named_by_schema = row(&rows, "schemaNamed");
+    assert!(!named_by_schema.unnamed);
+    assert!(rows.iter().all(|row| row.declared.is_none()));
+}
+
+#[test]
+fn a_nested_field_is_declared_on_the_class_of_its_embedded() {
+    let schema = schema();
+    let rows = judged_under(&schema, &named(), &wire("skinMeshProperties"));
+
+    assert_eq!(
+        row(&rows, "material").declared,
+        declared(PropertyKind::Hash, false)
+    );
+    assert_eq!(row(&rows, "texture").declared, None);
+}
+
+#[test]
+fn an_element_and_an_entry_carry_no_declared_kind() {
+    let schema = schema();
+
+    let items = judged_under(&schema, &named(), &wire("armorMaterial"));
+    assert_eq!(items.len(), 3);
+    assert!(items.iter().all(|row| row.declared.is_none()));
+
+    let entries = judged_under(&schema, &named(), &wire("lookup"));
+    assert_eq!(entries.len(), 2);
+    assert!(entries.iter().all(|row| row.declared.is_none()));
+}
+
+#[test]
+fn a_parent_label_reads_a_schema_name_where_the_tables_have_none() {
+    let schema = schema();
+    let mut tables = named();
+    tables.fields.remove(&h("skinMeshProperties"));
+
+    let rows = judged_under(&schema, &tables, &wire("skinMeshProperties"));
+
+    assert_eq!(rows[0].label, "skinMeshProperties.material");
 }
