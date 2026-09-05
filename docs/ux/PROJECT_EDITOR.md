@@ -4,6 +4,9 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-05 | Settle the rows, the `class:` filter, the sniff and the lifecycle      |
+| 2026-09-05 | Decide the object build, its row, its trigger, and the order of halves |
+| 2026-09-05 | Record the lazy read as landed, and unblock the object index           |
 | 2026-08-24 | Hand the shell-wide pieces to [Workshop](WORKSHOP.md)                  |
 | 2026-08-22 | Give the problems list a model, and the bin retype rule that fills it  |
 | 2026-08-22 | Delete a layer file or folder from its own tree row                    |
@@ -11,9 +14,6 @@
 | 2026-08-22 | Extract with no dialog, and copy a game file into a layer              |
 | 2026-08-22 | Implement the extract to disk, on the branch's extractor               |
 | 2026-08-21 | Key every chunk by `WadHash` upstream, the bin tooling's own hash type |
-| 2026-08-21 | Reshape the extractor API upstream, one resolver type and closures     |
-| 2026-08-21 | Recover chunk names from the bins, on a byte scan the crate runs       |
-| 2026-08-21 | Pan and zoom a preview, on `react-zoom-pan-pinch`                      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -92,9 +92,9 @@ This table holds every major feature of the editor. A status word has one meanin
 | Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
 | Project bar            | Available   | Takes the header's middle, from the project name title             |
 | Command palette        | In progress | The project and the game are in. The bin objects remain            |
-| Bin object search      | Planned     | The project's objects, and the install's behind the blocker        |
+| Bin object search      | Planned     | The project's objects, and the install's on the streaming read     |
 | Project object index   | Planned     | The layers' own bins, rebuilt with the content scan                |
-| Bin object index       | Blocked     | The install's half. A lazy `ltk_meta` read comes first             |
+| Bin object index       | Planned     | The install's half, on `BinStream::entries`. Unblocked upstream    |
 | Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
 | Navigation history     | Available   | The `←` `→` arrows, one stack for the whole workshop shell         |
 | Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
@@ -514,13 +514,15 @@ that the manager does not have yet, and because that build waits on a change to 
 | Name   | The object's path, with the matched characters marked                |
 | Class  | The class the object declares, such as `SkinCharacterDataProperties` |
 | Source | The `.bin` that declares it, and the archive or the layer it is in   |
-| An `n` | The count of declaring files, where more than one declares it        |
 
-`Enter` opens the declaring `.bin`. Until the [bin preview](#planned-document-types) lands
-that means revealing the file in its explorer, which the
-[location](#the-location) makes one call. With the preview it means opening the file and
-scrolling to the object, which is a position the
-[navigation history](#the-position-a-document-restores) can restore.
+An object that several files declare has a row for each declaration, and the source column
+is what tells them apart. Nothing folds them, because a modder diffing two declarations wants
+both on screen.
+
+`Enter` opens the declaring `.bin` as a preview document, the same target a game row opens,
+and `Ctrl+Enter` opens it beside. The target carries the object's hash from the first day, so
+when the [bin editor](BIN_EDITOR.md) lands the same row scrolls to the object, which is a
+position the [navigation history](#the-position-a-document-restores) can restore.
 
 An object that no hash table names still has a row, under its hash in hex. A query of eight
 hex digits is looked up in the index directly rather than matched, because a modder holding a
@@ -541,8 +543,9 @@ on disk, and the manager already opens that cache for the WAD path tables. A bin
 hashes to 32 bits, so the table answers hash to name and `hash_path` answers name to hash.
 
 The scan answers the other direction. It reads what each `.bin` declares and keeps
-`(object hash, class hash, file)`, and nothing else. 383,357 declarations at 12 bytes is
-4.6MB.
+`(object hash, class hash, file)`, and nothing else. The file is the declaring chunk's WAD
+path hash, which survives a rebuild of the game index and resolves to a name and an archive
+through it. 383,357 declarations at 16 bytes is 6.1MB.
 
 The palette therefore matches a query against the table's strings and turns each survivor into
 a file through the index. The install declares 359,095 distinct objects and the table names
@@ -559,8 +562,8 @@ That changes three things.
 
 |            | The install                         | The project                                |
 | ---------- | ----------------------------------- | ------------------------------------------ |
-| The reader | Waits on the blocker below          | Either one. The eager read runs at 250MB/s |
-| The build  | 42,306 files, kept in the cache     | Rebuilt with the content tree query        |
+| The reader | `BinStream::entries`, an 8-byte hop | Either one. The eager read runs at 250MB/s |
+| The build  | 42,306 files, built at startup      | Rebuilt with the content tree query        |
 | The match  | Rust, and the rows stream in behind | The frontend, in the same frame            |
 
 The third row is the seam that [The scan of the game](#the-scan-of-the-game) already draws.
@@ -568,9 +571,9 @@ Whatever the frontend holds, the frontend matches. The project's objects cross I
 the content scan, so a few hundred bins declaring a few thousand objects become a smaller array
 than the file list beside it, and the rows render without a debounce.
 
-The first row is why this half ships first. A project's bins are megabytes, and 250MB/s is what
-the reader the manager can call today costs, so the project half never waits on `ltk_meta`. A
-modder who wants to find an object in their own mod gets it before the install's half exists.
+The first row was the reason this half was to ship first, while the install's reader waited
+upstream. That reader landed, so the install's half ships first and this one follows it as its
+own change. [What ships in what order](#what-ships-in-what-order) has the order.
 
 **A layer row names its layer**, the way a Files row does, and the group is its own.
 
@@ -624,59 +627,68 @@ header carries anyway.
 Over a whole install the difference is the whole feature. The scan adds 14ms to a build that
 spends its time in zstd, and the full parse would add about nine seconds to it.
 
-### What has to land first
+### The reader it has
 
-**`ltk_meta` has no lazy read, and this is the blocker.** The right place for it is upstream
-rather than a second bin parser in this repository. The format belongs to `ltk_meta`, every
-other LeagueToolkit tool wants the same read, and a private copy is a second thing to keep
-current with the format.
+**`ltk_meta` has the lazy read, and it is `BinStream`.** It landed in `ltk_meta` 0.8.1 as the
+answer to league-toolkit issue **#192**, and the workspace has compiled it since 2026-09-03,
+when the problems pass began mounting every bin of a project through it. The format stays
+upstream, where every other LeagueToolkit tool wants the same read, and this repository keeps
+no second bin parser.
 
-The shape the index needs:
+The shape the index reads:
 
 ```rust
-/// What a bin declares, without reading a property.
-pub struct BinHeader {
-    pub is_override: bool,
-    pub version: u32,
-    pub dependencies: Vec<String>,
-}
-
-/// One object, as its header names it.
-pub struct BinObjectHeader {
+/// One row of the table of contents.
+pub struct ObjectEntry {
     pub path_hash: BinHash,
+    /// From the class table read at mount.
     pub class_hash: BinHash,
-    /// Where the body starts, and how long it is, so a reader can seek past it.
+    /// Where the object's `u32` size field sits, and the size it declares.
     pub offset: u64,
     pub size: u32,
 }
 
-impl Bin {
-    /// Read the header and every object header, and no property.
-    pub fn scan<R: Read + Seek>(reader: &mut R) -> Result<BinScan<'_, R>, Error>;
+impl<R: Read + Seek, M: Default> BinStream<R, M> {
+    /// Read the header, the dependencies and the class table, and stop.
+    pub fn mount(source: R) -> Result<Self, Error>;
+    pub fn version(&self) -> u32;
+    pub fn dependencies(&self) -> &[String];
+    /// Sweep the object table, one 8-byte hop an object, skipping every body.
+    pub fn entries(&mut self) -> Entries<'_, R, M>;
+    /// One object, materialised from its entry.
+    pub fn object(&mut self, path_hash: impl Into<BinHash>) -> Result<Option<ObjectStream<'_, R, M>>, Error>;
 }
 ```
 
-`BinScan` iterates `BinObjectHeader`, and a second call materialises one object from its
-header. That is the lazy resolution the rest of the editor wants as well.
+`entries` is the header scan of the table above, and `object` is the second call that
+materialises one object. `BinToc`, the cached sweep, is `Clone` and serialisable, so the index
+can persist a file's table without holding the file open.
 
-| Reader               | Wants                                        |
-| -------------------- | -------------------------------------------- |
-| The object index     | Every object header, and no property         |
-| The bin preview      | Nothing. It parses one file eagerly          |
-| Property bin links   | The objects of one file, to offer as targets |
-| The linked bin check | The dependency list alone                    |
+**A `PTCH` does not mount.** `BinStream::mount` refuses one, and the streaming form of a patch
+bin is league-toolkit issue **#210**, open. Until it lands a `PTCH` reads eagerly through
+`BinOverride::from_reader`, which is the fallback the problems pass already carries.
 
-Two of those four read a header and no more, so the eager read is the wrong default for most
-readers the manager has. The [bin editor](BIN_EDITOR.md#the-parse-is-not-the-problem) is the
-exception, and it needs no part of this: one file parses in single-digit milliseconds, so it
-ships on `ltk_meta` as published and takes the lazy read later as an optimisation.
+| Reader               | Wants                                        | Reads                |
+| -------------------- | -------------------------------------------- | -------------------- |
+| The object index     | Every object header, and no property         | `BinStream::entries` |
+| The bin editor       | One file, whole                              | `Bin::from_reader`   |
+| The problems pass    | Every object of a project's bins, once       | `BinStream::walk`    |
+| Property bin links   | The objects of one file, to offer as targets | `BinStream::entries` |
+| The linked bin check | The dependency list alone                    | `BinStream::mount`   |
 
-`ltk_meta` is not a dependency of this workspace yet. It is `MIT OR Apache-2.0`, which is
-GPL-compatible, so adding it needs a `pnpm generate:licenses` and nothing else.
+The [bin editor](BIN_EDITOR.md#the-parse-is-not-the-problem) is the one reader the eager read
+suits: one file parses in single-digit milliseconds, so it ships on `Bin::from_reader` and
+takes the stream later as an optimisation.
+
+`ltk_meta` is a dependency of the workspace, pinned by `Cargo.toml` to the league-toolkit rev
+that carries the walk until a release does.
 
 ### The build, measured
 
-The install is the one the rest of this document measures, at 456 archives and 939,329 chunks.
+The install is the one the rest of this document measures, at 456 archives and 939,329 chunks,
+read on 2026-08-20 through the eager reader. The install has moved on since, to 392 archives,
+and [the research note](../research/bin-object-index.md) records which of these figures do not
+reconcile with each other. The table is owed a fresh row from the streaming build.
 
 | Measurement                               | Value                             |
 | ----------------------------------------- | --------------------------------- |
@@ -692,19 +704,32 @@ The install is the one the rest of this document measures, at 456 archives and 9
 | Distinct classes                          | 539                               |
 | Dependency edges                          | 121,665, of which 116,201 resolve |
 | Files that would not scan                 | 3                                 |
-| The index, at 12 bytes a declaration      | 4.6MB                             |
+| The index, at 16 bytes a declaration      | 6.1MB                             |
 | Resolving every hash to its name, at load | 200ms, for 21.1MB of names        |
 
 The build is decompression and nothing else. Every millisecond above belongs to zstd, so the
-work parallelizes across archives the way the game index build already does.
+work spreads across archives: one job per archive in ordinal order, each mounting its archive
+itself rather than through the browser's cache, on the bounded pool of workers the problems
+pass uses, and the rows concatenated in archive order at the end. The game index build reads
+its archives one at a time today, and stays that way.
 
 Three files of 42,306 fail to scan. A file that will not scan is skipped and logged, and it
 never fails the build, because a build that stops on one bad chunk in an install of a million
 is a build that never finishes.
 
+**An unnamed chunk is a bin by its first bytes.** The game index stores no kind, so a chunk no
+table names is decoded far enough to read its magic and read whole only when it is a `PROP`
+or a `PTCH`. The objects inside an unnamed bin are the case a modder holding a hash is in,
+which is why the sniff is worth its decode.
+
 ### Where it is kept
 
-The object table is a section of the memory-mapped cache that
+In memory, for the session, and rebuilt from the archives the next time the application
+starts. The first cut writes nothing to disk. The build is the decompression the table above
+measures, so the first live build logs its files, objects, bytes and elapsed time, and
+whether the index earns a cache is decided from that line rather than before it.
+
+When it does, the object table is a section of the memory-mapped cache that
 [One cache, not two](#one-cache-not-two) describes, under the same archive checksums. A game
 patch rebuilds the archives it changed and no others, and a format version in the header
 forces a full rebuild when this manager writes the section differently.
@@ -717,8 +742,10 @@ cost of keeping a second copy correct.
 ### The dependency graph
 
 A bin header names the files it imports, and the scan reads 121,665 of those edges on its way
-past. **No search reads one.** The graph is worth keeping anyway, because it is the byproduct
-of an expensive pass and the answer to a question the editor cannot answer at all today.
+past. **No search reads one.** The graph is worth keeping once it has a reader, because it is
+the byproduct of an expensive pass and the answer to a question the editor cannot answer at
+all today. The first cut reads the list and stores nothing, because nothing is on disk to
+migrate when the first reader arrives with **#190**.
 
 | Measurement                                     | Value                                               |
 | ----------------------------------------------- | --------------------------------------------------- |
@@ -797,12 +824,14 @@ for one source is the seam the palette already has for files, and not a second o
 The install's name side is a scan of the same shape as [the project side](#the-project-side),
 over 325,357 candidates rather than a few thousand.
 
-- One name list, built once from `get_batch` over the index's hashes. 21.1MB of text and
-  10 bytes of offsets for each entry
+- One name list, built once from `get_batch` over the index's hashes when the index warms, and
+  kept for the session. 21.1MB of text and 10 bytes of offsets for each entry. A hashtable
+  sync re-resolves the names and leaves the rows alone
 - A 32-bit letter mask on each name, so one `AND` rejects most rows before the matcher reads a
   character
-- The bounded heap and the generation token of [the backend side](#the-backend-side), because
-  this scan runs in Rust beside the game one and answers the same command
+- The bounded heap of [the backend side](#the-backend-side) and a generation token of its
+  own, because this scan runs in Rust beside the game one for the same keystroke, and one
+  counter shared by two commands would cancel the first with the second
 
 | Stage                                | Budget                                       |
 | ------------------------------------ | -------------------------------------------- |
@@ -810,11 +839,19 @@ over 325,357 candidates rather than a few thousand.
 | A keystroke to the install's objects | 150ms, of which 120ms is the debounce        |
 | The scan itself                      | Under a frame, at a third of the game's rows |
 | The memory the name list holds       | 25MB, resident while the palette is used     |
-| The memory the index holds           | 4.6MB, mapped                                |
+| The memory the index holds           | 6.1MB, in memory                             |
 
 Ranking follows [the same table](#ranking), with one addition. A segment boundary in an object
 path is `/`, and the last segment is what a modder types, so a match in it takes the prefix
 band that a file name takes.
+
+**A `class:` term filters before the path matches.** A whitespace-separated term of the form
+`class:foo` is read by the objects source and by no other, so it narrows the rows to the
+classes whose name starts with `foo`, case-insensitively, or to the one class whose hash is
+the eight hex digits given. The rest of the query matches the path as before. While the class
+term is the last one typed and more than one class matches it, the group shows the matching
+classes as rows with their row counts, and `Tab` completes the term the way it scopes to a
+source today. Once one class remains, the object rows replace them.
 
 ### The scopes it adds
 
@@ -823,11 +860,21 @@ band that a file name takes.
 | `$`    | Every bin object, the project's and the install's |
 | `@`    | Inside an open `.bin`, the objects of that file   |
 
+Without a prefix the objects source answers too, as an OBJECTS group capped low the way the
+game group is, so a modder typing a skin's name meets the object beside the file without
+being told `$` exists. Under `$` the cap is the game scan's hundred.
+
 `@` already means "inside the active document". A bin document's contents are its objects, so
 the scope needs no new rule and the index answers it as a range rather than a search.
 
 **What the search reads** gains an Objects switch beside Game. The index is not built while
-that switch is off, so a modder who never touches a `.bin` pays nothing for it.
+that switch is off, so a modder who never touches a `.bin` pays nothing for it. With it on,
+the build warms at startup after the game index, off the thread that draws the window,
+because the switch is the consent and a first `$` keystroke is the worst place for five
+seconds of zstd. A query that arrives first gets the building row the game source shows. The
+switch is off by default. Turning it on builds at once, turning it off drops the index and
+its names, and the game browser's Rebuild control clears the object index with the game index
+and warms both again while the switch is on.
 
 ### What it gives the rest of the editor
 
@@ -857,16 +904,20 @@ change upstream.
 
 ### What ships in what order
 
-| Step | Holds                                                                         |
-| ---- | ----------------------------------------------------------------------------- |
-| 1    | The project's own objects, on the reader that exists, and the `@` scope       |
-| 2    | `ltk_meta::Bin::scan` upstream, which is the blocker for everything below     |
-| 3    | The install's scan, its cache section, and the override line on a project row |
-| 4    | The `$` scope, and the object pickers that **#190** and **#191** want         |
+| Step | Holds                                                                       | Status |
+| ---- | --------------------------------------------------------------------------- | ------ |
+| 1    | The lazy read upstream, `BinStream::entries` in `ltk_meta` 0.8.1            | Landed |
+| 2    | The install's build behind the Objects switch, logged, and the `$` source   | -      |
+| 3    | Unnamed chunks, sniffed by their magic                                      | -      |
+| 4    | The `class:` filter and its completions                                     | -      |
+| 5    | The project's own objects, the override line, and the `@` scope             | -      |
+| 6    | The measured row, and the cache if it asks for one                          | -      |
+| 7    | The object pickers that **#190** and **#191** want, and the edges they read | -      |
 
-Step 1 is navigable on its own and blocks on nothing. A modder searches the objects of the mod
-they are editing, which is the half they ask for most, and the install's half follows the
-upstream change.
+The install's half ships first, as one change from the build to the bar, because the whole
+game's index is the ask and its reader landed before either half started. Steps 3 to 5 each
+hang off step 2 alone and land in any order. The project's half is its own change, and the
+override line on a project row is what joins the two.
 
 ## The navigation history
 
@@ -960,7 +1011,7 @@ A virtualized listbox holds a window of its rows, so a row has to say where it s
 | 1    | The bar, the crumb, the history arrows, and the project sources            | Shipped |
 | 2    | The game source, its Rust scorer, and the generation token that cancels it | Shipped |
 | 3    | The scope chips, the `@` scope, and the settings row                       | Part    |
-| 4    | The Objects source, once [its index](#the-bin-object-index) is buildable   | -       |
+| 4    | The Objects source, on [its index](#the-bin-object-index)                  | -       |
 
 Step 1 needs no backend change at all. Every source it reads is in the frontend already.
 
@@ -2547,10 +2598,10 @@ A format version in the cache header forces a full rebuild. The overlay artifact
 same rule for the same reason. An index that a new release builds differently is stale,
 and no checksum reports that.
 
-**A change in `ltk_wad`.** The crate skips the header checksum today. `Wad::mount` seeks
-over the field, so the crate must expose it before the index can obey this design. A
-version 1 archive carries no checksum at all. The game ships version 3 archives, so the
-index treats a missing checksum as a rebuild.
+**`ltk_wad` exposes it.** `Wad::mount` reads the header checksum in the 0.5.4 the workspace
+compiles, and `Wad::checksum()` returns it verbatim, so nothing upstream stands before this
+step. A version 1 archive carries no checksum at all. The game ships version 3 archives, so
+the index treats a missing checksum as a rebuild.
 
 #### One cache, not two
 
@@ -2825,65 +2876,71 @@ for Tauri. The payload is the same list, and the target runs
 
 ### Answered
 
-| Question                                         | Answer                                              |
-| ------------------------------------------------ | --------------------------------------------------- |
-| Does the bar reach a second project?             | Yes. Projects answers from either surface           |
-| Where does the route back to Workshop live?      | A crumb inside the project bar                      |
-| Does the project name title stay in the header?  | No. The bar carries the name and the version tag    |
-| Does the palette search the installed game?      | Yes, in a section that streams in after the project |
-| Can a user turn a search source off?             | Yes, in the Project editor settings                 |
-| What do the `←` `→` arrows walk?                 | The shell's navigation history, with the position   |
-| Does the navigation history survive a restart?   | No. The stack is the session's                      |
-| Which library builds the palette?                | None. It is `@/components` over base-ui             |
-| Which side matches the game's 819,136 paths?     | The backend, which is the only side that holds them |
-| Which group does a preview open into?            | One of its own, beside whoever asked for it         |
-| Does a single click in a tree open a file?       | No. A double click does, or the row's Open item     |
-| Does opening a file add a tab or reuse one?      | Adds one, and a setting switches it to reuse        |
-| How many archives stay mounted behind a preview? | Four, and the least recently used one gives way     |
-| How do a preview's pixels reach the webview?     | An `ltk-asset` URI scheme, and not an IPC result    |
-| What does a preview read an asset's bytes from?  | A reference: a layer file, a game chunk, or a file  |
-| Does the secondary side panel hold another view? | No view today, and the panel stays generic          |
-| Does the search box read one layer or every one? | Every layer                                         |
-| Does a layer change close the preview tabs?      | No, and a title takes a `<layer>/` prefix instead   |
-| Where does a saved layout belong?                | The project, in `.ltk/editor.json`                  |
-| Which declarative data type comes first?         | Property bin links                                  |
-| Where does the game browser open?                | A tab, and a panel type for either side panel       |
-| Which hash table resolves a WAD path?            | The mimir shared cache                              |
-| How many game index caches does the app keep?    | One, and it is the memory-mapped one                |
-| Does the root browser show a row for an archive? | No. The Game WADs tab is where one opens            |
-| Which archives does the game index cover?        | Every archive under `DATA/FINAL`, recursed          |
-| How many game browsers open at one time?         | One for the game, and one for each archive          |
-| Can one panel type appear more than one time?    | The editor surface can, by a tab drag               |
-| Which model arranges the panels?                 | A split tree, and not a free-form grid              |
-| Which library resizes a seam?                    | `react-resizable-panels`, which is headless         |
-| Does a project with one filled panel show two?   | It cannot, because the layout is per project        |
-| Do the side panels enter the split tree?         | No. They stay the shell's, as in Visual Studio Code |
-| Where do a second surface's tabs go on a reset?  | Into the surviving strip, in reading order          |
-| Does an explorer have a current directory?       | Yes. The location, and the breadcrumb names it      |
-| How many views does an explorer draw?            | Three. The tree, the grid and the details list      |
-| Where does a tile's thumbnail come from?         | The `ltk-asset` scheme, at the tile's own width     |
-| Which rows does a filter box read?               | The location, and everything below it               |
-| Does a leaf ever draw a second row of chrome?    | The explorers do. A location is not a title         |
-| Can the palette find a bin object by its path?   | Yes, once the object index lands                    |
-| Which side holds the object names?               | The mimir cache. The manager stores no second copy  |
-| Why does `ltk_meta` block the object index?      | Its read is eager, and 242x the header scan         |
-| Does the object cache hold resolved names?       | No. 359,095 hashes resolve at load in 200ms         |
-| Does the object index read the project's bins?   | Yes, and that half ships first                      |
-| Which side matches the project's objects?        | The frontend, on the content scan's payload         |
-| Does a bin's dependency list earn a stored edge? | Yes, and never a stored closure                     |
-| Which reader wants the dependency graph?         | Not search. The link picker and the problems list   |
-| Does the tree gain the grid's multi-select?      | Yes. A selected directory is every file below it    |
-| Does a shared chunk land under every archive?    | No. One file, under the archive the copy chooses    |
-| Does `Ctrl+C` reach the system clipboard?        | Yes, with the chunk paths, one on each line         |
-| Is the conflict answer a setting?                | Yes. Ask, Skip or Replace, and Ask is the default   |
-| Does the layer file tree take the selection now? | No. The copy runs from the game into the mod        |
-| How does an unnamed chunk get an extension?      | `LeagueFileKind::identify_from_bytes`, as wadtools  |
-| Does the selection belong to a view?             | No. To the explorer, and a view switch keeps it     |
-| What does an item dropped on a surface do?       | Opens there. A tab moves, and an item opens         |
-| Which crate holds the extractor?                 | `ltk_wad`. wadtools and the manager both drive it   |
-| Does an extract keep the game paths?             | Yes by default, and a switch flattens it            |
-| How does the crate recover a chunk's name?       | A byte scan of the bins, found by their first block |
-| Where do the manager's checks collect?           | One Problems panel, on a rule for each check        |
-| What repairs a mod that a game patch broke?      | Problems, on a migration table shipped in the build |
+| Question                                         | Answer                                               |
+| ------------------------------------------------ | ---------------------------------------------------- |
+| Does the bar reach a second project?             | Yes. Projects answers from either surface            |
+| Where does the route back to Workshop live?      | A crumb inside the project bar                       |
+| Does the project name title stay in the header?  | No. The bar carries the name and the version tag     |
+| Does the palette search the installed game?      | Yes, in a section that streams in after the project  |
+| Can a user turn a search source off?             | Yes, in the Project editor settings                  |
+| What do the `←` `→` arrows walk?                 | The shell's navigation history, with the position    |
+| Does the navigation history survive a restart?   | No. The stack is the session's                       |
+| Which library builds the palette?                | None. It is `@/components` over base-ui              |
+| Which side matches the game's 819,136 paths?     | The backend, which is the only side that holds them  |
+| Which group does a preview open into?            | One of its own, beside whoever asked for it          |
+| Does a single click in a tree open a file?       | No. A double click does, or the row's Open item      |
+| Does opening a file add a tab or reuse one?      | Adds one, and a setting switches it to reuse         |
+| How many archives stay mounted behind a preview? | Four, and the least recently used one gives way      |
+| How do a preview's pixels reach the webview?     | An `ltk-asset` URI scheme, and not an IPC result     |
+| What does a preview read an asset's bytes from?  | A reference: a layer file, a game chunk, or a file   |
+| Does the secondary side panel hold another view? | No view today, and the panel stays generic           |
+| Does the search box read one layer or every one? | Every layer                                          |
+| Does a layer change close the preview tabs?      | No, and a title takes a `<layer>/` prefix instead    |
+| Where does a saved layout belong?                | The project, in `.ltk/editor.json`                   |
+| Which declarative data type comes first?         | Property bin links                                   |
+| Where does the game browser open?                | A tab, and a panel type for either side panel        |
+| Which hash table resolves a WAD path?            | The mimir shared cache                               |
+| How many game index caches does the app keep?    | One, and it is the memory-mapped one                 |
+| Does the root browser show a row for an archive? | No. The Game WADs tab is where one opens             |
+| Which archives does the game index cover?        | Every archive under `DATA/FINAL`, recursed           |
+| How many game browsers open at one time?         | One for the game, and one for each archive           |
+| Can one panel type appear more than one time?    | The editor surface can, by a tab drag                |
+| Which model arranges the panels?                 | A split tree, and not a free-form grid               |
+| Which library resizes a seam?                    | `react-resizable-panels`, which is headless          |
+| Does a project with one filled panel show two?   | It cannot, because the layout is per project         |
+| Do the side panels enter the split tree?         | No. They stay the shell's, as in Visual Studio Code  |
+| Where do a second surface's tabs go on a reset?  | Into the surviving strip, in reading order           |
+| Does an explorer have a current directory?       | Yes. The location, and the breadcrumb names it       |
+| How many views does an explorer draw?            | Three. The tree, the grid and the details list       |
+| Where does a tile's thumbnail come from?         | The `ltk-asset` scheme, at the tile's own width      |
+| Which rows does a filter box read?               | The location, and everything below it                |
+| Does a leaf ever draw a second row of chrome?    | The explorers do. A location is not a title          |
+| Can the palette find a bin object by its path?   | Yes, once the object index lands                     |
+| Which side holds the object names?               | The mimir cache. The manager stores no second copy   |
+| Does `ltk_meta` still block the object index?    | No. `BinStream::entries` is the header scan          |
+| Does the object cache hold resolved names?       | No. 359,095 hashes resolve at load in 200ms          |
+| Does the object index read the project's bins?   | Yes, and that half ships second                      |
+| Which side matches the project's objects?        | The frontend, on the content scan's payload          |
+| Does a bin's dependency list earn a stored edge? | Once **#190** reads one. Nothing stores one today    |
+| Does the object build ride the game index build? | No. Its own build, over the built game index         |
+| Does the object index read a `PTCH`?             | Yes, eagerly, for the objects a patch bin adds       |
+| When does the object build run?                  | At startup, with the Objects switch on               |
+| Does one object earn one row, or one per file?   | One per declaring file. The source tells them apart  |
+| Can a query filter by class?                     | Yes. `class:` prefix or hex, with completions on Tab |
+| Is an unnamed chunk read by the object build?    | Yes, when its first bytes say bin                    |
+| Which reader wants the dependency graph?         | Not search. The link picker and the problems list    |
+| Does the tree gain the grid's multi-select?      | Yes. A selected directory is every file below it     |
+| Does a shared chunk land under every archive?    | No. One file, under the archive the copy chooses     |
+| Does `Ctrl+C` reach the system clipboard?        | Yes, with the chunk paths, one on each line          |
+| Is the conflict answer a setting?                | Yes. Ask, Skip or Replace, and Ask is the default    |
+| Does the layer file tree take the selection now? | No. The copy runs from the game into the mod         |
+| How does an unnamed chunk get an extension?      | `LeagueFileKind::identify_from_bytes`, as wadtools   |
+| Does the selection belong to a view?             | No. To the explorer, and a view switch keeps it      |
+| What does an item dropped on a surface do?       | Opens there. A tab moves, and an item opens          |
+| Which crate holds the extractor?                 | `ltk_wad`. wadtools and the manager both drive it    |
+| Does an extract keep the game paths?             | Yes by default, and a switch flattens it             |
+| How does the crate recover a chunk's name?       | A byte scan of the bins, found by their first block  |
+| Where do the manager's checks collect?           | One Problems panel, on a rule for each check         |
+| What repairs a mod that a game patch broke?      | Problems, on a migration table shipped in the build  |
 
 A row moves here when the body of this document carries the answer.

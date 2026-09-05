@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-05 | Name the bin scan as planned rather than waiting upstream               |
 | 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident   |
 | 2026-08-21 | Reshape the token around what a verdict rests on, and drop deflate      |
 | 2026-08-21 | Land the backend, the Games tab and the surfaces, and update the status |
@@ -734,9 +735,9 @@ The last row is the common one, and it is the one the manager answers worst toda
 `.bin` references a texture the mod forgot to ship, and nothing names the texture. The DLL's
 redirected list narrows it to the mods that were in the game. Narrowing it to one needs a
 search of each candidate's bins for the hash, which is the
-[bin scan](PROJECT_EDITOR.md#the-scan-and-the-reader-it-needs) that the project editor
-waits on upstream. Until that lands the verdict lists the candidates and says Lead, and
-when it lands the same verdict names one mod and says Confirmed.
+[bin scan](PROJECT_EDITOR.md#the-scan-and-the-reader-it-needs) the project editor plans.
+Until that scan exists the verdict lists the candidates and says Lead, and when it does the
+same verdict names one mod and says Confirmed.
 
 ### From a step to a mod
 

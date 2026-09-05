@@ -4,6 +4,7 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-09-05 | Record the tables, the stream and the patch reader as landed      |
 | 2026-08-21 | Address a node with the game's own property path                  |
 | 2026-08-21 | Propose the block model, and replace the planned Monaco text view |
 
@@ -41,7 +42,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Object list          | Proposed  | The objects of one file, collapsed, with their classes        |
 | Property rows        | Proposed  | Every leaf kind, drawn read-only                              |
 | Container rows       | Proposed  | The eight complex kinds, expandable                           |
-| Hash names           | Proposed  | The four mimir bin tables, layered                            |
+| Hash names           | Proposed  | The four mimir bin tables, through `bin_tables()`             |
 | Property paths       | Proposed  | The game's path syntax, as the address and as Copy path       |
 | Object links         | Proposed  | A link to the object, in this file or a dependency            |
 | WAD chunk links      | Proposed  | A link that opens the chunk in a preview tab                  |
@@ -53,7 +54,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Schema-aware editing | Proposed  | The meta dump, for a field's declared type and its subclasses |
 | Copy into a layer    | Proposed  | The route from a read-only game chunk to an editable copy     |
 | Ritobin text view    | Proposed  | A read-only text pane, once `ltk_ritobin` publishes           |
-| Patch bin records    | Blocked   | `ltk_meta` reads none of them. A `PTCH` opens read-only       |
+| Patch bin records    | Planned   | `BinOverride` reads them. Drawn by nothing, so read-only      |
 | Patch authoring      | Proposed  | An edit written as a patch record rather than a rewrite       |
 
 ## Scope
@@ -69,8 +70,8 @@ Out of scope:
   [project editor](PROJECT_EDITOR.md), not a bin
 - Authoring a bin from nothing. Every bin this editor opens exists already
 - Writing into the install. Read [Why the game side is read-only](#why-the-game-side-is-read-only)
-- Authoring a patch record. It is named in the feature status, and it waits on a `ltk_meta`
-  that can write one
+- Authoring a patch record. It is named in the feature status, and it follows a viewer that
+  draws one
 - A second bin parser. The format belongs to `ltk_meta`
 
 ## Vocabulary
@@ -90,11 +91,11 @@ Out of scope:
 
 ## What exists today
 
-| Surface               | Where                           | Says                                          |
-| --------------------- | ------------------------------- | --------------------------------------------- |
-| `BinPreview`          | The preview document, for a bin | There is no viewer, and offers VS Code        |
-| `RitobinVerb`         | `core/src/ritobin.rs`           | Reads the Explorer verb, stages, and spawns   |
-| The four mimir tables | The hashtable cache             | Downloaded already, and opened by nothing yet |
+| Surface               | Where                           | Says                                        |
+| --------------------- | ------------------------------- | ------------------------------------------- |
+| `BinPreview`          | The preview document, for a bin | There is no viewer, and offers VS Code      |
+| `RitobinVerb`         | `core/src/ritobin.rs`           | Reads the Explorer verb, stages, and spawns |
+| The four mimir tables | `bin_tables()`, `hashtables.rs` | Opened as `BinHashTables` for the pass      |
 
 The handoff works and stays. What is missing is anything in the application that draws a bin.
 
@@ -355,9 +356,10 @@ A bin stores hashes. Four mimir tables turn them back into names, and all four a
 | `binfields`  | A property       |
 | `binhashes`  | A `Hash` value   |
 
-Nothing in the manager opens them yet. `hashtables.rs` gains a `bin_tables()` beside
-`wad_tables()`, layering the four the same way, and best-effort in the same way - a table
-absent from the cache logs at debug and its hashes simply miss.
+`hashtables.rs` opens them as `bin_tables()` beside `wad_tables()`, best-effort in the same
+way - a table absent from the cache logs at debug and its hashes miss. The four are not
+layered the way the two WAD tables are, because they hash four unrelated kinds of string into
+32 bits, so `BinHashTables` answers one table per lookup.
 
 The [project editor](PROJECT_EDITOR.md#the-two-halves) measures the install at 359,095
 distinct objects, of which the tables name 325,357. Nine names in ten resolve. The tenth is a
@@ -497,22 +499,18 @@ applies them to whatever bin the layer is attached to. Riot ships its UI variant
 a few hundred one-property edits rather than a duplicated scene, so a patch bin is mostly
 patches and only incidentally objects.
 
-**`ltk_meta` reads none of those records.** `Bin::data_overrides` is a `Vec<()>`. The reader
-takes the record count and pushes that many units without consuming a single record byte, and
-the writer writes the count back with the loop that would write the records commented out.
+**`ltk_meta` reads them, since the rev the workspace pins.** `BinOverride` holds the three
+things a patch does, `deleted`, `objects` and `patches`, reads them with
+`BinOverride::from_reader` and writes them with `BinOverride::to_writer`. A record's path is the
+crate's own `PropertyPath`, the syntax [Addressing a node](#addressing-a-node) adopts. What is
+still upstream is the streaming form of the read, league-toolkit issue **#210**, and the delta
+write-back, **#211**.
 
-That makes a save destructive in the worst way on offer. A `PTCH` written back through
-`ltk_meta` declares a count of records it does not contain, which is a file the game reads off
-the end of, and nothing about it looks wrong until it is loaded.
-
-One more mismatch sits in the same reader. The outer `PTCH` header's count is followed by that
-many `u32` entry hashes, naming entries to drop, where `ltk_meta` reads the count and expects
-`PROP` immediately after it. Every shipped file carries a count of zero, so the two readings
-agree today and part company the moment one does not.
-
-So a `PTCH` opens read-only whatever its source, and the header says both that the file is a
-patch layer and that its records are not drawn. This is one upstream fix, not a shape for the
-frontend to be built around.
+So a `PTCH` still opens read-only whatever its source, and the reason is now this editor's
+rather than the crate's. Nothing here draws a patch record, and a save that rewrites records a
+viewer never showed is the silent loss [Rust owns the tree](#rust-owns-the-tree) exists to
+prevent. The header says both that the file is a patch layer and that its records are not
+drawn, and drawing them is what opens the write.
 
 ### What an edit is
 
@@ -602,10 +600,10 @@ The [project editor](PROJECT_EDITOR.md#the-scan-and-the-reader-it-needs) measure
 `ltk_meta` parse at 760ms over 194.8MB of decompressed bins, which is about 250MB a second. A
 2MB bin is therefore about 8ms, on one thread, once, when the tab opens.
 
-**The lazy read does not block this feature.** It blocks the object index, which parses 42,306
-files in a build and cares about the 242x. One file at a time does not. The editor ships on
-`ltk_meta` as published and adopts `Bin::scan` if and when it lands upstream, for the
-read-only case, as an optimisation and not a prerequisite.
+**The lazy read is not this feature's.** It is the object index's, which sweeps 42,306 files in
+a build and cares about the 242x, and it exists as `BinStream::entries`. One file at a time
+does not care. The editor ships on `Bin::from_reader` and takes `BinStream` for the read-only
+case if a measurement ever asks for it, as an optimisation and not a prerequisite.
 
 That is the revision to the reader table in the project editor's blocker section.
 
@@ -631,15 +629,15 @@ Nothing hard-blocks the first stage.
 
 | Item              | Where     | Status                                                 |
 | ----------------- | --------- | ------------------------------------------------------ |
-| `ltk_meta` 0.6.1  | crates.io | Published. `MIT OR Apache-2.0`, GPL-compatible         |
-| `bin_tables()`    | This repo | A small addition to `hashtables.rs`                    |
-| `Bin::scan`       | Upstream  | Wanted by the object index, optional here              |
+| `ltk_meta` 0.8.1  | Workspace | Compiled, pinned to the rev that carries the walk      |
+| `bin_tables()`    | This repo | Landed 2026-08-23, as `BinHashTables`                  |
+| `BinStream`       | Upstream  | Landed in 0.8.1. The object index's, optional here     |
 | The write version | Upstream  | Read [The version-3 write](#the-version-3-write)       |
-| Patch records     | Upstream  | A `PTCH` is read-only until `ltk_meta` round-trips one |
+| Patch records     | Upstream  | `BinOverride` reads and writes one. Nothing draws them |
 | The meta dump     | Upstream  | Stage four only, for schema-aware editing              |
 | `ltk_ritobin`     | Upstream  | Git only. Publish before the text view                 |
 
-Adding `ltk_meta` needs a `pnpm generate:licenses` and nothing else.
+`ltk_meta` is a dependency of the workspace already, through the problems pass.
 
 ## The backend
 
