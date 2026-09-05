@@ -13,6 +13,7 @@ describe("prefixScope", () => {
   it("names the source a leading prefix asks for", () => {
     expect(prefixScope(">test")).toBe("commands");
     expect(prefixScope("#greeting")).toBe("strings");
+    expect(prefixScope("$smolder skin0")).toBe("objects");
   });
 
   it("ignores a prefix character anywhere but the start", () => {
@@ -82,8 +83,9 @@ describe("the source lists", () => {
     expect(PROJECT_SOURCES).toEqual(PALETTE_SOURCES.map((source) => source.id));
   });
 
-  it("keeps the game off the workshop's own surface, where no row could open", () => {
+  it("keeps the game and its objects off the workshop's own surface, where no row could open", () => {
     expect(WORKSHOP_SOURCES).not.toContain("game");
+    expect(WORKSHOP_SOURCES).not.toContain("objects");
   });
 
   it("gives the workshop the projects, which is what a prefix reaches there", () => {

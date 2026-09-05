@@ -24,6 +24,8 @@ const BOUNDARY_BONUS: f64 = 1.0;
 const WHOLE_WORD_BONUS: f64 = 0.5;
 /// What a term is worth before either bonus.
 const TERM_SCORE: f64 = 1.0;
+/// What one term scores on a name that is exactly that term.
+pub const EXACT_SCORE: f64 = TERM_SCORE + BOUNDARY_BONUS + WHOLE_WORD_BONUS;
 
 /// A half-open run of matched bytes, as `[start, end)`.
 pub type Range = (u32, u32);

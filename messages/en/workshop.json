@@ -16,5 +16,7 @@
       }
     }
   ],
-  "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer"
+  "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
+  "workshop_objects_building_label": "Indexing the game's bin objects…",
+  "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings"
 }

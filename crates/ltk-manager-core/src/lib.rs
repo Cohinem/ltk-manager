@@ -17,6 +17,7 @@ pub mod launcher;
 pub mod matcher;
 pub mod meta_schema;
 pub mod mods;
+pub mod object_index;
 pub mod overlay;
 pub mod patcher;
 pub mod preview;
