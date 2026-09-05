@@ -1076,3 +1076,79 @@ fn a_parent_label_reads_a_schema_name_where_the_tables_have_none() {
 
     assert_eq!(rows[0].label, "skinMeshProperties.material");
 }
+
+#[test]
+fn an_entry_open_answers_the_objects_header_facts() {
+    let document = document();
+    let entry = h("Characters/Aatrox/Skins/Skin0/Resources");
+
+    let header = document.object(entry, &named()).unwrap();
+    assert_eq!(header.entry, hex(entry));
+    assert_eq!(header.name, "Characters/Aatrox/Skins/Skin0/Resources");
+    assert!(!header.unnamed);
+    assert_eq!(header.class.as_deref(), Some("SkinCharacterDataProperties"));
+    assert_eq!(header.class_hash, hex(h("SkinCharacterDataProperties")));
+    assert_eq!(header.properties, under("").len());
+
+    let unnamed = document
+        .object(BinHash::from(UNNAMED_OBJECT), &named())
+        .unwrap();
+    assert_eq!(unnamed.name, "0x12345678");
+    assert!(unnamed.unnamed);
+    assert_eq!(unnamed.class, None);
+    assert_eq!(unnamed.class_hash, "0xabcdef01");
+    assert_eq!(unnamed.properties, 0);
+
+    let error = document.object(h("Characters/Ahri"), &named()).unwrap_err();
+    assert!(matches!(error, BinDocumentError::NodeNotFound { .. }));
+}
+
+#[test]
+fn an_objects_own_declaration_names_its_asset_and_file() {
+    let document = document();
+    let asset = asset("skin0.bin");
+    let tables = named();
+
+    let declaration = document
+        .declaration(h("Characters/Aatrox"), &asset, "data/skin0.bin", &tables)
+        .unwrap();
+    assert_eq!(declaration.asset, asset);
+    assert_eq!(declaration.file, "data/skin0.bin");
+    assert_eq!(declaration.class, "CharacterRecord");
+    assert_eq!(declaration.class_hash, hex(h("CharacterRecord")));
+
+    let unnamed = document
+        .declaration(
+            BinHash::from(UNNAMED_OBJECT),
+            &asset,
+            "data/skin0.bin",
+            &tables,
+        )
+        .unwrap();
+    assert_eq!(
+        unnamed.class, "0xabcdef01",
+        "a class no table names is its hex"
+    );
+
+    assert!(
+        document
+            .declaration(h("Characters/Ahri"), &asset, "data/skin0.bin", &tables)
+            .is_none()
+    );
+}
+
+#[test]
+fn the_headers_dependencies_hash_as_wad_paths() {
+    assert_eq!(
+        document().dependency_hashes(),
+        [WadHash::hash_str("common.bin")]
+    );
+
+    let mut patch = BinOverride::<NoMeta>::new();
+    let added = BinObject::new(h("Characters/Aatrox"), h("CharacterRecord"));
+    patch.objects.insert(added.path_hash, added);
+    let mut out = Cursor::new(Vec::new());
+    patch.to_writer(&mut out).unwrap();
+    let patch = BinDocument::parse(&out.into_inner()).unwrap();
+    assert!(patch.dependency_hashes().is_empty());
+}
