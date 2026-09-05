@@ -60,6 +60,8 @@ import type {
   ModStorage,
   ModWadReport,
   Notice,
+  ObjectDir,
+  ObjectFind,
   ObjectSearch,
   PackProjectArgs,
   PackResult,
@@ -289,6 +291,9 @@ export const api = {
   dropObjectIndex: () => invokeResult<void>("drop_object_index"),
   declaredObjects: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
     invokeResult<DeclaredObjects>("declared_objects", { objectHashes, document }),
+  objectDir: (prefix: string) => invokeResult<ObjectDir>("object_dir", { prefix }),
+  findObjects: (pattern: string, regex: boolean, cls: string | null) =>
+    invokeResult<ObjectFind>("find_objects", { pattern, regex, class: cls }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>

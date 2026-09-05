@@ -14,6 +14,8 @@ export {
   layerTitle,
   objectDocument,
   objectDocumentId,
+  OBJECTS_DOCUMENT_ID,
+  objectsDocument,
   objectTitle,
   previewDocument,
   previewDocumentId,

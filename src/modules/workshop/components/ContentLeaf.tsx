@@ -1,8 +1,9 @@
 import { Button, EmptyState } from "@/components";
+import { m } from "@/i18n";
 import { EditorSurface, LeafDropZones, type LeafNode } from "@/modules/editor";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
-import { gameDocument, useContentEditors } from "../documents";
+import { gameDocument, objectsDocument, useContentEditors } from "../documents";
 import {
   useActivateDocument,
   useActiveLeafId,
@@ -69,6 +70,9 @@ function NothingOpenState() {
     <>
       <Button variant="outline" size="sm" onClick={() => openDocument(gameDocument())}>
         Browse game index
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => openDocument(objectsDocument())}>
+        {m.workshop_objects_browse_action()}
       </Button>
       {!sidebarOpen && (
         <Button variant="outline" size="sm" onClick={() => setLayerPanelOpen(true)}>

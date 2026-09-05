@@ -109,18 +109,9 @@ pub async fn find_in_game_index(
     regex: bool,
     app_handle: AppHandle,
 ) -> IpcResult<GameFindResult> {
-    let syntax = if regex {
-        PatternSyntax::Regex
-    } else {
-        PatternSyntax::Literal
-    };
-    let query = match FindQuery::parse(&pattern, syntax) {
+    let query = match find_query(&pattern, regex) {
         Ok(query) => query,
-        Err(e) => {
-            return IpcResult::from(Err::<GameFindResult, _>(AppError::ValidationFailed(
-                e.to_string(),
-            )));
-        }
+        Err(e) => return IpcResult::from(Err::<GameFindResult, _>(e)),
     };
 
     let ticket = app_handle.state::<FindGeneration>().claim();
@@ -151,6 +142,23 @@ pub async fn find_in_game_index(
         Ok(result)
     })
     .await
+}
+
+/// The full-search query `pattern` compiles to, `None` for an empty pattern.
+///
+/// `regex` reads the pattern as a regular expression rather than as its characters.
+///
+/// # Errors
+///
+/// Fails with `VALIDATION_FAILED` and the parser's own message where a regex does not
+/// parse.
+pub(super) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQuery>> {
+    let syntax = if regex {
+        PatternSyntax::Regex
+    } else {
+        PatternSyntax::Literal
+    };
+    FindQuery::parse(pattern, syntax).map_err(|e| AppError::ValidationFailed(e.to_string()))
 }
 
 /// Drop the built index, so the next read walks the install again.

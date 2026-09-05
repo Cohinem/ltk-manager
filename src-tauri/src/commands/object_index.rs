@@ -1,8 +1,8 @@
 //! The bin object index: warm it, drop it, and search it.
 
-use super::game_index::built_game_index;
+use super::game_index::{built_game_index, find_query};
 use super::off_thread;
-use crate::error::{AppErrorResponse, AppResult, IpcResult};
+use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
 use ltk_manager_core::config::Config;
@@ -10,7 +10,8 @@ use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
 use ltk_manager_core::object_index::{
-    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectIndex, ObjectIndexSnapshot,
+    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDirListing,
+    ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
     ObjectSearchGeneration, ObjectSearchResult,
 };
 use ltk_manager_core::preview::AssetRef;
@@ -129,6 +130,110 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
             "Searched the bin object index"
         );
         Ok(ObjectSearch::Ready(result))
+    })
+    .await
+}
+
+/// What one prefix of the object tree holds, given the slot the index is in.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum ObjectDir {
+    /// Nothing has warmed the index, or the switch that gates it is off.
+    Absent,
+    /// A build is running. The listing follows it.
+    Building,
+    /// The last build failed, and the next warm retries it.
+    Failed { error: AppErrorResponse },
+    /// The index answered.
+    Ready(ObjectDirListing),
+}
+
+/// What one prefix of the object tree holds.
+///
+/// `prefix` is `""` for the root, `?` for the objects no table names, and otherwise a
+/// path a listing gave. A prefix no object path runs through reports `INVALID_PATH`.
+/// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
+#[tauri::command]
+pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<ObjectDir> {
+    off_thread(move || {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+            ObjectIndexSnapshot::Absent => return Ok(ObjectDir::Absent),
+            ObjectIndexSnapshot::Building => return Ok(ObjectDir::Building),
+            ObjectIndexSnapshot::Failed(error) => return Ok(ObjectDir::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => index,
+        };
+        let listing = index.object_dir(&prefix).ok_or_else(|| {
+            AppError::InvalidPath(format!("No such prefix in the object index: {prefix}"))
+        })?;
+        Ok(ObjectDir::Ready(listing))
+    })
+    .await
+}
+
+/// What a full search of the objects found, given the slot the index is in.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum ObjectFind {
+    /// Nothing has warmed the index, or the switch that gates it is off.
+    Absent,
+    /// A build is running. The hits follow it.
+    Building,
+    /// The last build failed, and the next warm retries it.
+    Failed { error: AppErrorResponse },
+    /// The index answered.
+    Ready(ObjectFindResult),
+}
+
+/// Every object of the install matching `pattern`, in path order.
+///
+/// The full-results twin of [`search_object_index`], the way [`find_in_game_index`]
+/// is the game search's. `regex` reads the pattern as a regular expression, and
+/// either way the match is case-insensitive. `class` is the `class:` term's value,
+/// a name prefix or a hash, which narrows the objects to the classes it opens.
+///
+/// An empty pattern with no class matches nothing. A pattern that does not parse
+/// reports `VALIDATION_FAILED` with the parser's own message.
+///
+/// [`find_in_game_index`]: super::game_index::find_in_game_index
+#[tauri::command]
+pub async fn find_objects(
+    pattern: String,
+    regex: bool,
+    class: Option<String>,
+    app_handle: AppHandle,
+) -> IpcResult<ObjectFind> {
+    let query = match find_query(&pattern, regex) {
+        Ok(query) => query,
+        Err(e) => return IpcResult::from(Err::<ObjectFind, _>(e)),
+    };
+
+    let ticket = app_handle.state::<ObjectFindGeneration>().claim();
+    let overtaken = {
+        let app_handle = app_handle.clone();
+        move || app_handle.state::<ObjectFindGeneration>().overtook(ticket)
+    };
+
+    off_thread(move || {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+            ObjectIndexSnapshot::Absent => return Ok(ObjectFind::Absent),
+            ObjectIndexSnapshot::Building => return Ok(ObjectFind::Building),
+            ObjectIndexSnapshot::Failed(error) => return Ok(ObjectFind::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => index,
+        };
+
+        let result = index.find(query.as_ref(), class.as_deref(), overtaken);
+        tracing::debug!(
+            pattern = %pattern,
+            regex,
+            class = class.as_deref().unwrap_or(""),
+            hits = result.hits.len(),
+            total = result.total,
+            superseded = result.superseded,
+            "Ran a full search of the bin object index"
+        );
+        Ok(ObjectFind::Ready(result))
     })
     .await
 }

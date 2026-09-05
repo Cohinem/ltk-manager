@@ -25,18 +25,25 @@ use ltk_wad::{ChunkDecoder, Wad, WadHash, hex_name};
 use serde::Serialize;
 
 use crate::error::{AppError, AppResult, MutexResultExt};
-use crate::game_index::{GameIndex, SEARCH_LIMIT, SearchGeneration};
+use crate::game_index::{FIND_LIMIT, GameIndex, SEARCH_LIMIT, SearchGeneration};
 use crate::game_wads::{GameArchives, chunk_head};
 use crate::hashtables::{BinHashTables, WadPathResolver};
-use crate::matcher::{EXACT_SCORE, Query, Range, letter_mask, mask_covers};
+use crate::matcher::{EXACT_SCORE, FindQuery, Query, Range, letter_mask, mask_covers};
 use crate::preview::AssetRef;
 use crate::problems::names::hex;
+use crate::utils::natural_order::compare_names;
 
 /// The magic a `PTCH` opens with, which the streaming reader refuses.
 const PATCH_MAGIC: [u8; 4] = *b"PTCH";
 
 /// How many rows a scan reads between two tests of the generation.
 const STALE_CHECK_INTERVAL: u32 = 4096;
+
+/// The prefix of the group holding the objects no table names.
+///
+/// A resolved object path never holds `?`. The group collides with no path the
+/// game ships.
+pub const UNNAMED_PREFIX: &str = "?";
 
 /// One row a search matched, with the runs its path marks.
 ///
@@ -164,6 +171,98 @@ impl DeclaredObject {
     }
 }
 
+/// One prefix under a listed one, folded through any run of single-child prefixes.
+///
+/// A node an object bears is an [`ObjectNodeEntry`] and not one of these.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectPrefixEntry {
+    /// What [`ObjectIndex::object_dir`] takes to open this row: the folded node's path.
+    pub path: String,
+    /// What the row reads: the folded run of segments joined by `/`.
+    pub name: String,
+    /// Objects below the prefix.
+    pub count: u32,
+}
+
+/// One object at a listed prefix, with what sits below it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectNodeEntry {
+    /// The object's path hash, as `0x` and eight hex digits.
+    pub object_hash: String,
+    /// The object's path, or its hash when no table names it.
+    pub path: String,
+    /// The last segment of the path, or the hash.
+    pub name: String,
+    /// Every declaration of the object, in archive order.
+    pub declarations: Vec<ObjectDeclaration>,
+    /// Objects below the node, 0 for a leaf.
+    pub count: u32,
+}
+
+/// What one prefix of the object tree holds.
+///
+/// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectDirListing {
+    /// The prefixes no object bears, in natural name order, the unnamed group last at the root.
+    pub prefixes: Vec<ObjectPrefixEntry>,
+    /// The objects at the prefix, in natural name order.
+    pub objects: Vec<ObjectNodeEntry>,
+}
+
+/// One object the full search matched, with the runs its path marks.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectFindHit {
+    /// The object's path hash, as `0x` and eight hex digits.
+    pub object_hash: String,
+    /// The object's path, or its hash when no table names it.
+    pub path: String,
+    /// Byte offsets into `path`. Empty where a class term alone matched.
+    pub ranges: Vec<Range>,
+    /// Every declaration of the object, in archive order.
+    pub declarations: Vec<ObjectDeclaration>,
+}
+
+/// What one full search of the object index found.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectFindResult {
+    /// Every matching object in path order, capped at [`FIND_LIMIT`], the unnamed last.
+    pub hits: Vec<ObjectFindHit>,
+    /// How many objects matched in all, counted on past the cap.
+    pub total: u32,
+    /// A newer search overtook this one. The hits are a part of the answer.
+    pub superseded: bool,
+    /// No table named a single object. Only a hash can match.
+    pub unnamed: bool,
+}
+
+impl ObjectFindResult {
+    /// A search that found nothing.
+    fn empty(unnamed: bool) -> Self {
+        Self {
+            hits: Vec::new(),
+            total: 0,
+            superseded: false,
+            unnamed,
+        }
+    }
+}
+
 /// What a build measured.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectIndexStats {
@@ -287,9 +386,10 @@ struct Declarations {
     stats: ObjectIndexStats,
 }
 
-/// One object's resolved path, with its letters for the mask to reject on.
+/// One object a table names: its path, with its letters for the mask to reject on.
 #[derive(Debug)]
-struct Named {
+struct NamedObject {
+    hash: BinHash,
     name: Box<str>,
     mask: u32,
 }
@@ -297,7 +397,11 @@ struct Named {
 /// The names resolved for one index, resident while it is.
 #[derive(Debug, Default)]
 struct Names {
-    objects: HashMap<BinHash, Named>,
+    /// Every object a table names, in the order of [`compare_paths`], which the
+    /// objects browser reads one prefix at a time.
+    named: Vec<NamedObject>,
+    /// The index into `named` of each object a table names.
+    objects: HashMap<BinHash, u32>,
     classes: HashMap<BinHash, Box<str>>,
     /// The declaring chunks the build sniffed that a table names after all.
     files: HashMap<WadHash, Box<str>>,
@@ -447,16 +551,20 @@ impl ObjectIndex {
         let rows = &self.declared.rows;
 
         let objects = &self.declared.objects;
-        let mut resolved: HashMap<BinHash, Named> = HashMap::with_capacity(objects.len());
+        let mut named: Vec<NamedObject> = Vec::with_capacity(objects.len());
         names.for_each_entry(objects, &mut |at, name| {
-            resolved.insert(
-                objects[at],
-                Named {
-                    mask: letter_mask(name),
-                    name: name.into(),
-                },
-            );
+            named.push(NamedObject {
+                hash: objects[at],
+                mask: letter_mask(name),
+                name: name.into(),
+            });
         });
+        named.sort_unstable_by(|a, b| compare_paths(&a.name, &b.name));
+        let resolved: HashMap<BinHash, u32> = named
+            .iter()
+            .enumerate()
+            .map(|(at, object)| (object.hash, at as u32))
+            .collect();
 
         let mut classes: Vec<BinHash> = rows.iter().map(|row| row.class).collect();
         classes.sort_unstable();
@@ -491,10 +599,233 @@ impl ObjectIndex {
         Self {
             declared: Arc::clone(&self.declared),
             names: Names {
+                named,
                 objects: resolved,
                 classes,
                 files,
             },
+        }
+    }
+
+    /// The object a table names under `object`, or `None` where none does.
+    fn named_object(&self, object: BinHash) -> Option<&NamedObject> {
+        self.names
+            .objects
+            .get(&object)
+            .map(|&at| &self.names.named[at as usize])
+    }
+
+    /// The objects no table names, by hash.
+    fn unnamed_objects(&self) -> impl Iterator<Item = BinHash> + '_ {
+        self.declared
+            .objects
+            .iter()
+            .copied()
+            .filter(|object| !self.names.objects.contains_key(object))
+    }
+
+    /// What one prefix of the object tree holds, or `None` where no object path runs
+    /// through it.
+    ///
+    /// `prefix` is `""` for the root, [`UNNAMED_PREFIX`] for the objects no table names,
+    /// and otherwise a path a listing gave. An object at the prefix itself is the node's
+    /// own row and not a child. A run of prefixes each holding one prefix and no object
+    /// folds into one row, the game index's rule.
+    #[must_use]
+    pub fn object_dir(&self, prefix: &str) -> Option<ObjectDirListing> {
+        if prefix == UNNAMED_PREFIX {
+            return Some(ObjectDirListing {
+                prefixes: Vec::new(),
+                objects: self
+                    .unnamed_objects()
+                    .map(|object| self.unnamed_entry(object))
+                    .collect(),
+            });
+        }
+
+        let under = self.named_under(prefix)?;
+        let cut = if prefix.is_empty() {
+            0
+        } else {
+            prefix.len() + 1
+        };
+        let mut prefixes = Vec::new();
+        let mut objects = Vec::new();
+
+        let mut at = 0;
+        while at < under.len() {
+            let segment = first_segment(&under[at].name[cut..]);
+            let end = at
+                + under[at..]
+                    .partition_point(|object| shares_segment(&object.name[cut..], segment));
+            let group = &under[at..end];
+            match group
+                .first()
+                .filter(|object| object.name.len() == cut + segment.len())
+            {
+                Some(object) => objects.push(self.node_entry(object, (group.len() - 1) as u32)),
+                None => prefixes.push(folded_prefix(prefix, segment, group)),
+            }
+            at = end;
+        }
+
+        prefixes.sort_by(|a, b| compare_names(&a.name, &b.name));
+        objects.sort_by(|a, b| compare_names(&a.name, &b.name));
+
+        /* Last, and only at the root. The unnamed push no named path down. */
+        let unnamed = self.declared.objects.len() - self.names.objects.len();
+        if prefix.is_empty() && unnamed > 0 {
+            prefixes.push(ObjectPrefixEntry {
+                path: UNNAMED_PREFIX.to_owned(),
+                name: UNNAMED_PREFIX.to_owned(),
+                count: unnamed as u32,
+            });
+        }
+
+        Some(ObjectDirListing { prefixes, objects })
+    }
+
+    /// The named objects strictly under `prefix`, in path order.
+    ///
+    /// `None` where no object sits at or under the prefix. The root is every named object.
+    fn named_under(&self, prefix: &str) -> Option<&[NamedObject]> {
+        let named = &self.names.named;
+        if prefix.is_empty() {
+            return Some(named);
+        }
+        let start =
+            named.partition_point(|object| compare_paths(&object.name, prefix) == Ordering::Less);
+        let is_node = named
+            .get(start)
+            .is_some_and(|object| &*object.name == prefix);
+        let first = if is_node { start + 1 } else { start };
+        let end = first + named[first..].partition_point(|object| is_under(&object.name, prefix));
+        (is_node || end > first).then(|| &named[first..end])
+    }
+
+    /// The row of a named object with `count` objects below it.
+    fn node_entry(&self, object: &NamedObject, count: u32) -> ObjectNodeEntry {
+        let name = object.name.rsplit('/').next().unwrap_or(&object.name);
+        ObjectNodeEntry {
+            object_hash: hex(object.hash),
+            path: object.name.to_string(),
+            name: name.to_owned(),
+            declarations: self.declarations_of(object.hash),
+            count,
+        }
+    }
+
+    /// The row of an object no table names, its hex for a path and a name.
+    fn unnamed_entry(&self, object: BinHash) -> ObjectNodeEntry {
+        let text = hex(object);
+        ObjectNodeEntry {
+            object_hash: text.clone(),
+            path: text.clone(),
+            name: text,
+            declarations: self.declarations_of(object),
+            count: 0,
+        }
+    }
+
+    /// Every declaration of `object` in archive order, on the wire.
+    fn declarations_of(&self, object: BinHash) -> Vec<ObjectDeclaration> {
+        self.declared
+            .rows_of(object)
+            .iter()
+            .map(|at| self.declaration(*at))
+            .collect()
+    }
+
+    /// Every object the pattern matches, in path order, the unnamed last by their hex.
+    ///
+    /// The full-results twin of [`search`](Self::search): nothing is ranked, every hit
+    /// comes back up to [`FIND_LIMIT`], and the total counts on past it. `class` is the
+    /// `class:` term's value, a name prefix or a hash, and narrows the objects to the
+    /// classes it opens. With no `query` the class's objects list whole. With neither,
+    /// nothing matches.
+    ///
+    /// `is_overtaken` is tested every few thousand objects, the contract
+    /// [`GameIndex::search`] sets.
+    #[must_use]
+    pub fn find(
+        &self,
+        query: Option<&FindQuery>,
+        class: Option<&str>,
+        is_overtaken: impl Fn() -> bool,
+    ) -> ObjectFindResult {
+        self.find_capped(query, class, FIND_LIMIT, is_overtaken)
+    }
+
+    /// [`find`](Self::find) with the cap a test can afford to fill.
+    fn find_capped(
+        &self,
+        query: Option<&FindQuery>,
+        class: Option<&str>,
+        limit: usize,
+        is_overtaken: impl Fn() -> bool,
+    ) -> ObjectFindResult {
+        let unnamed = self.names.objects.is_empty() && !self.declared.rows.is_empty();
+        let classes: Option<HashSet<BinHash>> =
+            class.map(|term| self.classes_opened_by(term).into_iter().collect());
+        if (query.is_none() && classes.is_none()) || classes.as_ref().is_some_and(HashSet::is_empty)
+        {
+            return ObjectFindResult::empty(unnamed);
+        }
+
+        let mut scan = FindScan::new(limit);
+        for object in &self.names.named {
+            if scan.tick(&is_overtaken) {
+                break;
+            }
+            if !self.declares_as(object.hash, classes.as_ref()) {
+                continue;
+            }
+            let Some(ranges) = matched(query, &object.name) else {
+                continue;
+            };
+            scan.keep(|| self.find_hit(object.hash, &object.name, ranges));
+        }
+        if !scan.overtaken {
+            for object in self.unnamed_objects() {
+                if scan.tick(&is_overtaken) {
+                    break;
+                }
+                if !self.declares_as(object, classes.as_ref()) {
+                    continue;
+                }
+                let text = hex(object);
+                let Some(ranges) = matched(query, &text) else {
+                    continue;
+                };
+                scan.keep(|| self.find_hit(object, &text, ranges));
+            }
+        }
+
+        ObjectFindResult {
+            hits: scan.hits,
+            total: scan.total,
+            superseded: scan.overtaken,
+            unnamed,
+        }
+    }
+
+    /// Whether a declaration of `object` carries one of `classes`. Every object does with none.
+    fn declares_as(&self, object: BinHash, classes: Option<&HashSet<BinHash>>) -> bool {
+        classes.is_none_or(|classes| {
+            self.declared
+                .rows_of(object)
+                .iter()
+                .any(|at| classes.contains(&self.declared.rows[*at as usize].class))
+        })
+    }
+
+    /// The wire shape of one object the find matched at `ranges` of `path`.
+    fn find_hit(&self, object: BinHash, path: &str, ranges: Vec<Range>) -> ObjectFindHit {
+        ObjectFindHit {
+            object_hash: hex(object),
+            path: path.to_owned(),
+            ranges,
+            declarations: self.declarations_of(object),
         }
     }
 
@@ -512,13 +843,13 @@ impl ObjectIndex {
     /// Every declaration of `object` in archive order, or `None` where nothing declares it.
     #[must_use]
     pub fn declared(&self, object: BinHash) -> Option<DeclaredObject> {
-        let rows = self.declared.rows_of(object);
-        if rows.is_empty() {
+        let declarations = self.declarations_of(object);
+        if declarations.is_empty() {
             return None;
         }
         Some(DeclaredObject {
             path: self.object_name(object),
-            declarations: rows.iter().map(|at| self.declaration(*at)).collect(),
+            declarations,
         })
     }
 
@@ -611,7 +942,7 @@ impl ObjectIndex {
             {
                 continue;
             }
-            let Some(named) = self.names.objects.get(&row.object) else {
+            let Some(named) = self.named_object(row.object) else {
                 continue;
             };
             if !mask_covers(named.mask, mask) {
@@ -697,7 +1028,7 @@ impl ObjectIndex {
             .enumerate()
             .filter(|(_, row)| classes.contains(&row.class))
             .map(|(at, row)| {
-                let name = self.names.objects.get(&row.object).map_or_else(
+                let name = self.named_object(row.object).map_or_else(
                     || Cow::Owned(hex(row.object)),
                     |named| Cow::Borrowed(&*named.name),
                 );
@@ -767,9 +1098,7 @@ impl ObjectIndex {
 
     /// The object's path, or its hex when no table names it.
     fn object_name(&self, object: BinHash) -> String {
-        self.names
-            .objects
-            .get(&object)
+        self.named_object(object)
             .map_or_else(|| hex(object), |named| named.name.to_string())
     }
 
@@ -870,6 +1199,114 @@ fn rank(query: &Query, path: &str) -> Option<(u8, f64, Vec<Range>)> {
     }
     let matched = query.matches(path)?;
     Some((2, matched.score, matched.ranges))
+}
+
+/// Byte order with `/` below every other byte.
+///
+/// A node sorts before everything under it, and everything under it before any
+/// sibling. One prefix's objects are one run of the sorted names.
+fn compare_paths(a: &str, b: &str) -> Ordering {
+    let key = |byte: u8| if byte == b'/' { 0 } else { byte };
+    a.bytes().map(key).cmp(b.bytes().map(key))
+}
+
+/// Whether `path` sits strictly below `prefix`, a non-empty path of whole segments.
+fn is_under(path: &str, prefix: &str) -> bool {
+    path.len() > prefix.len() && path.as_bytes()[prefix.len()] == b'/' && path.starts_with(prefix)
+}
+
+/// The segment `rest` opens with, `rest` itself where it holds no `/`.
+fn first_segment(rest: &str) -> &str {
+    rest.split('/').next().unwrap_or(rest)
+}
+
+/// Whether `rest` is `segment` or opens with `segment/`.
+fn shares_segment(rest: &str, segment: &str) -> bool {
+    rest.starts_with(segment)
+        && (rest.len() == segment.len() || rest.as_bytes()[segment.len()] == b'/')
+}
+
+/// The runs `query` marks on `text`, every run empty where no query narrows.
+fn matched(query: Option<&FindQuery>, text: &str) -> Option<Vec<Range>> {
+    match query {
+        Some(query) => query.matches(text),
+        None => Some(Vec::new()),
+    }
+}
+
+/// The row of the prefix `parent/segment`, folded down through every prefix under it
+/// that holds one prefix and no object.
+///
+/// `group` is every object under the prefix, in path order, none of them at it.
+fn folded_prefix(parent: &str, segment: &str, group: &[NamedObject]) -> ObjectPrefixEntry {
+    let mut path = if parent.is_empty() {
+        segment.to_owned()
+    } else {
+        format!("{parent}/{segment}")
+    };
+    let mut name = segment.to_owned();
+
+    loop {
+        let cut = path.len() + 1;
+        let next = first_segment(&group[0].name[cut..]);
+        let one_prefix = group.iter().all(|object| {
+            let rest = &object.name[cut..];
+            rest.len() > next.len() && shares_segment(rest, next)
+        });
+        if !one_prefix {
+            break;
+        }
+        path.push('/');
+        path.push_str(next);
+        name.push('/');
+        name.push_str(next);
+    }
+
+    ObjectPrefixEntry {
+        path,
+        name,
+        count: group.len() as u32,
+    }
+}
+
+/// One full search's hits as they are met, full at its cap.
+#[derive(Debug)]
+struct FindScan {
+    hits: Vec<ObjectFindHit>,
+    limit: usize,
+    total: u32,
+    since_check: u32,
+    overtaken: bool,
+}
+
+impl FindScan {
+    fn new(limit: usize) -> Self {
+        Self {
+            hits: Vec::new(),
+            limit,
+            total: 0,
+            since_check: 0,
+            overtaken: false,
+        }
+    }
+
+    /// Count a match. `hit` is kept under the cap and dropped past it.
+    fn keep(&mut self, hit: impl FnOnce() -> ObjectFindHit) {
+        self.total += 1;
+        if self.hits.len() < self.limit {
+            self.hits.push(hit());
+        }
+    }
+
+    /// Test the generation on the first object and every few thousand after, and
+    /// report whether to stop.
+    fn tick(&mut self, is_overtaken: &impl Fn() -> bool) -> bool {
+        if self.since_check == 0 {
+            self.overtaken = is_overtaken();
+        }
+        self.since_check = (self.since_check + 1) % STALE_CHECK_INTERVAL;
+        self.overtaken
+    }
 }
 
 /// The `class:` term of a query, and whether it was the last term typed.
@@ -1225,6 +1662,26 @@ impl ObjectSearchGeneration {
     }
 
     /// Whether a later search has claimed a ticket since this one.
+    #[must_use]
+    pub fn overtook(&self, ticket: u64) -> bool {
+        self.0.overtook(ticket)
+    }
+}
+
+/// The newest full search of the objects asked for, on a line of its own.
+///
+/// Apart from [`ObjectSearchGeneration`]. A keystroke in the objects browser's box
+/// gives up no scan the palette's rows wait on.
+#[derive(Debug, Default)]
+pub struct ObjectFindGeneration(SearchGeneration);
+
+impl ObjectFindGeneration {
+    /// Take the newest ticket. Every scan already running is behind it.
+    pub fn claim(&self) -> u64 {
+        self.0.claim()
+    }
+
+    /// Whether a later search holds a newer ticket than `ticket`.
     #[must_use]
     pub fn overtook(&self, ticket: u64) -> bool {
         self.0.overtook(ticket)

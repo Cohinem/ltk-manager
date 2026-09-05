@@ -20,20 +20,23 @@ import type { PaletteGroup, RankedRow } from "./types";
  */
 export function useObjectRows(term: string, query: string, enabled: boolean): PaletteGroup | null {
   const setting = useSearchObjects();
-  const wanted = enabled && setting;
 
-  const { data, isFetching, error } = useObjectSearch(term, wanted);
+  /* Asked whatever the switch says. The objects browser warms the index with the
+     switch off, and the source answers while it is warm. */
+  const { data, isFetching, error } = useObjectSearch(term, enabled);
 
   return useMemo(() => {
-    if (!wanted || term.length === 0) return null;
+    if (!enabled || term.length === 0) return null;
 
     const label = m.workshop_objects_game_label();
 
     if (error) return group(label, [noticeRow("objects:error", errorSummary(error))]);
     if (!data) return { ...group(label, []), pending: isFetching };
 
-    /* Absent reads as building: the switch is on, so a warm is on its way from
-       the lifecycle hook, and the query asks again until it lands. */
+    /* With the switch on, absent reads as building: a warm is on its way from the
+       lifecycle hook, and the query asks again until it lands. With it off, nothing
+       is on its way, and the group stays out of the list. */
+    if (data.status === "absent" && !setting) return null;
     if (data.status === "absent" || data.status === "building") {
       return group(label, [noticeRow("objects:building", m.workshop_objects_building_label())]);
     }
@@ -69,7 +72,7 @@ export function useObjectRows(term: string, query: string, enabled: boolean): Pa
       total: data.total,
       pending: isFetching,
     };
-  }, [data, error, isFetching, query, term, wanted]);
+  }, [data, enabled, error, isFetching, query, setting, term]);
 }
 
 function group(label: string, rows: readonly RankedRow[]): PaletteGroup {

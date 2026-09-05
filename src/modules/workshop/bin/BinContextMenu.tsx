@@ -1,4 +1,10 @@
-import { ArrowSquareOutIcon, HashIcon, LinkIcon, PathIcon } from "@phosphor-icons/react";
+import {
+  ArrowSquareOutIcon,
+  HashIcon,
+  LinkIcon,
+  PathIcon,
+  TreeStructureIcon,
+} from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
@@ -6,6 +12,7 @@ import { m } from "@/i18n";
 import type { BinRow, BinValue } from "@/lib/tauri";
 
 import type { ContentDocument } from "../documents/contentDocument";
+import { useRevealInObjects } from "../objectsBrowser/useRevealInObjects";
 import type { OpenIntent } from "../palette/types";
 import { useOpenDocumentAs } from "../state";
 import type { VisibleRow } from "./binRows";
@@ -30,6 +37,7 @@ interface BinContextMenuProps {
 export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMenuProps) {
   const copy = useCopyToClipboard();
   const open = useOpenDocumentAs();
+  const revealInObjects = useRevealInObjects();
   const targets = useLinkTargets();
   const { wantOpen } = useLinkOpen();
   const row = line?.kind === "row" ? line.row : null;
@@ -70,6 +78,17 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
                 onClick={() => onOpenObject(row, "beside")}
               >
                 {m.workshop_bin_open_object_beside_action()}
+              </ContextMenu.Item>
+              <ContextMenu.Separator />
+            </>
+          )}
+          {object && (
+            <>
+              <ContextMenu.Item
+                icon={<TreeStructureIcon />}
+                onClick={() => revealInObjects(row.name)}
+              >
+                {m.workshop_objects_reveal_action()}
               </ContextMenu.Item>
               <ContextMenu.Separator />
             </>

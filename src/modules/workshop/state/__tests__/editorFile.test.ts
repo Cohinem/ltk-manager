@@ -12,6 +12,7 @@ import {
   gameWadDocument,
   gameWadsDocument,
   objectDocument,
+  objectsDocument,
   previewDocument,
   problemsDocument,
 } from "@/modules/workshop";
@@ -158,20 +159,27 @@ describe("editorFile", () => {
     it("keeps game browser documents", () => {
       const list = gameWadsDocument();
       const scoped = gameWadDocument("Aatrox.wad.client");
-      const layout = singleLeaf(["game", list.id, scoped.id], scoped.id);
+      const objects = objectsDocument();
+      const layout = singleLeaf(["game", list.id, scoped.id, objects.id], scoped.id);
 
       const state = sanitizeEditorState({
-        documents: { game: gameDocument(), [list.id]: list, [scoped.id]: scoped },
+        documents: {
+          game: gameDocument(),
+          [list.id]: list,
+          [scoped.id]: scoped,
+          [objects.id]: objects,
+        },
         layout,
         activeLeafId: layout.id,
         selectedLayer: null,
       });
 
-      expect(Object.keys(state?.documents ?? {})).toEqual(["game", list.id, scoped.id]);
+      expect(Object.keys(state?.documents ?? {})).toEqual(["game", list.id, scoped.id, objects.id]);
       expect(findLeaf(state!.layout, state!.activeLeafId)?.tabs).toEqual([
         "game",
         list.id,
         scoped.id,
+        objects.id,
       ]);
     });
 

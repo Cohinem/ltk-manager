@@ -213,6 +213,8 @@ fn main() {
             commands::drop_object_index,
             commands::search_object_index,
             commands::declared_objects,
+            commands::object_dir,
+            commands::find_objects,
             // Bin viewer
             commands::bin_open,
             commands::bin_children,

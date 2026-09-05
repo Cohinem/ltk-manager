@@ -3,11 +3,13 @@ import {
   FileArchiveIcon,
   FilesIcon,
   TranslateIcon,
+  TreeStructureIcon,
   WarningDiamondIcon,
 } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
-import { LeagueIcon, PlayerTitleIcon } from "@/components";
+import { ContextMenu, LeagueIcon, PlayerTitleIcon } from "@/components";
+import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import type { EditorRegistry } from "@/modules/editor";
 
@@ -25,6 +27,7 @@ import {
   useExtractActions,
   wadBasename,
 } from "../gameBrowser";
+import { ObjectsDocument, useRevealInObjects } from "../objectsBrowser";
 import { assetPath, PreviewDocument } from "../preview";
 import { ProblemsDocument } from "../problems";
 import { describeFileKind } from "../utils/fileKindIcon";
@@ -94,6 +97,11 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: GameWadDocument,
       tabMenu: (document) => <GameWadTabMenu wadName={document.wadName} />,
     },
+    objects: {
+      icon: () => <TreeStructureIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      label: () => ({ title: m.workshop_objects_title() }),
+      component: ObjectsDocument,
+    },
     preview: {
       icon: (document) => <PreviewGlyph title={document.title} />,
       label: (document) => ({
@@ -119,8 +127,23 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         path: document.objectPath,
       }),
       component: ObjectDocument,
+      tabMenu: (document) => <ObjectTabMenu objectPath={document.objectPath} />,
     },
   };
+}
+
+/** Reveal in Objects, per "The object tab" in docs/ux/BIN_EDITOR.md. */
+function ObjectTabMenu({ objectPath }: { objectPath: string }) {
+  const reveal = useRevealInObjects();
+
+  return (
+    <ContextMenu.Item
+      icon={<TreeStructureIcon className="h-4 w-4" />}
+      onClick={() => reveal(objectPath)}
+    >
+      {m.workshop_objects_reveal_action()}
+    </ContextMenu.Item>
+  );
 }
 
 /** The registry of the project the caller is mounted inside. */

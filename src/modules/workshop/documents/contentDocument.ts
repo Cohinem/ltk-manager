@@ -37,6 +37,10 @@ interface GameWadDoc extends EditorDocumentBase {
   wadName: string;
 }
 
+interface ObjectsDoc extends EditorDocumentBase {
+  kind: "objects";
+}
+
 interface PreviewDoc extends EditorDocumentBase {
   kind: "preview";
   asset: AssetRef;
@@ -62,7 +66,7 @@ interface ObjectDoc extends EditorDocumentBase {
 
 /**
  * Something the content editor can open: the project's details, a layer's
- * files, a locale, or a browser over the installed game's archives.
+ * files, a locale, or a browser over the installed game's archives or objects.
  */
 export type ContentDocument =
   | DetailsDoc
@@ -72,6 +76,7 @@ export type ContentDocument =
   | GameDoc
   | GameWadsDoc
   | GameWadDoc
+  | ObjectsDoc
   | PreviewDoc
   | ObjectDoc;
 
@@ -121,6 +126,13 @@ export function gameWadsDocument(): ContentDocument {
    the tab that is already open. */
 export function gameWadDocument(wadName: string): ContentDocument {
   return { id: `game-wad:${wadName}`, kind: "game-wad", wadName };
+}
+
+/** The install has one tree of objects. Its browser needs nothing to key on. */
+export const OBJECTS_DOCUMENT_ID = "objects";
+
+export function objectsDocument(): ContentDocument {
+  return { id: OBJECTS_DOCUMENT_ID, kind: "objects" };
 }
 
 /**

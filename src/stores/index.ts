@@ -14,6 +14,7 @@ export * from "./libraryView";
 export * from "./linkedBinGuard";
 export * from "./modHealthDrawer";
 export * from "./notifications";
+export * from "./objectsBrowser";
 export * from "./patcherFailure";
 export * from "./patcherSession";
 export * from "./playSession";

@@ -30,6 +30,15 @@ export { ProjectActions } from "./ProjectActions";
 export { ProjectCard } from "./ProjectCard";
 export { ProjectProvider, useOptionalProjectContext, useProjectContext } from "./ProjectContext";
 export { ProjectGrid } from "./ProjectGrid";
+export {
+  CaretSlot,
+  FolderGlyph,
+  IndentRails,
+  TREE_ROW_BASE_CLASSES,
+  TREE_ROW_STATE_CLASSES,
+  TreeLoadingRow,
+} from "./TreeRowParts";
+export { TreeSearchBox } from "./TreeSearchBox";
 export { WorkshopActiveFilterChips } from "./WorkshopActiveFilterChips";
 export { WorkshopFilterPopover } from "./WorkshopFilterPopover";
 export { WorkshopHeader } from "./WorkshopHeader";

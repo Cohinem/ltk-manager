@@ -11,11 +11,19 @@ entry: string,
 /**
  * The object's path, or its hex where no table names it.
  */
-name: string, unnamed: boolean, 
+name: string, 
+/**
+ * The name is a hash no table names.
+ */
+unnamed: boolean, 
 /**
  * `0x` and eight hex digits.
  */
-classHash: string, class: string | null, 
+classHash: string, 
+/**
+ * The class as the tables name it. Absent where no table does.
+ */
+class: string | null, 
 /**
  * How many properties the object holds.
  */

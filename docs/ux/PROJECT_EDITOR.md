@@ -70,8 +70,8 @@ This table holds every major feature of the editor. A status word has one meanin
 | Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                        |
 | Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                |
 | Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
-| Object tab             | Planned     | One declaration as a document. ADR-0028                            |
-| Objects browser        | Planned     | Every object of the install, one tree over its paths               |
+| Object tab             | Available   | One declaration as a document. ADR-0028                            |
+| Objects browser        | Available   | Every object of the install, one tree over its paths               |
 | References document    | Planned     | A class's objects from the index. The walk for the rest            |
 | Mesh preview           | Planned     | A model in a small viewport                                        |
 | Modified time          | Planned     | Needs a time field in the content scan                             |
@@ -2845,6 +2845,7 @@ the panels and not a view: it appears once for each leaf of the split tree. Read
 - The file tree of the selected layer
 - The asset inspector
 - The game browser
+- The [objects browser](#objects-browser)
 - The [problems list](PROJECT_PROBLEMS.md#the-problems-panel), when it arrives
 - The merged layer view, when it arrives
 

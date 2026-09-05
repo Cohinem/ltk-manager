@@ -161,6 +161,7 @@
   "workshop_bin_unreadable_title": "This bin could not be read",
   "workshop_bin_unsupported_description": "Bin preview is not supported yet",
   "workshop_bin_version_label": "v{version}",
+  "workshop_objects_browse_action": "Browse objects",
   "workshop_objects_building_label": "Indexing the game's bin objects…",
   "workshop_objects_class_count_label": [
     {
@@ -173,9 +174,72 @@
     }
   ],
   "workshop_objects_classes_label": "Classes",
+  "workshop_objects_clear_search_action": "Clear the search",
+  "workshop_objects_copy_class_hash_action": "Copy class hash",
+  "workshop_objects_copy_hash_action": "Copy hash",
+  "workshop_objects_copy_path_action": "Copy path",
+  "workshop_objects_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} object",
+        "countPlural=other": "{count} objects"
+      }
+    }
+  ],
+  "workshop_objects_files_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} file",
+        "countPlural=other": "{count} files"
+      }
+    }
+  ],
   "workshop_objects_game_label": "Objects · game",
+  "workshop_objects_index_failed_title": "The object index could not be built",
+  "workshop_objects_index_off_label": "Built for this session only. The Objects switch in Settings is off.",
+  "workshop_objects_indexing_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Indexing the bin objects of {count} archive…",
+        "countPlural=other": "Indexing the bin objects of {count} archives…"
+      }
+    }
+  ],
+  "workshop_objects_keep_on_action": "Keep it on",
+  "workshop_objects_loading_label": "Loading…",
+  "workshop_objects_matches_capped_label": "first {shown} of {total} matches",
+  "workshop_objects_matches_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} match",
+        "countPlural=other": "{count} matches"
+      }
+    }
+  ],
+  "workshop_objects_more_label": "… {count} more",
+  "workshop_objects_no_match_description": "No object of the install matches that pattern.",
+  "workshop_objects_no_match_title": "No match",
+  "workshop_objects_none_description": "The installed game declares no bin objects.",
+  "workshop_objects_none_title": "No objects",
+  "workshop_objects_open_action": "Open",
+  "workshop_objects_open_beside_action": "Open beside",
   "workshop_objects_overrides_label": "overrides",
   "workshop_objects_project_label": "Objects · {project}",
+  "workshop_objects_regex_action": "Use regular expression",
+  "workshop_objects_retry_action": "Retry",
+  "workshop_objects_reveal_action": "Reveal in Objects",
+  "workshop_objects_search_placeholder": "Search the objects",
+  "workshop_objects_search_regex_placeholder": "Search the objects by regex",
+  "workshop_objects_show_in_file_action": "Show in file",
+  "workshop_objects_title": "Objects",
   "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings",
   "workshop_preview_copy_into_action": "Copy into {layer}",
   "workshop_preview_extract_action": "Extract",
