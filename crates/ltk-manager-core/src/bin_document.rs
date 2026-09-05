@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 use indexmap::IndexMap;
 use lru::LruCache;
-use ltk_hash::{BinHash, WadHash};
+use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
@@ -21,7 +21,7 @@ use thiserror::Error;
 
 use crate::error::{AppResult, MutexResultExt};
 use crate::meta_schema::{Expected, KindShape, SchemaAt};
-use crate::object_index::CacheNames;
+use crate::object_index::{CacheNames, ObjectDeclaration};
 use crate::preview::AssetRef;
 use crate::problems::names::hex;
 use crate::problems::rules::bin_property_type::table::TypeSpec;
@@ -314,6 +314,40 @@ impl BinDocument {
     /// The path hash of every object, in file order.
     pub fn entries(&self) -> impl Iterator<Item = BinHash> + '_ {
         self.file.objects().keys().copied()
+    }
+
+    /// The document's own declaration of `entry`, or `None` where the file declares no
+    /// such object.
+    ///
+    /// `asset` is what the document was read from and `file` the path the tab names it
+    /// by. A class no table names reads as its hex.
+    #[must_use]
+    pub fn declaration(
+        &self,
+        entry: BinHash,
+        asset: &AssetRef,
+        file: &str,
+        names: &dyn RowNames,
+    ) -> Option<ObjectDeclaration> {
+        let header = self.object(entry, names).ok()?;
+        Some(ObjectDeclaration {
+            asset: asset.clone(),
+            file: file.to_owned(),
+            class: header.class.unwrap_or_else(|| header.class_hash.clone()),
+            class_hash: header.class_hash,
+        })
+    }
+
+    /// The header's dependencies, hashed as the WAD paths they name.
+    ///
+    /// A dependency is written as the archive path of the file it names, and the hash
+    /// is the one the object index keys a declaring file on. A `PTCH` names none.
+    #[must_use]
+    pub fn dependency_hashes(&self) -> Vec<WadHash> {
+        match &self.file {
+            BinFile::Prop(bin) => bin.dependencies.iter().map(WadHash::hash_str).collect(),
+            BinFile::Override(_) => Vec::new(),
+        }
     }
 
     /// One row per object, in file order.

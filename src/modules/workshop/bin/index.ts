@@ -20,6 +20,15 @@ export { BinTree, type TreeReveal } from "./BinTree";
 export { ClassCard } from "./ClassCard";
 export { FieldCard } from "./FieldCard";
 export { rowShape, rowTag, shapeTag } from "./kindTag";
+export { FileChip, ObjectChip } from "./LinkChip";
+export {
+  decideFileLink,
+  decideHash,
+  decideLink,
+  decideObjectLink,
+  type LayerCopy,
+  type LinkDecision,
+} from "./linkDecision";
 export { ObjectDocument } from "./ObjectDocument";
 export { OtherDeclarations } from "./OtherDeclarations";
 export {
@@ -31,4 +40,17 @@ export {
   useBinDocument,
 } from "./useBinDocument";
 export { classSchemaKeys, useClassSchema } from "./useClassSchema";
+export {
+  LinkAssetContext,
+  linkHashes,
+  linkKeys,
+  linkPaths,
+  type LinkTargets,
+  LinkTargetsContext,
+  NO_LINK_TARGETS,
+  type RowGroup,
+  useCheckLinkTargets,
+  useLayerCopy,
+  useLinkTargets,
+} from "./useLinkTargets";
 export { useShowInFile } from "./useShowInFile";

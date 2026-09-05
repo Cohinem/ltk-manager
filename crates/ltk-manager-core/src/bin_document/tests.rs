@@ -4,7 +4,6 @@
 use super::*;
 use crate::meta_schema::MetaSchema;
 use crate::problems::GameBuild;
-use ltk_hash::Hash as _;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::NoMeta;
 use ltk_meta::{Bin, BinOverride, PropertyPatch};

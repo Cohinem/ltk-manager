@@ -52,7 +52,7 @@ export function useObjectDeclarations(objectHashes: readonly string[]) {
       objectHashes.length > 0 ? queryFnWithArgs(api.declaredObjects, [...objectHashes]) : skipToken,
     staleTime: Infinity,
     refetchInterval: (query) =>
-      query.state.data?.status === "building" ? BUILDING_POLL_MS : false,
+      query.state.data?.index.status === "building" ? BUILDING_POLL_MS : false,
   });
 }
 
@@ -67,7 +67,7 @@ export function useDeclaredObjects(objectHashes: readonly string[]): ReadonlySet
   const { data } = useObjectDeclarations(setting ? objectHashes : []);
 
   return useMemo(
-    () => (data?.status === "ready" ? new Set(Object.keys(data.objects)) : NO_OBJECTS),
+    () => (data?.index.status === "ready" ? new Set(Object.keys(data.objects)) : NO_OBJECTS),
     [data],
   );
 }

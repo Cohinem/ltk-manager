@@ -30,6 +30,7 @@ import type {
   FantomePeekResult,
   FixReport,
   GameDirListing,
+  GameFileEntry,
   GameFindResult,
   GameIndexStats,
   GameSearchResult,
@@ -276,6 +277,8 @@ export const api = {
   refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
   searchGameIndex: (query: string) =>
     invokeResult<GameSearchResult>("search_game_index", { query }),
+  locateGameFiles: (paths: readonly string[]) =>
+    invokeResult<Record<string, GameFileEntry>>("locate_game_files", { paths }),
   findInGameIndex: (pattern: string, regex: boolean) =>
     invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
 
@@ -284,8 +287,8 @@ export const api = {
     invokeResult<ObjectSearch>("search_object_index", { query }),
   warmObjectIndex: () => invokeResult<void>("warm_object_index"),
   dropObjectIndex: () => invokeResult<void>("drop_object_index"),
-  declaredObjects: (objectHashes: string[]) =>
-    invokeResult<DeclaredObjects>("declared_objects", { objectHashes }),
+  declaredObjects: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
+    invokeResult<DeclaredObjects>("declared_objects", { objectHashes, document }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>

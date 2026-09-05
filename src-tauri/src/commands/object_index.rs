@@ -4,12 +4,16 @@ use super::game_index::built_game_index;
 use super::off_thread;
 use crate::error::{AppErrorResponse, AppResult, IpcResult};
 use crate::state::SettingsState;
+use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
 use ltk_manager_core::config::Config;
-use ltk_manager_core::hashtables::{HashtableCache, WadPathResolverState};
-use ltk_manager_core::object_index::{
-    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectIndex, ObjectIndexSnapshot,
-    ObjectSearchGeneration, ObjectSearchResult,
+use ltk_manager_core::hashtables::{
+    BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
+use ltk_manager_core::object_index::{
+    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDeclaration, ObjectIndex,
+    ObjectIndexSnapshot, ObjectSearchGeneration, ObjectSearchResult,
+};
+use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -129,49 +133,142 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
     .await
 }
 
-/// What the index holds for a set of object hashes, given the slot the index is in.
+/// The slot the index is in, as an answer reports it.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
-pub enum DeclaredObjects {
+pub enum ObjectIndexStatus {
     /// Nothing has warmed the index, or the switch that gates it is off.
     Absent,
     /// A build is running. The answer is on its way.
     Building,
     /// The last build failed, and the next warm retries it.
     Failed { error: AppErrorResponse },
-    /// By the object's hash, `0x` and eight hex digits. A hash nothing declares is absent.
-    Ready {
-        objects: HashMap<String, DeclaredObject>,
-    },
+    /// The index answered.
+    Ready,
 }
 
-/// Every declaration of each of `object_hashes` the install holds, by hash.
+/// What declares each of a set of object hashes, beside the slot the index is in.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct DeclaredObjects {
+    /// Off `Ready`, only the open document's own objects are in `objects`.
+    pub index: ObjectIndexStatus,
+    /// By the object's hash, `0x` and eight hex digits. A hash nothing declares is absent.
+    pub objects: HashMap<String, DeclaredObject>,
+}
+
+/// Every declaration of each of `object_hashes`, by hash.
 ///
-/// Answers for the slot the index is in. The project rows say nothing about
-/// overrides while it is absent, and an object tab offers the build.
+/// The install's declarations come from the index, in the slot it is in. With
+/// `document` open, the document's own declarations join them and every list
+/// is ordered as a link resolves it (ADR-0028): this file, then a file the bin
+/// depends on, then archive order.
 #[tauri::command]
 pub async fn declared_objects(
     object_hashes: Vec<String>,
+    document: Option<BinDocumentId>,
     app_handle: AppHandle,
 ) -> IpcResult<DeclaredObjects> {
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
-            ObjectIndexSnapshot::Absent => return Ok(DeclaredObjects::Absent),
-            ObjectIndexSnapshot::Building => return Ok(DeclaredObjects::Building),
-            ObjectIndexSnapshot::Failed(error) => return Ok(DeclaredObjects::Failed { error }),
-            ObjectIndexSnapshot::Ready(index) => index,
+        let (index, status) = match app_handle.state::<ObjectIndexState>().snapshot()? {
+            ObjectIndexSnapshot::Absent => (None, ObjectIndexStatus::Absent),
+            ObjectIndexSnapshot::Building => (None, ObjectIndexStatus::Building),
+            ObjectIndexSnapshot::Failed(error) => (None, ObjectIndexStatus::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => (Some(index), ObjectIndexStatus::Ready),
         };
-        let objects = object_hashes
-            .into_iter()
+        let mut objects: HashMap<String, DeclaredObject> = object_hashes
+            .iter()
             .filter_map(|text| {
-                let declared = index.declared(parse_hash(&text)?)?;
-                Some((text, declared))
+                let declared = index.as_ref()?.declared(parse_hash(text)?)?;
+                Some((text.clone(), declared))
             })
             .collect();
-        Ok(DeclaredObjects::Ready { objects })
+
+        if let Some(document) = document {
+            fold_own_declarations(&app_handle, document, &object_hashes, &mut objects)?;
+        }
+        Ok(DeclaredObjects {
+            index: status,
+            objects,
+        })
     })
     .await
+}
+
+/// Join the open document's own declarations of `hashes` into `objects`, and order
+/// every list as a link resolves it.
+///
+/// A document that closed or was evicted leaves `objects` as the index answered it.
+fn fold_own_declarations(
+    app: &AppHandle,
+    document: BinDocumentId,
+    object_hashes: &[String],
+    objects: &mut HashMap<String, DeclaredObject>,
+) -> AppResult<()> {
+    let store = app.state::<BinDocuments>();
+    let Some(asset) = store.asset_of(document)? else {
+        return Ok(());
+    };
+    let bin = app.state::<BinHashTablesState>().get()?;
+    let wad = app.state::<Arc<WadPathResolverState>>().get()?;
+    let names = CacheNames::new(&bin, &wad);
+    let file = own_file_name(&asset, &wad);
+
+    let (dependencies, own) = store.read(document, |open| {
+        let own: Vec<(&str, BinObjectHeader, ObjectDeclaration)> = object_hashes
+            .iter()
+            .filter_map(|text| {
+                let hash = parse_hash(text)?;
+                let header = open.object(hash, &names).ok()?;
+                let declaration = open.declaration(hash, &asset, &file, &names)?;
+                Some((text.as_str(), header, declaration))
+            })
+            .collect();
+        Ok((open.dependency_hashes(), own))
+    })?;
+
+    for (text, header, declaration) in own {
+        let declared = objects
+            .entry(text.to_owned())
+            .or_insert_with(|| DeclaredObject {
+                path: header.name,
+                declarations: Vec::new(),
+            });
+        if !declared
+            .declarations
+            .iter()
+            .any(|known| known.asset == asset)
+        {
+            declared.declarations.push(declaration);
+        }
+    }
+    for declared in objects.values_mut() {
+        declared.resolve_for(&asset, &dependencies);
+    }
+    Ok(())
+}
+
+/// The path an open document's own declaration names its file by.
+///
+/// A layer file and a loose file carry theirs. A game chunk reads as the path the WAD
+/// tables give it, or its hash where they give none.
+fn own_file_name(asset: &AssetRef, wad: &WadPathResolver) -> String {
+    match asset {
+        AssetRef::Layer { path, .. } | AssetRef::File { path } => path.clone(),
+        AssetRef::GameChunk { path_hash, .. } => {
+            let mut name = path_hash.clone();
+            if let Ok(hash) = path_hash.parse() {
+                wad.resolve_each(&[hash], |_, path| {
+                    if let Some(path) = path {
+                        name = path.to_owned();
+                    }
+                });
+            }
+            name
+        }
+    }
 }
 
 /// Resolve the index's names again out of the tables a sync just installed.

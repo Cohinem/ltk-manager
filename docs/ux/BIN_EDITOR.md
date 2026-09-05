@@ -49,9 +49,9 @@ This table holds every major feature of the bin editor. A status word has one me
 | Type tags            | Available | Every row's kind after its name, in ritobin's words           |
 | Class cards          | Available | A class or a field on hover, from the meta schema             |
 | Object tab           | Available | One declaration as a document. ADR-0028                       |
-| Object links         | Planned   | A chip that opens the object tab, resolved through the index  |
-| Hash links           | Planned   | A `hash` the index declares, opening the same way             |
-| WAD chunk links      | Planned   | A chip that opens the chunk in a preview tab                  |
+| Object links         | Available | A chip that opens the object tab, resolved through the index  |
+| Hash links           | Available | A `hash` the index declares, opening the same way             |
+| WAD chunk links      | Available | A chip that opens the chunk in a preview tab                  |
 | Texture swatch       | Planned   | A `file` link to a texture, at row height and on a hover card |
 | Find all references  | Planned   | The objects of a class from the index. The walk for the rest  |
 | In-document search   | Planned   | The bar's `@` scope over the open rows                        |

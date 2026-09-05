@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon, HashIcon, PathIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, HashIcon, LinkIcon, PathIcon } from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
@@ -6,7 +6,10 @@ import { m } from "@/i18n";
 import type { BinRow, BinValue } from "@/lib/tauri";
 
 import type { OpenIntent } from "../palette/types";
+import { useOpenDocumentAs } from "../state";
 import type { VisibleRow } from "./binRows";
+import { decideLink } from "./linkDecision";
+import { useLayerCopy, useLinkTargets } from "./useLinkTargets";
 
 interface BinContextMenuProps {
   /** The line the menu was opened on. Absent while it has never been opened. */
@@ -25,17 +28,33 @@ interface BinContextMenuProps {
  */
 export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMenuProps) {
   const copy = useCopyToClipboard();
+  const open = useOpenDocumentAs();
+  const targets = useLinkTargets();
+  const row = line?.kind === "row" ? line.row : null;
+  const layer = useLayerCopy(row?.value.type === "wadChunkLink" ? row.value.path : null);
 
-  if (line?.kind !== "row") return null;
-  const { row } = line;
+  if (row === null) return null;
   const object = row.node === "object";
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
   const valueHash = unnamedValueHash(row.value);
+  const link = decideLink(row.value, targets, () => layer);
+  const target = link?.kind === "chip" ? link.document : null;
 
   return (
     <ContextMenu.Portal>
       <ContextMenu.Positioner>
         <ContextMenu.Popup className="w-56">
+          {target && (
+            <>
+              <ContextMenu.Item icon={<LinkIcon />} onClick={() => open(target, "default")}>
+                {m.workshop_bin_open_link_action()}
+              </ContextMenu.Item>
+              <ContextMenu.Item icon={<LinkIcon />} onClick={() => open(target, "beside")}>
+                {m.workshop_bin_open_link_beside_action()}
+              </ContextMenu.Item>
+              <ContextMenu.Separator />
+            </>
+          )}
           {object && onOpenObject && (
             <>
               <ContextMenu.Item

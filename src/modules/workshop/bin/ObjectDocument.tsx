@@ -104,6 +104,7 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
       </DocumentToolbar>
       <BinTree
         document={handle.document}
+        asset={asset}
         roots={handle.rows}
         rootOwner={object.classHash}
         label={object.name}

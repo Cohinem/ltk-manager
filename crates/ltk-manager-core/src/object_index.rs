@@ -138,6 +138,32 @@ pub struct DeclaredObject {
     pub declarations: Vec<ObjectDeclaration>,
 }
 
+impl ObjectDeclaration {
+    /// Where the declaration sits in a link's resolution order: 0 in `this` file, 1 in a
+    /// file among `dependencies`, 2 anywhere else.
+    fn rank(&self, this: &AssetRef, dependencies: &[WadHash]) -> u8 {
+        if self.asset == *this {
+            return 0;
+        }
+        let AssetRef::GameChunk { path_hash, .. } = &self.asset else {
+            return 2;
+        };
+        match path_hash.parse::<WadHash>() {
+            Ok(hash) if dependencies.contains(&hash) => 1,
+            _ => 2,
+        }
+    }
+}
+
+impl DeclaredObject {
+    /// Order the declarations as a link resolves them (ADR-0028): one in `this` file,
+    /// then one in a file among `dependencies`, then the rest in archive order.
+    pub fn resolve_for(&mut self, this: &AssetRef, dependencies: &[WadHash]) {
+        self.declarations
+            .sort_by_key(|declaration| declaration.rank(this, dependencies));
+    }
+}
+
 /// What a build measured.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectIndexStats {

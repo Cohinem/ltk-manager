@@ -30,6 +30,7 @@
       }
     }
   ],
+  "workshop_bin_class_label": "Class",
   "workshop_bin_class_unknown_empty": "Not in the schema",
   "workshop_bin_command_label": "command",
   "workshop_bin_copy_command_action": "Copy the command",
@@ -37,6 +38,17 @@
   "workshop_bin_copy_name_action": "Copy name",
   "workshop_bin_copy_path_action": "Copy path",
   "workshop_bin_copy_value_hash_action": "Copy value hash",
+  "workshop_bin_declarations_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} declaration",
+        "countPlural=other": "{count} declarations"
+      }
+    }
+  ],
+  "workshop_bin_declared_in_label": "Declared in",
   "workshop_bin_declared_label": "Declared",
   "workshop_bin_dependencies_label": [
     {
@@ -92,6 +104,8 @@
       }
     }
   ],
+  "workshop_bin_open_link_action": "Open link",
+  "workshop_bin_open_link_beside_action": "Open link beside",
   "workshop_bin_open_object_action": "Open object",
   "workshop_bin_open_object_beside_action": "Open object beside",
   "workshop_bin_open_vscode_action": "Open in VS Code",

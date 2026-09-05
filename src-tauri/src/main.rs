@@ -208,6 +208,7 @@ fn main() {
             commands::refresh_game_index,
             commands::search_game_index,
             commands::find_in_game_index,
+            commands::locate_game_files,
             commands::warm_object_index,
             commands::drop_object_index,
             commands::search_object_index,

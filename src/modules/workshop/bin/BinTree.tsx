@@ -10,13 +10,19 @@ import {
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
-import type { BinDocumentId, BinRow } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
 import type { OpenIntent } from "../palette/types";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
 import { flattenRows, isUnder, pagesWanted, rowKey, toggled, type VisibleRow } from "./binRows";
 import { type ChildrenRequest, useBinChildren } from "./useBinDocument";
+import {
+  LinkAssetContext,
+  LinkTargetsContext,
+  type RowGroup,
+  useCheckLinkTargets,
+} from "./useLinkTargets";
 
 /** A row the tree is asked to expand, focus and scroll to. A new token scrolls again. */
 export interface TreeReveal {
@@ -27,6 +33,8 @@ export interface TreeReveal {
 interface BinTreeProps {
   /** The open's id, which every children call carries. */
   document: BinDocumentId;
+  /** What the document was read from, which the layer side of a `file` link looks in. */
+  asset: AssetRef;
   /** The rows at depth zero: the objects of a file, or the properties of one object. */
   roots: readonly BinRow[];
   /** The class the roots are properties of. Null where the roots are objects. */
@@ -55,6 +63,7 @@ const NO_KEYS: readonly string[] = [];
  */
 export function BinTree({
   document,
+  asset,
   roots,
   rootOwner,
   label,
@@ -83,6 +92,16 @@ export function BinTree({
     () => flattenRows(roots, expanded, (key) => loaded.get(key), rootOwner),
     [roots, expanded, loaded, rootOwner],
   );
+
+  /* The roots and every expanded node's rows, each checked as one group. */
+  const groups = useMemo<RowGroup[]>(
+    () => [
+      { key: "", rows: roots },
+      ...[...loaded].map(([key, children]) => ({ key, rows: children.rows })),
+    ],
+    [roots, loaded],
+  );
+  const linkTargets = useCheckLinkTargets(document, groups);
 
   const toggle = useCallback((key: string) => {
     setFocused(null);
@@ -154,44 +173,48 @@ export function BinTree({
   }
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger
-        ref={scrollRef}
-        role="tree"
-        aria-label={label}
-        className="min-h-0 flex-1 overflow-auto px-1 py-1 outline-none scrollbar-md select-none"
-        onContextMenu={handleContextMenu}
-        {...NO_OVERSCROLL}
-      >
-        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-          {virtualItems.map((item) => {
-            const line = visible[item.index];
-            if (!line) return null;
-            return (
-              <div
-                key={item.key}
-                ref={virtualizer.measureElement}
-                data-index={item.index}
-                className="absolute top-0 left-0 w-full"
-                style={{ transform: `translateY(${item.start}px)` }}
-              >
-                {line.kind === "row" && (
-                  <BinRowLine
-                    line={line}
-                    focused={line.key === focused}
-                    error={loaded.get(line.key)?.error}
-                    onToggle={toggle}
-                    onOpenObject={onOpenObject}
-                  />
-                )}
-                {line.kind === "more" && <MoreRow line={line} />}
-              </div>
-            );
-          })}
-        </div>
-      </ContextMenu.Trigger>
+    <LinkAssetContext value={asset}>
+      <LinkTargetsContext value={linkTargets}>
+        <ContextMenu.Root>
+          <ContextMenu.Trigger
+            ref={scrollRef}
+            role="tree"
+            aria-label={label}
+            className="min-h-0 flex-1 overflow-auto px-1 py-1 outline-none scrollbar-md select-none"
+            onContextMenu={handleContextMenu}
+            {...NO_OVERSCROLL}
+          >
+            <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+              {virtualItems.map((item) => {
+                const line = visible[item.index];
+                if (!line) return null;
+                return (
+                  <div
+                    key={item.key}
+                    ref={virtualizer.measureElement}
+                    data-index={item.index}
+                    className="absolute top-0 left-0 w-full"
+                    style={{ transform: `translateY(${item.start}px)` }}
+                  >
+                    {line.kind === "row" && (
+                      <BinRowLine
+                        line={line}
+                        focused={line.key === focused}
+                        error={loaded.get(line.key)?.error}
+                        onToggle={toggle}
+                        onOpenObject={onOpenObject}
+                      />
+                    )}
+                    {line.kind === "more" && <MoreRow line={line} />}
+                  </div>
+                );
+              })}
+            </div>
+          </ContextMenu.Trigger>
 
-      <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
-    </ContextMenu.Root>
+          <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
+        </ContextMenu.Root>
+      </LinkTargetsContext>
+    </LinkAssetContext>
   );
 }

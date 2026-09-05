@@ -1,5 +1,6 @@
 //! Read-only browsing of the game's archives folded into one tree.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::object_index::ObjectIndexState;
@@ -8,8 +9,8 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
 use ltk_manager_core::game_index::{
-    FindGeneration, GameDirListing, GameFindResult, GameIndex, GameIndexState, GameIndexStats,
-    GameSearchResult, SearchGeneration,
+    FindGeneration, GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState,
+    GameIndexStats, GameSearchResult, SearchGeneration,
 };
 use ltk_manager_core::game_wads::{GameArchives, WadCache};
 use ltk_manager_core::hashtables::WadPathResolverState;
@@ -33,6 +34,27 @@ pub async fn read_game_dir(path: String, app_handle: AppHandle) -> IpcResult<Gam
         index.read_dir(&path).ok_or_else(|| {
             AppError::InvalidPath(format!("No such directory in the game index: {path}"))
         })
+    })
+    .await
+}
+
+/// The install's copy of each of `paths`, by path. A path the install does not ship is
+/// absent.
+///
+/// For the `file` links of a page of bin rows, checked in one call.
+#[tauri::command]
+pub async fn locate_game_files(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<HashMap<String, GameFileEntry>> {
+    with_index(app_handle, move |index| {
+        Ok(paths
+            .into_iter()
+            .filter_map(|path| {
+                let entry = index.file_at(&path)?;
+                Some((path, entry))
+            })
+            .collect())
     })
     .await
 }

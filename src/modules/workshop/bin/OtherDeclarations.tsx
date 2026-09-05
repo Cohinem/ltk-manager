@@ -38,7 +38,7 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
 
   const others = useMemo<readonly ObjectDeclaration[]>(() => {
     const self = assetKey(asset);
-    const install = data?.status === "ready" ? (data.objects[objectHash]?.declarations ?? []) : [];
+    const install = data?.objects[objectHash]?.declarations ?? [];
     const layers = (tree?.layers ?? []).flatMap((layer) =>
       layer.entries
         .filter((entry) => entry.objects.some((object) => object.objectHash === objectHash))
@@ -61,7 +61,7 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
   }, [asset, data, objectHash, project.path, tree]);
 
   if (error) return <span className="text-surface-400">{errorSummary(error)}</span>;
-  if (data === undefined || data.status === "building" || warm.isPending) {
+  if (data === undefined || data.index.status === "building" || warm.isPending) {
     return (
       <span className="flex items-center gap-1 text-surface-400">
         <SpinnerGapIcon className="h-3 w-3 animate-spin" />
@@ -69,10 +69,10 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
       </span>
     );
   }
-  if (data.status === "failed") {
-    return <span className="text-surface-400">{errorSummary(data.error)}</span>;
+  if (data.index.status === "failed") {
+    return <span className="text-surface-400">{errorSummary(data.index.error)}</span>;
   }
-  if (data.status === "absent") {
+  if (data.index.status === "absent") {
     return (
       <button
         type="button"

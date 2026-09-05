@@ -17,6 +17,7 @@ import { canExpand, fieldHash, type RowLine, type VisibleRow } from "./binRows";
 import { ClassCard } from "./ClassCard";
 import { DeclaredLine, FieldCard } from "./FieldCard";
 import { rowTag } from "./kindTag";
+import { FileChip, ObjectChip } from "./LinkChip";
 
 /** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
 export const ROW_HEIGHT = 24;
@@ -247,14 +248,11 @@ function Value({ value, object }: ValueProps) {
     case "string":
       return <Data className="text-surface-100">{value.value}</Data>;
     case "hash":
-      if (value.name === null) return <Hex>{value.hash}</Hex>;
-      return <Data>{value.name}</Data>;
+      return <ObjectChip hash={value.hash} name={value.name} kind="hash" />;
     case "wadChunkLink":
-      if (value.path === null) return <Hex>{value.hash}</Hex>;
-      return <Mono>{value.path}</Mono>;
+      return <FileChip hash={value.hash} path={value.path} />;
     case "objectLink":
-      if (value.name === null) return <Hex>{value.hash}</Hex>;
-      return <Data>{value.name}</Data>;
+      return <ObjectChip hash={value.hash} name={value.name} kind="link" />;
     case "container":
       if (value.len === 0) return <Dim>{m.workshop_bin_empty_label()}</Dim>;
       return <Dim>{m.workshop_bin_items_label({ count: value.len })}</Dim>;
@@ -373,11 +371,5 @@ function Data({ children, className }: { children: ReactNode; className?: string
 function Mono({ children }: { children: ReactNode }) {
   return (
     <span className="truncate font-mono text-code text-surface-200 select-text">{children}</span>
-  );
-}
-
-function Hex({ children }: { children: ReactNode }) {
-  return (
-    <span className="truncate font-mono text-code text-surface-400 select-text">{children}</span>
   );
 }

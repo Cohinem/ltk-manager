@@ -115,6 +115,7 @@ function OpenBin({ documentId, asset, name, handle, active, actions, reopen }: O
       </DocumentToolbar>
       <BinTree
         document={handle.document}
+        asset={asset}
         roots={roots}
         rootOwner={null}
         label={name}

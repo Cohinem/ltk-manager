@@ -139,6 +139,7 @@ export type { Notice } from "./Notice";
 export type { NoticeSeverity } from "./NoticeSeverity";
 export type { ObjectClassHit } from "./ObjectClassHit";
 export type { ObjectDeclaration } from "./ObjectDeclaration";
+export type { ObjectIndexStatus } from "./ObjectIndexStatus";
 export type { ObjectInfo } from "./ObjectInfo";
 export type { ObjectSearch } from "./ObjectSearch";
 export type { ObjectSearchHit } from "./ObjectSearchHit";

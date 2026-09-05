@@ -566,6 +566,21 @@ impl GameIndex {
         Some(out)
     }
 
+    /// The file at one path of the tree, or `None` where the index names nothing there.
+    ///
+    /// `path` is spelled as the hash tables spell it, which is how a bin's `file` link
+    /// resolves.
+    #[must_use]
+    pub fn file_at(&self, path: &str) -> Option<GameFileEntry> {
+        let (dir, name) = path.rsplit_once('/').unwrap_or(("", path));
+        let index = self.resolve(dir)?;
+        let file = self.dirs[index]
+            .files
+            .iter()
+            .find(|file| file.name == name)?;
+        Some(file.entry(dir, self.wad_name(file)))
+    }
+
     /// The wire shape of every chunk no hash table names.
     fn unnamed_entries(&self) -> Vec<GameFileEntry> {
         self.unknown
