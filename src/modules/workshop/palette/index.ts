@@ -26,6 +26,7 @@ export {
   WORKSHOP_SOURCES,
 } from "./sources";
 export type {
+  BackendRankedGroups,
   OpenIntent,
   PaletteCandidate,
   PaletteCandidates,
