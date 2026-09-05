@@ -6,6 +6,7 @@ import {
   EMPTY_EDITOR,
   type HistoryEntry,
   NO_COLLAPSED_DIRS,
+  type ObjectRevealRequest,
   type RevealRequest,
   useTabOpenMode,
   useWorkshopEditorStore,
@@ -345,6 +346,38 @@ export function useRevealInTree() {
   return useCallback(
     (layerName: string, path: string) => reveal(projectPath, layerName, path),
     [reveal, projectPath],
+  );
+}
+
+/**
+ * The pending object request aimed at `documentId`, or null.
+ *
+ * Null for a bin nobody addressed. A request meant for another tab re-renders no other
+ * bin.
+ */
+export function useObjectRevealRequest(documentId: string): ObjectRevealRequest | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).revealObject;
+    if (!request || request.documentId !== documentId) return null;
+    return request;
+  });
+}
+
+/** Drop the object request with `token`. The bin it addressed has answered it. */
+export function useSettleObjectReveal() {
+  const projectPath = useProjectPath();
+  const settle = useWorkshopEditorStore((s) => s.settleObjectReveal);
+  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+}
+
+/** Ask the open bin `documentId` to expand `objectHash` and scroll to it. */
+export function useRevealObject() {
+  const projectPath = useProjectPath();
+  const revealObject = useWorkshopEditorStore((s) => s.revealObject);
+  return useCallback(
+    (documentId: string, objectHash: string) => revealObject(projectPath, documentId, objectHash),
+    [revealObject, projectPath],
   );
 }
 

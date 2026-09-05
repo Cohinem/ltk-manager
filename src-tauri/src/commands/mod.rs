@@ -27,6 +27,7 @@
 //! See `docs/ERROR_HANDLING.md` for details.
 
 mod app;
+mod bin;
 mod deep_link;
 mod diagnostics;
 mod folders;
@@ -55,6 +56,7 @@ mod strings;
 mod workshop;
 
 pub use app::*;
+pub use bin::*;
 pub use deep_link::*;
 pub use diagnostics::*;
 pub use folders::*;

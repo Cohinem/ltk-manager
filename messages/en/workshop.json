@@ -17,6 +17,91 @@
     }
   ],
   "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
+  "workshop_bin_absent_label": "absent",
+  "workshop_bin_command_label": "command",
+  "workshop_bin_copy_command_action": "Copy the command",
+  "workshop_bin_copy_hash_action": "Copy hash",
+  "workshop_bin_copy_path_action": "Copy path",
+  "workshop_bin_copy_value_hash_action": "Copy value hash",
+  "workshop_bin_dependencies_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} dependency",
+        "countPlural=other": "{count} dependencies"
+      }
+    }
+  ],
+  "workshop_bin_empty_label": "empty",
+  "workshop_bin_entries_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} entry",
+        "countPlural=other": "{count} entries"
+      }
+    }
+  ],
+  "workshop_bin_hash_label": "hash",
+  "workshop_bin_install_command_label": "Run this from its command palette",
+  "workshop_bin_install_extension_label": "Get the *ritobin-lsp extension*",
+  "workshop_bin_items_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} item",
+        "countPlural=other": "{count} items"
+      }
+    }
+  ],
+  "workshop_bin_map_kinds_label": "{key} → {value}",
+  "workshop_bin_matrix_label": "4×4 matrix",
+  "workshop_bin_more_label": "{loaded} of {total}",
+  "workshop_bin_no_viewer_description": "Open it as ritobin text in VS Code instead",
+  "workshop_bin_no_viewer_title": "No viewer for a property bin",
+  "workshop_bin_none_label": "none",
+  "workshop_bin_null_label": "null",
+  "workshop_bin_objects_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} object",
+        "countPlural=other": "{count} objects"
+      }
+    }
+  ],
+  "workshop_bin_open_vscode_action": "Open in VS Code",
+  "workshop_bin_patch_deleted_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} object deleted",
+        "countPlural=other": "{count} objects deleted"
+      }
+    }
+  ],
+  "workshop_bin_patch_label": "Patch layer",
+  "workshop_bin_patch_records_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} record not drawn",
+        "countPlural=other": "{count} records not drawn"
+      }
+    }
+  ],
+  "workshop_bin_path_label": "path",
+  "workshop_bin_present_label": "present",
+  "workshop_bin_undrawn_label": "Not drawn by this viewer",
+  "workshop_bin_unreadable_title": "This bin could not be read",
+  "workshop_bin_unsupported_description": "Bin preview is not supported yet",
+  "workshop_bin_version_label": "v{version}",
   "workshop_objects_building_label": "Indexing the game's bin objects…",
   "workshop_objects_class_count_label": [
     {
@@ -32,5 +117,8 @@
   "workshop_objects_game_label": "Objects · game",
   "workshop_objects_overrides_label": "overrides",
   "workshop_objects_project_label": "Objects · {project}",
-  "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings"
+  "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings",
+  "workshop_preview_copy_into_action": "Copy into {layer}",
+  "workshop_preview_extract_action": "Extract",
+  "workshop_preview_extract_to_label": "Extract to {folder}"
 }

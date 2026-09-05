@@ -1,0 +1,76 @@
+import { HashIcon, PathIcon } from "@phosphor-icons/react";
+
+import { ContextMenu } from "@/components";
+import { useCopyToClipboard } from "@/hooks";
+import { m } from "@/i18n";
+import type { BinValue } from "@/lib/tauri";
+
+import type { VisibleRow } from "./binRows";
+
+interface BinContextMenuProps {
+  /** The line the menu was opened on. Absent while it has never been opened. */
+  line: VisibleRow | null;
+  /** The name of the object an entry hash addresses, for the path a row copies. */
+  objectName: (entry: string) => string;
+}
+
+/**
+ * The list's one menu, aimed at whichever row opened it.
+ *
+ * Copy path is the address of ADR-0027 as a person reads it: the object's path and the
+ * property path joined on a colon, and the object's path alone for an object row.
+ */
+export function BinContextMenu({ line, objectName }: BinContextMenuProps) {
+  const copy = useCopyToClipboard();
+
+  if (line?.kind !== "row") return null;
+  const { row } = line;
+  const path = row.node === "object" ? row.name : `${objectName(row.entry)}:${row.label}`;
+  const valueHash = unnamedValueHash(row.value);
+
+  return (
+    <ContextMenu.Portal>
+      <ContextMenu.Positioner>
+        <ContextMenu.Popup className="w-56">
+          <ContextMenu.Item
+            icon={<PathIcon />}
+            onClick={() => void copy(path, m.workshop_bin_path_label())}
+          >
+            {m.workshop_bin_copy_path_action()}
+          </ContextMenu.Item>
+          {row.unnamed && (
+            <ContextMenu.Item
+              icon={<HashIcon />}
+              onClick={() => void copy(row.name, m.workshop_bin_hash_label())}
+            >
+              {m.workshop_bin_copy_hash_action()}
+            </ContextMenu.Item>
+          )}
+          {valueHash !== null && (
+            <ContextMenu.Item
+              icon={<HashIcon />}
+              onClick={() => void copy(valueHash, m.workshop_bin_hash_label())}
+            >
+              {m.workshop_bin_copy_value_hash_action()}
+            </ContextMenu.Item>
+          )}
+        </ContextMenu.Popup>
+      </ContextMenu.Positioner>
+    </ContextMenu.Portal>
+  );
+}
+
+/** The hash a value shows in place of a name, or null where a table named it. */
+function unnamedValueHash(value: BinValue): string | null {
+  switch (value.type) {
+    case "hash":
+    case "objectLink":
+      return value.name === null ? value.hash : null;
+    case "wadChunkLink":
+      return value.path === null ? value.hash : null;
+    case "struct":
+      return value.class === null ? value.classHash : null;
+    default:
+      return null;
+  }
+}

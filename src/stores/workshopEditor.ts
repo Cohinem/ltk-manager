@@ -31,6 +31,15 @@ export interface RevealRequest {
   readonly token: number;
 }
 
+/** The palette's request that one open bin scroll to an object it declares. */
+export interface ObjectRevealRequest {
+  readonly documentId: string;
+  /** `0x` and eight hex digits. */
+  readonly objectHash: string;
+  /** Bumped per request. A second request for the same object is a second scroll. */
+  readonly token: number;
+}
+
 /**
  * One stop on the shell's navigation history.
  *
@@ -90,6 +99,8 @@ export interface ProjectEditor {
   collapsed: Record<string, ReadonlySet<string>>;
   /** The pending scroll request, which at most one layer's tree answers. */
   reveal: RevealRequest | null;
+  /** The pending object request, which at most one open bin answers. */
+  revealObject: ObjectRevealRequest | null;
 }
 
 interface WorkshopEditorStore {
@@ -144,6 +155,9 @@ interface WorkshopEditorStore {
   selectLayer: (projectPath: string, layerName: string) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
   reveal: (projectPath: string, layerName: string, path: string) => void;
+  revealObject: (projectPath: string, documentId: string, objectHash: string) => void;
+  /** Drops the object request with `token`. A settled request reaches no later open. */
+  settleObjectReveal: (projectPath: string, token: number) => void;
   /** Follows a project whose path changed, so a rename keeps its editor. */
   moveProject: (fromPath: string, toPath: string) => void;
   /** Drops a deleted project, which would otherwise sit in storage forever. */
@@ -163,6 +177,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   dirty: new Set(),
   collapsed: {},
   reveal: null,
+  revealObject: null,
 };
 
 /** The collapsed-set of a layer nobody has shut a directory in. */
@@ -685,6 +700,27 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           ...editor,
           reveal: { layerName, path, token: (editor.reveal?.token ?? 0) + 1 },
         })) ?? state,
+    ),
+
+  revealObject: (projectPath, documentId, objectHash) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => ({
+          ...editor,
+          revealObject: {
+            documentId,
+            objectHash,
+            token: (editor.revealObject?.token ?? 0) + 1,
+          },
+        })) ?? state,
+    ),
+
+  settleObjectReveal: (projectPath, token) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) =>
+          editor.revealObject?.token === token ? { ...editor, revealObject: null } : editor,
+        ) ?? state,
     ),
 
   moveProject: (fromPath, toPath) =>

@@ -301,7 +301,7 @@ impl Address {
 ///
 /// `Leaf` is non-exhaustive (W22), and a kind this build does not know renders
 /// as `?`, the same as a key that does not decode.
-fn write_key(out: &mut String, leaf: Option<Leaf<'_>>) {
+pub(crate) fn write_key(out: &mut String, leaf: Option<Leaf<'_>>) {
     let _ = match leaf {
         None => out.write_str("?"),
         Some(Leaf::None) => Ok(()),
@@ -344,7 +344,7 @@ fn write_tuple<T: std::fmt::Display>(out: &mut String, items: &[T]) -> std::fmt:
 }
 
 /// A JSON string literal, which is how the toolkit writes a string key.
-fn write_json_string(out: &mut String, text: &str) {
+pub(crate) fn write_json_string(out: &mut String, text: &str) {
     let _ = write!(out, "{}", serde_json::Value::String(text.to_owned()));
 }
 

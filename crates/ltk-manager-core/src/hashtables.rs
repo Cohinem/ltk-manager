@@ -829,15 +829,7 @@ impl BinHashTables {
     /// One batch rather than one [`entry`](Self::entry) per hash, because the
     /// table resolves a batch in arena order and decompresses each frame once.
     pub fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
-        let Some(db) = self.entries.as_ref() else {
-            return;
-        };
-        let keys: Vec<u64> = hashes.iter().map(|hash| u64::from(hash.0)).collect();
-        for (at, (_, path)) in db.get_batch(&keys).enumerate() {
-            if let Some(path) = path {
-                visit(at, path.as_str());
-            }
-        }
+        Self::for_each_in(self.entries.as_ref(), hashes, visit);
     }
 
     /// The name of a class, out of `bintypes`.
@@ -846,16 +838,44 @@ impl BinHashTables {
         Self::read(self.types.as_ref(), hash)
     }
 
+    /// Visit the name of every class in `hashes` the table names, with its index.
+    pub fn for_each_class(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        Self::for_each_in(self.types.as_ref(), hashes, visit);
+    }
+
     /// The name of a property, out of `binfields`.
     #[must_use]
     pub fn field(&self, hash: BinHash) -> Option<String> {
         Self::read(self.fields.as_ref(), hash)
     }
 
+    /// Visit the name of every property in `hashes` the table names, with its index.
+    pub fn for_each_field(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        Self::for_each_in(self.fields.as_ref(), hashes, visit);
+    }
+
     /// The string behind a `Hash` value, out of `binhashes`.
     #[must_use]
     pub fn value(&self, hash: BinHash) -> Option<String> {
         Self::read(self.hashes.as_ref(), hash)
+    }
+
+    /// Visit the string behind every `Hash` value in `hashes` the table names, with its index.
+    pub fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        Self::for_each_in(self.hashes.as_ref(), hashes, visit);
+    }
+
+    /// One batch over `db`, in arena order. Each frame decompresses once.
+    fn for_each_in(db: Option<&HashDb>, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        let Some(db) = db else {
+            return;
+        };
+        let keys: Vec<u64> = hashes.iter().map(|hash| u64::from(hash.0)).collect();
+        for (at, (_, path)) in db.get_batch(&keys).enumerate() {
+            if let Some(path) = path {
+                visit(at, path.as_str());
+            }
+        }
     }
 
     /// Owned, because a [`PathRef`] holds the frame it was read out of open,
@@ -1016,6 +1036,49 @@ impl WadPathResolverState {
         match self.0.lock() {
             Ok(mut slot) => *slot = None,
             Err(_) => tracing::warn!("Hashtable handle lock poisoned, keeping the open tables"),
+        }
+    }
+}
+
+/// Lazily-opened, app-managed [`BinHashTables`] over the shared cache.
+///
+/// The bin viewer names rows out of these on every expansion. Opening the four tables
+/// maps four files and parses their seek tables. A sync writes new files under new
+/// names and ends with [`invalidate`](Self::invalidate).
+#[derive(Debug, Default)]
+pub struct BinHashTablesState(Mutex<Option<Arc<BinHashTables>>>);
+
+impl BinHashTablesState {
+    /// The tables, opened on the first call.
+    ///
+    /// A machine with no cache directory names nothing. Every hash then draws as hex.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked.
+    pub fn get(&self) -> AppResult<Arc<BinHashTables>> {
+        let mut slot = self.0.lock().mutex_err()?;
+        if let Some(tables) = slot.as_ref() {
+            return Ok(Arc::clone(tables));
+        }
+
+        let tables = match HashtableCache::shared() {
+            Ok(cache) => cache.bin_tables(),
+            Err(e) => {
+                tracing::warn!("No hashtable cache to name bin rows with: {e}");
+                BinHashTables::default()
+            }
+        };
+        let tables = Arc::new(tables);
+        *slot = Some(Arc::clone(&tables));
+        Ok(tables)
+    }
+
+    /// Drop the open tables. The next caller opens what a sync wrote.
+    pub fn invalidate(&self) {
+        match self.0.lock() {
+            Ok(mut slot) => *slot = None,
+            Err(_) => tracing::warn!("Bin table handle lock poisoned, keeping the open tables"),
         }
     }
 }

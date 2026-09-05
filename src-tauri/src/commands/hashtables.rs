@@ -7,8 +7,8 @@ use crate::mods::ModLibraryState;
 use crate::state::SettingsState;
 use ltk_manager_core::game_index::GameIndexState;
 use ltk_manager_core::hashtables::{
-    HashtableCache, HashtableCacheStatus, HashtableSyncReport, HashtableUpdateCheck,
-    WadPathResolverState,
+    BinHashTablesState, HashtableCache, HashtableCacheStatus, HashtableSyncReport,
+    HashtableUpdateCheck, WadPathResolverState,
 };
 use ltk_manager_core::meta_schema::{
     self,
@@ -124,6 +124,7 @@ fn sync_meta_schema() -> bool {
 pub fn reopen_after_sync(app: &AppHandle) {
     app.state::<std::sync::Arc<WadPathResolverState>>()
         .invalidate();
+    app.state::<BinHashTablesState>().invalidate();
     app.state::<StringKeyIndexState>().clear();
     if let Err(e) = app.state::<GameIndexState>().clear() {
         tracing::warn!("Could not drop the game index after a hashtable sync: {e}");

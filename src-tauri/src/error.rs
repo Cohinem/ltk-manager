@@ -10,6 +10,7 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use ltk_manager_core::bin_document::BinDocumentError;
 pub use ltk_manager_core::error::{
     AppError, AppResult, MutexResultExt, OverlayErrorCategory, Utf8PathExt,
 };
@@ -87,6 +88,12 @@ pub enum AppErrorResponse {
     Hashtable { detail: String },
     /// An asset could not be previewed.
     Preview { detail: String },
+    /// The bytes are not a bin the toolkit reads.
+    BinUnreadable { detail: String },
+    /// No open bin document has the id. A close and an eviction both remove one.
+    BinNotOpen,
+    /// No node of the open bin has the address.
+    BinNodeNotFound { address: String },
     /// An overlay build or analysis failed.
     ///
     /// One code with a category, not one per category: `ltk_overlay::Error`
@@ -247,6 +254,13 @@ impl From<AppError> for AppErrorResponse {
             AppError::Preview(e) => Self::Preview {
                 detail: e.to_string(),
             },
+            AppError::BinDocument(BinDocumentError::Unreadable(e)) => Self::BinUnreadable {
+                detail: e.to_string(),
+            },
+            AppError::BinDocument(BinDocumentError::NotOpen(_)) => Self::BinNotOpen,
+            AppError::BinDocument(BinDocumentError::NodeNotFound { address }) => {
+                Self::BinNodeNotFound { address }
+            }
             AppError::Overlay(e) => Self::Overlay {
                 category: OverlayErrorCategory::from(&e),
                 detail: e.to_string(),

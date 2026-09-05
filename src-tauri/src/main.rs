@@ -212,6 +212,10 @@ fn main() {
             commands::drop_object_index,
             commands::search_object_index,
             commands::declared_objects,
+            // Bin viewer
+            commands::bin_open,
+            commands::bin_children,
+            commands::bin_close,
             // Extract to disk
             commands::plan_game_extract,
             commands::extract_game_files,

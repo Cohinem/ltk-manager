@@ -107,6 +107,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(crate::commands::ObjectIndexState::default());
     app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
     app.manage(ltk_manager_core::problems::ProblemsState::default());
+    app.manage(ltk_manager_core::bin_document::BinDocuments::default());
+    app.manage(ltk_manager_core::hashtables::BinHashTablesState::default());
     app.manage(crate::commands::ExtractState::default());
     app.manage(mod_library);
     app.manage(workshop);
