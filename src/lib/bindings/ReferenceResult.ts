@@ -6,7 +6,7 @@ import type { ReferenceGroup } from "./ReferenceGroup";
  */
 export type ReferenceResult = { 
 /**
- * The declaring files in archive order, holding [`FIND_LIMIT`] objects in all.
+ * The declaring files in archive order, holding at most `FIND_LIMIT` objects in all.
  */
 groups: Array<ReferenceGroup>, 
 /**

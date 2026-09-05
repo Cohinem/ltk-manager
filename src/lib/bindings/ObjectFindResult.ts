@@ -6,7 +6,7 @@ import type { ObjectFindHit } from "./ObjectFindHit";
  */
 export type ObjectFindResult = { 
 /**
- * Every matching object in path order, capped at [`FIND_LIMIT`], the unnamed last.
+ * Every matching object in path order, capped at `FIND_LIMIT`, the unnamed last.
  */
 hits: Array<ObjectFindHit>, 
 /**

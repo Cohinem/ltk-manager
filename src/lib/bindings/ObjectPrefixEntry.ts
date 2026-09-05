@@ -7,7 +7,7 @@
  */
 export type ObjectPrefixEntry = { 
 /**
- * What [`ObjectIndex::object_dir`] takes to open this row: the folded node's path.
+ * What `ObjectIndex::object_dir` takes to open this row: the folded node's path.
  */
 path: string, 
 /**
