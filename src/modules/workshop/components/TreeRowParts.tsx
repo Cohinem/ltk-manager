@@ -47,11 +47,16 @@ interface FolderGlyphProps {
   isExpanded: boolean;
 }
 
-/** A directory row's glyph: dashed for the unnamed group, open in the accent. */
+/* DS-KIND-HUE */
+const FOLDER_CLASSES = "h-3.5 w-3.5 shrink-0 text-folder-text";
+
+/** A directory row's filled folder, dashed and dimmed for the unnamed group. */
 export function FolderGlyph({ unknown, isExpanded }: FolderGlyphProps) {
-  if (unknown) return <FolderDashedIcon className="h-3.5 w-3.5 shrink-0 text-surface-500" />;
-  if (isExpanded) return <FolderOpenIcon className="h-3.5 w-3.5 shrink-0 text-accent-400" />;
-  return <FolderIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />;
+  if (unknown) {
+    return <FolderDashedIcon weight="fill" className={twMerge(FOLDER_CLASSES, "opacity-60")} />;
+  }
+  if (isExpanded) return <FolderOpenIcon weight="fill" className={FOLDER_CLASSES} />;
+  return <FolderIcon weight="fill" className={FOLDER_CLASSES} />;
 }
 
 interface TreeLoadingRowProps {
