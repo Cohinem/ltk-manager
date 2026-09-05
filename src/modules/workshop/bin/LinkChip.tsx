@@ -3,12 +3,17 @@ import { twMerge } from "tailwind-merge";
 
 import { Code, Popover } from "@/components";
 import { m } from "@/i18n";
-import type { DeclaredObject } from "@/lib/tauri";
+import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 
 import { declaringFileContext } from "../documents/contentDocument";
+import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { OpenIntent } from "../palette/types";
+import { useAssetInfo } from "../preview/useAssetInfo";
 import { clickIntent, useOpenDocumentAs } from "../state";
+import { fileLinkMark } from "./fileLinkMark";
+import { KindBadge } from "./KindBadge";
 import { decideFileLink, decideHash, decideObjectLink } from "./linkDecision";
+import { TextureSwatch } from "./TextureSwatch";
 import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
 /** Hover for this long opens the card, the tooltip delay. */
@@ -72,6 +77,8 @@ interface FileChipProps {
 /**
  * A `file` link as a chip that opens the chunk's preview, carrying the side that
  * answered: the layer's title, or the archive's name.
+ *
+ * A texture carries its swatch after the chip, and any other kind its badge.
  */
 export function FileChip({ hash, path }: FileChipProps) {
   const targets = useLinkTargets();
@@ -81,14 +88,43 @@ export function FileChip({ hash, path }: FileChipProps) {
 
   if (path === null) return <Hex>{hash}</Hex>;
   if (decision.kind !== "chip") return <Text mono>{path}</Text>;
+  const { document } = decision;
+  const onOpen = (intent: OpenIntent) => open(document, intent);
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LinkChip label={path} mono onOpen={(intent) => open(decision.document, intent)} />
+      <LinkChip label={path} mono onOpen={onOpen} />
+      <FileMark asset={document.asset} path={path} layerTitle={layer?.title} onOpen={onOpen} />
       {decision.side !== undefined && (
         <span className="shrink-0 text-meta text-surface-400">{decision.side}</span>
       )}
     </span>
+  );
+}
+
+interface FileMarkProps {
+  asset: AssetRef;
+  path: string;
+  layerTitle?: string;
+  onOpen: (intent: OpenIntent) => void;
+}
+
+/** The swatch or the badge after a `file` chip. The bytes are asked for a name with no extension. */
+function FileMark({ asset, path, layerTitle, onOpen }: FileMarkProps) {
+  const named = fileKindFromPath(path);
+  const sniffed = useAssetInfo(asset, named === "unknown");
+  const mark = fileLinkMark(named, sniffed.isError ? null : sniffed.data);
+
+  if (mark.kind === "pending") return null;
+  if (mark.kind === "badge") return <KindBadge fileKind={mark.fileKind} />;
+  return (
+    <TextureSwatch
+      asset={asset}
+      path={path}
+      fileKind={named}
+      layerTitle={layerTitle}
+      onOpen={onOpen}
+    />
   );
 }
 

@@ -6,6 +6,7 @@
 //! result would arrive as base64 for the frontend to reassemble by hand.
 
 use std::io;
+use std::num::NonZeroU32;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -24,6 +25,10 @@ use crate::state::SettingsState;
 /// `convertFileSrc(token, "ltk-asset")` writes for the caller.
 pub const SCHEME: &str = "ltk-asset";
 
+/// The query parameter naming the width a thumbnail or a swatch draws at, per
+/// "Thumbnails" in docs/ux/PROJECT_EDITOR.md.
+const WIDTH_PARAMETER: &str = "w";
+
 /// Answer one preview request.
 ///
 /// The path is a base64url [`AssetRef`], unpadded. That alphabet survives
@@ -37,12 +42,17 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
     };
 
+    let min_width = match requested_width(request.uri().query()) {
+        Ok(min_width) => min_width,
+        Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
+    };
+
     let config = match app.state::<SettingsState>().config() {
         Ok(config) => config,
         Err(e) => return message_response(status_for(&e), &e.to_string()),
     };
 
-    match asset.preview(&config, &app.state::<WadCache>()) {
+    match asset.preview(min_width, &config, &app.state::<WadCache>()) {
         Ok(Preview::Image(image)) => image_response(image),
         Err(e) => {
             tracing::debug!("No preview for {asset:?}: {e}");
@@ -57,6 +67,27 @@ fn decode(token: &str) -> Result<AssetRef, String> {
         .decode(token)
         .map_err(|e| format!("Not a base64url asset token: {e}"))?;
     serde_json::from_slice(&json).map_err(|e| format!("Not an asset reference: {e}"))
+}
+
+/// The `w` a query carries, and none for a query without one.
+///
+/// Any other parameter passes unread.
+fn requested_width(query: Option<&str>) -> Result<Option<NonZeroU32>, String> {
+    let Some(query) = query else {
+        return Ok(None);
+    };
+    let Some(value) = query
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .find_map(|(key, value)| (key == WIDTH_PARAMETER).then_some(value))
+    else {
+        return Ok(None);
+    };
+
+    value
+        .parse::<NonZeroU32>()
+        .map(Some)
+        .map_err(|_| format!("Not a width: {WIDTH_PARAMETER}={value}"))
 }
 
 /// The status that tells a caller what went wrong.
@@ -140,6 +171,26 @@ mod tests {
                 path: "assets/characters/smolder/hud/icon.tex".to_owned(),
             }
         );
+    }
+
+    #[test]
+    fn a_width_is_read_off_the_query_and_nothing_else_is() {
+        assert_eq!(requested_width(None), Ok(None));
+        assert_eq!(requested_width(Some("")), Ok(None));
+        assert_eq!(requested_width(Some("w=128")), Ok(NonZeroU32::new(128)));
+        assert_eq!(
+            requested_width(Some("a=1&w=64&b=2")),
+            Ok(NonZeroU32::new(64))
+        );
+        assert_eq!(requested_width(Some("width=64")), Ok(None));
+    }
+
+    #[test]
+    fn a_width_that_is_not_a_positive_number_is_rejected() {
+        assert!(requested_width(Some("w=0")).is_err());
+        assert!(requested_width(Some("w=-1")).is_err());
+        assert!(requested_width(Some("w=wide")).is_err());
+        assert!(requested_width(Some("w=")).is_err());
     }
 
     #[test]

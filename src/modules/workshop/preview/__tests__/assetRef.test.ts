@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type { AssetRef } from "@/lib/tauri";
 
-import { assetContext, assetKey, assetName, assetPath } from "../assetRef";
+import {
+  assetArchive,
+  assetContext,
+  assetKey,
+  assetName,
+  assetPath,
+  previewUrl,
+} from "../assetRef";
 
 const LAYER: AssetRef = {
   kind: "layer",
@@ -55,6 +62,27 @@ describe("assetKey", () => {
   /* The key is a document id, so a resolved name must never change it. */
   it("keys a chunk on its archive and hash", () => {
     expect(assetKey(CHUNK)).toBe("game:Champions/Aatrox.wad.client:0123456789abcdef");
+  });
+});
+
+describe("previewUrl", () => {
+  it("carries the reference as one URL-safe token, and no query without a width", () => {
+    const url = previewUrl(CHUNK);
+
+    expect(url).toMatch(/^http:\/\/ltk-asset\.localhost\/[A-Za-z0-9_-]+$/);
+    expect(url).not.toContain("?");
+  });
+
+  it("asks for a width on the query", () => {
+    expect(previewUrl(CHUNK, 32)).toBe(`${previewUrl(CHUNK)}?w=32`);
+  });
+});
+
+describe("assetArchive", () => {
+  it("is the archive of a chunk and nothing for a file that mounts none", () => {
+    expect(assetArchive(CHUNK)).toBe("Champions/Aatrox.wad.client");
+    expect(assetArchive(LAYER)).toBeNull();
+    expect(assetArchive({ kind: "file", path: "C:/downloads/loose.dds" })).toBeNull();
   });
 });
 

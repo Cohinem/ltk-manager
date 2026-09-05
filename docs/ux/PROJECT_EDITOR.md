@@ -63,7 +63,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Explorer bar           | Proposed    | The location, the breadcrumb and the view controls, one row        |
 | Breadcrumb navigator   | Proposed    | Crumbs with sibling menus, and `Ctrl+L` for a typed path           |
 | Grid view              | Proposed    | One directory as tiles, in any of the three explorers              |
-| Asset thumbnails       | Proposed    | A small mipmap over `ltk-asset`, at the tile's own width           |
+| Asset thumbnails       | Proposed    | `?w=` and the queue serve the bin swatch. The tiles are unbuilt    |
 | Details list           | Proposed    | The third view. Name, size, kind, and modified where it is         |
 | Explorer sorting       | Proposed    | Name, size and kind, and the directories first                     |
 | Multi-select and copy  | Proposed    | One model under every view. A directory is its files               |

@@ -19,50 +19,59 @@ const DATA_TINT = "--surface-400";
 const UNKNOWN_TINT = "--surface-500";
 const BIN_TINT = "--ltk-riot-red";
 
-export const FILE_KIND_DESCRIPTORS = {
-  // Texture / image
-  png: { icon: Image, label: "PNG Image", tintToken: IMAGE_TINT },
-  jpeg: { icon: Image, label: "JPEG Image", tintToken: IMAGE_TINT },
-  tga: { icon: Image, label: "TGA Image", tintToken: IMAGE_TINT },
-  svg: { icon: Image, label: "SVG Image", tintToken: IMAGE_TINT },
-  texture: { icon: Image, label: "Riot Texture", tintToken: IMAGE_TINT },
-  texture_dds: { icon: Image, label: "DDS Texture", tintToken: IMAGE_TINT },
+type FileKindDescriptors = Record<WorkshopFileKind, FileKindDescriptor>;
 
-  // Mesh
-  simple_skin: { icon: Box, label: "Simple Skin Mesh", tintToken: STRUCTURE_TINT },
-  static_mesh_ascii: { icon: Box, label: "Static Mesh (ASCII)", tintToken: STRUCTURE_TINT },
-  static_mesh_binary: { icon: Box, label: "Static Mesh (Binary)", tintToken: STRUCTURE_TINT },
-  map_geometry: { icon: Box, label: "Map Geometry", tintToken: STRUCTURE_TINT },
-  world_geometry: { icon: Box, label: "World Geometry", tintToken: STRUCTURE_TINT },
+let descriptors: FileKindDescriptors | null = null;
 
-  // Animation / rig
-  animation: { icon: PersonStanding, label: "Animation", tintToken: STRUCTURE_TINT },
-  skeleton: { icon: PersonStanding, label: "Skeleton", tintToken: STRUCTURE_TINT },
+/* Built on the first read rather than at load. The bin mark comes through the
+   components barrel, which a chain of imports brings back here mid-evaluation. */
+function fileKindDescriptors(): FileKindDescriptors {
+  descriptors ??= {
+    // Texture / image
+    png: { icon: Image, label: "PNG Image", tintToken: IMAGE_TINT },
+    jpeg: { icon: Image, label: "JPEG Image", tintToken: IMAGE_TINT },
+    tga: { icon: Image, label: "TGA Image", tintToken: IMAGE_TINT },
+    svg: { icon: Image, label: "SVG Image", tintToken: IMAGE_TINT },
+    texture: { icon: Image, label: "Riot Texture", tintToken: IMAGE_TINT },
+    texture_dds: { icon: Image, label: "DDS Texture", tintToken: IMAGE_TINT },
 
-  // Property data
-  property_bin: { icon: HextechDrakeDuotoneIcon, label: "Property Bin", tintToken: BIN_TINT },
-  property_bin_override: {
-    icon: HextechDrakeDuotoneIcon,
-    label: "Property Bin Override",
-    tintToken: BIN_TINT,
-  },
-  preload: { icon: FileCode2, label: "Preload", tintToken: DATA_TINT },
+    // Mesh
+    simple_skin: { icon: Box, label: "Simple Skin Mesh", tintToken: STRUCTURE_TINT },
+    static_mesh_ascii: { icon: Box, label: "Static Mesh (ASCII)", tintToken: STRUCTURE_TINT },
+    static_mesh_binary: { icon: Box, label: "Static Mesh (Binary)", tintToken: STRUCTURE_TINT },
+    map_geometry: { icon: Box, label: "Map Geometry", tintToken: STRUCTURE_TINT },
+    world_geometry: { icon: Box, label: "World Geometry", tintToken: STRUCTURE_TINT },
 
-  // Text / strings
-  riot_string_table: { icon: FileText, label: "Riot String Table", tintToken: DATA_TINT },
-  lua_obj: { icon: FileText, label: "Compiled Lua", tintToken: DATA_TINT },
+    // Animation / rig
+    animation: { icon: PersonStanding, label: "Animation", tintToken: STRUCTURE_TINT },
+    skeleton: { icon: PersonStanding, label: "Skeleton", tintToken: STRUCTURE_TINT },
 
-  // Audio
-  wwise_bank: { icon: Volume2, label: "Wwise Bank", tintToken: STRUCTURE_TINT },
-  wwise_package: { icon: Volume2, label: "Wwise Package", tintToken: STRUCTURE_TINT },
+    // Property data
+    property_bin: { icon: HextechDrakeDuotoneIcon, label: "Property Bin", tintToken: BIN_TINT },
+    property_bin_override: {
+      icon: HextechDrakeDuotoneIcon,
+      label: "Property Bin Override",
+      tintToken: BIN_TINT,
+    },
+    preload: { icon: FileCode2, label: "Preload", tintToken: DATA_TINT },
 
-  // Light data
-  light_grid: { icon: Sun, label: "Light Grid", tintToken: STRUCTURE_TINT },
+    // Text / strings
+    riot_string_table: { icon: FileText, label: "Riot String Table", tintToken: DATA_TINT },
+    lua_obj: { icon: FileText, label: "Compiled Lua", tintToken: DATA_TINT },
 
-  // Fallback
-  unknown: { icon: File, label: "Unknown file", tintToken: UNKNOWN_TINT },
-} as const satisfies Record<WorkshopFileKind, FileKindDescriptor>;
+    // Audio
+    wwise_bank: { icon: Volume2, label: "Wwise Bank", tintToken: STRUCTURE_TINT },
+    wwise_package: { icon: Volume2, label: "Wwise Package", tintToken: STRUCTURE_TINT },
+
+    // Light data
+    light_grid: { icon: Sun, label: "Light Grid", tintToken: STRUCTURE_TINT },
+
+    // Fallback
+    unknown: { icon: File, label: "Unknown file", tintToken: UNKNOWN_TINT },
+  };
+  return descriptors;
+}
 
 export function describeFileKind(kind: WorkshopFileKind): FileKindDescriptor {
-  return FILE_KIND_DESCRIPTORS[kind];
+  return fileKindDescriptors()[kind];
 }

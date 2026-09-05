@@ -14,6 +14,7 @@ import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
 import { useWarmObjectIndex } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
+import { stirImages } from "../preview/useImageSlot";
 import { useOpenDocumentAs } from "../state";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
@@ -219,6 +220,7 @@ export function BinTree({
               aria-label={label}
               className="min-h-0 flex-1 overflow-auto px-1 py-1 outline-none scrollbar-md select-none"
               onContextMenu={handleContextMenu}
+              onScroll={stirImages}
               {...NO_OVERSCROLL}
             >
               <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>

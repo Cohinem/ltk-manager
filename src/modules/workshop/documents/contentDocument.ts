@@ -154,7 +154,10 @@ export function previewDocumentId(asset: AssetRef): string {
  * reference itself cannot carry. Layer and loose-file references already hold
  * their path, so those callers pass nothing.
  */
-export function previewDocument(asset: AssetRef, resolvedPath?: string): ContentDocument {
+export function previewDocument(
+  asset: AssetRef,
+  resolvedPath?: string,
+): ContentDocumentOf<"preview"> {
   return {
     id: previewDocumentId(asset),
     kind: "preview",

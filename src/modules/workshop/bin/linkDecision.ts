@@ -2,6 +2,7 @@ import type { AssetRef, BinValue } from "@/lib/tauri";
 
 import {
   type ContentDocument,
+  type ContentDocumentOf,
   objectDocument,
   previewDocument,
 } from "../documents/contentDocument";
@@ -29,6 +30,15 @@ export type LinkDecision =
       readonly kind: "text";
     };
 
+/** A `file` link's decision, whose chip opens a preview. */
+export type FileLinkDecision =
+  | Exclude<LinkDecision, { kind: "chip" }>
+  | {
+      readonly kind: "chip";
+      readonly document: ContentDocumentOf<"preview">;
+      readonly side?: string;
+    };
+
 /** The copy of a chunk path a layer holds, for the layer side of a `file` link. */
 export interface LayerCopy {
   readonly asset: AssetRef;
@@ -36,9 +46,9 @@ export interface LayerCopy {
   readonly title: string;
 }
 
-const TEXT: LinkDecision = { kind: "text" };
-const WARM: LinkDecision = { kind: "warm" };
-const PENDING: LinkDecision = { kind: "pending" };
+const TEXT = { kind: "text" } as const satisfies LinkDecision;
+const WARM = { kind: "warm" } as const satisfies LinkDecision;
+const PENDING = { kind: "pending" } as const satisfies LinkDecision;
 
 /**
  * What an `ObjectLink` draws as.
@@ -84,7 +94,7 @@ export function decideFileLink(
   path: string | null,
   targets: LinkTargets,
   layer: LayerCopy | null,
-): LinkDecision {
+): FileLinkDecision {
   if (path === null) return TEXT;
   if (layer) {
     return { kind: "chip", document: previewDocument(layer.asset, path), side: layer.title };

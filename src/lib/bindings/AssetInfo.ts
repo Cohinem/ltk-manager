@@ -5,4 +5,4 @@ import type { WorkshopFileKind } from "./WorkshopFileKind";
 /**
  * What an asset holds, for a viewer that reports it beside the preview.
  */
-export type AssetInfo = { "kind": "texture" } & TextureInfo | { "kind": "image", width: number, height: number, sizeBytes: bigint, } | { "kind": "unsupported", fileKind: WorkshopFileKind, };
+export type AssetInfo = { "kind": "texture" } & TextureInfo | { "kind": "image", width: number, height: number, sizeBytes: bigint, fileKind: WorkshopFileKind, } | { "kind": "unsupported", fileKind: WorkshopFileKind, };
