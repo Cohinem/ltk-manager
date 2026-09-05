@@ -151,7 +151,7 @@ function Caret({ expandable, expanded, loading }: CaretProps) {
   );
 }
 
-/** The row's name, and its tag at the cell's trailing edge. "The property row" in docs/ux/BIN_EDITOR.md. */
+/** The row's name, and its tag after it. "The property row" in docs/ux/BIN_EDITOR.md. */
 function NameCell({ line }: { line: RowLine }) {
   const { row, owner } = line;
   const object = row.node === "object";
@@ -195,7 +195,7 @@ function KindTag({ row }: { row: BinRow }) {
   const mismatch = row.declared !== null && row.declared.mismatch;
 
   return (
-    <span className="ml-auto flex shrink-0 items-center gap-1 pl-2">
+    <span className="flex shrink-0 items-center gap-1">
       {mismatch && (
         <span role="img" aria-label={m.workshop_bin_mismatch_label()} className="flex">
           <SeverityGlyph severity="warning" />

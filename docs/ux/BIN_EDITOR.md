@@ -422,8 +422,8 @@ takes the rest. A run of rows reads as a column of values rather than a ragged l
 ```
 
 **The tag is the row's kind, in ritobin's words.** Every row but the object row carries one.
-It sits right-aligned at the name cell's edge, dim and mono, and the values keep one column. An
-element row carries its item's kind. A container composes its shape the way the meta wiki
+It sits after the name, the way a type follows a name in code, dim and mono, and the values
+keep one column. An element row carries its item's kind. A container composes its shape the way the meta wiki
 writes it: `list[embed]`, `map[hash,string]`, `option[f32]`.
 
 | Kind in `ltk_meta`                | Tag                      |
