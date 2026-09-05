@@ -1,6 +1,7 @@
 export {
   type ContentDocument,
   type ContentDocumentOf,
+  declaringFileContext,
   DETAILS_DOCUMENT_ID,
   detailsDocument,
   documentLayerName,
@@ -11,6 +12,9 @@ export {
   gameWadDocument,
   gameWadsDocument,
   layerTitle,
+  objectDocument,
+  objectDocumentId,
+  objectTitle,
   previewDocument,
   previewDocumentId,
   PROBLEMS_DOCUMENT_ID,

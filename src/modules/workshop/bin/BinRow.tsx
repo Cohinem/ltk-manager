@@ -1,11 +1,18 @@
-import { CaretRightIcon, CubeIcon, SpinnerGapIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { type ReactNode, useState } from "react";
+import {
+  ArrowSquareOutIcon,
+  CaretRightIcon,
+  CubeIcon,
+  SpinnerGapIcon,
+  WarningCircleIcon,
+} from "@phosphor-icons/react";
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { SeverityGlyph, Switch, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue } from "@/lib/tauri";
 
+import type { OpenIntent } from "../palette/types";
 import { canExpand, fieldHash, type RowLine, type VisibleRow } from "./binRows";
 import { ClassCard } from "./ClassCard";
 import { DeclaredLine, FieldCard } from "./FieldCard";
@@ -30,10 +37,12 @@ interface RowLineProps {
   /** The fetch of the rows under this one failed. */
   error?: AppError;
   onToggle: (key: string) => void;
+  /** Open the object an object row declares. Absent where no row is an object. */
+  onOpenObject?: (row: BinRow, intent: OpenIntent) => void;
 }
 
 /** One node of the bin: its name, its kind as a tag, and its value. */
-export function BinRowLine({ line, focused, error, onToggle }: RowLineProps) {
+export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: RowLineProps) {
   const { row, depth, expanded, loading } = line;
   const expandable = canExpand(row);
 
@@ -60,7 +69,31 @@ export function BinRowLine({ line, focused, error, onToggle }: RowLineProps) {
           <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-warning-text" />
         </Tooltip>
       )}
+      {row.node === "object" && onOpenObject && (
+        <OpenObjectAction onOpen={(intent) => onOpenObject(row, intent)} />
+      )}
     </div>
+  );
+}
+
+/** The object row's hover action, opening its object tab. `Ctrl+click` opens it beside. */
+function OpenObjectAction({ onOpen }: { onOpen: (intent: OpenIntent) => void }) {
+  const label = m.workshop_bin_open_object_action();
+  return (
+    <Tooltip content={label}>
+      <button
+        type="button"
+        aria-label={label}
+        /* DS-VEIL, DS-RADIUS */
+        className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/row:opacity-100 hover:bg-surface-veil hover:text-surface-200 focus-visible:opacity-100"
+        onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
+          event.stopPropagation();
+          onOpen(event.ctrlKey || event.metaKey ? "beside" : "default");
+        }}
+      >
+        <ArrowSquareOutIcon weight="bold" className="h-3.5 w-3.5" />
+      </button>
+    </Tooltip>
   );
 }
 

@@ -1,10 +1,11 @@
-import { HashIcon, PathIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, HashIcon, PathIcon } from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
-import type { BinValue } from "@/lib/tauri";
+import type { BinRow, BinValue } from "@/lib/tauri";
 
+import type { OpenIntent } from "../palette/types";
 import type { VisibleRow } from "./binRows";
 
 interface BinContextMenuProps {
@@ -12,6 +13,8 @@ interface BinContextMenuProps {
   line: VisibleRow | null;
   /** The name of the object an entry hash addresses, for the path a row copies. */
   objectName: (entry: string) => string;
+  /** Open the object a row declares. Absent where no row is an object. */
+  onOpenObject?: (row: BinRow, intent: OpenIntent) => void;
 }
 
 /**
@@ -20,18 +23,36 @@ interface BinContextMenuProps {
  * Copy path is the address of ADR-0027 as a person reads it: the object's path and the
  * property path joined on a colon, and the object's path alone for an object row.
  */
-export function BinContextMenu({ line, objectName }: BinContextMenuProps) {
+export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMenuProps) {
   const copy = useCopyToClipboard();
 
   if (line?.kind !== "row") return null;
   const { row } = line;
-  const path = row.node === "object" ? row.name : `${objectName(row.entry)}:${row.label}`;
+  const object = row.node === "object";
+  const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
   const valueHash = unnamedValueHash(row.value);
 
   return (
     <ContextMenu.Portal>
       <ContextMenu.Positioner>
         <ContextMenu.Popup className="w-56">
+          {object && onOpenObject && (
+            <>
+              <ContextMenu.Item
+                icon={<ArrowSquareOutIcon />}
+                onClick={() => onOpenObject(row, "default")}
+              >
+                {m.workshop_bin_open_object_action()}
+              </ContextMenu.Item>
+              <ContextMenu.Item
+                icon={<ArrowSquareOutIcon />}
+                onClick={() => onOpenObject(row, "beside")}
+              >
+                {m.workshop_bin_open_object_beside_action()}
+              </ContextMenu.Item>
+              <ContextMenu.Separator />
+            </>
+          )}
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}

@@ -95,6 +95,7 @@ function toRow(hit: ObjectSearchHit): RankedRow {
         pathHash: hit.fileHash,
         path: hit.file,
         objectHash: hit.objectHash,
+        objectPath: hit.path,
       },
     },
     band: hit.band,

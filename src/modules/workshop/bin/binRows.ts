@@ -104,11 +104,13 @@ export type RowLine = Extract<VisibleRow, { kind: "row" }>;
  * The frontend keeps the expansion state and the backend answers one node's children at
  * a time (ADR-0026). A node expanded before its children answer draws as loading. A node
  * with more rows than answered draws a request for the rest under what it has.
+ * `rootOwner` is the class the roots are properties of, which an object tab's roots are.
  */
 export function flattenRows(
   roots: readonly BinRow[],
   expanded: ReadonlySet<string>,
   childrenOf: (key: string) => LoadedChildren | undefined,
+  rootOwner: string | null = null,
 ): VisibleRow[] {
   const out: VisibleRow[] = [];
 
@@ -143,7 +145,7 @@ export function flattenRows(
     }
   }
 
-  visit(roots, 0, null);
+  visit(roots, 0, rootOwner);
   return out;
 }
 

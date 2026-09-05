@@ -10,6 +10,7 @@ import { useProjectContext } from "../components/ProjectContext";
 import {
   filesDocument,
   layerTitle,
+  objectDocumentId,
   previewDocumentId,
   stringsDocument,
   useContentEditors,
@@ -161,18 +162,22 @@ function useProjectObjectCandidates(): readonly PaletteCandidate[] {
             path: `${object.class} · ${entry.relativePath}`,
             trailing,
             layerName: layer.name,
-            documentId: previewDocumentId({
-              kind: "layer",
-              project: project.path,
-              layer: layer.name,
-              path: entry.relativePath,
-            }),
+            documentId: objectDocumentId(
+              {
+                kind: "layer",
+                project: project.path,
+                layer: layer.name,
+                path: entry.relativePath,
+              },
+              object.objectHash,
+            ),
             icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
             target: {
               kind: "layerObject",
               layerName: layer.name,
               path: entry.relativePath,
               objectHash: object.objectHash,
+              objectPath: object.path,
             },
           });
         }),

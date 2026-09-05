@@ -16,6 +16,7 @@ import type {
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
+  DeclaredObjects,
   DecodedIncident,
   DiagnosticReport,
   EditModMetadataArgs,
@@ -284,7 +285,7 @@ export const api = {
   warmObjectIndex: () => invokeResult<void>("warm_object_index"),
   dropObjectIndex: () => invokeResult<void>("drop_object_index"),
   declaredObjects: (objectHashes: string[]) =>
-    invokeResult<string[]>("declared_objects", { objectHashes }),
+    invokeResult<DeclaredObjects>("declared_objects", { objectHashes }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
@@ -297,7 +298,8 @@ export const api = {
   cancelExtract: () => invokeResult<boolean>("cancel_extract"),
 
   // Bin viewer
-  binOpen: (asset: AssetRef) => invokeResult<BinDocumentHandle>("bin_open", { asset }),
+  binOpen: (asset: AssetRef, entry: string | null) =>
+    invokeResult<BinDocumentHandle>("bin_open", { asset, entry }),
   binChildren: (
     document: BinDocumentId,
     entry: string,

@@ -29,6 +29,7 @@ use crate::game_index::{GameIndex, SEARCH_LIMIT, SearchGeneration};
 use crate::game_wads::{GameArchives, chunk_head};
 use crate::hashtables::{BinHashTables, WadPathResolver};
 use crate::matcher::{EXACT_SCORE, Query, Range, letter_mask, mask_covers};
+use crate::preview::AssetRef;
 use crate::problems::names::hex;
 
 /// The magic a `PTCH` opens with, which the streaming reader refuses.
@@ -107,6 +108,34 @@ impl ObjectSearchResult {
             classes: Vec::new(),
         }
     }
+}
+
+/// One declaration of an object: the file that declares it and the class it carries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectDeclaration {
+    /// The declaring file, as an open reads it.
+    pub asset: AssetRef,
+    /// The declaring file's path, or its hash when no table names it.
+    pub file: String,
+    /// The class hash, as `0x` and eight hex digits.
+    pub class_hash: String,
+    /// The class's name, or its hash when no table names it.
+    pub class: String,
+}
+
+/// Every declaration of one object, with the path they share.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct DeclaredObject {
+    /// The object's path, or its hash when no table names it.
+    pub path: String,
+    /// In archive order, and in the game index's tree order within one archive.
+    pub declarations: Vec<ObjectDeclaration>,
 }
 
 /// What a build measured.
@@ -222,6 +251,8 @@ struct Declarations {
     rows: Vec<Row>,
     /// Every distinct object hash, sorted, for a lookup by hash.
     objects: Box<[BinHash]>,
+    /// Every index into `rows`, sorted by object and then by row, for the rows of one hash.
+    by_object: Box<[u32]>,
     files: Vec<DeclaringFile>,
     /// A declaring chunk's index in `files`, by its path hash.
     by_file: HashMap<WadHash, u32>,
@@ -352,6 +383,9 @@ impl ObjectIndex {
         objects.sort_unstable();
         objects.dedup();
         declared.objects = objects.into_boxed_slice();
+        let mut by_object: Vec<u32> = (0..declared.rows.len() as u32).collect();
+        by_object.sort_by_key(|&at| declared.rows[at as usize].object);
+        declared.by_object = by_object.into_boxed_slice();
 
         stats.elapsed = started.elapsed();
         tracing::info!(
@@ -447,6 +481,42 @@ impl ObjectIndex {
     #[must_use]
     pub fn declares(&self, object: BinHash) -> bool {
         self.declared.objects.binary_search(&object).is_ok()
+    }
+
+    /// Every declaration of `object` in archive order, or `None` where nothing declares it.
+    #[must_use]
+    pub fn declared(&self, object: BinHash) -> Option<DeclaredObject> {
+        let rows = self.declared.rows_of(object);
+        if rows.is_empty() {
+            return None;
+        }
+        Some(DeclaredObject {
+            path: self.object_name(object),
+            declarations: rows.iter().map(|at| self.declaration(*at)).collect(),
+        })
+    }
+
+    /// The row at `at` as a declaration on the wire.
+    fn declaration(&self, at: u32) -> ObjectDeclaration {
+        let row = &self.declared.rows[at as usize];
+        let (file, wad) = self.declared.file(row.file).map_or_else(
+            || (hex_name(row.file), String::new()),
+            |file| {
+                (
+                    self.file_name(file),
+                    self.declared.wads[file.wad as usize].clone(),
+                )
+            },
+        );
+        ObjectDeclaration {
+            asset: AssetRef::GameChunk {
+                wad,
+                path_hash: hex_name(row.file),
+            },
+            file,
+            class_hash: hex(row.class),
+            class: self.class_name(row.class),
+        }
     }
 
     /// The best rows of the index for one query, best first.
@@ -738,6 +808,14 @@ impl Declarations {
         self.by_file
             .get(&path_hash)
             .map(|&at| &self.files[at as usize])
+    }
+
+    /// The indices of every row declaring `object`, in row order.
+    fn rows_of(&self, object: BinHash) -> &[u32] {
+        let key = |at: &u32| self.rows[*at as usize].object;
+        let start = self.by_object.partition_point(|at| key(at) < object);
+        let end = start + self.by_object[start..].partition_point(|at| key(at) == object);
+        &self.by_object[start..end]
     }
 }
 

@@ -1,35 +1,18 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 
-import { ContextMenu, Popover, Spinner } from "@/components";
-import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
+import { Popover, Spinner } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentHandle, BinHeader } from "@/lib/tauri";
+import type { AssetRef, BinDocumentHandle, BinHeader, BinRow } from "@/lib/tauri";
 import { DocumentToolbar } from "@/modules/editor";
 
+import { objectDocument } from "../documents/contentDocument";
+import type { OpenIntent } from "../palette/types";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
 import { BinPreview } from "../preview/BinPreview";
-import { useObjectRevealRequest, useSettleObjectReveal } from "../state";
-import { BinContextMenu } from "./BinContextMenu";
-import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
-import {
-  flattenRows,
-  isUnder,
-  objectKey,
-  pagesWanted,
-  rowKey,
-  toggled,
-  type VisibleRow,
-} from "./binRows";
-import { type ChildrenRequest, useBinChildren, useBinDocument } from "./useBinDocument";
+import { useObjectRevealRequest, useOpenDocumentAs, useSettleObjectReveal } from "../state";
+import { objectKey, rowKey } from "./binRows";
+import { BinTree, type TreeReveal } from "./BinTree";
+import { useBinDocument } from "./useBinDocument";
 
 interface BinDocumentProps {
   /** The editor's id for the tab, which a reveal request names. */
@@ -45,9 +28,8 @@ interface BinDocumentProps {
 /**
  * A property bin as blocks over its parsed tree.
  *
- * The tree stays in the backend (ADR-0026). This holds the expansion state, a window of
- * rows, and asks for the rows under one node at a time. A file that does not parse
- * lands in the handoff pane, with the error and the VS Code action.
+ * One row per object at depth zero, each expanding to its properties. A file that does
+ * not parse lands in the handoff pane, with the error and the VS Code action.
  */
 export function BinDocument({ documentId, asset, name, active, actions }: BinDocumentProps) {
   const { state, reopen } = useBinDocument(asset);
@@ -78,6 +60,7 @@ export function BinDocument({ documentId, asset, name, active, actions }: BinDoc
   return (
     <OpenBin
       documentId={documentId}
+      asset={asset}
       name={name}
       handle={state.handle}
       active={active}
@@ -89,6 +72,7 @@ export function BinDocument({ documentId, asset, name, active, actions }: BinDoc
 
 interface OpenBinProps {
   documentId: string;
+  asset: AssetRef;
   name: string;
   handle: BinDocumentHandle;
   active: boolean;
@@ -96,108 +80,32 @@ interface OpenBinProps {
   reopen: () => void;
 }
 
-function OpenBin({ documentId, name, handle, active, actions, reopen }: OpenBinProps) {
+function OpenBin({ documentId, asset, name, handle, active, actions, reopen }: OpenBinProps) {
   const roots = handle.rows;
   const rootByKey = useMemo(() => new Map(roots.map((row) => [rowKey(row), row])), [roots]);
 
   /* A bin holding one object opens it expanded. */
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
+  const initialExpanded = useMemo(() => {
     const [only] = roots;
-    return new Set(only && roots.length === 1 ? [rowKey(only)] : []);
-  });
-  const [pages, setPages] = useState<ReadonlyMap<string, number>>(() => new Map());
-  const [focused, setFocused] = useState<string | null>(null);
-  const [scrollTo, setScrollTo] = useState<{ key: string; token: number } | null>(null);
-
-  const requests = useMemo<ChildrenRequest[]>(
-    () => [...expanded].map((key) => ({ key, pages: pages.get(key) ?? 1 })),
-    [expanded, pages],
-  );
-  const { loaded, notOpen } = useBinChildren(handle.document, requests);
-
-  useEffect(() => {
-    if (notOpen) reopen();
-  }, [notOpen, reopen]);
-
-  const visible = useMemo(
-    () => flattenRows(roots, expanded, (key) => loaded.get(key)),
-    [roots, expanded, loaded],
-  );
-
-  const toggle = useCallback((key: string) => {
-    setFocused(null);
-    setExpanded((current) => {
-      if (!current.has(key)) return toggled(current, key);
-      /* Collapsing forgets what was open underneath. Nothing hidden is fetched. */
-      return new Set([...current].filter((open) => !isUnder(key, open)));
-    });
-  }, []);
-
-  const requestMore = useCallback((parent: string, loadedCount: number) => {
-    setPages((current) => {
-      const wanted = pagesWanted(loadedCount);
-      if ((current.get(parent) ?? 1) >= wanted) return current;
-      return new Map(current).set(parent, wanted);
-    });
-  }, []);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const zoomed = useZoomedPx();
-  const virtualizer = useVirtualizer({
-    count: visible.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => zoomed(ROW_HEIGHT),
-    overscan: 16,
-    getItemKey: (index) => visible[index]?.key ?? index,
-  });
-
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
-
-  const virtualItems = virtualizer.getVirtualItems();
-
-  /* A node's next page is asked for while the line under its rows is on screen. */
-  useEffect(() => {
-    for (const item of virtualItems) {
-      const line = visible[item.index];
-      if (line?.kind === "more" && !line.pending) requestMore(line.parent, line.loaded);
-    }
-  }, [virtualItems, visible, requestMore]);
+    return only && roots.length === 1 ? [rowKey(only)] : [];
+  }, [roots]);
 
   /* An answered request is settled. A later open of the same file starts clean. */
-  const reveal = useObjectRevealRequest(documentId);
+  const request = useObjectRevealRequest(documentId);
   const settle = useSettleObjectReveal();
+  const [reveal, setReveal] = useState<TreeReveal | null>(null);
   useEffect(() => {
-    if (reveal === null) return;
-    settle(reveal.token);
+    if (request === null) return;
+    settle(request.token);
+    setReveal({ key: objectKey(request.objectHash), token: request.token });
+  }, [request, settle]);
 
-    const key = objectKey(reveal.objectHash);
-    if (!rootByKey.has(key)) return;
-    setExpanded((current) => (current.has(key) ? current : toggled(current, key)));
-    setFocused(key);
-    setScrollTo({ key, token: reveal.token });
-  }, [reveal, rootByKey, settle]);
-
-  /* Keyed on the request's token. A second request for the same object scrolls again. */
-  const scrolledToken = useRef<number | null>(null);
-  useEffect(() => {
-    if (scrollTo === null || scrolledToken.current === scrollTo.token) return;
-    const index = visible.findIndex((line) => line.key === scrollTo.key);
-    if (index < 0) return;
-    scrolledToken.current = scrollTo.token;
-    virtualizer.scrollToIndex(index, { align: "start" });
-  }, [scrollTo, visible, virtualizer]);
-
-  /* One menu for the whole list, pointed at the line the event came from. */
-  const [menuLine, setMenuLine] = useState<VisibleRow | null>(null);
-  function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
-    const wrapper = (event.target as HTMLElement).closest<HTMLElement>("[data-index]");
-    const index = Number(wrapper?.dataset.index);
-    setMenuLine(Number.isInteger(index) ? (visible[index] ?? null) : null);
-  }
+  const open = useOpenDocumentAs();
+  const openObject = useCallback(
+    (row: BinRow, intent: OpenIntent) =>
+      open(objectDocument(asset, row.entry, row.name, name), intent),
+    [asset, name, open],
+  );
 
   return (
     <div data-ui="BinDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
@@ -205,48 +113,17 @@ function OpenBin({ documentId, name, handle, active, actions, reopen }: OpenBinP
         <BinFacts header={handle.header} />
         {actions}
       </DocumentToolbar>
-
-      <ContextMenu.Root>
-        <ContextMenu.Trigger
-          ref={scrollRef}
-          role="tree"
-          aria-label={name}
-          className="min-h-0 flex-1 overflow-auto px-1 py-1 outline-none scrollbar-md select-none"
-          onContextMenu={handleContextMenu}
-          {...NO_OVERSCROLL}
-        >
-          <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-            {virtualItems.map((item) => {
-              const line = visible[item.index];
-              if (!line) return null;
-              return (
-                <div
-                  key={item.key}
-                  ref={virtualizer.measureElement}
-                  data-index={item.index}
-                  className="absolute top-0 left-0 w-full"
-                  style={{ transform: `translateY(${item.start}px)` }}
-                >
-                  {line.kind === "row" && (
-                    <BinRowLine
-                      line={line}
-                      focused={line.key === focused}
-                      error={loaded.get(line.key)?.error}
-                      onToggle={toggle}
-                    />
-                  )}
-                  {line.kind === "more" && <MoreRow line={line} />}
-                </div>
-              );
-            })}
-          </div>
-        </ContextMenu.Trigger>
-
-        <BinContextMenu
-          line={menuLine}
-          objectName={(entry) => rootByKey.get(objectKey(entry))?.name ?? entry}
-        />
-      </ContextMenu.Root>
+      <BinTree
+        document={handle.document}
+        roots={roots}
+        rootOwner={null}
+        label={name}
+        initialExpanded={initialExpanded}
+        reveal={reveal}
+        objectName={(entry) => rootByKey.get(objectKey(entry))?.name ?? entry}
+        onNotOpen={reopen}
+        onOpenObject={openObject}
+      />
     </div>
   );
 }
@@ -320,6 +197,7 @@ function Dependencies({ paths }: { paths: readonly string[] }) {
   );
 }
 
-function Dot() {
+/** The separator between two facts of a toolbar. */
+export function Dot() {
   return <span aria-hidden>·</span>;
 }

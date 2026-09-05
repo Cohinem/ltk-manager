@@ -1,4 +1,5 @@
 import {
+  CubeIcon,
   FileArchiveIcon,
   FilesIcon,
   TranslateIcon,
@@ -10,6 +11,7 @@ import { LeagueIcon, PlayerTitleIcon } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
 import type { EditorRegistry } from "@/modules/editor";
 
+import { ObjectDocument } from "../bin/ObjectDocument";
 import { LayerGlyph } from "../components/LayerGlyph";
 import { useProjectContext } from "../components/ProjectContext";
 import {
@@ -26,7 +28,13 @@ import {
 import { assetPath, PreviewDocument } from "../preview";
 import { ProblemsDocument } from "../problems";
 import { describeFileKind } from "../utils/fileKindIcon";
-import { type ContentDocument, type ContentDocumentOf, layerTitle } from "./contentDocument";
+import {
+  type ContentDocument,
+  type ContentDocumentOf,
+  declaringFileContext,
+  layerTitle,
+  objectTitle,
+} from "./contentDocument";
 import { DetailsDocument } from "./DetailsDocument";
 import { FilesDocument } from "./FilesDocument";
 import { StringsDocument } from "./StringsDocument";
@@ -102,6 +110,15 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         if (document.asset.kind !== "gameChunk") return null;
         return <PreviewTabMenu document={document} />;
       },
+    },
+    object: {
+      icon: () => <CubeIcon className="h-4 w-4 shrink-0 text-surface-400" />,
+      label: (document) => ({
+        title: objectTitle(document.objectPath),
+        context: declaringFileContext(document.asset, document.file),
+        path: document.objectPath,
+      }),
+      component: ObjectDocument,
     },
   };
 }

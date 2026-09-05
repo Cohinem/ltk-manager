@@ -7,11 +7,12 @@ use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
 use ltk_manager_core::hashtables::{HashtableCache, WadPathResolverState};
 use ltk_manager_core::object_index::{
-    self, parse_hash, BuildTicket, CacheNames, ObjectIndex, ObjectIndexSnapshot,
+    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectIndex, ObjectIndexSnapshot,
     ObjectSearchGeneration, ObjectSearchResult,
 };
 use ltk_manager_core::problems::budget::files_at_once;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
@@ -128,25 +129,47 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
     .await
 }
 
-/// Which of `object_hashes` the install declares, as the index holds them.
+/// What the index holds for a set of object hashes, given the slot the index is in.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum DeclaredObjects {
+    /// Nothing has warmed the index, or the switch that gates it is off.
+    Absent,
+    /// A build is running. The answer is on its way.
+    Building,
+    /// The last build failed, and the next warm retries it.
+    Failed { error: AppErrorResponse },
+    /// By the object's hash, `0x` and eight hex digits. A hash nothing declares is absent.
+    Ready {
+        objects: HashMap<String, DeclaredObject>,
+    },
+}
+
+/// Every declaration of each of `object_hashes` the install holds, by hash.
 ///
-/// Answers nothing while the index is absent, building or failed: the project
-/// rows then say nothing about overrides rather than something wrong.
+/// Answers for the slot the index is in. The project rows say nothing about
+/// overrides while it is absent, and an object tab offers the build.
 #[tauri::command]
 pub async fn declared_objects(
     object_hashes: Vec<String>,
     app_handle: AppHandle,
-) -> IpcResult<Vec<String>> {
+) -> IpcResult<DeclaredObjects> {
     off_thread(move || {
-        let ObjectIndexSnapshot::Ready(index) =
-            app_handle.state::<ObjectIndexState>().snapshot()?
-        else {
-            return Ok(Vec::new());
+        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+            ObjectIndexSnapshot::Absent => return Ok(DeclaredObjects::Absent),
+            ObjectIndexSnapshot::Building => return Ok(DeclaredObjects::Building),
+            ObjectIndexSnapshot::Failed(error) => return Ok(DeclaredObjects::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => index,
         };
-        Ok(object_hashes
+        let objects = object_hashes
             .into_iter()
-            .filter(|text| parse_hash(text).is_some_and(|hash| index.declares(hash)))
-            .collect())
+            .filter_map(|text| {
+                let declared = index.declared(parse_hash(&text)?)?;
+                Some((text, declared))
+            })
+            .collect();
+        Ok(DeclaredObjects::Ready { objects })
     })
     .await
 }

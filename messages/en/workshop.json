@@ -19,6 +19,7 @@
   "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
   "workshop_bin_absent_label": "absent",
   "workshop_bin_at_build_label": "at build {build}",
+  "workshop_bin_build_index_action": "Build the object index",
   "workshop_bin_class_fields_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -76,6 +77,7 @@
   "workshop_bin_mismatch_label": "Type mismatch",
   "workshop_bin_more_label": "{loaded} of {total}",
   "workshop_bin_name_label": "name",
+  "workshop_bin_no_other_declarations_label": "No other declarations",
   "workshop_bin_no_viewer_description": "Open it as ritobin text in VS Code instead",
   "workshop_bin_no_viewer_title": "No viewer for a property bin",
   "workshop_bin_none_label": "none",
@@ -90,7 +92,19 @@
       }
     }
   ],
+  "workshop_bin_open_object_action": "Open object",
+  "workshop_bin_open_object_beside_action": "Open object beside",
   "workshop_bin_open_vscode_action": "Open in VS Code",
+  "workshop_bin_other_declarations_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} other declaration",
+        "countPlural=other": "{count} other declarations"
+      }
+    }
+  ],
   "workshop_bin_patch_deleted_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -114,9 +128,20 @@
   ],
   "workshop_bin_path_label": "path",
   "workshop_bin_present_label": "present",
+  "workshop_bin_properties_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} property",
+        "countPlural=other": "{count} properties"
+      }
+    }
+  ],
   "workshop_bin_revision_open_label": "since {from}",
   "workshop_bin_revision_span_label": "{from} – {to}",
   "workshop_bin_revisions_label": "Revisions",
+  "workshop_bin_show_in_file_action": "Show in file",
   "workshop_bin_undrawn_label": "Not drawn by this viewer",
   "workshop_bin_unmapped_kind_label": "unmapped type",
   "workshop_bin_unreadable_title": "This bin could not be read",

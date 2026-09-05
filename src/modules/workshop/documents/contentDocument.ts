@@ -48,6 +48,18 @@ interface PreviewDoc extends EditorDocumentBase {
   path?: string;
 }
 
+/** One declaration of a bin object, keyed on the asset and the object hash (ADR-0028). */
+interface ObjectDoc extends EditorDocumentBase {
+  kind: "object";
+  asset: AssetRef;
+  /** `0x` and eight hex digits. */
+  objectHash: string;
+  /** The object's path, or its hash when nothing names it. */
+  objectPath: string;
+  /** The declaring file's path, or the chunk hash when nothing names it. */
+  file: string;
+}
+
 /**
  * Something the content editor can open: the project's details, a layer's
  * files, a locale, or a browser over the installed game's archives.
@@ -60,7 +72,8 @@ export type ContentDocument =
   | GameDoc
   | GameWadsDoc
   | GameWadDoc
-  | PreviewDoc;
+  | PreviewDoc
+  | ObjectDoc;
 
 /** One kind of content document, for an editor that only handles that kind. */
 export type ContentDocumentOf<K extends ContentDocument["kind"]> = Extract<
@@ -140,11 +153,59 @@ export function previewDocument(asset: AssetRef, resolvedPath?: string): Content
   };
 }
 
+/** The tab one declaration takes, whether or not that tab is open. */
+export function objectDocumentId(asset: AssetRef, objectHash: string): string {
+  return `object:${assetKey(asset)}:${objectHash}`;
+}
+
+/**
+ * One declaration of an object, opened in its own tab.
+ *
+ * `objectPath` is the object's path as whatever opened the tab knew it, and `file`
+ * the declaring file's path the same way. A chunk no hash table names carries its hash
+ * in both.
+ */
+export function objectDocument(
+  asset: AssetRef,
+  objectHash: string,
+  objectPath: string,
+  file: string,
+): ContentDocument {
+  return {
+    id: objectDocumentId(asset, objectHash),
+    kind: "object",
+    asset,
+    objectHash,
+    objectPath,
+    file,
+  };
+}
+
+/** The last `/` segment of an object path, which is the object tab's title. */
+export function objectTitle(objectPath: string): string {
+  const cut = objectPath.lastIndexOf("/");
+  return cut < 0 ? objectPath : objectPath.slice(cut + 1);
+}
+
+/**
+ * The declaring file for an object tab's context field: where the asset sits, an
+ * elision, and the file's name.
+ */
+export function declaringFileContext(asset: AssetRef, file: string): string {
+  const where = assetContext(asset);
+  const cut = Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\"));
+  const name = cut < 0 ? file : file.slice(cut + 1);
+  if (where === undefined) return name;
+  return cut < 0 ? `${where}/${name}` : `${where}/…/${name}`;
+}
+
 /** The layer a document edits, or null for the ones that belong to no layer. */
 export function documentLayerName(document: ContentDocument | null): string | null {
   if (!document) return null;
   if (document.kind === "files" || document.kind === "strings") return document.layerName;
-  if (document.kind === "preview" && document.asset.kind === "layer") return document.asset.layer;
+  if (document.kind === "preview" || document.kind === "object") {
+    return document.asset.kind === "layer" ? document.asset.layer : null;
+  }
   return null;
 }
 

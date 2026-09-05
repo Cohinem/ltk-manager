@@ -66,31 +66,26 @@ export type PaletteTarget =
       readonly path: string;
     }
   | {
-      /**
-       * A bin object of the install, opened through the chunk that declares it.
-       *
-       * The object's hash rides along so the bin editor, when it lands, can
-       * scroll the same row to the object. Until then the chunk opens as the
-       * preview a game row opens.
-       */
+      /** A bin object of the install, opened as an object tab over the chunk that declares it. */
       readonly kind: "object";
       readonly wad: string;
       readonly pathHash: string;
+      /** The declaring chunk's path, or empty for a chunk no hash table names. */
       readonly path: string;
       /** `0x` and eight hex digits. */
       readonly objectHash: string;
+      /** The object's path, or its hash when no table names it. */
+      readonly objectPath: string;
     }
   | {
-      /**
-       * A bin object of the project, opened through the layer file that declares it.
-       *
-       * The object's hash rides along for the bin editor, as it does on `object`.
-       */
+      /** A bin object of the project, opened as an object tab over the layer file that declares it. */
       readonly kind: "layerObject";
       readonly layerName: string;
       readonly path: string;
       /** `0x` and eight hex digits. */
       readonly objectHash: string;
+      /** The object's path, or its hash when no table names it. */
+      readonly objectPath: string;
     }
   | { readonly kind: "document"; readonly document: ContentDocument }
   | { readonly kind: "command"; readonly command: ProjectCommand }

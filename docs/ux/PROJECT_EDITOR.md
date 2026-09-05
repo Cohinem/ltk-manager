@@ -1801,13 +1801,13 @@ already fills it with a layer name. The rule above sets when that field shows.
 | Game archive | The file tree of one archive of the install        |
 | Preview      | One asset, drawn by the viewer its file kind has   |
 | Bin          | A `.bin` as blocks over its parsed tree            |
+| Object       | One declaration of an object, from depth zero      |
 
 ### Planned document types
 
 | Document     | Content                                                      |
 | ------------ | ------------------------------------------------------------ |
 | Mesh preview | A model in a small viewport                                  |
-| Object       | One declaration of an object, its properties from depth zero |
 | Objects      | Every object of the install, folded into one tree over paths |
 | References   | The objects declaring a class, or linking to an object       |
 

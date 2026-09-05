@@ -190,6 +190,14 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
        preview tabs, per the version note above. */
     path: z.string().optional(),
   }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("object"),
+    asset: assetRefSchema,
+    objectHash: z.string(),
+    objectPath: z.string(),
+    file: z.string(),
+  }),
 ]) satisfies z.ZodType<ContentDocument>;
 
 /* `.success` rather than `.data`: parsing would strip fields the schema does

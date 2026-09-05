@@ -320,6 +320,11 @@ function dropStops(stack: Stack, gone: (entry: HistoryEntry) => boolean): Stack 
  * screen. The first preview splits that group off, and every later one joins
  * the group it left behind.
  */
+/* An object tab is a preview document: ADR-0028. */
+function isPreviewKind(kind: ContentDocument["kind"]): boolean {
+  return kind === "preview" || kind === "object";
+}
+
 function openGroup(
   editor: ProjectEditor,
   document: ContentDocument,
@@ -327,12 +332,15 @@ function openGroup(
 ): { layout: LayoutNode; leafId: string } {
   const focused =
     findLeaf(editor.layout, leafId ?? editor.activeLeafId) ?? leaves(editor.layout)[0];
-  if (leafId !== undefined || document.kind !== "preview") {
+  if (leafId !== undefined || !isPreviewKind(document.kind)) {
     return { layout: editor.layout, leafId: focused.id };
   }
 
   const previews = leaves(editor.layout).find((leaf) =>
-    leaf.tabs.some((id) => editor.documents[id]?.kind === "preview"),
+    leaf.tabs.some((id) => {
+      const kind = editor.documents[id]?.kind;
+      return kind !== undefined && isPreviewKind(kind);
+    }),
   );
   if (previews) return { layout: editor.layout, leafId: previews.id };
 

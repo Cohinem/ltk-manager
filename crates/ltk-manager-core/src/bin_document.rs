@@ -22,17 +22,18 @@ use thiserror::Error;
 use crate::error::{AppResult, MutexResultExt};
 use crate::meta_schema::{Expected, KindShape, SchemaAt};
 use crate::object_index::CacheNames;
+use crate::preview::AssetRef;
 use crate::problems::names::hex;
 use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
 
-/// How many documents the store keeps open at once. ADR-0026.
+/// How many assets the store keeps open at once. ADR-0026, counted per ADR-0028.
 pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(8).unwrap();
 
-/// The id an open document is addressed by.
+/// The id one open of a document is addressed by.
 ///
-/// An id is never reused within a process. A call carrying a closed document's id fails
-/// as [`BinDocumentError::NotOpen`] and reaches no other document.
+/// An id is never reused within a process. A call carrying a closed id fails as
+/// [`BinDocumentError::NotOpen`] and reaches no other document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -61,14 +62,35 @@ pub enum BinDocumentError {
     NodeNotFound { address: String },
 }
 
-/// The open documents, bounded, evicting the least recently used.
+/// The open documents, one tree per asset, bounded, evicting the least recently used.
+///
+/// A file tab and the object tabs over one asset each hold an id on the one tree
+/// (ADR-0028). The bound counts assets. An eviction takes every id over the asset.
 pub struct BinDocuments {
     inner: Mutex<Store>,
 }
 
 struct Store {
     next: u32,
-    open: LruCache<BinDocumentId, BinDocument>,
+    /// The asset each id is over. An id whose asset was evicted reads as not open.
+    ids: HashMap<BinDocumentId, AssetRef>,
+    held: LruCache<AssetRef, Held>,
+}
+
+/// One parsed asset, and how many ids are over it.
+struct Held {
+    document: BinDocument,
+    ids: usize,
+}
+
+impl Store {
+    /// A fresh id over `asset`.
+    fn issue(&mut self, asset: AssetRef) -> BinDocumentId {
+        let id = BinDocumentId(self.next);
+        self.next = self.next.wrapping_add(1);
+        self.ids.insert(id, asset);
+        id
+    }
 }
 
 impl Default for BinDocuments {
@@ -78,80 +100,139 @@ impl Default for BinDocuments {
 }
 
 impl fmt::Debug for BinDocuments {
-    /// The count of open documents. A document is a whole tree and prints nothing.
+    /// The counts of held assets and of ids. A tree prints nothing.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut out = f.debug_struct("BinDocuments");
         match self.inner.lock() {
-            Ok(store) => out.field("open", &store.open.len()).finish(),
+            Ok(store) => out
+                .field("held", &store.held.len())
+                .field("ids", &store.ids.len())
+                .finish(),
             Err(_) => out.finish_non_exhaustive(),
         }
     }
 }
 
 impl BinDocuments {
-    /// A store that keeps `capacity` documents open.
+    /// A store that keeps `capacity` assets open.
     #[must_use]
     pub fn new(capacity: NonZeroUsize) -> Self {
         Self {
             inner: Mutex::new(Store {
                 next: 0,
-                open: LruCache::new(capacity),
+                ids: HashMap::new(),
+                held: LruCache::new(capacity),
             }),
         }
     }
 
-    /// Parse `bytes` and keep the tree, answering the id it is addressed by.
+    /// Hold `asset` open, answering a fresh id over its tree.
     ///
-    /// At capacity, the least recently used document leaves the store.
+    /// `bytes` is read and parsed only while no id is over the asset. At capacity, the
+    /// least recently used asset leaves the store with every id over it. The lock is
+    /// not held over `bytes`. Two opens racing on one asset both parse, and one parse
+    /// is kept.
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin, and with
+    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin, with
+    /// whatever `bytes` raises, and with
     /// [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed) when a
     /// previous holder of the lock panicked.
-    pub fn open(&self, bytes: &[u8]) -> AppResult<BinDocumentId> {
-        let document = BinDocument::parse(bytes)?;
+    pub fn open(
+        &self,
+        asset: AssetRef,
+        bytes: impl FnOnce() -> AppResult<Vec<u8>>,
+    ) -> AppResult<BinDocumentId> {
+        {
+            let mut store = self.inner.lock().mutex_err()?;
+            if let Some(held) = store.held.get_mut(&asset) {
+                held.ids += 1;
+                return Ok(store.issue(asset));
+            }
+        }
+
+        let document = BinDocument::parse(&bytes()?)?;
+
         let mut store = self.inner.lock().mutex_err()?;
-        let id = BinDocumentId(store.next);
-        store.next = store.next.wrapping_add(1);
-        store.open.put(id, document);
-        Ok(id)
+        match store.held.get_mut(&asset) {
+            Some(held) => held.ids += 1,
+            None => {
+                let held = Held { document, ids: 1 };
+                if let Some((evicted, _)) = store.held.push(asset.clone(), held) {
+                    store.ids.retain(|_, over| *over != evicted);
+                }
+            }
+        }
+        Ok(store.issue(asset))
     }
 
-    /// Read one open document. The read marks it the most recently used.
+    /// Read the document under one id. The read marks its asset the most recently used.
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::NotOpen`] when no open document has `id`, with
-    /// [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed) when a
-    /// previous holder of the lock panicked, and with whatever `read` raises.
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
+    /// evicted, with [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed)
+    /// when a previous holder of the lock panicked, and with whatever `read` raises.
     pub fn read<T>(
         &self,
         id: BinDocumentId,
         read: impl FnOnce(&BinDocument) -> AppResult<T>,
     ) -> AppResult<T> {
         let mut store = self.inner.lock().mutex_err()?;
-        let document = store.open.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
-        read(document)
+        let Store { ids, held, .. } = &mut *store;
+        let held = ids
+            .get(&id)
+            .and_then(|asset| held.get(asset))
+            .ok_or(BinDocumentError::NotOpen(id))?;
+        read(&held.document)
     }
 
-    /// Drop one document. An id that is not open is left as it is.
+    /// The asset under one id, or `None` where `id` is closed or its asset was evicted.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked.
+    pub fn asset_of(&self, id: BinDocumentId) -> AppResult<Option<AssetRef>> {
+        let store = self.inner.lock().mutex_err()?;
+        Ok(store
+            .ids
+            .get(&id)
+            .filter(|asset| store.held.contains(asset))
+            .cloned())
+    }
+
+    /// Drop one id. Its asset leaves the store with its last id. A closed id is left as it is.
     ///
     /// # Errors
     ///
     /// Fails when a previous holder of the lock panicked.
     pub fn close(&self, id: BinDocumentId) -> AppResult<()> {
-        self.inner.lock().mutex_err()?.open.pop(&id);
+        let mut store = self.inner.lock().mutex_err()?;
+        let Some(asset) = store.ids.remove(&id) else {
+            return Ok(());
+        };
+        let last = store.held.peek_mut(&asset).is_some_and(|held| {
+            held.ids = held.ids.saturating_sub(1);
+            held.ids == 0
+        });
+        if last {
+            store.held.pop(&asset);
+        }
         Ok(())
     }
 
-    /// Whether `id` is open. Asking does not touch the recency order.
+    /// Whether `id` reads. Asking does not touch the recency order.
     ///
     /// # Errors
     ///
     /// Fails when a previous holder of the lock panicked.
     pub fn is_open(&self, id: BinDocumentId) -> AppResult<bool> {
-        Ok(self.inner.lock().mutex_err()?.open.contains(&id))
+        let store = self.inner.lock().mutex_err()?;
+        Ok(store
+            .ids
+            .get(&id)
+            .is_some_and(|asset| store.held.contains(asset)))
     }
 }
 
@@ -195,6 +276,44 @@ impl BinDocument {
                 deleted: patch.deleted.len(),
             },
         }
+    }
+
+    /// The facts an object tab's header draws for `entry`.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
+    /// document.
+    pub fn object(
+        &self,
+        entry: BinHash,
+        names: &dyn RowNames,
+    ) -> Result<BinObjectHeader, BinDocumentError> {
+        let object =
+            self.file
+                .objects()
+                .get(&entry)
+                .ok_or_else(|| BinDocumentError::NodeNotFound {
+                    address: format!("{}:", hex(entry)),
+                })?;
+        let mut wanted = Wanted::default();
+        wanted.entries.push(entry);
+        wanted.classes.push(object.class_hash);
+        let named = wanted.resolve(names);
+        let (name, unnamed) = named.entry(entry);
+        Ok(BinObjectHeader {
+            entry: hex(entry),
+            name,
+            unnamed,
+            class_hash: hex(object.class_hash),
+            class: named.classes.get(&object.class_hash).cloned(),
+            properties: object.properties.len(),
+        })
+    }
+
+    /// The path hash of every object, in file order.
+    pub fn entries(&self) -> impl Iterator<Item = BinHash> + '_ {
+        self.file.objects().keys().copied()
     }
 
     /// One row per object, in file order.
@@ -346,7 +465,28 @@ pub struct BinHeader {
     pub deleted: usize,
 }
 
-/// What an open answers: the id, the header, and the root rows.
+/// The facts an object tab's header draws. "The object tab" in docs/ux/BIN_EDITOR.md.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct BinObjectHeader {
+    /// The object's path hash, `0x` and eight hex digits.
+    pub entry: String,
+    /// The object's path, or its hex where no table names it.
+    pub name: String,
+    pub unnamed: bool,
+    /// `0x` and eight hex digits.
+    pub class_hash: String,
+    pub class: Option<String>,
+    /// How many properties the object holds.
+    pub properties: usize,
+}
+
+/// What an open answers: the id, the header, and the rows at depth zero.
+///
+/// A file open answers one row per object. An open with an entry answers that object's
+/// properties and its header facts (ADR-0028).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -355,6 +495,8 @@ pub struct BinDocumentHandle {
     pub document: BinDocumentId,
     pub header: BinHeader,
     pub rows: Vec<BinRow>,
+    /// The object the open is over. Absent for a file open.
+    pub object: Option<BinObjectHeader>,
 }
 
 /// A window of rows under one node, and how many there are in all.

@@ -1,7 +1,8 @@
 //! The bin viewer's document: open it, read the rows under one node, close it.
 //!
-//! The tree stays in [`BinDocuments`] (ADR-0026). A call carries the id the open
-//! answered and an address in the wire form of ADR-0027.
+//! The tree stays in [`BinDocuments`] (ADR-0026), one per asset, shared by the file
+//! tab and the object tabs over it (ADR-0028). A call carries the id the open answered
+//! and an address in the wire form of ADR-0027.
 
 use std::sync::Arc;
 
@@ -11,29 +12,55 @@ use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocumentHandle, BinDocumentId, BinDocuments, BinRows};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
-use ltk_manager_core::meta_schema::{self, ClassSchema};
+use ltk_manager_core::meta_schema::{self, ClassSchema, MetaSchema};
 use ltk_manager_core::object_index::{parse_hash, CacheNames};
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::GameBuild;
 use tauri::{AppHandle, Manager};
 
-/// Parse `asset` as a bin and keep it open, answering the header and the root rows.
+/// Hold `asset` open as a bin, answering the header and the rows at depth zero.
+///
+/// With no `entry`, the rows are one per object. With one, `0x` and eight hex digits,
+/// the rows are that object's properties and the answer carries its header facts.
 #[tauri::command]
-pub async fn bin_open(asset: AssetRef, app_handle: AppHandle) -> IpcResult<BinDocumentHandle> {
+pub async fn bin_open(
+    asset: AssetRef,
+    entry: Option<String>,
+    app_handle: AppHandle,
+) -> IpcResult<BinDocumentHandle> {
     off_thread(move || {
+        let entry = entry
+            .map(|text| {
+                parse_hash(&text).ok_or_else(|| {
+                    AppError::ValidationFailed(format!("Not an object hash: {text}"))
+                })
+            })
+            .transpose()?;
+
         let config = app_handle.state::<SettingsState>().config()?;
-        let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;
         let store = app_handle.state::<BinDocuments>();
-        let document = store.open(&bytes)?;
+        let document = store.open(asset.clone(), || {
+            asset.read(&config, &app_handle.state::<WadCache>())
+        })?;
 
         let bin = app_handle.state::<BinHashTablesState>().get()?;
         let wad = app_handle.state::<Arc<WadPathResolverState>>().get()?;
         let names = CacheNames::new(&bin, &wad);
+        let schema = entry.map(|_| installed_schema(&app_handle)).transpose()?;
         store.read(document, |open| {
+            let (rows, object) = match (entry, &schema) {
+                (Some(entry), Some((schema, build))) => (
+                    open.children(entry, "", 0, usize::MAX, &names, Some(schema.at(*build)))?
+                        .rows,
+                    Some(open.object(entry, &names)?),
+                ),
+                _ => (open.roots(&names), None),
+            };
             Ok(BinDocumentHandle {
                 document,
                 header: open.header(),
-                rows: open.roots(&names),
+                rows,
+                object,
             })
         })
     })
@@ -60,8 +87,7 @@ pub async fn bin_children(
         let bin = app_handle.state::<BinHashTablesState>().get()?;
         let wad = app_handle.state::<Arc<WadPathResolverState>>().get()?;
         let names = CacheNames::new(&bin, &wad);
-        let build = installed_build(&app_handle)?;
-        let schema = meta_schema::shared(build);
+        let (schema, build) = installed_schema(&app_handle)?;
         app_handle.state::<BinDocuments>().read(document, |open| {
             Ok(open.children(entry, &path, offset, limit, &names, Some(schema.at(build)))?)
         })
@@ -81,19 +107,21 @@ pub async fn class_schema(
     off_thread(move || {
         let class = parse_hash(&class_hash)
             .ok_or_else(|| AppError::ValidationFailed(format!("Not a class hash: {class_hash}")))?;
-        let build = installed_build(&app_handle)?;
-        Ok(meta_schema::shared(build).class_schema(class, build))
+        let (schema, build) = installed_schema(&app_handle)?;
+        Ok(schema.class_schema(class, build))
     })
     .await
 }
 
-/// The content build of the installed game, which every schema answer is keyed on.
-fn installed_build(app_handle: &AppHandle) -> AppResult<Option<GameBuild>> {
+/// The shared meta schema and the installed game's content build, which keys every
+/// answer read out of it.
+fn installed_schema(app_handle: &AppHandle) -> AppResult<(Arc<MetaSchema>, Option<GameBuild>)> {
     let config = app_handle.state::<SettingsState>().config()?;
-    Ok(GameBuild::installed(&config))
+    let build = GameBuild::installed(&config);
+    Ok((meta_schema::shared(build), build))
 }
 
-/// Drop an open document. An id that is not open is left as it is.
+/// Drop one id. Its asset leaves the store with its last id.
 #[tauri::command]
 pub fn bin_close(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<()> {
     app_handle.state::<BinDocuments>().close(document).into()

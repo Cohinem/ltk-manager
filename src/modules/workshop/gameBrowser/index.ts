@@ -18,6 +18,7 @@ export { GAME_STALE_MS, gameKeys, useGameWads } from "./useGameWads";
 export {
   useDeclaredObjects,
   useDropObjectIndex,
+  useObjectDeclarations,
   useObjectIndexLifecycle,
   useWarmObjectIndex,
 } from "./useObjectIndex";

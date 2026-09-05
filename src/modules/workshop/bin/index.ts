@@ -16,9 +16,12 @@ export {
   toggled,
   type VisibleRow,
 } from "./binRows";
+export { BinTree, type TreeReveal } from "./BinTree";
 export { ClassCard } from "./ClassCard";
 export { FieldCard } from "./FieldCard";
 export { rowShape, rowTag, shapeTag } from "./kindTag";
+export { ObjectDocument } from "./ObjectDocument";
+export { OtherDeclarations } from "./OtherDeclarations";
 export {
   type BinChildren,
   binKeys,
@@ -28,3 +31,4 @@ export {
   useBinDocument,
 } from "./useBinDocument";
 export { classSchemaKeys, useClassSchema } from "./useClassSchema";
+export { useShowInFile } from "./useShowInFile";
