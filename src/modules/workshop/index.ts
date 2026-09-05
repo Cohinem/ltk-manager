@@ -1,4 +1,5 @@
 export * from "./api";
+export * from "./bin";
 export * from "./components";
 export * from "./documents";
 export * from "./gameBrowser";

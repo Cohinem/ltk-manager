@@ -5,7 +5,7 @@ export { useDebouncedValue } from "./useDebouncedValue";
 export { useHddWarning } from "./useHddWarning";
 export { useHorizontalWheel } from "./useHorizontalWheel";
 export { type ListNav, type ListNavParams, useListNav } from "./useListNav";
-export { useOverscrollSpring } from "./useOverscrollSpring";
+export { NO_OVERSCROLL, useOverscrollSpring } from "./useOverscrollSpring";
 export { usePlatformSupport } from "./usePlatformSupport";
 export { usePrevious } from "./usePrevious";
 export { useReducedMotion } from "./useReducedMotion";

@@ -7,6 +7,9 @@ import type {
   AppInfo,
   AssetInfo,
   AssetRef,
+  BinDocumentHandle,
+  BinDocumentId,
+  BinRows,
   BulkInstallResult,
   ChecksumMismatchInfo,
   ContentTree,
@@ -297,6 +300,17 @@ export const api = {
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the run finished looks like.
   cancelExtract: () => invokeResult<boolean>("cancel_extract"),
+
+  // Bin viewer
+  binOpen: (asset: AssetRef) => invokeResult<BinDocumentHandle>("bin_open", { asset }),
+  binChildren: (
+    document: BinDocumentId,
+    entry: string,
+    path: string,
+    offset: number,
+    limit: number,
+  ) => invokeResult<BinRows>("bin_children", { document, entry, path, offset, limit }),
+  binClose: (document: BinDocumentId) => invokeResult<void>("bin_close", { document }),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),

@@ -1,17 +1,20 @@
 import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
 
 import { Button, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
+/* The leaves rather than the barrels, which pull the documents that circle back
+   into this file. */
+import { BinDocument } from "../bin/BinDocument";
 import type { ContentDocumentOf } from "../documents/contentDocument";
-/* The leaves rather than the gameBrowser barrel, which pulls the documents
-   that circle back into this file. */
 import { chunkTarget } from "../gameBrowser/extractTargets";
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import { useExtractActions } from "../gameBrowser/useExtractActions";
-import { BinPreview, isPropertyBin } from "./BinPreview";
+import { isPropertyBin } from "./BinPreview";
 import { ImagePreview } from "./ImagePreview";
 import { SaveCopyAction } from "./SaveCopyAction";
+import { useAssetInfo } from "./useAssetInfo";
 
 /**
  * One asset, drawn by the viewer its file kind has.
@@ -24,12 +27,28 @@ export function PreviewDocument({
   document,
   active,
 }: EditorDocumentProps<ContentDocumentOf<"preview">>) {
+  const named = fileKindFromPath(document.title);
+  const info = useAssetInfo(document.asset, named === "unknown");
+  const sniffed = info.data?.kind === "unsupported" && isPropertyBin(info.data.fileKind);
+
+  if (isPropertyBin(named) || sniffed) {
+    return (
+      <BinDocument
+        documentId={document.id}
+        asset={document.asset}
+        name={document.title}
+        active={active}
+        actions={<PreviewActions document={document} />}
+      />
+    );
+  }
+
   return (
     <>
       <DocumentToolbar active={active}>
         <PreviewActions document={document} />
       </DocumentToolbar>
-      <PreviewBody document={document} />
+      <ImagePreview asset={document.asset} name={document.title} />
     </>
   );
 }
@@ -60,11 +79,11 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
           disabled={busy}
           onClick={() => run("copy", [target], name)}
         >
-          Copy into {layerLabel}
+          {m.workshop_preview_copy_into_action({ layer: layerLabel })}
         </Button>
       )}
       {target && lastFolder && (
-        <Tooltip content={`Extract to ${lastFolder}`}>
+        <Tooltip content={m.workshop_preview_extract_to_label({ folder: lastFolder })}>
           <Button
             variant="ghost"
             size="xs"
@@ -72,7 +91,7 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
             disabled={busy}
             onClick={() => run("quick", [target], name)}
           >
-            Extract
+            {m.workshop_preview_extract_action()}
           </Button>
         </Tooltip>
       )}
@@ -82,11 +101,3 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
 }
 
 type PreviewProps = EditorDocumentProps<ContentDocumentOf<"preview">>;
-
-function PreviewBody({ document }: Pick<PreviewProps, "document">) {
-  if (isPropertyBin(fileKindFromPath(document.title))) {
-    return <BinPreview asset={document.asset} name={document.title} />;
-  }
-
-  return <ImagePreview asset={document.asset} name={document.title} />;
-}

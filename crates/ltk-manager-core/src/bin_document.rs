@@ -1,0 +1,1068 @@
+//! One open bin: the tree the backend holds, and the rows it projects for a viewer.
+//!
+//! ADR-0026 puts the tree here and a window of rows in the frontend. ADR-0027 names a
+//! node by the object's hash and the game's property path, every field a hash on the
+//! wire and a name for a person.
+
+use std::collections::HashMap;
+use std::fmt::{self, Write as _};
+use std::io::Cursor;
+use std::num::NonZeroUsize;
+use std::sync::Mutex;
+
+use indexmap::IndexMap;
+use lru::LruCache;
+use ltk_hash::{BinHash, WadHash};
+use ltk_meta::property::{Kind, values};
+use ltk_meta::walk::{Leaf, TreeValue as _};
+use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
+
+use crate::error::{AppResult, MutexResultExt};
+use crate::object_index::CacheNames;
+use crate::problems::names::hex;
+use crate::problems::walk;
+
+/// How many documents the store keeps open at once. ADR-0026.
+pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(8).unwrap();
+
+/// The id an open document is addressed by.
+///
+/// An id is never reused within a process. A call carrying a closed document's id fails
+/// as [`BinDocumentError::NotOpen`] and reaches no other document.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct BinDocumentId(u32);
+
+impl fmt::Display for BinDocumentId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Why a document cannot be opened or read.
+#[derive(Debug, Error)]
+pub enum BinDocumentError {
+    /// The bytes are not a bin the toolkit reads.
+    #[error("not a readable bin: {0}")]
+    Unreadable(#[from] ltk_meta::Error),
+
+    /// No open document has this id. A close and an eviction both remove one.
+    #[error("bin document {0} is not open")]
+    NotOpen(BinDocumentId),
+
+    /// No node of the document has this address.
+    #[error("no node at {address}")]
+    NodeNotFound { address: String },
+}
+
+/// The open documents, bounded, evicting the least recently used.
+pub struct BinDocuments {
+    inner: Mutex<Store>,
+}
+
+struct Store {
+    next: u32,
+    open: LruCache<BinDocumentId, BinDocument>,
+}
+
+impl Default for BinDocuments {
+    fn default() -> Self {
+        Self::new(CAPACITY)
+    }
+}
+
+impl fmt::Debug for BinDocuments {
+    /// The count of open documents. A document is a whole tree and prints nothing.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = f.debug_struct("BinDocuments");
+        match self.inner.lock() {
+            Ok(store) => out.field("open", &store.open.len()).finish(),
+            Err(_) => out.finish_non_exhaustive(),
+        }
+    }
+}
+
+impl BinDocuments {
+    /// A store that keeps `capacity` documents open.
+    #[must_use]
+    pub fn new(capacity: NonZeroUsize) -> Self {
+        Self {
+            inner: Mutex::new(Store {
+                next: 0,
+                open: LruCache::new(capacity),
+            }),
+        }
+    }
+
+    /// Parse `bytes` and keep the tree, answering the id it is addressed by.
+    ///
+    /// At capacity, the least recently used document leaves the store.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin, and with
+    /// [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed) when a
+    /// previous holder of the lock panicked.
+    pub fn open(&self, bytes: &[u8]) -> AppResult<BinDocumentId> {
+        let document = BinDocument::parse(bytes)?;
+        let mut store = self.inner.lock().mutex_err()?;
+        let id = BinDocumentId(store.next);
+        store.next = store.next.wrapping_add(1);
+        store.open.put(id, document);
+        Ok(id)
+    }
+
+    /// Read one open document. The read marks it the most recently used.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when no open document has `id`, with
+    /// [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed) when a
+    /// previous holder of the lock panicked, and with whatever `read` raises.
+    pub fn read<T>(
+        &self,
+        id: BinDocumentId,
+        read: impl FnOnce(&BinDocument) -> AppResult<T>,
+    ) -> AppResult<T> {
+        let mut store = self.inner.lock().mutex_err()?;
+        let document = store.open.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
+        read(document)
+    }
+
+    /// Drop one document. An id that is not open is left as it is.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked.
+    pub fn close(&self, id: BinDocumentId) -> AppResult<()> {
+        self.inner.lock().mutex_err()?.open.pop(&id);
+        Ok(())
+    }
+
+    /// Whether `id` is open. Asking does not touch the recency order.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked.
+    pub fn is_open(&self, id: BinDocumentId) -> AppResult<bool> {
+        Ok(self.inner.lock().mutex_err()?.open.contains(&id))
+    }
+}
+
+/// One parsed bin, of either kind.
+#[derive(Debug)]
+pub struct BinDocument {
+    file: BinFile,
+}
+
+impl BinDocument {
+    /// Parse `bytes` as a bin, by its magic.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin the
+    /// toolkit reads.
+    pub fn parse(bytes: &[u8]) -> Result<Self, BinDocumentError> {
+        Ok(Self {
+            file: BinFile::from_reader(&mut Cursor::new(bytes))?,
+        })
+    }
+
+    /// The facts the header row draws.
+    #[must_use]
+    pub fn header(&self) -> BinHeader {
+        match &self.file {
+            BinFile::Prop(bin) => BinHeader {
+                kind: BinFileKind::Prop,
+                version: Some(bin.version),
+                objects: bin.objects.len(),
+                dependencies: bin.dependencies.clone(),
+                patches: 0,
+                deleted: 0,
+            },
+            BinFile::Override(patch) => BinHeader {
+                kind: BinFileKind::Patch,
+                version: None,
+                objects: patch.objects.len(),
+                dependencies: Vec::new(),
+                patches: patch.patches.len(),
+                deleted: patch.deleted.len(),
+            },
+        }
+    }
+
+    /// One row per object, in file order.
+    #[must_use]
+    pub fn roots(&self, names: &dyn RowNames) -> Vec<BinRow> {
+        let objects = self.file.objects();
+        let mut wanted = Wanted::default();
+        wanted.entries.extend(objects.keys().copied());
+        wanted
+            .classes
+            .extend(objects.values().map(|object| object.class_hash));
+        let named = wanted.resolve(names);
+
+        objects
+            .values()
+            .map(|object| {
+                let (name, unnamed) = named.entry(object.path_hash);
+                BinRow {
+                    entry: hex(object.path_hash),
+                    path: String::new(),
+                    label: String::new(),
+                    node: RowNode::Object,
+                    name,
+                    unnamed,
+                    kind: None,
+                    value: BinValue::Struct {
+                        class_hash: hex(object.class_hash),
+                        class: named.classes.get(&object.class_hash).cloned(),
+                        len: object.properties.len(),
+                    },
+                }
+            })
+            .collect()
+    }
+
+    /// The rows under one node: `offset` in, at most `limit` of them, and the total.
+    ///
+    /// `path` is the wire form of ADR-0027, empty for the object itself. A leaf, a null
+    /// struct and an absent optional have no rows under them.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
+    /// document or `path` reaches nothing inside it.
+    pub fn children(
+        &self,
+        entry: BinHash,
+        path: &str,
+        offset: usize,
+        limit: usize,
+        names: &dyn RowNames,
+    ) -> Result<BinRows, BinDocumentError> {
+        let not_found = || BinDocumentError::NodeNotFound {
+            address: format!("{}:{path}", hex(entry)),
+        };
+        let object = self.file.objects().get(&entry).ok_or_else(not_found)?;
+        let steps = parse_steps(path).ok_or_else(not_found)?;
+        let (node, trace) = descend(object, &steps).ok_or_else(not_found)?;
+
+        let children = children_of(node);
+        let total = children.len();
+        let window = children.get(offset..).unwrap_or(&[]).iter().take(limit);
+
+        let mut wanted = Wanted::default();
+        for step in &trace {
+            match step {
+                Trace::Field(field) => wanted.fields.push(*field),
+                Trace::Key(key) => wanted.key(key),
+                Trace::Index(_) => {}
+            }
+        }
+        for child in window.clone() {
+            match child {
+                Child::Field(field, value) => {
+                    wanted.fields.push(*field);
+                    wanted.value(value);
+                }
+                Child::Element(_, value) => wanted.value(value),
+                Child::Entry(key, value) => {
+                    wanted.key(key);
+                    wanted.value(value);
+                }
+            }
+        }
+        let named = wanted.resolve(names);
+
+        let parent_label = label_of(&trace, &named);
+        let entry_hex = hex(entry);
+        let rows = window
+            .map(|child| {
+                let segment = Segment::of(*child, path, &parent_label, &named);
+                BinRow {
+                    entry: entry_hex.clone(),
+                    path: format!("{path}{}", segment.wire),
+                    label: format!("{parent_label}{}", segment.readable),
+                    node: segment.node,
+                    name: segment.name,
+                    unnamed: segment.unnamed,
+                    kind: Some(segment.value.kind().into()),
+                    value: named.value_of(segment.value),
+                }
+            })
+            .collect();
+
+        Ok(BinRows { rows, total })
+    }
+}
+
+/// Which kind of bin file a document holds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum BinFileKind {
+    /// A `PROP`: the objects themselves.
+    Prop,
+    /// A `PTCH`: a layer over another bin.
+    Patch,
+}
+
+/// What the header row says about an open bin.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct BinHeader {
+    pub kind: BinFileKind,
+    /// The file version of a `PROP`. A `PTCH` carries none.
+    pub version: Option<u32>,
+    /// The objects the file declares. For a `PTCH`, the objects it adds.
+    pub objects: usize,
+    pub dependencies: Vec<String>,
+    /// The patch records of a `PTCH`. Nothing draws them.
+    pub patches: usize,
+    /// The objects a `PTCH` deletes.
+    pub deleted: usize,
+}
+
+/// What an open answers: the id, the header, and the root rows.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct BinDocumentHandle {
+    pub document: BinDocumentId,
+    pub header: BinHeader,
+    pub rows: Vec<BinRow>,
+}
+
+/// A window of rows under one node, and how many there are in all.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct BinRows {
+    pub rows: Vec<BinRow>,
+    pub total: usize,
+}
+
+/// Where a row sits in the tree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum RowNode {
+    /// An object of the file.
+    Object,
+    /// A property of an object, a struct or an embedded.
+    Property,
+    /// One element of a container, or the value of a present optional.
+    Element,
+    /// One entry of a map.
+    Entry,
+}
+
+/// One row of the viewer, flat.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct BinRow {
+    /// The object's path hash, `0x` and eight hex digits.
+    pub entry: String,
+    /// The property path on the wire, every field a hash. Empty for the object itself.
+    pub path: String,
+    /// The same path for a person. Empty for the object itself.
+    pub label: String,
+    pub node: RowNode,
+    /// What the row is called: the object's path, the property's name, `[i]` or the key.
+    pub name: String,
+    /// The name is a hash no table names.
+    pub unnamed: bool,
+    /// The value's kind. An object row has none.
+    pub kind: Option<PropertyKind>,
+    pub value: BinValue,
+}
+
+/// The 27 kinds `ltk_meta` reads, as they cross IPC.
+///
+/// A mirror of [`Kind`]. An upstream rename or addition is a compile error here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum PropertyKind {
+    None,
+    Bool,
+    I8,
+    U8,
+    I16,
+    U16,
+    I32,
+    U32,
+    I64,
+    U64,
+    F32,
+    Vector2,
+    Vector3,
+    Vector4,
+    Matrix44,
+    Color,
+    String,
+    Hash,
+    WadChunkLink,
+    Container,
+    UnorderedContainer,
+    Struct,
+    Embedded,
+    ObjectLink,
+    Optional,
+    Map,
+    BitBool,
+}
+
+impl From<Kind> for PropertyKind {
+    fn from(kind: Kind) -> Self {
+        match kind {
+            Kind::None => Self::None,
+            Kind::Bool => Self::Bool,
+            Kind::I8 => Self::I8,
+            Kind::U8 => Self::U8,
+            Kind::I16 => Self::I16,
+            Kind::U16 => Self::U16,
+            Kind::I32 => Self::I32,
+            Kind::U32 => Self::U32,
+            Kind::I64 => Self::I64,
+            Kind::U64 => Self::U64,
+            Kind::F32 => Self::F32,
+            Kind::Vector2 => Self::Vector2,
+            Kind::Vector3 => Self::Vector3,
+            Kind::Vector4 => Self::Vector4,
+            Kind::Matrix44 => Self::Matrix44,
+            Kind::Color => Self::Color,
+            Kind::String => Self::String,
+            Kind::Hash => Self::Hash,
+            Kind::WadChunkLink => Self::WadChunkLink,
+            Kind::Container => Self::Container,
+            Kind::UnorderedContainer => Self::UnorderedContainer,
+            Kind::Struct => Self::Struct,
+            Kind::Embedded => Self::Embedded,
+            Kind::ObjectLink => Self::ObjectLink,
+            Kind::Optional => Self::Optional,
+            Kind::Map => Self::Map,
+            Kind::BitBool => Self::BitBool,
+        }
+    }
+}
+
+/// A row's value, in the shape its widget draws.
+///
+/// A hash rides beside the name a table gave it. A person reads the name and a Copy
+/// takes the hash.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(
+    tag = "type",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum BinValue {
+    None,
+    /// A `Bool` or a `BitBool`.
+    Bool {
+        value: bool,
+    },
+    /// Any integer kind, as text. A `U64` does not fit a JSON number.
+    Integer {
+        text: String,
+    },
+    Float {
+        value: f32,
+    },
+    /// Two, three or four components.
+    Vector {
+        values: Vec<f32>,
+    },
+    /// Sixteen cells, row-major.
+    Matrix {
+        values: Vec<f32>,
+    },
+    Color {
+        r: u8,
+        g: u8,
+        b: u8,
+        a: u8,
+    },
+    String {
+        value: String,
+    },
+    /// `0x` and eight hex digits, and the string behind it where a table names one.
+    Hash {
+        hash: String,
+        name: Option<String>,
+    },
+    /// Sixteen hex digits, and the chunk's path where a table names one.
+    WadChunkLink {
+        hash: String,
+        path: Option<String>,
+    },
+    /// `0x` and eight hex digits, and the object's path where a table names one.
+    ObjectLink {
+        hash: String,
+        name: Option<String>,
+    },
+    /// A `Container` or an `UnorderedContainer`.
+    Container {
+        len: usize,
+    },
+    /// A `Struct` with a class, or an `Embedded`.
+    Struct {
+        class_hash: String,
+        class: Option<String>,
+        len: usize,
+    },
+    /// A `Struct` with a class hash of zero.
+    Null,
+    Optional {
+        present: bool,
+    },
+    /// The entries, and the kinds the map declares for its keys and its values.
+    Map {
+        len: usize,
+        key_kind: PropertyKind,
+        value_kind: PropertyKind,
+    },
+    /// A leaf this build has no widget for.
+    Undrawn,
+}
+
+/// The names a row projection reads, one batch per table.
+///
+/// `visit` takes the index of the hash in `hashes` and its name. A hash no table names is
+/// not visited.
+pub trait RowNames {
+    /// The paths of objects, out of `binentries`.
+    fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str));
+    /// The names of classes, out of `bintypes`.
+    fn for_each_class(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str));
+    /// The names of properties, out of `binfields`.
+    fn for_each_field(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str));
+    /// The strings behind `Hash` values, out of `binhashes`.
+    fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str));
+    /// The paths of chunks, out of the WAD tables.
+    fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str));
+}
+
+/// Names nothing. Every hash draws as hex.
+impl RowNames for () {
+    fn for_each_entry(&self, _hashes: &[BinHash], _visit: &mut dyn FnMut(usize, &str)) {}
+    fn for_each_class(&self, _hashes: &[BinHash], _visit: &mut dyn FnMut(usize, &str)) {}
+    fn for_each_field(&self, _hashes: &[BinHash], _visit: &mut dyn FnMut(usize, &str)) {}
+    fn for_each_value(&self, _hashes: &[BinHash], _visit: &mut dyn FnMut(usize, &str)) {}
+    fn for_each_chunk(&self, _hashes: &[WadHash], _visit: &mut dyn FnMut(usize, &str)) {}
+}
+
+impl RowNames for CacheNames<'_> {
+    fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.bin().for_each_entry(hashes, visit);
+    }
+
+    fn for_each_class(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.bin().for_each_class(hashes, visit);
+    }
+
+    fn for_each_field(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.bin().for_each_field(hashes, visit);
+    }
+
+    fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.bin().for_each_value(hashes, visit);
+    }
+
+    fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.wad().resolve_each(hashes, |at, path| {
+            if let Some(path) = path {
+                visit(at, path);
+            }
+        });
+    }
+}
+
+/// Whether a `Struct` is the null pointer, which the format writes as a class hash of zero.
+fn is_null(inner: &values::Struct) -> bool {
+    inner.class_hash.0 == 0
+}
+
+/// The separator before a field segment: none at the start of a path.
+fn dot(prefix: &str) -> &'static str {
+    if prefix.is_empty() { "" } else { "." }
+}
+
+/// One step of a wire path.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Step {
+    Field(BinHash),
+    Index(usize),
+    /// The text inside `{}`, as [`wire_key`] writes it.
+    Key(String),
+}
+
+/// The steps of a wire path, or `None` where the text is not one.
+///
+/// The grammar is the one a Problems finding writes: `.` before every field but the
+/// first, eight hex digits per field, `[i]` for an index and `{key}` for a map entry.
+fn parse_steps(path: &str) -> Option<Vec<Step>> {
+    let mut steps = Vec::new();
+    let mut rest = path;
+    while !rest.is_empty() {
+        if let Some(after) = rest.strip_prefix('[') {
+            let (digits, tail) = after.split_once(']')?;
+            steps.push(Step::Index(digits.parse().ok()?));
+            rest = tail;
+        } else if let Some(after) = rest.strip_prefix('{') {
+            let (key, tail) = split_key(after)?;
+            steps.push(Step::Key(key.to_owned()));
+            rest = tail;
+        } else {
+            let after = match (rest.strip_prefix('.'), steps.is_empty()) {
+                (Some(after), false) => after,
+                (None, true) => rest,
+                _ => return None,
+            };
+            let (digits, tail) = after.split_at_checked(8)?;
+            if !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return None;
+            }
+            steps.push(Step::Field(BinHash(u32::from_str_radix(digits, 16).ok()?)));
+            rest = tail;
+        }
+    }
+    Some(steps)
+}
+
+/// The key text inside `{...}`, and what follows the closing brace.
+///
+/// A string key is a JSON string and may hold a brace. Its closing quote ends the key.
+fn split_key(text: &str) -> Option<(&str, &str)> {
+    if !text.starts_with('"') {
+        return text.split_once('}');
+    }
+    let mut escaped = false;
+    for (at, character) in text.char_indices().skip(1) {
+        match character {
+            '\\' if !escaped => escaped = true,
+            '"' if !escaped => {
+                let end = at + 1;
+                let tail = text[end..].strip_prefix('}')?;
+                return Some((&text[..end], tail));
+            }
+            _ => escaped = false,
+        }
+    }
+    None
+}
+
+/// A node a path resolves to.
+#[derive(Clone, Copy)]
+enum Node<'a> {
+    Object(&'a BinObject),
+    Value(&'a PropertyValueEnum),
+}
+
+impl<'a> Node<'a> {
+    /// The properties a field step reads. `None` for a leaf, a container and a null struct.
+    fn properties(self) -> Option<&'a IndexMap<BinHash, PropertyValueEnum>> {
+        match self {
+            Self::Object(object) => Some(&object.properties),
+            Self::Value(PropertyValueEnum::Embedded(values::Embedded(inner))) => {
+                Some(&inner.properties)
+            }
+            Self::Value(PropertyValueEnum::Struct(inner)) if !is_null(inner) => {
+                Some(&inner.properties)
+            }
+            Self::Value(_) => None,
+        }
+    }
+}
+
+/// What a step passed through, for the readable path of the node it reached.
+enum Trace<'a> {
+    Field(BinHash),
+    Index(usize),
+    Key(&'a PropertyValueEnum),
+}
+
+/// Walk `steps` down from `object`, or `None` where a step reaches nothing.
+fn descend<'a>(object: &'a BinObject, steps: &[Step]) -> Option<(Node<'a>, Vec<Trace<'a>>)> {
+    let mut node = Node::Object(object);
+    let mut trace = Vec::with_capacity(steps.len());
+    for step in steps {
+        node = match (step, node) {
+            (Step::Field(field), node) => {
+                let value = node.properties()?.get(field)?;
+                trace.push(Trace::Field(*field));
+                Node::Value(value)
+            }
+            (Step::Index(index), Node::Value(value)) => {
+                let item = element(value, *index)?;
+                trace.push(Trace::Index(*index));
+                Node::Value(item)
+            }
+            (Step::Key(text), Node::Value(PropertyValueEnum::Map(map))) => {
+                let (key, value) = map
+                    .entries()
+                    .iter()
+                    .find(|(key, _)| wire_key(key) == *text)?;
+                trace.push(Trace::Key(key));
+                Node::Value(value)
+            }
+            _ => return None,
+        };
+    }
+    Some((node, trace))
+}
+
+/// The element `[index]` of a container, or the value of a present optional at `[0]`.
+fn element(value: &PropertyValueEnum, index: usize) -> Option<&PropertyValueEnum> {
+    match value {
+        PropertyValueEnum::Container(items) => items.get(index),
+        PropertyValueEnum::UnorderedContainer(items) => items.get(index),
+        PropertyValueEnum::Optional(optional) if index == 0 => optional.value(),
+        _ => None,
+    }
+}
+
+/// A child of a node, with the segment that reaches it.
+#[derive(Clone, Copy)]
+enum Child<'a> {
+    Field(BinHash, &'a PropertyValueEnum),
+    Element(usize, &'a PropertyValueEnum),
+    Entry(&'a PropertyValueEnum, &'a PropertyValueEnum),
+}
+
+/// One child as its row names it: the segment that reaches it, in both forms.
+struct Segment<'a> {
+    value: &'a PropertyValueEnum,
+    node: RowNode,
+    name: String,
+    unnamed: bool,
+    /// The segment on the wire, with its separator.
+    wire: String,
+    /// The segment for a person, with its separator.
+    readable: String,
+}
+
+impl<'a> Segment<'a> {
+    /// The segment of `child` under the node at `path`, whose readable path is `parent_label`.
+    fn of(child: Child<'a>, path: &str, parent_label: &str, named: &Named) -> Self {
+        match child {
+            Child::Field(field, value) => {
+                let (name, unnamed) = named.field(field);
+                Self {
+                    value,
+                    node: RowNode::Property,
+                    wire: format!("{}{field:08x}", dot(path)),
+                    readable: format!("{}{name}", dot(parent_label)),
+                    name,
+                    unnamed,
+                }
+            }
+            Child::Element(index, value) => {
+                let text = format!("[{index}]");
+                Self {
+                    value,
+                    node: RowNode::Element,
+                    name: text.clone(),
+                    unnamed: false,
+                    wire: text.clone(),
+                    readable: text,
+                }
+            }
+            Child::Entry(key, value) => {
+                let (text, unnamed) = key_label(key, named);
+                Self {
+                    value,
+                    node: RowNode::Entry,
+                    wire: format!("{{{}}}", wire_key(key)),
+                    readable: format!("{{{text}}}"),
+                    name: text,
+                    unnamed,
+                }
+            }
+        }
+    }
+}
+
+/// The children of `node`, in file order.
+fn children_of(node: Node<'_>) -> Vec<Child<'_>> {
+    if let Some(properties) = node.properties() {
+        return properties
+            .iter()
+            .map(|(field, value)| Child::Field(*field, value))
+            .collect();
+    }
+    let Node::Value(value) = node else {
+        return Vec::new();
+    };
+    match value {
+        PropertyValueEnum::Container(items) => elements(items.items()),
+        PropertyValueEnum::UnorderedContainer(items) => elements(items.items()),
+        PropertyValueEnum::Optional(optional) => optional
+            .value()
+            .map(|value| Child::Element(0, value))
+            .into_iter()
+            .collect(),
+        PropertyValueEnum::Map(map) => map
+            .entries()
+            .iter()
+            .map(|(key, value)| Child::Entry(key, value))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn elements(items: &[PropertyValueEnum]) -> Vec<Child<'_>> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(index, value)| Child::Element(index, value))
+        .collect()
+}
+
+/// The text inside `{}` on the wire, the way a Problems finding writes it.
+fn wire_key(key: &PropertyValueEnum) -> String {
+    let mut out = String::new();
+    walk::write_key(&mut out, walk::owned(key.leaf()));
+    out
+}
+
+/// The text inside `{}` for a person, and whether it is a hash no table names.
+///
+/// A named `Hash` key is its string as a JSON literal. An unnamed one is `0x` and eight
+/// hex digits. Every other kind reads as it does on the wire.
+fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
+    match walk::owned(key.leaf()) {
+        Some(Leaf::Hash(hash)) => match named.values.get(&hash) {
+            Some(name) => {
+                let mut out = String::new();
+                walk::write_json_string(&mut out, name);
+                (out, false)
+            }
+            None => (hex(hash), true),
+        },
+        leaf => {
+            let mut out = String::new();
+            walk::write_key(&mut out, leaf);
+            (out, false)
+        }
+    }
+}
+
+/// The readable path of the node `trace` reached.
+fn label_of(trace: &[Trace<'_>], named: &Named) -> String {
+    let mut label = String::new();
+    for step in trace {
+        match step {
+            Trace::Field(field) => {
+                label.push_str(dot(&label));
+                label.push_str(&named.field(*field).0);
+            }
+            Trace::Index(index) => {
+                let _ = write!(label, "[{index}]");
+            }
+            Trace::Key(key) => {
+                let _ = write!(label, "{{{}}}", key_label(key, named).0);
+            }
+        }
+    }
+    label
+}
+
+/// The hashes one projection needs named.
+#[derive(Debug, Default)]
+struct Wanted {
+    entries: Vec<BinHash>,
+    classes: Vec<BinHash>,
+    fields: Vec<BinHash>,
+    values: Vec<BinHash>,
+    chunks: Vec<WadHash>,
+}
+
+impl Wanted {
+    /// The hashes a row's value column names.
+    fn value(&mut self, value: &PropertyValueEnum) {
+        match value {
+            PropertyValueEnum::Hash(hash) => self.values.push(hash.value),
+            PropertyValueEnum::ObjectLink(link) => self.entries.push(link.value),
+            PropertyValueEnum::WadChunkLink(link) => self.chunks.push(link.value),
+            PropertyValueEnum::Struct(inner) if !is_null(inner) => {
+                self.classes.push(inner.class_hash);
+            }
+            PropertyValueEnum::Embedded(values::Embedded(inner)) => {
+                self.classes.push(inner.class_hash);
+            }
+            _ => {}
+        }
+    }
+
+    /// The hash a map key names.
+    fn key(&mut self, key: &PropertyValueEnum) {
+        if let PropertyValueEnum::Hash(hash) = key {
+            self.values.push(hash.value);
+        }
+    }
+
+    /// Ask every table once for what it names.
+    fn resolve(mut self, names: &dyn RowNames) -> Named {
+        for list in [
+            &mut self.entries,
+            &mut self.classes,
+            &mut self.fields,
+            &mut self.values,
+        ] {
+            list.sort_unstable();
+            list.dedup();
+        }
+        self.chunks.sort_unstable();
+        self.chunks.dedup();
+
+        let mut named = Named::default();
+        names.for_each_entry(&self.entries, &mut |at, name| {
+            named.entries.insert(self.entries[at], name.to_owned());
+        });
+        names.for_each_class(&self.classes, &mut |at, name| {
+            named.classes.insert(self.classes[at], name.to_owned());
+        });
+        names.for_each_field(&self.fields, &mut |at, name| {
+            named.fields.insert(self.fields[at], name.to_owned());
+        });
+        names.for_each_value(&self.values, &mut |at, name| {
+            named.values.insert(self.values[at], name.to_owned());
+        });
+        names.for_each_chunk(&self.chunks, &mut |at, path| {
+            named.chunks.insert(self.chunks[at], path.to_owned());
+        });
+        named
+    }
+}
+
+/// What the tables named, for one projection.
+#[derive(Debug, Default)]
+struct Named {
+    entries: HashMap<BinHash, String>,
+    classes: HashMap<BinHash, String>,
+    fields: HashMap<BinHash, String>,
+    values: HashMap<BinHash, String>,
+    chunks: HashMap<WadHash, String>,
+}
+
+impl Named {
+    /// An object's path, or its hex and the flag that says so.
+    fn entry(&self, hash: BinHash) -> (String, bool) {
+        Self::name_or_hex(self.entries.get(&hash), hash)
+    }
+
+    /// A property's name, or its hex and the flag that says so.
+    fn field(&self, hash: BinHash) -> (String, bool) {
+        Self::name_or_hex(self.fields.get(&hash), hash)
+    }
+
+    fn name_or_hex(name: Option<&String>, hash: BinHash) -> (String, bool) {
+        match name {
+            Some(name) => (name.clone(), false),
+            None => (hex(hash), true),
+        }
+    }
+
+    /// `value` in the shape its widget draws.
+    fn value_of(&self, value: &PropertyValueEnum) -> BinValue {
+        match value {
+            PropertyValueEnum::Container(items) => BinValue::Container { len: items.len() },
+            PropertyValueEnum::UnorderedContainer(items) => {
+                BinValue::Container { len: items.len() }
+            }
+            PropertyValueEnum::Optional(optional) => BinValue::Optional {
+                present: optional.is_some(),
+            },
+            PropertyValueEnum::Map(map) => BinValue::Map {
+                len: map.entries().len(),
+                key_kind: map.key_kind().into(),
+                value_kind: map.value_kind().into(),
+            },
+            PropertyValueEnum::Struct(inner) if is_null(inner) => BinValue::Null,
+            PropertyValueEnum::Struct(inner)
+            | PropertyValueEnum::Embedded(values::Embedded(inner)) => BinValue::Struct {
+                class_hash: hex(inner.class_hash),
+                class: self.classes.get(&inner.class_hash).cloned(),
+                len: inner.properties.len(),
+            },
+            leaf => self.leaf_of(walk::owned(leaf.leaf())),
+        }
+    }
+
+    fn leaf_of(&self, leaf: Option<Leaf<'_>>) -> BinValue {
+        match leaf {
+            None | Some(Leaf::None) => BinValue::None,
+            Some(Leaf::Bool(value) | Leaf::Flag(value)) => BinValue::Bool { value },
+            Some(Leaf::I8(value)) => integer(value),
+            Some(Leaf::U8(value)) => integer(value),
+            Some(Leaf::I16(value)) => integer(value),
+            Some(Leaf::U16(value)) => integer(value),
+            Some(Leaf::I32(value)) => integer(value),
+            Some(Leaf::U32(value)) => integer(value),
+            Some(Leaf::I64(value)) => integer(value),
+            Some(Leaf::U64(value)) => integer(value),
+            Some(Leaf::F32(value)) => BinValue::Float { value },
+            Some(Leaf::Vector2(vector)) => BinValue::Vector {
+                values: vector.to_array().to_vec(),
+            },
+            Some(Leaf::Vector3(vector)) => BinValue::Vector {
+                values: vector.to_array().to_vec(),
+            },
+            Some(Leaf::Vector4(vector)) => BinValue::Vector {
+                values: vector.to_array().to_vec(),
+            },
+            Some(Leaf::Matrix44(matrix)) => BinValue::Matrix {
+                values: matrix.transpose().to_cols_array().to_vec(),
+            },
+            Some(Leaf::Color(color)) => BinValue::Color {
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                a: color.a,
+            },
+            Some(Leaf::String(text)) => BinValue::String {
+                value: text.to_owned(),
+            },
+            Some(Leaf::Hash(hash)) => BinValue::Hash {
+                hash: hex(hash),
+                name: self.values.get(&hash).cloned(),
+            },
+            Some(Leaf::File(hash)) => BinValue::WadChunkLink {
+                hash: format!("{hash:016x}"),
+                path: self.chunks.get(&hash).cloned(),
+            },
+            Some(Leaf::Link(hash)) => BinValue::ObjectLink {
+                hash: hex(hash),
+                name: self.entries.get(&hash).cloned(),
+            },
+            Some(_) => BinValue::Undrawn,
+        }
+    }
+}
+
+fn integer(value: impl fmt::Display) -> BinValue {
+    BinValue::Integer {
+        text: value.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests;

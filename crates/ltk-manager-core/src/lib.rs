@@ -5,6 +5,7 @@
 //! reported through listener traits (see [`patcher::session::PatcherEvents`]);
 //! the Tauri shell in `src-tauri` supplies the adapters.
 
+pub mod bin_document;
 pub mod config;
 pub mod diagnostics;
 pub mod error;
