@@ -12,6 +12,7 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
+use crate::bin_document::BinDocumentError;
 use crate::hashtables::HashtableError;
 use crate::launcher::LauncherError;
 use crate::patcher::PatcherError;
@@ -54,6 +55,7 @@ pub enum ErrorKind {
     Workshop,
     Hashtable,
     Preview,
+    BinDocument,
     Overlay,
     UntrustedDomain,
 }
@@ -139,6 +141,7 @@ impl AppError {
             AppError::Workshop { .. } => ErrorKind::Workshop,
             AppError::Hashtable { .. } => ErrorKind::Hashtable,
             AppError::Preview { .. } => ErrorKind::Preview,
+            AppError::BinDocument { .. } => ErrorKind::BinDocument,
             AppError::Overlay { .. } => ErrorKind::Overlay,
             AppError::UntrustedDomain { .. } => ErrorKind::UntrustedDomain,
         }
@@ -225,6 +228,9 @@ pub enum AppError {
 
     #[error(transparent)]
     Preview(#[from] PreviewError),
+
+    #[error(transparent)]
+    BinDocument(#[from] BinDocumentError),
 
     #[error(transparent)]
     Overlay(#[from] ltk_overlay::Error),

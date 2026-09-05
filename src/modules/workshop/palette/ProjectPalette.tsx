@@ -10,6 +10,7 @@ import {
   useOpenDocumentTab,
   useRecentDocumentIds,
   useRevealInTree,
+  useRevealObject,
   useSelectedLayerName,
 } from "../state";
 import { barPlaceholder } from "./barMode";
@@ -106,6 +107,7 @@ function useRunTarget(close: () => void) {
   const openBeside = useOpenDocumentBeside();
   const openProject = useOpenProject();
   const reveal = useRevealInTree();
+  const revealObject = useRevealObject();
 
   return useCallback(
     ({ target }: PaletteRowData, intent: OpenIntent) => {
@@ -126,16 +128,22 @@ function useRunTarget(close: () => void) {
         return;
       }
 
-      if (intent === "beside") openBeside(documentFor(target, project.path));
-      else if (intent === "permanent") openDocument(documentFor(target, project.path));
-      else openTab(documentFor(target, project.path));
+      const document = documentFor(target, project.path);
+      if (intent === "beside") openBeside(document);
+      else if (intent === "permanent") openDocument(document);
+      else openTab(document);
 
       /* Only a file of the project has a tree standing open beside the editor
          to scroll. The game browser opens on its own. */
       if (target.kind === "layerFile" || target.kind === "layerObject") {
         reveal(target.layerName, target.path);
       }
+
+      /* The tab is keyed on the file. A second hit in an open file re-targets that tab. */
+      if (target.kind === "object" || target.kind === "layerObject") {
+        revealObject(document.id, target.objectHash);
+      }
     },
-    [close, openBeside, openDocument, openProject, openTab, project.path, reveal],
+    [close, openBeside, openDocument, openProject, openTab, project.path, reveal, revealObject],
   );
 }

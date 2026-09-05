@@ -64,6 +64,13 @@ export function describeError(error: AppError): ErrorCopy {
     .with({ code: "LAUNCHER" }, ({ error }) => describeLaunchError(error))
     .with({ code: "HASHTABLE" }, (e) => withDetail(m["error.HASHTABLE.title"](), e.detail))
     .with({ code: "PREVIEW" }, (e) => withDetail(m["error.PREVIEW.title"](), e.detail))
+    .with({ code: "BIN_UNREADABLE" }, (e) =>
+      withDetail(m["error.BIN_UNREADABLE.title"](), e.detail),
+    )
+    .with({ code: "BIN_NOT_OPEN" }, () => ({ title: m["error.BIN_NOT_OPEN.title"]() }))
+    .with({ code: "BIN_NODE_NOT_FOUND" }, ({ address }) => ({
+      title: m["error.BIN_NODE_NOT_FOUND.title"]({ address }),
+    }))
     .with({ code: "OVERLAY" }, ({ category, detail }) => withDetail(overlayTitle(category), detail))
     .with({ code: "UNTRUSTED_DOMAIN" }, ({ domain }) => ({
       title: m["error.UNTRUSTED_DOMAIN.title"]({ domain }),

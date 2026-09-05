@@ -162,6 +162,18 @@ impl<'a> CacheNames<'a> {
     pub fn new(bin: &'a BinHashTables, wad: &'a WadPathResolver) -> Self {
         Self { bin, wad }
     }
+
+    /// The four bin tables.
+    #[must_use]
+    pub fn bin(&self) -> &'a BinHashTables {
+        self.bin
+    }
+
+    /// The WAD path tables.
+    #[must_use]
+    pub fn wad(&self) -> &'a WadPathResolver {
+        self.wad
+    }
 }
 
 impl ObjectNames for CacheNames<'_> {
