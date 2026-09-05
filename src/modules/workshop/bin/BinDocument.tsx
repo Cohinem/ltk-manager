@@ -107,7 +107,16 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   const open = useOpenDocumentAs();
   const openObject = useCallback(
     (row: BinRow, intent: OpenIntent) =>
-      open(objectDocument(asset, row.entry, row.name, file), intent),
+      open(
+        objectDocument(
+          asset,
+          row.entry,
+          row.name,
+          file,
+          row.value.type === "struct" ? row.value.class : null,
+        ),
+        intent,
+      ),
     [asset, file, open],
   );
 

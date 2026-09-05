@@ -81,7 +81,6 @@ const SKIN0: ObjectDirListing = {
 function nameOf(node: ObjectTreeNode): string {
   if (node.type === "loading") return "(loading)";
   if (node.type === "more") return `(${node.count} more)`;
-  if (node.type === "declaration") return `${node.declaration.file}`;
   return node.name;
 }
 
@@ -149,7 +148,7 @@ describe("buildObjectTree", () => {
     expect(asObject(asPrefix(tree[0]).children[1]).children).toEqual([]);
   });
 
-  it("lists several declarations as the first children, a layer's marked by its title", () => {
+  it("joins the layers' declarations onto the node, marked by their titles, and lists no row for them", () => {
     const shared = object("characters/shared", 1, [chunk("data/a.bin"), chunk("data/b.bin")]);
     const project: WorkshopProject = {
       path: "C:/mods/skin",
@@ -189,24 +188,16 @@ describe("buildObjectTree", () => {
     const node = asObject(asPrefix(tree[0]).children[0]);
 
     expect(node.layers).toEqual([{ name: "base", title: "Base" }]);
-    expect(node.declarations).toHaveLength(3);
-    expect(node.children.map(nameOf)).toEqual([
+    expect(node.declarations.map((declaration) => declaration.file)).toEqual([
       "data/a.bin",
       "data/b.bin",
       "data/shared.bin",
-      "child",
     ]);
-    const layerRow = node.children[2];
-    expect(layerRow.type === "declaration" && layerRow.layer).toEqual({
-      name: "base",
-      title: "Base",
-    });
-    expect(layerRow.type === "declaration" && layerRow.declaration.asset.kind).toBe("layer");
-    const installRow = node.children[0];
-    expect(installRow.type === "declaration" && installRow.layer).toBeNull();
+    expect(node.declarations[2]?.asset.kind).toBe("layer");
+    expect(node.children.map(nameOf)).toEqual(["child"]);
   });
 
-  it("makes an object one layer alone joins expandable through its declaration rows", () => {
+  it("keeps an object one layer alone joins a leaf, marked by the layer", () => {
     const only = object("characters/only");
     const project = { path: "C:/mods/skin", layers: [] } as unknown as WorkshopProject;
     const content = {
@@ -234,7 +225,8 @@ describe("buildObjectTree", () => {
 
     const node = asObject(tree[0]);
     expect(node.count).toBe(0);
-    expect(expandable(node)).toBe(true);
+    expect(expandable(node)).toBe(false);
+    expect(node.declarations).toHaveLength(2);
     expect(node.layers).toEqual([{ name: "base", title: "base" }]);
   });
 
@@ -304,20 +296,7 @@ describe("activation", () => {
     expect(activation(leaf, "caret")).toBe("open");
   });
 
-  it("opens a declaration and does nothing for a loading row", () => {
-    expect(
-      activation(
-        {
-          type: "declaration",
-          id: "d",
-          objectHash: "0x1",
-          path: "a",
-          declaration: chunk("data/a.bin"),
-          layer: null,
-        },
-        "row",
-      ),
-    ).toBe("open");
+  it("does nothing for a loading row or the more row", () => {
     expect(activation({ type: "loading", id: "l" }, "row")).toBe("none");
     expect(activation({ type: "more", id: "more", count: 3 }, "row")).toBe("none");
   });

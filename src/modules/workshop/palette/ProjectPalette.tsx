@@ -98,6 +98,7 @@ function documentFor(target: OpeningTarget, projectPath: string): ContentDocumen
       target.objectHash,
       target.objectPath,
       target.path.length > 0 ? target.path : target.pathHash,
+      target.objectClass,
     );
   }
   const asset = {
@@ -107,7 +108,13 @@ function documentFor(target: OpeningTarget, projectPath: string): ContentDocumen
     path: target.path,
   } as const;
   if (target.kind === "layerObject") {
-    return objectDocument(asset, target.objectHash, target.objectPath, target.path);
+    return objectDocument(
+      asset,
+      target.objectHash,
+      target.objectPath,
+      target.path,
+      target.objectClass,
+    );
   }
   return previewDocument(asset);
 }

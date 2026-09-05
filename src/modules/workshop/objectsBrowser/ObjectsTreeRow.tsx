@@ -1,12 +1,14 @@
-import { CaretRightIcon, CubeIcon, FileIcon } from "@phosphor-icons/react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { MarkedText } from "@/components";
+import { MarkedText, Popover } from "@/components";
 import { m } from "@/i18n";
 
 import { ClassCard } from "../bin/ClassCard";
+import { DeclarationList } from "../bin/DeclarationList";
 import { LayerGlyph } from "../components/LayerGlyph";
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import {
   CaretSlot,
   FolderGlyph,
@@ -17,11 +19,9 @@ import {
 } from "../components/TreeRowParts";
 import { declaringFileContext } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
-import { assetContext } from "../preview/assetRef";
 import { clickIntent } from "../state";
 import {
   expandable,
-  type ObjectDeclarationNode,
   type ObjectMoreNode,
   type ObjectPrefixNode,
   type ObjectRowNode,
@@ -36,7 +36,7 @@ interface ObjectsTreeRowProps {
   isSelected: boolean;
   onToggle: (node: ObjectTreeNode) => void;
   onSelect: (index: number) => void;
-  /** A click on an object or a declaration row, with the intent the click carries. */
+  /** A click on an object row, with the intent the click carries. */
   onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
   height: number;
   rowIndex: number;
@@ -50,8 +50,6 @@ function ObjectsTreeRowInner(props: ObjectsTreeRowProps) {
       return <PrefixRow {...props} node={node} />;
     case "object":
       return <ObjectRow {...props} node={node} />;
-    case "declaration":
-      return <DeclarationRow {...props} node={node} />;
     case "more":
       return <MoreRow {...props} node={node} />;
     default:
@@ -185,7 +183,7 @@ function ObjectRow({
         </span>
       )}
       {!opens && <CaretSlot />}
-      <CubeIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+      <ObjectGlyph objectClass={first?.class} className="h-3.5 w-3.5 shrink-0 text-surface-400" />
       <span className={twMerge("truncate", node.unnamed && "text-surface-300")}>
         <MarkedText text={node.name} ranges={rangesInName(node.path, node.ranges)} />
       </span>
@@ -212,61 +210,56 @@ function classLabel(cls: string, classHash: string): string | null {
   return cls === classHash ? null : cls;
 }
 
-/** The declaring file, or how many files declare the node. */
+/** The declaring file, or a chip listing the files where several declare the node. */
 function Source({ node }: { node: ObjectRowNode }) {
   const first = node.declarations[0];
   if (!first) return null;
-  if (node.declarations.length > 1) {
-    return <>{m.workshop_objects_files_label({ count: node.declarations.length })}</>;
-  }
+  if (node.declarations.length > 1) return <FilesChip node={node} />;
   return <>{declaringFileContext(first.asset, first.file)}</>;
 }
 
-interface DeclarationRowProps extends ObjectsTreeRowProps {
-  node: ObjectDeclarationNode;
-}
+/** Hover for this long opens the list, the tooltip delay. A click does not wait. */
+const LIST_DELAY = 600;
 
-/** One declaring file of the object above, opening its own tab. */
-function DeclarationRow({
-  node,
-  depth,
-  isSelected,
-  onSelect,
-  onOpen,
-  height,
-  rowIndex,
-  tabIndex,
-}: DeclarationRowProps) {
-  const where = node.layer?.title ?? assetContext(node.declaration.asset);
+/**
+ * `n files` as a control listing the declaring files, per "A node with several
+ * declarations" in docs/ux/PROJECT_EDITOR.md. A click pins the list and leaves the row alone.
+ */
+function FilesChip({ node }: { node: ObjectRowNode }) {
+  const label = m.workshop_objects_files_label({ count: node.declarations.length });
+  const layerTitle = (layer: string) =>
+    node.layers.find((mark) => mark.name === layer)?.title ?? layer;
 
   return (
-    <div
-      role="treeitem"
-      aria-level={depth + 1}
-      aria-selected={isSelected}
-      data-ui="ObjectsTreeRow:declaration"
-      data-treeitem-index={rowIndex}
-      tabIndex={tabIndex}
-      onClick={(event) => {
-        onSelect(rowIndex);
-        onOpen(node, clickIntent(event));
-      }}
-      onDoubleClick={() => onOpen(node, "permanent")}
-      onContextMenu={() => onSelect(rowIndex)}
-      onFocus={() => onSelect(rowIndex)}
-      style={{ height: `${height}px` }}
-      className={twMerge("cursor-pointer", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
-    >
-      <IndentRails depth={depth} />
-      <CaretSlot />
-      {node.layer !== null && <LayerGlyph layerName={node.layer.name} />}
-      {node.layer === null && <FileIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />}
-      <span className="truncate text-surface-300">{node.declaration.file}</span>
-      {where !== undefined && (
-        <span className="ml-auto shrink-0 text-[0.625rem] text-surface-400">{where}</span>
-      )}
-    </div>
+    <Popover.Root>
+      <Popover.Trigger
+        openOnHover
+        delay={LIST_DELAY}
+        render={<button type="button" onClick={keepRowShut} onDoubleClick={keepRowShut} />}
+        /* DS-VEIL */
+        className="-mx-1 cursor-pointer rounded-sm px-1 hover:bg-surface-veil hover:text-surface-200"
+      >
+        {label}
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="bottom" align="end" sideOffset={6}>
+          <Popover.Popup aria-label={label} className="w-96 p-1 select-none">
+            <DeclarationList
+              declarations={node.declarations}
+              objectHash={node.objectHash}
+              objectPath={node.path}
+              layerTitle={layerTitle}
+            />
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
+}
+
+/** A click on the chip is the chip's. The row under it neither opens nor pins. */
+function keepRowShut(event: ReactMouseEvent<HTMLButtonElement>) {
+  event.stopPropagation();
 }
 
 interface MoreRowProps extends ObjectsTreeRowProps {

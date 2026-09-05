@@ -1,4 +1,4 @@
-import { CubeIcon, SpinnerGapIcon } from "@phosphor-icons/react";
+import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { Popover } from "@/components";
@@ -7,11 +7,10 @@ import type { AssetRef, ObjectDeclaration } from "@/lib/tauri";
 
 import { useProjectContentTree } from "../api/useProjectContentTree";
 import { useProjectContext } from "../components/ProjectContext";
-import { declaringFileContext, layerTitle, objectDocument } from "../documents/contentDocument";
+import { layerTitle } from "../documents/contentDocument";
 import { useObjectDeclarations, useWarmObjectIndex } from "../gameBrowser";
-import type { OpenIntent } from "../palette/types";
-import { assetContext, assetKey } from "../preview/assetRef";
-import { clickIntent, useOpenDocumentAs } from "../state";
+import { assetKey } from "../preview/assetRef";
+import { DeclarationList } from "./DeclarationList";
 
 interface OtherDeclarationsProps {
   /** The declaration the tab is over, which the list leaves out. */
@@ -34,7 +33,6 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
   const { data, error } = useObjectDeclarations(hashes);
   const { data: tree } = useProjectContentTree(project.path);
   const warm = useWarmObjectIndex();
-  const open = useOpenDocumentAs();
 
   const others = useMemo<readonly ObjectDeclaration[]>(() => {
     const self = assetKey(asset);
@@ -103,57 +101,15 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8}>
           <Popover.Popup aria-label={label} className="w-96 p-1">
-            <ul data-ui="OtherDeclarations" className="flex flex-col">
-              {others.map((declaration) => (
-                <DeclarationRow
-                  key={assetKey(declaration.asset)}
-                  declaration={declaration}
-                  layerName={
-                    declaration.asset.kind === "layer"
-                      ? layerTitle(project, declaration.asset.layer)
-                      : null
-                  }
-                  onOpen={(intent) =>
-                    open(
-                      objectDocument(declaration.asset, objectHash, objectPath, declaration.file),
-                      intent,
-                    )
-                  }
-                />
-              ))}
-            </ul>
+            <DeclarationList
+              declarations={others}
+              objectHash={objectHash}
+              objectPath={objectPath}
+              layerTitle={(layer) => layerTitle(project, layer)}
+            />
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
-  );
-}
-
-interface DeclarationRowProps {
-  declaration: ObjectDeclaration;
-  /** The layer's title where the declaration is a layer's, else null. */
-  layerName: string | null;
-  onOpen: (intent: OpenIntent) => void;
-}
-
-/** One declaring file: its path, and the archive or the layer it sits in. */
-function DeclarationRow({ declaration, layerName, onOpen }: DeclarationRowProps) {
-  const where = layerName ?? assetContext(declaration.asset);
-  return (
-    <li>
-      <button
-        type="button"
-        /* DS-VEIL, DS-RADIUS */
-        className="flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-sm px-2 py-1 text-left text-meta hover:bg-surface-veil"
-        title={declaringFileContext(declaration.asset, declaration.file)}
-        onClick={(event) => onOpen(clickIntent(event))}
-      >
-        <CubeIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-        <span className="min-w-0 flex-1 truncate font-mono text-code text-surface-200">
-          {declaration.file}
-        </span>
-        {where !== undefined && <span className="shrink-0 text-surface-400">{where}</span>}
-      </button>
-    </li>
   );
 }

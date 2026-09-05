@@ -2689,13 +2689,14 @@ the source tree.
 ### A node with several declarations
 
 A node's children belong to the path and not to any one file. A node one file declares carries
-that file in its source cell. A node several files declare carries `n files`, and its
-declaration rows sit as its first children, one per file, above its path children. Each
-declaration row opens its own tab.
+that file in its source cell. A node several files declare carries `n files` there, a chip that
+lists the declaring files on hover and pins on a click. Each file in the list opens its own tab,
+`Ctrl` beside. The node's row opens the first declaration in archive order, and its expansion
+holds the path children alone.
 
-A layer's declaration is one of those rows, marked by its layer name the way the palette marks
-a layer row. A node the install declares and a layer overrides carries the layer name on the
-node row. A node only the project declares has no row. The tree's nodes are the install's.
+A layer's declaration is one of the listed files, marked by its layer name the way the palette
+marks a layer row. A node the install declares and a layer overrides carries the layer name on
+the node row. A node only the project declares has no row. The tree's nodes are the install's.
 
 ### What a row opens
 

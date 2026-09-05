@@ -47,7 +47,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Property paths       | Available | The game's path syntax, as the address and as Copy path       |
 | Open at object       | Available | A `$` hit opens the declaring file scrolled to its object     |
 | Type tags            | Available | Every row's kind after its name, in ritobin's words           |
-| Class cards          | Available | A class or a field on hover, from the meta schema             |
+| Class cards          | Available | A class or a field, pinned by a click, from the meta schema   |
 | Object tab           | Available | One declaration as a document. ADR-0028                       |
 | Object links         | Available | A chip that opens the object tab, resolved through the index  |
 | Hash links           | Available | A `hash` the index declares, opening the same way             |
@@ -398,12 +398,12 @@ holding an unnamed hash is a modder about to paste it into another tool.
 │     └ ▸ armorMaterial               8 items                     │
 ```
 
-| Part      | Reads                                    |
-| --------- | ---------------------------------------- |
-| The mark  | `◈`, the same mark the object index uses |
-| The name  | The object's path, or its hash           |
-| The class | The class the object declares            |
-| The count | The object's property count              |
+| Part      | Reads                                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| The mark  | `◈`, the same mark the object index uses. A `Champion` carries the champion mark and a `SkinCharacterDataProperties` the skin mark |
+| The name  | The object's path, or its hash                                                                                                     |
+| The class | The class the object declares                                                                                                      |
+| The count | The object's property count                                                                                                        |
 
 The document opens with every object collapsed and its class showing. A bin holding one
 object opens it expanded, because a collapsed single row is a document that says nothing.
@@ -616,9 +616,22 @@ schema ships in the build as the snapshot `pnpm generate:meta-schema` writes, re
 
 ### The field card
 
-A field name opens the smaller card: its declared kind at this build, and its history across
-builds as the schema's revisions hold it. The kind shown on the row stays the file's kind, per
-[The property row](#the-property-row).
+A field name is the same control as a class name: a card on hover after the tooltip delay,
+pinned by a click, closed by `Esc`. The name draws as a chip under the pointer, and a click on
+it leaves the row's expansion where it is.
+
+| Shows      | From                                                                 |
+| ---------- | -------------------------------------------------------------------- |
+| Name, hash | The tables, and the hex where no table names it                      |
+| Declared   | The schema's kind for the field at this build                        |
+| Revisions  | The field's kinds across builds, as the schema's revisions hold them |
+
+| Action    | Does           |
+| --------- | -------------- |
+| Copy name | The field name |
+| Copy hash | The field hash |
+
+The kind shown on the row stays the file's kind, per [The property row](#the-property-row).
 
 ### Find all references
 

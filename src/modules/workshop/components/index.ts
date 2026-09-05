@@ -14,6 +14,7 @@ export { ImportGitRepoDialog } from "./ImportGitRepoDialog";
 export { LayerFileDropOverlay } from "./LayerFileDropOverlay";
 export { LeafProvider, useLeafId } from "./LeafContext";
 export { NewProjectDialog } from "./NewProjectDialog";
+export { ObjectGlyph, type ObjectIcon, objectIcon } from "./ObjectGlyph";
 export {
   appendAuthor,
   AuthorsSection,

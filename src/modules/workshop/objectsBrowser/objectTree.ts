@@ -16,7 +16,6 @@ import type {
 
 import { layerTitle } from "../documents/contentDocument";
 import type { MatchRange } from "../palette/matcher";
-import { assetKey } from "../preview/assetRef";
 import { compareNames } from "../utils/naturalOrder";
 
 /** The prefix of the group holding the objects no table names, as the backend keys it. */
@@ -28,12 +27,7 @@ export interface LayerMark {
   readonly title: string;
 }
 
-export type ObjectTreeNode =
-  | ObjectPrefixNode
-  | ObjectRowNode
-  | ObjectDeclarationNode
-  | ObjectLoadingNode
-  | ObjectMoreNode;
+export type ObjectTreeNode = ObjectPrefixNode | ObjectRowNode | ObjectLoadingNode | ObjectMoreNode;
 
 /** A path no object bears, folded through any run of single-child prefixes. */
 export interface ObjectPrefixNode {
@@ -69,19 +63,8 @@ export interface ObjectRowNode {
   readonly count: number;
   /** The runs a find marked on `path`. */
   readonly ranges?: readonly MatchRange[];
-  /** The declaration rows first, then the path children. */
+  /** The path children. */
   readonly children: readonly ObjectTreeNode[];
-}
-
-/** One file declaring an object, under the object's row. */
-export interface ObjectDeclarationNode {
-  readonly type: "declaration";
-  readonly id: string;
-  readonly objectHash: string;
-  readonly path: string;
-  readonly declaration: ObjectDeclaration;
-  /** The layer where the declaration is a layer's, else null. */
-  readonly layer: LayerMark | null;
 }
 
 /** Stands in for an expanded node whose listing is in flight. */
@@ -143,10 +126,10 @@ export function layerDeclarationsOf(
   return declared;
 }
 
-/** Whether a row has children to open: every prefix, and an object with something under it. */
+/** Whether a row has children to open: every prefix, and an object with objects under it. */
 export function expandable(node: ObjectTreeNode): node is ObjectPrefixNode | ObjectRowNode {
   if (node.type === "prefix") return true;
-  if (node.type === "object") return node.count > 0 || node.declarations.length > 1;
+  if (node.type === "object") return node.count > 0;
   return false;
 }
 
@@ -163,8 +146,6 @@ export function activation(node: ObjectTreeNode, on: "row" | "caret"): Activatio
       return "toggle";
     case "object":
       return on === "caret" && expandable(node) ? "toggle" : "open";
-    case "declaration":
-      return "open";
     default:
       return "none";
   }
@@ -175,7 +156,7 @@ export function activation(node: ObjectTreeNode, on: "row" | "caret"): Activatio
  *
  * `listings` maps a prefix to what it holds, or to null for a fetch in flight.
  * The root is the entry under `""`. An expanded object whose listing has not arrived
- * carries a loading row under its declaration rows.
+ * carries a loading row.
  */
 export function buildObjectTree(
   listings: ReadonlyMap<string, ObjectDirListing | null>,
@@ -197,7 +178,7 @@ export function buildObjectTree(
 
     const objects = listing.objects.map((entry) => {
       const below = isExpanded(entry.path) && entry.count > 0 ? build(entry.path) : [];
-      return objectNode(entry, layers, isExpanded(entry.path), below);
+      return objectNode(entry, layers, below);
     });
 
     return [...prefixes, ...objects];
@@ -206,30 +187,14 @@ export function buildObjectTree(
   return build("");
 }
 
-/** The row of `entry`, its declarations joined with the layers' and listed under it. */
+/** The row of `entry`, its declarations joined with the layers', over `below`. */
 function objectNode(
   entry: ObjectNodeEntry,
   layers: LayerDeclarations,
-  expanded: boolean,
   below: readonly ObjectTreeNode[],
   ranges?: readonly MatchRange[],
 ): ObjectRowNode {
   const fromLayers = layers.get(entry.objectHash) ?? [];
-  const declarations = [
-    ...entry.declarations,
-    ...fromLayers.map((declared) => declared.declaration),
-  ];
-  const rows =
-    expanded && declarations.length > 1
-      ? declarations.map<ObjectDeclarationNode>((declaration) => ({
-          type: "declaration",
-          id: `${entry.path}#${assetKey(declaration.asset)}`,
-          objectHash: entry.objectHash,
-          path: entry.path,
-          declaration,
-          layer: fromLayers.find((declared) => declared.declaration === declaration)?.layer ?? null,
-        }))
-      : [];
 
   return {
     type: "object",
@@ -238,11 +203,11 @@ function objectNode(
     name: entry.name,
     objectHash: entry.objectHash,
     unnamed: entry.path === entry.objectHash,
-    declarations,
+    declarations: [...entry.declarations, ...fromLayers.map((declared) => declared.declaration)],
     layers: fromLayers.map((declared) => declared.layer),
     count: entry.count,
     ranges,
-    children: [...rows, ...below],
+    children: below,
   };
 }
 
@@ -303,9 +268,7 @@ export function buildFindTree(
       unnamed: true,
       count: unnamed.length,
       children: isExpanded(UNNAMED_PREFIX)
-        ? unnamed.map((hit) =>
-            objectNode(hitEntry(hit, 0), layers, isExpanded(hit.path), [], hit.ranges),
-          )
+        ? unnamed.map((hit) => objectNode(hitEntry(hit, 0), layers, [], hit.ranges))
         : [],
     });
   }
@@ -364,13 +327,11 @@ function foldHits(
       continue;
     }
     count += 1;
-    const expanded = isExpanded(child.path);
     objects.push(
       objectNode(
         hitEntry(child.hit, inner.count),
         layers,
-        expanded,
-        expanded ? inner.children : [],
+        isExpanded(child.path) ? inner.children : [],
         child.hit.ranges,
       ),
     );

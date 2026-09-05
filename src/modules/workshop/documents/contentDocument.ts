@@ -62,6 +62,8 @@ interface ObjectDoc extends EditorDocumentBase {
   objectPath: string;
   /** The declaring file's path, or the chunk hash when nothing names it. */
   file: string;
+  /** The class the object declares, for its mark. Absent on a tab written before the field. */
+  objectClass?: string | null;
 }
 
 /**
@@ -185,6 +187,7 @@ export function objectDocument(
   objectHash: string,
   objectPath: string,
   file: string,
+  objectClass: string | null = null,
 ): ContentDocument {
   return {
     id: objectDocumentId(asset, objectHash),
@@ -193,6 +196,7 @@ export function objectDocument(
     objectHash,
     objectPath,
     file,
+    objectClass,
   };
 }
 

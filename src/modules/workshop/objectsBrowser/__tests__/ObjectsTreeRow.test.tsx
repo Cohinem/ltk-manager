@@ -1,20 +1,17 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ObjectDeclaration } from "@/lib/tauri";
+import type { ObjectDeclaration, WorkshopProject } from "@/lib/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
+import { ProjectProvider } from "../../components/ProjectContext";
 import { ObjectsTreeRow } from "../ObjectsTreeRow";
-import {
-  type ObjectDeclarationNode,
-  type ObjectPrefixNode,
-  type ObjectRowNode,
-} from "../objectTree";
+import { type ObjectPrefixNode, type ObjectRowNode } from "../objectTree";
 
 const CHUNK: ObjectDeclaration = {
   asset: { kind: "gameChunk", wad: "Champions/Aatrox.wad.client", pathHash: "00aa" },
@@ -28,6 +25,21 @@ const LAYER: ObjectDeclaration = {
   file: "data/skin0.bin",
   classHash: "0x9b67e9f6",
   class: "SkinCharacterDataProperties",
+};
+
+const PROJECT: WorkshopProject = {
+  path: "C:/mods/skin",
+  name: "skin",
+  displayName: "Skin",
+  version: "1.0.0",
+  description: "",
+  authors: [],
+  tags: [],
+  champions: [],
+  maps: [],
+  layers: [],
+  thumbnailPath: null,
+  lastModified: "2026-08-21T21:14:02Z",
 };
 
 function objectNode(overrides: Partial<ObjectRowNode> = {}): ObjectRowNode {
@@ -55,21 +67,16 @@ const PREFIX: ObjectPrefixNode = {
   children: [],
 };
 
-const DECLARATION: ObjectDeclarationNode = {
-  type: "declaration",
-  id: "characters/aatrox/skins/skin0#layer:base:data/skin0.bin",
-  objectHash: "0x2a1f3c7d",
-  path: "characters/aatrox/skins/skin0",
-  declaration: LAYER,
-  layer: { name: "base", title: "Base" },
-};
-
 function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(() => createTestQueryClient());
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      <ProjectProvider project={PROJECT}>{children}</ProjectProvider>
+    </QueryClientProvider>
+  );
 }
 
-function renderRow(node: ObjectRowNode | ObjectPrefixNode | ObjectDeclarationNode) {
+function renderRow(node: ObjectRowNode | ObjectPrefixNode) {
   const onToggle = vi.fn();
   const onOpen = vi.fn();
   const onSelect = vi.fn();
@@ -138,7 +145,7 @@ describe("ObjectsTreeRow", () => {
     expect(onOpen).toHaveBeenLastCalledWith(expect.anything(), "permanent");
   });
 
-  it("reads several declarations as a file count and a layer's as its mark", () => {
+  it("reads several declarations as a file count and a layer's as its mark, and stays a leaf", () => {
     renderRow(
       objectNode({ declarations: [CHUNK, LAYER], layers: [{ name: "base", title: "Base" }] }),
     );
@@ -146,7 +153,25 @@ describe("ObjectsTreeRow", () => {
     const row = screen.getByRole("treeitem");
     expect(row).toHaveTextContent("2 files");
     expect(row).toHaveTextContent("Base");
-    expect(row).toHaveAttribute("aria-expanded", "false");
+    expect(row).not.toHaveAttribute("aria-expanded");
+  });
+
+  it("lists the declaring files from the count without opening the row", async () => {
+    const user = userEvent.setup();
+    const { onOpen } = renderRow(
+      objectNode({ declarations: [CHUNK, LAYER], layers: [{ name: "base", title: "Base" }] }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "2 files" }));
+    const list = await screen.findByRole("dialog", { name: "2 files" });
+
+    expect(onOpen).not.toHaveBeenCalled();
+    const files = within(list).getAllByRole("button");
+    expect(files).toHaveLength(2);
+    expect(files[0]).toHaveTextContent("data/characters/aatrox/skins/skin0.bin");
+    expect(files[0]).toHaveTextContent("Aatrox");
+    expect(files[1]).toHaveTextContent("data/skin0.bin");
+    expect(files[1]).toHaveTextContent("Base");
   });
 
   it("toggles a prefix from anywhere on its row and shows its count", async () => {
@@ -160,17 +185,5 @@ describe("ObjectsTreeRow", () => {
     await user.click(row);
     expect(onToggle).toHaveBeenCalledWith(PREFIX);
     expect(onOpen).not.toHaveBeenCalled();
-  });
-
-  it("opens a declaration row, which names its file and its layer", async () => {
-    const user = userEvent.setup();
-    const { onOpen } = renderRow(DECLARATION);
-
-    const row = screen.getByRole("treeitem");
-    expect(row).toHaveTextContent("data/skin0.bin");
-    expect(row).toHaveTextContent("Base");
-
-    await user.click(row);
-    expect(onOpen).toHaveBeenCalledWith(DECLARATION, "default");
   });
 });

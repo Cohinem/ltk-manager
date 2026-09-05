@@ -15,7 +15,6 @@ export {
   layerDeclarationsOf,
   type LayerMark,
   NO_LAYER_DECLARATIONS,
-  type ObjectDeclarationNode,
   type ObjectLoadingNode,
   type ObjectMoreNode,
   type ObjectPrefixNode,

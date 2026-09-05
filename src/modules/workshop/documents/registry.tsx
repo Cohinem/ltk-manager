@@ -1,5 +1,4 @@
 import {
-  CubeIcon,
   FileArchiveIcon,
   FilesIcon,
   TranslateIcon,
@@ -15,6 +14,7 @@ import type { EditorRegistry } from "@/modules/editor";
 
 import { ObjectDocument } from "../bin/ObjectDocument";
 import { LayerGlyph } from "../components/LayerGlyph";
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import { useProjectContext } from "../components/ProjectContext";
 import {
   archiveTarget,
@@ -120,7 +120,12 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       },
     },
     object: {
-      icon: () => <CubeIcon className="h-4 w-4 shrink-0 text-surface-400" />,
+      icon: (document) => (
+        <ObjectGlyph
+          objectClass={document.objectClass}
+          className="h-4 w-4 shrink-0 text-surface-400"
+        />
+      ),
       label: (document) => ({
         title: objectTitle(document.objectPath),
         context: declaringFileContext(document.asset, document.file),

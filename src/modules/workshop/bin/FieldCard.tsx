@@ -1,11 +1,16 @@
-import { Code, SeverityGlyph, Spinner, Tooltip } from "@/components";
+import { CopyIcon, HashIcon } from "@phosphor-icons/react";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import { twMerge } from "tailwind-merge";
+
+import { Button, Code, Popover, SeverityGlyph, Spinner } from "@/components";
+import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import type { DeclaredKind, FieldRevision } from "@/lib/tauri";
 
 import { shapeTag } from "./kindTag";
 import { useClassSchema } from "./useClassSchema";
 
-/** Hover for this long opens the card, the tooltip delay. */
+/** Hover for this long opens the card, the tooltip delay. A click does not wait. */
 const CARD_DELAY = 600;
 
 interface FieldCardProps {
@@ -13,55 +18,99 @@ interface FieldCardProps {
   classHash: string | null;
   /** `0x` and eight hex digits. */
   fieldHash: string;
+  /** The field as the tables name it, or its hash where no table does. */
   name: string;
+  /** No table names the field, and `name` is its hash. */
+  unnamed: boolean;
   declared: DeclaredKind | null;
   triggerClassName?: string;
 }
 
 /**
- * A field name as a control: a card on hover with its declared kind and its revisions.
+ * A field name as a control: a card on hover, pinned by a click, closed by `Esc`.
  *
- * "The field card" in docs/ux/BIN_EDITOR.md. The card holds no action, and a click on
- * the name reaches the row under it.
+ * "The field card" in docs/ux/BIN_EDITOR.md. The body mounts when the card opens, which
+ * is when its query runs.
  */
 export function FieldCard({
   classHash,
   fieldHash,
   name,
+  unnamed,
   declared,
   triggerClassName,
 }: FieldCardProps) {
   return (
-    <Tooltip
-      delay={CARD_DELAY}
-      side="bottom"
-      align="start"
-      showArrow={false}
-      content={
-        <FieldCardBody
-          classHash={classHash}
-          fieldHash={fieldHash}
-          name={name}
-          declared={declared}
-        />
-      }
-    >
-      <span className={triggerClassName}>{name}</span>
-    </Tooltip>
+    <Popover.Root>
+      <Popover.Trigger
+        openOnHover
+        delay={CARD_DELAY}
+        render={<button type="button" onClick={keepRowShut} />}
+        /* DS-VEIL */
+        className={twMerge(
+          "-mx-1 min-w-0 cursor-pointer truncate rounded-sm px-1 text-left hover:bg-surface-veil hover:text-surface-100",
+          triggerClassName,
+        )}
+      >
+        {name}
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="bottom" align="start" sideOffset={6}>
+          <Popover.Popup aria-label={name} className="w-72 p-3 text-meta select-none">
+            <FieldCardBody
+              classHash={classHash}
+              fieldHash={fieldHash}
+              name={name}
+              unnamed={unnamed}
+              declared={declared}
+            />
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }
 
-function FieldCardBody({ classHash, fieldHash, name, declared }: FieldCardProps) {
+/** A click on the control pins the card. The row under it keeps its expansion. */
+function keepRowShut(event: ReactMouseEvent<HTMLButtonElement>) {
+  event.stopPropagation();
+}
+
+function FieldCardBody({ classHash, fieldHash, name, unnamed, declared }: FieldCardProps) {
+  const copy = useCopyToClipboard();
+
   return (
-    <div data-ui="FieldCard" className="flex w-64 flex-col gap-2 py-1 text-meta select-none">
+    <div data-ui="FieldCard" className="flex flex-col gap-2">
       <header className="flex min-w-0 flex-col items-start gap-1">
-        <span className="max-w-full truncate text-row font-medium text-surface-100 select-text">
-          {name}
-        </span>
+        {!unnamed && (
+          <span className="max-w-full truncate text-row font-medium text-surface-100 select-text">
+            {name}
+          </span>
+        )}
         <Code className="select-text">{fieldHash}</Code>
       </header>
       <DeclaredLine declared={declared} />
       {classHash !== null && <Revisions classHash={classHash} fieldHash={fieldHash} />}
+      <footer className="flex gap-1">
+        {!unnamed && (
+          <Button
+            variant="ghost"
+            size="xs"
+            left={<CopyIcon />}
+            onClick={() => void copy(name, m.workshop_bin_name_label())}
+          >
+            {m.workshop_bin_copy_name_action()}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="xs"
+          left={<HashIcon />}
+          onClick={() => void copy(fieldHash, m.workshop_bin_hash_label())}
+        >
+          {m.workshop_bin_copy_hash_action()}
+        </Button>
+      </footer>
     </div>
   );
 }

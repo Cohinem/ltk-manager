@@ -25,7 +25,7 @@ interface ObjectsTreeProps {
   ariaLabel: string;
   isExpanded: (node: ObjectTreeNode) => boolean;
   onToggle: (node: ObjectTreeNode) => void;
-  /** A click on an object or a declaration row, or its Open menu item. */
+  /** A click on an object row, or its Open menu item. */
   onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
   /** Names this tree's scroll to the browser store. Absent starts at the top. */
   scrollKey?: string;

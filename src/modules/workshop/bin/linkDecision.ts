@@ -64,7 +64,7 @@ export function decideObjectLink(hash: string, targets: LinkTargets): LinkDecisi
     if (!first) return TEXT;
     return {
       kind: "chip",
-      document: objectDocument(first.asset, hash, declared.path, first.file),
+      document: objectDocument(first.asset, hash, declared.path, first.file, first.class),
     };
   }
   const status = targets.index?.status;
@@ -80,7 +80,7 @@ export function decideHash(hash: string, targets: LinkTargets): LinkDecision {
   if (!declared || !first) return TEXT;
   return {
     kind: "chip",
-    document: objectDocument(first.asset, hash, declared.path, first.file),
+    document: objectDocument(first.asset, hash, declared.path, first.file, first.class),
   };
 }
 

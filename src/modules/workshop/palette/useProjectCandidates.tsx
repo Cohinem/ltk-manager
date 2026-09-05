@@ -1,4 +1,4 @@
-import { CubeIcon, TranslateIcon } from "@phosphor-icons/react";
+import { TranslateIcon } from "@phosphor-icons/react";
 import { type ReactNode, useMemo } from "react";
 
 import { m } from "@/i18n";
@@ -6,6 +6,7 @@ import type { LayerContent } from "@/lib/tauri";
 
 import { useProjectContentTree } from "../api/useProjectContentTree";
 import { LayerGlyph } from "../components/LayerGlyph";
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import { useProjectContext } from "../components/ProjectContext";
 import {
   filesDocument,
@@ -171,13 +172,14 @@ function useProjectObjectCandidates(): readonly PaletteCandidate[] {
               },
               object.objectHash,
             ),
-            icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+            icon: <ObjectGlyph objectClass={object.class} className="h-4 w-4 text-surface-400" />,
             target: {
               kind: "layerObject",
               layerName: layer.name,
               path: entry.relativePath,
               objectHash: object.objectHash,
               objectPath: object.path,
+              objectClass: object.class,
             },
           });
         }),

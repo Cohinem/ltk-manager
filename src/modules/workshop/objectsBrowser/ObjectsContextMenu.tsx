@@ -43,7 +43,7 @@ export function ObjectsContextMenu({ node, onOpen }: ObjectsContextMenuProps) {
     );
   }
 
-  if (node?.type !== "object" && node?.type !== "declaration") return null;
+  if (node?.type !== "object") return null;
   const declaration = declarationOf(node);
   if (!declaration) return null;
   const classUnnamed = declaration.class === declaration.classHash;

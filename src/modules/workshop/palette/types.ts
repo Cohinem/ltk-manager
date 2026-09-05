@@ -76,6 +76,8 @@ export type PaletteTarget =
       readonly objectHash: string;
       /** The object's path, or its hash when no table names it. */
       readonly objectPath: string;
+      /** The class the object declares, for the tab's mark. */
+      readonly objectClass?: string;
     }
   | {
       /** A bin object of the project, opened as an object tab over the layer file that declares it. */
@@ -86,6 +88,8 @@ export type PaletteTarget =
       readonly objectHash: string;
       /** The object's path, or its hash when no table names it. */
       readonly objectPath: string;
+      /** The class the object declares, for the tab's mark. */
+      readonly objectClass?: string;
     }
   | { readonly kind: "document"; readonly document: ContentDocument }
   | { readonly kind: "command"; readonly command: ProjectCommand }

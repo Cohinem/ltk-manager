@@ -1,7 +1,6 @@
 import {
   ArrowSquareOutIcon,
   CaretRightIcon,
-  CubeIcon,
   SpinnerGapIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
@@ -12,6 +11,7 @@ import { SeverityGlyph, Switch, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue } from "@/lib/tauri";
 
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import type { OpenIntent } from "../palette/types";
 import { clickIntent } from "../state";
 import { canExpand, fieldHash, type RowLine, type VisibleRow } from "./binRows";
@@ -173,12 +173,18 @@ function NameCell({ line }: { line: RowLine }) {
         object ? "max-w-[60%]" : "w-72",
       )}
     >
-      {object && <CubeIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />}
+      {object && (
+        <ObjectGlyph
+          objectClass={row.value.type === "struct" ? row.value.class : null}
+          className="h-3.5 w-3.5 shrink-0 text-surface-400"
+        />
+      )}
       {property && (
         <FieldCard
           classHash={owner}
           fieldHash={fieldHash(row.path)}
           name={row.name}
+          unnamed={row.unnamed}
           declared={row.declared}
           triggerClassName={nameClasses}
         />

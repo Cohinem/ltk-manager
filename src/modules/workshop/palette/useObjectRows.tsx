@@ -1,10 +1,10 @@
-import { CubeIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { errorSummary, m } from "@/i18n";
 import type { ObjectClassHit, ObjectSearchHit } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
 
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import { useObjectSearch, wadBasename } from "../gameBrowser";
 import { completeClassTerm } from "./classTerm";
 import type { PaletteGroup, RankedRow } from "./types";
@@ -91,7 +91,7 @@ function toRow(hit: ObjectSearchHit): RankedRow {
       name: hit.path,
       path: `${hit.class} · ${hit.file}`,
       trailing: wadBasename(hit.wad),
-      icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={hit.class} className="h-4 w-4 text-surface-400" />,
       target: {
         kind: "object",
         wad: hit.wad,
@@ -99,6 +99,7 @@ function toRow(hit: ObjectSearchHit): RankedRow {
         path: hit.file,
         objectHash: hit.objectHash,
         objectPath: hit.path,
+        objectClass: hit.class,
       },
     },
     band: hit.band,
@@ -117,7 +118,7 @@ function toClassRow(hit: ObjectClassHit, query: string): RankedRow {
       name: hit.class,
       path: "",
       trailing: m.workshop_objects_class_count_label({ count: hit.rows }),
-      icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={hit.class} className="h-4 w-4 text-surface-400" />,
       target: { kind: "query", query: completeClassTerm(query, hit.class) },
     },
     band: 0,

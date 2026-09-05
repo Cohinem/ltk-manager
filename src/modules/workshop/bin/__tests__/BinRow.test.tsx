@@ -241,33 +241,54 @@ describe("the class card", () => {
 });
 
 describe("the field card", () => {
-  it("opens on hover with the declared kind and the revisions, and leaves the click to the row", async () => {
-    const onToggle = vi.fn();
-    const expandable = row({
-      name: "championSkinName",
-      kind: "embed",
-      value: { type: "struct", classHash: SKIN_CLASS, class: "Part", len: 1 },
-      declared: { shape: { kind: "string", key: null, value: null }, mismatch: false },
-    });
-    renderLine(line(expandable), onToggle);
-    const name = screen.getByText("championSkinName");
-
-    await userEvent.hover(name);
-
-    expect(await screen.findByText("5229820 – 8049184", {}, HOVER)).toBeInTheDocument();
-    expect(screen.getByText("since 8104348")).toBeInTheDocument();
-    expect(screen.getByText("Declared")).toBeInTheDocument();
-    expect(screen.getByText("0x0000000a")).toBeInTheDocument();
-
-    await userEvent.click(name);
-    expect(onToggle).toHaveBeenCalledWith(`${ENTRY}:0000000a`);
+  const expandable = row({
+    name: "championSkinName",
+    kind: "embed",
+    value: { type: "struct", classHash: SKIN_CLASS, class: "Part", len: 1 },
+    declared: { shape: { kind: "string", key: null, value: null }, mismatch: false },
   });
 
-  it("says a field the schema has no line for is not declared", async () => {
+  it("opens on hover with the declared kind and the revisions", async () => {
+    renderLine(line(expandable));
+
+    await userEvent.hover(screen.getByRole("button", { name: "championSkinName" }));
+    const card = await screen.findByRole("dialog", { name: "championSkinName" }, HOVER);
+
+    expect(await within(card).findByText("5229820 – 8049184")).toBeInTheDocument();
+    expect(within(card).getByText("since 8104348")).toBeInTheDocument();
+    expect(within(card).getByText("Declared")).toBeInTheDocument();
+    expect(within(card).getByText("0x0000000a")).toBeInTheDocument();
+  });
+
+  it("pins on a click without toggling the row, copies the name and the hash, and closes on Esc", async () => {
+    const onToggle = vi.fn();
+    renderLine(line(expandable), onToggle);
+
+    await userEvent.click(screen.getByRole("button", { name: "championSkinName" }));
+    const card = await screen.findByRole("dialog", { name: "championSkinName" });
+    expect(onToggle).not.toHaveBeenCalled();
+
+    await userEvent.click(within(card).getByRole("button", { name: "Copy name" }));
+    await waitFor(() =>
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("championSkinName"),
+    );
+    await userEvent.click(within(card).getByRole("button", { name: "Copy hash" }));
+    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("0x0000000a"));
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "championSkinName" })).toBeNull(),
+    );
+  });
+
+  it("says a field the schema has no line for is not declared, and offers no name to copy", async () => {
     renderLine(line(row({ name: "0x9c4e1b02", unnamed: true, path: "9c4e1b02" })));
 
-    await userEvent.hover(screen.getByText("0x9c4e1b02"));
+    await userEvent.click(screen.getByRole("button", { name: "0x9c4e1b02" }));
+    const card = await screen.findByRole("dialog", { name: "0x9c4e1b02" });
 
-    expect(await screen.findByText("Not declared at this build", {}, HOVER)).toBeInTheDocument();
+    expect(within(card).getByText("Not declared at this build")).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Copy name" })).toBeNull();
+    expect(within(card).getByRole("button", { name: "Copy hash" })).toBeInTheDocument();
   });
 });

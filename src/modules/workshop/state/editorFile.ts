@@ -198,6 +198,7 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
     objectHash: z.string(),
     objectPath: z.string(),
     file: z.string(),
+    objectClass: z.string().nullable().optional(),
   }),
 ]) satisfies z.ZodType<ContentDocument>;
 
