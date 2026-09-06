@@ -13,6 +13,7 @@
       "./messages/{locale}/patcher.json",
       "./messages/{locale}/updater.json",
       "./messages/{locale}/workshop.json",
+      "./messages/{locale}/shell.json",
       "./messages/{locale}/common.json"
     ]
   }

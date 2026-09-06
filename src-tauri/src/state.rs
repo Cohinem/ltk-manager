@@ -127,6 +127,7 @@ pub enum OpenOn {
     #[default]
     Home,
     Mods,
+    Workshop,
 }
 
 /// What the library's primary button is.
@@ -361,6 +362,10 @@ mod tests {
         let json = r#"{"firstRunComplete": true, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false, "openOn": "mods"}"#;
         let settings: Settings = serde_json::from_str(json).unwrap();
         assert_eq!(settings.open_on, OpenOn::Mods);
+
+        let json = r#"{"firstRunComplete": true, "theme": "system", "accentColor": {}, "patchTft": false, "migrationDismissed": false, "openOn": "workshop"}"#;
+        let settings: Settings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.open_on, OpenOn::Workshop);
     }
 
     /// A settings file written before the manager could launch anything keeps

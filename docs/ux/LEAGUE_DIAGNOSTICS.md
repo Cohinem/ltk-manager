@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed  |
 | 2026-09-05 | Name the bin scan as planned rather than waiting upstream               |
 | 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident   |
 | 2026-08-21 | Reshape the token around what a verdict rests on, and drop deflate      |
@@ -959,6 +960,11 @@ The list is on the left, newest first, grouped by day. A row carries the verdict
 the time, the title, and the subject or the first suspect under it. A dismissed incident
 keeps its row, dimmed.
 
+The list's header carries `Dismiss all` beside `Decode a token`, disabled while nothing is
+undismissed. One press marks every incident read in one round trip, and the dot, the
+verdict line and every suspect badge clear with it. Dismissed is read, not gone. The rows
+keep their place, and the Games tab stays the history.
+
 The detail is on the right, and reads top to bottom in the order a player asks.
 
 1. **The verdict.** The title, what it cost, and the cause in one or two sentences
@@ -1187,19 +1193,19 @@ them.
 
 ## What the backend needs
 
-| Piece           | Where                                   | Is                                                                                                                    |
-| --------------- | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `game_log.rs`   | `ltk-manager-core/src/diagnostics/`     | The reader, pure over `BufRead`, tested on a fixture                                                                  |
-| `log_codes.rs`  | `ltk-manager-core/src/diagnostics/`     | The table, `include_str!` over the TSV, `lookup(&str)`                                                                |
-| `incident.rs`   | `ltk-manager-core/src/diagnostics/`     | `Incident`, `Verdict`, `classify`, pure                                                                               |
-| `token.rs`      | `ltk-manager-core/src/diagnostics/`     | `encode`, `decode`, `find_in` and `resolve` for the incident token, with a pinned vector                              |
-| `dll_lines.rs`  | `patcher/`                              | The DLL's phrases as constants, each with a pointer to the DLL source file                                            |
-| `InjectorEvent` | `patcher/injector.rs`                   | `GameAttached`, `OverlayOutcome`, `WadRedirected`, `WadSkipped`, `GameExited`                                         |
-| `PatcherEvents` | `patcher/events.rs`                     | `game_attached`, `game_overlay`, `game_exited`, `incident_recorded`                                                   |
-| The game record | `patcher/thread.rs`                     | Opened at `injected`, closed at `exited`, then classified                                                             |
-| `IncidentStore` | `ltk-manager-core/src/diagnostics/`     | The JSON files, the cap, and the dismiss flag                                                                         |
-| Commands        | `src-tauri/src/commands/diagnostics.rs` | `list_incidents`, `dismiss_incident`, `reveal_game_log`, `incident_report`, `incident_token`, `decode_incident_token` |
-| Events          | `src-tauri/src/patcher/thread.rs`       | `patcher-game-attached`, `patcher-game-overlay`, `patcher-game-exited`, `incident-recorded`                           |
+| Piece           | Where                                   | Is                                                                                                                                             |
+| --------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `game_log.rs`   | `ltk-manager-core/src/diagnostics/`     | The reader, pure over `BufRead`, tested on a fixture                                                                                           |
+| `log_codes.rs`  | `ltk-manager-core/src/diagnostics/`     | The table, `include_str!` over the TSV, `lookup(&str)`                                                                                         |
+| `incident.rs`   | `ltk-manager-core/src/diagnostics/`     | `Incident`, `Verdict`, `classify`, pure                                                                                                        |
+| `token.rs`      | `ltk-manager-core/src/diagnostics/`     | `encode`, `decode`, `find_in` and `resolve` for the incident token, with a pinned vector                                                       |
+| `dll_lines.rs`  | `patcher/`                              | The DLL's phrases as constants, each with a pointer to the DLL source file                                                                     |
+| `InjectorEvent` | `patcher/injector.rs`                   | `GameAttached`, `OverlayOutcome`, `WadRedirected`, `WadSkipped`, `GameExited`                                                                  |
+| `PatcherEvents` | `patcher/events.rs`                     | `game_attached`, `game_overlay`, `game_exited`, `incident_recorded`                                                                            |
+| The game record | `patcher/thread.rs`                     | Opened at `injected`, closed at `exited`, then classified                                                                                      |
+| `IncidentStore` | `ltk-manager-core/src/diagnostics/`     | The JSON files, the cap, and the dismiss flag                                                                                                  |
+| Commands        | `src-tauri/src/commands/diagnostics.rs` | `list_incidents`, `dismiss_incident`, `dismiss_all_incidents`, `reveal_game_log`, `incident_report`, `incident_token`, `decode_incident_token` |
+| Events          | `src-tauri/src/patcher/thread.rs`       | `patcher-game-attached`, `patcher-game-overlay`, `patcher-game-exited`, `incident-recorded`                                                    |
 
 The core crate holds all of the logic, the way the patcher and the diagnostics already do,
 and the Tauri crate adapts. A CLI could run the reader over a log and print the verdict with

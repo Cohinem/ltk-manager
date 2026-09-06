@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { EmptyState, IconButton, Popover, type ToastType, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import { type Notification, useNotificationStore } from "@/stores/notifications";
 
 import { cellBase, cellInactive } from "./cells";
@@ -36,7 +37,7 @@ function NotificationItem({
       </div>
       <button
         type="button"
-        aria-label="Dismiss notification"
+        aria-label={m.shell_notifications_dismiss_action()}
         onClick={() => onDismiss(notification.id)}
         className="shrink-0 rounded p-0.5 text-surface-500 transition-colors hover:bg-surface-700 hover:text-surface-300"
       >
@@ -68,7 +69,7 @@ export function NotificationCenter() {
       }}
     >
       <Popover.Trigger
-        aria-label="Notifications"
+        aria-label={m.shell_notifications_label()}
         className={twMerge(cellBase, cellInactive, "relative")}
       >
         <Bell className="h-4 w-4" />
@@ -83,15 +84,15 @@ export function NotificationCenter() {
         <Popover.Positioner side="bottom" align="end" sideOffset={4}>
           <Popover.Popup className="w-80">
             <div className="flex items-center justify-between border-b border-surface-700 px-3 py-2">
-              <Popover.Title>Notifications</Popover.Title>
+              <Popover.Title>{m.shell_notifications_label()}</Popover.Title>
               {notifications.length > 0 && (
-                <Tooltip content="Clear all">
+                <Tooltip content={m.shell_notifications_clear_action()}>
                   <IconButton
                     icon={<Trash2 className="h-3.5 w-3.5" />}
                     variant="ghost"
                     size="xs"
                     onClick={dismissAll}
-                    aria-label="Clear all"
+                    aria-label={m.shell_notifications_clear_action()}
                     className="text-surface-400 hover:text-surface-200"
                   />
                 </Tooltip>
@@ -100,7 +101,7 @@ export function NotificationCenter() {
 
             <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
-                <EmptyState size="sm" title="No notifications yet" />
+                <EmptyState size="sm" title={m.shell_notifications_empty()} />
               ) : (
                 notifications.map((notification) => (
                   <NotificationItem

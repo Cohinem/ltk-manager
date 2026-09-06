@@ -1,0 +1,31 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "shell_diagnostics_label": "Diagnostics",
+  "shell_diagnostics_pending_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Diagnostics · {count} incident to review",
+        "countPlural=other": "Diagnostics · {count} incidents to review"
+      }
+    }
+  ],
+  "shell_menu_bug_report_action": "Report a bug",
+  "shell_menu_discord_action": "Join our Discord",
+  "shell_menu_label": "More",
+  "shell_menu_storage_action": "Open storage directory",
+  "shell_menu_storage_error_title": "Failed to open directory",
+  "shell_notifications_clear_action": "Clear all",
+  "shell_notifications_dismiss_action": "Dismiss notification",
+  "shell_notifications_empty": "No notifications yet",
+  "shell_notifications_label": "Notifications",
+  "shell_settings_label": "Settings",
+  "shell_update_action": "Update",
+  "shell_update_available_label": "Update available - v{version}",
+  "shell_update_to_action": "Update to v{version}",
+  "shell_window_close_action": "Close",
+  "shell_window_maximize_action": "Maximize",
+  "shell_window_minimize_action": "Minimize",
+  "shell_window_restore_action": "Restore"
+}

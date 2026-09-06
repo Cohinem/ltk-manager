@@ -1,11 +1,11 @@
-import { TicketIcon } from "@phosphor-icons/react";
+import { ChecksIcon, TicketIcon } from "@phosphor-icons/react";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { AlertBox, Button, EmptyState, Spinner, Tooltip } from "@/components";
 import { errorSummary } from "@/i18n";
 
-import { useIncidents } from "../api";
+import { useDismissAllIncidents, useIncidents } from "../api";
 import { IncidentDetail } from "./IncidentDetail";
 import { IncidentList } from "./IncidentList";
 import { TokenDecoder } from "./TokenDecoder";
@@ -14,6 +14,7 @@ const EMPTY_COPY =
   "No game has gone wrong while the patcher ran. When one does, what the manager learned about it lands here.";
 
 const DECODE_LABEL = "Decode a token";
+const DISMISS_ALL_LABEL = "Dismiss all";
 
 /**
  * The incident list beside the selected incident's detail. The selection is
@@ -26,6 +27,7 @@ const DECODE_LABEL = "Decode a token";
  */
 export function GamesTab() {
   const incidents = useIncidents();
+  const dismissAll = useDismissAllIncidents();
   const { incident: requestedId } = useSearch({ from: "/diagnostics" });
   const navigate = useNavigate({ from: "/diagnostics" });
   const [decoderOpen, setDecoderOpen] = useState(false);
@@ -78,6 +80,7 @@ export function GamesTab() {
   }
 
   const countLabel = list.length === 1 ? "1 incident" : `${list.length} incidents`;
+  const nothingUndismissed = list.every((incident) => incident.dismissed);
 
   return (
     <div data-ui="GamesTab" className="flex min-h-0 flex-1">
@@ -89,16 +92,29 @@ export function GamesTab() {
           <p className="font-mono text-[0.6875rem] tracking-wide text-surface-400 tabular-nums">
             {countLabel}
           </p>
-          <Tooltip content={DECODE_LABEL}>
-            <Button
-              variant="ghost"
-              size="sm"
-              compact
-              aria-label={DECODE_LABEL}
-              left={<TicketIcon weight="bold" className="h-4 w-4" />}
-              onClick={() => setDecoderOpen(true)}
-            />
-          </Tooltip>
+          <div className="flex items-center">
+            <Tooltip content={DISMISS_ALL_LABEL}>
+              <Button
+                variant="ghost"
+                size="sm"
+                compact
+                aria-label={DISMISS_ALL_LABEL}
+                left={<ChecksIcon weight="bold" className="h-4 w-4" />}
+                disabled={nothingUndismissed || dismissAll.isPending}
+                onClick={() => dismissAll.mutate()}
+              />
+            </Tooltip>
+            <Tooltip content={DECODE_LABEL}>
+              <Button
+                variant="ghost"
+                size="sm"
+                compact
+                aria-label={DECODE_LABEL}
+                left={<TicketIcon weight="bold" className="h-4 w-4" />}
+                onClick={() => setDecoderOpen(true)}
+              />
+            </Tooltip>
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <IncidentList incidents={list} selectedId={selected?.id ?? null} onSelect={select} />

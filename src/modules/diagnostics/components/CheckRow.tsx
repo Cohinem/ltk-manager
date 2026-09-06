@@ -35,7 +35,7 @@ export function CheckRow({ check }: { check: Check }) {
     } catch {
       clipboardOk = false;
     }
-    const result = await api.openElevatedTerminal(clipboardOk);
+    const result = await api.diagnostics.openElevatedTerminal(clipboardOk);
     if (isErr(result)) {
       toast.error("Could not open elevated terminal", errorSummary(result.error));
       return;

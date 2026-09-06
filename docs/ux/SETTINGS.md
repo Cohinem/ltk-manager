@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-06 | The gear returns to the title bar. A menu cannot mark a page current    |
 | 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings     |
 | 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391            |
 | 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id     |
@@ -13,8 +14,6 @@
 | 2026-08-25 | Phase 4a shipped. The gutter gear, the modified bar and three resets    |
 | 2026-08-25 | Adopt the VS Code settings editor: a gutter gear replaces the marker    |
 | 2026-08-25 | Phases 1 to 3 shipped. The group, the keys and the anchor are available |
-| 2026-08-25 | Accept the group, defer the collapse, and close three open questions    |
-| 2026-08-24 | Decide the defaults source, the scoped reset and the setting anchor     |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 

@@ -106,6 +106,7 @@
   "library_launch_options_label": "More launch options",
   "library_league_close_action": "Close League",
   "library_mod_missing_title": "Mod no longer exists in the library",
+  "library_nav_label": "Mods",
   "library_patcher_no_mods_hint": "No mods are enabled - there is nothing to patch",
   "library_patcher_only_action": "Start patcher only",
   "library_patcher_start_action": "Start",

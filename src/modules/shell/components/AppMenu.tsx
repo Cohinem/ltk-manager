@@ -1,15 +1,10 @@
-import {
-  DotsThreeVerticalIcon,
-  FolderOpenIcon,
-  GearIcon,
-  WheelchairIcon,
-} from "@phosphor-icons/react";
-import { useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { DotsThreeVerticalIcon, FolderOpenIcon, WheelchairIcon } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-shell";
 import { useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Menu, Tooltip, useToast } from "@/components";
+import { m } from "@/i18n";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
 import { useLatestIncidentToken } from "@/modules/diagnostics";
 
@@ -32,13 +27,9 @@ interface AppMenuProps {
 
 /** The titlebar actions that report no state of their own, behind one cell. */
 export function AppMenu({ appInfo }: AppMenuProps) {
-  const navigate = useNavigate();
-  const matchRoute = useMatchRoute();
   const diagnosticToken = useLatestIncidentToken();
   const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
-
-  const isSettings = Boolean(matchRoute({ to: "/settings", fuzzy: true }));
 
   async function handleOpenStorageDirectory() {
     try {
@@ -47,7 +38,7 @@ export function AppMenu({ appInfo }: AppMenuProps) {
       await api.revealInExplorer(path);
     } catch (error: unknown) {
       toast.error(
-        "Failed to open directory",
+        m.shell_menu_storage_error_title(),
         error instanceof Error ? error.message : String(error),
       );
     }
@@ -55,12 +46,11 @@ export function AppMenu({ appInfo }: AppMenuProps) {
 
   return (
     <Menu.Root open={isOpen} onOpenChange={setIsOpen}>
-      <Tooltip content="More">
+      <Tooltip content={m.shell_menu_label()}>
         <Menu.Trigger
-          aria-label="More"
+          aria-label={m.shell_menu_label()}
           data-ui="TitleBar:appMenu"
-          // Settings folded in here, so this cell is what marks that page current.
-          className={twMerge(cellBase, isSettings || isOpen ? cellActive : cellInactive)}
+          className={twMerge(cellBase, isOpen ? cellActive : cellInactive)}
         >
           <DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />
         </Menu.Trigger>
@@ -70,16 +60,10 @@ export function AppMenu({ appInfo }: AppMenuProps) {
         <Menu.Positioner sideOffset={0}>
           <Menu.Popup className="min-w-52">
             <Menu.Item
-              icon={<GearIcon className="h-4 w-4" />}
-              onClick={() => navigate({ to: "/settings" })}
-            >
-              Settings
-            </Menu.Item>
-            <Menu.Item
               icon={<FolderOpenIcon className="h-4 w-4" />}
               onClick={handleOpenStorageDirectory}
             >
-              Open storage directory
+              {m.shell_menu_storage_action()}
             </Menu.Item>
 
             <Menu.Separator />
@@ -88,13 +72,13 @@ export function AppMenu({ appInfo }: AppMenuProps) {
               icon={<WheelchairIcon weight="bold" className="h-4 w-4" />}
               onClick={() => open(buildBugReportUrl(appInfo, diagnosticToken))}
             >
-              Report a bug
+              {m.shell_menu_bug_report_action()}
             </Menu.Item>
             <Menu.Item
               icon={<DiscordIcon className="h-4 w-4" />}
               onClick={() => open("https://discord.gg/yhzDVRyQex")}
             >
-              Join our Discord
+              {m.shell_menu_discord_action()}
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
