@@ -67,6 +67,7 @@ pub enum ErrorKind {
 /// message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum OverlayErrorCategory {

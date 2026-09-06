@@ -16,6 +16,7 @@ use crate::utils::path::resolve_within;
 /// names a path outright.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AssetRef {

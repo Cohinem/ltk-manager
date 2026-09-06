@@ -52,6 +52,10 @@ ts-rs = { workspace = true, features = [
     "indexmap-impl",
 ] }
 
+specta = { workspace = true }
+specta-typescript = { workspace = true }
+tauri-specta = { workspace = true }
+
 thiserror = { workspace = true }
 anyhow = "1"
 

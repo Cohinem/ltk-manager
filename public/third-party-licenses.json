@@ -723,6 +723,14 @@
   ],
   "crates": [
     {
+      "name": "Inflector",
+      "version": "0.11.4",
+      "url": "https://github.com/whatisinternet/inflector",
+      "licenses": [
+        45
+      ]
+    },
+    {
       "name": "adler2",
       "version": "2.0.1",
       "url": "https://github.com/oyvindln/adler2",
@@ -3383,6 +3391,46 @@
       ]
     },
     {
+      "name": "specta",
+      "version": "2.0.0-rc.25",
+      "url": "https://github.com/specta-rs/specta",
+      "licenses": [
+        113
+      ]
+    },
+    {
+      "name": "specta-macros",
+      "version": "2.0.0-rc.25",
+      "url": "https://github.com/specta-rs/specta",
+      "licenses": [
+        113
+      ]
+    },
+    {
+      "name": "specta-serde",
+      "version": "0.0.12",
+      "url": "https://github.com/specta-rs/specta",
+      "licenses": [
+        113
+      ]
+    },
+    {
+      "name": "specta-typescript",
+      "version": "0.0.12",
+      "url": "https://github.com/specta-rs/specta",
+      "licenses": [
+        113
+      ]
+    },
+    {
+      "name": "specta-util",
+      "version": "0.0.12",
+      "url": "https://github.com/specta-rs/specta",
+      "licenses": [
+        113
+      ]
+    },
+    {
       "name": "spin",
       "version": "0.9.9",
       "url": "https://github.com/mvdnes/spin-rs.git",
@@ -3636,6 +3684,14 @@
       "url": "https://github.com/tauri-apps/tauri",
       "licenses": [
         40
+      ]
+    },
+    {
+      "name": "tauri-specta",
+      "version": "2.0.0-rc.25",
+      "url": "https://github.com/specta-rs/tauri-specta",
+      "licenses": [
+        113
       ]
     },
     {

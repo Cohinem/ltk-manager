@@ -7,11 +7,13 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/LeagueToolkit/ltk-manager"
 
 [features]
-# Derive `ts_rs::TS` on core types so the Tauri shell can export bindings for
-# types that cross IPC (e.g. `Config` flattened into `Settings`).
+# Derive `ts_rs::TS` and `specta::Type` on core types so the Tauri shell can
+# export bindings for types that cross IPC (e.g. `Config` flattened into
+# `Settings`). The two exporters run side by side while the command table moves
+# onto `tauri-specta` one module at a time.
 # The `ts-rs` impl features belong with the derive rather than with the shell
 # that consumes it, so this crate builds and tests on its own.
-ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl"]
+ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl", "dep:specta"]
 
 [dependencies]
 ritoclient = { workspace = true }
@@ -48,6 +50,7 @@ serde_json = { workspace = true }
 serde_yaml_ng = { workspace = true }
 sha2 = { workspace = true }
 slug = { workspace = true }
+specta = { workspace = true, optional = true }
 strum = { workspace = true }
 tar = { workspace = true }
 tempfile = { workspace = true }

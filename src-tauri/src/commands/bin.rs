@@ -27,6 +27,7 @@ const WHOLE: usize = usize::MAX;
 /// With no `entry`, the rows are one per object. With one, `0x` and eight hex digits,
 /// the rows are that object's properties and the answer carries its header facts.
 #[tauri::command]
+#[specta::specta]
 pub async fn bin_open(
     asset: AssetRef,
     entry: Option<String>,
@@ -77,6 +78,7 @@ pub async fn bin_open(
 /// of the property path, empty for the object itself. Every row carries what the meta
 /// schema declares for its field at the install's build.
 #[tauri::command]
+#[specta::specta]
 pub async fn bin_children(
     document: BinDocumentId,
     entry: String,
@@ -104,6 +106,7 @@ pub async fn bin_children(
 /// Read out of the meta schema. `None` for a class the schema does not describe.
 /// `class_hash` is `0x` and eight hex digits.
 #[tauri::command]
+#[specta::specta]
 pub async fn class_schema(
     class_hash: String,
     app_handle: AppHandle,
@@ -127,6 +130,7 @@ fn installed_schema(app_handle: &AppHandle) -> (Arc<MetaSchema>, Option<GameBuil
 
 /// Drop one id. Its asset leaves the store with its last id.
 #[tauri::command]
+#[specta::specta]
 pub fn bin_close(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<()> {
     app_handle.state::<BinDocuments>().close(document);
     IpcResult::ok(())
