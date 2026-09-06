@@ -35,8 +35,8 @@ import { UpdateButton } from "./UpdateButton";
 
 const navItems = [
   { to: "/", label: m.home_nav_label(), icon: HouseIcon, exact: true },
-  { to: "/mods", label: "Mods", icon: CollectionIcon, exact: false },
-  { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
+  { to: "/mods", label: m.library_nav_label(), icon: CollectionIcon, exact: false },
+  { to: "/workshop", label: m.workshop_nav_label(), icon: LootIcon, exact: false },
 ] as const;
 
 const tabBaseClass = `relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700 ${iconLiftClass}`;
@@ -106,9 +106,8 @@ function incidentDotKind(kind: VerdictKind) {
 }
 
 function diagnosticsTooltip(pending: number): string {
-  if (pending === 0) return "Diagnostics";
-  if (pending === 1) return "Diagnostics · 1 incident to review";
-  return `Diagnostics · ${pending} incidents to review`;
+  if (pending === 0) return m.shell_diagnostics_label();
+  return m.shell_diagnostics_pending_label({ count: pending });
 }
 
 const mascotMarks = {
@@ -261,12 +260,12 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             </Link>
           </Tooltip>
 
-          <Tooltip content="Settings">
+          <Tooltip content={m.shell_settings_label()}>
             <Link
               to="/settings"
               activeProps={{ className: twMerge(cellBase, cellActive) }}
               inactiveProps={{ className: twMerge(cellBase, cellInactive) }}
-              aria-label="Settings"
+              aria-label={m.shell_settings_label()}
               data-ui="TitleBar:settings"
             >
               <GearIcon className="h-4 w-4" />
@@ -286,7 +285,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                 variant="ghost"
                 size="sm"
                 onClick={handleMinimize}
-                aria-label="Minimize"
+                aria-label={m.shell_window_minimize_action()}
                 className={windowControlClass}
               />
               <IconButton
@@ -300,7 +299,9 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                 variant="ghost"
                 size="sm"
                 onClick={handleMaximize}
-                aria-label={isMaximized ? "Restore" : "Maximize"}
+                aria-label={
+                  isMaximized ? m.shell_window_restore_action() : m.shell_window_maximize_action()
+                }
                 className={windowControlClass}
               />
               <IconButton
@@ -308,7 +309,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                 variant="ghost"
                 size="sm"
                 onClick={handleClose}
-                aria-label="Close"
+                aria-label={m.shell_window_close_action()}
                 className={twMerge(
                   windowControlClass,
                   "hover:bg-danger/15 hover:text-danger-text active:bg-danger/25",

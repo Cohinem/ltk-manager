@@ -1,6 +1,7 @@
 import { Download } from "lucide-react";
 
 import { Button, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import { useUpdaterSetDialogOpen, useUpdaterUpdate } from "@/stores";
 
 /**
@@ -13,17 +14,17 @@ export function UpdateButton() {
   if (!update) return null;
 
   return (
-    <Tooltip content={`Update available - v${update.version}`}>
+    <Tooltip content={m.shell_update_available_label({ version: update.version })}>
       <Button
         variant="ghost"
         size="sm"
         left={<Download className="h-4 w-4" />}
         onClick={() => setDialogOpen(true)}
-        aria-label={`Update to v${update.version}`}
+        aria-label={m.shell_update_to_action({ version: update.version })}
         data-ui="TitleBar:update"
         className="h-full shrink-0 rounded-none px-3 text-accent-400 hover:bg-surface-700 hover:text-accent-300 [&_svg]:transition-transform [&_svg]:duration-150 [&_svg]:ease-out hover:[&_svg]:scale-110"
       >
-        Update
+        {m.shell_update_action()}
       </Button>
     </Tooltip>
   );

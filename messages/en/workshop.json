@@ -169,6 +169,7 @@
   "workshop_bin_unreadable_title": "This bin could not be read",
   "workshop_bin_unsupported_description": "Bin preview is not supported yet",
   "workshop_bin_version_label": "v{version}",
+  "workshop_nav_label": "Workshop",
   "workshop_objects_browse_action": "Browse objects",
   "workshop_objects_building_label": "Indexing the game's bin objects…",
   "workshop_objects_class_count_label": [

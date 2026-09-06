@@ -4,6 +4,7 @@ import { useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Menu, Tooltip, useToast } from "@/components";
+import { m } from "@/i18n";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
 import { useLatestIncidentToken } from "@/modules/diagnostics";
 
@@ -37,7 +38,7 @@ export function AppMenu({ appInfo }: AppMenuProps) {
       await api.revealInExplorer(path);
     } catch (error: unknown) {
       toast.error(
-        "Failed to open directory",
+        m.shell_menu_storage_error_title(),
         error instanceof Error ? error.message : String(error),
       );
     }
@@ -45,9 +46,9 @@ export function AppMenu({ appInfo }: AppMenuProps) {
 
   return (
     <Menu.Root open={isOpen} onOpenChange={setIsOpen}>
-      <Tooltip content="More">
+      <Tooltip content={m.shell_menu_label()}>
         <Menu.Trigger
-          aria-label="More"
+          aria-label={m.shell_menu_label()}
           data-ui="TitleBar:appMenu"
           className={twMerge(cellBase, isOpen ? cellActive : cellInactive)}
         >
@@ -62,7 +63,7 @@ export function AppMenu({ appInfo }: AppMenuProps) {
               icon={<FolderOpenIcon className="h-4 w-4" />}
               onClick={handleOpenStorageDirectory}
             >
-              Open storage directory
+              {m.shell_menu_storage_action()}
             </Menu.Item>
 
             <Menu.Separator />
@@ -71,13 +72,13 @@ export function AppMenu({ appInfo }: AppMenuProps) {
               icon={<WheelchairIcon weight="bold" className="h-4 w-4" />}
               onClick={() => open(buildBugReportUrl(appInfo, diagnosticToken))}
             >
-              Report a bug
+              {m.shell_menu_bug_report_action()}
             </Menu.Item>
             <Menu.Item
               icon={<DiscordIcon className="h-4 w-4" />}
               onClick={() => open("https://discord.gg/yhzDVRyQex")}
             >
-              Join our Discord
+              {m.shell_menu_discord_action()}
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
