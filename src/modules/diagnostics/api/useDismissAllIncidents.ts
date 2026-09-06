@@ -7,25 +7,25 @@ import { unwrapForQuery } from "@/utils/query";
 import { diagnosticsKeys } from "./keys";
 
 /**
- * Marks an incident dismissed. Optimistic, because the flag is the user's own
- * statement and the backend has no reason to disagree.
+ * Marks every incident dismissed in one round trip. Optimistic, as the single
+ * dismiss is, and the rows stay in the list dimmed.
  */
-export function useDismissIncident() {
+export function useDismissAllIncidents() {
   const queryClient = useQueryClient();
   const clearLine = useIncidentLineStore((s) => s.clear);
 
-  return useMutation<null, AppError, string, { previous?: Incident[] }>({
-    mutationFn: async (id) => unwrapForQuery(await api.diagnostics.dismissIncident(id)),
-    onMutate: async (id) => {
+  return useMutation<string[], AppError, void, { previous?: Incident[] }>({
+    mutationFn: async () => unwrapForQuery(await api.diagnostics.dismissAllIncidents()),
+    onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: diagnosticsKeys.incidents() });
       const previous = queryClient.getQueryData<Incident[]>(diagnosticsKeys.incidents());
       queryClient.setQueryData<Incident[]>(diagnosticsKeys.incidents(), (old) =>
-        old?.map((incident) => (incident.id === id ? { ...incident, dismissed: true } : incident)),
+        old?.map((incident) => (incident.dismissed ? incident : { ...incident, dismissed: true })),
       );
-      clearLine(id);
+      clearLine();
       return { previous };
     },
-    onError: (_error, _id, context) => {
+    onError: (_error, _void, context) => {
       if (context?.previous) {
         queryClient.setQueryData(diagnosticsKeys.incidents(), context.previous);
       }

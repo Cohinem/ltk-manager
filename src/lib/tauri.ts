@@ -13,8 +13,6 @@ import type {
   CreateProjectArgs,
   CslolModInfo,
   DeclaredObjects,
-  DecodedIncident,
-  DiagnosticReport,
   EditModMetadataArgs,
   ExportScope,
   ExportShape,
@@ -42,7 +40,6 @@ import type {
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
-  Incident,
   InstalledMod,
   LaunchAvailability,
   LaunchOutcome,
@@ -101,6 +98,38 @@ export type {
   KindShape,
   PropertyKind,
   RowNode,
+} from "@/lib/bindings.gen";
+/* The diagnostics types. A serde `default` or `skip_serializing_if` splits a type by
+phase, and a command answers the serialize side, so that side takes the plain name. */
+export type {
+  BinaryId,
+  Category,
+  Check_Serialize as Check,
+  CheckDetail,
+  Consequence,
+  DecodedBinary,
+  DecodedIncident,
+  DiagnosticReport_Serialize as DiagnosticReport,
+  Ending,
+  Evidence,
+  EvidenceCode,
+  EvidenceMark,
+  EvidenceSource,
+  GameInfo,
+  GamePhase,
+  Incident_Serialize as Incident,
+  LaunchKind,
+  OriginKind,
+  OverlayOutcome,
+  PatcherBinaries_Serialize as PatcherBinaries,
+  ScanMode,
+  ScanStatus,
+  SessionFailure,
+  Severity,
+  SkippedArchive,
+  Suspect,
+  Verdict_Serialize as Verdict,
+  VerdictKind,
 } from "@/lib/bindings.gen";
 export type { Result } from "@/utils/result";
 export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
@@ -363,17 +392,20 @@ export const api = {
   detectStorageMedium: (path: string) =>
     invokeResult<StorageMedium>("detect_storage_medium", { path }),
 
-  // Diagnostics
-  runDiagnostics: () => invokeResult<DiagnosticReport>("run_diagnostics"),
-  openElevatedTerminal: (withBanner: boolean) =>
-    invokeResult<void>("open_elevated_terminal", { withBanner }),
-  listIncidents: () => invokeResult<Incident[]>("list_incidents"),
-  dismissIncident: (id: string) => invokeResult<void>("dismiss_incident", { id }),
-  revealGameLog: (id: string) => invokeResult<void>("reveal_game_log", { id }),
-  incidentReport: (id: string) => invokeResult<string>("incident_report", { id }),
-  incidentToken: (id: string) => invokeResult<string>("incident_token", { id }),
-  decodeIncidentToken: (token: string) =>
-    invokeResult<DecodedIncident>("decode_incident_token", { token }),
+  // Diagnostics. One group per migrated module: the generated `commands` object is
+  // flat, so the module boundary lives here.
+  diagnostics: {
+    run: () => commands.runDiagnostics().then(toResult),
+    openElevatedTerminal: (withBanner: boolean) =>
+      commands.openElevatedTerminal(withBanner).then(toResult),
+    listIncidents: () => commands.listIncidents().then(toResult),
+    dismissIncident: (id: string) => commands.dismissIncident(id).then(toResult),
+    dismissAllIncidents: () => commands.dismissAllIncidents().then(toResult),
+    revealGameLog: (id: string) => commands.revealGameLog(id).then(toResult),
+    incidentReport: (id: string) => commands.incidentReport(id).then(toResult),
+    incidentToken: (id: string) => commands.incidentToken(id).then(toResult),
+    decodeIncidentToken: (token: string) => commands.decodeIncidentToken(token).then(toResult),
+  },
 
   // Workshop
   getWorkshopProjects: () => invokeResult<WorkshopProject[]>("get_workshop_projects"),

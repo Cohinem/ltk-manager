@@ -9,6 +9,7 @@ import { SettingRow } from "./SettingRow";
 const OPEN_ON_OPTIONS: { value: OpenOn; label: string }[] = [
   { value: "home", label: "Home" },
   { value: "mods", label: "Mods" },
+  { value: "workshop", label: "Workshop" },
 ];
 
 interface StartupAndTraySectionProps {

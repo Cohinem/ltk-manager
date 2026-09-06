@@ -28,6 +28,43 @@ export const commands = {
 	 *  `class_hash` is `0x` and eight hex digits.
 	 */
 	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
+	runDiagnostics: () => __TAURI_INVOKE<({ ok: true; value: DiagnosticReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("run_diagnostics"),
+	/**
+	 *  Launch an elevated PowerShell window so the user can run a fix command.
+	 * 
+	 *  On click of a "Run as administrator" button in the diagnostics UI, the
+	 *  frontend copies the command to the clipboard and then calls this command.
+	 *  We `ShellExecuteW` PowerShell with the `runas` verb (UAC prompt), then
+	 *  `-NoExit` so the window stays open. When `with_banner` is true a short
+	 *  hint line is printed up front telling the user the command is on their
+	 *  clipboard and they should paste (Ctrl+V or right-click) and press Enter.
+	 * 
+	 *  Why not auto-execute the command? Auto-running registry deletes from a
+	 *  freshly-elevated PowerShell with no review step is a footgun — the user
+	 *  should at least see the command they're about to execute. Paste-then-Enter
+	 *  is one extra keystroke and gives them a chance to bail out.
+	 */
+	openElevatedTerminal: (withBanner: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_elevated_terminal", { withBanner }),
+	/**  Every incident the store holds, newest first. */
+	listIncidents: () => __TAURI_INVOKE<({ ok: true; value: Incident_Serialize[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_incidents"),
+	/**  Marks an incident dismissed. The verdict line goes, and the row dims. */
+	dismissIncident: (id: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("dismiss_incident", { id }),
+	/**  Marks every undismissed incident dismissed, and answers the ids it touched. */
+	dismissAllIncidents: () => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("dismiss_all_incidents"),
+	/**  Reveals the incident's game log in the file manager. */
+	revealGameLog: (id: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reveal_game_log", { id }),
+	/**
+	 *  The incident as the text a support thread wants, with its token on the
+	 *  second line.
+	 */
+	incidentReport: (id: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("incident_report", { id }),
+	/**  The incident folded into one short string, for a URL or a chat. */
+	incidentToken: (id: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("incident_token", { id }),
+	/**
+	 *  Reads a token back, from the token alone or from a pasted report or URL
+	 *  that carries one, against this build's tables.
+	 */
+	decodeIncidentToken: (token: string) => __TAURI_INVOKE<({ ok: true; value: DecodedIncident }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("decode_incident_token", { token }),
 };
 
 /* Types */
@@ -268,6 +305,79 @@ export type BinValue = { type: "none" } |
 /**  A leaf this build has no widget for. */
 { type: "undrawn" };
 
+/**  Patcher binary identity */
+export type BinaryId = {
+	/**  16 hex sha-256 */
+	hash: string,
+	built: number | null,
+};
+
+/**  Coarse grouping for the UI. */
+export type Category = 
+/**  OS-level checks (Windows version, UAC, long paths). */
+"system" | 
+/**  League installation checks (path, writability, compat flags). */
+"league" | 
+/**  LTK Manager checks (admin status, install path). */
+"manager" | 
+/**  Patcher / DLL checks (presence, signature, locked-by handles). */
+"patcher" | 
+/**  Storage / mod-storage path checks. */
+"storage" | 
+/**  Mod library state checks (index integrity). */
+"library";
+
+/**  Result of a single diagnostic check. */
+export type Check = Check_Serialize | Check_Deserialize;
+
+/**  A single key/value detail row attached to a check. */
+export type CheckDetail = {
+	key: string,
+	value: string,
+};
+
+/**  Result of a single diagnostic check. */
+export type Check_Deserialize = {
+	/**  Stable identifier (e.g. `"windows.long_paths"`). Survives label changes. */
+	id: string,
+	/**  Human-readable label. */
+	label: string,
+	category: Category,
+	severity: Severity,
+	/**  One-line summary of the result, shown next to the label. */
+	summary: string,
+	/**  Optional structured details, shown when the row is expanded. */
+	details?: CheckDetail[],
+	/**  Optional plain-text guidance for the user. */
+	suggestion?: string | null,
+	/**
+	 *  Optional command (PowerShell / cmd / shell) to run as a fix. Shown
+	 *  alongside the suggestion with a copy button.
+	 */
+	fixCommand?: string | null,
+};
+
+/**  Result of a single diagnostic check. */
+export type Check_Serialize = {
+	/**  Stable identifier (e.g. `"windows.long_paths"`). Survives label changes. */
+	id: string,
+	/**  Human-readable label. */
+	label: string,
+	category: Category,
+	severity: Severity,
+	/**  One-line summary of the result, shown next to the label. */
+	summary: string,
+	/**  Optional structured details, shown when the row is expanded. */
+	details: CheckDetail[],
+	/**  Optional plain-text guidance for the user. */
+	suggestion?: string | null,
+	/**
+	 *  Optional command (PowerShell / cmd / shell) to run as a fix. Shown
+	 *  alongside the suggestion with a copy button.
+	 */
+	fixCommand?: string | null,
+};
+
 /**  One class as the class card draws it: its name, and its fields typed at one build. */
 export type ClassSchema = {
 	/**  The class as the database names it. */
@@ -281,6 +391,26 @@ export type ClassSchema = {
 	fields: FieldSchema[],
 };
 
+/**
+ *  What a verdict cost the player, which is a fact whatever the manager makes
+ *  of the line that reported it.
+ * 
+ *  The axis that replaced a confidence word. How firmly a log code can be read
+ *  is a claim about the manager's own table and belongs to the sentence that
+ *  reads the code, not stamped over what happened to the game.
+ * 
+ *  Ordered by how much the game lost, worst last.
+ */
+export type Consequence = 
+/**  The overlay served the game without one archive, and the rest applied. */
+"archive-dropped" | 
+/**  No mod reached the game. */
+"overlay-off" | 
+/**  The game stopped making progress and never reached play. */
+"game-hung" | 
+/**  The game did not survive. */
+"game-stopped";
+
 /**  What the schema declares for a field, beside whether the file's kind is that. */
 export type DeclaredKind = {
 	shape: KindShape,
@@ -290,6 +420,152 @@ export type DeclaredKind = {
 	 */
 	mismatch: boolean,
 };
+
+/**
+ *  One patcher binary as a decoded token presents it: the checksum, and the
+ *  build date as a full timestamp.
+ */
+export type DecodedBinary = {
+	hash: string,
+	/**  RFC 3339, UTC, when the build date was a date. */
+	built: string | null,
+};
+
+/**
+ *  A token read against this build's tables, for a reader.
+ * 
+ *  Each enum is `None` for a number this build does not know, with the
+ *  verdict's number kept beside it, so a token from a newer manager reads as
+ *  far as it can and never as an error.
+ */
+export type DecodedIncident = {
+	/**  RFC 3339, UTC, to the minute, or `None` when the token carried no time. */
+	endedAt: string | null,
+	/**  `1.14.0`. */
+	manager: string,
+	/**  `16.16.804.9184`. */
+	game: string | null,
+	verdict: VerdictKind | null,
+	/**
+	 *  The verdict's number as the token carries it, for one this build does
+	 *  not know.
+	 */
+	verdictCode: number,
+	/**  The verdict's title, or `Verdict 17` for one this build does not know. */
+	title: string,
+	consequence: Consequence | null,
+	origin: OriginKind | null,
+	overlay: OverlayOutcome | null,
+	scan: ScanMode | null,
+	launch: LaunchKind | null,
+	injected: boolean,
+	hostElevated: boolean,
+	phase: GamePhase | null,
+	ending: Ending,
+	durationSecs: number | null,
+	/**  Each code with what this build's table says about it. */
+	codes: EvidenceCode[],
+	lastLoadStep: number | null,
+	missingHash: string | null,
+	subject: string | null,
+	suspects: string[],
+	skipped: SkippedArchive[],
+	redirectedCount: number,
+	enabledCount: number,
+	/**  The hook DLL that ran, with its build date read out. */
+	dll: DecodedBinary | null,
+	/**  The injection host that ran. */
+	host: DecodedBinary | null,
+	/**  Whether both binaries are the ones the sender's manager build shipped. */
+	patcherOk: boolean | null,
+	scanStatus: ScanStatus | null,
+	/**  The status code as the scan reported it, beside the reading. */
+	scanStatusCode: string | null,
+	failure: string | null,
+	overlayDetail: string | null,
+};
+
+/**  Full diagnostic report returned by `run_diagnostics`. */
+export type DiagnosticReport = DiagnosticReport_Serialize | DiagnosticReport_Deserialize;
+
+/**  Full diagnostic report returned by `run_diagnostics`. */
+export type DiagnosticReport_Deserialize = {
+	/**  ISO-8601 UTC timestamp. */
+	generatedAt: string,
+	/**  Manager version (matches `Cargo.toml`). */
+	appVersion: string,
+	/**  All checks in display order. */
+	checks: Check_Deserialize[],
+};
+
+/**  Full diagnostic report returned by `run_diagnostics`. */
+export type DiagnosticReport_Serialize = {
+	/**  ISO-8601 UTC timestamp. */
+	generatedAt: string,
+	/**  Manager version (matches `Cargo.toml`). */
+	appVersion: string,
+	/**  All checks in display order. */
+	checks: Check_Serialize[],
+};
+
+/**  How the game ended, as far as anything said. */
+export type Ending = {
+	/**
+	 *  The Riot Client's reason: `Exit`, `Interrupt`, `Timeout`, `Unknown`, or a
+	 *  spelling the crate does not know. `None` on the Classic launch flow.
+	 */
+	exitReason: string | null,
+	exitCode: number | null,
+	/**
+	 *  Whether `last_crash` fell inside the game's window. `None` when the
+	 *  marker was not read.
+	 */
+	crashed: boolean | null,
+};
+
+/**
+ *  Which [`AppError`] a failure was, as a name that outlives its message.
+ * 
+ *  A message is for a reader and can be empty. This is the part a consumer
+ *  switches on, so it survives being recorded, stored and read back long after
+ *  the error value is gone. The Tauri shell maps it to its own `ErrorCode`, and
+ *  a CLI could map the same names to exit codes.
+ */
+export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN";
+
+/**  One line the verdict rests on. */
+export type Evidence = {
+	/**  Seconds into the game where the source has one, else the wall clock. */
+	at: string,
+	source: EvidenceSource,
+	line: string,
+	code: EvidenceCode | null,
+};
+
+/**  What the table says about a code on an evidence line. */
+export type EvidenceCode = {
+	id: string,
+	/**  The kind column, or `None` when the table has no row. */
+	kind: string | null,
+	meaning: string | null,
+	mark: EvidenceMark | null,
+};
+
+/**
+ *  How firm a row's reading is, which is a claim about this table and no more.
+ * 
+ *  It hedges the one sentence that reads the code and nothing else. What a
+ *  verdict cost the game is a fact the manager observed, so the mark never
+ *  grades it - see [`Consequence`](super::incident::Consequence).
+ */
+export type EvidenceMark = 
+/**  The reading is a fact, and the sentence states it as one. */
+"confirmed" | 
+/**  The reading is probable, and the sentence says `probably`. */
+"inferred";
+
+/**  Where a line of evidence came from. */
+export type EvidenceSource = "patcher" | "host" | "dll" | "game" | "client";
 
 /**  One field's type over one span of builds. */
 export type FieldRevision = {
@@ -316,6 +592,24 @@ export type FieldSchema = {
 	revisions: FieldRevision[],
 };
 
+/**  The facts the game log gives about the game itself. */
+export type GameInfo = {
+	version: string,
+	contentVersion: string,
+	logPath: string,
+};
+
+/**  How far the game got, as its log says. */
+export type GamePhase = 
+/**  No log was read. */
+"unknown" | 
+/**  The loading screen never finished. */
+"loading" | 
+/**  `Loading Ended` was written. */
+"in-game" | 
+/**  The game ended the way it should. */
+"torn-down";
+
 /**  Which way a read of GitHub failed, as the remedy it has. */
 export type GitHubErrorKind = 
 /**  GitHub was never reached. Waiting for a connection is the remedy. */
@@ -327,6 +621,95 @@ export type GitHubErrorKind =
 
 /**  Which of the things GitHub publishes a read was after. */
 export type GitHubFeed = "RELEASES" | "ANNOUNCEMENTS" | "NOTICES";
+
+/**  The record the manager keeps for one game that went wrong. */
+export type Incident = Incident_Serialize | Incident_Deserialize;
+
+/**  The record the manager keeps for one game that went wrong. */
+export type Incident_Deserialize = {
+	/**  The game log's stamp, or the game's start when there is no log. */
+	id: string,
+	/**  RFC 3339, UTC. */
+	startedAt: string,
+	endedAt: string,
+	/**  Library, or the workshop projects under test. */
+	origin: SessionOrigin,
+	/**  Whether the DLL attached to this game. */
+	injected: boolean,
+	hostElevated?: boolean,
+	patcher?: PatcherBinaries_Deserialize,
+	overlay: OverlayOutcome,
+	overlayDetail?: string | null,
+	redirected: string[],
+	skipped: SkippedArchive[],
+	enabledCount?: number,
+	launch: LaunchKind,
+	scan: ScanMode | null,
+	scanStatus: ScanStatus | null,
+	/**
+	 *  The token the scan reported, beside [`Incident::scan_status`]'s reading
+	 *  of it. The only part of a rejection a reader cannot get from the status.
+	 */
+	scanStatusCode?: string | null,
+	/**
+	 *  How many archives the scan rejected. The verdict names the first, so
+	 *  the rest is what a reader still has to be told about.
+	 */
+	scanRejected?: number,
+	phase?: GamePhase,
+	game: GameInfo | null,
+	ending: Ending,
+	/**  Set when the session failed before any game, which is the whole story. */
+	failure?: SessionFailure | null,
+	verdict: Verdict_Deserialize,
+	evidence: Evidence[],
+	suspects: Suspect[],
+	/**  The user has seen it and closed the line. */
+	dismissed: boolean,
+};
+
+/**  The record the manager keeps for one game that went wrong. */
+export type Incident_Serialize = {
+	/**  The game log's stamp, or the game's start when there is no log. */
+	id: string,
+	/**  RFC 3339, UTC. */
+	startedAt: string,
+	endedAt: string,
+	/**  Library, or the workshop projects under test. */
+	origin: SessionOrigin,
+	/**  Whether the DLL attached to this game. */
+	injected: boolean,
+	hostElevated: boolean,
+	patcher: PatcherBinaries_Serialize,
+	overlay: OverlayOutcome,
+	overlayDetail: string | null,
+	redirected: string[],
+	skipped: SkippedArchive[],
+	enabledCount: number,
+	launch: LaunchKind,
+	scan: ScanMode | null,
+	scanStatus: ScanStatus | null,
+	/**
+	 *  The token the scan reported, beside [`Incident::scan_status`]'s reading
+	 *  of it. The only part of a rejection a reader cannot get from the status.
+	 */
+	scanStatusCode: string | null,
+	/**
+	 *  How many archives the scan rejected. The verdict names the first, so
+	 *  the rest is what a reader still has to be told about.
+	 */
+	scanRejected: number,
+	phase: GamePhase,
+	game: GameInfo | null,
+	ending: Ending,
+	/**  Set when the session failed before any game, which is the whole story. */
+	failure: SessionFailure | null,
+	verdict: Verdict_Serialize,
+	evidence: Evidence[],
+	suspects: Suspect[],
+	/**  The user has seen it and closed the line. */
+	dismissed: boolean,
+};
 
 /**  Which stage of a start failed, for [`PatcherError::InjectionFailed`]. */
 export type InjectionStage = 
@@ -352,6 +735,9 @@ export type KindShape = {
 	/**  What an `Option`, a list or a `Map` holds. */
 	value: PropertyKind | null,
 };
+
+/**  What kind of game it was, as the DLL read the command line. */
+export type LaunchKind = "match" | "replay" | "spectator" | "pbe";
 
 /**
  *  Why a launch request could not be delivered.
@@ -402,6 +788,9 @@ export type LauncherError =
  */
 { kind: "OTHER"; message: string };
 
+/**  What the session was started for, without the paths a workshop one carries. */
+export type OriginKind = "library" | "workshop";
+
 /**
  *  Which way an overlay build failed, as the remedy a consumer picks between.
  * 
@@ -422,6 +811,38 @@ export type OverlayErrorCategory =
 "BUG" | 
 /**  An IO, parse or archive failure with no category of its own. */
 "OTHER";
+
+/**  What the DLL said after it attached. */
+export type OverlayOutcome = 
+/**  `init done`. */
+"live" | 
+/**  League started before the scan, and the DLL stayed inert. */
+"too-late" | 
+/**  The DLL refused a game build newer than it knows. */
+"end-of-life" | 
+/**  The eager scan failed closed on the first bad archive. */
+"disabled" | 
+/**  A hook did not take. */
+"hook-failed" | 
+/**  The DLL never attached, or said nothing. */
+"none";
+
+/**  Patcher identities */
+export type PatcherBinaries = PatcherBinaries_Serialize | PatcherBinaries_Deserialize;
+
+/**  Patcher identities */
+export type PatcherBinaries_Deserialize = {
+	dll?: BinaryId | null,
+	host?: BinaryId | null,
+	matchesBundle?: boolean | null,
+};
+
+/**  Patcher identities */
+export type PatcherBinaries_Serialize = {
+	dll?: BinaryId | null,
+	host?: BinaryId | null,
+	matchesBundle?: boolean | null,
+};
 
 /**
  *  Domain errors specific to the patcher.
@@ -469,6 +890,175 @@ export type RowNode =
 "element" | 
 /**  One entry of a map. */
 "entry";
+
+/**  Which scan the DLL ran, as it decided from the flags and the command line. */
+export type ScanMode = "eager" | "lazy";
+
+/**
+ *  The status the scan reported, read once for every consumer.
+ * 
+ *  Carried on the [`Incident`] so a consumer can tell one rejection from
+ *  another without reading [`Verdict::cause`] as prose, and sent beside the raw
+ *  code on `patcher-wad-scan-failed` so the dialog keeps no second table.
+ */
+export type ScanStatus = 
+/**  An official Riot skin ported onto a base champion. */
+"skinhack" | 
+/**  A linked `.bin` the archive needs is absent. */
+"missing-bin" | 
+/**  Unreadable, or built for an unsupported version. */
+"corrupt" | 
+/**  The game ran out of memory mid-scan. */
+"out-of-memory" | 
+/**  A skin with a mesh missing, which reads as an incomplete mod. */
+"base-skin" | 
+/**
+ *  The game's own copy of the archive is what the scan objected to.
+ * 
+ *  No blocking line carries this today, because the DLL keeps a baseline
+ *  anomaly out of the phrase the manager greps. Read anyway, so the table
+ *  stays whole against the DLL's.
+ */
+"base-wad" | 
+/**  A status this build does not know. */
+"unknown";
+
+/**  A session that failed before any game ran. */
+export type SessionFailure = 
+/**
+ *  The overlay build failed, with the builder's own words.
+ * 
+ *  `kind` is carried because `message` is [`Display`](std::fmt::Display)
+ *  output and several [`AppError`](crate::error::AppError) variants render
+ *  with no prefix of their own, so a thin inner error leaves nothing at all
+ *  to read. The kind is always there to say what failed. `category` is the
+ *  overlay's own word on which remedy applies, and `None` on records from
+ *  before it was recorded and on failures that never reached the builder.
+ */
+({ build: {
+	kind: ErrorKind,
+	category?: OverlayErrorCategory | null,
+	message: string,
+} }) & { injection?: never } | 
+/**  The host did not start, or the DLL did not attach. */
+({ injection: {
+	stage: InjectionStage,
+	message: string,
+} }) & { build?: never };
+
+/**  What a patching session was started for, and what it covers. */
+export type SessionOrigin = 
+/**  The library's enabled mods. */
+{ kind: "library" } | 
+/**  A workshop test over these project directories. */
+{ kind: "workshop"; 
+/**  Absolute paths to the project directories under test. */
+projects: string[] };
+
+/**
+ *  Severity of a diagnostic check result.
+ * 
+ *  Variants are declared best-to-worst (`Ok < Info < Warn < Bad`). The
+ *  frontend re-sorts to display worst-first; do not derive `Ord` from this
+ *  declaration order without revisiting the UI sort logic in
+ *  `DiagnosticsReport.tsx`.
+ */
+export type Severity = 
+/**  Check passed. */
+"ok" | 
+/**  Informational - no action needed (e.g. CPU model, language). */
+"info" | 
+/**  Suspicious - may cause problems, worth investigating. */
+"warn" | 
+/**  Known to break the patcher, should be fixed. */
+"bad";
+
+/**  An archive the lazy scan skipped, with the DLL's reason. */
+export type SkippedArchive = {
+	wad: string,
+	why: string,
+};
+
+/**
+ *  A verdict as a file holds it, which is every field the kind does not decide.
+ * 
+ *  [`Verdict`] deserializes through this, so an incident stored before
+ *  [`Consequence`] existed reads with the consequence its kind has always
+ *  implied, and one stored after it cannot carry a consequence that disagrees.
+ */
+export type StoredVerdict = {
+	kind: VerdictKind,
+	titleOverride?: string | null,
+	cause: string,
+	subject: string | null,
+	hints?: string[],
+};
+
+/**  A mod, or a workshop project, that the evidence implicates. */
+export type Suspect = {
+	modId: string | null,
+	projectPath: string | null,
+	displayName: string,
+	/**
+	 *  `writes Aatrox.wad.client, which holds the path`
+	 * 
+	 *  The reason is the whole claim. How direct the link is reads out of what
+	 *  it says - holding the path is not the same sentence as having been
+	 *  redirected - so no separate word grades it.
+	 */
+	because: string,
+};
+
+/**  What the manager concluded from one game. */
+export type Verdict = Verdict_Serialize | Verdict_Deserialize;
+
+/**  Which failure the classifier named. */
+export type VerdictKind = 
+/**  The DLL never attached, which is the common startup failure. */
+"patcher-did-not-run" | 
+/**  The overlay could not be built, so there was nothing to inject. */
+"overlay-build-failed" | 
+/**  The injection host never came up. */
+"injection-host-failed" | "patcher-out-of-date" | "archive-rejected" | 
+/**
+ *  The scan rejected an archive for a Riot skin ported onto a base
+ *  champion, which is the rejection a player has a word for.
+ */
+"skinhack-detected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason";
+
+/**  What the manager concluded from one game. */
+export type Verdict_Deserialize = StoredVerdict;
+
+/**  What the manager concluded from one game. */
+export type Verdict_Serialize = {
+	kind: VerdictKind,
+	/**
+	 *  The title as it reads, from [`VerdictKind::title`] unless this verdict
+	 *  named its own.
+	 * 
+	 *  Derived on the way in, so a stored incident cannot keep a title this
+	 *  build has stopped using. Renaming a kind renames its history with it.
+	 */
+	title: string,
+	/**
+	 *  A title for something the kind's own does not cover, and `None` for
+	 *  every verdict the predefined set already describes.
+	 */
+	titleOverride: string | null,
+	/**  One or two sentences under the title. */
+	cause: string,
+	/**  The archive, the path's file name, or the step, where there is one. */
+	subject: string | null,
+	/**
+	 *  What the game lost, which [`VerdictKind`] alone decides.
+	 * 
+	 *  Written out for a reader, and never read back. [`Self::kind`] decides it,
+	 *  so reading it from a file would only let a stale one disagree.
+	 */
+	consequence: Consequence,
+	/**  At most two, one sentence each. */
+	hints: string[],
+};
 
 /**
  *  Domain errors specific to workshop operations.

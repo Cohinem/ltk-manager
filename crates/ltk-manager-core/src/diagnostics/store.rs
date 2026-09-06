@@ -117,6 +117,34 @@ impl IncidentStore {
         Ok(())
     }
 
+    /// Marks every undismissed incident dismissed, and answers the ids it touched.
+    ///
+    /// # Errors
+    ///
+    /// A file could not be rewritten.
+    pub fn dismiss_all(&self) -> AppResult<Vec<String>> {
+        let mut dismissed = Vec::new();
+        for path in self.files()? {
+            let mut incident = match Self::read(&path) {
+                Ok(incident) => incident,
+                Err(error) => {
+                    tracing::warn!(
+                        "Skipping an incident that did not read, {}: {error}",
+                        path.display()
+                    );
+                    continue;
+                }
+            };
+            if incident.dismissed {
+                continue;
+            }
+            incident.dismissed = true;
+            self.write(&incident)?;
+            dismissed.push(incident.id);
+        }
+        Ok(dismissed)
+    }
+
     /// The file for `id`. An id names one file and nothing above the directory.
     fn path_of(&self, id: &str) -> AppResult<PathBuf> {
         if id.is_empty() || id.contains(['/', '\\']) || id == "." || id == ".." {
@@ -525,6 +553,41 @@ mod tests {
         assert!(stored.dismissed);
         assert_eq!(stored.verdict, incident.verdict);
         store.dismiss("missing").unwrap();
+    }
+
+    #[test]
+    fn dismiss_all_marks_the_unread_and_leaves_the_read_alone() {
+        let (_dir, store) = store(50);
+        let read = fixtures::incident("read", "2026-08-20T10:00:00+00:00");
+        store.record(&read).unwrap();
+        store.dismiss("read").unwrap();
+        let read_before = store.get("read").unwrap().unwrap();
+        store
+            .record(&fixtures::incident("a", "2026-08-21T10:00:00+00:00"))
+            .unwrap();
+        store
+            .record(&fixtures::incident("b", "2026-08-21T11:00:00+00:00"))
+            .unwrap();
+
+        let mut touched = store.dismiss_all().unwrap();
+        touched.sort();
+
+        assert_eq!(touched, ["a", "b"]);
+        assert!(
+            store
+                .list()
+                .unwrap()
+                .iter()
+                .all(|incident| incident.dismissed)
+        );
+        assert_eq!(store.get("read").unwrap().unwrap(), read_before);
+        assert!(store.dismiss_all().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dismiss_all_on_a_missing_directory_touches_nothing() {
+        let (_dir, store) = store(50);
+        assert!(store.dismiss_all().unwrap().is_empty());
     }
 
     #[test]

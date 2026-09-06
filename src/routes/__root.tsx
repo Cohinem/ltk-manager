@@ -12,6 +12,7 @@ import {
   useZoomHotkeys,
 } from "@/hooks";
 import { monoStack, sansStack, sansWeights, WEIGHT_TIERS } from "@/lib/fonts";
+import type { OpenOn } from "@/lib/tauri";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import { SessionBar, useLeagueSession } from "@/modules/launcher";
@@ -33,6 +34,12 @@ import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
 import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
 import { useObjectIndexLifecycle } from "@/modules/workshop";
 import { useDisplayStore, useUpdaterUpdate } from "@/stores";
+
+/** Where `Open on` sends a reader who arrives at `/`. Home is `/` itself. */
+const LANDING_ROUTES: Partial<Record<OpenOn, "/mods" | "/workshop">> = {
+  mods: "/mods",
+  workshop: "/workshop",
+};
 
 function RootLayout() {
   const { data: appInfo } = useAppInfo();
@@ -142,7 +149,9 @@ function RootLayout() {
   useEffect(() => {
     if (landed.current || !settings) return;
     landed.current = true;
-    if (settings.openOn === "mods" && location.pathname === "/") navigate({ to: "/mods" });
+    if (location.pathname !== "/") return;
+    const landing = LANDING_ROUTES[settings.openOn];
+    if (landing) navigate({ to: landing });
   }, [settings, navigate, location.pathname]);
 
   // Show loading state while checking setup

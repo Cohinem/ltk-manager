@@ -14,7 +14,7 @@ import { diagnosticsKeys } from "./keys";
 export function useDiagnostics() {
   return useQuery<DiagnosticReport, AppError>({
     queryKey: diagnosticsKeys.report(),
-    queryFn: queryFn(api.runDiagnostics),
+    queryFn: queryFn(api.diagnostics.run),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: Infinity,

@@ -13,6 +13,6 @@ import { mutationFn } from "@/utils/query";
  */
 export function useDecodeIncidentToken() {
   return useMutation<DecodedIncident, AppError, string>({
-    mutationFn: mutationFn(api.decodeIncidentToken),
+    mutationFn: mutationFn(api.diagnostics.decodeIncidentToken),
   });
 }
