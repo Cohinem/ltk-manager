@@ -1,5 +1,5 @@
 use crate::deep_link::{self, DeepLinkRequest};
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{InstalledMod, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -18,7 +18,7 @@ use super::mods::reject_if_patcher_running;
 ///
 /// Returns [`AppError::UntrustedDomain`] naming the domain that was refused.
 fn reject_if_untrusted(url: &str, settings: &State<SettingsState>) -> AppResult<()> {
-    let trusted = settings.0.lock().mutex_err()?.trusted_domains.clone();
+    let trusted = settings.0.lock().trusted_domains.clone();
     if deep_link::is_domain_trusted(url, &trusted) {
         return Ok(());
     }

@@ -8,7 +8,7 @@
 //! uncategorized rather than failing its install.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::events::BackendEvent;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::{
@@ -126,17 +126,9 @@ impl ModLibrary {
 
         let mut report = ModWadReport::from_upstream(upstream);
         self.apply_precise_categorization(config, utf8_game_dir.as_std_path(), &mut report);
-        match reports.0.lock().mutex_err() {
-            Ok(mut store) => {
-                if let Err(e) = store.upsert(report.clone()) {
-                    tracing::warn!("Failed to persist WAD report for {mod_id}: {e}");
-                    return None;
-                }
-            }
-            Err(e) => {
-                tracing::warn!("WAD report store lock poisoned for {mod_id}: {e}");
-                return None;
-            }
+        if let Err(e) = reports.0.lock().upsert(report.clone()) {
+            tracing::warn!("Failed to persist WAD report for {mod_id}: {e}");
+            return None;
         }
         Some(report)
     }

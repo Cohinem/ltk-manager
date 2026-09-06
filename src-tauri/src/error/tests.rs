@@ -33,11 +33,7 @@ fn the_code_is_the_variant_in_screaming_snake_case() {
 /// frontend never sees a `detail` it would have to explain away.
 #[test]
 fn a_unit_variant_carries_only_its_code() {
-    for error in [
-        AppError::LeagueNotFound,
-        AppError::MutexLockFailed,
-        AppError::WorkshopNotConfigured,
-    ] {
+    for error in [AppError::LeagueNotFound, AppError::WorkshopNotConfigured] {
         let json = wire(error);
         assert_eq!(json.as_object().unwrap().len(), 1, "{json}");
     }

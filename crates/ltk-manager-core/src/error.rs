@@ -8,7 +8,6 @@
 
 use camino::{Utf8Path, Utf8PathBuf};
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -25,10 +24,12 @@ use crate::workshop::WorkshopError;
 /// switches on, so it survives being recorded, stored and read back long after
 /// the error value is gone. The Tauri shell maps it to its own `ErrorCode`, and
 /// a CLI could map the same names to exit codes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(test, derive(strum::EnumIter))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 #[non_exhaustive]
 pub enum ErrorKind {
     Io,
@@ -39,7 +40,6 @@ pub enum ErrorKind {
     ModNotFound,
     ValidationFailed,
     InternalState,
-    MutexLockFailed,
     Other,
     WorkshopNotConfigured,
     ProjectNotFound,
@@ -58,14 +58,6 @@ pub enum ErrorKind {
     BinDocument,
     Overlay,
     UntrustedDomain,
-}
-
-impl fmt::Display for ErrorKind {
-    /// The variant's own name, which is what a report and an evidence line show.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let name = serde_json::to_string(self).map_err(|_| fmt::Error)?;
-        f.pad(name.trim_matches('"'))
-    }
 }
 
 /// Which way an overlay build failed, as the remedy a consumer picks between.
@@ -125,7 +117,6 @@ impl AppError {
             AppError::ModNotFound { .. } => ErrorKind::ModNotFound,
             AppError::ValidationFailed { .. } => ErrorKind::ValidationFailed,
             AppError::InternalState { .. } => ErrorKind::InternalState,
-            AppError::MutexLockFailed => ErrorKind::MutexLockFailed,
             AppError::Other { .. } => ErrorKind::Other,
             AppError::WorkshopNotConfigured => ErrorKind::WorkshopNotConfigured,
             AppError::ProjectNotFound { .. } => ErrorKind::ProjectNotFound,
@@ -175,9 +166,6 @@ pub enum AppError {
 
     #[error("Internal state error: {0}")]
     InternalState(String),
-
-    #[error("Failed to acquire mutex lock")]
-    MutexLockFailed,
 
     #[error("{0}")]
     Other(String),
@@ -255,17 +243,6 @@ impl From<ltk_mod_project::ModProjectError> for AppError {
 /// Convenience type alias for internal Result usage
 pub type AppResult<T> = Result<T, AppError>;
 
-/// Extension trait for converting `Result<T, PoisonError>` to `AppResult<T>`.
-pub trait MutexResultExt<T> {
-    fn mutex_err(self) -> AppResult<T>;
-}
-
-impl<T, E> MutexResultExt<T> for Result<T, std::sync::PoisonError<E>> {
-    fn mutex_err(self) -> AppResult<T> {
-        self.map_err(|_| AppError::MutexLockFailed)
-    }
-}
-
 /// Extension trait for converting an owned `PathBuf` into a `Utf8PathBuf`,
 /// mapping a non-UTF-8 path to an [`AppError::InvalidPath`] labeled with what
 /// the path represents (e.g. `"game directory"`).
@@ -297,11 +274,16 @@ impl Utf8PathRefExt for Path {
 mod tests {
     use super::*;
 
+    /// Every variant displays as the name serde gives it, so a report and a
+    /// stored code cannot drift apart.
     #[test]
-    fn mutex_result_ext_ok() {
-        let mutex = std::sync::Mutex::new(42);
-        let guard = mutex.lock().mutex_err().unwrap();
-        assert_eq!(*guard, 42);
+    fn every_kind_displays_as_its_serde_name() {
+        use strum::IntoEnumIterator;
+
+        for kind in ErrorKind::iter() {
+            let json = serde_json::to_string(&kind).unwrap();
+            assert_eq!(kind.to_string(), json.trim_matches('"'), "{kind:?}");
+        }
     }
 
     #[test]

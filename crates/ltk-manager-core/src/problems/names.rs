@@ -26,12 +26,13 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock, PoisonError};
+use std::sync::{Arc, OnceLock};
 
 use ltk_hash::{BinHash, Hash as _};
 use ltk_hashdb::LayeredHashDb;
 use ltk_hashtable::{Category, Hashtable, HashtableEntry, HashtableSet};
 use ltk_mod_project::ModProject;
+use parking_lot::Mutex;
 
 use crate::hashtables::{BinHashTables, HashtableCache};
 
@@ -121,7 +122,7 @@ impl BinNames {
     /// Drop the process-wide mimir index, so the next ask reads what a sync
     /// just wrote.
     pub fn invalidate_game_index() {
-        *GAME_FNV.lock().unwrap_or_else(PoisonError::into_inner) = None;
+        *GAME_FNV.lock() = None;
     }
 
     /// Name nothing, which is what a run with no cache does.
@@ -227,7 +228,7 @@ impl BinNames {
 
         // Held across the build so a second run waits for the first rather
         // than indexing the same tables beside it.
-        let mut held = GAME_FNV.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut held = GAME_FNV.lock();
         if let Some(index) = held.as_ref() {
             return Some(Arc::clone(index));
         }

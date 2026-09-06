@@ -1,4 +1,4 @@
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
@@ -70,7 +70,7 @@ pub(crate) fn execute_kill_league(app_handle: &AppHandle) -> AppResult<()> {
     let settings_state = app_handle.state::<SettingsState>();
 
     let should_stop_patcher = {
-        let s = settings_state.0.lock().mutex_err()?;
+        let s = settings_state.0.lock();
         s.kill_league_stops_patcher
     };
 
@@ -100,7 +100,7 @@ fn pause_hotkeys_inner(
     hotkeys: &State<HotkeyManager>,
     settings: &State<SettingsState>,
 ) -> AppResult<()> {
-    let s = settings.0.lock().mutex_err()?;
+    let s = settings.0.lock();
     hotkeys.pause(&s);
     Ok(())
 }
@@ -118,7 +118,7 @@ fn resume_hotkeys_inner(
     hotkeys: &State<HotkeyManager>,
     settings: &State<SettingsState>,
 ) -> AppResult<()> {
-    let s = settings.0.lock().mutex_err()?;
+    let s = settings.0.lock();
     hotkeys.resume(&s);
     Ok(())
 }
@@ -142,7 +142,7 @@ fn set_hotkey_inner(
     hotkeys: &State<HotkeyManager>,
     settings: &State<SettingsState>,
 ) -> AppResult<()> {
-    let mut s = settings.0.lock().mutex_err()?;
+    let mut s = settings.0.lock();
     let old_hotkey = action.get_accelerator(&s).map(str::to_string);
 
     match accelerator {

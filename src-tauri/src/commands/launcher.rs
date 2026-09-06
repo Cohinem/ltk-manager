@@ -1,8 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use parking_lot::Mutex;
 use tauri::{AppHandle, State};
 
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::EventSink;
@@ -52,7 +53,7 @@ impl LaunchState {
     /// Claim the in-flight slot with a fresh stop flag, or `None` when a launch
     /// is already running.
     fn acquire(&self) -> AppResult<Option<(LaunchGuard<'_>, StopFlag)>> {
-        let mut in_flight = self.0.lock().mutex_err()?;
+        let mut in_flight = self.0.lock();
         if in_flight.is_some() {
             return Ok(None);
         }
@@ -64,7 +65,7 @@ impl LaunchState {
 
     /// Call the launch in flight off, reporting whether there was one.
     fn cancel(&self) -> AppResult<bool> {
-        let in_flight = self.0.lock().mutex_err()?;
+        let in_flight = self.0.lock();
         let Some(stop) = in_flight.as_ref() else {
             return Ok(false);
         };
@@ -81,9 +82,7 @@ struct LaunchGuard<'a> {
 
 impl Drop for LaunchGuard<'_> {
     fn drop(&mut self) {
-        if let Ok(mut in_flight) = self.state.0.lock() {
-            *in_flight = None;
-        }
+        *self.state.0.lock() = None;
     }
 }
 

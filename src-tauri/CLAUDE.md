@@ -49,7 +49,7 @@ a high-integrity worker via UAC.
 
 Three Tauri-managed states:
 
-- `SettingsState` - App settings (league path, storage path, theme). Access via `State<SettingsState>`, lock with `.0.lock().mutex_err()?.clone()`.
+- `SettingsState` - App settings (league path, storage path, theme). Access via `State<SettingsState>`, lock with `.0.lock().clone()`.
 - `PatcherState` - Patcher thread handle and stop flag. Access via `State<PatcherState>`.
 - `LauncherState` - The one `LeagueLauncher`, built at startup. It holds the session watcher and
   the window hider, which outlive the command that started them, so `save_settings` calls

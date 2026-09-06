@@ -1,5 +1,5 @@
 use crate::commands::launcher::LauncherState;
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
@@ -13,7 +13,7 @@ pub fn get_settings(state: State<SettingsState>) -> IpcResult<Settings> {
 }
 
 fn get_settings_inner(state: &State<SettingsState>) -> AppResult<Settings> {
-    let settings = state.0.lock().mutex_err()?;
+    let settings = state.0.lock();
     Ok(settings.clone())
 }
 
@@ -51,7 +51,7 @@ fn save_settings_inner(
         tracing::error!(error = ?e, "Could not apply the new settings to the launcher");
     }
 
-    let mut current = state.0.lock().mutex_err()?;
+    let mut current = state.0.lock();
     *current = settings;
 
     Ok(())
@@ -70,11 +70,7 @@ pub fn get_default_settings() -> IpcResult<Settings> {
 /// Auto-detect League of Legends installation path.
 #[tauri::command]
 pub fn auto_detect_league_path(state: State<SettingsState>) -> IpcResult<Option<PathBuf>> {
-    let launch_mode = state
-        .0
-        .lock()
-        .map(|settings| settings.launch_mode)
-        .unwrap_or_default();
+    let launch_mode = state.0.lock().launch_mode;
 
     IpcResult::ok(auto_detect_league_path_inner(launch_mode))
 }
@@ -160,7 +156,7 @@ pub fn check_setup_required(state: State<SettingsState>) -> IpcResult<bool> {
 }
 
 fn check_setup_required_inner(state: &State<SettingsState>) -> AppResult<bool> {
-    let settings = state.0.lock().mutex_err()?;
+    let settings = state.0.lock();
 
     Ok(settings.config.league_path.is_none())
 }

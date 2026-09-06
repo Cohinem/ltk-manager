@@ -10,14 +10,14 @@ struct RecordingSink(Mutex<Vec<HashtableSyncProgress>>);
 
 impl RecordingSink {
     fn taken(&self) -> Vec<HashtableSyncProgress> {
-        self.0.lock().unwrap().clone()
+        self.0.lock().clone()
     }
 }
 
 impl EventSink for RecordingSink {
     fn emit(&self, event: BackendEvent) {
         if let BackendEvent::HashtableSyncProgress(progress) = event {
-            self.0.lock().unwrap().push(progress);
+            self.0.lock().push(progress);
         }
     }
 }

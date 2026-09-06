@@ -15,8 +15,9 @@
 mod types;
 
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 
+use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 
 use ritoclient::ids::{patchlines, products};
@@ -102,11 +103,11 @@ impl std::fmt::Debug for LeagueLauncher {
         // `{:?}` from inside a method that already holds it would deadlock, and
         // deadlocking on a debug print is the worst trade in the file.
         match self.inner.try_lock() {
-            Ok(inner) => out
+            Some(inner) => out
                 .field("built_for", &inner.built_for)
                 .field("hide_riot_client", &inner.hide_riot_client)
                 .field("following_a_session", &inner.session.is_some()),
-            Err(_) => out.field("state", &"locked"),
+            None => out.field("state", &"locked"),
         }
         .finish_non_exhaustive()
     }
@@ -349,15 +350,9 @@ impl LeagueLauncher {
         }
     }
 
-    /// The state behind the lock, recovering from a poisoned one.
-    ///
-    /// Everything in [`Inner`] is plain data with no invariant spanning two
-    /// fields, so a thread that panicked while holding this left nothing torn.
-    /// Refusing to launch for the rest of the process would be the worse answer.
+    /// The state behind the lock.
     fn lock(&self) -> MutexGuard<'_, Inner> {
-        self.inner
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.inner.lock()
     }
 }
 
@@ -511,7 +506,7 @@ pub fn detect_league_install_root() -> Option<PathBuf> {
 mod tests {
     use super::*;
 
-    use std::sync::Mutex;
+    use parking_lot::Mutex;
 
     use ritoclient::{LaunchObserver, SessionObserver, SessionPhase};
 
@@ -520,18 +515,13 @@ mod tests {
 
     impl RecordingSink {
         fn names(&self) -> Vec<&'static str> {
-            self.0
-                .lock()
-                .unwrap()
-                .iter()
-                .map(BackendEvent::name)
-                .collect()
+            self.0.lock().iter().map(BackendEvent::name).collect()
         }
     }
 
     impl EventSink for RecordingSink {
         fn emit(&self, event: BackendEvent) {
-            self.0.lock().unwrap().push(event);
+            self.0.lock().push(event);
         }
     }
 

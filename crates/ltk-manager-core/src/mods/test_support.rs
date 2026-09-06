@@ -102,28 +102,23 @@ fn make_library_with(
 
 /// A sink that keeps every event it is handed, in order.
 #[derive(Default)]
-pub(crate) struct RecordingEventSink(std::sync::Mutex<Vec<BackendEvent>>);
+pub(crate) struct RecordingEventSink(parking_lot::Mutex<Vec<BackendEvent>>);
 
 impl RecordingEventSink {
     /// Everything kept, for a test that asserts on a payload rather than a name.
     pub(crate) fn events(&self) -> Vec<BackendEvent> {
-        self.0.lock().unwrap().clone()
+        self.0.lock().clone()
     }
 
     /// The wire names of what was emitted, which is what a frontend listens on.
     pub(crate) fn names(&self) -> Vec<&'static str> {
-        self.0
-            .lock()
-            .unwrap()
-            .iter()
-            .map(BackendEvent::name)
-            .collect()
+        self.0.lock().iter().map(BackendEvent::name).collect()
     }
 }
 
 impl EventSink for RecordingEventSink {
     fn emit(&self, event: BackendEvent) {
-        self.0.lock().unwrap().push(event);
+        self.0.lock().push(event);
     }
 }
 

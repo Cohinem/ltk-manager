@@ -56,9 +56,10 @@ pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFol
 use crate::config::Config;
 use crate::events::EventSink;
 use crate::hashtables::WadPathResolverState;
+use parking_lot::Mutex;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::atomic::AtomicI64;
-use std::sync::{Arc, Mutex};
 
 /// Cooldown period after a mutation during which the watcher ignores events.
 /// Must be longer than the debouncer window (2 s) plus margin for delayed
@@ -190,18 +191,11 @@ impl ModLibrary {
 
     /// What the layout migration has to say for itself this launch.
     pub fn layout_migration_state(&self) -> LayoutMigrationState {
-        // A poisoned lock answers `Idle` rather than the `Pending` default,
-        // which would stand reconciliation down for the rest of the session.
-        self.layout_migration
-            .lock()
-            .map(|state| state.clone())
-            .unwrap_or(LayoutMigrationState::Idle)
+        self.layout_migration.lock().clone()
     }
 
     pub(crate) fn record_layout_migration(&self, outcome: LayoutMigrationState) {
-        if let Ok(mut state) = self.layout_migration.lock() {
-            *state = outcome;
-        }
+        *self.layout_migration.lock() = outcome;
     }
 
     pub(in crate::mods) fn verdict_lock(&self) -> &Mutex<()> {
@@ -217,9 +211,7 @@ impl ModLibrary {
         &self,
         budget: crate::problems::Budget,
     ) -> crate::problems::Budget {
-        if let Ok(mut held) = self.health_budget.lock() {
-            *held = Some(budget.clone());
-        }
+        *self.health_budget.lock() = Some(budget.clone());
         budget
     }
 
@@ -229,9 +221,8 @@ impl ModLibrary {
     /// replaced it is still going, and clearing its handle would leave its
     /// cancel reaching nothing.
     pub(in crate::mods) fn end_health_run(&self, budget: &crate::problems::Budget) {
-        if let Ok(mut held) = self.health_budget.lock()
-            && held.as_ref().is_some_and(|running| running.is(budget))
-        {
+        let mut held = self.health_budget.lock();
+        if held.as_ref().is_some_and(|running| running.is(budget)) {
             *held = None;
         }
     }
@@ -241,9 +232,8 @@ impl ModLibrary {
     /// Every worker stops at its next file. A mod the run had not finished
     /// records no verdict, so the next sweep picks it up.
     pub fn cancel_mod_health_run(&self) {
-        if let Ok(held) = self.health_budget.lock()
-            && let Some(budget) = held.as_ref()
-        {
+        let held = self.health_budget.lock();
+        if let Some(budget) = held.as_ref() {
             budget.cancel();
         }
     }
@@ -255,9 +245,7 @@ impl ModLibrary {
     /// from the files rather than from what it remembers of them.
     pub(crate) fn invalidate_overlay_for(&self, storage_dir: &std::path::Path, mod_ids: &[String]) {
         crate::overlay::force_flush_on_next_build(storage_dir);
-        if let Ok(mut store) = self.wad_reports.0.lock() {
-            let _ = store.invalidate_by_content(mod_ids);
-        }
+        let _ = self.wad_reports.0.lock().invalidate_by_content(mod_ids);
     }
 
     /// Notification sink for this library's operations.
@@ -321,7 +309,7 @@ impl ModLibrary {
             build: crate::problems::GameBuild::installed(config),
         };
 
-        let mut held = self.game_content.lock().ok()?;
+        let mut held = self.game_content.lock();
         if held.as_ref().is_none_or(|(at, _)| at != &stamp) {
             *held = Some((
                 stamp,

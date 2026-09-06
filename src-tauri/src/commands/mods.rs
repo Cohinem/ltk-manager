@@ -1,5 +1,5 @@
 use super::off_thread;
-use crate::error::{AppResult, IpcResult, MutexResultExt, Utf8PathExt};
+use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
     inspect_modpkg_file, with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope,
     ExportShape, ExportSummary, InstalledMod, ModLibraryState, ModStorage, ModWadReport,
@@ -276,11 +276,7 @@ pub fn get_mod_wad_report(
     mod_id: String,
     reports: State<Arc<WadReportState>>,
 ) -> IpcResult<Option<ModWadReport>> {
-    let result: AppResult<Option<ModWadReport>> = (|| {
-        let store = reports.0.lock().mutex_err()?;
-        Ok(store.get(&mod_id))
-    })();
-    result.into()
+    IpcResult::ok(reports.0.lock().get(&mod_id))
 }
 
 /// Get all cached WAD footprint reports in a single batch. Returns a map of
@@ -289,11 +285,7 @@ pub fn get_mod_wad_report(
 pub fn get_all_mod_wad_reports(
     reports: State<Arc<WadReportState>>,
 ) -> IpcResult<HashMap<String, ModWadReport>> {
-    let result: AppResult<HashMap<String, ModWadReport>> = (|| {
-        let store = reports.0.lock().mutex_err()?;
-        Ok(store.get_all())
-    })();
-    result.into()
+    IpcResult::ok(reports.0.lock().get_all())
 }
 
 /// Force a fresh WAD footprint analysis for a single mod without running the
@@ -329,7 +321,7 @@ pub fn analyze_mod_wads(
         library
             .0
             .apply_precise_categorization(&config, game_dir.as_std_path(), &mut report);
-        let mut store = reports.0.lock().mutex_err()?;
+        let mut store = reports.0.lock();
         store.upsert(report.clone())?;
         Ok(store.get(&report.mod_id).unwrap_or(report))
     })();

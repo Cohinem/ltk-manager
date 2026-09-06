@@ -151,15 +151,7 @@ fn sweep_after_sync(app: &AppHandle) {
         return;
     }
 
-    let Ok(settings) = app
-        .state::<SettingsState>()
-        .0
-        .lock()
-        .map(|held| held.clone())
-    else {
-        tracing::warn!("Could not read the settings to sweep after a hashtable sync");
-        return;
-    };
+    let settings = app.state::<SettingsState>().0.lock().clone();
 
     std::thread::spawn(move || {
         if let Err(e) = library.sweep_mod_health(&settings.config, &SweepScope::Due) {

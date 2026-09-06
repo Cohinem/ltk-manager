@@ -4,10 +4,12 @@
 //! The host owns all injection logic (window scanning, `SetWindowsHookEx`, DLL
 //! pipe) and reports structured lifecycle events back to us.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+use parking_lot::Mutex;
 
 use crate::diagnostics::incident::{EvidenceSource, LaunchKind, OverlayDetail, OverlayOutcome};
 
@@ -108,9 +110,8 @@ pub trait SessionControl {
 
 impl SessionControl for Arc<Mutex<Option<PatcherHost>>> {
     fn stop_session(&self) {
-        if let Ok(mut guard) = self.lock()
-            && let Some(h) = guard.as_mut()
-        {
+        let mut guard = self.lock();
+        if let Some(h) = guard.as_mut() {
             let _ = h.stop_session();
         }
     }
@@ -558,7 +559,7 @@ mod tests {
             let sink = Arc::clone(&events);
             let injector = Injector::new()
                 .with_elevate(elevate)
-                .on_event(move |e| sink.lock().unwrap().push(e));
+                .on_event(move |e| sink.lock().push(e));
             let (tx, rx) = channel();
             Self {
                 injector,
@@ -601,7 +602,7 @@ mod tests {
         }
 
         fn emitted(&self) -> Vec<InjectorEvent> {
-            self.events.lock().unwrap().clone()
+            self.events.lock().clone()
         }
 
         /// The scan-failure batches among the emitted events.

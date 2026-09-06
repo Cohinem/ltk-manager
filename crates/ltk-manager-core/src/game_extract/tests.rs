@@ -544,11 +544,11 @@ fn the_flat_layout_drops_the_directories() {
 
 #[test]
 fn a_run_reports_its_last_chunk() {
-    struct Counting(std::sync::Mutex<Vec<ExtractProgress>>);
+    struct Counting(parking_lot::Mutex<Vec<ExtractProgress>>);
     impl EventSink for Counting {
         fn emit(&self, event: BackendEvent) {
             if let BackendEvent::ExtractProgress(progress) = event {
-                self.0.lock().unwrap().push(progress);
+                self.0.lock().push(progress);
             }
         }
     }
@@ -562,7 +562,7 @@ fn a_run_reports_its_last_chunk() {
     );
     let archives = GameArchives::at(tmp.path());
     let resolver = names(&["assets/one.dds", "assets/two.dds"]);
-    let events = Counting(std::sync::Mutex::new(Vec::new()));
+    let events = Counting(parking_lot::Mutex::new(Vec::new()));
 
     let job = ExtractJob::plan(
         &[ExtractTarget::Archive {
@@ -584,7 +584,7 @@ fn a_run_reports_its_last_chunk() {
     )
     .unwrap();
 
-    let seen = events.0.lock().unwrap();
+    let seen = events.0.lock();
     let last = seen.last().expect("the run reports at least one chunk");
     assert_eq!(last.current, 2);
     assert_eq!(last.total, 2);

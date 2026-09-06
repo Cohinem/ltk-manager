@@ -18,7 +18,6 @@
   "error.LEAGUE_NOT_FOUND.title": "League installation not found",
   "error.MODPKG.title": "Modpkg error",
   "error.MOD_NOT_FOUND.title": "Mod not found: {modId}",
-  "error.MUTEX_LOCK_FAILED.title": "Failed to acquire mutex lock",
   "error.OVERLAY.BUG.title": "Overlay Builder Bug",
   "error.OVERLAY.CORRUPT.title": "Corrupt Game Files",
   "error.OVERLAY.GAME_DIR.title": "Game Install Problem",

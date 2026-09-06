@@ -5,13 +5,14 @@
 //! Every test drives `subscribe` through a real pass over a fixture project
 //! and reads the report, never the plan.
 
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, NoMeta, values};
 use ltk_meta::walk::{Node, TreeValue, Visit, Visitor};
 use ltk_meta::{Bin, BinObject, BinOverride};
+use parking_lot::Mutex;
 
 use super::*;
 use crate::config::Config;
@@ -177,10 +178,7 @@ struct Entering {
 
 impl Entering {
     fn seen(&self) -> Vec<BinHash> {
-        self.seen
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+        self.seen.lock().clone()
     }
 }
 
@@ -229,10 +227,7 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for EnteringWalk<'_, '_> {
 impl<'f> Walk<'f> for EnteringWalk<'_, 'f> {
     fn end(self: Box<Self>) -> Sink<'f> {
         let Self { of, seen, sink } = *self;
-        of.seen
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .extend(seen);
+        of.seen.lock().extend(seen);
         sink
     }
 }

@@ -6,9 +6,9 @@
 //! So this is deliberately in-memory only and replaced wholesale on every build —
 //! persisting it across restarts could surface warnings that no longer hold.
 
-use crate::error::{AppResult, MutexResultExt};
+use crate::error::AppResult;
+use parking_lot::Mutex;
 use serde::Serialize;
-use std::sync::Mutex;
 
 /// One library mod whose property-bins reference linked dependencies no archive
 /// the game mounts can answer.
@@ -50,12 +50,12 @@ impl LinkedBinState {
                 missing_links: o.missing_links,
             })
             .collect();
-        *self.0.lock().mutex_err()? = converted;
+        *self.0.lock() = converted;
         Ok(())
     }
 
     /// Snapshot the current offenders.
     pub fn get_all(&self) -> AppResult<Vec<LinkedBinOffenderInfo>> {
-        Ok(self.0.lock().mutex_err()?.clone())
+        Ok(self.0.lock().clone())
     }
 }

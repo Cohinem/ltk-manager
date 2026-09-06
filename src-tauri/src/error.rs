@@ -11,9 +11,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use ltk_manager_core::bin_document::BinDocumentError;
-pub use ltk_manager_core::error::{
-    AppError, AppResult, MutexResultExt, OverlayErrorCategory, Utf8PathExt,
-};
+pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
 use ltk_manager_core::workshop::WorkshopError;
@@ -49,8 +47,6 @@ pub enum AppErrorResponse {
     ValidationFailed { detail: String },
     /// Internal state was not what the operation needed.
     InternalState { detail: String },
-    /// A mutex was poisoned.
-    MutexLockFailed,
     /// A failure with no code of its own.
     Unknown { detail: String },
     /// No workshop directory is configured.
@@ -220,7 +216,6 @@ impl From<AppError> for AppErrorResponse {
             AppError::ModNotFound(mod_id) => Self::ModNotFound { mod_id },
             AppError::ValidationFailed(detail) => Self::ValidationFailed { detail },
             AppError::InternalState(detail) => Self::InternalState { detail },
-            AppError::MutexLockFailed => Self::MutexLockFailed,
             AppError::Other(detail) => Self::Unknown { detail },
             AppError::WorkshopNotConfigured => Self::WorkshopNotConfigured,
             AppError::ProjectNotFound(project_name) => Self::ProjectNotFound { project_name },

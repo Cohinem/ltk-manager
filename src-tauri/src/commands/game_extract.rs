@@ -1,13 +1,14 @@
 //! Writing chunks of the game's archives out to a folder the user picked.
 
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 
+use parking_lot::Mutex;
 use tauri::{AppHandle, Manager, State};
 
 use super::off_thread;
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::state::SettingsState;
 use ltk_manager_core::game_extract::{
@@ -33,7 +34,7 @@ impl ExtractState {
     /// Claim the in-flight slot with a fresh cancel flag, or `None` when an
     /// extract is already running.
     fn acquire(&self) -> AppResult<Option<(ExtractGuard<'_>, Arc<AtomicBool>)>> {
-        let mut in_flight = self.0.lock().mutex_err()?;
+        let mut in_flight = self.0.lock();
         if in_flight.is_some() {
             return Ok(None);
         }
@@ -45,7 +46,7 @@ impl ExtractState {
 
     /// Call the extract in flight off, reporting whether there was one.
     fn cancel(&self) -> AppResult<bool> {
-        let in_flight = self.0.lock().mutex_err()?;
+        let in_flight = self.0.lock();
         let Some(cancel) = in_flight.as_ref() else {
             return Ok(false);
         };
@@ -62,9 +63,7 @@ struct ExtractGuard<'a> {
 
 impl Drop for ExtractGuard<'_> {
     fn drop(&mut self) {
-        if let Ok(mut in_flight) = self.state.0.lock() {
-            *in_flight = None;
-        }
+        *self.state.0.lock() = None;
     }
 }
 

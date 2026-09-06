@@ -18,10 +18,11 @@ pub use ltk_manager_core::patcher::{
 };
 
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use crate::error::{AppResult, MutexResultExt};
+use crate::error::AppResult;
 use ltk_manager_core::patcher::host::PatcherHost;
+use parking_lot::Mutex;
 
 /// Tauri-managed patcher lifecycle state.
 ///
@@ -43,13 +44,13 @@ impl PatcherState {
 
     /// Read the state under the lock. The closure bounds the guard's lifetime.
     pub fn with<T>(&self, f: impl FnOnce(&PatcherStateInner) -> T) -> AppResult<T> {
-        let inner = self.0.lock().mutex_err()?;
+        let inner = self.0.lock();
         Ok(f(&inner))
     }
 
     /// Mutate the state under the lock.
     pub fn with_mut<T>(&self, f: impl FnOnce(&mut PatcherStateInner) -> T) -> AppResult<T> {
-        let mut inner = self.0.lock().mutex_err()?;
+        let mut inner = self.0.lock();
         Ok(f(&mut inner))
     }
 
@@ -94,11 +95,9 @@ impl PatcherHostState {
     /// Take the host out of managed state, leaving it empty.
     ///
     /// Ownership moves to the caller so the (possibly long) shutdown happens
-    /// with the lock released. A poisoned lock yields `None`: there is nothing
-    /// useful to do with a host whose owner panicked, and the `Drop` safety net
-    /// still kills the process.
+    /// with the lock released.
     pub fn take(&self) -> Option<PatcherHost> {
-        self.0.lock().ok()?.take()
+        self.0.lock().take()
     }
 }
 

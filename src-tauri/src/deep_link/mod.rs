@@ -6,9 +6,9 @@ pub(crate) use download::{extract_extension_from_content_disposition, sniff_exte
 
 use crate::error::{AppError, AppResult};
 use crate::state::SettingsState;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::time::Instant;
 use tauri::{Emitter, Manager};
 use ts_rs::TS;
@@ -92,7 +92,7 @@ impl DeepLinkState {
 
     /// Returns `true` if the invocation should be dropped (rate-limited).
     pub fn should_rate_limit(&self) -> bool {
-        let mut last = self.last_invocation.lock().unwrap();
+        let mut last = self.last_invocation.lock();
         let now = Instant::now();
         if let Some(prev) = *last {
             if now.duration_since(prev).as_secs_f64() < 1.0 {
@@ -109,7 +109,7 @@ impl DeepLinkState {
     /// the event carrying it would reach nobody. Held and sent under the one lock
     /// [`Self::take_pending`] drains, so a link cannot fall between the two.
     pub fn deliver(&self, app_handle: &tauri::AppHandle, request: DeepLinkRequest) {
-        let mut handoff = self.handoff.lock().unwrap();
+        let mut handoff = self.handoff.lock();
         if !handoff.listening {
             handoff.pending = Some(request);
             return;
@@ -121,7 +121,7 @@ impl DeepLinkState {
 
     /// The held link, if there is one, and marks the frontend listening from here on.
     pub fn take_pending(&self) -> Option<DeepLinkRequest> {
-        let mut handoff = self.handoff.lock().unwrap();
+        let mut handoff = self.handoff.lock();
         handoff.listening = true;
         handoff.pending.take()
     }
@@ -372,7 +372,7 @@ fn untrusted_domain(
     request: &DeepLinkInstallRequest,
 ) -> Option<String> {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
-    let settings = settings_state.0.lock().ok()?;
+    let settings = settings_state.0.lock();
 
     if is_domain_trusted(&request.url, &settings.trusted_domains) {
         return None;
@@ -539,7 +539,7 @@ mod tests {
             focus: "appearance.theme".into(),
         });
 
-        state.handoff.lock().unwrap().pending = Some(request.clone());
+        state.handoff.lock().pending = Some(request.clone());
 
         assert_eq!(state.take_pending(), Some(request));
         assert_eq!(state.take_pending(), None);
@@ -548,11 +548,11 @@ mod tests {
     #[test]
     fn take_pending_marks_the_frontend_listening() {
         let state = DeepLinkState::new();
-        assert!(!state.handoff.lock().unwrap().listening);
+        assert!(!state.handoff.lock().listening);
 
         state.take_pending();
 
-        assert!(state.handoff.lock().unwrap().listening);
+        assert!(state.handoff.lock().listening);
     }
 
     #[test]

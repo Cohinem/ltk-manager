@@ -1,4 +1,4 @@
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::state::SettingsState;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -57,7 +57,7 @@ pub fn show_main_window(app: AppHandle, settings: State<SettingsState>) -> IpcRe
 
 fn show_main_window_inner(app: &AppHandle, settings: &State<SettingsState>) -> AppResult<()> {
     let start_hidden = {
-        let settings = settings.0.lock().mutex_err()?;
+        let settings = settings.0.lock();
         settings.start_in_tray || settings.start_in_tray_unless_update
     };
 
