@@ -2,6 +2,7 @@ export { diagnosticsKeys } from "./keys";
 export { CLEAN_GAME_GRACE_MS, useCleanGameWatch } from "./useCleanGameWatch";
 export { useDecodeIncidentToken } from "./useDecodeIncidentToken";
 export { useDiagnostics } from "./useDiagnostics";
+export { useDismissAllIncidents } from "./useDismissAllIncidents";
 export { useDismissIncident } from "./useDismissIncident";
 export { useIncidentListeners } from "./useIncidentListeners";
 export { incidentReportOptions, useIncidentReport } from "./useIncidentReport";

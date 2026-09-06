@@ -178,6 +178,13 @@ pub fn dismiss_incident(id: String, incidents: State<IncidentStoreState>) -> Ipc
     incidents.0.dismiss(&id).into()
 }
 
+/// Marks every undismissed incident dismissed, and answers the ids it touched.
+#[tauri::command]
+#[specta::specta]
+pub fn dismiss_all_incidents(incidents: State<IncidentStoreState>) -> IpcResult<Vec<String>> {
+    incidents.0.dismiss_all().into()
+}
+
 /// Reveals the incident's game log in the file manager.
 #[tauri::command]
 #[specta::specta]

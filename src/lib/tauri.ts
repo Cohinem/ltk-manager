@@ -400,6 +400,7 @@ export const api = {
       commands.openElevatedTerminal(withBanner).then(toResult),
     listIncidents: () => commands.listIncidents().then(toResult),
     dismissIncident: (id: string) => commands.dismissIncident(id).then(toResult),
+    dismissAllIncidents: () => commands.dismissAllIncidents().then(toResult),
     revealGameLog: (id: string) => commands.revealGameLog(id).then(toResult),
     incidentReport: (id: string) => commands.incidentReport(id).then(toResult),
     incidentToken: (id: string) => commands.incidentToken(id).then(toResult),

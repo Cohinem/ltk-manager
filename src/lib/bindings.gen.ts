@@ -49,6 +49,8 @@ export const commands = {
 	listIncidents: () => __TAURI_INVOKE<({ ok: true; value: Incident_Serialize[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_incidents"),
 	/**  Marks an incident dismissed. The verdict line goes, and the row dims. */
 	dismissIncident: (id: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("dismiss_incident", { id }),
+	/**  Marks every undismissed incident dismissed, and answers the ids it touched. */
+	dismissAllIncidents: () => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("dismiss_all_incidents"),
 	/**  Reveals the incident's game log in the file manager. */
 	revealGameLog: (id: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reveal_game_log", { id }),
 	/**

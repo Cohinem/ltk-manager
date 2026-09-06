@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,6 +24,9 @@ function mockBackend(incidents: ReturnType<typeof createMockIncident>[]) {
     switch (cmd) {
       case "list_incidents":
         return Promise.resolve({ ok: true, value: incidents });
+      case "dismiss_all_incidents":
+        for (const incident of incidents) incident.dismissed = true;
+        return Promise.resolve({ ok: true, value: incidents.map((incident) => incident.id) });
       case "get_installed_mods":
         return Promise.resolve({ ok: true, value: [] });
       case "get_patcher_status":
@@ -95,6 +98,31 @@ describe("GamesTab", () => {
     expect(
       await screen.findByRole("heading", { level: 2, name: "Loading Screen Stall" }),
     ).toBeInTheDocument();
+  });
+
+  /// One press is one round trip, and the rows stay in the list dimmed rather
+  /// than gone.
+  it("dismisses every incident in one press and keeps the rows", async () => {
+    const newest = createMockIncident({ id: "newest", endedAt: onDay(0, 21, 14) });
+    const older = createMockIncident({ id: "older", endedAt: onDay(1, 22, 40) });
+    mockBackend([newest, older]);
+    const user = userEvent.setup();
+    renderWithApp(<GamesTab />);
+
+    const button = await screen.findByRole("button", { name: "Dismiss all" });
+    expect(button).toBeEnabled();
+    await user.click(button);
+
+    expect(mockInvoke.mock.calls.map((call) => call[0])).toContain("dismiss_all_incidents");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Dismiss all" })).toBeDisabled());
+    expect(screen.getAllByRole("option")).toHaveLength(2);
+  });
+
+  it("disables Dismiss all while nothing is undismissed", async () => {
+    mockBackend([createMockIncident({ id: "read", endedAt: onDay(0, 21, 14), dismissed: true })]);
+    renderWithApp(<GamesTab />);
+
+    expect(await screen.findByRole("button", { name: "Dismiss all" })).toBeDisabled();
   });
 
   it("writes a click on a row back into the URL", async () => {

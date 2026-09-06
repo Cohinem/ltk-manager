@@ -38,6 +38,7 @@ migrated![
     open_elevated_terminal,
     list_incidents,
     dismiss_incident,
+    dismiss_all_incidents,
     reveal_game_log,
     incident_report,
     incident_token,
