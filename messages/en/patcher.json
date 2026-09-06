@@ -6,5 +6,18 @@
   "patcher.INJECTION_FAILED.INJECTION.title": "DLL Injection Failure",
   "patcher.NOT_RUNNING.title": "The patcher is not running",
   "patcher.UNSUPPORTED_PLATFORM.title": "The patcher is not yet available on this platform",
-  "patcher_error_title": "Patcher Error"
+  "patcher_error_title": "Patcher Error",
+  "patcher_rebuild_action": "Rebuild overlay",
+  "patcher_rebuild_done_description": "The overlay was regenerated from scratch.",
+  "patcher_rebuild_done_title": "Overlay rebuilt",
+  "patcher_rebuild_failed_title": "Rebuild failed",
+  "patcher_rebuild_pending_clear_label": "Clear the queued rebuild",
+  "patcher_rebuild_pending_hint": "The next start rebuilds the overlay from scratch. Clear it to keep the overlay you have.",
+  "patcher_rebuild_pending_label": "Rebuild queued",
+  "patcher_rebuild_queue_action": "Rebuild on next start",
+  "patcher_rebuild_queued_description": "The overlay is rebuilt from scratch when the patcher next starts.",
+  "patcher_rebuild_queued_title": "Rebuild queued",
+  "patcher_skinhack_excluded_description": "{name} was detected as a skinhack and is not loaded.",
+  "patcher_skinhack_excluded_title": "Skinhack excluded",
+  "patcher_start_failed_title": "Couldn't start the patcher"
 }

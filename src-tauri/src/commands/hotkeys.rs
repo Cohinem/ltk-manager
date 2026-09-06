@@ -43,6 +43,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     let patcher_config = PatcherConfig {
         flags: config.flags,
         workshop_projects: config.workshop_projects,
+        force_rebuild: None,
     };
 
     tracing::info!("Hot reload: restarting patcher");

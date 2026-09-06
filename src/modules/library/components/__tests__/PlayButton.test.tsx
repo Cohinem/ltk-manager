@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ToastProvider } from "@/components";
 import type { LaunchMode } from "@/lib/tauri";
 import { useInstalledMods } from "@/modules/library";
-import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
+import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 import { createMockInstalledMod, createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -128,6 +128,7 @@ describe("PlayButton", () => {
     mockInvoke.mockReset();
     usePlaySessionStore.setState({ step: "idle" });
     usePatcherSessionStore.setState({ stopping: false });
+    usePendingRebuildStore.setState({ queued: false });
   });
 
   /**
@@ -165,6 +166,20 @@ describe("PlayButton", () => {
     await user.click(await screen.findByRole("button", { name: "Stop Patcher" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Stop Patcher" })).toBeEnabled());
+  });
+
+  /// The queued rebuild is a promise about the next start, so it sits where
+  /// the start is and can be taken back there.
+  it("shows the queued rebuild beside Play and clears it", async () => {
+    mockBackend();
+    usePendingRebuildStore.setState({ queued: true });
+    render(<PlayButton />, { wrapper });
+
+    expect(await screen.findByText("Rebuild queued")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Clear the queued rebuild" }));
+
+    expect(screen.queryByText("Rebuild queued")).not.toBeInTheDocument();
+    expect(usePendingRebuildStore.getState().queued).toBe(false);
   });
 
   it("plays when nothing is running yet", async () => {

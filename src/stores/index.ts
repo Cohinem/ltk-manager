@@ -17,6 +17,7 @@ export * from "./notifications";
 export * from "./objectsBrowser";
 export * from "./patcherFailure";
 export * from "./patcherSession";
+export * from "./pendingRebuild";
 export * from "./playSession";
 export * from "./references";
 export * from "./updater";

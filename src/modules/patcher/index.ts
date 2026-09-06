@@ -2,6 +2,7 @@ export {
   patcherFailureTab,
   patcherFailureTitle,
   patcherKeys,
+  startPatcherSpendingQueue,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
   useGuardedStartPatcher,
@@ -9,6 +10,7 @@ export {
   usePatcherError,
   usePatcherStatus,
   useRebuildOverlay,
+  useRebuildOverlayAction,
   useStartPatcher,
   useStopPatcher,
 } from "./api";

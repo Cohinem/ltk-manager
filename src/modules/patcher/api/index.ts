@@ -12,7 +12,8 @@ export {
 } from "./usePatcherError";
 export { usePatcherStatus } from "./usePatcherStatus";
 export { useRebuildOverlay } from "./useRebuildOverlay";
-export { useStartPatcher } from "./useStartPatcher";
+export { useRebuildOverlayAction } from "./useRebuildOverlayAction";
+export { startPatcherSpendingQueue, useStartPatcher } from "./useStartPatcher";
 export { useStopPatcher } from "./useStopPatcher";
 export { useWadScanFailure } from "./useWadScanFailure";
 export type { WadScanOffender, WadScanOffenders } from "./useWadScanOffenders";

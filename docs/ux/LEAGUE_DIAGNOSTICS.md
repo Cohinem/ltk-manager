@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-06 | Rebuild overlay on the incident toast and the verdict line              |
 | 2026-09-06 | Name the archive and the problem on the wad mount verdict               |
 | 2026-09-06 | A short redirected game with no log is an incident, not a clean game    |
 | 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence           |
@@ -966,6 +967,7 @@ announcement and the bar keeps the answer.
 | Suspect | The first suspect's name, and `+2` where there are more            |
 | Cost    | A small chip saying what the game lost                             |
 | Details | Opens the Games tab on this incident                               |
+| Rebuild | The rebuild the verdict's hint asks for, only under such a verdict |
 | `x`     | Dismisses the line, and marks the incident dismissed               |
 
 The line replaces the idle resting line and nothing else. A build or a start that begins
@@ -975,6 +977,14 @@ Games tab. The next game's `injected` dismisses the line on its own.
 The toast gains a `Details` action, which is the shape `useSurfaceLinkedBinWarning` already
 uses for `Review`, and passes `notify: true` so the notification center keeps it. Today no
 patcher or launch toast passes it, and a seven-second toast is the only record of a failure.
+
+Whenever the verdict's hints include `rebuild-overlay`, the toast and the line offer
+`Rebuild overlay` beside `Details`. With the patcher stopped the action rebuilds at once and
+reports success or failure with the existing toasts. With the patcher running it reads
+`Rebuild on next start`, the next start forces one rebuild, and the queued state shows beside
+Play as a pill with a clear. A verdict without the hint offers nothing, which keeps the
+action off a wrong-install verdict, where a rebuild from the wrong install changes nothing.
+Nothing rebuilds on its own.
 
 A failed start takes the same line. `The injection host did not start` sits in the bar with
 a `Diagnostics` action that opens the System tab, in place of a toast that the Library page

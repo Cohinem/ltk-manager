@@ -36,6 +36,8 @@ pub struct SessionParams {
     pub patcher_binaries: PatcherBinaries,
     /// Where the session's incidents are written.
     pub incident_store: Arc<IncidentStore>,
+    /// Whether the overlay is built from scratch rather than reused.
+    pub force_rebuild: bool,
 }
 
 /// Inputs moved into the background patcher thread.
@@ -51,6 +53,7 @@ pub struct PatcherThread {
     workshop_paths: Vec<PathBuf>,
     host_flags: u32,
     should_elevate: bool,
+    force_rebuild: bool,
 }
 
 impl PatcherThread {
@@ -91,6 +94,7 @@ impl PatcherThread {
             should_elevate,
             patcher_binaries,
             incident_store,
+            force_rebuild,
         } = params;
         let pipeline = Arc::new(IncidentPipeline::new(
             config.clone(),
@@ -117,6 +121,7 @@ impl PatcherThread {
             workshop_paths,
             host_flags,
             should_elevate,
+            force_rebuild,
         };
         patcher_state.thread_handle = Some(thread::spawn(move || session.run()));
         Ok(())
@@ -132,10 +137,11 @@ impl PatcherThread {
     /// Build the overlay and return its prefix path, or `None` on failure/early
     /// stop (state already reset).
     fn build_overlay(&self) -> Option<String> {
-        let build = match self
-            .library
-            .ensure_overlay(&self.config, &self.workshop_paths, false)
-        {
+        let build = match self.library.ensure_overlay(
+            &self.config,
+            &self.workshop_paths,
+            self.force_rebuild,
+        ) {
             Ok(build) => build,
             Err(e) => {
                 tracing::error!(error = ?e, "Overlay build failed");

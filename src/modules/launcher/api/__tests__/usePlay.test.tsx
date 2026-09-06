@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { ToastProvider } from "@/components";
 import type { LaunchRoute, PatcherPhase } from "@/lib/bindings";
 import { useInstalledMods } from "@/modules/library";
-import { usePlaySessionStore } from "@/stores";
+import { usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 import { createMockInstalledMod, createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -85,6 +85,23 @@ describe("usePlay", () => {
     // The step lives in a module-level store now, so a run that ended
     // mid-flight would silently gate every later test's play().
     usePlaySessionStore.setState({ step: "idle", session: null });
+    usePendingRebuildStore.setState({ queued: false });
+  });
+
+  /// A verdict's rebuild queued while the patcher ran is spent by the next
+  /// start, and only that one.
+  it("forces the rebuild a verdict queued, once", async () => {
+    mockBackend(["patching"]);
+    usePendingRebuildStore.setState({ queued: true });
+    const { result } = await renderPlay();
+
+    await act(async () => {
+      await result.current.play.play();
+    });
+
+    const start = mockInvoke.mock.calls.find(([cmd]) => cmd === "start_patcher");
+    expect(start?.[1]).toEqual({ config: { forceRebuild: true } });
+    expect(usePendingRebuildStore.getState().queued).toBe(false);
   });
 
   it("arms the patcher before asking the Riot Client to launch", async () => {

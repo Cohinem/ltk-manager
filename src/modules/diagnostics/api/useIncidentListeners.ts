@@ -2,9 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { useToast } from "@/components";
+import { m } from "@/i18n";
 import type { Incident } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { scanRejectionCause } from "@/modules/patcher";
+import { scanRejectionCause, useRebuildOverlayAction } from "@/modules/patcher";
 import { useIncidentLineStore } from "@/stores";
 
 import { isInformational } from "../utils/incident";
@@ -15,11 +16,12 @@ import { diagnosticsKeys } from "./keys";
  *
  * `incident-recorded` refreshes the list, puts the verdict line in the session
  * bar, and announces it with a toast whose `Details` action opens the Games
- * tab on the incident. The toast is kept in the notification center, because a
- * crash is a question the player comes back to. A start failure gets no toast
- * here, because `usePatcherError` already announced it with the stage's own
- * action. `patcher-game-attached` takes the line down again, since the bar's
- * job is the present.
+ * tab on the incident, and a `Rebuild overlay` action beside it whenever the
+ * verdict carries the rebuild hint. The toast is kept in the notification
+ * center, because a crash is a question the player comes back to. A start
+ * failure gets no toast here, because `usePatcherError` already announced it
+ * with the stage's own action. `patcher-game-attached` takes the line down
+ * again, since the bar's job is the present.
  */
 export function useIncidentListeners() {
   const queryClient = useQueryClient();
@@ -27,6 +29,7 @@ export function useIncidentListeners() {
   const toast = useToast();
   const show = useIncidentLineStore((s) => s.show);
   const clear = useIncidentLineStore((s) => s.clear);
+  const rebuild = useRebuildOverlayAction();
 
   useTauriEvent<Incident>("incident-recorded", (incident) => {
     queryClient.invalidateQueries({ queryKey: diagnosticsKeys.incidents() });
@@ -38,14 +41,20 @@ export function useIncidentListeners() {
       description: scanRejectionCause(incident),
       notify: true,
       action: {
-        label: "Details",
+        label: m.diagnostics_incident_details_action(),
         onClick: () =>
           navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } }),
       },
+      actions: offersRebuild(incident) ? [{ label: rebuild.label, onClick: rebuild.run }] : [],
     });
   });
 
   useTauriEvent<unknown>("patcher-game-attached", () => clear());
+}
+
+/** Whether the verdict asks for a rebuild, which is the one hint with an action. */
+function offersRebuild(incident: Incident): boolean {
+  return incident.verdict.hints.includes("rebuild-overlay");
 }
 
 function toastTypeFor(incident: Incident) {
