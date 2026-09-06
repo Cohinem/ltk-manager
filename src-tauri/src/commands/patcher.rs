@@ -43,6 +43,17 @@ pub struct PatcherConfig {
     pub force_rebuild: Option<bool>,
 }
 
+impl PatcherConfig {
+    /// The config a session ran with, for starting it again.
+    pub(crate) fn from_stored(stored: StoredPatcherConfig, force_rebuild: bool) -> Self {
+        Self {
+            flags: stored.flags,
+            workshop_projects: stored.workshop_projects,
+            force_rebuild: Some(force_rebuild),
+        }
+    }
+}
+
 /// Current status of the patcher.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]

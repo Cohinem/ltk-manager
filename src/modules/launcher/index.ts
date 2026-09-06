@@ -2,6 +2,7 @@ export {
   launcherKeys,
   type PlayStep,
   useCancelLaunch,
+  useInstallMismatchWatch,
   useLaunchAvailability,
   useLaunchErrorToast,
   useLaunchLeague,

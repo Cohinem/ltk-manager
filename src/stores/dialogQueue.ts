@@ -9,6 +9,7 @@ import { create } from "zustand";
 export const DIALOG_ORDER = [
   "protocol-install",
   "wad-scan-failed",
+  "install-mismatch",
   "linked-bin-warning",
   "library-migration",
   "mod-health",

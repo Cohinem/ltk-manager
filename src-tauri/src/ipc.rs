@@ -43,6 +43,9 @@ migrated![
     incident_report,
     incident_token,
     decode_incident_token,
+    // Launcher
+    check_install_mismatch,
+    switch_league_install,
 ];
 
 /// The builder the bindings are generated from and the handler is built out of.

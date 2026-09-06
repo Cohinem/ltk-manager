@@ -8,6 +8,7 @@ export * from "./extractRun";
 export * from "./gameBrowser";
 export * from "./home";
 export * from "./incidents";
+export * from "./installMismatch";
 export * from "./libraryFilter";
 export * from "./librarySelection";
 export * from "./libraryView";

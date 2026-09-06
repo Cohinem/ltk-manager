@@ -1,5 +1,6 @@
 export { launcherKeys } from "./keys";
 export { useCancelLaunch } from "./useCancelLaunch";
+export { useInstallMismatchWatch } from "./useInstallMismatchWatch";
 export { useLaunchAvailability } from "./useLaunchAvailability";
 export { useLaunchErrorToast } from "./useLaunchErrorToast";
 export { useLaunchLeague } from "./useLaunchLeague";

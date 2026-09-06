@@ -12,5 +12,16 @@
   "launcher.SPAWN_FAILED.title": "Couldn't start the Riot Client",
   "launcher.UNSUPPORTED_PLATFORM.description": "The manager can only launch League on Windows. Start it from the Riot Client.",
   "launcher.UNSUPPORTED_PLATFORM.title": "Launching isn't supported here",
+  "launcher_install_live_label": "Live",
+  "launcher_install_mismatch_configured_label": "Set up for",
+  "launcher_install_mismatch_description": "League is running from the *{running}* install, and LTK Manager is set up for *{configured}*. The overlay was built from the install the manager is set up for.",
+  "launcher_install_mismatch_hint": "Mods built from one install crash the other. Switching saves the running install as the League path, rebuilds the overlay from it and starts the patcher again.",
+  "launcher_install_mismatch_keep_action": "Keep {configured}",
+  "launcher_install_mismatch_running_label": "Running",
+  "launcher_install_mismatch_switch_action": "Switch to this install",
+  "launcher_install_mismatch_title": "A different League install is running",
+  "launcher_install_pbe_label": "PBE",
+  "launcher_install_switch_failed_title": "Couldn't switch the League install",
+  "launcher_install_switched_title": "League path changed",
   "launcher_launch_failed_title": "Couldn't launch League"
 }

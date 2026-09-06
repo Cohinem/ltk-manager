@@ -2,21 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                  |
-| ---------- | ----------------------------------------------------------------------- |
-| 2026-09-06 | Rebuild overlay on the incident toast and the verdict line              |
-| 2026-09-06 | Name the archive and the problem on the wad mount verdict               |
-| 2026-09-06 | A short redirected game with no log is an incident, not a clean game    |
-| 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence           |
-| 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt   |
-| 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed  |
-| 2026-09-05 | Name the bin scan as planned rather than waiting upstream               |
-| 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident   |
-| 2026-08-21 | Reshape the token around what a verdict rests on, and drop deflate      |
-| 2026-08-21 | Land the backend, the Games tab and the surfaces, and update the status |
-| 2026-08-21 | Answer the open questions, and add the incident token                   |
-| 2026-08-21 | Read the host and DLL lines from `ltk-patcher`, and trim the code table |
-| 2026-08-21 | Propose the incident, its verdict, and the game log reader              |
+| Date       | Change                                                                 |
+| ---------- | ---------------------------------------------------------------------- |
+| 2026-09-06 | Wrong-install verdict from a log found under another install           |
+| 2026-09-06 | Install mismatch dialog, from the client session against the settings  |
+| 2026-09-06 | Rebuild overlay on the incident toast and the verdict line             |
+| 2026-09-06 | Name the archive and the problem on the wad mount verdict              |
+| 2026-09-06 | A short redirected game with no log is an incident, not a clean game   |
+| 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence          |
+| 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt  |
+| 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed |
+| 2026-09-05 | Name the bin scan as planned rather than waiting upstream              |
+| 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -73,6 +70,7 @@ This table holds every major feature of League diagnostics. A status word has on
 | Token decoder                | Available   | Paste a token into the Games tab, and read it as an incident |
 | Crash marker                 | Available   | `GameCrashes/last_crash` as the crash-or-kill tiebreak       |
 | Suspect badge                | Available   | On the mod card, the way the missing-dependency badge is     |
+| Install mismatch dialog      | Available   | The client's session against the configured install          |
 | Workshop verdict             | In progress | The card badge and the Test tooltip. No problems list yet    |
 | Startup reconcile            | Proposed    | Games that ended while the manager was closed                |
 | Hash search in mod bins      | Blocked     | Needs the lazy bin read the project editor waits on          |
@@ -455,10 +453,17 @@ and confirms it with the `Logging started at` line inside.
 | Situation                                     | The reader does                                         |
 | --------------------------------------------- | ------------------------------------------------------- |
 | One directory in the window                   | Reads it                                                |
-| None                                          | Records no log. The verdict says so                     |
+| None under the configured install             | Searches the other install roots, below                 |
+| None anywhere                                 | Records no log. The verdict says so                     |
 | The file is still held open                   | Retries for five seconds, then records no log           |
 | The stamp is in the window, the header is not | Records no log, because a wrong file is worse than none |
 | No `league_path` is configured                | Does not look                                           |
+
+The log is searched for under the configured install first, then under the other installs
+the Riot Client's product registry lists when a client answers, and under the configured
+install's sibling folders when none does. A game from another install writes its log under
+that install, and the record keeps the root the log came from. A log whose command line
+names another install than the configured one is the wrong-install verdict.
 
 A game the patcher never touched still has a first sign when the session saw it, or when
 the host saw its window come and go, and the reader runs on that. The log then serves the
@@ -533,6 +538,7 @@ The rows are in precedence order. The first row whose evidence is present wins.
 
 | Verdict                    | Rests on                                                                                             | Cost            | Names a mod |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- | --------------- | ----------- |
+| Wrong League install       | A log whose `-GameBaseDir` is not the configured install                                             | game-stopped    | No          |
 | DLL injection failure      | A build error, or `InjectionFailed` at either stage                                                  | overlay-off     | Sometimes   |
 | Unsupported game build     | `end of life reached` on the `dll` lines                                                             | overlay-off     | No          |
 | Skinhack detection         | `patcher-wad-scan-failed`, status `c0000229`                                                         | overlay-off     | Yes         |
@@ -568,6 +574,17 @@ touched is still known through the session or through the host's `game found`, a
 is enough for a record, because "was it the mods?" is asked about those games most of all.
 
 ### Each verdict, in the words a user reads
+
+**The wrong install.** `League ran from C:\Riot Games\League of Legends, and the overlay was
+built for C:\Riot Games\League of Legends (PBE). A mod built from one install crashes the
+other.` The log's command line names the install the game ran from, and the reader keeps it.
+The rule is first in the table. Every code under it, the wad mount fatal among them, is the
+same fact seen from inside the game. No mod is named and there is no rebuild hint. A rebuild
+from the wrong install changes nothing. The one hint is the League path in Settings, and the
+incident raises the [install mismatch dialog](#the-install-mismatch-dialog) once, with the
+log's install as the switch target. The codes the log holds still show in the evidence. A
+game from the other install that ends clean is no incident, and the client check is what
+names the mismatch while it runs.
 
 **The patcher did not run.** The title names the stage. A build that failed names the mod
 whose file the builder stopped on, because the error already carries it. A `HOST` failure
@@ -721,8 +738,8 @@ at, without being the verdict. Each is one sentence, and a verdict carries at mo
 
 A hint crosses IPC as a code, `Hint` in the bindings, and the frontend catalog holds one
 sentence per code under `hint.<code>` (ADR-0017). The report text is Rust prose, and it takes
-the hints as sentences from the frontend beside the incident's id, so the catalog is the one
-place a hint is worded. A stored incident from an earlier build holds each hint as a
+the hints as sentences from the frontend beside the incident's id. The catalog is the one
+place a hint is worded. A stored incident from a build without codes holds each hint as a
 sentence, and a stored code this build does not know reads as nothing. Neither is an error.
 
 | Code                 | Hint                              | When                                                                      |
@@ -989,6 +1006,38 @@ Nothing rebuilds on its own.
 A failed start takes the same line. `The injection host did not start` sits in the bar with
 a `Diagnostics` action that opens the System tab, in place of a toast that the Library page
 alone would show.
+
+### The install mismatch dialog
+
+An overlay is built from one install's archives. A game from another install mounts its
+own copies beside the overlay's, and one shared chunk with different bytes is a fatal
+`Inconsistent` at startup. The dialog is the manager saying so before the game does.
+
+The backend resolves the configured League path to a patchline through the Riot Client's
+product registry, which lists every install root, and reads the patchline of the League
+session the client has open, whichever patchline that is. The two are compared when the
+patcher reaches `patching` and again on each `session-started` while the patcher runs, in
+both launch modes. A session the client opens with no watcher on it announces nothing, which
+is every Classic-mode game, and the DLL attaching to that game is its next sign. The check
+runs on `patcher-game-attached` too. The comparison is a pure function over the registry's rows, and a
+mismatch crosses IPC as typed fields: both paths and both patchlines. The paths are
+compared with the `\\?\` prefix, the slash kind, a trailing separator and the case set
+aside. The registry writes forward slashes, and a setting holds what the picker gave it.
+
+The frontend raises one dialog through the dialog queue (ADR-0022), between the WAD scan
+failure and the linked-bin warning. It names the install the game runs from and the install
+the manager is set up for, each as its path, and says that mods built from one crash the
+other. `Keep <configured>` dismisses it for the patcher session, and it does not return until
+the next start. `Switch to this install` saves the League path to the session's install
+root the way Settings saves it, stops the patcher session, starts it again with the config
+it ran with and a forced rebuild, and toasts the new path. Without a running session the
+overlay is rebuilt and left for the next start. A failed step is reported with the existing
+error toasts, and the dialog stays up.
+
+The patcher keeps running throughout. A game from the configured install still works while
+the dialog is up. No client, no open session, or a path the registry does not know means no
+dialog, and the [wrong-install verdict](#each-verdict-in-the-words-a-user-reads) is the
+backstop from the game's own log.
 
 ### The Games tab
 

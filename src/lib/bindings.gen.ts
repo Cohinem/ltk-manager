@@ -65,6 +65,24 @@ export const commands = {
 	 *  that carries one, against this build's tables.
 	 */
 	decodeIncidentToken: (token: string) => __TAURI_INVOKE<({ ok: true; value: DecodedIncident }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("decode_incident_token", { token }),
+	/**
+	 *  The install the client's League session runs from, against the one the
+	 *  manager is set up for.
+	 * 
+	 *  `None` when they agree, when no client or session answers, or when the
+	 *  registry does not know the configured path. Read-only against the client.
+	 */
+	checkInstallMismatch: () => __TAURI_INVOKE<({ ok: true; value: InstallMismatch | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_install_mismatch"),
+	/**
+	 *  Points the manager at `install_root`, and puts the patcher session back up
+	 *  on an overlay built from it.
+	 * 
+	 *  A running session is stopped, the path is saved the way Settings saves it,
+	 *  and the session starts again with the config it ran with and a forced
+	 *  rebuild. Without a running session the overlay is rebuilt and left for the
+	 *  next start.
+	 */
+	switchLeagueInstall: (installRoot: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_league_install", { installRoot }),
 };
 
 /* Types */
@@ -736,6 +754,21 @@ export type InjectionStage =
 "HOST" | 
 /**  The host ran, but the game was never patched. */
 "INJECTION";
+
+/**
+ *  The install the manager is set up for, against the one the client's League
+ *  session runs from.
+ */
+export type InstallMismatch = {
+	/**  The install root the manager is set up for. */
+	configuredPath: string,
+	/**  The patchline the registry lists that root under. */
+	configuredPatchline: string,
+	/**  The patchline of the League session the client has open. */
+	sessionPatchline: string,
+	/**  That patchline's install root. */
+	sessionPath: string,
+};
 
 /**
  *  A type as the tag composes it: the kind, a `Map`'s key, and what a container holds.
