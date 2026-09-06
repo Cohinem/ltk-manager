@@ -8,12 +8,11 @@
 //! variants collapse to the same code and which fields each carries.
 
 use serde::{Deserialize, Serialize};
+use specta::datatype::{DataType, Enum, Field, Variant};
 use ts_rs::TS;
 
 use ltk_manager_core::bin_document::BinDocumentError;
-pub use ltk_manager_core::error::{
-    AppError, AppResult, MutexResultExt, OverlayErrorCategory, Utf8PathExt,
-};
+pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
 use ltk_manager_core::workshop::WorkshopError;
@@ -25,7 +24,7 @@ use crate::github::{GitHubError, GitHubErrorKind};
 /// The frontend owns every sentence a user reads (ADR-0017), so no variant
 /// carries one. A `detail` is prose from outside the app, such as an OS or
 /// crate error, which the frontend draws as data under a title of its own.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS, specta::Type)]
 #[ts(export, rename = "AppError")]
 #[serde(
     tag = "code",
@@ -49,8 +48,6 @@ pub enum AppErrorResponse {
     ValidationFailed { detail: String },
     /// Internal state was not what the operation needed.
     InternalState { detail: String },
-    /// A mutex was poisoned.
-    MutexLockFailed,
     /// A failure with no code of its own.
     Unknown { detail: String },
     /// No workshop directory is configured.
@@ -117,7 +114,7 @@ pub enum AppErrorResponse {
 }
 
 /// Which of the things GitHub publishes a read was after.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GitHubFeed {
@@ -181,12 +178,46 @@ impl<T: Serialize> Serialize for IpcResult<T> {
     }
 }
 
+/// The same two objects the `Serialize` above writes, as the exporter reads them.
+///
+/// Hand-written for the same reason that impl is: `ok` is the literal `true` or
+/// `false`, which no derive expresses. The pair is one edit.
+impl<T: specta::Type> specta::Type for IpcResult<T> {
+    fn definition(types: &mut specta::Types) -> DataType {
+        let mut shape = Enum::default();
+        shape.variants = vec![
+            (
+                "Ok".into(),
+                Variant::named()
+                    .field("ok", literal("true"))
+                    .field("value", Field::new(T::definition(types)))
+                    .build(),
+            ),
+            (
+                "Err".into(),
+                Variant::named()
+                    .field("ok", literal("false"))
+                    .field("error", Field::new(AppErrorResponse::definition(types)))
+                    .build(),
+            ),
+        ];
+        /* A union of the two, rather than one object per variant name. The key is
+        `specta_serde`'s, which is where an exporter reads the representation from. */
+        shape.attributes.insert("serde:container:untagged", true);
+        DataType::Enum(shape)
+    }
+}
+
+/// A field holding one TypeScript literal, which specta has no datatype for.
+fn literal(value: &'static str) -> Field {
+    Field::new(DataType::Reference(specta_typescript::define(value)))
+}
+
 impl<T> IpcResult<T> {
     pub fn ok(value: T) -> Self {
         IpcResult::Ok { value }
     }
 
-    #[allow(dead_code)]
     pub fn err(error: impl Into<AppErrorResponse>) -> Self {
         IpcResult::Err {
             error: error.into(),
@@ -220,7 +251,6 @@ impl From<AppError> for AppErrorResponse {
             AppError::ModNotFound(mod_id) => Self::ModNotFound { mod_id },
             AppError::ValidationFailed(detail) => Self::ValidationFailed { detail },
             AppError::InternalState(detail) => Self::InternalState { detail },
-            AppError::MutexLockFailed => Self::MutexLockFailed,
             AppError::Other(detail) => Self::Unknown { detail },
             AppError::WorkshopNotConfigured => Self::WorkshopNotConfigured,
             AppError::ProjectNotFound(project_name) => Self::ProjectNotFound { project_name },

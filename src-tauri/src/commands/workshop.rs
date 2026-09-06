@@ -5,10 +5,10 @@ use crate::workshop::{
     ImportGitRepoArgs, PackProjectArgs, PackResult, SaveProjectConfigArgs, ValidationResult,
     WorkshopLayerInfo, WorkshopProject, WorkshopState,
 };
+use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_manager_core::hashtables::WadPathResolverState;
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::State;
 
@@ -17,11 +17,8 @@ pub fn get_workshop_projects(
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
 ) -> IpcResult<Vec<WorkshopProject>> {
-    let result: AppResult<Vec<WorkshopProject>> = (|| {
-        let config = settings.config()?;
-        workshop.0.get_projects(&config)
-    })();
-    result.into()
+    let config = settings.config();
+    workshop.0.get_projects(&config).into()
 }
 
 #[tauri::command]
@@ -30,11 +27,8 @@ pub fn create_workshop_project(
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    let result: AppResult<WorkshopProject> = (|| {
-        let config = settings.config()?;
-        workshop.0.create_project(&config, args)
-    })();
-    result.into()
+    let config = settings.config();
+    workshop.0.create_project(&config, args).into()
 }
 
 #[tauri::command]
@@ -92,11 +86,8 @@ pub fn import_from_modpkg(
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    let result: AppResult<WorkshopProject> = (|| {
-        let config = settings.config()?;
-        workshop.0.import_from_modpkg(&config, &file_path)
-    })();
-    result.into()
+    let config = settings.config();
+    workshop.0.import_from_modpkg(&config, &file_path).into()
 }
 
 #[tauri::command]
@@ -114,12 +105,12 @@ pub fn import_from_fantome(
     settings: State<SettingsState>,
     resolvers: State<std::sync::Arc<WadPathResolverState>>,
 ) -> IpcResult<WorkshopProject> {
-    let result: AppResult<WorkshopProject> = (|| {
-        let config = settings.config()?;
-        let resolver = resolvers.get()?;
-        workshop.0.import_from_fantome(&config, args, &resolver)
-    })();
-    result.into()
+    let config = settings.config();
+    let resolver = resolvers.get();
+    workshop
+        .0
+        .import_from_fantome(&config, args, &resolver)
+        .into()
 }
 
 #[tauri::command]
@@ -128,11 +119,8 @@ pub fn import_from_git_repo(
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    let result: AppResult<WorkshopProject> = (|| {
-        let config = settings.config()?;
-        workshop.0.import_from_git_repo(&config, args)
-    })();
-    result.into()
+    let config = settings.config();
+    workshop.0.import_from_git_repo(&config, args).into()
 }
 
 #[tauri::command]
@@ -268,13 +256,11 @@ pub fn add_files_to_layer(
     workshop: State<WorkshopState>,
     resolvers: State<std::sync::Arc<WadPathResolverState>>,
 ) -> IpcResult<AddFilesReport> {
-    let result: AppResult<AddFilesReport> = (|| {
-        let resolver = resolvers.get()?;
-        workshop
-            .0
-            .add_files_to_layer(&project_path, &layer_name, sources, &resolver)
-    })();
-    result.into()
+    let resolver = resolvers.get();
+    workshop
+        .0
+        .add_files_to_layer(&project_path, &layer_name, sources, &resolver)
+        .into()
 }
 
 /// Delete one file or directory from a layer's content directory.

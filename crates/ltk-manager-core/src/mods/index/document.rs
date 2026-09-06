@@ -9,16 +9,16 @@
 use super::layout_migration::LayoutMigrationState;
 use super::schema_migration;
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::mods::ModLibrary;
 use crate::mods::index::reconcile::reconcile_library_index;
 use crate::mods::slug::ModSlug;
 use crate::mods::types::{LibraryFolder, Profile, ProfileSlug, ROOT_FOLDER_ID};
 use crate::utils::fs::atomic_write;
 use chrono::{DateTime, Utc};
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -50,7 +50,7 @@ impl ModLibrary {
             resolver: resolver.as_ref(),
         };
 
-        let _lock = self.index_lock.lock().mutex_err()?;
+        let _lock = self.index_lock.lock();
         let storage_dir = self.storage_dir(config)?;
         let mut index = load_library_index(&storage_dir)?;
         let mut refreshed_ids: Vec<String> = Vec::new();
@@ -62,12 +62,11 @@ impl ModLibrary {
         }
         // Flag any cached WAD reports for mods whose archives were re-extracted
         // (content fingerprint drift) and prune entries for mods no longer present.
-        if let Ok(mut store) = self.wad_reports.0.lock() {
-            let _ = store.invalidate_by_content(&refreshed_ids);
-            let valid_ids: std::collections::HashSet<String> =
-                index.mods.iter().map(|m| m.id.clone()).collect();
-            let _ = store.prune_orphans(&valid_ids);
-        }
+        let mut store = self.wad_reports.0.lock();
+        let _ = store.invalidate_by_content(&refreshed_ids);
+        let valid_ids: std::collections::HashSet<String> =
+            index.mods.iter().map(|m| m.id.clone()).collect();
+        let _ = store.prune_orphans(&valid_ids);
         Ok(reconciled)
     }
 
@@ -77,7 +76,7 @@ impl ModLibrary {
         config: &Config,
         f: impl FnOnce(&Path, &LibraryIndex) -> AppResult<T>,
     ) -> AppResult<T> {
-        let _lock = self.index_lock.lock().mutex_err()?;
+        let _lock = self.index_lock.lock();
         let storage_dir = self.storage_dir(config)?;
         let index = load_library_index(&storage_dir)?;
         f(&storage_dir, &index)
@@ -92,18 +91,16 @@ impl ModLibrary {
         config: &Config,
         f: impl FnOnce(&Path, &mut LibraryIndex) -> AppResult<T>,
     ) -> AppResult<T> {
-        let _lock = self.index_lock.lock().mutex_err()?;
+        let _lock = self.index_lock.lock();
         let storage_dir = self.storage_dir(config)?;
         let mut index = load_library_index(&storage_dir)?;
         let result = f(&storage_dir, &mut index)?;
         save_library_index(&storage_dir, &index)?;
         // Drop WAD report cache entries for mods that are no longer in the
         // library after this mutation (e.g. uninstall paths).
-        if let Ok(mut store) = self.wad_reports.0.lock() {
-            let valid_ids: std::collections::HashSet<String> =
-                index.mods.iter().map(|m| m.id.clone()).collect();
-            let _ = store.prune_orphans(&valid_ids);
-        }
+        let valid_ids: std::collections::HashSet<String> =
+            index.mods.iter().map(|m| m.id.clone()).collect();
+        let _ = self.wad_reports.0.lock().prune_orphans(&valid_ids);
         self.stamp_mutation();
         Ok(result)
     }
@@ -372,12 +369,12 @@ impl LibraryModEntry {
     pub(crate) fn remove_files(&self, storage_dir: &Path) -> AppResult<()> {
         let mod_dir = self.mod_dir(storage_dir);
         if mod_dir.exists() {
-            std::fs::remove_dir_all(&mod_dir)?;
+            fs::remove_dir_all(&mod_dir)?;
         }
 
         let archive_path = self.archive_path(storage_dir);
         if archive_path.exists() {
-            std::fs::remove_file(&archive_path)?;
+            fs::remove_file(&archive_path)?;
             tracing::info!("Deleted mod archive at {}", archive_path.display());
         }
 

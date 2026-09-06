@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::matcher::PatternSyntax;
+use fs_err as fs;
 use ltk_wad::{WadBuilder, WadChunkBuilder};
-use std::fs;
 use std::io::Write as _;
 use std::path::Path;
 use tempfile::TempDir;
@@ -765,4 +765,33 @@ fn for_each_named_file_visits_every_named_file_with_its_archive() {
         "the fold keeps the first archive's copy, and an unnamed chunk is not visited"
     );
     assert_eq!(index.wads(), ["A.wad.client", "B.wad.client"]);
+}
+
+#[test]
+fn file_at_finds_a_file_by_its_path_and_nothing_for_another() {
+    let (_tmp, index) = index_over(&[
+        "assets/characters/aatrox/aatrox.bin",
+        "assets/characters/aatrox/skin01.bin",
+    ]);
+
+    let file = index
+        .file_at("assets/characters/aatrox/skin01.bin")
+        .unwrap();
+    assert_eq!(
+        file.path.as_deref(),
+        Some("assets/characters/aatrox/skin01.bin")
+    );
+    assert_eq!(file.wad, "Search.wad.client");
+    assert_eq!(
+        file.path_hash,
+        hex_name(WadHash(path_hash("assets/characters/aatrox/skin01.bin")))
+    );
+
+    assert!(
+        index
+            .file_at("assets/characters/aatrox/skin02.bin")
+            .is_none()
+    );
+    assert!(index.file_at("assets/characters/ahri/skin01.bin").is_none());
+    assert!(index.file_at("aatrox.bin").is_none());
 }

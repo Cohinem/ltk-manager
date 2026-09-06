@@ -4,6 +4,7 @@ import type { AppError, BinRow } from "@/lib/tauri";
 
 import {
   canExpand,
+  fieldHash,
   flattenRows,
   isUnder,
   type LoadedChildren,
@@ -26,6 +27,7 @@ function row(overrides: Partial<BinRow>): BinRow {
     unnamed: false,
     kind: "string",
     value: { type: "string", value: "text" },
+    declared: null,
     ...overrides,
   };
 }
@@ -41,8 +43,8 @@ const ITEMS = row({
   path: "0000000b",
   label: "items",
   name: "items",
-  kind: "container",
-  value: { type: "container", len: 3 },
+  kind: "list",
+  value: { type: "container", len: 3, itemKind: "embed" },
 });
 const ITEM = (index: number) =>
   row({
@@ -50,7 +52,14 @@ const ITEM = (index: number) =>
     label: `items[${index}]`,
     name: `[${index}]`,
     node: "element",
+    kind: "embed",
+    value: { type: "struct", classHash: "0x0000beef", class: "Part", len: 1 },
   });
+const PART_NAME = row({
+  path: "0000000b[1].0000000c",
+  label: "items[1].name",
+  name: "name",
+});
 
 function loaded(rows: BinRow[], total = rows.length, pending = false): LoadedChildren {
   return { rows, total, pending };
@@ -121,6 +130,19 @@ describe("flattenRows", () => {
     });
   });
 
+  it("names the class a property is read on, and none for an element", () => {
+    const expanded = new Set([rowKey(OBJECT), rowKey(ITEMS), rowKey(ITEM(1))]);
+    const children = new Map([
+      [rowKey(OBJECT), loaded([SIZE, ITEMS])],
+      [rowKey(ITEMS), loaded([ITEM(0), ITEM(1)])],
+      [rowKey(ITEM(1)), loaded([PART_NAME])],
+    ]);
+    const visible = flattenRows([OBJECT], expanded, (key) => children.get(key));
+
+    const owners = visible.map((line) => (line.kind === "row" ? line.owner : "more"));
+    expect(owners).toEqual([null, "0x9b67e9f6", "0x9b67e9f6", null, null, "0x0000beef"]);
+  });
+
   it("ignores an expansion on a row nothing can sit under", () => {
     const children = new Map([[rowKey(OBJECT), loaded([SIZE])]]);
     const expanded = new Set([rowKey(OBJECT), rowKey(SIZE)]);
@@ -137,17 +159,29 @@ describe("canExpand", () => {
     expect(
       canExpand(row({ value: { type: "map", len: 1, keyKind: "hash", valueKind: "string" } })),
     ).toBe(true);
-    expect(canExpand(row({ value: { type: "optional", present: true } }))).toBe(true);
+    expect(canExpand(row({ value: { type: "optional", present: true, itemKind: "f32" } }))).toBe(
+      true,
+    );
   });
 
   it("keeps a leaf, a null, an empty container and an absent optional shut", () => {
     expect(canExpand(SIZE)).toBe(false);
     expect(canExpand(row({ value: { type: "null" } }))).toBe(false);
-    expect(canExpand(row({ value: { type: "container", len: 0 } }))).toBe(false);
-    expect(canExpand(row({ value: { type: "optional", present: false } }))).toBe(false);
+    expect(canExpand(row({ value: { type: "container", len: 0, itemKind: "u8" } }))).toBe(false);
+    expect(canExpand(row({ value: { type: "optional", present: false, itemKind: "u8" } }))).toBe(
+      false,
+    );
     expect(
       canExpand(row({ value: { type: "struct", classHash: "0x1", class: null, len: 0 } })),
     ).toBe(false);
+  });
+});
+
+describe("fieldHash", () => {
+  it("reads the field a property path ends in, at the root and under a segment", () => {
+    expect(fieldHash("9c4e1b02")).toBe("0x9c4e1b02");
+    expect(fieldHash("0000000b[1].1a2b3c4d")).toBe("0x1a2b3c4d");
+    expect(fieldHash('0000000b{"weapon"}.deadbeef')).toBe("0xdeadbeef");
   });
 });
 

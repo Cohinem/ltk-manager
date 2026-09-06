@@ -4,7 +4,7 @@
 //! that an `<img>` can draw them. What an `<img>` cannot report is the
 //! container, the block format and the mipmap count, which is what this reads.
 
-use std::fs;
+use fs_err as fs;
 use std::path::PathBuf;
 
 use super::off_thread;
@@ -21,10 +21,7 @@ use tauri::{AppHandle, Manager};
 /// and the viewer draws it as a state.
 #[tauri::command]
 pub async fn read_asset_info(asset: AssetRef, app_handle: AppHandle) -> IpcResult<AssetInfo> {
-    let config = match app_handle.state::<SettingsState>().config() {
-        Ok(config) => config,
-        Err(e) => return IpcResult::from(Err::<AssetInfo, _>(e)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
 
     off_thread(move || asset.info(&config, &app_handle.state::<WadCache>())).await
 }
@@ -43,10 +40,7 @@ pub async fn save_asset_copy(
     destination: String,
     app_handle: AppHandle,
 ) -> IpcResult<()> {
-    let config = match app_handle.state::<SettingsState>().config() {
-        Ok(config) => config,
-        Err(e) => return IpcResult::from(Err::<(), _>(e)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
 
     off_thread(move || {
         let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;

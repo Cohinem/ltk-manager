@@ -178,15 +178,14 @@ impl IncidentPipeline {
                 return Vec::new();
             }
         };
-        let reports = self.library.wad_reports().0.lock().ok();
+        let reports = self.library.wad_reports().0.lock();
         let offset = self.workshop_paths.len();
         mods.into_iter()
             .filter(|m| m.enabled)
             .enumerate()
             .map(|(position, m)| ModFootprint {
                 affected_wads: reports
-                    .as_ref()
-                    .and_then(|store| store.get(&m.id))
+                    .get(&m.id)
                     .map(|report| report.affected_wads)
                     .unwrap_or_default(),
                 mod_id: m.id,

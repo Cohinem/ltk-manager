@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::config::Config;
+use fs_err as fs;
 use ltk_meta::{Bin, BinFile, BinObject};
 
 /// `SkinCharacterDataProperties`, which 225 of 232 real project bins declare.
@@ -48,8 +49,8 @@ fn project(bin: &Bin) -> (tempfile::TempDir, ProjectFiles) {
 fn project_on(bin: &Bin, installed: Option<GameBuild>) -> (tempfile::TempDir, ProjectFiles) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("skin0.bin"), bytes_of(bin)).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("skin0.bin"), bytes_of(bin)).unwrap();
 
     let config = config_beside(tmp.path(), installed);
     let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
@@ -62,8 +63,8 @@ fn config_beside(root: &std::path::Path, installed: Option<GameBuild>) -> Config
     let mut config = Config::default();
     if let Some(build) = installed {
         let league = root.join("league");
-        std::fs::create_dir_all(league.join("Game")).unwrap();
-        std::fs::write(
+        fs::create_dir_all(league.join("Game")).unwrap();
+        fs::write(
             league.join("Game").join("content-metadata.json"),
             format!(r#"{{ "version": "{build}" }}"#),
         )
@@ -106,15 +107,15 @@ fn declare_table(root: &std::path::Path, category: ltk_hashtable::Category, path
         }],
         ..crate::mods::test_support::mod_project_named("rehash-fixture")
     };
-    std::fs::write(
+    fs::write(
         root.join("mod.config.json"),
         config
             .to_config_string(ltk_mod_project::ConfigFormat::Json)
             .unwrap(),
     )
     .unwrap();
-    std::fs::create_dir_all(root.join("hashes")).unwrap();
-    std::fs::write(root.join("hashes").join(file), paths.join("\n") + "\n").unwrap();
+    fs::create_dir_all(root.join("hashes")).unwrap();
+    fs::write(root.join("hashes").join(file), paths.join("\n") + "\n").unwrap();
 }
 
 /// Declare one `binhashes` table on the project at `root`, naming `paths`.
@@ -244,8 +245,8 @@ fn a_leaf_preview_draws_the_value_and_the_hash_it_becomes() {
     assert_eq!(
         problems[0].mismatch,
         Some(TypeMismatch {
-            expected: "File".to_owned(),
-            found: "String".to_owned(),
+            expected: "file".to_owned(),
+            found: "string".to_owned(),
         })
     );
     assert_eq!(fix.note, None, "the values say it, so a note would repeat");
@@ -347,8 +348,8 @@ fn a_container_preview_draws_one_path_and_the_count_of_the_rest() {
     assert_eq!(
         problems[0].mismatch,
         Some(TypeMismatch {
-            expected: "List<File>".to_owned(),
-            found: "List<String>".to_owned(),
+            expected: "list[file]".to_owned(),
+            found: "list[string]".to_owned(),
         })
     );
     assert_eq!(fix.before.as_deref(), Some("\"a.dds\""));
@@ -844,9 +845,9 @@ fn fix_all(bin: &Bin) -> (Applied, BinFile) {
 fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    std::fs::write(&file, bytes_of(bin)).unwrap();
+    fs::write(&file, bytes_of(bin)).unwrap();
 
     let config = config_beside(tmp.path(), installed);
     let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
@@ -908,9 +909,9 @@ fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
     let tmp = tempfile::tempdir().unwrap();
     declare_binhashes(tmp.path(), &[PATH]);
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    std::fs::write(&file, bytes_of(&bin)).unwrap();
+    fs::write(&file, bytes_of(&bin)).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let problems = check_with(&files);
@@ -937,7 +938,7 @@ fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
     };
     assert_eq!(link.value, WadHash::hash_str(PATH));
 
-    let table = std::fs::read_to_string(tmp.path().join("hashes").join("game.hashes.txt")).unwrap();
+    let table = fs::read_to_string(tmp.path().join("hashes").join("game.hashes.txt")).unwrap();
     assert!(table.contains(PATH), "{table}");
 }
 
@@ -996,15 +997,15 @@ fn a_fix_leaves_a_property_the_rule_raised_nothing_for_alone() {
 fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, text(ICON)))).unwrap();
+    fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, text(ICON)))).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let rule = BinPropertyType::new();
     let (problems, _) = files.report(&[&rule]).finish();
 
-    std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, values::I32::new(7)))).unwrap();
+    fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, values::I32::new(7)))).unwrap();
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
     let mut run = FixRun::open(tmp.path(), Vec::new(), None, Config::default(), None);
@@ -1024,8 +1025,8 @@ fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
 fn a_file_that_is_not_a_bin_is_a_failure_and_not_a_panic() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("broken.bin"), b"not a bin at all").unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("broken.bin"), b"not a bin at all").unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let (problems, failed) = files.report(&[&BinPropertyType::new()]).finish();
@@ -1088,8 +1089,8 @@ fn a_string_where_the_schema_says_file_is_reported() {
     assert_eq!(problems.len(), 1);
     assert_eq!(problems[0].severity, Severity::Fatal);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "File");
-    assert_eq!(mismatch.found, "String");
+    assert_eq!(mismatch.expected, "file");
+    assert_eq!(mismatch.found, "string");
 }
 
 /// Story: the same bytes are correct for the build they were authored against.
@@ -1150,8 +1151,8 @@ fn a_retype_no_table_row_covers_is_reported() {
 
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "F32");
-    assert_eq!(mismatch.found, "U32");
+    assert_eq!(mismatch.expected, "f32");
+    assert_eq!(mismatch.found, "u32");
 }
 
 /// Nothing this build knows turns a `U32` into an `F32` that means the same, so
@@ -1204,13 +1205,13 @@ fn a_bin_with_no_extension_is_read_like_any_other() {
         .join("base")
         .join("UI.wad.client")
         .join("UX");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     // No extension, which is how the game itself names this file.
-    std::fs::write(dir.join("FloatingText"), bytes_of(&bin)).unwrap();
+    fs::write(dir.join("FloatingText"), bytes_of(&bin)).unwrap();
 
     let league = tmp.path().join("league");
-    std::fs::create_dir_all(league.join("Game")).unwrap();
-    std::fs::write(
+    fs::create_dir_all(league.join("Game")).unwrap();
+    fs::write(
         league.join("Game").join("content-metadata.json"),
         format!(r#"{{ "version": "{AFTER_RETYPE}" }}"#),
     )
@@ -1235,8 +1236,8 @@ fn a_file_with_an_unrecognised_extension_is_left_alone() {
 
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("notes.txt"), bytes_of(&bin)).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("notes.txt"), bytes_of(&bin)).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
 
@@ -1257,8 +1258,8 @@ fn a_bin_with_no_extension_is_read_inside_an_archive_too() {
     make_loose_bin_fantome_zip_at(&archive, "Mod", "UI.wad.client/UX/FloatingText", &bin);
 
     let league = tmp.path().join("league");
-    std::fs::create_dir_all(league.join("Game")).unwrap();
-    std::fs::write(
+    fs::create_dir_all(league.join("Game")).unwrap();
+    fs::write(
         league.join("Game").join("content-metadata.json"),
         format!(r#"{{ "version": "{AFTER_RETYPE}" }}"#),
     )
@@ -1432,8 +1433,8 @@ fn an_integer_the_game_widened_is_rewritten_at_the_wider_type() {
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "U32");
-    assert_eq!(mismatch.found, "U8");
+    assert_eq!(mismatch.expected, "u32");
+    assert_eq!(mismatch.found, "u8");
     assert!(problems[0].fix.is_some(), "the number crosses whole");
 
     let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
@@ -1680,8 +1681,8 @@ fn a_list_the_game_reads_as_a_list2_is_retagged() {
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "List2<Hash>");
-    assert_eq!(mismatch.found, "List<Hash>");
+    assert_eq!(mismatch.expected, "list2[hash]");
+    assert_eq!(mismatch.found, "list[hash]");
     assert!(problems[0].fix.is_some());
 
     let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
@@ -1754,8 +1755,8 @@ fn a_list_whose_items_also_disagree_is_reported_without_a_repair() {
 
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "List2<Embed>");
-    assert_eq!(mismatch.found, "List<Hash>");
+    assert_eq!(mismatch.expected, "list2[embed]");
+    assert_eq!(mismatch.found, "list[hash]");
     assert_eq!(problems[0].fix, None);
 }
 
@@ -1770,8 +1771,8 @@ fn a_bool_the_game_reads_as_a_flag_is_retagged() {
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "Flag", "the word the format uses");
-    assert_eq!(mismatch.found, "Bool");
+    assert_eq!(mismatch.expected, "flag", "the word ritobin uses");
+    assert_eq!(mismatch.found, "bool");
     assert!(problems[0].fix.is_some());
 
     let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));

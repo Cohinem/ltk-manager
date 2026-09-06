@@ -7,14 +7,12 @@ import type {
   AppInfo,
   AssetInfo,
   AssetRef,
-  BinDocumentHandle,
-  BinDocumentId,
-  BinRows,
   BulkInstallResult,
   ChecksumMismatchInfo,
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
+  DeclaredObjects,
   DecodedIncident,
   DiagnosticReport,
   EditModMetadataArgs,
@@ -28,6 +26,7 @@ import type {
   FantomePeekResult,
   FixReport,
   GameDirListing,
+  GameFileEntry,
   GameFindResult,
   GameIndexStats,
   GameSearchResult,
@@ -57,6 +56,9 @@ import type {
   ModStorage,
   ModWadReport,
   Notice,
+  ObjectDir,
+  ObjectFind,
+  ObjectReferences,
   ObjectSearch,
   PackProjectArgs,
   PackResult,
@@ -65,6 +67,7 @@ import type {
   PlatformSupport,
   ProblemId,
   Profile,
+  ReferenceQuery,
   ReleasePage,
   Run,
   SaveProjectConfigArgs,
@@ -77,9 +80,28 @@ import type {
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
+import { type BinDocumentId, commands } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
+// The bin editor's types, per ADR-0029. An explicit export shadows the star above.
+export type {
+  BinDocumentHandle,
+  BinDocumentId,
+  BinFileKind,
+  BinHeader,
+  BinObjectHeader,
+  BinRow,
+  BinRows,
+  BinValue,
+  ClassSchema,
+  DeclaredKind,
+  FieldRevision,
+  FieldSchema,
+  KindShape,
+  PropertyKind,
+  RowNode,
+} from "@/lib/bindings.gen";
 export type { Result } from "@/utils/result";
 export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
 
@@ -280,6 +302,8 @@ export const api = {
   refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
   searchGameIndex: (query: string) =>
     invokeResult<GameSearchResult>("search_game_index", { query }),
+  locateGameFiles: (paths: readonly string[]) =>
+    invokeResult<Record<string, GameFileEntry>>("locate_game_files", { paths }),
   findInGameIndex: (pattern: string, regex: boolean) =>
     invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
 
@@ -288,8 +312,13 @@ export const api = {
     invokeResult<ObjectSearch>("search_object_index", { query }),
   warmObjectIndex: () => invokeResult<void>("warm_object_index"),
   dropObjectIndex: () => invokeResult<void>("drop_object_index"),
-  declaredObjects: (objectHashes: string[]) =>
-    invokeResult<string[]>("declared_objects", { objectHashes }),
+  declaredObjects: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
+    invokeResult<DeclaredObjects>("declared_objects", { objectHashes, document }),
+  objectDir: (prefix: string) => invokeResult<ObjectDir>("object_dir", { prefix }),
+  findObjects: (pattern: string, regex: boolean, cls: string | null) =>
+    invokeResult<ObjectFind>("find_objects", { pattern, regex, class: cls }),
+  findReferences: (query: ReferenceQuery) =>
+    invokeResult<ObjectReferences>("find_references", { query }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
@@ -302,15 +331,16 @@ export const api = {
   cancelExtract: () => invokeResult<boolean>("cancel_extract"),
 
   // Bin viewer
-  binOpen: (asset: AssetRef) => invokeResult<BinDocumentHandle>("bin_open", { asset }),
+  binOpen: (asset: AssetRef, entry: string | null) => commands.binOpen(asset, entry).then(toResult),
   binChildren: (
     document: BinDocumentId,
     entry: string,
     path: string,
     offset: number,
     limit: number,
-  ) => invokeResult<BinRows>("bin_children", { document, entry, path, offset, limit }),
-  binClose: (document: BinDocumentId) => invokeResult<void>("bin_close", { document }),
+  ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
+  binClose: (document: BinDocumentId) => commands.binClose(document).then(toResult),
+  classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),

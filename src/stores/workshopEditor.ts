@@ -311,6 +311,11 @@ function dropStops(stack: Stack, gone: (entry: HistoryEntry) => boolean): Stack 
   return { history, historyIndex: Math.max(-1, Math.min(index, history.length - 1)) };
 }
 
+/* An object tab is a preview document: ADR-0028. */
+function isPreviewKind(kind: ContentDocument["kind"]): boolean {
+  return kind === "preview" || kind === "object";
+}
+
 /**
  * The group a document opens into, with the layout that holds it.
  *
@@ -327,12 +332,15 @@ function openGroup(
 ): { layout: LayoutNode; leafId: string } {
   const focused =
     findLeaf(editor.layout, leafId ?? editor.activeLeafId) ?? leaves(editor.layout)[0];
-  if (leafId !== undefined || document.kind !== "preview") {
+  if (leafId !== undefined || !isPreviewKind(document.kind)) {
     return { layout: editor.layout, leafId: focused.id };
   }
 
   const previews = leaves(editor.layout).find((leaf) =>
-    leaf.tabs.some((id) => editor.documents[id]?.kind === "preview"),
+    leaf.tabs.some((id) => {
+      const kind = editor.documents[id]?.kind;
+      return kind !== undefined && isPreviewKind(kind);
+    }),
   );
   if (previews) return { layout: editor.layout, leafId: previews.id };
 

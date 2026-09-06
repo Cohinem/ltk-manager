@@ -1,5 +1,5 @@
 use super::*;
-use std::fs;
+use fs_err as fs;
 
 fn make_legacy_json_no_folders() -> Value {
     serde_json::json!({

@@ -4,6 +4,7 @@ export * from "./components";
 export * from "./documents";
 export * from "./gameBrowser";
 export * from "./layers";
+export * from "./objectsBrowser";
 export * from "./palette";
 export * from "./preview";
 export * from "./problems";

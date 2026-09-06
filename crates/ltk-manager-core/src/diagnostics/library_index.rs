@@ -5,6 +5,8 @@
 //! is unparseable. This catches the corruption case fixed in commit e96dff9
 //! before the user hits a broken library that won't load at all.
 
+use fs_err as fs;
+
 use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
 
 const INDEX_FILENAME: &str = "mod_library_index.json";
@@ -31,7 +33,7 @@ pub fn check_library_index(ctx: &CheckCtx) -> Check {
             .push(CheckDetail::new("path", path.display().to_string()));
         return c;
     }
-    let raw = match std::fs::read(&path) {
+    let raw = match fs::read(&path) {
         Ok(b) => b,
         Err(e) => {
             let mut c = check(

@@ -19,11 +19,11 @@ use crate::mods::index::ModStorage;
 use crate::problems::{self, Budget, FixReport, ProjectFiles, budget};
 use camino::Utf8Path;
 use delta::RepairEdit;
+use fs_err as fs;
 use ltk_fantome::{DeltaReport, FantomeReader};
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use serde::Serialize;
-use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 use uuid::Uuid;
@@ -409,7 +409,7 @@ enum ModOutcome {
 struct RunProgress {
     total: usize,
     completed: std::sync::atomic::AtomicUsize,
-    in_flight: std::sync::Mutex<Vec<String>>,
+    in_flight: parking_lot::Mutex<Vec<String>>,
 }
 
 impl RunProgress {
@@ -417,15 +417,13 @@ impl RunProgress {
         Self {
             total,
             completed: std::sync::atomic::AtomicUsize::new(0),
-            in_flight: std::sync::Mutex::new(Vec::new()),
+            in_flight: parking_lot::Mutex::new(Vec::new()),
         }
     }
 
     /// Report that `mod_id` has been picked up.
     fn begin(&self, mod_id: &str, emit: impl FnOnce(ModRepairProgress)) {
-        if let Ok(mut open) = self.in_flight.lock() {
-            open.push(mod_id.to_owned());
-        }
+        self.in_flight.lock().push(mod_id.to_owned());
         emit(self.at());
     }
 
@@ -433,10 +431,12 @@ impl RunProgress {
     fn end(&self, mod_id: &str, emit: impl FnOnce(ModRepairProgress)) {
         self.completed
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        if let Ok(mut open) = self.in_flight.lock()
-            && let Some(at) = open.iter().position(|held| held == mod_id)
         {
-            open.remove(at);
+            // `at` takes the same lock, so the guard goes out of scope first.
+            let mut open = self.in_flight.lock();
+            if let Some(at) = open.iter().position(|held| held == mod_id) {
+                open.remove(at);
+            }
         }
         emit(self.at());
     }
@@ -448,11 +448,7 @@ impl RunProgress {
                 .load(std::sync::atomic::Ordering::Relaxed)
                 .min(self.total),
             total: self.total,
-            in_flight: self
-                .in_flight
-                .lock()
-                .map(|open| open.clone())
-                .unwrap_or_default(),
+            in_flight: self.in_flight.lock().clone(),
         }
     }
 }
@@ -555,7 +551,7 @@ fn swap_in_repacked(repacked: &Path, archive: &Path) -> AppResult<()> {
     fs::rename(archive, &replaced).map_err(|e| {
         AppError::Io(std::io::Error::new(
             e.kind(),
-            format!("Failed to move {} aside: {e}", archive.display()),
+            format!("Failed to move the archive aside: {e}"),
         ))
     })?;
 
@@ -563,10 +559,7 @@ fn swap_in_repacked(repacked: &Path, archive: &Path) -> AppResult<()> {
         let _ = fs::rename(&replaced, archive);
         return Err(AppError::Io(std::io::Error::new(
             e.kind(),
-            format!(
-                "Failed to move the repaired archive into {}: {e}",
-                archive.display()
-            ),
+            format!("Failed to move the repaired archive into place: {e}"),
         )));
     }
 

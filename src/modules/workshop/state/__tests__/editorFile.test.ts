@@ -11,6 +11,8 @@ import {
   gameDocument,
   gameWadDocument,
   gameWadsDocument,
+  objectDocument,
+  objectsDocument,
   previewDocument,
   problemsDocument,
 } from "@/modules/workshop";
@@ -157,20 +159,27 @@ describe("editorFile", () => {
     it("keeps game browser documents", () => {
       const list = gameWadsDocument();
       const scoped = gameWadDocument("Aatrox.wad.client");
-      const layout = singleLeaf(["game", list.id, scoped.id], scoped.id);
+      const objects = objectsDocument();
+      const layout = singleLeaf(["game", list.id, scoped.id, objects.id], scoped.id);
 
       const state = sanitizeEditorState({
-        documents: { game: gameDocument(), [list.id]: list, [scoped.id]: scoped },
+        documents: {
+          game: gameDocument(),
+          [list.id]: list,
+          [scoped.id]: scoped,
+          [objects.id]: objects,
+        },
         layout,
         activeLeafId: layout.id,
         selectedLayer: null,
       });
 
-      expect(Object.keys(state?.documents ?? {})).toEqual(["game", list.id, scoped.id]);
+      expect(Object.keys(state?.documents ?? {})).toEqual(["game", list.id, scoped.id, objects.id]);
       expect(findLeaf(state!.layout, state!.activeLeafId)?.tabs).toEqual([
         "game",
         list.id,
         scoped.id,
+        objects.id,
       ]);
     });
 
@@ -210,6 +219,27 @@ describe("editorFile", () => {
 
       expect(state?.documents[preview.id]).toEqual(preview);
       expect(state?.previewId).toBe(preview.id);
+    });
+
+    it("keeps an object document and the tab holding it", () => {
+      const object = objectDocument(
+        { kind: "layer", project: "C:/mods/skin", layer: "base", path: "data/skin0.bin" },
+        "0x2a1f3c7d",
+        "Characters/Aatrox",
+        "data/skin0.bin",
+      );
+      const layout = singleLeaf([object.id], object.id);
+
+      const state = sanitizeEditorState({
+        documents: { [object.id]: object },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: "base",
+        previewId: object.id,
+      });
+
+      expect(state?.documents[object.id]).toEqual(object);
+      expect(state?.previewId).toBe(object.id);
     });
 
     /* A file this build wrote before the field existed, and one whose preview

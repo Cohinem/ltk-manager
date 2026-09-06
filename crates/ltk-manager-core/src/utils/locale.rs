@@ -1,5 +1,6 @@
 //! Detection of the League client's configured locale.
 
+use fs_err as fs;
 use std::path::Path;
 
 use crate::utils::client_settings::LeagueClientSettings;
@@ -54,7 +55,7 @@ fn locale_from_client_settings(game_dir: &Path) -> Option<String> {
 /// lowercased and sorted.
 fn installed_locales(game_dir: &Path) -> Vec<String> {
     let localized_dir = game_dir.join("DATA").join("FINAL").join("Localized");
-    let Ok(entries) = std::fs::read_dir(&localized_dir) else {
+    let Ok(entries) = fs::read_dir(&localized_dir) else {
         return Vec::new();
     };
 
@@ -100,13 +101,13 @@ install:
         let tmp = tempfile::tempdir().unwrap();
         if let Some(yaml) = yaml {
             let config_dir = tmp.path().join("Config");
-            std::fs::create_dir_all(&config_dir).unwrap();
-            std::fs::write(config_dir.join("LeagueClientSettings.yaml"), yaml).unwrap();
+            fs::create_dir_all(&config_dir).unwrap();
+            fs::write(config_dir.join("LeagueClientSettings.yaml"), yaml).unwrap();
         }
         let localized = tmp.path().join("Game/DATA/FINAL/Localized");
-        std::fs::create_dir_all(&localized).unwrap();
+        fs::create_dir_all(&localized).unwrap();
         for locale in locales {
-            std::fs::write(localized.join(format!("Global.{locale}.wad.client")), b"").unwrap();
+            fs::write(localized.join(format!("Global.{locale}.wad.client")), b"").unwrap();
         }
         tmp
     }

@@ -14,6 +14,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use fs_err as fs;
 use ltk_hashtable::{Algorithm, Category, Hashtable, HashtableEntry, HashtableSet, Key, KeyWidth};
 use ltk_mod_project::{ConfigFormat, HASHES_DIR_NAME, ModProject, ModProjectHashtable};
 use ltk_wad::{PathResolver, WadHash};
@@ -226,9 +227,9 @@ impl<'a> PreservedNames<'a> {
         merged.sort();
 
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent.as_std_path())?;
+            fs::create_dir_all(parent.as_std_path())?;
         }
-        let mut file = std::io::BufWriter::new(std::fs::File::create(path.as_std_path())?);
+        let mut file = std::io::BufWriter::new(fs::File::create(path.as_std_path())?);
         merged.write_to(&mut file)?;
         std::io::Write::flush(&mut file)?;
 
@@ -245,7 +246,7 @@ impl<'a> PreservedNames<'a> {
             let config = project
                 .to_config_string(format)
                 .map_err(|e| AppError::Other(format!("Could not write the mod project: {e}")))?;
-            std::fs::write(root.join(format.file_name()).as_std_path(), config)?;
+            fs::write(root.join(format.file_name()).as_std_path(), config)?;
         }
 
         Ok(self.fresh.len())
@@ -367,7 +368,7 @@ pub(super) fn read_tables(
 }
 
 fn read_table(path: &Path) -> Option<Hashtable> {
-    let file = std::fs::File::open(path).ok()?;
+    let file = fs::File::open(path).ok()?;
     Hashtable::from_reader(std::io::BufReader::new(file)).ok()
 }
 

@@ -17,11 +17,12 @@ mod plan;
 mod source;
 
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::stream::ValueView;
 use ltk_meta::walk::{Node, Visitor};
+use parking_lot::Mutex;
 
 use crate::workshop::WorkshopFileKind;
 
@@ -563,12 +564,7 @@ impl<'f> Finish<'f> {
     /// file. A rule never sees them and never spells the message.
     pub fn take<R>(&mut self, collected: Collected<R>) -> Vec<(FileHandle<'f>, R)> {
         let list = self.lists.of(collected.subject);
-        let mut kept = std::mem::take(
-            &mut *collected
-                .store
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner),
-        );
+        let mut kept = std::mem::take(&mut *collected.store.lock());
         kept.sort_by_key(|(index, _)| *index);
         kept.into_iter()
             .map(|(index, result)| (list[index], result))

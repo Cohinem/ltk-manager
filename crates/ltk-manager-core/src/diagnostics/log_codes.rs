@@ -7,7 +7,6 @@
 //! the code, never as an error, so a stale table degrades and never misleads.
 
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -32,7 +31,9 @@ pub enum EvidenceMark {
 }
 
 /// What a code means to the classifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::Display)]
+#[cfg_attr(test, derive(strum::EnumIter))]
+#[strum(serialize_all = "snake_case")]
 pub enum CodeKind {
     /// A file the game needed is in no mounted archive. The line carries its hash.
     MissingData,
@@ -45,6 +46,7 @@ pub enum CodeKind {
     /// The graphics device faulted.
     Device,
     /// A loading-screen step began. The number is the step, out of 64.
+    #[strum(to_string = "load_step:{0}")]
     LoadStep(u8),
     /// The game session ended the way it should.
     Teardown,
@@ -64,21 +66,6 @@ impl CodeKind {
             "info" => Self::Info,
             other => Self::LoadStep(other.strip_prefix("load_step:")?.parse().ok()?),
         })
-    }
-}
-
-impl fmt::Display for CodeKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::MissingData => f.write_str("missing_data"),
-            Self::WadMount => f.write_str("wad_mount"),
-            Self::Texture => f.write_str("texture"),
-            Self::Memory => f.write_str("memory"),
-            Self::Device => f.write_str("device"),
-            Self::LoadStep(step) => write!(f, "load_step:{step}"),
-            Self::Teardown => f.write_str("teardown"),
-            Self::Info => f.write_str("info"),
-        }
     }
 }
 
@@ -175,6 +162,17 @@ mod tests {
             Some(CodeKind::LoadStep(52))
         );
         assert_eq!(CodeKind::LoadStep(52).to_string(), "load_step:52");
+    }
+
+    /// Every kind parses back from what it displays as, so the table's spelling
+    /// and the reader's stay one vocabulary.
+    #[test]
+    fn a_kind_round_trips_through_the_table_spelling() {
+        use strum::IntoEnumIterator;
+
+        for kind in CodeKind::iter().chain([CodeKind::LoadStep(52)]) {
+            assert_eq!(CodeKind::parse(&kind.to_string()), Some(kind), "{kind:?}");
+        }
     }
 
     #[test]

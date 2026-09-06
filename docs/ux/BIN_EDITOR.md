@@ -4,6 +4,7 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-09-05 | Open an object as its own tab, tag every row, make a link open    |
 | 2026-09-05 | Record the tables, the stream and the patch reader as landed      |
 | 2026-08-21 | Address a node with the game's own property path                  |
 | 2026-08-21 | Propose the block model, and replace the planned Monaco text view |
@@ -36,26 +37,34 @@ This table holds every major feature of the bin editor. A status word has one me
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature              | Status    | Note                                                          |
-| -------------------- | --------- | ------------------------------------------------------------- |
-| VS Code handoff      | Available | Opens the file as ritobin text in VS Code. `BinPreview.tsx`   |
-| Object list          | Proposed  | The objects of one file, collapsed, with their classes        |
-| Property rows        | Proposed  | Every leaf kind, drawn read-only                              |
-| Container rows       | Proposed  | The eight complex kinds, expandable                           |
-| Hash names           | Proposed  | The four mimir bin tables, through `bin_tables()`             |
-| Property paths       | Proposed  | The game's path syntax, as the address and as Copy path       |
-| Object links         | Proposed  | A link to the object, in this file or a dependency            |
-| WAD chunk links      | Proposed  | A link that opens the chunk in a preview tab                  |
-| Leaf editing         | Proposed  | The primitive widgets, and the patch that carries an edit     |
-| Container editing    | Proposed  | Add, remove, reorder, and a `Map` key                         |
-| Autosave             | Proposed  | The strings editor's debounce and save state                  |
-| Undo                 | Proposed  | An inverse-patch stack per document                           |
-| Class views          | Proposed  | A bespoke block for a class that earns one                    |
-| Schema-aware editing | Proposed  | The meta dump, for a field's declared type and its subclasses |
-| Copy into a layer    | Proposed  | The route from a read-only game chunk to an editable copy     |
-| Ritobin text view    | Proposed  | A read-only text pane, once `ltk_ritobin` publishes           |
-| Patch bin records    | Planned   | `BinOverride` reads them. Drawn by nothing, so read-only      |
-| Patch authoring      | Proposed  | An edit written as a patch record rather than a rewrite       |
+| Feature              | Status      | Note                                                          |
+| -------------------- | ----------- | ------------------------------------------------------------- |
+| VS Code handoff      | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`   |
+| Object list          | Available   | The objects of one file, collapsed, with their classes        |
+| Property rows        | Available   | Every leaf kind, drawn read-only                              |
+| Container rows       | Available   | The eight complex kinds, expandable                           |
+| Hash names           | Available   | The four mimir bin tables, through `bin_tables()`             |
+| Property paths       | Available   | The game's path syntax, as the address and as Copy path       |
+| Open at object       | Available   | A `$` hit opens the declaring file scrolled to its object     |
+| Type tags            | Available   | Every row's kind after its name, in ritobin's words           |
+| Class cards          | Available   | A class or a field, pinned by a click, from the meta schema   |
+| Object tab           | Available   | One declaration as a document. ADR-0028                       |
+| Object links         | Available   | A chip that opens the object tab, resolved through the index  |
+| Hash links           | Available   | A `hash` the index declares, opening the same way             |
+| WAD chunk links      | Available   | A chip that opens the chunk in a preview tab                  |
+| Texture swatch       | Available   | A `file` link to a texture, at row height and on a hover card |
+| Find all references  | In progress | The objects of a class from the index. The walk for the rest  |
+| In-document search   | Planned     | The bar's `@` scope over the open rows                        |
+| Leaf editing         | Proposed    | The primitive widgets, and the patch that carries an edit     |
+| Container editing    | Proposed    | Add, remove, reorder, and a `Map` key                         |
+| Autosave             | Proposed    | The strings editor's debounce and save state                  |
+| Undo                 | Proposed    | An inverse-patch stack per document                           |
+| Class views          | Proposed    | A bespoke block for a class that earns one                    |
+| Schema-aware editing | Proposed    | The meta dump, for a field's declared type and its subclasses |
+| Copy into a layer    | Proposed    | The route from a read-only game chunk to an editable copy     |
+| Ritobin text view    | Proposed    | A read-only text pane, once `ltk_ritobin` publishes           |
+| Patch bin records    | Planned     | `BinOverride` reads them. Drawn by nothing, so read-only      |
+| Patch authoring      | Proposed    | An edit written as a patch record rather than a rewrite       |
 
 ## Scope
 
@@ -76,28 +85,33 @@ Out of scope:
 
 ## Vocabulary
 
-| Word     | Meaning                                                                    |
-| -------- | -------------------------------------------------------------------------- |
-| Bin      | One property bin file, of `PROP` or `PTCH` magic                           |
-| Object   | One entry of a bin, addressed by a path hash and typed by a class hash     |
-| Entry    | The same thing, in the words a patch record uses                           |
-| Property | One named value of an object, addressed by a field hash                    |
-| Path     | The game's property path, such as `Position.UIRect.Size`                   |
-| Kind     | One of the 27 types `ltk_meta` reads, such as `F32`, `Container` or `Map`  |
-| Leaf     | A kind that holds a value and no child                                     |
-| Node     | Anything the tree addresses: an object, a property, or a container element |
-| Block    | The drawn form of a node                                                   |
-| Patch    | One edit, as a path and an operation                                       |
+| Word        | Meaning                                                                    |
+| ----------- | -------------------------------------------------------------------------- |
+| Bin         | One property bin file, of `PROP` or `PTCH` magic                           |
+| Object      | One entry of a bin, addressed by a path hash and typed by a class hash     |
+| Entry       | The same thing, in the words a patch record uses                           |
+| Declaration | One object in one file, the pair an object tab is keyed on                 |
+| Property    | One named value of an object, addressed by a field hash                    |
+| Path        | The game's property path, such as `Position.UIRect.Size`                   |
+| Kind        | One of the 27 types `ltk_meta` reads, such as `F32`, `Container` or `Map`  |
+| Leaf        | A kind that holds a value and no child                                     |
+| Node        | Anything the tree addresses: an object, a property, or a container element |
+| Block       | The drawn form of a node                                                   |
+| Tag         | A row's kind, written after its name in ritobin's words                    |
+| Chip        | A value drawn as a `Code` chip, which opens what it names                  |
+| Patch       | One edit, as a path and an operation                                       |
 
 ## What exists today
 
 | Surface               | Where                           | Says                                        |
 | --------------------- | ------------------------------- | ------------------------------------------- |
-| `BinPreview`          | The preview document, for a bin | There is no viewer, and offers VS Code      |
+| `BinDocument`         | `src/modules/workshop/bin/`     | The blocks, over rows the backend projects  |
+| `BinDocuments`        | `core/src/bin_document.rs`      | The held trees, bounded to eight            |
+| `BinPreview`          | The preview document, for a bin | The parse error, and offers VS Code         |
 | `RitobinVerb`         | `core/src/ritobin.rs`           | Reads the Explorer verb, stages, and spawns |
 | The four mimir tables | `bin_tables()`, `hashtables.rs` | Opened as `BinHashTables` for the pass      |
 
-The handoff works and stays. What is missing is anything in the application that draws a bin.
+The handoff stays as the fallback for a file that does not parse.
 
 ## Why blocks and not text
 
@@ -384,23 +398,57 @@ holding an unnamed hash is a modder about to paste it into another tool.
 │     └ ▸ armorMaterial               8 items                     │
 ```
 
-| Part      | Reads                                    |
-| --------- | ---------------------------------------- |
-| The mark  | `◈`, the same mark the object index uses |
-| The name  | The object's path, or its hash           |
-| The class | The class the object declares            |
-| The count | The object's property count              |
+| Part      | Reads                                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| The mark  | `◈`, the same mark the object index uses. A `Champion` carries the champion mark and a `SkinCharacterDataProperties` the skin mark |
+| The name  | The object's path, or its hash                                                                                                     |
+| The class | The class the object declares                                                                                                      |
+| The count | The object's property count                                                                                                        |
 
 The document opens with every object collapsed and its class showing. A bin holding one
 object opens it expanded, because a collapsed single row is a document that says nothing.
 
 ### The property row
 
-A row is a name, a kind and a value, on one line. The name column is fixed and the value
-column takes the rest, so a run of rows reads as a column of values rather than a ragged list.
+A row is a name, a tag and a value, on one line. The name column is fixed and the value column
+takes the rest. A run of rows reads as a column of values rather than a ragged list.
 
-The kind shows only where the name does not imply it. A `String` reading `"Justicar Aatrox"`
-needs no label, and an `Embedded` needs its class.
+```
+│     ├ championSkinName        string   "Justicar Aatrox"           │
+│     ├ ▸ skinMeshProperties    embed    SkinMeshDataProperties      │
+│     ├ ▸ armorMaterial         list[embed]   8 items                │
+│     ├ ▸ tags                  map[hash,string]   3 entries         │
+│     └ [3]                     embed    SkinMeshDataProperties      │
+```
+
+**The tag is the row's kind, in ritobin's words.** Every row but the object row carries one.
+It sits after the name, the way a type follows a name in code, dim and mono, and the values
+keep one column. An element row carries its item's kind. A container composes its shape the way the meta wiki
+writes it: `list[embed]`, `map[hash,string]`, `option[f32]`.
+
+| Kind in `ltk_meta`                | Tag                      |
+| --------------------------------- | ------------------------ |
+| `None`, `Bool`, `BitBool`         | `none`, `bool`, `flag`   |
+| `I8` to `U64`, `F32`              | `i8` to `u64`, `f32`     |
+| `Vector2`, `Vector3`, `Vector4`   | `vec2`, `vec3`, `vec4`   |
+| `Matrix44`, `Color`               | `mtx44`, `rgba`          |
+| `String`, `Hash`, `WadChunkLink`  | `string`, `hash`, `file` |
+| `ObjectLink`                      | `link`                   |
+| `Container`, `UnorderedContainer` | `list`, `list2`          |
+| `Struct`, `Embedded`              | `pointer`, `embed`       |
+| `Optional`, `Map`                 | `option`, `map`          |
+
+The words are the ones a ritobin dump and the meta wiki write. The Problems finding for a
+property type mismatch writes the same words.
+
+**The tag is the kind in the file.** The meta schema declares a kind for the field at the
+install's build, and the two differ where the Problems rule for a property type fires. A row
+whose file kind differs from the declared kind carries the warning mark the Problems list uses,
+and the tag's tooltip names the declared kind. Every tag's tooltip carries the schema's line for
+the field at this build.
+
+A field no table names takes the schema's name where the schema has one. The hex form stays for
+a field neither names.
 
 ### Containers and depth
 
@@ -427,28 +475,170 @@ A `PTCH` bin patches objects rather than declaring them, and the header says so,
 same block drawn under different semantics is the kind of thing a user has to be told once.
 Read [A patch bin is read-only](#a-patch-bin-is-read-only) for the rest of what it says.
 
+## The object tab
+
+An object opens as a document of its own. [ADR-0028](../adr/0028-an-object-is-a-document-of-its-own.md)
+records the rule, and the [objects browser](PROJECT_EDITOR.md#objects-browser) is the tree that
+opens one.
+
+### What it is keyed on
+
+A declaration: the asset and the object hash. Two files declaring one hash are two tabs. The
+install's copy and a layer's sit side by side, and the layout is the diff.
+
+| Part      | Reads                                                             |
+| --------- | ----------------------------------------------------------------- |
+| Title     | The last segment of the object path, `Resources`                  |
+| Context   | The declaring file, `Aatrox.wad/…/skin0.bin`, or the layer's path |
+| Tooltip   | The whole object path                                             |
+| Copy path | The whole object path                                             |
+
+### What it draws
+
+The object's properties, from depth zero. The header is the object, and no row repeats it.
+
+```
+│ ◈ Resources · Aatrox.wad/…/skin0.bin  SkinCharacterDataProperties  17  Show in file  1 other │
+│ ├ skinClassification            u32          1                                               │
+│ ├ championSkinName              string       "Justicar Aatrox"                               │
+│ ├ ▸ skinMeshProperties          embed        SkinMeshDataProperties                          │
+│ └ ▸ armorMaterial               list[embed]  8 items                                         │
+```
+
+The facts sit at the trailing edge of the tab row, the [document chrome](PROJECT_EDITOR.md#document-chrome)
+rule of one row per leaf.
+
+| Fact               | Reads                                                                |
+| ------------------ | -------------------------------------------------------------------- |
+| Class              | The class the declaration carries, as a [card](#the-class-card)      |
+| Properties         | The count                                                            |
+| Show in file       | Opens the declaring file's tab, scrolled to the object               |
+| Other declarations | A popover from the index, one row per file, each opening its own tab |
+
+With the index absent, the other declarations draw a dim "Build the object index" affordance.
+Its click builds the index.
+
+### How it opens
+
+An object tab is a preview document. A single open replaces the previous preview, a double click
+pins, and `Ctrl+Enter` opens beside.
+
+| From                          | Gesture                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| A `$` hit in the project bar  | `Enter`                                                    |
+| An object block in a file tab | Open object in the context menu, or the row's hover action |
+| An objects browser row        | A click                                                    |
+| A link chip                   | A click                                                    |
+| A References row              | `Enter`                                                    |
+
+The file tab keeps its inline blocks. A file is a file, and a bin holding three objects reads
+better as three blocks than as three rows opening three tabs.
+
+### Reveal in Objects
+
+The tab's menu and an object block's menu carry Reveal in Objects. It opens the objects
+browser, expands the object's path and focuses its row.
+
 ## Links
+
+A value that names something the manager can open draws as a mono `Code` chip, per
+`DS-CODE-CHIP`. A click opens the target, `Ctrl+click` opens it beside, and the context menu
+carries the same pair. A value nothing resolves draws as dim hex and is not a chip.
+
+A chip's hover card shows the target's path, its class, its declaring file and its declaration
+count.
 
 ### An object link
 
-An `ObjectLink` names an object that this file may not hold. Three outcomes, and the row says
-which.
+An `ObjectLink` names an object that this file may not hold. The index resolves it, per
+ADR-0028, and the row says which outcome it has.
 
-- The object is in this file, and the link scrolls to it
-- The object is in a file this bin depends on, and the link opens that file
-- Nothing the manager knows declares it, and the row shows the hash and does not link
+| Where the target is                 | The chip                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------ |
+| In this file                        | Opens the object tab over this asset                                     |
+| In a file this bin depends on       | Opens the object tab over that file                                      |
+| Elsewhere in the install or a layer | Opens the first declaration in archive order. The rest are in its header |
+| Nowhere the index knows             | Dim hex, and no chip                                                     |
 
-The second outcome is what the [dependency
-graph](PROJECT_EDITOR.md#the-dependency-graph) is for. Until it lands the link resolves inside
-the open file and no further.
+Each page of rows checks its targets against the index in one call, the call the palette's
+override line uses. While the index is absent, only this file's own objects are checked. A link
+outside the file draws as a chip, and its click builds the index.
+
+### A hash
+
+A `Hash` is FNV1a32 of a path. One the index declares an object under is a link to that object,
+resolved by the same check and drawn as the same chip. A hash nothing declares is text.
 
 ### A WAD chunk link
 
-A `WadChunkLink` holds a path hash into the install's archives. The
-[WAD path resolver](PROJECT_EDITOR.md#hash-names) already turns one into a path, and the
-[preview document](PROJECT_EDITOR.md#how-a-preview-reaches-the-screen) already opens a chunk
-by hash. The link therefore opens a preview tab, and a texture a bin points at is one click
-from the bin that points at it.
+A `WadChunkLink` holds a path hash into the archives. The
+[WAD path resolver](PROJECT_EDITOR.md#hash-names) turns one into a path, and the
+[preview document](PROJECT_EDITOR.md#how-a-preview-reaches-the-screen) opens a chunk by hash.
+The chip opens the chunk in a preview tab, and a bin chunk in a bin tab.
+
+On the layer side the target is looked for in the layer first and in the install second. The
+chip carries the side that answered, in the word the palette's layer rows use.
+
+**A link to a texture carries a swatch.** The swatch sits after the chip at row height, the way
+the `Color` swatch does, and a hover card at 256px carries the texture facts. The swatch opens
+the preview as the chip does. The pixels arrive over `ltk-asset` with the `?w=` parameter the
+[explorer thumbnails](PROJECT_EDITOR.md#thumbnails) are specified on, under the same queue. Any
+other kind carries its kind badge.
+
+## Classes
+
+A class name appears on the object block, on the object tab's header, on a `pointer` and an
+`embed` row, and on an objects browser row. Every one of them is the same control.
+
+### The class card
+
+The card opens on hover after the tooltip delay, and a click pins it as a popover with its
+actions. `Esc` closes it.
+
+| Shows      | From                                                       |
+| ---------- | ---------------------------------------------------------- |
+| Name, hash | The tables, and the hex where no table names it            |
+| Declares   | How many objects of the install declare it, from the index |
+| Fields     | The schema's fields for this build, each with its kind     |
+
+| Action              | Does                                                                       |
+| ------------------- | -------------------------------------------------------------------------- |
+| Find all references | Opens the [References document](PROJECT_EDITOR.md#the-references-document) |
+| Copy name           | The class name                                                             |
+| Copy hash           | The class hash                                                             |
+
+The card carries no link to the meta wiki. The wiki's API addresses a class by name or by hash,
+and the wiki serves no page per class at a URL of its own.
+
+The schema crosses IPC once per class and is held on the frontend for the session. The meta
+schema ships in the build as the snapshot `pnpm generate:meta-schema` writes, read through
+`core/src/meta_schema.rs` and keyed on the install's game build.
+
+### The field card
+
+A field name is the same control as a class name: a card on hover after the tooltip delay,
+pinned by a click, closed by `Esc`. The name draws as a chip under the pointer, and a click on
+it leaves the row's expansion where it is.
+
+| Shows      | From                                                                 |
+| ---------- | -------------------------------------------------------------------- |
+| Name, hash | The tables, and the hex where no table names it                      |
+| Declared   | The schema's kind for the field at this build                        |
+| Revisions  | The field's kinds across builds, as the schema's revisions hold them |
+
+| Action    | Does           |
+| --------- | -------------- |
+| Copy name | The field name |
+| Copy hash | The field hash |
+
+The kind shown on the row stays the file's kind, per [The property row](#the-property-row).
+
+### Find all references
+
+For a top-level class the index answers at once. Every declaration carrying the class hash is a
+row, grouped by file. An embedded class and an object's incoming links are answers of the walk,
+which the References document describes. Find references sits on every menu an object has, and
+on the class card.
 
 ## Special classes
 
@@ -648,25 +838,33 @@ nothing about Tauri.
 `src-tauri/src/commands/bin.rs` is the seam, and `BinDocuments` is a third managed state
 beside `SettingsState` and `PatcherState`.
 
-| Command        | Answers                                       |
-| -------------- | --------------------------------------------- |
-| `bin_open`     | A handle, the header facts, and the root rows |
-| `bin_children` | The rows under one address                    |
-| `bin_patch`    | The rows that changed, or a rejection         |
-| `bin_undo`     | The same                                      |
-| `bin_close`    | Nothing                                       |
+| Command             | Answers                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| `bin_open`          | A handle, the header facts, and the root rows                       |
+| `bin_children`      | The rows under one address                                          |
+| `bin_patch`         | The rows that changed, or a rejection                               |
+| `bin_undo`          | The same                                                            |
+| `bin_close`         | Nothing                                                             |
+| `class_schema`      | One class's fields and their declared kinds, at the install's build |
+| `declared_objects`  | What declares each of a page's link and hash targets, in link order |
+| `locate_game_files` | The install's copy of each of a page's `file` targets               |
+
+An object tab is `bin_open` with an entry named, answering that object's rows at depth zero and
+the header facts of the object. A file tab and the object tabs over one asset share one held
+tree. The store keys on the asset and counts the tabs over it.
 
 Errors carry a `code` and typed fields the way [error handling](../ERROR_HANDLING.md) describes,
 with the node address as a field of a rejected patch.
 
 ## The frontend
 
-`src/modules/workshop/bin/` holds the document, the row components, the widget matrix keyed by
-kind, and the class views keyed by class hash. It is a sibling of `preview/` rather than a part
-of it, because the preview module draws an asset and this one edits a document.
+`src/modules/workshop/bin/` holds the file document, the object document, the row components,
+the widget matrix keyed by kind, the cards, and the class views keyed by class hash. It is a
+sibling of `preview/` rather than a part of it. The preview module draws an asset and this one
+edits a document.
 
 `PreviewDocument` routes a property bin here instead of to `BinPreview`, and `BinPreview` stays
-as the fallback for a file that will not parse.
+as the fallback for a file that does not parse.
 
 The design system rules the blocks lean on:
 
@@ -681,21 +879,35 @@ the tab takes it through the existing descriptor, and no `doc-*` token is added.
 
 ## What ships in what order
 
+Two tracks. The reading track is one epic, and the editing track is its own.
+
+**The reading track.**
+
 1. **The viewer.** `bin_open`, `bin_children`, the leaf widgets read-only, the container rows,
-   the four tables, and the address on every row with a **Copy path** behind it. Replaces the
-   empty state with the file. Useful on its own, and it is the game browser's missing half
-2. **The links.** Object links inside the file, and WAD chunk links into the preview
-3. **Leaf editing.** The primitive widgets, `bin_patch`, validation, autosave, undo. Layer
+   the four tables, and the address on every row with a **Copy path** behind it. Landed
+2. **Type tags and cards.** Every row's tag, the class and field cards with their copy actions,
+   and one vocabulary with the Problems finding. The schema crosses IPC once per class
+3. **The object tab.** ADR-0028, with its three routes in: a `$` hit, an object block, an
+   Objects browser row
+4. **Chips that open.** `link`, `file` and a declared `hash` as chips, the per-page check, the
+   resolution order, and the other declarations in the header
+5. **The Objects browser**, and Reveal in Objects. [Project editor](PROJECT_EDITOR.md#objects-browser)
+6. **The References document**, fed from the index. Find all references on a class
+7. **The texture swatch**, on the `?w=` parameter the explorer thumbnails share
+8. **The walk**, for an embedded class and for incoming links
+9. **The `@` scope** over the open rows
+
+**The editing track.**
+
+1. **Leaf editing.** The primitive widgets, `bin_patch`, validation, autosave, undo. Layer
    sources only
-4. **Container editing.** Add, remove, reorder, and a `Map` key. This is where the complexity
+2. **Container editing.** Add, remove, reorder, and a `Map` key. This is where the complexity
    is
-5. **Class views.** The first one, chosen by a complaint and not by this document
-6. **Schema-aware editing.** The meta dump, a field's declared type, and the subclasses an
+3. **Class views.** The first one, chosen by a complaint and not by this document
+4. **Schema-aware editing.** The meta dump, a field's declared type, and the subclasses an
    `Embedded` accepts
 
-Ship one and stop. It answers whether the block model reads well before any of the edit
-machinery is written, and if the answer is no, nothing built so far is wasted on a viewer that
-is still worth having.
+The tracks interleave as complaints dictate. Each step is useful alone.
 
 ## Why not a text view first
 
@@ -720,10 +932,15 @@ result is a mod rather than a modified install.
 
 | Question                                                                     |
 | ---------------------------------------------------------------------------- |
-| Does a search inside one open bin belong here, or in the project bar?        |
 | What does a `Matrix44` look like when a user actually has to change one?     |
 | Should two layers' copies of one bin be comparable, and is that this doc's?  |
 | Is eight open documents the right bound, or should it follow the tab strip?  |
 | Does a class view get to hide the properties it handles, or only reorder?    |
 | Is a `{k}` map subscript worth emitting before one is confirmed in game?     |
 | Should an edit be offerable as a patch record once `ltk_meta` can write one? |
+
+### Answered
+
+| Question                                                              | Answer                                                                                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Does a search inside one open bin belong here, or in the project bar? | The project bar, as its `@` scope. "Why one control" is the bar's rule, and a bin tab with a box of its own is a second control |

@@ -17,6 +17,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use chrono::Utc;
+use fs_err as fs;
 use ltk_file::LeagueFileKind;
 use ltk_hash::Hash as _;
 use ltk_wad::{PathResolver, WadChunk, WadChunkCompression, WadHash, is_hex_chunk_path};
@@ -301,7 +302,7 @@ impl LayerSource {
     /// The bytes of one of the layer's files.
     fn read(&self, file: &ProjectFile) -> Result<Vec<u8>, String> {
         match self {
-            Self::Directory(root) => std::fs::read(absolute(root, file)).map_err(|e| e.to_string()),
+            Self::Directory(root) => fs::read(absolute(root, file)).map_err(|e| e.to_string()),
             Self::Archive(archive) => archive.read(file),
         }
     }
@@ -311,7 +312,7 @@ impl LayerSource {
         match self {
             Self::Directory(root) => {
                 let at = absolute(root, file);
-                std::fs::File::open(&at)
+                fs::File::open(&at)
                     .map(Opened::File)
                     .map_err(|e| format!("{}: {e}", at.display()))
             }
@@ -331,7 +332,7 @@ impl LayerSource {
             Self::Directory(root) => {
                 let at = absolute(root, file);
                 let mut bytes = Vec::new();
-                std::fs::File::open(&at)
+                fs::File::open(&at)
                     .and_then(|opened| {
                         std::io::Read::read_to_end(
                             &mut std::io::Read::take(opened, limit as u64),
@@ -351,7 +352,7 @@ impl LayerSource {
 pub enum Opened {
     /// A file of a directory layer, read from disk as it is asked for, so a
     /// reader that seeks holds only what it asked for.
-    File(std::fs::File),
+    File(fs::File),
     /// An archive's entry, decompressed whole: the smallest unit its
     /// compression hands out.
     Memory(std::io::Cursor<Vec<u8>>),
@@ -406,7 +407,7 @@ fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
         return WorkshopFileKind::from(named);
     }
 
-    let sniffed = std::fs::File::open(at)
+    let sniffed = fs::File::open(at)
         .and_then(|mut file| LeagueFileKind::identify_from_reader(&mut file))
         .unwrap_or_else(|e| {
             tracing::debug!("Could not read the first bytes of {}: {e}", at.display());

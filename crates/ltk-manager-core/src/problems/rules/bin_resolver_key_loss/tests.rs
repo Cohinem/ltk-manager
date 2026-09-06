@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use fs_err as fs;
 use ltk_hash::Hash as _;
 use ltk_meta::property::{Kind, NoMeta, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
@@ -65,8 +66,8 @@ fn tree(keys: usize, game: Option<Arc<dyn GameContent>>) -> (tempfile::TempDir, 
         .join("content")
         .join("base")
         .join(in_layer().replace('/', std::path::MAIN_SEPARATOR_STR));
-    std::fs::create_dir_all(at.parent().unwrap()).unwrap();
-    std::fs::write(&at, bin_resolving(keys)).unwrap();
+    fs::create_dir_all(at.parent().unwrap()).unwrap();
+    fs::write(&at, bin_resolving(keys)).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), game).unwrap();
     (tmp, files)

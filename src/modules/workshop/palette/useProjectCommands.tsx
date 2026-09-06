@@ -1,4 +1,5 @@
 import {
+  CubeIcon,
   FileArchiveIcon,
   FolderOpenIcon,
   LayoutIcon,
@@ -18,7 +19,7 @@ import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 import { useProjectActions } from "../api/useProjectActions";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
 import { useProjectContext } from "../components/ProjectContext";
-import { detailsDocument, gameDocument, gameWadsDocument } from "../documents";
+import { detailsDocument, gameDocument, gameWadsDocument, objectsDocument } from "../documents";
 import { useRevealGameSearch } from "../gameBrowser";
 import {
   useActiveDocumentId,
@@ -124,6 +125,14 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         keywords: ["archives", "browse"],
         icon: <FileArchiveIcon className={GLYPH} />,
         run: () => openDocument(gameWadsDocument()),
+      },
+      {
+        id: "go.objects",
+        title: "Open the objects browser",
+        group: "Go to",
+        keywords: ["bin", "browse", "install", "index"],
+        icon: <CubeIcon className={GLYPH} />,
+        run: () => openDocument(objectsDocument()),
       },
 
       {

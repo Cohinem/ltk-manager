@@ -1,10 +1,10 @@
-import { CubeIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { errorSummary, m } from "@/i18n";
 import type { ObjectClassHit, ObjectSearchHit } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
 
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import { useObjectSearch, wadBasename } from "../gameBrowser";
 import { completeClassTerm } from "./classTerm";
 import type { PaletteGroup, RankedRow } from "./types";
@@ -20,20 +20,23 @@ import type { PaletteGroup, RankedRow } from "./types";
  */
 export function useObjectRows(term: string, query: string, enabled: boolean): PaletteGroup | null {
   const setting = useSearchObjects();
-  const wanted = enabled && setting;
 
-  const { data, isFetching, error } = useObjectSearch(term, wanted);
+  /* Asked whatever the switch says. The objects browser warms the index with the
+     switch off, and the source answers while it is warm. */
+  const { data, isFetching, error } = useObjectSearch(term, enabled);
 
   return useMemo(() => {
-    if (!wanted || term.length === 0) return null;
+    if (!enabled || term.length === 0) return null;
 
     const label = m.workshop_objects_game_label();
 
     if (error) return group(label, [noticeRow("objects:error", errorSummary(error))]);
     if (!data) return { ...group(label, []), pending: isFetching };
 
-    /* Absent reads as building: the switch is on, so a warm is on its way from
-       the lifecycle hook, and the query asks again until it lands. */
+    /* With the switch on, absent reads as building: a warm is on its way from the
+       lifecycle hook, and the query asks again until it lands. With it off, nothing
+       is on its way, and the group stays out of the list. */
+    if (data.status === "absent" && !setting) return null;
     if (data.status === "absent" || data.status === "building") {
       return group(label, [noticeRow("objects:building", m.workshop_objects_building_label())]);
     }
@@ -69,7 +72,7 @@ export function useObjectRows(term: string, query: string, enabled: boolean): Pa
       total: data.total,
       pending: isFetching,
     };
-  }, [data, error, isFetching, query, term, wanted]);
+  }, [data, enabled, error, isFetching, query, setting, term]);
 }
 
 function group(label: string, rows: readonly RankedRow[]): PaletteGroup {
@@ -88,13 +91,15 @@ function toRow(hit: ObjectSearchHit): RankedRow {
       name: hit.path,
       path: `${hit.class} · ${hit.file}`,
       trailing: wadBasename(hit.wad),
-      icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={hit.class} className="h-4 w-4 text-surface-400" />,
       target: {
         kind: "object",
         wad: hit.wad,
         pathHash: hit.fileHash,
         path: hit.file,
         objectHash: hit.objectHash,
+        objectPath: hit.path,
+        objectClass: hit.class,
       },
     },
     band: hit.band,
@@ -113,7 +118,7 @@ function toClassRow(hit: ObjectClassHit, query: string): RankedRow {
       name: hit.class,
       path: "",
       trailing: m.workshop_objects_class_count_label({ count: hit.rows }),
-      icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={hit.class} className="h-4 w-4 text-surface-400" />,
       target: { kind: "query", query: completeClassTerm(query, hit.class) },
     },
     band: 0,

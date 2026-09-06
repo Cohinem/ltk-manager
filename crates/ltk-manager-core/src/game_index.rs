@@ -2,14 +2,15 @@
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BinaryHeap, HashSet};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-use std::sync::{Arc, Mutex};
 
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
+use parking_lot::Mutex;
 use serde::Serialize;
 
-use crate::error::{AppResult, MutexResultExt};
+use crate::error::AppResult;
 use crate::game_wads::GameArchives;
 use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
 use crate::utils::natural_order::compare_names;
@@ -566,6 +567,21 @@ impl GameIndex {
         Some(out)
     }
 
+    /// The file at one path of the tree, or `None` where the index names nothing there.
+    ///
+    /// `path` is spelled as the hash tables spell it, which is how a bin's `file` link
+    /// resolves.
+    #[must_use]
+    pub fn file_at(&self, path: &str) -> Option<GameFileEntry> {
+        let (dir, name) = path.rsplit_once('/').unwrap_or(("", path));
+        let index = self.resolve(dir)?;
+        let file = self.dirs[index]
+            .files
+            .iter()
+            .find(|file| file.name == name)?;
+        Some(file.entry(dir, self.wad_name(file)))
+    }
+
     /// The wire shape of every chunk no hash table names.
     fn unnamed_entries(&self) -> Vec<GameFileEntry> {
         self.unknown
@@ -1038,14 +1054,13 @@ impl GameIndexState {
     ///
     /// # Errors
     ///
-    /// Fails when the build fails, or when a previous holder of the lock
-    /// panicked.
+    /// Fails when the build fails.
     pub fn get_or_build(
         &self,
         archives: &GameArchives,
         resolver: &LayeredHashDb,
     ) -> AppResult<Arc<GameIndex>> {
-        let mut slot = self.0.lock().mutex_err()?;
+        let mut slot = self.0.lock();
         if let Some(index) = slot.as_ref() {
             return Ok(Arc::clone(index));
         }
@@ -1056,13 +1071,8 @@ impl GameIndexState {
     }
 
     /// Drop the built index, so the next read walks the install again.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn clear(&self) -> AppResult<()> {
-        *self.0.lock().mutex_err()? = None;
-        Ok(())
+    pub fn clear(&self) {
+        *self.0.lock() = None;
     }
 }
 

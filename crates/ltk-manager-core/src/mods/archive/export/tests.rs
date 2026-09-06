@@ -1,4 +1,4 @@
-use std::fs;
+use fs_err as fs;
 
 use super::*;
 use crate::mods::index::LibraryIndex;

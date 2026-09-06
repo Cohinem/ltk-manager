@@ -1,16 +1,21 @@
 import {
   FileArchiveIcon,
   FilesIcon,
+  MagnifyingGlassIcon,
   TranslateIcon,
+  TreeStructureIcon,
   WarningDiamondIcon,
 } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
-import { LeagueIcon, PlayerTitleIcon } from "@/components";
+import { ContextMenu, LeagueIcon, PlayerTitleIcon } from "@/components";
+import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import type { EditorRegistry } from "@/modules/editor";
 
+import { ObjectDocument } from "../bin/ObjectDocument";
 import { LayerGlyph } from "../components/LayerGlyph";
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import { useProjectContext } from "../components/ProjectContext";
 import {
   archiveTarget,
@@ -23,10 +28,18 @@ import {
   useExtractActions,
   wadBasename,
 } from "../gameBrowser";
+import { ObjectsDocument, useRevealInObjects } from "../objectsBrowser";
 import { assetPath, PreviewDocument } from "../preview";
 import { ProblemsDocument } from "../problems";
+import { objectReferences, ReferencesDocument, useFindReferences } from "../references";
 import { describeFileKind } from "../utils/fileKindIcon";
-import { type ContentDocument, type ContentDocumentOf, layerTitle } from "./contentDocument";
+import {
+  type ContentDocument,
+  type ContentDocumentOf,
+  declaringFileContext,
+  layerTitle,
+  objectTitle,
+} from "./contentDocument";
 import { DetailsDocument } from "./DetailsDocument";
 import { FilesDocument } from "./FilesDocument";
 import { StringsDocument } from "./StringsDocument";
@@ -86,6 +99,16 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: GameWadDocument,
       tabMenu: (document) => <GameWadTabMenu wadName={document.wadName} />,
     },
+    objects: {
+      icon: () => <TreeStructureIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      label: () => ({ title: m.workshop_objects_title() }),
+      component: ObjectsDocument,
+    },
+    references: {
+      icon: () => <MagnifyingGlassIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      label: () => ({ title: m.workshop_references_title(), path: project.path }),
+      component: ReferencesDocument,
+    },
     preview: {
       icon: (document) => <PreviewGlyph title={document.title} />,
       label: (document) => ({
@@ -103,7 +126,53 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         return <PreviewTabMenu document={document} />;
       },
     },
+    object: {
+      icon: (document) => (
+        <ObjectGlyph
+          objectClass={document.objectClass}
+          className="h-4 w-4 shrink-0 text-surface-400"
+        />
+      ),
+      label: (document) => ({
+        title: objectTitle(document.objectPath),
+        context: declaringFileContext(document.asset, document.file),
+        path: document.objectPath,
+      }),
+      component: ObjectDocument,
+      tabMenu: (document) => (
+        <ObjectTabMenu objectHash={document.objectHash} objectPath={document.objectPath} />
+      ),
+    },
   };
+}
+
+interface ObjectTabMenuProps {
+  /** `0x` and eight hex digits. */
+  objectHash: string;
+  objectPath: string;
+}
+
+/** Find references and Reveal in Objects, per "The object tab" in docs/ux/BIN_EDITOR.md. */
+function ObjectTabMenu({ objectHash, objectPath }: ObjectTabMenuProps) {
+  const reveal = useRevealInObjects();
+  const find = useFindReferences();
+
+  return (
+    <>
+      <ContextMenu.Item
+        icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+        onClick={() => find(objectReferences(objectHash, objectPath))}
+      >
+        {m.workshop_references_find_object_action()}
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        icon={<TreeStructureIcon className="h-4 w-4" />}
+        onClick={() => reveal(objectPath)}
+      >
+        {m.workshop_objects_reveal_action()}
+      </ContextMenu.Item>
+    </>
+  );
 }
 
 /** The registry of the project the caller is mounted inside. */

@@ -9,10 +9,9 @@
 //! actually passed through are observed - a WAD reused from a previous build
 //! reports nothing.
 
-use crate::error::{AppResult, MutexResultExt};
+use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::sync::Mutex;
 
 /// One chunk whose container claimed a checksum its own bytes do not have.
 ///
@@ -54,22 +53,22 @@ pub struct ChecksumMismatchState(pub Mutex<Vec<ChecksumMismatchInfo>>);
 
 impl ChecksumMismatchState {
     /// Replace the stored mismatches with a fresh build's results.
-    pub fn record(&self, mismatches: Vec<ltk_overlay::ChecksumMismatch>) -> AppResult<()> {
+    pub fn record(&self, mismatches: Vec<ltk_overlay::ChecksumMismatch>) {
         let converted = mismatches.into_iter().map(Into::into).collect();
-        *self.0.lock().mutex_err()? = converted;
-        Ok(())
+        *self.0.lock() = converted;
     }
 
     /// Snapshot the current mismatches, keyed by mod id.
-    pub fn by_mod(&self) -> AppResult<HashMap<String, Vec<ChecksumMismatchInfo>>> {
+    #[must_use]
+    pub fn by_mod(&self) -> HashMap<String, Vec<ChecksumMismatchInfo>> {
         let mut by_mod: HashMap<String, Vec<ChecksumMismatchInfo>> = HashMap::new();
-        for info in self.0.lock().mutex_err()?.iter() {
+        for info in self.0.lock().iter() {
             by_mod
                 .entry(info.mod_id.clone())
                 .or_default()
                 .push(info.clone());
         }
-        Ok(by_mod)
+        by_mod
     }
 }
 

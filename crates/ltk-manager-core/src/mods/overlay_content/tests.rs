@@ -6,6 +6,7 @@ use crate::mods::test_support::{
 };
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
 use camino::{Utf8Path, Utf8PathBuf};
+use fs_err as fs;
 use ltk_wad::{NoResolver, PathResolver, WadHash};
 use sha2::Digest as _;
 use std::collections::BTreeSet;
@@ -108,7 +109,7 @@ fn an_imported_directory_matches_its_archive_without_a_resolver() {
     let root = tempfile::tempdir().unwrap();
     let (archive, mod_dir) = import_fixture(root.path(), &NoResolver);
 
-    let hex_named = std::fs::read_dir(mod_dir.join("content").join("base").join("Ashe.wad.client"))
+    let hex_named = fs::read_dir(mod_dir.join("content").join("base").join("Ashe.wad.client"))
         .unwrap()
         .flatten()
         .any(|entry| {
@@ -190,11 +191,11 @@ fn a_pre_migration_fantome_is_still_read_out_of_its_archive() {
     let entry = crate::mods::test_support::make_test_entry("id-1", ModArchiveFormat::Fantome);
 
     let archives = storage.path().join("archives");
-    std::fs::create_dir_all(&archives).unwrap();
+    fs::create_dir_all(&archives).unwrap();
     make_full_fantome_zip(&archives.join("id-1.fantome"));
     let meta_dir = storage.path().join("mods").join("id-1");
-    std::fs::create_dir_all(&meta_dir).unwrap();
-    std::fs::write(
+    fs::create_dir_all(&meta_dir).unwrap();
+    fs::write(
         meta_dir.join("mod.config.json"),
         serde_json::to_string_pretty(&crate::mods::test_support::mod_project_named("legacy"))
             .unwrap(),

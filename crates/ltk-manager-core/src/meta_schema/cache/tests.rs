@@ -1,5 +1,7 @@
 //! What the cache installs, what it declines to install, and what it serves.
 
+use fs_err as fs;
+
 use super::*;
 
 /// A published database whose newest build is `latest`, cut to one property.
@@ -35,7 +37,7 @@ fn published_at(fetched_at: &str, latest: u32) -> Vec<u8> {
 /// Serves one answer, and records what it was asked with.
 struct Serving {
     answer: Fetched,
-    asked_with: std::sync::Mutex<Option<Option<String>>>,
+    asked_with: parking_lot::Mutex<Option<Option<String>>>,
 }
 
 impl Serving {
@@ -53,19 +55,19 @@ impl Serving {
     fn answering(answer: Fetched) -> Self {
         Self {
             answer,
-            asked_with: std::sync::Mutex::new(None),
+            asked_with: parking_lot::Mutex::new(None),
         }
     }
 
     /// The tag it was handed, and `None` where it was never called.
     fn asked_with(&self) -> Option<Option<String>> {
-        self.asked_with.lock().unwrap().clone()
+        self.asked_with.lock().clone()
     }
 }
 
 impl FetchDb for Serving {
     fn fetch(&self, known: Option<&str>) -> Result<Fetched, FetchDbError> {
-        *self.asked_with.lock().unwrap() = Some(known.map(str::to_owned));
+        *self.asked_with.lock() = Some(known.map(str::to_owned));
         Ok(match &self.answer {
             Fetched::Unchanged => Fetched::Unchanged,
             Fetched::Body { json, etag } => Fetched::Body {
@@ -312,7 +314,7 @@ fn the_publisher_serves_a_database_and_then_a_not_modified() {
 fn a_cache_that_cannot_be_written_reports_it_and_stamps_nothing() {
     let tmp = tempfile::tempdir().unwrap();
     let blocking = tmp.path().join("a-file-where-the-directory-would-go");
-    std::fs::write(&blocking, b"not a directory").unwrap();
+    fs::write(&blocking, b"not a directory").unwrap();
     let cache = MetaSchemaCache::at(blocking.join("meta"));
 
     let refused = cache.refresh(&Serving::body(published(9_000_000), "etag-1"));

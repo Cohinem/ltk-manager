@@ -1,8 +1,9 @@
 use crate::deep_link::{self, DeepLinkRequest};
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{InstalledMod, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
+use fs_err as fs;
 use tauri::{AppHandle, State};
 
 use super::mods::reject_if_patcher_running;
@@ -18,7 +19,7 @@ use super::mods::reject_if_patcher_running;
 ///
 /// Returns [`AppError::UntrustedDomain`] naming the domain that was refused.
 fn reject_if_untrusted(url: &str, settings: &State<SettingsState>) -> AppResult<()> {
-    let trusted = settings.0.lock().mutex_err()?.trusted_domains.clone();
+    let trusted = settings.0.lock().trusted_domains.clone();
     if deep_link::is_domain_trusted(url, &trusted) {
         return Ok(());
     }
@@ -78,10 +79,10 @@ pub fn deep_link_install_mod(
         let temp_path = deep_link::download_mod_file(&url, &app_handle)?;
         let temp_path_str = temp_path.to_string_lossy().to_string();
 
-        let config = settings.config()?;
+        let config = settings.config();
         let result = library.0.install_mod_from_package(&config, &temp_path_str);
 
-        if let Err(e) = std::fs::remove_file(&temp_path) {
+        if let Err(e) = fs::remove_file(&temp_path) {
             tracing::warn!("Failed to clean up temp file: {}", e);
         }
 

@@ -85,6 +85,10 @@
   --color-doc-problems: var(--ltk-doc-problems);
   --color-doc-problems-text: var(--ltk-doc-problems-text);
 
+  /* Folder */
+  --color-folder: var(--ltk-folder);
+  --color-folder-text: var(--ltk-folder-text);
+
   /* Void */
   --color-void: var(--ltk-void);
   --color-void-text: var(--ltk-void-text);

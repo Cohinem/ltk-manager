@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use fs_err as fs;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -27,7 +28,7 @@ pub fn start_library_watcher(app_handle: &AppHandle) {
 
 fn resolve_watch_dirs(app_handle: &AppHandle) -> Option<(PathBuf, PathBuf)> {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
-    let settings = settings_state.0.lock().ok()?;
+    let settings = settings_state.0.lock();
     let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
     let storage_dir = mod_library_state.0.storage_dir(&settings.config).ok()?;
 
@@ -62,8 +63,8 @@ fn run_watcher(app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>>
         Arc::clone(mod_library_state.0.last_mutation_epoch_ms())
     };
 
-    std::fs::create_dir_all(&archives_dir)?;
-    std::fs::create_dir_all(&mods_dir)?;
+    fs::create_dir_all(&archives_dir)?;
+    fs::create_dir_all(&mods_dir)?;
 
     tracing::info!(
         "Starting library watcher on: {}, {}",
@@ -121,13 +122,7 @@ fn handle_change(app_handle: &AppHandle) {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
     let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
 
-    let config = match settings_state.0.lock() {
-        Ok(s) => s.config.clone(),
-        Err(e) => {
-            tracing::warn!("Watcher: failed to lock settings: {}", e);
-            return;
-        }
-    };
+    let config = settings_state.0.lock().config.clone();
 
     match mod_library_state.0.reconcile_index(&config) {
         Ok(true) => {

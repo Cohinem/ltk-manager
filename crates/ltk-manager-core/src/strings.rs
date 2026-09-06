@@ -6,13 +6,14 @@
 //! currently says in game.
 
 use crate::config::Config;
-use crate::error::{AppResult, MutexResultExt};
 use crate::hashtables::HashtableCache;
+use fs_err as fs;
+use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// One autocomplete suggestion for a stringtable field.
 #[derive(Debug, Clone, Serialize)]
@@ -183,22 +184,20 @@ impl StringKeyIndexState {
     /// Return the index, building it on first use. The lock is held for the
     /// duration of the build so concurrent callers wait instead of racing a
     /// second read of the table.
-    pub fn get_or_build(&self, config: &Config) -> AppResult<Arc<StringKeyIndex>> {
-        let mut slot = self.0.lock().mutex_err()?;
+    #[must_use]
+    pub fn get_or_build(&self, config: &Config) -> Arc<StringKeyIndex> {
+        let mut slot = self.0.lock();
         if let Some(index) = slot.as_ref() {
-            return Ok(Arc::clone(index));
+            return Arc::clone(index);
         }
         let index = Arc::new(StringKeyIndex::from_cache(config));
         *slot = Some(Arc::clone(&index));
-        Ok(index)
+        index
     }
 
     /// Drop the built index, so the next caller reads what a sync just wrote.
     pub fn clear(&self) {
-        match self.0.lock() {
-            Ok(mut slot) => *slot = None,
-            Err(_) => tracing::warn!("String key index lock poisoned, keeping the built index"),
-        }
+        *self.0.lock() = None;
     }
 }
 
@@ -216,7 +215,7 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
     let locale = game_dir.locale().unwrap_or_else(|| "en_us".into());
 
     let wad_path = find_localized_global_wad(game_dir.path(), &locale)?;
-    let file = std::fs::File::open(&wad_path).ok()?;
+    let file = fs::File::open(&wad_path).ok()?;
     let mut wad = ltk_wad::Wad::mount(file).ok()?;
 
     let chunk_path = format!("data/menu/{locale}/lol.stringtable");
@@ -237,7 +236,7 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
 fn find_localized_global_wad(game_dir: &Path, locale: &str) -> Option<PathBuf> {
     let localized_dir = game_dir.join("DATA").join("FINAL").join("Localized");
     let wanted = format!("global.{}.wad.client", locale.to_lowercase());
-    std::fs::read_dir(localized_dir).ok()?.find_map(|entry| {
+    fs::read_dir(localized_dir).ok()?.find_map(|entry| {
         let entry = entry.ok()?;
         let name = entry.file_name();
         if name.to_str()?.eq_ignore_ascii_case(&wanted) {

@@ -1,4 +1,4 @@
-use std::fs;
+use fs_err as fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -14,8 +14,9 @@ use crate::utils::path::resolve_within;
 /// [`read`](Self::read) checks a relative path against the root it belongs to
 /// rather than joining it on, and [`File`](Self::File) is the one variant that
 /// names a path outright.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AssetRef {

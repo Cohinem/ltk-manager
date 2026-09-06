@@ -33,10 +33,7 @@ pub async fn open_asset_in_ritobin(
     name: Option<String>,
     app_handle: AppHandle,
 ) -> IpcResult<()> {
-    let config = match app_handle.state::<SettingsState>().config() {
-        Ok(config) => config,
-        Err(e) => return IpcResult::from(Err::<(), _>(e)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
 
     off_thread(move || {
         let verb =

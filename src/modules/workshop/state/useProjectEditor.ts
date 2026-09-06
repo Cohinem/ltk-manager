@@ -14,6 +14,7 @@ import {
 
 import { useProjectContext } from "../components/ProjectContext";
 import { type ContentDocument, documentLayerName } from "../documents";
+import type { OpenIntent } from "../palette/types";
 
 /**
  * The editor state of the project the caller is mounted inside.
@@ -212,6 +213,32 @@ export function useOpenDocumentBeside() {
     },
     [openDocumentBeside, projectPath],
   );
+}
+
+/**
+ * Opens a document the way an intent asks: the tab mode, beside the focused group,
+ * or as a pinned tab.
+ *
+ * What `Enter` and its modifiers on a palette row ask for, and what a click and a
+ * `Ctrl+click` on a row's action or a link chip ask for.
+ */
+export function useOpenDocumentAs() {
+  const openTab = useOpenDocumentTab();
+  const openDocument = useOpenDocument();
+  const openBeside = useOpenDocumentBeside();
+  return useCallback(
+    (document: ContentDocument, intent: OpenIntent) => {
+      if (intent === "beside") openBeside(document);
+      else if (intent === "permanent") openDocument(document);
+      else openTab(document);
+    },
+    [openBeside, openDocument, openTab],
+  );
+}
+
+/** The intent a click carries: beside with `Ctrl` or `Cmd` held, the tab mode without. */
+export function clickIntent(event: { ctrlKey: boolean; metaKey: boolean }): OpenIntent {
+  return event.ctrlKey || event.metaKey ? "beside" : "default";
 }
 
 export function usePromoteDocument() {

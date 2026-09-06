@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
 use super::{MetaSchema, MetaSchemaError};
@@ -118,7 +119,7 @@ impl MetaSchemaCache {
         };
 
         let installed = MetaSchema::parse(&json)?;
-        std::fs::create_dir_all(&self.dir)?;
+        fs::create_dir_all(&self.dir)?;
         atomic_write(&self.db_path(), &json)?;
         Stamp {
             etag,
@@ -173,7 +174,7 @@ impl MetaSchemaCache {
     /// [`MetaSchema::shipped`], never an error.
     #[must_use]
     pub fn load(&self, build: Option<GameBuild>) -> MetaSchema {
-        let Ok(json) = std::fs::read(self.db_path()) else {
+        let Ok(json) = fs::read(self.db_path()) else {
             return MetaSchema::shipped();
         };
 
@@ -205,7 +206,7 @@ impl MetaSchemaCache {
     }
 
     fn stamp(&self) -> Option<Stamp> {
-        let json = std::fs::read(self.stamp_path()).ok()?;
+        let json = fs::read(self.stamp_path()).ok()?;
         serde_json::from_slice(&json).ok()
     }
 }

@@ -108,7 +108,11 @@ showModTags: boolean, authorProfiles: Array<AuthorProfile>, defaultAuthorProfile
  * we suppress the warning on subsequent patcher starts. Reset by toggling
  * the "show performance warnings" setting if/when we add one.
  */
-hasSeenHddWarning: boolean, leagueSkinsPath: string | null, leaguePath: string | null, modStoragePath: string | null,
+hasSeenHddWarning: boolean, 
+/**
+ * Root directory containing the LeagueSkins collection.
+ */
+leagueSkinsPath: string | null, leaguePath: string | null, modStoragePath: string | null, 
 /**
  * Directory where mod projects are stored (for Creator Workshop).
  */

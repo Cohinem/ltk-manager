@@ -55,6 +55,8 @@
 pub mod kinds;
 pub mod table;
 
+#[cfg(test)]
+use fs_err as fs;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -65,6 +67,7 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
 use ltk_meta::walk::{Node, TreeValue as _, Visit, Visitor};
 
+use crate::bin_document::PropertyKind;
 use crate::meta_schema::{self, MetaSchema};
 use crate::problems::names::{self, BinNames};
 use crate::problems::walk::{self, Address, Declared, FieldNames};
@@ -1416,9 +1419,9 @@ fn resolved_paths(
     }
 }
 
-/// A value's kind, in the table's vocabulary where it has one.
-fn word_of(value: &PropertyValueEnum) -> String {
-    kinds::name(value.kind()).map_or_else(|| format!("{:?}", value.kind()), str::to_owned)
+/// A value's kind, in the word a bin row's tag draws.
+fn word_of(value: &PropertyValueEnum) -> &'static str {
+    PropertyKind::from(value.kind()).tag()
 }
 
 /// What a repair would change, for a problem that has one.
@@ -1589,7 +1592,7 @@ fn group_by_file<'a>(problems: &[&'a Problem]) -> Vec<((String, String), Vec<&'a
 /// Reports the file it could not open or parse, as one sentence for the panel.
 #[cfg(test)]
 fn read_bin(path: &std::path::Path) -> Result<ltk_meta::BinFile, String> {
-    let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
+    let bytes = fs::read(path).map_err(|e| e.to_string())?;
     read_bin_bytes(&bytes)
 }
 

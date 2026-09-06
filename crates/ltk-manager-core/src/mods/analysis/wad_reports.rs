@@ -6,11 +6,12 @@
 //! on demand via the `analyze_mod_wads` Tauri command.
 
 use super::categorize::DerivedCategorization;
-use crate::error::{AppResult, MutexResultExt};
+use crate::error::AppResult;
+use fs_err as fs;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 const WAD_REPORTS_FILENAME: &str = "wad-reports.json";
 /// v2 added the persisted `derived` categorization. Older (`v1`) caches load
@@ -183,7 +184,7 @@ impl WadReportStore {
             };
         }
 
-        let file = match std::fs::read_to_string(&path) {
+        let file = match fs::read_to_string(&path) {
             Ok(contents) => match serde_json::from_str::<WadReportFile>(&contents) {
                 Ok(f) => f,
                 Err(e) => {
@@ -307,20 +308,20 @@ impl WadReportStore {
             return Ok(());
         };
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent)?;
         }
         let mut to_save = self.file.clone();
         to_save.version = SCHEMA_VERSION;
         let contents = serde_json::to_string_pretty(&to_save)?;
 
         let tmp = path.with_extension("json.tmp");
-        std::fs::write(&tmp, contents)?;
-        match std::fs::remove_file(path) {
+        fs::write(&tmp, contents)?;
+        match fs::remove_file(path) {
             Ok(()) => {}
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
             Err(err) => return Err(err.into()),
         }
-        std::fs::rename(&tmp, path)?;
+        fs::rename(&tmp, path)?;
         Ok(())
     }
 }
@@ -343,7 +344,7 @@ impl WadReportState {
             .into_iter()
             .map(ModWadReport::from_upstream)
             .collect();
-        let mut store = self.0.lock().mutex_err()?;
+        let mut store = self.0.lock();
         store.upsert_many(converted)
     }
 }
@@ -377,7 +378,7 @@ mod tests {
     #[test]
     fn load_corrupt_file_starts_empty() {
         let dir = tempdir().unwrap();
-        std::fs::write(dir.path().join(WAD_REPORTS_FILENAME), "{ this is not json").unwrap();
+        fs::write(dir.path().join(WAD_REPORTS_FILENAME), "{ this is not json").unwrap();
         let store = WadReportStore::load(Some(dir.path()));
         assert!(store.get("anything").is_none());
     }

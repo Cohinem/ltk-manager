@@ -10,10 +10,10 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
 use crate::events::EventSink;
 use chrono::{DateTime, Utc};
+use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_mod_project::{ModProject, ModProjectAuthor};
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use thiserror::Error;
@@ -24,6 +24,7 @@ use thiserror::Error;
 /// Frontend code can switch on `kind` to handle each variant.
 #[derive(Debug, Clone, Serialize, Deserialize, Error)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WorkshopError {
@@ -461,7 +462,7 @@ mod tests {
     #[test]
     fn find_config_file_json() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("mod.config.json"), "{}").unwrap();
+        fs::write(dir.path().join("mod.config.json"), "{}").unwrap();
         let result = find_config_file(dir.path());
         assert!(result.is_some());
         assert!(result.unwrap().ends_with("mod.config.json"));
@@ -470,7 +471,7 @@ mod tests {
     #[test]
     fn find_config_file_toml() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("mod.config.toml"), "").unwrap();
+        fs::write(dir.path().join("mod.config.toml"), "").unwrap();
         let result = find_config_file(dir.path());
         assert!(result.is_some());
         assert!(result.unwrap().ends_with("mod.config.toml"));
@@ -479,8 +480,8 @@ mod tests {
     #[test]
     fn find_config_file_prefers_json() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::write(dir.path().join("mod.config.json"), "{}").unwrap();
-        std::fs::write(dir.path().join("mod.config.toml"), "").unwrap();
+        fs::write(dir.path().join("mod.config.json"), "{}").unwrap();
+        fs::write(dir.path().join("mod.config.toml"), "").unwrap();
         let result = find_config_file(dir.path());
         assert!(result.unwrap().ends_with("mod.config.json"));
     }

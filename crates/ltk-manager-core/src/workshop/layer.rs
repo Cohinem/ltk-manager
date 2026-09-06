@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
+use fs_err as fs;
 use ltk_mod_project::ModProjectLayer;
 
 use crate::error::AppResult;
@@ -60,7 +61,7 @@ impl Layer for ModProjectLayer {
 ///
 /// Fails when `content_dir` cannot be read.
 pub fn dirs_in(content_dir: &Path) -> AppResult<Vec<PathBuf>> {
-    let mut dirs: Vec<PathBuf> = std::fs::read_dir(content_dir)?
+    let mut dirs: Vec<PathBuf> = fs::read_dir(content_dir)?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.is_dir())
@@ -130,9 +131,9 @@ mod tests {
         /* `alpha` sorts before `base` by name, so it is what tells the
         base-first rule apart from plain natural order. */
         for name in ["zeta", "layer10", "base", "layer9", "alpha", ".hidden"] {
-            std::fs::create_dir(tmp.path().join(name)).unwrap();
+            fs::create_dir(tmp.path().join(name)).unwrap();
         }
-        std::fs::write(tmp.path().join("loose.txt"), b"").unwrap();
+        fs::write(tmp.path().join("loose.txt"), b"").unwrap();
 
         let dirs = dirs_in(tmp.path()).unwrap();
         let names: Vec<&str> = dirs.iter().map(|p| dir_name(p)).collect();

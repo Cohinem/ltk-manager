@@ -1,5 +1,5 @@
 use crate::commands::launcher::LauncherState;
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
@@ -9,12 +9,7 @@ use tauri_plugin_autostart::ManagerExt;
 /// Get current settings.
 #[tauri::command]
 pub fn get_settings(state: State<SettingsState>) -> IpcResult<Settings> {
-    get_settings_inner(&state).into()
-}
-
-fn get_settings_inner(state: &State<SettingsState>) -> AppResult<Settings> {
-    let settings = state.0.lock().mutex_err()?;
-    Ok(settings.clone())
+    IpcResult::ok(state.0.lock().clone())
 }
 
 /// Save settings.
@@ -51,7 +46,7 @@ fn save_settings_inner(
         tracing::error!(error = ?e, "Could not apply the new settings to the launcher");
     }
 
-    let mut current = state.0.lock().mutex_err()?;
+    let mut current = state.0.lock();
     *current = settings;
 
     Ok(())
@@ -70,11 +65,7 @@ pub fn get_default_settings() -> IpcResult<Settings> {
 /// Auto-detect League of Legends installation path.
 #[tauri::command]
 pub fn auto_detect_league_path(state: State<SettingsState>) -> IpcResult<Option<PathBuf>> {
-    let launch_mode = state
-        .0
-        .lock()
-        .map(|settings| settings.launch_mode)
-        .unwrap_or_default();
+    let launch_mode = state.0.lock().launch_mode;
 
     IpcResult::ok(auto_detect_league_path_inner(launch_mode))
 }
@@ -137,7 +128,7 @@ pub fn list_available_wads(state: State<SettingsState>) -> IpcResult<Vec<String>
 }
 
 fn list_available_wads_inner(state: &State<SettingsState>) -> AppResult<Vec<String>> {
-    let config = state.config()?;
+    let config = state.config();
     GameDir::resolve(&config)?.wads()
 }
 
@@ -156,11 +147,5 @@ pub fn detect_league_run_as_admin() -> IpcResult<bool> {
 /// Check if initial setup is required (league path not configured).
 #[tauri::command]
 pub fn check_setup_required(state: State<SettingsState>) -> IpcResult<bool> {
-    check_setup_required_inner(&state).into()
-}
-
-fn check_setup_required_inner(state: &State<SettingsState>) -> AppResult<bool> {
-    let settings = state.0.lock().mutex_err()?;
-
-    Ok(settings.config.league_path.is_none())
+    IpcResult::ok(state.0.lock().config.league_path.is_none())
 }

@@ -1,5 +1,6 @@
 //! Path checks for the readers that take a relative path from a caller.
 
+use fs_err as fs;
 use std::path::{Component, Path, PathBuf};
 
 use crate::error::{AppError, AppResult};
@@ -30,8 +31,8 @@ pub fn resolve_within(root: &Path, relative: &str) -> AppResult<PathBuf> {
         return Err(escaped());
     }
 
-    let root = root.canonicalize()?;
-    let path = root.join(candidate).canonicalize()?;
+    let root = fs::canonicalize(root)?;
+    let path = fs::canonicalize(root.join(candidate))?;
     if !path.starts_with(&root) {
         return Err(escaped());
     }
@@ -41,7 +42,6 @@ pub fn resolve_within(root: &Path, relative: &str) -> AppResult<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
 
     #[test]
     fn resolves_a_plain_relative_path() {

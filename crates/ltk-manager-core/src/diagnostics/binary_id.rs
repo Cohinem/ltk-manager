@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -20,7 +21,7 @@ pub struct BinaryId {
 impl BinaryId {
     /// Identifies the file at `path`, or `None` when it cannot be read.
     pub fn of(path: &Path) -> Option<Self> {
-        Some(Self::of_bytes(&std::fs::read(path).ok()?))
+        Some(Self::of_bytes(&fs::read(path).ok()?))
     }
 
     /// Identifies `bytes` by their checksum, with the PE build date when the

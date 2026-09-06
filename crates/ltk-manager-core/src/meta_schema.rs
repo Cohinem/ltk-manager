@@ -10,13 +10,16 @@
 
 use std::collections::HashMap;
 use std::io::Read as _;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use ltk_hash::BinHash;
 use ltk_meta::property::Kind;
-use serde::Deserialize;
+use parking_lot::Mutex;
+use serde::{Deserialize, Serialize};
 
+use crate::bin_document::PropertyKind;
 use crate::problems::GameBuild;
+use crate::problems::names::hex;
 
 #[cfg(test)]
 mod tests;
@@ -82,20 +85,29 @@ const FORMAT_VERSION: u32 = 1;
 pub struct MetaSchema {
     generation: String,
     latest: u32,
-    classes: HashMap<BinHash, ClassSchema>,
+    classes: HashMap<BinHash, ParsedClass>,
 }
 
 #[derive(Debug)]
-struct ClassSchema {
+struct ParsedClass {
     name: Option<String>,
-    properties: HashMap<BinHash, PropertySchema>,
+    properties: HashMap<BinHash, ParsedProperty>,
 }
 
 #[derive(Debug)]
-struct PropertySchema {
+struct ParsedProperty {
     name: Option<String>,
     /// In the order the publisher wrote them, which is oldest first.
     revisions: Vec<Revision>,
+}
+
+impl ParsedProperty {
+    /// The revision describing `build`.
+    fn at(&self, build: u32) -> Option<&Revision> {
+        self.revisions
+            .iter()
+            .find(|revision| revision.covers(build))
+    }
 }
 
 /// One property's type over one span of builds.
@@ -173,6 +185,137 @@ impl Shape {
     }
 }
 
+/// A type as the tag composes it: the kind, a `Map`'s key, and what a container holds.
+///
+/// The wire form of [`Shape`]. A row's tag and a card's field draw it as `list[embed]`
+/// or `map[hash,string]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct KindShape {
+    pub kind: PropertyKind,
+    /// A `Map`'s key kind.
+    pub key: Option<PropertyKind>,
+    /// What an `Option`, a list or a `Map` holds.
+    pub value: Option<PropertyKind>,
+}
+
+impl KindShape {
+    /// The shape naming nothing but a kind, as a leaf writes it.
+    #[must_use]
+    pub const fn bare(kind: PropertyKind) -> Self {
+        Self {
+            kind,
+            key: None,
+            value: None,
+        }
+    }
+}
+
+impl From<Shape> for KindShape {
+    fn from(shape: Shape) -> Self {
+        Self {
+            kind: shape.kind.into(),
+            key: shape.key.map(PropertyKind::from),
+            value: shape.value.map(PropertyKind::from),
+        }
+    }
+}
+
+/// One class as the class card draws it: its name, and its fields typed at one build.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct ClassSchema {
+    /// The class as the database names it.
+    pub name: Option<String>,
+    /// The content build `declared` is read at: the install's, or the newest the
+    /// database names where the install has none it describes.
+    pub build: u32,
+    /// The named fields first, by name, and the unnamed after them by hash.
+    pub fields: Vec<FieldSchema>,
+}
+
+/// One field of a class: its name, its type at the card's build, and every revision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct FieldSchema {
+    /// `0x` and eight hex digits.
+    pub hash: String,
+    /// The field as the database names it.
+    pub name: Option<String>,
+    /// The type at the card's build. Absent where no revision covers the build, and
+    /// where the revision names a type this build cannot map.
+    pub declared: Option<KindShape>,
+    /// Oldest first.
+    pub revisions: Vec<FieldRevision>,
+}
+
+/// One field's type over one span of builds.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct FieldRevision {
+    /// The first content build the revision holds for.
+    pub from: u32,
+    /// The last content build it holds for, inclusive. Open where absent.
+    pub to: Option<u32>,
+    /// Absent for a type this build cannot map.
+    pub shape: Option<KindShape>,
+}
+
+impl From<&Revision> for FieldRevision {
+    fn from(revision: &Revision) -> Self {
+        Self {
+            from: revision.from,
+            to: revision.to,
+            shape: revision.shape.map(KindShape::from),
+        }
+    }
+}
+
+/// The database read at the install's build, where it describes one.
+///
+/// A declared type is a revision, and a revision is keyed on a build. A name is the
+/// database's at every build.
+#[derive(Debug, Clone, Copy)]
+pub struct SchemaAt<'a> {
+    schema: &'a MetaSchema,
+    build: Option<GameBuild>,
+}
+
+impl<'a> SchemaAt<'a> {
+    /// The build a declared type is read at. `None` without an install, and for a
+    /// build past what the database reaches.
+    #[must_use]
+    pub const fn build(self) -> Option<GameBuild> {
+        self.build
+    }
+
+    /// What the game expects `field` of `class` to hold. See [`MetaSchema::expected`].
+    ///
+    /// `None` without a build.
+    #[must_use]
+    pub fn expected(self, class: BinHash, field: BinHash) -> Option<Expected<'a>> {
+        self.schema.expected(class, field, self.build?)
+    }
+
+    /// The field as the database names it, at any build.
+    #[must_use]
+    pub fn field_name(self, class: BinHash, field: BinHash) -> Option<&'a str> {
+        self.schema.field_name(class, field)
+    }
+}
+
 /// What one property is, at one build.
 ///
 /// Borrowed rather than cloned: a walk asks this of every property of every
@@ -241,12 +384,12 @@ impl MetaSchema {
                     .properties
                     .into_iter()
                     .filter_map(|(field, property)| {
-                        Some((parse_hash(&field)?, PropertySchema::from(property)))
+                        Some((parse_hash(&field)?, ParsedProperty::from(property)))
                     })
                     .collect();
                 Some((
                     hash,
-                    ClassSchema {
+                    ParsedClass {
                         name: class.name,
                         properties,
                     },
@@ -272,17 +415,73 @@ impl MetaSchema {
         field: BinHash,
         build: GameBuild,
     ) -> Option<Expected<'_>> {
-        let class_schema = self.classes.get(&class)?;
-        let property = class_schema.properties.get(&field)?;
-        let revision = property
-            .revisions
-            .iter()
-            .find(|revision| revision.covers(build.content()))?;
+        let parsed = self.classes.get(&class)?;
+        let property = parsed.properties.get(&field)?;
+        let revision = property.at(build.content())?;
 
         Some(Expected {
             shape: revision.shape,
-            class_name: class_schema.name.as_deref(),
+            class_name: parsed.name.as_deref(),
             field_name: property.name.as_deref(),
+        })
+    }
+
+    /// This database read at `build`, where it describes one.
+    #[must_use]
+    pub fn at(&self, build: Option<GameBuild>) -> SchemaAt<'_> {
+        SchemaAt {
+            schema: self,
+            build: build.filter(|build| self.describes(*build)),
+        }
+    }
+
+    /// The field as the database names it, at any build.
+    #[must_use]
+    pub fn field_name(&self, class: BinHash, field: BinHash) -> Option<&str> {
+        self.classes
+            .get(&class)?
+            .properties
+            .get(&field)?
+            .name
+            .as_deref()
+    }
+
+    /// One class as the class card draws it, or `None` for a class it does not describe.
+    ///
+    /// The fields are typed at `build` where the database describes it, and at the
+    /// newest build it names otherwise.
+    #[must_use]
+    pub fn class_schema(&self, class: BinHash, build: Option<GameBuild>) -> Option<ClassSchema> {
+        let parsed = self.classes.get(&class)?;
+        let build = build
+            .filter(|build| self.describes(*build))
+            .map_or(self.latest, |build| build.content());
+
+        let mut fields: Vec<FieldSchema> = parsed
+            .properties
+            .iter()
+            .map(|(hash, property)| FieldSchema {
+                hash: hex(*hash),
+                name: property.name.clone(),
+                declared: property
+                    .at(build)
+                    .and_then(|revision| revision.shape)
+                    .map(KindShape::from),
+                revisions: property.revisions.iter().map(FieldRevision::from).collect(),
+            })
+            .collect();
+        fields.sort_by_cached_key(|field| {
+            (
+                field.name.is_none(),
+                field.name.as_deref().map(str::to_lowercase),
+                field.hash.clone(),
+            )
+        });
+
+        Some(ClassSchema {
+            name: parsed.name.clone(),
+            build,
+            fields,
         })
     }
 
@@ -314,7 +513,7 @@ impl MetaSchema {
     }
 }
 
-impl From<PublishedProperty> for PropertySchema {
+impl From<PublishedProperty> for ParsedProperty {
     fn from(property: PublishedProperty) -> Self {
         Self {
             name: property.name,
@@ -393,8 +592,42 @@ pub fn name_of(kind: Kind) -> Option<&'static str> {
         .map(|&(name, _)| name)
 }
 
-/// The one database this process reads, and the build it was chosen for.
-static HELD: Mutex<Option<Held>> = Mutex::new(None);
+/// The one database this process reads.
+static HELD: Slot = Slot(Mutex::new(None));
+
+/// A place one database is kept open, keyed on the build it was chosen for.
+#[derive(Debug)]
+struct Slot(Mutex<Option<Held>>);
+
+impl Slot {
+    /// The schema for `build`, opened here when what is open is for another.
+    fn schema(&self, build: Option<GameBuild>) -> Arc<MetaSchema> {
+        let mut held = self.0.lock();
+        if let Some(open) = held.as_ref()
+            && open.build == build
+        {
+            return Arc::clone(&open.schema);
+        }
+
+        let schema = Arc::new(match cache::MetaSchemaCache::discover() {
+            Ok(cache) => cache.load(build),
+            Err(e) => {
+                tracing::debug!("No meta schema cache, reading the shipped database: {e}");
+                MetaSchema::shipped()
+            }
+        });
+        *held = Some(Held {
+            build,
+            schema: Arc::clone(&schema),
+        });
+        schema
+    }
+
+    /// Drop what is open, so the next ask reads what a sync installed.
+    fn clear(&self) {
+        *self.0.lock() = None;
+    }
+}
 
 /// The open database, beside the install it was opened against.
 ///
@@ -412,30 +645,12 @@ struct Held {
 /// asks the same questions of it for every mod.
 #[must_use]
 pub fn shared(build: Option<GameBuild>) -> Arc<MetaSchema> {
-    let mut held = HELD.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(open) = held.as_ref()
-        && open.build == build
-    {
-        return Arc::clone(&open.schema);
-    }
-
-    let schema = Arc::new(match cache::MetaSchemaCache::discover() {
-        Ok(cache) => cache.load(build),
-        Err(e) => {
-            tracing::debug!("No meta schema cache, reading the shipped database: {e}");
-            MetaSchema::shipped()
-        }
-    });
-    *held = Some(Held {
-        build,
-        schema: Arc::clone(&schema),
-    });
-    schema
+    HELD.schema(build)
 }
 
 /// Drop the open database, so the next check reads what a sync just installed.
 pub fn invalidate() {
-    *HELD.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    HELD.clear();
 }
 
 /// The cached copy of the published database, and the sync that fills it.

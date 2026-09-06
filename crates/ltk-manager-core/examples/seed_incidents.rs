@@ -19,6 +19,7 @@ use std::io::Cursor;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Duration, Utc};
+use fs_err as fs;
 use ltk_manager_core::diagnostics::game_log::GameLogFacts;
 use ltk_manager_core::diagnostics::incident::{
     ClassifyContext, Ending, EvidenceSource, GameRecord, LaunchKind, ModFootprint, OverlayDetail,
@@ -136,7 +137,7 @@ fn clear_seeds(store: &IncidentStore) -> usize {
     };
     let mut removed = 0;
     for incident in incidents.iter().filter(|i| i.id.starts_with(PREFIX)) {
-        if std::fs::remove_file(store.dir().join(format!("{}.json", incident.id))).is_ok() {
+        if fs::remove_file(store.dir().join(format!("{}.json", incident.id))).is_ok() {
             removed += 1;
         }
     }

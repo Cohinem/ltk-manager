@@ -23,8 +23,8 @@ use crate::mods::index::{
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::{BulkInstallError, BulkInstallResult, InstalledMod, ROOT_FOLDER_ID};
 use chrono::{DateTime, Utc};
+use fs_err as fs;
 use ltk_wad::PathResolver;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;

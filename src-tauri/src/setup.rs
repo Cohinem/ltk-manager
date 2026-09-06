@@ -31,7 +31,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     initialize_first_run(&app_handle, &settings_state);
 
-    let settings = settings_state.0.lock().unwrap().clone();
+    let settings = settings_state.0.lock().clone();
 
     // The library owns these stores; `manage` below registers the same `Arc`s so
     // commands can reach them. Constructing them here (rather than having the
@@ -106,6 +106,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_core::game_wads::WadCache::default());
     app.manage(crate::commands::ObjectIndexState::default());
     app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
+    app.manage(ltk_manager_core::object_index::ObjectFindGeneration::default());
+    app.manage(ltk_manager_core::object_index::ObjectReferenceGeneration::default());
     app.manage(ltk_manager_core::problems::ProblemsState::default());
     app.manage(ltk_manager_core::bin_document::BinDocuments::default());
     app.manage(ltk_manager_core::hashtables::BinHashTablesState::default());
@@ -134,7 +136,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     {
         let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
-        let settings = settings_state.0.lock().unwrap();
+        let settings = settings_state.0.lock();
         if settings.watcher_enabled {
             crate::mods::watcher::start_library_watcher(&app_handle);
         }
@@ -177,13 +179,7 @@ pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
 /// - If league_path is not set, attempt auto-detection
 /// - If auto-detection succeeds, save the path
 fn initialize_first_run(app_handle: &tauri::AppHandle, settings_state: &SettingsState) {
-    let mut settings = match settings_state.0.lock() {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::error!("Failed to lock settings: {}", e);
-            return;
-        }
-    };
+    let mut settings = settings_state.0.lock();
 
     if settings.config.league_path.is_some() {
         tracing::info!("League path already configured, skipping auto-detection");

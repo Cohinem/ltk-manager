@@ -11,8 +11,8 @@ import {
 
 describe("describeError", () => {
   it("titles a code that carries nothing", () => {
-    expect(describeError({ code: "MUTEX_LOCK_FAILED" })).toEqual({
-      title: m["error.MUTEX_LOCK_FAILED.title"](),
+    expect(describeError({ code: "WORKSHOP_NOT_CONFIGURED" })).toEqual({
+      title: m["error.WORKSHOP_NOT_CONFIGURED.title"](),
     });
   });
 
@@ -168,6 +168,8 @@ describe("errorSummary", () => {
   it("falls back to the description, then the title", () => {
     const tooNew: AppError = { code: "SCHEMA_VERSION_TOO_NEW", fileVersion: 4, maxSupported: 3 };
     expect(errorSummary(tooNew)).toBe(describeError(tooNew).description);
-    expect(errorSummary({ code: "MUTEX_LOCK_FAILED" })).toBe(m["error.MUTEX_LOCK_FAILED.title"]());
+    expect(errorSummary({ code: "WORKSHOP_NOT_CONFIGURED" })).toBe(
+      m["error.WORKSHOP_NOT_CONFIGURED.title"](),
+    );
   });
 });

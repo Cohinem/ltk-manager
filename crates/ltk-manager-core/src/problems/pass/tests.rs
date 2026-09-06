@@ -5,13 +5,15 @@
 //! Every test drives `subscribe` through a real pass over a fixture project
 //! and reads the report, never the plan.
 
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
+use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, NoMeta, values};
 use ltk_meta::walk::{Node, TreeValue, Visit, Visitor};
 use ltk_meta::{Bin, BinObject, BinOverride};
+use parking_lot::Mutex;
 
 use super::*;
 use crate::config::Config;
@@ -85,8 +87,8 @@ fn project_under(files: &[(&str, &[u8])], budget: Budget) -> (tempfile::TempDir,
             .join("base")
             .join(WAD)
             .join(path.replace('/', std::path::MAIN_SEPARATOR_STR));
-        std::fs::create_dir_all(at.parent().unwrap()).unwrap();
-        std::fs::write(&at, bytes).unwrap();
+        fs::create_dir_all(at.parent().unwrap()).unwrap();
+        fs::write(&at, bytes).unwrap();
     }
     let files = ProjectFiles::within(tmp.path(), &Config::default(), budget, None).unwrap();
     (tmp, files)
@@ -177,10 +179,7 @@ struct Entering {
 
 impl Entering {
     fn seen(&self) -> Vec<BinHash> {
-        self.seen
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+        self.seen.lock().clone()
     }
 }
 
@@ -229,10 +228,7 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for EnteringWalk<'_, '_> {
 impl<'f> Walk<'f> for EnteringWalk<'_, 'f> {
     fn end(self: Box<Self>) -> Sink<'f> {
         let Self { of, seen, sink } = *self;
-        of.seen
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .extend(seen);
+        of.seen.lock().extend(seen);
         sink
     }
 }

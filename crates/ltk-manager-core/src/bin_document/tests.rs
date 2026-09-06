@@ -2,7 +2,8 @@
 //! toolkit's writer, the address in both forms, and the store the app keeps documents in.
 
 use super::*;
-use ltk_hash::Hash as _;
+use crate::meta_schema::MetaSchema;
+use crate::problems::GameBuild;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::NoMeta;
 use ltk_meta::{Bin, BinOverride, PropertyPatch};
@@ -218,7 +219,7 @@ impl RowNames for Tables {
     }
 }
 
-/// The rows under `path` of the skin object, all of them, named.
+/// The rows under `path` of the skin object, all of them, named, with no schema.
 fn under(path: &str) -> Vec<BinRow> {
     document()
         .children(
@@ -227,6 +228,7 @@ fn under(path: &str) -> Vec<BinRow> {
             0,
             usize::MAX,
             &named(),
+            None,
         )
         .unwrap()
         .rows
@@ -327,6 +329,7 @@ fn nothing_named_draws_every_hash_as_hex() {
             0,
             usize::MAX,
             &(),
+            None,
         )
         .unwrap()
         .rows;
@@ -386,7 +389,13 @@ fn an_embedded_expands_through_its_class_and_names_what_its_leaves_point_at() {
 fn a_container_indexes_its_elements() {
     let rows = under("");
     let list = row(&rows, "armorMaterial");
-    assert_eq!(list.value, BinValue::Container { len: 3 });
+    assert_eq!(
+        list.value,
+        BinValue::Container {
+            len: 3,
+            item_kind: PropertyKind::I32,
+        }
+    );
 
     let items = under(&list.path);
     let names: Vec<_> = items.iter().map(|row| row.name.as_str()).collect();
@@ -407,7 +416,13 @@ fn an_unordered_container_indexes_its_elements_like_an_ordered_one() {
     let rows = under("");
     let list = row(&rows, "unordered");
     assert_eq!(list.kind, Some(PropertyKind::UnorderedContainer));
-    assert_eq!(list.value, BinValue::Container { len: 1 });
+    assert_eq!(
+        list.value,
+        BinValue::Container {
+            len: 1,
+            item_kind: PropertyKind::U8,
+        }
+    );
 
     let items = under(&list.path);
     assert_eq!(items.len(), 1);
@@ -457,6 +472,7 @@ fn a_range_answers_a_window_and_the_total() {
             1,
             1,
             &named(),
+            None,
         )
         .unwrap();
 
@@ -471,6 +487,7 @@ fn a_range_answers_a_window_and_the_total() {
             5,
             1,
             &named(),
+            None,
         )
         .unwrap();
     assert_eq!(past_the_end.total, 3);
@@ -519,7 +536,13 @@ fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
     let rows = under("");
 
     let maybe = row(&rows, "maybe");
-    assert_eq!(maybe.value, BinValue::Optional { present: true });
+    assert_eq!(
+        maybe.value,
+        BinValue::Optional {
+            present: true,
+            item_kind: PropertyKind::F32,
+        }
+    );
     let inside = under(&maybe.path);
     assert_eq!(inside.len(), 1);
     assert_eq!(inside[0].name, "[0]");
@@ -527,7 +550,13 @@ fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
     assert_eq!(inside[0].value, BinValue::Float { value: 1.5 });
 
     let never = row(&rows, "never");
-    assert_eq!(never.value, BinValue::Optional { present: false });
+    assert_eq!(
+        never.value,
+        BinValue::Optional {
+            present: false,
+            item_kind: PropertyKind::I32,
+        }
+    );
     assert!(under(&never.path).is_empty());
 }
 
@@ -601,7 +630,7 @@ fn an_address_the_document_does_not_hold_is_an_error() {
     let entry = h("Characters/Aatrox/Skins/Skin0/Resources");
     let not_found = |entry: BinHash, path: &str| {
         let error = document
-            .children(entry, path, 0, usize::MAX, &())
+            .children(entry, path, 0, usize::MAX, &(), None)
             .unwrap_err();
         assert!(
             matches!(error, BinDocumentError::NodeNotFound { .. }),
@@ -689,40 +718,428 @@ fn a_prop_header_carries_its_version_and_dependencies() {
     );
 }
 
+/// A loose file, which is the asset a test names.
+fn asset(path: &str) -> AssetRef {
+    AssetRef::File {
+        path: path.to_owned(),
+    }
+}
+
 #[test]
 fn bytes_that_are_not_a_bin_do_not_open() {
-    let error = BinDocument::parse(b"DDS \0\0\0\0").unwrap_err();
+    let error = BinDocument::parse(b"DDS     ").unwrap_err();
     assert!(matches!(error, BinDocumentError::Unreadable(_)));
 
-    let error = BinDocuments::default().open(b"PROP").unwrap_err();
+    let error = BinDocuments::default()
+        .open(asset("a.bin"), || Ok(b"PROP".to_vec()))
+        .unwrap_err();
     assert!(error.to_string().contains("not a readable bin"), "{error}");
 }
 
 #[test]
-fn the_store_evicts_the_least_recently_used_past_its_capacity() {
+fn the_store_evicts_the_least_recently_used_asset_past_its_capacity() {
     let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
     let bytes = prop_bytes();
 
-    let first = store.open(&bytes).unwrap();
-    let second = store.open(&bytes).unwrap();
+    let first = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
+    let second = store.open(asset("b.bin"), || Ok(bytes.clone())).unwrap();
     store.read(first, |_| Ok(())).unwrap();
-    let third = store.open(&bytes).unwrap();
+    let third = store.open(asset("c.bin"), || Ok(bytes.clone())).unwrap();
 
-    assert!(store.is_open(first).unwrap());
-    assert!(!store.is_open(second).unwrap());
-    assert!(store.is_open(third).unwrap());
+    assert!(store.is_open(first));
+    assert!(!store.is_open(second));
+    assert!(store.is_open(third));
     assert_ne!(first, second);
+    assert_eq!(store.asset_of(second), None);
+    assert_eq!(store.asset_of(third), Some(asset("c.bin")));
+}
+
+#[test]
+fn two_opens_of_one_asset_share_one_parse_and_close_apart() {
+    let store = BinDocuments::default();
+    let bytes = prop_bytes();
+    let parses = std::cell::Cell::new(0);
+    let read = || {
+        parses.set(parses.get() + 1);
+        Ok(bytes.clone())
+    };
+
+    let file_tab = store.open(asset("a.bin"), read).unwrap();
+    let object_tab = store.open(asset("a.bin"), read).unwrap();
+    assert_ne!(file_tab, object_tab);
+    assert_eq!(parses.get(), 1);
+
+    store.close(file_tab);
+    assert!(!store.is_open(file_tab));
+    assert!(store.is_open(object_tab));
+    store.read(object_tab, |_| Ok(())).unwrap();
+
+    store.close(object_tab);
+    assert!(!store.is_open(object_tab));
+    store.open(asset("a.bin"), read).unwrap();
+    assert_eq!(parses.get(), 2, "the last close dropped the tree");
+}
+
+#[test]
+fn the_bound_counts_assets_and_not_ids() {
+    let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
+    let bytes = prop_bytes();
+
+    let first = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
+    let second = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
+    let third = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
+    let other = store.open(asset("b.bin"), || Ok(bytes.clone())).unwrap();
+
+    for id in [first, second, third, other] {
+        assert!(store.is_open(id), "{id}");
+    }
+
+    let more = store.open(asset("c.bin"), || Ok(bytes.clone())).unwrap();
+    assert!(store.is_open(more));
+    assert!(store.is_open(other));
+    for id in [first, second, third] {
+        assert!(!store.is_open(id), "{id} outlived its asset");
+    }
 }
 
 #[test]
 fn a_closed_document_is_not_open_and_closing_it_again_is_nothing() {
     let store = BinDocuments::default();
-    let id = store.open(&prop_bytes()).unwrap();
+    let id = store.open(asset("a.bin"), || Ok(prop_bytes())).unwrap();
 
-    store.close(id).unwrap();
-    store.close(id).unwrap();
+    store.close(id);
+    store.close(id);
 
-    assert!(!store.is_open(id).unwrap());
+    assert!(!store.is_open(id));
     let error = store.read(id, |_| Ok(())).unwrap_err();
     assert!(error.to_string().contains("is not open"), "{error}");
+}
+
+#[test]
+fn a_container_and_an_optional_carry_the_kind_of_what_they_hold() {
+    let rows = under("");
+
+    assert_eq!(
+        row(&rows, "armorMaterial").value,
+        BinValue::Container {
+            len: 3,
+            item_kind: PropertyKind::I32,
+        }
+    );
+    assert_eq!(
+        row(&rows, "parts").value,
+        BinValue::Container {
+            len: 1,
+            item_kind: PropertyKind::Embedded,
+        }
+    );
+    assert_eq!(
+        row(&rows, "unordered").value,
+        BinValue::Container {
+            len: 1,
+            item_kind: PropertyKind::U8,
+        }
+    );
+    assert_eq!(
+        row(&rows, "maybe").value,
+        BinValue::Optional {
+            present: true,
+            item_kind: PropertyKind::F32,
+        }
+    );
+    assert_eq!(
+        row(&rows, "never").value,
+        BinValue::Optional {
+            present: false,
+            item_kind: PropertyKind::I32,
+        }
+    );
+}
+
+/// The wire spelling of a kind is the tag a row draws and the word a Problems finding
+/// writes. The three are one vocabulary.
+#[test]
+fn every_kind_crosses_as_the_tag_a_row_draws() {
+    /* The format numbers the nineteen primitive kinds from 0 and the eight complex
+    kinds from 128. */
+    let kinds: Vec<Kind> = (0..=18u8)
+        .chain(128..=135)
+        .map(|byte| Kind::try_from(byte).expect("a kind the reader holds"))
+        .collect();
+    assert_eq!(kinds.len(), 27);
+
+    for kind in kinds {
+        let property = PropertyKind::from(kind);
+        let json = serde_json::to_value(property).unwrap();
+        assert_eq!(json.as_str(), Some(property.tag()), "{kind:?}");
+    }
+
+    assert_eq!(PropertyKind::BitBool.tag(), "flag");
+    assert_eq!(PropertyKind::Vector3.tag(), "vec3");
+    assert_eq!(PropertyKind::Matrix44.tag(), "mtx44");
+    assert_eq!(PropertyKind::Color.tag(), "rgba");
+    assert_eq!(PropertyKind::WadChunkLink.tag(), "file");
+    assert_eq!(PropertyKind::ObjectLink.tag(), "link");
+    assert_eq!(PropertyKind::Container.tag(), "list");
+    assert_eq!(PropertyKind::UnorderedContainer.tag(), "list2");
+    assert_eq!(PropertyKind::Struct.tag(), "pointer");
+    assert_eq!(PropertyKind::Embedded.tag(), "embed");
+    assert_eq!(PropertyKind::Optional.tag(), "option");
+}
+
+/// The build the fixture's rows are judged at. Every revision of [`schema`] opens at 1.
+const JUDGED_AT: GameBuild = GameBuild::new(16, 17, 100);
+
+/// A database naming the fixture's two classes, with one line per field a case turns on.
+fn schema() -> MetaSchema {
+    let key = |name: &str| format!("0x{:08x}", h(name).0);
+    let line = |name: &str, r#type: &str| {
+        format!(
+            r#""{}": {{ "name": "{name}", "revisions": [{{ "from": 1, "type": [{type}] }}] }}"#,
+            key(name)
+        )
+    };
+    let json = format!(
+        r#"{{
+          "formatVersion": 1,
+          "hashSource": {{ "fetchedAt": "2026-09-05T00:00:00Z" }},
+          "latest": 9000000,
+          "classes": {{
+            "{skin}": {{
+              "name": "SkinCharacterDataProperties",
+              "properties": {{
+                {champion_skin_name},
+                {skin_classification},
+                {armor_material},
+                {lookup},
+                {skin_mesh_properties},
+                "0x{UNNAMED_FIELD:08x}": {{ "name": "schemaNamed", "revisions": [{{ "from": 1, "type": ["Bool", "0x0", "0x0", "0x0"] }}] }}
+              }}
+            }},
+            "{mesh}": {{
+              "name": "SkinMeshDataProperties",
+              "properties": {{ {material} }}
+            }}
+          }}
+        }}"#,
+        skin = key("SkinCharacterDataProperties"),
+        mesh = key("SkinMeshDataProperties"),
+        champion_skin_name = line("championSkinName", r#""String", "0x0", "0x0", "0x0""#),
+        skin_classification = line("skinClassification", r#""File", "0x0", "0x0", "0x0""#),
+        armor_material = line("armorMaterial", r#""List", "0x0", "I32", "0x0""#),
+        lookup = line("lookup", r#""Map", "File", "String", "0x0""#),
+        skin_mesh_properties = line("skinMeshProperties", r#""Embed", "0x0", "0x0", "0x0""#),
+        material = line("material", r#""Hash", "0x0", "0x0", "0x0""#),
+    );
+    MetaSchema::parse(json.as_bytes()).expect("the fixture is the published shape")
+}
+
+fn at(schema: &MetaSchema) -> SchemaAt<'_> {
+    schema.at(Some(JUDGED_AT))
+}
+
+/// The rows under `path` of the skin object, named by `tables`, judged by `schema`.
+fn judged_under(schema: &MetaSchema, tables: &Tables, path: &str) -> Vec<BinRow> {
+    document()
+        .children(
+            h("Characters/Aatrox/Skins/Skin0/Resources"),
+            path,
+            0,
+            usize::MAX,
+            tables,
+            Some(at(schema)),
+        )
+        .unwrap()
+        .rows
+}
+
+fn declared(kind: PropertyKind, mismatch: bool) -> Option<DeclaredKind> {
+    Some(DeclaredKind {
+        shape: KindShape::bare(kind),
+        mismatch,
+    })
+}
+
+#[test]
+fn a_property_row_carries_what_the_schema_declares_and_marks_a_mismatch() {
+    let schema = schema();
+    let rows = judged_under(&schema, &named(), "");
+
+    assert_eq!(
+        row(&rows, "championSkinName").declared,
+        declared(PropertyKind::String, false)
+    );
+
+    let retyped = row(&rows, "skinClassification");
+    assert_eq!(retyped.kind, Some(PropertyKind::I32));
+    assert_eq!(retyped.declared, declared(PropertyKind::WadChunkLink, true));
+
+    assert_eq!(
+        row(&rows, "armorMaterial").declared,
+        Some(DeclaredKind {
+            shape: KindShape {
+                kind: PropertyKind::Container,
+                key: None,
+                value: Some(PropertyKind::I32),
+            },
+            mismatch: false,
+        })
+    );
+    assert_eq!(
+        row(&rows, "lookup").declared,
+        Some(DeclaredKind {
+            shape: KindShape {
+                kind: PropertyKind::Map,
+                key: Some(PropertyKind::WadChunkLink),
+                value: Some(PropertyKind::String),
+            },
+            mismatch: true,
+        })
+    );
+
+    assert_eq!(row(&rows, "link").declared, None);
+}
+
+#[test]
+fn without_a_schema_no_row_carries_a_declared_kind() {
+    assert!(under("").iter().all(|row| row.declared.is_none()));
+}
+
+#[test]
+fn a_field_no_table_names_takes_the_schemas_name() {
+    let schema = schema();
+    let rows = judged_under(&schema, &named(), "");
+    let named_by_schema = row(&rows, "schemaNamed");
+
+    assert!(!named_by_schema.unnamed);
+    assert_eq!(named_by_schema.label, "schemaNamed");
+    assert_eq!(named_by_schema.path, format!("{UNNAMED_FIELD:08x}"));
+    assert_eq!(
+        named_by_schema.declared,
+        declared(PropertyKind::Bool, false)
+    );
+}
+
+/// A name is the database's at every build. A declared kind is a revision's.
+#[test]
+fn without_a_build_the_schema_names_a_field_and_declares_nothing() {
+    let schema = schema();
+    let rows = document()
+        .children(
+            h("Characters/Aatrox/Skins/Skin0/Resources"),
+            "",
+            0,
+            usize::MAX,
+            &named(),
+            Some(schema.at(None)),
+        )
+        .unwrap()
+        .rows;
+
+    let named_by_schema = row(&rows, "schemaNamed");
+    assert!(!named_by_schema.unnamed);
+    assert!(rows.iter().all(|row| row.declared.is_none()));
+}
+
+#[test]
+fn a_nested_field_is_declared_on_the_class_of_its_embedded() {
+    let schema = schema();
+    let rows = judged_under(&schema, &named(), &wire("skinMeshProperties"));
+
+    assert_eq!(
+        row(&rows, "material").declared,
+        declared(PropertyKind::Hash, false)
+    );
+    assert_eq!(row(&rows, "texture").declared, None);
+}
+
+#[test]
+fn an_element_and_an_entry_carry_no_declared_kind() {
+    let schema = schema();
+
+    let items = judged_under(&schema, &named(), &wire("armorMaterial"));
+    assert_eq!(items.len(), 3);
+    assert!(items.iter().all(|row| row.declared.is_none()));
+
+    let entries = judged_under(&schema, &named(), &wire("lookup"));
+    assert_eq!(entries.len(), 2);
+    assert!(entries.iter().all(|row| row.declared.is_none()));
+}
+
+#[test]
+fn a_parent_label_reads_a_schema_name_where_the_tables_have_none() {
+    let schema = schema();
+    let mut tables = named();
+    tables.fields.remove(&h("skinMeshProperties"));
+
+    let rows = judged_under(&schema, &tables, &wire("skinMeshProperties"));
+
+    assert_eq!(rows[0].label, "skinMeshProperties.material");
+}
+
+#[test]
+fn an_entry_open_answers_the_objects_header_facts() {
+    let document = document();
+    let entry = h("Characters/Aatrox/Skins/Skin0/Resources");
+
+    let header = document.object(entry, &named()).unwrap();
+    assert_eq!(header.entry, hex(entry));
+    assert_eq!(header.name, "Characters/Aatrox/Skins/Skin0/Resources");
+    assert!(!header.unnamed);
+    assert_eq!(header.class.as_deref(), Some("SkinCharacterDataProperties"));
+    assert_eq!(header.class_hash, hex(h("SkinCharacterDataProperties")));
+    assert_eq!(header.properties, under("").len());
+
+    let unnamed = document
+        .object(BinHash::from(UNNAMED_OBJECT), &named())
+        .unwrap();
+    assert_eq!(unnamed.name, "0x12345678");
+    assert!(unnamed.unnamed);
+    assert_eq!(unnamed.class, None);
+    assert_eq!(unnamed.class_hash, "0xabcdef01");
+    assert_eq!(unnamed.properties, 0);
+
+    let error = document.object(h("Characters/Ahri"), &named()).unwrap_err();
+    assert!(matches!(error, BinDocumentError::NodeNotFound { .. }));
+}
+
+#[test]
+fn an_objects_own_declaration_names_its_asset_and_file() {
+    let document = document();
+    let asset = asset("skin0.bin");
+    let tables = named();
+
+    let declaration = document
+        .object(h("Characters/Aatrox"), &tables)
+        .unwrap()
+        .declared_in(&asset, "data/skin0.bin");
+    assert_eq!(declaration.asset, asset);
+    assert_eq!(declaration.file, "data/skin0.bin");
+    assert_eq!(declaration.class, "CharacterRecord");
+    assert_eq!(declaration.class_hash, hex(h("CharacterRecord")));
+
+    let unnamed = document
+        .object(BinHash::from(UNNAMED_OBJECT), &tables)
+        .unwrap()
+        .declared_in(&asset, "data/skin0.bin");
+    assert_eq!(
+        unnamed.class, "0xabcdef01",
+        "a class no table names is its hex"
+    );
+}
+
+#[test]
+fn the_headers_dependencies_hash_as_wad_paths() {
+    assert_eq!(
+        document().dependency_hashes(),
+        [WadHash::hash_str("common.bin")]
+    );
+
+    let mut patch = BinOverride::<NoMeta>::new();
+    let added = BinObject::new(h("Characters/Aatrox"), h("CharacterRecord"));
+    patch.objects.insert(added.path_hash, added);
+    let mut out = Cursor::new(Vec::new());
+    patch.to_writer(&mut out).unwrap();
+    let patch = BinDocument::parse(&out.into_inner()).unwrap();
+    assert!(patch.dependency_hashes().is_empty());
 }

@@ -1,13 +1,16 @@
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { api, type AppError } from "@/lib/tauri";
+import { api, type AppError, type DeclaredObjects } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
 import { mutationFn, queryFnWithArgs } from "@/utils/query";
 
 import { gameKeys } from "./useGameWads";
 
 const NO_OBJECTS = new Set<string>();
+
+/** How often an answer the build has not given asks again. */
+export const BUILDING_POLL_MS = 1000;
 
 /**
  * One step of the index's lifecycle, after which every held object search is
@@ -34,24 +37,66 @@ export function useDropObjectIndex() {
   return useObjectIndexStep(api.dropObjectIndex);
 }
 
+/** The slot an answer of the object index reports it in. */
+export type ObjectIndexSlot = "absent" | "building" | "failed" | "ready";
+
+/**
+ * Warm the index for a view whose answer reports it absent, and the retry that asks again.
+ *
+ * Once per absence: the poll behind the answer asks again until the build lands, and a
+ * build the state is already running is asked for no second time.
+ */
+export function useWarmOnAbsent(slot: ObjectIndexSlot | undefined): () => void {
+  const warm = useWarmObjectIndex();
+  const warmMutate = warm.mutate;
+
+  const asked = useRef(false);
+  useEffect(() => {
+    if (slot !== "absent") {
+      asked.current = false;
+      return;
+    }
+    if (asked.current) return;
+    asked.current = true;
+    warmMutate();
+  }, [slot, warmMutate]);
+
+  return useCallback(() => warmMutate(), [warmMutate]);
+}
+
+/**
+ * Every declaration the install holds for each of `objectHashes`, in the slot the
+ * index is in.
+ *
+ * Asked whatever the Objects switch says, and asked again each second while a build
+ * runs. The answer is the install's for the session. A ready one never refetches on
+ * its own, and a warm or a drop settling asks again.
+ */
+export function useObjectDeclarations(objectHashes: readonly string[]) {
+  return useQuery<DeclaredObjects, AppError>({
+    queryKey: gameKeys.declaredObjects(objectHashes),
+    queryFn:
+      objectHashes.length > 0 ? queryFnWithArgs(api.declaredObjects, [...objectHashes]) : skipToken,
+    staleTime: Infinity,
+    refetchInterval: (query) =>
+      query.state.data?.index.status === "building" ? BUILDING_POLL_MS : false,
+  });
+}
+
 /**
  * Which of `objectHashes` the install's index declares, as a set.
  *
  * Empty while the switch is off or the index has not landed, and asked again
- * once a warm or a drop settles. The answer is the install's for the session,
- * so nothing refetches it on its own.
+ * once a warm or a drop settles.
  */
 export function useDeclaredObjects(objectHashes: readonly string[]): ReadonlySet<string> {
   const setting = useSearchObjects();
-  const active = setting && objectHashes.length > 0;
+  const { data } = useObjectDeclarations(setting ? objectHashes : []);
 
-  const { data } = useQuery<string[], AppError>({
-    queryKey: gameKeys.declaredObjects(objectHashes),
-    queryFn: active ? queryFnWithArgs(api.declaredObjects, [...objectHashes]) : skipToken,
-    staleTime: Infinity,
-  });
-
-  return useMemo(() => (data ? new Set(data) : NO_OBJECTS), [data]);
+  return useMemo(
+    () => (data?.index.status === "ready" ? new Set(Object.keys(data.objects)) : NO_OBJECTS),
+    [data],
+  );
 }
 
 /**

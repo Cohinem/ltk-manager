@@ -9,6 +9,7 @@ mod error;
 mod events;
 mod github;
 mod hotkeys;
+mod ipc;
 #[cfg(debug_assertions)]
 mod log_layer;
 mod logging;
@@ -65,7 +66,7 @@ fn main() {
         })
         .manage(logging_guards)
         .setup(setup::run)
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler(ipc::invoke_handler(tauri::generate_handler![
             // App
             commands::get_app_info,
             commands::get_platform_support,
@@ -209,14 +210,14 @@ fn main() {
             commands::refresh_game_index,
             commands::search_game_index,
             commands::find_in_game_index,
+            commands::locate_game_files,
             commands::warm_object_index,
             commands::drop_object_index,
             commands::search_object_index,
             commands::declared_objects,
-            // Bin viewer
-            commands::bin_open,
-            commands::bin_children,
-            commands::bin_close,
+            commands::object_dir,
+            commands::find_objects,
+            commands::find_references,
             // Extract to disk
             commands::plan_game_extract,
             commands::extract_game_files,
@@ -237,7 +238,7 @@ fn main() {
             commands::list_notices,
             // for dynamic icons
             tray::set_tray_state,
-        ])
+        ]))
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(setup::handle_run_event);

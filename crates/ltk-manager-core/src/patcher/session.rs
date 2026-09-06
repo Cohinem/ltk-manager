@@ -7,11 +7,12 @@
 //! reported through [`PatcherEvents`], keeping this module frontend-agnostic.
 
 use std::path::Path;
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, Mutex};
 
 use chrono::Utc;
+use parking_lot::Mutex;
 
 use crate::diagnostics::incident::SessionFailure;
 
@@ -68,35 +69,24 @@ impl SessionObserver {
             InjectorEvent::GameExited => self.events.game_exited(),
             _ => {}
         }
-        let closed = self
-            .recorder
-            .lock()
-            .map(|mut recorder| recorder.observe(&event, Utc::now()));
-        match closed {
-            Ok(Some(record)) => self.pipeline.spawn(record),
-            Ok(None) => {}
-            Err(_) => tracing::warn!("Game recorder lock poisoned, event dropped"),
+        let closed = self.recorder.lock().observe(&event, Utc::now());
+        if let Some(record) = closed {
+            self.pipeline.spawn(record);
         }
     }
 
     /// The session failed, in the build or at the host. The record, with any
     /// open game folded in, goes to the pipeline.
     pub fn session_failed(&self, failure: SessionFailure) {
-        let Ok(mut recorder) = self.recorder.lock() else {
-            tracing::warn!("Game recorder lock poisoned, failure not recorded");
-            return;
-        };
-        let record = recorder.session_failed(failure, Utc::now());
+        let record = self.recorder.lock().session_failed(failure, Utc::now());
         self.pipeline.spawn(record);
     }
 
     /// The session ended by request. A game still running is dropped unless
     /// the scan rejected an archive, which is recorded.
     pub fn session_stopped(&self) {
-        let Ok(mut recorder) = self.recorder.lock() else {
-            return;
-        };
-        if let Some(record) = recorder.session_stopped(Utc::now()) {
+        let closed = self.recorder.lock().session_stopped(Utc::now());
+        if let Some(record) = closed {
             self.pipeline.spawn(record);
         }
     }
@@ -137,7 +127,8 @@ pub fn run_injection_session(
 
     // Hand the event stream back to the host so the next session reuses it -
     // unless the host died, in which case clear it so the next start respawns.
-    if let Ok(mut guard) = host.lock() {
+    {
+        let mut guard = host.lock();
         let alive = guard.as_mut().map(|h| h.is_alive()).unwrap_or(false);
         if alive {
             guard
@@ -162,9 +153,7 @@ fn ensure_host_started(
     elevate: bool,
     config: &HostConfig,
 ) -> Result<Receiver<HostLine>, HostError> {
-    let mut guard = host_arc
-        .lock()
-        .map_err(|_| HostError::Protocol("patcher host lock poisoned".to_string()))?;
+    let mut guard = host_arc.lock();
 
     ensure_started(
         &mut guard,

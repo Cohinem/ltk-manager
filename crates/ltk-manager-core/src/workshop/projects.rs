@@ -11,6 +11,7 @@ use crate::events::{
 use crate::hashtables::WadPathResolver;
 use crate::mods::long_paths::{self, ImportRoot};
 use crate::utils::natural_order::compare_names;
+use fs_err as fs;
 use ltk_fantome::FantomeReader;
 use ltk_mod_project::fantome::FantomeImporter;
 use ltk_mod_project::modpkg::{ModpkgImportError, ModpkgImporter, read_project};
@@ -18,7 +19,6 @@ use ltk_mod_project::{
     ImportError, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, ProjectImporter,
 };
 use ltk_modpkg::Modpkg;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 impl Workshop {

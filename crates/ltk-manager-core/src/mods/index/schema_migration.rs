@@ -1,6 +1,6 @@
 use crate::error::{AppError, AppResult};
+use fs_err as fs;
 use serde_json::Value;
-use std::fs;
 use std::path::Path;
 
 use super::{LibraryIndex, library_index_path};

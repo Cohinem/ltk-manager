@@ -15,7 +15,7 @@
 //! the entries still without a slug.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, LayoutMigrationProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
@@ -25,8 +25,8 @@ use crate::mods::index::document::{archive_path, load_library_index, save_librar
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::slug::{ModSlug, TakenSlugs};
 
+use fs_err as fs;
 use serde::Serialize;
-use std::fs;
 use std::path::Path;
 
 /// One mod the migration could not convert.
@@ -93,7 +93,7 @@ impl ModLibrary {
         &self,
         config: &Config,
     ) -> AppResult<LayoutMigrationReport> {
-        let _lock = self.index_lock.lock().mutex_err()?;
+        let _lock = self.index_lock.lock();
         let storage_dir = self.storage_dir(config)?;
         let mut index = load_library_index(&storage_dir)?;
 
@@ -228,7 +228,7 @@ fn convert_entry(
     fs::rename(&old_dir, &new_dir).map_err(|e| {
         AppError::Io(std::io::Error::new(
             e.kind(),
-            format!("Failed to move mod into {}: {e}", new_dir.display()),
+            format!("Failed to move the mod into the new layout: {e}"),
         ))
     })?;
 
@@ -238,7 +238,7 @@ fn convert_entry(
         let _ = fs::rename(&new_dir, &old_dir);
         return Err(AppError::Io(std::io::Error::new(
             e.kind(),
-            format!("Failed to move archive into {}: {e}", new_archive.display()),
+            format!("Failed to move the archive into the new layout: {e}"),
         )));
     }
 

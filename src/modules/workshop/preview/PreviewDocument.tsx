@@ -37,6 +37,7 @@ export function PreviewDocument({
         documentId={document.id}
         asset={document.asset}
         name={document.title}
+        file={declaringFile(document)}
         active={active}
         actions={<PreviewActions document={document} />}
       />
@@ -51,6 +52,18 @@ export function PreviewDocument({
       <ImagePreview asset={document.asset} name={document.title} />
     </>
   );
+}
+
+/**
+ * The file's path as an object tab names its declaring file: a chunk's path inside its
+ * archive, a layer file's path inside its layer. A chunk no table names is its hash.
+ */
+function declaringFile(document: ContentDocumentOf<"preview">): string {
+  const { asset } = document;
+  if (asset.kind !== "gameChunk") return asset.path;
+  const prefix = `${asset.wad}/`;
+  const path = document.path ?? "";
+  return path.startsWith(prefix) ? path.slice(prefix.length) : asset.pathHash;
 }
 
 /**

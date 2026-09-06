@@ -188,6 +188,7 @@ impl From<ritoclient::LaunchProgress> for LaunchProgress {
 /// one with a discriminating field.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(
     tag = "kind",

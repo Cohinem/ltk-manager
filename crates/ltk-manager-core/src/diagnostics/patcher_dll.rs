@@ -6,6 +6,8 @@
 //! check here is the phase-1 detector; phase 2 will add full handle-owner
 //! enumeration via NtQuerySystemInformation.
 
+use fs_err as fs;
+
 use super::binary_id::BinaryId;
 use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
 
@@ -21,7 +23,7 @@ pub fn check_dll_present(ctx: &CheckCtx) -> Check {
                 Category::Patcher,
                 &p.display().to_string(),
             );
-            if let Ok(meta) = std::fs::metadata(p) {
+            if let Ok(meta) = fs::metadata(p) {
                 c.details
                     .push(CheckDetail::new("size", meta.len().to_string()));
             }

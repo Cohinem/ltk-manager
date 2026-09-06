@@ -12,15 +12,15 @@ pub mod sweep;
 pub mod timing;
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::hashtables::HashtableCache;
 use crate::mods::ModLibrary;
 use crate::mods::health::sweep::HealthSweepState;
 use crate::mods::index::{LibraryModEntry, ModStorage};
 use crate::problems::{self, Budget, Counts, GameBuild, Run};
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
 /// Where the library remembers its verdicts, beside `library.json`.
@@ -299,7 +299,7 @@ impl ModLibrary {
         run: &Run,
     ) -> AppResult<ModHealthVerdict> {
         let verdict = ModHealthVerdict::from_run(mod_id, run, self.health_check_basis(config));
-        let _lock = self.verdict_lock().lock().mutex_err()?;
+        let _lock = self.verdict_lock().lock();
         let mut file = VerdictFile::load(storage_dir);
         file.verdicts.insert(mod_id.to_string(), verdict.clone());
         file.save(storage_dir)?;
@@ -313,9 +313,7 @@ impl ModLibrary {
     /// compares only the basis, so a stale verdict would otherwise stand until
     /// the game patches.
     pub(in crate::mods) fn forget_health_check(&self, storage_dir: &Path, mod_id: &str) {
-        let Ok(_lock) = self.verdict_lock().lock() else {
-            return;
-        };
+        let _lock = self.verdict_lock().lock();
         let mut file = VerdictFile::load(storage_dir);
         if file.verdicts.remove(mod_id).is_none() {
             return;

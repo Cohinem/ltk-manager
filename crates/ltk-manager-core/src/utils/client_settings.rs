@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use fs_err as fs;
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{AppError, AppResult};
@@ -29,8 +30,8 @@ impl LeagueClientSettings {
     /// normal state of an install whose client has never run.
     pub fn read(game_dir: &GameDir) -> AppResult<Self> {
         let path = Self::path_for(game_dir)?;
-        let contents = std::fs::read_to_string(&path)
-            .map_err(|e| AppError::Other(format!("Could not read {}: {e}", path.display())))?;
+        let contents = fs::read_to_string(&path)
+            .map_err(|e| AppError::Other(format!("Could not read the client settings: {e}")))?;
         let document = serde_yaml_ng::from_str(&contents)
             .map_err(|e| AppError::Other(format!("Failed to parse {}: {e}", path.display())))?;
 
@@ -114,8 +115,8 @@ impl LeagueClientSettings {
         })?;
 
         let tmp = self.path.with_extension("yaml.tmp");
-        std::fs::write(&tmp, yaml)?;
-        std::fs::rename(&tmp, &self.path)?;
+        fs::write(&tmp, yaml)?;
+        fs::rename(&tmp, &self.path)?;
 
         Ok(())
     }
@@ -189,8 +190,8 @@ install:
     fn install_with(yaml: &str) -> (tempfile::TempDir, GameDir) {
         let tmp = tempfile::tempdir().unwrap();
         let config_dir = tmp.path().join("Config");
-        std::fs::create_dir_all(&config_dir).unwrap();
-        std::fs::write(config_dir.join("LeagueClientSettings.yaml"), yaml).unwrap();
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(config_dir.join("LeagueClientSettings.yaml"), yaml).unwrap();
         let game_dir = GameDir::from_path(tmp.path().join("Game"));
 
         (tmp, game_dir)

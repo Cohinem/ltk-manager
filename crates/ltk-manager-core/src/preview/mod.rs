@@ -9,6 +9,7 @@ mod source;
 mod texture;
 
 use std::io::Cursor;
+use std::num::NonZeroU32;
 
 use serde::Serialize;
 use thiserror::Error;
@@ -51,6 +52,7 @@ pub enum AssetInfo {
         width: u32,
         height: u32,
         size_bytes: u64,
+        file_kind: WorkshopFileKind,
     },
     /// Nothing here has a viewer.
     #[serde(rename_all = "camelCase")]
@@ -88,17 +90,27 @@ pub enum PreviewError {
 impl AssetRef {
     /// Read the asset and render whatever its file kind has a viewer for.
     ///
+    /// `min_width` is a thumbnail's or a swatch's `w`, which a texture's decode
+    /// honours and a pass-through image ignores.
+    ///
     /// # Errors
     ///
     /// Fails when the asset cannot be read, and with
     /// [`PreviewError::Unsupported`] when no viewer handles its kind. Reporting
     /// rather than returning nothing is what lets the caller answer with a
     /// status, which [`info`](Self::info) does not need.
-    pub fn preview(&self, config: &Config, wads: &WadCache) -> AppResult<Preview> {
+    pub fn preview(
+        &self,
+        min_width: Option<NonZeroU32>,
+        config: &Config,
+        wads: &WadCache,
+    ) -> AppResult<Preview> {
         let bytes = self.read(config, wads)?;
 
         let image = match self.file_kind(&bytes) {
-            LeagueFileKind::Texture | LeagueFileKind::TextureDds => texture::render(&bytes)?,
+            LeagueFileKind::Texture | LeagueFileKind::TextureDds => {
+                texture::render(&bytes, min_width)?
+            }
             LeagueFileKind::Png => PreviewImage {
                 bytes,
                 mime: "image/png",
@@ -128,7 +140,7 @@ impl AssetRef {
             LeagueFileKind::Texture | LeagueFileKind::TextureDds => {
                 AssetInfo::Texture(texture::info(&bytes)?)
             }
-            LeagueFileKind::Png | LeagueFileKind::Jpeg => {
+            kind @ (LeagueFileKind::Png | LeagueFileKind::Jpeg) => {
                 let (width, height) = image::ImageReader::new(Cursor::new(&bytes))
                     .with_guessed_format()?
                     .into_dimensions()
@@ -137,6 +149,7 @@ impl AssetRef {
                     width,
                     height,
                     size_bytes: bytes.len() as u64,
+                    file_kind: kind.into(),
                 }
             }
             kind => AssetInfo::Unsupported {
@@ -176,7 +189,7 @@ impl AssetRef {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use fs_err as fs;
 
     /// A reference to one file written into a temporary directory.
     fn loose(dir: &tempfile::TempDir, name: &str, bytes: &[u8]) -> AssetRef {
@@ -193,7 +206,7 @@ mod tests {
         let asset = loose(&tmp, "data.bin", b"PROP\x00\x00\x00\x00");
 
         let err = asset
-            .preview(&Config::default(), &WadCache::default())
+            .preview(None, &Config::default(), &WadCache::default())
             .unwrap_err();
 
         assert!(
@@ -224,7 +237,7 @@ mod tests {
         let asset = loose(&tmp, "icon.png", &png);
 
         let Preview::Image(preview) = asset
-            .preview(&Config::default(), &WadCache::default())
+            .preview(None, &Config::default(), &WadCache::default())
             .unwrap();
 
         assert_eq!(preview.mime, "image/png");
@@ -236,6 +249,7 @@ mod tests {
             AssetInfo::Image {
                 width: 8,
                 height: 4,
+                file_kind: WorkshopFileKind::Png,
                 ..
             }
         ));
@@ -251,7 +265,7 @@ mod tests {
         let asset = loose(&tmp, "broken.dds", b"\x00\x01\x02\x03");
 
         let err = asset
-            .preview(&Config::default(), &WadCache::default())
+            .preview(None, &Config::default(), &WadCache::default())
             .unwrap_err();
 
         assert!(
@@ -271,7 +285,7 @@ mod tests {
         let asset = loose(&tmp, "0123456789abcdef", &png);
 
         let Preview::Image(preview) = asset
-            .preview(&Config::default(), &WadCache::default())
+            .preview(None, &Config::default(), &WadCache::default())
             .unwrap();
 
         assert_eq!(preview.mime, "image/png");

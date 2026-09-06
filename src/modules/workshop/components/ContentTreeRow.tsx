@@ -1,4 +1,4 @@
-import { ChevronRight, Folder as FolderIconDefault, FolderOpen } from "lucide-react";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { memo } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -7,6 +7,7 @@ import { formatBytes } from "@/utils";
 
 import type { ContentTreeNode, DirNode, FileNode } from "../utils/contentTree";
 import { describeFileKind } from "../utils/fileKindIcon";
+import { FolderGlyph } from "./TreeRowParts";
 
 /** Shared row styling. Kept as string constants so the hover/selected variants
  * cascade cleanly in Tailwind 4 — selected-hover has to beat plain hover, so
@@ -131,8 +132,6 @@ function DirRow({
   rowIndex,
   tabIndex,
 }: DirRowProps) {
-  const FolderIcon = isExpanded ? FolderOpen : FolderIconDefault;
-
   return (
     <button
       type="button"
@@ -153,19 +152,13 @@ function DirRow({
       className={twMerge("w-full cursor-pointer text-left", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
     >
       <IndentRails depth={depth} />
-      <ChevronRight
+      <CaretRightIcon
         className={twMerge(
           "h-3 w-3 shrink-0 text-surface-400 transition-transform",
           isExpanded && "rotate-90",
         )}
       />
-      <FolderIcon
-        className={twMerge(
-          "h-3.5 w-3.5 shrink-0",
-          isExpanded ? "text-accent-400" : "text-surface-400",
-        )}
-        strokeWidth={1.75}
-      />
+      <FolderGlyph unknown={false} isExpanded={isExpanded} />
       <span className="truncate">{node.name}</span>
       <span className="ml-auto shrink-0 text-[0.625rem] text-surface-500 tabular-nums">
         {fileCount}

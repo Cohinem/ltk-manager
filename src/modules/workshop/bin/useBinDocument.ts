@@ -22,14 +22,18 @@ export type BinOpenState =
 /**
  * One asset held open as a bin document for as long as the caller is mounted.
  *
- * The open and the close are explicit over IPC (ADR-0026). `reopen` asks for a fresh
- * handle and keeps the old one on screen until it answers. A document the store
+ * The open and the close are explicit over IPC (ADR-0026). `entry` narrows the open to
+ * one object of the file (ADR-0028), `0x` and eight hex digits. `reopen` asks for a
+ * fresh handle and keeps the old one on screen until it answers. A document the store
  * evicted is reopened this way.
  */
-export function useBinDocument(asset: AssetRef): { state: BinOpenState; reopen: () => void } {
-  const key = assetKey(asset);
-  const latest = useRef(asset);
-  latest.current = asset;
+export function useBinDocument(
+  asset: AssetRef,
+  entry: string | null = null,
+): { state: BinOpenState; reopen: () => void } {
+  const key = `${assetKey(asset)}:${entry ?? ""}`;
+  const latest = useRef({ asset, entry });
+  latest.current = { asset, entry };
 
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
@@ -40,7 +44,7 @@ export function useBinDocument(asset: AssetRef): { state: BinOpenState; reopen: 
     let opened: BinDocumentId | null = null;
     setState((previous) => (previous.status === "open" ? previous : { status: "opening" }));
 
-    void api.binOpen(latest.current).then((result) => {
+    void api.binOpen(latest.current.asset, latest.current.entry).then((result) => {
       if (!live) {
         if (result.ok) void api.binClose(result.value.document);
         return;

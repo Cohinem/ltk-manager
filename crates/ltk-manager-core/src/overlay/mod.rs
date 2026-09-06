@@ -145,7 +145,7 @@ impl ModLibrary {
 
     /// Persist what a build found and tell the frontend the snapshots moved.
     ///
-    /// Both halves are advisory UI data, so a failure to record either one is
+    /// The WAD reports are advisory UI data, so a failure to write them is
     /// logged and swallowed — a patch that worked must not be reported as failed
     /// because a badge cache could not be written.
     ///
@@ -153,18 +153,12 @@ impl ModLibrary {
     /// returning, so the frontend can see the build finish before these land.
     /// The dedicated events are how it learns the caches are ready to query.
     pub fn record_overlay_build(&self, outcome: OverlayBuildOutcome) {
-        match self.linked_bins().record(outcome.linked_bin_offenders) {
-            Ok(()) => self.events().emit(BackendEvent::LinkedBinsUpdated),
-            Err(e) => tracing::warn!("Failed to record linked-bin offenders: {}", e),
-        }
+        self.linked_bins().record(outcome.linked_bin_offenders);
+        self.events().emit(BackendEvent::LinkedBinsUpdated);
 
-        match self
-            .checksum_mismatches()
-            .record(outcome.checksum_mismatches)
-        {
-            Ok(()) => self.events().emit(BackendEvent::ChecksumMismatchesUpdated),
-            Err(e) => tracing::warn!("Failed to record checksum mismatches: {}", e),
-        }
+        self.checksum_mismatches()
+            .record(outcome.checksum_mismatches);
+        self.events().emit(BackendEvent::ChecksumMismatchesUpdated);
 
         if outcome.mod_wad_reports.is_empty() {
             return;

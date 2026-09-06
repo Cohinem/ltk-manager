@@ -53,6 +53,7 @@ export default tseslint.config(
       "src/**/*.test.{ts,tsx}",
       "src/test/**",
       "src/lib/bindings/**",
+      "src/lib/bindings.gen.ts",
       "src/routeTree.gen.ts",
     ],
     plugins: { i18next },

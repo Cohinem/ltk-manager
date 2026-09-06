@@ -25,6 +25,25 @@ Read-only calls to the Riot Client return `Option`, never `Result`: every caller
 and "the client didn't answer" is not a failure worth showing a user. Only launching, closing and
 building a launcher return `LauncherError`.
 
+## IPC
+
+The command table has two halves. `main.rs` holds `generate_handler!`, and `ipc.rs` holds the
+commands on `tauri-specta` (ADR-0029). A command moves by gaining `#[specta::specta]`, leaving
+the `generate_handler!` list and joining `migrated![]`. Both halves answer the same names over
+the same `IpcResult` envelope.
+
+A type that crosses IPC derives `ts_rs::TS` and `specta::Type` under core's `ts` feature.
+`pnpm generate:types` writes `src/lib/bindings/` from the first and `src/lib/bindings.gen.ts`
+from the second, and `src/lib/tauri.ts` re-exports a migrated module's types out of the
+generated file.
+
+## Filesystem
+
+Filesystem calls go through `fs_err`, aliased per module as `use fs_err as fs;`. The error names
+the path and the operation, where `std::fs` reports the OS text alone, and `AppError::Io` carries
+that message to a user unchanged. `clippy.toml` holds the list that keeps a bare `std::fs` call,
+or the `Path` method that reaches the same syscall, out.
+
 ## Tests
 
 Unit tests live in a file of their own. A module keeps `#[cfg(test)] mod tests;` as its last item
@@ -49,7 +68,7 @@ a high-integrity worker via UAC.
 
 Three Tauri-managed states:
 
-- `SettingsState` - App settings (league path, storage path, theme). Access via `State<SettingsState>`, lock with `.0.lock().mutex_err()?.clone()`.
+- `SettingsState` - App settings (league path, storage path, theme). Access via `State<SettingsState>`, lock with `.0.lock().clone()`.
 - `PatcherState` - Patcher thread handle and stop flag. Access via `State<PatcherState>`.
 - `LauncherState` - The one `LeagueLauncher`, built at startup. It holds the session watcher and
   the window hider, which outlive the command that started them, so `save_settings` calls

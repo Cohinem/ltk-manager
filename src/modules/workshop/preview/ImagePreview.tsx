@@ -23,9 +23,10 @@ import type { AppError, AssetInfo, AssetRef } from "@/lib/tauri";
 import { usePreviewCheckered, useSetPreviewCheckered } from "@/stores";
 import { formatBytes } from "@/utils";
 
-import { previewUrl } from "./assetRef";
+import { assetArchive, previewUrl } from "./assetRef";
 import { BinPreview, isPropertyBin } from "./BinPreview";
 import { useAssetInfo } from "./useAssetInfo";
+import { useImageSlot } from "./useImageSlot";
 
 /** How far a zoom reaches, either side of the image's own scale. */
 const ZOOM_RANGE = [0.05, 32] as const;
@@ -123,6 +124,7 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
     <div data-ui="ImagePreview" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <Canvas
         url={url}
+        archive={assetArchive(asset)}
         name={name}
         natural={natural}
         fit={fit}
@@ -151,6 +153,8 @@ type Controls = RefObject<ReactZoomPanPinchContentRef | null>;
 
 interface CanvasProps {
   url: string;
+  /** The archive the pixels come from, for the line's order. */
+  archive: string | null;
   name: string;
   natural: Size | null;
   fit: number;
@@ -176,6 +180,7 @@ interface CanvasProps {
  */
 function Canvas({
   url,
+  archive,
   name,
   natural,
   fit,
@@ -188,6 +193,8 @@ function Canvas({
 }: CanvasProps) {
   const checkered = usePreviewCheckered();
   const reduceMotion = useReducedMotion();
+  /* The preview's lane, which the tiles and the swatches hold a slot open for. */
+  const slot = useImageSlot(url, { lane: "preview", archive });
 
   const measure = useResizeObserver<HTMLDivElement>((element) =>
     onResize(element.clientWidth, element.clientHeight),
@@ -251,16 +258,20 @@ function Canvas({
       >
         <TransformComponent wrapperStyle={{ width: "100%", height: "100%" }}>
           <img
-            src={url}
+            src={slot.src}
             alt={name}
             draggable={false}
-            onLoad={(event) =>
+            onLoad={(event) => {
+              slot.onSettled();
               onLoad({
                 width: event.currentTarget.naturalWidth,
                 height: event.currentTarget.naturalHeight,
-              })
-            }
-            onError={onError}
+              });
+            }}
+            onError={() => {
+              slot.onSettled();
+              onError();
+            }}
             /* Counter the transform, so a square stays 16 screen pixels at 5%
                and at 3200% alike. */
             style={
@@ -291,7 +302,8 @@ function Canvas({
 
 /* Two conic sweeps of one token, which reads as alpha wherever the image is
    transparent. A flat ground cannot: a dark texture and a hole look alike. */
-const CHECKERBOARD = "bg-[repeating-conic-gradient(var(--surface-800)_0%_25%,transparent_0%_50%)]";
+export const CHECKERBOARD =
+  "bg-[repeating-conic-gradient(var(--surface-800)_0%_25%,transparent_0%_50%)]";
 
 /**
  * What scale draws the whole image inside the pane.

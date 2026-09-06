@@ -3,14 +3,15 @@ import { useCallback, useMemo } from "react";
 import { m } from "@/i18n";
 
 import { useProjectContext } from "../components/ProjectContext";
-import { type ContentDocument, previewDocument } from "../documents/contentDocument";
 import {
-  useOpenDocument,
-  useOpenDocumentBeside,
-  useOpenDocumentTab,
+  type ContentDocument,
+  objectDocument,
+  previewDocument,
+} from "../documents/contentDocument";
+import {
+  useOpenDocumentAs,
   useRecentDocumentIds,
   useRevealInTree,
-  useRevealObject,
   useSelectedLayerName,
 } from "../state";
 import { barPlaceholder } from "./barMode";
@@ -80,34 +81,50 @@ type OpeningTarget = Extract<
  *
  * A file of a layer and a chunk of the game each name their asset rather than
  * carrying a built document, because a project of a few thousand files and an
- * install of eight hundred thousand build one row apiece. An object opens the
- * file that declares it, the same tab a file row of the same side opens.
+ * install of eight hundred thousand build one row apiece. An object opens as a
+ * tab of its own over the file that declares it (ADR-0028).
  */
 function documentFor(target: OpeningTarget, projectPath: string): ContentDocument {
   if (target.kind === "document") return target.document;
-  if (target.kind === "gameChunk" || target.kind === "object") {
+  if (target.kind === "gameChunk") {
     return previewDocument(
       { kind: "gameChunk", wad: target.wad, pathHash: target.pathHash },
       target.path.length > 0 ? target.path : undefined,
     );
   }
-  return previewDocument({
+  if (target.kind === "object") {
+    return objectDocument(
+      { kind: "gameChunk", wad: target.wad, pathHash: target.pathHash },
+      target.objectHash,
+      target.objectPath,
+      target.path.length > 0 ? target.path : target.pathHash,
+      target.objectClass,
+    );
+  }
+  const asset = {
     kind: "layer",
     project: projectPath,
     layer: target.layerName,
     path: target.path,
-  });
+  } as const;
+  if (target.kind === "layerObject") {
+    return objectDocument(
+      asset,
+      target.objectHash,
+      target.objectPath,
+      target.path,
+      target.objectClass,
+    );
+  }
+  return previewDocument(asset);
 }
 
 /** Turns the chosen row into the open, or the mutation, that it stands for. */
 function useRunTarget(close: () => void) {
   const project = useProjectContext();
-  const openTab = useOpenDocumentTab();
-  const openDocument = useOpenDocument();
-  const openBeside = useOpenDocumentBeside();
+  const open = useOpenDocumentAs();
   const openProject = useOpenProject();
   const reveal = useRevealInTree();
-  const revealObject = useRevealObject();
 
   return useCallback(
     ({ target }: PaletteRowData, intent: OpenIntent) => {
@@ -128,22 +145,14 @@ function useRunTarget(close: () => void) {
         return;
       }
 
-      const document = documentFor(target, project.path);
-      if (intent === "beside") openBeside(document);
-      else if (intent === "permanent") openDocument(document);
-      else openTab(document);
+      open(documentFor(target, project.path), intent);
 
       /* Only a file of the project has a tree standing open beside the editor
          to scroll. The game browser opens on its own. */
       if (target.kind === "layerFile" || target.kind === "layerObject") {
         reveal(target.layerName, target.path);
       }
-
-      /* The tab is keyed on the file. A second hit in an open file re-targets that tab. */
-      if (target.kind === "object" || target.kind === "layerObject") {
-        revealObject(document.id, target.objectHash);
-      }
     },
-    [close, openBeside, openDocument, openProject, openTab, project.path, reveal, revealObject],
+    [close, open, openProject, project.path, reveal],
   );
 }
