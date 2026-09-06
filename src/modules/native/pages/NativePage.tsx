@@ -13,9 +13,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useToast } from "@/components";
 import { errorSummary } from "@/i18n/errors";
-import { api } from "@/lib/tauri";
 import { libraryKeys } from "@/modules/library/api/keys";
 
+import { applyLeagueSkin } from "../api/applyLeagueSkin";
 import { type CdChampionSkin, skinPalette, tierLabel } from "../api/cdragon";
 import { championSquareImg } from "../api/ddragon";
 import {
@@ -311,7 +311,7 @@ function SkinSelector({
 
     setApplying(true);
     try {
-      const result = await api.applyLeagueSkin(championId, activeSkin.id, activeChroma?.id ?? null);
+      const result = await applyLeagueSkin(championId, activeSkin.id, activeChroma?.id ?? null);
       if (!result.ok) {
         toast.error("Couldn’t apply skin", errorSummary(result.error));
         return;

@@ -84,7 +84,6 @@ fn main() {
             // Mods
             commands::get_installed_mods,
             commands::install_mod,
-            commands::apply_league_skin,
             commands::install_mods,
             commands::uninstall_mod,
             commands::toggle_mod,
@@ -110,6 +109,8 @@ fn main() {
             commands::get_mod_wad_report,
             commands::get_all_mod_wad_reports,
             commands::analyze_mod_wads,
+            // Native
+            commands::apply_league_skin,
             // Folders
             commands::get_folders,
             commands::get_folder_order,

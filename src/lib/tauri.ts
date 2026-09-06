@@ -203,12 +203,6 @@ export const api = {
   // Mods
   getInstalledMods: () => invokeResult<InstalledMod[]>("get_installed_mods"),
   installMod: (filePath: string) => invokeResult<InstalledMod>("install_mod", { filePath }),
-  applyLeagueSkin: (championId: number, skinId: number, chromaId?: number | null) =>
-    invokeResult<InstalledMod>("apply_league_skin", {
-      championId,
-      skinId,
-      chromaId: chromaId ?? null,
-    }),
   installMods: (filePaths: string[]) =>
     invokeResult<BulkInstallResult>("install_mods", { filePaths }),
   uninstallMod: (modId: string) => invokeResult<void>("uninstall_mod", { modId }),

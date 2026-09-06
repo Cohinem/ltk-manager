@@ -6,6 +6,8 @@
 
 import { mockConvertFileSrc, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 
+import { leagueSkinPreviewMod } from "@/modules/native/api/preview";
+
 // Never run inside vitest — tests have their own `vi.mock` setup.
 const isVitest =
   typeof process !== "undefined" &&
@@ -166,21 +168,15 @@ if (
           return { ok: true, value: null };
         case "get_installed_mods":
           return { ok: true, value: sampleMods };
-        case "apply_league_skin": {
-          // Preview stand-in: hand back a sample mod so the Native page flow completes.
-          const championId = (args as { championId?: number })?.championId ?? 0;
-          const skinId = (args as { skinId?: number })?.skinId ?? 0;
-          const base = sampleMods[0];
+        case "apply_league_skin":
           return {
             ok: true,
-            value: {
-              ...base,
-              id: `preview-league-skin-${championId}-${skinId}`,
-              name: `league-skin-${championId}-${skinId}`,
-              displayName: `LeagueSkin ${championId}/${skinId} (preview)`,
-            },
+            value: leagueSkinPreviewMod(
+              (args as { championId?: number })?.championId ?? 0,
+              (args as { skinId?: number })?.skinId ?? 0,
+              sampleMods[0],
+            ),
           };
-        }
         case "get_folders":
           return { ok: true, value: [] };
         case "get_folder_order":
