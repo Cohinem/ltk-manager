@@ -4,7 +4,6 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
-use crate::error::AppResult;
 use crate::game_index::SearchGeneration;
 
 use super::ObjectIndex;
@@ -122,14 +121,15 @@ impl<E: Clone> ObjectIndexState<E> {
     /// Claim the state for a build, or `None` when one is running or done.
     ///
     /// A failed slot is claimed again, so the next warm retries it.
-    pub fn begin(&self) -> AppResult<Option<BuildTicket>> {
+    #[must_use]
+    pub fn begin(&self) -> Option<BuildTicket> {
         let mut slot = self.slot.lock();
         if matches!(*slot, Slot::Building(_) | Slot::Ready(_)) {
-            return Ok(None);
+            return None;
         }
         let ticket = BuildTicket(self.ticket.fetch_add(1, AtomicOrdering::Relaxed) + 1);
         *slot = Slot::Building(ticket);
-        Ok(Some(ticket))
+        Some(ticket)
     }
 
     /// Whether `ticket` is still the build the state is waiting on.
@@ -139,46 +139,44 @@ impl<E: Clone> ObjectIndexState<E> {
     }
 
     /// Land a build's result, unless the state stopped waiting on it.
-    pub fn finish(&self, ticket: BuildTicket, built: Result<ObjectIndex, E>) -> AppResult<()> {
+    pub fn finish(&self, ticket: BuildTicket, built: Result<ObjectIndex, E>) {
         let mut slot = self.slot.lock();
         if !matches!(*slot, Slot::Building(current) if current == ticket) {
             tracing::debug!("Dropping an object index build the state stopped waiting on");
-            return Ok(());
+            return;
         }
         *slot = match built {
             Ok(index) => Slot::Ready(Arc::new(index)),
             Err(error) => Slot::Failed(error),
         };
-        Ok(())
     }
 
     /// Drop the index, and the result of any build still running.
-    pub fn clear(&self) -> AppResult<()> {
+    pub fn clear(&self) {
         let mut slot = self.slot.lock();
         self.ticket.fetch_add(1, AtomicOrdering::Relaxed);
         *slot = Slot::Absent;
-        Ok(())
     }
 
     /// What the state holds, with the index shared rather than locked.
-    pub fn snapshot(&self) -> AppResult<ObjectIndexSnapshot<E>> {
+    #[must_use]
+    pub fn snapshot(&self) -> ObjectIndexSnapshot<E> {
         let slot = self.slot.lock();
-        Ok(match &*slot {
+        match &*slot {
             Slot::Absent => ObjectIndexSnapshot::Absent,
             Slot::Building(_) => ObjectIndexSnapshot::Building,
             Slot::Ready(index) => ObjectIndexSnapshot::Ready(Arc::clone(index)),
             Slot::Failed(error) => ObjectIndexSnapshot::Failed(error.clone()),
-        })
+        }
     }
 
     /// Replace a ready index with `rename` of it, and leave any other slot alone.
     ///
     /// For a hashtable sync, which changes the names and not the rows.
-    pub fn rename(&self, rename: impl FnOnce(&ObjectIndex) -> ObjectIndex) -> AppResult<()> {
+    pub fn rename(&self, rename: impl FnOnce(&ObjectIndex) -> ObjectIndex) {
         let mut slot = self.slot.lock();
         if let Slot::Ready(index) = &*slot {
             *slot = Slot::Ready(Arc::new(rename(index)));
         }
-        Ok(())
     }
 }

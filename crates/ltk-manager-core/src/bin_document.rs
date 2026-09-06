@@ -186,20 +186,21 @@ impl BinDocuments {
     }
 
     /// The asset under one id, or `None` where `id` is closed or its asset was evicted.
-    pub fn asset_of(&self, id: BinDocumentId) -> AppResult<Option<AssetRef>> {
+    #[must_use]
+    pub fn asset_of(&self, id: BinDocumentId) -> Option<AssetRef> {
         let store = self.inner.lock();
-        Ok(store
+        store
             .ids
             .get(&id)
             .filter(|asset| store.held.contains(asset))
-            .cloned())
+            .cloned()
     }
 
     /// Drop one id. Its asset leaves the store with its last id. A closed id is left as it is.
-    pub fn close(&self, id: BinDocumentId) -> AppResult<()> {
+    pub fn close(&self, id: BinDocumentId) {
         let mut store = self.inner.lock();
         let Some(asset) = store.ids.remove(&id) else {
-            return Ok(());
+            return;
         };
         let last = store.held.peek_mut(&asset).is_some_and(|held| {
             held.holders = held.holders.saturating_sub(1);
@@ -208,16 +209,16 @@ impl BinDocuments {
         if last {
             store.held.pop(&asset);
         }
-        Ok(())
     }
 
     /// Whether `id` reads. Asking does not touch the recency order.
-    pub fn is_open(&self, id: BinDocumentId) -> AppResult<bool> {
+    #[must_use]
+    pub fn is_open(&self, id: BinDocumentId) -> bool {
         let store = self.inner.lock();
-        Ok(store
+        store
             .ids
             .get(&id)
-            .is_some_and(|asset| store.held.contains(asset)))
+            .is_some_and(|asset| store.held.contains(asset))
     }
 }
 

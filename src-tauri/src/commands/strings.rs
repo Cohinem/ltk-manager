@@ -1,8 +1,7 @@
-use crate::error::{AppResult, IpcResult};
+use crate::error::IpcResult;
 use crate::state::SettingsState;
-use ltk_manager_core::strings::{StringKeyIndex, StringKeyIndexState, StringKeySearchResult};
+use ltk_manager_core::strings::{StringKeyIndexState, StringKeySearchResult};
 use std::collections::HashMap;
-use std::sync::Arc;
 use tauri::State;
 
 /// Search known stringtable field names for the workshop strings editor.
@@ -17,18 +16,9 @@ pub fn search_string_keys(
     settings: State<SettingsState>,
     index: State<StringKeyIndexState>,
 ) -> IpcResult<StringKeySearchResult> {
-    search_string_keys_inner(&query, limit, &settings, &index).into()
-}
-
-fn search_string_keys_inner(
-    query: &str,
-    limit: Option<u32>,
-    settings: &SettingsState,
-    index: &StringKeyIndexState,
-) -> AppResult<StringKeySearchResult> {
-    let index = suggestion_index(settings, index)?;
+    let index = index.get_or_build(&settings.config());
     let limit = limit.unwrap_or(50).min(200) as usize;
-    Ok(index.search(query, limit))
+    IpcResult::ok(index.search(&query, limit))
 }
 
 /// Current in-game text for override keys, for the editor's original line.
@@ -41,21 +31,6 @@ pub fn lookup_string_values(
     settings: State<SettingsState>,
     index: State<StringKeyIndexState>,
 ) -> IpcResult<HashMap<String, String>> {
-    lookup_string_values_inner(&keys, &settings, &index).into()
-}
-
-fn lookup_string_values_inner(
-    keys: &[String],
-    settings: &SettingsState,
-    index: &StringKeyIndexState,
-) -> AppResult<HashMap<String, String>> {
-    let index = suggestion_index(settings, index)?;
-    Ok(index.lookup(keys))
-}
-
-fn suggestion_index(
-    settings: &SettingsState,
-    index: &StringKeyIndexState,
-) -> AppResult<Arc<StringKeyIndex>> {
-    index.get_or_build(&settings.config()?)
+    let index = index.get_or_build(&settings.config());
+    IpcResult::ok(index.lookup(&keys))
 }

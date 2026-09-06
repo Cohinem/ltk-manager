@@ -1,4 +1,3 @@
-use crate::error::AppResult;
 use ltk_manager_core::config::Config;
 use ltk_manager_core::diagnostics::store::IncidentStore;
 use parking_lot::Mutex;
@@ -97,8 +96,9 @@ impl SettingsState {
     /// at runtime, and every consumer downstream (`ModLibrary`, `Workshop`, the
     /// overlay builder, the patcher thread) is designed around a per-operation
     /// snapshot.
-    pub fn config(&self) -> AppResult<Config> {
-        Ok(self.0.lock().config.clone())
+    #[must_use]
+    pub fn config(&self) -> Config {
+        self.0.lock().config.clone()
     }
 }
 

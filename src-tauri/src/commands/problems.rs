@@ -45,10 +45,10 @@ fn analyze_project_inner(
     library: &ModLibraryState,
 ) -> AppResult<problems::Run> {
     let root = Path::new(project_path);
-    let config = settings.config()?;
+    let config = settings.config();
 
     let run = problems::analyze(root, &config, library.0.game_content(&config))?;
-    runs.record(root, run.clone())?;
+    runs.record(root, run.clone());
     Ok(run)
 }
 
@@ -89,27 +89,27 @@ fn fix_problems_inner(
     library: &ModLibraryState,
 ) -> AppResult<FixReport> {
     let root = Path::new(project_path);
-    let run = runs.last(root)?.ok_or_else(|| {
+    let run = runs.last(root).ok_or_else(|| {
         AppError::ValidationFailed(format!(
             "no analysis is held for {project_path}, run the analysis first"
         ))
     })?;
-    let config = settings.config()?;
+    let config = settings.config();
 
     // A path the community tables already name is not embedded in the mod.
-    // Tables that cannot be opened exclude nothing, which costs size and never
-    // correctness, so a fix is not refused over them.
-    let resolver = resolvers.get().ok();
+    // Tables that name nothing exclude nothing, which costs size and never
+    // correctness.
+    let resolver = resolvers.get();
     let report = problems::apply(
         root,
         &run,
         chosen,
         &config,
-        resolver.as_deref().map(|resolver| resolver as _),
+        Some(&*resolver as _),
         library.0.game_content(&config),
     );
 
-    runs.invalidate(root)?;
+    runs.invalidate(root);
     report
 }
 

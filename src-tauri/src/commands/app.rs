@@ -1,4 +1,4 @@
-use crate::error::{AppResult, IpcResult};
+use crate::error::IpcResult;
 use crate::state::SettingsState;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -52,23 +52,17 @@ pub fn prepare_for_update(app: AppHandle) -> IpcResult<()> {
 /// icon (or an available update, handled in the UI) reveals it later.
 #[tauri::command]
 pub fn show_main_window(app: AppHandle, settings: State<SettingsState>) -> IpcResult<()> {
-    show_main_window_inner(&app, &settings).into()
-}
-
-fn show_main_window_inner(app: &AppHandle, settings: &State<SettingsState>) -> AppResult<()> {
     let start_hidden = {
         let settings = settings.0.lock();
         settings.start_in_tray || settings.start_in_tray_unless_update
     };
 
-    if start_hidden {
-        return Ok(());
+    if !start_hidden {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
     }
 
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-
-    Ok(())
+    IpcResult::ok(())
 }

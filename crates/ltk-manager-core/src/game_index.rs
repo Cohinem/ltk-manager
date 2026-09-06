@@ -1071,9 +1071,8 @@ impl GameIndexState {
     }
 
     /// Drop the built index, so the next read walks the install again.
-    pub fn clear(&self) -> AppResult<()> {
+    pub fn clear(&self) {
         *self.0.lock() = None;
-        Ok(())
     }
 }
 

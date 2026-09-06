@@ -9,12 +9,7 @@ use tauri_plugin_autostart::ManagerExt;
 /// Get current settings.
 #[tauri::command]
 pub fn get_settings(state: State<SettingsState>) -> IpcResult<Settings> {
-    get_settings_inner(&state).into()
-}
-
-fn get_settings_inner(state: &State<SettingsState>) -> AppResult<Settings> {
-    let settings = state.0.lock();
-    Ok(settings.clone())
+    IpcResult::ok(state.0.lock().clone())
 }
 
 /// Save settings.
@@ -133,7 +128,7 @@ pub fn list_available_wads(state: State<SettingsState>) -> IpcResult<Vec<String>
 }
 
 fn list_available_wads_inner(state: &State<SettingsState>) -> AppResult<Vec<String>> {
-    let config = state.config()?;
+    let config = state.config();
     GameDir::resolve(&config)?.wads()
 }
 
@@ -152,11 +147,5 @@ pub fn detect_league_run_as_admin() -> IpcResult<bool> {
 /// Check if initial setup is required (league path not configured).
 #[tauri::command]
 pub fn check_setup_required(state: State<SettingsState>) -> IpcResult<bool> {
-    check_setup_required_inner(&state).into()
-}
-
-fn check_setup_required_inner(state: &State<SettingsState>) -> AppResult<bool> {
-    let settings = state.0.lock();
-
-    Ok(settings.config.league_path.is_none())
+    IpcResult::ok(state.0.lock().config.league_path.is_none())
 }

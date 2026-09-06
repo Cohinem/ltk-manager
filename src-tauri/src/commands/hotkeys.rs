@@ -21,7 +21,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     let incidents_state = app_handle.state::<IncidentStoreState>();
 
     // Get the last config before stopping
-    let last_config = patcher_state.with(|ps| ps.last_config.clone())?;
+    let last_config = patcher_state.with(|ps| ps.last_config.clone());
 
     let config = match last_config {
         Some(c) => c,
@@ -31,7 +31,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         }
     };
 
-    if patcher_state.request_stop()? {
+    if patcher_state.request_stop() {
         tracing::trace!("Hot reload: stopping patcher...");
     }
 
@@ -56,7 +56,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     )?;
 
     // Best-effort LCU reconnect (in background - retries take time)
-    let league_path = settings_state.config()?.league_path;
+    let league_path = settings_state.config().league_path;
     if let Some(path) = league_path {
         std::thread::spawn(move || try_lcu_reconnect(&path));
     }
@@ -75,7 +75,7 @@ pub(crate) fn execute_kill_league(app_handle: &AppHandle) -> AppResult<()> {
     };
 
     if should_stop_patcher {
-        if patcher_state.request_stop()? {
+        if patcher_state.request_stop() {
             tracing::trace!("Kill league: also stopping patcher");
         }
         wait_for_patcher_stop(&patcher_state)?;
@@ -93,16 +93,8 @@ pub fn pause_hotkeys(
     hotkeys: State<HotkeyManager>,
     settings: State<SettingsState>,
 ) -> IpcResult<()> {
-    pause_hotkeys_inner(&hotkeys, &settings).into()
-}
-
-fn pause_hotkeys_inner(
-    hotkeys: &State<HotkeyManager>,
-    settings: &State<SettingsState>,
-) -> AppResult<()> {
-    let s = settings.0.lock();
-    hotkeys.pause(&s);
-    Ok(())
+    hotkeys.pause(&settings.0.lock());
+    IpcResult::ok(())
 }
 
 /// Re-register all hotkeys after capture mode ends.
@@ -111,16 +103,8 @@ pub fn resume_hotkeys(
     hotkeys: State<HotkeyManager>,
     settings: State<SettingsState>,
 ) -> IpcResult<()> {
-    resume_hotkeys_inner(&hotkeys, &settings).into()
-}
-
-fn resume_hotkeys_inner(
-    hotkeys: &State<HotkeyManager>,
-    settings: &State<SettingsState>,
-) -> AppResult<()> {
-    let s = settings.0.lock();
-    hotkeys.resume(&s);
-    Ok(())
+    hotkeys.resume(&settings.0.lock());
+    IpcResult::ok(())
 }
 
 /// Set (or clear) a global hotkey for the given action.
@@ -184,7 +168,7 @@ pub async fn kill_league(app_handle: AppHandle) -> IpcResult<()> {
 fn wait_for_patcher_stop(state: &PatcherState) -> AppResult<()> {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     loop {
-        if !state.is_running()? {
+        if !state.is_running() {
             return Ok(());
         }
         if std::time::Instant::now() > deadline {

@@ -286,15 +286,7 @@ impl ModLibrary {
     /// Absent tables are not an error — the resolver names nothing and the
     /// chunks keep their hex file names, which the overlay reads either way.
     pub(crate) fn wad_resolver(&self) -> Arc<crate::hashtables::WadPathResolver> {
-        match self.wad_resolver.get() {
-            Ok(resolver) => resolver,
-            Err(e) => {
-                tracing::warn!("Hashtable handle unavailable ({e}), chunks keep their hex names");
-                Arc::new(crate::hashtables::WadPathResolver::new(
-                    crate::hashtables::LayeredHashDb::new(),
-                ))
-            }
-        }
+        self.wad_resolver.get()
     }
 
     /// What the installed game holds, shared by every run this library starts.

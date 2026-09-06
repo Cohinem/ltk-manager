@@ -350,11 +350,11 @@ fn status_serializes_as_camel_case() {
 fn the_shared_handle_opens_once_and_reopens_after_a_sync() {
     let state = WadPathResolverState::default();
 
-    let first = state.get().unwrap();
-    assert!(Arc::ptr_eq(&first, &state.get().unwrap()));
+    let first = state.get();
+    assert!(Arc::ptr_eq(&first, &state.get()));
 
     state.invalidate();
-    assert!(!Arc::ptr_eq(&first, &state.get().unwrap()));
+    assert!(!Arc::ptr_eq(&first, &state.get()));
 }
 
 #[test]

@@ -166,24 +166,22 @@ fn a_dormant_rule_serializes_with_both_lengths_of_its_reason() {
 fn the_state_holds_one_run_for_each_project() {
     let state = ProblemsState::default();
     let project = Path::new("X:/lol-mods/charizard-smolder-x");
-    assert!(state.last(project).unwrap().is_none());
+    assert!(state.last(project).is_none());
 
-    state
-        .record(
-            project,
-            Run {
-                at: Utc::now(),
-                rules: Vec::new(),
-                objects: Vec::new(),
-                problems: Vec::new(),
-                failed: Vec::new(),
-            },
-        )
-        .unwrap();
-    assert!(state.last(project).unwrap().is_some());
+    state.record(
+        project,
+        Run {
+            at: Utc::now(),
+            rules: Vec::new(),
+            objects: Vec::new(),
+            problems: Vec::new(),
+            failed: Vec::new(),
+        },
+    );
+    assert!(state.last(project).is_some());
 
-    state.invalidate(project).unwrap();
-    assert!(state.last(project).unwrap().is_none());
+    state.invalidate(project);
+    assert!(state.last(project).is_none());
 }
 
 /// A run holding `problems`, with `rules` as the catalogue behind them.

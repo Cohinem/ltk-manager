@@ -269,14 +269,14 @@ impl WadCache {
     }
 
     /// How many archives are mounted right now.
-    pub fn mounted(&self) -> AppResult<usize> {
-        Ok(self.mounted.lock().len())
+    #[must_use]
+    pub fn mounted(&self) -> usize {
+        self.mounted.lock().len()
     }
 
     /// Unmount everything, so the next read opens the archive again.
-    pub fn clear(&self) -> AppResult<()> {
+    pub fn clear(&self) {
         self.mounted.lock().clear();
-        Ok(())
     }
 
     /// The mount for `path`, opening the archive when the cache lacks one.

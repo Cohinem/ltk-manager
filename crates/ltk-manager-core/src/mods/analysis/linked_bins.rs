@@ -6,7 +6,6 @@
 //! So this is deliberately in-memory only and replaced wholesale on every build —
 //! persisting it across restarts could surface warnings that no longer hold.
 
-use crate::error::AppResult;
 use parking_lot::Mutex;
 use serde::Serialize;
 
@@ -40,7 +39,7 @@ impl LinkedBinState {
     /// Replace the stored offenders with a fresh build's results. `display_name`
     /// is seeded with the mod id; the read command resolves real names from the
     /// library so this stays decoupled from the index.
-    pub fn record(&self, offenders: Vec<ltk_overlay::LinkedBinOffender>) -> AppResult<()> {
+    pub fn record(&self, offenders: Vec<ltk_overlay::LinkedBinOffender>) {
         let converted = offenders
             .into_iter()
             .map(|o| LinkedBinOffenderInfo {
@@ -51,11 +50,11 @@ impl LinkedBinState {
             })
             .collect();
         *self.0.lock() = converted;
-        Ok(())
     }
 
     /// Snapshot the current offenders.
-    pub fn get_all(&self) -> AppResult<Vec<LinkedBinOffenderInfo>> {
-        Ok(self.0.lock().clone())
+    #[must_use]
+    pub fn get_all(&self) -> Vec<LinkedBinOffenderInfo> {
+        self.0.lock().clone()
     }
 }

@@ -182,7 +182,6 @@ impl<T> IpcResult<T> {
         IpcResult::Ok { value }
     }
 
-    #[allow(dead_code)]
     pub fn err(error: impl Into<AppErrorResponse>) -> Self {
         IpcResult::Err {
             error: error.into(),

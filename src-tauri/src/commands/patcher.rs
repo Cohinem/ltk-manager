@@ -176,7 +176,7 @@ pub(crate) fn start_patcher_inner(
         .map(PathBuf::from)
         .collect();
 
-    let config_snapshot = settings.config()?;
+    let config_snapshot = settings.config();
     tracing::debug!(
         "Config snapshot: league_path={} mod_storage_path={}",
         config_snapshot
@@ -261,7 +261,7 @@ pub fn stop_patcher(state: State<PatcherState>) -> IpcResult<()> {
 }
 
 pub(crate) fn stop_patcher_inner(state: &State<PatcherState>) -> AppResult<()> {
-    if !state.request_stop()? {
+    if !state.request_stop() {
         return Err(PatcherError::NotRunning.into());
     }
 
@@ -282,7 +282,7 @@ pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
         reject_if_patcher_running(&patcher)?;
-        let config = app_handle.state::<SettingsState>().config()?;
+        let config = app_handle.state::<SettingsState>().config();
         let library = app_handle.state::<ModLibraryState>().0.clone();
         Ok((config, library))
     })();
@@ -298,10 +298,10 @@ pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
 /// Get the current status of the patcher.
 #[tauri::command]
 pub fn get_patcher_status(state: State<PatcherState>) -> IpcResult<PatcherStatus> {
-    get_patcher_status_inner(&state).into()
+    IpcResult::ok(get_patcher_status_inner(&state))
 }
 
-fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherStatus> {
+fn get_patcher_status_inner(state: &State<PatcherState>) -> PatcherStatus {
     state.with_mut(|patcher_state| {
         let running = patcher_state.is_running();
 
@@ -342,12 +342,12 @@ pub fn get_linked_bin_offenders(
     settings: State<SettingsState>,
 ) -> IpcResult<HashMap<String, LinkedBinOffenderInfo>> {
     let result: AppResult<HashMap<String, LinkedBinOffenderInfo>> = (|| {
-        let offenders = linked_bins.get_all()?;
+        let offenders = linked_bins.get_all();
         if offenders.is_empty() {
             return Ok(HashMap::new());
         }
 
-        let config_snapshot = settings.config()?;
+        let config_snapshot = settings.config();
         let display_names: HashMap<String, String> = library
             .0
             .get_installed_mods(&config_snapshot)?
@@ -379,5 +379,5 @@ pub fn get_linked_bin_offenders(
 pub fn get_checksum_mismatches(
     checksum_mismatches: State<Arc<ChecksumMismatchState>>,
 ) -> IpcResult<HashMap<String, Vec<ChecksumMismatchInfo>>> {
-    checksum_mismatches.by_mod().into()
+    IpcResult::ok(checksum_mismatches.by_mod())
 }

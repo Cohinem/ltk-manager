@@ -23,7 +23,6 @@ use parking_lot::{Mutex, MutexGuard};
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::error::AppResult;
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
 
 pub use ltk_hashdb::{HashDb, LayeredHashDb, PathRef};
@@ -1005,15 +1004,16 @@ impl WadPathResolverState {
     ///
     /// Absent tables are not an error, because [`WadPathResolver::discover`]
     /// names nothing instead.
-    pub fn get(&self) -> AppResult<Arc<WadPathResolver>> {
+    #[must_use]
+    pub fn get(&self) -> Arc<WadPathResolver> {
         let mut slot = self.0.lock();
         if let Some(resolver) = slot.as_ref() {
-            return Ok(Arc::clone(resolver));
+            return Arc::clone(resolver);
         }
 
         let resolver = Arc::new(WadPathResolver::discover());
         *slot = Some(Arc::clone(&resolver));
-        Ok(resolver)
+        resolver
     }
 
     /// A state already holding `resolver`, never discovering the shared cache.
@@ -1047,10 +1047,11 @@ impl BinHashTablesState {
     /// The tables, opened on the first call.
     ///
     /// A machine with no cache directory names nothing. Every hash then draws as hex.
-    pub fn get(&self) -> AppResult<Arc<BinHashTables>> {
+    #[must_use]
+    pub fn get(&self) -> Arc<BinHashTables> {
         let mut slot = self.0.lock();
         if let Some(tables) = slot.as_ref() {
-            return Ok(Arc::clone(tables));
+            return Arc::clone(tables);
         }
 
         let tables = match HashtableCache::shared() {
@@ -1062,7 +1063,7 @@ impl BinHashTablesState {
         };
         let tables = Arc::new(tables);
         *slot = Some(Arc::clone(&tables));
-        Ok(tables)
+        tables
     }
 
     /// Drop the open tables. The next caller opens what a sync wrote.

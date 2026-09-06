@@ -779,23 +779,22 @@ pub struct ProblemsState(parking_lot::Mutex<std::collections::HashMap<PathBuf, R
 
 impl ProblemsState {
     /// Keep `run` as the last run of `project`.
-    pub fn record(&self, project: &Path, run: Run) -> crate::error::AppResult<()> {
+    pub fn record(&self, project: &Path, run: Run) {
         self.0.lock().insert(project.to_path_buf(), run);
-        Ok(())
     }
 
     /// The last run of `project`, if one is held.
-    pub fn last(&self, project: &Path) -> crate::error::AppResult<Option<Run>> {
-        Ok(self.0.lock().get(project).cloned())
+    #[must_use]
+    pub fn last(&self, project: &Path) -> Option<Run> {
+        self.0.lock().get(project).cloned()
     }
 
     /// Drop the run of `project`, so the next read re-runs the rules.
     ///
     /// A fix run leaves the list stale: it is a fact about files that have
     /// just changed.
-    pub fn invalidate(&self, project: &Path) -> crate::error::AppResult<()> {
+    pub fn invalidate(&self, project: &Path) {
         self.0.lock().remove(project);
-        Ok(())
     }
 }
 

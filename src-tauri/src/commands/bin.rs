@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use super::off_thread;
-use crate::error::{AppError, AppResult, IpcResult};
+use crate::error::{AppError, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocumentHandle, BinDocumentId, BinDocuments, BinRows};
 use ltk_manager_core::game_wads::WadCache;
@@ -41,16 +41,16 @@ pub async fn bin_open(
             })
             .transpose()?;
 
-        let config = app_handle.state::<SettingsState>().config()?;
+        let config = app_handle.state::<SettingsState>().config();
         let store = app_handle.state::<BinDocuments>();
         let document = store.open(asset.clone(), || {
             asset.read(&config, &app_handle.state::<WadCache>())
         })?;
 
-        let bin = app_handle.state::<BinHashTablesState>().get()?;
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get()?;
+        let bin = app_handle.state::<BinHashTablesState>().get();
+        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
         let names = CacheNames::new(&bin, &wad);
-        let schema = entry.map(|_| installed_schema(&app_handle)).transpose()?;
+        let schema = entry.map(|_| installed_schema(&app_handle));
         store.read(document, |open| {
             let (rows, object) = match (entry, &schema) {
                 (Some(entry), Some((schema, build))) => (
@@ -88,10 +88,10 @@ pub async fn bin_children(
     off_thread(move || {
         let entry = parse_hash(&entry)
             .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        let bin = app_handle.state::<BinHashTablesState>().get()?;
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get()?;
+        let bin = app_handle.state::<BinHashTablesState>().get();
+        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
         let names = CacheNames::new(&bin, &wad);
-        let (schema, build) = installed_schema(&app_handle)?;
+        let (schema, build) = installed_schema(&app_handle);
         app_handle.state::<BinDocuments>().read(document, |open| {
             Ok(open.children(entry, &path, offset, limit, &names, Some(schema.at(build)))?)
         })
@@ -111,7 +111,7 @@ pub async fn class_schema(
     off_thread(move || {
         let class = parse_hash(&class_hash)
             .ok_or_else(|| AppError::ValidationFailed(format!("Not a class hash: {class_hash}")))?;
-        let (schema, build) = installed_schema(&app_handle)?;
+        let (schema, build) = installed_schema(&app_handle);
         Ok(schema.class_schema(class, build))
     })
     .await
@@ -119,14 +119,15 @@ pub async fn class_schema(
 
 /// The shared meta schema and the installed game's content build, which keys every
 /// answer read out of it.
-fn installed_schema(app_handle: &AppHandle) -> AppResult<(Arc<MetaSchema>, Option<GameBuild>)> {
-    let config = app_handle.state::<SettingsState>().config()?;
+fn installed_schema(app_handle: &AppHandle) -> (Arc<MetaSchema>, Option<GameBuild>) {
+    let config = app_handle.state::<SettingsState>().config();
     let build = GameBuild::installed(&config);
-    Ok((meta_schema::shared(build), build))
+    (meta_schema::shared(build), build)
 }
 
 /// Drop one id. Its asset leaves the store with its last id.
 #[tauri::command]
 pub fn bin_close(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<()> {
-    app_handle.state::<BinDocuments>().close(document).into()
+    app_handle.state::<BinDocuments>().close(document);
+    IpcResult::ok(())
 }
