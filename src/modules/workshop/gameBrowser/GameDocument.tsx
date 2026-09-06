@@ -1,8 +1,8 @@
-import { ArrowsClockwiseIcon, FilesIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, FilesIcon } from "@phosphor-icons/react";
 import { useCallback, useMemo, useRef } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { EmptyState, Field, IconButton, Spinner, Tooltip } from "@/components";
+import { EmptyState, IconButton, Spinner, Tooltip } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { GameFindHit, GameFindResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
@@ -18,6 +18,7 @@ import {
 } from "@/stores";
 import { hasErrorCode } from "@/utils/errors";
 
+import { TreeSearchBox } from "../components/TreeSearchBox";
 import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
 import { useOpenDocument } from "../state";
 import { indexDir } from "./extractTargets";
@@ -169,73 +170,26 @@ function SearchField({ onCommit }: SearchFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   useGameSearchRevealTarget(inputRef);
 
-  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Escape" && pattern.length > 0) {
-      event.preventDefault();
-      onPatternChange("");
-    }
-    if (event.key === "Enter" || event.key === "ArrowDown") {
-      event.preventDefault();
-      onCommit();
-    }
-  }
-
   return (
-    <>
-      <Field.Root className="relative min-w-0 flex-1">
-        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
-        <Field.Control
-          ref={inputRef}
-          type="text"
-          value={pattern}
-          onChange={(event) => onPatternChange(event.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={regex ? "Search the game files by regex" : "Search the game files"}
-          aria-label="Search the game files"
-          autoComplete="off"
-          spellCheck={false}
-          className="h-6 pr-14 pl-7 text-xs select-text"
-        />
-        <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
-          {pattern && (
-            <IconButton
-              icon={<XIcon weight="bold" className="h-3 w-3" />}
-              variant="transparent"
-              size="xs"
-              compact
-              onClick={() => {
-                onPatternChange("");
-                inputRef.current?.focus();
-              }}
-              aria-label="Clear the search"
-              className="h-4 w-4"
-            />
-          )}
-          <Tooltip content="Use regular expression">
-            <button
-              type="button"
-              aria-pressed={regex}
-              onClick={() => onRegexChange(!regex)}
-              className={twMerge(
-                "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-[0.625rem] text-surface-400 transition-colors",
-                /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
-                regex &&
-                  "bg-accent-500/20 text-accent-300 hover:bg-accent-500/30 hover:text-accent-300",
-              )}
-            >
-              .*
-            </button>
-          </Tooltip>
-        </span>
-      </Field.Root>
-
+    <TreeSearchBox
+      value={pattern}
+      onChange={onPatternChange}
+      regex={regex}
+      onRegexChange={onRegexChange}
+      label="Search the game files"
+      regexLabel="Search the game files by regex"
+      regexToggleLabel="Use regular expression"
+      clearLabel="Clear the search"
+      onCommit={onCommit}
+      inputRef={inputRef}
+    >
       {counted && (
         <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
           {countText(data)}
         </span>
       )}
       {isFetching && <Spinner size="sm" className="h-3 w-3 shrink-0" />}
-    </>
+    </TreeSearchBox>
   );
 }
 

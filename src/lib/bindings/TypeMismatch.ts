@@ -8,10 +8,10 @@
  */
 export type TypeMismatch = { 
 /**
- * The type the game reads, such as `File`.
+ * The type the game reads, such as `file`, in the words a bin row's tag draws.
  */
 expected: string, 
 /**
- * The type the file declares, such as `String`.
+ * The type the file declares, such as `string`.
  */
 found: string, };

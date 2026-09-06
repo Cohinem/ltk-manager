@@ -12,7 +12,7 @@ import { gameKeys } from "./useGameWads";
  * Longer than the palette's 120ms, because a full search hands back every hit
  * rather than a ranked page, so a keystroke costs more to answer.
  */
-const FIND_DEBOUNCE_MS = 200;
+export const FIND_DEBOUNCE_MS = 200;
 
 /**
  * Every file of the installed game matching `pattern`, in tree order.

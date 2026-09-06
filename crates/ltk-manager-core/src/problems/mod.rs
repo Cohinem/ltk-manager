@@ -229,9 +229,9 @@ impl std::fmt::Display for ProblemId {
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct TypeMismatch {
-    /// The type the game reads, such as `File`.
+    /// The type the game reads, such as `file`, in the words a bin row's tag draws.
     pub expected: String,
-    /// The type the file declares, such as `String`.
+    /// The type the file declares, such as `string`.
     pub found: String,
 }
 

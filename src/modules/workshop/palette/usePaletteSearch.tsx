@@ -1,8 +1,8 @@
-import { CubeIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { m } from "@/i18n";
 
+import { ObjectGlyph } from "../components/ObjectGlyph";
 import { completeClassTerm, splitClassTerm } from "./classTerm";
 import { compareRows, rankCandidates, type RankContext } from "./rank";
 import {
@@ -286,7 +286,7 @@ function completionRow(source: PaletteSourceId, klass: ClassCount, query: string
       name: klass.name,
       path: "",
       trailing: m.workshop_objects_class_count_label({ count: klass.count }),
-      icon: <CubeIcon className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={klass.name} className="h-4 w-4 text-surface-400" />,
       target: { kind: "query", query: completeClassTerm(query, klass.name) },
     },
     band: 0,

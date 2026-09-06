@@ -3,6 +3,8 @@
 /**
  * The 27 kinds `ltk_meta` reads, as they cross IPC.
  *
- * A mirror of [`Kind`]. An upstream rename or addition is a compile error here.
+ * A mirror of [`Kind`], spelled in ritobin's words. The spelling is the tag a row
+ * draws and the word a Problems finding writes. An upstream rename or addition is a
+ * compile error here.
  */
-export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vector2" | "vector3" | "vector4" | "matrix44" | "color" | "string" | "hash" | "wadChunkLink" | "container" | "unorderedContainer" | "struct" | "embedded" | "objectLink" | "optional" | "map" | "bitBool";
+export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vec2" | "vec3" | "vec4" | "mtx44" | "rgba" | "string" | "hash" | "file" | "list" | "list2" | "pointer" | "embed" | "link" | "option" | "map" | "flag";

@@ -1,4 +1,5 @@
 import {
+  CubeIcon,
   FolderOpenIcon,
   GearSixIcon,
   GitBranchIcon,
@@ -21,7 +22,7 @@ import {
   Tooltip,
   useToast,
 } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import { SidePanel, type SidePanelSection } from "@/modules/editor";
 import {
@@ -42,6 +43,8 @@ import {
   detailsDocument,
   GAME_DOCUMENT_ID,
   gameDocument,
+  OBJECTS_DOCUMENT_ID,
+  objectsDocument,
   PROBLEMS_DOCUMENT_ID,
   problemsDocument,
 } from "../documents";
@@ -272,6 +275,18 @@ function ProjectRow({ onOpenFolder }: ProjectRowProps) {
           onClick={() => openDocument(gameDocument())}
           aria-label="Game index"
           className={twMerge(activeId === GAME_DOCUMENT_ID && activeDocumentClass)}
+        />
+      </Tooltip>
+
+      <Tooltip content={m.workshop_objects_title()}>
+        <IconButton
+          icon={<CubeIcon className="h-4 w-4" />}
+          variant="ghost"
+          size="sm"
+          compact
+          onClick={() => openDocument(objectsDocument())}
+          aria-label={m.workshop_objects_title()}
+          className={twMerge(activeId === OBJECTS_DOCUMENT_ID && activeDocumentClass)}
         />
       </Tooltip>
 

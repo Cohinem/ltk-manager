@@ -110,7 +110,7 @@ function problem(init: ProblemInit): Problem {
       path: init.path ?? SKIN0,
       node: init.node ?? null,
     },
-    mismatch: init.mismatch ?? { expected: "File", found: "String" },
+    mismatch: init.mismatch ?? { expected: "file", found: "string" },
     message: init.message,
     fix: init.fix ?? null,
   };
@@ -132,7 +132,7 @@ const ICON_AVATAR = problem({
 const ALTERNATE_ICONS = problem({
   id: "p-alternate-icons",
   node: { entry: ENTRY, path: "alternateIconsCircle" },
-  mismatch: { expected: "List<File>", found: "List<String>" },
+  mismatch: { expected: "list[file]", found: "list[string]" },
   fix: { note: "3 items", before: null, after: null },
 });
 
@@ -402,7 +402,7 @@ describe("ProblemsDocument", () => {
     const row = problemRow(/iconAvatar/);
     expect(within(row).getByText(RETYPE_RULE.title)).toBeInTheDocument();
     expect(within(row).getByText("iconAvatar")).toBeInTheDocument();
-    expect(within(row).getByText(/Expected/)).toHaveTextContent("Expected File, found String");
+    expect(within(row).getByText(/Expected/)).toHaveTextContent("Expected file, found string");
   });
 
   /// A type is a literal out of the file rather than something the panel says,
@@ -414,8 +414,8 @@ describe("ProblemsDocument", () => {
     await skin0Group();
 
     const row = problemRow(/iconAvatar/);
-    expect(within(row).getByText("File").tagName).toBe("CODE");
-    expect(within(row).getByText("String").tagName).toBe("CODE");
+    expect(within(row).getByText("file").tagName).toBe("CODE");
+    expect(within(row).getByText("string").tagName).toBe("CODE");
   });
 
   /// The hash a repair lands on is not something a reader can act on, and it is
@@ -439,7 +439,7 @@ describe("ProblemsDocument", () => {
 
     const row = problemRow(/alternateIconsCircle/);
     expect(within(row).getByText(/Expected/)).toHaveTextContent(
-      "Expected List<File>, found List<String>",
+      "Expected list[file], found list[string]",
     );
     expect(within(row).queryByText(/^0x/)).toBeNull();
   });
@@ -503,7 +503,7 @@ describe("ProblemsDocument", () => {
       renderPanel();
 
       await skin0Group();
-      await userEvent.type(filter(), "List<String>");
+      await userEvent.type(filter(), "list[[string]");
 
       expect(problemRow(/alternateIconsCircle/)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /iconAvatar/ })).toBeNull();

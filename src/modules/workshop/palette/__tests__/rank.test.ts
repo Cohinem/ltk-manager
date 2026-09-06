@@ -48,6 +48,7 @@ function object(objectPath: string, layerName = "base"): PaletteCandidate {
       layerName,
       path: "data/objects.bin",
       objectHash: objectPath,
+      objectPath,
     },
     nameLower,
     fullLower: nameLower,

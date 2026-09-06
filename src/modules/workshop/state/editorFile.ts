@@ -180,6 +180,8 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("game") }),
   z.object({ id: z.string(), kind: z.literal("game-wads") }),
   z.object({ id: z.string(), kind: z.literal("game-wad"), wadName: z.string() }),
+  z.object({ id: z.string(), kind: z.literal("objects") }),
+  z.object({ id: z.string(), kind: z.literal("references") }),
   z.object({
     id: z.string(),
     kind: z.literal("preview"),
@@ -189,6 +191,15 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
     /* Optional so a file written before this field existed still mounts its
        preview tabs, per the version note above. */
     path: z.string().optional(),
+  }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("object"),
+    asset: assetRefSchema,
+    objectHash: z.string(),
+    objectPath: z.string(),
+    file: z.string(),
+    objectClass: z.string().nullable().optional(),
   }),
 ]) satisfies z.ZodType<ContentDocument>;
 

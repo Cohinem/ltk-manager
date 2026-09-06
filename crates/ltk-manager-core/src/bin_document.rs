@@ -12,7 +12,7 @@ use std::sync::Mutex;
 
 use indexmap::IndexMap;
 use lru::LruCache;
-use ltk_hash::{BinHash, WadHash};
+use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
@@ -20,17 +20,20 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::error::{AppResult, MutexResultExt};
-use crate::object_index::CacheNames;
+use crate::meta_schema::{Expected, KindShape, SchemaAt};
+use crate::object_index::{CacheNames, ObjectDeclaration};
+use crate::preview::AssetRef;
 use crate::problems::names::hex;
+use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
 
-/// How many documents the store keeps open at once. ADR-0026.
+/// How many assets the store keeps open at once. ADR-0026, counted per ADR-0028.
 pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(8).unwrap();
 
-/// The id an open document is addressed by.
+/// The id one open of a document is addressed by.
 ///
-/// An id is never reused within a process. A call carrying a closed document's id fails
-/// as [`BinDocumentError::NotOpen`] and reaches no other document.
+/// An id is never reused within a process. A call carrying a closed id fails as
+/// [`BinDocumentError::NotOpen`] and reaches no other document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -59,14 +62,35 @@ pub enum BinDocumentError {
     NodeNotFound { address: String },
 }
 
-/// The open documents, bounded, evicting the least recently used.
+/// The open documents, one tree per asset, bounded, evicting the least recently used.
+///
+/// A file tab and the object tabs over one asset each hold an id on the one tree
+/// (ADR-0028). The bound counts assets. An eviction takes every id over the asset.
 pub struct BinDocuments {
     inner: Mutex<Store>,
 }
 
 struct Store {
     next: u32,
-    open: LruCache<BinDocumentId, BinDocument>,
+    /// The asset each id is over. An id whose asset was evicted reads as not open.
+    ids: HashMap<BinDocumentId, AssetRef>,
+    held: LruCache<AssetRef, Held>,
+}
+
+/// One parsed asset, and how many ids hold it.
+struct Held {
+    document: BinDocument,
+    holders: usize,
+}
+
+impl Store {
+    /// A fresh id over `asset`.
+    fn issue(&mut self, asset: AssetRef) -> BinDocumentId {
+        let id = BinDocumentId(self.next);
+        self.next = self.next.wrapping_add(1);
+        self.ids.insert(id, asset);
+        id
+    }
 }
 
 impl Default for BinDocuments {
@@ -76,80 +100,142 @@ impl Default for BinDocuments {
 }
 
 impl fmt::Debug for BinDocuments {
-    /// The count of open documents. A document is a whole tree and prints nothing.
+    /// The counts of held assets and of ids. A tree prints nothing.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut out = f.debug_struct("BinDocuments");
         match self.inner.lock() {
-            Ok(store) => out.field("open", &store.open.len()).finish(),
+            Ok(store) => out
+                .field("held", &store.held.len())
+                .field("ids", &store.ids.len())
+                .finish(),
             Err(_) => out.finish_non_exhaustive(),
         }
     }
 }
 
 impl BinDocuments {
-    /// A store that keeps `capacity` documents open.
+    /// A store that keeps `capacity` assets open.
     #[must_use]
     pub fn new(capacity: NonZeroUsize) -> Self {
         Self {
             inner: Mutex::new(Store {
                 next: 0,
-                open: LruCache::new(capacity),
+                ids: HashMap::new(),
+                held: LruCache::new(capacity),
             }),
         }
     }
 
-    /// Parse `bytes` and keep the tree, answering the id it is addressed by.
+    /// Hold `asset` open, answering a fresh id over its tree.
     ///
-    /// At capacity, the least recently used document leaves the store.
+    /// `bytes` is read and parsed only while no id is over the asset. At capacity, the
+    /// least recently used asset leaves the store with every id over it. The lock is
+    /// not held over `bytes`. Two opens racing on one asset both parse, and one parse
+    /// is kept.
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin, and with
+    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin, with
+    /// whatever `bytes` raises, and with
     /// [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed) when a
     /// previous holder of the lock panicked.
-    pub fn open(&self, bytes: &[u8]) -> AppResult<BinDocumentId> {
-        let document = BinDocument::parse(bytes)?;
+    pub fn open(
+        &self,
+        asset: AssetRef,
+        bytes: impl FnOnce() -> AppResult<Vec<u8>>,
+    ) -> AppResult<BinDocumentId> {
+        {
+            let mut store = self.inner.lock().mutex_err()?;
+            if let Some(held) = store.held.get_mut(&asset) {
+                held.holders += 1;
+                return Ok(store.issue(asset));
+            }
+        }
+
+        let document = BinDocument::parse(&bytes()?)?;
+
         let mut store = self.inner.lock().mutex_err()?;
-        let id = BinDocumentId(store.next);
-        store.next = store.next.wrapping_add(1);
-        store.open.put(id, document);
-        Ok(id)
+        match store.held.get_mut(&asset) {
+            Some(held) => held.holders += 1,
+            None => {
+                let held = Held {
+                    document,
+                    holders: 1,
+                };
+                if let Some((evicted, _)) = store.held.push(asset.clone(), held) {
+                    store.ids.retain(|_, over| *over != evicted);
+                }
+            }
+        }
+        Ok(store.issue(asset))
     }
 
-    /// Read one open document. The read marks it the most recently used.
+    /// Read the document under one id. The read marks its asset the most recently used.
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::NotOpen`] when no open document has `id`, with
-    /// [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed) when a
-    /// previous holder of the lock panicked, and with whatever `read` raises.
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
+    /// evicted, with [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed)
+    /// when a previous holder of the lock panicked, and with whatever `read` raises.
     pub fn read<T>(
         &self,
         id: BinDocumentId,
         read: impl FnOnce(&BinDocument) -> AppResult<T>,
     ) -> AppResult<T> {
         let mut store = self.inner.lock().mutex_err()?;
-        let document = store.open.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
-        read(document)
+        let Store { ids, held, .. } = &mut *store;
+        let held = ids
+            .get(&id)
+            .and_then(|asset| held.get(asset))
+            .ok_or(BinDocumentError::NotOpen(id))?;
+        read(&held.document)
     }
 
-    /// Drop one document. An id that is not open is left as it is.
+    /// The asset under one id, or `None` where `id` is closed or its asset was evicted.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked.
+    pub fn asset_of(&self, id: BinDocumentId) -> AppResult<Option<AssetRef>> {
+        let store = self.inner.lock().mutex_err()?;
+        Ok(store
+            .ids
+            .get(&id)
+            .filter(|asset| store.held.contains(asset))
+            .cloned())
+    }
+
+    /// Drop one id. Its asset leaves the store with its last id. A closed id is left as it is.
     ///
     /// # Errors
     ///
     /// Fails when a previous holder of the lock panicked.
     pub fn close(&self, id: BinDocumentId) -> AppResult<()> {
-        self.inner.lock().mutex_err()?.open.pop(&id);
+        let mut store = self.inner.lock().mutex_err()?;
+        let Some(asset) = store.ids.remove(&id) else {
+            return Ok(());
+        };
+        let last = store.held.peek_mut(&asset).is_some_and(|held| {
+            held.holders = held.holders.saturating_sub(1);
+            held.holders == 0
+        });
+        if last {
+            store.held.pop(&asset);
+        }
         Ok(())
     }
 
-    /// Whether `id` is open. Asking does not touch the recency order.
+    /// Whether `id` reads. Asking does not touch the recency order.
     ///
     /// # Errors
     ///
     /// Fails when a previous holder of the lock panicked.
     pub fn is_open(&self, id: BinDocumentId) -> AppResult<bool> {
-        Ok(self.inner.lock().mutex_err()?.open.contains(&id))
+        let store = self.inner.lock().mutex_err()?;
+        Ok(store
+            .ids
+            .get(&id)
+            .is_some_and(|asset| store.held.contains(asset)))
     }
 }
 
@@ -195,6 +281,56 @@ impl BinDocument {
         }
     }
 
+    /// The facts an object tab's header draws for `entry`.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
+    /// document.
+    pub fn object(
+        &self,
+        entry: BinHash,
+        names: &dyn RowNames,
+    ) -> Result<BinObjectHeader, BinDocumentError> {
+        let object =
+            self.file
+                .objects()
+                .get(&entry)
+                .ok_or_else(|| BinDocumentError::NodeNotFound {
+                    address: format!("{}:", hex(entry)),
+                })?;
+        let mut wanted = Wanted::default();
+        wanted.entries.push(entry);
+        wanted.classes.push(object.class_hash);
+        let named = wanted.resolve(names);
+        let (name, unnamed) = named.entry(entry);
+        Ok(BinObjectHeader {
+            entry: hex(entry),
+            name,
+            unnamed,
+            class_hash: hex(object.class_hash),
+            class: named.classes.get(&object.class_hash).cloned(),
+            properties: object.properties.len(),
+        })
+    }
+
+    /// The path hash of every object, in file order.
+    pub fn entries(&self) -> impl Iterator<Item = BinHash> + '_ {
+        self.file.objects().keys().copied()
+    }
+
+    /// The header's dependencies, hashed as the WAD paths they name.
+    ///
+    /// A dependency is written as the archive path of the file it names, and the hash
+    /// is the one the object index keys a declaring file on. A `PTCH` names none.
+    #[must_use]
+    pub fn dependency_hashes(&self) -> Vec<WadHash> {
+        match &self.file {
+            BinFile::Prop(bin) => bin.dependencies.iter().map(WadHash::hash_str).collect(),
+            BinFile::Override(_) => Vec::new(),
+        }
+    }
+
     /// One row per object, in file order.
     #[must_use]
     pub fn roots(&self, names: &dyn RowNames) -> Vec<BinRow> {
@@ -223,6 +359,7 @@ impl BinDocument {
                         class: named.classes.get(&object.class_hash).cloned(),
                         len: object.properties.len(),
                     },
+                    declared: None,
                 }
             })
             .collect()
@@ -231,7 +368,9 @@ impl BinDocument {
     /// The rows under one node: `offset` in, at most `limit` of them, and the total.
     ///
     /// `path` is the wire form of ADR-0027, empty for the object itself. A leaf, a null
-    /// struct and an absent optional have no rows under them.
+    /// struct and an absent optional have no rows under them. `schema` is the database
+    /// at the install's build. `None` leaves every declared kind absent and every
+    /// field the tables miss as hex.
     ///
     /// # Errors
     ///
@@ -244,6 +383,7 @@ impl BinDocument {
         offset: usize,
         limit: usize,
         names: &dyn RowNames,
+        schema: Option<SchemaAt<'_>>,
     ) -> Result<BinRows, BinDocumentError> {
         let not_found = || BinDocumentError::NodeNotFound {
             address: format!("{}:{path}", hex(entry)),
@@ -259,7 +399,7 @@ impl BinDocument {
         let mut wanted = Wanted::default();
         for step in &trace {
             match step {
-                Trace::Field(field) => wanted.fields.push(*field),
+                Trace::Field { field, .. } => wanted.fields.push(*field),
                 Trace::Key(key) => wanted.key(key),
                 Trace::Index(_) => {}
             }
@@ -277,13 +417,21 @@ impl BinDocument {
                 }
             }
         }
-        let named = wanted.resolve(names);
+        let lens = Lens {
+            named: wanted.resolve(names),
+            schema,
+        };
 
-        let parent_label = label_of(&trace, &named);
+        let class = node.class();
+        let parent_label = label_of(&trace, &lens);
         let entry_hex = hex(entry);
         let rows = window
             .map(|child| {
-                let segment = Segment::of(*child, path, &parent_label, &named);
+                let segment = Segment::of(*child, path, &parent_label, &lens, class);
+                let declared = match child {
+                    Child::Field(field, value) => lens.declared(class, *field, value),
+                    Child::Element(..) | Child::Entry(..) => None,
+                };
                 BinRow {
                     entry: entry_hex.clone(),
                     path: format!("{path}{}", segment.wire),
@@ -292,7 +440,8 @@ impl BinDocument {
                     name: segment.name,
                     unnamed: segment.unnamed,
                     kind: Some(segment.value.kind().into()),
-                    value: named.value_of(segment.value),
+                    value: lens.named.value_of(segment.value),
+                    declared,
                 }
             })
             .collect();
@@ -331,7 +480,48 @@ pub struct BinHeader {
     pub deleted: usize,
 }
 
-/// What an open answers: the id, the header, and the root rows.
+/// The facts an object tab's header draws. "The object tab" in docs/ux/BIN_EDITOR.md.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct BinObjectHeader {
+    /// The object's path hash, `0x` and eight hex digits.
+    pub entry: String,
+    /// The object's path, or its hex where no table names it.
+    pub name: String,
+    /// The name is a hash no table names.
+    pub unnamed: bool,
+    /// `0x` and eight hex digits.
+    pub class_hash: String,
+    /// The class as the tables name it. Absent where no table does.
+    pub class: Option<String>,
+    /// How many properties the object holds.
+    pub properties: usize,
+}
+
+impl BinObjectHeader {
+    /// The object as a declaration of `asset`, the file the tab names `file`.
+    ///
+    /// A class no table names reads as its hex.
+    #[must_use]
+    pub fn declared_in(&self, asset: &AssetRef, file: &str) -> ObjectDeclaration {
+        ObjectDeclaration {
+            asset: asset.clone(),
+            file: file.to_owned(),
+            class: self
+                .class
+                .clone()
+                .unwrap_or_else(|| self.class_hash.clone()),
+            class_hash: self.class_hash.clone(),
+        }
+    }
+}
+
+/// What an open answers: the id, the header, and the rows at depth zero.
+///
+/// A file open answers one row per object. An open with an entry answers that object's
+/// properties and its header facts (ADR-0028).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -340,6 +530,8 @@ pub struct BinDocumentHandle {
     pub document: BinDocumentId,
     pub header: BinHeader,
     pub rows: Vec<BinRow>,
+    /// The object the open is over. Absent for a file open.
+    pub object: Option<BinObjectHeader>,
 }
 
 /// A window of rows under one node, and how many there are in all.
@@ -388,43 +580,124 @@ pub struct BinRow {
     /// The value's kind. An object row has none.
     pub kind: Option<PropertyKind>,
     pub value: BinValue,
+    /// What the schema declares for the field at the install's build. Absent for an
+    /// object, an element, an entry, and a field the schema has no line for.
+    pub declared: Option<DeclaredKind>,
+}
+
+/// What the schema declares for a field, beside whether the file's kind is that.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct DeclaredKind {
+    pub shape: KindShape,
+    /// The file's kind is not the declared one, as the Problems rule for a property
+    /// type reads the two.
+    pub mismatch: bool,
 }
 
 /// The 27 kinds `ltk_meta` reads, as they cross IPC.
 ///
-/// A mirror of [`Kind`]. An upstream rename or addition is a compile error here.
+/// A mirror of [`Kind`], spelled in ritobin's words. The spelling is the tag a row
+/// draws and the word a Problems finding writes. An upstream rename or addition is a
+/// compile error here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum PropertyKind {
+    #[serde(rename = "none")]
     None,
+    #[serde(rename = "bool")]
     Bool,
+    #[serde(rename = "i8")]
     I8,
+    #[serde(rename = "u8")]
     U8,
+    #[serde(rename = "i16")]
     I16,
+    #[serde(rename = "u16")]
     U16,
+    #[serde(rename = "i32")]
     I32,
+    #[serde(rename = "u32")]
     U32,
+    #[serde(rename = "i64")]
     I64,
+    #[serde(rename = "u64")]
     U64,
+    #[serde(rename = "f32")]
     F32,
+    #[serde(rename = "vec2")]
     Vector2,
+    #[serde(rename = "vec3")]
     Vector3,
+    #[serde(rename = "vec4")]
     Vector4,
+    #[serde(rename = "mtx44")]
     Matrix44,
+    #[serde(rename = "rgba")]
     Color,
+    #[serde(rename = "string")]
     String,
+    #[serde(rename = "hash")]
     Hash,
+    #[serde(rename = "file")]
     WadChunkLink,
+    #[serde(rename = "list")]
     Container,
+    #[serde(rename = "list2")]
     UnorderedContainer,
+    #[serde(rename = "pointer")]
     Struct,
+    #[serde(rename = "embed")]
     Embedded,
+    #[serde(rename = "link")]
     ObjectLink,
+    #[serde(rename = "option")]
     Optional,
+    #[serde(rename = "map")]
     Map,
+    #[serde(rename = "flag")]
     BitBool,
+}
+
+impl PropertyKind {
+    /// The kind in ritobin's word, which is its spelling on the wire.
+    ///
+    /// The serde renames above spell the same words. A test holds the two lists equal.
+    #[must_use]
+    pub const fn tag(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Bool => "bool",
+            Self::I8 => "i8",
+            Self::U8 => "u8",
+            Self::I16 => "i16",
+            Self::U16 => "u16",
+            Self::I32 => "i32",
+            Self::U32 => "u32",
+            Self::I64 => "i64",
+            Self::U64 => "u64",
+            Self::F32 => "f32",
+            Self::Vector2 => "vec2",
+            Self::Vector3 => "vec3",
+            Self::Vector4 => "vec4",
+            Self::Matrix44 => "mtx44",
+            Self::Color => "rgba",
+            Self::String => "string",
+            Self::Hash => "hash",
+            Self::WadChunkLink => "file",
+            Self::Container => "list",
+            Self::UnorderedContainer => "list2",
+            Self::Struct => "pointer",
+            Self::Embedded => "embed",
+            Self::ObjectLink => "link",
+            Self::Optional => "option",
+            Self::Map => "map",
+            Self::BitBool => "flag",
+        }
+    }
 }
 
 impl From<Kind> for PropertyKind {
@@ -518,9 +791,10 @@ pub enum BinValue {
         hash: String,
         name: Option<String>,
     },
-    /// A `Container` or an `UnorderedContainer`.
+    /// A `Container` or an `UnorderedContainer`, and the kind of every item.
     Container {
         len: usize,
+        item_kind: PropertyKind,
     },
     /// A `Struct` with a class, or an `Embedded`.
     Struct {
@@ -530,8 +804,10 @@ pub enum BinValue {
     },
     /// A `Struct` with a class hash of zero.
     Null,
+    /// Whether a value is held, and the kind it is or would be.
     Optional {
         present: bool,
+        item_kind: PropertyKind,
     },
     /// The entries, and the kinds the map declares for its keys and its values.
     Map {
@@ -690,11 +966,29 @@ impl<'a> Node<'a> {
             Self::Value(_) => None,
         }
     }
+
+    /// The class the node's properties are declared on. `None` where it has none.
+    fn class(self) -> Option<BinHash> {
+        match self {
+            Self::Object(object) => Some(object.class_hash),
+            Self::Value(PropertyValueEnum::Embedded(values::Embedded(inner))) => {
+                Some(inner.class_hash)
+            }
+            Self::Value(PropertyValueEnum::Struct(inner)) if !is_null(inner) => {
+                Some(inner.class_hash)
+            }
+            Self::Value(_) => None,
+        }
+    }
 }
 
 /// What a step passed through, for the readable path of the node it reached.
 enum Trace<'a> {
-    Field(BinHash),
+    /// A field, and the class of the node it was read on.
+    Field {
+        class: Option<BinHash>,
+        field: BinHash,
+    },
     Index(usize),
     Key(&'a PropertyValueEnum),
 }
@@ -706,8 +1000,12 @@ fn descend<'a>(object: &'a BinObject, steps: &[Step]) -> Option<(Node<'a>, Vec<T
     for step in steps {
         node = match (step, node) {
             (Step::Field(field), node) => {
+                let class = node.class();
                 let value = node.properties()?.get(field)?;
-                trace.push(Trace::Field(*field));
+                trace.push(Trace::Field {
+                    class,
+                    field: *field,
+                });
                 Node::Value(value)
             }
             (Step::Index(index), Node::Value(value)) => {
@@ -760,11 +1058,18 @@ struct Segment<'a> {
 }
 
 impl<'a> Segment<'a> {
-    /// The segment of `child` under the node at `path`, whose readable path is `parent_label`.
-    fn of(child: Child<'a>, path: &str, parent_label: &str, named: &Named) -> Self {
+    /// The segment of `child` under the node at `path`, whose readable path is
+    /// `parent_label` and whose class is `class`.
+    fn of(
+        child: Child<'a>,
+        path: &str,
+        parent_label: &str,
+        lens: &Lens<'_>,
+        class: Option<BinHash>,
+    ) -> Self {
         match child {
             Child::Field(field, value) => {
-                let (name, unnamed) = named.field(field);
+                let (name, unnamed) = lens.field(class, field);
                 Self {
                     value,
                     node: RowNode::Property,
@@ -786,7 +1091,7 @@ impl<'a> Segment<'a> {
                 }
             }
             Child::Entry(key, value) => {
-                let (text, unnamed) = key_label(key, named);
+                let (text, unnamed) = key_label(key, &lens.named);
                 Self {
                     value,
                     node: RowNode::Entry,
@@ -866,23 +1171,67 @@ fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
 }
 
 /// The readable path of the node `trace` reached.
-fn label_of(trace: &[Trace<'_>], named: &Named) -> String {
+fn label_of(trace: &[Trace<'_>], lens: &Lens<'_>) -> String {
     let mut label = String::new();
     for step in trace {
         match step {
-            Trace::Field(field) => {
+            Trace::Field { class, field } => {
                 label.push_str(dot(&label));
-                label.push_str(&named.field(*field).0);
+                label.push_str(&lens.field(*class, *field).0);
             }
             Trace::Index(index) => {
                 let _ = write!(label, "[{index}]");
             }
             Trace::Key(key) => {
-                let _ = write!(label, "{{{}}}", key_label(key, named).0);
+                let _ = write!(label, "{{{}}}", key_label(key, &lens.named).0);
             }
         }
     }
     label
+}
+
+/// What a projection reads a row's name and declared kind from: the tables, and the
+/// schema at the install's build.
+struct Lens<'a> {
+    named: Named,
+    schema: Option<SchemaAt<'a>>,
+}
+
+impl<'a> Lens<'a> {
+    /// A property's name, or its hex and the flag that says so.
+    ///
+    /// The tables answer first and the schema second. A field neither names is hex.
+    fn field(&self, class: Option<BinHash>, field: BinHash) -> (String, bool) {
+        if let Some(name) = self.named.fields.get(&field) {
+            return (name.clone(), false);
+        }
+        match self
+            .schema
+            .and_then(|schema| schema.field_name(class?, field))
+        {
+            Some(name) => (name.to_owned(), false),
+            None => (hex(field), true),
+        }
+    }
+
+    /// What the schema declares for `field` of `class`, beside whether `value` is that.
+    fn declared(
+        &self,
+        class: Option<BinHash>,
+        field: BinHash,
+        value: &PropertyValueEnum,
+    ) -> Option<DeclaredKind> {
+        let shape = self.expected(class, field)?.shape?;
+        let mismatch = matches!(TypeSpec::from(shape).matches(value), Ok(false));
+        Some(DeclaredKind {
+            shape: shape.into(),
+            mismatch,
+        })
+    }
+
+    fn expected(&self, class: Option<BinHash>, field: BinHash) -> Option<Expected<'a>> {
+        self.schema?.expected(class?, field)
+    }
 }
 
 /// The hashes one projection needs named.
@@ -966,16 +1315,7 @@ struct Named {
 impl Named {
     /// An object's path, or its hex and the flag that says so.
     fn entry(&self, hash: BinHash) -> (String, bool) {
-        Self::name_or_hex(self.entries.get(&hash), hash)
-    }
-
-    /// A property's name, or its hex and the flag that says so.
-    fn field(&self, hash: BinHash) -> (String, bool) {
-        Self::name_or_hex(self.fields.get(&hash), hash)
-    }
-
-    fn name_or_hex(name: Option<&String>, hash: BinHash) -> (String, bool) {
-        match name {
+        match self.entries.get(&hash) {
             Some(name) => (name.clone(), false),
             None => (hex(hash), true),
         }
@@ -984,12 +1324,17 @@ impl Named {
     /// `value` in the shape its widget draws.
     fn value_of(&self, value: &PropertyValueEnum) -> BinValue {
         match value {
-            PropertyValueEnum::Container(items) => BinValue::Container { len: items.len() },
-            PropertyValueEnum::UnorderedContainer(items) => {
-                BinValue::Container { len: items.len() }
-            }
+            PropertyValueEnum::Container(items) => BinValue::Container {
+                len: items.len(),
+                item_kind: items.item_kind().into(),
+            },
+            PropertyValueEnum::UnorderedContainer(items) => BinValue::Container {
+                len: items.len(),
+                item_kind: items.item_kind().into(),
+            },
             PropertyValueEnum::Optional(optional) => BinValue::Optional {
                 present: optional.is_some(),
+                item_kind: optional.item_kind().into(),
             },
             PropertyValueEnum::Map(map) => BinValue::Map {
                 len: map.entries().len(),

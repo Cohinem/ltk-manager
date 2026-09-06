@@ -1,5 +1,6 @@
 //! Read-only browsing of the game's archives folded into one tree.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::object_index::ObjectIndexState;
@@ -8,8 +9,8 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
 use ltk_manager_core::game_index::{
-    FindGeneration, GameDirListing, GameFindResult, GameIndex, GameIndexState, GameIndexStats,
-    GameSearchResult, SearchGeneration,
+    FindGeneration, GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState,
+    GameIndexStats, GameSearchResult, SearchGeneration,
 };
 use ltk_manager_core::game_wads::{GameArchives, WadCache};
 use ltk_manager_core::hashtables::WadPathResolverState;
@@ -33,6 +34,27 @@ pub async fn read_game_dir(path: String, app_handle: AppHandle) -> IpcResult<Gam
         index.read_dir(&path).ok_or_else(|| {
             AppError::InvalidPath(format!("No such directory in the game index: {path}"))
         })
+    })
+    .await
+}
+
+/// The install's copy of each of `paths`, by path. A path the install does not ship is
+/// absent.
+///
+/// For the `file` links of a page of bin rows, checked in one call.
+#[tauri::command]
+pub async fn locate_game_files(
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<HashMap<String, GameFileEntry>> {
+    with_index(app_handle, move |index| {
+        Ok(paths
+            .into_iter()
+            .filter_map(|path| {
+                let entry = index.file_at(&path)?;
+                Some((path, entry))
+            })
+            .collect())
     })
     .await
 }
@@ -87,18 +109,9 @@ pub async fn find_in_game_index(
     regex: bool,
     app_handle: AppHandle,
 ) -> IpcResult<GameFindResult> {
-    let syntax = if regex {
-        PatternSyntax::Regex
-    } else {
-        PatternSyntax::Literal
-    };
-    let query = match FindQuery::parse(&pattern, syntax) {
+    let query = match find_query(&pattern, regex) {
         Ok(query) => query,
-        Err(e) => {
-            return IpcResult::from(Err::<GameFindResult, _>(AppError::ValidationFailed(
-                e.to_string(),
-            )));
-        }
+        Err(e) => return IpcResult::from(Err::<GameFindResult, _>(e)),
     };
 
     let ticket = app_handle.state::<FindGeneration>().claim();
@@ -129,6 +142,23 @@ pub async fn find_in_game_index(
         Ok(result)
     })
     .await
+}
+
+/// The full-search query `pattern` compiles to, `None` for an empty pattern.
+///
+/// `regex` reads the pattern as a regular expression rather than as its characters.
+///
+/// # Errors
+///
+/// Fails with `VALIDATION_FAILED` and the parser's own message where a regex does not
+/// parse.
+pub(super) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQuery>> {
+    let syntax = if regex {
+        PatternSyntax::Regex
+    } else {
+        PatternSyntax::Literal
+    };
+    FindQuery::parse(pattern, syntax).map_err(|e| AppError::ValidationFailed(e.to_string()))
 }
 
 /// Drop the built index, so the next read walks the install again.

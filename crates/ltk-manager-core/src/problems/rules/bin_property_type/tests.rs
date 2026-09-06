@@ -244,8 +244,8 @@ fn a_leaf_preview_draws_the_value_and_the_hash_it_becomes() {
     assert_eq!(
         problems[0].mismatch,
         Some(TypeMismatch {
-            expected: "File".to_owned(),
-            found: "String".to_owned(),
+            expected: "file".to_owned(),
+            found: "string".to_owned(),
         })
     );
     assert_eq!(fix.note, None, "the values say it, so a note would repeat");
@@ -347,8 +347,8 @@ fn a_container_preview_draws_one_path_and_the_count_of_the_rest() {
     assert_eq!(
         problems[0].mismatch,
         Some(TypeMismatch {
-            expected: "List<File>".to_owned(),
-            found: "List<String>".to_owned(),
+            expected: "list[file]".to_owned(),
+            found: "list[string]".to_owned(),
         })
     );
     assert_eq!(fix.before.as_deref(), Some("\"a.dds\""));
@@ -1088,8 +1088,8 @@ fn a_string_where_the_schema_says_file_is_reported() {
     assert_eq!(problems.len(), 1);
     assert_eq!(problems[0].severity, Severity::Fatal);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "File");
-    assert_eq!(mismatch.found, "String");
+    assert_eq!(mismatch.expected, "file");
+    assert_eq!(mismatch.found, "string");
 }
 
 /// Story: the same bytes are correct for the build they were authored against.
@@ -1150,8 +1150,8 @@ fn a_retype_no_table_row_covers_is_reported() {
 
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "F32");
-    assert_eq!(mismatch.found, "U32");
+    assert_eq!(mismatch.expected, "f32");
+    assert_eq!(mismatch.found, "u32");
 }
 
 /// Nothing this build knows turns a `U32` into an `F32` that means the same, so
@@ -1432,8 +1432,8 @@ fn an_integer_the_game_widened_is_rewritten_at_the_wider_type() {
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "U32");
-    assert_eq!(mismatch.found, "U8");
+    assert_eq!(mismatch.expected, "u32");
+    assert_eq!(mismatch.found, "u8");
     assert!(problems[0].fix.is_some(), "the number crosses whole");
 
     let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
@@ -1680,8 +1680,8 @@ fn a_list_the_game_reads_as_a_list2_is_retagged() {
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "List2<Hash>");
-    assert_eq!(mismatch.found, "List<Hash>");
+    assert_eq!(mismatch.expected, "list2[hash]");
+    assert_eq!(mismatch.found, "list[hash]");
     assert!(problems[0].fix.is_some());
 
     let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));
@@ -1754,8 +1754,8 @@ fn a_list_whose_items_also_disagree_is_reported_without_a_repair() {
 
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "List2<Embed>");
-    assert_eq!(mismatch.found, "List<Hash>");
+    assert_eq!(mismatch.expected, "list2[embed]");
+    assert_eq!(mismatch.found, "list[hash]");
     assert_eq!(problems[0].fix, None);
 }
 
@@ -1770,8 +1770,8 @@ fn a_bool_the_game_reads_as_a_flag_is_retagged() {
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
-    assert_eq!(mismatch.expected, "Flag", "the word the format uses");
-    assert_eq!(mismatch.found, "Bool");
+    assert_eq!(mismatch.expected, "flag", "the word ritobin uses");
+    assert_eq!(mismatch.found, "bool");
     assert!(problems[0].fix.is_some());
 
     let (applied, written) = fix_all_on(&bin, Some(AFTER_RETYPE));

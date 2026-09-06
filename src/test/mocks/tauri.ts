@@ -5,6 +5,7 @@ export const mockListen = vi.fn(() => Promise.resolve(vi.fn()));
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: mockInvoke,
+  convertFileSrc: (path: string, scheme = "asset") => `http://${scheme}.localhost/${path}`,
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({

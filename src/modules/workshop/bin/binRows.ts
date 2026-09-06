@@ -33,9 +33,19 @@ export function isUnder(parent: string, key: string): boolean {
   );
 }
 
+/** The hash of the field a property row's path ends in, `0x` and eight hex digits. */
+export function fieldHash(path: string): string {
+  return `0x${path.slice(-8)}`;
+}
+
 /** Whether rows can sit under this one. */
 export function canExpand(row: BinRow): boolean {
   return holdsChildren(row.value);
+}
+
+/** The class the rows under `row` are properties of. Null under a container, a map and a leaf. */
+function ownerOf(row: BinRow): string | null {
+  return row.value.type === "struct" ? row.value.classHash : null;
 }
 
 function holdsChildren(value: BinValue): boolean {
@@ -71,6 +81,8 @@ export type VisibleRow =
       readonly expanded: boolean;
       /** Expanded, and the first page has not answered. */
       readonly loading: boolean;
+      /** The class hash of the struct the row is a property of. Null for an object, an element and an entry. */
+      readonly owner: string | null;
     }
   | {
       readonly kind: "more";
@@ -82,6 +94,9 @@ export type VisibleRow =
       readonly pending: boolean;
     };
 
+/** The line a row draws as. */
+export type RowLine = Extract<VisibleRow, { kind: "row" }>;
+
 /**
  * The lines the list draws, in order, out of the root rows and what is fetched under
  * the expanded ones.
@@ -89,15 +104,17 @@ export type VisibleRow =
  * The frontend keeps the expansion state and the backend answers one node's children at
  * a time (ADR-0026). A node expanded before its children answer draws as loading. A node
  * with more rows than answered draws a request for the rest under what it has.
+ * `rootOwner` is the class the roots are properties of, which an object tab's roots are.
  */
 export function flattenRows(
   roots: readonly BinRow[],
   expanded: ReadonlySet<string>,
   childrenOf: (key: string) => LoadedChildren | undefined,
+  rootOwner: string | null = null,
 ): VisibleRow[] {
   const out: VisibleRow[] = [];
 
-  function visit(rows: readonly BinRow[], depth: number) {
+  function visit(rows: readonly BinRow[], depth: number, owner: string | null) {
     for (const row of rows) {
       const key = rowKey(row);
       const isExpanded = expanded.has(key) && canExpand(row);
@@ -109,10 +126,11 @@ export function flattenRows(
         depth,
         expanded: isExpanded,
         loading: isExpanded && children === undefined,
+        owner: row.node === "property" ? owner : null,
       });
       if (!children) continue;
 
-      visit(children.rows, depth + 1);
+      visit(children.rows, depth + 1, ownerOf(row));
       if (children.rows.length < children.total) {
         out.push({
           kind: "more",
@@ -127,7 +145,7 @@ export function flattenRows(
     }
   }
 
-  visit(roots, 0);
+  visit(roots, 0, rootOwner);
   return out;
 }
 

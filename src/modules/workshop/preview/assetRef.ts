@@ -5,15 +5,28 @@ import type { AssetRef } from "@/lib/tauri";
 /** The URI scheme the backend serves a rendered preview on. */
 const SCHEME = "ltk-asset";
 
+/** The query parameter a thumbnail or a swatch names its width on. */
+const WIDTH_PARAMETER = "w";
+
 /**
  * The URL an `<img>` draws this asset from.
  *
  * The backend renders whatever the file is into something the webview decodes,
  * so a `.tex` and a `.png` both arrive as an image and neither one crosses the
  * JavaScript heap.
+ *
+ * `minWidth` is a thumbnail's or a swatch's `w`. Without one the full resolution
+ * arrives.
  */
-export function previewUrl(asset: AssetRef): string {
-  return convertFileSrc(encodeToken(asset), SCHEME);
+export function previewUrl(asset: AssetRef, minWidth?: number): string {
+  const url = convertFileSrc(encodeToken(asset), SCHEME);
+  if (minWidth === undefined) return url;
+  return `${url}?${WIDTH_PARAMETER}=${minWidth}`;
+}
+
+/** The archive a chunk's bytes come from, and null for a file that mounts none. */
+export function assetArchive(asset: AssetRef): string | null {
+  return asset.kind === "gameChunk" ? asset.wad : null;
 }
 
 /**

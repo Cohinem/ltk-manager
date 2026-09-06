@@ -65,6 +65,7 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
 use ltk_meta::walk::{Node, TreeValue as _, Visit, Visitor};
 
+use crate::bin_document::PropertyKind;
 use crate::meta_schema::{self, MetaSchema};
 use crate::problems::names::{self, BinNames};
 use crate::problems::walk::{self, Address, Declared, FieldNames};
@@ -1416,9 +1417,9 @@ fn resolved_paths(
     }
 }
 
-/// A value's kind, in the table's vocabulary where it has one.
-fn word_of(value: &PropertyValueEnum) -> String {
-    kinds::name(value.kind()).map_or_else(|| format!("{:?}", value.kind()), str::to_owned)
+/// A value's kind, in the word a bin row's tag draws.
+fn word_of(value: &PropertyValueEnum) -> &'static str {
+    PropertyKind::from(value.kind()).tag()
 }
 
 /// What a repair would change, for a problem that has one.

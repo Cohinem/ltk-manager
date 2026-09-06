@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-05 | Browse the install's objects as a tree, and open one as a tab          |
 | 2026-09-05 | Sniff unnamed chunks, filter by class, and match the project's objects |
 | 2026-09-05 | Settle the rows, the `class:` filter, the sniff and the lifecycle      |
 | 2026-09-05 | Decide the object build, its row, its trigger, and the order of halves |
@@ -13,7 +14,6 @@
 | 2026-08-22 | Delete a layer file or folder from its own tree row                    |
 | 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself       |
 | 2026-08-22 | Extract with no dialog, and copy a game file into a layer              |
-| 2026-08-22 | Implement the extract to disk, on the branch's extractor               |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -63,13 +63,16 @@ This table holds every major feature of the editor. A status word has one meanin
 | Explorer bar           | Proposed    | The location, the breadcrumb and the view controls, one row        |
 | Breadcrumb navigator   | Proposed    | Crumbs with sibling menus, and `Ctrl+L` for a typed path           |
 | Grid view              | Proposed    | One directory as tiles, in any of the three explorers              |
-| Asset thumbnails       | Proposed    | A small mipmap over `ltk-asset`, at the tile's own width           |
+| Asset thumbnails       | Proposed    | `?w=` and the queue serve the bin swatch. The tiles are unbuilt    |
 | Details list           | Proposed    | The third view. Name, size, kind, and modified where it is         |
 | Explorer sorting       | Proposed    | Name, size and kind, and the directories first                     |
 | Multi-select and copy  | Proposed    | One model under every view. A directory is its files               |
 | Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                        |
 | Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                |
-| Bin preview            | Planned     | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
+| Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
+| Object tab             | Available   | One declaration as a document. ADR-0028                            |
+| Objects browser        | Available   | Every object of the install, one tree over its paths               |
+| References document    | In progress | A class's objects from the index. The walk for the rest            |
 | Mesh preview           | Planned     | A model in a small viewport                                        |
 | Modified time          | Planned     | Needs a time field in the content scan                             |
 | Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |
@@ -1047,6 +1050,7 @@ whatever the editor grid holds.
 | -------------------- | ------------------------------------------------------------ |
 | Mod details          | Opens the metadata editor as a document                      |
 | Game index           | Opens the game browser as a document                         |
+| Objects              | Opens the objects browser as a document                      |
 | Open project folder  | Shows the project directory in the file manager              |
 | Source control (Git) | Version control for the declarative data. Under construction |
 
@@ -1433,6 +1437,9 @@ ltk-asset://localhost/<token>?w=128
 a screen of tiles affordable at all, because a full decode for each tile is the work of sixty
 open previews.
 
+The [bin editor's texture swatch](BIN_EDITOR.md#a-wad-chunk-link) is the second reader of `w`,
+at the row's own height, and its hover card the third at 256. Both sit under the same queue.
+
 **What the queue is for.** The scheme is served over `http://ltk-asset.localhost` on Windows, so
 the webview caps itself at six connections to that host and the preview of the open tab would
 queue behind a screen of thumbnails. The frontend holds its own queue instead, and decides what
@@ -1793,17 +1800,22 @@ already fills it with a layer name. The rule above sets when that field shows.
 | Game WADs    | The list of the install's archives                 |
 | Game archive | The file tree of one archive of the install        |
 | Preview      | One asset, drawn by the viewer its file kind has   |
+| Bin          | A `.bin` as blocks over its parsed tree            |
+| Object       | One declaration of an object, from depth zero      |
 
 ### Planned document types
 
-| Document     | Content                                 |
-| ------------ | --------------------------------------- |
-| Mesh preview | A model in a small viewport             |
-| Bin preview  | A `.bin` as blocks over its parsed tree |
+| Document     | Content                                                      |
+| ------------ | ------------------------------------------------------------ |
+| Mesh preview | A model in a small viewport                                  |
+| Objects      | Every object of the install, folded into one tree over paths |
+| References   | The objects declaring a class, or linking to an object       |
 
-The bin preview has a document of its own, and [Bin editor](BIN_EDITOR.md) specifies it. It
-reads a bin rather than an image and edits one where the source allows a write, and neither
-fits a variant on `Preview`.
+The bin document is its own kind, and [Bin editor](BIN_EDITOR.md) specifies it. It reads a bin
+rather than an image and edits one where the source allows a write, and neither fits a variant
+on `Preview`. The object document is a second kind over the same held tree, keyed on a
+declaration, per ADR-0028. The objects browser and the References document are specified
+[below](#objects-browser).
 
 The mesh preview joins the preview document rather than adding one of its own. A viewer is a
 variant on the backend's `Preview` and an arm of the switch the preview document draws, so
@@ -2632,6 +2644,120 @@ reinstall of the same patch no longer forces a rebuild.
 `ltk_overlay`. The cache therefore ships in the `LeagueToolkit/league-mod` workspace, and
 the manager reads it through that crate. The manager builds no second index of its own.
 
+## Objects browser
+
+The game's content is objects with paths, and the [bin object index](#the-bin-object-index)
+holds every declaration of the install. The project bar answers a query over it. The objects
+browser is the browse over the same index: every object of the install, folded into one tree
+over its paths, the way the [game browser](#game-browser) folds the archives into one tree over
+theirs.
+
+### Where it opens
+
+A tab in the editor surface, and a panel type, under the game browser's rules. The primary
+panel's project row carries the route beside the game browser's, and the empty editor offers
+the same button.
+
+Opening the view warms the index whether or not the Objects switch is on. The body draws the
+build while it runs, with the archive count. The `$` source answers while the index is warm.
+The empty state offers to keep the switch on.
+
+### The tree
+
+Two levels, as the game browser's tree has two: the path prefix, and the object.
+
+```
+│ ▾ Characters                                                       12,480 │
+│   ▾ Aatrox                                                            214 │
+│     ▾ Skins                                                            96 │
+│       ▾ ◈ Skin0        SkinCharacterDataProperties  Aatrox.wad/…/skin0.bin │
+│           ◈ Resources  ResourceResolver             Aatrox.wad/…/skin0.bin │
+│           ◈ 0x9c4e1b02 SkinAnimationProperties     Aatrox.wad/…/skin0.bin │
+```
+
+A node is a path. A prefix no object bears draws as a directory row with the count of objects
+under it. A node that is an object draws its mark, its last segment, its class and its source.
+A node that is both an object and a prefix draws as one object row with a caret, its
+descendants under it. A run of prefixes each holding one prefix folds into a single row, the
+rule the layer tree obeys.
+
+A prefix is read from the backend when it is first opened. Unnamed objects group under `?` and
+read as hex. With no table naming a single object, the hint the game browser draws for the same
+state draws here. The tree uses the same row height, the same virtualizer and the same keys as
+the source tree.
+
+### A node with several declarations
+
+A node's children belong to the path and not to any one file. A node one file declares carries
+that file in its source cell. A node several files declare carries `n files` there, a chip that
+lists the declaring files on hover and pins on a click. Each file in the list opens its own tab,
+`Ctrl` beside. The node's row opens the first declaration in archive order, and its expansion
+holds the path children alone.
+
+A layer's declaration is one of the listed files, marked by its layer name the way the palette
+marks a layer row. A node the install declares and a layer overrides carries the layer name on
+the node row. A node only the project declares has no row. The tree's nodes are the install's.
+
+### What a row opens
+
+An object row opens its declaration as an [object tab](BIN_EDITOR.md#the-object-tab): a
+preview on click, a pinned tab on double click, `Ctrl+Enter` beside. A directory row toggles on
+click. A node that is both opens on click, and expands from its caret or the Right arrow alone.
+
+| Item              | Does                                               |
+| ----------------- | -------------------------------------------------- |
+| Open, Open beside | The object tab, in the focused group or beside it  |
+| Show in file      | The declaring bin, scrolled to the object          |
+| Copy path         | The object's path                                  |
+| Copy hash         | The object's hash                                  |
+| Copy class hash   | The class's hash, shown for a class no table names |
+
+Copy into a layer and Extract stay on the file tab. A row here is an object, and an object row
+writes no file.
+
+### Search across the objects
+
+The toolbar's box swaps the body for the tree of every hit under its real prefixes, expanded,
+capped the way the game find is capped. The pattern is a substring or a regex over object paths,
+with the `class:` term the palette takes. Ranking stays the palette's.
+
+### Reveal in Objects
+
+An object tab's menu and an object block's menu open the view, expand the object's path and
+focus its row.
+
+### The References document
+
+One document, keyed the way Problems is. A new query replaces the last, and the query sits in
+the header with a re-run control. Hits group by declaring file, one row per object. A link
+reference carries the property path and opens the object tab scrolled to that row.
+
+| Query                             | Answered from       |
+| --------------------------------- | ------------------- |
+| Every object of a class           | The index           |
+| Every use of an embedded class    | A walk of every bin |
+| Every object linking to an object | The same walk       |
+
+The walk covers the install and the project's layers. It runs on demand, with progress and a
+cancel in the tab. The walk is measured before any reverse index is built, and the measurement
+decides between a walk per query and a second index behind the Objects switch, the way the
+cache was decided.
+
+Find all references sits on every [class card](BIN_EDITOR.md#the-class-card), and on every menu
+an object has.
+
+### Ideas
+
+- A view scoped to one prefix, one tab per champion, opened from a prefix row. An archive is a
+  real thing with a list behind it, and a prefix is a fold of the tree the view draws. It earns
+  a tab when someone keeps one champion open all session and says so
+- A grouping by class, beside the grouping by path
+
+### What ships in what order
+
+The reading track in [Bin editor](BIN_EDITOR.md#what-ships-in-what-order) holds the order. The
+view is its step 5, the References document its step 6, the walk its step 8.
+
 ## The panel layout
 
 The editor grid holds its surfaces in a tree of splits. A user drags a tab onto the edge
@@ -2720,6 +2846,7 @@ the panels and not a view: it appears once for each leaf of the split tree. Read
 - The file tree of the selected layer
 - The asset inspector
 - The game browser
+- The [objects browser](#objects-browser)
 - The [problems list](PROJECT_PROBLEMS.md#the-problems-panel), when it arrives
 - The merged layer view, when it arrives
 

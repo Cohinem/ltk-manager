@@ -7,7 +7,7 @@ import type { ObjectSearchHit } from "./ObjectSearchHit";
  */
 export type ObjectSearchResult = { 
 /**
- * The best rows, best first, capped at [`SEARCH_LIMIT`].
+ * The best rows, best first, capped at `SEARCH_LIMIT`.
  */
 hits: Array<ObjectSearchHit>, 
 /**

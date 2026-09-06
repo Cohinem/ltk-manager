@@ -323,6 +323,7 @@ describe("a backend-ranked source", () => {
           pathHash: "0",
           path: "data/skin.bin",
           objectHash: `0x${at}`,
+          objectPath: `characters/aatrox/skins/skin${at}`,
         },
       },
       band: 2,
@@ -371,6 +372,7 @@ describe("a backend-ranked source", () => {
           layerName: "base",
           path: "data/skin.bin",
           objectHash: "0x1",
+          objectPath: "characters/aatrox/skins/skin0",
         },
       }),
     ];
@@ -400,6 +402,7 @@ describe("a backend-ranked source", () => {
           layerName: "base",
           path: "data/skin.bin",
           objectHash: "0x1",
+          objectPath: "characters/aatrox/skins/skin0",
         },
       }),
     ];
@@ -449,7 +452,13 @@ describe("the project's objects under a class term", () => {
       objectClass: { name: className, hash },
       path: `${className} · data/skin.bin`,
       icon: null,
-      target: { kind: "layerObject", layerName: "base", path: "data/skin.bin", objectHash: path },
+      target: {
+        kind: "layerObject",
+        layerName: "base",
+        path: "data/skin.bin",
+        objectHash: path,
+        objectPath: path,
+      },
     });
   }
 
