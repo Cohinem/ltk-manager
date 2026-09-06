@@ -1,10 +1,4 @@
-import {
-  DotsThreeVerticalIcon,
-  FolderOpenIcon,
-  GearIcon,
-  WheelchairIcon,
-} from "@phosphor-icons/react";
-import { useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { DotsThreeVerticalIcon, FolderOpenIcon, WheelchairIcon } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-shell";
 import { useState } from "react";
 import { twMerge } from "tailwind-merge";
@@ -32,13 +26,9 @@ interface AppMenuProps {
 
 /** The titlebar actions that report no state of their own, behind one cell. */
 export function AppMenu({ appInfo }: AppMenuProps) {
-  const navigate = useNavigate();
-  const matchRoute = useMatchRoute();
   const diagnosticToken = useLatestIncidentToken();
   const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
-
-  const isSettings = Boolean(matchRoute({ to: "/settings", fuzzy: true }));
 
   async function handleOpenStorageDirectory() {
     try {
@@ -59,8 +49,7 @@ export function AppMenu({ appInfo }: AppMenuProps) {
         <Menu.Trigger
           aria-label="More"
           data-ui="TitleBar:appMenu"
-          // Settings folded in here, so this cell is what marks that page current.
-          className={twMerge(cellBase, isSettings || isOpen ? cellActive : cellInactive)}
+          className={twMerge(cellBase, isOpen ? cellActive : cellInactive)}
         >
           <DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />
         </Menu.Trigger>
@@ -69,12 +58,6 @@ export function AppMenu({ appInfo }: AppMenuProps) {
       <Menu.Portal>
         <Menu.Positioner sideOffset={0}>
           <Menu.Popup className="min-w-52">
-            <Menu.Item
-              icon={<GearIcon className="h-4 w-4" />}
-              onClick={() => navigate({ to: "/settings" })}
-            >
-              Settings
-            </Menu.Item>
             <Menu.Item
               icon={<FolderOpenIcon className="h-4 w-4" />}
               onClick={handleOpenStorageDirectory}

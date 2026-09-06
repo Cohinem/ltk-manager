@@ -1,4 +1,11 @@
-import { HouseIcon, MinusIcon, SquareIcon, StethoscopeIcon, XIcon } from "@phosphor-icons/react";
+import {
+  GearIcon,
+  HouseIcon,
+  MinusIcon,
+  SquareIcon,
+  StethoscopeIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type ComponentType, useEffect, useRef, useState } from "react";
@@ -251,6 +258,18 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                   />
                 )}
               </span>
+            </Link>
+          </Tooltip>
+
+          <Tooltip content="Settings">
+            <Link
+              to="/settings"
+              activeProps={{ className: twMerge(cellBase, cellActive) }}
+              inactiveProps={{ className: twMerge(cellBase, cellInactive) }}
+              aria-label="Settings"
+              data-ui="TitleBar:settings"
+            >
+              <GearIcon className="h-4 w-4" />
             </Link>
           </Tooltip>
 
