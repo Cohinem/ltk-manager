@@ -1,4 +1,4 @@
-import { DotsThreeVerticalIcon } from "@phosphor-icons/react";
+import { SlidersHorizontalIcon } from "@phosphor-icons/react";
 
 import { Checkbox, FilterSection, IconButton, Popover, Slider, Tooltip } from "@/components";
 import { useSaveSettings, useSettings } from "@/modules/settings";
@@ -8,7 +8,7 @@ const SCALE_MARKS = VALID_CARD_SCALES.map((value) => ({ value }));
 const MIN_SCALE = VALID_CARD_SCALES[0];
 const MAX_SCALE = VALID_CARD_SCALES[VALID_CARD_SCALES.length - 1];
 
-/** Card size and what a card shows, behind the view toggle's caret. */
+/** Card size and what a card shows, behind the view toggle's caret. Sliders, not a kebab: DS-GLYPH-ROLE. */
 export function ViewOptionsPopover() {
   const { data: settings } = useSettings();
   const saveSettings = useSaveSettings();
@@ -23,7 +23,7 @@ export function ViewOptionsPopover() {
         <Popover.Trigger
           render={
             <IconButton
-              icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+              icon={<SlidersHorizontalIcon weight="bold" className="h-4 w-4" />}
               variant="ghost"
               size="sm"
               compact
