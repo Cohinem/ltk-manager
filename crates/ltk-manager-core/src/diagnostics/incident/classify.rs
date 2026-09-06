@@ -237,7 +237,7 @@ impl GameRecord {
                     capitalized_sentence(message)
                 ),
             )
-            .with_hint(hint::SYSTEM_CHECKS),
+            .with_hint(Hint::SystemChecks),
             SessionFailure::Injection {
                 stage: InjectionStage::Injection,
                 message,
@@ -249,11 +249,11 @@ impl GameRecord {
                 ),
             )
                 .with_hint(if self.host_elevated {
-                    hint::SIGNATURE
+                    Hint::Signature
                 } else {
-                    hint::ELEVATE
+                    Hint::Elevate
                 })
-                .with_hint(hint::SYSTEM_CHECKS),
+                .with_hint(Hint::SystemChecks),
         };
         Some((verdict, Vec::new()))
     }
@@ -273,7 +273,7 @@ impl GameRecord {
                 "The patcher does not know this version of League. The DLL refused to patch a build newer than the one it was made for, and the game ran unmodded.{build}"
             ),
         )
-        .with_hint(hint::UPDATE_MANAGER);
+        .with_hint(Hint::UpdateManager);
         Some((verdict, Vec::new()))
     }
 
@@ -295,7 +295,7 @@ impl GameRecord {
         if let Some(wad) = first.wad.as_deref() {
             verdict = verdict.with_subject(last_segment(wad));
             if self.is_workshop() {
-                verdict = verdict.with_hint(hint::OPEN_PROJECT);
+                verdict = verdict.with_hint(Hint::OpenProject);
             }
         }
         Some((verdict, suspects))
@@ -315,7 +315,7 @@ impl GameRecord {
         };
         let mut cause = String::from("The patcher turned the overlay off before the game loaded.");
         let mut verdict =
-            Verdict::new(VerdictKind::OverlayDisabled, "").with_hint(hint::REBUILD_OVERLAY);
+            Verdict::new(VerdictKind::OverlayDisabled, "").with_hint(Hint::RebuildOverlay);
         let mut suspects = Vec::new();
         match archive {
             Some(archive) => {
@@ -330,7 +330,7 @@ impl GameRecord {
                 );
                 verdict = verdict.with_subject(archive);
                 if self.is_workshop() {
-                    verdict = verdict.with_hint(hint::OPEN_PROJECT);
+                    verdict = verdict.with_hint(Hint::OpenProject);
                 }
             }
             None => cause.push_str(
@@ -352,7 +352,7 @@ impl GameRecord {
                 "The DLL never attached, because the patcher was not running or the host never found the game.".to_string()
             }
             OverlayOutcome::TooLate => {
-                verdict = verdict.with_hint(hint::START_FIRST);
+                verdict = verdict.with_hint(Hint::StartFirst);
                 "League started before the patcher's scan, so the DLL joined too late and stayed inert.".to_string()
             }
             OverlayOutcome::HookFailed => match &self.overlay_detail {
@@ -412,9 +412,9 @@ impl GameRecord {
 
         verdict.cause = cause;
         verdict = verdict.with_hint(if self.is_workshop() {
-            hint::OPEN_PROJECT
+            Hint::OpenProject
         } else {
-            hint::DISABLE_SUSPECT
+            Hint::DisableSuspect
         });
         Some((verdict, suspects))
     }
@@ -429,8 +429,8 @@ impl GameRecord {
                 reading(row)
             ),
         )
-        .with_hint(hint::REBUILD_OVERLAY)
-        .with_hint(hint::REPAIR_INSTALL);
+        .with_hint(Hint::RebuildOverlay)
+        .with_hint(Hint::RepairInstall);
         Some((verdict, self.redirected_writers(ctx)))
     }
 
@@ -445,8 +445,8 @@ impl GameRecord {
             VerdictKind::TextureFailed,
             "League could not load a texture onto the GPU. An invalid or unexpected texture format, or invalid texture dimensions, can cause this.",
         )
-        .with_hint(hint::TEXTURE_DIMENSIONS)
-        .with_hint(hint::REBUILD_OVERLAY);
+        .with_hint(Hint::TextureDimensions)
+        .with_hint(Hint::RebuildOverlay);
         Some((verdict, Vec::new()))
     }
 
@@ -456,19 +456,14 @@ impl GameRecord {
     /// cause says only what the manager can act on and never settles on one.
     fn rule_out_of_memory(&self, _ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
         let row = self.best_row_of(|kind| kind == CodeKind::Memory)?;
-        let count = self.redirected.len();
         let mut verdict = Verdict::new(VerdictKind::OutOfMemory, format!(
                 "League asked for memory and did not get it. {} An allocation fails for many reasons, and the three worth checking are free RAM, room on the drive for Windows to grow the page file, and a mod whose textures are far larger than what they replace.",
                 reading(row)
             ),
         )
-        .with_hint(hint::FREE_MEMORY);
-        if count > 0 {
-            verdict = verdict.with_hint(format!(
-                "{count} modded archive{} {} in this game. Disable any that replace textures with much larger ones and play again.",
-                plural(count),
-                if count == 1 { "was" } else { "were" }
-            ));
+        .with_hint(Hint::FreeMemory);
+        if !self.redirected.is_empty() {
+            verdict = verdict.with_hint(Hint::LargeTextures);
         }
         Some((verdict, Vec::new()))
     }
@@ -480,7 +475,7 @@ impl GameRecord {
             VerdictKind::GraphicsFault,
             format!("The graphics driver stopped responding. {}", reading(row)),
         )
-        .with_hint(hint::UPDATE_DRIVER);
+        .with_hint(Hint::UpdateDriver);
         Some((verdict, Vec::new()))
     }
 
@@ -522,7 +517,7 @@ impl GameRecord {
             }
         };
         if self.ran_lazy_and_ended_early() {
-            verdict = verdict.with_hint(hint::SCAN_UP_FRONT);
+            verdict = verdict.with_hint(Hint::ScanUpFront);
         }
         Some((verdict, suspects))
     }
@@ -545,9 +540,9 @@ impl GameRecord {
         let suspects = ctx.writers_of(&wads, Because::Skipped);
         let mut verdict = Verdict::new(VerdictKind::ArchiveSkipped, cause)
             .with_subject(archive)
-            .with_hint(hint::REBUILD_OVERLAY);
+            .with_hint(Hint::RebuildOverlay);
         if self.is_workshop() {
-            verdict = verdict.with_hint(hint::OPEN_PROJECT);
+            verdict = verdict.with_hint(Hint::OpenProject);
         }
         Some((verdict, suspects))
     }
@@ -580,9 +575,9 @@ impl GameRecord {
         }
         let mut verdict = Verdict::new(VerdictKind::EndedWithoutReason, cause);
         if self.ran_lazy_and_ended_early() {
-            verdict = verdict.with_hint(hint::SCAN_UP_FRONT);
+            verdict = verdict.with_hint(Hint::ScanUpFront);
         }
-        Some((verdict.with_hint(hint::COPY_REPORT), Vec::new()))
+        Some((verdict.with_hint(Hint::CopyReport), Vec::new()))
     }
 
     fn redirected_writers(&self, ctx: &ClassifyContext<'_>) -> Vec<Suspect> {
@@ -674,11 +669,11 @@ impl GameRecord {
 /// wrong game directory is fixed in Settings, corrupt game files by a repair,
 /// and a builder bug by an update or a report. Everything else, including a
 /// record from before the category was kept, keeps the rebuild hint.
-fn build_failure_hints(category: Option<OverlayErrorCategory>) -> &'static [&'static str] {
+fn build_failure_hints(category: Option<OverlayErrorCategory>) -> &'static [Hint] {
     match category {
-        Some(OverlayErrorCategory::GameDir) => &[hint::CHECK_GAME_PATH],
-        Some(OverlayErrorCategory::Corrupt) => &[hint::REBUILD_OVERLAY, hint::REPAIR_INSTALL],
-        Some(OverlayErrorCategory::Bug) => &[hint::UPDATE_MANAGER, hint::COPY_REPORT],
-        _ => &[hint::REBUILD_OVERLAY],
+        Some(OverlayErrorCategory::GameDir) => &[Hint::CheckGamePath],
+        Some(OverlayErrorCategory::Corrupt) => &[Hint::RebuildOverlay, Hint::RepairInstall],
+        Some(OverlayErrorCategory::Bug) => &[Hint::UpdateManager, Hint::CopyReport],
+        _ => &[Hint::RebuildOverlay],
     }
 }

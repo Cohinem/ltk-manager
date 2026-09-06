@@ -1,3 +1,4 @@
+import { m } from "@/i18n";
 import type { Evidence, EvidenceCode } from "@/lib/tauri";
 
 interface EvidenceTimelineProps {
@@ -11,7 +12,7 @@ interface EvidenceTimelineProps {
  */
 export function EvidenceTimeline({ evidence }: EvidenceTimelineProps) {
   if (evidence.length === 0) {
-    return <p className="text-xs text-surface-500">Nothing was recorded for this game.</p>;
+    return <p className="text-xs text-surface-500">{m.diagnostics_evidence_empty()}</p>;
   }
 
   return (

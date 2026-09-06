@@ -70,7 +70,7 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
                     "assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds".to_string(),
                 ),
                 consequence: Consequence::GameStopped,
-                hints: vec![hint::DISABLE_SUSPECT.to_string()],
+                hints: vec![Hint::DisableSuspect],
             },
             evidence: vec![
                 plain(

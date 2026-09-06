@@ -153,24 +153,21 @@ fn a_build_failure_is_the_whole_story() {
 /// rebuild hint stays only where nothing more specific is known.
 #[test]
 fn a_build_failure_hints_at_the_category_remedy() {
-    let cases: [(Option<OverlayErrorCategory>, &[&str]); 5] = [
-        (
-            Some(OverlayErrorCategory::GameDir),
-            &[hint::CHECK_GAME_PATH],
-        ),
+    let cases: [(Option<OverlayErrorCategory>, &[Hint]); 5] = [
+        (Some(OverlayErrorCategory::GameDir), &[Hint::CheckGamePath]),
         (
             Some(OverlayErrorCategory::Corrupt),
-            &[hint::REBUILD_OVERLAY, hint::REPAIR_INSTALL],
+            &[Hint::RebuildOverlay, Hint::RepairInstall],
         ),
         (
             Some(OverlayErrorCategory::Bug),
-            &[hint::UPDATE_MANAGER, hint::COPY_REPORT],
+            &[Hint::UpdateManager, Hint::CopyReport],
         ),
         (
             Some(OverlayErrorCategory::ModContent),
-            &[hint::REBUILD_OVERLAY],
+            &[Hint::RebuildOverlay],
         ),
-        (None, &[hint::REBUILD_OVERLAY]),
+        (None, &[Hint::RebuildOverlay]),
     ];
 
     for (category, hints) in cases {
@@ -210,7 +207,7 @@ fn a_host_failure_points_at_the_system_checks() {
     });
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.verdict.kind, VerdictKind::InjectionHostFailed);
-    assert_eq!(incident.verdict.hints, [hint::SYSTEM_CHECKS]);
+    assert_eq!(incident.verdict.hints, [Hint::SystemChecks]);
 }
 
 #[test]
@@ -229,13 +226,13 @@ fn a_dll_that_never_attached_hints_at_elevation_or_the_signature() {
             .cause
             .ends_with("DLL never attached after 60s.")
     );
-    assert_eq!(incident.verdict.hints, [hint::ELEVATE, hint::SYSTEM_CHECKS]);
+    assert_eq!(incident.verdict.hints, [Hint::Elevate, Hint::SystemChecks]);
 
     record.host_elevated = true;
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(
         incident.verdict.hints,
-        [hint::SIGNATURE, hint::SYSTEM_CHECKS]
+        [Hint::Signature, Hint::SystemChecks]
     );
 }
 
@@ -253,7 +250,7 @@ fn an_end_of_life_dll_is_an_out_of_date_patcher_even_on_a_clean_ending() {
             .starts_with("The patcher does not know this version of League.")
     );
     assert!(incident.verdict.cause.contains("0x68a1b2c3"));
-    assert_eq!(incident.verdict.hints, [hint::UPDATE_MANAGER]);
+    assert_eq!(incident.verdict.hints, [Hint::UpdateManager]);
     assert!(incident.suspects.is_empty());
 }
 
@@ -283,12 +280,12 @@ fn a_rejected_archive_names_its_writers() {
         incident.suspects[0].because,
         "writes Aatrox.wad.client, which the scan rejected"
     );
-    assert_eq!(incident.verdict.hints, [hint::REMOVE_SKINHACK]);
+    assert_eq!(incident.verdict.hints, [Hint::RemoveSkinhack]);
 
     record.scan_failures[0].status = "base_skin".to_string();
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.scan_status, Some(ScanStatus::BaseSkin));
-    assert_eq!(incident.verdict.hints, [hint::REIMPORT_MOD]);
+    assert_eq!(incident.verdict.hints, [Hint::ReimportMod]);
     // Only a skinhack reaches its own kind.
     assert_eq!(incident.verdict.kind, VerdictKind::ArchiveRejected);
     assert_eq!(incident.verdict.title, "Archive Scan Rejection");
@@ -304,7 +301,7 @@ fn a_rejected_archive_names_its_writers() {
     record.scan_failures[0].status = "base_wad".to_string();
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.scan_status, Some(ScanStatus::BaseWad));
-    assert_eq!(incident.verdict.hints, [hint::REPAIR_GAME]);
+    assert_eq!(incident.verdict.hints, [Hint::RepairGame]);
 
     // A burst is counted, so the frontend can say how many it does not name.
     record.scan_failures.push(WadScanFailure {
@@ -351,10 +348,7 @@ fn every_token_the_dll_emits_reads_and_advises() {
         ScanStatus::BaseWad,
         ScanStatus::Unknown,
     ] {
-        assert!(
-            !status.hint().is_empty(),
-            "{status:?} offers nothing to try"
-        );
+        let _ = status.hint();
     }
 }
 
@@ -406,7 +400,7 @@ fn a_disabled_overlay_records_on_a_clean_ending() {
             .contains("Aatrox.wad.client did not verify: file would not open.")
     );
     assert_eq!(names(&incident), ["Aatrox Justicar"]);
-    assert_eq!(incident.verdict.hints, [hint::REBUILD_OVERLAY]);
+    assert_eq!(incident.verdict.hints, [Hint::RebuildOverlay]);
 }
 
 #[test]
@@ -423,7 +417,7 @@ fn an_unmodded_crash_says_why_and_an_unmodded_clean_game_is_nothing() {
     record.overlay = OverlayOutcome::TooLate;
     let incident = classify(&record, &no_path).unwrap();
     assert!(incident.verdict.cause.contains("joined too late"));
-    assert_eq!(incident.verdict.hints, [hint::START_FIRST]);
+    assert_eq!(incident.verdict.hints, [Hint::StartFirst]);
 
     assert_eq!(classify(&clean(record), &no_path), None);
 }
@@ -457,7 +451,7 @@ fn missing_data_with_a_path_names_the_archive_writer() {
         incident.suspects[0].because,
         "writes Aatrox.wad.client, which holds the path"
     );
-    assert_eq!(incident.verdict.hints, [hint::DISABLE_SUSPECT]);
+    assert_eq!(incident.verdict.hints, [Hint::DisableSuspect]);
 }
 
 #[test]
@@ -518,7 +512,7 @@ fn a_corrupt_archive_reads_its_row_and_lists_the_redirected_writers() {
     assert_eq!(names(&incident), ["Classic Rift", "Aatrox Justicar"]);
     assert_eq!(
         incident.verdict.hints,
-        [hint::REBUILD_OVERLAY, hint::REPAIR_INSTALL]
+        [Hint::RebuildOverlay, Hint::RepairInstall]
     );
 
     record.log = Some(log_with(vec![channel("ALE-89b0dee7", 5.0)]));
@@ -550,8 +544,9 @@ fn a_texture_failure_names_no_mod_whichever_code_reported_it() {
         assert_eq!(incident.verdict.kind, VerdictKind::TextureFailed, "{code}");
         assert!(incident.suspects.is_empty(), "{code} named a mod");
         assert!(incident.verdict.cause.contains("onto the GPU"), "{code}");
-        assert!(
-            incident.verdict.hints[0].contains("multiple of 4"),
+        assert_eq!(
+            incident.verdict.hints,
+            [Hint::TextureDimensions, Hint::RebuildOverlay],
             "{code} lost the dimensions hint"
         );
     }
@@ -564,8 +559,13 @@ fn out_of_memory_reads_the_code_that_named_it() {
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.verdict.kind, VerdictKind::OutOfMemory);
     assert!(incident.suspects.is_empty());
-    assert!(incident.verdict.hints[0].contains("Close what else is running"));
-    assert!(incident.verdict.hints[1].contains("4 modded archives were in this game"));
+    assert_eq!(
+        incident.verdict.hints,
+        [Hint::FreeMemory, Hint::LargeTextures]
+    );
+    record.redirected.clear();
+    let unmodded = classify(&record, &no_path).unwrap();
+    assert_eq!(unmodded.verdict.hints, [Hint::FreeMemory]);
     // An allocation has more causes than a mod, and the cause must say so.
     assert!(incident.verdict.cause.contains("free RAM"));
     assert!(incident.verdict.cause.contains("page file"));
@@ -590,7 +590,7 @@ fn a_graphics_fault_names_no_suspect() {
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.verdict.kind, VerdictKind::GraphicsFault);
     assert!(incident.suspects.is_empty());
-    assert_eq!(incident.verdict.hints, [hint::UPDATE_DRIVER]);
+    assert_eq!(incident.verdict.hints, [Hint::UpdateDriver]);
 }
 
 fn stuck_at(code: &str) -> GameRecord {
@@ -634,7 +634,7 @@ fn an_early_crash_under_the_lazy_scan_earns_the_up_front_hint() {
     let mut record = stuck_at("SEJ-9F31B5D0");
     record.scan = Some(ScanMode::Lazy);
     let incident = classify(&record, &no_path).unwrap();
-    assert_eq!(incident.verdict.hints, [hint::SCAN_UP_FRONT]);
+    assert_eq!(incident.verdict.hints, [Hint::ScanUpFront]);
 }
 
 #[test]
@@ -674,7 +674,7 @@ fn an_ending_with_no_reason_lists_the_facts() {
     assert!(cause.contains("Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION"));
     assert!(cause.contains("Crashpad ran."));
     assert!(cause.contains("3 error lines"));
-    assert_eq!(incident.verdict.hints, [hint::COPY_REPORT]);
+    assert_eq!(incident.verdict.hints, [Hint::CopyReport]);
 }
 
 #[test]
@@ -808,7 +808,7 @@ fn a_workshop_test_names_the_project_and_the_open_hint() {
     assert_eq!(incident.suspects[0].mod_id, None);
     assert_eq!(
         incident.verdict.hints,
-        [hint::REBUILD_OVERLAY, hint::OPEN_PROJECT]
+        [Hint::RebuildOverlay, Hint::OpenProject]
     );
 }
 
@@ -1054,10 +1054,67 @@ fn a_failure_with_no_message_still_says_what_failed() {
 #[test]
 fn a_verdict_carries_at_most_two_hints() {
     let verdict = Verdict::new(VerdictKind::Unmodded, "c")
-        .with_hint("one")
-        .with_hint("two")
-        .with_hint("three");
-    assert_eq!(verdict.hints, ["one", "two"]);
+        .with_hint(Hint::StartFirst)
+        .with_hint(Hint::CopyReport)
+        .with_hint(Hint::SystemChecks);
+    assert_eq!(verdict.hints, [Hint::StartFirst, Hint::CopyReport]);
+}
+
+/// A hint crosses IPC and the store as its kebab-case name. The number is
+/// pinned for a wire that carries one.
+#[test]
+fn a_hint_has_one_spelling_and_one_number() {
+    use strum::IntoEnumIterator;
+    let mut numbers = Vec::new();
+    for hint in Hint::iter() {
+        let wire = serde_json::to_value(hint).unwrap();
+        let name = wire.as_str().expect("a string on the wire");
+        assert!(
+            name.bytes().all(|b| b.is_ascii_lowercase() || b == b'-'),
+            "{name}"
+        );
+        assert_eq!(Hint::parse_stored(wire.clone()), Some(hint));
+        assert_eq!(Hint::from_code(hint.code()), Some(hint));
+        numbers.push(hint.code());
+    }
+    numbers.sort_unstable();
+    numbers.dedup();
+    assert_eq!(numbers.len(), Hint::iter().count());
+    assert_eq!(Hint::code(Hint::SystemChecks), 1);
+    assert_eq!(Hint::code(Hint::RebuildOverlay), 3);
+    assert_eq!(Hint::code(Hint::CheckGamePath), 4);
+    assert_eq!(Hint::code(Hint::LargeTextures), 19);
+    assert_eq!(Hint::from_code(0), None);
+    assert_eq!(Hint::from_code(20), None);
+}
+
+/// An incident stored by an earlier build holds each hint as a sentence, and
+/// one from a later build may hold a code this build does not know. Both read
+/// without an error, and only the known codes survive.
+#[test]
+fn stored_hints_read_as_codes_or_as_nothing() {
+    let verdict: Verdict = serde_json::from_value(serde_json::json!({
+        "kind": "corrupt-archive",
+        "cause": "",
+        "subject": null,
+        "hints": [
+            "Rebuild the overlay.",
+            "repair-install",
+            "some-hint-from-the-future",
+            7,
+            "rebuild-overlay",
+        ],
+    }))
+    .expect("the verdict reads");
+    assert_eq!(verdict.hints, [Hint::RepairInstall, Hint::RebuildOverlay]);
+
+    let bare: Verdict = serde_json::from_value(serde_json::json!({
+        "kind": "corrupt-archive",
+        "cause": "",
+        "subject": null,
+    }))
+    .expect("a verdict without hints reads");
+    assert!(bare.hints.is_empty());
 }
 
 #[test]
