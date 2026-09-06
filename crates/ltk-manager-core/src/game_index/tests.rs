@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::matcher::PatternSyntax;
+use fs_err as fs;
 use ltk_wad::{WadBuilder, WadChunkBuilder};
-use std::fs;
 use std::io::Write as _;
 use std::path::Path;
 use tempfile::TempDir;

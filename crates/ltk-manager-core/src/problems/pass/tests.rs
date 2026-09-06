@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, NoMeta, values};
@@ -86,8 +87,8 @@ fn project_under(files: &[(&str, &[u8])], budget: Budget) -> (tempfile::TempDir,
             .join("base")
             .join(WAD)
             .join(path.replace('/', std::path::MAIN_SEPARATOR_STR));
-        std::fs::create_dir_all(at.parent().unwrap()).unwrap();
-        std::fs::write(&at, bytes).unwrap();
+        fs::create_dir_all(at.parent().unwrap()).unwrap();
+        fs::write(&at, bytes).unwrap();
     }
     let files = ProjectFiles::within(tmp.path(), &Config::default(), budget, None).unwrap();
     (tmp, files)

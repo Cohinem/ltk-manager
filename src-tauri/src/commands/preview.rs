@@ -4,7 +4,7 @@
 //! that an `<img>` can draw them. What an `<img>` cannot report is the
 //! container, the block format and the mipmap count, which is what this reads.
 
-use std::fs;
+use fs_err as fs;
 use std::path::PathBuf;
 
 use super::off_thread;

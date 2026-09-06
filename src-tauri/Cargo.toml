@@ -8,6 +8,7 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+fs-err = { workspace = true }
 sha2 = { workspace = true }
 
 [dependencies]
@@ -68,6 +69,7 @@ zip = { workspace = true }
 image = { workspace = true }
 notify = { version = "7", default-features = false }
 notify-debouncer-mini = "0.5"
+fs-err = { workspace = true }
 walkdir = { workspace = true }
 
 reqwest = { workspace = true }

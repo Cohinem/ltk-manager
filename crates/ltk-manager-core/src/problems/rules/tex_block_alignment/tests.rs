@@ -1,6 +1,8 @@
 //! Unit tests for what the rule reports, what it stays quiet about, and what
 //! its repair writes.
 
+use fs_err as fs;
+
 use super::*;
 use crate::config::Config;
 use crate::mods::test_support::{make_packed_chunk_fantome_zip, resolver_naming};
@@ -47,8 +49,8 @@ fn project(bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
         .join("content")
         .join("base")
         .join(TEX_IN_LAYER.replace('/', std::path::MAIN_SEPARATOR_STR));
-    std::fs::create_dir_all(at.parent().unwrap()).unwrap();
-    std::fs::write(&at, bytes).unwrap();
+    fs::create_dir_all(at.parent().unwrap()).unwrap();
+    fs::write(&at, bytes).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     (tmp, files)
@@ -193,7 +195,7 @@ fn the_fix_writes_a_texture_the_game_can_create() {
         }
     );
 
-    let repaired = std::fs::read(
+    let repaired = fs::read(
         tmp.path()
             .join("content")
             .join("base")

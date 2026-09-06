@@ -1,7 +1,7 @@
 //! Read-only browsing of the game's WAD archives under `DATA/FINAL`.
 
+use fs_err as fs;
 use std::fmt;
-use std::fs;
 use std::io::BufReader;
 use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};

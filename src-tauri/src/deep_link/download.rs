@@ -1,5 +1,6 @@
 use crate::deep_link::ProtocolInstallProgress;
 use crate::error::{AppError, AppResult};
+use fs_err as fs;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::time::Instant;
@@ -32,7 +33,7 @@ pub fn download_mod_file(url: &str, app_handle: &tauri::AppHandle) -> AppResult<
     let (temp_path, bytes_written) = stream_to_temp_file(response, total_bytes, app_handle)?;
 
     if bytes_written == 0 {
-        let _ = std::fs::remove_file(&temp_path);
+        let _ = fs::remove_file(&temp_path);
         let msg = "Downloaded file is empty";
         emit_progress(app_handle, "error", 0, total_bytes, Some(msg));
         return Err(AppError::ValidationFailed(msg.into()));
@@ -43,15 +44,15 @@ pub fn download_mod_file(url: &str, app_handle: &tauri::AppHandle) -> AppResult<
     let ext = ext_from_metadata
         .or_else(|| sniff_extension_from_file(&temp_path))
         .ok_or_else(|| {
-            let _ = std::fs::remove_file(&temp_path);
+            let _ = fs::remove_file(&temp_path);
             let msg = "Could not determine file format, expected .modpkg or .fantome";
             emit_progress(app_handle, "error", 0, total_bytes, Some(msg));
             AppError::ValidationFailed(msg.into())
         })?;
 
     let final_path = temp_path.with_extension(&ext);
-    std::fs::rename(&temp_path, &final_path).map_err(|e| {
-        let _ = std::fs::remove_file(&temp_path);
+    fs::rename(&temp_path, &final_path).map_err(|e| {
+        let _ = fs::remove_file(&temp_path);
         AppError::Io(e)
     })?;
 
@@ -67,7 +68,7 @@ fn stream_to_temp_file(
     let temp_name = format!("{}.tmp", uuid::Uuid::new_v4());
     let temp_path = std::env::temp_dir().join(temp_name);
 
-    let mut file = std::fs::File::create(&temp_path).map_err(|e| {
+    let mut file = fs::File::create(&temp_path).map_err(|e| {
         emit_progress(app_handle, "error", 0, None, Some(&e.to_string()));
         AppError::Io(e)
     })?;
@@ -78,7 +79,7 @@ fn stream_to_temp_file(
 
     loop {
         let n = response.read(&mut buf).map_err(|e| {
-            let _ = std::fs::remove_file(&temp_path);
+            let _ = fs::remove_file(&temp_path);
             emit_progress(
                 app_handle,
                 "error",
@@ -94,7 +95,7 @@ fn stream_to_temp_file(
         }
 
         file.write_all(&buf[..n]).map_err(|e| {
-            let _ = std::fs::remove_file(&temp_path);
+            let _ = fs::remove_file(&temp_path);
             emit_progress(
                 app_handle,
                 "error",
@@ -168,7 +169,7 @@ pub(crate) fn extract_extension_from_content_disposition(header: &str) -> Option
 
 /// Sniff the file format from the first 4 bytes of a file.
 pub(crate) fn sniff_extension_from_file(path: &std::path::Path) -> Option<String> {
-    let mut file = std::fs::File::open(path).ok()?;
+    let mut file = fs::File::open(path).ok()?;
     let mut magic = [0u8; 4];
     file.read_exact(&mut magic).ok()?;
 

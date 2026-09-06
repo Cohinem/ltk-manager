@@ -7,6 +7,7 @@
 //!
 //! Free-space and length thresholds: 1 GB / 128 chars.
 
+use fs_err as fs;
 use std::path::{Path, PathBuf};
 
 use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
@@ -81,10 +82,10 @@ fn has_cloud_sync_attrs(_path: &Path) -> bool {
 }
 
 fn is_subpath_of(child: &Path, parent: &Path) -> bool {
-    let Ok(c) = std::fs::canonicalize(child) else {
+    let Ok(c) = fs::canonicalize(child) else {
         return child.starts_with(parent);
     };
-    let Ok(p) = std::fs::canonicalize(parent) else {
+    let Ok(p) = fs::canonicalize(parent) else {
         return false;
     };
     c.starts_with(p)

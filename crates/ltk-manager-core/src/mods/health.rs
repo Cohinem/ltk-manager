@@ -18,9 +18,9 @@ use crate::mods::ModLibrary;
 use crate::mods::health::sweep::HealthSweepState;
 use crate::mods::index::{LibraryModEntry, ModStorage};
 use crate::problems::{self, Budget, Counts, GameBuild, Run};
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
 /// Where the library remembers its verdicts, beside `library.json`.

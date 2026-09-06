@@ -9,10 +9,10 @@
 use crate::error::{AppError, AppResult};
 use crate::mods::index::LibraryModEntry;
 use crate::mods::types::{InstalledMod, ModLayer};
+use fs_err as fs;
 use ltk_mod_project::{ModProject, ModProjectLayer};
 use ltk_modpkg::Modpkg;
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 pub(crate) fn read_installed_mod(
@@ -92,7 +92,7 @@ pub(crate) fn read_installed_mod(
 /// Fails when the archive cannot be opened or its `META/info.json` cannot be
 /// read.
 pub(crate) fn fantome_layers(archive: &Path) -> AppResult<Option<Vec<ModProjectLayer>>> {
-    let mut reader = ltk_fantome::FantomeReader::new(std::fs::File::open(archive)?)
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
         .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
     let info = reader
         .read_info()
@@ -157,7 +157,7 @@ pub(crate) fn extract_fantome_metadata(archive: &Path, metadata_dir: &Path) -> A
 /// Fails when the package cannot be mounted or read, or the config cannot be
 /// written.
 pub(crate) fn extract_modpkg_metadata(file_path: &Path, metadata_dir: &Path) -> AppResult<()> {
-    let file = std::fs::File::open(file_path)?;
+    let file = fs::File::open(file_path)?;
     let mut modpkg = Modpkg::mount_from_reader(file)?;
 
     let project = ltk_mod_project::modpkg::read_project(&mut modpkg)?;
@@ -208,7 +208,7 @@ pub(crate) fn extract_modpkg_thumbnail(
     archive_path: &Path,
     metadata_dir: &Path,
 ) -> AppResult<Option<PathBuf>> {
-    let file = std::fs::File::open(archive_path)?;
+    let file = fs::File::open(archive_path)?;
     let mut modpkg = Modpkg::mount_from_reader(file)?;
 
     match modpkg.load_thumbnail() {
@@ -264,7 +264,7 @@ mod tests {
         };
 
         let zip_path = dir.join("test.fantome");
-        let file = std::fs::File::create(&zip_path).unwrap();
+        let file = fs::File::create(&zip_path).unwrap();
         let mut zip = zip::ZipWriter::new(file);
         let options = zip::write::SimpleFileOptions::default();
 

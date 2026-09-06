@@ -5,8 +5,8 @@
 //! never a repack. A mod whose archive is gone - a converted fantome that kept
 //! no keepsake - has nothing to copy, and is reported rather than invented.
 
+use fs_err::{self as fs, File};
 use std::collections::HashSet;
-use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
 

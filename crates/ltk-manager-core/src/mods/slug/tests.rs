@@ -1,3 +1,5 @@
+use fs_err as fs;
+
 use super::*;
 use crate::mods::index::LibraryIndex;
 
@@ -62,8 +64,8 @@ fn collision_matching_ignores_case() {
 fn taken_slugs_collect_reads_both_the_index_and_the_disk() {
     let storage = tempfile::tempdir().unwrap();
     let mods_dir = storage.path().join("mods");
-    std::fs::create_dir_all(mods_dir.join("on-disk-only")).unwrap();
-    std::fs::write(mods_dir.join("orphan-archive.fantome"), b"leftover").unwrap();
+    fs::create_dir_all(mods_dir.join("on-disk-only")).unwrap();
+    fs::write(mods_dir.join("orphan-archive.fantome"), b"leftover").unwrap();
 
     let mut index = LibraryIndex::default();
     index

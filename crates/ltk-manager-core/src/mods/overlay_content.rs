@@ -20,10 +20,10 @@ use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{Profile, ProfileSlug};
+use fs_err::File;
 use ltk_modpkg::Modpkg;
 use ltk_overlay::{FantomeContent, FsModContent, ModContentProvider, ModpkgContent};
 use std::collections::HashSet;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 
 impl ModLibrary {

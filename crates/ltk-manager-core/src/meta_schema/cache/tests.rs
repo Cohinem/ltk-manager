@@ -1,5 +1,7 @@
 //! What the cache installs, what it declines to install, and what it serves.
 
+use fs_err as fs;
+
 use super::*;
 
 /// A published database whose newest build is `latest`, cut to one property.
@@ -312,7 +314,7 @@ fn the_publisher_serves_a_database_and_then_a_not_modified() {
 fn a_cache_that_cannot_be_written_reports_it_and_stamps_nothing() {
     let tmp = tempfile::tempdir().unwrap();
     let blocking = tmp.path().join("a-file-where-the-directory-would-go");
-    std::fs::write(&blocking, b"not a directory").unwrap();
+    fs::write(&blocking, b"not a directory").unwrap();
     let cache = MetaSchemaCache::at(blocking.join("meta"));
 
     let refused = cache.refresh(&Serving::body(published(9_000_000), "etag-1"));

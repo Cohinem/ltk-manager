@@ -15,8 +15,8 @@ use crate::mods::archive::metadata::{
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::index::get_active_profile;
 use crate::mods::types::{EditModMetadataArgs, InstalledMod};
+use fs_err as fs;
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 
 impl ModLibrary {
@@ -286,7 +286,7 @@ impl ModLibrary {
             }
 
             let config_path = mod_dir.join("mod.config.json");
-            std::fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
+            fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
 
             // Determine if enabled
             let mut enabled = false;

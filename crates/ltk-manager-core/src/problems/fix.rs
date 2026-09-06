@@ -12,10 +12,10 @@
 //! over an archive lands nothing: it holds every write for the edit that puts
 //! them back - ADR-0025.
 
+use fs_err as fs;
 use std::cell::OnceCell;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;

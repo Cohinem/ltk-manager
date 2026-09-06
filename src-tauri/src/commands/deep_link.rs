@@ -3,6 +3,7 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{InstalledMod, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
+use fs_err as fs;
 use tauri::{AppHandle, State};
 
 use super::mods::reject_if_patcher_running;
@@ -81,7 +82,7 @@ pub fn deep_link_install_mod(
         let config = settings.config();
         let result = library.0.install_mod_from_package(&config, &temp_path_str);
 
-        if let Err(e) = std::fs::remove_file(&temp_path) {
+        if let Err(e) = fs::remove_file(&temp_path) {
             tracing::warn!("Failed to clean up temp file: {}", e);
         }
 

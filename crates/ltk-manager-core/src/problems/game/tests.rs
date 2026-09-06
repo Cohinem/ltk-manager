@@ -1,9 +1,11 @@
+use fs_err as fs;
+
 use super::*;
 
 #[test]
 fn warming_builds_the_index_before_anything_asks() {
     let game = tempfile::tempdir().expect("a temp dir");
-    std::fs::create_dir_all(game.path().join("DATA").join("FINAL")).expect("DATA/FINAL");
+    fs::create_dir_all(game.path().join("DATA").join("FINAL")).expect("DATA/FINAL");
     let content = InstalledContent::at(game.path());
     assert!(content.held.get().is_none());
 

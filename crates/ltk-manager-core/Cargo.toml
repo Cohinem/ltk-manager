@@ -36,6 +36,7 @@ base64 = { workspace = true }
 camino = { workspace = true }
 chrono = { workspace = true }
 flate2 = { workspace = true }
+fs-err = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }

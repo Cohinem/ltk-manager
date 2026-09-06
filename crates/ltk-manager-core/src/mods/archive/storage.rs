@@ -28,10 +28,10 @@ use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModStorage, get_active_profile};
 use crate::mods::long_paths;
 use crate::mods::types::InstalledMod;
+use fs_err as fs;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use ltk_mod_project::{ModProject, ProjectImporter, ProjectPacker};
 use std::collections::HashMap;
-use std::fs;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
@@ -424,7 +424,7 @@ fn swap_in_unpacked(staging_dir: &Path, mod_dir: &Path) -> AppResult<()> {
         fs::rename(mod_dir, &replaced).map_err(|e| {
             AppError::Io(std::io::Error::new(
                 e.kind(),
-                format!("Failed to move {} aside: {e}", mod_dir.display()),
+                format!("Failed to move the mod directory aside: {e}"),
             ))
         })?;
     }
@@ -433,10 +433,7 @@ fn swap_in_unpacked(staging_dir: &Path, mod_dir: &Path) -> AppResult<()> {
         let _ = fs::rename(&replaced, mod_dir);
         return Err(AppError::Io(std::io::Error::new(
             e.kind(),
-            format!(
-                "Failed to move the unpacked mod into {}: {e}",
-                mod_dir.display()
-            ),
+            format!("Failed to move the unpacked mod into place: {e}"),
         )));
     }
 
@@ -478,7 +475,7 @@ fn swap_in_packed(staged: &Path, archive: &Path) -> AppResult<()> {
         fs::rename(archive, &replaced).map_err(|e| {
             AppError::Io(std::io::Error::new(
                 e.kind(),
-                format!("Failed to move {} aside: {e}", archive.display()),
+                format!("Failed to move the archive aside: {e}"),
             ))
         })?;
     }
@@ -487,10 +484,7 @@ fn swap_in_packed(staged: &Path, archive: &Path) -> AppResult<()> {
         let _ = fs::rename(&replaced, archive);
         return Err(AppError::Io(std::io::Error::new(
             e.kind(),
-            format!(
-                "Failed to move the packed archive into {}: {e}",
-                archive.display()
-            ),
+            format!("Failed to move the packed archive into place: {e}"),
         )));
     }
 
@@ -505,7 +499,7 @@ fn drop_unpacked_content(mod_dir: &Path) -> AppResult<()> {
         fs::remove_dir_all(&content).map_err(|e| {
             AppError::Io(std::io::Error::new(
                 e.kind(),
-                format!("Failed to remove {}: {e}", content.display()),
+                format!("Failed to remove the unpacked content: {e}"),
             ))
         })?;
     }

@@ -23,6 +23,7 @@ use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use fs_err as fs;
 use ltk_fantome::{FantomeEntry, FantomeReader, classify_entry};
 use ltk_file::{LeagueFileKind, MAX_MAGIC_SIZE};
 use ltk_hashtable::{GameResolver, Hashtable, HashtableEntry, HashtableSet};
@@ -89,7 +90,7 @@ impl ArchiveFiles {
     /// one damaged WAD is no reason to say nothing about the rest.
     pub(super) fn scan(archive: &Path, resolver: &dyn PathResolver) -> AppResult<ArchiveScan> {
         let (mut files, packed) = Self::loose_files(archive)?;
-        let mut reader = FantomeReader::new(std::fs::File::open(archive)?)
+        let mut reader = FantomeReader::new(fs::File::open(archive)?)
             .map_err(|e| AppError::Fantome(e.to_string()))?;
 
         // Read before the WADs are scanned, and propagated rather than shrugged
@@ -221,7 +222,7 @@ impl ArchiveFiles {
     /// A WAD the archive deflated is inflated here and left in `inflated`, so
     /// the reads that follow do not each inflate it again.
     fn packed_files(
-        reader: &mut FantomeReader<std::fs::File>,
+        reader: &mut FantomeReader<fs::File>,
         wad: &PackedWad,
         resolver: &dyn PathResolver,
         inflated: &mut HashMap<String, Arc<[u8]>>,
@@ -273,7 +274,7 @@ impl ArchiveFiles {
             );
         }
 
-        let mut reader = FantomeReader::new(std::fs::File::open(&self.archive)?)
+        let mut reader = FantomeReader::new(fs::File::open(&self.archive)?)
             .map_err(|e| AppError::Fantome(e.to_string()))?;
         let mut wad = reader
             .mount_packed_wad(wad_name)
@@ -310,8 +311,8 @@ impl ArchiveFiles {
     }
 }
 
-fn open_zip(archive: &Path) -> AppResult<ZipArchive<std::fs::File>> {
-    ZipArchive::new(std::fs::File::open(archive)?).map_err(|e| AppError::Fantome(e.to_string()))
+fn open_zip(archive: &Path) -> AppResult<ZipArchive<fs::File>> {
+    ZipArchive::new(fs::File::open(archive)?).map_err(|e| AppError::Fantome(e.to_string()))
 }
 
 /// A WAD over `source`, with its own error mapped onto the app's.

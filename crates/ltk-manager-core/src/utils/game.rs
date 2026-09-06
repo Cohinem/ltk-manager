@@ -2,6 +2,7 @@
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use fs_err as fs;
 use std::path::{Path, PathBuf};
 
 /// A League game directory — the one containing `DATA`.
@@ -69,7 +70,7 @@ impl GameDir {
         let mut out: Vec<String> = Vec::new();
         let mut stack: Vec<PathBuf> = vec![data_dir];
         while let Some(dir) = stack.pop() {
-            let read = match std::fs::read_dir(&dir) {
+            let read = match fs::read_dir(&dir) {
                 Ok(r) => r,
                 Err(e) => {
                     tracing::warn!("Failed to read {}: {}", dir.display(), e);
@@ -103,7 +104,7 @@ impl GameDir {
     /// champion and the coarse WAD footprint still applies.
     pub fn champion_names(&self) -> Vec<String> {
         let champ_dir = self.0.join("DATA").join("FINAL").join("Champions");
-        let entries = match std::fs::read_dir(&champ_dir) {
+        let entries = match fs::read_dir(&champ_dir) {
             Ok(entries) => entries,
             Err(e) => {
                 tracing::debug!(
@@ -148,7 +149,7 @@ mod tests {
     #[test]
     fn resolve_game_dir_with_game_subdir() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(dir.path().join("Game")).unwrap();
+        fs::create_dir_all(dir.path().join("Game")).unwrap();
 
         let config = Config {
             league_path: Some(dir.path().to_path_buf()),
@@ -161,7 +162,7 @@ mod tests {
     #[test]
     fn resolve_game_dir_with_data_dir() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(dir.path().join("DATA")).unwrap();
+        fs::create_dir_all(dir.path().join("DATA")).unwrap();
 
         let config = Config {
             league_path: Some(dir.path().to_path_buf()),
@@ -189,11 +190,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let data = dir.path().join("DATA");
         let final_dir = data.join("FINAL").join("Champions");
-        std::fs::create_dir_all(&final_dir).unwrap();
-        std::fs::write(final_dir.join("Aatrox.wad.client"), b"").unwrap();
-        std::fs::write(final_dir.join("Ahri.wad.client"), b"").unwrap();
-        std::fs::write(data.join("Shared.wad"), b"").unwrap();
-        std::fs::write(final_dir.join("not-a-wad.txt"), b"").unwrap();
+        fs::create_dir_all(&final_dir).unwrap();
+        fs::write(final_dir.join("Aatrox.wad.client"), b"").unwrap();
+        fs::write(final_dir.join("Ahri.wad.client"), b"").unwrap();
+        fs::write(data.join("Shared.wad"), b"").unwrap();
+        fs::write(final_dir.join("not-a-wad.txt"), b"").unwrap();
 
         let wads = GameDir::from_path(dir.path()).wads().unwrap();
         assert!(wads.contains(&"aatrox.wad.client".to_string()));
@@ -215,10 +216,10 @@ mod tests {
     fn read_champion_names_reads_wad_stems() {
         let dir = tempfile::tempdir().unwrap();
         let champ_dir = dir.path().join("DATA").join("FINAL").join("Champions");
-        std::fs::create_dir_all(&champ_dir).unwrap();
-        std::fs::write(champ_dir.join("Aatrox.wad.client"), b"").unwrap();
-        std::fs::write(champ_dir.join("MonkeyKing.wad.client"), b"").unwrap();
-        std::fs::write(champ_dir.join("readme.txt"), b"").unwrap();
+        fs::create_dir_all(&champ_dir).unwrap();
+        fs::write(champ_dir.join("Aatrox.wad.client"), b"").unwrap();
+        fs::write(champ_dir.join("MonkeyKing.wad.client"), b"").unwrap();
+        fs::write(champ_dir.join("readme.txt"), b"").unwrap();
 
         let mut names = GameDir::from_path(dir.path()).champion_names();
         names.sort();

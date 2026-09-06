@@ -11,10 +11,10 @@ use crate::mods::test_support::{
     place_packed_fantome_with_raw, point_at_installed_build, property_in_unpacked_tree,
     resolver_naming, seed_library, silent_audio_bank, stale_bin,
 };
+use fs_err as fs;
 use ltk_hash::{Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::values;
-use std::fs;
 use std::path::Path;
 
 /// Hold a path against writes, or let it go again.

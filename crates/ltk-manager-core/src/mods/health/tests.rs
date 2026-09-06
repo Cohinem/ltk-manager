@@ -8,7 +8,7 @@ use crate::mods::test_support::{
     make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
     point_at_installed_build, seed_library, stale_bin,
 };
-use std::fs;
+use fs_err as fs;
 
 fn archived_entry(id: &str, slug: &str) -> LibraryModEntry {
     make_slugged_entry(id, slug, ModArchiveFormat::Fantome)

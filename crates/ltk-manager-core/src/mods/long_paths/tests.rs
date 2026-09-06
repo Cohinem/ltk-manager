@@ -1,5 +1,6 @@
 use super::*;
 use crate::mods::test_support::make_full_fantome_zip;
+use fs_err as fs;
 use ltk_modpkg::Modpkg;
 
 #[test]
@@ -30,7 +31,7 @@ fn a_packed_wad_is_counted_with_a_chunk_name_it_does_not_hold_yet() {
     let archive = dir.path().join("packed.fantome");
     {
         use std::io::Write as _;
-        let file = std::fs::File::create(&archive).unwrap();
+        let file = fs::File::create(&archive).unwrap();
         let mut zip = zip::ZipWriter::new(file);
         let options = zip::write::SimpleFileOptions::default();
         zip.start_file("WAD/Ashe.wad.client", options).unwrap();
@@ -74,7 +75,7 @@ fn the_metadata_files_that_do_land_are_measured_at_the_project_root() {
     let archive = dir.path().join("readme.fantome");
     {
         use std::io::Write as _;
-        let file = std::fs::File::create(&archive).unwrap();
+        let file = fs::File::create(&archive).unwrap();
         let mut zip = zip::ZipWriter::new(file);
         let options = zip::write::SimpleFileOptions::default();
         zip.start_file("META/README.md", options).unwrap();
@@ -131,9 +132,9 @@ fn a_written_tree_is_measured_at_its_deepest_entry() {
         .join("base")
         .join("Aatrox.wad.client")
         .join("data/characters/aatrox/skins");
-    std::fs::create_dir_all(&deep).unwrap();
-    std::fs::write(deep.join("skin01.bin"), b"x").unwrap();
-    std::fs::write(dir.path().join("mod.config.json"), b"{}").unwrap();
+    fs::create_dir_all(&deep).unwrap();
+    fs::write(deep.join("skin01.bin"), b"x").unwrap();
+    fs::write(dir.path().join("mod.config.json"), b"{}").unwrap();
 
     assert_eq!(
         longest_path_at(dir.path(), dir.path()),
@@ -146,8 +147,8 @@ fn a_written_tree_is_measured_at_its_deepest_entry() {
 #[test]
 fn a_staged_tree_is_measured_where_it_will_land() {
     let staged = tempfile::tempdir().unwrap();
-    std::fs::create_dir_all(staged.path().join("content/base")).unwrap();
-    std::fs::write(staged.path().join("content/base/skin01.bin"), b"x").unwrap();
+    fs::create_dir_all(staged.path().join("content/base")).unwrap();
+    fs::write(staged.path().join("content/base/skin01.bin"), b"x").unwrap();
 
     let destination = std::path::Path::new(r"D:\mods\ashe");
 
@@ -175,7 +176,7 @@ fn the_limit_leaves_room_for_the_terminating_null() {
 /// An archive holding one packed WAD under `wad_name`.
 fn make_packed_wad_zip(path: &Path, wad_name: &str) {
     use std::io::Write as _;
-    let file = std::fs::File::create(path).unwrap();
+    let file = fs::File::create(path).unwrap();
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default();
     zip.start_file(format!("WAD/{wad_name}"), options).unwrap();
@@ -221,7 +222,7 @@ fn a_package_is_measured_at_the_paths_it_names() {
     let dir = tempfile::tempdir().unwrap();
     let package = dir.path().join("packed.modpkg");
     crate::mods::test_support::make_modpkg(&package, "packed-mod");
-    let modpkg = Modpkg::mount_from_reader(std::fs::File::open(&package).unwrap()).unwrap();
+    let modpkg = Modpkg::mount_from_reader(fs::File::open(&package).unwrap()).unwrap();
 
     let target = Path::new("/workshop/packed-mod");
 

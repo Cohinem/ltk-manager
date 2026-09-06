@@ -1,6 +1,6 @@
 //! Where incidents live: `incidents/<id>.json` under the app data directory.
 
-use std::fs;
+use fs_err as fs;
 use std::io;
 use std::path::{Path, PathBuf};
 

@@ -15,8 +15,8 @@ use crate::mods::{
     ChampionRoster, DerivedCategorization, ModLibrary, ModWadReport, WadReportState,
 };
 use camino::Utf8PathBuf;
+use fs_err::File;
 use ltk_modpkg::Modpkg;
-use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
 

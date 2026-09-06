@@ -1,3 +1,4 @@
+use fs_err as fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime};
@@ -85,7 +86,7 @@ fn build_file_writer() -> (
         None => return (None, None, None),
     };
 
-    if let Err(e) = std::fs::create_dir_all(&log_dir) {
+    if let Err(e) = fs::create_dir_all(&log_dir) {
         eprintln!(
             "Failed to create log directory {}: {}",
             log_dir.display(),
@@ -108,7 +109,7 @@ fn build_file_writer() -> (
 pub fn cleanup_old_logs(log_dir: &Path, max_age_days: u64) {
     let max_age = Duration::from_secs(max_age_days * 24 * 60 * 60);
 
-    let entries = match std::fs::read_dir(log_dir) {
+    let entries = match fs::read_dir(log_dir) {
         Ok(e) => e,
         Err(e) => {
             tracing::warn!("Failed to read log directory for cleanup: {}", e);
@@ -138,7 +139,7 @@ pub fn cleanup_old_logs(log_dir: &Path, max_age_days: u64) {
         };
 
         if age > max_age {
-            if let Err(e) = std::fs::remove_file(&path) {
+            if let Err(e) = fs::remove_file(&path) {
                 tracing::warn!("Failed to delete old log file {}: {}", path.display(), e);
             } else {
                 tracing::info!("Deleted old log file: {}", path.display());

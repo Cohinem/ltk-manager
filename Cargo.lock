@@ -1573,6 +1573,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs-err"
+version = "3.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b91aa448ca50d7e79433bdf3ee8d99215430d2ec02ade5aefab2a073a1822e8a"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "fsevent-sys"
 version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2930,6 +2939,7 @@ dependencies = [
  "chrono",
  "filetime",
  "flate2",
+ "fs-err",
  "image",
  "indexmap 2.14.0",
  "ltk-manager-core",
@@ -2989,6 +2999,7 @@ dependencies = [
  "chrono",
  "filetime",
  "flate2",
+ "fs-err",
  "image",
  "indexmap 2.14.0",
  "lru",

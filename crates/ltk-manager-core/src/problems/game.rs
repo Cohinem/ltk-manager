@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::OnceLock;
 
+use fs_err as fs;
 use ltk_wad::{Wad, WadHash};
 
 use crate::config::Config;
@@ -136,7 +137,7 @@ impl InstalledContent {
     /// The chunk hashes in one archive's table of contents.
     fn hashes_in(&self, wad_name: &str) -> crate::error::AppResult<Vec<WadHash>> {
         let path = self.archives.archive_path(wad_name)?;
-        let file = std::io::BufReader::new(std::fs::File::open(&path)?);
+        let file = std::io::BufReader::new(fs::File::open(&path)?);
         let wad = Wad::mount(file)?;
         Ok(wad
             .chunks()

@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::events::NullEventSink;
+use fs_err as fs;
 use ltk_mimir_cache::{TableDiff, TableEntry};
 
 /// Keeps the sync progress it is handed, for the throttle tests.
@@ -23,8 +24,8 @@ impl EventSink for RecordingSink {
 }
 
 fn write_manifest(dir: &std::path::Path, json: &str) {
-    std::fs::create_dir_all(dir).unwrap();
-    std::fs::write(dir.join("manifest.json"), json).unwrap();
+    fs::create_dir_all(dir).unwrap();
+    fs::write(dir.join("manifest.json"), json).unwrap();
 }
 
 #[test]
@@ -66,7 +67,7 @@ fn status_shapes_the_manifest_in_table_order() {
                 }
             }"#,
     );
-    std::fs::write(tmp.path().join("game-2026-07-10.lhdb"), [0u8; 3]).unwrap();
+    fs::write(tmp.path().join("game-2026-07-10.lhdb"), [0u8; 3]).unwrap();
 
     let status = HashtableCache::at(tmp.path()).status().unwrap();
 

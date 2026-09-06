@@ -3,7 +3,7 @@
 use super::*;
 use crate::mods::test_support::bin_bytes;
 use crate::problems::game::FakeContent;
-use std::fs;
+use fs_err as fs;
 
 /// Write `contents` to `path`, creating every directory above it.
 fn touch(path: &Path, contents: &[u8]) {

@@ -1,3 +1,4 @@
+use fs_err as fs;
 use sha2::{Digest, Sha256};
 
 fn main() {
@@ -6,8 +7,8 @@ fn main() {
     // where ../dist doesn't exist).
     let dist = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../dist");
     if !dist.exists() {
-        std::fs::create_dir_all(&dist).unwrap();
-        std::fs::write(dist.join("index.html"), "").unwrap();
+        fs::create_dir_all(&dist).unwrap();
+        fs::write(dist.join("index.html"), "").unwrap();
     }
 
     bake_patcher_checksums();
@@ -23,7 +24,7 @@ fn bake_patcher_checksums() {
     ] {
         let path = resources.join(file);
         println!("cargo:rerun-if-changed={}", path.display());
-        if let Ok(bytes) = std::fs::read(&path) {
+        if let Ok(bytes) = fs::read(&path) {
             let digest = Sha256::digest(&bytes);
             let hash: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
             println!("cargo:rustc-env={var}={hash}");

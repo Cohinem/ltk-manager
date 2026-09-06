@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_meta::property::{NoMeta, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
@@ -86,8 +87,8 @@ fn place(root: &std::path::Path, at: &str, bytes: &[u8]) {
         .join("content")
         .join("base")
         .join(at.replace('/', std::path::MAIN_SEPARATOR_STR));
-    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-    std::fs::write(&path, bytes).unwrap();
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(&path, bytes).unwrap();
 }
 
 /// A project holding one `.bnk`, and nothing that asks for it.

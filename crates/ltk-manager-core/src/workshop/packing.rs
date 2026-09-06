@@ -4,10 +4,10 @@ use super::{
 };
 use crate::error::{AppError, AppResult};
 use camino::Utf8PathBuf;
+use fs_err as fs;
 use ltk_mod_project::fantome::FantomeFormat;
 use ltk_mod_project::modpkg::ModpkgFormat;
 use ltk_mod_project::{ModProject, PackageFormat, ProjectPacker};
-use std::fs;
 use std::io::BufWriter;
 use std::path::PathBuf;
 
@@ -57,7 +57,10 @@ impl ProjectDir {
                 let layer_dir = content_dir.join(&layer.name);
                 if !layer_dir.exists() {
                     errors.push(format!("Layer directory content/{} not found", layer.name));
-                } else if layer_dir.read_dir().map(|d| d.count() == 0).unwrap_or(true) {
+                } else if fs::read_dir(&layer_dir)
+                    .map(|d| d.count() == 0)
+                    .unwrap_or(true)
+                {
                     warnings.push(format!("Layer content/{} is empty", layer.name));
                 }
             }

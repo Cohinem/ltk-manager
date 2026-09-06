@@ -7,6 +7,7 @@
 //! leaves the directory where every other tool already found it.
 
 use crate::mods::index::LibraryIndex;
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::Path;
@@ -96,7 +97,7 @@ impl TakenSlugs {
             .map(|slug| slug.as_str().to_ascii_lowercase())
             .collect();
 
-        if let Ok(entries) = std::fs::read_dir(mods_dir) {
+        if let Ok(entries) = fs::read_dir(mods_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 let name = if path.is_dir() {

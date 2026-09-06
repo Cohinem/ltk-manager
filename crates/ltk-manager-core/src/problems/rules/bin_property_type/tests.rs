@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::config::Config;
+use fs_err as fs;
 use ltk_meta::{Bin, BinFile, BinObject};
 
 /// `SkinCharacterDataProperties`, which 225 of 232 real project bins declare.
@@ -48,8 +49,8 @@ fn project(bin: &Bin) -> (tempfile::TempDir, ProjectFiles) {
 fn project_on(bin: &Bin, installed: Option<GameBuild>) -> (tempfile::TempDir, ProjectFiles) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("skin0.bin"), bytes_of(bin)).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("skin0.bin"), bytes_of(bin)).unwrap();
 
     let config = config_beside(tmp.path(), installed);
     let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
@@ -62,8 +63,8 @@ fn config_beside(root: &std::path::Path, installed: Option<GameBuild>) -> Config
     let mut config = Config::default();
     if let Some(build) = installed {
         let league = root.join("league");
-        std::fs::create_dir_all(league.join("Game")).unwrap();
-        std::fs::write(
+        fs::create_dir_all(league.join("Game")).unwrap();
+        fs::write(
             league.join("Game").join("content-metadata.json"),
             format!(r#"{{ "version": "{build}" }}"#),
         )
@@ -106,15 +107,15 @@ fn declare_table(root: &std::path::Path, category: ltk_hashtable::Category, path
         }],
         ..crate::mods::test_support::mod_project_named("rehash-fixture")
     };
-    std::fs::write(
+    fs::write(
         root.join("mod.config.json"),
         config
             .to_config_string(ltk_mod_project::ConfigFormat::Json)
             .unwrap(),
     )
     .unwrap();
-    std::fs::create_dir_all(root.join("hashes")).unwrap();
-    std::fs::write(root.join("hashes").join(file), paths.join("\n") + "\n").unwrap();
+    fs::create_dir_all(root.join("hashes")).unwrap();
+    fs::write(root.join("hashes").join(file), paths.join("\n") + "\n").unwrap();
 }
 
 /// Declare one `binhashes` table on the project at `root`, naming `paths`.
@@ -844,9 +845,9 @@ fn fix_all(bin: &Bin) -> (Applied, BinFile) {
 fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    std::fs::write(&file, bytes_of(bin)).unwrap();
+    fs::write(&file, bytes_of(bin)).unwrap();
 
     let config = config_beside(tmp.path(), installed);
     let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
@@ -908,9 +909,9 @@ fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
     let tmp = tempfile::tempdir().unwrap();
     declare_binhashes(tmp.path(), &[PATH]);
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    std::fs::write(&file, bytes_of(&bin)).unwrap();
+    fs::write(&file, bytes_of(&bin)).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let problems = check_with(&files);
@@ -937,7 +938,7 @@ fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
     };
     assert_eq!(link.value, WadHash::hash_str(PATH));
 
-    let table = std::fs::read_to_string(tmp.path().join("hashes").join("game.hashes.txt")).unwrap();
+    let table = fs::read_to_string(tmp.path().join("hashes").join("game.hashes.txt")).unwrap();
     assert!(table.contains(PATH), "{table}");
 }
 
@@ -996,15 +997,15 @@ fn a_fix_leaves_a_property_the_rule_raised_nothing_for_alone() {
 fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, text(ICON)))).unwrap();
+    fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, text(ICON)))).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let rule = BinPropertyType::new();
     let (problems, _) = files.report(&[&rule]).finish();
 
-    std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, values::I32::new(7)))).unwrap();
+    fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, values::I32::new(7)))).unwrap();
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
     let mut run = FixRun::open(tmp.path(), Vec::new(), None, Config::default(), None);
@@ -1024,8 +1025,8 @@ fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
 fn a_file_that_is_not_a_bin_is_a_failure_and_not_a_panic() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("broken.bin"), b"not a bin at all").unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("broken.bin"), b"not a bin at all").unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let (problems, failed) = files.report(&[&BinPropertyType::new()]).finish();
@@ -1204,13 +1205,13 @@ fn a_bin_with_no_extension_is_read_like_any_other() {
         .join("base")
         .join("UI.wad.client")
         .join("UX");
-    std::fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(&dir).unwrap();
     // No extension, which is how the game itself names this file.
-    std::fs::write(dir.join("FloatingText"), bytes_of(&bin)).unwrap();
+    fs::write(dir.join("FloatingText"), bytes_of(&bin)).unwrap();
 
     let league = tmp.path().join("league");
-    std::fs::create_dir_all(league.join("Game")).unwrap();
-    std::fs::write(
+    fs::create_dir_all(league.join("Game")).unwrap();
+    fs::write(
         league.join("Game").join("content-metadata.json"),
         format!(r#"{{ "version": "{AFTER_RETYPE}" }}"#),
     )
@@ -1235,8 +1236,8 @@ fn a_file_with_an_unrecognised_extension_is_left_alone() {
 
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("notes.txt"), bytes_of(&bin)).unwrap();
+    fs::create_dir_all(&dir).unwrap();
+    fs::write(dir.join("notes.txt"), bytes_of(&bin)).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
 
@@ -1257,8 +1258,8 @@ fn a_bin_with_no_extension_is_read_inside_an_archive_too() {
     make_loose_bin_fantome_zip_at(&archive, "Mod", "UI.wad.client/UX/FloatingText", &bin);
 
     let league = tmp.path().join("league");
-    std::fs::create_dir_all(league.join("Game")).unwrap();
-    std::fs::write(
+    fs::create_dir_all(league.join("Game")).unwrap();
+    fs::write(
         league.join("Game").join("content-metadata.json"),
         format!(r#"{{ "version": "{AFTER_RETYPE}" }}"#),
     )
