@@ -663,7 +663,7 @@ fn the_reporters_log_against_the_pbe_path_is_a_wrong_install() {
     assert_eq!(incident.verdict.consequence, Consequence::GameStopped);
     assert_eq!(
         incident.verdict.cause,
-        r"League ran from C:\Riot Games\League of Legends, and the overlay was built for C:\Riot Games\League of Legends (PBE). A mod built from one install crashes the other."
+        "League ran from C:/Riot Games/League of Legends, and the overlay was built for C:/Riot Games/League of Legends (PBE). A mod built from one install crashes the other."
     );
     assert_eq!(incident.verdict.hints, [Hint::CheckGamePath]);
     assert!(incident.suspects.is_empty());
@@ -672,7 +672,7 @@ fn the_reporters_log_against_the_pbe_path_is_a_wrong_install() {
             .game
             .as_ref()
             .and_then(|game| game.game_base_dir.as_deref()),
-        Some(r"C:\Riot Games\League of Legends")
+        Some("C:/Riot Games/League of Legends")
     );
     assert!(incident.evidence.iter().any(|row| {
         row.code

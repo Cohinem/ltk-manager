@@ -147,7 +147,7 @@ describe("useIncidentListeners", () => {
 
     await waitFor(() =>
       expect(useInstallMismatchStore.getState().mismatch).toEqual({
-        configuredPath: "C:\\Riot Games\\League of Legends (PBE)",
+        configuredPath: "C:/Riot Games/League of Legends (PBE)",
         configuredPatchline: null,
         sessionPath: "C:\\Riot Games\\League of Legends",
         sessionPatchline: null,

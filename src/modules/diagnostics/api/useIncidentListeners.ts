@@ -8,6 +8,7 @@ import { useTauriEvent } from "@/lib/useTauriEvent";
 import { scanRejectionCause, useRebuildOverlayAction } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
 import { useIncidentLineStore, useInstallMismatchStore } from "@/stores";
+import { slashed } from "@/utils/path";
 
 import { offersRebuild } from "../utils/hints";
 import { isInformational } from "../utils/incident";
@@ -44,7 +45,7 @@ export function useIncidentListeners() {
     const configuredPath = settings?.leaguePath;
     if (incident.verdict.kind === "wrong-install" && ranFrom && configuredPath) {
       raiseMismatch({
-        configuredPath,
+        configuredPath: slashed(configuredPath),
         configuredPatchline: null,
         sessionPath: ranFrom,
         sessionPatchline: null,

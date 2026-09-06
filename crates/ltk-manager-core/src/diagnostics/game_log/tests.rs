@@ -32,7 +32,7 @@ fn a_clean_game_reads_its_facts() {
     );
     assert_eq!(
         facts.game_base_dir.as_deref(),
-        Some(r"C:\Riot Games\League of Legends")
+        Some("C:/Riot Games/League of Legends")
     );
     assert_eq!(facts.crash_reporting, Some(false));
     assert!(facts.loading_ended);
@@ -326,7 +326,7 @@ fn continuation_lines_join_the_sighting_of_their_record() {
     assert_eq!(facts.error_lines, 1);
     assert_eq!(
         facts.game_base_dir.as_deref(),
-        Some(r"C:\Riot Games\League of Legends")
+        Some("C:/Riot Games/League of Legends")
     );
     assert_eq!(facts.build_version.as_deref(), Some("16.17.812.1337"));
 

@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use ritoclient::ids::products;
 use ritoclient::prelude::*;
 
+use crate::utils::path::slashed;
+
 /// One installed League patchline, as the product registry lists it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstalledPatchline {
@@ -105,10 +107,10 @@ pub fn install_mismatch(
         .iter()
         .find(|patchline| patchline.id == session_patchline)?;
     Some(InstallMismatch {
-        configured_path: configured.display().to_string(),
+        configured_path: slashed(configured),
         configured_patchline: configured_patchline.id.clone(),
         session_patchline: session.id.clone(),
-        session_path: session.root.display().to_string(),
+        session_path: slashed(&session.root),
     })
 }
 
@@ -122,11 +124,7 @@ pub fn same_install(a: &Path, b: &Path) -> bool {
 }
 
 fn install_key(path: &Path) -> String {
-    let text = path.to_string_lossy();
-    let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
-    text.replace('/', "\\")
-        .trim_end_matches('\\')
-        .to_ascii_lowercase()
+    slashed(path).trim_end_matches('/').to_ascii_lowercase()
 }
 
 #[cfg(test)]

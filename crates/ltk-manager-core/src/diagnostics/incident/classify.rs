@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::launcher::same_install;
+use crate::utils::path::slashed;
 
 /// One rule of the precedence table: a self-contained verdict that fires on a
 /// record, or `None` to let the next rule try. See [`GameRecord::RULES`].
@@ -225,8 +226,9 @@ impl GameRecord {
         let verdict = Verdict::new(
             VerdictKind::WrongInstall,
             format!(
-                "League ran from {base_dir}, and the overlay was built for {}. A mod built from one install crashes the other.",
-                configured.display()
+                "League ran from {}, and the overlay was built for {}. A mod built from one install crashes the other.",
+                slashed(ran_from),
+                slashed(configured)
             ),
         )
         .with_hint(Hint::CheckGamePath);

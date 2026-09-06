@@ -22,7 +22,7 @@ fn a_session_from_another_install_is_a_mismatch() {
     let mismatch = install_mismatch(configured, &installed(), "live").expect("a mismatch");
     assert_eq!(
         mismatch.configured_path,
-        r"C:\Riot Games\League of Legends (PBE)"
+        "C:/Riot Games/League of Legends (PBE)"
     );
     assert_eq!(mismatch.configured_patchline, "pbe");
     assert_eq!(mismatch.session_patchline, "live");

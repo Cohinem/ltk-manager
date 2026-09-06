@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                 |
-| ---------- | ---------------------------------------------------------------------- |
-| 2026-09-07 | Suspect badge as an icon button, stacked beside the health badge       |
-| 2026-09-06 | Wrong-install verdict from a log found under another install           |
-| 2026-09-06 | Install mismatch dialog, from the client session against the settings  |
-| 2026-09-06 | Rebuild overlay on the incident toast and the verdict line             |
-| 2026-09-06 | Name the archive and the problem on the wad mount verdict              |
-| 2026-09-06 | A short redirected game with no log is an incident, not a clean game   |
-| 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence          |
-| 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt  |
-| 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed |
-| 2026-09-05 | Name the bin scan as planned rather than waiting upstream              |
+| Date       | Change                                                                |
+| ---------- | --------------------------------------------------------------------- |
+| 2026-09-07 | Forward slashes on every path the mismatch dialog and verdict write   |
+| 2026-09-07 | Suspect badge as an icon button, stacked beside the health badge      |
+| 2026-09-06 | Wrong-install verdict from a log found under another install          |
+| 2026-09-06 | Install mismatch dialog, from the client session against the settings |
+| 2026-09-06 | Rebuild overlay on the incident toast and the verdict line            |
+| 2026-09-06 | Name the archive and the problem on the wad mount verdict             |
+| 2026-09-06 | A short redirected game with no log is an incident, not a clean game  |
+| 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence         |
+| 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt |
+| 2026-09-05 | Name the bin scan as planned rather than waiting upstream             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1023,6 +1023,8 @@ runs on `patcher-game-attached` too. The comparison is a pure function over the 
 mismatch crosses IPC as typed fields: both paths and both patchlines. The paths are
 compared with the `\\?\` prefix, the slash kind, a trailing separator and the case set
 aside. The registry writes forward slashes, and a setting holds what the picker gave it.
+Every path the dialog and the wrong-install verdict write is spelled with forward slashes,
+whichever its source held, so one install never reads two ways on one surface.
 
 The frontend raises one dialog through the dialog queue (ADR-0022), between the WAD scan
 failure and the linked-bin warning. It names the install the game runs from and the install

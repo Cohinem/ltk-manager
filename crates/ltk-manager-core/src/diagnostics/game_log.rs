@@ -19,6 +19,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use super::log_codes::{self, CodeKind};
+use crate::utils::path::slashed;
 
 /// The tail of the log the excerpt always keeps.
 const TAIL_LINES: usize = 40;
@@ -197,7 +198,7 @@ impl CommandLine {
         let mut parsed = Self::default();
         for arg in Self::args(args) {
             if let Some(dir) = arg.strip_prefix("-GameBaseDir=") {
-                parsed.game_base_dir = Some(dir.to_owned());
+                parsed.game_base_dir = Some(slashed(dir));
             } else if arg == "-EnableCrashpad" || arg.starts_with("-EnableCrashpad=") {
                 let value = arg.strip_prefix("-EnableCrashpad=").unwrap_or("true");
                 parsed.crashpad_enabled = value.eq_ignore_ascii_case("true") || value == "1";
