@@ -422,19 +422,50 @@ impl GameRecord {
         Some((verdict, suspects))
     }
 
-    /// An archive would not mount, and the log does not name which.
+    /// An archive would not mount. The lines under the code name the archive
+    /// and the problem, or an older log names nothing.
+    ///
+    /// Inconsistent carries the rebuild hint alone. An overlay leaves the game's
+    /// own files untouched, and the repair the game asks for finds nothing.
     fn rule_corrupt_archive(&self, ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
-        let (_, row) = self.first_code_of(|kind| kind == CodeKind::WadMount)?;
-        let verdict = Verdict::new(
-            VerdictKind::CorruptArchive,
-            format!(
-                "{} The log does not name which WAD, so every mod that was in the game is listed.",
-                reading(row)
+        let (sighting, row) = self.first_code_of(|kind| kind == CodeKind::WadMount)?;
+        let wad = sighting.detail_value("WadFile");
+        let word = sighting.detail_value("Problem");
+        let problem = word.and_then(MountProblem::parse);
+        let (cause, suspects) = match wad {
+            Some(wad) => {
+                let mut cause = format!("League could not mount {}.", last_segment(wad));
+                match (problem, word) {
+                    (Some(problem), _) => cause.push_str(&format!(" {}", problem.reading())),
+                    (None, Some(word)) => {
+                        cause.push_str(&format!(" The game reported the problem as {word}."))
+                    }
+                    (None, None) => {}
+                }
+                (
+                    cause,
+                    ctx.writers_of(&[wad.to_string()], Because::CouldNotMount),
+                )
+            }
+            None => (
+                format!(
+                    "{} The log does not name which WAD, so every mod that was in the game is listed.",
+                    reading(row)
+                ),
+                self.redirected_writers(ctx),
             ),
-        )
-        .with_hint(Hint::RebuildOverlay)
-        .with_hint(Hint::RepairInstall);
-        Some((verdict, self.redirected_writers(ctx)))
+        };
+        let mut verdict =
+            Verdict::new(VerdictKind::CorruptArchive, cause).with_hint(Hint::RebuildOverlay);
+        if let Some(wad) = wad {
+            verdict = verdict.with_subject(last_segment(wad));
+        }
+        if problem != Some(MountProblem::Inconsistent) {
+            verdict = verdict.with_hint(Hint::RepairInstall);
+        } else if self.is_workshop() {
+            verdict = verdict.with_hint(Hint::OpenProject);
+        }
+        Some((verdict, suspects))
     }
 
     /// A texture would not load onto the GPU. Names no mod.

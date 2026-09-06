@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-06 | Name the archive and the problem on the wad mount verdict               |
 | 2026-09-06 | A short redirected game with no log is an incident, not a clean game    |
 | 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence           |
 | 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt   |
@@ -617,19 +618,29 @@ under the title. The suspects are the mods that write the archive the path lives
 action is to disable the suspect, or to open the path in the project editor when the game
 was a workshop test.
 
-**A corrupt archive.** `League could not mount an archive.` Five of the six codes are
-confirmed rows and read as facts. `ALE-9D171D1D`, the chunk that failed verification, is
-the inferred one, and the verdict is then a Lead that says `Probably`. The code names no
-archive, so the suspects are the mods whose archives the DLL redirected this game, which is
-a list and not a name. The hint is the one the Patching settings already give:
-`Rebuild overlay`, and a repair of the install in the Riot Client when the rebuild does not
-help.
+**A corrupt archive.** `League could not mount Shaders.wad.client. The game found it
+inconsistent with another mounted archive.` The wad mount fatal names the archive and the
+problem on the lines under the code, `- WadFile: DATA/FINAL/Shaders/Shaders.wad.client` and
+`- Problem: Inconsistent`, and the verdict reads both off the sighting's detail lines. The
+subject is the archive's file name. The problem is one of the game's four words for a mount
+error, Missing, Unable to open, Corrupt and Inconsistent, each as its own sentence, and a word
+this build does not know is quoted as the game wrote it. The suspects are the mods and the
+workshop projects that write the archive, the way the missing-data verdict narrows on one.
 
-`ALE-18967994` is the one of the six that asks for that repair itself: two mounted archives
-disagreeing about a file crashes the game and flags the install for repair. That flag changes
-nothing here. An overlay leaves the game's own files untouched, so the validation finds them
-sound and does no work, which is also why the second half of the hint is wasted on this code.
-A rebuild is the only half that helps.
+The hints follow the problem. Missing, Unable to open and Corrupt carry `Rebuild overlay`
+and a repair of the install in the Riot Client when the rebuild does not help. Inconsistent
+carries the rebuild hint alone. Two mounted archives disagreeing about a file crashes the
+game and flags the install for repair, and that flag changes nothing here. An overlay leaves
+the game's own files untouched, the validation finds them sound and does no work, and a
+rebuild is the only half that helps. The one way an overlay makes an Inconsistent archive is
+a build from another install, which the [install mismatch](#the-install-mismatch-dialog)
+dialog is for.
+
+A wad mount code with no detail lines, from an older log or a torn one, reads
+`League could not mount an archive.` Five of the six codes are confirmed rows and read as
+facts. `ALE-9D171D1D`, the chunk that failed verification, is the inferred one, and the
+verdict is then a Lead that says `Probably`. The suspects are the mods whose archives the DLL
+redirected this game, which is a list and not a name, and the hints are rebuild and repair.
 
 **A texture failed.** `A texture could not be created, and the crash came after it.` The
 texture code is not itself fatal. The game carries on without the texture, and the crash
@@ -713,27 +724,27 @@ the hints as sentences from the frontend beside the incident's id, so the catalo
 place a hint is worded. A stored incident from an earlier build holds each hint as a
 sentence, and a stored code this build does not know reads as nothing. Neither is an error.
 
-| Code                 | Hint                              | When                                                                     |
-| -------------------- | --------------------------------- | ------------------------------------------------------------------------ |
-| `scan-up-front`      | Turn on `Scan every WAD up front` | The game crashed inside the first minute, and the DLL ran the lazy scan  |
-| `rebuild-overlay`    | Rebuild the overlay               | A corrupt archive, or a texture failure, in an archive the overlay wrote |
-| `repair-install`     | Repair the install                | A corrupt archive, when the rebuild does not help                        |
-| `system-checks`      | Run the System checks             | The host did not start, or the DLL did not attach                        |
-| `update-manager`     | Update LTK Manager                | The patcher is out of date                                               |
-| `update-driver`      | Update the graphics driver        | A graphics fault                                                         |
-| `open-project`       | Open the project                  | A workshop test, whenever a path or an archive is named                  |
-| `check-game-path`    | Check the League path             | The overlay build could not read the game directory                      |
-| `texture-dimensions` | Check the texture dimensions      | A texture failure                                                        |
-| `free-memory`        | Close what else is running        | Out of memory                                                            |
-| `large-textures`     | Disable a mod with huge textures  | Out of memory, with a modded archive in the game                         |
-| `start-first`        | Start the patcher first           | The DLL joined too late                                                  |
-| `copy-report`        | Copy the report                   | An ending without a reason, or a scan status without a name              |
-| `disable-suspect`    | Disable the suspect               | Missing data, in a library game                                          |
-| `remove-skinhack`    | Disable the mod the scan named    | A skinhack rejection                                                     |
-| `reimport-mod`       | Re-import the mod the scan named  | A missing bin, a corrupt archive, or an incomplete base skin             |
-| `repair-game`        | Repair the install                | The scan objected to a file the game ships                               |
-| `elevate`            | Let the host elevate              | The DLL never attached, and the host was not elevated                    |
-| `signature`          | Check the DLL's signature         | The DLL never attached, and the host was elevated                        |
+| Code                 | Hint                              | When                                                                      |
+| -------------------- | --------------------------------- | ------------------------------------------------------------------------- |
+| `scan-up-front`      | Turn on `Scan every WAD up front` | The game crashed inside the first minute, and the DLL ran the lazy scan   |
+| `rebuild-overlay`    | Rebuild the overlay               | A corrupt archive, or a texture failure, in an archive the overlay wrote  |
+| `repair-install`     | Repair the install                | A corrupt archive, when the rebuild does not help. Never for Inconsistent |
+| `system-checks`      | Run the System checks             | The host did not start, or the DLL did not attach                         |
+| `update-manager`     | Update LTK Manager                | The patcher is out of date                                                |
+| `update-driver`      | Update the graphics driver        | A graphics fault                                                          |
+| `open-project`       | Open the project                  | A workshop test, whenever a path or an archive is named                   |
+| `check-game-path`    | Check the League path             | The overlay build could not read the game directory                       |
+| `texture-dimensions` | Check the texture dimensions      | A texture failure                                                         |
+| `free-memory`        | Close what else is running        | Out of memory                                                             |
+| `large-textures`     | Disable a mod with huge textures  | Out of memory, with a modded archive in the game                          |
+| `start-first`        | Start the patcher first           | The DLL joined too late                                                   |
+| `copy-report`        | Copy the report                   | An ending without a reason, or a scan status without a name               |
+| `disable-suspect`    | Disable the suspect               | Missing data, in a library game                                           |
+| `remove-skinhack`    | Disable the mod the scan named    | A skinhack rejection                                                      |
+| `reimport-mod`       | Re-import the mod the scan named  | A missing bin, a corrupt archive, or an incomplete base skin              |
+| `repair-game`        | Repair the install                | The scan objected to a file the game ships                                |
+| `elevate`            | Let the host elevate              | The DLL never attached, and the host was not elevated                     |
+| `signature`          | Check the DLL's signature         | The DLL never attached, and the host was elevated                         |
 
 The first row exists because the DLL scans archives on demand while the setting is off and
 League's crash reporting is off, and the Patching settings already warn that on-demand

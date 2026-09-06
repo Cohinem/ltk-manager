@@ -1032,6 +1032,7 @@ enum Because {
     Rejected,
     DidNotVerify,
     Skipped,
+    CouldNotMount,
 }
 
 impl Because {
@@ -1047,6 +1048,43 @@ impl Because {
             Self::Rejected => format!("writes {names}, which the scan rejected"),
             Self::DidNotVerify => format!("writes {names}, which did not verify"),
             Self::Skipped => format!("writes {names}, which the lazy scan skipped"),
+            Self::CouldNotMount => format!("writes {names}, which League could not mount"),
+        }
+    }
+}
+
+/// Why the game refused an archive it was mounting, in the game's own words.
+/// The four states are the mount errors CONTEXT.md lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MountProblem {
+    Missing,
+    UnableToOpen,
+    Corrupt,
+    /// Two mounted archives disagree about the bytes behind one path. An
+    /// overlay built from another install is what makes one.
+    Inconsistent,
+}
+
+impl MountProblem {
+    /// The problem for the word on the log's `Problem:` line, or `None` for a
+    /// word this build does not know.
+    fn parse(word: &str) -> Option<Self> {
+        Some(match word.trim().to_ascii_lowercase().as_str() {
+            "missing" => Self::Missing,
+            "unable to open" => Self::UnableToOpen,
+            "corrupt" => Self::Corrupt,
+            "inconsistent" => Self::Inconsistent,
+            _ => return None,
+        })
+    }
+
+    /// The problem as the sentence after `League could not mount <archive>.`
+    fn reading(self) -> &'static str {
+        match self {
+            Self::Missing => "The game found it missing.",
+            Self::UnableToOpen => "The game could not open it.",
+            Self::Corrupt => "The game found it corrupt.",
+            Self::Inconsistent => "The game found it inconsistent with another mounted archive.",
         }
     }
 }

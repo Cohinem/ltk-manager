@@ -497,6 +497,132 @@ fn a_log_verdict_applies_even_when_the_client_said_exit() {
     assert_eq!(incident.verdict.kind, VerdictKind::MissingData);
 }
 
+fn wad_mount_sighting(problem: Option<&str>) -> CodeSighting {
+    let mut sighting = sighting(
+        "ALE-18967994",
+        1.912,
+        "000001.912|  ERROR| ALE-18967994 FATAL ERROR. WadFile mount failed",
+    );
+    sighting
+        .detail
+        .push("- WadFile: DATA/FINAL/Shaders/Shaders.wad.client".to_string());
+    if let Some(problem) = problem {
+        sighting.detail.push(format!("- Problem: {problem}"));
+    }
+    sighting
+}
+
+fn shader_mods() -> Vec<ModFootprint> {
+    let mut mods = mods();
+    mods.push(ModFootprint {
+        mod_id: "neon-shaders".to_string(),
+        display_name: "Neon Shaders".to_string(),
+        priority: 3,
+        affected_wads: vec![
+            "DATA/FINAL/Shaders/Shaders.wad.client".to_string(),
+            "Map11.wad.client".to_string(),
+        ],
+    });
+    mods
+}
+
+fn classify_with(record: &GameRecord, mods: &[ModFootprint]) -> Option<Incident> {
+    record.classify(&ClassifyContext {
+        mods,
+        projects: &[],
+        resolve_hash: &no_path,
+    })
+}
+
+/// The lines under the code name the archive and the problem, and the verdict
+/// names both. Inconsistent is the one an overlay makes, and a repair of the
+/// install finds nothing to fix, so the rebuild hint stands alone.
+#[test]
+fn a_wad_mount_fatal_names_the_archive_and_the_problem() {
+    let mut record = crashed(modded_game());
+    record.redirected = vec!["Shaders.wad.client".to_string()];
+    record.log = Some(log_with(vec![wad_mount_sighting(Some("Inconsistent"))]));
+    let incident = classify_with(&record, &shader_mods()).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::CorruptArchive);
+    assert_eq!(
+        incident.verdict.subject.as_deref(),
+        Some("Shaders.wad.client")
+    );
+    assert_eq!(
+        incident.verdict.cause,
+        "League could not mount Shaders.wad.client. The game found it inconsistent with another mounted archive."
+    );
+    assert_eq!(incident.verdict.hints, [Hint::RebuildOverlay]);
+    assert_eq!(names(&incident), ["Neon Shaders"]);
+    assert_eq!(
+        incident.suspects[0].because,
+        "writes Shaders.wad.client, which League could not mount"
+    );
+}
+
+#[test]
+fn the_other_mount_problems_keep_the_repair_hint() {
+    let cases = [
+        ("Missing", "The game found it missing."),
+        ("Unable to open", "The game could not open it."),
+        ("Corrupt", "The game found it corrupt."),
+    ];
+    for (word, reading) in cases {
+        let mut record = crashed(modded_game());
+        record.log = Some(log_with(vec![wad_mount_sighting(Some(word))]));
+        let incident = classify_with(&record, &shader_mods()).unwrap();
+        assert_eq!(
+            incident.verdict.cause,
+            format!("League could not mount Shaders.wad.client. {reading}"),
+            "{word}"
+        );
+        assert_eq!(
+            incident.verdict.hints,
+            [Hint::RebuildOverlay, Hint::RepairInstall],
+            "{word}"
+        );
+    }
+
+    let mut record = crashed(modded_game());
+    record.log = Some(log_with(vec![wad_mount_sighting(Some("Haunted"))]));
+    let incident = classify_with(&record, &shader_mods()).unwrap();
+    assert_eq!(
+        incident.verdict.cause,
+        "League could not mount Shaders.wad.client. The game reported the problem as Haunted."
+    );
+    assert_eq!(
+        incident.verdict.hints,
+        [Hint::RebuildOverlay, Hint::RepairInstall]
+    );
+
+    record.log = Some(log_with(vec![wad_mount_sighting(None)]));
+    let incident = classify_with(&record, &shader_mods()).unwrap();
+    assert_eq!(
+        incident.verdict.cause,
+        "League could not mount Shaders.wad.client."
+    );
+}
+
+/// The reporter's log, read by the reader and classified against a library
+/// with one mod writing the archive.
+#[test]
+fn the_reporters_log_names_the_shaders_archive_and_its_writer() {
+    let incident = classify_with(&reporters_record(), &shader_mods()).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::CorruptArchive);
+    assert_eq!(
+        incident.verdict.subject.as_deref(),
+        Some("Shaders.wad.client")
+    );
+    assert!(incident.verdict.cause.contains("inconsistent"));
+    assert_eq!(incident.verdict.hints, [Hint::RebuildOverlay]);
+    assert_eq!(names(&incident), ["Neon Shaders"]);
+    assert_eq!(incident.phase, GamePhase::Loading);
+    assert_eq!(
+        incident.game.as_ref().map(|game| game.version.as_str()),
+        Some("16.17.812.1337")
+    );
+}
+
 #[test]
 fn a_corrupt_archive_reads_its_row_and_lists_the_redirected_writers() {
     let mut record = crashed(modded_game());
