@@ -5,8 +5,7 @@
 
 use std::fs;
 use std::io::{BufReader, Cursor, Read, Seek, SeekFrom};
-use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 
 use ltk_file::{LeagueFileKind, MAX_MAGIC_SIZE};
@@ -14,6 +13,7 @@ use ltk_hash::BinHash;
 use ltk_meta::BinOverride;
 use ltk_meta::stream::BinStream;
 use ltk_wad::{ChunkDecoder, Wad, WadHash, hex_name};
+use rayon::prelude::*;
 
 use crate::error::{AppError, AppResult};
 use crate::game_index::GameIndex;
@@ -229,32 +229,20 @@ where
     T: Sync,
     R: Send,
 {
-    let done: Vec<Mutex<Option<R>>> = work.iter().map(|_| Mutex::new(None)).collect();
-    let next = AtomicUsize::new(0);
+    let run = || {
+        work.par_iter()
+            .map(|item| (!called_off()).then(|| job(item)))
+            .collect()
+    };
 
-    std::thread::scope(|scope| {
-        for _ in 0..workers {
-            scope.spawn(|| {
-                loop {
-                    let index = next.fetch_add(1, AtomicOrdering::Relaxed);
-                    if index >= work.len() || called_off() {
-                        return;
-                    }
-                    let answer = job(&work[index]);
-                    *done[index]
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(answer);
-                }
-            });
-        }
-    });
-
-    done.into_iter()
-        .map(|slot| {
-            slot.into_inner()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-        })
-        .collect()
+    match rayon::ThreadPoolBuilder::new()
+        .num_threads(workers.max(1))
+        .build()
+    {
+        Ok(pool) => pool.install(run),
+        // A pool that will not build costs the run its bound, not its answer.
+        Err(_) => run(),
+    }
 }
 
 /// Whether a chunk path names a bin by its extension.

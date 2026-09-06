@@ -169,12 +169,10 @@ pub(super) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQue
 /// would keep answering from the chunk table it read then.
 #[tauri::command]
 pub async fn refresh_game_index(app_handle: AppHandle) -> IpcResult<()> {
-    app_handle
-        .state::<GameIndexState>()
-        .clear()
-        .and_then(|()| app_handle.state::<WadCache>().clear())
-        .and_then(|()| app_handle.state::<ObjectIndexState>().clear())
-        .into()
+    app_handle.state::<GameIndexState>().clear();
+    app_handle.state::<WadCache>().clear();
+    app_handle.state::<ObjectIndexState>().clear();
+    IpcResult::ok(())
 }
 
 /// Run `read` against the index, building it when this is the first call.
@@ -186,10 +184,7 @@ where
     T: Send + 'static,
     F: FnOnce(&GameIndex) -> AppResult<T> + Send + 'static,
 {
-    let config = match app_handle.state::<SettingsState>().config() {
-        Ok(config) => config,
-        Err(e) => return IpcResult::from(Err::<T, _>(e)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
 
     off_thread(move || {
         let (index, _) = built_game_index(&app_handle, &config)?;
@@ -213,7 +208,7 @@ pub(super) fn built_game_index(
     config: &Config,
 ) -> AppResult<(Arc<GameIndex>, GameArchives)> {
     let archives = GameArchives::resolve(config)?;
-    let resolver = app_handle.state::<Arc<WadPathResolverState>>().get()?;
+    let resolver = app_handle.state::<Arc<WadPathResolverState>>().get();
     let index = app_handle
         .state::<GameIndexState>()
         .get_or_build(&archives, resolver.tables())?;

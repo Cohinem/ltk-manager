@@ -18,11 +18,11 @@
 //! `ProjectFiles::fact`.
 
 use std::collections::HashMap;
-use std::sync::{Mutex, PoisonError};
 
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Leaf, Node, TreeNode as _, TreeValue, Visit, Visitor};
+use parking_lot::Mutex;
 
 use crate::problems::{BinVisitor, Coverage, Fact, Sink, Walk};
 
@@ -50,10 +50,7 @@ impl Fact for BankUnits {
     /// Folded in file order, so two paths under one hash resolve the same way
     /// on every run.
     fn assemble(collector: BankUnitCollector, coverage: Coverage) -> Self {
-        let mut bins = collector
-            .asked
-            .into_inner()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut bins = collector.asked.into_inner();
         bins.sort_by_key(|(index, _)| *index);
         Self {
             asked: bins.into_iter().flat_map(|(_, asked)| asked).collect(),
@@ -137,9 +134,7 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Asked<'_, '_> {
 impl<'f> Walk<'f> for Asked<'_, 'f> {
     fn end(self: Box<Self>) -> Sink<'f> {
         let Self { into, found, sink } = *self;
-        into.lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push((sink.index(), found));
+        into.lock().push((sink.index(), found));
         sink
     }
 }

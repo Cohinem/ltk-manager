@@ -40,7 +40,6 @@ export function describeError(error: AppError): ErrorCopy {
     .with({ code: "INTERNAL_STATE" }, (e) =>
       withDetail(m["error.INTERNAL_STATE.title"](), e.detail),
     )
-    .with({ code: "MUTEX_LOCK_FAILED" }, () => ({ title: m["error.MUTEX_LOCK_FAILED.title"]() }))
     .with({ code: "UNKNOWN" }, (e) => withDetail(m["error.UNKNOWN.title"](), e.detail))
     .with({ code: "WORKSHOP_NOT_CONFIGURED" }, () => ({
       title: m["error.WORKSHOP_NOT_CONFIGURED.title"](),

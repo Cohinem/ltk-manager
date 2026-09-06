@@ -152,11 +152,7 @@ fn read_chunk_rejects_names_that_escape_final_dir() {
         .unwrap_err();
 
     assert!(matches!(err, AppError::InvalidPath(_)));
-    assert_eq!(
-        cache.mounted().unwrap(),
-        0,
-        "a rejected name mounts nothing"
-    );
+    assert_eq!(cache.mounted(), 0, "a rejected name mounts nothing");
 }
 
 #[test]
@@ -180,7 +176,7 @@ fn every_chunk_of_one_archive_shares_a_single_mount() {
             .unwrap();
     }
 
-    assert_eq!(cache.mounted().unwrap(), 1);
+    assert_eq!(cache.mounted(), 1);
 }
 
 #[test]
@@ -200,7 +196,7 @@ fn an_archive_past_the_capacity_pushes_the_oldest_one_out() {
             .unwrap();
     }
 
-    assert_eq!(cache.mounted().unwrap(), 2);
+    assert_eq!(cache.mounted(), 2);
 }
 
 #[test]
@@ -217,9 +213,9 @@ fn clearing_unmounts_everything() {
         )
         .unwrap();
 
-    cache.clear().unwrap();
+    cache.clear();
 
-    assert_eq!(cache.mounted().unwrap(), 0);
+    assert_eq!(cache.mounted(), 0);
 }
 
 #[test]

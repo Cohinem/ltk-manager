@@ -27,7 +27,7 @@ pub fn start_library_watcher(app_handle: &AppHandle) {
 
 fn resolve_watch_dirs(app_handle: &AppHandle) -> Option<(PathBuf, PathBuf)> {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
-    let settings = settings_state.0.lock().ok()?;
+    let settings = settings_state.0.lock();
     let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
     let storage_dir = mod_library_state.0.storage_dir(&settings.config).ok()?;
 
@@ -121,13 +121,7 @@ fn handle_change(app_handle: &AppHandle) {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
     let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
 
-    let config = match settings_state.0.lock() {
-        Ok(s) => s.config.clone(),
-        Err(e) => {
-            tracing::warn!("Watcher: failed to lock settings: {}", e);
-            return;
-        }
-    };
+    let config = settings_state.0.lock().config.clone();
 
     match mod_library_state.0.reconcile_index(&config) {
         Ok(true) => {

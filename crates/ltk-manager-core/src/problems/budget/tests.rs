@@ -108,3 +108,42 @@ fn a_cancel_releases_a_worker_parked_on_the_budget() {
     parked.join().expect("the thread finishes");
     drop(held);
 }
+
+/// A mod's job maps that mod's own files, so `map` nests inside itself. The
+/// outer bound is how many mods are open at once, and a work-stealing pool
+/// widens it: the thread parked on the inner map picks up another mod.
+#[test]
+fn a_job_that_maps_again_does_not_widen_the_outer_bound() {
+    const MODS_AT_ONCE: usize = 3;
+
+    let budget = Budget::of(1 << 30);
+    let open = AtomicUsize::new(0);
+    let peak = AtomicUsize::new(0);
+    let mods: Vec<usize> = (0..24).collect();
+    let files: Vec<usize> = (0..8).collect();
+
+    budget.map(
+        &mods,
+        MODS_AT_ONCE,
+        |_| 0,
+        |_| {
+            peak.fetch_max(open.fetch_add(1, Ordering::SeqCst) + 1, Ordering::SeqCst);
+            budget.map(
+                &files,
+                4,
+                |_| 1024,
+                |file| {
+                    std::thread::sleep(Duration::from_millis(2));
+                    *file
+                },
+            );
+            open.fetch_sub(1, Ordering::SeqCst);
+        },
+    );
+
+    assert_eq!(
+        peak.load(Ordering::SeqCst),
+        MODS_AT_ONCE,
+        "mods open at once"
+    );
+}

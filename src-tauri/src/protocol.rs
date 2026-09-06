@@ -47,10 +47,7 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
     };
 
-    let config = match app.state::<SettingsState>().config() {
-        Ok(config) => config,
-        Err(e) => return message_response(status_for(&e), &e.to_string()),
-    };
+    let config = app.state::<SettingsState>().config();
 
     match asset.preview(min_width, &config, &app.state::<WadCache>()) {
         Ok(Preview::Image(image)) => image_response(image),

@@ -7,7 +7,7 @@ use super::injector::InjectorError;
 use super::session::SessionError;
 
 /// Which stage of a start failed, for [`PatcherError::InjectionFailed`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -15,19 +15,11 @@ pub enum InjectionStage {
     /// The host process never came up - it could not be spawned, configured, or
     /// told to start. Antivirus, a missing binary or a declined UAC prompt are
     /// the usual causes, so diagnostics are the useful response.
+    #[strum(to_string = "host startup")]
     Host,
     /// The host ran, but the game was never patched.
+    #[strum(to_string = "DLL injection")]
     Injection,
-}
-
-impl std::fmt::Display for InjectionStage {
-    /// The stage as an evidence line names it.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.pad(match self {
-            Self::Host => "host startup",
-            Self::Injection => "DLL injection",
-        })
-    }
 }
 
 /// Domain errors specific to the patcher.

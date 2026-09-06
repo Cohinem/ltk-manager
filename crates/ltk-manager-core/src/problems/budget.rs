@@ -9,8 +9,10 @@
 //! Refusing an oversized file would leave a mod permanently unrepairable for
 //! being large, which is the opposite of what the budget is for.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+
+use parking_lot::{Condvar, Mutex};
 
 /// The bytes one repair may hold parsed at once.
 ///
@@ -87,22 +89,14 @@ impl Budget {
     #[must_use]
     pub fn reserve(&self, bytes: u64) -> Option<Reservation<'_>> {
         let want = bytes.min(self.bytes.total);
-        let mut held = self
-            .bytes
-            .free
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut held = self.bytes.free.lock();
         while *held < want {
             // Re-read inside the loop: a cancel notifies but frees nothing, so
             // a worker that only re-checked the byte count would park forever.
             if self.is_cancelled() {
                 return None;
             }
-            held = self
-                .bytes
-                .released
-                .wait(held)
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            self.bytes.released.wait(&mut held);
         }
         *held -= want;
         Some(Reservation {
@@ -172,20 +166,13 @@ impl Budget {
                         };
                         let answer = job(item);
                         drop(held);
-                        *done[index]
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(answer);
+                        *done[index].lock() = Some(answer);
                     }
                 });
             }
         });
 
-        done.into_iter()
-            .map(|slot| {
-                slot.into_inner()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-            })
-            .collect()
+        done.into_iter().map(Mutex::into_inner).collect()
     }
 }
 
@@ -234,11 +221,7 @@ pub struct Reservation<'a> {
 
 impl Drop for Reservation<'_> {
     fn drop(&mut self) {
-        let mut held = self
-            .in_flight
-            .free
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut held = self.in_flight.free.lock();
         *held += self.bytes;
         drop(held);
         self.in_flight.released.notify_all();

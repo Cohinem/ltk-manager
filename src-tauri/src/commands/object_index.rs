@@ -47,18 +47,16 @@ pub enum ObjectSearch {
 /// leaves the failure in the state for a search to report.
 #[tauri::command]
 pub async fn warm_object_index(app_handle: AppHandle) -> IpcResult<()> {
-    let config = match app_handle.state::<SettingsState>().config() {
-        Ok(config) => config,
-        Err(e) => return IpcResult::from(Err::<(), _>(e)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
 
     off_thread(move || {
         let state = app_handle.state::<ObjectIndexState>();
-        let Some(ticket) = state.begin()? else {
+        let Some(ticket) = state.begin() else {
             return Ok(());
         };
         let built = build(&app_handle, &config, &state, ticket);
-        state.finish(ticket, built.map_err(AppErrorResponse::from))
+        state.finish(ticket, built.map_err(AppErrorResponse::from));
+        Ok(())
     })
     .await
 }
@@ -85,14 +83,15 @@ fn build(
             return Ok(index);
         }
     };
-    let wad = app.state::<Arc<WadPathResolverState>>().get()?;
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
     Ok(index.named(&CacheNames::new(&cache.bin_tables(), &wad)))
 }
 
 /// Drop the object index, and the result of any build still running.
 #[tauri::command]
 pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
-    app_handle.state::<ObjectIndexState>().clear().into()
+    app_handle.state::<ObjectIndexState>().clear();
+    IpcResult::ok(())
 }
 
 /// Rank every bin object of the install against `query`, best first.
@@ -114,7 +113,7 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
     };
 
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
             ObjectIndexSnapshot::Absent => return Ok(ObjectSearch::Absent),
             ObjectIndexSnapshot::Building => return Ok(ObjectSearch::Building),
             ObjectIndexSnapshot::Failed(error) => return Ok(ObjectSearch::Failed { error }),
@@ -157,7 +156,7 @@ pub enum ObjectDir {
 #[tauri::command]
 pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<ObjectDir> {
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
             ObjectIndexSnapshot::Absent => return Ok(ObjectDir::Absent),
             ObjectIndexSnapshot::Building => return Ok(ObjectDir::Building),
             ObjectIndexSnapshot::Failed(error) => return Ok(ObjectDir::Failed { error }),
@@ -216,7 +215,7 @@ pub async fn find_objects(
     };
 
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
             ObjectIndexSnapshot::Absent => return Ok(ObjectFind::Absent),
             ObjectIndexSnapshot::Building => return Ok(ObjectFind::Building),
             ObjectIndexSnapshot::Failed(error) => return Ok(ObjectFind::Failed { error }),
@@ -309,7 +308,7 @@ pub async fn find_references(
     };
 
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot()? {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
             ObjectIndexSnapshot::Absent => return Ok(ObjectReferences::Absent),
             ObjectIndexSnapshot::Building => return Ok(ObjectReferences::Building),
             ObjectIndexSnapshot::Failed(error) => return Ok(ObjectReferences::Failed { error }),
@@ -371,7 +370,7 @@ pub async fn declared_objects(
     app_handle: AppHandle,
 ) -> IpcResult<DeclaredObjects> {
     off_thread(move || {
-        let (index, status) = match app_handle.state::<ObjectIndexState>().snapshot()? {
+        let (index, status) = match app_handle.state::<ObjectIndexState>().snapshot() {
             ObjectIndexSnapshot::Absent => (None, ObjectIndexStatus::Absent),
             ObjectIndexSnapshot::Building => (None, ObjectIndexStatus::Building),
             ObjectIndexSnapshot::Failed(error) => (None, ObjectIndexStatus::Failed { error }),
@@ -407,11 +406,11 @@ fn fold_own_declarations(
     objects: &mut HashMap<String, DeclaredObject>,
 ) -> AppResult<()> {
     let store = app.state::<BinDocuments>();
-    let Some(asset) = store.asset_of(document)? else {
+    let Some(asset) = store.asset_of(document) else {
         return Ok(());
     };
-    let bin = app.state::<BinHashTablesState>().get()?;
-    let wad = app.state::<Arc<WadPathResolverState>>().get()?;
+    let bin = app.state::<BinHashTablesState>().get();
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
     let file = own_file_name(&asset, &wad);
 
@@ -481,21 +480,11 @@ pub fn rename_after_sync(app: &AppHandle) {
             return;
         }
     };
-    let wad = match app.state::<Arc<WadPathResolverState>>().get() {
-        Ok(wad) => wad,
-        Err(e) => {
-            tracing::warn!("Could not open the WAD tables to rename the object index: {e}");
-            return;
-        }
-    };
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
     let bin = cache.bin_tables();
     let names = CacheNames::new(&bin, &wad);
-    if let Err(e) = app
-        .state::<ObjectIndexState>()
-        .rename(|index| index.named(&names))
-    {
-        tracing::warn!("Could not rename the object index after a hashtable sync: {e}");
-    }
+    app.state::<ObjectIndexState>()
+        .rename(|index| index.named(&names));
 }
 
 #[cfg(test)]

@@ -49,7 +49,7 @@ pub fn run_diagnostics(
     app_handle: AppHandle,
     settings: State<SettingsState>,
 ) -> IpcResult<DiagnosticReport> {
-    run_diagnostics_inner(&app_handle, &settings).into()
+    IpcResult::ok(run_diagnostics_inner(&app_handle, &settings))
 }
 
 /// Launch an elevated PowerShell window so the user can run a fix command.
@@ -136,8 +136,8 @@ fn open_elevated_terminal_inner(_with_banner: bool) -> AppResult<()> {
 fn run_diagnostics_inner(
     app_handle: &AppHandle,
     settings: &State<SettingsState>,
-) -> AppResult<DiagnosticReport> {
-    let snapshot = settings.config()?;
+) -> DiagnosticReport {
+    let snapshot = settings.config();
     // Mirror `ModLibrary::storage_dir` — fall back to the Tauri app-data dir
     // when the user hasn't set a custom storage path. The diagnostics should
     // inspect whatever path the rest of the app actually uses.
@@ -155,11 +155,11 @@ fn run_diagnostics_inner(
     };
     let checks = run_all(&ctx);
     let generated_at = chrono::Utc::now().to_rfc3339();
-    Ok(DiagnosticReport {
+    DiagnosticReport {
         generated_at,
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         checks,
-    })
+    }
 }
 
 /// Every incident the store holds, newest first.

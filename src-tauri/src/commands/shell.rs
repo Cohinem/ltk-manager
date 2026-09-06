@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 
 /// Opens a file location in the system file explorer.
@@ -61,7 +61,7 @@ fn minimize_to_tray_inner(
     window: tauri::WebviewWindow,
     state: &tauri::State<SettingsState>,
 ) -> AppResult<()> {
-    let settings = state.0.lock().mutex_err()?;
+    let settings = state.0.lock();
 
     if settings.minimize_to_tray {
         window

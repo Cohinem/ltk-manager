@@ -2,15 +2,17 @@
 //! and reports everything user-facing through [`PatcherEvents`].
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
 use std::thread;
+
+use parking_lot::Mutex;
 
 use crate::config::Config;
 use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::incident::SessionFailure;
 use crate::diagnostics::store::IncidentStore;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::mods::ModLibrary;
 use crate::overlay::OverlayBuild;
 
@@ -65,7 +67,7 @@ impl PatcherThread {
         stored_config: StoredPatcherConfig,
         params: SessionParams,
     ) -> AppResult<()> {
-        let mut patcher_state = state.lock().mutex_err()?;
+        let mut patcher_state = state.lock();
         if patcher_state.is_running() {
             return Err(PatcherError::AlreadyRunning.into());
         }
@@ -239,17 +241,13 @@ impl PatcherThread {
     /// embedder that reads the shared state from its listener never sees the
     /// old value.
     fn enter_patching(&self, overlay_prefix: String) {
-        if let Ok(mut s) = self.state.lock() {
-            s.enter_patching(overlay_prefix);
-        }
+        self.state.lock().enter_patching(overlay_prefix);
         self.events.phase_changed(PatcherPhase::Patching);
     }
 
     /// Close the session. Runs on every thread exit path.
     fn reset_to_idle(&self) {
-        if let Ok(mut s) = self.state.lock() {
-            s.end_session();
-        }
+        self.state.lock().end_session();
         self.events.phase_changed(PatcherPhase::Idle);
     }
 }

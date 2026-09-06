@@ -150,11 +150,8 @@ pub fn get_mod_health_verdicts(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
 ) -> IpcResult<BTreeMap<String, ModHealthVerdict>> {
-    let result: AppResult<BTreeMap<String, ModHealthVerdict>> = (|| {
-        let config = settings.config()?;
-        library.0.mod_health_verdicts(&config)
-    })();
-    result.into()
+    let config = settings.config();
+    library.0.mod_health_verdicts(&config).into()
 }
 
 /// Whether a command must refuse to run while the patcher does.
@@ -172,7 +169,7 @@ fn library_setup(app_handle: &AppHandle, guard: PatcherGuard) -> AppResult<(Conf
     if matches!(guard, PatcherGuard::Reject) {
         super::mods::reject_if_patcher_running(&app_handle.state::<PatcherState>())?;
     }
-    let config = app_handle.state::<SettingsState>().config()?;
+    let config = app_handle.state::<SettingsState>().config();
     let library = app_handle.state::<ModLibraryState>().0.clone();
     Ok((config, library))
 }

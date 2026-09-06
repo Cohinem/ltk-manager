@@ -13,15 +13,13 @@ fn mismatch(mod_id: &str, wad: &str) -> ltk_overlay::ChecksumMismatch {
 #[test]
 fn a_snapshot_groups_mismatches_by_mod() {
     let state = ChecksumMismatchState::default();
-    state
-        .record(vec![
-            mismatch("mod-a", "Aatrox.wad.client"),
-            mismatch("mod-a", "Ashe.wad.client"),
-            mismatch("mod-b", "Ahri.wad.client"),
-        ])
-        .unwrap();
+    state.record(vec![
+        mismatch("mod-a", "Aatrox.wad.client"),
+        mismatch("mod-a", "Ashe.wad.client"),
+        mismatch("mod-b", "Ahri.wad.client"),
+    ]);
 
-    let by_mod = state.by_mod().unwrap();
+    let by_mod = state.by_mod();
     assert_eq!(by_mod.len(), 2);
     assert_eq!(by_mod["mod-a"].len(), 2);
     assert_eq!(by_mod["mod-b"].len(), 1);
@@ -42,9 +40,7 @@ fn hashes_cross_as_full_width_hex() {
 #[test]
 fn recording_replaces_the_previous_snapshot() {
     let state = ChecksumMismatchState::default();
-    state
-        .record(vec![mismatch("mod-a", "Aatrox.wad.client")])
-        .unwrap();
-    state.record(Vec::new()).unwrap();
-    assert!(state.by_mod().unwrap().is_empty());
+    state.record(vec![mismatch("mod-a", "Aatrox.wad.client")]);
+    state.record(Vec::new());
+    assert!(state.by_mod().is_empty());
 }

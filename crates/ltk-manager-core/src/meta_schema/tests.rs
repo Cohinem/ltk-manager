@@ -528,16 +528,17 @@ fn the_shipped_snapshot_writes_no_type_name_this_build_cannot_map() {
 /// behind that sync must not still be reading the copy the app started with.
 #[test]
 fn the_shared_schema_is_held_open_and_reopened_after_a_sync() {
-    let first = shared(None);
+    let held = Slot(Mutex::new(None));
+    let first = held.schema(None);
     assert!(
-        Arc::ptr_eq(&first, &shared(None)),
+        Arc::ptr_eq(&first, &held.schema(None)),
         "asked twice, opened once"
     );
 
-    invalidate();
+    held.clear();
 
     assert!(
-        !Arc::ptr_eq(&first, &shared(None)),
+        !Arc::ptr_eq(&first, &held.schema(None)),
         "a sync installed a database, so the next ask opens it"
     );
 }
@@ -547,10 +548,14 @@ fn the_shared_schema_is_held_open_and_reopened_after_a_sync() {
 /// choice made for the first.
 #[test]
 fn the_shared_schema_reopens_for_another_build() {
-    let installed = shared(Some(GameBuild::new(16, 17, 8_104_348)));
+    let held = Slot(Mutex::new(None));
+    let installed = held.schema(Some(GameBuild::new(16, 17, 8_104_348)));
 
     assert!(
-        !Arc::ptr_eq(&installed, &shared(Some(GameBuild::new(13, 15, 5_229_820)))),
+        !Arc::ptr_eq(
+            &installed,
+            &held.schema(Some(GameBuild::new(13, 15, 5_229_820)))
+        ),
         "a different install is a different choice of database"
     );
 }

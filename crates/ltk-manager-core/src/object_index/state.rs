@@ -1,9 +1,9 @@
 //! The slot the app keeps one index in, and the generation each scan claims a ticket from.
 
+use parking_lot::Mutex;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-use std::sync::{Arc, Mutex};
 
-use crate::error::{AppResult, MutexResultExt};
 use crate::game_index::SearchGeneration;
 
 use super::ObjectIndex;
@@ -121,18 +121,15 @@ impl<E: Clone> ObjectIndexState<E> {
     /// Claim the state for a build, or `None` when one is running or done.
     ///
     /// A failed slot is claimed again, so the next warm retries it.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn begin(&self) -> AppResult<Option<BuildTicket>> {
-        let mut slot = self.slot.lock().mutex_err()?;
+    #[must_use]
+    pub fn begin(&self) -> Option<BuildTicket> {
+        let mut slot = self.slot.lock();
         if matches!(*slot, Slot::Building(_) | Slot::Ready(_)) {
-            return Ok(None);
+            return None;
         }
         let ticket = BuildTicket(self.ticket.fetch_add(1, AtomicOrdering::Relaxed) + 1);
         *slot = Slot::Building(ticket);
-        Ok(Some(ticket))
+        Some(ticket)
     }
 
     /// Whether `ticket` is still the build the state is waiting on.
@@ -142,62 +139,44 @@ impl<E: Clone> ObjectIndexState<E> {
     }
 
     /// Land a build's result, unless the state stopped waiting on it.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn finish(&self, ticket: BuildTicket, built: Result<ObjectIndex, E>) -> AppResult<()> {
-        let mut slot = self.slot.lock().mutex_err()?;
+    pub fn finish(&self, ticket: BuildTicket, built: Result<ObjectIndex, E>) {
+        let mut slot = self.slot.lock();
         if !matches!(*slot, Slot::Building(current) if current == ticket) {
             tracing::debug!("Dropping an object index build the state stopped waiting on");
-            return Ok(());
+            return;
         }
         *slot = match built {
             Ok(index) => Slot::Ready(Arc::new(index)),
             Err(error) => Slot::Failed(error),
         };
-        Ok(())
     }
 
     /// Drop the index, and the result of any build still running.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn clear(&self) -> AppResult<()> {
-        let mut slot = self.slot.lock().mutex_err()?;
+    pub fn clear(&self) {
+        let mut slot = self.slot.lock();
         self.ticket.fetch_add(1, AtomicOrdering::Relaxed);
         *slot = Slot::Absent;
-        Ok(())
     }
 
     /// What the state holds, with the index shared rather than locked.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn snapshot(&self) -> AppResult<ObjectIndexSnapshot<E>> {
-        let slot = self.slot.lock().mutex_err()?;
-        Ok(match &*slot {
+    #[must_use]
+    pub fn snapshot(&self) -> ObjectIndexSnapshot<E> {
+        let slot = self.slot.lock();
+        match &*slot {
             Slot::Absent => ObjectIndexSnapshot::Absent,
             Slot::Building(_) => ObjectIndexSnapshot::Building,
             Slot::Ready(index) => ObjectIndexSnapshot::Ready(Arc::clone(index)),
             Slot::Failed(error) => ObjectIndexSnapshot::Failed(error.clone()),
-        })
+        }
     }
 
     /// Replace a ready index with `rename` of it, and leave any other slot alone.
     ///
     /// For a hashtable sync, which changes the names and not the rows.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn rename(&self, rename: impl FnOnce(&ObjectIndex) -> ObjectIndex) -> AppResult<()> {
-        let mut slot = self.slot.lock().mutex_err()?;
+    pub fn rename(&self, rename: impl FnOnce(&ObjectIndex) -> ObjectIndex) {
+        let mut slot = self.slot.lock();
         if let Slot::Ready(index) = &*slot {
             *slot = Slot::Ready(Arc::new(rename(index)));
         }
-        Ok(())
     }
 }

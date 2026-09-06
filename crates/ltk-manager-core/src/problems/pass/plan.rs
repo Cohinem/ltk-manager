@@ -3,10 +3,10 @@
 
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
-use std::sync::{Mutex, PoisonError};
 use std::time::Instant;
 
 use ltk_meta::walk::{Node, Visit, Visitor};
+use parking_lot::Mutex;
 
 use crate::problems::budget;
 use crate::problems::walk::Declared;
@@ -256,10 +256,7 @@ where
 {
     fn read(&self, index: usize, head: &Head<'_>) -> Result<(), String> {
         let result = (self.read)(head)?;
-        self.store
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push((index, result));
+        self.store.lock().push((index, result));
         Ok(())
     }
 }
@@ -316,10 +313,7 @@ impl<'f, O: ObjectRead> Walk<'f> for ObjectsWalk<'_, 'f, O> {
             mut sink,
         } = *self;
         match read.end(sink.handle(), kept) {
-            Ok(kept) => store
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .push((sink.index, kept)),
+            Ok(kept) => store.lock().push((sink.index, kept)),
             Err(message) => sink.failure(message),
         }
         sink

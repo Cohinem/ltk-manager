@@ -6,7 +6,7 @@ use super::{
     HealthCheckBasis, LEGACY_VERDICTS_FILENAME, ModHealth, ModHealthVerdict, Refused, VerdictFile,
 };
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, HealthSweepProgress};
 use crate::hashtables::HashtableCache;
 use crate::meta_schema::cache::{MetaSchemaCache, PublishedDb};
@@ -323,16 +323,11 @@ impl ModLibrary {
     /// What the library sweep has to say for itself this launch.
     #[must_use]
     pub fn health_sweep_state(&self) -> HealthSweepState {
-        self.health_sweep
-            .lock()
-            .map(|state| state.clone())
-            .unwrap_or_default()
+        self.health_sweep.lock().clone()
     }
 
     pub(in crate::mods) fn record_health_sweep(&self, state: HealthSweepState) {
-        if let Ok(mut held) = self.health_sweep.lock() {
-            *held = state;
-        }
+        *self.health_sweep.lock() = state;
     }
 
     /// Forget the verdicts of mods the library no longer holds, and answer with
@@ -346,7 +341,7 @@ impl ModLibrary {
         storage_dir: &Path,
         entries: &[LibraryModEntry],
     ) -> AppResult<BTreeMap<String, ModHealthVerdict>> {
-        let _lock = self.verdict_lock().lock().mutex_err()?;
+        let _lock = self.verdict_lock().lock();
         drop_legacy_verdicts(storage_dir);
 
         let mut file = VerdictFile::load(storage_dir);
@@ -401,7 +396,7 @@ impl ModLibrary {
 struct SweepProgress {
     total: usize,
     completed: std::sync::atomic::AtomicUsize,
-    in_flight: std::sync::Mutex<Vec<String>>,
+    in_flight: parking_lot::Mutex<Vec<String>>,
 }
 
 impl SweepProgress {
@@ -409,24 +404,24 @@ impl SweepProgress {
         Self {
             total,
             completed: std::sync::atomic::AtomicUsize::new(0),
-            in_flight: std::sync::Mutex::new(Vec::new()),
+            in_flight: parking_lot::Mutex::new(Vec::new()),
         }
     }
 
     fn begin(&self, mod_id: &str, library: &ModLibrary) {
-        if let Ok(mut open) = self.in_flight.lock() {
-            open.push(mod_id.to_owned());
-        }
+        self.in_flight.lock().push(mod_id.to_owned());
         self.announce(library);
     }
 
     fn end(&self, mod_id: &str, library: &ModLibrary) {
         self.completed
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        if let Ok(mut open) = self.in_flight.lock()
-            && let Some(at) = open.iter().position(|held| held == mod_id)
         {
-            open.remove(at);
+            // `announce` takes the same lock, so the guard goes out of scope first.
+            let mut open = self.in_flight.lock();
+            if let Some(at) = open.iter().position(|held| held == mod_id) {
+                open.remove(at);
+            }
         }
         self.announce(library);
     }
@@ -445,11 +440,7 @@ impl SweepProgress {
             .emit(BackendEvent::HealthSweepProgress(HealthSweepProgress {
                 completed,
                 total: self.total,
-                in_flight: self
-                    .in_flight
-                    .lock()
-                    .map(|open| open.clone())
-                    .unwrap_or_default(),
+                in_flight: self.in_flight.lock().clone(),
             }));
     }
 }

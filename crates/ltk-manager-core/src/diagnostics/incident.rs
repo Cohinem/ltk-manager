@@ -257,18 +257,24 @@ pub enum VerdictKind {
 /// reads the code, not stamped over what happened to the game.
 ///
 /// Ordered by how much the game lost, worst last.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, strum::Display,
+)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum Consequence {
     /// The overlay served the game without one archive, and the rest applied.
+    #[strum(to_string = "one archive dropped")]
     ArchiveDropped,
     /// No mod reached the game.
+    #[strum(to_string = "no mod ran")]
     OverlayOff,
     /// The game stopped making progress and never reached play.
+    #[strum(to_string = "the game hung")]
     GameHung,
     /// The game did not survive.
+    #[strum(to_string = "the game stopped")]
     GameStopped,
 }
 
@@ -292,17 +298,6 @@ impl Consequence {
             3 => Self::GameHung,
             4 => Self::GameStopped,
             _ => return None,
-        })
-    }
-}
-
-impl fmt::Display for Consequence {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(match self {
-            Self::ArchiveDropped => "one archive dropped",
-            Self::OverlayOff => "no mod ran",
-            Self::GameHung => "the game hung",
-            Self::GameStopped => "the game stopped",
         })
     }
 }
@@ -371,10 +366,11 @@ impl From<StoredVerdict> for Verdict {
 }
 
 /// Where a line of evidence came from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 pub enum EvidenceSource {
     Patcher,
     Host,
@@ -914,18 +910,6 @@ impl Ending {
     /// or sent a spelling the crate does not know.
     pub fn client_reason(&self) -> Option<ClientReason> {
         self.exit_reason.as_deref().and_then(ClientReason::parse)
-    }
-}
-
-impl fmt::Display for EvidenceSource {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(match self {
-            Self::Patcher => "patcher",
-            Self::Host => "host",
-            Self::Dll => "dll",
-            Self::Game => "game",
-            Self::Client => "client",
-        })
     }
 }
 

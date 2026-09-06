@@ -18,10 +18,10 @@ pub use ltk_manager_core::patcher::{
 };
 
 use std::sync::atomic::Ordering;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use crate::error::{AppResult, MutexResultExt};
 use ltk_manager_core::patcher::host::PatcherHost;
+use parking_lot::Mutex;
 
 /// Tauri-managed patcher lifecycle state.
 ///
@@ -42,19 +42,20 @@ impl PatcherState {
     }
 
     /// Read the state under the lock. The closure bounds the guard's lifetime.
-    pub fn with<T>(&self, f: impl FnOnce(&PatcherStateInner) -> T) -> AppResult<T> {
-        let inner = self.0.lock().mutex_err()?;
-        Ok(f(&inner))
+    pub fn with<T>(&self, f: impl FnOnce(&PatcherStateInner) -> T) -> T {
+        let inner = self.0.lock();
+        f(&inner)
     }
 
     /// Mutate the state under the lock.
-    pub fn with_mut<T>(&self, f: impl FnOnce(&mut PatcherStateInner) -> T) -> AppResult<T> {
-        let mut inner = self.0.lock().mutex_err()?;
-        Ok(f(&mut inner))
+    pub fn with_mut<T>(&self, f: impl FnOnce(&mut PatcherStateInner) -> T) -> T {
+        let mut inner = self.0.lock();
+        f(&mut inner)
     }
 
     /// Whether a patching session is currently live.
-    pub fn is_running(&self) -> AppResult<bool> {
+    #[must_use]
+    pub fn is_running(&self) -> bool {
         self.with(PatcherStateInner::is_running)
     }
 
@@ -62,7 +63,7 @@ impl PatcherState {
     ///
     /// Only signals — the session unwinds on its own thread, so callers that
     /// need it *gone* must still wait for the handle to finish.
-    pub fn request_stop(&self) -> AppResult<bool> {
+    pub fn request_stop(&self) -> bool {
         self.with(|inner| {
             let running = inner.is_running();
             if running {
@@ -94,11 +95,9 @@ impl PatcherHostState {
     /// Take the host out of managed state, leaving it empty.
     ///
     /// Ownership moves to the caller so the (possibly long) shutdown happens
-    /// with the lock released. A poisoned lock yields `None`: there is nothing
-    /// useful to do with a host whose owner panicked, and the `Drop` safety net
-    /// still kills the process.
+    /// with the lock released.
     pub fn take(&self) -> Option<PatcherHost> {
-        self.0.lock().ok()?.take()
+        self.0.lock().take()
     }
 }
 
@@ -140,8 +139,8 @@ mod tests {
     #[test]
     fn patcher_state_new_creates_valid_state() {
         let state = PatcherState::new();
-        assert!(!state.is_running().unwrap());
-        assert_eq!(state.with(|inner| inner.phase).unwrap(), PatcherPhase::Idle);
+        assert!(!state.is_running());
+        assert_eq!(state.with(|inner| inner.phase), PatcherPhase::Idle);
     }
 
     /// Stopping an idle patcher is a no-op that says so, rather than setting the
@@ -149,9 +148,7 @@ mod tests {
     #[test]
     fn request_stop_reports_no_session_and_leaves_the_flag_clear() {
         let state = PatcherState::new();
-        assert!(!state.request_stop().unwrap());
-        assert!(!state
-            .with(|inner| inner.stop_flag.load(Ordering::SeqCst))
-            .unwrap());
+        assert!(!state.request_stop());
+        assert!(!state.with(|inner| inner.stop_flag.load(Ordering::SeqCst)));
     }
 }

@@ -934,6 +934,17 @@ fn the_token_numbers_are_pinned() {
     );
 }
 
+/// The evidence table and the seed listing lay their columns out with a width,
+/// which a `Display` honours only by going through `Formatter::pad`.
+#[test]
+fn a_source_and_a_consequence_fill_a_column() {
+    assert_eq!(format!("{:<7}", EvidenceSource::Dll), "dll    ");
+    assert_eq!(
+        format!("{:<19}", Consequence::OverlayOff),
+        "no mod ran         "
+    );
+}
+
 #[test]
 fn the_phase_follows_the_log() {
     let mut record = crashed(modded_game());

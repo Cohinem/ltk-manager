@@ -6,11 +6,11 @@
 //! on demand via the `analyze_mod_wads` Tauri command.
 
 use super::categorize::DerivedCategorization;
-use crate::error::{AppResult, MutexResultExt};
+use crate::error::AppResult;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 const WAD_REPORTS_FILENAME: &str = "wad-reports.json";
 /// v2 added the persisted `derived` categorization. Older (`v1`) caches load
@@ -343,7 +343,7 @@ impl WadReportState {
             .into_iter()
             .map(ModWadReport::from_upstream)
             .collect();
-        let mut store = self.0.lock().mutex_err()?;
+        let mut store = self.0.lock();
         store.upsert_many(converted)
     }
 }

@@ -1,10 +1,10 @@
-use crate::error::{AppResult, MutexResultExt};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::diagnostics::store::IncidentStore;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
 
@@ -95,9 +95,10 @@ impl SettingsState {
     /// Callers take a clone rather than holding the guard: settings can change
     /// at runtime, and every consumer downstream (`ModLibrary`, `Workshop`, the
     /// overlay builder, the patcher thread) is designed around a per-operation
-    /// snapshot. Centralizing it here keeps poison handling in one place.
-    pub fn config(&self) -> AppResult<Config> {
-        Ok(self.0.lock().mutex_err()?.config.clone())
+    /// snapshot.
+    #[must_use]
+    pub fn config(&self) -> Config {
+        self.0.lock().config.clone()
     }
 }
 

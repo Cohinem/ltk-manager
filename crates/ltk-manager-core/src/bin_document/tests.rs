@@ -746,12 +746,12 @@ fn the_store_evicts_the_least_recently_used_asset_past_its_capacity() {
     store.read(first, |_| Ok(())).unwrap();
     let third = store.open(asset("c.bin"), || Ok(bytes.clone())).unwrap();
 
-    assert!(store.is_open(first).unwrap());
-    assert!(!store.is_open(second).unwrap());
-    assert!(store.is_open(third).unwrap());
+    assert!(store.is_open(first));
+    assert!(!store.is_open(second));
+    assert!(store.is_open(third));
     assert_ne!(first, second);
-    assert_eq!(store.asset_of(second).unwrap(), None);
-    assert_eq!(store.asset_of(third).unwrap(), Some(asset("c.bin")));
+    assert_eq!(store.asset_of(second), None);
+    assert_eq!(store.asset_of(third), Some(asset("c.bin")));
 }
 
 #[test]
@@ -769,13 +769,13 @@ fn two_opens_of_one_asset_share_one_parse_and_close_apart() {
     assert_ne!(file_tab, object_tab);
     assert_eq!(parses.get(), 1);
 
-    store.close(file_tab).unwrap();
-    assert!(!store.is_open(file_tab).unwrap());
-    assert!(store.is_open(object_tab).unwrap());
+    store.close(file_tab);
+    assert!(!store.is_open(file_tab));
+    assert!(store.is_open(object_tab));
     store.read(object_tab, |_| Ok(())).unwrap();
 
-    store.close(object_tab).unwrap();
-    assert!(!store.is_open(object_tab).unwrap());
+    store.close(object_tab);
+    assert!(!store.is_open(object_tab));
     store.open(asset("a.bin"), read).unwrap();
     assert_eq!(parses.get(), 2, "the last close dropped the tree");
 }
@@ -791,14 +791,14 @@ fn the_bound_counts_assets_and_not_ids() {
     let other = store.open(asset("b.bin"), || Ok(bytes.clone())).unwrap();
 
     for id in [first, second, third, other] {
-        assert!(store.is_open(id).unwrap(), "{id}");
+        assert!(store.is_open(id), "{id}");
     }
 
     let more = store.open(asset("c.bin"), || Ok(bytes.clone())).unwrap();
-    assert!(store.is_open(more).unwrap());
-    assert!(store.is_open(other).unwrap());
+    assert!(store.is_open(more));
+    assert!(store.is_open(other));
     for id in [first, second, third] {
-        assert!(!store.is_open(id).unwrap(), "{id} outlived its asset");
+        assert!(!store.is_open(id), "{id} outlived its asset");
     }
 }
 
@@ -807,10 +807,10 @@ fn a_closed_document_is_not_open_and_closing_it_again_is_nothing() {
     let store = BinDocuments::default();
     let id = store.open(asset("a.bin"), || Ok(prop_bytes())).unwrap();
 
-    store.close(id).unwrap();
-    store.close(id).unwrap();
+    store.close(id);
+    store.close(id);
 
-    assert!(!store.is_open(id).unwrap());
+    assert!(!store.is_open(id));
     let error = store.read(id, |_| Ok(())).unwrap_err();
     assert!(error.to_string().contains("is not open"), "{error}");
 }

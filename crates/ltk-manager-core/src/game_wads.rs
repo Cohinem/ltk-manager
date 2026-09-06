@@ -5,15 +5,16 @@ use std::fs;
 use std::io::BufReader;
 use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use lru::LruCache;
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{ChunkDecoder, Wad, WadChunk, WadError, WadHash};
+use parking_lot::Mutex;
 use serde::Serialize;
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::utils::game::GameDir;
 use crate::utils::natural_order::compare_names;
 use crate::utils::path::resolve_within;
@@ -227,11 +228,9 @@ impl fmt::Debug for WadCache {
     /// Reports how many archives are mounted, a mount being a file handle and a
     /// chunk table rather than anything worth printing.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut out = f.debug_struct("WadCache");
-        match self.mounted.lock() {
-            Ok(cache) => out.field("mounted", &cache.len()).finish(),
-            Err(_) => out.finish_non_exhaustive(),
-        }
+        f.debug_struct("WadCache")
+            .field("mounted", &self.mounted.lock().len())
+            .finish()
     }
 }
 
@@ -252,9 +251,8 @@ impl WadCache {
     /// # Errors
     ///
     /// Fails with [`AppError::InvalidPath`] when `wad_name` escapes
-    /// `DATA/FINAL` or when the archive holds no such chunk, with I/O or WAD
-    /// errors when the archive cannot be read, and with
-    /// [`AppError::MutexLockFailed`] when a previous holder of a lock panicked.
+    /// `DATA/FINAL` or when the archive holds no such chunk, and with I/O or
+    /// WAD errors when the archive cannot be read.
     pub fn read_chunk(
         &self,
         archives: &GameArchives,
@@ -262,7 +260,7 @@ impl WadCache {
         path_hash: WadHash,
     ) -> AppResult<Vec<u8>> {
         let mounted = self.mount(archives.archive_path(wad_name)?)?;
-        let mut wad = mounted.lock().mutex_err()?;
+        let mut wad = mounted.lock();
 
         let chunk = *wad.chunks().get(path_hash).ok_or_else(|| {
             AppError::InvalidPath(format!("No chunk {path_hash:016x} in {wad_name}"))
@@ -271,22 +269,14 @@ impl WadCache {
     }
 
     /// How many archives are mounted right now.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn mounted(&self) -> AppResult<usize> {
-        Ok(self.mounted.lock().mutex_err()?.len())
+    #[must_use]
+    pub fn mounted(&self) -> usize {
+        self.mounted.lock().len()
     }
 
     /// Unmount everything, so the next read opens the archive again.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn clear(&self) -> AppResult<()> {
-        self.mounted.lock().mutex_err()?.clear();
-        Ok(())
+    pub fn clear(&self) {
+        self.mounted.lock().clear();
     }
 
     /// The mount for `path`, opening the archive when the cache lacks one.
@@ -296,16 +286,13 @@ impl WadCache {
     /// and settles on whichever landed last, which is cheaper than holding the
     /// whole cache across an open.
     fn mount(&self, path: PathBuf) -> AppResult<MountedWad> {
-        if let Some(mounted) = self.mounted.lock().mutex_err()?.get(&path) {
+        if let Some(mounted) = self.mounted.lock().get(&path) {
             return Ok(Arc::clone(mounted));
         }
 
         let wad = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
         let mounted = Arc::new(Mutex::new(wad));
-        self.mounted
-            .lock()
-            .mutex_err()?
-            .put(path, Arc::clone(&mounted));
+        self.mounted.lock().put(path, Arc::clone(&mounted));
         Ok(mounted)
     }
 }

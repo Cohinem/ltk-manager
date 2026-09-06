@@ -1,8 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use parking_lot::Mutex;
 use tauri::{AppHandle, State};
 
-use crate::error::{AppResult, IpcResult, MutexResultExt};
+use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::EventSink;
@@ -51,26 +52,27 @@ pub struct LaunchState(Mutex<Option<StopFlag>>);
 impl LaunchState {
     /// Claim the in-flight slot with a fresh stop flag, or `None` when a launch
     /// is already running.
-    fn acquire(&self) -> AppResult<Option<(LaunchGuard<'_>, StopFlag)>> {
-        let mut in_flight = self.0.lock().mutex_err()?;
+    #[must_use]
+    fn acquire(&self) -> Option<(LaunchGuard<'_>, StopFlag)> {
+        let mut in_flight = self.0.lock();
         if in_flight.is_some() {
-            return Ok(None);
+            return None;
         }
 
         let stop = StopFlag::new();
         *in_flight = Some(stop.clone());
-        Ok(Some((LaunchGuard { state: self }, stop)))
+        Some((LaunchGuard { state: self }, stop))
     }
 
     /// Call the launch in flight off, reporting whether there was one.
-    fn cancel(&self) -> AppResult<bool> {
-        let in_flight = self.0.lock().mutex_err()?;
+    fn cancel(&self) -> bool {
+        let in_flight = self.0.lock();
         let Some(stop) = in_flight.as_ref() else {
-            return Ok(false);
+            return false;
         };
 
         stop.stop();
-        Ok(true)
+        true
     }
 }
 
@@ -81,9 +83,7 @@ struct LaunchGuard<'a> {
 
 impl Drop for LaunchGuard<'_> {
     fn drop(&mut self) {
-        if let Ok(mut in_flight) = self.state.0.lock() {
-            *in_flight = None;
-        }
+        *self.state.0.lock() = None;
     }
 }
 
@@ -106,7 +106,7 @@ fn launch_league_inner(
     launcher: &State<LauncherState>,
     launch: &State<LaunchState>,
 ) -> AppResult<Option<LaunchOutcome>> {
-    let Some((_guard, stop)) = launch.acquire()? else {
+    let Some((_guard, stop)) = launch.acquire() else {
         tracing::debug!("Launch already in flight, ignoring the request");
         return Ok(None);
     };
@@ -124,7 +124,7 @@ fn launch_league_inner(
 /// already accepted still starts a game, exactly as a timeout would leave it.
 #[tauri::command]
 pub fn cancel_launch(launch: State<LaunchState>) -> IpcResult<bool> {
-    launch.cancel().into()
+    IpcResult::ok(launch.cancel())
 }
 
 /// Ask the Riot Client to close the game it launched.
@@ -166,12 +166,12 @@ mod tests {
     fn only_one_launch_is_in_flight_at_a_time() {
         let state = LaunchState::default();
 
-        let first = state.acquire().unwrap();
+        let first = state.acquire();
         assert!(first.is_some());
-        assert!(state.acquire().unwrap().is_none());
+        assert!(state.acquire().is_none());
 
         drop(first);
-        assert!(state.acquire().unwrap().is_some());
+        assert!(state.acquire().is_some());
     }
 
     /// Cancel reaches the flag the launch is watching, and says so - the UI
@@ -179,12 +179,12 @@ mod tests {
     #[test]
     fn cancelling_stops_the_flag_the_launch_holds() {
         let state = LaunchState::default();
-        assert!(!state.cancel().unwrap());
+        assert!(!state.cancel());
 
-        let (_guard, stop) = state.acquire().unwrap().unwrap();
+        let (_guard, stop) = state.acquire().unwrap();
         assert!(!stop.is_stopped());
 
-        assert!(state.cancel().unwrap());
+        assert!(state.cancel());
         assert!(stop.is_stopped());
     }
 
@@ -194,11 +194,11 @@ mod tests {
     fn each_attempt_gets_a_fresh_flag() {
         let state = LaunchState::default();
 
-        let (guard, first) = state.acquire().unwrap().unwrap();
-        state.cancel().unwrap();
+        let (guard, first) = state.acquire().unwrap();
+        state.cancel();
         drop(guard);
 
-        let (_guard, second) = state.acquire().unwrap().unwrap();
+        let (_guard, second) = state.acquire().unwrap();
         assert!(first.is_stopped());
         assert!(!second.is_stopped());
     }

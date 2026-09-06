@@ -10,10 +10,11 @@
 
 use std::collections::HashMap;
 use std::io::Read as _;
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::Arc;
 
 use ltk_hash::BinHash;
 use ltk_meta::property::Kind;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::bin_document::PropertyKind;
@@ -587,8 +588,42 @@ pub fn name_of(kind: Kind) -> Option<&'static str> {
         .map(|&(name, _)| name)
 }
 
-/// The one database this process reads, and the build it was chosen for.
-static HELD: Mutex<Option<Held>> = Mutex::new(None);
+/// The one database this process reads.
+static HELD: Slot = Slot(Mutex::new(None));
+
+/// A place one database is kept open, keyed on the build it was chosen for.
+#[derive(Debug)]
+struct Slot(Mutex<Option<Held>>);
+
+impl Slot {
+    /// The schema for `build`, opened here when what is open is for another.
+    fn schema(&self, build: Option<GameBuild>) -> Arc<MetaSchema> {
+        let mut held = self.0.lock();
+        if let Some(open) = held.as_ref()
+            && open.build == build
+        {
+            return Arc::clone(&open.schema);
+        }
+
+        let schema = Arc::new(match cache::MetaSchemaCache::discover() {
+            Ok(cache) => cache.load(build),
+            Err(e) => {
+                tracing::debug!("No meta schema cache, reading the shipped database: {e}");
+                MetaSchema::shipped()
+            }
+        });
+        *held = Some(Held {
+            build,
+            schema: Arc::clone(&schema),
+        });
+        schema
+    }
+
+    /// Drop what is open, so the next ask reads what a sync installed.
+    fn clear(&self) {
+        *self.0.lock() = None;
+    }
+}
 
 /// The open database, beside the install it was opened against.
 ///
@@ -606,30 +641,12 @@ struct Held {
 /// asks the same questions of it for every mod.
 #[must_use]
 pub fn shared(build: Option<GameBuild>) -> Arc<MetaSchema> {
-    let mut held = HELD.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(open) = held.as_ref()
-        && open.build == build
-    {
-        return Arc::clone(&open.schema);
-    }
-
-    let schema = Arc::new(match cache::MetaSchemaCache::discover() {
-        Ok(cache) => cache.load(build),
-        Err(e) => {
-            tracing::debug!("No meta schema cache, reading the shipped database: {e}");
-            MetaSchema::shipped()
-        }
-    });
-    *held = Some(Held {
-        build,
-        schema: Arc::clone(&schema),
-    });
-    schema
+    HELD.schema(build)
 }
 
 /// Drop the open database, so the next check reads what a sync just installed.
 pub fn invalidate() {
-    *HELD.lock().unwrap_or_else(PoisonError::into_inner) = None;
+    HELD.clear();
 }
 
 /// The cached copy of the published database, and the sync that fills it.

@@ -15,7 +15,7 @@
 //! the entries still without a slug.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, MutexResultExt};
+use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, LayoutMigrationProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
@@ -93,7 +93,7 @@ impl ModLibrary {
         &self,
         config: &Config,
     ) -> AppResult<LayoutMigrationReport> {
-        let _lock = self.index_lock.lock().mutex_err()?;
+        let _lock = self.index_lock.lock();
         let storage_dir = self.storage_dir(config)?;
         let mut index = load_library_index(&storage_dir)?;
 

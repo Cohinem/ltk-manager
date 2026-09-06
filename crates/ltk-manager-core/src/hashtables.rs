@@ -9,7 +9,7 @@ use std::fmt;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use ltk_hash::BinHash;
@@ -19,10 +19,10 @@ use ltk_mimir_cache::{
     UpdateOutcome,
 };
 use ltk_wad::{PathResolver, WadHash};
+use parking_lot::{Mutex, MutexGuard};
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::error::{AppResult, MutexResultExt};
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
 
 pub use ltk_hashdb::{HashDb, LayeredHashDb, PathRef};
@@ -710,10 +710,9 @@ impl<'a> SyncProgress<'a> {
         }
     }
 
-    /// A poisoned counter is not worth failing a sync over: the state is
-    /// tallies, and the worst a stale one costs is a mis-drawn bar.
+    /// The tallies a callback folds its numbers into.
     fn run(&self) -> MutexGuard<'_, Run> {
-        self.run.lock().unwrap_or_else(PoisonError::into_inner)
+        self.run.lock()
     }
 
     /// The event for where the run stands, with `table` the one in flight.
@@ -1003,19 +1002,18 @@ pub struct WadPathResolverState(Mutex<Option<Arc<WadPathResolver>>>);
 impl WadPathResolverState {
     /// The resolver, opening the tables on the first call.
     ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked. Absent tables are not
-    /// an error, because [`WadPathResolver::discover`] names nothing instead.
-    pub fn get(&self) -> AppResult<Arc<WadPathResolver>> {
-        let mut slot = self.0.lock().mutex_err()?;
+    /// Absent tables are not an error, because [`WadPathResolver::discover`]
+    /// names nothing instead.
+    #[must_use]
+    pub fn get(&self) -> Arc<WadPathResolver> {
+        let mut slot = self.0.lock();
         if let Some(resolver) = slot.as_ref() {
-            return Ok(Arc::clone(resolver));
+            return Arc::clone(resolver);
         }
 
         let resolver = Arc::new(WadPathResolver::discover());
         *slot = Some(Arc::clone(&resolver));
-        Ok(resolver)
+        resolver
     }
 
     /// A state already holding `resolver`, never discovering the shared cache.
@@ -1033,10 +1031,7 @@ impl WadPathResolverState {
     /// Readers already holding the old handle keep reading the old files, which
     /// stay on disk until a later sync's collection sweeps them.
     pub fn invalidate(&self) {
-        match self.0.lock() {
-            Ok(mut slot) => *slot = None,
-            Err(_) => tracing::warn!("Hashtable handle lock poisoned, keeping the open tables"),
-        }
+        *self.0.lock() = None;
     }
 }
 
@@ -1052,14 +1047,11 @@ impl BinHashTablesState {
     /// The tables, opened on the first call.
     ///
     /// A machine with no cache directory names nothing. Every hash then draws as hex.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn get(&self) -> AppResult<Arc<BinHashTables>> {
-        let mut slot = self.0.lock().mutex_err()?;
+    #[must_use]
+    pub fn get(&self) -> Arc<BinHashTables> {
+        let mut slot = self.0.lock();
         if let Some(tables) = slot.as_ref() {
-            return Ok(Arc::clone(tables));
+            return Arc::clone(tables);
         }
 
         let tables = match HashtableCache::shared() {
@@ -1071,15 +1063,12 @@ impl BinHashTablesState {
         };
         let tables = Arc::new(tables);
         *slot = Some(Arc::clone(&tables));
-        Ok(tables)
+        tables
     }
 
     /// Drop the open tables. The next caller opens what a sync wrote.
     pub fn invalidate(&self) {
-        match self.0.lock() {
-            Ok(mut slot) => *slot = None,
-            Err(_) => tracing::warn!("Bin table handle lock poisoned, keeping the open tables"),
-        }
+        *self.0.lock() = None;
     }
 }
 

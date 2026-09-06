@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::fmt::{self, Write as _};
 use std::io::Cursor;
 use std::num::NonZeroUsize;
-use std::sync::Mutex;
 
 use indexmap::IndexMap;
 use lru::LruCache;
@@ -16,10 +15,11 @@ use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::error::{AppResult, MutexResultExt};
+use crate::error::AppResult;
 use crate::meta_schema::{Expected, KindShape, SchemaAt};
 use crate::object_index::{CacheNames, ObjectDeclaration};
 use crate::preview::AssetRef;
@@ -102,14 +102,11 @@ impl Default for BinDocuments {
 impl fmt::Debug for BinDocuments {
     /// The counts of held assets and of ids. A tree prints nothing.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut out = f.debug_struct("BinDocuments");
-        match self.inner.lock() {
-            Ok(store) => out
-                .field("held", &store.held.len())
-                .field("ids", &store.ids.len())
-                .finish(),
-            Err(_) => out.finish_non_exhaustive(),
-        }
+        let store = self.inner.lock();
+        f.debug_struct("BinDocuments")
+            .field("held", &store.held.len())
+            .field("ids", &store.ids.len())
+            .finish()
     }
 }
 
@@ -135,17 +132,15 @@ impl BinDocuments {
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin, with
-    /// whatever `bytes` raises, and with
-    /// [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed) when a
-    /// previous holder of the lock panicked.
+    /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin, and
+    /// with whatever `bytes` raises.
     pub fn open(
         &self,
         asset: AssetRef,
         bytes: impl FnOnce() -> AppResult<Vec<u8>>,
     ) -> AppResult<BinDocumentId> {
         {
-            let mut store = self.inner.lock().mutex_err()?;
+            let mut store = self.inner.lock();
             if let Some(held) = store.held.get_mut(&asset) {
                 held.holders += 1;
                 return Ok(store.issue(asset));
@@ -154,7 +149,7 @@ impl BinDocuments {
 
         let document = BinDocument::parse(&bytes()?)?;
 
-        let mut store = self.inner.lock().mutex_err()?;
+        let mut store = self.inner.lock();
         match store.held.get_mut(&asset) {
             Some(held) => held.holders += 1,
             None => {
@@ -175,14 +170,13 @@ impl BinDocuments {
     /// # Errors
     ///
     /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
-    /// evicted, with [`AppError::MutexLockFailed`](crate::error::AppError::MutexLockFailed)
-    /// when a previous holder of the lock panicked, and with whatever `read` raises.
+    /// evicted, and with whatever `read` raises.
     pub fn read<T>(
         &self,
         id: BinDocumentId,
         read: impl FnOnce(&BinDocument) -> AppResult<T>,
     ) -> AppResult<T> {
-        let mut store = self.inner.lock().mutex_err()?;
+        let mut store = self.inner.lock();
         let Store { ids, held, .. } = &mut *store;
         let held = ids
             .get(&id)
@@ -192,28 +186,21 @@ impl BinDocuments {
     }
 
     /// The asset under one id, or `None` where `id` is closed or its asset was evicted.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn asset_of(&self, id: BinDocumentId) -> AppResult<Option<AssetRef>> {
-        let store = self.inner.lock().mutex_err()?;
-        Ok(store
+    #[must_use]
+    pub fn asset_of(&self, id: BinDocumentId) -> Option<AssetRef> {
+        let store = self.inner.lock();
+        store
             .ids
             .get(&id)
             .filter(|asset| store.held.contains(asset))
-            .cloned())
+            .cloned()
     }
 
     /// Drop one id. Its asset leaves the store with its last id. A closed id is left as it is.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn close(&self, id: BinDocumentId) -> AppResult<()> {
-        let mut store = self.inner.lock().mutex_err()?;
+    pub fn close(&self, id: BinDocumentId) {
+        let mut store = self.inner.lock();
         let Some(asset) = store.ids.remove(&id) else {
-            return Ok(());
+            return;
         };
         let last = store.held.peek_mut(&asset).is_some_and(|held| {
             held.holders = held.holders.saturating_sub(1);
@@ -222,20 +209,16 @@ impl BinDocuments {
         if last {
             store.held.pop(&asset);
         }
-        Ok(())
     }
 
     /// Whether `id` reads. Asking does not touch the recency order.
-    ///
-    /// # Errors
-    ///
-    /// Fails when a previous holder of the lock panicked.
-    pub fn is_open(&self, id: BinDocumentId) -> AppResult<bool> {
-        let store = self.inner.lock().mutex_err()?;
-        Ok(store
+    #[must_use]
+    pub fn is_open(&self, id: BinDocumentId) -> bool {
+        let store = self.inner.lock();
+        store
             .ids
             .get(&id)
-            .is_some_and(|asset| store.held.contains(asset)))
+            .is_some_and(|asset| store.held.contains(asset))
     }
 }
 

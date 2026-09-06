@@ -3,8 +3,9 @@ use crate::events::NullEventSink;
 use crate::hashtables::{LayeredHashDb, WadPathResolver};
 use crate::mods::test_support::{make_bad_crc_fantome_zip, make_full_fantome_zip};
 use assert_matches::assert_matches;
+use parking_lot::Mutex;
 use std::io::Write;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// A workshop rooted at `dir`, plus the config that points it there.
 fn make_workshop(dir: &Path) -> (Workshop, Config) {
@@ -178,7 +179,7 @@ struct RecordingStages(Mutex<Vec<Reported>>);
 impl crate::events::EventSink for RecordingStages {
     fn emit(&self, event: BackendEvent) {
         if let BackendEvent::FantomeImportProgress(progress) = event {
-            self.0.lock().unwrap().push((
+            self.0.lock().push((
                 progress.stage,
                 progress.current_item,
                 progress.current,
@@ -210,7 +211,7 @@ fn import_reports_one_stage_per_unit_then_finalizing_and_complete() {
         )
         .unwrap();
 
-    let recorded = stages.0.lock().unwrap().clone();
+    let recorded = stages.0.lock().clone();
     assert_eq!(
         recorded,
         [

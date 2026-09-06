@@ -775,33 +775,26 @@ pub struct Applied {
 /// another tool, and a run costs milliseconds, so re-running is cheaper than
 /// the bookkeeping that would keep a stored one honest.
 #[derive(Debug, Default)]
-pub struct ProblemsState(std::sync::Mutex<std::collections::HashMap<PathBuf, Run>>);
+pub struct ProblemsState(parking_lot::Mutex<std::collections::HashMap<PathBuf, Run>>);
 
 impl ProblemsState {
     /// Keep `run` as the last run of `project`.
-    pub fn record(&self, project: &Path, run: Run) -> crate::error::AppResult<()> {
-        use crate::error::MutexResultExt as _;
-        self.0
-            .lock()
-            .mutex_err()?
-            .insert(project.to_path_buf(), run);
-        Ok(())
+    pub fn record(&self, project: &Path, run: Run) {
+        self.0.lock().insert(project.to_path_buf(), run);
     }
 
     /// The last run of `project`, if one is held.
-    pub fn last(&self, project: &Path) -> crate::error::AppResult<Option<Run>> {
-        use crate::error::MutexResultExt as _;
-        Ok(self.0.lock().mutex_err()?.get(project).cloned())
+    #[must_use]
+    pub fn last(&self, project: &Path) -> Option<Run> {
+        self.0.lock().get(project).cloned()
     }
 
     /// Drop the run of `project`, so the next read re-runs the rules.
     ///
     /// A fix run leaves the list stale: it is a fact about files that have
     /// just changed.
-    pub fn invalidate(&self, project: &Path) -> crate::error::AppResult<()> {
-        use crate::error::MutexResultExt as _;
-        self.0.lock().mutex_err()?.remove(project);
-        Ok(())
+    pub fn invalidate(&self, project: &Path) {
+        self.0.lock().remove(project);
     }
 }
 
