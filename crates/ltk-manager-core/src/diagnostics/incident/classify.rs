@@ -4,6 +4,7 @@
 //! it, and each row builds one [`Verdict`] with its suspects.
 
 use super::*;
+use crate::launcher::same_install;
 
 /// One rule of the precedence table: a self-contained verdict that fires on a
 /// record, or `None` to let the next rule try. See [`GameRecord::RULES`].
@@ -40,6 +41,7 @@ impl GameRecord {
             patcher: PatcherBinaries::default(),
             ending: Ending::default(),
             log_path: None,
+            log_root: None,
             log: None,
             log_searched: false,
             timeline: Vec::new(),
@@ -77,6 +79,7 @@ impl GameRecord {
                     .as_ref()
                     .map(|path| path.display().to_string())
                     .unwrap_or_default(),
+                game_base_dir: log.game_base_dir.clone(),
             }),
             ending: self.ending.clone(),
             failure: self.failure.clone(),
@@ -184,6 +187,7 @@ impl GameRecord {
     /// each rule owns its own trigger and its build, so the order is the whole
     /// of the classification and the verdicts do not know about each other.
     const RULES: &[VerdictRule] = &[
+        Self::rule_wrong_install,
         Self::rule_patcher_failure,
         Self::rule_out_of_date,
         Self::rule_scan_rejection,
@@ -204,6 +208,29 @@ impl GameRecord {
     /// was clean.
     fn verdict(&self, ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
         Self::RULES.iter().find_map(|rule| rule(self, ctx))
+    }
+
+    /// The game ran from another install than the overlay was built for, and
+    /// did not end clean. Per "The wrong install" in docs/ux/LEAGUE_DIAGNOSTICS.md.
+    fn rule_wrong_install(&self, ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
+        let base_dir = self.log.as_ref()?.game_base_dir.as_deref()?;
+        let configured = ctx.league_path?;
+        let ran_from = Path::new(base_dir);
+        if same_install(ran_from, configured)
+            || same_install(ran_from, &configured.join("Game"))
+            || !self.worth_reporting()
+        {
+            return None;
+        }
+        let verdict = Verdict::new(
+            VerdictKind::WrongInstall,
+            format!(
+                "League ran from {base_dir}, and the overlay was built for {}. A mod built from one install crashes the other.",
+                configured.display()
+            ),
+        )
+        .with_hint(Hint::CheckGamePath);
+        Some((verdict, Vec::new()))
     }
 
     /// The patcher never got a mod into the game, in the build or at the host.
@@ -422,11 +449,8 @@ impl GameRecord {
         Some((verdict, suspects))
     }
 
-    /// An archive would not mount. The lines under the code name the archive
-    /// and the problem, or an older log names nothing.
-    ///
-    /// Inconsistent carries the rebuild hint alone. An overlay leaves the game's
-    /// own files untouched, and the repair the game asks for finds nothing.
+    /// An archive would not mount, named with its problem when the lines under
+    /// the code say. Per "A corrupt archive" in docs/ux/LEAGUE_DIAGNOSTICS.md.
     fn rule_corrupt_archive(&self, ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
         let (sighting, row) = self.first_code_of(|kind| kind == CodeKind::WadMount)?;
         let wad = sighting.detail_value("WadFile");
@@ -462,8 +486,6 @@ impl GameRecord {
         }
         if problem != Some(MountProblem::Inconsistent) {
             verdict = verdict.with_hint(Hint::RepairInstall);
-        } else if self.is_workshop() {
-            verdict = verdict.with_hint(Hint::OpenProject);
         }
         Some((verdict, suspects))
     }
@@ -582,10 +604,8 @@ impl GameRecord {
     }
 
     /// A game the overlay reached that ended inside its first minute, with no
-    /// log under the configured install to say why.
-    ///
-    /// A log that is not where the configured install writes one is the sign
-    /// of a game that ran from another install, so the hint is the League path.
+    /// log under the configured install. Per "Ended without a reason" in
+    /// docs/ux/LEAGUE_DIAGNOSTICS.md.
     fn rule_short_game_without_log(
         &self,
         _ctx: &ClassifyContext<'_>,

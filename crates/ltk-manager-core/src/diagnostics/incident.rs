@@ -7,7 +7,7 @@
 //! test.
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use chrono::{DateTime, Local, Utc};
@@ -153,6 +153,8 @@ pub struct GameInfo {
     pub version: String,
     pub content_version: String,
     pub log_path: String,
+    /// The install root the game ran from, as its command line named it.
+    pub game_base_dir: Option<String>,
 }
 
 /// How the game ended, as far as anything said.
@@ -256,6 +258,8 @@ pub enum VerdictKind {
     StuckLoading,
     ArchiveSkipped,
     EndedWithoutReason,
+    /// The game ran from another install than the overlay was built for.
+    WrongInstall,
 }
 
 /// What a verdict cost the player, which is a fact whatever the manager makes
@@ -580,6 +584,9 @@ pub struct GameRecord {
     pub patcher: PatcherBinaries,
     pub ending: Ending,
     pub log_path: Option<PathBuf>,
+    /// The install root the log was found under, which is the configured
+    /// install or another the reader searched.
+    pub log_root: Option<PathBuf>,
     /// `None` when no log was found, or the reader is turned off.
     pub log: Option<GameLogFacts>,
     /// Whether the reader looked for a log. False with the reader off, or no
@@ -607,12 +614,15 @@ pub struct ProjectFootprint {
     pub affected_wads: Vec<String>,
 }
 
-/// The library's side of a classification.
+/// The manager's side of a classification: the library's footprints, and the
+/// install the overlay was built for.
 pub struct ClassifyContext<'a> {
     pub mods: &'a [ModFootprint],
     pub projects: &'a [ProjectFootprint],
     /// A path for a 64-bit game path hash, when a hash table names one.
     pub resolve_hash: &'a dyn Fn(u64) -> Option<String>,
+    /// The configured League install root, `None` when none is set.
+    pub league_path: Option<&'a Path>,
 }
 
 /// The loading screen's last step, which the `load_step` rows count to.
@@ -751,6 +761,7 @@ impl VerdictKind {
             Self::SkinhackDetected => 14,
             Self::OverlayBuildFailed => 15,
             Self::InjectionHostFailed => 16,
+            Self::WrongInstall => 17,
         }
     }
 
@@ -773,6 +784,7 @@ impl VerdictKind {
             14 => Self::SkinhackDetected,
             15 => Self::OverlayBuildFailed,
             16 => Self::InjectionHostFailed,
+            17 => Self::WrongInstall,
             _ => return None,
         })
     }
@@ -800,6 +812,7 @@ impl VerdictKind {
             Self::StuckLoading => "Loading Screen Stall",
             Self::ArchiveSkipped => "Archive Verification Skipped",
             Self::EndedWithoutReason => "Unexplained Game Exit",
+            Self::WrongInstall => "Wrong League Install",
         }
     }
 
@@ -822,7 +835,8 @@ impl VerdictKind {
             | Self::TextureFailed
             | Self::OutOfMemory
             | Self::GraphicsFault
-            | Self::EndedWithoutReason => Consequence::GameStopped,
+            | Self::EndedWithoutReason
+            | Self::WrongInstall => Consequence::GameStopped,
             Self::StuckLoading => Consequence::GameHung,
             Self::ArchiveSkipped => Consequence::ArchiveDropped,
         }

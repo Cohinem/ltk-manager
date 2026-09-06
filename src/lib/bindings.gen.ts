@@ -617,6 +617,8 @@ export type GameInfo = {
 	version: string,
 	contentVersion: string,
 	logPath: string,
+	/**  The install root the game ran from, as its command line named it. */
+	gameBaseDir: string | null,
 };
 
 /**  How far the game got, as its log says. */
@@ -1096,7 +1098,9 @@ export type VerdictKind =
  *  The scan rejected an archive for a Riot skin ported onto a base
  *  champion, which is the rejection a player has a word for.
  */
-"skinhack-detected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason";
+"skinhack-detected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason" | 
+/**  The game ran from another install than the overlay was built for. */
+"wrong-install";
 
 /**  What the manager concluded from one game. */
 export type Verdict_Deserialize = StoredVerdict_Deserialize;

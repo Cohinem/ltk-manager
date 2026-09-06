@@ -43,6 +43,7 @@ export function createMockIncident(overrides?: Partial<Incident>): Incident {
       version: "16.16.804.9184",
       contentVersion: "16.16.1",
       logPath: "C:\\Riot Games\\League of Legends\\Logs\\GameLogs\\x\\x_r3dlog.txt",
+      gameBaseDir: "C:\\Riot Games\\League of Legends",
     },
     ending: { exitReason: "Interrupt", exitCode: -1073741819, crashed: true },
     verdict: {

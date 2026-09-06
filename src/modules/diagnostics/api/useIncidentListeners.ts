@@ -6,8 +6,10 @@ import { m } from "@/i18n";
 import type { Incident } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { scanRejectionCause, useRebuildOverlayAction } from "@/modules/patcher";
-import { useIncidentLineStore } from "@/stores";
+import { useSettings } from "@/modules/settings";
+import { useIncidentLineStore, useInstallMismatchStore } from "@/stores";
 
+import { offersRebuild } from "../utils/hints";
 import { isInformational } from "../utils/incident";
 import { diagnosticsKeys } from "./keys";
 
@@ -20,8 +22,10 @@ import { diagnosticsKeys } from "./keys";
  * verdict carries the rebuild hint. The toast is kept in the notification
  * center, because a crash is a question the player comes back to. A start
  * failure gets no toast here, because `usePatcherError` already announced it
- * with the stage's own action. `patcher-game-attached` takes the line down
- * again, since the bar's job is the present.
+ * with the stage's own action. A wrong-install verdict raises the install
+ * mismatch dialog with the log's install as the switch target.
+ * `patcher-game-attached` takes the line down again, since the bar's job is
+ * the present.
  */
 export function useIncidentListeners() {
   const queryClient = useQueryClient();
@@ -30,10 +34,22 @@ export function useIncidentListeners() {
   const show = useIncidentLineStore((s) => s.show);
   const clear = useIncidentLineStore((s) => s.clear);
   const rebuild = useRebuildOverlayAction();
+  const raiseMismatch = useInstallMismatchStore((s) => s.raise);
+  const { data: settings } = useSettings();
 
   useTauriEvent<Incident>("incident-recorded", (incident) => {
     queryClient.invalidateQueries({ queryKey: diagnosticsKeys.incidents() });
     show(incident);
+    const ranFrom = incident.game?.gameBaseDir;
+    const configuredPath = settings?.leaguePath;
+    if (incident.verdict.kind === "wrong-install" && ranFrom && configuredPath) {
+      raiseMismatch({
+        configuredPath,
+        configuredPatchline: null,
+        sessionPath: ranFrom,
+        sessionPatchline: null,
+      });
+    }
     if (incident.verdict.kind === "patcher-did-not-run") return;
     toast.toast({
       type: toastTypeFor(incident),
@@ -45,16 +61,13 @@ export function useIncidentListeners() {
         onClick: () =>
           navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } }),
       },
-      actions: offersRebuild(incident) ? [{ label: rebuild.label, onClick: rebuild.run }] : [],
+      actions: offersRebuild(incident.verdict)
+        ? [{ label: rebuild.label, onClick: rebuild.run }]
+        : [],
     });
   });
 
   useTauriEvent<unknown>("patcher-game-attached", () => clear());
-}
-
-/** Whether the verdict asks for a rebuild, which is the one hint with an action. */
-function offersRebuild(incident: Incident): boolean {
-  return incident.verdict.hints.includes("rebuild-overlay");
 }
 
 function toastTypeFor(incident: Incident) {

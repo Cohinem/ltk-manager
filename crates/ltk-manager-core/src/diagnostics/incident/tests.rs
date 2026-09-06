@@ -99,6 +99,7 @@ fn classify(record: &GameRecord, resolve: &dyn Fn(u64) -> Option<String>) -> Opt
         mods: &mods,
         projects: &[],
         resolve_hash: resolve,
+        league_path: None,
     })
 }
 
@@ -470,6 +471,7 @@ fn missing_data_with_two_writers_names_both() {
             mods: &mods,
             projects: &[],
             resolve_hash: &aatrox_path,
+            league_path: None,
         })
         .unwrap();
     assert_eq!(names(&incident), ["Aatrox Other", "Aatrox Justicar"]);
@@ -531,6 +533,7 @@ fn classify_with(record: &GameRecord, mods: &[ModFootprint]) -> Option<Incident>
         mods,
         projects: &[],
         resolve_hash: &no_path,
+        league_path: None,
     })
 }
 
@@ -621,6 +624,130 @@ fn the_reporters_log_names_the_shaders_archive_and_its_writer() {
         incident.game.as_ref().map(|game| game.version.as_str()),
         Some("16.17.812.1337")
     );
+}
+
+fn classify_for(record: &GameRecord, league_path: &str) -> Option<Incident> {
+    record.classify(&ClassifyContext {
+        mods: &shader_mods(),
+        projects: &[],
+        resolve_hash: &no_path,
+        league_path: Some(Path::new(league_path)),
+    })
+}
+
+fn reporters_record() -> GameRecord {
+    let facts = GameLogFacts::read(std::io::Cursor::new(include_str!(
+        "../fixtures/wad_mount_r3dlog.txt"
+    )))
+    .unwrap();
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    record.redirected = vec!["Shaders.wad.client".to_string()];
+    record.log_searched = true;
+    record.log_root = Some(PathBuf::from(r"C:\Riot Games\League of Legends"));
+    record.log = Some(facts);
+    record
+}
+
+/// The reporter's machine: the manager set up for PBE, the live game's log
+/// found under the live install. The wad mount fatal is still in the evidence,
+/// and the verdict is the install rather than the archive.
+#[test]
+fn the_reporters_log_against_the_pbe_path_is_a_wrong_install() {
+    let incident = classify_for(
+        &reporters_record(),
+        r"C:\Riot Games\League of Legends (PBE)",
+    )
+    .unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::WrongInstall);
+    assert_eq!(incident.verdict.consequence, Consequence::GameStopped);
+    assert_eq!(
+        incident.verdict.cause,
+        r"League ran from C:\Riot Games\League of Legends, and the overlay was built for C:\Riot Games\League of Legends (PBE). A mod built from one install crashes the other."
+    );
+    assert_eq!(incident.verdict.hints, [Hint::CheckGamePath]);
+    assert!(incident.suspects.is_empty());
+    assert_eq!(
+        incident
+            .game
+            .as_ref()
+            .and_then(|game| game.game_base_dir.as_deref()),
+        Some(r"C:\Riot Games\League of Legends")
+    );
+    assert!(incident.evidence.iter().any(|row| {
+        row.code
+            .as_ref()
+            .is_some_and(|code| code.id == "ALE-18967994")
+    }));
+}
+
+/// The same install spelled another way is the same install.
+#[test]
+fn the_reporters_log_against_the_live_path_names_the_archive() {
+    for spelling in [
+        r"C:\Riot Games\League of Legends",
+        "C:/Riot Games/League of Legends/",
+        r"c:\riot games\league of legends",
+    ] {
+        let incident = classify_for(&reporters_record(), spelling).unwrap();
+        assert_eq!(
+            incident.verdict.kind,
+            VerdictKind::CorruptArchive,
+            "{spelling}"
+        );
+    }
+}
+
+/// A game from the other install that ends the way the client meant it to is
+/// no incident. The client check is what names the mismatch while it runs.
+#[test]
+fn a_clean_game_from_another_install_is_no_incident() {
+    let mut record = clean(modded_game());
+    record.log_searched = true;
+    record.log = Some(GameLogFacts {
+        game_base_dir: Some(r"C:\Riot Games\League of Legends".to_string()),
+        torn_down: true,
+        ..log_with(Vec::new())
+    });
+    let pbe = r"C:\Riot Games\League of Legends (PBE)";
+    assert_eq!(classify_for(&record, pbe), None);
+
+    let record = crashed(record);
+    assert_eq!(
+        classify_for(&record, pbe).unwrap().verdict.kind,
+        VerdictKind::WrongInstall
+    );
+}
+
+/// A log with no base dir, or a record without a configured path, says nothing
+/// about the install.
+#[test]
+fn a_wrong_install_needs_both_paths() {
+    let mut record = reporters_record();
+    assert_eq!(
+        classify_with(&record, &shader_mods()).unwrap().verdict.kind,
+        VerdictKind::CorruptArchive
+    );
+    record.log.as_mut().unwrap().game_base_dir = None;
+    assert_eq!(
+        classify_for(&record, r"C:\Riot Games\League of Legends (PBE)")
+            .unwrap()
+            .verdict
+            .kind,
+        VerdictKind::CorruptArchive
+    );
+}
+
+/// An incident stored before the game's base dir was kept reads with none.
+#[test]
+fn a_stored_game_without_a_base_dir_reads() {
+    let game: GameInfo = serde_json::from_value(serde_json::json!({
+        "version": "16.16.804.9184",
+        "contentVersion": "16.16.1",
+        "logPath": "x",
+    }))
+    .expect("the game reads");
+    assert_eq!(game.game_base_dir, None);
 }
 
 #[test]
@@ -968,6 +1095,7 @@ fn a_workshop_test_names_the_project_and_the_open_hint() {
             mods: &[],
             projects: &projects,
             resolve_hash: &no_path,
+            league_path: None,
         })
         .unwrap();
     assert_eq!(names(&incident), ["Aatrox (project)"]);
@@ -1001,6 +1129,7 @@ fn a_mod_writing_two_redirected_archives_is_listed_once() {
             mods: &mods,
             projects: &[],
             resolve_hash: &no_path,
+            league_path: None,
         })
         .unwrap();
     assert_eq!(names(&incident), ["Bundle"]);
@@ -1046,6 +1175,7 @@ fn the_token_numbers_are_pinned() {
             (VerdictKind::SkinhackDetected, 14),
             (VerdictKind::OverlayBuildFailed, 15),
             (VerdictKind::InjectionHostFailed, 16),
+            (VerdictKind::WrongInstall, 17),
         ],
         VerdictKind::code,
         VerdictKind::from_code,

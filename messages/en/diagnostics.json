@@ -24,7 +24,6 @@
   "diagnostics_suspect_open_action": "Open",
   "diagnostics_suspects_title": "Suspects",
   "diagnostics_token_build_failed_title": "Couldn't build the token",
-  "diagnostics_unknown_error_label": "Unknown error",
   "hint.check-game-path": "Check the League of Legends installation path in Settings.",
   "hint.copy-report": "Copy the report when you ask for help.",
   "hint.disable-suspect": "A mod that references a file it does not ship stops the read. Disable the suspect and play again.",

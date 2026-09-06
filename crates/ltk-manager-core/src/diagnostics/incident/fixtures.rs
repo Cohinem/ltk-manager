@@ -55,6 +55,7 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
                 version: "16.16.804.9184".to_string(),
                 content_version: "16.16.1".to_string(),
                 log_path: r"C:\Riot Games\League of Legends\Logs\GameLogs\2026-08-21T21-14-02\2026-08-21T21-14-02_r3dlog.txt".to_string(),
+                game_base_dir: Some(r"C:\Riot Games\League of Legends".to_string()),
             }),
             ending: Ending {
                 exit_reason: Some("Interrupt".to_string()),

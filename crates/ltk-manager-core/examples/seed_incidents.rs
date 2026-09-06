@@ -73,6 +73,7 @@ fn main() {
         mods: &mods,
         projects: &projects,
         resolve_hash: &resolve_hash,
+        league_path: None,
     };
 
     let mut written = 0;
@@ -162,6 +163,7 @@ fn slug(kind: VerdictKind) -> &'static str {
         VerdictKind::StuckLoading => "stuck-loading",
         VerdictKind::ArchiveSkipped => "archive-skipped",
         VerdictKind::EndedWithoutReason => "ended-without-reason",
+        VerdictKind::WrongInstall => "wrong-install",
     }
 }
 
@@ -220,6 +222,7 @@ fn base(ended_at: DateTime<Utc>) -> GameRecord {
         log_path: Some(PathBuf::from(
             r"C:\Riot Games\League of Legends\Logs\GameLogs\mock\mock_r3dlog.txt",
         )),
+        log_root: None,
         log: None,
         log_searched: false,
         timeline: vec![
