@@ -14,8 +14,8 @@ export function useDismissIncident() {
   const queryClient = useQueryClient();
   const clearLine = useIncidentLineStore((s) => s.clear);
 
-  return useMutation<void, AppError, string, { previous?: Incident[] }>({
-    mutationFn: async (id) => unwrapForQuery(await api.dismissIncident(id)),
+  return useMutation<null, AppError, string, { previous?: Incident[] }>({
+    mutationFn: async (id) => unwrapForQuery(await api.diagnostics.dismissIncident(id)),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: diagnosticsKeys.incidents() });
       const previous = queryClient.getQueryData<Incident[]>(diagnosticsKeys.incidents());

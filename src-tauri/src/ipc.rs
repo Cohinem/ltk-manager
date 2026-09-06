@@ -27,8 +27,22 @@ macro_rules! migrated {
     };
 }
 
-// Bin editor
-migrated![bin_open, bin_children, bin_close, class_schema];
+migrated![
+    // Bin editor
+    bin_open,
+    bin_children,
+    bin_close,
+    class_schema,
+    // Diagnostics
+    run_diagnostics,
+    open_elevated_terminal,
+    list_incidents,
+    dismiss_incident,
+    reveal_game_log,
+    incident_report,
+    incident_token,
+    decode_incident_token,
+];
 
 /// The builder the bindings are generated from and the handler is built out of.
 fn builder() -> Builder<Wry> {

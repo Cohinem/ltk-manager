@@ -9,7 +9,7 @@ import { diagnosticsKeys } from "./keys";
 export function incidentReportOptions(id: string) {
   return queryOptions<string, AppError>({
     queryKey: diagnosticsKeys.incidentReport(id),
-    queryFn: queryFnWithArgs(api.incidentReport, id),
+    queryFn: queryFnWithArgs(api.diagnostics.incidentReport, id),
     staleTime: Infinity,
   });
 }

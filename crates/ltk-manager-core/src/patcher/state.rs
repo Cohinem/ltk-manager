@@ -40,6 +40,7 @@ impl StoredPatcherConfig {
 /// What a patching session was started for, and what it covers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum SessionOrigin {

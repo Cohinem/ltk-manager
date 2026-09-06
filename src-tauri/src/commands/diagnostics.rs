@@ -45,6 +45,7 @@ pub(crate) fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn run_diagnostics(
     app_handle: AppHandle,
     settings: State<SettingsState>,
@@ -66,6 +67,7 @@ pub fn run_diagnostics(
 /// should at least see the command they're about to execute. Paste-then-Enter
 /// is one extra keystroke and gives them a chance to bail out.
 #[tauri::command]
+#[specta::specta]
 pub fn open_elevated_terminal(with_banner: bool) -> IpcResult<()> {
     open_elevated_terminal_inner(with_banner).into()
 }
@@ -164,18 +166,21 @@ fn run_diagnostics_inner(
 
 /// Every incident the store holds, newest first.
 #[tauri::command]
+#[specta::specta]
 pub fn list_incidents(incidents: State<IncidentStoreState>) -> IpcResult<Vec<Incident>> {
     incidents.0.list().into()
 }
 
 /// Marks an incident dismissed. The verdict line goes, and the row dims.
 #[tauri::command]
+#[specta::specta]
 pub fn dismiss_incident(id: String, incidents: State<IncidentStoreState>) -> IpcResult<()> {
     incidents.0.dismiss(&id).into()
 }
 
 /// Reveals the incident's game log in the file manager.
 #[tauri::command]
+#[specta::specta]
 pub fn reveal_game_log(id: String, incidents: State<IncidentStoreState>) -> IpcResult<()> {
     reveal_game_log_inner(&id, &incidents).into()
 }
@@ -193,6 +198,7 @@ fn reveal_game_log_inner(id: &str, incidents: &State<IncidentStoreState>) -> App
 /// The incident as the text a support thread wants, with its token on the
 /// second line.
 #[tauri::command]
+#[specta::specta]
 pub fn incident_report(id: String, incidents: State<IncidentStoreState>) -> IpcResult<String> {
     find_incident(&incidents, &id)
         .map(|incident| {
@@ -204,6 +210,7 @@ pub fn incident_report(id: String, incidents: State<IncidentStoreState>) -> IpcR
 
 /// The incident folded into one short string, for a URL or a chat.
 #[tauri::command]
+#[specta::specta]
 pub fn incident_token(id: String, incidents: State<IncidentStoreState>) -> IpcResult<String> {
     find_incident(&incidents, &id)
         .map(|incident| incident.token(env!("CARGO_PKG_VERSION")))
@@ -213,6 +220,7 @@ pub fn incident_token(id: String, incidents: State<IncidentStoreState>) -> IpcRe
 /// Reads a token back, from the token alone or from a pasted report or URL
 /// that carries one, against this build's tables.
 #[tauri::command]
+#[specta::specta]
 pub fn decode_incident_token(token: String) -> IpcResult<DecodedIncident> {
     decode_incident_token_inner(&token).into()
 }

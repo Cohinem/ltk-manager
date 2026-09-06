@@ -14,7 +14,7 @@ import { diagnosticsKeys } from "./keys";
 export function useIncidents() {
   return useQuery<Incident[], AppError>({
     queryKey: diagnosticsKeys.incidents(),
-    queryFn: queryFn(api.listIncidents),
+    queryFn: queryFn(api.diagnostics.listIncidents),
     staleTime: Infinity,
   });
 }
