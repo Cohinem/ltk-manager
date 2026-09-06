@@ -311,6 +311,31 @@ describe("SessionBar", () => {
       expect(screen.queryByText("Aatrox Justicar")).not.toBeInTheDocument();
     });
 
+    /// The hint is the verdict's word that a rebuild is worth trying, so the
+    /// line offers it there and nowhere else.
+    it("offers the rebuild the verdict's hint asks for", async () => {
+      useIncidentLineStore.setState({
+        incident: {
+          ...missingData,
+          verdict: { ...missingData.verdict, hints: ["rebuild-overlay"] },
+        },
+      });
+      await renderIdleBar();
+
+      await userEvent.click(screen.getByRole("button", { name: "Rebuild overlay" }));
+
+      await waitFor(() =>
+        expect(mockInvoke.mock.calls.map(([cmd]) => cmd)).toContain("rebuild_overlay"),
+      );
+    });
+
+    it("offers no rebuild under a verdict without the hint", async () => {
+      useIncidentLineStore.setState({ incident: missingData });
+      await renderIdleBar();
+
+      expect(screen.queryByRole("button", { name: /Rebuild/ })).not.toBeInTheDocument();
+    });
+
     it("opens the Games tab on the incident from Details", async () => {
       useIncidentLineStore.setState({ incident: missingData });
       await renderIdleBar();

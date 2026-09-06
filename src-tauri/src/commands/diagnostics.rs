@@ -203,14 +203,18 @@ fn reveal_game_log_inner(id: &str, incidents: &State<IncidentStoreState>) -> App
 }
 
 /// The incident as the text a support thread wants, with its token on the
-/// second line.
+/// second line. `hints` are the verdict's hints as the catalog renders them.
 #[tauri::command]
 #[specta::specta]
-pub fn incident_report(id: String, incidents: State<IncidentStoreState>) -> IpcResult<String> {
+pub fn incident_report(
+    id: String,
+    hints: Vec<String>,
+    incidents: State<IncidentStoreState>,
+) -> IpcResult<String> {
     find_incident(&incidents, &id)
         .map(|incident| {
             let token = incident.token(env!("CARGO_PKG_VERSION"));
-            incident.report_text(env!("CARGO_PKG_VERSION"), Some(&token))
+            incident.report_text(env!("CARGO_PKG_VERSION"), Some(&token), &hints)
         })
         .into()
 }

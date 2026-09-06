@@ -14,4 +14,8 @@ flags?: number,
  * These are loaded directly from disk via `FsModContent` and prepended to
  * the enabled mod list (highest priority).
  */
-workshopProjects?: Array<string>, };
+workshopProjects?: Array<string>, 
+/**
+ * Build the overlay from scratch rather than reuse the last build.
+ */
+forceRebuild?: boolean, };

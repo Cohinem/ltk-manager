@@ -55,9 +55,9 @@ export const commands = {
 	revealGameLog: (id: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reveal_game_log", { id }),
 	/**
 	 *  The incident as the text a support thread wants, with its token on the
-	 *  second line.
+	 *  second line. `hints` are the verdict's hints as the catalog renders them.
 	 */
-	incidentReport: (id: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("incident_report", { id }),
+	incidentReport: (id: string, hints: string[]) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("incident_report", { id, hints }),
 	/**  The incident folded into one short string, for a URL or a chat. */
 	incidentToken: (id: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("incident_token", { id }),
 	/**
@@ -65,6 +65,24 @@ export const commands = {
 	 *  that carries one, against this build's tables.
 	 */
 	decodeIncidentToken: (token: string) => __TAURI_INVOKE<({ ok: true; value: DecodedIncident }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("decode_incident_token", { token }),
+	/**
+	 *  The install the client's League session runs from, against the one the
+	 *  manager is set up for.
+	 * 
+	 *  `None` when they agree, when no client or session answers, or when the
+	 *  registry does not know the configured path. Read-only against the client.
+	 */
+	checkInstallMismatch: () => __TAURI_INVOKE<({ ok: true; value: InstallMismatch | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_install_mismatch"),
+	/**
+	 *  Points the manager at `install_root`, and puts the patcher session back up
+	 *  on an overlay built from it.
+	 * 
+	 *  A running session is stopped, the path is saved the way Settings saves it,
+	 *  and the session starts again with the config it ran with and a forced
+	 *  rebuild. Without a running session the overlay is rebuilt and left for the
+	 *  next start.
+	 */
+	switchLeagueInstall: (installRoot: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_league_install", { installRoot }),
 };
 
 /* Types */
@@ -539,6 +557,8 @@ export type Evidence = {
 	at: string,
 	source: EvidenceSource,
 	line: string,
+	/**  The lines under a game record with no columns of their own. */
+	detail?: string[],
 	code: EvidenceCode | null,
 };
 
@@ -597,6 +617,8 @@ export type GameInfo = {
 	version: string,
 	contentVersion: string,
 	logPath: string,
+	/**  The install root the game ran from, as its command line named it. */
+	gameBaseDir: string | null,
 };
 
 /**  How far the game got, as its log says. */
@@ -621,6 +643,19 @@ export type GitHubErrorKind =
 
 /**  Which of the things GitHub publishes a read was after. */
 export type GitHubFeed = "RELEASES" | "ANNOUNCEMENTS" | "NOTICES";
+
+/**
+ *  A setting or an action the evidence points at, under the verdict.
+ * 
+ *  A code on the wire and in the store. The frontend catalog owns the sentence
+ *  (ADR-0017), and the report text takes the sentences from there.
+ */
+export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "check-game-path" | "texture-dimensions" | "repair-install" | "update-driver" | "free-memory" | "open-project" | "start-first" | "scan-up-front" | "copy-report" | "disable-suspect" | "remove-skinhack" | "reimport-mod" | "repair-game" | "elevate" | "signature" | 
+/**
+ *  A modded archive was in the game, and a texture far larger than what it
+ *  replaces raises the odds of an allocation failing.
+ */
+"large-textures";
 
 /**  The record the manager keeps for one game that went wrong. */
 export type Incident = Incident_Serialize | Incident_Deserialize;
@@ -721,6 +756,21 @@ export type InjectionStage =
 "HOST" | 
 /**  The host ran, but the game was never patched. */
 "INJECTION";
+
+/**
+ *  The install the manager is set up for, against the one the client's League
+ *  session runs from.
+ */
+export type InstallMismatch = {
+	/**  The install root the manager is set up for. */
+	configuredPath: string,
+	/**  The patchline the registry lists that root under. */
+	configuredPatchline: string,
+	/**  The patchline of the League session the client has open. */
+	sessionPatchline: string,
+	/**  That patchline's install root. */
+	sessionPath: string,
+};
 
 /**
  *  A type as the tag composes it: the kind, a `Map`'s key, and what a container holds.
@@ -986,12 +1036,36 @@ export type SkippedArchive = {
  *  [`Consequence`] existed reads with the consequence its kind has always
  *  implied, and one stored after it cannot carry a consequence that disagrees.
  */
-export type StoredVerdict = {
+export type StoredVerdict = StoredVerdict_Serialize | StoredVerdict_Deserialize;
+
+/**
+ *  A verdict as a file holds it, which is every field the kind does not decide.
+ * 
+ *  [`Verdict`] deserializes through this, so an incident stored before
+ *  [`Consequence`] existed reads with the consequence its kind has always
+ *  implied, and one stored after it cannot carry a consequence that disagrees.
+ */
+export type StoredVerdict_Deserialize = {
 	kind: VerdictKind,
 	titleOverride?: string | null,
 	cause: string,
 	subject: string | null,
-	hints?: string[],
+	hints?: Hint[],
+};
+
+/**
+ *  A verdict as a file holds it, which is every field the kind does not decide.
+ * 
+ *  [`Verdict`] deserializes through this, so an incident stored before
+ *  [`Consequence`] existed reads with the consequence its kind has always
+ *  implied, and one stored after it cannot carry a consequence that disagrees.
+ */
+export type StoredVerdict_Serialize = {
+	kind: VerdictKind,
+	titleOverride: string | null,
+	cause: string,
+	subject: string | null,
+	hints: Hint[],
 };
 
 /**  A mod, or a workshop project, that the evidence implicates. */
@@ -1024,10 +1098,12 @@ export type VerdictKind =
  *  The scan rejected an archive for a Riot skin ported onto a base
  *  champion, which is the rejection a player has a word for.
  */
-"skinhack-detected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason";
+"skinhack-detected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason" | 
+/**  The game ran from another install than the overlay was built for. */
+"wrong-install";
 
 /**  What the manager concluded from one game. */
-export type Verdict_Deserialize = StoredVerdict;
+export type Verdict_Deserialize = StoredVerdict_Deserialize;
 
 /**  What the manager concluded from one game. */
 export type Verdict_Serialize = {
@@ -1056,8 +1132,8 @@ export type Verdict_Serialize = {
 	 *  so reading it from a file would only let a stale one disagree.
 	 */
 	consequence: Consequence,
-	/**  At most two, one sentence each. */
-	hints: string[],
+	/**  At most two. */
+	hints: Hint[],
 };
 
 /**

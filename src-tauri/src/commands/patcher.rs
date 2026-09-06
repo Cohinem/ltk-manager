@@ -38,6 +38,20 @@ pub struct PatcherConfig {
     /// the enabled mod list (highest priority).
     #[ts(optional)]
     pub workshop_projects: Option<Vec<String>>,
+    /// Build the overlay from scratch rather than reuse the last build.
+    #[ts(optional)]
+    pub force_rebuild: Option<bool>,
+}
+
+impl PatcherConfig {
+    /// The config a session ran with, for starting it again.
+    pub(crate) fn from_stored(stored: StoredPatcherConfig, force_rebuild: bool) -> Self {
+        Self {
+            flags: stored.flags,
+            workshop_projects: stored.workshop_projects,
+            force_rebuild: Some(force_rebuild),
+        }
+    }
 }
 
 /// Current status of the patcher.
@@ -250,6 +264,7 @@ pub(crate) fn start_patcher_inner(
             should_elevate,
             patcher_binaries,
             incident_store,
+            force_rebuild: config.force_rebuild.unwrap_or(false),
         },
     )
 }

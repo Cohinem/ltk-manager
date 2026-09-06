@@ -112,15 +112,12 @@ export function ModCardList({ view }: { view: ModCardView }) {
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
           </span>
-          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
-            <SuspectBadge modId={mod.id} enabled={mod.enabled} />
-          </span>
         </div>
       </div>
 
-      {/* Beside the switch rather than among the metadata: it is a thing to act
-          on, and `empty:hidden` keeps a healthy row from holding the gap open
-          for a badge it does not draw.
+      {/* Beside the switch rather than among the metadata: they are things to
+          act on, and `empty:hidden` keeps a row with neither from holding the
+          gap open for marks it does not draw.
 
           These three are `flex` so their control is a flex item rather than an
           inline one. A line box would hang the font's descender space under each
@@ -128,9 +125,10 @@ export function ModCardList({ view }: { view: ModCardView }) {
       <span
         data-no-toggle
         onClick={(e) => e.stopPropagation()}
-        className="flex shrink-0 items-center empty:hidden"
+        className="flex shrink-0 items-center gap-1 empty:hidden"
       >
         <ModHealthBadge modId={mod.id} />
+        <SuspectBadge modId={mod.id} enabled={mod.enabled} />
       </span>
 
       <div

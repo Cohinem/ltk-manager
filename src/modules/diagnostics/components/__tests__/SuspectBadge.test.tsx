@@ -108,12 +108,13 @@ describe("SuspectBadge", () => {
     useIncidentLineStore.setState({ incident: null, answeredIncidentId: null });
   });
 
-  it("marks a mod the newest incident names", async () => {
+  it("marks a mod the newest incident names with a glyph and no word", async () => {
     mockIncidents([incident("crash")]);
     renderBadge(<SuspectBadge modId={MOD_ID} />);
 
     const badge = await screen.findByRole("button", { name: /suspected/i });
-    expect(badge).toHaveTextContent("Suspected");
+    expect(badge).toHaveAccessibleName('Suspected in "Missing Game Data", click to review');
+    expect(badge).toHaveTextContent("");
   });
 
   it("marks a workshop project by its path", async () => {
@@ -130,7 +131,7 @@ describe("SuspectBadge", () => {
     renderBadge(<SuspectBadge modId="someone-else" />);
 
     await settled();
-    expect(screen.queryByText("Suspected")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /suspected/i })).not.toBeInTheDocument();
   });
 
   /// A disabled mod has answered the question itself.
@@ -139,7 +140,7 @@ describe("SuspectBadge", () => {
     renderBadge(<SuspectBadge modId={MOD_ID} enabled={false} />);
 
     await settled();
-    expect(screen.queryByText("Suspected")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /suspected/i })).not.toBeInTheDocument();
   });
 
   it("goes when the incident is dismissed", async () => {
@@ -147,7 +148,7 @@ describe("SuspectBadge", () => {
     renderBadge(<SuspectBadge modId={MOD_ID} />);
 
     await settled();
-    expect(screen.queryByText("Suspected")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /suspected/i })).not.toBeInTheDocument();
   });
 
   /// A mod that was in a clean game after the crash has answered the
@@ -158,7 +159,7 @@ describe("SuspectBadge", () => {
     renderBadge(<SuspectBadge modId={MOD_ID} />);
 
     await settled();
-    expect(screen.queryByText("Suspected")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /suspected/i })).not.toBeInTheDocument();
   });
 
   /// The badge is a question about the last game, not the history.
@@ -170,7 +171,7 @@ describe("SuspectBadge", () => {
     renderBadge(<SuspectBadge modId={MOD_ID} />);
 
     await settled();
-    expect(screen.queryByText("Suspected")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /suspected/i })).not.toBeInTheDocument();
   });
 
   it("opens the Games tab on the incident", async () => {

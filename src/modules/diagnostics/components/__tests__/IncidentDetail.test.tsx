@@ -168,7 +168,7 @@ describe("IncidentDetail", () => {
         incident={createMockIncident({
           verdict: {
             ...createMockIncident().verdict,
-            hints: ["First hint.", "Second hint."],
+            hints: ["rebuild-overlay", "repair-install"],
           },
         })}
       />,
@@ -176,8 +176,12 @@ describe("IncidentDetail", () => {
 
     const rows = screen
       .getAllByRole("listitem")
-      .filter((row) => /hint\.$/.test(row.textContent ?? ""));
+      .filter((row) => /^•(Rebuild the overlay|Repair the install)/.test(row.textContent ?? ""));
     expect(rows).toHaveLength(2);
+    expect(screen.getByText("Rebuild the overlay.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Repair the install in the Riot Client when the rebuild does not help."),
+    ).toBeInTheDocument();
     for (const row of rows) {
       const marker = row.querySelector("[aria-hidden]");
       expect(marker?.textContent).toBe("•");

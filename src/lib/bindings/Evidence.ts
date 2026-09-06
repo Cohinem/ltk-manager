@@ -9,4 +9,8 @@ export type Evidence = {
 /**
  * Seconds into the game where the source has one, else the wall clock.
  */
-at: string, source: EvidenceSource, line: string, code: EvidenceCode | null, };
+at: string, source: EvidenceSource, line: string, 
+/**
+ * The lines under a game record with no columns of their own.
+ */
+detail: Array<string>, code: EvidenceCode | null, };

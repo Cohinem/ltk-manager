@@ -76,6 +76,7 @@ fn sighting(code: &str, at: f64, line: &str) -> CodeSighting {
         code: code.to_string(),
         at,
         line: line.to_string(),
+        detail: Vec::new(),
     }
 }
 
@@ -98,6 +99,7 @@ fn classify(record: &GameRecord, resolve: &dyn Fn(u64) -> Option<String>) -> Opt
         mods: &mods,
         projects: &[],
         resolve_hash: resolve,
+        league_path: None,
     })
 }
 
@@ -152,24 +154,21 @@ fn a_build_failure_is_the_whole_story() {
 /// rebuild hint stays only where nothing more specific is known.
 #[test]
 fn a_build_failure_hints_at_the_category_remedy() {
-    let cases: [(Option<OverlayErrorCategory>, &[&str]); 5] = [
-        (
-            Some(OverlayErrorCategory::GameDir),
-            &[hint::CHECK_GAME_PATH],
-        ),
+    let cases: [(Option<OverlayErrorCategory>, &[Hint]); 5] = [
+        (Some(OverlayErrorCategory::GameDir), &[Hint::CheckGamePath]),
         (
             Some(OverlayErrorCategory::Corrupt),
-            &[hint::REBUILD_OVERLAY, hint::REPAIR_INSTALL],
+            &[Hint::RebuildOverlay, Hint::RepairInstall],
         ),
         (
             Some(OverlayErrorCategory::Bug),
-            &[hint::UPDATE_MANAGER, hint::COPY_REPORT],
+            &[Hint::UpdateManager, Hint::CopyReport],
         ),
         (
             Some(OverlayErrorCategory::ModContent),
-            &[hint::REBUILD_OVERLAY],
+            &[Hint::RebuildOverlay],
         ),
-        (None, &[hint::REBUILD_OVERLAY]),
+        (None, &[Hint::RebuildOverlay]),
     ];
 
     for (category, hints) in cases {
@@ -209,7 +208,7 @@ fn a_host_failure_points_at_the_system_checks() {
     });
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.verdict.kind, VerdictKind::InjectionHostFailed);
-    assert_eq!(incident.verdict.hints, [hint::SYSTEM_CHECKS]);
+    assert_eq!(incident.verdict.hints, [Hint::SystemChecks]);
 }
 
 #[test]
@@ -228,13 +227,13 @@ fn a_dll_that_never_attached_hints_at_elevation_or_the_signature() {
             .cause
             .ends_with("DLL never attached after 60s.")
     );
-    assert_eq!(incident.verdict.hints, [hint::ELEVATE, hint::SYSTEM_CHECKS]);
+    assert_eq!(incident.verdict.hints, [Hint::Elevate, Hint::SystemChecks]);
 
     record.host_elevated = true;
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(
         incident.verdict.hints,
-        [hint::SIGNATURE, hint::SYSTEM_CHECKS]
+        [Hint::Signature, Hint::SystemChecks]
     );
 }
 
@@ -252,7 +251,7 @@ fn an_end_of_life_dll_is_an_out_of_date_patcher_even_on_a_clean_ending() {
             .starts_with("The patcher does not know this version of League.")
     );
     assert!(incident.verdict.cause.contains("0x68a1b2c3"));
-    assert_eq!(incident.verdict.hints, [hint::UPDATE_MANAGER]);
+    assert_eq!(incident.verdict.hints, [Hint::UpdateManager]);
     assert!(incident.suspects.is_empty());
 }
 
@@ -282,12 +281,12 @@ fn a_rejected_archive_names_its_writers() {
         incident.suspects[0].because,
         "writes Aatrox.wad.client, which the scan rejected"
     );
-    assert_eq!(incident.verdict.hints, [hint::REMOVE_SKINHACK]);
+    assert_eq!(incident.verdict.hints, [Hint::RemoveSkinhack]);
 
     record.scan_failures[0].status = "base_skin".to_string();
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.scan_status, Some(ScanStatus::BaseSkin));
-    assert_eq!(incident.verdict.hints, [hint::REIMPORT_MOD]);
+    assert_eq!(incident.verdict.hints, [Hint::ReimportMod]);
     // Only a skinhack reaches its own kind.
     assert_eq!(incident.verdict.kind, VerdictKind::ArchiveRejected);
     assert_eq!(incident.verdict.title, "Archive Scan Rejection");
@@ -303,7 +302,7 @@ fn a_rejected_archive_names_its_writers() {
     record.scan_failures[0].status = "base_wad".to_string();
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.scan_status, Some(ScanStatus::BaseWad));
-    assert_eq!(incident.verdict.hints, [hint::REPAIR_GAME]);
+    assert_eq!(incident.verdict.hints, [Hint::RepairGame]);
 
     // A burst is counted, so the frontend can say how many it does not name.
     record.scan_failures.push(WadScanFailure {
@@ -350,10 +349,7 @@ fn every_token_the_dll_emits_reads_and_advises() {
         ScanStatus::BaseWad,
         ScanStatus::Unknown,
     ] {
-        assert!(
-            !status.hint().is_empty(),
-            "{status:?} offers nothing to try"
-        );
+        let _ = status.hint();
     }
 }
 
@@ -405,7 +401,7 @@ fn a_disabled_overlay_records_on_a_clean_ending() {
             .contains("Aatrox.wad.client did not verify: file would not open.")
     );
     assert_eq!(names(&incident), ["Aatrox Justicar"]);
-    assert_eq!(incident.verdict.hints, [hint::REBUILD_OVERLAY]);
+    assert_eq!(incident.verdict.hints, [Hint::RebuildOverlay]);
 }
 
 #[test]
@@ -422,7 +418,7 @@ fn an_unmodded_crash_says_why_and_an_unmodded_clean_game_is_nothing() {
     record.overlay = OverlayOutcome::TooLate;
     let incident = classify(&record, &no_path).unwrap();
     assert!(incident.verdict.cause.contains("joined too late"));
-    assert_eq!(incident.verdict.hints, [hint::START_FIRST]);
+    assert_eq!(incident.verdict.hints, [Hint::StartFirst]);
 
     assert_eq!(classify(&clean(record), &no_path), None);
 }
@@ -456,7 +452,7 @@ fn missing_data_with_a_path_names_the_archive_writer() {
         incident.suspects[0].because,
         "writes Aatrox.wad.client, which holds the path"
     );
-    assert_eq!(incident.verdict.hints, [hint::DISABLE_SUSPECT]);
+    assert_eq!(incident.verdict.hints, [Hint::DisableSuspect]);
 }
 
 #[test]
@@ -475,6 +471,7 @@ fn missing_data_with_two_writers_names_both() {
             mods: &mods,
             projects: &[],
             resolve_hash: &aatrox_path,
+            league_path: None,
         })
         .unwrap();
     assert_eq!(names(&incident), ["Aatrox Other", "Aatrox Justicar"]);
@@ -502,6 +499,257 @@ fn a_log_verdict_applies_even_when_the_client_said_exit() {
     assert_eq!(incident.verdict.kind, VerdictKind::MissingData);
 }
 
+fn wad_mount_sighting(problem: Option<&str>) -> CodeSighting {
+    let mut sighting = sighting(
+        "ALE-18967994",
+        1.912,
+        "000001.912|  ERROR| ALE-18967994 FATAL ERROR. WadFile mount failed",
+    );
+    sighting
+        .detail
+        .push("- WadFile: DATA/FINAL/Shaders/Shaders.wad.client".to_string());
+    if let Some(problem) = problem {
+        sighting.detail.push(format!("- Problem: {problem}"));
+    }
+    sighting
+}
+
+fn shader_mods() -> Vec<ModFootprint> {
+    let mut mods = mods();
+    mods.push(ModFootprint {
+        mod_id: "neon-shaders".to_string(),
+        display_name: "Neon Shaders".to_string(),
+        priority: 3,
+        affected_wads: vec![
+            "DATA/FINAL/Shaders/Shaders.wad.client".to_string(),
+            "Map11.wad.client".to_string(),
+        ],
+    });
+    mods
+}
+
+fn classify_with(record: &GameRecord, mods: &[ModFootprint]) -> Option<Incident> {
+    record.classify(&ClassifyContext {
+        mods,
+        projects: &[],
+        resolve_hash: &no_path,
+        league_path: None,
+    })
+}
+
+/// The lines under the code name the archive and the problem, and the verdict
+/// names both. Inconsistent is the one an overlay makes, and a repair of the
+/// install finds nothing to fix, so the rebuild hint stands alone.
+#[test]
+fn a_wad_mount_fatal_names_the_archive_and_the_problem() {
+    let mut record = crashed(modded_game());
+    record.redirected = vec!["Shaders.wad.client".to_string()];
+    record.log = Some(log_with(vec![wad_mount_sighting(Some("Inconsistent"))]));
+    let incident = classify_with(&record, &shader_mods()).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::CorruptArchive);
+    assert_eq!(
+        incident.verdict.subject.as_deref(),
+        Some("Shaders.wad.client")
+    );
+    assert_eq!(
+        incident.verdict.cause,
+        "League could not mount Shaders.wad.client. The game found it inconsistent with another mounted archive."
+    );
+    assert_eq!(incident.verdict.hints, [Hint::RebuildOverlay]);
+    assert_eq!(names(&incident), ["Neon Shaders"]);
+    assert_eq!(
+        incident.suspects[0].because,
+        "writes Shaders.wad.client, which League could not mount"
+    );
+}
+
+#[test]
+fn the_other_mount_problems_keep_the_repair_hint() {
+    let cases = [
+        ("Missing", "The game found it missing."),
+        ("Unable to open", "The game could not open it."),
+        ("Corrupt", "The game found it corrupt."),
+    ];
+    for (word, reading) in cases {
+        let mut record = crashed(modded_game());
+        record.log = Some(log_with(vec![wad_mount_sighting(Some(word))]));
+        let incident = classify_with(&record, &shader_mods()).unwrap();
+        assert_eq!(
+            incident.verdict.cause,
+            format!("League could not mount Shaders.wad.client. {reading}"),
+            "{word}"
+        );
+        assert_eq!(
+            incident.verdict.hints,
+            [Hint::RebuildOverlay, Hint::RepairInstall],
+            "{word}"
+        );
+    }
+
+    let mut record = crashed(modded_game());
+    record.log = Some(log_with(vec![wad_mount_sighting(Some("Haunted"))]));
+    let incident = classify_with(&record, &shader_mods()).unwrap();
+    assert_eq!(
+        incident.verdict.cause,
+        "League could not mount Shaders.wad.client. The game reported the problem as Haunted."
+    );
+    assert_eq!(
+        incident.verdict.hints,
+        [Hint::RebuildOverlay, Hint::RepairInstall]
+    );
+
+    record.log = Some(log_with(vec![wad_mount_sighting(None)]));
+    let incident = classify_with(&record, &shader_mods()).unwrap();
+    assert_eq!(
+        incident.verdict.cause,
+        "League could not mount Shaders.wad.client."
+    );
+}
+
+/// The reporter's log, read by the reader and classified against a library
+/// with one mod writing the archive.
+#[test]
+fn the_reporters_log_names_the_shaders_archive_and_its_writer() {
+    let incident = classify_with(&reporters_record(), &shader_mods()).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::CorruptArchive);
+    assert_eq!(
+        incident.verdict.subject.as_deref(),
+        Some("Shaders.wad.client")
+    );
+    assert!(incident.verdict.cause.contains("inconsistent"));
+    assert_eq!(incident.verdict.hints, [Hint::RebuildOverlay]);
+    assert_eq!(names(&incident), ["Neon Shaders"]);
+    assert_eq!(incident.phase, GamePhase::Loading);
+    assert_eq!(
+        incident.game.as_ref().map(|game| game.version.as_str()),
+        Some("16.17.812.1337")
+    );
+}
+
+fn classify_for(record: &GameRecord, league_path: &str) -> Option<Incident> {
+    record.classify(&ClassifyContext {
+        mods: &shader_mods(),
+        projects: &[],
+        resolve_hash: &no_path,
+        league_path: Some(Path::new(league_path)),
+    })
+}
+
+fn reporters_record() -> GameRecord {
+    let facts = GameLogFacts::read(std::io::Cursor::new(include_str!(
+        "../fixtures/wad_mount_r3dlog.txt"
+    )))
+    .unwrap();
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    record.redirected = vec!["Shaders.wad.client".to_string()];
+    record.log_searched = true;
+    record.log_root = Some(PathBuf::from(r"C:\Riot Games\League of Legends"));
+    record.log = Some(facts);
+    record
+}
+
+/// The reporter's machine: the manager set up for PBE, the live game's log
+/// found under the live install. The wad mount fatal is still in the evidence,
+/// and the verdict is the install rather than the archive.
+#[test]
+fn the_reporters_log_against_the_pbe_path_is_a_wrong_install() {
+    let incident = classify_for(
+        &reporters_record(),
+        r"C:\Riot Games\League of Legends (PBE)",
+    )
+    .unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::WrongInstall);
+    assert_eq!(incident.verdict.consequence, Consequence::GameStopped);
+    assert_eq!(
+        incident.verdict.cause,
+        "League ran from C:/Riot Games/League of Legends, and the overlay was built for C:/Riot Games/League of Legends (PBE). A mod built from one install crashes the other."
+    );
+    assert_eq!(incident.verdict.hints, [Hint::CheckGamePath]);
+    assert!(incident.suspects.is_empty());
+    assert_eq!(
+        incident
+            .game
+            .as_ref()
+            .and_then(|game| game.game_base_dir.as_deref()),
+        Some("C:/Riot Games/League of Legends")
+    );
+    assert!(incident.evidence.iter().any(|row| {
+        row.code
+            .as_ref()
+            .is_some_and(|code| code.id == "ALE-18967994")
+    }));
+}
+
+/// The same install spelled another way is the same install.
+#[test]
+fn the_reporters_log_against_the_live_path_names_the_archive() {
+    for spelling in [
+        r"C:\Riot Games\League of Legends",
+        "C:/Riot Games/League of Legends/",
+        r"c:\riot games\league of legends",
+    ] {
+        let incident = classify_for(&reporters_record(), spelling).unwrap();
+        assert_eq!(
+            incident.verdict.kind,
+            VerdictKind::CorruptArchive,
+            "{spelling}"
+        );
+    }
+}
+
+/// A game from the other install that ends the way the client meant it to is
+/// no incident. The client check is what names the mismatch while it runs.
+#[test]
+fn a_clean_game_from_another_install_is_no_incident() {
+    let mut record = clean(modded_game());
+    record.log_searched = true;
+    record.log = Some(GameLogFacts {
+        game_base_dir: Some(r"C:\Riot Games\League of Legends".to_string()),
+        torn_down: true,
+        ..log_with(Vec::new())
+    });
+    let pbe = r"C:\Riot Games\League of Legends (PBE)";
+    assert_eq!(classify_for(&record, pbe), None);
+
+    let record = crashed(record);
+    assert_eq!(
+        classify_for(&record, pbe).unwrap().verdict.kind,
+        VerdictKind::WrongInstall
+    );
+}
+
+/// A log with no base dir, or a record without a configured path, says nothing
+/// about the install.
+#[test]
+fn a_wrong_install_needs_both_paths() {
+    let mut record = reporters_record();
+    assert_eq!(
+        classify_with(&record, &shader_mods()).unwrap().verdict.kind,
+        VerdictKind::CorruptArchive
+    );
+    record.log.as_mut().unwrap().game_base_dir = None;
+    assert_eq!(
+        classify_for(&record, r"C:\Riot Games\League of Legends (PBE)")
+            .unwrap()
+            .verdict
+            .kind,
+        VerdictKind::CorruptArchive
+    );
+}
+
+/// An incident stored before the game's base dir was kept reads with none.
+#[test]
+fn a_stored_game_without_a_base_dir_reads() {
+    let game: GameInfo = serde_json::from_value(serde_json::json!({
+        "version": "16.16.804.9184",
+        "contentVersion": "16.16.1",
+        "logPath": "x",
+    }))
+    .expect("the game reads");
+    assert_eq!(game.game_base_dir, None);
+}
+
 #[test]
 fn a_corrupt_archive_reads_its_row_and_lists_the_redirected_writers() {
     let mut record = crashed(modded_game());
@@ -517,7 +765,7 @@ fn a_corrupt_archive_reads_its_row_and_lists_the_redirected_writers() {
     assert_eq!(names(&incident), ["Classic Rift", "Aatrox Justicar"]);
     assert_eq!(
         incident.verdict.hints,
-        [hint::REBUILD_OVERLAY, hint::REPAIR_INSTALL]
+        [Hint::RebuildOverlay, Hint::RepairInstall]
     );
 
     record.log = Some(log_with(vec![channel("ALE-89b0dee7", 5.0)]));
@@ -549,8 +797,9 @@ fn a_texture_failure_names_no_mod_whichever_code_reported_it() {
         assert_eq!(incident.verdict.kind, VerdictKind::TextureFailed, "{code}");
         assert!(incident.suspects.is_empty(), "{code} named a mod");
         assert!(incident.verdict.cause.contains("onto the GPU"), "{code}");
-        assert!(
-            incident.verdict.hints[0].contains("multiple of 4"),
+        assert_eq!(
+            incident.verdict.hints,
+            [Hint::TextureDimensions, Hint::RebuildOverlay],
             "{code} lost the dimensions hint"
         );
     }
@@ -563,8 +812,13 @@ fn out_of_memory_reads_the_code_that_named_it() {
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.verdict.kind, VerdictKind::OutOfMemory);
     assert!(incident.suspects.is_empty());
-    assert!(incident.verdict.hints[0].contains("Close what else is running"));
-    assert!(incident.verdict.hints[1].contains("4 modded archives were in this game"));
+    assert_eq!(
+        incident.verdict.hints,
+        [Hint::FreeMemory, Hint::LargeTextures]
+    );
+    record.redirected.clear();
+    let unmodded = classify(&record, &no_path).unwrap();
+    assert_eq!(unmodded.verdict.hints, [Hint::FreeMemory]);
     // An allocation has more causes than a mod, and the cause must say so.
     assert!(incident.verdict.cause.contains("free RAM"));
     assert!(incident.verdict.cause.contains("page file"));
@@ -589,7 +843,7 @@ fn a_graphics_fault_names_no_suspect() {
     let incident = classify(&record, &no_path).unwrap();
     assert_eq!(incident.verdict.kind, VerdictKind::GraphicsFault);
     assert!(incident.suspects.is_empty());
-    assert_eq!(incident.verdict.hints, [hint::UPDATE_DRIVER]);
+    assert_eq!(incident.verdict.hints, [Hint::UpdateDriver]);
 }
 
 fn stuck_at(code: &str) -> GameRecord {
@@ -633,7 +887,7 @@ fn an_early_crash_under_the_lazy_scan_earns_the_up_front_hint() {
     let mut record = stuck_at("SEJ-9F31B5D0");
     record.scan = Some(ScanMode::Lazy);
     let incident = classify(&record, &no_path).unwrap();
-    assert_eq!(incident.verdict.hints, [hint::SCAN_UP_FRONT]);
+    assert_eq!(incident.verdict.hints, [Hint::ScanUpFront]);
 }
 
 #[test]
@@ -673,7 +927,51 @@ fn an_ending_with_no_reason_lists_the_facts() {
     assert!(cause.contains("Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION"));
     assert!(cause.contains("Crashpad ran."));
     assert!(cause.contains("3 error lines"));
-    assert_eq!(incident.verdict.hints, [hint::COPY_REPORT]);
+    assert_eq!(incident.verdict.hints, [Hint::CopyReport]);
+}
+
+/// The reporter's game: two seconds after the DLL redirected an archive the
+/// game was gone, and the configured install held no log for it.
+#[test]
+fn a_short_redirected_game_without_a_log_is_an_incident() {
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    record.log_searched = true;
+    assert!(!record.worth_reporting());
+    let incident = classify(&record, &no_path).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::EndedWithoutReason);
+    assert_eq!(
+        incident.verdict.cause,
+        "League ended 2 seconds after the patcher redirected an archive into it, and no game log for the game was found under the configured install."
+    );
+    assert_eq!(incident.verdict.hints, [Hint::CheckGamePath]);
+    assert!(incident.suspects.is_empty());
+    assert_eq!(incident.game, None);
+}
+
+#[test]
+fn a_short_game_without_a_redirect_stays_clean_without_a_log() {
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    record.log_searched = true;
+    record.redirected.clear();
+    assert_eq!(classify(&record, &no_path), None);
+}
+
+#[test]
+fn a_game_past_the_bound_stays_clean_without_a_log() {
+    let mut record = modded_game();
+    record.ended_at = at(120);
+    record.log_searched = true;
+    assert_eq!(classify(&record, &no_path), None);
+}
+
+/// With the reader off nothing was looked for, and a missing log says nothing.
+#[test]
+fn a_short_game_the_reader_never_looked_at_stays_clean() {
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    assert_eq!(classify(&record, &no_path), None);
 }
 
 #[test]
@@ -797,6 +1095,7 @@ fn a_workshop_test_names_the_project_and_the_open_hint() {
             mods: &[],
             projects: &projects,
             resolve_hash: &no_path,
+            league_path: None,
         })
         .unwrap();
     assert_eq!(names(&incident), ["Aatrox (project)"]);
@@ -807,7 +1106,7 @@ fn a_workshop_test_names_the_project_and_the_open_hint() {
     assert_eq!(incident.suspects[0].mod_id, None);
     assert_eq!(
         incident.verdict.hints,
-        [hint::REBUILD_OVERLAY, hint::OPEN_PROJECT]
+        [Hint::RebuildOverlay, Hint::OpenProject]
     );
 }
 
@@ -830,6 +1129,7 @@ fn a_mod_writing_two_redirected_archives_is_listed_once() {
             mods: &mods,
             projects: &[],
             resolve_hash: &no_path,
+            league_path: None,
         })
         .unwrap();
     assert_eq!(names(&incident), ["Bundle"]);
@@ -875,6 +1175,7 @@ fn the_token_numbers_are_pinned() {
             (VerdictKind::SkinhackDetected, 14),
             (VerdictKind::OverlayBuildFailed, 15),
             (VerdictKind::InjectionHostFailed, 16),
+            (VerdictKind::WrongInstall, 17),
         ],
         VerdictKind::code,
         VerdictKind::from_code,
@@ -1053,10 +1354,67 @@ fn a_failure_with_no_message_still_says_what_failed() {
 #[test]
 fn a_verdict_carries_at_most_two_hints() {
     let verdict = Verdict::new(VerdictKind::Unmodded, "c")
-        .with_hint("one")
-        .with_hint("two")
-        .with_hint("three");
-    assert_eq!(verdict.hints, ["one", "two"]);
+        .with_hint(Hint::StartFirst)
+        .with_hint(Hint::CopyReport)
+        .with_hint(Hint::SystemChecks);
+    assert_eq!(verdict.hints, [Hint::StartFirst, Hint::CopyReport]);
+}
+
+/// A hint crosses IPC and the store as its kebab-case name. The number is
+/// pinned for a wire that carries one.
+#[test]
+fn a_hint_has_one_spelling_and_one_number() {
+    use strum::IntoEnumIterator;
+    let mut numbers = Vec::new();
+    for hint in Hint::iter() {
+        let wire = serde_json::to_value(hint).unwrap();
+        let name = wire.as_str().expect("a string on the wire");
+        assert!(
+            name.bytes().all(|b| b.is_ascii_lowercase() || b == b'-'),
+            "{name}"
+        );
+        assert_eq!(Hint::parse_stored(wire.clone()), Some(hint));
+        assert_eq!(Hint::from_code(hint.code()), Some(hint));
+        numbers.push(hint.code());
+    }
+    numbers.sort_unstable();
+    numbers.dedup();
+    assert_eq!(numbers.len(), Hint::iter().count());
+    assert_eq!(Hint::code(Hint::SystemChecks), 1);
+    assert_eq!(Hint::code(Hint::RebuildOverlay), 3);
+    assert_eq!(Hint::code(Hint::CheckGamePath), 4);
+    assert_eq!(Hint::code(Hint::LargeTextures), 19);
+    assert_eq!(Hint::from_code(0), None);
+    assert_eq!(Hint::from_code(20), None);
+}
+
+/// An incident stored by an earlier build holds each hint as a sentence, and
+/// one from a later build may hold a code this build does not know. Both read
+/// without an error, and only the known codes survive.
+#[test]
+fn stored_hints_read_as_codes_or_as_nothing() {
+    let verdict: Verdict = serde_json::from_value(serde_json::json!({
+        "kind": "corrupt-archive",
+        "cause": "",
+        "subject": null,
+        "hints": [
+            "Rebuild the overlay.",
+            "repair-install",
+            "some-hint-from-the-future",
+            7,
+            "rebuild-overlay",
+        ],
+    }))
+    .expect("the verdict reads");
+    assert_eq!(verdict.hints, [Hint::RepairInstall, Hint::RebuildOverlay]);
+
+    let bare: Verdict = serde_json::from_value(serde_json::json!({
+        "kind": "corrupt-archive",
+        "cause": "",
+        "subject": null,
+    }))
+    .expect("a verdict without hints reads");
+    assert!(bare.hints.is_empty());
 }
 
 #[test]
@@ -1073,6 +1431,7 @@ fn a_log_line_drops_its_header_for_the_message() {
         at: String::new(),
         source: EvidenceSource::Game,
         line: line.to_string(),
+        detail: Vec::new(),
         code: None,
     };
     assert_eq!(

@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::thread;
 
 use chrono::{Duration, Local};
+use fs_err as fs;
 
 use crate::config::Config;
 use crate::diagnostics::game_log::{GameWindow, LeagueLogs};
@@ -20,6 +21,8 @@ use crate::diagnostics::incident::{
 };
 use crate::diagnostics::store::IncidentStore;
 use crate::hashtables::{HashtableCache, LayeredHashDb, PathRef};
+use crate::launcher::install::installed_patchlines;
+use crate::launcher::same_install;
 use crate::mods::ModLibrary;
 use crate::workshop::ProjectDir;
 
@@ -96,6 +99,7 @@ impl IncidentPipeline {
             mods: &mods,
             projects: &projects,
             resolve_hash: &resolve_hash,
+            league_path: self.config.league_path.as_deref(),
         };
 
         let Some(incident) = record.classify(&ctx) else {
@@ -119,6 +123,10 @@ impl IncidentPipeline {
     /// The game log and the crash marker, when the reader is on and a game was
     /// seen. A record that spans no time is a session that failed before any
     /// game, and there is no window to look in.
+    ///
+    /// The log is looked for under the configured install first and under
+    /// [`Self::other_roots`] on a miss, and the crash marker is read from the
+    /// install the log came from.
     fn read_league_logs(&self, record: &mut GameRecord) {
         if !self.config.read_game_log || record.started_at == record.ended_at {
             return;
@@ -126,27 +134,67 @@ impl IncidentPipeline {
         let Some(league_path) = self.config.league_path.as_deref() else {
             return;
         };
+        record.log_searched = true;
 
-        let logs = LeagueLogs::new(league_path);
         let window = GameWindow {
             first_sign: record.started_at.with_timezone(&Local),
             last_sign: record.ended_at.with_timezone(&Local),
         };
-        match logs.find_game_log(&window) {
-            Some(path) => match logs.read_game_log(&path) {
-                Ok(facts) => {
-                    record.log_path = Some(path.clone());
-                    record.log = Some(facts);
+        let find = |root: PathBuf| {
+            let logs = LeagueLogs::new(&root);
+            logs.find_game_log(&window).map(|path| (root, logs, path))
+        };
+        let found = find(league_path.to_path_buf())
+            .or_else(|| self.other_roots(league_path).into_iter().find_map(find));
+        let logs = match found {
+            Some((root, logs, path)) => {
+                match logs.read_game_log(&path) {
+                    Ok(facts) => {
+                        record.log_path = Some(path);
+                        record.log_root = Some(root);
+                        record.log = Some(facts);
+                    }
+                    Err(e) => tracing::warn!("Could not read game log {}: {e}", path.display()),
                 }
-                Err(e) => tracing::warn!("Could not read game log {}: {e}", path.display()),
-            },
-            None => tracing::debug!("No game log in the game's window"),
-        }
+                logs
+            }
+            None => {
+                tracing::debug!("No game log in the game's window under any install root");
+                LeagueLogs::new(league_path)
+            }
+        };
 
         if let Some(marker) = logs.last_crash() {
             record.ending.crashed =
                 Some(marker >= record.started_at && marker <= record.ended_at + CRASH_MARKER_GRACE);
         }
+    }
+
+    /// The install roots beside the configured one: the other installs the
+    /// product registry lists when a client answers, and the configured
+    /// install's sibling folders when none does.
+    fn other_roots(&self, league_path: &Path) -> Vec<PathBuf> {
+        let registry = installed_patchlines();
+        let candidates: Vec<PathBuf> = if registry.is_empty() {
+            league_path
+                .parent()
+                .and_then(|parent| fs::read_dir(parent).ok())
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir()))
+                .map(|entry| entry.path())
+                .collect()
+        } else {
+            registry
+                .into_iter()
+                .map(|patchline| patchline.root)
+                .collect()
+        };
+        candidates
+            .into_iter()
+            .filter(|root| !same_install(root, league_path))
+            .collect()
     }
 
     /// Which scan the DLL ran, the way the DLL decides it: eager when the flag

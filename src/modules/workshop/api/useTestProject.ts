@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api, type AppError } from "@/lib/tauri";
-import { patcherKeys } from "@/modules/patcher";
+import type { AppError } from "@/lib/tauri";
+import { patcherKeys, startPatcherSpendingQueue } from "@/modules/patcher";
 import { usePatcherSessionStore } from "@/stores";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -15,7 +15,7 @@ export function useTestProjects() {
 
   return useMutation<void, AppError, TestProjectsArgs>({
     mutationFn: async ({ projects }) => {
-      const result = await api.startPatcher({
+      const result = await startPatcherSpendingQueue({
         workshopProjects: projects.map((p) => p.path),
       });
       return unwrapForQuery(result);

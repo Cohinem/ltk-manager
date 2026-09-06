@@ -13,11 +13,10 @@ import type { ReactNode } from "react";
 
 import { Button, Tooltip, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
-import { errorSummary } from "@/i18n";
+import { errorMessage, errorSummary, m } from "@/i18n";
 import type { Incident, Suspect } from "@/lib/tauri";
 import { useInstalledMods, useToggleMod } from "@/modules/library";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
-import { isAppError } from "@/utils/errors";
 
 import {
   incidentReportOptions,
@@ -27,11 +26,10 @@ import {
   useIncidentToken,
   useRevealGameLog,
 } from "../api";
+import { hintText } from "../utils/hints";
 import { formatDuration, formatOrigin, projectNameFromPath } from "../utils/incident";
 import { EvidenceTimeline } from "./EvidenceTimeline";
 import { VerdictCard } from "./VerdictCard";
-
-const PATCHER_BUSY = "Stop the patcher first";
 
 interface IncidentDetailProps {
   incident: Incident;
@@ -49,7 +47,7 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
       <VerdictCard incident={incident} />
 
       {incident.suspects.length > 0 && (
-        <DetailSection title="Suspects">
+        <DetailSection title={m.diagnostics_suspects_title()}>
           <ul className="divide-y divide-surface-800 rounded-lg border border-surface-700/50 bg-surface-900/95">
             {incident.suspects.map((suspect, index) => (
               <SuspectRow key={`${suspect.displayName}-${index}`} suspect={suspect} />
@@ -59,7 +57,7 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
       )}
 
       {verdict.hints.length > 0 && (
-        <DetailSection title="Hints">
+        <DetailSection title={m.diagnostics_hints_title()}>
           {/* The marker is drawn rather than list-disc, whose li stops being a
               list-item once flex blockifies it, and sibling spacing is the
               layout's gap: DS-GAP. */}
@@ -69,14 +67,14 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
                 <span aria-hidden className="shrink-0 text-surface-500 select-none">
                   •
                 </span>
-                <span className="min-w-0 flex-1">{hint}</span>
+                <span className="min-w-0 flex-1">{hintText(hint, incident)}</span>
               </li>
             ))}
           </ul>
         </DetailSection>
       )}
 
-      <DetailSection title="Evidence">
+      <DetailSection title={m.diagnostics_evidence_title()}>
         <EvidenceTimeline evidence={incident.evidence} />
       </DetailSection>
 
@@ -133,7 +131,7 @@ function DisableModButton({ modId }: { modId: string }) {
   if (!mod.enabled) {
     return (
       <Button variant="ghost" size="xs" disabled>
-        Disabled
+        {m.diagnostics_suspect_disabled_label()}
       </Button>
     );
   }
@@ -151,19 +149,23 @@ function DisableModButton({ modId }: { modId: string }) {
           { modId, enabled: false },
           {
             onSuccess: () =>
-              toast.warning("Mod disabled", `${mod.displayName} stays out of the next game.`),
-            onError: (error) => toast.error("Couldn't disable the mod", errorSummary(error)),
+              toast.warning(
+                m.diagnostics_mod_disabled_title(),
+                m.diagnostics_mod_disabled_description({ name: mod.displayName }),
+              ),
+            onError: (error) =>
+              toast.error(m.diagnostics_mod_disable_failed_title(), errorSummary(error)),
           },
         )
       }
     >
-      Disable
+      {m.diagnostics_suspect_disable_action()}
     </Button>
   );
 
   if (!patcherRunning) return button;
   return (
-    <Tooltip content={PATCHER_BUSY}>
+    <Tooltip content={m.diagnostics_patcher_busy_hint()}>
       <span className="inline-flex">{button}</span>
     </Tooltip>
   );
@@ -184,7 +186,7 @@ function OpenProjectButton({ projectPath }: { projectPath: string }) {
         })
       }
     >
-      Open
+      {m.diagnostics_suspect_open_action()}
     </Button>
   );
 }
@@ -194,7 +196,7 @@ function FactsLine({ incident }: { incident: Incident }) {
     incident.game?.version,
     formatDuration(incident.startedAt, incident.endedAt),
     formatOrigin(incident.origin),
-    incident.game ? "log found" : "no log",
+    incident.game ? m.diagnostics_facts_log_found_label() : m.diagnostics_facts_no_log_label(),
   ].filter((fact): fact is string => !!fact);
 
   return (
@@ -204,17 +206,11 @@ function FactsLine({ incident }: { incident: Incident }) {
   );
 }
 
-function messageOf(error: unknown): string {
-  if (isAppError(error)) return errorSummary(error);
-  if (error instanceof Error) return error.message;
-  return "Unknown error";
-}
-
 function IncidentActions({ incident }: { incident: Incident }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const copy = useCopyToClipboard();
-  const report = useIncidentReport(incident.id);
+  const report = useIncidentReport(incident);
   const token = useIncidentToken(incident.id);
   const revealLog = useRevealGameLog();
   const dismiss = useDismissIncident();
@@ -222,16 +218,14 @@ function IncidentActions({ incident }: { incident: Incident }) {
   const { data: patcherStatus } = usePatcherStatus();
 
   const patcherRunning = patcherStatus?.running ?? false;
-  const dismissLabel = incident.dismissed ? "Dismissed" : "Dismiss";
 
   async function copyReport() {
     try {
-      const text =
-        report.data ?? (await queryClient.fetchQuery(incidentReportOptions(incident.id)));
+      const text = report.data ?? (await queryClient.fetchQuery(incidentReportOptions(incident)));
       await navigator.clipboard.writeText(text);
-      toast.success("Copied report", "Paste it into a bug report or a support thread.");
+      toast.success(m.diagnostics_report_copied_title(), m.diagnostics_report_copied_description());
     } catch (error) {
-      toast.error("Couldn't copy the report", messageOf(error));
+      toast.error(m.diagnostics_report_copy_failed_title(), errorMessage(error));
     }
   }
 
@@ -240,7 +234,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
     try {
       text = token.data ?? (await queryClient.fetchQuery(incidentTokenOptions(incident.id)));
     } catch (error) {
-      toast.error("Couldn't build the token", messageOf(error));
+      toast.error(m.diagnostics_token_build_failed_title(), errorMessage(error));
       return;
     }
     await copy(text, "token");
@@ -248,15 +242,16 @@ function IncidentActions({ incident }: { incident: Incident }) {
 
   function openGameLog() {
     revealLog.mutate(incident.id, {
-      onError: (error) => toast.error("Couldn't open the game log", errorSummary(error)),
+      onError: (error) =>
+        toast.error(m.diagnostics_game_log_open_failed_title(), errorSummary(error)),
     });
   }
 
   function rebuildOverlay() {
     rebuild.mutate(undefined, {
       onSuccess: () =>
-        toast.success("Overlay rebuilt", "The overlay was regenerated from scratch."),
-      onError: (error) => toast.error("Rebuild failed", errorSummary(error)),
+        toast.success(m.patcher_rebuild_done_title(), m.patcher_rebuild_done_description()),
+      onError: (error) => toast.error(m.patcher_rebuild_failed_title(), errorSummary(error)),
     });
   }
 
@@ -269,7 +264,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
       left={<ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />}
       onClick={rebuildOverlay}
     >
-      Rebuild overlay
+      {m.patcher_rebuild_action()}
     </Button>
   );
 
@@ -283,7 +278,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
         left={<FileTextIcon weight="bold" className="h-4 w-4" />}
         onClick={openGameLog}
       >
-        Open game log
+        {m.diagnostics_open_game_log_action()}
       </Button>
       <Button
         variant="outline"
@@ -291,7 +286,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
         left={<ClipboardTextIcon weight="bold" className="h-4 w-4" />}
         onClick={copyReport}
       >
-        Copy report
+        {m.diagnostics_copy_report_action()}
       </Button>
       <Button
         variant="outline"
@@ -299,11 +294,11 @@ function IncidentActions({ incident }: { incident: Incident }) {
         left={<HashIcon weight="bold" className="h-4 w-4" />}
         onClick={copyToken}
       >
-        Copy token
+        {m.diagnostics_copy_token_action()}
       </Button>
       {!patcherRunning && rebuildButton}
       {patcherRunning && (
-        <Tooltip content={PATCHER_BUSY}>
+        <Tooltip content={m.diagnostics_patcher_busy_hint()}>
           <span className="inline-flex">{rebuildButton}</span>
         </Tooltip>
       )}
@@ -316,7 +311,8 @@ function IncidentActions({ incident }: { incident: Incident }) {
         left={<XIcon weight="bold" className="h-4 w-4" />}
         onClick={() => dismiss.mutate(incident.id)}
       >
-        {dismissLabel}
+        {incident.dismissed && m.diagnostics_dismissed_label()}
+        {!incident.dismissed && m.diagnostics_dismiss_action()}
       </Button>
     </div>
   );

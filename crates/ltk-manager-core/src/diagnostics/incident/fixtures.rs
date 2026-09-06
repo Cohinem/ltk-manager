@@ -9,12 +9,14 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
         at: at.to_string(),
         source: EvidenceSource::Game,
         line: line.to_string(),
+        detail: Vec::new(),
         code: Some(EvidenceCode::from_table(code)),
     };
     let plain = |at: &str, source: EvidenceSource, line: &str| Evidence {
         at: at.to_string(),
         source,
         line: line.to_string(),
+        detail: Vec::new(),
         code: None,
     };
     Incident {
@@ -53,6 +55,7 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
                 version: "16.16.804.9184".to_string(),
                 content_version: "16.16.1".to_string(),
                 log_path: r"C:\Riot Games\League of Legends\Logs\GameLogs\2026-08-21T21-14-02\2026-08-21T21-14-02_r3dlog.txt".to_string(),
+                game_base_dir: Some(r"C:\Riot Games\League of Legends".to_string()),
             }),
             ending: Ending {
                 exit_reason: Some("Interrupt".to_string()),
@@ -68,7 +71,7 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
                     "assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds".to_string(),
                 ),
                 consequence: Consequence::GameStopped,
-                hints: vec![hint::DISABLE_SUSPECT.to_string()],
+                hints: vec![Hint::DisableSuspect],
             },
             evidence: vec![
                 plain(

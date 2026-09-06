@@ -15,7 +15,12 @@ import { monoStack, sansStack, sansWeights, WEIGHT_TIERS } from "@/lib/fonts";
 import type { OpenOn } from "@/lib/tauri";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
-import { SessionBar, useLeagueSession } from "@/modules/launcher";
+import {
+  InstallMismatchDialog,
+  SessionBar,
+  useInstallMismatchWatch,
+  useLeagueSession,
+} from "@/modules/launcher";
 import {
   LibraryMigrationDialog,
   ModHealthSweepListener,
@@ -70,6 +75,7 @@ function RootLayout() {
   useIncidentListeners();
   useCleanGameWatch();
   useLeagueSession();
+  useInstallMismatchWatch();
   useObjectIndexLifecycle();
   useOverscrollSpring();
   useZoomHotkeys();
@@ -178,6 +184,7 @@ function RootLayout() {
       <LibraryMigrationDialog />
       <ModHealthSweepListener />
       <WadScanFailedDialog />
+      <InstallMismatchDialog />
       <LinkedBinWarningDialog />
       {import.meta.env.DEV && <DevConsole />}
     </div>
