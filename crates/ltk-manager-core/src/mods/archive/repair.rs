@@ -19,11 +19,11 @@ use crate::mods::index::ModStorage;
 use crate::problems::{self, Budget, FixReport, ProjectFiles, budget};
 use camino::Utf8Path;
 use delta::RepairEdit;
+use fs_err as fs;
 use ltk_fantome::{DeltaReport, FantomeReader};
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use serde::Serialize;
-use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 use uuid::Uuid;
@@ -551,7 +551,7 @@ fn swap_in_repacked(repacked: &Path, archive: &Path) -> AppResult<()> {
     fs::rename(archive, &replaced).map_err(|e| {
         AppError::Io(std::io::Error::new(
             e.kind(),
-            format!("Failed to move {} aside: {e}", archive.display()),
+            format!("Failed to move the archive aside: {e}"),
         ))
     })?;
 
@@ -559,10 +559,7 @@ fn swap_in_repacked(repacked: &Path, archive: &Path) -> AppResult<()> {
         let _ = fs::rename(&replaced, archive);
         return Err(AppError::Io(std::io::Error::new(
             e.kind(),
-            format!(
-                "Failed to move the repaired archive into {}: {e}",
-                archive.display()
-            ),
+            format!("Failed to move the repaired archive into place: {e}"),
         )));
     }
 

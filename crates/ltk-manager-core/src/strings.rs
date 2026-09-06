@@ -7,6 +7,7 @@
 
 use crate::config::Config;
 use crate::hashtables::HashtableCache;
+use fs_err as fs;
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -214,7 +215,7 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
     let locale = game_dir.locale().unwrap_or_else(|| "en_us".into());
 
     let wad_path = find_localized_global_wad(game_dir.path(), &locale)?;
-    let file = std::fs::File::open(&wad_path).ok()?;
+    let file = fs::File::open(&wad_path).ok()?;
     let mut wad = ltk_wad::Wad::mount(file).ok()?;
 
     let chunk_path = format!("data/menu/{locale}/lol.stringtable");
@@ -235,7 +236,7 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
 fn find_localized_global_wad(game_dir: &Path, locale: &str) -> Option<PathBuf> {
     let localized_dir = game_dir.join("DATA").join("FINAL").join("Localized");
     let wanted = format!("global.{}.wad.client", locale.to_lowercase());
-    std::fs::read_dir(localized_dir).ok()?.find_map(|entry| {
+    fs::read_dir(localized_dir).ok()?.find_map(|entry| {
         let entry = entry.ok()?;
         let name = entry.file_name();
         if name.to_str()?.eq_ignore_ascii_case(&wanted) {

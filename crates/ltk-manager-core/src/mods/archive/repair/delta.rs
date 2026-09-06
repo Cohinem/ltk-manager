@@ -8,11 +8,11 @@
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
 use crate::problems::{FileChange, FileOutcome, FixReport, HeldWrites, KeptTable};
 use camino::Utf8Path;
+use fs_err as fs;
 use ltk_fantome::{ArchiveDelta, DeltaReport, FantomeHashtable, FantomeReader, apply_delta};
 use ltk_hashtable::Category;
 use ltk_mod_project::{HASHES_DIR_NAME, ModProject, ModProjectLayer};
 use ltk_wad::{WadHash, chunk_hash_of};
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// The suffix a base-layer directory takes to be one of the mod's WADs.

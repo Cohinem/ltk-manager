@@ -13,9 +13,9 @@ use crate::meta_schema::cache::{MetaSchemaCache, PublishedDb};
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryModEntry;
 use crate::problems::{BinNames, Budget, budget};
+use fs_err as fs;
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::Path;
 
 /// What one library sweep concluded.

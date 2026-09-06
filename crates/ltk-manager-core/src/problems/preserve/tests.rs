@@ -2,6 +2,7 @@
 
 use super::*;
 
+use fs_err as fs;
 use ltk_hash::Hash as _;
 use std::collections::HashMap;
 
@@ -36,7 +37,7 @@ fn project(hashtables: Vec<ModProjectHashtable>) -> tempfile::TempDir {
         hashtables,
         ..crate::mods::test_support::mod_project_named("smolder-x")
     };
-    std::fs::write(
+    fs::write(
         dir.path().join("mod.config.json"),
         config
             .to_config_string(ConfigFormat::Json)
@@ -58,7 +59,7 @@ fn declared(root: &Path) -> HashtableSet {
 }
 
 fn table_of(root: &Path) -> String {
-    std::fs::read_to_string(root.join(GAME_TABLE_PATH)).expect("the table")
+    fs::read_to_string(root.join(GAME_TABLE_PATH)).expect("the table")
 }
 
 #[test]
@@ -162,8 +163,8 @@ fn a_name_a_declared_table_keys_differently_collides() {
         .map(|n| format!("ASSETS/twin{n}.dds"))
         .find(|name| Key::of(name, &Algorithm::Xxh64, narrow) == Some(held))
         .expect("eight bits is 256 keys");
-    std::fs::create_dir_all(dir.path().join(HASHES_DIR_NAME)).unwrap();
-    std::fs::write(
+    fs::create_dir_all(dir.path().join(HASHES_DIR_NAME)).unwrap();
+    fs::write(
         dir.path().join(GAME_TABLE_PATH),
         format!(
             "{OTHER}
@@ -211,14 +212,14 @@ fn a_run_that_keeps_a_name_already_declared_writes_nothing() {
     let mut first = PreservedNames::open(dir.path(), None);
     first.keep(ICON);
     first.write().expect("the write");
-    let before = std::fs::read(dir.path().join("mod.config.json")).expect("the config");
+    let before = fs::read(dir.path().join("mod.config.json")).expect("the config");
 
     let mut second = PreservedNames::open(dir.path(), None);
     assert_eq!(second.keep(ICON), Preserved::Kept);
     assert_eq!(second.write().expect("the write"), 0);
 
     assert_eq!(
-        std::fs::read(dir.path().join("mod.config.json")).expect("the config"),
+        fs::read(dir.path().join("mod.config.json")).expect("the config"),
         before
     );
 }
@@ -233,8 +234,8 @@ fn a_project_that_already_declares_a_game_table_gains_no_second_one() {
         algorithm: Algorithm::Xxh64,
         bits: 64,
     }]);
-    std::fs::create_dir_all(dir.path().join("hashes")).unwrap();
-    std::fs::write(dir.path().join("hashes/harvested.hashes.txt"), "").unwrap();
+    fs::create_dir_all(dir.path().join("hashes")).unwrap();
+    fs::write(dir.path().join("hashes/harvested.hashes.txt"), "").unwrap();
 
     let mut kept = PreservedNames::open(dir.path(), None);
     kept.keep(ICON);
@@ -245,7 +246,7 @@ fn a_project_that_already_declares_a_game_table_gains_no_second_one() {
         .hashtables;
     assert_eq!(manifest.len(), 1);
     assert!(
-        std::fs::read_to_string(dir.path().join("hashes/harvested.hashes.txt"))
+        fs::read_to_string(dir.path().join("hashes/harvested.hashes.txt"))
             .unwrap()
             .contains(ICON)
     );

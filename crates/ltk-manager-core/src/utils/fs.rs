@@ -1,6 +1,6 @@
 //! Filesystem moves the standard library does not offer.
 
-use std::fs;
+use fs_err as fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::{AppError, AppResult};

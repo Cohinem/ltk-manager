@@ -5,6 +5,7 @@ use super::search::ClassTerm;
 use super::*;
 use crate::game_index::GameIndex;
 use crate::game_wads::GameArchives;
+use fs_err as fs;
 use ltk_hash::Hash as _;
 use ltk_hashdb::LayeredHashDb;
 use ltk_meta::path::PropertyPath;
@@ -14,7 +15,6 @@ use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
 use ltk_wad::{WadBuilder, WadChunkBuilder};
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fs;
 use std::io::{Cursor, Write as _};
 use tempfile::TempDir;
 

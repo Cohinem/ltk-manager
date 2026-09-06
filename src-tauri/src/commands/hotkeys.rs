@@ -3,6 +3,7 @@ use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{persist_settings, IncidentStoreState, SettingsState};
+use fs_err as fs;
 use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager, State};
@@ -193,7 +194,7 @@ struct LockfileData {
 fn read_lockfile(league_path: &Path) -> Option<LockfileData> {
     let lockfile_path = league_path.join("lockfile");
 
-    let content = match std::fs::read_to_string(&lockfile_path) {
+    let content = match fs::read_to_string(&lockfile_path) {
         Ok(s) => s,
         Err(e) => {
             tracing::debug!("Could not read lockfile at {:?}: {}", lockfile_path, e);

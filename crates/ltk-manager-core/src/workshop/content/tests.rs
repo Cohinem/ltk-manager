@@ -3,12 +3,12 @@
 
 use super::*;
 use crate::events::NullEventSink;
+use fs_err as fs;
 use ltk_hash::Hash as _;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::NoMeta;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
-use std::fs;
 use std::io::Cursor;
 use std::sync::Arc;
 

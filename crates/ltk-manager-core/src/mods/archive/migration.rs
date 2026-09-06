@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, MigrationPhase, MigrationProgress};
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
 

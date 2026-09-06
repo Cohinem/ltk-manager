@@ -189,7 +189,7 @@ impl AssetRef {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use fs_err as fs;
 
     /// A reference to one file written into a temporary directory.
     fn loose(dir: &tempfile::TempDir, name: &str, bytes: &[u8]) -> AssetRef {

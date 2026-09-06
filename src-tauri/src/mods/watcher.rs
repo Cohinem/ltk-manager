@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use fs_err as fs;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -62,8 +63,8 @@ fn run_watcher(app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>>
         Arc::clone(mod_library_state.0.last_mutation_epoch_ms())
     };
 
-    std::fs::create_dir_all(&archives_dir)?;
-    std::fs::create_dir_all(&mods_dir)?;
+    fs::create_dir_all(&archives_dir)?;
+    fs::create_dir_all(&mods_dir)?;
 
     tracing::info!(
         "Starting library watcher on: {}, {}",

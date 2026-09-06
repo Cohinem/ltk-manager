@@ -1,5 +1,6 @@
 use crate::error::AppResult;
 use crate::workshop::layer::Layer;
+use fs_err as fs;
 use ltk_modpkg::Modpkg;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -44,7 +45,7 @@ impl Layer for LayerInfo {
 
 pub fn inspect_modpkg_file(file_path: &str) -> AppResult<ModpkgInfo> {
     let file_path = Path::new(file_path);
-    let file = std::fs::File::open(file_path)?;
+    let file = fs::File::open(file_path)?;
     let mut modpkg = Modpkg::mount_from_reader(file)?;
 
     let metadata = modpkg.load_metadata()?;

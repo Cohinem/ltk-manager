@@ -37,6 +37,13 @@ A type that crosses IPC derives `ts_rs::TS` and `specta::Type` under core's `ts`
 from the second, and `src/lib/tauri.ts` re-exports a migrated module's types out of the
 generated file.
 
+## Filesystem
+
+Filesystem calls go through `fs_err`, aliased per module as `use fs_err as fs;`. The error names
+the path and the operation, where `std::fs` reports the OS text alone, and `AppError::Io` carries
+that message to a user unchanged. `clippy.toml` holds the list that keeps a bare `std::fs` call,
+or the `Path` method that reaches the same syscall, out.
+
 ## Tests
 
 Unit tests live in a file of their own. A module keeps `#[cfg(test)] mod tests;` as its last item

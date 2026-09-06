@@ -21,6 +21,7 @@
 
 use crate::diagnostics::{Severity, windows::check_long_paths_enabled};
 use crate::error::{AppError, AppResult};
+use fs_err as fs;
 use ltk_fantome::FantomeReader;
 use ltk_mod_project::ProjectPaths;
 use ltk_modpkg::Modpkg;
@@ -252,7 +253,7 @@ fn refuse_if_too_long(longest: usize, max: usize, root: ImportRoot) -> AppResult
 ///
 /// Fails when the archive cannot be opened or its entry table cannot be read.
 pub(crate) fn longest_fantome_import_path(archive: &Path, target_dir: &Path) -> AppResult<usize> {
-    let reader = FantomeReader::new(std::fs::File::open(archive)?)
+    let reader = FantomeReader::new(fs::File::open(archive)?)
         .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
 
     let prefix = windows_len(target_dir) + 1;
@@ -298,7 +299,7 @@ fn longest_path_at(staged: &Path, destination: &Path) -> usize {
     let mut pending = vec![staged.to_path_buf()];
 
     while let Some(current) = pending.pop() {
-        let Ok(entries) = std::fs::read_dir(&current) else {
+        let Ok(entries) = fs::read_dir(&current) else {
             continue;
         };
 

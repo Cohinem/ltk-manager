@@ -5,9 +5,9 @@
 //! verdict reports and a bounded excerpt, and never keeps the file. Nothing in
 //! here knows about the patcher, a mod, or Tauri.
 
+use fs_err::{self as fs, File};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, VecDeque};
-use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;

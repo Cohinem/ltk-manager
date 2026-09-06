@@ -287,6 +287,18 @@ mod tests {
         }
     }
 
+    /// A failed filesystem call reaches a reader with the path in the message,
+    /// which is what `fs_err` is in the dependency list for.
+    #[test]
+    fn io_error_names_the_path_that_failed() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("absent.json");
+
+        let error: AppError = fs_err::read(&missing).unwrap_err().into();
+
+        assert!(error.to_string().contains("absent.json"), "{error}");
+    }
+
     #[test]
     fn utf8_path_ext_converts_valid_path() {
         let utf8 = PathBuf::from("/tmp/foo/bar")

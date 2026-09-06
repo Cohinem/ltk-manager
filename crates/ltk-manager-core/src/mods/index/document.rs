@@ -16,9 +16,9 @@ use crate::mods::slug::ModSlug;
 use crate::mods::types::{LibraryFolder, Profile, ProfileSlug, ROOT_FOLDER_ID};
 use crate::utils::fs::atomic_write;
 use chrono::{DateTime, Utc};
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -348,12 +348,12 @@ impl LibraryModEntry {
     pub(crate) fn remove_files(&self, storage_dir: &Path) -> AppResult<()> {
         let mod_dir = self.mod_dir(storage_dir);
         if mod_dir.exists() {
-            std::fs::remove_dir_all(&mod_dir)?;
+            fs::remove_dir_all(&mod_dir)?;
         }
 
         let archive_path = self.archive_path(storage_dir);
         if archive_path.exists() {
-            std::fs::remove_file(&archive_path)?;
+            fs::remove_file(&archive_path)?;
             tracing::info!("Deleted mod archive at {}", archive_path.display());
         }
 

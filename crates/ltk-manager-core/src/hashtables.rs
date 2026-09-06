@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
+use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_mimir_cache::{
     CheckError, CheckReport, Fetch, FetchError, HashStore, LockHolder, ManifestError,
@@ -391,7 +392,7 @@ impl HashtableCache {
                 missing.push(table.id().to_owned());
                 continue;
             };
-            let size_bytes = std::fs::metadata(self.store.dir().join(&entry.file))
+            let size_bytes = fs::metadata(self.store.dir().join(&entry.file))
                 .map(|m| m.len())
                 .unwrap_or(0);
             tables.push(HashtableStatus {

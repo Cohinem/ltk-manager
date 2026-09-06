@@ -1,5 +1,6 @@
 use super::*;
 
+use fs_err as fs;
 use specta_typescript::Typescript;
 
 /// Where `pnpm generate:types` writes the generated bindings, relative to this crate.
@@ -21,7 +22,7 @@ fn render() -> String {
     let dir = tempfile::tempdir().expect("a temp dir to export into");
     let path = dir.path().join("bindings.ts");
     export(&path);
-    std::fs::read_to_string(&path).expect("the exported bindings to be readable")
+    fs::read_to_string(&path).expect("the exported bindings to be readable")
 }
 
 #[test]

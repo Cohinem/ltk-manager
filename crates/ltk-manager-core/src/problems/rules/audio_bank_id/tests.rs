@@ -1,6 +1,7 @@
 //! Unit tests for what the rule reports, what it stays quiet about, and what
 //! its repair writes.
 
+use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{NoMeta, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
@@ -52,8 +53,8 @@ fn tree_at(at: &str, bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
         .join("content")
         .join("base")
         .join(format!("{WAD}/{at}").replace('/', std::path::MAIN_SEPARATOR_STR));
-    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-    std::fs::write(&file, bytes).unwrap();
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    fs::write(&file, bytes).unwrap();
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     (tmp, files)
@@ -82,7 +83,7 @@ fn archive(bytes: &[u8]) -> (tempfile::TempDir, ProjectFiles) {
 
 /// The bytes the repair left at `at`.
 fn read_back(tmp: &tempfile::TempDir, at: &str) -> Vec<u8> {
-    std::fs::read(
+    fs::read(
         tmp.path()
             .join("content")
             .join("base")
@@ -339,8 +340,8 @@ fn tree_with_bin(at: &str, bytes: &[u8], names: &[&str]) -> (tempfile::TempDir, 
             .join("content")
             .join("base")
             .join(format!("{WAD}/{path}").replace('/', std::path::MAIN_SEPARATOR_STR));
-        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-        std::fs::write(&file, bytes).unwrap();
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, bytes).unwrap();
     }
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();

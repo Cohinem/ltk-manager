@@ -11,8 +11,8 @@
 //! out of, that the destination must not be inside the League install, and how
 //! to report progress to a UI without one event per chunk.
 
+use fs_err as fs;
 use std::collections::{BTreeMap, HashSet};
-use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};

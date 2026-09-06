@@ -8,6 +8,7 @@ use std::fmt;
 use std::path::Path;
 use std::str::FromStr;
 
+use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -70,7 +71,7 @@ impl GameBuild {
     /// Read the content build out of a `Game` directory.
     #[must_use]
     pub fn read(game_dir: &Path) -> Option<Self> {
-        let text = std::fs::read_to_string(game_dir.join(METADATA_FILE))
+        let text = fs::read_to_string(game_dir.join(METADATA_FILE))
             .inspect_err(|e| tracing::debug!("No {METADATA_FILE} under {game_dir:?}: {e}"))
             .ok()?;
         let metadata: ContentMetadata = serde_json::from_str(&text)
@@ -176,7 +177,7 @@ mod tests {
     #[test]
     fn reading_a_game_directory_takes_the_version_field() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::write(
+        fs::write(
             tmp.path().join(METADATA_FILE),
             r#"{ "version": "16.16.8049184+branch.releases-16-16.content.release" }"#,
         )
@@ -193,10 +194,10 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         assert_eq!(GameBuild::read(tmp.path()), None);
 
-        std::fs::write(tmp.path().join(METADATA_FILE), "{ not json").unwrap();
+        fs::write(tmp.path().join(METADATA_FILE), "{ not json").unwrap();
         assert_eq!(GameBuild::read(tmp.path()), None);
 
-        std::fs::write(tmp.path().join(METADATA_FILE), r#"{ "version": "live" }"#).unwrap();
+        fs::write(tmp.path().join(METADATA_FILE), r#"{ "version": "live" }"#).unwrap();
         assert_eq!(GameBuild::read(tmp.path()), None);
     }
 

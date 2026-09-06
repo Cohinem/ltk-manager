@@ -9,6 +9,7 @@
 //! Every function here is best-effort: a cache that can't be deleted is logged
 //! and skipped, never fatal.
 
+use fs_err as fs;
 use std::path::Path;
 
 /// Wipe every profile's cached overlay artifacts when the app version changed
@@ -29,7 +30,7 @@ use std::path::Path;
 pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path, app_version: &str) {
     let marker = storage_dir.join(".overlay-build-version");
 
-    let up_to_date = std::fs::read_to_string(&marker)
+    let up_to_date = fs::read_to_string(&marker)
         .ok()
         .is_some_and(|v| v.trim() == app_version);
     if up_to_date {
@@ -37,7 +38,7 @@ pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path, app_vers
     }
 
     let profiles_dir = storage_dir.join("profiles");
-    if let Ok(entries) = std::fs::read_dir(&profiles_dir) {
+    if let Ok(entries) = fs::read_dir(&profiles_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
@@ -46,8 +47,8 @@ pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path, app_vers
         }
     }
 
-    let _ = std::fs::create_dir_all(storage_dir);
-    match std::fs::write(&marker, app_version) {
+    let _ = fs::create_dir_all(storage_dir);
+    match fs::write(&marker, app_version) {
         Ok(()) => tracing::info!(
             "Flushed cached overlays for app version {} (overlay build logic may have changed)",
             app_version
@@ -68,7 +69,7 @@ pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path, app_vers
 /// archives.
 pub(crate) fn force_flush_on_next_build(storage_dir: &Path) {
     let marker = storage_dir.join(".overlay-build-version");
-    match std::fs::remove_file(&marker) {
+    match fs::remove_file(&marker) {
         Ok(()) => tracing::info!("Cleared the overlay build-version marker"),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
         Err(e) => tracing::warn!(
@@ -89,7 +90,7 @@ pub(crate) fn force_flush_on_next_build(storage_dir: &Path) {
 pub(super) fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bool) {
     let overlay_dir = profile_dir.join("overlay");
     if overlay_dir.exists()
-        && let Err(e) = std::fs::remove_dir_all(&overlay_dir)
+        && let Err(e) = fs::remove_dir_all(&overlay_dir)
     {
         tracing::warn!(
             "Failed to remove overlay directory {}: {}",
@@ -107,7 +108,7 @@ pub(super) fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bo
     }
     for file in files {
         if file.exists()
-            && let Err(e) = std::fs::remove_file(&file)
+            && let Err(e) = fs::remove_file(&file)
         {
             tracing::warn!(
                 "Failed to remove overlay artifact {}: {}",
@@ -122,7 +123,7 @@ pub(super) fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bo
 /// JSON and remove them so `ltk_overlay` does not fail to parse stale/corrupt
 /// state files written by a previous run that was interrupted mid-write.
 pub(super) fn clean_corrupt_overlay_state(state_dir: &camino::Utf8Path) {
-    let entries = match std::fs::read_dir(state_dir) {
+    let entries = match fs::read_dir(state_dir) {
         Ok(e) => e,
         Err(_) => return,
     };
@@ -134,7 +135,7 @@ pub(super) fn clean_corrupt_overlay_state(state_dir: &camino::Utf8Path) {
         if path.extension().and_then(|e| e.to_str()) != Some("json") {
             continue;
         }
-        let contents = match std::fs::read_to_string(&path) {
+        let contents = match fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
         };
@@ -145,7 +146,7 @@ pub(super) fn clean_corrupt_overlay_state(state_dir: &camino::Utf8Path) {
                 "Removing corrupt overlay state file before build: {}",
                 path.display()
             );
-            let _ = std::fs::remove_file(&path);
+            let _ = fs::remove_file(&path);
         }
     }
 }

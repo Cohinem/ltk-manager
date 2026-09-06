@@ -11,8 +11,8 @@ use crate::mods::index::document::archive_path;
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::ROOT_FOLDER_ID;
+use fs_err as fs;
 use std::collections::HashSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Reconcile the library index against the filesystem.

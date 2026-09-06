@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use chrono::Utc;
+use fs_err as fs;
 use std::collections::HashMap;
-use std::fs;
 use uuid::Uuid;
 
 use crate::mods::ModLibrary;

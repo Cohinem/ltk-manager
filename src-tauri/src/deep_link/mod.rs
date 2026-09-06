@@ -394,6 +394,8 @@ fn truncate_str(s: &str, max_chars: usize) -> &str {
 mod tests {
     use super::*;
 
+    use fs_err as fs;
+
     /// The install route a raw URL names, for the tests that read its fields.
     fn install(raw_url: &str) -> AppResult<DeepLinkInstallRequest> {
         match parse_deep_link_url(raw_url)? {
@@ -818,36 +820,36 @@ mod tests {
     fn sniff_zip_magic_returns_fantome() {
         let dir = std::env::temp_dir();
         let path = dir.join("test_sniff_zip.tmp");
-        std::fs::write(&path, [0x50, 0x4B, 0x03, 0x04, 0x00, 0x00]).unwrap();
+        fs::write(&path, [0x50, 0x4B, 0x03, 0x04, 0x00, 0x00]).unwrap();
         assert_eq!(sniff_extension_from_file(&path), Some("fantome".into()));
-        let _ = std::fs::remove_file(&path);
+        let _ = fs::remove_file(&path);
     }
 
     #[test]
     fn sniff_non_zip_returns_none() {
         let dir = std::env::temp_dir();
         let path = dir.join("test_sniff_nonzip.tmp");
-        std::fs::write(&path, b"not a zip file at all").unwrap();
+        fs::write(&path, b"not a zip file at all").unwrap();
         assert_eq!(sniff_extension_from_file(&path), None);
-        let _ = std::fs::remove_file(&path);
+        let _ = fs::remove_file(&path);
     }
 
     #[test]
     fn sniff_empty_file_returns_none() {
         let dir = std::env::temp_dir();
         let path = dir.join("test_sniff_empty.tmp");
-        std::fs::write(&path, b"").unwrap();
+        fs::write(&path, b"").unwrap();
         assert_eq!(sniff_extension_from_file(&path), None);
-        let _ = std::fs::remove_file(&path);
+        let _ = fs::remove_file(&path);
     }
 
     #[test]
     fn sniff_short_file_returns_none() {
         let dir = std::env::temp_dir();
         let path = dir.join("test_sniff_short.tmp");
-        std::fs::write(&path, [0x50, 0x4B]).unwrap();
+        fs::write(&path, [0x50, 0x4B]).unwrap();
         assert_eq!(sniff_extension_from_file(&path), None);
-        let _ = std::fs::remove_file(&path);
+        let _ = fs::remove_file(&path);
     }
 
     #[test]

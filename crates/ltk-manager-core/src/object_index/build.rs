@@ -3,7 +3,7 @@
 //! Fed by the built [`GameIndex`], which already folded the install's chunks and
 //! numbered its archives, so no table of contents is walked twice.
 
-use std::fs;
+use fs_err as fs;
 use std::io::{BufReader, Cursor, Read, Seek, SeekFrom};
 use std::sync::Arc;
 use std::time::Instant;
