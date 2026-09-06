@@ -14,7 +14,6 @@ import { twMerge } from "tailwind-merge";
 import {
   CollectionIcon,
   IconButton,
-  LayerIcon,
   LootIcon,
   MinionIcon,
   PoroIcon,
@@ -27,6 +26,7 @@ import { m } from "@/i18n";
 import { api, type AppInfo, type VerdictKind } from "@/lib/tauri";
 import { isInformational, useLatestIncident } from "@/modules/diagnostics";
 import { useHomeUnread } from "@/modules/home";
+import { withNativeNav } from "@/modules/native";
 import { type AppMark, useAppMark, useRollAppMark } from "@/stores";
 
 import { AppMenu } from "./AppMenu";
@@ -34,12 +34,11 @@ import { cellActive, cellBase, cellInactive, iconLiftClass } from "./cells";
 import { NotificationCenter } from "./NotificationCenter";
 import { UpdateButton } from "./UpdateButton";
 
-const navItems = [
+const navItems = withNativeNav([
   { to: "/", label: m.home_nav_label(), icon: HouseIcon, exact: true },
   { to: "/mods", label: m.library_nav_label(), icon: CollectionIcon, exact: false },
-  { to: "/native", label: "Native", icon: LayerIcon, exact: true },
   { to: "/workshop", label: m.workshop_nav_label(), icon: LootIcon, exact: false },
-] as const;
+] as const);
 
 const tabBaseClass = `relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700 ${iconLiftClass}`;
 const tabActiveClass = "text-accent-400";
