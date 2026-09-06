@@ -54,6 +54,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml_ng = "0.10"
 slug = "0.1"
+
+# The IPC boundary sits on a pre-release pin: `specta` and `tauri-specta` are
+# published as release candidates only, and the three crates must move together.
+specta = { version = "=2.0.0-rc.25", features = ["derive"] }
+specta-typescript = "0.0.12"
+tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
+
 strum = { version = "0.27", features = ["derive"] }
 tar = "0.4"
 tempfile = "3"

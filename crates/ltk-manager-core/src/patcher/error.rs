@@ -9,6 +9,7 @@ use super::session::SessionError;
 /// Which stage of a start failed, for [`PatcherError::InjectionFailed`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum InjectionStage {
@@ -28,6 +29,7 @@ pub enum InjectionStage {
 /// Frontend code can switch on `kind` to handle each variant.
 #[derive(Debug, Clone, Serialize, Deserialize, Error)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PatcherError {

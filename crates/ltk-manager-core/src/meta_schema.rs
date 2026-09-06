@@ -192,6 +192,7 @@ impl Shape {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct KindShape {
     pub kind: PropertyKind,
@@ -227,6 +228,7 @@ impl From<Shape> for KindShape {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassSchema {
     /// The class as the database names it.
@@ -242,6 +244,7 @@ pub struct ClassSchema {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct FieldSchema {
     /// `0x` and eight hex digits.
@@ -259,6 +262,7 @@ pub struct FieldSchema {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct FieldRevision {
     /// The first content build the revision holds for.

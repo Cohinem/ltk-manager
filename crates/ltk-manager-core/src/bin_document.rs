@@ -37,6 +37,7 @@ pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(8).unwrap();
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct BinDocumentId(u32);
 
@@ -437,6 +438,7 @@ impl BinDocument {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum BinFileKind {
     /// A `PROP`: the objects themselves.
@@ -449,6 +451,7 @@ pub enum BinFileKind {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct BinHeader {
     pub kind: BinFileKind,
@@ -467,6 +470,7 @@ pub struct BinHeader {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct BinObjectHeader {
     /// The object's path hash, `0x` and eight hex digits.
@@ -508,6 +512,7 @@ impl BinObjectHeader {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct BinDocumentHandle {
     pub document: BinDocumentId,
@@ -521,6 +526,7 @@ pub struct BinDocumentHandle {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct BinRows {
     pub rows: Vec<BinRow>,
@@ -531,6 +537,7 @@ pub struct BinRows {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum RowNode {
     /// An object of the file.
@@ -547,6 +554,7 @@ pub enum RowNode {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct BinRow {
     /// The object's path hash, `0x` and eight hex digits.
@@ -572,6 +580,7 @@ pub struct BinRow {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredKind {
     pub shape: KindShape,
@@ -587,6 +596,7 @@ pub struct DeclaredKind {
 /// compile error here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum PropertyKind {
     #[serde(rename = "none")]
@@ -728,6 +738,7 @@ impl From<Kind> for PropertyKind {
     rename_all_fields = "camelCase"
 )]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum BinValue {
     None,

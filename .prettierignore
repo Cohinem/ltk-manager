@@ -8,6 +8,7 @@ pnpm-lock.yaml
 # Generated files
 src/routeTree.gen.ts
 src/lib/bindings/
+src/lib/bindings.gen.ts
 src/paraglide/
 gen/
 public/third-party-licenses.json

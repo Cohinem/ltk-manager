@@ -8,6 +8,7 @@
 //! variants collapse to the same code and which fields each carries.
 
 use serde::{Deserialize, Serialize};
+use specta::datatype::{DataType, Enum, Field, Variant};
 use ts_rs::TS;
 
 use ltk_manager_core::bin_document::BinDocumentError;
@@ -23,7 +24,7 @@ use crate::github::{GitHubError, GitHubErrorKind};
 /// The frontend owns every sentence a user reads (ADR-0017), so no variant
 /// carries one. A `detail` is prose from outside the app, such as an OS or
 /// crate error, which the frontend draws as data under a title of its own.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS, specta::Type)]
 #[ts(export, rename = "AppError")]
 #[serde(
     tag = "code",
@@ -113,7 +114,7 @@ pub enum AppErrorResponse {
 }
 
 /// Which of the things GitHub publishes a read was after.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GitHubFeed {
@@ -175,6 +176,41 @@ impl<T: Serialize> Serialize for IpcResult<T> {
             }
         }
     }
+}
+
+/// The same two objects the `Serialize` above writes, as the exporter reads them.
+///
+/// Hand-written for the same reason that impl is: `ok` is the literal `true` or
+/// `false`, which no derive expresses. The pair is one edit.
+impl<T: specta::Type> specta::Type for IpcResult<T> {
+    fn definition(types: &mut specta::Types) -> DataType {
+        let mut shape = Enum::default();
+        shape.variants = vec![
+            (
+                "Ok".into(),
+                Variant::named()
+                    .field("ok", literal("true"))
+                    .field("value", Field::new(T::definition(types)))
+                    .build(),
+            ),
+            (
+                "Err".into(),
+                Variant::named()
+                    .field("ok", literal("false"))
+                    .field("error", Field::new(AppErrorResponse::definition(types)))
+                    .build(),
+            ),
+        ];
+        /* A union of the two, rather than one object per variant name. The key is
+        `specta_serde`'s, which is where an exporter reads the representation from. */
+        shape.attributes.insert("serde:container:untagged", true);
+        DataType::Enum(shape)
+    }
+}
+
+/// A field holding one TypeScript literal, which specta has no datatype for.
+fn literal(value: &'static str) -> Field {
+    Field::new(DataType::Reference(specta_typescript::define(value)))
 }
 
 impl<T> IpcResult<T> {

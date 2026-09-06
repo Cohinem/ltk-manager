@@ -7,12 +7,8 @@ import type {
   AppInfo,
   AssetInfo,
   AssetRef,
-  BinDocumentHandle,
-  BinDocumentId,
-  BinRows,
   BulkInstallResult,
   ChecksumMismatchInfo,
-  ClassSchema,
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
@@ -84,9 +80,28 @@ import type {
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
+import { type BinDocumentId, commands } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
+// The bin editor's types, per ADR-0029. An explicit export shadows the star above.
+export type {
+  BinDocumentHandle,
+  BinDocumentId,
+  BinFileKind,
+  BinHeader,
+  BinObjectHeader,
+  BinRow,
+  BinRows,
+  BinValue,
+  ClassSchema,
+  DeclaredKind,
+  FieldRevision,
+  FieldSchema,
+  KindShape,
+  PropertyKind,
+  RowNode,
+} from "@/lib/bindings.gen";
 export type { Result } from "@/utils/result";
 export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
 
@@ -310,18 +325,16 @@ export const api = {
   cancelExtract: () => invokeResult<boolean>("cancel_extract"),
 
   // Bin viewer
-  binOpen: (asset: AssetRef, entry: string | null) =>
-    invokeResult<BinDocumentHandle>("bin_open", { asset, entry }),
+  binOpen: (asset: AssetRef, entry: string | null) => commands.binOpen(asset, entry).then(toResult),
   binChildren: (
     document: BinDocumentId,
     entry: string,
     path: string,
     offset: number,
     limit: number,
-  ) => invokeResult<BinRows>("bin_children", { document, entry, path, offset, limit }),
-  binClose: (document: BinDocumentId) => invokeResult<void>("bin_close", { document }),
-  classSchema: (classHash: string) =>
-    invokeResult<ClassSchema | null>("class_schema", { classHash }),
+  ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
+  binClose: (document: BinDocumentId) => commands.binClose(document).then(toResult),
+  classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),

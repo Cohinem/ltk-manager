@@ -25,6 +25,18 @@ Read-only calls to the Riot Client return `Option`, never `Result`: every caller
 and "the client didn't answer" is not a failure worth showing a user. Only launching, closing and
 building a launcher return `LauncherError`.
 
+## IPC
+
+The command table has two halves. `main.rs` holds `generate_handler!`, and `ipc.rs` holds the
+commands on `tauri-specta` (ADR-0029). A command moves by gaining `#[specta::specta]`, leaving
+the `generate_handler!` list and joining `migrated![]`. Both halves answer the same names over
+the same `IpcResult` envelope.
+
+A type that crosses IPC derives `ts_rs::TS` and `specta::Type` under core's `ts` feature.
+`pnpm generate:types` writes `src/lib/bindings/` from the first and `src/lib/bindings.gen.ts`
+from the second, and `src/lib/tauri.ts` re-exports a migrated module's types out of the
+generated file.
+
 ## Tests
 
 Unit tests live in a file of their own. A module keeps `#[cfg(test)] mod tests;` as its last item

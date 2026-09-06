@@ -294,7 +294,8 @@ function StructValue({ value, object }: StructValueProps) {
 
 interface ComponentsProps {
   labels: readonly string[];
-  values: readonly number[];
+  /** A component is `null` for a float JSON cannot carry: a NaN or an infinity. */
+  values: readonly (number | null)[];
 }
 
 function Components({ labels, values }: ComponentsProps) {
@@ -311,7 +312,7 @@ function Components({ labels, values }: ComponentsProps) {
 }
 
 /** Sixteen cells, shut until asked for. A shut matrix is one line like every other row. */
-function MatrixValue({ values }: { values: readonly number[] }) {
+function MatrixValue({ values }: { values: readonly (number | null)[] }) {
   const [open, setOpen] = useState(false);
 
   if (!open) {

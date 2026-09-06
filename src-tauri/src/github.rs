@@ -21,7 +21,7 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 const REMAINING: &str = "x-ratelimit-remaining";
 
 /// Which way a read of GitHub failed, as the remedy it has.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GitHubErrorKind {
