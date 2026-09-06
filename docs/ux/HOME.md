@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-06 | Open on gains Workshop, as a third choice and never a memory (#424)     |
 | 2026-09-04 | Move mod health off the status line, into the library tile's marker     |
 | 2026-09-04 | Move the status line under Play, hedge its words, rebuild the News card |
 | 2026-09-04 | Turn the launch control green while the patcher is up                   |
@@ -13,7 +14,6 @@
 | 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats     |
 | 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast  |
 | 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot   |
-| 2026-09-03 | Specify v1 in #391: stubs for the checklist and the game build          |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -72,7 +72,7 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | News and Learn             | Available | One card. The links under the posts, so the card is never empty              |
 | Getting started            | Proposed  | A checklist for a new install. The migration offer stands in for it          |
 | The unread dot             | Available | On the Home tab, in the diagnostics dot's shape                              |
-| Open on                    | Available | A Startup setting: Home or Mods                                              |
+| Open on                    | Available | A Startup setting: Home, Mods or Workshop                                    |
 | A drop on Home             | Available | Mounted on Home as on the library. Lifting both to the root is later         |
 
 ## Layout
@@ -378,8 +378,10 @@ settings anchor, per "The deep link" in [SETTINGS.md](SETTINGS.md).
 The nav reads Home, Mods, Workshop, in that order, and the hotkeys follow the order: `Ctrl+1`,
 `Ctrl+2`, `Ctrl+3`. One rule, and the tab order is the hotkey order. Workshop's key moves.
 
-**Open on** is one setting in the Startup group, Home or Mods, defaulting to Home. A reader who
-starts in the tray sees neither, as today.
+**Open on** is one setting in the Startup group, Home, Mods or Workshop, defaulting to Home. A
+reader who starts in the tray sees none of them, as today, and the first-run redirect wins. It
+stays a choice. Nothing remembers the last route, because the dot exists to bring a reader back
+to Home, and a memory would work against it.
 
 **The dot.** The Home tab carries a dot when the page holds something the reader has not seen:
 the installed version's notes, a notice, or a post newer than their last visit. The installed

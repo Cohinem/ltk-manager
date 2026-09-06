@@ -3,4 +3,4 @@
 /**
  * The page the window opens on.
  */
-export type OpenOn = "home" | "mods";
+export type OpenOn = "home" | "mods" | "workshop";
