@@ -16,7 +16,8 @@ const CHAMPION_STEP: u8 = 52;
 const MAP_STEP: u8 = 62;
 
 /// A game that ended inside this many seconds under the lazy scan earns the
-/// up-front scan hint.
+/// up-front scan hint, and one that ended inside them with a redirected
+/// archive and no log is an incident.
 const EARLY_CRASH_SECS: f64 = 60.0;
 
 impl GameRecord {
@@ -40,6 +41,7 @@ impl GameRecord {
             ending: Ending::default(),
             log_path: None,
             log: None,
+            log_searched: false,
             timeline: Vec::new(),
         }
     }
@@ -194,6 +196,7 @@ impl GameRecord {
         Self::rule_graphics_fault,
         Self::rule_stuck_loading,
         Self::rule_archive_skipped,
+        Self::rule_short_game_without_log,
         Self::rule_ended_without_reason,
     ];
 
@@ -545,6 +548,33 @@ impl GameRecord {
             verdict = verdict.with_hint(Hint::OpenProject);
         }
         Some((verdict, suspects))
+    }
+
+    /// A game the overlay reached that ended inside its first minute, with no
+    /// log under the configured install to say why.
+    ///
+    /// A log that is not where the configured install writes one is the sign
+    /// of a game that ran from another install, so the hint is the League path.
+    fn rule_short_game_without_log(
+        &self,
+        _ctx: &ClassifyContext<'_>,
+    ) -> Option<(Verdict, Vec<Suspect>)> {
+        if !self.log_searched
+            || self.log.is_some()
+            || self.redirected.is_empty()
+            || self.duration_secs() >= EARLY_CRASH_SECS
+        {
+            return None;
+        }
+        let verdict = Verdict::new(
+            VerdictKind::EndedWithoutReason,
+            format!(
+                "League ended {:.0} seconds after the patcher redirected an archive into it, and no game log for the game was found under the configured install.",
+                self.duration_secs()
+            ),
+        )
+        .with_hint(Hint::CheckGamePath);
+        Some((verdict, Vec::new()))
     }
 
     /// League closed and left no reason the manager can read.

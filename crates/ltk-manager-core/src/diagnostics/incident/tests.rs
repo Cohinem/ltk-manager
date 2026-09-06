@@ -677,6 +677,50 @@ fn an_ending_with_no_reason_lists_the_facts() {
     assert_eq!(incident.verdict.hints, [Hint::CopyReport]);
 }
 
+/// The reporter's game: two seconds after the DLL redirected an archive the
+/// game was gone, and the configured install held no log for it.
+#[test]
+fn a_short_redirected_game_without_a_log_is_an_incident() {
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    record.log_searched = true;
+    assert!(!record.worth_reporting());
+    let incident = classify(&record, &no_path).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::EndedWithoutReason);
+    assert_eq!(
+        incident.verdict.cause,
+        "League ended 2 seconds after the patcher redirected an archive into it, and no game log for the game was found under the configured install."
+    );
+    assert_eq!(incident.verdict.hints, [Hint::CheckGamePath]);
+    assert!(incident.suspects.is_empty());
+    assert_eq!(incident.game, None);
+}
+
+#[test]
+fn a_short_game_without_a_redirect_stays_clean_without_a_log() {
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    record.log_searched = true;
+    record.redirected.clear();
+    assert_eq!(classify(&record, &no_path), None);
+}
+
+#[test]
+fn a_game_past_the_bound_stays_clean_without_a_log() {
+    let mut record = modded_game();
+    record.ended_at = at(120);
+    record.log_searched = true;
+    assert_eq!(classify(&record, &no_path), None);
+}
+
+/// With the reader off nothing was looked for, and a missing log says nothing.
+#[test]
+fn a_short_game_the_reader_never_looked_at_stays_clean() {
+    let mut record = modded_game();
+    record.ended_at = at(2);
+    assert_eq!(classify(&record, &no_path), None);
+}
+
 #[test]
 fn a_crash_marker_alone_is_worth_reporting() {
     let mut record = modded_game();

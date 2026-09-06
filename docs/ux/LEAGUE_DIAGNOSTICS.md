@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-06 | A short redirected game with no log is an incident, not a clean game    |
 | 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence           |
 | 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt   |
 | 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed  |
@@ -528,23 +529,23 @@ effect and reads no file, so every row below is a unit test.
 
 The rows are in precedence order. The first row whose evidence is present wins.
 
-| Verdict                    | Rests on                                                      | Cost            | Names a mod |
-| -------------------------- | ------------------------------------------------------------- | --------------- | ----------- |
-| DLL injection failure      | A build error, or `InjectionFailed` at either stage           | overlay-off     | Sometimes   |
-| Unsupported game build     | `end of life reached` on the `dll` lines                      | overlay-off     | No          |
-| Skinhack detection         | `patcher-wad-scan-failed`, status `c0000229`                  | overlay-off     | Yes         |
-| Archive scan rejection     | `patcher-wad-scan-failed`, any other status                   | overlay-off     | Yes         |
-| Overlay verification fail. | `overlay verification failed`, with its archive               | overlay-off     | Yes         |
-| No mods applied            | A game the session or the host saw, and no live overlay in it | overlay-off     | No          |
-| Missing game data          | A `missing_data` code, with its hash                          | game-stopped    | Yes         |
-| Archive mount failure      | A `wad_mount` code                                            | game-stopped    | Sometimes   |
-| Texture creation failure   | A `texture` code, and `E_INVALIDARG`                          | game-stopped    | Sometimes   |
-| Memory allocation failure  | A `memory` code                                               | game-stopped    | No          |
-| Graphics device failure    | A `device` code                                               | game-stopped    | No          |
-| Loading screen stall       | A last `load_step`, no `Loading Ended`, and an ending         | game-hung       | Sometimes   |
-| Archive verification skip  | `lazy verification failed`, with its archive                  | archive-dropped | Yes         |
-| Unexplained game exit      | Any ending worth reporting, and nothing above                 | game-stopped    | No          |
-| Clean                      | `Exit` with code 0, or `teardown` with no reason              | -               | No incident |
+| Verdict                    | Rests on                                                                                             | Cost            | Names a mod |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- | --------------- | ----------- |
+| DLL injection failure      | A build error, or `InjectionFailed` at either stage                                                  | overlay-off     | Sometimes   |
+| Unsupported game build     | `end of life reached` on the `dll` lines                                                             | overlay-off     | No          |
+| Skinhack detection         | `patcher-wad-scan-failed`, status `c0000229`                                                         | overlay-off     | Yes         |
+| Archive scan rejection     | `patcher-wad-scan-failed`, any other status                                                          | overlay-off     | Yes         |
+| Overlay verification fail. | `overlay verification failed`, with its archive                                                      | overlay-off     | Yes         |
+| No mods applied            | A game the session or the host saw, and no live overlay in it                                        | overlay-off     | No          |
+| Missing game data          | A `missing_data` code, with its hash                                                                 | game-stopped    | Yes         |
+| Archive mount failure      | A `wad_mount` code                                                                                   | game-stopped    | Sometimes   |
+| Texture creation failure   | A `texture` code, and `E_INVALIDARG`                                                                 | game-stopped    | Sometimes   |
+| Memory allocation failure  | A `memory` code                                                                                      | game-stopped    | No          |
+| Graphics device failure    | A `device` code                                                                                      | game-stopped    | No          |
+| Loading screen stall       | A last `load_step`, no `Loading Ended`, and an ending                                                | game-hung       | Sometimes   |
+| Archive verification skip  | `lazy verification failed`, with its archive                                                         | archive-dropped | Yes         |
+| Unexplained game exit      | Any ending worth reporting, and nothing above. A redirected game inside its first minute with no log | game-stopped    | No          |
+| Clean                      | `Exit` with code 0, or `teardown` with no reason                                                     | -               | No incident |
 
 **Clean** is the common case, and it writes nothing. A game that ends the way the client
 meant it to is not an incident, and a list of incidents that held every game would be a list
@@ -665,6 +666,13 @@ is the branch's toast, with the facts under it: the client's reason and code, wh
 crashpad ran, the game's version, the last five lines of the log, how many `ERROR` lines it
 held, and every code it saw with whatever the table says. Nothing is guessed. The one action
 that always helps is `Copy report`, and this is the verdict that needs it most.
+
+A game the patcher redirected an archive into, that ended inside its first minute, with no
+log under the configured install, is this verdict whatever the ending said. The cause says
+how many seconds the game lived and that no log was found, and the hint points at the League
+path in Settings. A log that is not where the configured install writes one is the sign of a
+game that ran from another install. A game with no redirect, or one past the minute, stays
+clean without a log.
 
 ### Consequence
 
@@ -1351,28 +1359,28 @@ coming up.
 
 ### Answered
 
-| Question                                                | Answer                                                                                          |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Is the record per session or per game?                  | Per game. The host outlives the game                                                            |
-| Does the manager read the Sentry event?                 | No. `last_crash` is read, and nothing beside it                                                 |
-| Does anything leave the machine?                        | No. The report is a text the player pastes                                                      |
-| Where does the code table live?                         | In the core crate, compiled in as a TSV, and maintained by hand                                 |
-| What is the kind column for?                            | The classifier switches on it, so a code joins a verdict as a row                               |
-| What does an inferred row read as?                      | A Lead, and never a diagnosis                                                                   |
-| What does an unknown code read as?                      | The code, shown as is. Never an error                                                           |
-| Does `injected` mean the game was modded?               | No. The DLL's `init done` does, and four other lines say why not                                |
-| Where do the DLL's phrases come from?                   | `ltk-patcher`, read at the source, and kept in one module here                                  |
-| Is a crash a popup, a status-bar line, or both?         | Both. The popup announces it for six seconds, and the line keeps the answer until the next game |
-| Does a clean game record an incident?                   | No, with two exceptions: a disabled overlay and a skipped archive                               |
-| How many incidents are kept?                            | The newest fifty, under 1MB together, and the oldest goes                                       |
-| Does a game the patcher never touched make an incident? | Yes, when the session or the host saw it. The verdict is Unmodded, and it says why              |
-| Which key opens the Diagnostics page?                   | `Ctrl+D`, on the Games tab                                                                      |
-| When does the suspect badge clear?                      | On a dismiss, a disable, or a clean game with the mod enabled                                   |
-| What goes into the bug report URL?                      | The incident token, and not the report                                                          |
-| Can the team read a token?                              | Yes. The Games tab decodes one, and so does the core crate without the app                      |
-| Where do the system checks go?                          | The System tab, unchanged                                                                       |
-| Does the manager write into the League directory?       | Never                                                                                           |
-| Which side classifies?                                  | Rust, in the core crate, as a pure function                                                     |
-| What names a suspect?                                   | The archive, through `affected_wads`, and the DLL's redirected list                             |
+| Question                                                | Answer                                                                                                                                                              |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Is the record per session or per game?                  | Per game. The host outlives the game                                                                                                                                |
+| Does the manager read the Sentry event?                 | No. `last_crash` is read, and nothing beside it                                                                                                                     |
+| Does anything leave the machine?                        | No. The report is a text the player pastes                                                                                                                          |
+| Where does the code table live?                         | In the core crate, compiled in as a TSV, and maintained by hand                                                                                                     |
+| What is the kind column for?                            | The classifier switches on it, so a code joins a verdict as a row                                                                                                   |
+| What does an inferred row read as?                      | A Lead, and never a diagnosis                                                                                                                                       |
+| What does an unknown code read as?                      | The code, shown as is. Never an error                                                                                                                               |
+| Does `injected` mean the game was modded?               | No. The DLL's `init done` does, and four other lines say why not                                                                                                    |
+| Where do the DLL's phrases come from?                   | `ltk-patcher`, read at the source, and kept in one module here                                                                                                      |
+| Is a crash a popup, a status-bar line, or both?         | Both. The popup announces it for six seconds, and the line keeps the answer until the next game                                                                     |
+| Does a clean game record an incident?                   | No, with three exceptions: a disabled overlay, a skipped archive, and a redirected game that ended inside its first minute with no log under the configured install |
+| How many incidents are kept?                            | The newest fifty, under 1MB together, and the oldest goes                                                                                                           |
+| Does a game the patcher never touched make an incident? | Yes, when the session or the host saw it. The verdict is Unmodded, and it says why                                                                                  |
+| Which key opens the Diagnostics page?                   | `Ctrl+D`, on the Games tab                                                                                                                                          |
+| When does the suspect badge clear?                      | On a dismiss, a disable, or a clean game with the mod enabled                                                                                                       |
+| What goes into the bug report URL?                      | The incident token, and not the report                                                                                                                              |
+| Can the team read a token?                              | Yes. The Games tab decodes one, and so does the core crate without the app                                                                                          |
+| Where do the system checks go?                          | The System tab, unchanged                                                                                                                                           |
+| Does the manager write into the League directory?       | Never                                                                                                                                                               |
+| Which side classifies?                                  | Rust, in the core crate, as a pure function                                                                                                                         |
+| What names a suspect?                                   | The archive, through `affected_wads`, and the DLL's redirected list                                                                                                 |
 
 A row moves here when the body of this document carries the answer.

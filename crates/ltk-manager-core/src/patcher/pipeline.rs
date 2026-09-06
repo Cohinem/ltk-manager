@@ -126,6 +126,7 @@ impl IncidentPipeline {
         let Some(league_path) = self.config.league_path.as_deref() else {
             return;
         };
+        record.log_searched = true;
 
         let logs = LeagueLogs::new(league_path);
         let window = GameWindow {

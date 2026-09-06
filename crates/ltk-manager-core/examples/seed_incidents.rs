@@ -221,6 +221,7 @@ fn base(ended_at: DateTime<Utc>) -> GameRecord {
             r"C:\Riot Games\League of Legends\Logs\GameLogs\mock\mock_r3dlog.txt",
         )),
         log: None,
+        log_searched: false,
         timeline: vec![
             line(started_at, EvidenceSource::Host, "game found"),
             line(started_at, EvidenceSource::Dll, "init done"),

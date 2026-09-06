@@ -582,6 +582,9 @@ pub struct GameRecord {
     pub log_path: Option<PathBuf>,
     /// `None` when no log was found, or the reader is turned off.
     pub log: Option<GameLogFacts>,
+    /// Whether the reader looked for a log. False with the reader off, or no
+    /// install configured.
+    pub log_searched: bool,
     pub timeline: Vec<RawEvidence>,
 }
 
