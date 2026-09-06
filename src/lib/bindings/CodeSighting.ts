@@ -11,4 +11,9 @@ at: number,
 /**
  * The whole record, redacted.
  */
-line: string, };
+line: string, 
+/**
+ * The lines under the record with no columns of their own, in order and
+ * redacted like it.
+ */
+detail: Array<string>, };

@@ -33,6 +33,9 @@ const EXCERPT_BYTES: usize = 16 * 1024;
 /// every frame, and the last sightings are the ones a verdict reads.
 const MAX_SIGHTINGS: usize = 256;
 
+/// Detail lines one sighting keeps. League's multi-line errors run to three.
+const DETAIL_LINES: usize = 16;
+
 /// How long a read waits for the game to let go of the file.
 const READ_RETRY_BUDGET: Duration = Duration::from_secs(5);
 
@@ -57,6 +60,20 @@ pub struct CodeSighting {
     pub at: f64,
     /// The whole record, redacted.
     pub line: String,
+    /// The lines under the record with no columns of their own, in order and
+    /// redacted like it.
+    pub detail: Vec<String>,
+}
+
+impl CodeSighting {
+    /// The value of the `Key: value` detail line named `key`, matched without
+    /// regard to case, or `None` when no detail line carries it.
+    pub fn detail_value(&self, key: &str) -> Option<&str> {
+        self.detail.iter().find_map(|line| {
+            let (found, value) = line.trim().trim_start_matches(['-', ' ']).split_once(':')?;
+            found.trim().eq_ignore_ascii_case(key).then(|| value.trim())
+        })
+    }
 }
 
 /// What one game's log says, without the log.
@@ -86,7 +103,8 @@ pub struct GameLogFacts {
     pub error_lines: u32,
     pub total_lines: u32,
     pub last_time: f64,
-    /// The last forty lines, and ten around each coded line.
+    /// The last forty lines, and ten around each coded line, with a record's
+    /// detail lines under it.
     pub excerpt: Vec<String>,
 }
 
@@ -126,8 +144,8 @@ pub struct Record<'a> {
 impl<'a> Record<'a> {
     /// Splits one log line into its columns.
     ///
-    /// `None` for anything that is not a record, which is how NUL padding and
-    /// a line a crash tore are skipped.
+    /// `None` for anything that is not a record: a detail line under one, NUL
+    /// padding, or a line a crash tore.
     pub fn parse(line: &'a str) -> Option<Self> {
         let (time, rest) = line.split_once('|')?;
         let time = time.trim();
@@ -299,6 +317,11 @@ struct Reader {
     context_bytes: usize,
     /// Lines still owed to the last coded line.
     context_due: usize,
+    /// The excerpt's key for the next line, records and detail lines alike.
+    line_index: u32,
+    /// The sightings of the record last read, each with whether it is a load
+    /// step, open for detail lines until the next record.
+    pending: Vec<(CodeSighting, bool)>,
 }
 
 impl Reader {
@@ -310,25 +333,76 @@ impl Reader {
                 break;
             }
             let text = String::from_utf8_lossy(&buf);
-            self.record(text.trim_end_matches(['\n', '\r', '\0']));
+            self.take_line(text.trim_end_matches(['\n', '\r', '\0']));
         }
         Ok(self.finish())
     }
 
-    fn record(&mut self, line: &str) {
-        let Some(record) = Record::parse(line) else {
-            return;
-        };
-        let index = self.facts.total_lines;
+    fn take_line(&mut self, line: &str) {
+        match Record::parse(line) {
+            Some(record) => self.record(&record, line),
+            None => self.note_continuation(line),
+        }
+    }
+
+    fn record(&mut self, record: &Record<'_>, line: &str) {
+        self.flush_pending();
+        let index = self.next_index();
         self.facts.total_lines += 1;
         self.facts.last_time = record.time;
         if record.level == "ERROR" {
             self.facts.error_lines += 1;
         }
-        self.note_header(&record);
-        self.note_flow(&record);
-        let coded = self.note_codes(&record, line);
+        self.note_header(record);
+        self.note_flow(record);
+        let coded = self.note_codes(record, line);
         self.keep(index, line, coded);
+    }
+
+    /// A line under a record with no columns of its own, which is the record's
+    /// detail. A line that opens with a digit is a record or the torn remains
+    /// of one, and NUL padding is nothing.
+    fn note_continuation(&mut self, line: &str) {
+        let text = line.trim();
+        if text.is_empty()
+            || text.starts_with(|c: char| c.is_ascii_digit())
+            || self.facts.total_lines == 0
+        {
+            return;
+        }
+        let index = self.next_index();
+        if self.pending.is_empty() {
+            self.keep(index, line, false);
+            return;
+        }
+        let redacted = redact_line(line);
+        for (sighting, _) in &mut self.pending {
+            if sighting.detail.len() < DETAIL_LINES {
+                sighting.detail.push(redacted.to_string());
+            }
+        }
+        self.remember(index, line.to_owned());
+        self.keep_recent(index, line);
+    }
+
+    /// Closes the record last read: its sightings join the deque, and a load
+    /// step among them is the last one seen.
+    fn flush_pending(&mut self) {
+        for (sighting, is_load_step) in self.pending.drain(..) {
+            if is_load_step {
+                self.facts.last_load_step = Some(sighting.clone());
+            }
+            if self.sightings.len() == MAX_SIGHTINGS {
+                self.sightings.pop_front();
+            }
+            self.sightings.push_back(sighting);
+        }
+    }
+
+    fn next_index(&mut self) -> u32 {
+        let index = self.line_index;
+        self.line_index += 1;
+        index
     }
 
     fn note_header(&mut self, record: &Record<'_>) {
@@ -376,37 +450,33 @@ impl Reader {
         }
     }
 
-    /// Records every code on the line, and says whether there was one.
+    /// Opens the line's codes as the pending record, and says whether there
+    /// was one.
     fn note_codes(&mut self, record: &Record<'_>, line: &str) -> bool {
         let mut redacted: Option<String> = None;
-        let mut coded = false;
         for code in log_codes::find_codes(record.message) {
-            coded = true;
             let line = redacted
                 .get_or_insert_with(|| redact_line(line).into_owned())
                 .clone();
-            let sighting = CodeSighting {
-                code: code.to_owned(),
-                at: record.time,
-                line,
-            };
             let kind = log_codes::lookup(code).map(|row| row.kind);
             let is_load_step = match kind {
                 Some(kind) => matches!(kind, CodeKind::LoadStep(_)),
                 None => record.channel == Some("LOAD"),
             };
-            if is_load_step {
-                self.facts.last_load_step = Some(sighting.clone());
-            }
             if kind == Some(CodeKind::Teardown) {
                 self.teardown_code = true;
             }
-            if self.sightings.len() == MAX_SIGHTINGS {
-                self.sightings.pop_front();
-            }
-            self.sightings.push_back(sighting);
+            self.pending.push((
+                CodeSighting {
+                    code: code.to_owned(),
+                    at: record.time,
+                    line,
+                    detail: Vec::new(),
+                },
+                is_load_step,
+            ));
         }
-        coded
+        !self.pending.is_empty()
     }
 
     fn keep(&mut self, index: u32, line: &str, coded: bool) {
@@ -427,6 +497,11 @@ impl Reader {
             self.context_due -= 1;
             self.remember(index, line.to_owned());
         }
+        self.keep_recent(index, line);
+    }
+
+    /// Keeps a line in the tail, and lets the oldest go.
+    fn keep_recent(&mut self, index: u32, line: &str) {
         if self.recent.len() == TAIL_LINES {
             self.recent.pop_front();
         }
@@ -450,6 +525,7 @@ impl Reader {
     }
 
     fn finish(mut self) -> GameLogFacts {
+        self.flush_pending();
         let mut lines: BTreeMap<u32, (String, bool)> = std::mem::take(&mut self.context)
             .into_iter()
             .map(|(index, line)| (index, (line, true)))
@@ -620,455 +696,4 @@ impl LeagueLogs {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::Cursor;
-
-    use chrono::TimeZone;
-
-    use super::*;
-
-    const CLEAN: &str = include_str!("fixtures/clean_game_r3dlog.txt");
-    const CRASH_TRUNCATED: &[u8] = include_bytes!("fixtures/crash_truncated_r3dlog.bin");
-    const DEVICE_ERROR: &str = include_str!("fixtures/device_error_r3dlog.txt");
-    const MISSING_DATA: &str = include_str!("fixtures/missing_data_r3dlog.txt");
-    const STUCK_LOADING: &str = include_str!("fixtures/stuck_loading_r3dlog.txt");
-
-    fn read(text: &str) -> GameLogFacts {
-        GameLogFacts::read(Cursor::new(text)).expect("the fixture reads")
-    }
-
-    fn codes(facts: &GameLogFacts) -> Vec<&str> {
-        facts.codes.iter().map(|s| s.code.as_str()).collect()
-    }
-
-    #[test]
-    fn a_clean_game_reads_its_facts() {
-        let facts = read(CLEAN);
-        assert_eq!(facts.started_at.as_deref(), Some("2026-08-17T07:26:15.487"));
-        assert_eq!(facts.build_version.as_deref(), Some("16.16.804.9184"));
-        assert_eq!(
-            facts.content_version.as_deref(),
-            Some("16.16.8049184+branch.releases-16-16.content.release")
-        );
-        assert_eq!(
-            facts.game_base_dir.as_deref(),
-            Some(r"C:\Riot Games\League of Legends")
-        );
-        assert_eq!(facts.crash_reporting, Some(false));
-        assert!(facts.loading_ended);
-        assert!(facts.reached_game_loop);
-        assert!(facts.torn_down);
-        assert_eq!(facts.error_lines, 1);
-        assert_eq!(facts.total_lines, 173);
-        assert!((facts.last_time - 8.543).abs() < 1e-9);
-    }
-
-    #[test]
-    fn a_clean_game_keeps_every_code_in_order() {
-        let facts = read(CLEAN);
-        let seen = codes(&facts);
-        assert_eq!(seen.len(), 20);
-        assert_eq!(seen[0], "SEJ-1A4F7C20");
-        assert_eq!(seen[12], "SEJ-5F4B27D8");
-        assert_eq!(seen[19], "ALE-8SDFH23F");
-        assert!(facts.codes.windows(2).all(|pair| pair[0].at <= pair[1].at));
-
-        let step = facts.last_load_step.expect("a last load step");
-        assert_eq!(step.code, "SEJ-5F4B27D8");
-        assert_eq!(
-            log_codes::lookup(&step.code).map(|row| row.kind),
-            Some(CodeKind::LoadStep(63))
-        );
-        assert_eq!(step.line, "000004.111| ALWAYS|  LOAD| SEJ-5F4B27D8");
-    }
-
-    #[test]
-    fn the_excerpt_is_bounded_and_ends_with_the_last_line() {
-        let facts = read(CLEAN);
-        let bytes: usize = facts.excerpt.iter().map(String::len).sum();
-        assert!(bytes < EXCERPT_BYTES, "{bytes} bytes");
-        assert_eq!(
-            facts.excerpt.last().map(String::as_str),
-            Some("000008.543| ALWAYS| r3dRenderLayer::Close() exit")
-        );
-        assert!(facts.excerpt.len() >= TAIL_LINES);
-        assert!(
-            facts
-                .excerpt
-                .iter()
-                .any(|line| line.ends_with("LoadGlobalEffects")),
-            "the lines before the first LOAD marker are context"
-        );
-        assert!(
-            facts
-                .excerpt
-                .iter()
-                .any(|line| line.ends_with("Loading Ended")),
-            "the lines after the last LOAD marker are context"
-        );
-        assert!(
-            !facts.excerpt.iter().any(|line| line.contains("Init enter")),
-            "a line far from any code and outside the tail is not kept"
-        );
-    }
-
-    #[test]
-    fn a_log_a_crash_cut_short_reads_without_panic() {
-        let facts = GameLogFacts::read(Cursor::new(CRASH_TRUNCATED)).expect("the fixture reads");
-        assert_eq!(facts.started_at.as_deref(), Some("2026-06-23T13:23:08.419"));
-        assert_eq!(facts.total_lines, 3);
-        assert_eq!(facts.crash_reporting, Some(true));
-        assert!(!facts.torn_down);
-        assert!(!facts.loading_ended);
-        assert!(facts.codes.is_empty());
-        assert_eq!(facts.excerpt.len(), 3);
-        assert!(
-            facts.excerpt.iter().all(|line| !line.contains('\0')),
-            "no NUL byte reaches the excerpt"
-        );
-        assert_eq!(
-            facts.excerpt[2],
-            r#"000000.148| ALWAYS|   CFG| Command Line: "-GameBaseDir=C:\Riot Games\League of Legends" "-EnableCrashpad=true""#
-        );
-    }
-
-    #[test]
-    fn missing_data_is_sighted_with_the_step_that_ran() {
-        let facts = read(MISSING_DATA);
-        assert_eq!(codes(&facts).last(), Some(&"ALE-9B39AA45"));
-        let step = facts.last_load_step.expect("a last load step");
-        assert_eq!(step.code, "SEJ-9F31B5D0");
-        assert_eq!(
-            log_codes::lookup(&step.code).map(|row| row.kind),
-            Some(CodeKind::LoadStep(52))
-        );
-        assert!(!facts.loading_ended);
-        assert!(!facts.reached_game_loop);
-        assert!(!facts.torn_down);
-        assert_eq!(facts.error_lines, 1);
-        assert_eq!(facts.crash_reporting, Some(true));
-        let fatal = facts.codes.last().expect("the fatal sighting");
-        assert!(fatal.line.ends_with("Missing data: 0x1a2b3c4d5e6f7081"));
-        assert!((fatal.at - 12.344).abs() < 1e-9);
-    }
-
-    #[test]
-    fn stuck_loading_stops_at_the_last_marker() {
-        let facts = read(STUCK_LOADING);
-        let step = facts.last_load_step.expect("a last load step");
-        assert_eq!(step.code, "SEJ-9F31B5D0");
-        assert!(!facts.loading_ended);
-        assert!(!facts.reached_game_loop);
-        assert!(!facts.torn_down);
-        assert_eq!(facts.error_lines, 0);
-        assert_eq!(facts.crash_reporting, Some(false));
-        assert!((facts.last_time - 3.664).abs() < 1e-9);
-    }
-
-    #[test]
-    fn a_device_error_is_sighted_each_time() {
-        let facts = read(DEVICE_ERROR);
-        let device: Vec<_> = facts
-            .codes
-            .iter()
-            .filter(|s| s.code == "ALE-D0D00009")
-            .collect();
-        assert_eq!(device.len(), 4);
-        assert_eq!(facts.error_lines, 4);
-        assert!(facts.loading_ended);
-        assert!(facts.reached_game_loop);
-        assert!(!facts.torn_down);
-        assert_eq!(facts.crash_reporting, Some(false));
-        assert_eq!(
-            device[0].line,
-            r#"000056.778|  ERROR| Error: "ALE-D0D00009" - Result: DXGI_ERROR_INVALID_CALL."#
-        );
-    }
-
-    #[test]
-    fn the_command_line_keeps_only_the_base_dir_and_crashpad() {
-        let line = r#"000000.173| ALWAYS|   CFG| Command Line:  "10.20.30.40 7058 QUJDRA== 12345678" "-Product=LoL" "-PlayerID=12345678" "-GameID=1234567890" "-LNPBlob=QUJD" "-GameBaseDir=C:\Riot Games\League of Legends" "-Region=EUW" "-EnableCrashpad=true" "-DisableCrashUploading" "-RiotClientPort=49925" "-RiotClientAuthToken=abcDEF" "#;
-        assert_eq!(
-            redact_line(line),
-            r#"000000.173| ALWAYS|   CFG| Command Line: "-GameBaseDir=C:\Riot Games\League of Legends" "-EnableCrashpad=true" "-DisableCrashUploading""#
-        );
-
-        let bare = "000000.173| ALWAYS|   CFG| Command Line:  \"10.20.30.40 7058 QUJDRA== 12345678\" \"-PlayerID=12345678\"";
-        assert_eq!(
-            redact_line(bare),
-            "000000.173| ALWAYS|   CFG| Command Line:"
-        );
-    }
-
-    #[test]
-    fn private_fields_are_redacted_wherever_they_repeat() {
-        let cases = [
-            (
-                "000001.663| ALWAYS| GameStartData::GameID=1234567890",
-                "000001.663| ALWAYS| GameStartData::GameID=<redacted>",
-            ),
-            (
-                "000001.664| ALWAYS|  CONN| Starting Multiplayer Session: PlayerClient GameID(1234567890) ServerAddress(10.20.30.40:7058) SummonerID(12345678)",
-                "000001.664| ALWAYS|  CONN| Starting Multiplayer Session: PlayerClient GameID(<redacted>) ServerAddress(<redacted>:7058) SummonerID(<redacted>)",
-            ),
-            (
-                "000001.664| ALWAYS|  CONN| Connecting to address (10.20.30.40) port (7058)",
-                "000001.664| ALWAYS|  CONN| Connecting to address (<redacted>) port (7058)",
-            ),
-            (
-                "000000.632| ALWAYS| LCURemotingClient: Initializing on port 49925",
-                "000000.632| ALWAYS| LCURemotingClient: Initializing on port <redacted>",
-            ),
-            (
-                r"000000.200| ALWAYS| Replay: C:\Replays\EUW1-7939624995.rofl",
-                r"000000.200| ALWAYS| Replay: C:\Replays\EUW1-<redacted>.rofl",
-            ),
-            (
-                "000001.861| ALWAYS|  ROST| CONNECTION READY | TeamOrder 0) 'Someone#EUW' **LOCAL** - Champion(Aatrox) PUUID(b8482d4d-3590-5b21-81fa-4c87306b2a54)",
-                "000001.861| ALWAYS|  ROST| CONNECTION READY | TeamOrder 0) '<redacted>' **LOCAL** - Champion(Aatrox) PUUID(<redacted>)",
-            ),
-            (
-                "000000.001| ALWAYS| RiotClientAuthToken=E-tb5OWD6TzjkT7jjQJecg LNPBlob=S6StbDjMbK4= RiotClientPort=49925",
-                "000000.001| ALWAYS| RiotClientAuthToken=<redacted> LNPBlob=<redacted> RiotClientPort=<redacted>",
-            ),
-        ];
-        for (line, expected) in cases {
-            assert_eq!(redact_line(line), expected);
-        }
-    }
-
-    #[test]
-    fn a_line_with_nothing_private_is_borrowed() {
-        let lines = [
-            "000000.558| ALWAYS|   CFG| Build Version: Version 16.16.804.9184 (Aug 10 2026/16:10:32) [PUBLIC] <Releases/16.16> ChangeList: 8049184",
-            "000000.568| ALWAYS|   CFG| Content Version: 16.16.8049184+branch.releases-16-16.content.release",
-            "000003.691| ALWAYS|  LOAD| SEJ-1A4F7C20",
-            "000000.659| ALWAYS| Detected Adapter 'NVIDIA GeForce RTX 4070 SUPER'",
-        ];
-        for line in lines {
-            assert!(
-                matches!(redact_line(line), Cow::Borrowed(same) if same == line),
-                "{line}"
-            );
-        }
-    }
-
-    #[test]
-    fn nothing_private_survives_into_the_record() {
-        // Short enough that the whole file is the tail, so every private line
-        // of the header reaches the excerpt.
-        let facts = read(MISSING_DATA);
-        assert_eq!(facts.excerpt.len(), 27);
-        let kept: Vec<&str> = facts
-            .excerpt
-            .iter()
-            .map(String::as_str)
-            .chain(facts.codes.iter().map(|s| s.line.as_str()))
-            .chain(facts.last_load_step.iter().map(|s| s.line.as_str()))
-            .collect();
-        for line in &kept {
-            assert!(!line.contains("0.0.0.0"), "{line}");
-            assert!(!line.contains("AAAA"), "{line}");
-            assert!(!line.contains("PlayerID=0"), "{line}");
-            assert!(!line.contains("GameID=0"), "{line}");
-            assert!(!line.contains("GameID(0)"), "{line}");
-            assert!(!line.contains("SummonerID(0)"), "{line}");
-            assert!(!line.contains("port 0"), "{line}");
-        }
-        assert!(kept.iter().any(|line| {
-            line.ends_with(
-                r#"Command Line: "-GameBaseDir=C:\Riot Games\League of Legends" "-EnableCrashpad=true""#,
-            )
-        }));
-        assert!(
-            kept.iter()
-                .any(|line| line.ends_with("GameStartData::GameID=<redacted>"))
-        );
-        assert!(
-            kept.iter()
-                .any(|line| line.ends_with("Connecting to address (<redacted>) port (0)"))
-        );
-
-        let clean = read(CLEAN);
-        let roster = clean
-            .excerpt
-            .iter()
-            .chain(clean.codes.iter().map(|s| &s.line))
-            .find(|line| line.contains("ROST"));
-        assert_eq!(
-            roster, None,
-            "the roster line is far from any code and the tail"
-        );
-    }
-
-    #[test]
-    fn crash_reporting_follows_the_switches() {
-        let read_switches = |switches: &str| {
-            let log = format!(
-                "000000.000| ALWAYS| Logging started at 2026-08-17T07:26:15.487\n000000.173| ALWAYS|   CFG| Command Line:  {switches}\n"
-            );
-            read(&log).crash_reporting
-        };
-        assert_eq!(read_switches(r#""-EnableCrashpad=true""#), Some(true));
-        assert_eq!(read_switches(r#""-EnableCrashpad""#), Some(true));
-        assert_eq!(
-            read_switches(r#""-EnableCrashpad=true" "-DisableCrashUploading""#),
-            Some(false)
-        );
-        assert_eq!(read_switches(r#""-EnableCrashpad=false""#), Some(false));
-        assert_eq!(read_switches(r#""-Product=LoL""#), Some(false));
-        assert_eq!(
-            read_switches("-EnableCrashpad=true -Product=LoL"),
-            Some(true)
-        );
-        assert_eq!(
-            read("000000.000| ALWAYS| Logging started at 2026-08-17T07:26:15.487\n")
-                .crash_reporting,
-            None
-        );
-    }
-
-    #[test]
-    fn garbage_reads_as_an_empty_record() {
-        for garbage in ["", "\0\0\0\0", "not a log\nat all\n", "|||\n1e5| X| y\n"] {
-            let facts = read(garbage);
-            assert_eq!(facts, GameLogFacts::default(), "{garbage:?}");
-        }
-        let torn = "000000.000| ALWAYS| Logging started at 2026-08-17T07:26:15.487\r\n000012.3";
-        let facts = read(torn);
-        assert_eq!(facts.total_lines, 1);
-    }
-
-    fn at(h: u32, m: u32, s: u32) -> DateTime<Local> {
-        Local
-            .with_ymd_and_hms(2026, 8, 17, h, m, s)
-            .single()
-            .expect("an unambiguous local time")
-    }
-
-    fn stamp_dir(root: &Path, stamp: DateTime<Local>, header_at: DateTime<Local>) -> PathBuf {
-        let name = stamp.format("%Y-%m-%dT%H-%M-%S").to_string();
-        let dir = root.join("Logs").join("GameLogs").join(&name);
-        fs::create_dir_all(&dir).expect("the fixture directory");
-        let path = dir.join(format!("{name}_r3dlog.txt"));
-        fs::write(
-            &path,
-            format!(
-                "000000.000| ALWAYS| Logging started at {}\r\n000000.001| ALWAYS|   CFG| CrashHandler(Sentry)\r\n",
-                header_at.format("%Y-%m-%dT%H:%M:%S%.3f")
-            ),
-        )
-        .expect("the fixture log");
-        path
-    }
-
-    #[test]
-    fn the_newest_directory_in_the_window_is_picked() {
-        let tmp = tempfile::tempdir().expect("a temp dir");
-        let window = GameWindow {
-            first_sign: at(7, 26, 30),
-            last_sign: at(7, 35, 0),
-        };
-        stamp_dir(tmp.path(), at(7, 20, 0), at(7, 20, 0));
-        let older = stamp_dir(tmp.path(), at(7, 25, 40), at(7, 25, 40));
-        let expected = stamp_dir(tmp.path(), at(7, 26, 15), at(7, 26, 15));
-        stamp_dir(tmp.path(), at(7, 45, 0), at(7, 45, 0));
-        fs::create_dir_all(tmp.path().join("Logs/GameLogs/not-a-stamp")).expect("a stray dir");
-
-        let logs = LeagueLogs::new(tmp.path());
-        let found = logs.find_game_log(&window);
-        assert_eq!(found.as_deref(), Some(expected.as_path()));
-        assert_ne!(found.as_deref(), Some(older.as_path()));
-    }
-
-    #[test]
-    fn a_stamp_whose_header_disagrees_is_refused() {
-        let tmp = tempfile::tempdir().expect("a temp dir");
-        let window = GameWindow {
-            first_sign: at(7, 26, 30),
-            last_sign: at(7, 35, 0),
-        };
-        stamp_dir(tmp.path(), at(7, 26, 15), at(9, 0, 0));
-        let logs = LeagueLogs::new(tmp.path());
-        assert_eq!(logs.find_game_log(&window), None);
-    }
-
-    #[test]
-    fn a_stamp_with_no_log_inside_is_refused() {
-        let tmp = tempfile::tempdir().expect("a temp dir");
-        let window = GameWindow {
-            first_sign: at(7, 26, 30),
-            last_sign: at(7, 35, 0),
-        };
-        fs::create_dir_all(tmp.path().join("Logs/GameLogs/2026-08-17T07-26-15"))
-            .expect("an empty stamp dir");
-        let logs = LeagueLogs::new(tmp.path());
-        assert_eq!(logs.find_game_log(&window), None);
-    }
-
-    #[test]
-    fn no_game_logs_directory_is_no_log() {
-        let tmp = tempfile::tempdir().expect("a temp dir");
-        let window = GameWindow {
-            first_sign: at(7, 26, 30),
-            last_sign: at(7, 35, 0),
-        };
-        let logs = LeagueLogs::new(tmp.path());
-        assert_eq!(logs.find_game_log(&window), None);
-        assert_eq!(logs.last_crash(), None);
-    }
-
-    #[test]
-    fn last_crash_reads_the_marker_and_nothing_else() {
-        let tmp = tempfile::tempdir().expect("a temp dir");
-        let crashes = tmp.path().join("Logs/GameCrashes");
-        fs::create_dir_all(&crashes).expect("the crash dir");
-        let logs = LeagueLogs::new(tmp.path());
-
-        fs::write(crashes.join("last_crash"), "2026-03-13T15:20:23.400Z\n").expect("the marker");
-        let expected = Utc
-            .with_ymd_and_hms(2026, 3, 13, 15, 20, 23)
-            .single()
-            .expect("a UTC time")
-            + TimeDelta::milliseconds(400);
-        assert_eq!(logs.last_crash(), Some(expected));
-
-        fs::write(crashes.join("last_crash"), "yesterday, probably").expect("the marker");
-        assert_eq!(logs.last_crash(), None);
-
-        fs::write(crashes.join("last_crash"), "").expect("the marker");
-        assert_eq!(logs.last_crash(), None);
-    }
-
-    #[test]
-    fn reading_a_file_on_disk_gives_the_same_facts() {
-        let tmp = tempfile::tempdir().expect("a temp dir");
-        let path = tmp.path().join("clean_r3dlog.txt");
-        fs::write(&path, CLEAN).expect("the log");
-        let logs = LeagueLogs::new(tmp.path());
-        assert_eq!(logs.read_game_log(&path).expect("reads"), read(CLEAN));
-    }
-
-    #[test]
-    fn a_missing_file_is_an_error_after_the_retries() {
-        let tmp = tempfile::tempdir().expect("a temp dir");
-        let path = tmp.path().join("gone_r3dlog.txt");
-        let err = LeagueLogs::read_game_log_within(&path, Duration::from_millis(20))
-            .expect_err("a missing file");
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
-    }
-
-    #[test]
-    fn reading_a_short_game_is_cheap() {
-        let started = Instant::now();
-        for _ in 0..100 {
-            let facts = read(CLEAN);
-            assert_eq!(facts.total_lines, 173);
-        }
-        let elapsed = started.elapsed();
-        assert!(
-            elapsed < Duration::from_secs(1),
-            "{elapsed:?} for 100 reads"
-        );
-    }
-}
+mod tests;

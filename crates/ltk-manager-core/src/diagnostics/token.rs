@@ -1163,6 +1163,7 @@ mod tests {
             at: "00:01.0".to_string(),
             source: EvidenceSource::Dll,
             line: "scan rejected Graves.wad.client, status c0000999".to_string(),
+            detail: Vec::new(),
             code: None,
         });
         incident.overlay = OverlayOutcome::HookFailed;

@@ -90,6 +90,9 @@ impl Incident {
         }
         for row in &self.evidence {
             let _ = writeln!(out, "  {:<7}  {:<7} {}", row.at, row.source, row.message());
+            for line in &row.detail {
+                let _ = writeln!(out, "                   {line}");
+            }
             if let Some(code) = &row.code
                 && let Some(meaning) = &code.meaning
             {
@@ -102,7 +105,9 @@ impl Incident {
             .iter()
             .rev()
             .filter(|row| row.source == EvidenceSource::Game)
-            .map(|row| row.line.as_str())
+            .flat_map(|row| {
+                std::iter::once(row.line.as_str()).chain(row.detail.iter().map(String::as_str))
+            })
             .collect();
         if !game_lines.is_empty() {
             out.push_str("\nLast lines of the game log:\n");
@@ -214,7 +219,7 @@ impl Incident {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagnostics::incident::fixtures;
+    use crate::diagnostics::incident::{Evidence, EvidenceCode, fixtures};
 
     fn report() -> String {
         fixtures::incident("2026-08-21T21-14-02", "2026-08-21T21:14:02+00:00")
@@ -254,6 +259,28 @@ mod tests {
                 .unwrap_or_else(|| panic!("missing or out of order: {section:?}\n{text}"));
             from += at + section.len();
         }
+    }
+
+    #[test]
+    fn a_records_detail_lines_print_under_it_and_in_the_last_lines() {
+        let mut incident = fixtures::incident("a", "2026-08-21T21:14:02+00:00");
+        incident.evidence[1] = Evidence {
+            at: "00:01.9".to_string(),
+            source: EvidenceSource::Game,
+            line: "000001.912|  ERROR| ALE-18967994 FATAL ERROR. WadFile mount failed".to_string(),
+            detail: vec![
+                "- WadFile: DATA/FINAL/Shaders/Shaders.wad.client".to_string(),
+                "- Problem: Inconsistent".to_string(),
+            ],
+            code: Some(EvidenceCode::from_table("ALE-18967994")),
+        };
+        let text = incident.report_text("1.14.0", None);
+        assert!(text.contains(
+            "  00:01.9  game    ALE-18967994 FATAL ERROR. WadFile mount failed\n                   - WadFile: DATA/FINAL/Shaders/Shaders.wad.client\n                   - Problem: Inconsistent\n           An archive could not be mounted, because it is inconsistent with another mounted archive\n"
+        ), "{text}");
+        assert!(text.ends_with(
+            "  000012.301| ALWAYS|  LOAD| SEJ-9F31B5D0\n  000001.912|  ERROR| ALE-18967994 FATAL ERROR. WadFile mount failed\n  - WadFile: DATA/FINAL/Shaders/Shaders.wad.client\n  - Problem: Inconsistent\n"
+        ), "{text}");
     }
 
     #[test]

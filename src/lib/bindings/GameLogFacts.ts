@@ -31,6 +31,7 @@ reachedGameLoop: boolean,
  */
 tornDown: boolean, errorLines: number, totalLines: number, lastTime: number, 
 /**
- * The last forty lines, and ten around each coded line.
+ * The last forty lines, and ten around each coded line, with a record's
+ * detail lines under it.
  */
 excerpt: Array<string>, };

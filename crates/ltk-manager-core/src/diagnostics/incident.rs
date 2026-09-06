@@ -417,6 +417,9 @@ pub struct Evidence {
     pub at: String,
     pub source: EvidenceSource,
     pub line: String,
+    /// The lines under a game record with no columns of their own.
+    #[serde(default)]
+    pub detail: Vec<String>,
     pub code: Option<EvidenceCode>,
 }
 

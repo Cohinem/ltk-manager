@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt   |
 | 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed  |
 | 2026-09-05 | Name the bin scan as planned rather than waiting upstream               |
 | 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident   |
@@ -436,7 +437,7 @@ lost is knowable without knowing what a code means, so that is what a verdict no
 ## The game log reader
 
 The reader turns one `r3dlog` into a small record. It keeps facts and a bounded excerpt,
-and it never keeps the file.
+and it never keeps the file. An error's continuation lines stay with their record.
 
 ### Which file
 
@@ -479,7 +480,24 @@ pub struct GameLogFacts {
     pub last_time: f64,
     pub excerpt: Vec<String>,
 }
+
+pub struct CodeSighting {
+    pub code: String,
+    pub at: f64,
+    pub line: String,
+    pub detail: Vec<String>,
+}
 ```
+
+Some errors run over several lines. The record carries the code and the headline, and the
+lines under it, with no time and level columns, carry the detail: `- WadFile:
+DATA/FINAL/Shaders/Shaders.wad.client` and `- Problem: Inconsistent` under a wad mount
+fatal. A line without the columns belongs to the record above it. The sighting keeps those
+lines as its detail, in order and redacted like the record, the excerpt keeps them under
+their record, and the report text prints them under it. A detail line counts against the
+excerpt's budget, and a sighting keeps sixteen at most. A line that opens with a digit is a
+record or the torn remains of one, and never a detail line. The reader knows nothing of what
+a detail line means. A rule that wants a `Key: value` pair reads it off the sighting.
 
 The reader is a pure function over `BufRead` in `ltk-manager-core/src/diagnostics/game_log.rs`,
 and its tests run over a real log checked in as a fixture with its command line redacted.

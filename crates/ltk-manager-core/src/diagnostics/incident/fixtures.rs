@@ -9,12 +9,14 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
         at: at.to_string(),
         source: EvidenceSource::Game,
         line: line.to_string(),
+        detail: Vec::new(),
         code: Some(EvidenceCode::from_table(code)),
     };
     let plain = |at: &str, source: EvidenceSource, line: &str| Evidence {
         at: at.to_string(),
         source,
         line: line.to_string(),
+        detail: Vec::new(),
         code: None,
     };
     Incident {

@@ -76,6 +76,7 @@ fn sighting(code: &str, at: f64, line: &str) -> CodeSighting {
         code: code.to_string(),
         at,
         line: line.to_string(),
+        detail: Vec::new(),
     }
 }
 
@@ -1073,6 +1074,7 @@ fn a_log_line_drops_its_header_for_the_message() {
         at: String::new(),
         source: EvidenceSource::Game,
         line: line.to_string(),
+        detail: Vec::new(),
         code: None,
     };
     assert_eq!(

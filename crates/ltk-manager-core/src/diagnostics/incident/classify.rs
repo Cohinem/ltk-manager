@@ -616,6 +616,7 @@ impl GameRecord {
                     at: clock(secs),
                     source: EvidenceSource::Patcher,
                     line: failure.line(),
+                    detail: Vec::new(),
                     code: None,
                 },
             ));
@@ -628,6 +629,7 @@ impl GameRecord {
                     at: clock(secs),
                     source: raw.source,
                     line: raw.line.clone(),
+                    detail: Vec::new(),
                     code: None,
                 },
             ));
@@ -640,6 +642,7 @@ impl GameRecord {
                         at: clock(sighting.at),
                         source: EvidenceSource::Game,
                         line: sighting.line.clone(),
+                        detail: sighting.detail.clone(),
                         code: Some(EvidenceCode::from_table(&sighting.code)),
                     },
                 ));
@@ -653,6 +656,7 @@ impl GameRecord {
                     at: clock(secs),
                     source: EvidenceSource::Client,
                     line: summary,
+                    detail: Vec::new(),
                     code: None,
                 },
             ));

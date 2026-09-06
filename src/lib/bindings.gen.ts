@@ -539,6 +539,8 @@ export type Evidence = {
 	at: string,
 	source: EvidenceSource,
 	line: string,
+	/**  The lines under a game record with no columns of their own. */
+	detail?: string[],
 	code: EvidenceCode | null,
 };
 
