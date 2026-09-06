@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-07 | Suspect badge as an icon button, stacked beside the health badge       |
 | 2026-09-06 | Wrong-install verdict from a log found under another install           |
 | 2026-09-06 | Install mismatch dialog, from the client session against the settings  |
 | 2026-09-06 | Rebuild overlay on the incident toast and the verdict line             |
@@ -13,7 +14,6 @@
 | 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt  |
 | 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed |
 | 2026-09-05 | Name the bin scan as planned rather than waiting upstream              |
-| 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -69,7 +69,7 @@ This table holds every major feature of League diagnostics. A status word has on
 | Incident token               | Available   | The incident as one short string, for a URL or a chat        |
 | Token decoder                | Available   | Paste a token into the Games tab, and read it as an incident |
 | Crash marker                 | Available   | `GameCrashes/last_crash` as the crash-or-kill tiebreak       |
-| Suspect badge                | Available   | On the mod card, the way the missing-dependency badge is     |
+| Suspect badge                | Available   | On the mod card, beside the health badge and on its shape    |
 | Install mismatch dialog      | Available   | The client's session against the configured install          |
 | Workshop verdict             | In progress | The card badge and the Test tooltip. No problems list yet    |
 | Startup reconcile            | Proposed    | Games that ended while the manager was closed                |
@@ -958,7 +958,7 @@ Five places show an incident, and each answers a different question.
 | ------------------ | ------------------------------------------ | --------------------------------- |
 | The verdict line   | What just happened?                        | One line, until the next game     |
 | The Games tab      | What happened, exactly, and before that?   | Every incident, with its evidence |
-| The suspect badge  | Is this the mod?                           | One word on the mod card          |
+| The suspect badge  | Is this the mod?                           | One glyph on the mod card         |
 | The report text    | What do I paste?                           | The incident, redacted            |
 | The incident token | What do I paste where a page will not fit? | The incident, as one string       |
 
@@ -1107,10 +1107,12 @@ buttons, and it changes nothing.
 
 ### The suspect badge
 
-A mod named as a suspect in the newest undismissed incident carries a badge on its card,
-beside `MissingDepsBadge` and on its shape. It reads `Suspected` in the warning tone, and
-its tooltip holds the verdict's title and `Click to review`. A click opens the Games tab on
-the incident.
+A mod named as a suspect in the newest undismissed incident carries a mark on its card, an
+icon button on `ModHealthBadge`'s shape in the warning tone. The two stack in one row when
+both draw, the health badge first: the corner cluster over the art on the grid card, and
+the spot beside the switch on the list row. The button carries the warning glyph and no
+word, and its tooltip holds `Suspected`, the verdict's title and `Click to review`. A click
+opens the Games tab on the incident.
 
 The badge lives while the incident is the newest and undismissed, and goes when the user
 dismisses the incident, disables the mod, or a newer game runs clean with the mod enabled.
@@ -1339,7 +1341,7 @@ than a second one.
 | `IncidentList`, `IncidentDetail`, `VerdictCard` | `modules/diagnostics/components/`            | The Games tab                                                                      |
 | The tabs                                        | `pages/Diagnostics.tsx`                      | `Tabs` from `@/components`, `Games` first                                          |
 | The verdict line                                | `modules/launcher/components/SessionBar.tsx` | A fifth resting branch                                                             |
-| `SuspectBadge`                                  | `modules/library/components/`                | `MissingDepsBadge`'s shape, in the warning tone                                    |
+| `SuspectBadge`                                  | `modules/diagnostics/components/`            | `ModHealthBadge`'s icon button, in the warning tone                                |
 | `TokenDecoder`                                  | `modules/diagnostics/components/`            | The paste box, and the read-only card it renders                                   |
 | `PatcherEventListeners`                         | `routes/__root.tsx`                          | Moves out of the Library page                                                      |
 | `usePatcherError`                               | `modules/patcher/api/`                       | Switches on `PatcherError.kind` and `InjectionStage`                               |

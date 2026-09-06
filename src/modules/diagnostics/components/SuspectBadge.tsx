@@ -1,7 +1,7 @@
 import { WarningIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 
-import { Tooltip } from "@/components";
+import { IconButton, Tooltip } from "@/components";
 import { useIncidentLineStore } from "@/stores";
 
 import { useLatestIncident } from "../api";
@@ -16,11 +16,12 @@ interface SuspectBadgeProps {
 }
 
 /**
- * `Suspected`, on the card of a mod or a project the newest undismissed
+ * The suspect mark on the card of a mod or a project the newest undismissed
  * incident names. A click opens the Games tab on that incident.
  *
- * The badge is a question about the last game, and it goes when the user
- * dismisses the incident, disables the mod, or a newer game runs clean.
+ * Per "The suspect badge" in docs/ux/LEAGUE_DIAGNOSTICS.md. The badge is a
+ * question about the last game, and it goes when the user dismisses the
+ * incident, disables the mod, or a newer game runs clean.
  */
 export function SuspectBadge({ modId, projectPath, enabled = true }: SuspectBadgeProps) {
   const { latest } = useLatestIncident();
@@ -38,28 +39,30 @@ export function SuspectBadge({ modId, projectPath, enabled = true }: SuspectBadg
 
   const tooltipContent = (
     <div className="max-w-[240px] space-y-1">
-      <p className="font-semibold text-surface-100">{latest.verdict.title}</p>
+      <p className="font-semibold text-surface-100">Suspected</p>
       <p className="text-xs text-surface-200">
-        Named in the last game that went wrong. Click to review.
+        Named in {latest.verdict.title}, the last game that went wrong.
       </p>
+      <p className="text-xs text-surface-300">Click to review.</p>
     </div>
   );
 
   return (
     <Tooltip content={tooltipContent}>
-      <button
-        type="button"
+      <IconButton
+        compact
+        variant="ghost"
+        size="sm"
         data-ui="SuspectBadge"
+        icon={<WarningIcon className="h-4 w-4" weight="bold" />}
         onClick={(event) => {
           event.stopPropagation();
           navigate({ to: "/diagnostics", search: { tab: "games", incident: latest.id } });
         }}
         aria-label={`Suspected in "${latest.verdict.title}", click to review`}
-        className="inline-flex h-6 cursor-pointer items-center gap-1 rounded bg-warning/15 px-2 py-0.5 text-xs leading-tight font-medium text-warning-text ring-1 ring-warning/30 transition-colors ring-inset hover:bg-warning/25"
-      >
-        <WarningIcon className="h-3 w-3" weight="bold" />
-        Suspected
-      </button>
+        /* `ModHealthBadge`'s pill in the warning tone, so the two stack as one row. */
+        className="h-6 rounded-sm bg-warning/15 text-warning-text ring-1 ring-warning/30 ring-inset hover:bg-warning/25"
+      />
     </Tooltip>
   );
 }
