@@ -1,0 +1,15 @@
+# Regenerates codegen after every successful merge/pull so the fork's versions of
+# upstream-tracked generated files are always the correct re-emission of the
+# merged inputs — conflicts in them resolve as "take either side, then regen",
+# never by hand.
+#
+# Changes land in the working tree for review; this hook never commits.
+
+pnpm gen:routes
+
+# Bindings need a workspace test compile (minutes cold), so only run them when
+# Rust inputs actually moved in the merge.
+if git rev-parse -q --verify ORIG_HEAD >/dev/null 2>&1 &&
+	git diff ORIG_HEAD HEAD --name-only -- '*.rs' '*.toml' | grep -q .; then
+	pnpm generate:types
+fi

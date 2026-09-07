@@ -3,7 +3,6 @@ export { AppearanceSection } from "./AppearanceSection";
 export { CacheSection } from "./CacheSection";
 export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
-export { LeagueSkinsSection } from "./LeagueSkinsSection";
 export { LibrarySection } from "./LibrarySection";
 export { PatchingSection } from "./PatchingSection";
 export { SettingFocusProvider } from "./SettingFocus";

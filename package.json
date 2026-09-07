@@ -6,9 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "pnpm generate:messages && tsc && vite build",
+    "build": "pnpm generate:messages && pnpm gen:routes && tsc && vite build",
     "preview": "vite preview",
-    "preview:web": "vite --host 0.0.0.0 --port ${PORT:-5173}",
+    "preview:web": "vite --config vite.preview.config.ts --host 0.0.0.0 --port ${PORT:-5173}",
     "tauri": "tauri",
     "typecheck": "pnpm generate:messages && pnpm typecheck:tsc",
     "typecheck:tsc": "tsc --noEmit",
@@ -23,6 +23,7 @@
     "prepare": "husky",
     "dev:logged": "node scripts/dev-logged.mjs",
     "generate:messages": "paraglide-js compile --project ./project.inlang",
+    "gen:routes": "node scripts/gen-routes.mjs",
     "generate:types": "cargo test --workspace export_bindings --no-fail-fast",
     "generate:licenses": "node scripts/generate-licenses.mjs",
     "generate:meta-schema": "node scripts/generate-meta-schema.mjs"
@@ -97,6 +98,7 @@
     "@eslint/js": "^9.39.4",
     "@inlang/plugin-message-format": "4.4.4",
     "@tailwindcss/vite": "^4.2.4",
+    "@tanstack/router-generator": "1.166.33",
     "@tanstack/router-plugin": "^1.167.23",
     "@tauri-apps/cli": "^2.11.0",
     "@testing-library/jest-dom": "^6.9.1",

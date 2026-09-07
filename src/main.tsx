@@ -1,4 +1,3 @@
-import "./lib/browserMock";
 import "./styles/tailwind.css";
 
 import { QueryClientProvider } from "@tanstack/react-query";
