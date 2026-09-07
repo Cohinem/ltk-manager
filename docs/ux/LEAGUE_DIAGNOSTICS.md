@@ -2,16 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                  |
-| ---------- | ----------------------------------------------------------------------- |
-| 2026-09-06 | Dismiss all on the Games tab. Read, not gone, and the rows stay dimmed  |
-| 2026-09-05 | Name the bin scan as planned rather than waiting upstream               |
-| 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident   |
-| 2026-08-21 | Reshape the token around what a verdict rests on, and drop deflate      |
-| 2026-08-21 | Land the backend, the Games tab and the surfaces, and update the status |
-| 2026-08-21 | Answer the open questions, and add the incident token                   |
-| 2026-08-21 | Read the host and DLL lines from `ltk-patcher`, and trim the code table |
-| 2026-08-21 | Propose the incident, its verdict, and the game log reader              |
+| Date       | Change                                                                |
+| ---------- | --------------------------------------------------------------------- |
+| 2026-09-07 | Forward slashes on every path the mismatch dialog and verdict write   |
+| 2026-09-07 | Suspect badge as an icon button, stacked beside the health badge      |
+| 2026-09-06 | Wrong-install verdict from a log found under another install          |
+| 2026-09-06 | Install mismatch dialog, from the client session against the settings |
+| 2026-09-06 | Rebuild overlay on the incident toast and the verdict line            |
+| 2026-09-06 | Name the archive and the problem on the wad mount verdict             |
+| 2026-09-06 | A short redirected game with no log is an incident, not a clean game  |
+| 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence         |
+| 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt |
+| 2026-09-05 | Name the bin scan as planned rather than waiting upstream             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -67,7 +69,8 @@ This table holds every major feature of League diagnostics. A status word has on
 | Incident token               | Available   | The incident as one short string, for a URL or a chat        |
 | Token decoder                | Available   | Paste a token into the Games tab, and read it as an incident |
 | Crash marker                 | Available   | `GameCrashes/last_crash` as the crash-or-kill tiebreak       |
-| Suspect badge                | Available   | On the mod card, the way the missing-dependency badge is     |
+| Suspect badge                | Available   | On the mod card, beside the health badge and on its shape    |
+| Install mismatch dialog      | Available   | The client's session against the configured install          |
 | Workshop verdict             | In progress | The card badge and the Test tooltip. No problems list yet    |
 | Startup reconcile            | Proposed    | Games that ended while the manager was closed                |
 | Hash search in mod bins      | Blocked     | Needs the lazy bin read the project editor waits on          |
@@ -436,7 +439,7 @@ lost is knowable without knowing what a code means, so that is what a verdict no
 ## The game log reader
 
 The reader turns one `r3dlog` into a small record. It keeps facts and a bounded excerpt,
-and it never keeps the file.
+and it never keeps the file. An error's continuation lines stay with their record.
 
 ### Which file
 
@@ -450,10 +453,17 @@ and confirms it with the `Logging started at` line inside.
 | Situation                                     | The reader does                                         |
 | --------------------------------------------- | ------------------------------------------------------- |
 | One directory in the window                   | Reads it                                                |
-| None                                          | Records no log. The verdict says so                     |
+| None under the configured install             | Searches the other install roots, below                 |
+| None anywhere                                 | Records no log. The verdict says so                     |
 | The file is still held open                   | Retries for five seconds, then records no log           |
 | The stamp is in the window, the header is not | Records no log, because a wrong file is worse than none |
 | No `league_path` is configured                | Does not look                                           |
+
+The log is searched for under the configured install first, then under the other installs
+the Riot Client's product registry lists when a client answers, and under the configured
+install's sibling folders when none does. A game from another install writes its log under
+that install, and the record keeps the root the log came from. A log whose command line
+names another install than the configured one is the wrong-install verdict.
 
 A game the patcher never touched still has a first sign when the session saw it, or when
 the host saw its window come and go, and the reader runs on that. The log then serves the
@@ -479,7 +489,24 @@ pub struct GameLogFacts {
     pub last_time: f64,
     pub excerpt: Vec<String>,
 }
+
+pub struct CodeSighting {
+    pub code: String,
+    pub at: f64,
+    pub line: String,
+    pub detail: Vec<String>,
+}
 ```
+
+Some errors run over several lines. The record carries the code and the headline, and the
+lines under it, with no time and level columns, carry the detail: `- WadFile:
+DATA/FINAL/Shaders/Shaders.wad.client` and `- Problem: Inconsistent` under a wad mount
+fatal. A line without the columns belongs to the record above it. The sighting keeps those
+lines as its detail, in order and redacted like the record, the excerpt keeps them under
+their record, and the report text prints them under it. A detail line counts against the
+excerpt's budget, and a sighting keeps sixteen at most. A line that opens with a digit is a
+record or the torn remains of one, and never a detail line. The reader knows nothing of what
+a detail line means. A rule that wants a `Key: value` pair reads it off the sighting.
 
 The reader is a pure function over `BufRead` in `ltk-manager-core/src/diagnostics/game_log.rs`,
 and its tests run over a real log checked in as a fixture with its command line redacted.
@@ -509,23 +536,24 @@ effect and reads no file, so every row below is a unit test.
 
 The rows are in precedence order. The first row whose evidence is present wins.
 
-| Verdict                    | Rests on                                                      | Cost            | Names a mod |
-| -------------------------- | ------------------------------------------------------------- | --------------- | ----------- |
-| DLL injection failure      | A build error, or `InjectionFailed` at either stage           | overlay-off     | Sometimes   |
-| Unsupported game build     | `end of life reached` on the `dll` lines                      | overlay-off     | No          |
-| Skinhack detection         | `patcher-wad-scan-failed`, status `c0000229`                  | overlay-off     | Yes         |
-| Archive scan rejection     | `patcher-wad-scan-failed`, any other status                   | overlay-off     | Yes         |
-| Overlay verification fail. | `overlay verification failed`, with its archive               | overlay-off     | Yes         |
-| No mods applied            | A game the session or the host saw, and no live overlay in it | overlay-off     | No          |
-| Missing game data          | A `missing_data` code, with its hash                          | game-stopped    | Yes         |
-| Archive mount failure      | A `wad_mount` code                                            | game-stopped    | Sometimes   |
-| Texture creation failure   | A `texture` code, and `E_INVALIDARG`                          | game-stopped    | Sometimes   |
-| Memory allocation failure  | A `memory` code                                               | game-stopped    | No          |
-| Graphics device failure    | A `device` code                                               | game-stopped    | No          |
-| Loading screen stall       | A last `load_step`, no `Loading Ended`, and an ending         | game-hung       | Sometimes   |
-| Archive verification skip  | `lazy verification failed`, with its archive                  | archive-dropped | Yes         |
-| Unexplained game exit      | Any ending worth reporting, and nothing above                 | game-stopped    | No          |
-| Clean                      | `Exit` with code 0, or `teardown` with no reason              | -               | No incident |
+| Verdict                    | Rests on                                                                                             | Cost            | Names a mod |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- | --------------- | ----------- |
+| Wrong League install       | A log whose `-GameBaseDir` is not the configured install                                             | game-stopped    | No          |
+| DLL injection failure      | A build error, or `InjectionFailed` at either stage                                                  | overlay-off     | Sometimes   |
+| Unsupported game build     | `end of life reached` on the `dll` lines                                                             | overlay-off     | No          |
+| Skinhack detection         | `patcher-wad-scan-failed`, status `c0000229`                                                         | overlay-off     | Yes         |
+| Archive scan rejection     | `patcher-wad-scan-failed`, any other status                                                          | overlay-off     | Yes         |
+| Overlay verification fail. | `overlay verification failed`, with its archive                                                      | overlay-off     | Yes         |
+| No mods applied            | A game the session or the host saw, and no live overlay in it                                        | overlay-off     | No          |
+| Missing game data          | A `missing_data` code, with its hash                                                                 | game-stopped    | Yes         |
+| Archive mount failure      | A `wad_mount` code                                                                                   | game-stopped    | Sometimes   |
+| Texture creation failure   | A `texture` code, and `E_INVALIDARG`                                                                 | game-stopped    | Sometimes   |
+| Memory allocation failure  | A `memory` code                                                                                      | game-stopped    | No          |
+| Graphics device failure    | A `device` code                                                                                      | game-stopped    | No          |
+| Loading screen stall       | A last `load_step`, no `Loading Ended`, and an ending                                                | game-hung       | Sometimes   |
+| Archive verification skip  | `lazy verification failed`, with its archive                                                         | archive-dropped | Yes         |
+| Unexplained game exit      | Any ending worth reporting, and nothing above. A redirected game inside its first minute with no log | game-stopped    | No          |
+| Clean                      | `Exit` with code 0, or `teardown` with no reason                                                     | -               | No incident |
 
 **Clean** is the common case, and it writes nothing. A game that ends the way the client
 meant it to is not an incident, and a list of incidents that held every game would be a list
@@ -546,6 +574,17 @@ touched is still known through the session or through the host's `game found`, a
 is enough for a record, because "was it the mods?" is asked about those games most of all.
 
 ### Each verdict, in the words a user reads
+
+**The wrong install.** `League ran from C:\Riot Games\League of Legends, and the overlay was
+built for C:\Riot Games\League of Legends (PBE). A mod built from one install crashes the
+other.` The log's command line names the install the game ran from, and the reader keeps it.
+The rule is first in the table. Every code under it, the wad mount fatal among them, is the
+same fact seen from inside the game. No mod is named and there is no rebuild hint. A rebuild
+from the wrong install changes nothing. The one hint is the League path in Settings, and the
+incident raises the [install mismatch dialog](#the-install-mismatch-dialog) once, with the
+log's install as the switch target. The codes the log holds still show in the evidence. A
+game from the other install that ends clean is no incident, and the client check is what
+names the mismatch while it runs.
 
 **The patcher did not run.** The title names the stage. A build that failed names the mod
 whose file the builder stopped on, because the error already carries it. A `HOST` failure
@@ -597,19 +636,29 @@ under the title. The suspects are the mods that write the archive the path lives
 action is to disable the suspect, or to open the path in the project editor when the game
 was a workshop test.
 
-**A corrupt archive.** `League could not mount an archive.` Five of the six codes are
-confirmed rows and read as facts. `ALE-9D171D1D`, the chunk that failed verification, is
-the inferred one, and the verdict is then a Lead that says `Probably`. The code names no
-archive, so the suspects are the mods whose archives the DLL redirected this game, which is
-a list and not a name. The hint is the one the Patching settings already give:
-`Rebuild overlay`, and a repair of the install in the Riot Client when the rebuild does not
-help.
+**A corrupt archive.** `League could not mount Shaders.wad.client. The game found it
+inconsistent with another mounted archive.` The wad mount fatal names the archive and the
+problem on the lines under the code, `- WadFile: DATA/FINAL/Shaders/Shaders.wad.client` and
+`- Problem: Inconsistent`, and the verdict reads both off the sighting's detail lines. The
+subject is the archive's file name. The problem is one of the game's four words for a mount
+error, Missing, Unable to open, Corrupt and Inconsistent, each as its own sentence, and a word
+this build does not know is quoted as the game wrote it. The suspects are the mods and the
+workshop projects that write the archive, the way the missing-data verdict narrows on one.
 
-`ALE-18967994` is the one of the six that asks for that repair itself: two mounted archives
-disagreeing about a file crashes the game and flags the install for repair. That flag changes
-nothing here. An overlay leaves the game's own files untouched, so the validation finds them
-sound and does no work, which is also why the second half of the hint is wasted on this code.
-A rebuild is the only half that helps.
+The hints follow the problem. Missing, Unable to open and Corrupt carry `Rebuild overlay`
+and a repair of the install in the Riot Client when the rebuild does not help. Inconsistent
+carries the rebuild hint alone. Two mounted archives disagreeing about a file crashes the
+game and flags the install for repair, and that flag changes nothing here. An overlay leaves
+the game's own files untouched, the validation finds them sound and does no work, and a
+rebuild is the only half that helps. The one way an overlay makes an Inconsistent archive is
+a build from another install, which the [install mismatch](#the-install-mismatch-dialog)
+dialog is for.
+
+A wad mount code with no detail lines, from an older log or a torn one, reads
+`League could not mount an archive.` Five of the six codes are confirmed rows and read as
+facts. `ALE-9D171D1D`, the chunk that failed verification, is the inferred one, and the
+verdict is then a Lead that says `Probably`. The suspects are the mods whose archives the DLL
+redirected this game, which is a list and not a name, and the hints are rebuild and repair.
 
 **A texture failed.** `A texture could not be created, and the crash came after it.` The
 texture code is not itself fatal. The game carries on without the texture, and the crash
@@ -647,6 +696,13 @@ crashpad ran, the game's version, the last five lines of the log, how many `ERRO
 held, and every code it saw with whatever the table says. Nothing is guessed. The one action
 that always helps is `Copy report`, and this is the verdict that needs it most.
 
+A game the patcher redirected an archive into, that ended inside its first minute, with no
+log under the configured install, is this verdict whatever the ending said. The cause says
+how many seconds the game lived and that no log was found, and the hint points at the League
+path in Settings. A log that is not where the configured install writes one is the sign of a
+game that ran from another install. A game with no redirect, or one past the minute, stays
+clean without a log.
+
 ### Consequence
 
 What the game lost. `VerdictKind::consequence` decides it and nothing else does, so a kind
@@ -680,14 +736,33 @@ never reused.
 A hint is a line under the verdict that names a setting or an action the evidence points
 at, without being the verdict. Each is one sentence, and a verdict carries at most two.
 
-| Hint                              | When                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------ |
-| Turn on `Scan every WAD up front` | The game crashed inside the first minute, and the DLL ran the lazy scan  |
-| Rebuild the overlay               | A corrupt archive, or a texture failure, in an archive the overlay wrote |
-| Run the System checks             | The host did not start, or the DLL did not attach                        |
-| Update LTK Manager                | The patcher is out of date                                               |
-| Update the graphics driver        | A graphics fault                                                         |
-| Open the project                  | A workshop test, whenever a path or an archive is named                  |
+A hint crosses IPC as a code, `Hint` in the bindings, and the frontend catalog holds one
+sentence per code under `hint.<code>` (ADR-0017). The report text is Rust prose, and it takes
+the hints as sentences from the frontend beside the incident's id. The catalog is the one
+place a hint is worded. A stored incident from a build without codes holds each hint as a
+sentence, and a stored code this build does not know reads as nothing. Neither is an error.
+
+| Code                 | Hint                              | When                                                                      |
+| -------------------- | --------------------------------- | ------------------------------------------------------------------------- |
+| `scan-up-front`      | Turn on `Scan every WAD up front` | The game crashed inside the first minute, and the DLL ran the lazy scan   |
+| `rebuild-overlay`    | Rebuild the overlay               | A corrupt archive, or a texture failure, in an archive the overlay wrote  |
+| `repair-install`     | Repair the install                | A corrupt archive, when the rebuild does not help. Never for Inconsistent |
+| `system-checks`      | Run the System checks             | The host did not start, or the DLL did not attach                         |
+| `update-manager`     | Update LTK Manager                | The patcher is out of date                                                |
+| `update-driver`      | Update the graphics driver        | A graphics fault                                                          |
+| `open-project`       | Open the project                  | A workshop test, whenever a path or an archive is named                   |
+| `check-game-path`    | Check the League path             | The overlay build could not read the game directory                       |
+| `texture-dimensions` | Check the texture dimensions      | A texture failure                                                         |
+| `free-memory`        | Close what else is running        | Out of memory                                                             |
+| `large-textures`     | Disable a mod with huge textures  | Out of memory, with a modded archive in the game                          |
+| `start-first`        | Start the patcher first           | The DLL joined too late                                                   |
+| `copy-report`        | Copy the report                   | An ending without a reason, or a scan status without a name               |
+| `disable-suspect`    | Disable the suspect               | Missing data, in a library game                                           |
+| `remove-skinhack`    | Disable the mod the scan named    | A skinhack rejection                                                      |
+| `reimport-mod`       | Re-import the mod the scan named  | A missing bin, a corrupt archive, or an incomplete base skin              |
+| `repair-game`        | Repair the install                | The scan objected to a file the game ships                                |
+| `elevate`            | Let the host elevate              | The DLL never attached, and the host was not elevated                     |
+| `signature`          | Check the DLL's signature         | The DLL never attached, and the host was elevated                         |
 
 The first row exists because the DLL scans archives on demand while the setting is off and
 League's crash reporting is off, and the Patching settings already warn that on-demand
@@ -883,7 +958,7 @@ Five places show an incident, and each answers a different question.
 | ------------------ | ------------------------------------------ | --------------------------------- |
 | The verdict line   | What just happened?                        | One line, until the next game     |
 | The Games tab      | What happened, exactly, and before that?   | Every incident, with its evidence |
-| The suspect badge  | Is this the mod?                           | One word on the mod card          |
+| The suspect badge  | Is this the mod?                           | One glyph on the mod card         |
 | The report text    | What do I paste?                           | The incident, redacted            |
 | The incident token | What do I paste where a page will not fit? | The incident, as one string       |
 
@@ -909,6 +984,7 @@ announcement and the bar keeps the answer.
 | Suspect | The first suspect's name, and `+2` where there are more            |
 | Cost    | A small chip saying what the game lost                             |
 | Details | Opens the Games tab on this incident                               |
+| Rebuild | The rebuild the verdict's hint asks for, only under such a verdict |
 | `x`     | Dismisses the line, and marks the incident dismissed               |
 
 The line replaces the idle resting line and nothing else. A build or a start that begins
@@ -919,9 +995,51 @@ The toast gains a `Details` action, which is the shape `useSurfaceLinkedBinWarni
 uses for `Review`, and passes `notify: true` so the notification center keeps it. Today no
 patcher or launch toast passes it, and a seven-second toast is the only record of a failure.
 
+Whenever the verdict's hints include `rebuild-overlay`, the toast and the line offer
+`Rebuild overlay` beside `Details`. With the patcher stopped the action rebuilds at once and
+reports success or failure with the existing toasts. With the patcher running it reads
+`Rebuild on next start`, the next start forces one rebuild, and the queued state shows beside
+Play as a pill with a clear. A verdict without the hint offers nothing, which keeps the
+action off a wrong-install verdict, where a rebuild from the wrong install changes nothing.
+Nothing rebuilds on its own.
+
 A failed start takes the same line. `The injection host did not start` sits in the bar with
 a `Diagnostics` action that opens the System tab, in place of a toast that the Library page
 alone would show.
+
+### The install mismatch dialog
+
+An overlay is built from one install's archives. A game from another install mounts its
+own copies beside the overlay's, and one shared chunk with different bytes is a fatal
+`Inconsistent` at startup. The dialog is the manager saying so before the game does.
+
+The backend resolves the configured League path to a patchline through the Riot Client's
+product registry, which lists every install root, and reads the patchline of the League
+session the client has open, whichever patchline that is. The two are compared when the
+patcher reaches `patching` and again on each `session-started` while the patcher runs, in
+both launch modes. A session the client opens with no watcher on it announces nothing, which
+is every Classic-mode game, and the DLL attaching to that game is its next sign. The check
+runs on `patcher-game-attached` too. The comparison is a pure function over the registry's rows, and a
+mismatch crosses IPC as typed fields: both paths and both patchlines. The paths are
+compared with the `\\?\` prefix, the slash kind, a trailing separator and the case set
+aside. The registry writes forward slashes, and a setting holds what the picker gave it.
+Every path the dialog and the wrong-install verdict write is spelled with forward slashes,
+whichever its source held, so one install never reads two ways on one surface.
+
+The frontend raises one dialog through the dialog queue (ADR-0022), between the WAD scan
+failure and the linked-bin warning. It names the install the game runs from and the install
+the manager is set up for, each as its path, and says that mods built from one crash the
+other. `Keep <configured>` dismisses it for the patcher session, and it does not return until
+the next start. `Switch to this install` saves the League path to the session's install
+root the way Settings saves it, stops the patcher session, starts it again with the config
+it ran with and a forced rebuild, and toasts the new path. Without a running session the
+overlay is rebuilt and left for the next start. A failed step is reported with the existing
+error toasts, and the dialog stays up.
+
+The patcher keeps running throughout. A game from the configured install still works while
+the dialog is up. No client, no open session, or a path the registry does not know means no
+dialog, and the [wrong-install verdict](#each-verdict-in-the-words-a-user-reads) is the
+backstop from the game's own log.
 
 ### The Games tab
 
@@ -991,10 +1109,12 @@ buttons, and it changes nothing.
 
 ### The suspect badge
 
-A mod named as a suspect in the newest undismissed incident carries a badge on its card,
-beside `MissingDepsBadge` and on its shape. It reads `Suspected` in the warning tone, and
-its tooltip holds the verdict's title and `Click to review`. A click opens the Games tab on
-the incident.
+A mod named as a suspect in the newest undismissed incident carries a mark on its card, an
+icon button on `ModHealthBadge`'s shape in the warning tone. The two stack in one row when
+both draw, the health badge first: the corner cluster over the art on the grid card, and
+the spot beside the switch on the list row. The button carries the warning glyph and no
+word, and its tooltip holds `Suspected`, the verdict's title and `Click to review`. A click
+opens the Games tab on the incident.
 
 The badge lives while the incident is the newest and undismissed, and goes when the user
 dismisses the incident, disables the mod, or a newer game runs clean with the mod enabled.
@@ -1223,7 +1343,7 @@ than a second one.
 | `IncidentList`, `IncidentDetail`, `VerdictCard` | `modules/diagnostics/components/`            | The Games tab                                                                      |
 | The tabs                                        | `pages/Diagnostics.tsx`                      | `Tabs` from `@/components`, `Games` first                                          |
 | The verdict line                                | `modules/launcher/components/SessionBar.tsx` | A fifth resting branch                                                             |
-| `SuspectBadge`                                  | `modules/library/components/`                | `MissingDepsBadge`'s shape, in the warning tone                                    |
+| `SuspectBadge`                                  | `modules/diagnostics/components/`            | `ModHealthBadge`'s icon button, in the warning tone                                |
 | `TokenDecoder`                                  | `modules/diagnostics/components/`            | The paste box, and the read-only card it renders                                   |
 | `PatcherEventListeners`                         | `routes/__root.tsx`                          | Moves out of the Library page                                                      |
 | `usePatcherError`                               | `modules/patcher/api/`                       | Switches on `PatcherError.kind` and `InjectionStage`                               |
@@ -1313,28 +1433,28 @@ coming up.
 
 ### Answered
 
-| Question                                                | Answer                                                                                          |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Is the record per session or per game?                  | Per game. The host outlives the game                                                            |
-| Does the manager read the Sentry event?                 | No. `last_crash` is read, and nothing beside it                                                 |
-| Does anything leave the machine?                        | No. The report is a text the player pastes                                                      |
-| Where does the code table live?                         | In the core crate, compiled in as a TSV, and maintained by hand                                 |
-| What is the kind column for?                            | The classifier switches on it, so a code joins a verdict as a row                               |
-| What does an inferred row read as?                      | A Lead, and never a diagnosis                                                                   |
-| What does an unknown code read as?                      | The code, shown as is. Never an error                                                           |
-| Does `injected` mean the game was modded?               | No. The DLL's `init done` does, and four other lines say why not                                |
-| Where do the DLL's phrases come from?                   | `ltk-patcher`, read at the source, and kept in one module here                                  |
-| Is a crash a popup, a status-bar line, or both?         | Both. The popup announces it for six seconds, and the line keeps the answer until the next game |
-| Does a clean game record an incident?                   | No, with two exceptions: a disabled overlay and a skipped archive                               |
-| How many incidents are kept?                            | The newest fifty, under 1MB together, and the oldest goes                                       |
-| Does a game the patcher never touched make an incident? | Yes, when the session or the host saw it. The verdict is Unmodded, and it says why              |
-| Which key opens the Diagnostics page?                   | `Ctrl+D`, on the Games tab                                                                      |
-| When does the suspect badge clear?                      | On a dismiss, a disable, or a clean game with the mod enabled                                   |
-| What goes into the bug report URL?                      | The incident token, and not the report                                                          |
-| Can the team read a token?                              | Yes. The Games tab decodes one, and so does the core crate without the app                      |
-| Where do the system checks go?                          | The System tab, unchanged                                                                       |
-| Does the manager write into the League directory?       | Never                                                                                           |
-| Which side classifies?                                  | Rust, in the core crate, as a pure function                                                     |
-| What names a suspect?                                   | The archive, through `affected_wads`, and the DLL's redirected list                             |
+| Question                                                | Answer                                                                                                                                                              |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Is the record per session or per game?                  | Per game. The host outlives the game                                                                                                                                |
+| Does the manager read the Sentry event?                 | No. `last_crash` is read, and nothing beside it                                                                                                                     |
+| Does anything leave the machine?                        | No. The report is a text the player pastes                                                                                                                          |
+| Where does the code table live?                         | In the core crate, compiled in as a TSV, and maintained by hand                                                                                                     |
+| What is the kind column for?                            | The classifier switches on it, so a code joins a verdict as a row                                                                                                   |
+| What does an inferred row read as?                      | A Lead, and never a diagnosis                                                                                                                                       |
+| What does an unknown code read as?                      | The code, shown as is. Never an error                                                                                                                               |
+| Does `injected` mean the game was modded?               | No. The DLL's `init done` does, and four other lines say why not                                                                                                    |
+| Where do the DLL's phrases come from?                   | `ltk-patcher`, read at the source, and kept in one module here                                                                                                      |
+| Is a crash a popup, a status-bar line, or both?         | Both. The popup announces it for six seconds, and the line keeps the answer until the next game                                                                     |
+| Does a clean game record an incident?                   | No, with three exceptions: a disabled overlay, a skipped archive, and a redirected game that ended inside its first minute with no log under the configured install |
+| How many incidents are kept?                            | The newest fifty, under 1MB together, and the oldest goes                                                                                                           |
+| Does a game the patcher never touched make an incident? | Yes, when the session or the host saw it. The verdict is Unmodded, and it says why                                                                                  |
+| Which key opens the Diagnostics page?                   | `Ctrl+D`, on the Games tab                                                                                                                                          |
+| When does the suspect badge clear?                      | On a dismiss, a disable, or a clean game with the mod enabled                                                                                                       |
+| What goes into the bug report URL?                      | The incident token, and not the report                                                                                                                              |
+| Can the team read a token?                              | Yes. The Games tab decodes one, and so does the core crate without the app                                                                                          |
+| Where do the system checks go?                          | The System tab, unchanged                                                                                                                                           |
+| Does the manager write into the League directory?       | Never                                                                                                                                                               |
+| Which side classifies?                                  | Rust, in the core crate, as a pure function                                                                                                                         |
+| What names a suspect?                                   | The archive, through `affected_wads`, and the DLL's redirected list                                                                                                 |
 
 A row moves here when the body of this document carries the answer.

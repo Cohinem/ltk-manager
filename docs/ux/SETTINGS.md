@@ -443,6 +443,11 @@ above them reaches them:
 Their editors already carry their own controls, and a list editor removes one item at a time on
 purpose.
 
+The League path has one more writer than its row. The install mismatch dialog in
+[League diagnostics](LEAGUE_DIAGNOSTICS.md#the-install-mismatch-dialog) saves the install a
+running game came from over it, on `Switch to this install`, through the same save the row
+uses.
+
 A hidden dependent row is not reset either, and it carries no marker while it is hidden. Its parent
 is off, so its value is inert, and it waits there for the parent to come back on. That is what a
 reader expects from a setting that disappeared rather than one that was cleared. It follows that a

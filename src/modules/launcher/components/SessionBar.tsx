@@ -12,13 +12,19 @@ import { type ReactNode, useEffect } from "react";
 import { Button, IconButton, Progress, Tooltip } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { Incident, LaunchProgress, OverlayProgress, VerdictKind } from "@/lib/tauri";
-import { ConsequenceChip, isInformational, useDismissIncident } from "@/modules/diagnostics";
+import {
+  ConsequenceChip,
+  isInformational,
+  offersRebuild,
+  useDismissIncident,
+} from "@/modules/diagnostics";
 import { ModHealthStatusItem, useHealthVerdicts } from "@/modules/library";
 import {
   patcherFailureTab,
   patcherFailureTitle,
   useOverlayProgress,
   usePatcherStatus,
+  useRebuildOverlayAction,
 } from "@/modules/patcher";
 import { useSessionProjectNames } from "@/modules/workshop";
 import {
@@ -181,13 +187,17 @@ function LineActions({
   label,
   onAction,
   onDismiss,
+  children,
 }: {
   label: string;
   onAction: () => void;
   onDismiss: () => void;
+  /** An action of the line's own, ahead of the one every line carries. */
+  children?: ReactNode;
 }) {
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">
+      {children}
       <Button variant="ghost" size="xs" compact onClick={onAction} className="h-5">
         {label}
       </Button>
@@ -208,11 +218,13 @@ function LineActions({
  * The verdict on the last game that went wrong, in the idle line's place.
  *
  * It holds the bar until the user closes it, a build takes the bar back, or the
- * next game attaches. The incident itself waits on the Games tab.
+ * next game attaches. The incident itself waits on the Games tab. A verdict
+ * with the rebuild hint offers the rebuild here too.
  */
 function VerdictLine({ incident }: { incident: Incident }) {
   const navigate = useNavigate();
   const dismiss = useDismissIncident();
+  const rebuild = useRebuildOverlayAction();
   const clearFailure = usePatcherFailureStore((s) => s.clear);
   const { verdict, suspects } = incident;
   const [suspect] = suspects;
@@ -253,7 +265,20 @@ function VerdictLine({ incident }: { incident: Incident }) {
           navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } })
         }
         onDismiss={handleDismiss}
-      />
+      >
+        {offersRebuild(verdict) && (
+          <Button
+            variant="ghost"
+            size="xs"
+            compact
+            onClick={rebuild.run}
+            loading={rebuild.pending}
+            className="h-5"
+          >
+            {rebuild.label}
+          </Button>
+        )}
+      </LineActions>
     </RestingLine>
   );
 }

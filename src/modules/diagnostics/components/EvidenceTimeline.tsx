@@ -1,3 +1,4 @@
+import { m } from "@/i18n";
 import type { Evidence, EvidenceCode } from "@/lib/tauri";
 
 interface EvidenceTimelineProps {
@@ -6,12 +7,12 @@ interface EvidenceTimelineProps {
 
 /**
  * The lines the verdict rests on, in the order the backend gives them, each
- * with its source and its time. A coded line carries the table's reading
- * under it.
+ * with its source and its time. A game record's detail lines sit under it,
+ * and a coded line carries the table's reading under those.
  */
 export function EvidenceTimeline({ evidence }: EvidenceTimelineProps) {
   if (evidence.length === 0) {
-    return <p className="text-xs text-surface-500">Nothing was recorded for this game.</p>;
+    return <p className="text-xs text-surface-500">{m.diagnostics_evidence_empty()}</p>;
   }
 
   return (
@@ -27,6 +28,11 @@ export function EvidenceTimeline({ evidence }: EvidenceTimelineProps) {
           <span className="text-surface-400 tabular-nums">{row.at}</span>
           <span className="text-surface-500">{row.source}</span>
           <span className="break-all text-surface-200">{row.line}</span>
+          {row.detail?.map((line, position) => (
+            <span key={`${position}-${line}`} className="col-start-3 break-all text-surface-300">
+              {line}
+            </span>
+          ))}
           {row.code && (
             <span className="col-start-3 mt-0.5 break-words">
               <CodeReading code={row.code} />

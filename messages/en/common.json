@@ -15,5 +15,6 @@
     }
   ],
   "common_retry_action": "Retry",
-  "common_save_action": "Save"
+  "common_save_action": "Save",
+  "common_unknown_error_label": "Unknown error"
 }

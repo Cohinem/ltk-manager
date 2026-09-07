@@ -12,6 +12,7 @@
 //! the command that started them, so one lives in app state rather than being
 //! rebuilt per call.
 
+pub mod install;
 mod types;
 
 use std::path::PathBuf;
@@ -27,6 +28,7 @@ use ritoclient::{SessionEvent, SessionWatch};
 use crate::config::Config;
 use crate::events::{BackendEvent, EventSink};
 
+pub use install::{InstallMismatch, InstalledPatchline, detect_install_mismatch, same_install};
 pub use ritoclient::{LaunchTarget, StopFlag};
 pub use types::{
     LaunchOutcome, LaunchProgress, LaunchRoute, LaunchStage, LauncherError, SessionChanged,

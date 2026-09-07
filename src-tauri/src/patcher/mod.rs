@@ -17,6 +17,7 @@ pub use ltk_manager_core::patcher::{
     PatcherStateInner, PatcherThread, SessionOrigin, SessionParams, StoredPatcherConfig,
 };
 
+use crate::error::{AppError, AppResult};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
@@ -71,6 +72,27 @@ impl PatcherState {
             }
             running
         })
+    }
+
+    /// Block until the session thread is gone, for a caller that starts the
+    /// next one.
+    ///
+    /// # Errors
+    ///
+    /// The thread is still running after five seconds.
+    pub fn wait_for_stop(&self) -> AppResult<()> {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            if !self.is_running() {
+                return Ok(());
+            }
+            if std::time::Instant::now() > deadline {
+                return Err(AppError::Other(
+                    "Timed out waiting for patcher to stop".to_string(),
+                ));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
     }
 }
 

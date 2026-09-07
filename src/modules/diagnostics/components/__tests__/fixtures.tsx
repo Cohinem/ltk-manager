@@ -43,6 +43,7 @@ export function createMockIncident(overrides?: Partial<Incident>): Incident {
       version: "16.16.804.9184",
       contentVersion: "16.16.1",
       logPath: "C:\\Riot Games\\League of Legends\\Logs\\GameLogs\\x\\x_r3dlog.txt",
+      gameBaseDir: "C:\\Riot Games\\League of Legends",
     },
     ending: { exitReason: "Interrupt", exitCode: -1073741819, crashed: true },
     verdict: {
@@ -52,7 +53,7 @@ export function createMockIncident(overrides?: Partial<Incident>): Incident {
       subject: "assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds",
       consequence: "game-stopped",
       titleOverride: null,
-      hints: ["A mod that references a file it does not ship crashes the read."],
+      hints: ["disable-suspect"],
     },
     evidence: [
       {

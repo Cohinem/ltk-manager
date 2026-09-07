@@ -3,4 +3,8 @@
 /**
  * The facts the game log gives about the game itself.
  */
-export type GameInfo = { version: string, contentVersion: string, logPath: string, };
+export type GameInfo = { version: string, contentVersion: string, logPath: string, 
+/**
+ * The install root the game ran from, as its command line named it.
+ */
+gameBaseDir: string | null, };

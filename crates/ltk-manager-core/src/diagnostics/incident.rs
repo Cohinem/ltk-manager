@@ -7,7 +7,7 @@
 //! test.
 
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use chrono::{DateTime, Local, Utc};
@@ -153,6 +153,8 @@ pub struct GameInfo {
     pub version: String,
     pub content_version: String,
     pub log_path: String,
+    /// The install root the game ran from, as its command line named it.
+    pub game_base_dir: Option<String>,
 }
 
 /// How the game ended, as far as anything said.
@@ -256,6 +258,8 @@ pub enum VerdictKind {
     StuckLoading,
     ArchiveSkipped,
     EndedWithoutReason,
+    /// The game ran from another install than the overlay was built for.
+    WrongInstall,
 }
 
 /// What a verdict cost the player, which is a fact whatever the manager makes
@@ -338,8 +342,8 @@ pub struct Verdict {
     /// Written out for a reader, and never read back. [`Self::kind`] decides it,
     /// so reading it from a file would only let a stale one disagree.
     pub consequence: Consequence,
-    /// At most two, one sentence each.
-    pub hints: Vec<String>,
+    /// At most two.
+    pub hints: Vec<Hint>,
 }
 
 /// A verdict as a file holds it, which is every field the kind does not decide.
@@ -356,8 +360,9 @@ struct StoredVerdict {
     title_override: Option<String>,
     cause: String,
     subject: Option<String>,
-    #[serde(default)]
-    hints: Vec<String>,
+    #[serde(default, deserialize_with = "stored_hints")]
+    #[cfg_attr(feature = "ts", specta(type = Vec<Hint>))]
+    hints: Vec<Hint>,
 }
 
 impl From<StoredVerdict> for Verdict {
@@ -417,6 +422,9 @@ pub struct Evidence {
     pub at: String,
     pub source: EvidenceSource,
     pub line: String,
+    /// The lines under a game record with no columns of their own.
+    #[serde(default)]
+    pub detail: Vec<String>,
     pub code: Option<EvidenceCode>,
 }
 
@@ -576,8 +584,14 @@ pub struct GameRecord {
     pub patcher: PatcherBinaries,
     pub ending: Ending,
     pub log_path: Option<PathBuf>,
+    /// The install root the log was found under, which is the configured
+    /// install or another the reader searched.
+    pub log_root: Option<PathBuf>,
     /// `None` when no log was found, or the reader is turned off.
     pub log: Option<GameLogFacts>,
+    /// Whether the reader looked for a log. False with the reader off, or no
+    /// install configured.
+    pub log_searched: bool,
     pub timeline: Vec<RawEvidence>,
 }
 
@@ -600,12 +614,15 @@ pub struct ProjectFootprint {
     pub affected_wads: Vec<String>,
 }
 
-/// The library's side of a classification.
+/// The manager's side of a classification: the library's footprints, and the
+/// install the overlay was built for.
 pub struct ClassifyContext<'a> {
     pub mods: &'a [ModFootprint],
     pub projects: &'a [ProjectFootprint],
     /// A path for a 64-bit game path hash, when a hash table names one.
     pub resolve_hash: &'a dyn Fn(u64) -> Option<String>,
+    /// The configured League install root, `None` when none is set.
+    pub league_path: Option<&'a Path>,
 }
 
 /// The loading screen's last step, which the `load_step` rows count to.
@@ -744,6 +761,7 @@ impl VerdictKind {
             Self::SkinhackDetected => 14,
             Self::OverlayBuildFailed => 15,
             Self::InjectionHostFailed => 16,
+            Self::WrongInstall => 17,
         }
     }
 
@@ -766,6 +784,7 @@ impl VerdictKind {
             14 => Self::SkinhackDetected,
             15 => Self::OverlayBuildFailed,
             16 => Self::InjectionHostFailed,
+            17 => Self::WrongInstall,
             _ => return None,
         })
     }
@@ -793,6 +812,7 @@ impl VerdictKind {
             Self::StuckLoading => "Loading Screen Stall",
             Self::ArchiveSkipped => "Archive Verification Skipped",
             Self::EndedWithoutReason => "Unexplained Game Exit",
+            Self::WrongInstall => "Wrong League Install",
         }
     }
 
@@ -815,7 +835,8 @@ impl VerdictKind {
             | Self::TextureFailed
             | Self::OutOfMemory
             | Self::GraphicsFault
-            | Self::EndedWithoutReason => Consequence::GameStopped,
+            | Self::EndedWithoutReason
+            | Self::WrongInstall => Consequence::GameStopped,
             Self::StuckLoading => Consequence::GameHung,
             Self::ArchiveSkipped => Consequence::ArchiveDropped,
         }
@@ -858,9 +879,9 @@ impl Verdict {
     }
 
     /// Adds a hint. A verdict carries at most two, and a third is dropped.
-    pub fn with_hint(mut self, hint: impl Into<String>) -> Self {
+    pub fn with_hint(mut self, hint: Hint) -> Self {
         if self.hints.len() < 2 {
-            self.hints.push(hint.into());
+            self.hints.push(hint);
         }
         self
     }
@@ -1025,6 +1046,7 @@ enum Because {
     Rejected,
     DidNotVerify,
     Skipped,
+    CouldNotMount,
 }
 
 impl Because {
@@ -1040,6 +1062,43 @@ impl Because {
             Self::Rejected => format!("writes {names}, which the scan rejected"),
             Self::DidNotVerify => format!("writes {names}, which did not verify"),
             Self::Skipped => format!("writes {names}, which the lazy scan skipped"),
+            Self::CouldNotMount => format!("writes {names}, which League could not mount"),
+        }
+    }
+}
+
+/// Why the game refused an archive it was mounting, in the game's own words.
+/// The four states are the mount errors CONTEXT.md lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MountProblem {
+    Missing,
+    UnableToOpen,
+    Corrupt,
+    /// Two mounted archives disagree about the bytes behind one path. An
+    /// overlay built from another install is what makes one.
+    Inconsistent,
+}
+
+impl MountProblem {
+    /// The problem for the word on the log's `Problem:` line, or `None` for a
+    /// word this build does not know.
+    fn parse(word: &str) -> Option<Self> {
+        Some(match word.trim().to_ascii_lowercase().as_str() {
+            "missing" => Self::Missing,
+            "unable to open" => Self::UnableToOpen,
+            "corrupt" => Self::Corrupt,
+            "inconsistent" => Self::Inconsistent,
+            _ => return None,
+        })
+    }
+
+    /// The problem as the sentence after `League could not mount <archive>.`
+    fn reading(self) -> &'static str {
+        match self {
+            Self::Missing => "The game found it missing.",
+            Self::UnableToOpen => "The game could not open it.",
+            Self::Corrupt => "The game found it corrupt.",
+            Self::Inconsistent => "The game found it inconsistent with another mounted archive.",
         }
     }
 }
@@ -1185,13 +1244,13 @@ impl ScanStatus {
     ///
     /// Every status reaches one. A rejection a player cannot act on is the same
     /// dead end whichever code produced it.
-    fn hint(self) -> &'static str {
+    fn hint(self) -> Hint {
         match self {
-            Self::Skinhack => hint::REMOVE_SKINHACK,
-            Self::MissingBin | Self::Corrupt | Self::BaseSkin => hint::REIMPORT_MOD,
-            Self::OutOfMemory => hint::FREE_MEMORY,
-            Self::BaseWad => hint::REPAIR_GAME,
-            Self::Unknown => hint::COPY_REPORT,
+            Self::Skinhack => Hint::RemoveSkinhack,
+            Self::MissingBin | Self::Corrupt | Self::BaseSkin => Hint::ReimportMod,
+            Self::OutOfMemory => Hint::FreeMemory,
+            Self::BaseWad => Hint::RepairGame,
+            Self::Unknown => Hint::CopyReport,
         }
     }
 }
@@ -1298,32 +1357,83 @@ fn is_champion_archive(basename: &str) -> bool {
     !matches!(stem, "global" | "ui")
 }
 
-mod hint {
-    pub const SYSTEM_CHECKS: &str = "Run the System checks on the Diagnostics page.";
-    pub const UPDATE_MANAGER: &str = "Update LTK Manager.";
-    pub const REBUILD_OVERLAY: &str = "Rebuild the overlay.";
-    pub const CHECK_GAME_PATH: &str = "Check the League of Legends installation path in Settings.";
-    pub const TEXTURE_DIMENSIONS: &str = "A modded texture whose width or height is not a multiple of 4 is the common cause, so check the dimensions of any texture you changed.";
-    pub const REPAIR_INSTALL: &str =
-        "Repair the install in the Riot Client when the rebuild does not help.";
-    pub const UPDATE_DRIVER: &str =
-        "Update the graphics driver, and check the display settings when the update does not help.";
-    pub const FREE_MEMORY: &str =
-        "Close what else is running, and leave free space on the drive League is installed on.";
-    pub const OPEN_PROJECT: &str = "Open the project in the editor.";
-    pub const START_FIRST: &str = "Start the patcher before League.";
-    pub const SCAN_UP_FRONT: &str = "Turn on Scan every WAD up front, because the DLL scanned archives on demand and the game ended inside its first minute.";
-    pub const COPY_REPORT: &str = "Copy the report when you ask for help.";
-    pub const DISABLE_SUSPECT: &str = "A mod that references a file it does not ship stops the read. Disable the suspect and play again.";
-    pub const REMOVE_SKINHACK: &str =
-        "Disable the mod the scan named, then start the patcher again.";
-    pub const REIMPORT_MOD: &str =
-        "Re-import or rebuild the mod the scan named, then start the patcher again.";
-    pub const REPAIR_GAME: &str = "Repair the install in the Riot Client, because the scan objected to a file the game ships.";
-    pub const ELEVATE: &str =
-        "League may run elevated, so let the host elevate or run LTK Manager as administrator.";
-    pub const SIGNATURE: &str =
-        "The host ran elevated, so check the DLL's signature and whether an antivirus blocked it.";
+/// A setting or an action the evidence points at, under the verdict.
+///
+/// A code on the wire and in the store. The frontend catalog owns the sentence
+/// (ADR-0017), and the report text takes the sentences from there.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::EnumIter)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "kebab-case")]
+pub enum Hint {
+    SystemChecks,
+    UpdateManager,
+    RebuildOverlay,
+    CheckGamePath,
+    TextureDimensions,
+    RepairInstall,
+    UpdateDriver,
+    FreeMemory,
+    OpenProject,
+    StartFirst,
+    ScanUpFront,
+    CopyReport,
+    DisableSuspect,
+    RemoveSkinhack,
+    ReimportMod,
+    RepairGame,
+    Elevate,
+    Signature,
+    /// A modded archive was in the game, and a texture far larger than what it
+    /// replaces raises the odds of an allocation failing.
+    LargeTextures,
+}
+
+impl Hint {
+    /// A stable number, for a wire that carries one. Never renumber a variant.
+    pub fn code(self) -> u8 {
+        match self {
+            Self::SystemChecks => 1,
+            Self::UpdateManager => 2,
+            Self::RebuildOverlay => 3,
+            Self::CheckGamePath => 4,
+            Self::TextureDimensions => 5,
+            Self::RepairInstall => 6,
+            Self::UpdateDriver => 7,
+            Self::FreeMemory => 8,
+            Self::OpenProject => 9,
+            Self::StartFirst => 10,
+            Self::ScanUpFront => 11,
+            Self::CopyReport => 12,
+            Self::DisableSuspect => 13,
+            Self::RemoveSkinhack => 14,
+            Self::ReimportMod => 15,
+            Self::RepairGame => 16,
+            Self::Elevate => 17,
+            Self::Signature => 18,
+            Self::LargeTextures => 19,
+        }
+    }
+
+    /// The hint for a number, or `None` for one this build does not know.
+    pub fn from_code(code: u8) -> Option<Self> {
+        use strum::IntoEnumIterator;
+        Self::iter().find(|hint| hint.code() == code)
+    }
+
+    /// The hint a stored verdict holds as `value`: its code, or nothing for a
+    /// spelling this build does not know.
+    fn parse_stored(value: serde_json::Value) -> Option<Self> {
+        serde_json::from_value(value).ok()
+    }
+}
+
+/// The hints of a stored verdict. A sentence from a build without codes, or a
+/// code this build lacks, reads as nothing.
+fn stored_hints<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<Hint>, D::Error> {
+    let stored: Vec<serde_json::Value> = Deserialize::deserialize(deserializer)?;
+    Ok(stored.into_iter().filter_map(Hint::parse_stored).collect())
 }
 
 /// Where a game path lives, as far as its first segments say.

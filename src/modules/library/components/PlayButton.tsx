@@ -1,4 +1,4 @@
-import { CaretDownIcon, XCircleIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, CaretDownIcon, XCircleIcon, XIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 
 import {
@@ -17,7 +17,7 @@ import { useLaunchAvailability, usePlay, useStopLeague } from "@/modules/launche
 import { useInstalledMods } from "@/modules/library/api";
 import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
-import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
+import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 
 import { type GuardedLaunch, ModHealthLaunchGuard } from "./ModHealthLaunchGuard";
 
@@ -68,6 +68,39 @@ function primaryTooltip(
 function PrimaryIcon({ patcherOnly }: { patcherOnly: boolean }) {
   if (patcherOnly) return <PatcherIcon className="h-6 w-6 shrink-0" />;
   return <LeagueIcon className="h-6 w-6 shrink-0" />;
+}
+
+/**
+ * The forced rebuild a verdict queued for the next start, beside the control
+ * that starts it, with the one way to take it back. Per "The verdict line" in
+ * docs/ux/LEAGUE_DIAGNOSTICS.md.
+ */
+function PendingRebuildPill() {
+  const queued = usePendingRebuildStore((s) => s.queued);
+  const clear = usePendingRebuildStore((s) => s.clear);
+
+  if (!queued) return null;
+
+  return (
+    <Tooltip content={m.patcher_rebuild_pending_hint()}>
+      <span
+        data-ui="PlayButton:pending-rebuild"
+        className="inline-flex h-7 items-center justify-center gap-1 rounded-full bg-accent-500/10 pr-1 pl-2.5 text-xs font-medium text-accent-400 select-none"
+      >
+        <ArrowsClockwiseIcon weight="bold" className="h-3.5 w-3.5" />
+        {m.patcher_rebuild_pending_label()}
+        <IconButton
+          icon={<XIcon weight="bold" className="h-3 w-3" />}
+          variant="ghost"
+          size="xs"
+          compact
+          onClick={clear}
+          aria-label={m.patcher_rebuild_pending_clear_label()}
+          className="h-5 w-5"
+        />
+      </span>
+    </Tooltip>
+  );
 }
 
 /**
@@ -152,9 +185,15 @@ export function PlayButton({ disabled = false, block = false }: PlayButtonProps)
   if (!(platform?.patcherAvailable ?? true)) return null;
 
   return (
-    <ModHealthLaunchGuard className={block ? "w-full" : undefined}>
-      {(ask) => <LaunchControls ask={ask} disabled={disabled} block={block} />}
-    </ModHealthLaunchGuard>
+    <div
+      data-ui="PlayButton"
+      className={twMerge("flex items-center gap-2", block && "w-full flex-col items-stretch")}
+    >
+      <PendingRebuildPill />
+      <ModHealthLaunchGuard className={block ? "w-full" : undefined}>
+        {(ask) => <LaunchControls ask={ask} disabled={disabled} block={block} />}
+      </ModHealthLaunchGuard>
+    </div>
   );
 }
 

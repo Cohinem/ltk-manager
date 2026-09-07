@@ -117,7 +117,9 @@ export type {
   EvidenceSource,
   GameInfo,
   GamePhase,
+  Hint,
   Incident_Serialize as Incident,
+  InstallMismatch,
   LaunchKind,
   OriginKind,
   OverlayOutcome,
@@ -402,9 +404,17 @@ export const api = {
     dismissIncident: (id: string) => commands.dismissIncident(id).then(toResult),
     dismissAllIncidents: () => commands.dismissAllIncidents().then(toResult),
     revealGameLog: (id: string) => commands.revealGameLog(id).then(toResult),
-    incidentReport: (id: string) => commands.incidentReport(id).then(toResult),
+    incidentReport: (id: string, hints: string[]) =>
+      commands.incidentReport(id, hints).then(toResult),
     incidentToken: (id: string) => commands.incidentToken(id).then(toResult),
     decodeIncidentToken: (token: string) => commands.decodeIncidentToken(token).then(toResult),
+  },
+
+  // Launcher, on tauri-specta.
+  launcher: {
+    checkInstallMismatch: () => commands.checkInstallMismatch().then(toResult),
+    switchLeagueInstall: (installRoot: string) =>
+      commands.switchLeagueInstall(installRoot).then(toResult),
   },
 
   // Workshop

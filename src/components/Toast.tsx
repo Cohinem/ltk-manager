@@ -15,7 +15,8 @@ export interface ToastAction {
 export interface ToastData {
   type?: ToastType;
   timeout?: number;
-  action?: ToastAction;
+  /** The actions under the description, in one row. */
+  actions?: ToastAction[];
   /**
    * A mark of the toast's own, where the type's glyph is not the subject.
    *
@@ -207,6 +208,7 @@ export function ToastItem({ toast }: ToastItemProps) {
   const timeout = toast.data?.timeout ?? 5000;
   const progress = toast.data?.progress;
   const icon = toast.data?.icon ?? typeIcons[type];
+  const actions = toast.data?.actions ?? [];
   const [hovered, setHovered] = useState(false);
 
   const handleMouseEnter = useCallback(() => setHovered(true), []);
@@ -236,19 +238,24 @@ export function ToastItem({ toast }: ToastItemProps) {
         <div className="flex-1 space-y-1">
           <BaseToast.Title className="text-sm font-medium text-surface-100" />
           <BaseToast.Description className="text-sm text-surface-400" />
-          {toast.data?.action && (
-            <button
-              type="button"
-              /* The action is the way out as much as the ✕ is: a toast still
-                 sitting there is a press the reader has to make twice. */
-              onClick={() => {
-                toast.data?.action?.onClick();
-                toastManager.close(toast.id);
-              }}
-              className="mt-1 cursor-pointer text-sm font-medium text-accent-400 transition-colors hover:text-accent-300"
-            >
-              {toast.data.action.label}
-            </button>
+          {actions.length > 0 && (
+            <div className="mt-1 flex items-center gap-3">
+              {actions.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  /* The action is the way out as much as the ✕ is: a toast still
+                     sitting there is a press the reader has to make twice. */
+                  onClick={() => {
+                    action.onClick();
+                    toastManager.close(toast.id);
+                  }}
+                  className="cursor-pointer text-sm font-medium text-accent-400 transition-colors hover:text-accent-300"
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
           )}
         </div>
         <BaseToast.Close
@@ -295,6 +302,7 @@ export function useToast() {
         type?: ToastType;
         timeout?: number;
         action?: ToastAction;
+        actions?: ToastAction[];
         icon?: ReactNode;
         notify?: boolean;
       }) => {
@@ -306,7 +314,14 @@ export function useToast() {
         return toastManager.add({
           title: options.title,
           description: options.description,
-          data: { type, timeout, action: options.action, icon: options.icon },
+          data: {
+            type,
+            timeout,
+            actions: [options.action, ...(options.actions ?? [])].filter(
+              (action): action is ToastAction => action !== undefined,
+            ),
+            icon: options.icon,
+          },
           timeout,
         });
       },

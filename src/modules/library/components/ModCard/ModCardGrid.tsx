@@ -114,15 +114,16 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
             </div>
           </Tooltip>
         )}
-        {/* A ground under the pill's own fill, so it reads over cover art:
-            DS-GLASS. `empty:hidden` keeps a healthy mod from spending a gap on
-            the badge it does not draw. */}
+        {/* A ground under the marks' own fill, so they read over cover art:
+            DS-GLASS. `empty:hidden` keeps a mod with neither from spending a
+            gap on the marks it does not draw. */}
         <span
           data-no-toggle
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center rounded-sm bg-scrim/50 backdrop-blur-sm empty:hidden"
+          className="flex items-center gap-1 rounded-sm bg-scrim/50 backdrop-blur-sm empty:hidden"
         >
           <ModHealthBadge modId={mod.id} />
+          <SuspectBadge modId={mod.id} enabled={mod.enabled} />
         </span>
       </div>
 
@@ -175,9 +176,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
-          </span>
-          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
-            <SuspectBadge modId={mod.id} enabled={mod.enabled} />
           </span>
         </div>
       </div>

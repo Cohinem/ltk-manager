@@ -1,4 +1,4 @@
-use crate::error::{AppError, AppResult, IpcResult};
+use crate::error::{AppResult, IpcResult};
 use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
@@ -36,18 +36,13 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         tracing::trace!("Hot reload: stopping patcher...");
     }
 
-    wait_for_patcher_stop(&patcher_state)?;
+    patcher_state.wait_for_stop()?;
     kill_league_process();
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let patcher_config = PatcherConfig {
-        flags: config.flags,
-        workshop_projects: config.workshop_projects,
-    };
-
     tracing::info!("Hot reload: restarting patcher");
     start_patcher_inner(
-        patcher_config,
+        PatcherConfig::from_stored(config, false),
         app_handle,
         &patcher_state,
         &host_state,
@@ -79,7 +74,7 @@ pub(crate) fn execute_kill_league(app_handle: &AppHandle) -> AppResult<()> {
         if patcher_state.request_stop() {
             tracing::trace!("Kill league: also stopping patcher");
         }
-        wait_for_patcher_stop(&patcher_state)?;
+        patcher_state.wait_for_stop()?;
     }
 
     kill_league_process();
@@ -164,22 +159,6 @@ pub async fn kill_league(app_handle: AppHandle) -> IpcResult<()> {
 }
 
 // ── Helpers ──
-
-/// Wait for the patcher thread to finish (with timeout).
-fn wait_for_patcher_stop(state: &PatcherState) -> AppResult<()> {
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    loop {
-        if !state.is_running() {
-            return Ok(());
-        }
-        if std::time::Instant::now() > deadline {
-            return Err(AppError::Other(
-                "Timed out waiting for patcher to stop".to_string(),
-            ));
-        }
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-}
 
 // ── LCU Reconnect ──
 

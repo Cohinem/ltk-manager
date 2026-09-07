@@ -1,9 +1,21 @@
-//! Path checks for the readers that take a relative path from a caller.
+//! Path checks for the readers that take a relative path from a caller, and
+//! the one spelling a path is written in for a reader.
 
 use fs_err as fs;
 use std::path::{Component, Path, PathBuf};
 
 use crate::error::{AppError, AppResult};
+
+/// `path` as a reader sees it: forward slashes, without the `\\?\` prefix.
+///
+/// A setting holds what the picker gave it and the product registry writes
+/// forward slashes, so a surface naming both would otherwise spell one install
+/// two ways.
+pub fn slashed(path: impl AsRef<Path>) -> String {
+    let text = path.as_ref().to_string_lossy();
+    let text = text.strip_prefix(r"\\?\").unwrap_or(&text);
+    text.replace('\\', "/")
+}
 
 /// Join `relative` onto `root`, rejecting anything that escapes it.
 ///
@@ -42,6 +54,18 @@ pub fn resolve_within(root: &Path, relative: &str) -> AppResult<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn slashed_spells_a_path_with_forward_slashes_and_no_verbatim_prefix() {
+        assert_eq!(
+            slashed(r"\\?\C:\Riot Games\League of Legends (PBE)"),
+            "C:/Riot Games/League of Legends (PBE)"
+        );
+        assert_eq!(
+            slashed(Path::new("C:/Riot Games/League of Legends")),
+            "C:/Riot Games/League of Legends"
+        );
+    }
 
     #[test]
     fn resolves_a_plain_relative_path() {

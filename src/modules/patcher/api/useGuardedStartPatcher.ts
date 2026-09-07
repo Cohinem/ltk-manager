@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 
 import { useToast } from "@/components";
+import { errorMessage, m } from "@/i18n";
 import { api, type PatcherConfig } from "@/lib/tauri";
 import { checkModForSkinhack, useInstalledMods } from "@/modules/library";
 
@@ -30,8 +31,8 @@ export function useGuardedStartPatcher() {
       for (const mod of flaggedMods) {
         await api.toggleMod(mod.id, false);
         toast.warning(
-          "Skinhack Excluded",
-          `"${mod.displayName}" was detected as a skinhack and won't be loaded`,
+          m.patcher_skinhack_excluded_title(),
+          m.patcher_skinhack_excluded_description({ name: mod.displayName }),
         );
       }
 
@@ -43,8 +44,7 @@ export function useGuardedStartPatcher() {
       try {
         await startPatcher.mutateAsync(config);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        toast.error("Couldn't start the patcher", message);
+        toast.error(m.patcher_start_failed_title(), errorMessage(error));
         console.error("Failed to start patcher:", error);
       }
     },

@@ -1,16 +1,24 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
+use crate::mods::ModLibraryState;
+use crate::patcher::{PatcherHostState, PatcherState};
+use crate::state::{IncidentStoreState, SettingsState};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::EventSink;
 use ltk_manager_core::launcher::{
-    LaunchAvailability, LaunchOutcome, LaunchTarget, LauncherError, LeagueLauncher, SessionStarted,
-    StopFlag,
+    detect_install_mismatch, InstallMismatch, LaunchAvailability, LaunchOutcome, LaunchTarget,
+    LauncherError, LeagueLauncher, SessionStarted, StopFlag,
 };
+
+use super::off_thread;
+use super::patcher::{start_patcher_inner, PatcherConfig};
+use super::settings::save_settings_inner;
 
 /// The one [`LeagueLauncher`] the app shares.
 ///
@@ -155,6 +163,65 @@ pub fn get_launch_availability(launcher: State<LauncherState>) -> IpcResult<Laun
 #[tauri::command]
 pub fn get_league_session(launcher: State<LauncherState>) -> IpcResult<Option<SessionStarted>> {
     IpcResult::ok(launcher.launcher().follow_current_session())
+}
+
+/// The install the client's League session runs from, against the one the
+/// manager is set up for.
+///
+/// `None` when they agree, when no client or session answers, or when the
+/// registry does not know the configured path. Read-only against the client.
+#[tauri::command]
+#[specta::specta]
+pub async fn check_install_mismatch(app_handle: AppHandle) -> IpcResult<Option<InstallMismatch>> {
+    let configured = app_handle.state::<SettingsState>().config().league_path;
+    off_thread(move || Ok(configured.as_deref().and_then(detect_install_mismatch))).await
+}
+
+/// Points the manager at `install_root`, and puts the patcher session back up
+/// on an overlay built from it.
+///
+/// A running session is stopped, the path is saved the way Settings saves it,
+/// and the session starts again with the config it ran with and a forced
+/// rebuild. Without a running session the overlay is rebuilt and left for the
+/// next start.
+#[tauri::command]
+#[specta::specta]
+pub async fn switch_league_install(install_root: String, app_handle: AppHandle) -> IpcResult<()> {
+    off_thread(move || switch_league_install_inner(&app_handle, PathBuf::from(install_root))).await
+}
+
+fn switch_league_install_inner(app_handle: &AppHandle, install_root: PathBuf) -> AppResult<()> {
+    let patcher_state = app_handle.state::<PatcherState>();
+    let settings_state = app_handle.state::<SettingsState>();
+    let last_config = patcher_state.with(|state| state.last_config.clone());
+    let was_running = patcher_state.request_stop();
+    if was_running {
+        tracing::info!("Stopping the patcher to switch the League install");
+        patcher_state.wait_for_stop()?;
+    }
+
+    let mut settings = settings_state.0.lock().clone();
+    settings.config.league_path = Some(install_root);
+    save_settings_inner(settings.clone(), app_handle, &settings_state)?;
+
+    match last_config.filter(|_| was_running) {
+        Some(config) => {
+            tracing::info!("Starting the patcher again on the switched install");
+            start_patcher_inner(
+                PatcherConfig::from_stored(config, true),
+                app_handle,
+                &patcher_state,
+                &app_handle.state::<PatcherHostState>(),
+                &settings_state,
+                &app_handle.state::<ModLibraryState>(),
+                &app_handle.state::<IncidentStoreState>(),
+            )
+        }
+        None => {
+            let library = app_handle.state::<ModLibraryState>().0.clone();
+            library.rebuild_overlay(&settings.config).map(|_| ())
+        }
+    }
 }
 
 #[cfg(test)]

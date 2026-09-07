@@ -22,7 +22,7 @@ pub fn save_settings(
     save_settings_inner(settings, &app_handle, &state).into()
 }
 
-fn save_settings_inner(
+pub(crate) fn save_settings_inner(
     settings: Settings,
     app_handle: &AppHandle,
     state: &State<SettingsState>,

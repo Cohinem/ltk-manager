@@ -9,6 +9,7 @@ import type {
   WorkshopError,
 } from "@/lib/bindings";
 import { m } from "@/paraglide/messages";
+import { isAppError } from "@/utils/errors";
 
 /** The copy for one error: what went wrong, the remedy, and any prose from outside the app. */
 export interface ErrorCopy {
@@ -207,4 +208,11 @@ function conflictSentence(conflicts: string[]): string {
     count: conflicts.length,
     more: conflicts.length - shown.length,
   });
+}
+
+/** One line for a thrown value: a backend error's summary, an `Error`'s message, else nothing known. */
+export function errorMessage(error: unknown): string {
+  if (isAppError(error)) return errorSummary(error);
+  if (error instanceof Error) return error.message;
+  return m.common_unknown_error_label();
 }
