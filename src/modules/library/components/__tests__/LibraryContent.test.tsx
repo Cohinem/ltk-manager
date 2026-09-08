@@ -10,6 +10,7 @@ import { LibraryContent } from "../LibraryContent";
 const useLibraryContent = vi.fn();
 
 vi.mock("../../api", () => ({
+  ModThumbnails: ({ children }: { children: ReactNode }) => <>{children}</>,
   useLibraryContent: (args: unknown) => useLibraryContent(args),
   useReorderMods: () => ({ mutate: vi.fn() }),
   useReorderFolderMods: () => ({ mutate: vi.fn() }),
@@ -43,7 +44,7 @@ function show(contentView: ContentView) {
   useLibraryContent.mockReturnValue({
     viewMode: "grid",
     dndDisabled: false,
-    selectMode: false,
+    hasSelection: false,
     contentView,
     detailsMod: null,
     setDetailsMod: vi.fn(),

@@ -1,19 +1,25 @@
 import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import {
-  useAutoStartPatcher,
   useOverscrollSpring,
   useReducedMotion,
   useSurfaceLinkedBinWarning,
   useZoomHotkeys,
 } from "@/hooks";
-import { monoStack, sansStack, sansWeights, WEIGHT_TIERS } from "@/lib/fonts";
+import {
+  loadMonoFace,
+  loadSansFace,
+  monoStack,
+  sansStack,
+  sansWeights,
+  WEIGHT_TIERS,
+} from "@/lib/fonts";
 import type { OpenOn } from "@/lib/tauri";
-import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
+import { ProtocolInstallDialogLazy, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import {
   InstallMismatchDialog,
@@ -23,28 +29,48 @@ import {
 } from "@/modules/launcher";
 import {
   LibraryMigrationDialog,
+  LinkedBinWarningDialog,
   ModHealthSweepListener,
   useLibraryWatcher,
   useModStorageToast,
+  WadScanFailedDialog,
 } from "@/modules/library";
 import {
-  LinkedBinWarningDialog,
   PatcherEventListeners,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
-  WadScanFailedDialog,
 } from "@/modules/patcher";
-import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
-import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
-import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
-import { useObjectIndexLifecycle } from "@/modules/workshop";
-import { useDisplayStore, useUpdaterUpdate } from "@/stores";
+import {
+  DiagnosticsNoticeDialog,
+  useAppInfo,
+  useCheckSetupRequired,
+  useSettings,
+} from "@/modules/settings";
+import { DevConsoleLazy, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
+import { UpdateNotificationLazy, useUpdateCheck } from "@/modules/updater";
+import { useDisplayStore, useSearchObjects, useUpdaterUpdate } from "@/stores";
+
+/* Workshop is the largest module and the root mounts one lifecycle of it, so
+   the import is dynamic and the bin editor stays off the boot path. */
+const ObjectIndexLifecycle = lazy(() =>
+  import("@/modules/workshop").then((m) => ({ default: m.ObjectIndexLifecycle })),
+);
 
 /** Where `Open on` sends a reader who arrives at `/`. Home is `/` itself. */
 const LANDING_ROUTES: Partial<Record<OpenOn, "/mods" | "/workshop">> = {
   mods: "/mods",
   workshop: "/workshop",
 };
+
+/** `promise`, resolving either way, so a failed load still runs what follows it. */
+function settled(promise: Promise<unknown>): Promise<void> {
+  return promise.then(
+    () => undefined,
+    (reason: unknown) => {
+      console.error("Font face failed to load", reason);
+    },
+  );
+}
 
 function RootLayout() {
   const { data: appInfo } = useAppInfo();
@@ -76,9 +102,16 @@ function RootLayout() {
   useCleanGameWatch();
   useLeagueSession();
   useInstallMismatchWatch();
-  useObjectIndexLifecycle();
   useOverscrollSpring();
   useZoomHotkeys();
+
+  /* Mounted for the rest of the session once the switch has been on, since the
+     lifecycle drops the index when it goes off and cannot do that unmounted. */
+  const searchObjects = useSearchObjects();
+  const [tracksObjectIndex, setTracksObjectIndex] = useState(searchObjects);
+  useEffect(() => {
+    if (searchObjects) setTracksObjectIndex(true);
+  }, [searchObjects]);
 
   const update = useUpdaterUpdate();
   const { data: settings } = useSettings();
@@ -97,21 +130,39 @@ function RootLayout() {
     document.documentElement.dataset.corners = cornerStyle;
   }, [cornerStyle]);
 
+  /* The family is applied after the face is registered, so a lazily loaded face
+     never draws a frame in the fallback stack. A face whose chunk does not
+     arrive is applied anyway and falls back, which reads better than a stale
+     family the reader did not choose. */
   useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--face-sans", sansStack(sansFont));
-    /* Every tier is written or cleared, so the face before this one leaves
-       nothing of its own behind. */
-    const weights = sansWeights(sansFont);
-    for (const tier of WEIGHT_TIERS) {
-      const weight = weights[tier];
-      if (weight === undefined) root.style.removeProperty(`--weight-${tier}`);
-      else root.style.setProperty(`--weight-${tier}`, String(weight));
-    }
+    let current = true;
+    void settled(loadSansFace(sansFont)).then(() => {
+      if (!current) return;
+      const root = document.documentElement;
+      root.style.setProperty("--face-sans", sansStack(sansFont));
+      /* Every tier is written or cleared, so the face before this one leaves
+         nothing of its own behind. */
+      const weights = sansWeights(sansFont);
+      for (const tier of WEIGHT_TIERS) {
+        const weight = weights[tier];
+        if (weight === undefined) root.style.removeProperty(`--weight-${tier}`);
+        else root.style.setProperty(`--weight-${tier}`, String(weight));
+      }
+    });
+    return () => {
+      current = false;
+    };
   }, [sansFont]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--face-mono", monoStack(monoFont));
+    let current = true;
+    void settled(loadMonoFace(monoFont)).then(() => {
+      if (!current) return;
+      document.documentElement.style.setProperty("--face-mono", monoStack(monoFont));
+    });
+    return () => {
+      current = false;
+    };
   }, [monoFont]);
 
   useEffect(() => {
@@ -173,20 +224,27 @@ function RootLayout() {
     <div className="root flex h-screen flex-col bg-surface-950">
       <TitleBar appInfo={appInfo} />
       <main className="relative flex-1 overflow-hidden">
-        <UpdateNotification />
+        <Suspense fallback={null}>
+          <UpdateNotificationLazy />
+        </Suspense>
         <div className="h-full">
           <Outlet />
         </div>
       </main>
       <SessionBar />
       <PatcherEventListeners />
-      <ProtocolInstallDialog />
       <LibraryMigrationDialog />
       <ModHealthSweepListener />
       <WadScanFailedDialog />
       <InstallMismatchDialog />
       <LinkedBinWarningDialog />
-      {import.meta.env.DEV && <DevConsole />}
+      <DiagnosticsNoticeDialog />
+      <Suspense fallback={null}>
+        <ProtocolInstallDialogLazy />
+        {import.meta.env.DEV && <DevConsoleLazy />}
+      </Suspense>
+      {/* Its own boundary: the workshop chunk is the slowest of these to arrive. */}
+      <Suspense fallback={null}>{tracksObjectIndex && <ObjectIndexLifecycle />}</Suspense>
     </div>
   );
 }

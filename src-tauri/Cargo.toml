@@ -1,6 +1,6 @@
 [package]
 name = "ltk-manager"
-version = "1.16.0"
+version = "1.17.0"
 description = "LeagueToolkit Mod Manager - Desktop app for managing League of Legends mods"
 edition = "2021"
 license = "GPL-3.0-or-later"
@@ -29,6 +29,7 @@ tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
 
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
+ltk-telemetry = { workspace = true }
 
 ltk_mod_core = { version = "0.1.0" }
 ltk_overlay = { workspace = true }

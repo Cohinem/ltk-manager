@@ -21,6 +21,7 @@ export {
   useToggleFolder,
 } from "./useFolderMutations";
 export { useFolderToggle } from "./useFolderToggle";
+export { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 export { useInstallMod } from "./useInstallMod";
 export { useInstallProgress } from "./useInstallProgress";
 export { useLayoutMigration } from "./useLayoutMigration";
@@ -36,12 +37,17 @@ export { useLinkedBinOffender, useLinkedBinOffenders } from "./useLinkedBinOffen
 export { useModChecksumMismatches } from "./useModChecksumMismatches";
 export { useModFileDrop } from "./useModFileDrop";
 export { useModStorageToast } from "./useModStorageToast";
+export { ModThumbnails, useThumbnailsBatched } from "./useModThumbnails";
 export { useAllModWadReports, useModWadReport } from "./useModWadReport";
 export { useMoveModToFolder, useReorderFolderMods, useReorderFolders } from "./useMoveMod";
+export { useOverlayProgress } from "./useOverlayProgress";
 export { useRenameProfile } from "./useRenameProfile";
 export { useReorderMods } from "./useReorderMods";
 export { useRootModDnd } from "./useRootModDnd";
+export type { SelectionActions } from "./useSelectionActions";
+export { useSelectionActions } from "./useSelectionActions";
 export { useSetModLayers } from "./useSetModLayers";
+export { useSetModsEnabled } from "./useSetModsEnabled";
 export { useSetModStorage } from "./useSetModStorage";
 export { useSkinhackFlag } from "./useSkinhackFlag";
 export { useSortableModDnd } from "./useSortableModDnd";
@@ -49,14 +55,16 @@ export { useSwitchProfile } from "./useSwitchProfile";
 export { useToggleMod } from "./useToggleMod";
 export { useUnifiedDnd } from "./useUnifiedDnd";
 export { useUninstallMod } from "./useUninstallMod";
+export { useVisibleMods } from "./useVisibleMods";
+export type { WadScanOffender, WadScanOffenders } from "./useWadScanOffenders";
+export { useWadScanOffenders } from "./useWadScanOffenders";
 
 // Query options and hooks
 export {
-  activeProfileQueryOptions,
-  folderOrderQueryOptions,
-  foldersQueryOptions,
-  installedModsQueryOptions,
-  profilesQueryOptions,
+  folderQueries,
+  libraryPassQueries,
+  modQueries,
+  profileQueries,
   useActiveProfile,
   useFolderOrder,
   useFolders,

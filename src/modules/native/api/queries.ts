@@ -1,13 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 
-import { type CdChampion, fetchCdChampion } from "./cdragon";
-import {
-  type DdChampionDetail,
-  type DdChampionSummary,
-  fetchChampionDetail,
-  fetchChampionList,
-  fetchLatestVersion,
-} from "./ddragon";
+import { fetchCdChampion } from "./cdragon";
+import { fetchChampionDetail, fetchChampionList, fetchLatestVersion } from "./ddragon";
 
 export const nativeKeys = {
   version: () => ["native", "version"] as const,
@@ -17,16 +11,15 @@ export const nativeKeys = {
   cdChampion: (championId: string) => ["native", "cdragon-champion", championId] as const,
 };
 
-export function useNativeVersion() {
-  return useQuery<string>({
+export const nativeVersionOptions = () =>
+  queryOptions({
     queryKey: nativeKeys.version(),
     queryFn: fetchLatestVersion,
     staleTime: 1000 * 60 * 60,
   });
-}
 
-export function useChampionList(version: string | undefined) {
-  return useQuery<Record<string, DdChampionSummary>>({
+export const championListOptions = (version: string | undefined) =>
+  queryOptions({
     queryKey: version
       ? nativeKeys.champions(version)
       : (["native", "champions", "pending"] as const),
@@ -34,10 +27,9 @@ export function useChampionList(version: string | undefined) {
     enabled: !!version,
     staleTime: 1000 * 60 * 30,
   });
-}
 
-export function useChampionDetail(version: string | undefined, champId: string | null) {
-  return useQuery<DdChampionDetail>({
+export const championDetailOptions = (version: string | undefined, champId: string | null) =>
+  queryOptions({
     queryKey:
       version && champId
         ? nativeKeys.championDetail(version, champId)
@@ -46,10 +38,9 @@ export function useChampionDetail(version: string | undefined, champId: string |
     enabled: !!version && !!champId,
     staleTime: 1000 * 60 * 30,
   });
-}
 
-export function useCdChampion(championId: string | null) {
-  return useQuery<CdChampion>({
+export const cdChampionOptions = (championId: string | null) =>
+  queryOptions({
     queryKey: championId
       ? nativeKeys.cdChampion(championId)
       : (["native", "cdragon-champion", "pending"] as const),
@@ -57,4 +48,19 @@ export function useCdChampion(championId: string | null) {
     enabled: !!championId,
     staleTime: 1000 * 60 * 30,
   });
+
+export function useNativeVersion() {
+  return useQuery(nativeVersionOptions());
+}
+
+export function useChampionList(version: string | undefined) {
+  return useQuery(championListOptions(version));
+}
+
+export function useChampionDetail(version: string | undefined, champId: string | null) {
+  return useQuery(championDetailOptions(version, champId));
+}
+
+export function useCdChampion(championId: string | null) {
+  return useQuery(cdChampionOptions(championId));
 }

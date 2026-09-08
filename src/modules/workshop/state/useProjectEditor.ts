@@ -1,20 +1,23 @@
 import { useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import { type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
+import type { BinRow } from "@/lib/tauri";
+import { type DropOutcome, type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
+import { useTabOpenMode } from "@/stores/workshopLayout";
+
+import { isShellPaneId, openShellPanes, type ShellPaneId } from "../bin/shellPanes";
+import { useProjectContext } from "../components/ProjectContext";
+import { type ContentDocument, documentLayerName } from "../documents/contentDocument";
+import type { OpenIntent } from "../palette/types";
 import {
+  type CurveAimRequest,
   EMPTY_EDITOR,
   type HistoryEntry,
   NO_COLLAPSED_DIRS,
   type ObjectRevealRequest,
   type RevealRequest,
-  useTabOpenMode,
   useWorkshopEditorStore,
-} from "@/stores";
-
-import { useProjectContext } from "../components/ProjectContext";
-import { type ContentDocument, documentLayerName } from "../documents";
-import type { OpenIntent } from "../palette/types";
+} from "./workshopEditor";
 
 /**
  * The editor state of the project the caller is mounted inside.
@@ -408,6 +411,34 @@ export function useRevealObject() {
   );
 }
 
+/** The pending curve request aimed at `documentId`, or null for a tab nobody aimed. */
+export function useCurveAimRequest(documentId: string): CurveAimRequest | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).aimCurve;
+    if (!request || request.documentId !== documentId) return null;
+    return request;
+  });
+}
+
+/** Drop the curve request with `token`. The tab it addressed has answered it. */
+export function useSettleCurveAim() {
+  const projectPath = useProjectPath();
+  const settle = useWorkshopEditorStore((s) => s.settleCurveAim);
+  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+}
+
+/** Ask the object tab `documentId` to open its dock on `row`, captioned `chain`. */
+export function useAimCurve() {
+  const projectPath = useProjectPath();
+  const aimCurve = useWorkshopEditorStore((s) => s.aimCurve);
+  return useCallback(
+    (documentId: string, row: BinRow, chain: string) =>
+      aimCurve(projectPath, documentId, row, chain),
+    [aimCurve, projectPath],
+  );
+}
+
 /**
  * Visited document ids, nearest first, each one once.
  *
@@ -442,4 +473,90 @@ export function useMoveProjectDocuments() {
     (toPath: string) => moveProject(projectPath, toPath),
     [moveProject, projectPath],
   );
+}
+
+/** The split tree of shell panes, which every object tab of this project draws in. */
+export function useShellLayout(): LayoutNode {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).shellLayout);
+}
+
+/** Which panes one pane leaf holds, in strip order. */
+export function useShellPanes(leafId: string): readonly ShellPaneId[] {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore(
+    useShallow((s) => {
+      const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+      return (findLeaf(editor.shellLayout, leafId)?.tabs ?? []).filter(isShellPaneId);
+    }),
+  );
+}
+
+export function useShellActivePane(leafId: string): ShellPaneId | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+    const active = findLeaf(editor.shellLayout, leafId)?.activeTab;
+    return isShellPaneId(active) ? active : null;
+  });
+}
+
+/** Every pane the tree holds, which is what the Panes menu ticks. */
+export function useOpenShellPanes(): ReadonlySet<ShellPaneId> {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore(
+    useShallow((s) => openShellPanes((s.byProject[projectPath] ?? EMPTY_EDITOR).shellLayout)),
+  );
+}
+
+export function useActivateShellPane() {
+  const projectPath = useProjectPath();
+  const activateShellPane = useWorkshopEditorStore((s) => s.activateShellPane);
+  return useCallback(
+    (leafId: string, paneId: ShellPaneId) => activateShellPane(projectPath, leafId, paneId),
+    [activateShellPane, projectPath],
+  );
+}
+
+export function useCloseShellPane() {
+  const projectPath = useProjectPath();
+  const closeShellPane = useWorkshopEditorStore((s) => s.closeShellPane);
+  return useCallback(
+    (leafId: string, paneId: ShellPaneId) => closeShellPane(projectPath, leafId, paneId),
+    [closeShellPane, projectPath],
+  );
+}
+
+export function useOpenShellPane() {
+  const projectPath = useProjectPath();
+  const openShellPane = useWorkshopEditorStore((s) => s.openShellPane);
+  return useCallback(
+    (paneId: ShellPaneId) => openShellPane(projectPath, paneId),
+    [openShellPane, projectPath],
+  );
+}
+
+export function useApplyShellDrop() {
+  const projectPath = useProjectPath();
+  const applyShellDrop = useWorkshopEditorStore((s) => s.applyShellDrop);
+  return useCallback(
+    (outcome: DropOutcome) => applyShellDrop(projectPath, outcome),
+    [applyShellDrop, projectPath],
+  );
+}
+
+export function useSetShellSplitLayout() {
+  const projectPath = useProjectPath();
+  const setShellSplitLayout = useWorkshopEditorStore((s) => s.setShellSplitLayout);
+  return useCallback(
+    (splitId: string, layout: Record<string, number>) =>
+      setShellSplitLayout(projectPath, splitId, layout),
+    [setShellSplitLayout, projectPath],
+  );
+}
+
+export function useResetShellLayout() {
+  const projectPath = useProjectPath();
+  const resetShellLayout = useWorkshopEditorStore((s) => s.resetShellLayout);
+  return useCallback(() => resetShellLayout(projectPath), [resetShellLayout, projectPath]);
 }

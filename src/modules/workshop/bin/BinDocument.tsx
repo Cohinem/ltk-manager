@@ -9,10 +9,17 @@ import { objectDocument } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
 import { BinPreview } from "../preview/BinPreview";
-import { useObjectRevealRequest, useOpenDocumentAs, useSettleObjectReveal } from "../state";
+import {
+  useAimCurve,
+  useObjectRevealRequest,
+  useOpenDocumentAs,
+  useSettleObjectReveal,
+} from "../state";
 import { objectKey, rowKey } from "./binRows";
 import { BinTree, type TreeReveal } from "./BinTree";
+import { type CurveDock, CurveDockContext } from "./curveTarget";
 import { useBinDocument } from "./useBinDocument";
+import { useNarrowToolbar } from "./useNarrowToolbar";
 
 interface BinDocumentProps {
   /** The editor's id for the tab, which a reveal request names. */
@@ -88,6 +95,8 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   const roots = handle.rows;
   const rootByKey = useMemo(() => new Map(roots.map((row) => [rowKey(row), row])), [roots]);
 
+  const narrow = useNarrowToolbar();
+
   /* A bin holding one object opens it expanded. */
   const initialExpanded = useMemo(() => {
     const [only] = roots;
@@ -105,49 +114,75 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   }, [request, settle]);
 
   const open = useOpenDocumentAs();
-  const openObject = useCallback(
-    (row: BinRow, intent: OpenIntent) =>
-      open(
-        objectDocument(
-          asset,
-          row.entry,
-          row.name,
-          file,
-          row.value.type === "struct" ? row.value.class : null,
-        ),
-        intent,
+  const documentOf = useCallback(
+    (row: BinRow) =>
+      objectDocument(
+        asset,
+        row.entry,
+        row.name,
+        file,
+        row.value.type === "struct" ? row.value.class : null,
       ),
-    [asset, file, open],
+    [asset, file],
+  );
+  const openObject = useCallback(
+    (row: BinRow, intent: OpenIntent) => open(documentOf(row), intent),
+    [documentOf, open],
+  );
+
+  /* A file tab finds an object and an object tab reads one, so there is one dock in the
+     app and aiming from here lands the reader where the value's siblings are. */
+  const aimCurve = useAimCurve();
+  const dock = useMemo<CurveDock>(
+    () => ({
+      target: null,
+      aim: ({ row, chain }) => {
+        const object = rootByKey.get(objectKey(row.entry));
+        if (object === undefined) return;
+        const document = documentOf(object);
+        open(document, "default");
+        aimCurve(document.id, row, chain);
+      },
+    }),
+    [aimCurve, documentOf, open, rootByKey],
   );
 
   return (
     <div data-ui="BinDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <DocumentToolbar active={active}>
-        <BinFacts header={handle.header} />
+        <BinFacts header={handle.header} narrow={narrow} />
         {actions}
       </DocumentToolbar>
-      <BinTree
-        document={handle.document}
-        asset={asset}
-        roots={roots}
-        rootOwner={null}
-        label={name}
-        initialExpanded={initialExpanded}
-        reveal={reveal}
-        objectName={(entry) => rootByKey.get(objectKey(entry))?.name ?? entry}
-        onNotOpen={reopen}
-        onOpenObject={openObject}
-      />
+      <CurveDockContext value={dock}>
+        <BinTree
+          document={handle.document}
+          asset={asset}
+          roots={roots}
+          rootOwner={null}
+          label={name}
+          initialExpanded={initialExpanded}
+          reveal={reveal}
+          objectName={(entry) => rootByKey.get(objectKey(entry))?.name ?? entry}
+          onNotOpen={reopen}
+          onOpenObject={openObject}
+        />
+      </CurveDockContext>
     </div>
   );
 }
 
+interface BinFactsProps {
+  header: BinHeader;
+  /** The toolbar has room for the count and what opens, and for none of the rest. */
+  narrow: boolean;
+}
+
 /** What the file is, in the row its tab owns: the count, the version, the dependencies. */
-function BinFacts({ header }: { header: BinHeader }) {
+function BinFacts({ header, narrow }: BinFactsProps) {
   return (
     <span className="flex min-w-0 items-center gap-2 text-meta text-surface-400 select-none">
       <span>{m.workshop_bin_objects_label({ count: header.objects })}</span>
-      {header.kind === "prop" && header.version !== null && (
+      {!narrow && header.kind === "prop" && header.version !== null && (
         <>
           <Dot />
           <span>{m.workshop_bin_version_label({ version: header.version })}</span>
@@ -163,12 +198,16 @@ function BinFacts({ header }: { header: BinHeader }) {
         <>
           <Dot />
           <span>{m.workshop_bin_patch_label()}</span>
-          <Dot />
-          <span>{m.workshop_bin_patch_records_label({ count: header.patches })}</span>
-          {header.deleted > 0 && (
+          {!narrow && (
             <>
               <Dot />
-              <span>{m.workshop_bin_patch_deleted_label({ count: header.deleted })}</span>
+              <span>{m.workshop_bin_patch_records_label({ count: header.patches })}</span>
+              {header.deleted > 0 && (
+                <>
+                  <Dot />
+                  <span>{m.workshop_bin_patch_deleted_label({ count: header.deleted })}</span>
+                </>
+              )}
             </>
           )}
         </>

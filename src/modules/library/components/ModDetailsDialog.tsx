@@ -1,9 +1,8 @@
 import { PackageIcon } from "@phosphor-icons/react";
-import { invoke } from "@tauri-apps/api/core";
 import { Calendar, FolderOpen, Layers, Map, Sword, Tag, User } from "lucide-react";
 
 import { Button, Dialog } from "@/components";
-import type { InstalledMod } from "@/lib/tauri";
+import { type InstalledMod, revealPath } from "@/lib/tauri";
 import { useModChecksumMismatches, useSetModLayers } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
@@ -20,40 +19,24 @@ export function ModDetailsDialog({ open, mod, onClose }: ModDetailsDialogProps) 
   if (!mod) return null;
 
   return (
-    <Dialog.Root open={open} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="md">
-          <Dialog.Header>
-            <Dialog.Title>{mod.displayName}</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
+    <Dialog.Shell open={open} onClose={onClose} title={mod.displayName} size="md">
+      <Dialog.Body className="space-y-5">
+        <ModDetailsContent mod={mod} />
+      </Dialog.Body>
 
-          <Dialog.Body className="space-y-5">
-            <ModDetailsContent mod={mod} />
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-            <Button
-              variant="filled"
-              left={<FolderOpen className="h-4 w-4" />}
-              onClick={async () => {
-                try {
-                  await invoke("reveal_in_explorer", { path: mod.modDir });
-                } catch (error) {
-                  console.error("Failed to open location:", error);
-                }
-              }}
-            >
-              Open Location
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <Dialog.Footer>
+        <Button variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+        <Button
+          variant="filled"
+          left={<FolderOpen className="h-4 w-4" />}
+          onClick={() => revealPath(mod.modDir)}
+        >
+          Open Location
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }
 

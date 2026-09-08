@@ -23,10 +23,15 @@ pub fn save_settings(
 }
 
 pub(crate) fn save_settings_inner(
-    settings: Settings,
+    mut settings: Settings,
     app_handle: &AppHandle,
     state: &State<SettingsState>,
 ) -> AppResult<()> {
+    // Before the write, so a secret minted here reaches the file with everything
+    // else rather than waiting for the next save.
+    let (secret, _) = crate::telemetry::ensure_secret(&mut settings);
+    let was_collecting = state.0.lock().telemetry_enabled;
+
     // Sync OS autolaunch with the updated setting
     let autolaunch = app_handle.autolaunch();
     if settings.auto_run {
@@ -44,6 +49,20 @@ pub(crate) fn save_settings_inner(
     let launcher: State<'_, LauncherState> = app_handle.state();
     if let Err(e) = launcher.launcher().reconfigure(&settings.config) {
         tracing::error!(error = ?e, "Could not apply the new settings to the launcher");
+    }
+
+    // Rebuilt rather than toggled, because turning the setting off has to drop
+    // what was spooled under the old answer rather than hold it back.
+    let telemetry: State<'_, std::sync::Arc<crate::telemetry::TelemetryState>> = app_handle.state();
+    let remote = telemetry.remote();
+    telemetry.replace(crate::telemetry::build(
+        app_handle, &settings, secret, &remote,
+    ));
+
+    // Only on the way back on, because an install that refused never fetched the
+    // document and would otherwise report under the compiled defaults.
+    if settings.telemetry_enabled && !was_collecting {
+        crate::telemetry::refresh_from_document(app_handle);
     }
 
     let mut current = state.0.lock();

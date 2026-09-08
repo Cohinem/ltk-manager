@@ -112,7 +112,25 @@ hasSeenHddWarning: boolean,
 /**
  * Root directory containing the LeagueSkins collection.
  */
-leagueSkinsPath: string | null, leaguePath: string | null, modStoragePath: string | null, 
+leagueSkinsPath: string | null, 
+/**
+ * Whether anonymous diagnostics leave the machine. Default: true.
+ */
+telemetryEnabled: boolean, 
+/**
+ * The salt the rotating diagnostics identity is derived from.
+ *
+ * Generated on first run and never sent. Replacing it breaks the link to
+ * everything reported before, which is what the reset button asks for.
+ */
+telemetrySecret: string | null, 
+/**
+ * Whether the diagnostics notice has been shown.
+ *
+ * Separate from `first_run_complete`, because the notice is owed to an
+ * upgrading user who completed first run releases ago.
+ */
+hasSeenDiagnosticsNotice: boolean, leaguePath: string | null, modStoragePath: string | null, 
 /**
  * Directory where mod projects are stored (for Creator Workshop).
  */

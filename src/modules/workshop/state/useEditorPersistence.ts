@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/tauri";
-/* The layout sub-barrel rather than the module barrel, for the same reason
-   `@/stores/workshopEditor` does: the full barrel pulls the editor's
-   components, whose imports circle back into workshop state. */
+/* The layout sub-barrel rather than the module barrel: the full barrel pulls
+   the editor's components, whose imports circle back into workshop state. */
+// eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import { singleLeaf } from "@/modules/editor/layout";
-import { EMPTY_EDITOR, type ProjectEditor, useWorkshopEditorStore } from "@/stores";
 
+import { defaultShellLayout, firstShellLeafId } from "../bin/shellPanes";
 import type { ContentDocument } from "../documents";
 import {
   parseEditorFile,
@@ -14,6 +14,7 @@ import {
   sanitizeEditorState,
   serializeEditorFile,
 } from "./editorFile";
+import { EMPTY_EDITOR, type ProjectEditor, useWorkshopEditorStore } from "./workshopEditor";
 
 /* The zustand persist key the store wrote before `.ltk/editor.json` existed.
    Read once to seed a project's first file, and never written or cleared, so
@@ -41,6 +42,7 @@ export function migrateFromV1(persisted: unknown): {
 } {
   const stored = (persisted as { byProject?: Record<string, ProjectEditorV1> } | null)?.byProject;
 
+  const shellLayout = defaultShellLayout();
   const byProject: Record<string, PersistedProjectEditor> = {};
   for (const [path, editor] of Object.entries(stored ?? {})) {
     const open = editor.open ?? [];
@@ -55,6 +57,8 @@ export function migrateFromV1(persisted: unknown): {
       selectedLayer: editor.selectedLayer ?? null,
       // The old store had no ephemeral tab, so every migrated one is permanent.
       previewId: null,
+      shellLayout,
+      shellLeafId: firstShellLeafId(shellLayout),
     };
   }
   return { byProject };
@@ -94,6 +98,8 @@ function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEdit
     activeLeafId: editor.activeLeafId,
     selectedLayer: editor.selectedLayer,
     previewId: editor.previewId,
+    shellLayout: editor.shellLayout,
+    shellLeafId: editor.shellLeafId,
   };
 }
 
@@ -107,7 +113,9 @@ function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor |
     a.layout === b.layout &&
     a.activeLeafId === b.activeLeafId &&
     a.selectedLayer === b.selectedLayer &&
-    a.previewId === b.previewId
+    a.previewId === b.previewId &&
+    a.shellLayout === b.shellLayout &&
+    a.shellLeafId === b.shellLeafId
   );
 }
 

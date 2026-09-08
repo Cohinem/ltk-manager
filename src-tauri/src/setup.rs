@@ -31,6 +31,23 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     initialize_first_run(&app_handle, &settings_state);
 
+    // Read from the cache rather than the network, because the window is drawn
+    // before the document answers. `refresh_from_document` catches up below.
+    let remote = crate::telemetry::config::cached(&crate::telemetry::config_path(&app_handle));
+
+    // The secret is minted here rather than on first report, so the identity a
+    // reader is shown in Settings is the one their events would carry.
+    let telemetry = {
+        let mut settings = settings_state.0.lock();
+        let (secret, minted) = crate::telemetry::ensure_secret(&mut settings);
+        if minted {
+            if let Err(error) = crate::state::persist_settings(&app_handle, &settings) {
+                tracing::warn!(%error, "Failed to store the diagnostics secret");
+            }
+        }
+        crate::telemetry::build(&app_handle, &settings, secret, &remote)
+    };
+
     let settings = settings_state.0.lock().clone();
 
     // The library owns these stores; `manage` below registers the same `Arc`s so
@@ -93,6 +110,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
     app.manage(incident_store);
+    let telemetry_state = Arc::new(crate::telemetry::TelemetryState::new(telemetry, remote));
+    crate::telemetry::install(&telemetry_state);
+    app.manage(telemetry_state);
     app.manage(launcher_state);
     app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
@@ -124,6 +144,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     library.maintain_in_background(settings.config.clone(), move || {
         crate::commands::hashtables::reopen_after_sync(&for_tables);
     });
+
+    crate::telemetry::refresh_from_document(&app_handle);
 
     crate::tray::setup(app)?;
 
@@ -167,6 +189,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
     if let tauri::RunEvent::Exit = event {
         crate::patcher::shutdown_resources(app_handle);
+
+        let telemetry: tauri::State<'_, Arc<crate::telemetry::TelemetryState>> = app_handle.state();
+        telemetry.handle().flush();
 
         // The session watcher ends on its own, but the window hider polls for
         // five minutes waiting for a game that will never come now.

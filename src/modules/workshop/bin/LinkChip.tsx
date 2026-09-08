@@ -1,18 +1,26 @@
+import { WarningCircleIcon } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Code, Popover } from "@/components";
+import { Code, Popover, Readout, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 
-import { declaringFileContext } from "../documents/contentDocument";
+import { type ContentDocumentOf, declaringFileContext } from "../documents/contentDocument";
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { OpenIntent } from "../palette/types";
 import { useAssetInfo } from "../preview/useAssetInfo";
 import { clickIntent, useOpenDocumentAs } from "../state";
+import { nameHash } from "./binHash";
 import { fileLinkMark } from "./fileLinkMark";
 import { KindBadge } from "./KindBadge";
-import { decideFileLink, decideHash, decideObjectLink } from "./linkDecision";
+import {
+  chunkPath,
+  decideFileLink,
+  decideHash,
+  decideObjectLink,
+  decideStringLink,
+} from "./linkDecision";
 import { TextureSwatch } from "./TextureSwatch";
 import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
@@ -44,13 +52,12 @@ export function ObjectChip({ hash, name, kind }: ObjectChipProps) {
 
   const label = name ?? declared?.path ?? hash;
   if (decision.kind === "text" && kind === "link") return <Hex>{hash}</Hex>;
-  if (decision.kind === "text") return <Text mono={name === null}>{label}</Text>;
-  if (decision.kind === "pending") return <Text mono={name === null}>{label}</Text>;
+  if (decision.kind === "text") return <Text>{label}</Text>;
+  if (decision.kind === "pending") return <Text>{label}</Text>;
   if (decision.kind === "warm") {
     return (
       <LinkChip
         label={label}
-        mono={name === null}
         pending={wanting.has(hash)}
         onOpen={(intent) => wantOpen(hash, intent)}
       />
@@ -60,7 +67,6 @@ export function ObjectChip({ hash, name, kind }: ObjectChipProps) {
   return (
     <LinkChip
       label={label}
-      mono={name === null}
       card={declared && <TargetCard hash={hash} declared={declared} />}
       onOpen={(intent) => open(decision.document, intent)}
     />
@@ -83,21 +89,81 @@ interface FileChipProps {
 export function FileChip({ hash, path }: FileChipProps) {
   const targets = useLinkTargets();
   const layer = useLayerCopy(path);
-  const open = useOpenDocumentAs();
   const decision = decideFileLink(path, targets, layer);
 
   if (path === null) return <Hex>{hash}</Hex>;
-  if (decision.kind !== "chip") return <Text mono>{path}</Text>;
+  if (decision.kind !== "chip") return <Text missing={decision.kind === "missing"}>{path}</Text>;
+  return (
+    <ChunkChip
+      document={decision.document}
+      path={path}
+      side={decision.side}
+      layerTitle={layer?.title}
+    />
+  );
+}
+
+interface StringValueProps {
+  /** The string as the file holds it, which is what a miss draws and what a hit hashes. */
+  text: string;
+}
+
+/**
+ * A `string` as the chip the thing it names draws, per "A string that names a thing" in
+ * docs/ux/BIN_EDITOR.md.
+ *
+ * A miss on both sides is the field the string draws when it names nothing.
+ */
+export function StringValue({ text }: StringValueProps) {
+  const targets = useLinkTargets();
+  const path = chunkPath(text);
+  const layer = useLayerCopy(path);
+  const open = useOpenDocumentAs();
+  const decision = decideStringLink(text, targets, () => layer);
+
+  if (decision.kind === "missing") return <Text missing>{path ?? text}</Text>;
+  if (decision.kind !== "chip") {
+    /* Sized to what it holds rather than to the column, which a short name in a
+       full-width box reads as a text area waiting for more. */
+    return (
+      <Readout value={text} className="field-sizing-content max-w-full min-w-32 text-surface-100" />
+    );
+  }
   const { document } = decision;
+  if (document.kind === "preview" && path !== null) {
+    return <ChunkChip document={document} path={path} layerTitle={layer?.title} />;
+  }
+
+  const hash = nameHash(text);
+  const declared = targets.declared.get(hash);
+  return (
+    <LinkChip
+      label={declared?.path ?? text}
+      card={declared && <TargetCard hash={hash} declared={declared} />}
+      onOpen={(intent) => open(document, intent)}
+    />
+  );
+}
+
+interface ChunkChipProps {
+  document: ContentDocumentOf<"preview">;
+  /** The chunk's path as the tables name it, which is the chip's label. */
+  path: string;
+  /** The word the chip carries: the layer's title, or the archive's name. */
+  side?: string;
+  layerTitle?: string;
+}
+
+/** A resolved chunk: its chip, its swatch or badge, and the side that answered. */
+function ChunkChip({ document, path, side, layerTitle }: ChunkChipProps) {
+  const open = useOpenDocumentAs();
   const onOpen = (intent: OpenIntent) => open(document, intent);
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LinkChip label={path} mono onOpen={onOpen} />
-      <FileMark asset={document.asset} path={path} layerTitle={layer?.title} onOpen={onOpen} />
-      {decision.side !== undefined && (
-        <span className="shrink-0 text-meta text-surface-400">{decision.side}</span>
-      )}
+      <LinkChip label={path} onOpen={onOpen} />
+      <FileMark asset={document.asset} path={path} layerTitle={layerTitle} onOpen={onOpen} />
+      {side !== undefined && <span className="shrink-0 text-meta text-surface-400">{side}</span>}
     </span>
   );
 }
@@ -130,8 +196,6 @@ function FileMark({ asset, path, layerTitle, onOpen }: FileMarkProps) {
 
 interface LinkChipProps {
   label: string;
-  /** The label is a hash or a path rather than a name. */
-  mono: boolean;
   /** The click was taken and the index is building. */
   pending?: boolean;
   /** The hover card. Absent while the target is not resolved. */
@@ -140,7 +204,7 @@ interface LinkChipProps {
 }
 
 /** A mono `Code` chip, per DS-CODE-CHIP, opening on click and beside on `Ctrl+click`. */
-export function LinkChip({ label, mono, pending = false, card, onOpen }: LinkChipProps) {
+export function LinkChip({ label, pending = false, card, onOpen }: LinkChipProps) {
   const button = (
     <button
       type="button"
@@ -154,11 +218,7 @@ export function LinkChip({ label, mono, pending = false, card, onOpen }: LinkChi
         onOpen(clickIntent(event));
       }}
     >
-      <Code
-        className={twMerge("hover:bg-surface-veil hover:text-surface-100", !mono && "font-sans")}
-      >
-        {label}
-      </Code>
+      <Code className="hover:bg-surface-veil hover:text-surface-100">{label}</Code>
     </button>
   );
   if (!card) return button;
@@ -205,18 +265,32 @@ function TargetCard({ hash, declared }: { hash: string; declared: DeclaredObject
   );
 }
 
-function Text({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
+/**
+ * A path drawn as text, marked where nothing on this machine holds the chunk.
+ *
+ * "A chunk nothing holds" in docs/ux/BIN_EDITOR.md. One component draws both, so the
+ * check answering marks the row it already drew instead of replacing it.
+ */
+function Text({ children, missing = false }: { children: ReactNode; missing?: boolean }) {
   return (
-    <span
-      className={twMerge("truncate text-surface-200 select-text", mono && "font-mono text-code")}
-    >
-      {children}
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span
+        className={twMerge(
+          "truncate select-text",
+          missing ? "text-surface-300" : "text-surface-200",
+        )}
+      >
+        {children}
+      </span>
+      {missing && (
+        <Tooltip content={m.workshop_bin_missing_chunk_description()}>
+          <WarningCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-warning-text" />
+        </Tooltip>
+      )}
     </span>
   );
 }
 
 function Hex({ children }: { children: ReactNode }) {
-  return (
-    <span className="truncate font-mono text-code text-surface-400 select-text">{children}</span>
-  );
+  return <span className="truncate text-surface-400 select-text">{children}</span>;
 }

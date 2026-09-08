@@ -20,10 +20,14 @@ mod protocol;
 mod releases;
 mod setup;
 mod state;
+mod telemetry;
 mod tray;
 mod workshop;
 
 fn main() {
+    // Before logging, so a panic while that is still being set up is reported.
+    telemetry::install_panic_hook();
+
     let logging_guards = logging::init();
 
     tracing::info!("Starting LTK Manager v{}", env!("CARGO_PKG_VERSION"));
@@ -104,6 +108,7 @@ fn main() {
             commands::export_mods,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
+            commands::get_mod_thumbnails,
             commands::get_storage_directory,
             commands::reorder_mods,
             commands::get_mod_wad_report,

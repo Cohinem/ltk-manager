@@ -19,6 +19,15 @@ export const commands = {
 	 *  schema declares for its field at the install's build.
 	 */
 	binChildren: (document: BinDocumentId, entry: string, path: string, offset: number, limit: number) => __TAURI_INVOKE<({ ok: true; value: BinRows }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_children", { document, entry, path, offset, limit }),
+	/**
+	 *  The rows under each of several nodes of an open document, in the order asked.
+	 * 
+	 *  The projected read of "The projected read" in docs/ux/BIN_EDITOR.md, which a class
+	 *  layout and a value row use in place of one [`bin_children`] call per node. Each path
+	 *  answers one page, a path reaching nothing answers an empty one, and a call past the
+	 *  row cap is refused so the caller batches.
+	 */
+	binRead: (document: BinDocumentId, entry: string, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: BinRows[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_read", { document, entry, paths }),
 	/**  Drop one id. Its asset leaves the store with its last id. */
 	binClose: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_close", { document }),
 	/**
@@ -65,6 +74,27 @@ export const commands = {
 	 *  that carries one, against this build's tables.
 	 */
 	decodeIncidentToken: (token: string) => __TAURI_INVOKE<({ ok: true; value: DecodedIncident }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("decode_incident_token", { token }),
+	/**
+	 *  The pseudonym today's diagnostics would travel under, if any would.
+	 * 
+	 *  Answers `None` when nothing is collected, so the Privacy card can say that
+	 *  rather than show an identity that reaches no one.
+	 */
+	telemetryIdentity: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("telemetry_identity"),
+	/**
+	 *  Mint a new diagnostics secret, breaking the link to everything sent before.
+	 * 
+	 *  Takes effect at once rather than at the next midnight, because a reader who
+	 *  presses it is asking for the link to break now. Answers the new pseudonym.
+	 */
+	resetTelemetrySecret: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reset_telemetry_secret"),
+	/**
+	 *  Report a crash the frontend caught, which is its only route to the wire.
+	 * 
+	 *  The frontend does not reach the network, so a boundary, a window error and a
+	 *  rejection all come here and are queued on the one egress path.
+	 */
+	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
 	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
@@ -154,6 +184,8 @@ export type AppErrorResponse =
 { code: "BIN_NOT_OPEN" } | 
 /**  No node of the open bin has the address. */
 { code: "BIN_NODE_NOT_FOUND"; address: string } | 
+/**  A projected read asked for more rows than one call answers. */
+{ code: "BIN_READ_TOO_WIDE"; rows: number; cap: number } | 
 /**
  *  An overlay build or analysis failed.
  * 
@@ -200,6 +232,11 @@ pathHash: string } |
  *  the whole filesystem to the same webview, so this adds no reach.
  */
 { kind: "file"; path: string };
+
+/**  Why a suspect is one, as the line under its name. */
+export type Because = "holds-the-path" | "redirected" | "rejected" | "did-not-verify" | "skipped" | "could-not-mount" | 
+/**  What an incident stored before the reason was written down reads as. */
+"unknown";
 
 /**
  *  What an open answers: the id, the header, and the rows at depth zero.
@@ -405,6 +442,13 @@ export type ClassSchema = {
 	 *  database names where the install has none it describes.
 	 */
 	build: number,
+	/**
+	 *  The patch a player names, where the install's own build is what was read.
+	 * 
+	 *  Absent where the database describes no build the install has and the newest it
+	 *  names stood in, because that build belongs to no patch this install knows.
+	 */
+	patch: string | null,
 	/**  The named fields first, by name, and the unnamed after them by hash. */
 	fields: FieldSchema[],
 };
@@ -1081,6 +1125,32 @@ export type Suspect = {
 	 *  redirected - so no separate word grades it.
 	 */
 	because: string,
+	/**
+	 *  The same claim as a word, for a reader that groups rather than reads.
+	 * 
+	 *  [`Suspect::because`] names the archives, so it is prose and one of a kind
+	 *  per suspect. This is what a count is taken over. Defaulted, because an
+	 *  incident stored before it existed carries no reason.
+	 */
+	reason?: Because,
+};
+
+/**
+ *  What a frontend crash reports, as the boundary and the two window handlers
+ *  hand it over.
+ */
+export type UiError = {
+	/**  The error's constructor name, which is what an issue groups on. */
+	name: string,
+	message: string,
+	/**  The stack as the engine wrote it, unresolved until the maps are uploaded. */
+	stack: string | null,
+	/**  Which components were mounted, where React gives one. */
+	componentStack: string | null,
+	/**  The route the reader was on, which is the location a crash carries. */
+	route: string | null,
+	/**  Whether anything caught it, which the vendor draws on an issue. */
+	handled: boolean,
 };
 
 /**  What the manager concluded from one game. */

@@ -3,24 +3,18 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import type { WorkshopProject } from "@/lib/tauri";
 import {
-  BulkDeleteDialog,
-  BulkPackDialog,
-  DeleteConfirmDialog,
   ErrorState,
   LoadingState,
   NoProjectsState,
   NoSearchResultsState,
-  PackDialog,
   ProjectGrid,
   useFilteredProjects,
+  useHasActiveWorkshopFilters,
   useWorkshopProjects,
+  useWorkshopSearchQuery,
+  useWorkshopSelectionStore,
   useWorkshopTestState,
 } from "@/modules/workshop";
-import {
-  useHasActiveWorkshopFilters,
-  useWorkshopSelectionStore,
-  useWorkshopViewStore,
-} from "@/stores";
 
 export const Route = createFileRoute("/workshop/")({
   component: WorkshopIndex,
@@ -29,7 +23,7 @@ export const Route = createFileRoute("/workshop/")({
 function WorkshopIndex() {
   const navigate = useNavigate();
   const { isLoading, error } = useWorkshopProjects();
-  const searchQuery = useWorkshopViewStore((s) => s.searchQuery);
+  const searchQuery = useWorkshopSearchQuery();
   const filteredProjects = useFilteredProjects();
   const hasActiveFilters = useHasActiveWorkshopFilters();
 
@@ -57,14 +51,5 @@ function WorkshopIndex() {
     return <ProjectGrid projects={filteredProjects} onEdit={handleEditProject} />;
   }
 
-  return (
-    <>
-      <div className="h-full overflow-auto p-6">{renderContent()}</div>
-
-      <PackDialog />
-      <BulkPackDialog />
-      <DeleteConfirmDialog />
-      <BulkDeleteDialog />
-    </>
-  );
+  return <div className="h-full overflow-auto p-6">{renderContent()}</div>;
 }

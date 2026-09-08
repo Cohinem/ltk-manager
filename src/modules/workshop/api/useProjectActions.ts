@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from "react";
 
 import { api, type WorkshopProject } from "@/lib/tauri";
-import { useWorkshopDialogsStore } from "@/stores";
 
+import { useDeleteProjectDialog, usePackDialog, useRenameProjectDialog } from "../state";
 import { useTestProjects } from "./useTestProject";
 
 /**
@@ -14,8 +14,9 @@ import { useTestProjects } from "./useTestProject";
  */
 export function useProjectActions(project: WorkshopProject | undefined) {
   const testProjects = useTestProjects();
-  const openPackDialog = useWorkshopDialogsStore((s) => s.openPackDialog);
-  const openDeleteDialog = useWorkshopDialogsStore((s) => s.openDeleteDialog);
+  const openPackDialog = usePackDialog((s) => s.open);
+  const openDeleteDialog = useDeleteProjectDialog((s) => s.open);
+  const openRenameDialog = useRenameProjectDialog((s) => s.open);
 
   const testMutate = testProjects.mutate;
   const handleTestProject = useCallback(() => {
@@ -34,6 +35,10 @@ export function useProjectActions(project: WorkshopProject | undefined) {
     if (project) openDeleteDialog(project);
   }, [openDeleteDialog, project]);
 
+  const handleOpenRenameDialog = useCallback(() => {
+    if (project) openRenameDialog(project);
+  }, [openRenameDialog, project]);
+
   const handleOpenLocation = useCallback(async () => {
     if (!project) return;
     try {
@@ -50,6 +55,7 @@ export function useProjectActions(project: WorkshopProject | undefined) {
       handleTestProject,
       handleOpenPackDialog,
       handleOpenDeleteDialog,
+      handleOpenRenameDialog,
       handleOpenLocation,
     }),
     [
@@ -57,6 +63,7 @@ export function useProjectActions(project: WorkshopProject | undefined) {
       handleTestProject,
       handleOpenPackDialog,
       handleOpenDeleteDialog,
+      handleOpenRenameDialog,
       handleOpenLocation,
     ],
   );

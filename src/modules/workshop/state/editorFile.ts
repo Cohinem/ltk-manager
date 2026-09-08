@@ -1,9 +1,9 @@
-/* The layout sub-barrel rather than the module barrel, for the same reason
-   `@/stores/workshopEditor` does: the full barrel pulls the editor's
-   components, whose imports circle back into workshop state. */
+/* The layout sub-barrel rather than the module barrel: the full barrel pulls
+   the editor's components, whose imports circle back into workshop state. */
 import { z } from "zod";
 
 import type { AssetRef } from "@/lib/tauri";
+// eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
   findLeaf,
   type LayoutNode,
@@ -12,6 +12,7 @@ import {
   singleLeaf,
 } from "@/modules/editor/layout";
 
+import { defaultShellLayout, firstShellLeafId, sanitizeShellLayout } from "../bin/shellPanes";
 import type { ContentDocument } from "../documents";
 
 /** The slice of one project's editor that survives a restart. */
@@ -22,6 +23,9 @@ export interface PersistedProjectEditor {
   selectedLayer: string | null;
   /** The ephemeral tab, or null when the strip holds none. */
   previewId: string | null;
+  /** The split tree of shell panes, which every object tab of the project draws in. */
+  shellLayout: LayoutNode;
+  shellLeafId: string;
 }
 
 /** What `parseEditorFile` made of a `.ltk/editor.json`'s content. */
@@ -54,6 +58,8 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       activeLeafId: state.activeLeafId,
       selectedLayer: state.selectedLayer,
       previewId: state.previewId,
+      shellLayout: state.shellLayout,
+      shellLeafId: state.shellLeafId,
     },
     null,
     2,
@@ -130,12 +136,23 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
       ? entry.previewId
       : null;
 
+  /* A file written before the shell had a tree carries none, so it reads back
+     as the arrangement ADR-0031 ships rather than as an empty shell. */
+  const shellLayout =
+    entry.shellLayout === undefined ? defaultShellLayout() : sanitizeShellLayout(entry.shellLayout);
+  const shellLeafId =
+    typeof entry.shellLeafId === "string" && findLeaf(shellLayout, entry.shellLeafId)
+      ? entry.shellLeafId
+      : firstShellLeafId(shellLayout);
+
   return {
     documents,
     layout,
     activeLeafId,
     selectedLayer: typeof entry.selectedLayer === "string" ? entry.selectedLayer : null,
     previewId,
+    shellLayout,
+    shellLeafId,
   };
 }
 

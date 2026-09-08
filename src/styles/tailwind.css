@@ -1,15 +1,9 @@
 /* Self-hosted: a packaged build has no network, and system-ui is not
-   metric-compatible with these faces. */
+   metric-compatible with these faces. Only the two defaults and the display
+   face are here, because every other face carries a `load` in `lib/fonts`. */
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/bricolage-grotesque";
 @import "@fontsource-variable/geist-mono";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/ibm-plex-sans";
-@import "@fontsource-variable/nunito-sans";
-@import "@fontsource-variable/atkinson-hyperlegible-next";
-@import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource-variable/fira-code";
-@import "@fontsource-variable/source-code-pro";
 @import "tailwindcss";
 @import "./animations.css";
 @import "./global.css";
@@ -84,10 +78,22 @@
   --color-doc-game-text: var(--ltk-doc-game-text);
   --color-doc-problems: var(--ltk-doc-problems);
   --color-doc-problems-text: var(--ltk-doc-problems-text);
+  --color-channel-1: var(--ltk-channel-1);
+  --color-channel-1-text: var(--ltk-channel-1-text);
+  --color-channel-2: var(--ltk-channel-2);
+  --color-channel-2-text: var(--ltk-channel-2-text);
+  --color-channel-3: var(--ltk-channel-3);
+  --color-channel-3-text: var(--ltk-channel-3-text);
+  --color-channel-4: var(--ltk-channel-4);
+  --color-channel-4-text: var(--ltk-channel-4-text);
 
   /* Folder */
   --color-folder: var(--ltk-folder);
   --color-folder-text: var(--ltk-folder-text);
+  --color-bin-class: var(--ltk-bin-class);
+  --color-bin-class-text: var(--ltk-bin-class-text);
+  --color-bin-kind: var(--ltk-bin-kind);
+  --color-bin-kind-text: var(--ltk-bin-kind-text);
 
   /* Void */
   --color-void: var(--ltk-void);
@@ -139,6 +145,8 @@
   --text-meta--line-height: var(--type-meta-leading);
   --text-meta--letter-spacing: var(--type-meta-tracking);
   --text-code: var(--type-code);
+  --text-mono-row: var(--type-mono-row);
+  --text-mono-row--line-height: var(--type-mono-row-leading);
 
   /* Weights */
   --font-weight-normal: var(--weight-normal);

@@ -5,14 +5,14 @@ export {
   startPatcherSpendingQueue,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
-  useGuardedStartPatcher,
-  useOverlayProgress,
   usePatcherError,
+  usePatcherRunning,
   usePatcherStatus,
   useRebuildOverlay,
   useRebuildOverlayAction,
   useStartPatcher,
   useStopPatcher,
+  useWadScanFailure,
 } from "./api";
 export * from "./components";
 export * from "./utils/scanStatus";

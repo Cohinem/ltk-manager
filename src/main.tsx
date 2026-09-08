@@ -5,7 +5,10 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React, { type ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 
+import { ErrorBoundary } from "./components";
+import { ConfirmHost } from "./components/ConfirmDialog";
 import { ToastProvider } from "./components/ToastProvider";
+import { installGlobalErrorHandlers } from "./lib/crashReporting";
 import { queryClient } from "./lib/query";
 import { api } from "./lib/tauri";
 import { useTheme } from "./modules/settings";
@@ -36,15 +39,20 @@ function ThemeProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+// Before the first render, so a crash while mounting is reported too.
+installGlobalErrorHandlers();
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ToastProvider>
-          <RouterProvider router={router} />
+          <ErrorBoundary>
+            <RouterProvider router={router} />
+          </ErrorBoundary>
+          <ConfirmHost />
         </ToastProvider>
       </ThemeProvider>
-      {/* {import.meta.env.DEV && <ReactQueryDevtools  initialIsOpen={false} />} */}
     </QueryClientProvider>
   </React.StrictMode>,
 );

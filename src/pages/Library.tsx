@@ -1,22 +1,25 @@
 import { useEffect, useState } from "react";
 
 import { usePlatformSupport } from "@/hooks";
+import { PlayButton } from "@/modules/launcher";
 import {
   DragDropOverlay,
   ImportProgressDialog,
   LibraryContent,
+  LibraryDialogs,
   LibraryToolbar,
   ModHealthSweep,
   SelectionActionBar,
-  useFilteredMods,
+  useBulkUninstallDialog,
   useFilterOptions,
   useInstalledMods,
   useLibraryActions,
   useLibraryHotkeys,
+  useLibrarySelectionStore,
   useModFileDrop,
+  useVisibleMods,
 } from "@/modules/library";
 import { PatcherUnsupported, usePatcherStatus } from "@/modules/patcher";
-import { useLibrarySelectionStore } from "@/stores";
 
 interface LibraryProps {
   folderId?: string;
@@ -37,13 +40,26 @@ export function Library({ folderId }: LibraryProps = {}) {
   const isPatcherActive = patcherStatus?.running ?? false;
 
   const filterOptions = useFilterOptions(mods);
-  const visibleMods = useFilteredMods(mods, searchQuery);
+  const visibleMods = useVisibleMods(mods, searchQuery, folderId);
 
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
+  const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
   const setOrderedIds = useLibrarySelectionStore((s) => s.setOrderedIds);
   useEffect(() => {
     setOrderedIds(visibleMods.map((m) => m.id));
   }, [visibleMods, setOrderedIds]);
+
+  /* A selection carried off this page would let Uninstall N act on mods the
+     reader can no longer see, and a confirmation left standing would come back
+     over a list that has moved on. */
+  useEffect(
+    () => () => {
+      useLibrarySelectionStore.getState().clear();
+      useBulkUninstallDialog.getState().close();
+    },
+    [],
+  );
+
+  const isInstalling = actions.installMod.isPending || actions.bulkInstallMods.isPending;
 
   return (
     <div className="relative flex h-full flex-col">
@@ -61,6 +77,7 @@ export function Library({ folderId }: LibraryProps = {}) {
         isPatcherActive={isPatcherActive}
         filterOptions={filterOptions}
         visibleMods={visibleMods}
+        playButton={<PlayButton disabled={isInstalling} />}
       />
       <div className="relative mx-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-900/40">
         <LibraryContent
@@ -70,9 +87,10 @@ export function Library({ folderId }: LibraryProps = {}) {
           error={error}
           folderId={folderId}
         />
-        {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
+        {hasSelection && <SelectionActionBar visibleMods={visibleMods} />}
         <ModHealthSweep />
       </div>
+      <LibraryDialogs />
       <ImportProgressDialog
         open={actions.importDialogOpen}
         onClose={actions.handleCloseImportDialog}

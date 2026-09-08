@@ -1,15 +1,13 @@
-export { useAutoStartPatcher } from "./useAutoStartPatcher";
 export { useClickOutside } from "./useClickOutside";
 export { useCopyToClipboard } from "./useCopyToClipboard";
 export { useDebouncedValue } from "./useDebouncedValue";
-export { useHddWarning } from "./useHddWarning";
 export { useHorizontalWheel } from "./useHorizontalWheel";
 export { type ListNav, type ListNavParams, useListNav } from "./useListNav";
 export { NO_OVERSCROLL, useOverscrollSpring } from "./useOverscrollSpring";
 export { usePlatformSupport } from "./usePlatformSupport";
 export { usePrevious } from "./usePrevious";
 export { useReducedMotion } from "./useReducedMotion";
-export { beginReorderHold, useReorderTransition } from "./useReorderTransition";
+export { beginReorderHold, scrollerOf, useReorderTransition } from "./useReorderTransition";
 export { useResizeObserver } from "./useResizeObserver";
 export { useSurfaceLinkedBinWarning } from "./useSurfaceLinkedBinWarning";
 export { useZoomedPx } from "./useZoomedPx";

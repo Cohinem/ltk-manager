@@ -89,6 +89,22 @@ fn skin() -> BinObject {
         h("never"),
         values::Optional::<NoMeta>::empty(Kind::I32).unwrap(),
     )
+    .property(
+        h("iconSquare"),
+        values::Optional::from(Some(values::WadChunkLink::new(WadHash::hash_str(
+            "assets/aatrox.tex",
+        )))),
+    )
+    .property(
+        h("boxed"),
+        values::Optional::from(Some(values::Embedded(values::Struct {
+            class_hash: h("Part"),
+            properties: [(h("name"), values::String::from("b0").into())]
+                .into_iter()
+                .collect(),
+            meta: NoMeta,
+        }))),
+    )
     .property(h("pointer"), values::Struct::default())
     .property(h("link"), values::ObjectLink::new(h("Characters/Aatrox")))
     .property(h("bits"), values::BitBool::new(true))
@@ -166,6 +182,8 @@ fn named() -> Tables {
             "lookup",
             "maybe",
             "never",
+            "iconSquare",
+            "boxed",
             "pointer",
             "link",
             "bits",
@@ -268,7 +286,7 @@ fn roots_name_every_object_and_count_its_properties() {
         BinValue::Struct {
             class_hash: hex(h("SkinCharacterDataProperties")),
             class: Some("SkinCharacterDataProperties".to_owned()),
-            len: 18,
+            len: 20,
         }
     );
     assert!(!rows[0].unnamed);
@@ -287,7 +305,7 @@ fn roots_name_every_object_and_count_its_properties() {
 fn an_object_expands_to_its_properties_in_file_order() {
     let rows = under("");
 
-    assert_eq!(rows.len(), 18);
+    assert_eq!(rows.len(), 20);
     assert_eq!(rows[0].name, "skinClassification");
     assert_eq!(rows[0].node, RowNode::Property);
     assert_eq!(rows[0].kind, Some(PropertyKind::I32));
@@ -306,7 +324,7 @@ fn an_object_expands_to_its_properties_in_file_order() {
             value: "Justicar Aatrox".to_owned()
         }
     );
-    assert_eq!(rows[17].name, "0x9c4e1b02");
+    assert_eq!(rows[19].name, "0x9c4e1b02");
 }
 
 #[test]
@@ -407,6 +425,22 @@ fn a_container_indexes_its_elements() {
         items[1].value,
         BinValue::Integer {
             text: "20".to_owned()
+        }
+    );
+}
+
+#[test]
+fn a_file_under_an_option_is_named_like_one_beside_a_field() {
+    let rows = under("");
+    let option = row(&rows, "iconSquare");
+    assert_eq!(option.kind, Some(PropertyKind::Optional));
+
+    assert!(under(&option.path).is_empty());
+    assert_eq!(
+        option.value,
+        BinValue::WadChunkLink {
+            hash: format!("{:016x}", WadHash::hash_str("assets/aatrox.tex")),
+            path: Some("assets/aatrox.tex".to_owned()),
         }
     );
 }
@@ -532,22 +566,13 @@ fn a_map_keys_its_entries() {
 }
 
 #[test]
-fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
+fn an_optional_holding_a_leaf_draws_it_and_holds_no_row() {
     let rows = under("");
 
     let maybe = row(&rows, "maybe");
-    assert_eq!(
-        maybe.value,
-        BinValue::Optional {
-            present: true,
-            item_kind: PropertyKind::F32,
-        }
-    );
-    let inside = under(&maybe.path);
-    assert_eq!(inside.len(), 1);
-    assert_eq!(inside[0].name, "[0]");
-    assert_eq!(inside[0].label, "maybe[0]");
-    assert_eq!(inside[0].value, BinValue::Float { value: 1.5 });
+    assert_eq!(maybe.kind, Some(PropertyKind::Optional));
+    assert_eq!(maybe.value, BinValue::Float { value: 1.5 });
+    assert!(under(&maybe.path).is_empty());
 
     let never = row(&rows, "never");
     assert_eq!(
@@ -558,6 +583,25 @@ fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
         }
     );
     assert!(under(&never.path).is_empty());
+}
+
+#[test]
+fn an_optional_holding_rows_keeps_the_index_they_hang_off() {
+    let rows = under("");
+
+    let boxed = row(&rows, "boxed");
+    assert_eq!(
+        boxed.value,
+        BinValue::Optional {
+            present: true,
+            item_kind: PropertyKind::Embedded,
+        }
+    );
+
+    let inside = under(&boxed.path);
+    assert_eq!(inside.len(), 1);
+    assert_eq!(inside[0].name, "[0]");
+    assert_eq!(inside[0].label, "boxed[0]");
 }
 
 #[test]
@@ -649,6 +693,96 @@ fn an_address_the_document_does_not_hold_is_an_error() {
     not_found(entry, &format!("{}[0]", wire("never")));
     not_found(entry, "garbage");
     not_found(entry, &format!(".{}", wire("skinClassification")));
+}
+
+/// The rows under each of `paths` of the skin object, named, with no schema.
+fn each(paths: &[&str]) -> Result<Vec<BinRows>, BinDocumentError> {
+    let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
+    document().children_each(
+        h("Characters/Aatrox/Skins/Skin0/Resources"),
+        &paths,
+        &named(),
+        None,
+    )
+}
+
+#[test]
+fn a_projected_read_answers_every_path_in_the_order_asked() {
+    let pages = each(&[
+        &wire("armorMaterial"),
+        &wire("skinMeshProperties"),
+        &wire("parts"),
+    ])
+    .unwrap();
+
+    assert_eq!(pages.len(), 3);
+    assert_eq!(pages[0].total, 3);
+    let indices: Vec<_> = pages[0].rows.iter().map(|row| row.name.as_str()).collect();
+    assert_eq!(indices, ["[0]", "[1]", "[2]"]);
+    assert_eq!(row(&pages[1].rows, "texture").path.len(), 17);
+    assert_eq!(pages[2].total, 1);
+}
+
+#[test]
+fn a_path_that_reaches_nothing_answers_an_empty_page() {
+    let pages = each(&[&wire("nowhere"), "not-a-path", &wire("parts")]).unwrap();
+
+    assert!(pages[0].rows.is_empty());
+    assert_eq!(pages[0].total, 0);
+    assert!(pages[1].rows.is_empty());
+    assert_eq!(pages[2].total, 1);
+}
+
+#[test]
+fn a_projected_read_of_an_object_the_document_lacks_is_an_error() {
+    let error = document()
+        .children_each(h("Characters/Gone"), &[String::new()], &named(), None)
+        .unwrap_err();
+
+    assert!(matches!(error, BinDocumentError::NodeNotFound { .. }));
+}
+
+#[test]
+fn a_projected_read_past_the_row_cap_is_refused_and_names_it() {
+    /* Five lists of 401, so no one path is over its own page and the call is over
+    the cap by five rows. */
+    let list = |name: &str| {
+        (
+            h(name),
+            values::Container::from(vec![values::I32::new(1); 401]),
+        )
+    };
+    let object = BinObject::builder(h("Wide"), h("WideClass"))
+        .property(list("a").0, list("a").1)
+        .property(list("b").0, list("b").1)
+        .property(list("c").0, list("c").1)
+        .property(list("d").0, list("d").1)
+        .property(list("e").0, list("e").1)
+        .build();
+    let bin = Bin::<NoMeta>::builder().object(object).build();
+    let mut out = Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    let document = BinDocument::parse(&out.into_inner()).unwrap();
+
+    let paths: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|f| wire(f)).collect();
+    let error = document
+        .children_each(h("Wide"), &paths, &named(), None)
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        BinDocumentError::ReadTooWide {
+            rows: 2005,
+            cap: READ_ROW_CAP
+        }
+    ));
+
+    /* Four of the five fit, which is what the caller batches down to. */
+    assert!(
+        document
+            .children_each(h("Wide"), &paths[..4], &named(), None)
+            .is_ok()
+    );
 }
 
 #[test]
@@ -838,13 +972,6 @@ fn a_container_and_an_optional_carry_the_kind_of_what_they_hold() {
         BinValue::Container {
             len: 1,
             item_kind: PropertyKind::U8,
-        }
-    );
-    assert_eq!(
-        row(&rows, "maybe").value,
-        BinValue::Optional {
-            present: true,
-            item_kind: PropertyKind::F32,
         }
     );
     assert_eq!(

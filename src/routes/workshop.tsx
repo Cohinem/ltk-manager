@@ -6,17 +6,15 @@ import { twMerge } from "tailwind-merge";
 import { Toolbar } from "@/components";
 import { useSettings } from "@/modules/settings";
 import {
-  ImportFantomeDialog,
-  ImportGitRepoDialog,
-  NewProjectDialog,
   NotConfiguredState,
   ProjectProvider,
+  useNewProjectDialog,
   useRecordListVisit,
   useWorkshopProjects,
   WorkshopActiveFilterChips,
+  WorkshopDialogs,
   WorkshopHeader,
 } from "@/modules/workshop";
-import { useWorkshopDialogsStore } from "@/stores";
 
 export const Route = createFileRoute("/workshop")({
   component: WorkshopLayout,
@@ -40,7 +38,7 @@ function WorkshopShell() {
   const { data: projects } = useWorkshopProjects();
   const project = projects?.find((candidate) => candidate.name === projectName) ?? null;
 
-  const openNewProjectDialog = useWorkshopDialogsStore((s) => s.openNewProjectDialog);
+  const openNewProjectDialog = useNewProjectDialog((s) => s.open);
   useHotkeys("ctrl+n", () => openNewProjectDialog(), { preventDefault: true });
 
   /* The route rather than the resolved project, which arrives a frame late and
@@ -52,8 +50,16 @@ function WorkshopShell() {
 
   return (
     <ProjectProvider project={project}>
-      <div data-ui="WorkshopShell" className="flex h-full flex-col">
-        <Toolbar>
+      <div
+        data-ui="WorkshopShell"
+        className={twMerge(
+          "flex h-full flex-col",
+          project
+            ? "rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900"
+            : "mx-2 rounded-xl border border-surface-700 bg-surface-900/40",
+        )}
+      >
+        <Toolbar className="bg-surface-900">
           <WorkshopHeader />
           {!project && <WorkshopActiveFilterChips />}
         </Toolbar>
@@ -61,24 +67,12 @@ function WorkshopShell() {
         {/* Either route draws the fold as a panel over the ground, DS-GROUND. An
             editor and its sidebar share the frame and round into the bar below
             them, where the grid is an island framed as the library frames its own. */}
-        <div
-          data-ui="WorkshopShell:fold"
-          className={twMerge(
-            "min-h-0 flex-1 overflow-hidden",
-            project
-              ? "rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900"
-              : "mx-2 rounded-xl border border-surface-700 bg-surface-900/40",
-          )}
-        >
+        <div data-ui="WorkshopShell:fold" className={twMerge("min-h-0 flex-1 overflow-hidden")}>
           <Outlet />
         </div>
       </div>
 
-      {/* The four ways to a project are commands the bar runs from either route,
-          so what they open is mounted over both. */}
-      <NewProjectDialog />
-      <ImportFantomeDialog />
-      <ImportGitRepoDialog />
+      <WorkshopDialogs />
     </ProjectProvider>
   );
 }

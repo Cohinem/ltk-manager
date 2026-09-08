@@ -31,6 +31,7 @@ migrated![
     // Bin editor
     bin_open,
     bin_children,
+    bin_read,
     bin_close,
     class_schema,
     // Diagnostics
@@ -43,6 +44,9 @@ migrated![
     incident_report,
     incident_token,
     decode_incident_token,
+    telemetry_identity,
+    reset_telemetry_secret,
+    track_ui_error,
     // Launcher
     check_install_mismatch,
     switch_league_install,

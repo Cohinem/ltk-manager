@@ -7,6 +7,9 @@ export { GameWadsErrorState } from "./GameBrowserStates";
 export { GameDocument } from "./GameDocument";
 export { GameWadDocument } from "./GameWadDocument";
 export { GameWadsDocument } from "./GameWadsDocument";
+export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./keys";
+export { ObjectIndexLifecycle } from "./ObjectIndexLifecycle";
+export { gameQueries, objectIndexQueries } from "./queries";
 export * from "./sourceIndex";
 export { SourceTree } from "./SourceTree";
 export { type ExtractHow, useExtractActions } from "./useExtractActions";
@@ -14,13 +17,11 @@ export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./us
 export { useGameSearch } from "./useGameSearch";
 export { useRevealGameSearch } from "./useGameSearchReveal";
 export { useGameWadEntries } from "./useGameWadEntries";
-export { GAME_STALE_MS, gameKeys, useGameWads } from "./useGameWads";
+export { useGameWads } from "./useGameWads";
 export {
-  BUILDING_POLL_MS,
   useDeclaredObjects,
   useDropObjectIndex,
   useObjectDeclarations,
-  useObjectIndexLifecycle,
   useWarmObjectIndex,
 } from "./useObjectIndex";
 export { useObjectSearch } from "./useObjectSearch";

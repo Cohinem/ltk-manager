@@ -1,14 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { api, type AppError, type PatcherStatus } from "@/lib/tauri";
-import { queryFn } from "@/utils/query";
+import { patcherQueries } from "./queries";
 
-import { patcherKeys } from "./keys";
-
+/** The patcher's phase and session, refreshed when the backend announces a change. */
 export function usePatcherStatus() {
-  return useQuery<PatcherStatus, AppError>({
-    queryKey: patcherKeys.status(),
-    queryFn: queryFn(api.getPatcherStatus),
-    refetchInterval: 1000,
-  });
+  return useQuery(patcherQueries.status());
+}
+
+/**
+ * Whether a patcher run owns the library, and nothing else about it.
+ *
+ * A card that draws itself against `running` alone re-renders on that answer
+ * rather than on every phase the run passes through.
+ */
+export function usePatcherRunning(): boolean {
+  return useQuery({ ...patcherQueries.status(), select: (status) => status.running }).data ?? false;
 }

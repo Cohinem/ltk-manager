@@ -2,12 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                            |
-| ---------- | ----------------------------------------------------------------- |
-| 2026-09-05 | Open an object as its own tab, tag every row, make a link open    |
-| 2026-09-05 | Record the tables, the stream and the patch reader as landed      |
-| 2026-08-21 | Address a node with the game's own property path                  |
-| 2026-08-21 | Propose the block model, and replace the planned Monaco text view |
+| Date       | Change                                                |
+| ---------- | ----------------------------------------------------- |
+| 2026-09-08 | Wrap the emitter cards into the pane                  |
+| 2026-09-08 | Arrange the shell's panes as a split tree             |
+| 2026-09-08 | Size the emitter card and filter the strip by name    |
+| 2026-09-08 | Give the curve dock its table and probability tabs    |
+| 2026-09-08 | Draw a colour curve as a gradient of its stops        |
+| 2026-09-08 | Decide the curve panel                                |
+| 2026-09-07 | Frame a particle system as a shell of panes           |
+| 2026-09-07 | Fold a value family into the row a layout draws it in |
+| 2026-09-07 | Draw an emitter as a card of its groups               |
+| 2026-09-07 | Lay a skin and a particle system out                  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -37,34 +43,38 @@ This table holds every major feature of the bin editor. A status word has one me
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature              | Status      | Note                                                          |
-| -------------------- | ----------- | ------------------------------------------------------------- |
-| VS Code handoff      | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`   |
-| Object list          | Available   | The objects of one file, collapsed, with their classes        |
-| Property rows        | Available   | Every leaf kind, drawn read-only                              |
-| Container rows       | Available   | The eight complex kinds, expandable                           |
-| Hash names           | Available   | The four mimir bin tables, through `bin_tables()`             |
-| Property paths       | Available   | The game's path syntax, as the address and as Copy path       |
-| Open at object       | Available   | A `$` hit opens the declaring file scrolled to its object     |
-| Type tags            | Available   | Every row's kind after its name, in ritobin's words           |
-| Class cards          | Available   | A class or a field, pinned by a click, from the meta schema   |
-| Object tab           | Available   | One declaration as a document. ADR-0028                       |
-| Object links         | Available   | A chip that opens the object tab, resolved through the index  |
-| Hash links           | Available   | A `hash` the index declares, opening the same way             |
-| WAD chunk links      | Available   | A chip that opens the chunk in a preview tab                  |
-| Texture swatch       | Available   | A `file` link to a texture, at row height and on a hover card |
-| Find all references  | In progress | The objects of a class from the index. The walk for the rest  |
-| In-document search   | Planned     | The bar's `@` scope over the open rows                        |
-| Leaf editing         | Proposed    | The primitive widgets, and the patch that carries an edit     |
-| Container editing    | Proposed    | Add, remove, reorder, and a `Map` key                         |
-| Autosave             | Proposed    | The strings editor's debounce and save state                  |
-| Undo                 | Proposed    | An inverse-patch stack per document                           |
-| Class views          | Proposed    | A bespoke block for a class that earns one                    |
-| Schema-aware editing | Proposed    | The meta dump, for a field's declared type and its subclasses |
-| Copy into a layer    | Proposed    | The route from a read-only game chunk to an editable copy     |
-| Ritobin text view    | Proposed    | A read-only text pane, once `ltk_ritobin` publishes           |
-| Patch bin records    | Planned     | `BinOverride` reads them. Drawn by nothing, so read-only      |
-| Patch authoring      | Proposed    | An edit written as a patch record rather than a rewrite       |
+| Feature               | Status      | Note                                                             |
+| --------------------- | ----------- | ---------------------------------------------------------------- |
+| VS Code handoff       | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`      |
+| Object list           | Available   | The objects of one file, collapsed, with their classes           |
+| Property rows         | Available   | Every leaf kind, drawn read-only                                 |
+| Container rows        | Available   | The eight complex kinds, expandable                              |
+| Hash names            | Available   | The four mimir bin tables, through `bin_tables()`                |
+| Property paths        | Available   | The game's path syntax, as the address and as Copy path          |
+| Open at object        | Available   | A `$` hit opens the declaring file scrolled to its object        |
+| Type tags             | Available   | Every row's kind after its name, in ritobin's words              |
+| Class cards           | Available   | A class or a field on hover, from the meta schema                |
+| Object tab            | Available   | One declaration as a document. ADR-0028                          |
+| Object links          | Available   | A chip that opens the object tab, resolved through the index     |
+| Hash links            | Available   | A `hash` the index declares, opening the same way                |
+| WAD chunk links       | Available   | A chip that opens the chunk in a preview tab                     |
+| Texture swatch        | Available   | A `file` link to a texture, at row height and on a hover card    |
+| Find all references   | In progress | The objects of a class from the index. The walk for the rest     |
+| String links          | Available   | A string naming a chunk or an object, as the chip its kind draws |
+| Value rows            | Available   | Every family's constant, and a mark where a curve carries more   |
+| Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
+| Curve panel           | In progress | The dock, the graph and its channels. The tabs next. ADR-0032    |
+| Particle system shell | Available   | Panes under a crumb, arranged by the reader. ADR-0031, ADR-0034  |
+| In-document search    | Planned     | The bar's `@` scope over the open rows                           |
+| Leaf editing          | Proposed    | The primitive widgets, and the patch that carries an edit        |
+| Container editing     | Proposed    | Add, remove, reorder, and a `Map` key                            |
+| Autosave              | Proposed    | The strings editor's debounce and save state                     |
+| Undo                  | Proposed    | An inverse-patch stack per document                              |
+| Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses    |
+| Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
+| Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
+| Patch bin records     | Planned     | `BinOverride` reads them. Drawn by nothing, so read-only         |
+| Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite          |
 
 ## Scope
 
@@ -312,6 +322,28 @@ The range exists for one case. A container of several thousand elements is one n
 single response holding all of them is a payload no viewport reads. Everything else answers
 in one call.
 
+### The projected read
+
+A [layout](#class-views) and a [value row](#a-value-family-on-its-row) want several nodes at
+once, and one call per node is a round trip per cell.
+
+```rust
+/// The children of each of several nodes, in the order asked.
+fn bin_read(document: DocumentId, entry: BinHash, paths: Vec<String>) -> Vec<BinRows>;
+```
+
+Each path answers the page `bin_children` answers, 500 rows, and a call answers four pages at
+most. Past that the call errors and names the cap, and the caller batches. The tree never
+crosses, per ADR-0026, and `bin_children` stays as the one-node form.
+
+A path reaching nothing answers an empty page rather than failing the call, because a layout
+names fields an object of its class need not hold and a caller that has to know first is back
+to a call per node. An entry the file does not declare is still an error.
+
+The cap is counted before a row is built, so a refused call costs a walk. A caller batches on
+the row counts it already holds: a node's own row carries how many rows sit under it, so no
+level of a read guesses.
+
 ### The open document, and its bound
 
 The parsed tree outlives no tab. The frontend opens a document and closes it, and the pair is
@@ -331,26 +363,39 @@ costs nothing a user can see.
 
 `ltk_meta::property::Kind` is the closed set. Nineteen leaves and eight containers.
 
-| Kind                              | Draws as                                      |
-| --------------------------------- | --------------------------------------------- |
-| `None`                            | The word, dimmed                              |
-| `Bool`, `BitBool`                 | A switch                                      |
-| `I8`..`U64`                       | A number field, clamped to the kind's range   |
-| `F32`                             | A number field                                |
-| `Vector2`, `Vector3`, `Vector4`   | Two to four number fields, labelled           |
-| `Matrix44`                        | A four by four grid, collapsed by default     |
-| `Color`                           | A swatch, and its four channels               |
-| `String`                          | A text field                                  |
-| `Hash`                            | The name the tables give, or the hex          |
-| `WadChunkLink`                    | The chunk's path, as a link                   |
-| `Container`, `UnorderedContainer` | A list, with its length                       |
-| `Struct`, `Embedded`              | A nested block, with its class                |
-| `ObjectLink`                      | The object's path, as a link                  |
-| `Optional`                        | Present or absent, and the value when present |
-| `Map`                             | Key and value pairs, with both kinds named    |
+| Kind                              | Draws as                                    |
+| --------------------------------- | ------------------------------------------- |
+| `None`                            | The word, dimmed                            |
+| `Bool`, `BitBool`                 | A checkbox                                  |
+| `I8`..`U64`                       | A number field, clamped to the kind's range |
+| `F32`                             | A number field                              |
+| `Vector2`, `Vector3`, `Vector4`   | Two to four number fields, labelled         |
+| `Matrix44`                        | A four by four grid, collapsed by default   |
+| `Color`                           | A swatch, and its four channels             |
+| `String`                          | A text field                                |
+| `Hash`                            | The name the tables give, or the hex        |
+| `WadChunkLink`                    | The chunk's path, as a link                 |
+| `Container`, `UnorderedContainer` | A list, with its length                     |
+| `Struct`, `Embedded`              | A nested block, with its class              |
+| `ObjectLink`                      | The object's path, as a link                |
+| `Optional`                        | What it holds, or that it holds nothing     |
+| `Map`                             | Key and value pairs, with both kinds named  |
 
-`BitBool` is a leaf that the format flags as complex. It draws as a switch and nothing about
+`BitBool` is a leaf that the format flags as complex. It draws as a checkbox and nothing about
 it is nested.
+
+Every widget here is drawn before it is editable, and the read-only one is the editable one at
+rest: a number and a string sit in their fields and a bool in its checkbox from the first read,
+so nothing on the row moves when editing lands. A field draws its border at rest rather than
+under the pointer, because a value that only becomes a field on hover reads until then as text
+laid over the row. What a read-only widget does not take is focus, since a document of them
+would otherwise be a tab order thousands of stops long.
+
+**An optional draws what it holds.** It is one value or none, so a leaf inside one takes the
+option's own row rather than a `[0]` under it - a row a reader opens to learn nothing the option
+row had not already said. An optional holding a struct or a container keeps its `[0]`, because
+those rows have to hang off something. The tag stays `option[...]` either way, so the row still
+says it is an option.
 
 **A kind with no widget still has a row.** It shows its name and its kind, says that this
 viewer does not draw it, and offers the file in VS Code. It is never hidden, because a row a
@@ -410,20 +455,44 @@ object opens it expanded, because a collapsed single row is a document that says
 
 ### The property row
 
-A row is a name, a tag and a value, on one line. The name column is fixed and the value column
-takes the rest. A run of rows reads as a column of values rather than a ragged list.
+A row is a name, a tag and a value, on one line. The name column is one width for the whole
+list and the value column takes the rest. A run of rows reads as a column of values rather than a ragged list, which is
+why the indent lives inside the name column rather than beside it - an indent that pushes the
+name along would push every value with it, and a deep row's value would start where a shallow
+one's ended.
+
+**The name column is measured, not fixed.** Every row is set in one mono face, so the width the
+widest name needs is arithmetic over the loaded rows rather than a measurement of the drawn ones:
+the indent in characters, the name, the tag and any class it holds. It is taken over the loaded
+rows rather than the visible ones, so it does not move while a reader scrolls, and it is bounded
+at both ends - a shallow list is not cramped, and one long name cannot push every value off the
+pane.
+
+**An element sits outside the column.** Its value follows its index rather than starting where a
+property's does, because a list of elements is read down its own values and a column measured for
+the names around it strands each one behind a run of nothing. The names in a list are `[0]` and
+`[1]`, so there is no column for them to keep.
+
+**An element's index never elides.** A list is read by counting down it, so `[12]` is the one part
+of a row that has to survive a narrow pane, and the class beside it is what gives way.
+
+**The pane is the last bound.** The measured width is what the names want, and on a narrow pane
+what they want is the whole row, so the column stops at half of it and the names elide from there.
+The value is the answer a reader came for, and a column of names beside a column of nothing
+answers nothing. Half is the split rather than a fixed number of characters, because the pane
+moves under a splitter drag and a name has an ellipsis to fall back on where a value has none.
 
 ```
 │     ├ championSkinName        string   "Justicar Aatrox"           │
 │     ├ ▸ skinMeshProperties    embed    SkinMeshDataProperties      │
 │     ├ ▸ armorMaterial         list[embed]   8 items                │
 │     ├ ▸ tags                  map[hash,string]   3 entries         │
-│     └ [3]                     embed    SkinMeshDataProperties      │
+│     └ [3] SkinMeshDataProperties        17 properties             │
 ```
 
 **The tag is the row's kind, in ritobin's words.** Every row but the object row carries one.
-It sits after the name, the way a type follows a name in code, dim and mono, and the values
-keep one column. An element row carries its item's kind. A container composes its shape the way the meta wiki
+It sits after the name, the way a type follows a name in code, mono and in the kind hue, and the
+values keep one column. An element row carries its item's kind. A container composes its shape the way the meta wiki
 writes it: `list[embed]`, `map[hash,string]`, `option[f32]`.
 
 | Kind in `ltk_meta`                | Tag                      |
@@ -444,11 +513,18 @@ property type mismatch writes the same words.
 **The tag is the kind in the file.** The meta schema declares a kind for the field at the
 install's build, and the two differ where the Problems rule for a property type fires. A row
 whose file kind differs from the declared kind carries the warning mark the Problems list uses,
-and the tag's tooltip names the declared kind. Every tag's tooltip carries the schema's line for
-the field at this build.
+and that mark's tooltip names the declared kind. The tag itself carries no tooltip, because the
+schema's line for the field is on [the field card](#the-field-card) and one row does not answer
+the same question twice.
 
 A field no table names takes the schema's name where the schema has one. The hex form stays for
 a field neither names.
+
+**An element names its class, not its kind.** A row inside a container is its index and, where
+it holds a struct, the class it holds - the tag is dropped, because the declaring property
+already reads `list[pointer]` and no element of a container is a different kind from its
+siblings. The value column stays empty under it, because a count of the rows the caret is about
+to open is a fact the tree answers the moment a reader asks for it.
 
 ### Containers and depth
 
@@ -458,6 +534,58 @@ eight levels, where the guide lines stack instead.
 
 A container shows its length. An empty container shows `empty` rather than `0 items`, which is
 one glance shorter.
+
+### A value family on its row
+
+`ValueColor`, `ValueColorRgb`, `ValueFloat`, `ValueVector2` and `ValueVector3` are one shape: a
+constant, and a dynamics of times and values that may be null. Each is a struct row, and the
+constant a modder reads is one node under it.
+
+`ValueColorRgb` carries three channels where `ValueColor` carries four, and reads as a colour with
+a full alpha rather than as a vector, because what it holds is a colour. Its name is a hash crack
+rather than an attested string, which is why the schema spells it `Rgb`.
+
+**A collapsed row of the family draws its constant.** A `ValueColor` draws its class, then the
+constant as a swatch, then a gradient strip of fixed width over the dynamics' stops, with alpha
+over a checkerboard and the stops on a hover card. A colour with no dynamics draws the swatch
+alone, and one whose file writes no `constantValue` draws the strip alone: a colour that animates
+is its stops, and a row that waited for a constant the file never held drew nothing at all. The
+other three draw the constant in the field a scalar or a vector row draws.
+
+```
+|  birthColor    embed   ValueColor    [#] [=====gradient=====]   |
+|  rate          embed   ValueFloat    [ 1.00 ]                   |
+|  velocity      embed   ValueVector3  [X 0.00] [Y 1.50] [Z 0.00] |
+```
+
+The rule is keyed on the class and the field, the way ritobin-lsp issue 55 states it, and it
+holds in the generic tree and in every layout, except that a layout drops the class this row
+draws first, per [a value family in a layout](#a-value-family-in-a-layout). The nodes a row wants are read per visible page
+through [the projected read](#the-projected-read), on scroll settle, and the row draws them when
+they land. The tree draws the mark and never a sparkline, because it scrolls a thousand rows and
+a sparkline is two more read levels each. What the curve holds is
+[the curve panel](#the-curve-panel), and the lints the issue names are Problems rules.
+
+Three levels answer a curve: the row's own children, the dynamics one of them points at, and the
+dynamics' two lists. Each level's rows carry how long the next is, so a level batches under the
+read's cap rather than guessing at it. A surface says which families it wants those levels for. A
+colour asks for them wherever it draws, since its band is its keys. Every other family asks only
+where a sparkline draws one. A value with no dynamics stops at the first level whatever asked.
+
+The dock walks three more for the probability tables - the table list, each table behind a slot,
+and each table's own two lists. It can afford them because it is aimed at one row, where a surface
+drawing rows is reading a page of them at a time.
+
+The strip takes the width one vector component takes, so a column mixing colours, floats and
+vectors keeps its readouts under each other. A stop sits at its own time in
+[the curve's window](#the-window-a-curve-is-drawn-over), and the outermost colours hold flat to
+the ends of it, so a ramp keyed over the middle of a particle's life reads as one rather than as
+a ramp filling the whole of it. The strip, the emitter card's colour square and the dock's band
+are one drawing at three sizes. A row draws nothing where the read has not landed, rather than a
+placeholder that would shift the line under it.
+
+Copy value on a row of the family takes the constant: a colour as `#RRGGBBAA`, and a float and a
+vector as the row draws them.
 
 ### The header
 
@@ -473,7 +601,35 @@ The document's own row in the tab strip carries what the file is, and follows th
 
 A `PTCH` bin patches objects rather than declaring them, and the header says so, because the
 same block drawn under different semantics is the kind of thing a user has to be told once.
+On a narrow tab the row keeps the object count, the dependencies and the fact that the file is a
+patch, and drops the version and the patch tallies.
 Read [A patch bin is read-only](#a-patch-bin-is-read-only) for the rest of what it says.
+
+### The row menu
+
+Every action a row has is on its context menu, and a card holds none - `DS-MENU-SCOPE`. The menu
+belongs to the row rather than to the pointer, so it lists everything the row carries and which
+pixel was clicked never changes what it offers.
+
+| Item                             | On                                        |
+| -------------------------------- | ----------------------------------------- |
+| Open link, Open link beside      | A row whose value resolves to a document  |
+| Open object, Open object beside  | An object row                             |
+| Find all references              | An object row, and a row carrying a class |
+| Reveal in Objects                | An object row                             |
+| Copy path                        | Every row                                 |
+| Copy name                        | A row a table names                       |
+| Copy field hash                  | A property row                            |
+| Copy class name, Copy class hash | A row whose value carries a class         |
+| Copy value                       | A row whose value reads as one string     |
+| Copy value hash                  | A row whose value carries a hash          |
+| Show in properties               | A cell of a class view                    |
+
+Copy value takes the value as the row draws it: a string, a number, a `flag` as `true` or `false`,
+a colour as `#RRGGBBAA`, a vector or a matrix as its components joined by a comma, and a link as
+its path or its name. A container, a map, a struct and an optional read as no single string, so
+they carry no Copy value. Copy value hash is the hash behind such a link, whether or not a table
+names it.
 
 ## The object tab
 
@@ -508,14 +664,28 @@ The object's properties, from depth zero. The header is the object, and no row r
 The facts sit at the trailing edge of the tab row, the [document chrome](PROJECT_EDITOR.md#document-chrome)
 rule of one row per leaf.
 
-| Fact               | Reads                                                                |
-| ------------------ | -------------------------------------------------------------------- |
-| Class              | The class the declaration carries, as a [card](#the-class-card)      |
-| Properties         | The count                                                            |
-| Show in file       | Opens the declaring file's tab, scrolled to the object               |
-| Other declarations | A popover from the index, one row per file, each opening its own tab |
+| Fact               | Reads                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| Class              | The class the declaration carries, as a [card](#the-class-card)        |
+| Show in file       | Opens the declaring file's tab, scrolled to the object                 |
+| Other declarations | A popover from the index, one row per file, each opening its own tab   |
+| Mode               | The layout or Properties, where the class has a [layout](#class-views) |
+| Kebab              | The object's and the class's actions, per `DS-GLYPH-ROLE`              |
 
 With the index absent, the other declarations draw a dim "Build the object index" affordance.
+
+The row carries no property count. The tree under it is the count, one row per property, and a
+tally of what is already on screen is a fact the reader reads twice.
+
+**A narrow toolbar drops what a reader reaches another way.** The class, the mode and the kebab
+stay at every width. The other declarations go first, because the index is a question rather than
+an answer. Show in file folds into the kebab, where the object's other actions already are. What a toolbar never does is
+wrap or scroll, because a second row costs the tree a row of content at the width that has the
+least of it, and a control that has scrolled out of a row is a control nobody finds.
+
+The kebab is where the header's actions live, because a header is the one place a name sits with
+no row under it to right-click. It carries Find all references, Copy class name and Copy class
+hash for the class, and Copy path and Copy hash for the object.
 Its click builds the index.
 
 ### How it opens
@@ -585,30 +755,89 @@ the preview as the chip does. The pixels arrive over `ltk-asset` with the `?w=` 
 [explorer thumbnails](PROJECT_EDITOR.md#thumbnails) are specified on, under the same queue. Any
 other kind carries its kind badge.
 
+### A string that names a thing
+
+A `string` is text to the format and a name to the game, which resolves a path held in one by
+name while it runs. Two shapes of string resolve here, and a miss on both draws text.
+
+| The string                                       | Resolves through                       | Draws                              |
+| ------------------------------------------------ | -------------------------------------- | ---------------------------------- |
+| `ASSETS/` or `DATA/`, any case, and an extension | The WAD path resolver, the layer first | The chip and swatch a `file` draws |
+| Any, hashed as an object path                    | The index, in the row group's check    | The chip an `ObjectLink` draws     |
+
+A string that answers on both sides takes the chunk. So an emitter's `texture`, a skin's
+`simpleSkin` and `skeleton`, a clip's `mAnimationFilePath` and a system's `particlePath` are
+chips in every bin, in the tree and in every layout.
+
+A path is resolved and drawn lowercased, which is the one spelling the resolver, the layer's
+copy and the preview all answer under, and an author's own capitals are not it. The hash is
+the game's FNV-1a over the lowercased string, which the class views reuse. A string joins the
+hashes and the paths its row group already sends, so neither shape costs a call of its own.
+
+### A project names its own chunks
+
+The shared tables are a crawl of the retail game, so a path a mod author invents is in none of
+them. A project's own content names those, and a bin opened out of a layer reads both: every
+file of every layer at its path inside its archive, and every table the project's manifest
+declares. The project answers first, and only a hash it does not name reaches the shared tables.
+
+The scan runs once with the parse and is held with the open document, so a file added while a
+document is open is named the next time it opens.
+
+### A chunk nothing holds
+
+A `file` whose path resolved and whose chunk neither a layer nor the install holds draws that
+path with a warning mark. The path is what the file asks for, and the mark is that nothing
+answers it. A hash no table names keeps its hex and no mark, because an unnamed chunk says
+nothing about whether it is there.
+
+A layer's copy is found at the file's path inside its archive, which is the layer entry's own
+path without its leading archive directory. The document's own layer answers first.
+
+A miss never builds the object index. A `link` a reader clicks says they want the target, and
+a string that happens to hash to nothing says nothing at all, so an absent index leaves every
+string as text rather than as a page of chips that would each warm it.
+
+Copy value hash on a resolved string offers the object hash the string was resolved under. A
+string that resolved as a chunk carries none, because the hash a chunk answers to is the
+resolver's over the path rather than a value the row holds.
+
 ## Classes
 
 A class name appears on the object block, on the object tab's header, on a `pointer` and an
-`embed` row, and on an objects browser row. Every one of them is the same control.
+`embed` row, on a container's element rows, and on an objects browser row. Every one of them is
+the same control.
+
+It draws in the class hue rather than a neutral rung, `DS-KIND-HUE`, so a name the meta schema
+declares reads apart from the names a modder writes. The kind tag takes the other half of that
+pair, so a row's two type words are told apart by hue the way an editor tells a type from a
+keyword.
 
 ### The class card
 
-The card opens on hover after the tooltip delay, and a click pins it as a popover with its
-actions. `Esc` closes it.
+The card opens on hover after the tooltip delay and closes when the pointer leaves both the name
+and the card. It reads and does nothing else, per `DS-MENU-SCOPE`: it carries no action, and the
+name under it takes no click of its own, so a click there expands the row like a click anywhere
+else on it. The pointer reaches into the card to scroll the field list and to select a hash.
 
 | Shows      | From                                                       |
 | ---------- | ---------------------------------------------------------- |
 | Name, hash | The tables, and the hex where no table names it            |
 | Declares   | How many objects of the install declare it, from the index |
-| Fields     | The schema's fields for this build, each with its kind     |
+| Patch      | The patch the schema answered at, or that it has no line   |
+| Meta wiki  | A link to the class's page, where its fields are written   |
 
-| Action              | Does                                                                       |
-| ------------------- | -------------------------------------------------------------------------- |
-| Find all references | Opens the [References document](PROJECT_EDITOR.md#the-references-document) |
-| Copy name           | The class name                                                             |
-| Copy hash           | The class hash                                                             |
+The class name's actions are on [the row menu](#the-row-menu) where a row carries it, and on the
+object tab's kebab where no row does.
 
-The card carries no link to the meta wiki. The wiki's API addresses a class by name or by hash,
-and the wiki serves no page per class at a URL of its own.
+The card sends the fields to the wiki rather than listing them. `meta-wiki.leaguetoolkit.dev`
+serves a page per class at its lowercased name, and that page carries every property with its
+type, its default and its patch history - more than a card can hold and more than the schema
+snapshot knows. A class no table names has no such URL, so it carries no link.
+
+The link is the one thing a card does that is not reading, and `DS-MENU-SCOPE` allows it: a link
+goes somewhere rather than changing something, and burying the wiki behind a right-click is
+hiding the card's most useful line.
 
 The schema crosses IPC once per class and is held on the frontend for the session. The meta
 schema ships in the build as the snapshot `pnpm generate:meta-schema` writes, read through
@@ -617,8 +846,8 @@ schema ships in the build as the snapshot `pnpm generate:meta-schema` writes, re
 ### The field card
 
 A field name is the same control as a class name: a card on hover after the tooltip delay,
-pinned by a click, closed by `Esc`. The name draws as a chip under the pointer, and a click on
-it leaves the row's expansion where it is.
+closed by leaving it. The name draws under a dotted underline while the pointer is on it, which
+marks the card without making the name a second click target inside the row.
 
 | Shows      | From                                                                 |
 | ---------- | -------------------------------------------------------------------- |
@@ -626,10 +855,7 @@ it leaves the row's expansion where it is.
 | Declared   | The schema's kind for the field at this build                        |
 | Revisions  | The field's kinds across builds, as the schema's revisions hold them |
 
-| Action    | Does           |
-| --------- | -------------- |
-| Copy name | The field name |
-| Copy hash | The field hash |
+Copy name and Copy field hash are on [the row menu](#the-row-menu).
 
 The kind shown on the row stays the file's kind, per [The property row](#the-property-row).
 
@@ -637,29 +863,496 @@ The kind shown on the row stays the file's kind, per [The property row](#the-pro
 
 For a top-level class the index answers at once. Every declaration carrying the class hash is a
 row, grouped by file. An embedded class and an object's incoming links are answers of the walk,
-which the References document describes. Find references sits on every menu an object has, and
-on the class card.
+which the References document describes. Find references sits on every menu an object has, on the
+menu of a row whose value carries a class, and on the object tab's kebab.
 
-## Special classes
+## Class views
 
-The generic view draws every class. A class earns a bespoke view when the generic one buries
-something a modder is there to change.
+A class view is a layout over the rows, and the tree stays underneath.
+[ADR-0030](../adr/0030-a-class-view-is-a-layout-over-the-rows.md) records the rule, and
+`docs/research/bin-editor-higher-order-views.md` the evidence it was decided on.
 
-A bespoke view is a component keyed by class hash, taking the same node path every generic
-block takes, and it composes rather than replaces - a class view that handles four of an
-object's seventeen properties leaves the other thirteen to the generic rows below it.
+### A mode of the object tab
 
-Candidates, none of them decided:
+An object whose class has a layout opens in it. A segmented control in the toolbar, before Show
+in file, switches between the layout and Properties, which is the tree the tab draws today. The
+choice holds while the tab is open and resets when it closes. A class with no layout draws no
+control.
 
-| Class                         | Would show                                  |
-| ----------------------------- | ------------------------------------------- |
-| `SkinCharacterDataProperties` | The skin's name, its mesh, and its textures |
-| A material                    | Its samplers, with the textures drawn       |
-| A particle system             | Its colors and its lifetimes                |
+```
++-----------------------------------------------------------------------------------+
+| StaticMaterialDef . 9 properties   [ Material | Properties ]   Show in file   [:] |
++-----------------------------------------------------------------------------------+
+| v IDENTITY                                                                        |
+|   name                Ezreal_Base_Mat                                             |
+| v SAMPLERS                                                                        |
+|   +----+                                                                          |
+|   |    |  Diffuse_Texture                                                         |
+|   |    |  ASSETS/.../ezreal_base_tx_cm.dds    U 0   V 0   W 0   Mag 1   Min 1     |
+|   +----+                                                                          |
+| v PARAMS                                                                          |
+|   Fresnel_Power       x 4.00   y 0.00   z 0.00   w 0.00                           |
+| v SWITCHES                                                                        |
+|   [x] USE_EMISSIVE                                                                |
+|   [ ] USE_FRESNEL                                                                 |
+| v MACROS                                                                          |
+|   v shaderMacros      map[string,string]   3                                      |
+| v TECHNIQUES                                                                      |
+|   v techniques        list[embed]   2                                             |
+| v OTHER                                                                           |
+|   > childTechniques   list[embed]   1                                             |
++-----------------------------------------------------------------------------------+
+```
 
-This section stays a list until the generic view ships and a real complaint names the first
-entry. Building a class view before the generic view is what turns a viewer into a form for
-three classes and nothing else.
+The file tab keeps its blocks. A layout is the object tab's, per ADR-0028.
+
+### A layout is complete
+
+A layout places every depth-zero field of the object in a section. A field with a purpose-built
+widget takes it, and every other field takes the cell its row would draw. A field the layout
+does not name falls into a last section, Other, drawn by the tree rooted at those fields and
+expandable as in Properties. So a field the game adds in a patch is on screen the day the schema
+changes, and a layout is a placement rather than a whitelist.
+
+A section whose list is empty keeps its header and draws a muted None under it, so a reader
+tells an empty list from a field the class lacks, and every object of one class has one section
+order. Sections collapse, and open by default.
+
+A section the tree draws opens the fields the layout named for it, and a reader sees one level
+of each without a click. Other opens none of its own, as in Properties. A tree section scrolls at
+twelve rows, so no one section owns the page.
+
+### The registry
+
+A layout is data, keyed on the class hash, with each subclass listed by hand because the schema
+carries no inheritance. It names its fields by name, and a frontend FNV-1a turns each into the
+row's hash at module load, checked by a test over known pairs.
+
+A section names one widget or none. `rows` is the elements of the containers the section placed,
+each as the row [the tree](#the-blocks) draws, which is what a list takes. `override-rows` is the
+same over a list one level down, which is how the skin reaches the mesh's material overrides.
+`icons`, `mesh` and `effect-table` are the skin's own, and `emitters` the particle system's, each
+reading the fields of one class. `fields` draws the sub-fields a section names under the row it
+placed, which is what a one-field embed such as `skinAnimationProperties` takes. `tree` is the
+tree rooted at the section's own fields, which is what a nested structure takes. A section that
+names no widget draws each of its fields in the cell that row would draw.
+
+**A list draws as rows, not as a table of its own columns.** A table asks a reader to learn which
+column is which and then holds them to the fields it chose, where the same elements as rows read
+the way the rest of the editor reads and open to everything the element carries. The tile and the
+columns a table spent its width on are what a row gives up for that.
+
+A widget also declares how far under its own fields it reads, one step per level, and a step
+names which of a level's rows carry on down. So the skin's material overrides reach
+`skinMeshProperties.materialOverride` and the elements under it without the mesh's other fields
+costing a call of their own.
+
+```ts
+export const materialLayout: ClassLayout = {
+  title: m.workshop_bin_layout_material,
+  sections: [
+    { title: m.workshop_bin_section_identity, fields: ["name", "type"] },
+    {
+      title: m.workshop_bin_section_samplers,
+      fields: ["samplerValues"],
+      as: "rows",
+    },
+    {
+      title: m.workshop_bin_section_params,
+      fields: ["paramValues"],
+      as: "rows",
+    },
+    {
+      title: m.workshop_bin_section_switches,
+      fields: ["switches"],
+      as: "rows",
+    },
+    {
+      title: m.workshop_bin_section_macros,
+      fields: ["shaderMacros"],
+      as: "tree",
+    },
+    {
+      title: m.workshop_bin_section_techniques,
+      fields: ["techniques"],
+      as: "tree",
+    },
+  ],
+};
+```
+
+One renderer draws every layout. Rust knows no class.
+
+### A cell is a row
+
+Every cell is a path and a value, the pair a row carries, drawn in the widget the row would use:
+a field, a checkbox, a chip, a swatch. When leaf editing lands, a cell edits through the patch a
+row would send, and a layout never holds state of its own.
+
+A cell carries the key of the row it draws rather than of the element it sits in. The menu over
+the mesh's `simpleSkin` is that row's, and Show in properties from it reveals
+`skinMeshProperties.simpleSkin`. A section drawn as rows carries [the row menu](#the-row-menu)
+itself, because its rows are the tree's.
+
+A cell's context menu is [the row menu](#the-row-menu), plus Show in properties, which switches
+the mode and reveals the row in the tree, expanding the ancestors of a nested key. A layout has
+no keyboard model of its own until editing gives it one, and its read-only fields take no focus,
+per [The value kinds](#the-value-kinds).
+
+### A value family in a layout
+
+A `ValueFloat`, `ValueVector2`, `ValueVector3` or `ValueColor` row draws its constant alone
+wherever a layout draws it, without the class [the tree](#a-value-family-on-its-row) names beside
+it. The wrapper is how the game stores an animatable number, and the layout is where a reader
+asks what the number is, so a cell that spends its width on `ValueFloat` has answered a question
+nobody put. The tree keeps the class, because there the class is what the row is.
+
+Where the row's `dynamics` points at a curve the cell takes a mark, since the constant alone
+would read as the whole value. The first level of the value read answers `constantValue` and
+`dynamics` together, so the mark costs no call of its own.
+
+The emitter panel is the one layout surface that draws the shape rather than the mark: each of
+its rows takes a sparkline of the curve beside its constant, per
+[the curve panel](#the-curve-panel). Every other cell of every other layout keeps the mark, and
+so does a panel row whose keys the read has not answered yet.
+
+### What a layout reads
+
+The depth-zero rows arrive with the open. A nested row arrives through
+[the projected read](#the-projected-read), one call per level with the paths of a section
+batched under the call's cap. A section of rows costs one level, the elements of the containers
+the layout placed, and every section of one layout shares that call. The rows under an element
+are the tree's own fetch rather than a level of the read. A widget that draws named cells costs
+the level under its elements too, which is as deep as a layout reads. A tree section reads
+nothing until a reader expands it.
+
+A widget that joins a second object reads it through the same handle, because a read names the
+entry it walks. Only an object another file declares costs an open of its own, which is what the
+skin's VFX table does to reach its resolver.
+
+A texture cell draws by the row's kind. A `file` takes the chip and swatch a row takes, a
+`string` that resolves as [a string that names a thing](#a-string-that-names-a-thing) takes the
+same, and a path neither side holds draws as text. The skin's icons and mesh textures draw as
+tiles, because the textures are what those sections are opened for.
+
+A widget of named cells draws the fields it names and no others, which is what the icons, the
+mesh and the VFX join do. Everything else a class carries is reachable through the rows and
+through Properties.
+
+### The layouts
+
+| Class                                               | Sections                                                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other |
+| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh with a preview slot, Material overrides, Animation, VFX, Audio, Other   |
+| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                            |
+| `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                           |
+
+The material, the skin and the particle system are the registered layouts, with the value rows
+beside them. The animation graph table follows.
+
+A layout draws no Used by. Reverse references are the walk's, and Find all references on the
+kebab is the affordance until it ships. The preview slot on the skin layout waits on a renderer,
+which is frontend WebGL and its own ADR.
+
+### The emitter strip
+
+Both of Riot's particle editors draw a system as a row of emitter cards, and the Emitters section
+draws the same: one card per element of `complexEmitterDefinitionData` and
+`simpleEmitterDefinitionData`, in one strip that scrolls sideways, a card off the second list
+marked as simple. A card carries the emitter's name, its index in its own list, a square, and one
+chip per group of fields it sets. A `disabled` emitter dims and takes a struck eye.
+
+The square is the texture the emitter draws, and where it names none, its `birthColor`: the band
+its stops make where it animates, and its constant where it does not. An emitter with neither
+takes the tile a missing texture takes.
+
+**A card has three targets and each does the one thing it looks like.** The name row opens the
+emitter, the square opens the texture it draws, and a chip opens the emitter at that group. A card
+the read has not answered the fields of still opens, on no group, because a card that does nothing
+when clicked reads as a card that is broken.
+
+A chip opens the group under the strip, one group at a time, each field in the cell its own row
+draws. The strip opens on the first emitter's first group, because the read has answered every
+field by then and an empty panel says nothing. Reading an emitter whole is Properties, which is
+the whole object.
+
+**The card is sized to its name.** A card a reader cannot tell from the next one is worth nothing
+however many of them fit, so the width is what a typical emitter name reads in rather than what
+the square or the group names need.
+
+**In a pane the cards wrap, in a stack they scroll sideways.** A pane is sized by the reader, so
+the count on screen is theirs to set: the cards flow into as many rows as its height allows, and a
+system of sixty is a page rather than a sideways walk. The stack draws the same cards in the one
+row it has room for, under a column that is already scrolling.
+
+A field over the strip narrows both readings to the emitters whose name holds what was typed,
+case-insensitively, and says how many of how many are drawn while it holds anything. It sits
+beside the reading control, on the stack's own row and in a pane's strip. The open emitter stays
+open while it matches, and the first match opens when it does not. The table narrows on what the
+strip left rather than matching the names a second time, so the two cannot drift.
+
+The groups are Birth, Position, Render, Scale and Texture, the components both of Riot's editors
+draw, and Emission, Colour, Material and Effects for what the class carries and those five do not
+hold. Which fields each holds is a table written by hand, so a field the schema adds falls to
+Other and is on screen the day it appears rather than landing in a group by accident. Birth is
+the value a particle starts with and every other group is what it does over its life, which is
+the line that puts `birthScale0` under Birth and `scale0` under Scale.
+
+A card and a table are two readings of one list, and a control on the section switches them. The
+strip says what one emitter is. The table compares a field down every emitter of the system,
+which is what a modder tuning a timing reads. Both move sideways, and both take a plain wheel, so
+the emitters past the edge are reachable without holding shift.
+
+The panel scrolls past a dozen rows rather than growing, because a Position or a Render group runs
+to thirty fields and no section owns the page.
+
+### The shell
+
+A layout declares the frame it draws in, and the frame is the stack of sections unless it says
+otherwise. `VfxSystemDefinitionData` declares a shell, per ADR-0031, because a particle system is
+tuned rather than read: a change to one emitter's `rate` is judged against that emitter's curve,
+its other fields and, once a renderer exists, against the particles themselves. A scrolling column
+holds two of those in view at best.
+
+```
++-----------------------------------------------------------------+
+| VfxSystemDefinitionData  8 properties   [System|Table|Properties]|
++-----------------------------------------------------------------+
+| Smolder_Base_BA_mis > Glow_Variant1 [0] > Emission     [Panes v] |
++---------------------------+-------------------------------------+
+| EMITTERS [Filter][Cards|Table]  | INSPECTOR                     |
+|---------------------------------|-------------------------------|
+| [card][CARD][card][card]        |  rate              1      ~   |
+| [card][card][card][card]        |  lifetime          0.055      |
+|=================================|  period            1          |
+| CURVE            [Graph|Table]  |  isSingleParticle  [x]        |
+|  1.0 +--+                       |                               |
+|  0.0 +---+--------+             |                               |
++---------------------------------+-------------------------------+
+```
+
+The breadcrumb names system, emitter and group, and each of its segments is a target the inspector
+draws. The system's segment draws Identity, Audio and Other, which is where a shell keeps the
+sections a stack lists down the page. The emitter's segment draws every group it sets, and the
+group's segment opens a menu of them. Selecting a card rewrites the crumb, and a chip on a card
+moves its last segment.
+
+Table takes the shell's whole width and folds the inspector away, because thirteen columns down
+sixty emitters answer without one beside them.
+
+The curve pane holds its place and draws a muted line until a mark targets it, where the dock in a
+stack is absent until then: a pane that appears on a click moves every pane around it. The preview
+pane waits on a renderer of its own, and ships closed until it has one.
+
+Below the width a strip, an inspector and a curve all need, the same layout draws as the stack, so
+nothing is out of reach on a narrow window or with both sidebars open.
+
+The strip marks the squares' colours and the open group's rows, and no other value family, because
+an emitter carries far more of them than a card ever draws at once.
+
+### How the panes are arranged
+
+The picture above is where the panes start, not where they stay. A pane is a tab of the same split
+tree the project editor runs its document panels on, per ADR-0034, so the gestures are the ones a
+reader already knows from the tabs: drag a pane's tab onto another panel's edge to split it, onto
+the panel itself to share that panel's strip, and drag a seam to resize.
+
+```
+one reader's arrangement: the strip takes the window,
+the curve and the inspector share a strip under it
+
++-----------------------------------------------------------------+
+| EMITTERS                          [Filter      ][Cards|Table] x |
+|-----------------------------------------------------------------|
+| [card][card][card][card][card][card][card][card][card][card]    |
+| [card][card][card][card][card][card][card][card][card][card]    |
+|=================================================================|
+| CURVE | INSPECTOR                                x              |
+|-----------------------------------------------------------------|
+|  1.0 +--+                                                       |
+|  0.0 +---+--------------------------------------------------+   |
++-----------------------------------------------------------------+
+```
+
+The arrangement belongs to the project. A modder sets it once and every particle system they open
+in that project opens that way, because the proportions belong to the kind of work rather than to
+the file. It survives a restart in `.ltk/editor.json`, beside the document panels.
+
+**A pane's own controls sit at the right end of its strip.** The Emitters filter and its
+Cards/Table control are there rather than on a row of their own, so a reader looks in one place for
+whatever a pane can be told to do, and the cards get the row back.
+
+A pane closes from its own tab, and **Panes** on the breadcrumb row lists every pane with a tick
+against the open ones. Reopening puts a pane in the panel the reader last touched, since the panel
+it was closed from is the one that was pruned. The same menu carries **Reset layout**, which is the
+way back to the picture above.
+
+**The preview ships closed.** A closed pane is not drawn at all, and until a renderer fills it the
+preview is the largest thing on screen saying the least. It is one click away in the Panes menu for
+anyone who wants the place held.
+
+## The curve panel
+
+A value family's `dynamics` is a column of keys: a `times` list, a `values` list of the family's
+own width, and a `probabilityTables` list beside them. ADR-0032 draws it, and the four
+`VfxAnimated*` classes share their field hashes, so one widget over `(times, values[channel])`
+reads a float, a vector and a colour alike.
+
+### The window a curve is drawn over
+
+A key time is a share of a life, so the window every curve draws over is 0 to 1, widened at either
+end by whatever key reaches past it. A file holds times outside that range and none of them are
+clipped.
+
+Whose life it is depends on the field. A particle-level value is sampled at
+`clamp01((now - birthTime) / lifetime)`, so the window is the particle's own and the clamp is the
+engine's. An emitter-level one such as `rate` is sampled on the emitter's clock instead. The panel
+draws one window either way, because which clock a field runs on is not something a curve carries.
+
+The window rather than the curve's own first and last key, because where in a life a value moves
+is half of what it says. A colour keyed 0.2 to 0.8 holds, fades, and holds again, and a plot
+fitted to its own keys draws that identically to a colour that ramps across the whole life.
+
+```
+keys at 0.20 and 0.80              the same keys, fitted to themselves
+
+|RRRRR|R------>G|GGGGG|            |R------------------->G|
+0.00  0.20    0.80  1.00           0.20               0.80
+```
+
+Outside the outermost key a value holds flat, which is what the engine samples there. A band
+paints that as a run of the end colour and a plot draws its line to the edge of the box, so the
+hold is a shape rather than an absence. Every surface that draws a curve shares this window: the
+row strip, the emitter card's square, the sparkline and the dock.
+
+### The dock
+
+The curve draws in a dock under the object tab, collapsed until a mark targets it and open from
+then on for the life of the tab. A popover would close on the first click into another cell, which
+is the click a reader tuning a value makes most.
+
+```
++-----------------------------------------------------------------+
+|  Glow [0]  .  rate                                               |
+|  complexEmitterDefinitionData[0].rate                            |
+|  [ Graph ] [ Probability ] [ Table ]              [X] [Y] [Z]    |
+|   12 +                    ___----                               |
+|      |          ___---                                          |
+|    3 +-----                                                     |
+|      0.00                                       1.00            |
++-----------------------------------------------------------------+
+```
+
+The dock holds its target until another mark replaces it, so a reader walks the emitter strip
+comparing every emitter's numbers against one open curve. There is one dock in the app: a mark on
+a bin file tab's row opens the object tab with the dock already targeted, the way Show in
+properties switches the mode.
+
+The caption is the label chain, with the wire path on a line under it. The chain is what the
+reader clicked, which the surface it was clicked on names: an emitter and its index in the panel,
+and the property path in the tree. The path is what a bug report needs.
+
+A mark and a sparkline both aim the dock, and so does Show curve on the row menu of a value that
+has dynamics. A value without one is offered neither.
+
+### The row's two triggers
+
+A value-family row in a layout draws its constant inline and then two triggers, the shape both of
+Riot's editors use: the constant is what a modder is tuning, and the rest of the value is one
+target away on the same line rather than behind a mode.
+
+```
+scale0    [X 1.5] [Y 1.0] [Z 1.0]   [~] [::]
+```
+
+**Riot's triggers add data and ours open a reading**, because nothing in the editor writes a bin
+yet. The first aims the dock's Graph and carries the sparkline where the read answered the keys.
+The second aims Probability. An aim naming a reading switches the dock to it, so a trigger lands
+on what it names rather than on whichever tab the dock was left on.
+
+Both are drawn only where the row has dynamics, which is one condition rather than two: the
+probability tables are a field inside the dynamics, so a value with no curve has no tables either.
+A row with no dynamics draws neither, per [what has no curve](#what-has-no-curve).
+
+### The three tabs
+
+**Graph** plots the keys over [the window](#the-window-a-curve-is-drawn-over). A vector draws a
+line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one.
+
+A colour draws as a gradient editor instead: a bar of the stops, a marker per stop hanging off it
+at the stop's own time, and the keys themselves under them.
+
+```
++-----------------------------------------------------------------+
+|  +-----------------------------------------------------------+  |
+|  |///////////// bar over a checkerboard //////////////////////|  |
+|  +-----------------------------------------------------------+  |
+|      V           V                V                       V      |
+|     [#]         [#]              [#]                     [#]     |
+|   0.00                                                    1.00   |
+|   Time      R      G      B      A                               |
+|   0.000  [#] #FF0000FF  1      0      0      1                   |
+|   0.250  [#] #FFEEDDAA  1      0.93   0.86   0.67                |
++-----------------------------------------------------------------+
+```
+
+**The keys sit under the ramp rather than behind a tab of their own.** A stop's numbers are what a
+reader compares against the ramp they are looking at, and a tab is a click plus a place to
+remember. The rail and the table are one selection, so picking a marker highlights its row and
+picking a row moves the marker. A colour's strip therefore offers Graph and Probability alone,
+because a Table tab would draw the rows a second time.
+
+**A colour plots no channel lines and offers no channel chips.** Four lines crossing a ramp are
+what a colour is made of rather than what it looks like, and a modder reads a colour curve as the
+ramp a particle runs through. The stop is where the numbers are: a marker points at the bar rather
+than floating under it, so it reads as a stop of that ramp and not as a chip beside one, its body
+carries the colour it lands on, and the picked one is ringed in the accent.
+
+The bar takes a fixed height and the group centres in the pane. A ramp says the same thing at any
+height, so a reader who drags the dock taller gets the room rather than a taller ramp.
+
+Picking a stop is the whole of the gesture. The panel writes nothing yet, per
+[where editing is allowed](#where-editing-is-allowed), and the readout's hex copies. It opens on
+the first stop rather than on none, because a readout that is blank until a click reads as a
+header rather than as a value.
+
+A curve of one key draws flat across the box. It is a value that animates to nothing, which reads
+as a line held at its own level and not as a mark in the corner of an empty plot.
+
+**Table** is the keys as rows, a time and a channel per column, which is the form an edit takes.
+Each column carries the hue its line draws in on the graph, and a colour's row carries a swatch
+and its `#RRGGBBAA` ahead of the four numbers, so a key is read as a colour there too. It is the
+same table a colour's graph draws under its ramp, which is why a colour is offered no tab of it.
+
+**Probability** is `probabilityTables`, which the file writes as one nullable slot per channel. A
+slot the file leaves null is a channel with no table rather than one shifting the rest along, so a
+chip is drawn for each table that exists and the chips are the tab's own. The graph's chips cannot
+serve here, because a colour draws none.
+
+Where a table holds no keys its `singleValue` draws in place of a plot, defaulting to `1` as the
+schema does. **What the game samples from a probability table is documented nowhere**, in the
+reversing notes or elsewhere, so the tab draws the lists it finds and claims nothing about them.
+
+### Where a curve is drawn small
+
+The emitter panel's own rows draw a sparkline beside the constant, which is the first place a
+reader sees the shape of a `ValueFloat` without leaving the panel. It carries no axis and no
+number, because it answers whether a value moves rather than what it is worth. Its channels share
+one colour at that size, where the graph tells them apart.
+
+Every other surface keeps the mark. Two more read levels for the eight rows a group shows is
+bounded, and the same rule over the emitter table's four value columns is 240 curves on one
+screen. A panel the table has folded away reads none of them, because what is not drawn is not
+read.
+
+A curve of one key draws no sparkline, since a single key is the constant the row already draws.
+
+### What has no curve
+
+A value whose `dynamics` is null draws no mark, and its row menu offers no curve. Adding one is a
+write that sets a null pointer to a class, which nothing in the editor does yet, so the menu
+promises nothing it cannot do.
 
 ## Editing
 
@@ -842,6 +1535,7 @@ beside `SettingsState` and `PatcherState`.
 | ------------------- | ------------------------------------------------------------------- |
 | `bin_open`          | A handle, the header facts, and the root rows                       |
 | `bin_children`      | The rows under one address                                          |
+| `bin_read`          | The rows under each of several addresses, in one call               |
 | `bin_patch`         | The rows that changed, or a rejection                               |
 | `bin_undo`          | The same                                                            |
 | `bin_close`         | Nothing                                                             |
@@ -859,7 +1553,7 @@ with the node address as a field of a rejected patch.
 ## The frontend
 
 `src/modules/workshop/bin/` holds the file document, the object document, the row components,
-the widget matrix keyed by kind, the cards, and the class views keyed by class hash. It is a
+the widget matrix keyed by kind, the cards, and the class layouts keyed by class hash. It is a
 sibling of `preview/` rather than a part of it. The preview module draws an asset and this one
 edits a document.
 
@@ -879,7 +1573,8 @@ the tab takes it through the existing descriptor, and no `doc-*` token is added.
 
 ## What ships in what order
 
-Two tracks. The reading track is one epic, and the editing track is its own.
+Three tracks. The reading track is one epic, the views track another, and the editing track
+its own.
 
 **The reading track.**
 
@@ -897,13 +1592,25 @@ Two tracks. The reading track is one epic, and the editing track is its own.
 8. **The walk**, for an embedded class and for incoming links
 9. **The `@` scope** over the open rows
 
+**The views track.** ADR-0030, in shipping order.
+
+1. **String links.** A string that names a chunk or an object, as the chip its kind draws
+2. **The projected read, and the value rows.** `bin_read`, and the swatch and strip on a
+   `ValueColor` row
+3. **The view mode, and the material layout.** The registry, the segmented control, the
+   renderer with its Other section, Show in properties, and the first layout
+4. **The skin layout**, with its preview slot empty
+5. **The VFX layout**, with the emitter table
+6. **The animation graph table**
+
 **The editing track.**
 
 1. **Leaf editing.** The primitive widgets, `bin_patch`, validation, autosave, undo. Layer
    sources only
 2. **Container editing.** Add, remove, reorder, and a `Map` key. This is where the complexity
    is
-3. **Class views.** The first one, chosen by a complaint and not by this document
+3. **Cells that edit.** A layout's cell is a path and a value, so the leaf widgets reach every
+   layout at once
 4. **Schema-aware editing.** The meta dump, a field's declared type, and the subclasses an
    `Embedded` accepts
 
@@ -935,12 +1642,12 @@ result is a mod rather than a modified install.
 | What does a `Matrix44` look like when a user actually has to change one?     |
 | Should two layers' copies of one bin be comparable, and is that this doc's?  |
 | Is eight open documents the right bound, or should it follow the tab strip?  |
-| Does a class view get to hide the properties it handles, or only reorder?    |
 | Is a `{k}` map subscript worth emitting before one is confirmed in game?     |
 | Should an edit be offerable as a patch record once `ltk_meta` can write one? |
 
 ### Answered
 
-| Question                                                              | Answer                                                                                                                          |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Does a search inside one open bin belong here, or in the project bar? | The project bar, as its `@` scope. "Why one control" is the bar's rule, and a bin tab with a box of its own is a second control |
+| Question                                                                  | Answer                                                                                                                            |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Does a search inside one open bin belong here, or in the project bar?     | The project bar, as its `@` scope. "Why one control" is the bar's rule, and a bin tab with a box of its own is a second control   |
+| Does a class view get to hide the properties it handles, or only reorder? | Neither. A layout places every field, and what it does not name falls into Other. Properties is the same rows as a tree. ADR-0030 |

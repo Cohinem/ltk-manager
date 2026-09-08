@@ -39,6 +39,7 @@ import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
 
+import { SelectionMenuItems } from "../SelectionMenuItems";
 import type { ModCardView } from "./useModCardController";
 
 type CardVariant = "grid" | "list";
@@ -93,6 +94,8 @@ export function ModCardThumbnail({
         <img
           src={thumbnailUrl}
           alt=""
+          loading="lazy"
+          decoding="async"
           className={twMerge("absolute inset-0 h-full w-full object-cover", styles.image)}
         />
       )}
@@ -122,7 +125,7 @@ export function ModCardToggle({ view }: { view: ModCardView }) {
 
   return (
     <Switch
-      disabled={view.interactionsDisabled}
+      disabled={view.disabled}
       checked={mod.enabled}
       onCheckedChange={(checked) => view.onToggle(mod.id, checked)}
       aria-label={`${mod.enabled ? "Disable" : "Enable"} ${mod.displayName}`}
@@ -215,6 +218,10 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
 /**
  * The card's menu on its right click, over the whole card rather than a target.
  *
+ * A press inside the selection opens what the selection carries, and a press
+ * outside it collapses the pick onto this card and opens the card's own. Per
+ * "What a right click opens" in `docs/ux/LIBRARY.md`.
+ *
  * Renders the card itself through `render`, so the trigger is the card and the
  * grid keeps the child it was sizing.
  */
@@ -235,7 +242,8 @@ export function ModCardContextMenu({
       <ContextMenu.Portal>
         <ContextMenu.Positioner>
           <ContextMenu.Popup>
-            <ModCardMenuItems view={view} />
+            {view.menuScope === "selection" && <SelectionMenuItems />}
+            {view.menuScope === "card" && <ModCardMenuItems view={view} />}
           </ContextMenu.Popup>
         </ContextMenu.Positioner>
       </ContextMenu.Portal>
@@ -544,29 +552,25 @@ export function SkinhackInfoDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="sm">
-          <Dialog.Header>
-            <Dialog.Title>What is a skinhack?</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
-          <Dialog.Body>
-            <p className="text-sm leading-relaxed text-surface-300">
-              A skinhack is a mod that grants access to paid League of Legends skins.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-surface-300">
-              Using skinhacks violates the distribution policy and can put your account at risk. LTK
-              Manager blocks these mods to protect both users and the modding community.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-surface-400">
-              If you believe this mod was flagged incorrectly, open an issue on the GitHub
-              repository page with the relevant info and we will investigate.
-            </p>
-          </Dialog.Body>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog.Shell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="What is a skinhack?"
+      size="sm"
+    >
+      <Dialog.Body>
+        <p className="text-sm leading-relaxed text-surface-300">
+          A skinhack is a mod that grants access to paid League of Legends skins.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-surface-300">
+          Using skinhacks violates the distribution policy and can put your account at risk. LTK
+          Manager blocks these mods to protect both users and the modding community.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-surface-400">
+          If you believe this mod was flagged incorrectly, open an issue on the GitHub repository
+          page with the relevant info and we will investigate.
+        </p>
+      </Dialog.Body>
+    </Dialog.Shell>
   );
 }

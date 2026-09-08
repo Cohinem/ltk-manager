@@ -272,6 +272,21 @@ pub struct Settings {
     #[serde(default)]
     #[ts(as = "Option<String>")]
     pub league_skins_path: Option<PathBuf>,
+    /// Whether anonymous diagnostics leave the machine. Default: true.
+    #[serde(default = "default_true")]
+    pub telemetry_enabled: bool,
+    /// The salt the rotating diagnostics identity is derived from.
+    ///
+    /// Generated on first run and never sent. Replacing it breaks the link to
+    /// everything reported before, which is what the reset button asks for.
+    #[serde(default)]
+    pub telemetry_secret: Option<String>,
+    /// Whether the diagnostics notice has been shown.
+    ///
+    /// Separate from `first_run_complete`, because the notice is owed to an
+    /// upgrading user who completed first run releases ago.
+    #[serde(default)]
+    pub has_seen_diagnostics_notice: bool,
 }
 
 impl Default for Settings {
@@ -303,6 +318,9 @@ impl Default for Settings {
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
             league_skins_path: None,
+            telemetry_enabled: true,
+            telemetry_secret: None,
+            has_seen_diagnostics_notice: false,
         }
     }
 }

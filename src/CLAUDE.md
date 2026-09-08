@@ -53,9 +53,53 @@ TanStack Query deduplicates identical queries, so multiple components calling th
 
 **Exception:** Props are appropriate for coordinating parent-owned UI state (e.g., `onViewDetails` that opens a sibling dialog, `onReorder` where reorder target varies by context).
 
+## Where a Store Lives
+
+A zustand store read by one module lives in `modules/<module>/state/`, and `src/stores/` holds
+only what crosses modules. A module's own state reaches its files through `../state` and reaches
+the rest of the app through the module barrel.
+
+A component subscribes to the fields it reads, never to a whole store. Where several components
+read the same store, it exports a hook per field beside it in the `displayStore` style, and one
+`useShallow` hook for the actions a caller needs together.
+
+Every persisted store declares a `version` and a `migrate`, so a shape change is a migration rather
+than a silent hydration of a stale key. `keepUnversioned` in `stores/storage.ts` is the migration
+for a shape that has not changed yet.
+
+One dialog is one `createDialogStore<T>()`, which answers `payload`, `isOpen`, `open` and `close`.
+`T` is `void` for a dialog that carries nothing. The dialog component reads all three of `isOpen`,
+`payload` and `close` through `useDialog(store)`, and the trigger keeps reading `open` on its own.
+
+## Dialogs
+
+A dialog draws through `Dialog.Shell`, which takes `open`, `onClose`, `title` and optionally
+`description`, `size`, `tone` and `closable`, and whose children are the `Dialog.Body` and
+`Dialog.Footer` under the header. A dialog whose header is not a title and a close button builds
+its frame from the parts instead, which all stay exported.
+
+One question with one destructive answer is a `ConfirmDialog`. A caller with nowhere to mount one
+asks through `useConfirm`, which draws on `ConfirmHost` above the router.
+
+A store dialog is mounted by its module's `<ModuleDialogs />` bundle, at the route every consumer
+sits under, so one import is what says the module's dialogs can all open. Three mechanisms raise a
+dialog and each answers a different question: local `useState` where the trigger owns it,
+`createDialogStore` where it outlives the menu that raised it, and `useQueuedDialog` where it
+raises itself. See ADR-0033 and ADR-0022.
+
 ## Tauri Event Listening
 
-For backend-to-frontend events (e.g., overlay progress), use `listen<T>()` from `@tauri-apps/api/event` in a `useEffect` with cleanup via `unlisten()`. See `modules/patcher/api/useOverlayProgress.ts` for the pattern.
+A backend-to-frontend event reaches a component through `useTauriEvent` in `lib/useTauriEvent.ts`,
+which holds the callback in a ref, so a fresh closure per render costs no resubscription. A null
+event name subscribes to nothing, which is how a listener waits on an id it does not have yet. See
+`modules/launcher/api/useLeagueSession.ts` for the pattern.
+
+A stream that reports stages rather than facts uses `useTauriProgress` in `lib/useTauriProgress.ts`,
+which keeps the last payload and clears it after a terminal stage.
+
+Neither leaves a reason to call `listen()` directly. A hand-rolled `useEffect` around it
+resubscribes whenever the callback's identity changes, and it leaks the subscription that resolves
+after the effect has already been cleaned up.
 
 ## Component Library (`src/components/`)
 

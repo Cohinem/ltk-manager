@@ -1,4 +1,3 @@
-import { useDndContext } from "@dnd-kit/core";
 import { horizontalListSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -26,7 +25,8 @@ import { ContextMenu, IconButton, Tabs } from "@/components";
 import { useCopyToClipboard, useHorizontalWheel } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 
-import { decodeDroppableId, tabDroppableId } from "../layout/dnd";
+import { tabDroppableId } from "../layout/dnd";
+import { useForeignCaretIndex } from "../layout/useForeignCaretIndex";
 
 export interface EditorTab {
   id: string;
@@ -88,7 +88,10 @@ export function EditorTabs({
   className,
 }: EditorTabsProps) {
   const sortableIds = tabs.map((tab) => tabDroppableId(leafId, tab.id));
-  const caretIndex = useForeignCaretIndex(leafId, tabs);
+  const caretIndex = useForeignCaretIndex(
+    leafId,
+    tabs.map((tab) => tab.id),
+  );
 
   const listRef = useRef<HTMLDivElement>(null);
   useHorizontalWheel(listRef);
@@ -98,12 +101,16 @@ export function EditorTabs({
     <Tabs.Root
       value={activeId}
       onValueChange={(value) => onActivate(String(value))}
-      className={twMerge("h-9 shrink-0 flex-row items-center select-none", className)}
+      className={twMerge(
+        /* DS-GROUND: the strip shares the editor's ground and separates with a hairline. */
+        "h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
+        className,
+      )}
     >
       {/* The strip's inset belongs to the scroll container rather than around
           it, so its track runs the full width and ends against the panel's own
           edge instead of stopping short of it. `scroll` rather than `auto`
-          because a track that comes and goes takes its 4px out of this box
+          because a track that comes and goes takes its 6px out of this box
           each time, which walks the tabs up and down as tabs are opened. */}
       <Tabs.List
         ref={listRef}
@@ -154,28 +161,6 @@ function useActiveTabInView(ref: RefObject<HTMLDivElement | null>, activeId: str
     const tab = tabs && [...tabs].find((candidate) => candidate.dataset.tabId === activeId);
     tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [ref, activeId]);
-}
-
-/**
- * Where a tab dragged in from another strip would land, or null.
- *
- * A reorder within the strip previews through the sortable transforms instead,
- * so the caret only answers a foreign drag: before the hovered tab, or at the
- * end for a drop on the leaf's centre.
- */
-function useForeignCaretIndex(leafId: string, tabs: readonly EditorTab[]): number | null {
-  const { active, over } = useDndContext();
-  const dragged = active ? decodeDroppableId(String(active.id)) : null;
-  if (dragged?.kind !== "tab" || dragged.leafId === leafId) return null;
-
-  const target = over ? decodeDroppableId(String(over.id)) : null;
-  if (!target || target.leafId !== leafId) return null;
-
-  if (target.kind === "tab") {
-    const index = tabs.findIndex((tab) => tab.id === target.documentId);
-    return index < 0 ? null : index;
-  }
-  return target.region === "center" ? tabs.length : null;
 }
 
 function DropCaret() {
@@ -290,8 +275,12 @@ const SortableTab = memo(function SortableTab({
       /* Hidden overflow clips the focus rail to the pill's rounded corners, so
          edge to edge means the silhouette's edges rather than past them. The
          bottom pad is the rail's own room, which it otherwise takes out of
-         the gap under the label. */
-      "group/tab relative flex h-7 max-w-56 shrink-0 touch-none items-center overflow-hidden rounded-md pr-1 pb-0.5",
+         the gap under the label.
+
+         The height is what the strip has left to give: 36px less the scroll
+         lane's 6px is 30, so a 24px tab bottom-aligns with the same 6px above
+         it as the lane leaves below. */
+      "group/tab relative flex h-6 max-w-56 shrink-0 touch-none items-center overflow-hidden rounded-md pr-1 pb-0.5",
       /* The open document rises off the strip rather than marking
          itself with a rule: DS-GROUND. */
       active && "bg-surface-800 text-surface-100",

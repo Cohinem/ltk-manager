@@ -77,6 +77,7 @@ import type {
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
+import type { UiError } from "@/lib/bindings.gen";
 import { type BinDocumentId, commands } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
@@ -130,6 +131,7 @@ export type {
   Severity,
   SkippedArchive,
   Suspect,
+  UiError,
   Verdict_Serialize as Verdict,
   VerdictKind,
 } from "@/lib/bindings.gen";
@@ -213,6 +215,8 @@ export const api = {
   toggleMod: (modId: string, enabled: boolean) =>
     invokeResult<void>("toggle_mod", { modId, enabled }),
   getModThumbnail: (modId: string) => invokeResult<string | null>("get_mod_thumbnail", { modId }),
+  getModThumbnails: (modIds: readonly string[]) =>
+    invokeResult<Record<string, string>>("get_mod_thumbnails", { modIds }),
   getStorageDirectory: () => invokeResult<string>("get_storage_directory"),
   reorderMods: (modIds: string[]) => invokeResult<void>("reorder_mods", { modIds }),
   setModLayers: (modId: string, layerStates: Record<string, boolean>) =>
@@ -364,6 +368,8 @@ export const api = {
     offset: number,
     limit: number,
   ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
+  binRead: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
+    commands.binRead(document, entry, [...paths]).then(toResult),
   binClose: (document: BinDocumentId) => commands.binClose(document).then(toResult),
   classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
 
@@ -408,6 +414,9 @@ export const api = {
       commands.incidentReport(id, hints).then(toResult),
     incidentToken: (id: string) => commands.incidentToken(id).then(toResult),
     decodeIncidentToken: (token: string) => commands.decodeIncidentToken(token).then(toResult),
+    telemetryIdentity: () => commands.telemetryIdentity().then(toResult),
+    resetTelemetrySecret: () => commands.resetTelemetrySecret().then(toResult),
+    trackUiError: (error: UiError) => commands.trackUiError(error).then(toResult),
   },
 
   // Launcher, on tauri-specta.
@@ -507,3 +516,19 @@ export const api = {
   saveProjectEditorState: (projectPath: string, content: string) =>
     invokeResult<void>("save_project_editor_state", { projectPath, content }),
 };
+
+/**
+ * Open the file manager on `path`, for a control with nowhere to put a failure.
+ *
+ * A reveal the shell refuses is a dead click and nothing worse, so this logs and
+ * returns rather than growing an error surface onto every caller. Both the
+ * refusal and a rejected `invoke` land in the log.
+ */
+export function revealPath(path: string): void {
+  void api.revealInExplorer(path).then(
+    (result) => {
+      if (!result.ok) console.error("Could not reveal", path, result.error);
+    },
+    (error: unknown) => console.error("Could not reveal", path, error),
+  );
+}
