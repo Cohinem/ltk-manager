@@ -1,13 +1,14 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   Bone,
   BufferAttribute,
   BufferGeometry,
-  type Color,
   DoubleSide,
+  type Material,
   Matrix4,
   MeshBasicMaterial,
+  MeshLambertMaterial,
   Raycaster,
   Skeleton,
   SkinnedMesh,
@@ -21,6 +22,13 @@ import type { SceneClock } from "./clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "./meshBuffer";
 import { LOCAL_FLOATS, type Pose } from "./pose";
 import type { SkeletonModel } from "./skeletonBuffer";
+import {
+  type FallbackColors,
+  applyBinding,
+  lit,
+  type SubmeshBinding,
+  type SubmeshMaterial,
+} from "./submeshBinding";
 import { AXIS_SIGN } from "./world";
 
 export interface CharacterProps {
@@ -28,10 +36,10 @@ export interface CharacterProps {
   readonly pose: Pose;
   /** The time the pose is sampled at, which whoever owns the scene advances. */
   readonly clock: SceneClock;
-  /** The texture a submesh draws with, by its name, and null for none. */
-  readonly textureOf: (submesh: string) => Texture | null;
-  /** What a submesh no texture reaches is drawn in. */
-  readonly untextured: Color;
+  /** What a submesh draws with, by its name. */
+  readonly bindingOf: (submesh: string) => SubmeshBinding;
+  /** What a submesh no texture or no material reaches is drawn in. */
+  readonly colors: FallbackColors;
   /** The submeshes the character is drawn without, matched without regard to case. */
   readonly hidden: readonly string[];
   /** `skinScale`, which the whole character is drawn at. */
@@ -62,8 +70,8 @@ export function Character({
   mesh,
   pose,
   clock,
-  textureOf,
-  untextured,
+  bindingOf,
+  colors,
   hidden,
   scale,
   highlighted = null,
@@ -77,19 +85,24 @@ export function Character({
     () => ({ geometry: drawn.geometry, skeleton: rig.skeleton, ranges: drawn.ranges, hidden }),
     [drawn, rig, hidden],
   );
-  const materials = useMemo(
-    () => drawn.ranges.map(() => new MeshBasicMaterial({ side: DoubleSide })),
+  const shaded = useMemo<readonly ShadingModels[]>(
+    () =>
+      drawn.ranges.map(() => ({
+        lit: new MeshLambertMaterial({ side: DoubleSide }),
+        unlit: new MeshBasicMaterial({ side: DoubleSide }),
+      })),
     [drawn],
   );
   const skinned = useMemo(() => {
-    const held = new SkinnedMesh(drawn.geometry, materials);
+    const bound: Material[] = shaded.map((models) => models.lit);
+    const held = new SkinnedMesh(drawn.geometry, bound);
     /* The bounds are the bind pose's, which an animated pose leaves. */
     held.frustumCulled = false;
     /* An identity bind keeps the inverse bind matrices the skeleton carries, where no
        matrix at all would have three compute its own from the pose it stands in. */
     held.bind(rig.skeleton, new Matrix4());
     return held;
-  }, [drawn, materials, rig]);
+  }, [drawn, shaded, rig]);
 
   /* The bones move onto the mesh here rather than in its memo, because a memo React runs
      twice would move them onto the copy it throws away. */
@@ -100,22 +113,31 @@ export function Character({
     };
   }, [skinned, rig]);
 
+  const scrolling = useRef<readonly Scrolling[]>([]);
   useLayoutEffect(() => {
-    dress(materials, drawn.ranges, { textureOf, untextured, hidden, highlighted });
-  }, [materials, drawn, textureOf, untextured, hidden, highlighted]);
+    scrolling.current = bind(skinned, shaded, drawn.ranges, {
+      bindingOf,
+      colors,
+      hidden,
+      highlighted,
+    });
+  }, [skinned, shaded, drawn, bindingOf, colors, hidden, highlighted]);
   useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
 
   useEffect(() => () => drawn.geometry.dispose(), [drawn]);
   useEffect(
     () => () => {
-      for (const material of materials) material.dispose();
+      for (const models of shaded) {
+        models.lit.dispose();
+        models.unlit.dispose();
+      }
     },
-    [materials],
+    [shaded],
   );
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
-  useFrame(() => {
+  useFrame((_, delta) => {
     pose.localsInto(clock.time, locals);
     rig.bones.forEach((bone, slot) => {
       const at = slot * LOCAL_FLOATS;
@@ -123,6 +145,10 @@ export function Character({
       bone.quaternion.fromArray(locals, at + 3);
       bone.scale.fromArray(locals, at + 7);
     });
+    for (const { map, scroll } of scrolling.current) {
+      map.offset.x += scroll[0] * delta;
+      map.offset.y += scroll[1] * delta;
+    }
   });
 
   return (
@@ -167,38 +193,53 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
   return { bones, roots, skeleton: bound };
 }
 
-/** What a submesh's material is dressed from. */
-interface Dress {
-  readonly textureOf: (submesh: string) => Texture | null;
-  readonly untextured: Color;
+/** What a submesh's material is bound from. */
+interface Bind {
+  readonly bindingOf: (submesh: string) => SubmeshBinding;
+  readonly colors: FallbackColors;
   readonly hidden: readonly string[];
   readonly highlighted: string | null;
 }
 
+/** One material per shading model a submesh may draw under, kept for its lifetime. */
+interface ShadingModels {
+  readonly lit: MeshLambertMaterial;
+  readonly unlit: MeshBasicMaterial;
+}
+
+/** A map the frame advances, in tiles per second. */
+interface Scrolling {
+  readonly map: Texture;
+  readonly scroll: readonly [number, number];
+}
+
 /**
- * Each submesh's material drawn with its texture, in `untextured` where it has none, and
- * not at all where the skin hides it. Every submesh but a highlighted one dims.
+ * Each submesh bound to its material under the shading model the binding calls for, and
+ * to none where the skin hides it. Every submesh but a highlighted one dims. Answers the
+ * maps that scroll.
  */
-function dress(
-  materials: readonly MeshBasicMaterial[],
+function bind(
+  skinned: SkinnedMesh,
+  shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { textureOf, untextured, hidden, highlighted }: Dress,
-): void {
+  { bindingOf, colors, hidden, highlighted }: Bind,
+): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
-  const lit = highlighted?.toLowerCase() ?? null;
+  const picked = highlighted?.toLowerCase() ?? null;
+  const scrolling: Scrolling[] = [];
+  const bound = skinned.material as Material[];
   ranges.forEach((range, at) => {
-    const material = materials[at];
+    const binding = bindingOf(range.name);
+    const material: SubmeshMaterial = lit(binding) ? shaded[at].lit : shaded[at].unlit;
+    bound[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());
-    const map = textureOf(range.name);
-    if (material.map !== map) {
-      material.map = map;
-      /* A map arriving or leaving changes the program three compiles. */
-      material.needsUpdate = true;
+    const scroll = applyBinding(material, binding, colors);
+    if (scroll !== null && material.map !== null) scrolling.push({ map: material.map, scroll });
+    if (picked !== null && range.name.toLowerCase() !== picked) {
+      material.color.multiplyScalar(DIMMED);
     }
-    if (map === null) material.color.copy(untextured);
-    else material.color.setRGB(1, 1, 1);
-    if (lit !== null && range.name.toLowerCase() !== lit) material.color.multiplyScalar(DIMMED);
   });
+  return scrolling;
 }
 
 /**
@@ -271,6 +312,8 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
   geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
   if (mesh.uvs !== null) geometry.setAttribute("uv", new BufferAttribute(mesh.uvs, 2));
   if (mesh.normals !== null) geometry.setAttribute("normal", new BufferAttribute(mesh.normals, 3));
+  /* A lit material with no normals draws black, so a mesh without them gets flat ones. */
+  else geometry.computeVertexNormals();
   geometry.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndices(mesh, rig), 4));
   geometry.setAttribute(
     "skinWeight",

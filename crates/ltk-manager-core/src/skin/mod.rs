@@ -8,17 +8,17 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use indexmap::IndexMap;
 use ltk_hash::BinHash;
 use ltk_meta::PropertyValueEnum;
-use ltk_meta::property::values;
-use ltk_meta::walk::{Leaf, TreeValue as _};
+use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
+pub use crate::bin_document::NamedAsset;
 use crate::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, RowNames, chunk_asset, first_name, hex,
-    object_at, owned, resolver_entries,
+    AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Fields, Locator, RowNames, fields_of,
+    hex, items, leaf, link, object_at, resolver_entries, struct_of, text,
 };
+use crate::material::{MaterialPreview, linked_material};
 use crate::preview::AssetRef;
 
 /// `SkinCharacterDataProperties.skinMeshProperties`.
@@ -37,6 +37,8 @@ const HIDDEN_SUBMESHES: BinHash = BinHash(0x80b7_f78f);
 const MATERIAL_OVERRIDE: BinHash = BinHash(0x2472_5910);
 /// `SkinMeshDataProperties_MaterialOverride.submesh`.
 const SUBMESH: BinHash = BinHash(0xaad7_612c);
+/// `Material`, the `StaticMaterialDef` link on the mesh properties and on each override.
+const MATERIAL: BinHash = BinHash(0xd2e4_d060);
 /// `SkinCharacterDataProperties.skinAnimationProperties`.
 const ANIMATION_PROPERTIES: BinHash = BinHash(0x426d_89a3);
 /// `SkinAnimationProperties.animationGraphData`.
@@ -60,21 +62,11 @@ const ANIMATION_RESOURCE: BinHash = BinHash(0xb49f_754e);
 /// `AnimationResourceData.mAnimationFilePath`.
 const ANIMATION_FILE: BinHash = BinHash(0x0329_f1d7);
 
-/// A path a bin names, and where its bytes live.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
-pub struct NamedAsset {
-    /// The path as the bin spells it, or a chunk's sixteen hex digits where no table
-    /// names it.
-    pub path: String,
-    /// Absent for a path nothing on this machine holds, which is not an error.
-    pub asset: Option<AssetRef>,
-}
-
 /// A skin, as a viewport draws it.
+///
+/// A submesh picks what it draws with in the engine's order: its override's `Material`,
+/// else its override's `texture`, else the skin's `Material`, else the skin's `texture`.
+/// Section 1.3 of docs/research/static-material-studio-rendering.md.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -87,8 +79,10 @@ pub struct SkinModel {
     pub skeleton: Option<NamedAsset>,
     /// The texture a submesh draws with where no override names its own.
     pub texture: Option<NamedAsset>,
-    /// The submeshes a `materialOverride` gives a texture of their own.
-    pub overrides: Vec<SubmeshTexture>,
+    /// The `Material` a submesh draws with where no override names its own.
+    pub material: Option<MaterialPreview>,
+    /// The submeshes a `materialOverride` gives a texture or a material of their own.
+    pub overrides: Vec<SubmeshOverride>,
     /// The submeshes `initialSubmeshToHide` names, which the character starts without.
     pub hidden: Vec<String>,
     /// `skinScale`, which the character is drawn at.
@@ -99,17 +93,19 @@ pub struct SkinModel {
     pub idle_effects: Vec<IdleEffect>,
 }
 
-/// One submesh a material override gives its own texture.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// One submesh a material override gives its own texture or material.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
-pub struct SubmeshTexture {
+pub struct SubmeshOverride {
     /// The submesh's name as the `.skn` spells it.
     pub submesh: String,
     /// The override's `texture`, which the submesh draws with in place of the skin's own.
-    pub texture: NamedAsset,
+    pub texture: Option<NamedAsset>,
+    /// The override's `Material`, which wins over every texture.
+    pub material: Option<MaterialPreview>,
 }
 
 /// One effect a skin wears for as long as the character stands.
@@ -149,7 +145,8 @@ pub struct AnimationClip {
 /// The skin object at `entry`, as a viewport draws it.
 ///
 /// A field the skin leaves out answers the meta default: no file, a scale of one, no graph
-/// and no effects.
+/// and no effects. `shaders` is `data/shaders/shaders.bin`, which a material's slots
+/// take their defaults from, and none leaves every material on its own fields.
 ///
 /// # Errors
 ///
@@ -160,23 +157,34 @@ pub fn resolve_skin(
     entry: BinHash,
     names: &dyn RowNames,
     assets: &dyn AssetLookup,
+    shaders: Option<&BinDocument>,
 ) -> Result<SkinModel, BinDocumentError> {
     let skin = &object_at(document, entry)?.properties;
     let locator = Locator { names, assets };
     let mesh = fields_of(skin.get(&MESH_PROPERTIES));
     let mesh_field = |field: BinHash| mesh.and_then(|mesh| mesh.get(&field));
+    let material =
+        |value| link(value).map(|hash| linked_material(document, hash, &locator, shaders));
 
     Ok(SkinModel {
         mesh: locator.asset(mesh_field(SIMPLE_SKIN)),
         skeleton: locator.asset(mesh_field(SKELETON)),
         texture: locator.asset(mesh_field(TEXTURE)),
+        material: material(mesh_field(MATERIAL)),
         overrides: items(mesh_field(MATERIAL_OVERRIDE))
             .iter()
             .filter_map(|item| {
                 let fields = fields_of(Some(item))?;
-                Some(SubmeshTexture {
+                let texture = locator.asset(fields.get(&TEXTURE));
+                let material = material(fields.get(&MATERIAL));
+                /* An override naming neither draws as no override at all. */
+                if texture.is_none() && material.is_none() {
+                    return None;
+                }
+                Some(SubmeshOverride {
                     submesh: text(fields.get(&SUBMESH))?.to_owned(),
-                    texture: locator.asset(fields.get(&TEXTURE))?,
+                    texture,
+                    material,
                 })
             })
             .collect(),
@@ -294,6 +302,88 @@ pub fn search_linked(
     assets: &dyn AssetLookup,
     read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
 ) -> Result<Vec<AnimationClip>, BinDocumentError> {
+    let mut clips = None;
+    walk_linked(linked, assets, read, &mut |document| {
+        if document.object_at(entry).is_none() {
+            return Walk::On;
+        }
+        clips = Some(resolve_clips(document, entry, names, assets));
+        Walk::Done
+    });
+    clips.unwrap_or_else(|| {
+        Err(BinDocumentError::NodeNotFound {
+            address: format!("{}:", hex(entry)),
+        })
+    })
+}
+
+/// The materials of `model` no document within reach declared, looked for in `linked`
+/// and in what each file links.
+///
+/// A skin's materials are in its own file for all but the few a merged CAC bin declares,
+/// and those the skin reaches through its links, as [`search_linked`] reaches a graph.
+/// Every link a material has stays missing where the walk ends first. `shaders` is the
+/// defs [`resolve_skin`] took.
+pub fn search_linked_materials(
+    model: &mut SkinModel,
+    linked: Vec<AssetRef>,
+    names: &dyn RowNames,
+    assets: &dyn AssetLookup,
+    shaders: Option<&BinDocument>,
+    read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
+) {
+    let locator = Locator { names, assets };
+    let mut missing: Vec<&mut MaterialPreview> = model
+        .material
+        .iter_mut()
+        .chain(
+            model
+                .overrides
+                .iter_mut()
+                .filter_map(|o| o.material.as_mut()),
+        )
+        .filter(|material| material.missing)
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    walk_linked(linked, assets, read, &mut |document| {
+        for material in &mut missing {
+            let Some(hash) = parse_hex(&material.hash) else {
+                continue;
+            };
+            if document.object_at(hash).is_some() {
+                **material = linked_material(document, hash, &locator, shaders);
+            }
+        }
+        missing.retain(|material| material.missing);
+        if missing.is_empty() {
+            Walk::Done
+        } else {
+            Walk::On
+        }
+    });
+}
+
+/// Whether a walk over linked files goes on past the file it is at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Walk {
+    On,
+    Done,
+}
+
+/// Every file in `linked` and in what each links, breadth first, until `visit` is done.
+///
+/// Each file's links come in the order its header lists them, so the file nearest the
+/// skin is visited first. `read` answers a file's document, and none for one it cannot
+/// read, which is passed over. A file reached twice is read once, and at most
+/// [`LINKED_CAP`] files are opened.
+fn walk_linked(
+    linked: Vec<AssetRef>,
+    assets: &dyn AssetLookup,
+    read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
+    visit: &mut dyn FnMut(&BinDocument) -> Walk,
+) {
     let mut seen: HashSet<AssetRef> = linked.iter().cloned().collect();
     let mut queue: VecDeque<AssetRef> = linked.into();
     let mut opened = 0;
@@ -306,8 +396,8 @@ pub fn search_linked(
         let Some(document) = read(&asset) else {
             continue;
         };
-        if document.object_at(entry).is_some() {
-            return resolve_clips(&document, entry, names, assets);
+        if visit(&document) == Walk::Done {
+            return;
         }
         for next in document
             .dependencies()
@@ -319,9 +409,11 @@ pub fn search_linked(
             }
         }
     }
-    Err(BinDocumentError::NodeNotFound {
-        address: format!("{}:", hex(entry)),
-    })
+}
+
+/// The hash a record prints, `0x` and eight hex digits, read back.
+fn parse_hex(text: &str) -> Option<BinHash> {
+    crate::object_index::parse_hash(text)
 }
 
 /// The skin's idle effects, each with the system its key resolves to.
@@ -376,85 +468,6 @@ fn submesh_names(list: &str) -> Vec<String> {
         .filter(|name| !name.is_empty())
         .map(str::to_owned)
         .collect()
-}
-
-/// What a read names hashes by and places paths through.
-struct Locator<'a> {
-    names: &'a dyn RowNames,
-    assets: &'a dyn AssetLookup,
-}
-
-impl Locator<'_> {
-    /// The file `value` names as a path or as a chunk, and none for an empty one.
-    fn asset(&self, value: Option<&PropertyValueEnum>) -> Option<NamedAsset> {
-        match leaf(value)? {
-            Leaf::String(path) if !path.is_empty() => Some(self.placed(path.to_owned())),
-            Leaf::File(hash) if hash.0 != 0 => {
-                let name = first_name(|visit| self.names.for_each_chunk(&[hash], visit));
-                let (path, asset) = chunk_asset(hash, name, self.assets);
-                Some(NamedAsset { path, asset })
-            }
-            _ => None,
-        }
-    }
-
-    fn placed(&self, path: String) -> NamedAsset {
-        NamedAsset {
-            asset: self.assets.locate(&path),
-            path,
-        }
-    }
-
-    fn value_name(&self, hash: BinHash) -> Option<String> {
-        first_name(|visit| self.names.for_each_value(&[hash], visit))
-    }
-}
-
-type Fields = IndexMap<BinHash, PropertyValueEnum>;
-
-/// The class and the fields of the struct `value` holds, through an optional, and none
-/// for a null one.
-fn struct_of(value: Option<&PropertyValueEnum>) -> Option<(BinHash, &Fields)> {
-    match value? {
-        PropertyValueEnum::Struct(inner) | PropertyValueEnum::Embedded(values::Embedded(inner))
-            if inner.class_hash.0 != 0 =>
-        {
-            Some((inner.class_hash, &inner.properties))
-        }
-        PropertyValueEnum::Optional(optional) => struct_of(optional.value()),
-        _ => None,
-    }
-}
-
-fn fields_of(value: Option<&PropertyValueEnum>) -> Option<&Fields> {
-    struct_of(value).map(|(_, fields)| fields)
-}
-
-fn items(value: Option<&PropertyValueEnum>) -> &[PropertyValueEnum] {
-    match value {
-        Some(PropertyValueEnum::Container(items)) => items.items(),
-        Some(PropertyValueEnum::UnorderedContainer(items)) => items.items(),
-        _ => &[],
-    }
-}
-
-fn leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
-    owned(value?.leaf())
-}
-
-fn text(value: Option<&PropertyValueEnum>) -> Option<&str> {
-    match leaf(value)? {
-        Leaf::String(text) => Some(text),
-        _ => None,
-    }
-}
-
-/// The object `value` links to, and none for a null link.
-fn link(value: Option<&PropertyValueEnum>) -> Option<BinHash> {
-    match leaf(value)? {
-        Leaf::Link(hash) if hash.0 != 0 => Some(hash),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
