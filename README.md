@@ -27,8 +27,8 @@ and pack it, without leaving the window.
 
 ## Download
 
-1. Get the latest installer from the [Releases page](https://github.com/LeagueToolkit/ltk-manager/releases/latest).
-   The `.msi` is the recommended one.
+1. Get the latest installer from the [Releases page](https://github.com/LeagueToolkit/ltk-manager/releases/latest),
+   the `-setup.exe`.
 2. Run it and open **LTK Manager**.
 3. On first launch the app looks for your League of Legends installation. If it cannot find
    it, pick the game folder yourself.
