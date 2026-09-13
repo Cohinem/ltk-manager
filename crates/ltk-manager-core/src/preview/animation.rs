@@ -32,6 +32,7 @@ use std::io::Cursor;
 use glam::{Quat, Vec3};
 use ltk_anim::{Animation as _, AnimationAsset};
 use ltk_file::LeagueFileKind;
+use serde::Serialize;
 
 use super::{PreviewError, count_of};
 
@@ -49,6 +50,39 @@ const POSE_FLOATS: usize = 10;
 /// A twenty-second clip on a 120-joint rig at 30 fps is 72,000 poses, so this refuses only
 /// a header no shipped clip was written with.
 const MAX_POSES: usize = 1 << 21;
+
+/// What one `.anm` says about itself: its rate and its length.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct ClipHeader {
+    /// Frames per second the clip was authored at.
+    pub fps: f32,
+    /// Seconds one pass of the clip lasts.
+    pub duration: f32,
+}
+
+/// Read an animation's header alone.
+///
+/// `ltk_anim` decodes the whole clip on a read, so this costs the parse and none of the
+/// bake, per "The model" in docs/plans/animation-graph-table.md.
+///
+/// # Errors
+///
+/// Fails with [`PreviewError::Unsupported`] for bytes that are no animation, and with
+/// [`PreviewError::AnimationRead`] where the file does not parse.
+pub fn header(bytes: &[u8]) -> Result<ClipHeader, PreviewError> {
+    let clip = match LeagueFileKind::identify_from_bytes(bytes) {
+        LeagueFileKind::Animation => AnimationAsset::from_reader(&mut Cursor::new(bytes))?,
+        kind => return Err(PreviewError::Unsupported(kind)),
+    };
+    Ok(ClipHeader {
+        fps: clip.fps(),
+        duration: clip.duration(),
+    })
+}
 
 /// Read an animation and bake it into the buffer a viewport samples.
 ///

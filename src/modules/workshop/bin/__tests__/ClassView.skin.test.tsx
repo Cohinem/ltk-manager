@@ -345,13 +345,14 @@ describe("ClassView over a skin", () => {
       "Icons",
       "Mesh",
       "Material overrides",
+      "Clips",
       "Animation",
       "VFX",
       "Audio",
       "Health bar",
       "Other",
     ]) {
-      expect(screen.getByRole("button", { name: title })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: title, expanded: true })).toBeInTheDocument();
     }
   });
 
@@ -485,13 +486,22 @@ describe("ClassView over a skin in a pane wide enough for the shell", () => {
     paneWidth = 0;
   });
 
-  it("puts the preview and the inspector in panes of their own, and no other", async () => {
+  it("puts the preview, the clips and the inspector in panes of their own, and no other", async () => {
     renderSkin();
 
     expect(await screen.findByRole("tab", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Clips" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Inspector" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Emitters" })).not.toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Mesh preview" })).toBeInTheDocument();
+  });
+
+  it("leaves the Clips section out of the inspector column, where the pane draws it", async () => {
+    renderSkin();
+
+    await screen.findByRole("tab", { name: "Clips" });
+    expect(screen.queryByRole("button", { name: "Clips", expanded: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Animation", expanded: true })).toBeInTheDocument();
   });
 
   it("lists only the skin's panes in the Panes menu", async () => {
@@ -501,6 +511,7 @@ describe("ClassView over a skin in a pane wide enough for the shell", () => {
     await user.click(await screen.findByRole("button", { name: "Panes" }));
 
     expect(await screen.findByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Clips" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Inspector" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Curve" })).not.toBeInTheDocument();
   });

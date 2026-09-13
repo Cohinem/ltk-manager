@@ -38,7 +38,8 @@ migrated![
     read_vfx_system,
     // Skin preview
     read_skin,
-    read_animation_clips,
+    read_animation_graph,
+    read_clip_header,
     // Diagnostics
     run_diagnostics,
     open_elevated_terminal,

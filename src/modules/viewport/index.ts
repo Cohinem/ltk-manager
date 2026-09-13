@@ -1,4 +1,5 @@
 export { type JointAnchor, jointAnchor } from "./anchor";
+export { Armature, type ArmatureProps } from "./Armature";
 export { BufferError } from "./bufferReader";
 export {
   CAMERA,
@@ -28,7 +29,14 @@ export {
   zoomOfReach,
 } from "./framing";
 export { type MeshGeometry, type MeshRange, readMeshBuffer } from "./meshBuffer";
-export { createPose, type Pose } from "./pose";
+export {
+  createPose,
+  type JointSnap,
+  type Pose,
+  sequencePose,
+  sequenceStep,
+  snappedPose,
+} from "./pose";
 export { CameraPresetContext, useCameraPreset } from "./presetContext";
 export { viewportQueries } from "./queries";
 export { SceneCamera, type SceneCameraProps } from "./SceneCamera";

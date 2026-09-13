@@ -17,6 +17,15 @@ export function drawRanks(emitters: readonly EmitterModel[]): ReadonlyMap<number
   return new Map(order.map((emitter, rank) => [emitter.index, rank]));
 }
 
+/**
+ * The draw order a ground-layer emitter's rank counts up from, under everything else.
+ *
+ * The engine draws its ground display list before a character, and ThreeJS draws every
+ * transparent object after every opaque one, so a ground-layer emitter draws as an opaque
+ * object at this order, over the stage's `STAGE_ORDER` and under the character at zero.
+ */
+export const GROUND_ORDER = -1_000_000;
+
 /** Negative where `left` draws before `right`, per the engine's comparator. */
 export function compareDrawOrder(left: EmitterModel, right: EmitterModel): number {
   return (

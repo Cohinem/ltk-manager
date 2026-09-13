@@ -40,11 +40,13 @@ describe("defaultShellLayout", () => {
     expect(firstShellLeafId(defaultShellLayout("vfx"))).toBe("leaf-3");
   });
 
-  it("puts the skin's preview first, wider than the inspector beside it", () => {
+  it("puts the skin's preview first, wider than the clips over the inspector beside it", () => {
     const tree = defaultShellLayout("skin");
 
-    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([["preview"], ["inspector"]]);
-    expect(tree.kind === "split" && tree.layout).toEqual({ "leaf-2": 3, "leaf-3": 2 });
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([["preview"], ["clips"], ["inspector"]]);
+    expect(tree.kind === "split" && tree.layout).toEqual({ "leaf-2": 3, "split-4": 2 });
+    const column = tree.kind === "split" ? tree.children[1] : tree;
+    expect(column?.kind === "split" && column.dir).toBe("col");
     expect(firstShellLeafId(tree)).toBe("leaf-2");
   });
 });
@@ -86,6 +88,38 @@ describe("sanitizeShellLayout", () => {
     });
 
     expect(tree).toEqual({ kind: "leaf", id: "leaf-1", tabs: ["preview"], activeTab: "preview" });
+  });
+
+  it("opens a skin tree saved before the clips pane existed with the pane over the inspector", () => {
+    const tree = sanitizeShellLayout("skin", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      layout: { "leaf-2": 3, "leaf-3": 2 },
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([["preview"], ["clips"], ["inspector"]]);
+    expect(tree.kind === "split" && tree.layout).toEqual({ "leaf-2": 3, "leaf-3": 2 });
+    const column = tree.kind === "split" ? tree.children[1] : tree;
+    expect(column).toEqual({
+      kind: "split",
+      id: "split-5",
+      dir: "col",
+      children: [
+        { kind: "leaf", id: "leaf-4", tabs: ["clips"], activeTab: "clips" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    });
+  });
+
+  it("leaves a skin tree that closed the clips pane and holds no inspector as it is", () => {
+    const saved = { kind: "leaf", id: "leaf-1", tabs: ["preview"], activeTab: "preview" };
+
+    expect(sanitizeShellLayout("skin", saved)).toEqual(saved);
   });
 
   it("drops a pane it does not know", () => {

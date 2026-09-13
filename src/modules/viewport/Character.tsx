@@ -19,6 +19,7 @@ import {
 
 import { type CharacterSkin, CharacterSkinContext } from "./characterSkin";
 import type { SceneClock } from "./clock";
+import { tintFloats, vertexTints } from "./jointTint";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "./meshBuffer";
 import { LOCAL_FLOATS, type Pose } from "./pose";
 import type { SkeletonModel } from "./skeletonBuffer";
@@ -46,6 +47,8 @@ export interface CharacterProps {
   readonly scale: number;
   /** The submesh drawn at full strength while every other one dims, and null to dim none. */
   readonly highlighted?: string | null;
+  /** A mask's weight per joint slot, which dims every vertex it does not weigh, and null to dim none. */
+  readonly jointWeights?: ArrayLike<number> | null;
   /** A click on the viewport, with the submesh it landed on and null where it missed them all. */
   readonly onSubmeshPick?: (submesh: string | null) => void;
   /** What the character wears, which reaches its skin through `useCharacterSkin`. */
@@ -75,6 +78,7 @@ export function Character({
   hidden,
   scale,
   highlighted = null,
+  jointWeights = null,
   onSubmeshPick,
   children,
 }: CharacterProps) {
@@ -88,8 +92,8 @@ export function Character({
   const shaded = useMemo<readonly ShadingModels[]>(
     () =>
       drawn.ranges.map(() => ({
-        lit: new MeshLambertMaterial({ side: DoubleSide }),
-        unlit: new MeshBasicMaterial({ side: DoubleSide }),
+        lit: new MeshLambertMaterial({ side: DoubleSide, vertexColors: true }),
+        unlit: new MeshBasicMaterial({ side: DoubleSide, vertexColors: true }),
       })),
     [drawn],
   );
@@ -123,6 +127,18 @@ export function Character({
     });
   }, [skinned, shaded, drawn, bindingOf, colors, hidden, highlighted]);
   useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
+
+  useLayoutEffect(() => {
+    const color = drawn.geometry.getAttribute("color");
+    vertexTints(
+      drawn.geometry.getAttribute("skinIndex").array,
+      drawn.geometry.getAttribute("skinWeight").array,
+      skeleton.influences,
+      jointWeights,
+      color.array as Float32Array,
+    );
+    color.needsUpdate = true;
+  }, [drawn, skeleton, jointWeights]);
 
   useEffect(() => () => drawn.geometry.dispose(), [drawn]);
   useEffect(
@@ -320,6 +336,11 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
     new BufferAttribute(mesh.skinWeights ?? boundToFirst(vertices), 4),
   );
   geometry.setIndex(new BufferAttribute(mesh.indices, 1));
+  /* Full colour until a mask weighs the joints, which the character's effect writes. */
+  geometry.setAttribute(
+    "color",
+    new BufferAttribute(new Float32Array(tintFloats(vertices)).fill(1), 3),
+  );
 
   const ranges = drawnRanges(mesh, []);
   ranges.forEach((range, at) => geometry.addGroup(range.startIndex, range.indexCount, at));

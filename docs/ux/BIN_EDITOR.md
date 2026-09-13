@@ -4,6 +4,7 @@
 
 | Date       | Change                                              |
 | ---------- | --------------------------------------------------- |
+| 2026-09-13 | Add the clips pane over the animation graph         |
 | 2026-09-13 | Draw every layout section as field rows             |
 | 2026-09-12 | Band a rich value and drop the inspector's tabs     |
 | 2026-09-12 | Flag the timeline's playhead and trace the pointer  |
@@ -13,7 +14,6 @@
 | 2026-09-11 | Add the particle timeline, and redraw the inspector |
 | 2026-09-08 | Wrap the emitter cards into the pane                |
 | 2026-09-08 | Arrange the shell's panes as a split tree           |
-| 2026-09-08 | Size the emitter card and filter the strip by name  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1078,15 +1078,15 @@ through Properties.
 
 ### The layouts
 
-| Class                                               | Sections                                                                                              |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other         |
-| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh, Material overrides, Animation, VFX, Audio, Health bar, Other, beside a preview |
-| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                                    |
-| `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                                   |
+| Class                                               | Sections                                                                                                     |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other                |
+| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh, Material overrides, Clips, Animation, VFX, Audio, Health bar, Other, beside a preview |
+| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                                           |
+| `AnimationGraphData`                                | Clips as a table with Tracks, Masks and Sync groups as its tabs, Other                                       |
 
-The material, the skin and the particle system are the registered layouts, with the value rows
-beside them. The animation graph table follows.
+The material, the skin, the particle system and the animation graph are the registered
+layouts, with the value rows beside them.
 
 A layout draws no Used by. Reverse references are the walk's, and Find all references on the
 kebab is the affordance until it ships.
@@ -1097,7 +1097,7 @@ and a child set naming bones spawns on the joints it names. The transport under 
 sets its speed and names it: an idle clip first, and the bind pose where the graph holds none. A
 graph the skin's own file does not declare is read out of the files it links, which is where the
 engine finds it. The camera frames the character when it lands, and again on Frame the character.
-A clip no table names reads as unnamed with its hash, rather than as the bare hash.
+A clip no table names reads as its bare hash, dimmed, which is what a modder pastes elsewhere.
 
 **The inspector and the character point at each other.** The pointer on a material override
 dims every submesh but the one it dresses, and a click on the character dims the same way and
@@ -1107,6 +1107,112 @@ pointer would skin the whole mesh each time.
 
 The skin's shell writes the object's path on the header row beside its class, because the class
 only says what kind of object the tab holds and a skin tab is opened to read one skin.
+
+### The clips pane
+
+The Clips pane of the skin shell lists the skin's animation graph, and the Clips section of a
+stack lists the same under the hero. Riot's own Character Animation Graph Editor draws the graph
+as a clip table with tabs for the maps the clips key into, section 2 of
+docs/research/bin-editor-higher-order-views.md, and the pane draws the same over the read the
+preview already makes. The plan is docs/plans/animation-graph-table.md.
+
+The graph is read typed, through one command over all four of its maps, and the pane draws out
+of that answer rather than out of the rows. A graph the skin's own file does not declare is read
+out of the files it links, as the preview reads it, and the file it was found in is what the
+inspector reads a clip's rows from.
+
+**A row per entry of `mClipDataMap`, whatever its kind.** The rows sort by name, the ones no
+table names after them, and a filter in the pane's strip narrows them by name. The columns are
+Name with the kind of clip as a chip after it, File, Track, Rate, Mask, Sync group and Events.
+Mask and Sync group draw only while some clip of the graph names one, because most graphs name
+them on a handful of clips or on none and a column of nothing costs the width the names want.
+The kind is the class name without `ClipData`: Atomic, Selector, Sequencer. File is one mark,
+the animation kind's, which names the `.anm`'s path and archive on hover and opens it on a click,
+because the path repeats the clip's name for most of its length and the table is read by name. A
+`.anm` nothing on the machine holds draws the missing warning in its place. A track, a mask and a
+sync group are chips, and a click on one switches the pane to
+that map's tab and marks the entry's row. A key the map does not declare is drawn dim with a
+warning, and no rule is raised for it. Rate is the `.anm`'s frames per second over the ticks a
+second `mTickDuration` makes, `30/30`, and the file's half is read for the rows on screen alone.
+Events counts `mEventDataMap`. A composite clip carries no file, no tick and no rate.
+
+**A row click poses the preview, and its caret unfolds the clip.** A click on a row is the
+transport's own pick: the preview plays the clip, the transport's picker names it, and a play
+glyph marks the row. The caret at the row's start unfolds the clip's own rows under it, as
+field rows, and its event map, its pair lists and its accessories fold open as any struct does,
+over a Plays strip naming the clips it plays, each a chip that unfolds that row and poses the
+preview with it. Any number of rows stand unfolded at once, and the inspector keeps the skin's
+sections throughout, because a reader compares clips side by side and the inspector is one
+place. Right and Left arrows unfold and fold the focused row.
+
+**Every kind of clip plays.** An atomic clip plays its file. A sequencer plays its children one
+after another and loops over the whole. A parametric clip plays the pair whose value lies
+nearest a parameter the transport carries as a slider over the span its pairs cover, opening on
+the first pair's value, which stands in for the blend the engine makes between the two pairs
+around it. The slider is the ruler the library sizes its cards with, a tick labelled with each
+pair's value and the held one lit, and a drag lands on the nearest tick, because a value between
+two pairs plays the same clip as the nearer of them and offers nothing of its own. Every other composite plays the first child that reaches a file, which stands in for
+the pick the engine makes at runtime from a condition or a chance. The transport names the atomic
+clip playing after the picker while it differs from the pick, and a child chip under a parametric
+clip carries the value it plays at. A clip that reaches no file is not offered and its row poses
+nothing. The picker, the slider and the playing clip take a row of their own under the scrub in a
+pane narrower than the two fit in, because a scrub squeezed to a thumb's width scrubs nothing.
+
+**The clip's events play with it.** A submesh visibility event hides and shows what it names
+from its start frame, matched to the `.skn`'s submeshes by hash, and one with an end frame puts
+back what it changed there. The pass starts over from the skin's own hidden set, as the engine
+puts the skin back when a clip ends. A particle event spawns the system its key resolves to
+through the skin's resolver, in the skin's own file or in one it links, on the joint each pair
+names, when its frame comes, stopped where
+its end frame falls and playing out otherwise. A seek across the frame replays the system to
+where it stands, and the pass starting over stands it down until the frame comes again. A joint
+snap event stands one joint where another is, offset in that joint's frame, from its start
+frame to its end frame or the pass's end, and what hangs off the joint follows: the skin it
+weighs, the armature, and the effects riding it. A conform to path event bends the joints its
+mask weighs along the unit's path over the span, and the stage's unit stands still on flat
+ground, so the event moves nothing there. A kill event, a key the resolver does not map and
+every other kind of event draw nothing. A frame is
+`mTickDuration` seconds, else one over the `.anm`'s rate. The events of each step of a
+sequencer fall where that step plays. The Effects switch hides these with the idle effects,
+and stands in the controls while a clip carries one.
+
+**Tracks, Masks and Sync groups are tabs.** A segmented control in the pane's strip lists the
+four maps, and each sibling map draws as a small table of its entries: the name, then the
+struct's own fields as columns. A mask's row counts the joints it weighs out of the joints its
+list covers, and its caret unfolds them, each by slot, by the name the skin's skeleton gives
+the slot, and by weight. A click on a mask's row weighs it on the character: every vertex a
+weighed joint does not reach dims, as a submesh dims while another is highlighted, and a
+vertex between a weighed joint and one not weighed grades between them as its skin does. The
+click also turns the armature on, because a dimmed mesh says where a mask reaches and the
+armature says which joints, and the weighed joints take the accent while the rest dim. A
+second click lets the mask go and leaves the armature as it stands.
+
+**The armature is the skeleton over the character.** Armature in the preview's controls draws
+a dot per joint and a line to its parent, posed with the character and drawn through the mesh,
+so a joint inside the body still reads. The kebab grouped with it holds Names, which writes
+each joint's name beside its dot in the fine type, dimmed with the joint under a mask, and is
+ticked while the armature is on. The names are painted on one canvas over the scene each
+frame rather than laid out as text, because a hundred labels the layout moves each frame is
+what a reader feels as lag. The controls are icons named on hover, because five words in a
+row over the character cost more of it than five glyphs. Both are display preferences and
+last across skins.
+
+**Submeshes show and hide by hand.** The Submeshes menu in the preview's controls lists the
+`.skn`'s submeshes, each ticked while it draws. A tick shows or hides the submesh over
+whatever the skin's `initialSubmeshToHide` and the playing clip's events say, and the button
+takes the accent while any is overridden. A last row lets them all go, and the choices are
+the view's own, as the weighed mask is.
+
+The pane sits over the inspector in the shell's default arrangement, and a skin tree saved
+before the pane existed gains it there. The tab, the filter, the unfolded rows and the weighed
+mask are the view's own and last as long as the tab does. The graph's own layout draws the same
+tables as a Clips section of the stack, with the blend table and the rest under Other, and no
+skeleton to name a mask's joints by.
+
+**Cells edit in place once leaf writing lands.** Track, mask and sync group become dropdowns
+over the map's keys, the tick rate and the flags become fields, the event map a sub-table with
+a frame column, and a row's name renames its key. Until then every cell is a value and a chip,
+per "A cell is a row".
 
 ### The emitter strip
 
@@ -1506,6 +1612,12 @@ where its value would be and past the name column's measured edge, because the c
 over names and the value column of a struct is empty. A struct inside one opens the same way. A row
 starts folded, and an open one stays open on the next emitter, held by its path under the emitter,
 because a reader comparing spawn shapes walks the lanes.
+
+The gutter is every field row's, a caret's width before the name whether the row folds or not, so
+the names of one level line up and the caret has a target the height of the row rather than the
+glyph. A click anywhere on a row that folds folds it, as a click on a tree row does, because a
+reader opening ten structs in a row aims at the row and not at twelve pixels of it. A chip on the
+row keeps its own click.
 
 **Defaults** in the inspector's header adds every field the class declares and the emitter does
 not author, dimmed at its default.
@@ -2019,7 +2131,7 @@ its own.
    renderer with its Other section, Show in properties, and the first layout
 4. **The skin layout**, with its preview slot empty
 5. **The VFX layout**, with the emitter table
-6. **The animation graph table**
+6. **The animation graph table**, as [the clips pane](#the-clips-pane)
 
 **The editing track.**
 

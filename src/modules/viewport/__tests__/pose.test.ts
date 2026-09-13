@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ClipModel } from "../clipBuffer";
-import { createPose, LOCAL_FLOATS } from "../pose";
+import { createPose, LOCAL_FLOATS, sequencePose, sequenceStep, snappedPose } from "../pose";
 import type { JointModel, Quat, SkeletonModel, Vec3 } from "../skeletonBuffer";
 
 /** A quarter turn about the up axis, and the eighth halfway to it. */
@@ -56,6 +56,54 @@ function rounded(values: ArrayLike<number>): number[] {
 function placeOf(world: Float32Array): number[] {
   return rounded(world.subarray(12, 15));
 }
+
+/** The arm, a weapon buffbone standing on its own at the root's level, and a tip under it. */
+const ARMED = skeleton(
+  joint("Root", 0x10, -1, [0, 1, 0], QUARTER),
+  joint("Hand", 0x20, 0, [1, 0, 0]),
+  joint("Buffbone_Weapon", 0x30, -1, [5, 0, 0]),
+  joint("Tip", 0x40, 2, [1, 0, 0]),
+);
+
+describe("snappedPose", () => {
+  const world = (pose: ReturnType<typeof createPose>, slot: number, time = 0) =>
+    placeOf(pose.worldInto(slot, time, new Float32Array(16)));
+
+  it("answers the pose itself for no snap it can apply", () => {
+    const pose = createPose(ARMED, null);
+
+    expect(snappedPose(pose, [])).toBe(pose);
+    expect(
+      snappedPose(pose, [{ joint: -1, snapTo: 1, offset: [0, 0, 0], at: 0, until: null }]),
+    ).toBe(pose);
+  });
+
+  it("stands the joint on the other, offset in that joint's frame, and its children follow", () => {
+    const pose = snappedPose(createPose(ARMED, null), [
+      { joint: 2, snapTo: 1, offset: [1, 0, 0], at: 0, until: null },
+    ]);
+
+    expect(world(pose, 0)).toEqual([0, 1, 0]);
+    expect(world(pose, 1)).toEqual([0, 1, -1]);
+    /* The hand turns a quarter with the root, so its `x` is the world's `-z`. */
+    expect(world(pose, 2)).toEqual([0, 1, -2]);
+    expect(world(pose, 3)).toEqual([0, 1, -3]);
+    const locals = pose.localsInto(0, new Float32Array(4 * LOCAL_FLOATS));
+    expect(localOf(locals, 3)).toEqual([1, 0, 0, 0, 0, 0, 1, 1, 1, 1]);
+  });
+
+  it("holds the joint in its own place outside the snap's span", () => {
+    const pose = snappedPose(createPose(ARMED, REACH), [
+      { joint: 2, snapTo: 1, offset: [0, 0, 0], at: 0.25, until: 0.4 },
+    ]);
+
+    expect(world(pose, 2, 0.1)).toEqual([5, 0, 0]);
+    expect(world(pose, 2, 0.3)).toEqual(world(pose, 1, 0.3));
+    expect(world(pose, 2, 0.45)).toEqual([5, 0, 0]);
+    /* The span folds with the pass. */
+    expect(world(pose, 2, 0.8)).toEqual(world(pose, 1, 0.8));
+  });
+});
 
 describe("createPose", () => {
   it("stands every joint in its bind pose without a clip", () => {
@@ -127,6 +175,42 @@ describe("createPose", () => {
 
     expect([...pose.parents]).toEqual([-1, 0, -1]);
     expect(placeOf(pose.worldInto(1, 0, new Float32Array(16)))).toEqual([1, 1, 0]);
+  });
+});
+
+describe("sequencePose", () => {
+  it("plays its steps one after another and loops over their sum", () => {
+    const pose = sequencePose(ARM, [createPose(ARM, REACH), createPose(ARM, REACH)]);
+    const locals = new Float32Array(2 * LOCAL_FLOATS);
+
+    expect(pose.duration).toBe(1);
+    expect(localOf(pose.localsInto(0.25, locals), 1).slice(0, 3)).toEqual([2, 0, 0]);
+    expect(localOf(pose.localsInto(0.75, locals), 1).slice(0, 3)).toEqual([2, 0, 0]);
+    expect(localOf(pose.localsInto(1.25, locals), 1).slice(0, 3)).toEqual([2, 0, 0]);
+    expect(placeOf(pose.worldInto(1, 0.75, new Float32Array(16)))).toEqual([0, 1, -2]);
+  });
+
+  it("passes over a step of no duration", () => {
+    const pose = sequencePose(ARM, [createPose(ARM, null), createPose(ARM, REACH)]);
+
+    expect(pose.duration).toBe(0.5);
+    expect(sequenceStep([0, 0.5], 0)).toBe(1);
+    expect(sequenceStep([0.5, 0], 0.25)).toBe(0);
+  });
+
+  it("stands in the bind pose for no steps, and is the one step for one", () => {
+    const only = createPose(ARM, REACH);
+
+    expect(sequencePose(ARM, []).duration).toBe(0);
+    expect(sequencePose(ARM, [only])).toBe(only);
+  });
+
+  it("shares the first step's skeleton, parents and names", () => {
+    const first = createPose(ARM, REACH);
+    const pose = sequencePose(ARM, [first, createPose(ARM, null)]);
+
+    expect(pose.parents).toBe(first.parents);
+    expect(pose.jointNamed("ROOT")).toBe(0);
   });
 });
 

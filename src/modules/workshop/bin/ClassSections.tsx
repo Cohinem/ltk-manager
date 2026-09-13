@@ -18,6 +18,7 @@ import {
   type WidgetProps,
 } from "./ClassCells";
 import { type PlacedSection, type SectionWidget, sectionCount } from "./classLayouts";
+import { ClipsSection } from "./skin/ClipsSection";
 import { EffectTable, IconRow, MeshCard, OverrideRows } from "./SkinSections";
 import { nameColumn } from "./textCut";
 import { Emitters } from "./VfxSections";
@@ -143,6 +144,7 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
   "override-rows": OverrideRows,
   "effect-table": EffectTable,
   emitters: Emitters,
+  clips: ClipsSection,
 };
 
 function SectionBody({ section, pages, view, title }: SectionProps & { title: string }) {

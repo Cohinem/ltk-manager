@@ -21,7 +21,8 @@ export type SectionWidget =
   | "mesh"
   | "override-rows"
   | "effect-table"
-  | "emitters";
+  | "emitters"
+  | "clips";
 
 /** Which of a level's answered rows the level under it reads, by field name. */
 export type Select = "all" | readonly string[];
@@ -116,6 +117,7 @@ export const skinLayout: ClassLayout = {
       fields: ["skinMeshProperties"],
       as: "override-rows",
     },
+    { title: m.workshop_bin_section_clips_label, fields: ["skinAnimationProperties"], as: "clips" },
     {
       title: m.workshop_bin_section_animation_label,
       fields: ["skinAnimationProperties"],
@@ -177,6 +179,24 @@ export const vfxLayout: ClassLayout = {
 };
 
 /**
+ * The animation graph, which is a map of clips and the three maps they key into.
+ *
+ * Stage 7 of docs/plans/animation-graph-table.md. One section draws the four maps as
+ * the clips pane's tabs, out of the object itself, and Other holds the blend table and
+ * the rest.
+ */
+export const animationGraphLayout: ClassLayout = {
+  title: m.workshop_bin_layout_animation_graph_label,
+  sections: [
+    {
+      title: m.workshop_bin_section_clips_label,
+      fields: ["mClipDataMap", "mTrackDataMap", "mMaskDataMap", "mSyncGroupDataMap"],
+      as: "clips",
+    },
+  ],
+};
+
+/**
  * Every layout, by the class hash it draws.
  *
  * Each subclass is listed by hand, because the meta schema carries no inheritance and
@@ -187,6 +207,7 @@ const LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
   [nameHash("SkinCharacterDataProperties"), skinLayout],
   [nameHash("TftSkinCharacterDataProperties"), skinLayout],
   [nameHash("VfxSystemDefinitionData"), vfxLayout],
+  [nameHash("AnimationGraphData"), animationGraphLayout],
 ]);
 
 /** The layout `classHash` opens in, or undefined for a class that has none. */
@@ -311,6 +332,8 @@ const DESCENT: Record<SectionWidget, Descent> = {
   /* The third level is each override's fields, which name the submesh its row is titled by. */
   "override-rows": [["materialOverride"], "all", "all"],
   emitters: ["all", ["CustomMaterial"], "all"],
+  /* The graph is read typed, through its own command, and not through the rows. */
+  clips: [],
 };
 
 /** How far under its own fields a section's widget reads. Nothing, without one. */

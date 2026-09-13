@@ -4,6 +4,7 @@ import type { BinRow, BinValue } from "@/lib/tauri";
 
 import { nameHash } from "../binHash";
 import {
+  animationGraphLayout,
   classLayout,
   descentOf,
   frameOf,
@@ -57,7 +58,8 @@ describe("classLayout", () => {
     expect(classLayout(nameHash("StaticMaterialDef"))).toBe(materialLayout);
     expect(classLayout(nameHash("SkinCharacterDataProperties"))).toBe(skinLayout);
     expect(classLayout(nameHash("VfxSystemDefinitionData"))).toBe(vfxLayout);
-    expect(classLayout(nameHash("AnimationGraphData"))).toBeUndefined();
+    expect(classLayout(nameHash("AnimationGraphData"))).toBe(animationGraphLayout);
+    expect(classLayout(nameHash("CharacterRecord"))).toBeUndefined();
   });
 
   it("opens the TFT skin in the skin layout, which the schema does not say derives it", () => {

@@ -48,18 +48,21 @@ export const commands = {
 	 * 
 	 *  `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
 	 *  digits. The shader defs are read beside the skin, the project's copy first, and a
-	 *  read they refuse leaves every material on its own fields. A material the document
-	 *  does not declare is looked for through the files it links, as a graph is.
+	 *  read they refuse leaves every material on its own fields. A material or an effect
+	 *  system the document does not declare is looked for through the files it links, as a
+	 *  graph is.
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**
-	 *  The clips an animation graph plays, each with its `.anm` placed.
+	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
 	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
 	 *  graph the open document does not declare is looked for through the files it links,
 	 *  and a linked file that cannot be read is passed over.
 	 */
-	readAnimationClips: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AnimationClip[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_animation_clips", { document, entry }),
+	readAnimationGraph: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AnimationGraph }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_animation_graph", { document, entry }),
+	/**  The rate and the length of one `.anm`, which the clip table's rate column reads. */
+	readClipHeader: (asset: AssetRef) => __TAURI_INVOKE<({ ok: true; value: ClipHeader }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_clip_header", { asset }),
 	runDiagnostics: () => __TAURI_INVOKE<({ ok: true; value: DiagnosticReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("run_diagnostics"),
 	/**
 	 *  Launch an elevated PowerShell window so the user can run a fix command.
@@ -154,14 +157,23 @@ export const commands = {
 };
 
 /* Types */
-/**  One clip an animation graph plays out of a single `.anm`. */
-export type AnimationClip = {
-	/**  The clip's key as the tables name it, and its hash where none does. */
-	name: string,
-	/**  The key, `0x` and eight hex digits. */
-	hash: string,
-	/**  `mAnimationResourceData.mAnimationFilePath`. */
-	animation: NamedAsset,
+/**
+ *  An animation graph, as a clip table and a viewport read it.
+ * 
+ *  "The model" in docs/plans/animation-graph-table.md. Every list keeps the order its
+ *  map holds, and every key is named by the tables or written as its hex.
+ */
+export type AnimationGraph = {
+	/**  The linked file declaring the graph, and none where the open document does. */
+	source: AssetRef | null,
+	/**  `mClipDataMap`. */
+	clips: GraphClip[],
+	/**  `mTrackDataMap`. */
+	tracks: Track[],
+	/**  `mMaskDataMap`. */
+	masks: Mask[],
+	/**  `mSyncGroupDataMap`. */
+	syncGroups: SyncGroup[],
 };
 
 /**
@@ -538,6 +550,30 @@ export type ClassSchema = {
 	fields: FieldSchema[],
 };
 
+/**  One entry of `mEventDataMap`, of any kind of `BaseEventData`. */
+export type ClipEvent = {
+	/**  The event's key as the tables name it, and its hash where none does. */
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  The event's class as the tables name it, and its hash where none does. */
+	class: string,
+	/**  `mStartFrame`, the frame of the clip the event fires on. */
+	startFrame: number | null,
+	/**  `mEndFrame`, and none for an event that ends on its own, which the meta writes as -1. */
+	endFrame: number | null,
+	/**  What the event does, for the kinds a viewport plays. */
+	kind: EventKind,
+};
+
+/**  What one `.anm` says about itself: its rate and its length. */
+export type ClipHeader = {
+	/**  Frames per second the clip was authored at. */
+	fps: number | null,
+	/**  Seconds one pass of the clip lasts. */
+	duration: number | null,
+};
+
 /**
  *  What a verdict cost the player, which is a fact whatever the manager makes
  *  of the line that reported it.
@@ -655,6 +691,16 @@ export type DiagnosticReport_Serialize = {
 	checks: Check_Serialize[],
 };
 
+/**  One key of the skin's resolver, and the system it stands for. */
+export type EffectSystem = {
+	/**  The key, `0x` and eight hex digits. */
+	key: string,
+	/**  The `VfxSystemDefinitionData` object, `0x` and eight hex digits. */
+	system: string,
+	/**  The linked file declaring the system, and none where the skin's own document does. */
+	source: AssetRef | null,
+};
+
 /**  How the game ended, as far as anything said. */
 export type Ending = {
 	/**
@@ -679,6 +725,55 @@ export type Ending = {
  *  a CLI could map the same names to exit codes.
  */
 export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN";
+
+/**  What a clip event does, for the kinds a viewport plays, and nothing for the rest. */
+export type EventKind = 
+/**  `SubmeshVisibilityEventData`: submeshes shown and hidden from the start frame on. */
+{ kind: "submeshVisibility"; 
+/**  `mShowSubmeshList`. */
+show: HashRef[]; 
+/**  `mHideSubmeshList`. */
+hide: HashRef[] } | 
+/**  `ParticleEventData`: a system spawned on a joint at the start frame. */
+{ kind: "particle"; 
+/**  `mEffectKey`, `0x` and eight hex digits, which the skin's resolver maps. */
+effectKey: string; 
+/**  `mEffectName`, what the author called it. */
+effectName: string; 
+/**  `mParticleEventDataPairList`, one spawn per pair. */
+spawns: EventSpawn[]; 
+/**  `mIsLoop`. */
+isLoop: boolean; 
+/**  `mIsKillEvent`, which stops the effect of the key rather than spawning one. */
+isKill: boolean; 
+/**  `scale`, which the meta defaults to one. */
+scale: number | null } | 
+/**  `JointSnapEventData`: one joint stands where another does, from the start frame on. */
+{ kind: "jointSnap"; 
+/**  `mJointNameToOverride`, the joint moved, and none for an event naming no joint. */
+joint: HashRef | null; 
+/**  `mJointNameToSnapTo`, the joint it stands on, and none for an event naming no joint. */
+snapTo: HashRef | null; 
+/**  `offset`, in the frame of the joint stood on. */
+offset: [(number | null), (number | null), (number | null)] } | 
+/**  `ConformToPathEventData`: the joints a mask weighs follow the unit's path over the span. */
+{ kind: "conformToPath"; 
+/**  `mMaskDataName`, the joints that conform, and none for an event naming no mask. */
+mask: KeyRef | null; 
+/**  `mBlendInTime`, seconds the conforming eases in over. */
+blendIn: number | null; 
+/**  `mBlendOutTime`, seconds it eases out over. */
+blendOut: number | null } | 
+/**  Any other kind, which the viewport draws nothing for. */
+{ kind: "other" };
+
+/**  One pair of a particle event: the joint the system rides, and the joint it aims at. */
+export type EventSpawn = {
+	/**  `mBoneName`, and none for a pair riding the skeleton's own origin. */
+	bone: HashRef | null,
+	/**  `mTargetBoneName`, and none for a pair aiming at nothing. */
+	targetBone: HashRef | null,
+};
 
 /**  One line the verdict rests on. */
 export type Evidence = {
@@ -772,6 +867,52 @@ export type GitHubErrorKind =
 
 /**  Which of the things GitHub publishes a read was after. */
 export type GitHubFeed = "RELEASES" | "ANNOUNCEMENTS" | "NOTICES";
+
+/**  One entry of `mClipDataMap`, of any kind of `ClipBaseData`. */
+export type GraphClip = {
+	/**  The clip's key as the tables name it, and its hash where none does. */
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  The clip's class as the tables name it, and its hash where none does. */
+	class: string,
+	/**  `mAnimationResourceData.mAnimationFilePath`, which an atomic clip alone names. */
+	animation: NamedAsset | null,
+	/**  `mTrackDataName`. */
+	track: KeyRef | null,
+	/**  `mMaskDataName`. */
+	mask: KeyRef | null,
+	/**  `mSyncGroupDataName`. */
+	syncGroup: KeyRef | null,
+	/**  `mTickDuration`, seconds per tick, which an atomic clip alone sets. */
+	tickDuration: number | null,
+	/**  `mEventDataMap`, in map order. */
+	events: ClipEvent[],
+	/**  The clips this one plays, in its kind's field order. */
+	children: KeyRef[],
+	/**
+	 *  `mValue` of each pair of a parametric clip, one per child in the same order, and
+	 *  empty for every other kind.
+	 */
+	parameters: (number | null)[],
+	/**  `mAnimationInterruptionGroupNames`. */
+	interruptionGroups: string[],
+	/**  `mFlags`. */
+	flags: number,
+};
+
+/**
+ *  A hash a bin names something outside the graph by, such as a submesh or a joint.
+ * 
+ *  The tables name a few of them. A viewport matches the hash against the names the `.skn`
+ *  or the `.skl` spells, which is how the engine reaches them too.
+ */
+export type HashRef = {
+	/**  The hash as the tables name it, and its hex where none does. */
+	name: string,
+	/**  The hash, `0x` and eight hex digits. */
+	hash: string,
+};
 
 /**
  *  A setting or an action the evidence points at, under the verdict.
@@ -929,6 +1070,16 @@ export type InstallMismatch = {
 	sessionPath: string,
 };
 
+/**  A key one clip names into a map of the graph. */
+export type KeyRef = {
+	/**  The key as the tables name it, and its hash where none does. */
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  The map holds an entry under the key. */
+	declared: boolean,
+};
+
 /**
  *  A type as the tag composes it: the kind, a `Map`'s key, and what a container holds.
  * 
@@ -994,6 +1145,17 @@ export type LauncherError =
  *  [`ritoclient`], carrying that error's own prose.
  */
 { kind: "OTHER"; message: string };
+
+/**  One entry of `mMaskDataMap`. */
+export type Mask = {
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  `mId`. */
+	id: number,
+	/**  `mWeightList`, one weight per joint of the skeleton in the skeleton's order. */
+	weights: (number | null)[],
+};
 
 /**
  *  One `StaticMaterialDef` as a preview draws it, cut down to the slots one stock
@@ -1328,6 +1490,15 @@ export type SkinModel = {
 	animationGraph: string | null,
 	/**  `idleParticlesEffects`, in the order the skin lists them. */
 	idleEffects: IdleEffect[],
+	/**
+	 *  Every effect key `mResourceResolver` maps to a system some file within reach declares.
+	 * 
+	 *  A particle event of the graph names a key of this map, and the graph is read from
+	 *  another file, so the map crosses with the skin for the viewport to look the key up.
+	 *  [`resolve_skin`] lists the systems the document itself declares, and
+	 *  [`search_linked_systems`] adds those its linked files declare.
+	 */
+	effectSystems: EffectSystem[],
 };
 
 /**  An archive the lazy scan skipped, with the DLL's reason. */
@@ -1406,6 +1577,28 @@ export type Suspect = {
 	 *  incident stored before it existed carries no reason.
 	 */
 	reason?: Because,
+};
+
+/**  One entry of `mSyncGroupDataMap`. */
+export type SyncGroup = {
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  `mType`. */
+	kind: number,
+};
+
+/**  One entry of `mTrackDataMap`. */
+export type Track = {
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  `mPriority`. */
+	priority: number,
+	/**  `mBlendMode`. */
+	blendMode: number,
+	/**  `mBlendWeight`. */
+	blendWeight: number | null,
 };
 
 /**

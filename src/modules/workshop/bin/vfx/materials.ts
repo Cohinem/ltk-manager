@@ -69,6 +69,11 @@ const UNIT_REACH = 1;
  *
  * `depthBiasFactors` is a polygon offset and `DepthPushPull` moves each corner along
  * the ray from the eye, decision 2.47 of docs/plans/vfx-particle-renderer.md.
+ *
+ * A ground-layer material is `transparent: false` whatever it blends, here and in the
+ * mesh and ribbon materials, so ThreeJS lists it with the opaque objects and its
+ * `GROUND_ORDER` puts it under the character. The blend state still reaches the GPU,
+ * since three applies a custom blending as it stands.
  */
 export function quadMaterial(
   mode: BlendMode,
@@ -103,7 +108,7 @@ export function quadMaterial(
     side: DoubleSide,
     depthTest: tests.depthTest,
     depthWrite: state.depthWrite,
-    transparent: state.transparent,
+    transparent: state.transparent && !layers.ground,
     blending: state.blending,
     blendSrc: state.blendSrc,
     blendDst: state.blendDst,
@@ -151,7 +156,7 @@ export function meshMaterial(
     side,
     depthTest: tests.depthTest,
     depthWrite: state.depthWrite,
-    transparent: state.transparent,
+    transparent: state.transparent && !layers.ground,
     blending: state.blending,
     blendSrc: state.blendSrc,
     blendDst: state.blendDst,
@@ -246,7 +251,7 @@ export function ribbonMaterial(
     side: DoubleSide,
     depthTest: tests.depthTest,
     depthWrite: state.depthWrite,
-    transparent: state.transparent,
+    transparent: state.transparent && !layers.ground,
     blending: state.blending,
     blendSrc: state.blendSrc,
     blendDst: state.blendDst,
