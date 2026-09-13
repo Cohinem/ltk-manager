@@ -5,7 +5,9 @@ import {
   type Color,
   DoubleSide,
   FrontSide,
+  type Material,
   type MeshBasicMaterial,
+  type MeshLambertMaterial,
   MirroredRepeatWrapping,
   NormalBlending,
   RepeatWrapping,
@@ -48,17 +50,31 @@ const WRAPPING: Record<Wrap, Wrapping> = {
 };
 
 /** The program parameters a dress can move, so a change of them compiles again. */
-const PROGRAMS = new WeakMap<MeshBasicMaterial, string>();
+const PROGRAMS = new WeakMap<Material, string>();
+
+/** The stock materials a submesh is dressed on, lit or not, which take the same slots. */
+export type SubmeshMaterial = MeshBasicMaterial | MeshLambertMaterial;
+
+/**
+ * Whether the submesh stands under the scene's light.
+ *
+ * The game lights a body and blends a VFX layer unlit, and an additive pass is the one
+ * sure sign of the latter. A missing material draws flat so its colour reads as a flag.
+ */
+export function lit({ material }: SubmeshDress): boolean {
+  if (material === null) return true;
+  return !material.missing && material.renderState.blending !== "additive";
+}
 
 /**
  * `material` dressed as `dress` says, and the scroll its map moves at per second.
  *
- * The slots land on a `MeshBasicMaterial` as "10.5 Three.js" of the studio doc writes
- * them onto a stock material. A tint is set in sRGB, because the engine multiplies it
- * onto the encoded texel and the decode-multiply-encode round trip lands the same place.
+ * The slots land on a stock material as "10.5 Three.js" of the studio doc writes them.
+ * A tint is set in sRGB, because the engine multiplies it onto the encoded texel and
+ * the decode-multiply-encode round trip lands the same place.
  */
 export function dressMaterial(
-  material: MeshBasicMaterial,
+  material: SubmeshMaterial,
   { material: slots, base, texture }: SubmeshDress,
   colors: DressColors,
 ): readonly [number, number] | null {
@@ -109,7 +125,7 @@ function mapOf(
   return slots.renderState.blending === "opaque" ? texture : null;
 }
 
-function applyRenderState(material: MeshBasicMaterial, state: RenderState): void {
+function applyRenderState(material: SubmeshMaterial, state: RenderState): void {
   material.transparent = state.blending !== "opaque";
   material.blending = state.blending === "additive" ? AdditiveBlending : NormalBlending;
   material.premultipliedAlpha = state.premultiplied;
@@ -146,7 +162,7 @@ function tile(base: Texture, slots: MaterialPreview): void {
 }
 
 /** Flag the program stale where a parameter it was compiled on has moved. */
-function recompileIfMoved(material: MeshBasicMaterial): void {
+function recompileIfMoved(material: SubmeshMaterial): void {
   const key = [
     material.map !== null,
     material.alphaTest > 0,

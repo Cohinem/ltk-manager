@@ -7,6 +7,7 @@ import { CameraPresetContext } from "./presetContext";
 import { SceneCamera } from "./SceneCamera";
 import { useSceneColors } from "./sceneColors";
 import { Stage } from "./Stage";
+import { Sun } from "./Sun";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "./world";
 
 export interface ViewportProps {
@@ -73,6 +74,7 @@ export function Viewport({ stage, textured, camera, onCameraStand, children }: V
     >
       <color attach="background" args={[colors.backdrop]} />
       <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
+      <Sun />
       <Stage colors={colors} shown={stage} textured={textured} />
       <CameraPresetContext value={camera}>{children}</CameraPresetContext>
     </Canvas>

@@ -5,8 +5,10 @@ import {
   BufferAttribute,
   BufferGeometry,
   DoubleSide,
+  type Material,
   Matrix4,
   MeshBasicMaterial,
+  MeshLambertMaterial,
   Raycaster,
   Skeleton,
   SkinnedMesh,
@@ -20,7 +22,13 @@ import type { SceneClock } from "./clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "./meshBuffer";
 import { LOCAL_FLOATS, type Pose } from "./pose";
 import type { SkeletonModel } from "./skeletonBuffer";
-import { type DressColors, dressMaterial, type SubmeshDress } from "./submeshDress";
+import {
+  type DressColors,
+  dressMaterial,
+  lit,
+  type SubmeshDress,
+  type SubmeshMaterial,
+} from "./submeshDress";
 import { AXIS_SIGN } from "./world";
 
 export interface CharacterProps {
@@ -77,19 +85,24 @@ export function Character({
     () => ({ geometry: drawn.geometry, skeleton: rig.skeleton, ranges: drawn.ranges, hidden }),
     [drawn, rig, hidden],
   );
-  const materials = useMemo(
-    () => drawn.ranges.map(() => new MeshBasicMaterial({ side: DoubleSide })),
+  const wardrobes = useMemo<readonly Wardrobe[]>(
+    () =>
+      drawn.ranges.map(() => ({
+        lit: new MeshLambertMaterial({ side: DoubleSide }),
+        unlit: new MeshBasicMaterial({ side: DoubleSide }),
+      })),
     [drawn],
   );
   const skinned = useMemo(() => {
-    const held = new SkinnedMesh(drawn.geometry, materials);
+    const worn: Material[] = wardrobes.map((wardrobe) => wardrobe.lit);
+    const held = new SkinnedMesh(drawn.geometry, worn);
     /* The bounds are the bind pose's, which an animated pose leaves. */
     held.frustumCulled = false;
     /* An identity bind keeps the inverse bind matrices the skeleton carries, where no
        matrix at all would have three compute its own from the pose it stands in. */
     held.bind(rig.skeleton, new Matrix4());
     return held;
-  }, [drawn, materials, rig]);
+  }, [drawn, wardrobes, rig]);
 
   /* The bones move onto the mesh here rather than in its memo, because a memo React runs
      twice would move them onto the copy it throws away. */
@@ -102,16 +115,24 @@ export function Character({
 
   const scrolling = useRef<readonly Scrolling[]>([]);
   useLayoutEffect(() => {
-    scrolling.current = dress(materials, drawn.ranges, { dressOf, colors, hidden, highlighted });
-  }, [materials, drawn, dressOf, colors, hidden, highlighted]);
+    scrolling.current = dress(skinned, wardrobes, drawn.ranges, {
+      dressOf,
+      colors,
+      hidden,
+      highlighted,
+    });
+  }, [skinned, wardrobes, drawn, dressOf, colors, hidden, highlighted]);
   useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
 
   useEffect(() => () => drawn.geometry.dispose(), [drawn]);
   useEffect(
     () => () => {
-      for (const material of materials) material.dispose();
+      for (const wardrobe of wardrobes) {
+        wardrobe.lit.dispose();
+        wardrobe.unlit.dispose();
+      }
     },
-    [materials],
+    [wardrobes],
   );
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
@@ -180,6 +201,12 @@ interface Dress {
   readonly highlighted: string | null;
 }
 
+/** The two materials a submesh may wear, one under the scene's light and one not. */
+interface Wardrobe {
+  readonly lit: MeshLambertMaterial;
+  readonly unlit: MeshBasicMaterial;
+}
+
 /** A map the frame advances, in tiles per second. */
 interface Scrolling {
   readonly map: Texture;
@@ -187,23 +214,29 @@ interface Scrolling {
 }
 
 /**
- * Each submesh's material dressed as its skin says, and not at all where the skin hides
- * it. Every submesh but a highlighted one dims. Answers the maps that scroll.
+ * Each submesh dressed as its skin says, lit or unlit, and not at all where the skin
+ * hides it. Every submesh but a highlighted one dims. Answers the maps that scroll.
  */
 function dress(
-  materials: readonly MeshBasicMaterial[],
+  skinned: SkinnedMesh,
+  wardrobes: readonly Wardrobe[],
   ranges: readonly MeshRange[],
   { dressOf, colors, hidden, highlighted }: Dress,
 ): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
-  const lit = highlighted?.toLowerCase() ?? null;
+  const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
+  const worn = skinned.material as Material[];
   ranges.forEach((range, at) => {
-    const material = materials[at];
+    const dressed = dressOf(range.name);
+    const material: SubmeshMaterial = lit(dressed) ? wardrobes[at].lit : wardrobes[at].unlit;
+    worn[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());
-    const scroll = dressMaterial(material, dressOf(range.name), colors);
+    const scroll = dressMaterial(material, dressed, colors);
     if (scroll !== null && material.map !== null) scrolling.push({ map: material.map, scroll });
-    if (lit !== null && range.name.toLowerCase() !== lit) material.color.multiplyScalar(DIMMED);
+    if (picked !== null && range.name.toLowerCase() !== picked) {
+      material.color.multiplyScalar(DIMMED);
+    }
   });
   return scrolling;
 }
@@ -278,6 +311,8 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
   geometry.setAttribute("position", new BufferAttribute(mesh.positions, 3));
   if (mesh.uvs !== null) geometry.setAttribute("uv", new BufferAttribute(mesh.uvs, 2));
   if (mesh.normals !== null) geometry.setAttribute("normal", new BufferAttribute(mesh.normals, 3));
+  /* A lit material with no normals draws black, so a mesh without them gets flat ones. */
+  else geometry.computeVertexNormals();
   geometry.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndices(mesh, rig), 4));
   geometry.setAttribute(
     "skinWeight",
