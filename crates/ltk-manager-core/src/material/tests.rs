@@ -331,12 +331,33 @@ fn a_body_material_reads_its_diffuse_tint_and_blend_off_its_own_fields() {
     assert_eq!(preview.alpha_test, None);
     assert_eq!(
         preview.render_state,
-        RenderState {
-            blending: Blending::Normal,
-            ..RenderState::default()
-        }
+        RenderState::default(),
+        "the pass blends, and nothing says the material reads an alpha"
     );
     assert_eq!(preview.warnings, [MaterialWarning::NoShaderDefs]);
+}
+
+/// A colour map's alpha is a mask until an opacity, an alpha test or an alpha switch says
+/// otherwise, so a pass that blends draws opaque without one of them.
+#[test]
+fn a_plain_blend_draws_opaque_until_the_material_reads_an_alpha() {
+    let with_defaults = read(body(), Some(&shaders()));
+    let tested = read(
+        body().params(vec![param("AlphaTestValue", Some([0.3, 0.0, 0.0, 0.0]))]),
+        None,
+    );
+    let faded = read(
+        body().params(vec![param("Opacity", Some([0.5, 0.0, 0.0, 0.0]))]),
+        None,
+    );
+
+    assert_eq!(
+        with_defaults.render_state.blending,
+        Blending::Normal,
+        "the shader declares `Alpha`"
+    );
+    assert_eq!(tested.render_state.blending, Blending::Normal);
+    assert_eq!(faded.render_state.blending, Blending::Normal);
 }
 
 /// The shader names itself, fills a default the material leaves out, and seeds a

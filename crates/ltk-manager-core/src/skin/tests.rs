@@ -362,7 +362,11 @@ fn an_override_gives_its_submesh_a_texture_or_a_material() {
     let base = material.base.as_ref().expect("the wings' base texture");
     assert_eq!(base.rule, BaseRule::Exact);
     assert_eq!(base.texture.asset, file(WINGS));
-    assert_eq!(material.render_state.blending, Blending::Normal);
+    assert_eq!(
+        material.render_state.blending,
+        Blending::Opaque,
+        "the pass blends, and nothing says the material reads an alpha"
+    );
 }
 
 /// The skin's own `Material` is read like an override's, and a link the document does

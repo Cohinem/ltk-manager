@@ -522,15 +522,17 @@ impl<'a> Reader<'a> {
         from how the shader is built, not traced. */
         let mut render_state =
             render_state(pass, &macros, !switched && shader_path_is_additive(&shader));
-        if switched && render_state.blending == Blending::Normal {
-            let on = |name: &str| switches.get(name).copied().unwrap_or(false);
-            render_state.blending = if on(SWITCHED_ADDITIVE_SWITCH) {
-                Blending::Additive
-            } else if SWITCHED_ALPHA_SWITCHES.iter().any(|name| on(name)) {
-                Blending::Normal
-            } else {
-                Blending::Opaque
-            };
+        let on = |name: &str| switches.get(name).copied().unwrap_or(false);
+        if switched && render_state.blending == Blending::Normal && on(SWITCHED_ADDITIVE_SWITCH) {
+            render_state.blending = Blending::Additive;
+        }
+        /* A colour map's alpha is a mask more often than coverage, so a plain blend draws
+        opaque until the material affirms it reads an alpha. Inferred, not traced. */
+        let reads_alpha = opacity.is_some()
+            || alpha_test.is_some()
+            || (switched && SWITCHED_ALPHA_SWITCHES.iter().any(|name| on(name)));
+        if render_state.blending == Blending::Normal && !reads_alpha {
+            render_state.blending = Blending::Opaque;
         }
 
         MaterialPreview {
