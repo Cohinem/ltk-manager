@@ -23,12 +23,12 @@ import { drawnRanges, type MeshGeometry, type MeshRange } from "./meshBuffer";
 import { LOCAL_FLOATS, type Pose } from "./pose";
 import type { SkeletonModel } from "./skeletonBuffer";
 import {
-  type DressColors,
-  dressMaterial,
+  type FallbackColors,
+  applyBinding,
   lit,
-  type SubmeshDress,
+  type SubmeshBinding,
   type SubmeshMaterial,
-} from "./submeshDress";
+} from "./submeshBinding";
 import { AXIS_SIGN } from "./world";
 
 export interface CharacterProps {
@@ -37,9 +37,9 @@ export interface CharacterProps {
   /** The time the pose is sampled at, which whoever owns the scene advances. */
   readonly clock: SceneClock;
   /** What a submesh draws with, by its name. */
-  readonly dressOf: (submesh: string) => SubmeshDress;
+  readonly bindingOf: (submesh: string) => SubmeshBinding;
   /** What a submesh no texture or no material reaches is drawn in. */
-  readonly colors: DressColors;
+  readonly colors: FallbackColors;
   /** The submeshes the character is drawn without, matched without regard to case. */
   readonly hidden: readonly string[];
   /** `skinScale`, which the whole character is drawn at. */
@@ -70,7 +70,7 @@ export function Character({
   mesh,
   pose,
   clock,
-  dressOf,
+  bindingOf,
   colors,
   hidden,
   scale,
@@ -85,7 +85,7 @@ export function Character({
     () => ({ geometry: drawn.geometry, skeleton: rig.skeleton, ranges: drawn.ranges, hidden }),
     [drawn, rig, hidden],
   );
-  const wardrobes = useMemo<readonly Wardrobe[]>(
+  const shaded = useMemo<readonly ShadingModels[]>(
     () =>
       drawn.ranges.map(() => ({
         lit: new MeshLambertMaterial({ side: DoubleSide }),
@@ -94,15 +94,15 @@ export function Character({
     [drawn],
   );
   const skinned = useMemo(() => {
-    const worn: Material[] = wardrobes.map((wardrobe) => wardrobe.lit);
-    const held = new SkinnedMesh(drawn.geometry, worn);
+    const bound: Material[] = shaded.map((models) => models.lit);
+    const held = new SkinnedMesh(drawn.geometry, bound);
     /* The bounds are the bind pose's, which an animated pose leaves. */
     held.frustumCulled = false;
     /* An identity bind keeps the inverse bind matrices the skeleton carries, where no
        matrix at all would have three compute its own from the pose it stands in. */
     held.bind(rig.skeleton, new Matrix4());
     return held;
-  }, [drawn, wardrobes, rig]);
+  }, [drawn, shaded, rig]);
 
   /* The bones move onto the mesh here rather than in its memo, because a memo React runs
      twice would move them onto the copy it throws away. */
@@ -115,24 +115,24 @@ export function Character({
 
   const scrolling = useRef<readonly Scrolling[]>([]);
   useLayoutEffect(() => {
-    scrolling.current = dress(skinned, wardrobes, drawn.ranges, {
-      dressOf,
+    scrolling.current = bind(skinned, shaded, drawn.ranges, {
+      bindingOf,
       colors,
       hidden,
       highlighted,
     });
-  }, [skinned, wardrobes, drawn, dressOf, colors, hidden, highlighted]);
+  }, [skinned, shaded, drawn, bindingOf, colors, hidden, highlighted]);
   useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
 
   useEffect(() => () => drawn.geometry.dispose(), [drawn]);
   useEffect(
     () => () => {
-      for (const wardrobe of wardrobes) {
-        wardrobe.lit.dispose();
-        wardrobe.unlit.dispose();
+      for (const models of shaded) {
+        models.lit.dispose();
+        models.unlit.dispose();
       }
     },
-    [wardrobes],
+    [shaded],
   );
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
@@ -193,16 +193,16 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
   return { bones, roots, skeleton: bound };
 }
 
-/** What a submesh's material is dressed from. */
-interface Dress {
-  readonly dressOf: (submesh: string) => SubmeshDress;
-  readonly colors: DressColors;
+/** What a submesh's material is bound from. */
+interface Bind {
+  readonly bindingOf: (submesh: string) => SubmeshBinding;
+  readonly colors: FallbackColors;
   readonly hidden: readonly string[];
   readonly highlighted: string | null;
 }
 
-/** The two materials a submesh may wear, one under the scene's light and one not. */
-interface Wardrobe {
+/** One material per shading model a submesh may draw under, kept for its lifetime. */
+interface ShadingModels {
   readonly lit: MeshLambertMaterial;
   readonly unlit: MeshBasicMaterial;
 }
@@ -214,25 +214,26 @@ interface Scrolling {
 }
 
 /**
- * Each submesh dressed as its skin says, lit or unlit, and not at all where the skin
- * hides it. Every submesh but a highlighted one dims. Answers the maps that scroll.
+ * Each submesh bound to its material under the shading model the binding calls for, and
+ * to none where the skin hides it. Every submesh but a highlighted one dims. Answers the
+ * maps that scroll.
  */
-function dress(
+function bind(
   skinned: SkinnedMesh,
-  wardrobes: readonly Wardrobe[],
+  shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { dressOf, colors, hidden, highlighted }: Dress,
+  { bindingOf, colors, hidden, highlighted }: Bind,
 ): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
-  const worn = skinned.material as Material[];
+  const bound = skinned.material as Material[];
   ranges.forEach((range, at) => {
-    const dressed = dressOf(range.name);
-    const material: SubmeshMaterial = lit(dressed) ? wardrobes[at].lit : wardrobes[at].unlit;
-    worn[at] = material;
+    const binding = bindingOf(range.name);
+    const material: SubmeshMaterial = lit(binding) ? shaded[at].lit : shaded[at].unlit;
+    bound[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());
-    const scroll = dressMaterial(material, dressed, colors);
+    const scroll = applyBinding(material, binding, colors);
     if (scroll !== null && material.map !== null) scrolling.push({ map: material.map, scroll });
     if (picked !== null && range.name.toLowerCase() !== picked) {
       material.color.multiplyScalar(DIMMED);

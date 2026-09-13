@@ -24,7 +24,7 @@ import type { MaterialPreview, RenderState, Wrap } from "@/lib/tauri";
  *
  * Section 1.3 of docs/research/static-material-studio-rendering.md.
  */
-export interface SubmeshDress<T = Texture> {
+export interface SubmeshBinding<T = Texture> {
   /** The material's slots, and null for a submesh drawn with a texture alone. */
   readonly material: MaterialPreview | null;
   /** The texture the material's base slot names, and null for none or one not held. */
@@ -33,8 +33,8 @@ export interface SubmeshDress<T = Texture> {
   readonly texture: T | null;
 }
 
-/** The colours a dressed submesh falls back on. */
-export interface DressColors {
+/** The colours a bound submesh falls back on. */
+export interface FallbackColors {
   /** What a submesh no texture reaches is drawn in. */
   readonly untextured: Color;
   /** What a submesh whose material link resolves to nothing is drawn in. */
@@ -49,34 +49,34 @@ const WRAPPING: Record<Wrap, Wrapping> = {
   border: ClampToEdgeWrapping,
 };
 
-/** The program parameters a dress can move, so a change of them compiles again. */
+/** The program parameters a binding can move, so a change of them compiles again. */
 const PROGRAMS = new WeakMap<Material, string>();
 
-/** The stock materials a submesh is dressed on, lit or not, which take the same slots. */
+/** The stock material of each shading model, both of which take the same slots. */
 export type SubmeshMaterial = MeshBasicMaterial | MeshLambertMaterial;
 
 /**
- * Whether the submesh stands under the scene's light.
+ * Whether the binding's shading model is the lit one.
  *
  * The game lights a body and blends a VFX layer unlit, and an additive pass is the one
  * sure sign of the latter. A missing material draws flat so its colour reads as a flag.
  */
-export function lit({ material }: SubmeshDress): boolean {
+export function lit({ material }: SubmeshBinding): boolean {
   if (material === null) return true;
   return !material.missing && material.renderState.blending !== "additive";
 }
 
 /**
- * `material` dressed as `dress` says, and the scroll its map moves at per second.
+ * `material` set to what `binding` names, and the scroll its map moves at per second.
  *
  * The slots land on a stock material as "10.5 Three.js" of the studio doc writes them.
  * A tint is set in sRGB, because the engine multiplies it onto the encoded texel and
  * the decode-multiply-encode round trip lands the same place.
  */
-export function dressMaterial(
+export function applyBinding(
   material: SubmeshMaterial,
-  { material: slots, base, texture }: SubmeshDress,
-  colors: DressColors,
+  { material: slots, base, texture }: SubmeshBinding,
+  colors: FallbackColors,
 ): readonly [number, number] | null {
   const map = mapOf(slots, base, texture);
   if (material.map !== map) material.map = map;

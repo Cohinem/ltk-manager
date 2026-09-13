@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AnimationClip, AssetRef, IdleEffect, MaterialPreview, SkinModel } from "@/lib/tauri";
 import { createPose, jointAnchor, type JointModel, type SkeletonModel } from "@/modules/viewport";
 
-import { BIND_POSE, dressOf, idleRig, openingClip, textureAssets } from "../skinScene";
+import { BIND_POSE, bindingOf, idleRig, openingClip, textureAssets } from "../skinScene";
 
 function chunk(pathHash: string): AssetRef {
   return { kind: "gameChunk", wad: "Champions/Ahri.wad.client", pathHash };
@@ -105,7 +105,7 @@ describe("openingClip", () => {
   });
 });
 
-describe("textureAssets and dressOf", () => {
+describe("textureAssets and bindingOf", () => {
   const textured = skin({
     texture: { path: "base.tex", asset: chunk("01") },
     overrides: [
@@ -118,25 +118,25 @@ describe("textureAssets and dressOf", () => {
     const assets = textureAssets(textured);
 
     expect(assets.size).toBe(2);
-    expect(dressOf(textured, assets, "WINGS").texture).toEqual(chunk("02"));
-    expect(dressOf(textured, assets, "Body").texture).toEqual(chunk("01"));
-    expect(dressOf(textured, assets, "Tail").texture).toEqual(chunk("01"));
+    expect(bindingOf(textured, assets, "WINGS").texture).toEqual(chunk("02"));
+    expect(bindingOf(textured, assets, "Body").texture).toEqual(chunk("01"));
+    expect(bindingOf(textured, assets, "Tail").texture).toEqual(chunk("01"));
   });
 
   it("draws a submesh with nothing where the skin names no texture", () => {
     const bare = skin();
 
-    expect(dressOf(bare, textureAssets(bare), "Body")).toEqual({
+    expect(bindingOf(bare, textureAssets(bare), "Body")).toEqual({
       material: null,
       base: null,
       texture: null,
     });
   });
 
-  it("keys a material's base once per material, and dresses its submeshes with it", () => {
+  it("keys a material's base once per material, and binds its submeshes to it", () => {
     const body = material("0x1", chunk("10"));
     const wings = material("0x2", chunk("20"));
-    const dressed = skin({
+    const bound = skin({
       texture: { path: "base.tex", asset: chunk("01") },
       material: body,
       overrides: [
@@ -144,15 +144,15 @@ describe("textureAssets and dressOf", () => {
         { submesh: "Cape", texture: { path: "cape.tex", asset: chunk("02") }, material: null },
       ],
     });
-    const assets = textureAssets(dressed);
+    const assets = textureAssets(bound);
 
     expect(assets.size).toBe(4);
-    expect(dressOf(dressed, assets, "Body")).toEqual({
+    expect(bindingOf(bound, assets, "Body")).toEqual({
       material: body,
       base: chunk("10"),
       texture: chunk("01"),
     });
-    expect(dressOf(dressed, assets, "wings")).toEqual({
+    expect(bindingOf(bound, assets, "wings")).toEqual({
       material: wings,
       base: chunk("20"),
       texture: chunk("01"),
@@ -160,24 +160,24 @@ describe("textureAssets and dressOf", () => {
   });
 
   it("draws an override without a material with its texture alone, not the skin's material", () => {
-    const dressed = skin({
+    const bound = skin({
       material: material("0x1", chunk("10")),
       overrides: [
         { submesh: "Cape", texture: { path: "cape.tex", asset: chunk("02") }, material: null },
       ],
     });
 
-    expect(dressOf(dressed, textureAssets(dressed), "Cape")).toEqual({
+    expect(bindingOf(bound, textureAssets(bound), "Cape")).toEqual({
       material: null,
       base: null,
       texture: chunk("02"),
     });
   });
 
-  it("dresses a material whose base nothing holds with no base", () => {
-    const dressed = skin({ material: material("0x1", null) });
+  it("binds a material whose base nothing holds with no base", () => {
+    const bound = skin({ material: material("0x1", null) });
 
-    expect(dressOf(dressed, textureAssets(dressed), "Body").base).toBeNull();
+    expect(bindingOf(bound, textureAssets(bound), "Body").base).toBeNull();
   });
 });
 

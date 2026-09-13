@@ -6,7 +6,7 @@ import type {
   SkinModel,
   VfxSystem,
 } from "@/lib/tauri";
-import { jointAnchor, type Pose, type SubmeshDress } from "@/modules/viewport";
+import { jointAnchor, type Pose, type SubmeshBinding } from "@/modules/viewport";
 
 import type { SystemModel } from "../vfx/model";
 import { readVfxSystem } from "../vfx/readVfxSystem";
@@ -35,7 +35,7 @@ function materialKey(material: MaterialPreview): string {
   return `material:${material.hash}`;
 }
 
-/** Every texture the skin draws with and this machine holds, keyed for `dressOf`. */
+/** Every texture the skin draws with and this machine holds, keyed for `bindingOf`. */
 export function textureAssets(skin: SkinModel): Map<string, AssetRef> {
   const assets = new Map<string, AssetRef>();
   const base = (material: MaterialPreview | null) => {
@@ -55,11 +55,11 @@ export function textureAssets(skin: SkinModel): Map<string, AssetRef> {
  * What `submesh` draws with, first match winning: its override's material, else its
  * override's texture alone, else the skin's material, else the skin's texture.
  */
-export function dressOf<T>(
+export function bindingOf<T>(
   skin: SkinModel,
   textures: ReadonlyMap<string, T>,
   submesh: string,
-): SubmeshDress<T> {
+): SubmeshBinding<T> {
   const key = submesh.toLowerCase();
   const override = skin.overrides.find((each) => each.submesh.toLowerCase() === key) ?? null;
   const texture = textures.get(overrideKey(submesh)) ?? textures.get(BASE_TEXTURE) ?? null;
