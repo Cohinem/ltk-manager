@@ -1977,6 +1977,12 @@ emitters inside a list only.
 reading. The `ground_layer` technique that flattens these emitters onto the
 terrain is not built.
 
+The list also draws before a character. ThreeJS draws every transparent object after every
+opaque one, so a ground-layer ring under Kha'Zix's recall painted over his legs. A ground-layer
+material is `transparent: false` whatever it blends and its rank counts up from `GROUND_ORDER`,
+which lists it with the opaque objects under the character, and the stage's plane draws at
+`STAGE_ORDER` before it so the plane's depth is down first.
+
 **The attached mesh examples of 2.42 cannot be seen.** The skin preview wears a skin's idle effects
 alone, so `Aatrox_Skin26_E_Active_buff` and `Aatrox_Skin26_Recall_ShrineAppear` draw nothing in
 either viewport.

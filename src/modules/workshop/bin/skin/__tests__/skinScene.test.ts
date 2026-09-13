@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import type { AnimationClip, AssetRef, IdleEffect, MaterialPreview, SkinModel } from "@/lib/tauri";
+import type { AssetRef, GraphClip, IdleEffect, MaterialPreview, SkinModel } from "@/lib/tauri";
 import { createPose, jointAnchor, type JointModel, type SkeletonModel } from "@/modules/viewport";
 
-import { BIND_POSE, bindingOf, idleRig, openingClip, textureAssets } from "../skinScene";
+import {
+  BIND_POSE,
+  bindingOf,
+  idleRig,
+  nearestValue,
+  openingClip,
+  parameterValues,
+  playableClips,
+  playlistOf,
+  textureAssets,
+} from "../skinScene";
 
 function chunk(pathHash: string): AssetRef {
   return { kind: "gameChunk", wad: "Champions/Ahri.wad.client", pathHash };
@@ -20,6 +30,7 @@ function skin(over: Partial<SkinModel> = {}): SkinModel {
     scale: null,
     animationGraph: null,
     idleEffects: [],
+    effectSystems: [],
     ...over,
   };
 }
@@ -57,8 +68,31 @@ function material(hash: string, base: AssetRef | null): MaterialPreview {
   };
 }
 
-function clip(name: string, hash: string): AnimationClip {
-  return { name, hash, animation: { path: `${name}.anm`, asset: null } };
+function clip(name: string, hash: string, atomic = true): GraphClip {
+  return {
+    name,
+    hash,
+    class: atomic ? "AtomicClipData" : "SelectorClipData",
+    animation: atomic ? { path: `${name}.anm`, asset: null } : null,
+    track: null,
+    mask: null,
+    syncGroup: null,
+    tickDuration: null,
+    events: [],
+    children: [],
+    parameters: [],
+    interruptionGroups: [],
+    flags: 0,
+  };
+}
+
+/** A composite clip of `className` naming `children`, each declared unless it is not listed. */
+function composite(name: string, hash: string, className: string, children: string[]): GraphClip {
+  return {
+    ...clip(name, hash, false),
+    class: className,
+    children: children.map((child) => ({ name: child, hash: child, declared: true })),
+  };
 }
 
 function joint(name: string, parent: number, translation: [number, number, number]): JointModel {
@@ -102,6 +136,72 @@ describe("openingClip", () => {
 
   it("keeps the bind pose apart from every clip hash", () => {
     expect(BIND_POSE.startsWith("0x")).toBe(false);
+  });
+});
+
+describe("playableClips and playlistOf", () => {
+  const run = clip("Run", "0x1");
+  const idle = clip("Idle1", "0x3");
+  const selector = composite("Run_Selector", "0x2", "SelectorClipData", ["0x9", "0x1", "0x3"]);
+  const sequence = composite("Combo", "0x4", "SequencerClipData", ["0x3", "0x2", "0x3", "0x9"]);
+  const empty = composite("Gone", "0x5", "SelectorClipData", ["0x9"]);
+  const clips = [run, selector, idle, sequence, empty];
+
+  it("keeps every clip whose playlist reaches a file, whatever its kind", () => {
+    expect(playableClips(clips).map((each) => each.hash)).toEqual(["0x1", "0x2", "0x3", "0x4"]);
+  });
+
+  it("plays an atomic clip as itself", () => {
+    expect(playlistOf(run, clips)).toEqual([run]);
+  });
+
+  it("plays a selector's first child that reaches a file", () => {
+    expect(playlistOf(selector, clips)).toEqual([run]);
+  });
+
+  it("plays a sequencer's children one after another, a child listed twice twice", () => {
+    expect(playlistOf(sequence, clips).map((each) => each.hash)).toEqual(["0x3", "0x1", "0x3"]);
+  });
+
+  it("plays nothing for a clip reaching no file", () => {
+    expect(playlistOf(empty, clips)).toEqual([]);
+  });
+
+  it("passes over a child that is its own ancestor", () => {
+    const a = composite("A", "0xa", "SequencerClipData", ["0xb", "0x1"]);
+    const b = composite("B", "0xb", "SequencerClipData", ["0xa"]);
+
+    expect(playlistOf(a, [a, b, run])).toEqual([run]);
+  });
+
+  describe("a parametric clip", () => {
+    const turn: GraphClip = {
+      ...composite("Turn", "0x6", "ParametricClipData", ["0x1", "0x9", "0x3"]),
+      parameters: [-90, 0, 90],
+    };
+
+    it("plays the child nearest the parameter that reaches a file", () => {
+      expect(playlistOf(turn, [...clips, turn], 80)).toEqual([idle]);
+      expect(playlistOf(turn, [...clips, turn], -10)).toEqual([run]);
+      expect(playlistOf(turn, [...clips, turn], 10)).toEqual([idle]);
+    });
+
+    it("plays its first child with no parameter set", () => {
+      expect(playlistOf(turn, [...clips, turn])).toEqual([run]);
+    });
+
+    it("lists its values once each in order, and nothing for one value", () => {
+      expect(parameterValues({ ...turn, parameters: [90, -90, 0, 90] })).toEqual([-90, 0, 90]);
+      expect(parameterValues({ ...turn, parameters: [5, null] })).toBeNull();
+      expect(parameterValues({ ...turn, parameters: [5, 5] })).toBeNull();
+      expect(parameterValues(run)).toBeNull();
+    });
+
+    it("snaps to the nearest value, the earlier of two at one distance", () => {
+      expect(nearestValue([-90, 0, 90], 80)).toBe(90);
+      expect(nearestValue([-90, 0, 90], -45)).toBe(-90);
+      expect(nearestValue([-90, 0, 90], 400)).toBe(90);
+    });
   });
 });
 

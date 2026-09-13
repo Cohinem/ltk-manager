@@ -42,25 +42,10 @@ export interface Pose {
  * `.anm` writes.
  */
 export function createPose(skeleton: SkeletonModel, clip: ClipModel | null): Pose {
-  const count = skeleton.joints.length;
   const duration = clip === null ? 0 : clipDuration(clip);
   const tracks = trackSlots(skeleton, clip);
-  const { order, parents } = hierarchyOf(skeleton);
-  const names = new Map<string, number>();
-  skeleton.joints.forEach((joint, slot) => {
-    const name = joint.name.toLowerCase();
-    if (!names.has(name)) names.set(name, slot);
-  });
-
-  const locals = new Float32Array(count * LOCAL_FLOATS);
-  const worlds = new Float32Array(count * WORLD_FLOATS);
-  let worldsAt = Number.NaN;
-  const local = new Matrix4();
-  const parent = new Matrix4();
-  const translation = new Vector3();
   const rotation = new Quaternion();
   const turnTo = new Quaternion();
-  const scale = new Vector3();
 
   function localsInto(time: number, out: Float32Array): Float32Array {
     const frame = clip === null ? null : frameAt(clip, duration, time);
@@ -88,6 +73,35 @@ export function createPose(skeleton: SkeletonModel, clip: ClipModel | null): Pos
     });
     return out;
   }
+
+  return poseOf(skeleton, duration, localsInto);
+}
+
+/**
+ * A pose over `localsInto`, its worlds composed down the hierarchy and kept for the last
+ * time asked, since every joint of one frame is asked in turn.
+ */
+function poseOf(
+  skeleton: SkeletonModel,
+  duration: number,
+  localsInto: (time: number, out: Float32Array) => Float32Array,
+): Pose {
+  const count = skeleton.joints.length;
+  const { order, parents } = hierarchyOf(skeleton);
+  const names = new Map<string, number>();
+  skeleton.joints.forEach((joint, slot) => {
+    const name = joint.name.toLowerCase();
+    if (!names.has(name)) names.set(name, slot);
+  });
+
+  const locals = new Float32Array(count * LOCAL_FLOATS);
+  const worlds = new Float32Array(count * WORLD_FLOATS);
+  let worldsAt = Number.NaN;
+  const local = new Matrix4();
+  const parent = new Matrix4();
+  const translation = new Vector3();
+  const rotation = new Quaternion();
+  const scale = new Vector3();
 
   function worldsFor(time: number): void {
     if (time === worldsAt) return;
@@ -117,6 +131,122 @@ export function createPose(skeleton: SkeletonModel, clip: ClipModel | null): Pos
       return out;
     },
   };
+}
+
+/** One joint stood on another for a span of the pass, which a joint snap event asks. */
+export interface JointSnap {
+  /** The joint moved. */
+  readonly joint: number;
+  /** The joint it stands on. */
+  readonly snapTo: number;
+  /** How far off the joint stood on it stands, in that joint's own frame. */
+  readonly offset: readonly [number, number, number];
+  /** Seconds into the pass the snap starts. */
+  readonly at: number;
+  /** Seconds into the pass the snap ends, and null to hold to the pass's end. */
+  readonly until: number | null;
+}
+
+/**
+ * `base` with each of `snaps` applied over its span: the joint's local is rewritten so it
+ * stands where the other joint does, and its children follow it as they always do.
+ *
+ * The joint's parent is read off `base`, so a snap whose parent is itself snapped stands
+ * on the parent's own pose. A snap naming a joint the skeleton lacks is passed over.
+ */
+export function snappedPose(base: Pose, snaps: readonly JointSnap[]): Pose {
+  const held = snaps.filter((snap) => snap.joint >= 0 && snap.snapTo >= 0);
+  if (held.length === 0) return base;
+  const { parents, duration } = base;
+  const parentWorld = new Matrix4();
+  const snapWorld = new Matrix4();
+  const stood = new Float32Array(WORLD_FLOATS);
+  const translation = new Vector3();
+  const rotation = new Quaternion();
+  const scale = new Vector3();
+
+  function localsInto(time: number, out: Float32Array): Float32Array {
+    base.localsInto(time, out);
+    const folded = foldedInto(time, duration);
+    for (const snap of held) {
+      if (folded < snap.at || (snap.until !== null && folded >= snap.until)) continue;
+      snapWorld.fromArray(base.worldInto(snap.snapTo, time, stood));
+      translation.set(snap.offset[0], snap.offset[1], snap.offset[2]);
+      snapWorld.multiply(OFFSET.makeTranslation(translation));
+      const above = parents[snap.joint];
+      if (above >= 0) {
+        parentWorld.fromArray(base.worldInto(above, time, stood)).invert();
+        snapWorld.premultiply(parentWorld);
+      }
+      snapWorld.decompose(translation, rotation, scale);
+      const at = snap.joint * LOCAL_FLOATS;
+      translation.toArray(out, at);
+      rotation.toArray(out, at + 3);
+      scale.toArray(out, at + 7);
+    }
+    return out;
+  }
+
+  return poseOf(base.skeleton, duration, localsInto);
+}
+
+const OFFSET = new Matrix4();
+
+/**
+ * `steps` played one after another as one looping pose, and the bind pose for none.
+ *
+ * Every step stands on `skeleton`, so the parent table and the joint names are the
+ * first's. A step of no duration is passed over, and a sequence of nothing but those
+ * stands in the bind pose.
+ */
+export function sequencePose(skeleton: SkeletonModel, steps: readonly Pose[]): Pose {
+  const [first] = steps;
+  if (first === undefined) return createPose(skeleton, null);
+  if (steps.length === 1) return first;
+
+  const durations = steps.map((step) => step.duration);
+  const duration = durations.reduce((sum, each) => sum + each, 0);
+  const starts = durations.map((_, at) => durations.slice(0, at).reduce((sum, d) => sum + d, 0));
+  const local = (time: number, at: number) => foldedInto(time, duration) - starts[at];
+
+  return {
+    skeleton: first.skeleton,
+    duration,
+    parents: first.parents,
+    jointNamed: first.jointNamed,
+    localsInto(time, out) {
+      const at = sequenceStep(durations, time);
+      return steps[at].localsInto(local(time, at), out);
+    },
+    worldInto(slot, time, out) {
+      const at = sequenceStep(durations, time);
+      return steps[at].worldInto(slot, local(time, at), out);
+    },
+  };
+}
+
+/**
+ * Which of the steps lasting `durations` plays at `time`, looping over their sum.
+ *
+ * The last step whose start `time` has reached, so a step of no duration is passed over
+ * for the one after it. A sequence of no duration answers its last step.
+ */
+export function sequenceStep(durations: readonly number[], time: number): number {
+  const total = durations.reduce((sum, each) => sum + each, 0);
+  const looped = foldedInto(time, total);
+  let start = 0;
+  let at = 0;
+  for (let step = 0; step < durations.length; step += 1) {
+    if (start > looped) break;
+    at = step;
+    start += durations[step];
+  }
+  return at;
+}
+
+/** `time` folded into one pass of `duration`, and zero for no duration. */
+function foldedInto(time: number, duration: number): number {
+  return duration > 0 ? ((time % duration) + duration) % duration : 0;
 }
 
 /** The clip's track for each joint of `skeleton`, and -1 for a joint it holds none for. */

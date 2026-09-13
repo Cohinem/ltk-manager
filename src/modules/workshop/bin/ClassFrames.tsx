@@ -15,6 +15,8 @@ import { ShellCrumb } from "./ShellCrumb";
 import { ShellHeaderPortal, useShellHeaderHeld } from "./shellHeader";
 import type { ShellKind, ShellPaneId } from "./shellPanes";
 import { PanesMenu, type ShellPaneContent, ShellPaneTree } from "./ShellPaneTree";
+import { ClipsHost } from "./skin/ClipsSection";
+import { ClipTabs } from "./skin/ClipTable";
 import { SkinPreview } from "./skin/SkinPreview";
 import { PreviewPane, RunKeys, TimelinePane, VfxRunProvider } from "./vfx";
 import { EmitterModes, Emitters } from "./VfxSections";
@@ -106,18 +108,30 @@ interface SkinShellProps extends FrameProps {
   entry: string | null;
 }
 
-/** The skin's panes: the character, and its sections beside it (ADR-0036). */
+/**
+ * The skin's panes: the character, its clips, and its sections beside them (ADR-0036).
+ *
+ * "The clips pane" in docs/ux/BIN_EDITOR.md. The Clips section is the pane's own, so
+ * the inspector column leaves it out.
+ */
 export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
+  const others = useMemo(() => placed.filter((each) => each.widget !== "clips"), [placed]);
   const content = useMemo<ShellPaneContent<"skin">>(
     () => ({
       preview: {
         body: <SkinPreview document={view.document} asset={view.asset} entry={entry} />,
       },
+      clips: {
+        body: entry !== null && (
+          <ClipsHost view={view} entry={entry} className="flex min-h-0 flex-1 flex-col" />
+        ),
+        actions: <ClipTabs />,
+      },
       inspector: {
-        body: <SectionColumn placed={placed} pages={pages} view={view} />,
+        body: <SectionColumn placed={others} pages={pages} view={view} />,
       },
     }),
-    [placed, pages, view, entry],
+    [others, pages, view, entry],
   );
 
   return (

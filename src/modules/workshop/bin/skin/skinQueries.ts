@@ -1,10 +1,12 @@
 import { queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
-  type AnimationClip,
+  type AnimationGraph,
   api,
   type AppError,
+  type AssetRef,
   type BinDocumentId,
+  type ClipHeader,
   type SkinModel,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
@@ -19,14 +21,23 @@ export const skinQueries = {
       staleTime: Infinity,
       retry: false,
     }),
-  /** The clips of one animation graph, and nothing where either is not known yet. */
-  clips: (document: BinDocumentId | null, graph: string | null) =>
-    queryOptions<AnimationClip[], AppError>({
-      queryKey: ["skin-clips", document, graph],
+  /** One animation graph with its maps, and nothing where either is not known yet. */
+  graph: (document: BinDocumentId | null, graph: string | null) =>
+    queryOptions<AnimationGraph, AppError>({
+      queryKey: ["skin-graph", document, graph],
       queryFn:
         document === null || graph === null
           ? skipToken
-          : async () => unwrapForQuery(await api.readAnimationClips(document, graph)),
+          : async () => unwrapForQuery(await api.readAnimationGraph(document, graph)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The rate and the length of one `.anm`, and nothing for a clip nothing holds. */
+  clipHeader: (asset: AssetRef | null) =>
+    queryOptions<ClipHeader, AppError>({
+      queryKey: ["skin-clip-header", asset],
+      queryFn:
+        asset === null ? skipToken : async () => unwrapForQuery(await api.readClipHeader(asset)),
       staleTime: Infinity,
       retry: false,
     }),

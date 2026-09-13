@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { nameHash } from "../../binHash";
 import { MAX_CHILD_DEPTH } from "../children";
 import { drawnEmitters } from "../definitions";
+import { GROUND_ORDER } from "../drawKind";
 import { DRAG_MOTION } from "../enums";
 import type { ChildSetModel, EmitterModel, SystemModel } from "../model";
 import { readVfxSystem } from "../readVfxSystem";
@@ -73,6 +74,22 @@ describe("drawnEmitters", () => {
     expect(drawn.map(({ key, path, root, rank }) => ({ key, path, root, rank }))).toEqual([
       { key: "0", path: "", root: 0, rank: 0 },
       { key: "1", path: "", root: 1, rank: 1 },
+    ]);
+  });
+
+  it("draws a ground-layer emitter under everything else, first among its own", () => {
+    const drawn = drawnEmitters(
+      system(
+        emitterAt(0),
+        emitterAt(1, { groundLayer: true }),
+        emitterAt(2, { groundLayer: true }),
+      ),
+    );
+
+    expect(drawn.map(({ key, rank }) => ({ key, rank }))).toEqual([
+      { key: "0", rank: 2 },
+      { key: "1", rank: GROUND_ORDER },
+      { key: "2", rank: GROUND_ORDER + 1 },
     ]);
   });
 

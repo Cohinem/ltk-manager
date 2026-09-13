@@ -31,6 +31,14 @@ export const FORWARD: readonly [number, number, number] = [0, 0, 1];
 /** The flat ground's height on the up axis, which a ground-layer emitter is laid on. */
 export const GROUND_LEVEL = 0;
 
+/**
+ * The draw order the stage's ground takes, before anything laid on it.
+ *
+ * A ground-layer emitter draws as an opaque object under the character, and the ground
+ * plane writes depth under it, so the plane has to be down before the emitter is.
+ */
+export const STAGE_ORDER = -2_000_000;
+
 /** Engine units in one metre, which sets the camera's near plane and the grid's pitch. */
 export const UNITS_PER_METRE = 100;
 

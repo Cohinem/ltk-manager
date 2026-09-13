@@ -175,6 +175,11 @@ impl Locator<'_> {
     pub(crate) fn entry_name(&self, hash: BinHash) -> Option<String> {
         first_name(|visit| self.names.for_each_entry(&[hash], visit))
     }
+
+    /// The name of the class `hash` is, where a table names it.
+    pub(crate) fn class_name(&self, hash: BinHash) -> Option<String> {
+        first_name(|visit| self.names.for_each_class(&[hash], visit))
+    }
 }
 
 pub(crate) type Fields = IndexMap<BinHash, PropertyValueEnum>;

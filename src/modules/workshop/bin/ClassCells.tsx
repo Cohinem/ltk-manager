@@ -281,20 +281,26 @@ export function FieldRow({
   const family = valueFamily(row.value);
   const axes = row.value.type === "vector" ? row.value.values : null;
   const document = use(RowDocumentContext);
-  const folds = family === null && axes === null && canExpand(row);
+  const folds = document !== null && family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
-  const caret = document !== null && folds && <FoldCaret open={open} onToggle={toggle} />;
+  const caret = folds ? <FoldCaret open={open} onToggle={toggle} /> : <FoldGutter />;
   const name = <FieldName row={row} width={width} depth={depth} owner={owner} caret={caret} />;
-  const nested = document !== null && folds && open && (
+  const nested = folds && open && (
     <NestedRows document={document} row={row} width={width} depth={depth + 1} />
   );
 
   return (
     <>
-      {/* DS-VEIL, DS-RADIUS */}
+      {/* DS-VEIL, DS-RADIUS. A click anywhere on a row that holds rows folds it, as on a
+          tree row, and the chips on it stop the click themselves. */}
       <div
-        className="relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
+        className={twMerge(
+          "relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
+          folds && "cursor-pointer",
+        )}
         data-row-key={rowKey(row)}
+        aria-expanded={folds ? open : undefined}
+        onClick={folds ? toggle : undefined}
       >
         {rail}
         {name}
@@ -316,19 +322,36 @@ function ElementClass({ value }: { value: BinRow["value"] }) {
   return <ClassCard classHash={value.classHash} name={value.class} />;
 }
 
-/** A struct's or a list's fold, drawn in the row's gutter so the names stay in one column. */
+/** The gutter every field row's name starts with, which a fold's caret stands in. */
+const GUTTER = "h-6 w-4 shrink-0";
+
+/**
+ * A struct's or a list's fold, in the gutter before the name so the names stay in one
+ * column. The row itself folds on a click too, so the caret keeps its click to itself.
+ */
 export function FoldCaret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
     <button
       type="button"
       aria-label={m.workshop_bin_row_fields_action()}
       aria-expanded={open}
-      className="-ml-3 flex h-4 w-3 shrink-0 cursor-pointer items-center justify-center text-surface-400 hover:text-surface-100"
-      onClick={onToggle}
+      className={twMerge(
+        GUTTER,
+        "flex cursor-pointer items-center justify-center text-surface-400 hover:text-surface-100",
+      )}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle();
+      }}
     >
       <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
     </button>
   );
+}
+
+/** The gutter of a row that folds nothing, so its name lines up with one that does. */
+function FoldGutter() {
+  return <span aria-hidden className={GUTTER} />;
 }
 
 const NO_ROWS: readonly BinRow[] = [];
@@ -396,7 +419,7 @@ function FieldName({ row, width, depth, owner, caret }: FieldNameProps) {
 
   if (field === null) {
     return (
-      <span className={twMerge("flex min-w-0 shrink-0", width)}>
+      <span className={twMerge("flex min-w-0 shrink-0 items-center", width)}>
         {indent}
         {caret}
         <CutText text={row.name} className="text-surface-200" />
@@ -404,7 +427,7 @@ function FieldName({ row, width, depth, owner, caret }: FieldNameProps) {
     );
   }
   return (
-    <span className={twMerge("flex min-w-0 shrink-0", width)}>
+    <span className={twMerge("flex min-w-0 shrink-0 items-center", width)}>
       {indent}
       {caret}
       <FieldCard

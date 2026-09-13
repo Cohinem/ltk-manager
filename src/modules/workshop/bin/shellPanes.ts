@@ -2,10 +2,10 @@ import { m } from "@/i18n";
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
    the editor's components, whose imports circle back into workshop state. */
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
-import { type LayoutNode, leaves, singleLeaf } from "@/modules/editor/layout";
+import { type LayoutNode, leafHolding, leaves, singleLeaf } from "@/modules/editor/layout";
 
 /** One pane of a shell, which is what a leaf of a shell's tree holds. */
-export type ShellPaneId = "emitters" | "curve" | "inspector" | "preview" | "timeline";
+export type ShellPaneId = "emitters" | "curve" | "inspector" | "preview" | "timeline" | "clips";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -13,6 +13,7 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "inspector",
   "preview",
   "timeline",
+  "clips",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
@@ -21,7 +22,7 @@ export type ShellKind = "vfx" | "skin";
 /** The panes each shell holds, in the order the Panes menu lists them. */
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters"],
-  skin: ["preview", "inspector"],
+  skin: ["preview", "clips", "inspector"],
 } as const satisfies Record<ShellKind, readonly ShellPaneId[]>;
 
 /** The panes a `K` shell holds, which its content names one body for each of. */
@@ -39,6 +40,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   inspector: m.workshop_bin_pane_inspector_label,
   preview: m.workshop_bin_pane_preview_label,
   timeline: m.workshop_bin_pane_timeline_label,
+  clips: m.workshop_bin_pane_clips_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -60,7 +62,8 @@ export type ShellArrangements = Readonly<Record<ShellKind, ShellArrangement>>;
  * The shares are flex-grow ratios rather than sizes, so a panel keeps its proportion at
  * any window width. The preview takes the largest single share in both, because what is
  * drawn is what the reader edits the numbers against. The particle system's is the
- * arrangement of "The shell" in docs/ux/BIN_EDITOR.md (ADR-0037).
+ * arrangement of "The shell" in docs/ux/BIN_EDITOR.md (ADR-0037), and the skin's is
+ * "The clips pane" there.
  */
 export function defaultShellLayout(kind: ShellKind): LayoutNode {
   if (kind === "skin") {
@@ -68,10 +71,18 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
       kind: "split",
       id: "split-1",
       dir: "row",
-      layout: { "leaf-2": 3, "leaf-3": 2 },
+      layout: { "leaf-2": 3, "split-4": 2 },
       children: [
         { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
-        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+        {
+          kind: "split",
+          id: "split-4",
+          dir: "col",
+          children: [
+            { kind: "leaf", id: "leaf-5", tabs: ["clips"], activeTab: "clips" },
+            { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+          ],
+        },
       ],
     };
   }
@@ -130,10 +141,51 @@ export function openShellPanes(tree: LayoutNode): ReadonlySet<ShellPaneId> {
  *
  * A pane the shell does not hold drops rather than crashing the first render, and a
  * value that is no tree at all falls back to a single empty leaf, which draws the Panes
- * menu and nothing else.
+ * menu and nothing else. A skin tree saved before the clips pane existed gains it over
+ * the inspector, per "The clips pane" in docs/ux/BIN_EDITOR.md.
  */
 export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode {
-  return readNode(value, shellPanesOf(kind), new Set()) ?? singleLeaf();
+  const held = new Set<ShellPaneId>();
+  const tree = readNode(value, shellPanesOf(kind), held) ?? singleLeaf();
+  if (kind === "skin" && !held.has("clips")) return withClipsPane(tree);
+  return tree;
+}
+
+/**
+ * `tree` with a clips leaf split in above the inspector's, and `tree` as it is where no
+ * leaf holds the inspector.
+ */
+function withClipsPane(tree: LayoutNode): LayoutNode {
+  const inspector = leafHolding(tree, "inspector");
+  if (inspector === null) return tree;
+  const next = nextIdNumber(tree);
+  const clips: LayoutNode = {
+    kind: "leaf",
+    id: `leaf-${next}`,
+    tabs: ["clips"],
+    activeTab: "clips",
+  };
+  const split: LayoutNode = {
+    kind: "split",
+    id: `split-${next + 1}`,
+    dir: "col",
+    children: [clips, inspector],
+  };
+  return replaceNode(tree, inspector.id, split);
+}
+
+/** `tree` with the node whose id is `id` swapped for `node`. */
+function replaceNode(tree: LayoutNode, id: string, node: LayoutNode): LayoutNode {
+  if (tree.id === id) return node;
+  if (tree.kind === "leaf") return tree;
+  return { ...tree, children: tree.children.map((child) => replaceNode(child, id, node)) };
+}
+
+/** One past the largest number any id of `tree` ends in, so a minted id is no id it holds. */
+function nextIdNumber(tree: LayoutNode): number {
+  const own = Number(/-(\d+)$/.exec(tree.id)?.[1] ?? 0);
+  if (tree.kind === "leaf") return own + 1;
+  return Math.max(own + 1, ...tree.children.map(nextIdNumber));
 }
 
 /* `held` carries the panes the leaves to the left already took, so a file

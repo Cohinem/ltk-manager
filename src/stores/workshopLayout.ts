@@ -30,6 +30,10 @@ interface PreviewDisplay {
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
   previewStats: boolean;
+  /** A character's skeleton is drawn over it, a dot per joint and a line to its parent. */
+  previewArmature: boolean;
+  /** Each joint's name is written beside its dot. */
+  previewJointNames: boolean;
   /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
   previewCamera: CameraPreset;
   previewWireframe: PreviewWireframe;
@@ -175,6 +179,8 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewMidlane: true,
   previewGizmo: true,
   previewStats: false,
+  previewArmature: false,
+  previewJointNames: false,
   previewCamera: "game",
   previewWireframe: "off",
   timelineHistogram: false,
@@ -317,6 +323,8 @@ export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGro
 export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
+export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
+export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
 export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.previewWireframe);
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);

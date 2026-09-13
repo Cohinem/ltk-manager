@@ -1,5 +1,5 @@
 import { childPath, childPrefix, MAX_CHILD_DEPTH } from "./children";
-import { drawRanks } from "./drawKind";
+import { drawRanks, GROUND_ORDER } from "./drawKind";
 import type { EmitterModel, SystemModel } from "./model";
 
 /** One emitter definition as the viewport draws it, at any depth of the child sets. */
@@ -11,8 +11,16 @@ export interface DrawnEmitter {
   readonly path: string;
   /** The index of the opened system's emitter it descends from, which solo narrows to. */
   readonly root: number;
-  /** Where it falls in the draw order: the opened system's emitters first, each child's after. */
+  /**
+   * Where it falls in the draw order: the opened system's emitters first, each child's
+   * after, and a ground-layer emitter under [`GROUND_ORDER`] before them all.
+   */
   readonly rank: number;
+}
+
+/** `rank` as the draw order, which a ground-layer emitter takes under the character. */
+function orderOf(emitter: EmitterModel, rank: number): number {
+  return emitter.groundLayer ? GROUND_ORDER + rank : rank;
 }
 
 /**
@@ -33,7 +41,7 @@ export function drawnEmitters(system: SystemModel, posed = false): DrawnEmitter[
       emitter,
       path: "",
       root: emitter.index,
-      rank: ranks.get(emitter.index) ?? 0,
+      rank: orderOf(emitter, ranks.get(emitter.index) ?? 0),
     });
   }
   for (const emitter of system.emitters) collect(out, emitter, "", emitter.index, 1, posed);
@@ -63,7 +71,7 @@ function collect(
         emitter,
         path,
         root,
-        rank: base + (ranks.get(emitter.index) ?? 0),
+        rank: orderOf(emitter, base + (ranks.get(emitter.index) ?? 0)),
       });
     }
     for (const emitter of child.emitters) {

@@ -23,6 +23,7 @@ use crate::game_wads::WadCache;
 use crate::workshop::WorkshopFileKind;
 
 /// Re-exported because [`PreviewError::Unsupported`] carries one.
+pub use animation::{ClipHeader, header as clip_header};
 pub use ltk_file::LeagueFileKind;
 pub use source::AssetRef;
 pub use texture::{TextureContainer, TextureInfo};

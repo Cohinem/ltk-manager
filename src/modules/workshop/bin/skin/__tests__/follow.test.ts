@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createSceneClock } from "@/modules/viewport";
 
-import { foldedTime, followClock, following } from "../follow";
+import { foldedTime, followClock, followCue, following } from "../follow";
 
 /** A driver that records what it was asked to do, and moves its clock as a real one does. */
 function recorder() {
@@ -20,6 +20,10 @@ function recorder() {
     seek(to: number) {
       calls.push(`seek ${to}`);
       time = to;
+    },
+    restart() {
+      calls.push("restart");
+      time = 0;
     },
   };
 }
@@ -82,5 +86,73 @@ describe("followClock", () => {
     followClock(driver, clock, followed);
 
     expect(driver.calls).toEqual(["seek 0", "advance 0"]);
+  });
+});
+
+describe("followCue", () => {
+  it("holds the driver at zero and unfired until the pass reaches the cue", () => {
+    const clock = createSceneClock();
+    const driver = recorder();
+    const followed = following();
+    clock.advance(0.5);
+
+    expect(followCue(driver, clock, followed, 1, 4)).toBe(false);
+    expect(driver.calls).toEqual([]);
+  });
+
+  it("replays to the run's own time past the cue on its first frame, then steps", () => {
+    const clock = createSceneClock();
+    const driver = recorder();
+    const followed = following();
+    clock.advance(1.5);
+
+    expect(followCue(driver, clock, followed, 1, 4)).toBe(true);
+    clock.advance(0.25);
+    expect(followCue(driver, clock, followed, 1, 4)).toBe(true);
+
+    expect(driver.calls).toEqual(["seek 0.5", "advance 0.25"]);
+  });
+
+  it("stands the driver down once when the pass starts over, and fires it again", () => {
+    const clock = createSceneClock();
+    const driver = recorder();
+    const followed = following();
+    clock.advance(3.75);
+    followCue(driver, clock, followed, 1, 4);
+
+    clock.advance(0.5);
+    expect(followCue(driver, clock, followed, 1, 4)).toBe(false);
+    clock.advance(0.5);
+    expect(followCue(driver, clock, followed, 1, 4)).toBe(false);
+    clock.advance(1);
+    expect(followCue(driver, clock, followed, 1, 4)).toBe(true);
+
+    expect(driver.calls).toEqual(["seek 2.75", "restart", "seek 0.75"]);
+  });
+
+  it("replays across a seek of the clock rather than stepping over it", () => {
+    const clock = createSceneClock();
+    const driver = recorder();
+    const followed = following();
+    clock.advance(2);
+    followCue(driver, clock, followed, 1, 4);
+
+    clock.seek(3);
+    followCue(driver, clock, followed, 1, 4);
+
+    expect(driver.calls).toEqual(["seek 1", "seek 2"]);
+  });
+
+  it("replays a cue at zero on every pass, since the pass wraps under it", () => {
+    const clock = createSceneClock();
+    const driver = recorder();
+    const followed = following();
+    clock.advance(3.5);
+    followCue(driver, clock, followed, 0, 4);
+
+    clock.advance(1);
+    followCue(driver, clock, followed, 0, 4);
+
+    expect(driver.calls).toEqual(["seek 3.5", "seek 0.5"]);
   });
 });

@@ -108,17 +108,28 @@ export type { ProjectText, ProjectTextFile, Revision } from "@/lib/bindings.gen"
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
 // The skin preview's types, per ADR-0029.
 export type {
-  AnimationClip,
+  AnimationGraph,
   BaseRule,
   BaseTexture,
   Blending,
+  ClipEvent,
+  ClipHeader,
+  EffectSystem,
+  EventKind,
+  EventSpawn,
+  GraphClip,
+  HashRef,
   IdleEffect,
+  KeyRef,
+  Mask,
   MaterialPreview,
   MaterialWarning,
   NamedAsset,
   RenderState,
   SkinModel,
   SubmeshOverride,
+  SyncGroup,
+  Track,
   Wrap,
 } from "@/lib/bindings.gen";
 /* The diagnostics types. A serde `default` or `skip_serializing_if` splits a type by
@@ -404,8 +415,9 @@ export const api = {
   // Skin preview
   readSkin: (document: BinDocumentId, entry: string) =>
     commands.readSkin(document, entry).then(toResult),
-  readAnimationClips: (document: BinDocumentId, entry: string) =>
-    commands.readAnimationClips(document, entry).then(toResult),
+  readAnimationGraph: (document: BinDocumentId, entry: string) =>
+    commands.readAnimationGraph(document, entry).then(toResult),
+  readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
