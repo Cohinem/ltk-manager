@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { stripReleasePreamble } from "../releaseNotes";
 
 const DOWNLOAD =
-  "👉 **Download** [`LTK.Manager_1.15.3_x64_en-US.msi`](https://github.com/LeagueToolkit/ltk-manager/releases/download/v1.15.3/LTK.Manager_1.15.3_x64_en-US.msi)";
+  "👉 **Download** [`LTK.Manager_1.15.3_x64-setup.exe`](https://github.com/LeagueToolkit/ltk-manager/releases/download/v1.15.3/LTK.Manager_1.15.3_x64-setup.exe)";
 const HEADING =
   "## [1.15.3](https://github.com/LeagueToolkit/ltk-manager/releases/tag/v1.15.3) - 2026-08-30";
 const BODY = "### Fixed\n\n- A repair no longer rewrites an unrelated WAD.\n";
