@@ -302,6 +302,88 @@ pub fn search_linked(
     assets: &dyn AssetLookup,
     read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
 ) -> Result<Vec<AnimationClip>, BinDocumentError> {
+    let mut clips = None;
+    walk_linked(linked, assets, read, &mut |document| {
+        if document.object_at(entry).is_none() {
+            return Walk::On;
+        }
+        clips = Some(resolve_clips(document, entry, names, assets));
+        Walk::Done
+    });
+    clips.unwrap_or_else(|| {
+        Err(BinDocumentError::NodeNotFound {
+            address: format!("{}:", hex(entry)),
+        })
+    })
+}
+
+/// The materials of `model` no document within reach declared, looked for in `linked`
+/// and in what each file links.
+///
+/// A skin's materials are in its own file for all but the few a merged CAC bin declares,
+/// and those the skin reaches through its links, as [`search_linked`] reaches a graph.
+/// Every link a material has stays missing where the walk ends first. `shaders` is the
+/// defs [`resolve_skin`] took.
+pub fn search_linked_materials(
+    model: &mut SkinModel,
+    linked: Vec<AssetRef>,
+    names: &dyn RowNames,
+    assets: &dyn AssetLookup,
+    shaders: Option<&BinDocument>,
+    read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
+) {
+    let locator = Locator { names, assets };
+    let mut missing: Vec<&mut MaterialPreview> = model
+        .material
+        .iter_mut()
+        .chain(
+            model
+                .overrides
+                .iter_mut()
+                .filter_map(|o| o.material.as_mut()),
+        )
+        .filter(|material| material.missing)
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    walk_linked(linked, assets, read, &mut |document| {
+        for material in &mut missing {
+            let Some(hash) = parse_hex(&material.hash) else {
+                continue;
+            };
+            if document.object_at(hash).is_some() {
+                **material = linked_material(document, hash, &locator, shaders);
+            }
+        }
+        missing.retain(|material| material.missing);
+        if missing.is_empty() {
+            Walk::Done
+        } else {
+            Walk::On
+        }
+    });
+}
+
+/// Whether a walk over linked files goes on past the file it is at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Walk {
+    On,
+    Done,
+}
+
+/// Every file in `linked` and in what each links, breadth first, until `visit` is done.
+///
+/// Each file's links come in the order its header lists them, so the file nearest the
+/// skin is visited first. `read` answers a file's document, and none for one it cannot
+/// read, which is passed over. A file reached twice is read once, and at most
+/// [`LINKED_CAP`] files are opened.
+fn walk_linked(
+    linked: Vec<AssetRef>,
+    assets: &dyn AssetLookup,
+    read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
+    visit: &mut dyn FnMut(&BinDocument) -> Walk,
+) {
     let mut seen: HashSet<AssetRef> = linked.iter().cloned().collect();
     let mut queue: VecDeque<AssetRef> = linked.into();
     let mut opened = 0;
@@ -314,8 +396,8 @@ pub fn search_linked(
         let Some(document) = read(&asset) else {
             continue;
         };
-        if document.object_at(entry).is_some() {
-            return resolve_clips(&document, entry, names, assets);
+        if visit(&document) == Walk::Done {
+            return;
         }
         for next in document
             .dependencies()
@@ -327,9 +409,11 @@ pub fn search_linked(
             }
         }
     }
-    Err(BinDocumentError::NodeNotFound {
-        address: format!("{}:", hex(entry)),
-    })
+}
+
+/// The hash a record prints, `0x` and eight hex digits, read back.
+fn parse_hex(text: &str) -> Option<BinHash> {
+    crate::object_index::parse_hash(text)
 }
 
 /// The skin's idle effects, each with the system its key resolves to.

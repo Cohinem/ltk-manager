@@ -472,6 +472,32 @@ fn a_switch_names_the_base_of_the_one_switched_shader() {
     );
 }
 
+/// The packed shader's pass always blends, and only its alpha switches make that cover
+/// anything, so without one the body draws opaque as the game shows it.
+#[test]
+fn the_switched_shader_blends_only_under_an_alpha_switch() {
+    let blended = |switches: Vec<values::Embedded>| {
+        Material::new()
+            .samplers(vec![sampler("Diffuse_Texture", file(DIFFUSE), None)])
+            .switches(switches)
+            .passes(vec![pass(
+                SWITCHED_SHADER,
+                vec![
+                    (BLEND_ENABLE, values::Bool::new(true).into()),
+                    (DST_COLOR_BLEND_FACTOR, values::U32::new(7).into()),
+                ],
+            )])
+    };
+
+    let masked = read(blended(vec![switch("MATCAP_ON", Some(false))]), None);
+    let alpha = read(blended(vec![switch("USE_MAINTEXALPHA", None)]), None);
+    let additive = read(blended(vec![switch("ADDITIVEALPHA_ON", None)]), None);
+
+    assert_eq!(masked.render_state.blending, Blending::Opaque);
+    assert_eq!(alpha.render_state.blending, Blending::Normal);
+    assert_eq!(additive.render_state.blending, Blending::Additive);
+}
+
 #[test]
 fn the_switch_off_leaves_the_switched_shader_on_its_diffuse() {
     let material = Material::new()

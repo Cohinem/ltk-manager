@@ -10,7 +10,8 @@ use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::skin::{
-    graph_clips, resolve_skin, search_linked, AnimationClip, GraphClips, SkinModel,
+    graph_clips, resolve_skin, search_linked, search_linked_materials, AnimationClip, GraphClips,
+    SkinModel,
 };
 use tauri::{AppHandle, Manager};
 
@@ -18,7 +19,8 @@ use tauri::{AppHandle, Manager};
 ///
 /// `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
 /// digits. The shader defs are read beside the skin, the project's copy first, and a
-/// read they refuse leaves every material on its own fields.
+/// read they refuse leaves every material on its own fields. A material the document
+/// does not declare is looked for through the files it links, as a graph is.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_skin(
@@ -31,14 +33,34 @@ pub async fn read_skin(
         let config = app_handle.state::<SettingsState>().config();
         read_resolved(&app_handle, document, |open, names, assets| {
             let wads = app_handle.state::<WadCache>();
-            let shaders = assets.locate(SHADER_DEFS_PATH).and_then(|asset| {
-                asset
-                    .read(&config, &wads)
-                    .and_then(|bytes| Ok(BinDocument::parse(&bytes)?))
-                    .inspect_err(|e| tracing::debug!("No shader defs for a skin's materials: {e}"))
-                    .ok()
-            });
-            Ok(resolve_skin(open, entry, names, assets, shaders.as_ref())?)
+            let mut read = |asset: &AssetRef| match asset
+                .read(&config, &wads)
+                .and_then(|bytes| Ok(BinDocument::parse(&bytes)?))
+            {
+                Ok(bin) => Some(bin),
+                Err(e) => {
+                    tracing::debug!(?asset, "Passed over a linked bin: {e}");
+                    None
+                }
+            };
+            let shaders = assets
+                .locate(SHADER_DEFS_PATH)
+                .and_then(|asset| read(&asset));
+            let mut model = resolve_skin(open, entry, names, assets, shaders.as_ref())?;
+            let linked = open
+                .dependencies()
+                .iter()
+                .filter_map(|path| assets.locate(path))
+                .collect();
+            search_linked_materials(
+                &mut model,
+                linked,
+                names,
+                assets,
+                shaders.as_ref(),
+                &mut read,
+            );
+            Ok(model)
         })
     })
     .await

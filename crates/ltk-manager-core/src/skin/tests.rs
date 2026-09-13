@@ -489,6 +489,63 @@ fn a_graph_the_file_lacks_is_looked_for_in_the_files_it_links() {
     assert_eq!(linked, GraphClips::Linked(vec![file(ANIMATIONS).unwrap()]));
 }
 
+/// A material a merged CAC bin declares is reached through the skin's links, and one no
+/// file within reach declares stays missing.
+#[test]
+fn a_material_the_skin_lacks_is_looked_for_in_the_files_it_links() {
+    const CAC: &str = "DATA/Characters/Ahri/Skins/Skin3/CAC.bin";
+    let mesh = embedded(
+        "SkinMeshDataProperties",
+        vec![
+            (MATERIAL, values::ObjectLink::new(h(WINGS_MATERIAL)).into()),
+            (
+                MATERIAL_OVERRIDE,
+                values::Container::from(vec![embedded(
+                    "SkinMeshDataProperties_MaterialOverride",
+                    vec![
+                        (SUBMESH, values::String::from("Hat").into()),
+                        (MATERIAL, values::ObjectLink::new(h(BODY_MATERIAL)).into()),
+                    ],
+                )])
+                .into(),
+            ),
+        ],
+    );
+    let bare = BinObject::builder(h(SKIN), h("SkinCharacterDataProperties"))
+        .property(MESH_PROPERTIES, mesh)
+        .build();
+    let document = document_linking(vec![bare], &[CAC]);
+    let mut model = resolve_skin(&document, h(SKIN), &Tables, &Placed, None).unwrap();
+    assert!(
+        model
+            .material
+            .as_ref()
+            .is_some_and(|material| material.missing)
+    );
+
+    let linked = document
+        .dependencies()
+        .iter()
+        .filter_map(|path| Placed.locate(path))
+        .collect();
+    search_linked_materials(&mut model, linked, &Tables, &Placed, None, &mut |asset| {
+        (asset == &file(CAC).unwrap()).then(|| document_of(vec![wings_material()]))
+    });
+
+    let body = model.material.expect("the skin's material");
+    assert!(!body.missing);
+    assert_eq!(
+        body.base.as_ref().map(|base| base.texture.asset.clone()),
+        Some(file(WINGS))
+    );
+    assert!(
+        model.overrides[0]
+            .material
+            .as_ref()
+            .is_some_and(|m| m.missing)
+    );
+}
+
 /// Two linked bins that link each other, `A` naming `B`, and `B` holding `objects`.
 fn circle(asset: &AssetRef, objects: fn() -> Vec<BinObject>) -> Option<BinDocument> {
     let AssetRef::File { path } = asset else {

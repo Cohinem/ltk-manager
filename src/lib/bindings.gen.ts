@@ -48,7 +48,8 @@ export const commands = {
 	 * 
 	 *  `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
 	 *  digits. The shader defs are read beside the skin, the project's copy first, and a
-	 *  read they refuse leaves every material on its own fields.
+	 *  read they refuse leaves every material on its own fields. A material the document
+	 *  does not declare is looked for through the files it links, as a graph is.
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**

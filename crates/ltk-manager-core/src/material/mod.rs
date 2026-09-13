@@ -92,6 +92,16 @@ const NORMAL_TECHNIQUE: &str = "normal";
 const SWITCHED_SHADER: &str = "Shaders/SkinnedMesh/AlphaBlend_Additive_Scroll_Packed";
 const SWITCHED_SWITCH: &str = "MAINTEX_ON";
 const SWITCHED_TEXTURE: &str = "Main_Texture";
+/// The switches of that shader that read an alpha at all, without which its pass's
+/// blend covers nothing and the packed channels are masks rather than coverage.
+const SWITCHED_ALPHA_SWITCHES: [&str; 4] = [
+    "ALPHABLEND_MAIN",
+    "ALPHABLEND_BLENDMAT",
+    "USE_MAINTEXALPHA",
+    "ALPHACLIP_ON",
+];
+/// The switch of that shader that makes its blend additive, which its name says of all.
+const SWITCHED_ADDITIVE_SWITCH: &str = "ADDITIVEALPHA_ON";
 /// The blend factor `One`, which on the destination makes a blend additive.
 const BLEND_FACTOR_ONE: u64 = 1;
 /// The `writeMask` bit that writes depth. The default mask is 31.
@@ -473,10 +483,11 @@ impl<'a> Reader<'a> {
         let switches = self.switches(&shader);
         let params = self.params(pass, &shader);
 
-        let switched_by_hash = pass
+        let switched = pass
             .and_then(|pass| link(pass.get(&SHADER)))
-            .is_some_and(|hash| hash == BinHash::hash_str(SWITCHED_SHADER));
-        let base = self.base(&samplers, &switches, &shader, switched_by_hash);
+            .is_some_and(|hash| hash == BinHash::hash_str(SWITCHED_SHADER))
+            || is_switched_shader(&shader);
+        let base = self.base(&samplers, &switches, &shader, switched);
         let tint = params
             .first_of(&TINT_NAMES)
             .filter(|value| value[..3].iter().all(|x| (0.0..=4.0).contains(x)))
@@ -506,7 +517,21 @@ impl<'a> Reader<'a> {
             .map(|value| [value[0], value[1]])
             .filter(|uv| uv.iter().any(|x| *x != 0.0));
 
-        let render_state = render_state(pass, &macros, shader_path_is_additive(&shader));
+        /* The packed shader's name says additive and its pass says blend for every
+        material, and its switches say which of the two, if either, it does. Inferred
+        from how the shader is built, not traced. */
+        let mut render_state =
+            render_state(pass, &macros, !switched && shader_path_is_additive(&shader));
+        if switched && render_state.blending == Blending::Normal {
+            let on = |name: &str| switches.get(name).copied().unwrap_or(false);
+            render_state.blending = if on(SWITCHED_ADDITIVE_SWITCH) {
+                Blending::Additive
+            } else if SWITCHED_ALPHA_SWITCHES.iter().any(|name| on(name)) {
+                Blending::Normal
+            } else {
+                Blending::Opaque
+            };
+        }
 
         MaterialPreview {
             hash: hex(self.hash),
@@ -771,11 +796,7 @@ fn pick_base<'s>(
     };
 
     let names = || samplers.keys().map(String::as_str);
-    let switched = switched_by_hash
-        || shader.path.as_deref().is_some_and(|path| {
-            path.to_lowercase()
-                .ends_with(&SWITCHED_SHADER.to_lowercase())
-        });
+    let switched = switched_by_hash || is_switched_shader(shader);
     if switched && switches.get(SWITCHED_SWITCH).copied().unwrap_or(false) && ok(SWITCHED_TEXTURE) {
         return names()
             .find(|name| *name == SWITCHED_TEXTURE)
@@ -815,6 +836,14 @@ fn pick_base<'s>(
     names()
         .find(|name| ok(name) && color_map(name) && !NOT_BASE_EVEN_BY_PATH.is_match(name))
         .map(|name| (name, BaseRule::ColorMapPathAnyName))
+}
+
+/// Whether the def names the one shader with a base-deciding switch, by its path.
+fn is_switched_shader(shader: &ShaderDef) -> bool {
+    shader.path.as_deref().is_some_and(|path| {
+        path.to_lowercase()
+            .ends_with(&SWITCHED_SHADER.to_lowercase())
+    })
 }
 
 fn shader_path_is_additive(shader: &ShaderDef) -> bool {
