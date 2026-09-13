@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use glam::vec4;
-use ltk_hash::{Hash as _, WadHash};
+use ltk_hash::WadHash;
 use ltk_meta::property::{Kind, NoMeta, values};
 use ltk_meta::{Bin, BinObject};
 
