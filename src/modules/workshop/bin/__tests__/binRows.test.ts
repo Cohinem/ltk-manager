@@ -10,12 +10,15 @@ import {
   entryKeyHash,
   fieldHash,
   flattenRows,
+  guideBlocks,
   isUnder,
+  lineParent,
   type LoadedChildren,
   mergePages,
   nameColumns,
   PAGE_SIZE,
   pagesWanted,
+  repeatsKey,
   revealPage,
   rowKey,
   toggled,
@@ -413,5 +416,91 @@ describe("revealPage", () => {
       [LIST]: { rows: items(3), total: 3, pending: false },
     });
     expect(revealPage(ancestors, childrenOf)).toBeNull();
+  });
+});
+
+describe("guideBlocks", () => {
+  it("names each guide of a file tab's line by the row at that depth, the object first", () => {
+    expect(guideBlocks(`${ENTRY}:0000000b[3]`, 3)).toEqual([
+      `${ENTRY}:`,
+      `${ENTRY}:0000000b`,
+      `${ENTRY}:0000000b[3]`,
+    ]);
+  });
+
+  it("starts an object tab's guides at its properties, which are its roots", () => {
+    expect(guideBlocks(`${ENTRY}:0000000b[3]`, 2)).toEqual([
+      `${ENTRY}:0000000b`,
+      `${ENTRY}:0000000b[3]`,
+    ]);
+  });
+
+  it("draws no guide at depth zero", () => {
+    expect(guideBlocks(null, 0)).toEqual([]);
+  });
+});
+
+describe("lineParent", () => {
+  it("hangs a row under the row it is a child of, and a root under nothing", () => {
+    const child = {
+      kind: "row" as const,
+      key: rowKey(ITEM(1)),
+      row: ITEM(1),
+      depth: 2,
+      expanded: false,
+      loading: false,
+      owner: null,
+      parent: ITEMS,
+      index: 1,
+    };
+    expect(lineParent(child)).toBe(rowKey(ITEMS));
+    expect(lineParent({ ...child, depth: 0, parent: null })).toBeNull();
+  });
+
+  it("hangs a more line and an add line under the holder they belong to", () => {
+    const more = {
+      kind: "more" as const,
+      key: `${rowKey(ITEMS)}:more`,
+      parent: rowKey(ITEMS),
+      depth: 2,
+      loaded: 500,
+      total: 900,
+      pending: false,
+    };
+    const add = {
+      kind: "add" as const,
+      key: `${rowKey(ITEMS)}:add`,
+      document: 1,
+      entry: ENTRY,
+      path: ITEMS.path,
+      depth: 2,
+      target: { kind: "item" as const, itemKind: "embed" as const },
+      index: null,
+    };
+    expect(lineParent(more)).toBe(rowKey(ITEMS));
+    expect(lineParent(add)).toBe(rowKey(ITEMS));
+  });
+});
+
+describe("a repeated map key", () => {
+  it("walks down through a repeat as one segment", () => {
+    expect(ancestorKeys(`${ENTRY}:0000000b{2acd4eca}#1.0000000c`)).toEqual([
+      `${ENTRY}:`,
+      `${ENTRY}:0000000b`,
+      `${ENTRY}:0000000b{2acd4eca}#1`,
+      `${ENTRY}:0000000b{2acd4eca}#1.0000000c`,
+    ]);
+  });
+
+  it("keeps a repeat's rows apart from the first entry's", () => {
+    const first = `${ENTRY}:0000000b{2acd4eca}`;
+    expect(isUnder(first, `${first}#1.0000000c`)).toBe(false);
+    expect(isUnder(`${first}#1`, `${first}#1.0000000c`)).toBe(true);
+  });
+
+  it("marks the later entries of a key and not the first", () => {
+    expect(repeatsKey({ node: "entry", path: "0000000b{2acd4eca}#1" })).toBe(true);
+    expect(repeatsKey({ node: "entry", path: "0000000b{2acd4eca}" })).toBe(false);
+    expect(repeatsKey({ node: "entry", path: '0000000b{"a}#1"}' })).toBe(false);
   });
 });

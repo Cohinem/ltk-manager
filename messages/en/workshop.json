@@ -419,6 +419,7 @@
   "workshop_bin_remove_entry_action": "Remove entry",
   "workshop_bin_remove_item_action": "Remove item",
   "workshop_bin_remove_property_action": "Remove property",
+  "workshop_bin_repeated_key_hint": "Repeats the key of an earlier entry",
   "workshop_bin_revision_open_label": "since {from}",
   "workshop_bin_revision_span_label": "{from} – {to}",
   "workshop_bin_revisions_label": "Revisions",

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
+| 2026-09-14 | Address a map entry whose key repeats as `{k}#n`               |
 | 2026-09-14 | Search an open bin from the bar's `@` scope                    |
 | 2026-09-14 | Find an embedded class's uses and an object's incoming links   |
 | 2026-09-14 | Edit list items, map entries, options and pointers inline      |
@@ -13,7 +14,6 @@
 | 2026-09-14 | Draw a string-table key with its in-game line                  |
 | 2026-09-13 | Add the clips pane over the animation graph                    |
 | 2026-09-13 | Draw every layout section as field rows                        |
-| 2026-09-12 | Band a rich value and drop the inspector's tabs                |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -306,6 +306,22 @@ rather than hashed.
 patch record.** Every segment of a real path is hashed as text, so `0x9c4e1b02` would resolve
 as `FNV1a32("0x9c4e1b02")` and address nothing at all. Anything that writes a patch record
 refuses a path with a hex segment in it, and names the segment it refused.
+
+### A map that repeats a key
+
+The format lets a map hold one key twice, and a hand-edited bin sometimes does. A key alone
+reaches only the first of those entries, so the editor adds a second form of its own.
+
+```
+mClipDataMap{"Run"}
+mClipDataMap{"Run"}#1
+```
+
+The first entry of a key keeps `{k}`, and each later one takes `#n`, the count of earlier
+entries holding the same key. A map with no repeat never shows the form, so every address it had
+stands. A repeat draws a warning mark beside its key, reads and edits as its own entry, and an
+add or a rename onto a key the map holds is refused. Like a hex segment, a path with `#n` is
+ours and never goes into a patch record.
 
 ### An index is a position
 

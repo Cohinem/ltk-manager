@@ -23,12 +23,14 @@ import {
   addLineKey,
   childCount,
   type InsertAt,
+  lineParent,
   nameColumns,
   rowKey,
   type VisibleRow,
 } from "./binRows";
 import { rowTag } from "./kindTag";
 import { TreeContexts } from "./TreeContexts";
+import { createGuideStore, GuideStoreContext } from "./treeGuides";
 import type { TreeFocus } from "./useBinEdit";
 import { type TreeReveal, useReveal } from "./useReveal";
 import { useRowWindow } from "./useRowWindow";
@@ -181,11 +183,25 @@ export function BinTree({
 
   /* One menu for the whole list, pointed at the line the event came from. */
   const [menuLine, setMenuLine] = useState<VisibleRow | null>(null);
-  function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
-    const wrapper = (event.target as HTMLElement).closest<HTMLElement>("[data-index]");
+  function lineAt(target: EventTarget): VisibleRow | null {
+    const wrapper = (target as HTMLElement).closest<HTMLElement>("[data-index]");
     const index = Number(wrapper?.dataset.index);
-    setMenuLine(Number.isInteger(index) ? (visible[index] ?? null) : null);
+    return Number.isInteger(index) ? (visible[index] ?? null) : null;
   }
+  function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
+    setMenuLine(lineAt(event.target));
+  }
+
+  /* Outside React state, so a pointer crossing the rows redraws the guides and nothing else. */
+  const [guides] = useState(createGuideStore);
+  function standOn(target: EventTarget) {
+    const line = lineAt(target);
+    if (line !== null) guides.set({ active: lineParent(line) });
+  }
+  useEffect(() => {
+    const line = visible.find((candidate) => candidate.key === focused);
+    if (line !== undefined) guides.set({ active: lineParent(line) });
+  }, [focused, guides, visible]);
 
   return (
     <TreeContexts
@@ -197,61 +213,71 @@ export function BinTree({
       editable={editable}
       focus={focus}
     >
-      <ContextMenu.Root>
-        <ContextMenu.Trigger
-          ref={scrollRef}
-          role="tree"
-          aria-label={label}
-          className={twMerge(
-            "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
-            maxRows === undefined && "min-h-0 flex-1",
-          )}
-          style={
-            {
-              "--bin-name-cols": nameCols,
-              maxHeight: maxRows === undefined ? undefined : rowHeight * maxRows + SCROLLER_PADDING,
-            } as CSSProperties
-          }
-          onContextMenu={handleContextMenu}
-          onScroll={stirImages}
-          {...NO_OVERSCROLL}
-        >
-          <div className="relative w-full" style={{ height: totalSize }}>
-            {items.map((item) => {
-              const line = visible[item.index];
-              if (!line) return null;
-              return (
-                <div
-                  key={item.key}
-                  ref={measureElement}
-                  data-index={item.index}
-                  className="absolute top-0 left-0 w-full"
-                  style={{ transform: `translateY(${item.start}px)` }}
-                >
-                  {line.kind === "row" && (
-                    <BinRowLine
-                      line={line}
-                      focused={line.key === focused}
-                      error={loaded.get(line.key)?.error}
-                      onToggle={toggle}
-                      onOpenObject={onOpenObject}
-                    />
-                  )}
-                  {line.kind === "more" && <MoreRow line={line} />}
-                  {line.kind === "add" && line.target.kind === "property" && (
-                    <AddPropertyLine line={line} autoFocus={line.key === focusKey} />
-                  )}
-                  {line.kind === "add" && line.target.kind !== "property" && (
-                    <AddItemLine line={line} autoFocus={line.key === focusKey} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </ContextMenu.Trigger>
+      <GuideStoreContext value={guides}>
+        <ContextMenu.Root>
+          <ContextMenu.Trigger
+            ref={scrollRef}
+            role="tree"
+            aria-label={label}
+            className={twMerge(
+              "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
+              maxRows === undefined && "min-h-0 flex-1",
+            )}
+            style={
+              {
+                "--bin-name-cols": nameCols,
+                maxHeight:
+                  maxRows === undefined ? undefined : rowHeight * maxRows + SCROLLER_PADDING,
+              } as CSSProperties
+            }
+            onContextMenu={handleContextMenu}
+            onPointerDown={(event) => standOn(event.target)}
+            onFocus={(event) => standOn(event.target)}
+            onMouseOver={(event) => {
+              const line = lineAt(event.target);
+              guides.set({ hover: line === null ? null : lineParent(line) });
+            }}
+            onMouseLeave={() => guides.set({ hover: null })}
+            onScroll={stirImages}
+            {...NO_OVERSCROLL}
+          >
+            <div className="relative w-full" style={{ height: totalSize }}>
+              {items.map((item) => {
+                const line = visible[item.index];
+                if (!line) return null;
+                return (
+                  <div
+                    key={item.key}
+                    ref={measureElement}
+                    data-index={item.index}
+                    className="absolute top-0 left-0 w-full"
+                    style={{ transform: `translateY(${item.start}px)` }}
+                  >
+                    {line.kind === "row" && (
+                      <BinRowLine
+                        line={line}
+                        focused={line.key === focused}
+                        error={loaded.get(line.key)?.error}
+                        onToggle={toggle}
+                        onOpenObject={onOpenObject}
+                      />
+                    )}
+                    {line.kind === "more" && <MoreRow line={line} />}
+                    {line.kind === "add" && line.target.kind === "property" && (
+                      <AddPropertyLine line={line} autoFocus={line.key === focusKey} />
+                    )}
+                    {line.kind === "add" && line.target.kind !== "property" && (
+                      <AddItemLine line={line} autoFocus={line.key === focusKey} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </ContextMenu.Trigger>
 
-        <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
-      </ContextMenu.Root>
+          <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
+        </ContextMenu.Root>
+      </GuideStoreContext>
     </TreeContexts>
   );
 }
