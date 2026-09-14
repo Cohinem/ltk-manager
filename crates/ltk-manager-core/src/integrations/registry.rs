@@ -48,8 +48,10 @@ pub(super) fn targets(snapshot: &Snapshot) -> Vec<String> {
         if let Some(command) = tree.children.get("command").and_then(|c| c.values.get("")) {
             let words: Vec<u16> = command
                 .bytes
-                .chunks_exact(2)
-                .map(|b| u16::from_le_bytes([b[0], b[1]]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|b| u16::from_le_bytes(*b))
                 .collect();
             let text = String::from_utf16_lossy(&words);
             if let Some(rest) = text.strip_prefix('"')
