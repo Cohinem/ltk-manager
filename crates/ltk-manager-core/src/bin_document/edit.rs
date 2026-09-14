@@ -15,7 +15,7 @@ use ltk_meta::{BinDelta, BinFile, BinObject, BinStream, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
 use super::properties::field_path;
-use super::{BinDocument, BinDocumentError, PropertyKind, Step, hex, inlines, is_null, wire_key};
+use super::{BinDocument, BinDocumentError, PropertyKind, Step, hex, inlines, is_null};
 use crate::error::AppResult;
 use crate::preview::AssetRef;
 use crate::utils::fs::atomic_write;
@@ -482,11 +482,8 @@ pub(super) fn edit_under<R>(
         (Step::Index(0), ValueMut::Optional(optional)) => {
             edit_under(optional.slot()?.as_mut(), rest, edit)
         }
-        (Step::Key(text), ValueMut::Map(map)) => {
-            let at = map
-                .entries()
-                .iter()
-                .position(|(key, _)| wire_key(key) == *text)?;
+        (Step::Key(held), ValueMut::Map(map)) => {
+            let at = held.position(map.entries())?;
             edit_under(map.slot(at)?.as_mut(), rest, edit)
         }
         _ => None,

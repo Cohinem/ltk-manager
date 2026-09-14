@@ -3,22 +3,29 @@
 use super::game_index::{built_game_index, find_query};
 use super::off_thread;
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
+use crate::events::TauriEventSink;
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::{BackendEvent, EventSink as _};
+use ltk_manager_core::game_wads::GameArchives;
 use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
 use ltk_manager_core::object_index::{
-    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDirListing,
+    self, layer_bins, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDirListing,
     ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
     ObjectReferenceGeneration, ObjectSearchGeneration, ObjectSearchResult, ReferenceResult,
+    WalkRequest, WalkTarget,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
+use ltk_manager_core::problems::Budget;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
 
@@ -242,18 +249,24 @@ pub async fn find_objects(
     .await
 }
 
-/// What a reference query asks the index for.
+/// What a reference query asks for.
 #[derive(Debug, Clone, Deserialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ReferenceQuery {
-    /// Every object of one class.
+    /// Every object of one class, from the index.
     #[serde(rename_all = "camelCase")]
     Class {
         /// The class hash, `0x` and eight hex digits.
         class_hash: String,
     },
-    /// Every declaration of one object.
+    /// Every `pointer` or `embed` value of one class, from the walk.
+    #[serde(rename_all = "camelCase")]
+    Embedded {
+        /// The class hash, `0x` and eight hex digits.
+        class_hash: String,
+    },
+    /// Every `link` or `hash` value naming one object, from the walk.
     #[serde(rename_all = "camelCase")]
     Object {
         /// The object's path hash, `0x` and eight hex digits.
@@ -264,7 +277,9 @@ pub enum ReferenceQuery {
 impl ReferenceQuery {
     /// The hash the query names, whichever it names.
     fn hash_text(&self) -> &str {
-        let (Self::Class { class_hash: text } | Self::Object { object_hash: text }) = self;
+        let (Self::Class { class_hash: text }
+        | Self::Embedded { class_hash: text }
+        | Self::Object { object_hash: text }) = self;
         text
     }
 }
@@ -280,21 +295,33 @@ pub enum ObjectReferences {
     Building,
     /// The last build failed, and the next warm retries it.
     Failed { error: AppErrorResponse },
-    /// The index answered.
+    /// The index or the walk answered.
     Ready(ReferenceResult),
 }
 
-/// What `query` names, grouped by the file that declares it.
+/// The walk in flight, whose budget a cancel calls off.
 ///
-/// A class answers with every object the install declares as it, and an object with
-/// every file declaring that object. The scan carries a generation of its own, so a
-/// re-run gives up only the reference scan it overtakes.
+/// One at a time, because the References document asks one question. A newer query
+/// overtakes the walk through its generation, and a cancel reaches only this one.
+#[derive(Debug, Default)]
+pub struct ReferenceWalkState(Mutex<Option<Budget>>);
+
+/// How often a walk reports how far it has read.
+const WALK_PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
+
+/// What `query` names, grouped by the file that holds it.
+///
+/// A class answers from the index with every object the install declares as it. An
+/// embedded class and an object answer from a walk of `project`'s layers and the
+/// install, reporting `reference-walk-progress` as it reads. The scan carries a
+/// generation of its own, so a re-run gives up only the reference scan it overtakes.
 ///
 /// "The References document" in `docs/ux/PROJECT_EDITOR.md`.
 #[tauri::command]
 #[specta::specta]
 pub async fn find_references(
     query: ReferenceQuery,
+    project: Option<String>,
     app_handle: AppHandle,
 ) -> IpcResult<ObjectReferences> {
     let asked = query.hash_text().to_owned();
@@ -321,20 +348,105 @@ pub async fn find_references(
             ObjectIndexSnapshot::Ready(index) => index,
         };
 
-        let result = match query {
-            ReferenceQuery::Class { .. } => index.class_references(hash, overtaken),
-            ReferenceQuery::Object { .. } => index.object_references(hash),
+        let target = match query {
+            ReferenceQuery::Class { .. } => None,
+            ReferenceQuery::Embedded { .. } => Some(WalkTarget::Embedded(hash)),
+            ReferenceQuery::Object { .. } => Some(WalkTarget::Linked(hash)),
+        };
+        let result = match target {
+            None => index.class_references(hash, overtaken),
+            Some(target) => walk(&app_handle, &index, target, project.as_deref(), overtaken)?,
         };
         tracing::debug!(
             hash = %asked,
             groups = result.groups.len(),
             total = result.total,
             superseded = result.superseded,
-            "Answered a reference query from the bin object index"
+            cancelled = result.cancelled,
+            "Answered a reference query"
         );
         Ok(ObjectReferences::Ready(result))
     })
     .await
+}
+
+/// Walk `project`'s layers and the install for `target`, as the one walk in flight.
+///
+/// A project whose layers cannot be listed is walked without them, and logged.
+fn walk(
+    app: &AppHandle,
+    index: &ObjectIndex,
+    target: WalkTarget,
+    project: Option<&str>,
+    overtaken: impl Fn() -> bool + Sync,
+) -> AppResult<ReferenceResult> {
+    let config = app.state::<SettingsState>().config();
+    let archives = GameArchives::resolve(&config)?;
+    let layers = match project.map(layer_bins).transpose() {
+        Ok(layers) => layers.unwrap_or_default(),
+        Err(e) => {
+            tracing::warn!("Walking the install without the project's layers: {e}");
+            Vec::new()
+        }
+    };
+
+    let budget = Budget::sweep();
+    let walks = app.state::<ReferenceWalkState>();
+    *walks.0.lock() = Some(budget.clone());
+
+    let bin = app.state::<BinHashTablesState>().get();
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
+    let names = CacheNames::new(&bin, &wad);
+    let (schema, build) = super::bin::installed_schema(app);
+
+    let events = TauriEventSink::new(app.clone());
+    let last_report = Mutex::new(None::<Instant>);
+    let request = WalkRequest {
+        target,
+        layers: &layers,
+        archives: &archives,
+        budget: &budget,
+        workers: files_at_once(),
+    };
+    let result = index.walk(
+        &request,
+        &names,
+        Some(schema.at(build)),
+        overtaken,
+        |progress| {
+            let now = Instant::now();
+            let mut last = last_report.lock();
+            let due = last.is_none_or(|at| now.duration_since(at) >= WALK_PROGRESS_INTERVAL);
+            if !due && progress.walked < progress.total {
+                return;
+            }
+            *last = Some(now);
+            drop(last);
+            events.emit(BackendEvent::ReferenceWalkProgress(progress));
+        },
+    );
+
+    let mut in_flight = walks.0.lock();
+    if in_flight.as_ref().is_some_and(|held| held.is(&budget)) {
+        *in_flight = None;
+    }
+    Ok(result)
+}
+
+/// Call off the walk in flight, if there is one.
+///
+/// Answers `false` when nothing was walking, which is what a Cancel pressed as the
+/// walk finished looks like. The walk answers with what it found.
+#[tauri::command]
+#[specta::specta]
+pub fn cancel_reference_walk(app_handle: AppHandle) -> IpcResult<bool> {
+    let walks = app_handle.state::<ReferenceWalkState>();
+    let in_flight = walks.0.lock();
+    let Some(budget) = in_flight.as_ref() else {
+        return IpcResult::ok(false);
+    };
+    budget.cancel();
+    IpcResult::ok(true)
 }
 
 /// The slot the index is in, as an answer reports it.

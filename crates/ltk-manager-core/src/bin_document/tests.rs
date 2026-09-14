@@ -9,6 +9,9 @@ use ltk_meta::property::NoMeta;
 use ltk_meta::{Bin, BinOverride, PropertyPatch};
 use std::collections::HashMap;
 
+mod find;
+mod repeats;
+
 fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }
@@ -789,15 +792,22 @@ fn a_projected_read_past_the_row_cap_is_refused_and_names_it() {
 fn a_wire_path_parses_into_its_steps() {
     assert_eq!(parse_steps(""), Some(Vec::new()));
     assert_eq!(
-        parse_steps("9c4e1b02[3].1a2b3c4d{\"we}ird\"}{7}"),
+        parse_steps("9c4e1b02[3].1a2b3c4d{\"we}ird\"}{7}#2"),
         Some(vec![
             Step::Field(BinHash(0x9c4e_1b02)),
             Step::Index(3),
             Step::Field(BinHash(0x1a2b_3c4d)),
-            Step::Key("\"we}ird\"".to_owned()),
-            Step::Key("7".to_owned()),
+            Step::Key(EntryKey {
+                text: "\"we}ird\"".to_owned(),
+                occurrence: 0,
+            }),
+            Step::Key(EntryKey {
+                text: "7".to_owned(),
+                occurrence: 2,
+            }),
         ])
     );
+    assert_eq!(parse_steps("9c4e1b02{7}#"), None);
     assert_eq!(parse_steps("9c4e1b0"), None);
     assert_eq!(parse_steps("9c4e1b02.zzzzzzzz"), None);
     assert_eq!(parse_steps("9c4e1b02[x]"), None);

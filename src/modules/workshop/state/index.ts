@@ -6,6 +6,7 @@ export * from "./extractDialog";
 export * from "./extractRun";
 export * from "./gameBrowser";
 export * from "./objectsBrowser";
+export * from "./openBins";
 export * from "./references";
 export * from "./useEditorPersistence";
 export * from "./useProjectEditor";

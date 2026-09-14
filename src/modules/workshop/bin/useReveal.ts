@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { BinRow } from "@/lib/tauri";
 
-import { ancestorKeys, isUnder, rowKey } from "./binRows";
+import { ancestorKeys, isUnder, type LoadedChildren, revealPage, rowKey } from "./binRows";
 
-/** A row the tree is asked to expand, focus and scroll to. A new token scrolls again. */
+/** A row the tree is asked to expand, focus and scroll to. A new request scrolls again. */
 export interface TreeReveal {
   readonly key: string;
   readonly token: number;
@@ -16,38 +16,55 @@ export interface Revealed {
   readonly clearFocus: () => void;
 }
 
+/** What a reveal reads and changes of the tree it opens. */
+export interface RevealTree {
+  readonly roots: readonly BinRow[];
+  readonly loaded: ReadonlyMap<string, LoadedChildren>;
+  readonly expand: (keys: Iterable<string>) => void;
+  /** Ask a node with `loadedCount` rows answered for its next page. */
+  readonly requestMore: (parent: string, loadedCount: number) => void;
+  readonly scrollToKey: (key: string) => boolean;
+}
+
 /**
  * The row a reveal opens down to, focuses and scrolls to.
  *
- * Every level above the row opens, so a nested key is on screen once each of them has
- * answered, and the scroll waits for the line to exist. A request for a row this tree
- * does not hold is left alone.
+ * Every level above the row opens, and a level whose answered pages end before the next
+ * key down asks for its next page, so a row past a page boundary is reached too. The
+ * scroll waits for the line to exist. A request for a row this tree does not hold is left
+ * alone.
  */
 export function useReveal(
   reveal: TreeReveal | null,
-  roots: readonly BinRow[],
-  expand: (keys: Iterable<string>) => void,
-  scrollToKey: (key: string) => boolean,
+  { roots, loaded, expand, requestMore, scrollToKey }: RevealTree,
 ): Revealed {
   const [focused, setFocused] = useState<string | null>(null);
   const [scrollTo, setScrollTo] = useState<TreeReveal | null>(null);
 
+  const ancestors = useMemo(() => {
+    if (reveal === null) return [];
+    return ancestorKeys(reveal.key).filter((key) => roots.some((row) => isUnder(rowKey(row), key)));
+  }, [reveal, roots]);
+
   useEffect(() => {
-    if (reveal === null) return;
-    const ancestors = ancestorKeys(reveal.key).filter((key) =>
-      roots.some((row) => isUnder(rowKey(row), key)),
-    );
-    if (ancestors.length === 0) return;
+    if (reveal === null || ancestors.length === 0) return;
     expand(ancestors);
     setFocused(reveal.key);
     setScrollTo(reveal);
-  }, [reveal, roots, expand]);
+  }, [reveal, ancestors, expand]);
 
-  /* Keyed on the request's token. A second request for the same row scrolls again. */
-  const scrolledToken = useRef<number | null>(null);
+  const page = scrollTo === null ? null : revealPage(ancestors, (key) => loaded.get(key));
+  const pageParent = page?.parent ?? null;
+  const pageLoaded = page?.loaded ?? 0;
   useEffect(() => {
-    if (scrollTo === null || scrolledToken.current === scrollTo.token) return;
-    if (scrollToKey(scrollTo.key)) scrolledToken.current = scrollTo.token;
+    if (pageParent !== null) requestMore(pageParent, pageLoaded);
+  }, [pageParent, pageLoaded, requestMore]);
+
+  /* Keyed on the request itself, so a second request for the same row scrolls again. */
+  const scrolled = useRef<TreeReveal | null>(null);
+  useEffect(() => {
+    if (scrollTo === null || scrolled.current === scrollTo) return;
+    if (scrollToKey(scrollTo.key)) scrolled.current = scrollTo;
   }, [scrollTo, scrollToKey]);
 
   const clearFocus = useCallback(() => setFocused(null), []);

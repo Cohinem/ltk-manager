@@ -25,6 +25,7 @@ mod names;
 mod references;
 mod search;
 mod state;
+mod walk;
 
 /// One chunk of a synthetic archive: its path and its bytes.
 type Chunk<'a> = (&'a str, Vec<u8>);

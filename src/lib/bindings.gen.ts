@@ -29,6 +29,13 @@ export const commands = {
 	 */
 	binRead: (document: BinDocumentId, entry: string, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: BinRows[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_read", { document, entry, paths }),
 	/**
+	 *  Every row of an open document whose name or value holds `query`, in tree order.
+	 * 
+	 *  `entry`, `0x` and eight hex digits, narrows the search to one object, which is what
+	 *  an object tab draws. The project bar's `@` scope asks this of the active tab.
+	 */
+	binFind: (document: BinDocumentId, entry: string | null, query: string) => __TAURI_INVOKE<({ ok: true; value: BinFindResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_find", { document, entry, query }),
+	/**
 	 *  Set one leaf of an open document, answering the value it held.
 	 * 
 	 *  `entry` is the object's hash as `0x` and eight hex digits, and `path` the wire form of
@@ -175,15 +182,23 @@ export const commands = {
 	 */
 	findObjects: (pattern: string, regex: boolean, classTerm: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectFind }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_objects", { pattern, regex, classTerm }),
 	/**
-	 *  What `query` names, grouped by the file that declares it.
+	 *  What `query` names, grouped by the file that holds it.
 	 * 
-	 *  A class answers with every object the install declares as it, and an object with
-	 *  every file declaring that object. The scan carries a generation of its own, so a
-	 *  re-run gives up only the reference scan it overtakes.
+	 *  A class answers from the index with every object the install declares as it. An
+	 *  embedded class and an object answer from a walk of `project`'s layers and the
+	 *  install, reporting `reference-walk-progress` as it reads. The scan carries a
+	 *  generation of its own, so a re-run gives up only the reference scan it overtakes.
 	 * 
 	 *  "The References document" in `docs/ux/PROJECT_EDITOR.md`.
 	 */
-	findReferences: (query: ReferenceQuery) => __TAURI_INVOKE<({ ok: true; value: ObjectReferences }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_references", { query }),
+	findReferences: (query: ReferenceQuery, project: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectReferences }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_references", { query, project }),
+	/**
+	 *  Call off the walk in flight, if there is one.
+	 * 
+	 *  Answers `false` when nothing was walking, which is what a Cancel pressed as the
+	 *  walk finished looks like. The walk answers with what it found.
+	 */
+	cancelReferenceWalk: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_reference_walk"),
 	/**
 	 *  One particle system of an open document, with every reference resolved.
 	 * 
@@ -540,6 +555,32 @@ export type BinFileKind =
 "prop" | 
 /**  A `PTCH`: a layer over another bin. */
 "patch";
+
+/**  One row a search matched, with the path a reveal opens down to. */
+export type BinFindHit = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The row's property path on the wire. Empty for an object row. */
+	path: string,
+	/**  The same path for a person. Empty for an object row. */
+	label: string,
+	/**  The object's path, or its hash where no table names it. */
+	object: string,
+	/**  What the row is called: the object's path, the property's name, `[i]` or the key. */
+	name: string,
+	/**  Byte offsets into `name` the query matched. Empty where the value matched alone. */
+	ranges: ([number, number])[],
+	/**  The row's value as one line of text, where it reads as one. */
+	value: string | null,
+};
+
+/**  What one search of an open document found. */
+export type BinFindResult = {
+	/**  The matching rows in tree order, at most `FIND_ROWS`. */
+	hits: BinFindHit[],
+	/**  How many rows matched in all, counted on past the cap. */
+	total: number,
+};
 
 /**  What the header row says about an open bin. */
 export type BinHeader = {
@@ -1678,7 +1719,7 @@ export type ObjectReferences =
 ({ status: "building" }) & { error?: never } | 
 /**  The last build failed, and the next warm retries it. */
 { status: "failed"; error: AppErrorResponse } | 
-/**  The index answered. */
+/**  The index or the walk answered. */
 {
 	status: "ready",
 } & ReferenceResult;
@@ -1880,15 +1921,29 @@ export type ReferenceHit = {
 	classHash: string,
 	/**  The class's name, or its hash when no table names it. */
 	class: string,
+	/**  Where in the object the walk found the reference. Absent for an answer of the index. */
+	property: ReferenceProperty | null,
 };
 
-/**  What a reference query asks the index for. */
+/**  The row inside an object that holds a reference, in the two forms a row carries. */
+export type ReferenceProperty = {
+	/**  The property path on the wire, every field a hash (ADR-0027). */
+	path: string,
+	/**  The same path for a person, every hash a table names spelled. */
+	label: string,
+};
+
+/**  What a reference query asks for. */
 export type ReferenceQuery = 
-/**  Every object of one class. */
+/**  Every object of one class, from the index. */
 { kind: "class"; 
 /**  The class hash, `0x` and eight hex digits. */
 classHash: string } | 
-/**  Every declaration of one object. */
+/**  Every `pointer` or `embed` value of one class, from the walk. */
+{ kind: "embedded"; 
+/**  The class hash, `0x` and eight hex digits. */
+classHash: string } | 
+/**  Every `link` or `hash` value naming one object, from the walk. */
 { kind: "object"; 
 /**  The object's path hash, `0x` and eight hex digits. */
 objectHash: string };
@@ -1901,6 +1956,8 @@ export type ReferenceResult = {
 	total: number,
 	/**  A newer query overtook this one. The groups are a part of the answer. */
 	superseded: boolean,
+	/**  The walk was cancelled before it read every bin. The groups are what it found. */
+	cancelled: boolean,
 };
 
 /**  How a pass's fragments reach the target, from the first pass's own fields. */

@@ -1,4 +1,11 @@
-import { queryOptions, useQueries, useQuery, type UseQueryOptions } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  queryOptions,
+  skipToken,
+  useQueries,
+  useQuery,
+  type UseQueryOptions,
+} from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -8,6 +15,7 @@ import {
   type AssetRef,
   type BinDocumentHandle,
   type BinDocumentId,
+  type BinFindResult,
   type BinRow,
   type BinRows,
   type ClassChoice,
@@ -84,6 +92,12 @@ export const binKeys = {
     ["bin-children", document, key, page] as const,
 };
 
+/** What a search of an open bin is asked over: the id, and the object an object tab is over. */
+export interface FindScope {
+  readonly document: BinDocumentId;
+  readonly entry: string | null;
+}
+
 /** Every row under one node, which is what an object open reads at depth zero. */
 const WHOLE = Number.MAX_SAFE_INTEGER;
 
@@ -95,6 +109,19 @@ export const binQueries = {
       queryFn: async () => unwrapForQuery(await api.bin.roots(document)),
       initialData: opened,
       staleTime: Infinity,
+      retry: false,
+    }),
+  /** The rows of an open bin whose name or value holds `query`. No scope asks nothing. */
+  find: (scope: FindScope | null, query: string) =>
+    queryOptions<BinFindResult, AppError>({
+      queryKey: ["bin-find", scope?.document ?? null, scope?.entry ?? null, query],
+      queryFn:
+        scope === null || query.length === 0
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.find(scope.document, scope.entry, query)),
+      placeholderData: keepPreviousData,
+      staleTime: 0,
+      gcTime: 0,
       retry: false,
     }),
   /** The fields a holder can take, asked again after every edit. */

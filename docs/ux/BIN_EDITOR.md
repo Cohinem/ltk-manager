@@ -4,6 +4,9 @@
 
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
+| 2026-09-14 | Address a map entry whose key repeats as `{k}#n`               |
+| 2026-09-14 | Search an open bin from the bar's `@` scope                    |
+| 2026-09-14 | Find an embedded class's uses and an object's incoming links   |
 | 2026-09-14 | Edit list items, map entries, options and pointers inline      |
 | 2026-09-14 | Add and remove a property inline, at the schema's default      |
 | 2026-09-14 | Save a leaf edit as a delta, and refuse a file changed on disk |
@@ -11,9 +14,6 @@
 | 2026-09-14 | Draw a string-table key with its in-game line                  |
 | 2026-09-13 | Add the clips pane over the animation graph                    |
 | 2026-09-13 | Draw every layout section as field rows                        |
-| 2026-09-12 | Band a rich value and drop the inspector's tabs                |
-| 2026-09-12 | Flag the timeline's playhead and trace the pointer             |
-| 2026-09-11 | Draw the random spread as lanes and a density edge             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -59,7 +59,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Hash links            | Available   | A `hash` the index declares, opening the same way                |
 | WAD chunk links       | Available   | A chip that opens the chunk in a preview tab                     |
 | Texture swatch        | Available   | A `file` link to a texture, at row height and on a hover card    |
-| Find all references   | In progress | The objects of a class from the index. The walk for the rest     |
+| Find all references   | Available   | A class's objects from the index, the rest from a walk           |
 | String links          | Available   | A string naming a chunk or an object, as the chip its kind draws |
 | Value rows            | Available   | Every family's constant, and a mark where a curve carries more   |
 | Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
@@ -69,7 +69,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Pane maximize         | Available   | A tab fills its split tree, and Esc restores it                  |
 | Inspector rows        | Available   | Every group, named values, units, a curve per animated row       |
 | Inspector bands       | Planned     | A rich value on its own band, the roll rail, and no group tabs   |
-| In-document search    | Planned     | The bar's `@` scope over the open rows                           |
+| In-document search    | Available   | The bar's `@` scope over the open rows                           |
 | Leaf editing          | In progress | The primitive widgets, and the patch that carries an edit        |
 | Property editing      | In progress | Add and remove a property inline, at the schema's default        |
 | Container editing     | In progress | List items, map entries, options and pointers, inline            |
@@ -306,6 +306,22 @@ rather than hashed.
 patch record.** Every segment of a real path is hashed as text, so `0x9c4e1b02` would resolve
 as `FNV1a32("0x9c4e1b02")` and address nothing at all. Anything that writes a patch record
 refuses a path with a hex segment in it, and names the segment it refused.
+
+### A map that repeats a key
+
+The format lets a map hold one key twice, and a hand-edited bin sometimes does. A key alone
+reaches only the first of those entries, so the editor adds a second form of its own.
+
+```
+mClipDataMap{"Run"}
+mClipDataMap{"Run"}#1
+```
+
+The first entry of a key keeps `{k}`, and each later one takes `#n`, the count of earlier
+entries holding the same key. A map with no repeat never shows the form, so every address it had
+stands. A repeat draws a warning mark beside its key, reads and edits as its own entry, and an
+add or a rename onto a key the map holds is refused. Like a hex segment, a path with `#n` is
+ours and never goes into a patch record.
 
 ### An index is a position
 
@@ -916,6 +932,22 @@ For a top-level class the index answers at once. Every declaration carrying the 
 row, grouped by file. An embedded class and an object's incoming links are answers of the walk,
 which the References document describes. Find references sits on every menu an object has, on the
 menu of a row whose value carries a class, and on the object tab's kebab.
+
+The row a menu opens on decides which question it asks. An object row and the object tab's kebab
+ask for the objects of the class, and an `embed` or a `pointer` row asks for every value of the
+class at any depth.
+
+## Searching an open bin
+
+The project bar's `@` scope over the active bin or object tab lists the rows whose name or value
+holds the query, case aside: a string, a number, the name behind a hash or a link and its hex, a
+file's path, and the class a struct holds. An object tab searches its object alone. Each row reads
+by its name over its readable path, with its value at the trailing edge, and the backend answers
+the first 200 in tree order.
+
+`Enter` expands every level above the row, asks a level for its next page where the row sits past
+a page boundary, focuses the row and scrolls to it. An object tab in its class view switches to
+Properties first, the one mode that draws every row.
 
 ## Class views
 

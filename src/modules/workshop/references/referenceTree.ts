@@ -5,7 +5,7 @@
  * docs/ux/PROJECT_EDITOR.md.
  */
 
-import type { AssetRef, ReferenceGroup } from "@/lib/tauri";
+import type { AssetRef, ReferenceGroup, ReferenceProperty } from "@/lib/tauri";
 
 import { assetKey } from "../preview/assetRef";
 
@@ -22,10 +22,10 @@ export interface ReferenceFileNode {
   readonly children: readonly ReferenceObjectNode[];
 }
 
-/** One object of a group, which opens the declaration the group is. */
+/** One object of a group, or one row inside it, which opens the declaration the group is. */
 export interface ReferenceObjectNode {
   readonly type: "object";
-  /** The file's key and the object's hash, which no two rows share. */
+  /** The file's key, the object's hash and the row's path, which no two rows share. */
   readonly id: string;
   /** `0x` and eight hex digits. */
   readonly objectHash: string;
@@ -43,6 +43,8 @@ export interface ReferenceObjectNode {
   /** The declaring file, which the row's tab opens. */
   readonly asset: AssetRef;
   readonly file: string;
+  /** The row inside the object a walk found, which the tab opens scrolled to. Null for the index's. */
+  readonly property: ReferenceProperty | null;
 }
 
 /** The rows of one answer: a file, then the objects it declares. */
@@ -58,7 +60,7 @@ export function buildReferenceTree(groups: readonly ReferenceGroup[]): Reference
         const cut = object.path.lastIndexOf("/");
         return {
           type: "object",
-          id: `${key}:${object.objectHash}`,
+          id: `${key}:${object.objectHash}:${object.property?.path ?? ""}`,
           objectHash: object.objectHash,
           path: object.path,
           name: cut < 0 ? object.path : object.path.slice(cut + 1),
@@ -68,6 +70,7 @@ export function buildReferenceTree(groups: readonly ReferenceGroup[]): Reference
           class: object.class === object.classHash ? null : object.class,
           asset: group.asset,
           file: group.file,
+          property: object.property,
         };
       }),
     };

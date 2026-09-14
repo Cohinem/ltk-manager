@@ -32,6 +32,7 @@ migrated![
     bin_open,
     bin_children,
     bin_read,
+    bin_find,
     bin_patch,
     bin_save,
     bin_reload,
@@ -58,6 +59,7 @@ migrated![
     object_dir,
     find_objects,
     find_references,
+    cancel_reference_walk,
     // Particle renderer
     read_vfx_system,
     // Skin preview

@@ -2,11 +2,17 @@ import { create } from "zustand";
 
 import type { ReferenceQuery } from "@/lib/tauri";
 
-/** One question the References document answers, with what its header reads. */
-export interface ReferenceRequest {
+/** One question a menu asks, with what the References header reads. */
+export interface ReferenceQuestion {
   readonly query: ReferenceQuery;
   /** The class name or the object path, the hash where no table names it. */
   readonly label: string;
+}
+
+/** One question the References document answers, and the project it was asked from. */
+export interface ReferenceRequest extends ReferenceQuestion {
+  /** The project whose layers a walk reads beside the install. Null on no project. */
+  readonly project: string | null;
 }
 
 interface ReferencesStore {
@@ -24,7 +30,7 @@ interface ReferencesStore {
  *
  * The objects browser's store keeps its state for the same reason: the leaf a preview
  * splits remounts the document under it. One store across the projects, because one
- * query reads one install.
+ * query reads one install, and a request names the project a walk reads beside it.
  */
 export const useReferencesStore = create<ReferencesStore>()((set) => ({
   request: null,

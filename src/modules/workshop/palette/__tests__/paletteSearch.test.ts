@@ -123,7 +123,7 @@ describe("usePaletteSearch", () => {
   it("lists every prefix a project can reach", () => {
     const rows = search("?", PROJECT_SOURCES)[0]!.rows;
 
-    expect(rows.filter((row) => row.row.target.kind === "prefix")).toHaveLength(4);
+    expect(rows.filter((row) => row.row.target.kind === "prefix")).toHaveLength(5);
   });
 
   it("lists a key a source reads under that source's prefix", () => {

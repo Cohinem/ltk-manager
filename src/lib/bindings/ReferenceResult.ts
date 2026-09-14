@@ -16,4 +16,8 @@ total: number,
 /**
  * A newer query overtook this one. The groups are a part of the answer.
  */
-superseded: boolean, };
+superseded: boolean, 
+/**
+ * The walk was cancelled before it read every bin. The groups are what it found.
+ */
+cancelled: boolean, };

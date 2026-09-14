@@ -254,6 +254,21 @@ pub struct ReferenceHit {
     pub class_hash: String,
     /// The class's name, or its hash when no table names it.
     pub class: String,
+    /// Where in the object the walk found the reference. Absent for an answer of the index.
+    pub property: Option<ReferenceProperty>,
+}
+
+/// The row inside an object that holds a reference, in the two forms a row carries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceProperty {
+    /// The property path on the wire, every field a hash (ADR-0027).
+    pub path: String,
+    /// The same path for a person, every hash a table names spelled.
+    pub label: String,
 }
 
 /// The objects one file declares, as a reference query groups them.
@@ -284,6 +299,23 @@ pub struct ReferenceResult {
     pub total: u32,
     /// A newer query overtook this one. The groups are a part of the answer.
     pub superseded: bool,
+    /// The walk was cancelled before it read every bin. The groups are what it found.
+    pub cancelled: bool,
+}
+
+/// How far one walk has read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceWalkProgress {
+    /// Bins read, or passed over because they would not read.
+    pub walked: u32,
+    /// Bins the walk reads in all: the project's layers and the install's.
+    pub total: u32,
+    /// References found so far, past any cap.
+    pub hits: u32,
 }
 
 /// What a build measured.

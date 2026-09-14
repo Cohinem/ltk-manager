@@ -4,7 +4,8 @@ import type { AssetRef } from "@/lib/tauri";
 
 import { previewDocument } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
-import { useOpenDocumentAs, useRevealObject } from "../state";
+import { useOpenDocumentAs, useRevealRow } from "../state";
+import { objectKey } from "./binRows";
 
 /**
  * Open the declaring file's tab scrolled to one object.
@@ -15,15 +16,15 @@ import { useOpenDocumentAs, useRevealObject } from "../state";
  */
 export function useShowInFile() {
   const open = useOpenDocumentAs();
-  const revealObject = useRevealObject();
+  const revealRow = useRevealRow();
 
   return useCallback(
     (asset: AssetRef, objectHash: string, file: string, intent: OpenIntent = "default") => {
       const resolved = asset.kind === "gameChunk" && file.length > 0 ? file : undefined;
       const document = previewDocument(asset, resolved);
       open(document, intent);
-      revealObject(document.id, objectHash);
+      revealRow(document.id, objectKey(objectHash));
     },
-    [open, revealObject],
+    [open, revealRow],
   );
 }

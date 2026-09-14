@@ -88,6 +88,13 @@ export const PALETTE_SOURCES: readonly PaletteSource[] = [
     keys: [{ key: "class:", hint: "Narrow to a class, by name prefix or by hex" }],
     backendRanked: true,
   },
+  {
+    id: "rows",
+    label: "Rows",
+    prefix: "@",
+    hint: "Every row of the active bin or object tab, by name or value",
+    backendRanked: true,
+  },
 ];
 
 /** Every source a project's bar reads, which is all of them. */

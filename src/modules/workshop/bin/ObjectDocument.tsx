@@ -35,7 +35,14 @@ import {
   objectReferences,
   useFindReferences,
 } from "../references/useFindReferences";
-import { clickIntent, useCurveAimRequest, useSettleCurveAim } from "../state";
+import {
+  clickIntent,
+  useCurveAimRequest,
+  useLendOpenBin,
+  useRowRevealRequest,
+  useSettleCurveAim,
+  useSettleRowReveal,
+} from "../state";
 import { BinEditState } from "./BinEditState";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { ClassCard } from "./ClassCard";
@@ -124,6 +131,7 @@ function OpenObject({
   const layout = classLayout(object.classHash);
   const roots = useObjectRoots(handle);
   const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
+  useLendOpenBin(documentId, handle.document, object.entry);
 
   const [mode, setMode] = useState<Mode>(layout ? "layout" : "properties");
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
@@ -148,6 +156,16 @@ function OpenObject({
     settleAim(request.token);
     aim({ row: request.row, chain: request.chain });
   }, [request, settleAim, aim]);
+
+  /* A row is revealed in Properties, the one mode that draws every row. */
+  const revealRequest = useRowRevealRequest(documentId);
+  const settleReveal = useSettleRowReveal();
+  useEffect(() => {
+    if (revealRequest === null) return;
+    settleReveal(revealRequest.token);
+    setMode("properties");
+    setReveal({ key: revealRequest.key, token: revealRequest.token });
+  }, [revealRequest, settleReveal]);
 
   const showFile = useCallback(
     (event: ReactMouseEvent) => showInFile(asset, object.entry, file, clickIntent(event)),

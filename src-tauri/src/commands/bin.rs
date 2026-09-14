@@ -11,8 +11,8 @@ use super::off_thread;
 use crate::error::{AppError, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{
-    AddableFields, BinDocumentHandle, BinDocumentId, BinDocuments, BinRow, BinRows, ClassChoice,
-    LeafValue, NewItem, NewProperty, ProjectNames,
+    AddableFields, BinDocumentHandle, BinDocumentId, BinDocuments, BinFindResult, BinRow, BinRows,
+    ClassChoice, LeafValue, NewItem, NewProperty, ProjectNames,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
@@ -106,6 +106,39 @@ pub async fn bin_children(
         let (schema, build) = installed_schema(&app_handle);
         app_handle.state::<BinDocuments>().read(document, |open| {
             Ok(open.children(entry, &path, offset, limit, &names, Some(schema.at(build)))?)
+        })
+    })
+    .await
+}
+
+/// Every row of an open document whose name or value holds `query`, in tree order.
+///
+/// `entry`, `0x` and eight hex digits, narrows the search to one object, which is what
+/// an object tab draws. The project bar's `@` scope asks this of the active tab.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_find(
+    document: BinDocumentId,
+    entry: Option<String>,
+    query: String,
+    app_handle: AppHandle,
+) -> IpcResult<BinFindResult> {
+    off_thread(move || {
+        let entry = entry
+            .map(|text| {
+                parse_hash(&text).ok_or_else(|| {
+                    AppError::ValidationFailed(format!("Not an object hash: {text}"))
+                })
+            })
+            .transpose()?;
+        let bin = app_handle.state::<BinHashTablesState>().get();
+        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
+        let cache = CacheNames::new(&bin, &wad);
+        let chunks = app_handle.state::<BinDocuments>().chunks_of(document);
+        let names = ProjectNames::new(&cache, &chunks);
+        let (schema, build) = installed_schema(&app_handle);
+        app_handle.state::<BinDocuments>().read(document, |open| {
+            Ok(open.find(entry, &query, &names, Some(schema.at(build))))
         })
     })
     .await
