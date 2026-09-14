@@ -125,7 +125,13 @@ export function BinTree({
   );
   useNextPages(lines, requestMore);
 
-  const { focused, clearFocus } = useReveal(reveal, roots, expand, scrollToKey);
+  const { focused, clearFocus } = useReveal(reveal, {
+    roots,
+    loaded,
+    expand,
+    requestMore,
+    scrollToKey,
+  });
   const toggle = useCallback(
     (key: string) => {
       clearFocus();

@@ -785,6 +785,8 @@
   "workshop_readme_open_action": "Open README.md",
   "workshop_readme_title": "Readme",
   "workshop_readme_write_action": "Write one",
+  "workshop_references_cancel_action": "Cancel",
+  "workshop_references_cancelled_label": "cancelled, partial",
   "workshop_references_capped_label": "first {shown} of {total}",
   "workshop_references_count_label": [
     {
@@ -812,11 +814,27 @@
   "workshop_references_find_object_action": "Find references",
   "workshop_references_no_match_description": "The install declares nothing that answers it.",
   "workshop_references_no_match_title": "No references",
+  "workshop_references_no_walk_match_description": "No bin of the project or the install holds one.",
   "workshop_references_none_asked_label": "No query",
   "workshop_references_of_class_label": "Objects of",
-  "workshop_references_of_object_label": "Declarations of",
+  "workshop_references_of_embedded_label": "Uses of",
+  "workshop_references_of_object_label": "References to",
   "workshop_references_rerun_action": "Run again",
+  "workshop_references_rows_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} reference",
+        "countPlural=other": "{count} references"
+      }
+    }
+  ],
   "workshop_references_title": "References",
+  "workshop_references_walk_label": "{walked} of {total} bins",
+  "workshop_rows_hint_label": "Type a row's name or a value to find it",
+  "workshop_rows_label": "Rows",
+  "workshop_rows_no_bin_label": "Open a bin or object tab to search its rows",
   "workshop_sidebar_details_action": "Mod details",
   "workshop_sidebar_explorer_title": "Explorer",
   "workshop_sidebar_folder_action": "Open project folder",

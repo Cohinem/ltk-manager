@@ -12,6 +12,7 @@ import {
   useOpenDocumentAs,
   useRecentDocumentIds,
   useRevealInTree,
+  useRevealRow,
   useSelectedLayerName,
 } from "../state";
 import { barPlaceholder } from "./barMode";
@@ -23,6 +24,7 @@ import { useGameRows } from "./useGameRows";
 import { useObjectRows } from "./useObjectRows";
 import { usePaletteSearch } from "./usePaletteSearch";
 import { useProjectCandidates } from "./useProjectCandidates";
+import { useRowRows } from "./useRowRows";
 
 /** The bar's palette under a project: its tabs, its files, its strings, the game and its objects. */
 export function ProjectPalette(props: PaletteBranchProps) {
@@ -33,13 +35,15 @@ export function ProjectPalette(props: PaletteBranchProps) {
   const selectedLayer = useSelectedLayerName();
   const recent = useRecentDocumentIds();
 
-  /* The two sources that cross IPC, so each is asked for on its own and folded
-     in wherever its group sits. */
+  /* The sources that cross IPC, so each is asked for on its own and folded in
+     wherever its group sits. */
   const wantsGame = !parsed.help && (parsed.scope === null || parsed.scope === "game");
   const game = useGameRows(parsed.term, wantsGame);
   const wantsObjects = !parsed.help && (parsed.scope === null || parsed.scope === "objects");
   const objects = useObjectRows(parsed.term, query, wantsObjects);
-  const ranked = useMemo(() => ({ game, objects }), [game, objects]);
+  /* Scoped alone: every keystroke of an unscoped query would search the open tab too. */
+  const rows = useRowRows(parsed.term, !parsed.help && parsed.scope === "rows");
+  const ranked = useMemo(() => ({ game, objects, rows }), [game, objects, rows]);
 
   const project = useProjectContext();
   const labels = useMemo(
@@ -70,7 +74,7 @@ export function ProjectPalette(props: PaletteBranchProps) {
   );
 }
 
-/** A target that opens a tab, which is every one but a command and a prefix. */
+/** A target that opens a tab, which is every one but a command, a prefix and a row. */
 type OpeningTarget = Extract<
   PaletteTarget,
   { kind: "document" | "layerFile" | "gameChunk" | "object" | "layerObject" }
@@ -125,6 +129,7 @@ function useRunTarget(close: () => void) {
   const open = useOpenDocumentAs();
   const openProject = useOpenProject();
   const reveal = useRevealInTree();
+  const revealRow = useRevealRow();
 
   return useCallback(
     ({ target }: PaletteRowData, intent: OpenIntent) => {
@@ -145,6 +150,11 @@ function useRunTarget(close: () => void) {
         return;
       }
 
+      if (target.kind === "row") {
+        revealRow(target.documentId, target.key);
+        return;
+      }
+
       open(documentFor(target, project.path), intent);
 
       /* Only a file of the project has a tree standing open beside the editor
@@ -153,6 +163,6 @@ function useRunTarget(close: () => void) {
         reveal(target.layerName, target.path);
       }
     },
-    [close, open, openProject, project.path, reveal],
+    [close, open, openProject, project.path, reveal, revealRow],
   );
 }

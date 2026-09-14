@@ -1,9 +1,10 @@
-import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
-import { useCallback, useMemo } from "react";
+import { ArrowsClockwiseIcon, XIcon } from "@phosphor-icons/react";
+import { useCallback, useMemo, useState } from "react";
 
-import { Button, EmptyState } from "@/components";
+import { Button, EmptyState, Progress } from "@/components";
 import { m } from "@/i18n";
-import type { ReferenceResult } from "@/lib/tauri";
+import { api, type ReferenceResult, type ReferenceWalkProgress } from "@/lib/tauri";
+import { useTauriEvent } from "@/lib/useTauriEvent";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { twMerge } from "@/utils";
 
@@ -23,6 +24,7 @@ import {
   useShutReferenceFiles,
   useToggleReferenceFile,
 } from "../state";
+import { isWalk } from "./queries";
 import { ReferencesTree } from "./ReferencesTree";
 import { buildReferenceTree, countReferences, type ReferenceFileNode } from "./referenceTree";
 import { useOpenReferenceNode } from "./useOpenReferenceNode";
@@ -39,12 +41,13 @@ export function ReferencesDocument({
 }: EditorDocumentProps<ContentDocumentOf<"references">>) {
   const request = useReferenceRequest();
   const { data, isFetching, refetch } = useReferences(request);
+  const walk = request !== null && isWalk(request.query);
 
   return (
     <div data-ui="ReferencesDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <DocumentToolbar active={active}>
         <Question request={request} />
-        {data?.status === "ready" && <Counts result={data} />}
+        {data?.status === "ready" && <Counts result={data} walk={walk} />}
         {request !== null && (
           <Button
             variant="ghost"
@@ -60,6 +63,7 @@ export function ReferencesDocument({
         )}
       </DocumentToolbar>
 
+      {walk && <WalkProgress walking={isFetching} />}
       {request === null && (
         <EmptyState
           size="sm"
@@ -81,10 +85,14 @@ function Question({ request }: { request: ReferenceRequest | null }) {
       </span>
     );
   }
-  if (request.query.kind === "class") {
+  if (request.query.kind !== "object") {
+    const label =
+      request.query.kind === "class"
+        ? m.workshop_references_of_class_label()
+        : m.workshop_references_of_embedded_label();
     return (
       <span className="flex min-w-0 items-center gap-2 text-meta select-none">
-        <span className="shrink-0 text-surface-400">{m.workshop_references_of_class_label()}</span>
+        <span className="shrink-0 text-surface-400">{label}</span>
         <ClassCard
           classHash={request.query.classHash}
           name={request.label === request.query.classHash ? null : request.label}
@@ -100,13 +108,17 @@ function Question({ request }: { request: ReferenceRequest | null }) {
   );
 }
 
-/** How much the answer holds: the objects, the files, and what the cap left out. */
-function Counts({ result }: { result: ReferenceResult }) {
+/** How much the answer holds: the rows, the files, what the cap left out, and a cancel's mark. */
+function Counts({ result, walk }: { result: ReferenceResult; walk: boolean }) {
   const shown = countReferences(result.groups);
+  /* A walk's row is a place inside an object, and one object can hold several. */
+  const count = walk
+    ? m.workshop_references_rows_label({ count: shown })
+    : m.workshop_references_count_label({ count: shown });
   return (
     <span className="flex shrink-0 items-center gap-2 text-meta text-surface-400 select-none">
       <span aria-hidden>·</span>
-      <span>{m.workshop_references_count_label({ count: shown })}</span>
+      <span>{count}</span>
       <span aria-hidden>·</span>
       <span>{m.workshop_references_files_label({ count: result.groups.length })}</span>
       {result.total > shown && (
@@ -120,7 +132,64 @@ function Counts({ result }: { result: ReferenceResult }) {
           </span>
         </>
       )}
+      {result.cancelled && (
+        <>
+          <span aria-hidden>·</span>
+          <span className="text-warning-text">{m.workshop_references_cancelled_label()}</span>
+        </>
+      )}
     </span>
+  );
+}
+
+/**
+ * The band a walk draws while it reads: how far it is, what it found, and its cancel.
+ *
+ * Drawn from the first report of a walk to its answer, so a poll of the index waiting on
+ * its build never flashes it.
+ */
+function WalkProgress({ walking }: { walking: boolean }) {
+  const [progress, setProgress] = useState<ReferenceWalkProgress | null>(null);
+  useTauriEvent<ReferenceWalkProgress>(walking ? "reference-walk-progress" : null, setProgress);
+
+  /* The last walk's figures are dropped as it answers, so the next walk starts from none. */
+  const [wasWalking, setWasWalking] = useState(walking);
+  if (wasWalking !== walking) {
+    setWasWalking(walking);
+    if (!walking) setProgress(null);
+  }
+
+  if (!walking || progress === null) return null;
+
+  return (
+    <div
+      data-ui="ReferencesDocument:walk"
+      className="flex shrink-0 items-center gap-3 border-b border-surface-600 px-3 py-1.5 text-meta text-surface-400 select-none"
+    >
+      <Progress.Root value={progress.walked} max={Math.max(progress.total, 1)} className="flex-1">
+        <Progress.Track size="sm">
+          <Progress.Indicator />
+        </Progress.Track>
+      </Progress.Root>
+      <span className="shrink-0 tabular-nums">
+        {m.workshop_references_walk_label({
+          walked: progress.walked.toLocaleString(),
+          total: progress.total.toLocaleString(),
+        })}
+      </span>
+      <span aria-hidden>·</span>
+      <span className="shrink-0 tabular-nums">
+        {m.workshop_references_rows_label({ count: progress.hits })}
+      </span>
+      <Button
+        variant="ghost"
+        size="xs"
+        left={<XIcon weight="bold" className="h-4 w-4" />}
+        onClick={() => void api.objects.cancelWalk()}
+      >
+        {m.workshop_references_cancel_action()}
+      </Button>
+    </div>
   );
 }
 
@@ -146,11 +215,14 @@ function Answer({ request }: { request: ReferenceRequest }) {
     return <ObjectIndexFailedState error={data.error} onRetry={retry} />;
   if (data.status !== "ready") return <ObjectIndexBuildingState />;
   if (files.length === 0) {
+    const description = isWalk(request.query)
+      ? m.workshop_references_no_walk_match_description()
+      : m.workshop_references_no_match_description();
     return (
       <EmptyState
         size="sm"
         title={m.workshop_references_no_match_title()}
-        description={m.workshop_references_no_match_description()}
+        description={description}
       />
     );
   }

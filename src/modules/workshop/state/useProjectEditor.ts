@@ -15,7 +15,7 @@ import {
   type HistoryEntry,
   type IgnoreLineRevealRequest,
   NO_COLLAPSED_DIRS,
-  type ObjectRevealRequest,
+  type RowRevealRequest,
   type RevealRequest,
   type StringKeyAimRequest,
   useWorkshopEditorStore,
@@ -457,34 +457,34 @@ export function useRevealInTree() {
 }
 
 /**
- * The pending object request aimed at `documentId`, or null.
+ * The pending row request aimed at `documentId`, or null.
  *
- * Null for a bin nobody addressed. A request meant for another tab re-renders no other
+ * Null for a tab nobody addressed. A request meant for another tab re-renders no other
  * bin.
  */
-export function useObjectRevealRequest(documentId: string): ObjectRevealRequest | null {
+export function useRowRevealRequest(documentId: string): RowRevealRequest | null {
   const projectPath = useProjectPath();
   return useWorkshopEditorStore((s) => {
-    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).revealObject;
+    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).revealRow;
     if (!request || request.documentId !== documentId) return null;
     return request;
   });
 }
 
-/** Drop the object request with `token`. The bin it addressed has answered it. */
-export function useSettleObjectReveal() {
+/** Drop the row request with `token`. The tab it addressed has answered it. */
+export function useSettleRowReveal() {
   const projectPath = useProjectPath();
-  const settle = useWorkshopEditorStore((s) => s.settleObjectReveal);
+  const settle = useWorkshopEditorStore((s) => s.settleRowReveal);
   return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
 }
 
-/** Ask the open bin `documentId` to expand `objectHash` and scroll to it. */
-export function useRevealObject() {
+/** Ask the open tab `documentId` to expand down to the row `key` and scroll to it. */
+export function useRevealRow() {
   const projectPath = useProjectPath();
-  const revealObject = useWorkshopEditorStore((s) => s.revealObject);
+  const revealRow = useWorkshopEditorStore((s) => s.revealRow);
   return useCallback(
-    (documentId: string, objectHash: string) => revealObject(projectPath, documentId, objectHash),
-    [revealObject, projectPath],
+    (documentId: string, key: string) => revealRow(projectPath, documentId, key),
+    [revealRow, projectPath],
   );
 }
 

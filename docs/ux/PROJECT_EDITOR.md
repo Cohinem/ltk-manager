@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links     |
 | 2026-09-12 | Fill the primary side panel from a rail of views                        |
 | 2026-09-12 | Write a project's readme beside its rendered half                       |
 | 2026-09-12 | Report what the ignore rules left out of a package                      |
@@ -14,7 +15,6 @@
 | 2026-09-10 | Read a game explorer as a details list, over one surface with the grid  |
 | 2026-09-10 | Walk an explorer's directories with the navigation arrows               |
 | 2026-09-10 | Step a tile's name with its size, and gather the bar behind one control |
-| 2026-09-09 | Pin a tab to the front of its strip, out of reach of a batch close      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -76,7 +76,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
 | Object tab             | Available   | One declaration as a document. ADR-0028                            |
 | Objects browser        | Available   | Every object of the install, one tree over its paths               |
-| References document    | In progress | A class's objects from the index. The walk for the rest            |
+| References document    | Available   | A class's objects from the index, the rest from a walk             |
 | Mesh preview           | Planned     | A model in a small viewport                                        |
 | Modified time          | Planned     | Needs a time field in the content scan                             |
 | Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |
@@ -335,13 +335,13 @@ A user narrows the box to one source, and there are two ways to ask.
   does the same for the whole group
 - A prefix typed at the start of the query scopes without a highlight
 
-| Prefix | Scope                                                                 |
-| ------ | --------------------------------------------------------------------- |
-| `>`    | Commands                                                              |
-| `#`    | The string override keys of the project                               |
-| `$`    | The bin objects of the install                                        |
-| `@`    | Inside the active document, so a tree's directories or a table's keys |
-| `?`    | A list of these prefixes                                              |
+| Prefix | Scope                                                                    |
+| ------ | ------------------------------------------------------------------------ |
+| `>`    | Commands                                                                 |
+| `#`    | The string override keys of the project                                  |
+| `$`    | The bin objects of the install                                           |
+| `@`    | Inside the active document: a bin or object tab's rows, by name or value |
+| `?`    | A list of these prefixes                                                 |
 
 A scope shows as a chip before the caret. `Backspace` on an empty query removes it. Game has no
 prefix, because it is in the default result set and `Tab` reaches it.
@@ -3282,22 +3282,43 @@ focus its row.
 ### The References document
 
 One document, keyed the way Problems is. A new query replaces the last, and the query sits in
-the header with a re-run control. Hits group by declaring file, one row per object. A link
-reference carries the property path and opens the object tab scrolled to that row.
+the header with a re-run control. Hits group by declaring file. A row of the index is one
+object. A row of the walk is one place inside an object, its property path beside the object's
+name, and it opens the object tab expanded down to that row.
 
-| Query                             | Answered from       |
-| --------------------------------- | ------------------- |
-| Every object of a class           | The index           |
-| Every use of an embedded class    | A walk of every bin |
-| Every object linking to an object | The same walk       |
+| Query                             | Asked from                                  | Answered from       |
+| --------------------------------- | ------------------------------------------- | ------------------- |
+| Every object of a class           | An object row, an object tab's kebab        | The index           |
+| Every use of an embedded class    | An `embed` or `pointer` row                 | A walk of every bin |
+| Every object linking to an object | Find references on every menu an object has | The same walk       |
 
-The walk covers the install and the project's layers. It runs on demand, with progress and a
-cancel in the tab. The walk is measured before any reverse index is built, and the measurement
-decides between a walk per query and a second index behind the Objects switch, the way the
-cache was decided.
+The walk reads the project's layers first, then the install's declaring files in archive
+order, one job per archive on the bounded pool the problems pass uses. A `link` and a `hash`
+value match, map keys included. It runs on demand. A band under the header draws the bins read
+and the references found, with a Cancel that stops the walk before its next bin, and a
+cancelled walk keeps what it found and marks the header partial. The declaring files of an
+object are no query of their own, because the object tab's `n files` chip lists them.
 
-Find all references sits on every [class card](BIN_EDITOR.md#the-class-card), and on every menu
-an object has.
+#### The walk, measured
+
+Read on 2026-09-14 from the measurement test in `src-tauri`, on a release build over a live
+install, on 8 workers, straight after the index build and so on a warm file cache.
+
+| Measurement                            | Value                                      |
+| -------------------------------------- | ------------------------------------------ |
+| Bins walked                            | 43,593                                     |
+| Incoming links of one character record | 1,399ms, 51 references in 25 files         |
+| Uses of `VfxEmitterDefinitionData`     | 1,513ms, 1,820,309 references, 20,000 kept |
+| The walk, on a cold file cache         | Not measured                               |
+
+**The walk stays a walk.** A second index behind the Objects switch saves a second and a half
+per query, and it holds every link and every embedded class of the install, rebuilt on a game
+patch and on every layer save. A query is a menu item asked once, with its progress and its
+cancel on screen, so the second index is not built. The decision is open again if a cold file
+cache puts the walk past ten seconds.
+
+Find all references sits on the menu of every row that carries a
+[class card](BIN_EDITOR.md#the-class-card), and on every menu an object has.
 
 ### Ideas
 

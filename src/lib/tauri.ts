@@ -91,6 +91,8 @@ export type {
   BinDocumentHandle,
   BinDocumentId,
   BinFileKind,
+  BinFindHit,
+  BinFindResult,
   BinHeader,
   BinObjectHeader,
   BinRow,
@@ -131,6 +133,7 @@ export type {
   ObjectSearchResult,
   ReferenceGroup,
   ReferenceHit,
+  ReferenceProperty,
   ReferenceQuery,
   ReferenceResult,
 } from "@/lib/bindings.gen";
@@ -452,6 +455,8 @@ export const api = {
     ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
     read: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
       commands.binRead(document, entry, [...paths]).then(toResult),
+    find: (document: BinDocumentId, entry: string | null, query: string) =>
+      commands.binFind(document, entry, query).then(toResult),
     patch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) =>
       commands.binPatch(document, entry, path, value).then(toResult),
     save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
@@ -498,7 +503,9 @@ export const api = {
     dir: (prefix: string) => commands.objectDir(prefix).then(toResult),
     find: (pattern: string, regex: boolean, cls: string | null) =>
       commands.findObjects(pattern, regex, cls).then(toResult),
-    references: (query: ReferenceQuery) => commands.findReferences(query).then(toResult),
+    references: (query: ReferenceQuery, project: string | null) =>
+      commands.findReferences(query, project).then(toResult),
+    cancelWalk: () => commands.cancelReferenceWalk().then(toResult),
     locateGameFiles: (paths: readonly string[]) =>
       commands.locateGameFiles([...paths]).then(toResult),
   },

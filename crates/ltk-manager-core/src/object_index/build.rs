@@ -22,7 +22,7 @@ use crate::game_wads::{GameArchives, chunk_head};
 use super::{Declarations, DeclaringFile, Names, ObjectIndex, ObjectIndexStats, Row};
 
 /// The magic a `PTCH` opens with, which the streaming reader refuses.
-const PATCH_MAGIC: [u8; 4] = *b"PTCH";
+pub(super) const PATCH_MAGIC: [u8; 4] = *b"PTCH";
 
 /// One archive's share of the build: its named `.bin` chunks, and the chunks
 /// a bare name or no name leaves to sniff.

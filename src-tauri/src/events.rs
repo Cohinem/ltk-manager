@@ -41,6 +41,7 @@ impl EventSink for TauriEventSink {
             BackendEvent::SessionEnded(session) => self.app_handle.emit(name, session),
             BackendEvent::HashtableSyncProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::ExtractProgress(progress) => self.app_handle.emit(name, progress),
+            BackendEvent::ReferenceWalkProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LinkedBinsUpdated
             | BackendEvent::ChecksumMismatchesUpdated
             | BackendEvent::WadReportsUpdated

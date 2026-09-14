@@ -111,7 +111,10 @@ interface ObjectRowProps extends ReferencesTreeRowProps {
   node: ReferenceObjectNode;
 }
 
-/** One object of a group: its mark, its last segment, the path above it, and its class. */
+/**
+ * One object of a group: its mark, its last segment, the row a walk found in it, the path
+ * above it, and its class.
+ */
 function ObjectRow({
   node,
   depth,
@@ -139,12 +142,15 @@ function ObjectRow({
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
       className={twMerge("cursor-pointer", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
-      title={node.path}
+      title={node.property === null ? node.path : `${node.path}:${node.property.label}`}
     >
       <IndentRails depth={depth} />
       <CaretSlot />
       <ObjectGlyph objectClass={node.class} className="h-3.5 w-3.5 shrink-0 text-surface-400" />
       <span className={twMerge("truncate", node.unnamed && "text-surface-300")}>{node.name}</span>
+      {node.property !== null && (
+        <span className="min-w-0 shrink truncate text-surface-300">{node.property.label}</span>
+      )}
       {node.prefix.length > 0 && (
         <span className="min-w-0 shrink truncate text-[0.625rem] text-surface-400">
           {node.prefix}

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { REFERENCES_DOCUMENT_ID, referencesDocument } from "../../documents/contentDocument";
-import { classReferences, objectReferences } from "../useFindReferences";
+import { classReferences, embeddedReferences, objectReferences } from "../useFindReferences";
 
 describe("referencesDocument", () => {
   /* One project answers one question at a time, so a second Find all references
@@ -24,6 +24,15 @@ describe("classReferences", () => {
 
   it("reads by the hash where no table names the class", () => {
     expect(classReferences("0x9b67e9f6", null).label).toBe("0x9b67e9f6");
+  });
+});
+
+describe("embeddedReferences", () => {
+  it("asks for every value of the class and reads by its name", () => {
+    expect(embeddedReferences("0x3d1f0c2a", "VfxEmitterDefinitionData")).toEqual({
+      query: { kind: "embedded", classHash: "0x3d1f0c2a" },
+      label: "VfxEmitterDefinitionData",
+    });
   });
 });
 

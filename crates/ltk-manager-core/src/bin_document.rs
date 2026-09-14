@@ -21,11 +21,13 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 mod edit;
+mod find;
 mod items;
 mod properties;
 pub(crate) mod resolve;
 
 pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
+pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
 pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
 

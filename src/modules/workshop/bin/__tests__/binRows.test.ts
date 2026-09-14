@@ -16,6 +16,7 @@ import {
   nameColumns,
   PAGE_SIZE,
   pagesWanted,
+  revealPage,
   rowKey,
   toggled,
 } from "../binRows";
@@ -360,5 +361,57 @@ describe("nameColumns", () => {
     const bare = nameColumns([line(SIZE)], noTag);
 
     expect(nameColumns([line(SIZE), line(OBJECT), line(element, 4)], noTag)).toBe(bare);
+  });
+});
+
+describe("revealPage", () => {
+  const LIST = `${ENTRY}:0000000b`;
+  const ancestors = [`${ENTRY}:`, LIST, `${LIST}[700]`];
+  const items = (count: number) => Array.from({ length: count }, (_, index) => ITEM(index));
+  const answered =
+    (loaded: Record<string, LoadedChildren>): ((key: string) => LoadedChildren | undefined) =>
+    (key) =>
+      loaded[key];
+
+  it("asks the level whose answered rows end before the next key down for its next page", () => {
+    const childrenOf = answered({
+      [`${ENTRY}:`]: { rows: [SIZE, ITEMS], total: 2, pending: false },
+      [LIST]: { rows: items(PAGE_SIZE), total: 900, pending: false },
+    });
+    expect(revealPage(ancestors, childrenOf)).toEqual({ parent: LIST, loaded: PAGE_SIZE });
+  });
+
+  it("owes nothing once every level holds its next key", () => {
+    const childrenOf = answered({
+      [`${ENTRY}:`]: { rows: [SIZE, ITEMS], total: 2, pending: false },
+      [LIST]: { rows: items(900), total: 900, pending: false },
+    });
+    expect(revealPage(ancestors, childrenOf)).toBeNull();
+  });
+
+  it("waits on a level that has not answered or whose next page is on its way", () => {
+    expect(
+      revealPage(
+        ancestors,
+        answered({ [`${ENTRY}:`]: { rows: [SIZE, ITEMS], total: 2, pending: false } }),
+      ),
+    ).toBeNull();
+    expect(
+      revealPage(
+        ancestors,
+        answered({
+          [`${ENTRY}:`]: { rows: [SIZE, ITEMS], total: 2, pending: false },
+          [LIST]: { rows: items(PAGE_SIZE), total: 900, pending: true },
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("gives up on a key no page of its level holds", () => {
+    const childrenOf = answered({
+      [`${ENTRY}:`]: { rows: [SIZE, ITEMS], total: 2, pending: false },
+      [LIST]: { rows: items(3), total: 3, pending: false },
+    });
+    expect(revealPage(ancestors, childrenOf)).toBeNull();
   });
 });

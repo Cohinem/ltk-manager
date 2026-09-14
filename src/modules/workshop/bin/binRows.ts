@@ -132,6 +132,29 @@ export function ancestorKeys(key: string): string[] {
   return keys;
 }
 
+/**
+ * The page a reveal waits on: the open level whose answered rows end before the next key
+ * down, and how many rows it holds.
+ *
+ * `ancestors` are the keys down to the row, outermost first. Null while a level has not
+ * answered, while its next page is on its way, and once every level holds its next key.
+ */
+export function revealPage(
+  ancestors: readonly string[],
+  childrenOf: (key: string) => LoadedChildren | undefined,
+): { readonly parent: string; readonly loaded: number } | null {
+  for (let at = 0; at + 1 < ancestors.length; at += 1) {
+    const parent = ancestors[at]!;
+    const children = childrenOf(parent);
+    if (children === undefined) return null;
+    const next = ancestors[at + 1];
+    if (children.rows.some((row) => rowKey(row) === next)) continue;
+    if (children.pending || children.error || children.rows.length >= children.total) return null;
+    return { parent, loaded: children.rows.length };
+  }
+  return null;
+}
+
 /** Where the segment starting at `at` ends, or null for a path this cannot read. */
 function segmentEnd(path: string, at: number): number | null {
   if (path[at] === "[") {

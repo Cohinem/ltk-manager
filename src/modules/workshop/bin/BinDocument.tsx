@@ -11,9 +11,10 @@ import type { OpenIntent } from "../palette/types";
 import { BinPreview } from "../preview/BinPreview";
 import {
   useAimCurve,
-  useObjectRevealRequest,
+  useLendOpenBin,
   useOpenDocumentAs,
-  useSettleObjectReveal,
+  useRowRevealRequest,
+  useSettleRowReveal,
 } from "../state";
 import { BinEditState } from "./BinEditState";
 import { objectKey, rowKey } from "./binRows";
@@ -98,6 +99,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
 
   const narrow = useNarrowToolbar();
   const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
+  useLendOpenBin(documentId, handle.document, null);
 
   /* A bin holding one object opens it expanded. */
   const initialExpanded = useMemo(() => {
@@ -106,13 +108,13 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   }, [roots]);
 
   /* An answered request is settled. A later open of the same file starts clean. */
-  const request = useObjectRevealRequest(documentId);
-  const settle = useSettleObjectReveal();
+  const request = useRowRevealRequest(documentId);
+  const settle = useSettleRowReveal();
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
   useEffect(() => {
     if (request === null) return;
     settle(request.token);
-    setReveal({ key: objectKey(request.objectHash), token: request.token });
+    setReveal({ key: request.key, token: request.token });
   }, [request, settle]);
 
   const open = useOpenDocumentAs();

@@ -9,6 +9,8 @@ use ltk_meta::property::NoMeta;
 use ltk_meta::{Bin, BinOverride, PropertyPatch};
 use std::collections::HashMap;
 
+mod find;
+
 fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }

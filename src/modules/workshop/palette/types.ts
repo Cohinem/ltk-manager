@@ -19,7 +19,7 @@ export type LocalSourceId =
  *
  * `PALETTE_SOURCES` flags each of these too, and the compiler holds the two to one answer.
  */
-export type BackendRankedSourceId = "game" | "objects";
+export type BackendRankedSourceId = "game" | "objects" | "rows";
 
 /** Where a palette row came from, which is also the group it lands in. */
 export type PaletteSourceId = LocalSourceId | BackendRankedSourceId;
@@ -92,6 +92,13 @@ export type PaletteTarget =
       readonly objectClass?: string;
     }
   | { readonly kind: "document"; readonly document: ContentDocument }
+  | {
+      /** A row of the tab the bar was opened over, which the tab expands down to and scrolls to. */
+      readonly kind: "row";
+      readonly documentId: string;
+      /** The row's key: its object's hash, a colon, and its wire path. */
+      readonly key: string;
+    }
   | { readonly kind: "command"; readonly command: ProjectCommand }
   | { readonly kind: "prefix"; readonly prefix: string }
   | {

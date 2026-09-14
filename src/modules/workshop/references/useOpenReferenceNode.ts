@@ -1,19 +1,22 @@
 import { useCallback } from "react";
 
+import { rowKey } from "../bin/binRows";
 import { objectDocument } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
-import { useOpenDocumentAs, usePromoteDocument } from "../state";
+import { useOpenDocumentAs, usePromoteDocument, useRevealRow } from "../state";
 import type { ReferenceObjectNode } from "./referenceTree";
 
 /**
  * Open the object tab a row stands for: its object, in the file its group is.
  *
- * `permanent` pins the tab the way a double click asks, which promotes a preview
- * already open.
+ * A row a walk found opens the tab scrolled to the property holding the reference.
+ * `permanent` pins the tab the way a double click asks, which promotes a preview already
+ * open.
  */
 export function useOpenReferenceNode() {
   const open = useOpenDocumentAs();
   const promote = usePromoteDocument();
+  const revealRow = useRevealRow();
 
   return useCallback(
     (node: ReferenceObjectNode, intent: OpenIntent) => {
@@ -26,7 +29,10 @@ export function useOpenReferenceNode() {
       );
       open(document, intent);
       if (intent === "permanent") promote(document.id);
+      if (node.property !== null) {
+        revealRow(document.id, rowKey({ entry: node.objectHash, path: node.property.path }));
+      }
     },
-    [open, promote],
+    [open, promote, revealRow],
   );
 }

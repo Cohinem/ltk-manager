@@ -16,6 +16,7 @@ function hit(path: string, cls: string | null = "SkinCharacterDataProperties"): 
     path,
     classHash: "0x9b67e9f6",
     class: cls ?? "0x9b67e9f6",
+    property: null,
   };
 }
 
@@ -62,6 +63,18 @@ describe("buildReferenceTree", () => {
     expect(new Set(ids).size).toBe(2);
   });
 
+  it("keys a walk's rows on their property, so two rows of one object are two rows", () => {
+    const skin = hit("characters/aatrox/skins/skin0");
+    const rows = [
+      { ...skin, property: { path: "0000000a", label: "resolver" } },
+      { ...skin, property: { path: "0000000b[2]", label: "links[2]" } },
+    ];
+    const children = buildReferenceTree([group("a.bin", rows)])[0]!.children;
+
+    expect(new Set(children.map((object) => object.id)).size).toBe(2);
+    expect(children[1]!.property).toEqual({ path: "0000000b[2]", label: "links[2]" });
+  });
+
   it("carries the declaring file down to the row that opens it", () => {
     const object = buildReferenceTree(GROUPS)[1]!.children[0]!;
 
@@ -84,6 +97,7 @@ describe("buildReferenceTree", () => {
       path: "0x0000dead",
       classHash: "0x9b67e9f6",
       class: "SkinCharacterDataProperties",
+      property: null,
     };
     const object = buildReferenceTree([group("a.bin", [unnamed])])[0]!.children[0]!;
 

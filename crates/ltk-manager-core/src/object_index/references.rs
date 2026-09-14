@@ -81,6 +81,7 @@ impl ReferenceScan {
                 .collect(),
             total: self.total,
             superseded: self.overtaken,
+            cancelled: false,
         }
     }
 }
@@ -122,21 +123,6 @@ impl ObjectIndex {
         scan.finish(self)
     }
 
-    /// Every declaration of `object`, grouped by the file that declares it.
-    ///
-    /// One file is one group of one object, the shape
-    /// [`class_references`](Self::class_references) answers in. Nothing declaring
-    /// `object` is no group at all.
-    #[must_use]
-    pub fn object_references(&self, object: BinHash) -> ReferenceResult {
-        let rows = self.declared.rows_of(object);
-        ReferenceResult {
-            groups: rows.iter().map(|at| self.reference_group(&[*at])).collect(),
-            total: rows.len() as u32,
-            superseded: false,
-        }
-    }
-
     /// The rows of one declaring file as a group, its objects in natural path order.
     ///
     /// # Panics
@@ -167,6 +153,7 @@ impl ObjectIndex {
             path: self.object_name(row.object),
             class_hash: hex(row.class),
             class: self.class_name(row.class),
+            property: None,
         }
     }
 }

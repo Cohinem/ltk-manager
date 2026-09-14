@@ -26,6 +26,9 @@ pub use crate::mods::LayoutMigrationReport;
 /// As above, for what a mod health sweep concludes.
 pub use crate::mods::HealthSweepReport;
 
+/// As above, for how far a walk of the bins for references has read.
+pub use crate::object_index::ReferenceWalkProgress;
+
 /// Receives notifications from domain operations.
 ///
 /// Implementations must not block: sinks are called from inside index locks and
@@ -416,6 +419,8 @@ declare_events! {
     HashtableSyncProgress(HashtableSyncProgress) => "hashtable-sync-progress",
     /// An extract of game chunks to disk advanced. Throttled by its emitter.
     ExtractProgress(ExtractProgress) => "extract-progress",
+    /// A walk of the bins for references advanced. Throttled by its emitter.
+    ReferenceWalkProgress(ReferenceWalkProgress) => "reference-walk-progress",
 }
 
 #[cfg(test)]

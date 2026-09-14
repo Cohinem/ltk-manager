@@ -40,6 +40,7 @@ const OBJECT: ReferenceObjectNode = {
   class: "SkinCharacterDataProperties",
   asset: { kind: "gameChunk", wad: "Champions/Aatrox.wad.client", pathHash: "00aa" },
   file: "data/characters/aatrox/skins/skin0.bin",
+  property: null,
 };
 
 const FILE: ReferenceFileNode = {
@@ -106,6 +107,14 @@ describe("ReferencesTreeRow", () => {
     expect(row).toHaveTextContent("SkinCharacterDataProperties");
     /* The group above the row is the file, so no row repeats it. */
     expect(row).not.toHaveTextContent("skin0.bin");
+  });
+
+  it("draws a walk's row with the property path that holds the reference", () => {
+    renderRow({ ...OBJECT, property: { path: "0000000a[2]", label: "mLinks[2]" } });
+
+    const row = screen.getByRole("treeitem");
+    expect(row).toHaveTextContent("mLinks[2]");
+    expect(row).toHaveAttribute("title", "characters/aatrox/skins/skin0:mLinks[2]");
   });
 
   it("opens an object from its body, and beside it with Ctrl held", async () => {

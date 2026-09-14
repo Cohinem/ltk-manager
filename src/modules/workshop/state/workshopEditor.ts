@@ -47,12 +47,12 @@ export interface RevealRequest {
   readonly token: number;
 }
 
-/** The palette's request that one open bin scroll to an object it declares. */
-export interface ObjectRevealRequest {
+/** A request that one open bin or object tab expand down to a row and scroll to it. */
+export interface RowRevealRequest {
   readonly documentId: string;
-  /** `0x` and eight hex digits. */
-  readonly objectHash: string;
-  /** Bumped per request. A second request for the same object is a second scroll. */
+  /** The row's key: its object's hash, a colon, and its wire path, empty for the object. */
+  readonly key: string;
+  /** Bumped per request. A second request for the same row is a second scroll. */
   readonly token: number;
 }
 
@@ -170,8 +170,8 @@ export interface ProjectEditor {
   collapsed: Record<string, ReadonlySet<string>>;
   /** The pending scroll request, which at most one layer's tree answers. */
   reveal: RevealRequest | null;
-  /** The pending object request, which at most one open bin answers. */
-  revealObject: ObjectRevealRequest | null;
+  /** The pending row request, which at most one open bin or object tab answers. */
+  revealRow: RowRevealRequest | null;
   /** The pending line request, which at most one open rules document answers. */
   revealIgnoreLine: IgnoreLineRevealRequest | null;
   /** The pending curve request, which at most one open object tab answers. */
@@ -312,9 +312,9 @@ interface WorkshopEditorStore {
   selectLayer: (projectPath: string, layerName: string) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
   reveal: (projectPath: string, layerName: string, path: string) => void;
-  revealObject: (projectPath: string, documentId: string, objectHash: string) => void;
-  /** Drops the object request with `token`. A settled request reaches no later open. */
-  settleObjectReveal: (projectPath: string, token: number) => void;
+  revealRow: (projectPath: string, documentId: string, key: string) => void;
+  /** Drops the row request with `token`. A settled request reaches no later open. */
+  settleRowReveal: (projectPath: string, token: number) => void;
   revealIgnoreLine: (projectPath: string, documentId: string, line: number) => void;
   /** Drops the line request with `token`. A settled request reaches no later open. */
   settleIgnoreLineReveal: (projectPath: string, token: number) => void;
@@ -347,7 +347,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   pinned: [],
   collapsed: {},
   reveal: null,
-  revealObject: null,
+  revealRow: null,
   revealIgnoreLine: null,
   aimCurve: null,
   aimStringKey: null,
@@ -1287,24 +1287,24 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
         })) ?? state,
     ),
 
-  revealObject: (projectPath, documentId, objectHash) =>
+  revealRow: (projectPath, documentId, key) =>
     set(
       (state) =>
         updateProject(state, projectPath, (editor) => ({
           ...editor,
-          revealObject: {
+          revealRow: {
             documentId,
-            objectHash,
-            token: (editor.revealObject?.token ?? 0) + 1,
+            key,
+            token: (editor.revealRow?.token ?? 0) + 1,
           },
         })) ?? state,
     ),
 
-  settleObjectReveal: (projectPath, token) =>
+  settleRowReveal: (projectPath, token) =>
     set(
       (state) =>
         updateProject(state, projectPath, (editor) =>
-          editor.revealObject?.token === token ? { ...editor, revealObject: null } : editor,
+          editor.revealRow?.token === token ? { ...editor, revealRow: null } : editor,
         ) ?? state,
     ),
 

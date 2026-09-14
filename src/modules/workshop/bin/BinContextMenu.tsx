@@ -20,6 +20,7 @@ import { useRevealInObjects } from "../objectsBrowser/useRevealInObjects";
 import type { OpenIntent } from "../palette/types";
 import {
   classReferences,
+  embeddedReferences,
   objectReferences,
   useFindReferences,
 } from "../references/useFindReferences";
@@ -134,7 +135,13 @@ export function BinContextMenu({
           {struct !== null && (
             <ContextMenu.Item
               icon={<MagnifyingGlassIcon />}
-              onClick={() => findReferences(classReferences(struct.classHash, struct.class))}
+              onClick={() =>
+                findReferences(
+                  object
+                    ? classReferences(struct.classHash, struct.class)
+                    : embeddedReferences(struct.classHash, struct.class),
+                )
+              }
             >
               {m.workshop_references_find_class_action()}
             </ContextMenu.Item>

@@ -5,7 +5,7 @@ import { referenceQueries } from "./queries";
 
 export { referenceKeys } from "./queries";
 
-/** What one question asks the index for, in the slot the index is in. */
+/** What one question asks the index or the walk for, in the slot the index is in. */
 export function useReferences(request: ReferenceRequest | null) {
-  return useQuery(referenceQueries.forQuery(request?.query ?? null));
+  return useQuery(referenceQueries.forRequest(request));
 }
