@@ -70,7 +70,7 @@ fn main() {
     };
 
     if json {
-        let document = BinDocument::parse(&bytes).expect("parse bin");
+        let document = BinDocument::parse(bytes).expect("parse bin");
         let system = resolve_system(&document, wanted, &(), &()).expect("resolve system");
         println!("{}", serde_json::to_string(&system).expect("serialize"));
         return;
@@ -120,7 +120,7 @@ fn bin_holding<S: std::io::Read + std::io::Seek>(
         if !(bytes.starts_with(b"PROP") || bytes.starts_with(b"PTCH")) {
             continue;
         }
-        let Ok(document) = BinDocument::parse(&bytes) else {
+        let Ok(document) = BinDocument::parse(&*bytes) else {
             continue;
         };
         if document.object_at(wanted).is_some() {
@@ -144,7 +144,7 @@ fn search<S: std::io::Read + std::io::Seek>(wad: &mut ltk_wad::Wad<S>, needle: &
         if !(bytes.starts_with(b"PROP") || bytes.starts_with(b"PTCH")) {
             continue;
         }
-        let Ok(document) = BinDocument::parse(&bytes) else {
+        let Ok(document) = BinDocument::parse(bytes) else {
             continue;
         };
         for entry in document.entries() {

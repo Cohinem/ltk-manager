@@ -15,10 +15,12 @@ import {
   useOpenDocumentAs,
   useSettleObjectReveal,
 } from "../state";
+import { BinEditState } from "./BinEditState";
 import { objectKey, rowKey } from "./binRows";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { type CurveDock, CurveDockContext } from "./curveTarget";
-import { useBinDocument } from "./useBinDocument";
+import { useBinDocument, useFileRoots } from "./useBinDocument";
+import { useUndoKeys } from "./useUndoKeys";
 
 interface BinDocumentProps {
   /** The editor's id for the tab, which a reveal request names. */
@@ -91,10 +93,11 @@ interface OpenBinProps {
 }
 
 function OpenBin({ documentId, asset, name, file, handle, active, actions, reopen }: OpenBinProps) {
-  const roots = handle.rows;
+  const roots = useFileRoots(handle);
   const rootByKey = useMemo(() => new Map(roots.map((row) => [rowKey(row), row])), [roots]);
 
   const narrow = useNarrowToolbar();
+  const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
 
   /* A bin holding one object opens it expanded. */
   const initialExpanded = useMemo(() => {
@@ -148,9 +151,21 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   );
 
   return (
-    <div data-ui="BinDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <div
+      data-ui="BinDocument"
+      /* Focusable, so a click anywhere in the tab is where its undo keys land. */
+      tabIndex={-1}
+      className="flex min-h-0 flex-1 flex-col bg-surface-950 outline-none"
+      onKeyDown={undoKeys}
+    >
       <DocumentToolbar active={active}>
         <BinFacts header={handle.header} narrow={narrow} />
+        <BinEditState
+          document={handle.document}
+          asset={asset}
+          readOnly={handle.readOnly}
+          onReload={reopen}
+        />
         {actions}
       </DocumentToolbar>
       <CurveDockContext value={dock}>
@@ -165,6 +180,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
           objectName={(entry) => rootByKey.get(objectKey(entry))?.name ?? entry}
           onNotOpen={reopen}
           onOpenObject={openObject}
+          editable={handle.readOnly === null}
         />
       </CurveDockContext>
     </div>

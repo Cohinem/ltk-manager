@@ -32,7 +32,7 @@ const PROJECT: WorkshopProject = {
 };
 
 function located(path: string): GameFileEntry {
-  return { pathHash: "00cc", path, sizeBytes: 12n, wad: "Champions/Aatrox.wad.client" };
+  return { pathHash: "00cc", path, sizeBytes: 12, wad: "Champions/Aatrox.wad.client" };
 }
 
 function targets(

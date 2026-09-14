@@ -1,6 +1,7 @@
 # ADR-0026: A saved bin is written from the tree the backend holds
 
-- **Status:** Accepted (2026-09-05)
+- **Status:** Accepted (2026-09-05). The save sentence is superseded by
+  [ADR-0040](0040-a-bin-save-writes-the-edited-objects-over-the-bytes-it-opened.md)
 - **Date:** 2026-09-05
 - **Crates:** `ltk-manager-core`, `src-tauri`
 - **Related:** [ADR-0027](0027-a-node-is-addressed-by-the-games-property-path.md), which names

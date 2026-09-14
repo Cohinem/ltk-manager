@@ -2,6 +2,7 @@ import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -14,11 +15,21 @@ import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../palette/types";
 import { stirImages } from "../preview/useImageSlot";
+import { AddItemLine } from "./AddItemLine";
+import { AddPropertyLine } from "./AddPropertyLine";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow } from "./BinRow";
-import { nameColumns, type VisibleRow } from "./binRows";
+import {
+  addLineKey,
+  childCount,
+  type InsertAt,
+  nameColumns,
+  rowKey,
+  type VisibleRow,
+} from "./binRows";
 import { rowTag } from "./kindTag";
 import { TreeContexts } from "./TreeContexts";
+import type { TreeFocus } from "./useBinEdit";
 import { type TreeReveal, useReveal } from "./useReveal";
 import { useRowWindow } from "./useRowWindow";
 import { useNextPages, useTreeRows } from "./useTreeRows";
@@ -52,6 +63,10 @@ interface BinTreeProps {
   onNotOpen: () => void;
   /** Open the object a row declares, per the intent a click or a `Ctrl+click` carries. */
   onOpenObject?: (row: BinRow, intent: OpenIntent) => void;
+  /** The leaves take edits. A class view's section and a read-only document leave it off. */
+  editable?: boolean;
+  /** The object the roots are properties of, whose add line follows them. */
+  rootEntry?: string | null;
 }
 
 const NO_KEYS: readonly string[] = [];
@@ -78,7 +93,11 @@ export function BinTree({
   objectName,
   onNotOpen,
   onOpenObject,
+  editable = false,
+  rootEntry = null,
 }: BinTreeProps) {
+  /* The one insert line open inside a list or a map. */
+  const [insertAt, setInsertAt] = useState<InsertAt | null>(null);
   const {
     visible,
     loaded,
@@ -86,7 +105,18 @@ export function BinTree({
     toggle: toggleRow,
     expand,
     requestMore,
-  } = useTreeRows({ document, roots, rootOwner, initialExpanded, onNotOpen });
+    reach,
+    remap,
+  } = useTreeRows({
+    document,
+    roots,
+    rootOwner,
+    initialExpanded,
+    onNotOpen,
+    editable,
+    rootEntry,
+    insertAt,
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const { items, lines, totalSize, rowHeight, measureElement, scrollToKey } = useRowWindow(
@@ -103,6 +133,36 @@ export function BinTree({
     },
     [clearFocus, toggleRow],
   );
+
+  /* The row value or the add line an edit sends focus to, once it draws. */
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const focus = useMemo<TreeFocus>(
+    () => ({
+      key: focusKey,
+      settle: () => setFocusKey(null),
+      addTo: (row: BinRow) => {
+        const key = rowKey(row);
+        expand([key]);
+        reach(key, childCount(row));
+        setFocusKey(addLineKey(key));
+      },
+      to: (key: string, opening: string | null) => {
+        if (opening !== null) expand([opening]);
+        setFocusKey(key);
+      },
+      insertAt: (holder: string, index: number) => {
+        setInsertAt({ holder, index });
+        setFocusKey(addLineKey(holder, index));
+      },
+      closeInsert: () => setInsertAt(null),
+      reach,
+      remap,
+    }),
+    [expand, focusKey, reach, remap],
+  );
+  useEffect(() => {
+    if (focusKey !== null && visible.some((line) => line.key === focusKey)) scrollToKey(focusKey);
+  }, [focusKey, scrollToKey, visible]);
 
   const inView = useMemo(
     () => lines.flatMap((line) => (line.kind === "row" ? [line.row] : [])),
@@ -128,6 +188,8 @@ export function BinTree({
       groups={groups}
       inView={inView}
       objectName={objectName}
+      editable={editable}
+      focus={focus}
     >
       <ContextMenu.Root>
         <ContextMenu.Trigger
@@ -170,6 +232,12 @@ export function BinTree({
                     />
                   )}
                   {line.kind === "more" && <MoreRow line={line} />}
+                  {line.kind === "add" && line.target.kind === "property" && (
+                    <AddPropertyLine line={line} autoFocus={line.key === focusKey} />
+                  )}
+                  {line.kind === "add" && line.target.kind !== "property" && (
+                    <AddItemLine line={line} autoFocus={line.key === focusKey} />
+                  )}
                 </div>
               );
             })}

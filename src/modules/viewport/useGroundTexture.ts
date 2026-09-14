@@ -21,7 +21,7 @@ export const groundQueries = {
     queryOptions<AssetRef | null>({
       queryKey: ["viewport-ground", GROUND_CHUNK],
       queryFn: async () => {
-        const answer = await api.locateGameFiles([GROUND_CHUNK]);
+        const answer = await api.objects.locateGameFiles([GROUND_CHUNK]);
         if (!answer.ok) return null;
         const held = answer.value[GROUND_CHUNK];
         if (held === undefined) return null;

@@ -26,7 +26,7 @@ use ts_rs::TS;
 pub type ObjectIndexState = object_index::ObjectIndexState<AppErrorResponse>;
 
 /// What a search answers, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectSearch {
@@ -46,6 +46,7 @@ pub enum ObjectSearch {
 /// fed by it. The call returns once the build lands, and a build that fails
 /// leaves the failure in the state for a search to report.
 #[tauri::command]
+#[specta::specta]
 pub async fn warm_object_index(app_handle: AppHandle) -> IpcResult<()> {
     let config = app_handle.state::<SettingsState>().config();
 
@@ -89,6 +90,7 @@ fn build(
 
 /// Drop the object index, and the result of any build still running.
 #[tauri::command]
+#[specta::specta]
 pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
     app_handle.state::<ObjectIndexState>().clear();
     IpcResult::ok(())
@@ -101,6 +103,7 @@ pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
 /// generation of its own, apart from the game scan's, so a keystroke gives up
 /// only the object scan it overtakes.
 #[tauri::command]
+#[specta::specta]
 pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcResult<ObjectSearch> {
     let ticket = app_handle.state::<ObjectSearchGeneration>().claim();
     let overtaken = {
@@ -134,7 +137,7 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
 }
 
 /// What one prefix of the object tree holds, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectDir {
@@ -154,6 +157,7 @@ pub enum ObjectDir {
 /// path a listing gave. A prefix no object path runs through reports `INVALID_PATH`.
 /// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
 #[tauri::command]
+#[specta::specta]
 pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<ObjectDir> {
     off_thread(move || {
         let index = match app_handle.state::<ObjectIndexState>().snapshot() {
@@ -171,7 +175,7 @@ pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<Obje
 }
 
 /// What a full search of the objects found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectFind {
@@ -189,7 +193,7 @@ pub enum ObjectFind {
 ///
 /// The full-results twin of [`search_object_index`], the way [`find_in_game_index`]
 /// is the game search's. `regex` reads the pattern as a regular expression, and
-/// either way the match is case-insensitive. `class` is the `class:` term's value,
+/// either way the match is case-insensitive. `class_term` is the `class:` term's value,
 /// a name prefix or a hash, which narrows the objects to the classes it opens.
 ///
 /// An empty pattern with no class matches nothing. A pattern that does not parse
@@ -197,10 +201,11 @@ pub enum ObjectFind {
 ///
 /// [`find_in_game_index`]: super::game_index::find_in_game_index
 #[tauri::command]
+#[specta::specta]
 pub async fn find_objects(
     pattern: String,
     regex: bool,
-    class: Option<String>,
+    class_term: Option<String>,
     app_handle: AppHandle,
 ) -> IpcResult<ObjectFind> {
     let query = match find_query(&pattern, regex) {
@@ -222,11 +227,11 @@ pub async fn find_objects(
             ObjectIndexSnapshot::Ready(index) => index,
         };
 
-        let result = index.find(query.as_ref(), class.as_deref(), overtaken);
+        let result = index.find(query.as_ref(), class_term.as_deref(), overtaken);
         tracing::debug!(
             pattern = %pattern,
             regex,
-            class = class.as_deref().unwrap_or(""),
+            class = class_term.as_deref().unwrap_or(""),
             hits = result.hits.len(),
             total = result.total,
             superseded = result.superseded,
@@ -238,7 +243,7 @@ pub async fn find_objects(
 }
 
 /// What a reference query asks the index for.
-#[derive(Debug, Clone, Deserialize, TS)]
+#[derive(Debug, Clone, Deserialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ReferenceQuery {
@@ -265,7 +270,7 @@ impl ReferenceQuery {
 }
 
 /// What a reference query found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectReferences {
@@ -287,6 +292,7 @@ pub enum ObjectReferences {
 ///
 /// "The References document" in `docs/ux/PROJECT_EDITOR.md`.
 #[tauri::command]
+#[specta::specta]
 pub async fn find_references(
     query: ReferenceQuery,
     app_handle: AppHandle,
@@ -332,7 +338,7 @@ pub async fn find_references(
 }
 
 /// The slot the index is in, as an answer reports it.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectIndexStatus {
@@ -347,7 +353,7 @@ pub enum ObjectIndexStatus {
 }
 
 /// What declares each of a set of object hashes, beside the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct DeclaredObjects {
@@ -364,6 +370,7 @@ pub struct DeclaredObjects {
 /// is ordered as a link resolves it (ADR-0028): this file, then a file the bin
 /// depends on, then archive order.
 #[tauri::command]
+#[specta::specta]
 pub async fn declared_objects(
     object_hashes: Vec<String>,
     document: Option<BinDocumentId>,

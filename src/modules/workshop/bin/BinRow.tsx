@@ -2,12 +2,22 @@ import {
   ArrowSquareOutIcon,
   CaretDownIcon,
   CaretRightIcon,
+  type Icon,
+  PencilSimpleIcon,
   SpinnerGapIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { type MouseEvent as ReactMouseEvent, type ReactNode, use, useState } from "react";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  use,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { Checkbox, Code, Readout, SeverityGlyph, Tooltip } from "@/components";
+import { Checkbox, Code, Readout, Select, SeverityGlyph, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue, RowNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -15,6 +25,7 @@ import { twMerge } from "@/utils";
 import { ObjectGlyph } from "../components/ObjectGlyph";
 import type { OpenIntent } from "../palette/types";
 import { clickIntent } from "../state";
+import { typedKey } from "./addItem";
 import {
   canExpand,
   fieldHash,
@@ -27,10 +38,22 @@ import {
 import { ClassCard } from "./ClassCard";
 import { ColorMark } from "./ColorMark";
 import { DeclaredLine, FieldCard } from "./FieldCard";
-import { enumReading } from "./fieldEnums";
+import { enumReading, enumText, type FieldEnum, fieldEnum } from "./fieldEnums";
 import { type FieldUnit, fieldUnit, UNIT_SUFFIX } from "./fieldUnits";
 import { rowTag } from "./kindTag";
+import {
+  boolLeaf,
+  colorLeaf,
+  floatLeaf,
+  hashedLeaf,
+  integerLeaf,
+  matrixLeaf,
+  stringLeaf,
+  vectorLeaf,
+} from "./leafText";
 import { FileChip, ObjectChip, StringValue } from "./LinkChip";
+import { EDIT_ICON, editLabel, keyEdit, onHover, type RowEdit, rowEdits } from "./rowEdits";
+import { type BinEdit, BinEditContext, useRowEdit } from "./useBinEdit";
 import { ObjectNameContext } from "./useLinkTargets";
 import { useValueMark } from "./useValueMarks";
 import { channels, colorStops, markRanges, type ValueMark, type ValueRange } from "./valueRows";
@@ -64,13 +87,42 @@ interface RowLineProps {
   onOpenObject?: (row: BinRow, intent: OpenIntent) => void;
 }
 
+const NO_EDITS: readonly RowEdit[] = [];
+
+/** What focus lands on in a row an edit sent it to: the value's first control, else an action. */
+const FOCUS_TARGET =
+  "[data-row-value] input:not([readonly]), [data-row-value] button, [data-row-action]";
+
 /** One node of the bin: its name, its kind as a tag, and its value. */
 export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: RowLineProps) {
   const { row, depth, expanded, loading } = line;
-  const expandable = canExpand(row);
+  const edit = use(BinEditContext);
+  const expandable = canExpand(row, edit !== null);
+  const edits = edit === null ? NO_EDITS : rowEdits(line);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const focusHere = edit !== null && edit.focusKey === line.key;
+
+  /* A row drawn before the request keeps its fields mounted, so autoFocus alone misses it. */
+  useEffect(() => {
+    if (!focusHere) return;
+    const drawn = rowRef.current;
+    if (drawn !== null && !drawn.contains(document.activeElement)) {
+      drawn.querySelector<HTMLElement>(FOCUS_TARGET)?.focus();
+    }
+    edit.settleFocus();
+  }, [edit, focusHere]);
+
+  function keys(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const asked = edit === null ? null : keyEdit(event, edits);
+    if (asked === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    edit?.run(line, asked);
+  }
 
   return (
     <div
+      ref={rowRef}
       data-ui="BinDocument:row"
       role="treeitem"
       aria-level={depth + 1}
@@ -83,6 +135,7 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
         focused && "bg-accent-500/15",
       )}
       onClick={() => expandable && onToggle(line.key)}
+      onKeyDown={keys}
     >
       <NameCell line={line} expandable={expandable} expanded={expanded} loading={loading} />
       <RowValue row={row} />
@@ -91,10 +144,48 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
           <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-warning-text" />
         </Tooltip>
       )}
+      {edit !== null &&
+        edits
+          .filter(onHover)
+          .map((kind) => (
+            <RowAction
+              key={kind}
+              label={editLabel(kind)}
+              icon={EDIT_ICON[kind]}
+              onAct={() => edit.run(line, kind)}
+            />
+          ))}
       {row.node === "object" && onOpenObject && (
         <OpenObjectAction onOpen={(intent) => onOpenObject(row, intent)} />
       )}
     </div>
+  );
+}
+
+interface RowActionProps {
+  label: string;
+  icon: Icon;
+  onAct: () => void;
+}
+
+/** A hover action of an editable row, which leaves the row's own click alone. */
+function RowAction({ label, icon: Glyph, onAct }: RowActionProps) {
+  return (
+    <Tooltip content={label}>
+      <button
+        type="button"
+        aria-label={label}
+        data-row-action
+        /* DS-VEIL, DS-RADIUS */
+        className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/row:opacity-100 hover:bg-surface-veil hover:text-surface-200 focus-visible:opacity-100"
+        onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
+          event.stopPropagation();
+          onAct();
+        }}
+      >
+        <Glyph weight="bold" className="h-3.5 w-3.5" />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -136,7 +227,7 @@ export function MoreRow({ line }: MoreRowProps) {
 }
 
 /** One guide per open level, each under the caret of the level it belongs to. */
-function Guides({ depth }: { depth: number }) {
+export function Guides({ depth }: { depth: number }) {
   const indented = Math.min(depth, MAX_INDENT_DEPTH);
   const stacked = depth - indented;
   return (
@@ -187,9 +278,11 @@ interface NameCellProps {
  */
 function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   const { row, owner, depth } = line;
+  const { edit, refusal } = useRowEdit(line.key);
   const object = row.node === "object";
   const property = row.node === "property";
   const element = row.node === "element";
+  const rekeyable = edit !== null && row.node === "entry";
   const held = element && row.value.type === "struct" ? row.value : null;
   const nameClasses = twMerge(
     /* An element's index is what a reader counts rows by, so the class beside it elides first. */
@@ -226,7 +319,18 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
           triggerClassName={nameClasses}
         />
       )}
-      {!property && <span className={nameClasses}>{row.name}</span>}
+      {rekeyable && (
+        <TextEdit
+          text={typedKey(row.name)}
+          label={m.workshop_bin_edit_key_action()}
+          invalid={refusal !== undefined}
+          autoFocus={false}
+          onCommit={(text) => edit.setKey(line, text)}
+        >
+          <span className={nameClasses}>{row.name}</span>
+        </TextEdit>
+      )}
+      {!property && !rekeyable && <span className={nameClasses}>{row.name}</span>}
       {held && <ClassCard classHash={held.classHash} name={held.class} />}
       {!object && !element && <KindTag row={row} />}
     </span>
@@ -264,6 +368,32 @@ const TAG_CLASSES = "text-bin-kind-text";
  */
 export function RowValue({ row }: { row: BinRow }) {
   const objectName = use(ObjectNameContext);
+  const key = rowKey(row);
+  const { edit, refusal } = useRowEdit(key);
+  const focused = edit !== null && edit.focusKey === key;
+  const field =
+    edit === null
+      ? null
+      : leafField(row, edit, {
+          invalid: refusal !== undefined,
+          object: objectName(row.entry),
+          autoFocus: focused,
+          onEnter: () => edit.enter(key),
+        });
+
+  if (field !== null) {
+    return (
+      <span data-row-value className="flex min-w-0 flex-1 items-center gap-2">
+        {field}
+        {refusal !== undefined && (
+          <Tooltip content={errorSummary(refusal)}>
+            <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />
+          </Tooltip>
+        )}
+      </span>
+    );
+  }
+
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <Value
@@ -273,6 +403,261 @@ export function RowValue({ row }: { row: BinRow }) {
         field={ownField(row)}
         object={objectName(row.entry)}
       />
+    </span>
+  );
+}
+
+interface LeafDrawing {
+  /** The last value the row sent was refused. */
+  invalid: boolean;
+  /** The path of the object the row sits in. */
+  object: string;
+  /** Focus the field as it draws, for a value just added. */
+  autoFocus: boolean;
+  /** A bare `Enter` left the field. */
+  onEnter: () => void;
+}
+
+/**
+ * The widget a leaf takes an edit in, or null for a value an edit does not reach here.
+ *
+ * "Leaf editing" in docs/ux/BIN_EDITOR.md. A plain function rather than a component, so
+ * the caller falls back to the read-only value on null.
+ */
+function leafField(row: BinRow, edit: BinEdit, drawn: LeafDrawing): ReactNode | null {
+  const { invalid, object, autoFocus, onEnter } = drawn;
+  const field = ownField(row);
+  const { value } = row;
+  switch (value.type) {
+    case "bool":
+      return (
+        <Checkbox
+          size="sm"
+          checked={value.value}
+          onCheckedChange={(checked) => edit.commit(row, boolLeaf(checked))}
+        />
+      );
+    case "integer": {
+      const held = field === null ? null : fieldEnum(field);
+      if (held !== null && !held.flags) {
+        return (
+          <EnumSelect
+            held={held}
+            text={value.text}
+            onChange={(text) => edit.commit(row, integerLeaf(text))}
+          />
+        );
+      }
+      const reading = enumReading(field, value.text);
+      return (
+        <span className="flex min-w-0 items-center gap-1.5">
+          <NumberValue
+            text={value.text}
+            field={field}
+            invalid={invalid}
+            autoFocus={autoFocus}
+            onEnter={onEnter}
+            onCommit={(text) => edit.commit(row, integerLeaf(text))}
+          />
+          {reading !== null && <Dim>{reading}</Dim>}
+        </span>
+      );
+    }
+    case "float":
+      return (
+        <NumberValue
+          text={String(value.value)}
+          field={field}
+          invalid={invalid}
+          autoFocus={autoFocus}
+          onEnter={onEnter}
+          onCommit={(text) => edit.commit(row, floatLeaf(text))}
+        />
+      );
+    case "vector":
+      return (
+        <Components
+          labels={AXES}
+          values={value.values}
+          width={COMPONENT_WIDTH}
+          invalid={invalid}
+          autoFocus={autoFocus}
+          onEnter={onEnter}
+          onCommit={(at, text) => edit.commit(row, vectorLeaf(value.values, at, text))}
+        />
+      );
+    case "color":
+      return (
+        <ColorValue
+          value={value}
+          invalid={invalid}
+          autoFocus={autoFocus}
+          onEnter={onEnter}
+          onCommit={(at, text) => edit.commit(row, colorLeaf(value, at, text))}
+        />
+      );
+    case "matrix":
+      return (
+        <MatrixValue
+          values={value.values}
+          invalid={invalid}
+          onCommit={(at, text) => edit.commit(row, matrixLeaf(value.values, at, text))}
+        />
+      );
+    case "string":
+      return (
+        <TextEdit
+          text={value.value}
+          invalid={invalid}
+          autoFocus={autoFocus}
+          onEnter={onEnter}
+          onCommit={(text) => edit.commit(row, stringLeaf(text))}
+        >
+          <StringValue text={value.value} />
+        </TextEdit>
+      );
+    case "hash":
+    case "objectLink":
+      return (
+        <TextEdit
+          text={value.name ?? value.hash}
+          invalid={invalid}
+          autoFocus={autoFocus}
+          onEnter={onEnter}
+          onCommit={(text) => edit.commit(row, hashedLeaf(value.type, text))}
+        >
+          <ObjectChip
+            hash={value.hash}
+            name={value.name}
+            kind={value.type === "hash" ? "hash" : "link"}
+            base={object}
+            classMark="after"
+          />
+        </TextEdit>
+      );
+    case "wadChunkLink":
+      return (
+        <TextEdit
+          text={value.path ?? value.hash}
+          invalid={invalid}
+          autoFocus={autoFocus}
+          onEnter={onEnter}
+          onCommit={(text) => edit.commit(row, hashedLeaf("wadChunkLink", text))}
+        >
+          <FileChip hash={value.hash} path={value.path} />
+        </TextEdit>
+      );
+    default:
+      return null;
+  }
+}
+
+interface TextEditProps {
+  /** The text the field opens holding: the string, the name, or the hex. */
+  text: string;
+  /** What the edit action is called. The value's edit where absent. */
+  label?: string;
+  invalid: boolean;
+  /** Open the field as the row draws, for a property just added. */
+  autoFocus: boolean;
+  onEnter?: () => void;
+  onCommit: (text: string) => void;
+  /** What the row draws while no edit is open. */
+  children: ReactNode;
+}
+
+/**
+ * A value drawn as its chip or its text, opening to a field on the row's edit action.
+ *
+ * The chip stays what a reader reads and clicks, so a string naming a file still opens
+ * it. The field is for the change.
+ */
+function TextEdit({
+  text,
+  label = m.workshop_bin_edit_value_action(),
+  invalid,
+  autoFocus,
+  onEnter,
+  onCommit,
+  children,
+}: TextEditProps) {
+  const [editing, setEditing] = useState(autoFocus);
+  if (editing) {
+    return (
+      <Readout
+        value={text}
+        className="min-w-0 flex-1"
+        invalid={invalid}
+        autoFocus
+        onEnter={onEnter}
+        onCommit={onCommit}
+        onLeave={() => setEditing(false)}
+      />
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      {children}
+      <Tooltip content={label}>
+        <button
+          type="button"
+          aria-label={label}
+          /* DS-VEIL, DS-RADIUS */
+          className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/row:opacity-100 hover:bg-surface-veil hover:text-surface-200 focus-visible:opacity-100"
+          onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
+            event.stopPropagation();
+            setEditing(true);
+          }}
+        >
+          <PencilSimpleIcon weight="bold" className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
+    </span>
+  );
+}
+
+interface EnumSelectProps {
+  held: FieldEnum;
+  /** The number the file holds, as text. */
+  text: string;
+  onChange: (text: string) => void;
+}
+
+/** An enum as a select of the engine's words, the number the file holds beside it. */
+function EnumSelect({ held, text, onChange }: EnumSelectProps) {
+  const options = Object.values(held.names).map((value) => String(value));
+  if (!options.includes(text)) options.unshift(text);
+  const labelOf = (option: string) => enumText(held, Number(option)) ?? option;
+
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <Select.Root
+        value={text}
+        onValueChange={(next) => next !== null && next !== text && onChange(next)}
+      >
+        <Select.Trigger
+          /* DS-VEIL, DS-RADIUS */
+          className="h-auto w-auto min-w-0 gap-1 rounded-sm border-surface-veil bg-surface-veil-soft px-1.5 py-0.5 text-mono-row text-surface-200"
+          onClick={(event: ReactMouseEvent<HTMLButtonElement>) => event.stopPropagation()}
+        >
+          <Select.Value>{(current: string) => labelOf(current)}</Select.Value>
+          <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Positioner>
+            <Select.Popup>
+              {options.map((option) => (
+                <Select.Item key={option} value={option}>
+                  {labelOf(option)}
+                </Select.Item>
+              ))}
+            </Select.Popup>
+          </Select.Positioner>
+        </Select.Portal>
+      </Select.Root>
+      {/* DS-CODE-CHIP */}
+      <Code className="shrink-0 select-text">{text}</Code>
     </span>
   );
 }
@@ -350,13 +735,35 @@ function IntegerValue({ text, field }: { text: string; field: string | null }) {
   return <EnumValue reading={reading} raw={text} />;
 }
 
+interface NumberValueProps {
+  text: string;
+  field: string | null;
+  invalid?: boolean;
+  /** Focus the box as it draws. */
+  autoFocus?: boolean;
+  /** A bare `Enter` left the box. */
+  onEnter?: () => void;
+  /** Take an edit. Absent, the box is read-only. */
+  onCommit?: (text: string) => void;
+}
+
 /** A number in the box it is edited in, and the unit its field is measured in after it. */
-function NumberValue({ text, field }: { text: string; field: string | null }) {
+function NumberValue({ text, field, invalid, autoFocus, onEnter, onCommit }: NumberValueProps) {
   const unit = fieldUnit(field);
-  if (unit === null) return <Readout value={text} className={SCALAR_WIDTH} />;
+  const box = (
+    <Readout
+      value={text}
+      className={SCALAR_WIDTH}
+      invalid={invalid}
+      autoFocus={autoFocus}
+      onEnter={onEnter}
+      onCommit={onCommit}
+    />
+  );
+  if (unit === null) return box;
   return (
     <span className="flex min-w-0 items-center gap-1">
-      <Readout value={text} className={SCALAR_WIDTH} />
+      {box}
       <Unit unit={unit} />
     </span>
   );
@@ -525,9 +932,24 @@ interface ComponentsProps {
   values: readonly (number | null)[];
   /** The room one readout takes, so a column of rows lines up. */
   width: string;
+  invalid?: boolean;
+  /** Focus the first box as it draws. */
+  autoFocus?: boolean;
+  /** A bare `Enter` left a box. */
+  onEnter?: () => void;
+  /** Take an edit to the component at `at`. Absent, the boxes are read-only. */
+  onCommit?: (at: number, text: string) => void;
 }
 
-function Components({ labels, values, width }: ComponentsProps) {
+function Components({
+  labels,
+  values,
+  width,
+  invalid,
+  autoFocus,
+  onEnter,
+  onCommit,
+}: ComponentsProps) {
   return (
     <span className="flex min-w-0 gap-1.5">
       {values.map((component, at) => (
@@ -536,14 +958,25 @@ function Components({ labels, values, width }: ComponentsProps) {
           value={String(component)}
           label={labels[at]}
           className={width}
+          invalid={invalid}
+          autoFocus={autoFocus === true && at === 0}
+          onEnter={onEnter}
+          onCommit={onCommit && ((text) => onCommit(at, text))}
         />
       ))}
     </span>
   );
 }
 
+interface MatrixValueProps {
+  values: readonly (number | null)[];
+  invalid?: boolean;
+  /** Take an edit to the cell at `at`, row-major. Absent, the cells are read-only. */
+  onCommit?: (at: number, text: string) => void;
+}
+
 /** Sixteen cells, shut until asked for. A shut matrix is one line like every other row. */
-function MatrixValue({ values }: { values: readonly (number | null)[] }) {
+function MatrixValue({ values, invalid, onCommit }: MatrixValueProps) {
   const [open, setOpen] = useState(false);
   const label = m.workshop_bin_matrix_label();
 
@@ -578,14 +1011,29 @@ function MatrixValue({ values }: { values: readonly (number | null)[] }) {
       </button>
       <span className="grid grid-cols-4 gap-x-1 gap-y-0.5">
         {values.map((cell, at) => (
-          <Readout key={at} value={String(cell)} className={COMPONENT_WIDTH} />
+          <Readout
+            key={at}
+            value={String(cell)}
+            className={COMPONENT_WIDTH}
+            invalid={invalid}
+            onCommit={onCommit && ((text) => onCommit(at, text))}
+          />
         ))}
       </span>
     </span>
   );
 }
 
-function ColorValue({ value }: { value: Extract<BinValue, { type: "color" }> }) {
+interface ColorValueProps {
+  value: Extract<BinValue, { type: "color" }>;
+  invalid?: boolean;
+  autoFocus?: boolean;
+  onEnter?: () => void;
+  /** Take an edit to the channel at `at`, in `rgba` order. Absent, the boxes are read-only. */
+  onCommit?: (at: number, text: string) => void;
+}
+
+function ColorValue({ value, invalid, autoFocus, onEnter, onCommit }: ColorValueProps) {
   const { r, g, b, a } = value;
   return (
     <span className="flex min-w-0 items-center gap-3">
@@ -595,7 +1043,15 @@ function ColorValue({ value }: { value: Extract<BinValue, { type: "color" }> }) 
         style={{ backgroundColor: `rgba(${r}, ${g}, ${b}, ${a / 255})` }}
         aria-hidden
       />
-      <Components labels={CHANNELS} values={[r, g, b, a]} width={CHANNEL_WIDTH} />
+      <Components
+        labels={CHANNELS}
+        values={[r, g, b, a]}
+        width={CHANNEL_WIDTH}
+        invalid={invalid}
+        autoFocus={autoFocus}
+        onEnter={onEnter}
+        onCommit={onCommit}
+      />
     </span>
   );
 }

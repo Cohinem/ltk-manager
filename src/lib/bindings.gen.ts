@@ -28,6 +28,86 @@ export const commands = {
 	 *  row cap is refused so the caller batches.
 	 */
 	binRead: (document: BinDocumentId, entry: string, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: BinRows[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_read", { document, entry, paths }),
+	/**
+	 *  Set one leaf of an open document, answering the value it held.
+	 * 
+	 *  `entry` is the object's hash as `0x` and eight hex digits, and `path` the wire form of
+	 *  the leaf's property path. Every id over the asset reads the edit. Nothing reaches the
+	 *  disk before [`bin_save`].
+	 */
+	binPatch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) => __TAURI_INVOKE<({ ok: true; value: LeafValue }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_patch", { document, entry, path, value }),
+	/**
+	 *  Write an open document's edits to its layer file, as a delta over the bytes it opened.
+	 * 
+	 *  A document no patch touched writes nothing. ADR-0040.
+	 */
+	binSave: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_save", { document }),
+	/**
+	 *  Read an open document's file again, dropping the edits its tree held.
+	 * 
+	 *  Every id over the asset reads the file as it is on disk.
+	 */
+	binReload: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_reload", { document }),
+	/**
+	 *  Revert the latest edit of an open document's tree, answering whether one was held.
+	 * 
+	 *  The file tab and the object tabs over one asset share the tree and its stack.
+	 */
+	binUndo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_undo", { document }),
+	/**
+	 *  Apply the latest undone edit of an open document's tree again, answering whether one
+	 *  was held.
+	 */
+	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
+	/**
+	 *  The fields the holder at `path` of an open document can take, out of the meta schema.
+	 * 
+	 *  `path` is empty for the object itself. The fields are the ones the holder's class and
+	 *  its bases declare at the install's build, less the ones the holder writes.
+	 */
+	binAddableFields: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: AddableFields }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_addable_fields", { document, entry, path }),
+	/**
+	 *  Add a property to the end of the holder at `path` of an open document.
+	 * 
+	 *  A declared field starts at the schema's published default, and a custom one at its
+	 *  kind's zero value. Nothing reaches the disk before [`bin_save`].
+	 */
+	binAddProperty: (document: BinDocumentId, entry: string, path: string, property: NewProperty) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_add_property", { document, entry, path, property }),
+	/**
+	 *  Take the property at `path` of an open document out of its holder.
+	 * 
+	 *  The game reads the field's default in its place. Nothing reaches the disk before
+	 *  [`bin_save`].
+	 */
+	binRemoveProperty: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_remove_property", { document, entry, path }),
+	/**
+	 *  The classes an item of the list, map or option at `path` can hold, or the pointer at it.
+	 * 
+	 *  The classes its items hold come first, then the class the meta schema declares for the
+	 *  field at the install's build, then the classes deriving from that one.
+	 */
+	binItemClasses: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: ClassChoice[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_item_classes", { document, entry, path }),
+	/**
+	 *  Put an item into the list, map or option at `path` of an open document, answering the
+	 *  new item's path.
+	 * 
+	 *  An embed naming no class takes the class the holder holds or the meta schema declares.
+	 *  Nothing reaches the disk before [`bin_save`].
+	 */
+	binInsertItem: (document: BinDocumentId, entry: string, path: string, item: NewItem) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_insert_item", { document, entry, path, item }),
+	/**  Take the item at `path` of an open document out of its list, map or option. */
+	binRemoveItem: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_remove_item", { document, entry, path }),
+	/**  Move the item at `path` of an open document to `to` in its list, answering its new path. */
+	binMoveItem: (document: BinDocumentId, entry: string, path: string, to: number) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_move_item", { document, entry, path, to }),
+	/**  Set the key of the map entry at `path` of an open document, answering its new path. */
+	binSetKey: (document: BinDocumentId, entry: string, path: string, key: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_key", { document, entry, path, key }),
+	/**
+	 *  Give the null pointer at `path` of an open document a class, or set a pointer to null
+	 *  where `class_name` is absent.
+	 */
+	binSetPointer: (document: BinDocumentId, entry: string, path: string, className: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_pointer", { document, entry, path, className }),
+	/**  The rows at depth zero of an open file, one per object, read again after an edit. */
+	binRoots: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: BinRow[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_roots", { document }),
 	/**  Drop one id. Its asset leaves the store with its last id. */
 	binClose: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_close", { document }),
 	/**
@@ -37,6 +117,73 @@ export const commands = {
 	 *  `class_hash` is `0x` and eight hex digits.
 	 */
 	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
+	/**
+	 *  The install's copy of each of `paths`, by path. A path the install does not ship is
+	 *  absent.
+	 * 
+	 *  For the `file` links of a page of bin rows, checked in one call.
+	 */
+	locateGameFiles: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: GameFileEntry } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_game_files", { paths }),
+	/**
+	 *  Build the object index, unless one is built or building.
+	 * 
+	 *  The game index is built first when it is not, because the object build is
+	 *  fed by it. The call returns once the build lands, and a build that fails
+	 *  leaves the failure in the state for a search to report.
+	 */
+	warmObjectIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("warm_object_index"),
+	/**  Drop the object index, and the result of any build still running. */
+	dropObjectIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("drop_object_index"),
+	/**
+	 *  Rank every bin object of the install against `query`, best first.
+	 * 
+	 *  Answers for the slot the index is in, so a query that arrives while the
+	 *  build runs reads as building rather than as nothing. The scan carries a
+	 *  generation of its own, apart from the game scan's, so a keystroke gives up
+	 *  only the object scan it overtakes.
+	 */
+	searchObjectIndex: (query: string) => __TAURI_INVOKE<({ ok: true; value: ObjectSearch }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_object_index", { query }),
+	/**
+	 *  Every declaration of each of `object_hashes`, by hash.
+	 * 
+	 *  The install's declarations come from the index, in the slot it is in. With
+	 *  `document` open, the document's own declarations join them and every list
+	 *  is ordered as a link resolves it (ADR-0028): this file, then a file the bin
+	 *  depends on, then archive order.
+	 */
+	declaredObjects: (objectHashes: string[], document: number | null) => __TAURI_INVOKE<({ ok: true; value: DeclaredObjects }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declared_objects", { objectHashes, document }),
+	/**
+	 *  What one prefix of the object tree holds.
+	 * 
+	 *  `prefix` is `""` for the root, `?` for the objects no table names, and otherwise a
+	 *  path a listing gave. A prefix no object path runs through reports `INVALID_PATH`.
+	 *  "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
+	 */
+	objectDir: (prefix: string) => __TAURI_INVOKE<({ ok: true; value: ObjectDir }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("object_dir", { prefix }),
+	/**
+	 *  Every object of the install matching `pattern`, in path order.
+	 * 
+	 *  The full-results twin of [`search_object_index`], the way [`find_in_game_index`]
+	 *  is the game search's. `regex` reads the pattern as a regular expression, and
+	 *  either way the match is case-insensitive. `class_term` is the `class:` term's value,
+	 *  a name prefix or a hash, which narrows the objects to the classes it opens.
+	 * 
+	 *  An empty pattern with no class matches nothing. A pattern that does not parse
+	 *  reports `VALIDATION_FAILED` with the parser's own message.
+	 * 
+	 *  [`find_in_game_index`]: super::game_index::find_in_game_index
+	 */
+	findObjects: (pattern: string, regex: boolean, classTerm: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectFind }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_objects", { pattern, regex, classTerm }),
+	/**
+	 *  What `query` names, grouped by the file that declares it.
+	 * 
+	 *  A class answers with every object the install declares as it, and an object with
+	 *  every file declaring that object. The scan carries a generation of its own, so a
+	 *  re-run gives up only the reference scan it overtakes.
+	 * 
+	 *  "The References document" in `docs/ux/PROJECT_EDITOR.md`.
+	 */
+	findReferences: (query: ReferenceQuery) => __TAURI_INVOKE<({ ok: true; value: ObjectReferences }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_references", { query }),
 	/**
 	 *  One particle system of an open document, with every reference resolved.
 	 * 
@@ -157,6 +304,31 @@ export const commands = {
 };
 
 /* Types */
+/**  One field Add property offers for a holder. */
+export type AddableField = {
+	/**  `0x` and eight hex digits. */
+	hash: string,
+	name: string | null,
+	shape: KindShape,
+	/**  What an embed or a pointer holds, or what a list's items hold, as `0x` and hex. */
+	classHash: string | null,
+	class: string | null,
+	/**  The class declaring the field, where it is a base of the holder's class. */
+	inheritedFrom: string | null,
+};
+
+/**  What Add property offers for one holder. */
+export type AddableFields = {
+	/**  The holder's class, `0x` and eight hex digits. */
+	classHash: string,
+	class: string | null,
+	/**
+	 *  The fields the class and its bases declare that the holder does not write. Empty
+	 *  for a class the schema does not describe.
+	 */
+	fields: AddableField[],
+};
+
 /**
  *  An animation graph, as a clip table and a viewport read it.
  * 
@@ -250,6 +422,14 @@ export type AppErrorResponse =
 { code: "BIN_READ_TOO_LARGE" } | 
 /**  A resolved read nested deeper than one call answers. */
 { code: "BIN_READ_TOO_DEEP" } | 
+/**  The open bin takes no edit, behind the gate named. */
+{ code: "BIN_READ_ONLY"; gate: ReadOnly } | 
+/**  An edit's value does not fit the leaf it addresses. */
+{ code: "BIN_EDIT_REJECTED"; address: string; rejection: EditRejection } | 
+/**  The bin's file holds other bytes than the document opened. */
+{ code: "BIN_CHANGED_ON_DISK" } | 
+/**  The edited bin does not encode. */
+{ code: "BIN_UNWRITABLE"; detail: string } | 
 /**
  *  An overlay build or analysis failed.
  * 
@@ -342,6 +522,8 @@ export type BinDocumentHandle = {
 	rows: BinRow[],
 	/**  The object the open is over. Absent for a file open. */
 	object: BinObjectHeader | null,
+	/**  The gate a read-only document stands behind. Absent where it takes edits. */
+	readOnly: ReadOnly | null,
 };
 
 /**
@@ -530,6 +712,17 @@ export type Check_Serialize = {
 	fixCommand?: string | null,
 };
 
+/**  One class a class line offers. */
+export type ClassChoice = {
+	/**  `0x` and eight hex digits. */
+	hash: string,
+	name: string | null,
+	/**  An item of the holder holds the class already. */
+	held: boolean,
+	/**  The class the schema declares for the holder, where this one derives from it. */
+	derivesFrom: string | null,
+};
+
 /**  One class as the class card draws it: its name, and its fields typed at one build. */
 export type ClassSchema = {
 	/**  The class as the database names it. */
@@ -602,6 +795,22 @@ export type DeclaredKind = {
 	 *  type reads the two.
 	 */
 	mismatch: boolean,
+};
+
+/**  Every declaration of one object, with the path they share. */
+export type DeclaredObject = {
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  In archive order, and in the game index's tree order within one archive. */
+	declarations: ObjectDeclaration[],
+};
+
+/**  What declares each of a set of object hashes, beside the slot the index is in. */
+export type DeclaredObjects = {
+	/**  Off `Ready`, only the open document's own objects are in `objects`. */
+	index: ObjectIndexStatus,
+	/**  By the object's hash, `0x` and eight hex digits. A hash nothing declares is absent. */
+	objects: { [key in string]: DeclaredObject },
 };
 
 /**
@@ -690,6 +899,47 @@ export type DiagnosticReport_Serialize = {
 	/**  All checks in display order. */
 	checks: Check_Serialize[],
 };
+
+/**  Why a leaf edit's value does not fit the node it addresses. */
+export type EditRejection = 
+/**  The node holds no value an edit sets: a container, a struct or an absent optional. */
+{ reason: "notALeaf" } | 
+/**  The value is of another kind than the leaf. */
+{ reason: "wrongKind"; kind: PropertyKind } | 
+/**  An integer the leaf's kind does not hold. */
+{ reason: "outOfRange"; kind: PropertyKind } | 
+/**  A float that is NaN or an infinity. */
+{ reason: "notFinite" } | 
+/**  A vector or a matrix of another number of components than the leaf holds. */
+{ reason: "wrongLength"; expected: number } | 
+/**  A hash text that is empty, or hex of another width. */
+{ reason: "malformedHash" } | 
+/**  The node holds no properties: a leaf, a container, or a null pointer. */
+{ reason: "notAHolder" } | 
+/**  The path ends in no property of a holder. */
+{ reason: "notAProperty" } | 
+/**  The holder writes the field already. */
+{ reason: "propertyExists" } | 
+/**  The schema declares no such field on the holder's class or its bases. */
+{ reason: "undeclaredField" } | 
+/**  An embed names no class. */
+{ reason: "missingClass" } | 
+/**  The kinds build no value: a container of nothing, or a kind a container cannot hold. */
+{ reason: "invalidShape" } | 
+/**  The node holds no items: it is no list, map or option. */
+{ reason: "notAList" } | 
+/**  The path ends in no item of a list, a map or an option. */
+{ reason: "notAnItem" } | 
+/**  The node is no pointer. */
+{ reason: "notAPointer" } | 
+/**  Another entry of the map holds the key. */
+{ reason: "keyExists" } | 
+/**  A map entry names no key. */
+{ reason: "missingKey" } | 
+/**  The option or the pointer holds a value already. */
+{ reason: "valueHeld" } | 
+/**  The list holds no such position. */
+{ reason: "noSuchIndex" };
 
 /**  One key of the skin's resolver, and the system it stands for. */
 export type EffectSystem = {
@@ -834,6 +1084,23 @@ export type FieldSchema = {
 	declared: KindShape | null,
 	/**  Oldest first. */
 	revisions: FieldRevision[],
+};
+
+/**  One file of the folded index, in the shape a single archive reads back. */
+export type GameFileEntry = {
+	/**  Chunk path hash as 16 lowercase hex digits. */
+	pathHash: string,
+	/**  Resolved chunk path, or `None` when no hash table names it. */
+	path: string | null,
+	/**  Uncompressed chunk size. */
+	sizeBytes: number,
+	/**
+	 *  The `DATA/FINAL`-relative archive the chunk was read from.
+	 * 
+	 *  The fold drops every copy of a chunk after the first, so this names the
+	 *  archive that copy came from and not every archive that carries it.
+	 */
+	wad: string,
 };
 
 /**  The facts the game log gives about the game itself. */
@@ -1146,6 +1413,28 @@ export type LauncherError =
  */
 { kind: "OTHER"; message: string };
 
+/**
+ *  The value a leaf edit sets, in the shape its widget holds.
+ * 
+ *  A hash, a link and a file carry the text the reader typed: a name, or the hex the row
+ *  draws.
+ */
+export type LeafValue = 
+/**  A `Bool` or a `BitBool`. */
+{ type: "bool"; value: boolean } | 
+/**  Any integer kind, as text. A `U64` does not fit a JSON number. */
+{ type: "integer"; text: string } | { type: "float"; value: number | null } | 
+/**  Two, three or four components. */
+{ type: "vector"; values: (number | null)[] } | 
+/**  Sixteen cells, row-major. */
+{ type: "matrix"; values: (number | null)[] } | { type: "color"; r: number; g: number; b: number; a: number } | { type: "string"; value: string } | 
+/**  A name, or `0x` and eight hex digits. */
+{ type: "hash"; text: string } | 
+/**  A chunk path, or sixteen hex digits. */
+{ type: "wadChunkLink"; text: string } | 
+/**  An object path, or `0x` and eight hex digits. */
+{ type: "objectLink"; text: string };
+
 /**  One entry of `mMaskDataMap`. */
 export type Mask = {
 	name: string,
@@ -1227,6 +1516,223 @@ export type NamedAsset = {
 	path: string,
 	/**  Absent for a path nothing on this machine holds, which is not an error. */
 	asset: AssetRef | null,
+};
+
+/**  An item Add item writes into a list, a map or an option. */
+export type NewItem = {
+	/**  Where the item lands in a list or a map, or `None` for the end. */
+	index: number | null,
+	/**
+	 *  A map entry's key as a person types one: digits, the text of a `string`, or a name
+	 *  or `0x` and eight hex digits for a `hash`.
+	 */
+	key: string | null,
+	/**
+	 *  The class an embed or a pointer item holds, as a name or `0x` and eight hex digits.
+	 *  A pointer item without one starts null.
+	 */
+	class: string | null,
+};
+
+/**  A property Add property writes: a field the schema declares, or one the reader shapes. */
+export type NewProperty = 
+/**  A field the holder's class or one of its bases declares, at its published default. */
+{ kind: "declared"; 
+/**  `0x` and eight hex digits. */
+field: string } | 
+/**  Any field, at its kind's zero value. */
+{ kind: "custom"; 
+/**  A field name, or `0x` and eight hex digits. */
+field: string; shape: KindShape; 
+/**  The class an embed holds, as a name or `0x` and eight hex digits. */
+class: string | null };
+
+/**  One class an ambiguous `class:` term matched, offered as a completion. */
+export type ObjectClassHit = {
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class's name, or its hash when no table names it. */
+	class: string,
+	/**  How many declarations carry the class. */
+	rows: number,
+};
+
+/**  One declaration of an object: the file that declares it and the class it carries. */
+export type ObjectDeclaration = {
+	/**  The declaring file, as an open reads it. */
+	asset: AssetRef,
+	/**  The declaring file's path, or its hash when no table names it. */
+	file: string,
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class's name, or its hash when no table names it. */
+	class: string,
+};
+
+/**  What one prefix of the object tree holds, given the slot the index is in. */
+export type ObjectDir = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running. The listing follows it. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{
+	status: "ready",
+} & ObjectDirListing;
+
+/**
+ *  What one prefix of the object tree holds.
+ * 
+ *  "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
+ */
+export type ObjectDirListing = {
+	/**  The prefixes no object bears, in natural name order, the unnamed group last at the root. */
+	prefixes: ObjectPrefixEntry[],
+	/**  The objects at the prefix, in natural name order. */
+	objects: ObjectNodeEntry[],
+};
+
+/**  What a full search of the objects found, given the slot the index is in. */
+export type ObjectFind = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running. The hits follow it. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{
+	status: "ready",
+} & ObjectFindResult;
+
+/**  One object the full search matched, with the runs its path marks. */
+export type ObjectFindHit = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  Byte offsets into `path`. Empty where a class term alone matched. */
+	ranges: ([number, number])[],
+	/**  Every declaration of the object, in archive order. */
+	declarations: ObjectDeclaration[],
+};
+
+/**  What one full search of the object index found. */
+export type ObjectFindResult = {
+	/**  Every matching object in path order, capped at `FIND_LIMIT`, the unnamed last. */
+	hits: ObjectFindHit[],
+	/**  How many objects matched in all, counted on past the cap. */
+	total: number,
+	/**  A newer search overtook this one. The hits are a part of the answer. */
+	superseded: boolean,
+	/**  No table named a single object. Only a hash can match. */
+	unnamed: boolean,
+};
+
+/**  The slot the index is in, as an answer reports it. */
+export type ObjectIndexStatus = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+{ status: "absent" } | 
+/**  A build is running. The answer follows it. */
+{ status: "building" } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{ status: "ready" };
+
+/**  One object at a listed prefix, with what sits below it. */
+export type ObjectNodeEntry = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  The last segment of the path, or the hash. */
+	name: string,
+	/**  Every declaration of the object, in archive order. */
+	declarations: ObjectDeclaration[],
+	/**  Objects below the node, 0 for a leaf. */
+	count: number,
+};
+
+/**
+ *  One prefix under a listed one, folded through any run of single-child prefixes.
+ * 
+ *  A node an object bears is an [`ObjectNodeEntry`] and not one of these.
+ */
+export type ObjectPrefixEntry = {
+	/**  What `ObjectIndex::object_dir` takes to open this row: the folded node's path. */
+	path: string,
+	/**  What the row reads: the folded run of segments joined by `/`. */
+	name: string,
+	/**  Objects below the prefix. */
+	count: number,
+};
+
+/**  What a reference query found, given the slot the index is in. */
+export type ObjectReferences = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running. The groups follow it. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{
+	status: "ready",
+} & ReferenceResult;
+
+/**  What a search answers, given the slot the index is in. */
+export type ObjectSearch = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running, so the rows are on their way. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{
+	status: "ready",
+} & ObjectSearchResult;
+
+/**
+ *  One row a search matched, with the runs its path marks.
+ * 
+ *  The object's whole path is the row's title, so `ranges` are byte offsets
+ *  into `path`. An object or a class no table names reads as its hex.
+ */
+export type ObjectSearchHit = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	ranges: ([number, number])[],
+	/**  The class the object declares, or its hash when no table names it. */
+	class: string,
+	/**  The declaring chunk's path hash as 16 lowercase hex digits. */
+	fileHash: string,
+	/**  The declaring chunk's path. */
+	file: string,
+	/**  The `DATA/FINAL`-relative archive the declaring chunk was read from. */
+	wad: string,
+	/**  0 is a name the query opens, 1 a name holding it, 2 a match reaching the path. */
+	band: number,
+	score: number | null,
+};
+
+/**  What one search of the object index found. */
+export type ObjectSearchResult = {
+	/**  The best rows, best first, capped at `SEARCH_LIMIT`. */
+	hits: ObjectSearchHit[],
+	/**  How many rows matched in all, which the cap trimmed. */
+	total: number,
+	/**  A newer search started before this one finished, so it gave up early. */
+	superseded: boolean,
+	/**  No table named a single object, so only a hash can match. */
+	unnamed: boolean,
+	/**  The classes an ambiguous `class:` term matched, in place of rows. */
+	classes: ObjectClassHit[],
 };
 
 /**  What the session was started for, without the paths a workshop one carries. */
@@ -1344,6 +1850,58 @@ export type ProjectTextFile =
  *  compile error here.
  */
 export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vec2" | "vec3" | "vec4" | "mtx44" | "rgba" | "string" | "hash" | "file" | "list" | "list2" | "pointer" | "embed" | "link" | "option" | "map" | "flag";
+
+/**  Why a document takes no edit. "Where editing is allowed" in docs/ux/BIN_EDITOR.md. */
+export type ReadOnly = 
+/**  A chunk of the installed game. */
+"install" | 
+/**  A file outside every project. */
+"loose" | 
+/**  A `PTCH` layer, whose records nothing draws. */
+"patch";
+
+/**  The objects one file declares, as a reference query groups them. */
+export type ReferenceGroup = {
+	/**  The declaring file, as an open reads it. */
+	asset: AssetRef,
+	/**  The declaring file's path, or its hash when no table names it. */
+	file: string,
+	/**  The objects in natural path order, the ones no table names last. */
+	objects: ReferenceHit[],
+};
+
+/**  One object a reference query found, in the file that declares it. */
+export type ReferenceHit = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class's name, or its hash when no table names it. */
+	class: string,
+};
+
+/**  What a reference query asks the index for. */
+export type ReferenceQuery = 
+/**  Every object of one class. */
+{ kind: "class"; 
+/**  The class hash, `0x` and eight hex digits. */
+classHash: string } | 
+/**  Every declaration of one object. */
+{ kind: "object"; 
+/**  The object's path hash, `0x` and eight hex digits. */
+objectHash: string };
+
+/**  What one reference query found. */
+export type ReferenceResult = {
+	/**  The declaring files in archive order, holding at most `FIND_LIMIT` objects in all. */
+	groups: ReferenceGroup[],
+	/**  How many objects matched in all, counted on past the cap. */
+	total: number,
+	/**  A newer query overtook this one. The groups are a part of the answer. */
+	superseded: boolean,
+};
 
 /**  How a pass's fragments reach the target, from the first pass's own fields. */
 export type RenderState = {

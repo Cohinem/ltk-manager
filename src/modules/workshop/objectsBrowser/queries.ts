@@ -15,7 +15,7 @@ export const objectTreeQueries = {
   dir: (prefix: string) =>
     queryOptions<ObjectDir, AppError>({
       queryKey: objectKeys.dir(prefix),
-      queryFn: queryFnWithArgs(api.objectDir, prefix),
+      queryFn: queryFnWithArgs(api.objects.dir, prefix),
       staleTime: Infinity,
       refetchInterval: (query) => {
         const status = query.state.data?.status;
@@ -28,7 +28,7 @@ export const objectTreeQueries = {
   find: (pattern: string, regex: boolean, cls: string | null, active: boolean) =>
     queryOptions<ObjectFind, AppError>({
       queryKey: objectKeys.find(pattern, regex, cls),
-      queryFn: active ? queryFnWithArgs(api.findObjects, pattern, regex, cls) : skipToken,
+      queryFn: active ? queryFnWithArgs(api.objects.find, pattern, regex, cls) : skipToken,
       placeholderData: keepPreviousData,
       refetchInterval: (query) => {
         const status = query.state.data?.status;

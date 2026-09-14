@@ -1,4 +1,4 @@
-import type { AppError, BinRow, BinRows, BinValue } from "@/lib/tauri";
+import type { AppError, BinDocumentId, BinRow, BinRows, BinValue, PropertyKind } from "@/lib/tauri";
 
 import { nameHash } from "./binHash";
 
@@ -58,8 +58,43 @@ export function entryKeyHash(row: Pick<BinRow, "name" | "unnamed">): string | nu
 }
 
 /** Whether rows can sit under this one. */
-export function canExpand(row: BinRow): boolean {
+export function canExpand(row: BinRow, editable = false): boolean {
+  /* An editable holder opens while empty, which is where its add line draws. */
+  if (editable && lineTarget(row.value) !== null) return true;
   return holdsChildren(row.value);
+}
+
+/** What an add line under a holder writes into it. */
+export type LineTarget =
+  | { readonly kind: "property" }
+  | { readonly kind: "item"; readonly itemKind: PropertyKind }
+  /** The value of an absent option. */
+  | { readonly kind: "option"; readonly itemKind: PropertyKind }
+  | { readonly kind: "entry"; readonly keyKind: PropertyKind; readonly valueKind: PropertyKind }
+  /** The class of a null pointer. */
+  | { readonly kind: "pointer" };
+
+/** What an add line under a row holding `value` writes, or null where it takes none. */
+export function lineTarget(value: BinValue): LineTarget | null {
+  switch (value.type) {
+    case "struct":
+      return { kind: "property" };
+    case "container":
+      return { kind: "item", itemKind: value.itemKind };
+    case "map":
+      return { kind: "entry", keyKind: value.keyKind, valueKind: value.valueKind };
+    case "optional":
+      return value.present ? null : { kind: "option", itemKind: value.itemKind };
+    case "null":
+      return { kind: "pointer" };
+    default:
+      return null;
+  }
+}
+
+/** Whether a value of `kind` is a struct, whose class an add picks. */
+export function holdsClass(kind: string): boolean {
+  return kind === "pointer" || kind === "embed";
 }
 
 /** How many rows sit under `row`, which is what reading it costs. */
@@ -170,6 +205,10 @@ export type VisibleRow =
       readonly loading: boolean;
       /** The class hash of the struct the row is a property of. Null for an object, an element and an entry. */
       readonly owner: string | null;
+      /** The row this one is a child of. Null at depth zero. */
+      readonly parent: BinRow | null;
+      /** The row's position among its parent's children. */
+      readonly index: number;
     }
   | {
       readonly kind: "more";
@@ -179,10 +218,46 @@ export type VisibleRow =
       readonly loaded: number;
       readonly total: number;
       readonly pending: boolean;
+    }
+  | {
+      readonly kind: "add";
+      readonly key: string;
+      readonly document: BinDocumentId;
+      /** The holder's object, `0x` and eight hex digits. */
+      readonly entry: string;
+      /** The holder's wire path, empty for the object itself. */
+      readonly path: string;
+      readonly depth: number;
+      readonly target: LineTarget;
+      /** Where an item inserts in its list or map. Null for the end. */
+      readonly index: number | null;
     };
 
 /** The line a row draws as. */
 export type RowLine = Extract<VisibleRow, { kind: "row" }>;
+
+/** The line a property, an item, a key or a class is typed into, under an editable holder. */
+export type AddLine = Extract<VisibleRow, { kind: "add" }>;
+
+/** The key of the add line under the holder `holderKey`, or of its insert line at `index`. */
+export function addLineKey(holderKey: string, index: number | null = null): string {
+  return index === null ? `${holderKey}:add` : `${holderKey}:add@${index}`;
+}
+
+/** An insert line opened inside a list or a map, before the child at `index`. */
+export interface InsertAt {
+  readonly holder: string;
+  readonly index: number;
+}
+
+/** Where add lines draw: the document they add to, and the object an object tab's roots belong to. */
+export interface AddLines {
+  readonly document: BinDocumentId;
+  /** The object whose properties the roots are, for an add line after them. Null for a file's roots. */
+  readonly rootEntry: string | null;
+  /** The one insert line open, if any. */
+  readonly insertAt?: InsertAt | null;
+}
 
 /**
  * The lines the list draws, in order, out of the root rows and what is fetched under
@@ -198,13 +273,37 @@ export function flattenRows(
   expanded: ReadonlySet<string>,
   childrenOf: (key: string) => LoadedChildren | undefined,
   rootOwner: string | null = null,
+  adds: AddLines | null = null,
 ): VisibleRow[] {
   const out: VisibleRow[] = [];
+  const editable = adds !== null;
+  const insertAt = adds?.insertAt ?? null;
 
-  function visit(rows: readonly BinRow[], depth: number, owner: string | null) {
-    for (const row of rows) {
+  function addLine(holder: BinRow, target: LineTarget, depth: number, index: number | null) {
+    if (adds === null) return;
+    out.push({
+      kind: "add",
+      key: addLineKey(rowKey(holder), index),
+      document: adds.document,
+      entry: holder.entry,
+      path: holder.path,
+      depth,
+      target,
+      index,
+    });
+  }
+
+  function visit(
+    rows: readonly BinRow[],
+    depth: number,
+    owner: string | null,
+    parent: BinRow | null,
+  ) {
+    const parentKey = parent === null ? null : rowKey(parent);
+    const parentTarget = parent === null ? null : lineTarget(parent.value);
+    rows.forEach((row, index) => {
       const key = rowKey(row);
-      const isExpanded = expanded.has(key) && canExpand(row);
+      const isExpanded = expanded.has(key) && canExpand(row, editable);
       const children = isExpanded ? childrenOf(key) : undefined;
       out.push({
         kind: "row",
@@ -214,26 +313,109 @@ export function flattenRows(
         expanded: isExpanded,
         loading: isExpanded && children === undefined,
         owner: row.node === "property" ? owner : null,
+        parent,
+        index,
       });
-      if (!children) continue;
 
-      visit(children.rows, depth + 1, ownerOf(row));
-      if (children.rows.length < children.total) {
-        out.push({
-          kind: "more",
-          key: `${key}:more`,
-          parent: key,
-          depth: depth + 1,
-          loaded: children.rows.length,
-          total: children.total,
-          pending: children.pending,
-        });
+      if (children) {
+        visit(children.rows, depth + 1, ownerOf(row), row);
+        const target = lineTarget(row.value);
+        if (children.rows.length < children.total) {
+          out.push({
+            kind: "more",
+            key: `${key}:more`,
+            parent: key,
+            depth: depth + 1,
+            loaded: children.rows.length,
+            total: children.total,
+            pending: children.pending,
+          });
+        } else if (target !== null && !children.pending) {
+          addLine(row, target, depth + 1, null);
+        }
       }
-    }
+
+      if (
+        parent !== null &&
+        parentTarget !== null &&
+        insertAt?.holder === parentKey &&
+        insertAt.index === index + 1
+      ) {
+        addLine(parent, parentTarget, depth, index + 1);
+      }
+    });
   }
 
-  visit(roots, 0, rootOwner);
+  visit(roots, 0, rootOwner, null);
+  if (adds !== null && adds.rootEntry !== null) {
+    out.push({
+      kind: "add",
+      key: addLineKey(objectKey(adds.rootEntry)),
+      document: adds.document,
+      entry: adds.rootEntry,
+      path: "",
+      depth: 0,
+      target: { kind: "property" },
+      index: null,
+    });
+  }
   return out;
+}
+
+/** An index map over a list's items: where the item at an index went, or null where it went out. */
+export type IndexShift = (index: number) => number | null;
+
+/** The items at and after `at` move down one, for an item put in at `at`. */
+export function insertShift(at: number): IndexShift {
+  return (index) => (index >= at ? index + 1 : index);
+}
+
+/** The item at `at` goes out and the items after it move up one. */
+export function removeShift(at: number): IndexShift {
+  return (index) => {
+    if (index === at) return null;
+    return index > at ? index - 1 : index;
+  };
+}
+
+/** The item at `from` lands at `to`, and the items between close up behind it. */
+export function moveShift(from: number, to: number): IndexShift {
+  return (index) => {
+    if (index === from) return to;
+    if (from < to && index > from && index <= to) return index - 1;
+    if (from > to && index >= to && index < from) return index + 1;
+    return index;
+  };
+}
+
+/**
+ * `key` with the index of the item it sits under in the list `holder` passed through
+ * `shift`, or null where that item went out. A key outside the list comes back as it was.
+ */
+export function shiftedKey(key: string, holder: string, shift: IndexShift): string | null {
+  const prefix = `${holder}[`;
+  if (!key.startsWith(prefix)) return key;
+  const close = key.indexOf("]", prefix.length);
+  const index = Number(key.slice(prefix.length, close));
+  if (close < 0 || !Number.isInteger(index)) return key;
+  const next = shift(index);
+  if (next === null) return null;
+  return `${prefix}${next}${key.slice(close)}`;
+}
+
+/** `key` moved from under `from` to under `to`, where it sits under `from`. */
+export function renamedKey(key: string, from: string, to: string): string {
+  return isUnder(from, key) ? `${to}${key.slice(from.length)}` : key;
+}
+
+/** Drop every key under `gone`, for an edit that took it out. */
+export function droppedUnder(gone: string): (key: string) => string | null {
+  return (key) => (isUnder(gone, key) ? null : key);
+}
+
+/** Drop every key strictly under `holder`, keeping `holder` itself. */
+export function droppedInside(holder: string): (key: string) => string | null {
+  return (key) => (key !== holder && isUnder(holder, key) ? null : key);
 }
 
 /** One page of a node's children as the query answered it, or has not. */

@@ -105,7 +105,7 @@ const LOCATED: Record<string, GameFileEntry> = {
   "assets/aatrox.tex": {
     pathHash: "00cc",
     path: "assets/aatrox.tex",
-    sizeBytes: 1n,
+    sizeBytes: 1,
     wad: "Champions/Aatrox.wad.client",
   },
 };

@@ -21,7 +21,7 @@ export const referenceQueries = {
   forQuery: (query: ReferenceQuery | null) =>
     queryOptions<ObjectReferences, AppError>({
       queryKey: referenceKeys.query(query),
-      queryFn: query ? queryFnWithArgs(api.findReferences, query) : skipToken,
+      queryFn: query ? queryFnWithArgs(api.objects.references, query) : skipToken,
       placeholderData: keepPreviousData,
       refetchInterval: (result) => {
         const status = result.state.data?.status;

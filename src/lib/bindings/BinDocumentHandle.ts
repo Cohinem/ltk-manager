@@ -3,6 +3,7 @@ import type { BinDocumentId } from "./BinDocumentId";
 import type { BinHeader } from "./BinHeader";
 import type { BinObjectHeader } from "./BinObjectHeader";
 import type { BinRow } from "./BinRow";
+import type { ReadOnly } from "./ReadOnly";
 
 /**
  * What an open answers: the id, the header, and the rows at depth zero.
@@ -14,4 +15,8 @@ export type BinDocumentHandle = { document: BinDocumentId, header: BinHeader, ro
 /**
  * The object the open is over. Absent for a file open.
  */
-object: BinObjectHeader | null, };
+object: BinObjectHeader | null, 
+/**
+ * The gate a read-only document stands behind. Absent where it takes edits.
+ */
+readOnly: ReadOnly | null, };

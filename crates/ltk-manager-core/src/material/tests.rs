@@ -246,7 +246,7 @@ fn document_of(objects: Vec<BinObject>) -> BinDocument {
     }
     let mut out = Cursor::new(Vec::new());
     bin.build().to_writer(&mut out).unwrap();
-    BinDocument::parse(&out.into_inner()).unwrap()
+    BinDocument::parse(out.into_inner()).unwrap()
 }
 
 /// Tables that name the material, the shaders and one chunk.

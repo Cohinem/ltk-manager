@@ -50,6 +50,7 @@ pub struct GameDirEntry {
 /// One file of the folded index, in the shape a single archive reads back.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFileEntry {

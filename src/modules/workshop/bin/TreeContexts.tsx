@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
+import { BinEditContext, type TreeFocus, useBinEditor } from "./useBinEdit";
 import {
   LinkAssetContext,
   LinkOpenContext,
@@ -24,28 +25,37 @@ interface TreeContextsProps {
   inView: readonly BinRow[];
   /** The name of the object an entry hash addresses, which a row's chips read under. */
   objectName: (entry: string) => string;
+  /** The leaves take edits. */
+  editable: boolean;
+  /** Where the tree sends focus after an edit. */
+  focus: TreeFocus;
   children: ReactNode;
 }
 
-/** What a row reads around itself: the asset it came from, its object, its links and its values. */
+/** What a row reads around itself: the asset it came from, its object, its links, its values and its edits. */
 export function TreeContexts({
   document,
   asset,
   groups,
   inView,
   objectName,
+  editable,
+  focus,
   children,
 }: TreeContextsProps) {
   const linkTargets = useCheckLinkTargets(document, groups);
   const linkOpen = useWarmLinkOpen(linkTargets);
   const marks = useValueMarks(document, inView);
+  const edit = useBinEditor(document, asset, editable, focus);
 
   return (
     <LinkAssetContext value={asset}>
       <ObjectNameContext value={objectName}>
         <LinkTargetsContext value={linkTargets}>
           <LinkOpenContext value={linkOpen}>
-            <ValueMarksContext value={marks}>{children}</ValueMarksContext>
+            <ValueMarksContext value={marks}>
+              <BinEditContext value={edit}>{children}</BinEditContext>
+            </ValueMarksContext>
           </LinkOpenContext>
         </LinkTargetsContext>
       </ObjectNameContext>

@@ -15,7 +15,7 @@ export const classSchemaQueries = {
   forClass: (classHash: string | null) =>
     queryOptions<ClassSchema | null, AppError>({
       queryKey: classSchemaKeys.class(classHash ?? ""),
-      queryFn: async () => unwrapForQuery(await api.classSchema(classHash ?? "")),
+      queryFn: async () => unwrapForQuery(await api.bin.classSchema(classHash ?? "")),
       enabled: classHash !== null,
       staleTime: Infinity,
       gcTime: Infinity,

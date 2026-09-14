@@ -21,6 +21,10 @@ use crate::bin_document::PropertyKind;
 use crate::bin_document::hex;
 use crate::problems::GameBuild;
 
+mod fields;
+
+pub use fields::DeclaredField;
+
 #[cfg(test)]
 mod tests;
 
@@ -57,8 +61,20 @@ struct PublishedVersion {
 #[derive(Debug, Deserialize)]
 struct PublishedClass {
     name: Option<String>,
+    /// The classes it derives from, over spans of builds.
+    #[serde(default)]
+    revisions: Vec<PublishedClassRevision>,
     #[serde(default)]
     properties: HashMap<String, PublishedProperty>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PublishedClassRevision {
+    from: u32,
+    to: Option<u32>,
+    /// The classes this one derives from, as hashes.
+    #[serde(default)]
+    bases: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,6 +94,10 @@ struct PublishedRevision {
     /// [`Shape`] reads.
     #[serde(default)]
     r#type: Vec<String>,
+    /// The value the game constructs the field with. Absent, and `null`, both read as
+    /// none.
+    #[serde(default)]
+    default: Option<serde_json::Value>,
 }
 
 /// The database this build ships, so a check works offline and before a sync.
@@ -121,7 +141,24 @@ pub struct MetaSchemaVersion {
 #[derive(Debug)]
 struct ParsedClass {
     name: Option<String>,
+    /// Oldest first.
+    bases: Vec<ClassRevision>,
     properties: HashMap<BinHash, ParsedProperty>,
+}
+
+/// The classes one class derives from over one span of builds.
+#[derive(Debug)]
+struct ClassRevision {
+    from: u32,
+    to: Option<u32>,
+    bases: Vec<BinHash>,
+}
+
+impl ClassRevision {
+    /// Whether this revision is the one describing `build`. `to` is inclusive.
+    fn covers(&self, build: u32) -> bool {
+        build >= self.from && self.to.is_none_or(|last| build <= last)
+    }
 }
 
 #[derive(Debug)]
@@ -141,13 +178,17 @@ impl ParsedProperty {
 }
 
 /// One property's type over one span of builds.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Revision {
     from: u32,
     to: Option<u32>,
     /// `None` for a type name this build does not map, which is a revision the
     /// lookup declines to answer rather than one it answers wrongly.
     shape: Option<Shape>,
+    /// The class slot of the type: what an `Embed`, a `Pointer` or a list's items hold.
+    class: Option<BinHash>,
+    /// The value the game constructs the field with.
+    default: Option<serde_json::Value>,
 }
 
 impl Revision {
@@ -219,7 +260,7 @@ impl Shape {
 ///
 /// The wire form of [`Shape`]. A row's tag and a card's field draw it as `list[embed]`
 /// or `map[hash,string]`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -240,6 +281,16 @@ impl KindShape {
             kind,
             key: None,
             value: None,
+        }
+    }
+}
+
+impl From<KindShape> for Shape {
+    fn from(shape: KindShape) -> Self {
+        Self {
+            kind: shape.kind.into(),
+            key: shape.key.map(Kind::from),
+            value: shape.value.map(Kind::from),
         }
     }
 }
@@ -428,10 +479,24 @@ impl MetaSchema {
                         Some((parse_hash(&field)?, ParsedProperty::from(property)))
                     })
                     .collect();
+                let bases = class
+                    .revisions
+                    .into_iter()
+                    .map(|revision| ClassRevision {
+                        from: revision.from,
+                        to: revision.to,
+                        bases: revision
+                            .bases
+                            .iter()
+                            .filter_map(|base| parse_hash(base))
+                            .collect(),
+                    })
+                    .collect();
                 Some((
                     hash,
                     ParsedClass {
                         name: class.name,
+                        bases,
                         properties,
                     },
                 ))
@@ -602,6 +667,12 @@ impl From<PublishedProperty> for ParsedProperty {
                     from: revision.from,
                     to: revision.to,
                     shape: Shape::written(&revision.r#type),
+                    class: revision
+                        .r#type
+                        .get(3)
+                        .filter(|written| *written != EMPTY_SLOT)
+                        .and_then(|written| parse_hash(written)),
+                    default: revision.default,
                 })
                 .collect(),
         }

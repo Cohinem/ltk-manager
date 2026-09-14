@@ -4,8 +4,10 @@ import type { BinDocumentId, BinRow } from "@/lib/tauri";
 
 import {
   flattenRows,
+  type InsertAt,
   isUnder,
   type LoadedChildren,
+  PAGE_SIZE,
   pagesWanted,
   toggled,
   type VisibleRow,
@@ -27,6 +29,10 @@ export interface TreeRows {
   readonly expand: (keys: Iterable<string>) => void;
   /** Ask a node with `loadedCount` rows answered for its next page. */
   readonly requestMore: (parent: string, loadedCount: number) => void;
+  /** Ask a node for every page up to its row `count`, which an add at the end of a long list reaches. */
+  readonly reach: (parent: string, count: number) => void;
+  /** Carry the expansion state through an edit that moved rows: each key where it went, or out. */
+  readonly remap: (remap: (key: string) => string | null) => void;
 }
 
 export interface TreeRowsOptions {
@@ -40,6 +46,12 @@ export interface TreeRowsOptions {
   initialExpanded: readonly string[];
   /** The backend holds no document with this id. */
   onNotOpen: () => void;
+  /** The holders draw add lines, and open while empty. */
+  editable: boolean;
+  /** The object an object tab's roots are properties of. Null for a file's roots. */
+  rootEntry: string | null;
+  /** The one insert line open, if any. */
+  insertAt?: InsertAt | null;
 }
 
 /**
@@ -54,6 +66,9 @@ export function useTreeRows({
   rootOwner,
   initialExpanded,
   onNotOpen,
+  editable,
+  rootEntry,
+  insertAt = null,
 }: TreeRowsOptions): TreeRows {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(initialExpanded));
   const [pages, setPages] = useState<ReadonlyMap<string, number>>(() => new Map());
@@ -69,8 +84,15 @@ export function useTreeRows({
   }, [notOpen, onNotOpen]);
 
   const visible = useMemo(
-    () => flattenRows(roots, expanded, (key) => loaded.get(key), rootOwner),
-    [roots, expanded, loaded, rootOwner],
+    () =>
+      flattenRows(
+        roots,
+        expanded,
+        (key) => loaded.get(key),
+        rootOwner,
+        editable ? { document, rootEntry, insertAt } : null,
+      ),
+    [roots, expanded, loaded, rootOwner, editable, document, rootEntry, insertAt],
   );
 
   const groups = useMemo<RowGroup[]>(
@@ -101,7 +123,34 @@ export function useTreeRows({
     });
   }, []);
 
-  return { visible, loaded, groups, toggle, expand, requestMore };
+  const reach = useCallback((parent: string, count: number) => {
+    setPages((current) => {
+      const wanted = Math.max(1, Math.ceil(count / PAGE_SIZE));
+      if ((current.get(parent) ?? 1) >= wanted) return current;
+      return new Map(current).set(parent, wanted);
+    });
+  }, []);
+
+  const remap = useCallback((move: (key: string) => string | null) => {
+    setExpanded((current) => {
+      const next = new Set<string>();
+      for (const key of current) {
+        const moved = move(key);
+        if (moved !== null) next.add(moved);
+      }
+      return next;
+    });
+    setPages((current) => {
+      const next = new Map<string, number>();
+      for (const [key, count] of current) {
+        const moved = move(key);
+        if (moved !== null) next.set(moved, count);
+      }
+      return next;
+    });
+  }, []);
+
+  return { visible, loaded, groups, toggle, expand, requestMore, reach, remap };
 }
 
 /** Ask for a node's next page while the line under its rows is on screen. */

@@ -517,7 +517,7 @@ fn document_linking(objects: Vec<BinObject>, dependencies: &[&str]) -> BinDocume
     }
     let mut out = Cursor::new(Vec::new());
     bin.build().to_writer(&mut out).unwrap();
-    BinDocument::parse(&out.into_inner()).unwrap()
+    BinDocument::parse(out.into_inner()).unwrap()
 }
 
 /// Tables that name the clip keys and one chunk, and nothing else.

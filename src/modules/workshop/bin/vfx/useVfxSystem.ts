@@ -29,7 +29,7 @@ export const vfxQueries = {
   system: (document: BinDocumentId, entry: string) =>
     queryOptions<VfxSystem, AppError>({
       queryKey: vfxKeys.system(document, entry),
-      queryFn: async () => unwrapForQuery(await api.readVfxSystem(document, entry)),
+      queryFn: async () => unwrapForQuery(await api.bin.readVfxSystem(document, entry)),
       staleTime: Infinity,
       retry: false,
     }),

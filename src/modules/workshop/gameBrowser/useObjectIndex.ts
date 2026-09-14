@@ -14,10 +14,10 @@ const NO_OBJECTS = new Set<string>();
  * One step of the index's lifecycle, after which every held object search is
  * asked again so a row that read "building" is replaced.
  */
-function useObjectIndexStep(step: () => Promise<Awaited<ReturnType<typeof api.warmObjectIndex>>>) {
+function useObjectIndexStep(step: () => Promise<Awaited<ReturnType<typeof api.objects.warm>>>) {
   const queryClient = useQueryClient();
 
-  return useMutation<void, AppError, void>({
+  return useMutation<null, AppError, void>({
     mutationFn: mutationFn(step),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: gameKeys.objectSearches });
@@ -27,12 +27,12 @@ function useObjectIndexStep(step: () => Promise<Awaited<ReturnType<typeof api.wa
 
 /** Build the object index, unless one is built or building. */
 export function useWarmObjectIndex() {
-  return useObjectIndexStep(api.warmObjectIndex);
+  return useObjectIndexStep(api.objects.warm);
 }
 
 /** Drop the object index, so the bar stops answering for objects. */
 export function useDropObjectIndex() {
-  return useObjectIndexStep(api.dropObjectIndex);
+  return useObjectIndexStep(api.objects.drop);
 }
 
 /** The slot an answer of the object index reports it in. */
