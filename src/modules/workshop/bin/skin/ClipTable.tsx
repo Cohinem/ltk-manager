@@ -67,14 +67,14 @@ export function ClipsPane({ source, joints }: ClipsPaneProps) {
   return <MapTable graph={graph.data} tab={tab} joints={joints} />;
 }
 
-/** The tab control and the name filter, which a shell's strip and a stack's header both carry. */
+/** The map control and name filter above the clip tables. */
 export function ClipTabs() {
   const choice = use(SkinChoiceContext);
   if (choice === null) return null;
   const { tab, setTab, filter, setFilter } = choice;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {tab === "clips" && (
         <Field.Control
           className="h-6 w-40 px-2 font-sans text-meta"

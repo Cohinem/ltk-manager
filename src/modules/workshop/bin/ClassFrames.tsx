@@ -122,10 +122,19 @@ export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
         body: <SkinPreview document={view.document} asset={view.asset} entry={entry} />,
       },
       clips: {
-        body: entry !== null && (
-          <ClipsHost view={view} entry={entry} className="flex min-h-0 flex-1 flex-col" />
+        body: (
+          <>
+            <div
+              data-ui="SkinShell:clips-toolbar"
+              className="shrink-0 border-b border-surface-700/50 px-2 py-1.5 select-none"
+            >
+              <ClipTabs />
+            </div>
+            {entry !== null && (
+              <ClipsHost view={view} entry={entry} className="flex min-h-0 flex-1 flex-col" />
+            )}
+          </>
         ),
-        actions: <ClipTabs />,
       },
       inspector: {
         body: <SectionColumn placed={others} pages={pages} view={view} />,

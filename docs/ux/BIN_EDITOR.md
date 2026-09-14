@@ -1194,7 +1194,7 @@ out of the files it links, as the preview reads it, and the file it was found in
 inspector reads a clip's rows from.
 
 **A row per entry of `mClipDataMap`, whatever its kind.** The rows sort by name, the ones no
-table names after them, and a filter in the pane's strip narrows them by name. The columns are
+table names after them, and a filter below the pane's tab strip narrows them by name. The columns are
 Name with the kind of clip as a chip after it, File, Track, Rate, Mask, Sync group and Events.
 Mask and Sync group draw only while some clip of the graph names one, because most graphs name
 them on a handful of clips or on none and a column of nothing costs the width the names want.
@@ -1248,8 +1248,9 @@ every other kind of event draw nothing. A frame is
 sequencer fall where that step plays. The Effects switch hides these with the idle effects,
 and stands in the controls while a clip carries one.
 
-**Tracks, Masks and Sync groups are tabs.** A segmented control in the pane's strip lists the
-four maps, and each sibling map draws as a small table of its entries: the name, then the
+**Tracks, Masks and Sync groups are tabs.** A segmented control beside the filter lists the
+four maps. These controls sit in a separate row beneath the pane tabs and wrap when space is
+tight. Each sibling map draws as a small table of its entries: the name, then the
 struct's own fields as columns. A mask's row counts the joints it weighs out of the joints its
 list covers, and its caret unfolds them, each by slot, by the name the skin's skeleton gives
 the slot, and by weight. A click on a mask's row weighs it on the character: every vertex a
