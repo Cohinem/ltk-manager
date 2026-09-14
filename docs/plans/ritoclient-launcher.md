@@ -26,7 +26,7 @@ scanning the process table on a five-second timer.
 | Play flow       | `src/modules/launcher/api/usePlay.ts`                     | Patcher, then launch. Ends at `finally { setStep("idle") }` the moment the POST returns   |
 | Status bar      | `src/modules/launcher/components/SessionBar.tsx`          | Steps for build / patcher / launch. Nothing after "League is starting."                   |
 | Bindings        | `src/lib/bindings/Launch*.ts`, `LauncherError.ts`         | Six files the crate claims to generate and does not - see section 6                       |
-| Docs            | `CLAUDE.md`                                               | Crate table still lists `crates/ritoclient-api` as a workspace member                     |
+| Docs            | `AGENTS.md`                                               | Crate table still lists `crates/ritoclient-api` as a workspace member                     |
 | Licenses        | `public/third-party-licenses.json`                        | Names `ritoclient-api` only                                                               |
 
 ## 2. Why this is not a version bump
@@ -118,7 +118,7 @@ typecheck failure until it has a line. It needs one that does not read as a fail
    one outcome this variant exists to prevent.
 7. `SessionBar.tsx`: a `stopped` label, worded as the user's own action. `useLaunchProgress.ts`:
    `stopped` joins `TERMINAL_STAGES`.
-8. `CLAUDE.md`: the crate table's `crates/ritoclient-api` row is now an external Apache-2.0 dependency
+8. `AGENTS.md`: the crate table's `crates/ritoclient-api` row is now an external Apache-2.0 dependency
    named `ritoclient`, not a workspace member. Fix the row and the `LaunchObserver` sentence under it.
 9. `pnpm generate:licenses`. The manifest gains `ritoclient` and `ritoclient-core`.
 

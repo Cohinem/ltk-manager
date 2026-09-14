@@ -400,7 +400,7 @@ any page.
 
 ## Copy
 
-New strings, in `messages/en/home.json`, keyed as `src/CLAUDE.md` shapes a key. A string a
+New strings, in `messages/en/home.json`, keyed as `src/AGENTS.md` shapes a key. A string a
 tile draws that another surface already decided stays that surface's string. The status line's
 own sentences are here too, since no other surface says them as one line.
 

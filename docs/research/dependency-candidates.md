@@ -70,7 +70,7 @@ There are 54 `.mutex_err()?` calls. `AppError::MutexLockFailed` is the variant t
 `object_index.rs` unwraps poison with `PoisonError::into_inner`.
 
 `parking_lot::Mutex` has no poisoning. `lock()` returns the guard. The lock pattern in
-`src-tauri/CLAUDE.md`, `.0.lock().mutex_err()?.clone()`, is a convention this crate changes.
+`src-tauri/AGENTS.md`, `.0.lock().mutex_err()?.clone()`, is a convention this crate changes.
 
 ### strum
 

@@ -1,6 +1,6 @@
 # Frontend (React + TypeScript) - `src/`
 
-Conventions for everything under `src/`. Repo-wide guidance lives in the root `CLAUDE.md`.
+Conventions for everything under `src/`. Repo-wide guidance lives in the root `AGENTS.md`.
 
 ## JSX Conditional Rendering
 
@@ -217,7 +217,7 @@ hardcoded 4px and bypasses the radius scale.
 
 **Load the `design-system` skill before any styling or visual work** - which token to reach
 for, how the surface rungs stack, what the `-text` status variants are for, and how a choice
-behaves in light mode. Editing the stylesheets themselves is `src/styles/CLAUDE.md`.
+behaves in light mode. Editing the stylesheets themselves is `src/styles/AGENTS.md`.
 
 **Do not explain a style in a comment.** Borders, overlap, stacking and hover fills are
 primitive CSS that any reader follows from the classes. Where a rule from the design system

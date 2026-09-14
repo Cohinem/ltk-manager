@@ -24,7 +24,7 @@
 
 ### I. Code Quality & Maintainability
 
-- All code MUST follow the conventions established in CLAUDE.md
+- All code MUST follow the conventions established in AGENTS.md
   and `.cursorrules` without exception.
 - Comments MUST only explain non-obvious business logic, workarounds,
   edge cases, or "why" decisions. Trivially descriptive comments are
@@ -127,7 +127,7 @@
 - All changes MUST pass `pnpm check` and `cargo clippy` before
   requesting review.
 - New Tauri commands MUST follow the 7-step checklist documented in
-  CLAUDE.md under "Adding a New Tauri Command".
+  AGENTS.md under "Adding a New Tauri Command".
 - Commit messages MUST follow Conventional Commits format
   (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`).
 - Files MUST be read before editing. Assumptions about file contents
@@ -138,7 +138,7 @@
 
 - This constitution supersedes all ad-hoc practices. When a conflict
   arises between this document and other guidance, this document
-  wins unless CLAUDE.md explicitly overrides a specific point.
+  wins unless AGENTS.md explicitly overrides a specific point.
 - Amendments require: (1) a description of the change, (2) rationale,
   and (3) an update to the version number following semver rules:
   - MAJOR: principle removal or backward-incompatible redefinition.
@@ -146,7 +146,7 @@
   - PATCH: clarifications, typo fixes, non-semantic refinements.
 - All PRs and code reviews MUST verify compliance with these
   principles. Non-compliance MUST be flagged as a blocking issue.
-- Refer to `CLAUDE.md` for runtime development guidance and
+- Refer to `AGENTS.md` for runtime development guidance and
   command reference.
 
 **Version**: 1.0.0 | **Ratified**: 2026-03-06 | **Last Amended**: 2026-03-06

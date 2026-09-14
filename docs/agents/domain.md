@@ -29,7 +29,7 @@ both.
 └── crates/         ← ltk-manager-core
 ```
 
-The per-directory `CLAUDE.md` files (`src/`, `src/styles/`, `src-tauri/`, `crates/ltk-manager-core/`)
+The per-directory `AGENTS.md` files (`src/`, `src/styles/`, `src-tauri/`, `crates/ltk-manager-core/`)
 carry coding conventions, not domain vocabulary. They are not a substitute for `CONTEXT.md` and they
 do not make this a multi-context repo.
 

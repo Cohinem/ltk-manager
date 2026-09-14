@@ -25,7 +25,7 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 | Principle          | Status | Notes                                                                                                 |
 | ------------------ | ------ | ----------------------------------------------------------------------------------------------------- |
-| I. Code Quality    | PASS   | All new code follows CLAUDE.md conventions; no ternaries in JSX; barrel imports only                  |
+| I. Code Quality    | PASS   | All new code follows AGENTS.md conventions; no ternaries in JSX; barrel imports only                  |
 | II. Type Safety    | PASS   | New commands return `IpcResult<T>`; TS types auto-generated via ts-rs; `Result<T,E>` on frontend      |
 | III. Testing       | PASS   | Manual verification required; `pnpm check` + `cargo clippy` must pass                                 |
 | IV. UX Consistency | PASS   | Uses `@/components` exclusively; toasts for async feedback; loading states for >200ms ops             |

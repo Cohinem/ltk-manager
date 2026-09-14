@@ -207,7 +207,7 @@ cut, this does not matter.
 |   |-- read db/meta.db.json from raw.githubusercontent.com
 |   |-- compare on the payload's own hashSource.fetchedAt and latest
 |   |-- drop the /v1 call and the two-source warning
-|-- CLAUDE.md and docs/DEVELOPMENT.md
+|-- AGENTS.md and docs/DEVELOPMENT.md
     |-- both say the script reaches the LTK Meta Wiki API, which stops being true
 ```
 

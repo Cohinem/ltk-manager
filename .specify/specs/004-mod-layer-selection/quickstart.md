@@ -42,7 +42,7 @@ cargo fmt -p ltk-manager
 2. **Update `read_installed_mod()`** (`src-tauri/src/mods/library.rs`)
    - Accept profile layer states, derive `ModLayer.enabled` from them instead of hardcoding `true`
 
-3. **Add `set_mod_layers` command** (follow the 7-step checklist in CLAUDE.md)
+3. **Add `set_mod_layers` command** (follow the 7-step checklist in AGENTS.md)
    - Business logic in `src-tauri/src/mods/library.rs`
    - Command wrapper in `src-tauri/src/commands/mods.rs`
    - Register in `main.rs` `generate_handler![]`

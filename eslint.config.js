@@ -189,7 +189,7 @@ export default tseslint.config(
     },
   },
   {
-    /* The structural rules src/CLAUDE.md states as prose. Warnings, because the
+    /* The structural rules src/AGENTS.md states as prose. Warnings, because the
        moves in docs/research/frontend-architecture-audit.md have not landed. */
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED],

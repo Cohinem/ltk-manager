@@ -1,7 +1,7 @@
 # Domain glossary
 
 The words this codebase uses for its own concepts, and the ones it deliberately does not. Coding
-conventions live in the per-directory `CLAUDE.md` files. Decisions live in `docs/adr/`.
+conventions live in the per-directory `AGENTS.md` files. Decisions live in `docs/adr/`.
 
 ## The library
 

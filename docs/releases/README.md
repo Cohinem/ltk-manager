@@ -10,7 +10,7 @@ Whoever installs the build. That is the whole rule, and it is what separates
 these from `git log`.
 
 A commit subject is written in the codebase's own vocabulary, which the root
-`CLAUDE.md` requires and which is the wrong register here. "keep an optional the
+`AGENTS.md` requires and which is the wrong register here. "keep an optional the
 fix cannot convert" names a change for someone who works on the parser and tells
 a user nothing. Neither does a dependency bump, and a user-facing fix often
 arrives as exactly that.

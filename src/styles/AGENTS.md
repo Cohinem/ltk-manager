@@ -1,7 +1,7 @@
 # Design tokens - `src/styles/`
 
 Rules for **authoring the stylesheets**. How to _consume_ tokens from a component
-lives in `src/CLAUDE.md`, which loads for all frontend work. This file loads only when
+lives in `src/AGENTS.md`, which loads for all frontend work. This file loads only when
 you are in here.
 
 ## What each file owns
@@ -32,7 +32,7 @@ A comment on a token group says _what the group is_, in one line:
 That is the whole budget. **Never write, in CSS:**
 
 - **the values** - they are on the very next line
-- **which components or pages consume a token** - that belongs in `src/CLAUDE.md`, and the
+- **which components or pages consume a token** - that belongs in `src/AGENTS.md`, and the
   list goes stale the moment a component changes
 - **contrast measurements, or the reasoning behind a chosen value** - stale on the next tweak
 - **what a token is _not_**, or how another project in the ecosystem does it differently
@@ -41,7 +41,7 @@ A comment earns more than one line only for a mechanical fact a reader cannot re
 from the code: declaration order a minifier would break, or which of two competing
 blocks wins. `global.css` has exactly three of those. Match that bar.
 
-If a rule feels worth writing next to a token, it belongs in `src/CLAUDE.md` instead.
+If a rule feels worth writing next to a token, it belongs in `src/AGENTS.md` instead.
 
 ## Adding a token
 

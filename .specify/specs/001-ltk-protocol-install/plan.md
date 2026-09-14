@@ -25,7 +25,7 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 | Principle              | Status | Notes                                                                                            |
 | ---------------------- | ------ | ------------------------------------------------------------------------------------------------ |
-| I. Code Quality        | PASS   | Follows CLAUDE.md conventions; imports from barrel exports; no ternaries in JSX                  |
+| I. Code Quality        | PASS   | Follows AGENTS.md conventions; imports from barrel exports; no ternaries in JSX                  |
 | II. Type Safety        | PASS   | New commands return `IpcResult<T>`; TS types in `lib/tauri.ts` match Rust structs                |
 | III. Testing           | PASS   | Test scenarios defined in spec; manual verification of success + error paths                     |
 | IV. UX Consistency     | PASS   | Uses `Dialog` from `@/components`; toast for success/error feedback; loading states for download |

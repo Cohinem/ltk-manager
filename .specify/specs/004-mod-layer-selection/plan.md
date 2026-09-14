@@ -25,7 +25,7 @@ _GATE: Must pass before Phase 0 research. Re-check after Phase 1 design._
 
 | Principle                         | Status | Notes                                                                                                 |
 | --------------------------------- | ------ | ----------------------------------------------------------------------------------------------------- |
-| I. Code Quality & Maintainability | PASS   | Follows CLAUDE.md conventions: barrel imports, no ternaries in JSX, doc comments on public Rust APIs  |
+| I. Code Quality & Maintainability | PASS   | Follows AGENTS.md conventions: barrel imports, no ternaries in JSX, doc comments on public Rust APIs  |
 | II. Type Safety & Error Handling  | PASS   | New commands return `IpcResult<T>`, TS types auto-generated via `ts-rs`, `Result<T,E>` on frontend    |
 | III. Testing Standards            | PASS   | Manual verification plan documented, `pnpm check` + `cargo clippy` required before merge              |
 | IV. User Experience Consistency   | PASS   | Uses `@/components` (Switch, Popover, Dialog), toast notifications for async feedback, color tokens   |

@@ -56,7 +56,7 @@ of them.
 
 Out of scope:
 
-- The wording of any individual setting. `src/CLAUDE.md` owns the copy rules, and this document
+- The wording of any individual setting. `src/AGENTS.md` owns the copy rules, and this document
   adds only the rules for a group's own title
 - The cache tab's table, the hotkey capture control and the about tab. None of them is a row list
 - Reordering settings across tabs

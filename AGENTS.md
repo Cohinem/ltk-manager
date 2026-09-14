@@ -1,15 +1,15 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to coding agents working in this repository.
 
 This file is the primary guidance document for the ltk-manager codebase.
 
 Guidance is scoped so backend work does not carry the frontend's:
 
-- `src-tauri/CLAUDE.md` - workspace crates, the patcher and the Tauri states. Loads under
-  `src-tauri/`, and `crates/ltk-manager-core/` imports it.
-- `src/CLAUDE.md` - React/TypeScript conventions, loads when working under `src/`.
-- `src/styles/CLAUDE.md` - how to author the design tokens, loads only in that directory.
+- `src-tauri/AGENTS.md` - workspace crates, the patcher and the Tauri states. Loads under
+  `src-tauri/`, and `crates/ltk-manager-core/AGENTS.md` points to it.
+- `src/AGENTS.md` - React/TypeScript conventions, loads when working under `src/`.
+- `src/styles/AGENTS.md` - how to author the design tokens, loads only in that directory.
 - The `design-system` skill - which token to reach for in a component. Loaded on demand, so it
   costs nothing while you are in `src-tauri/`.
 

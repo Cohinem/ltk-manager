@@ -1,7 +1,7 @@
 # Backend (Rust) - `src-tauri/src/`
 
-Conventions for the Rust side. Repo-wide guidance lives in the root `CLAUDE.md`. This file also
-governs `crates/ltk-manager-core/`, which imports it.
+Conventions for the Rust side. Repo-wide guidance lives in the root `AGENTS.md`. This file also
+governs `crates/ltk-manager-core/`, whose `AGENTS.md` points here.
 
 ## Workspace Crates
 

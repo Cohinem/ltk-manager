@@ -4,12 +4,12 @@ Research note. The evidence is the tree at `018fe6e`, read on 2026-09-07, and th
 bundle in `dist/` built from it.
 
 The scope is `src/`: module boundaries, the state layer, the IPC and query layer, rendering cost,
-duplication, and where each thing lives against the conventions in `src/CLAUDE.md`. Each finding
+duplication, and where each thing lives against the conventions in `src/AGENTS.md`. Each finding
 cites a file and line. Each proposal names what moves and what it costs.
 
 ## Sources
 
-- `src/CLAUDE.md`, `CLAUDE.md`, `eslint.config.js`, `vite.config.ts`, `vitest.config.ts`
+- `src/AGENTS.md`, `AGENTS.md`, `eslint.config.js`, `vite.config.ts`, `vitest.config.ts`
 - `docs/adr/0022`, `docs/adr/0029` - the dialog queue and the bindings decision
 - `src/lib/tauri.ts`, `src/lib/bindings.gen.ts`, `src/lib/query.ts`, `src/utils/query.ts`
 - `src/stores/*.ts` - all 33 files
@@ -39,7 +39,7 @@ The findings below are the evidence at `018fe6e`. This section is what no longer
   polls not at all. Finding 4.
 - The mod card image is `loading="lazy"`, the four inline query keys are in their module's factory,
   and both raw `invoke("reveal_in_explorer")` calls go through the API.
-- `src/CLAUDE.md` names `useTauriEvent` and `useTauriProgress`. Finding 8.
+- `src/AGENTS.md` names `useTauriEvent` and `useTauriProgress`. Finding 8.
 - The React Compiler is on, `tsgo` typechecks in CI, and `oxfmt` replaces Prettier.
 
 ### The state layer, `74afa9a` and `2aab466`
@@ -66,7 +66,7 @@ The findings below are the evidence at `018fe6e`. This section is what no longer
   `incidentLine.ts`, and the store hooks all carry the `Store` suffix.
 - `gameBrowser`'s `keptScrollTop` and `keepScrollTop` stay outside React on `getState()`, because a
   list that re-rendered on its own scroll would spend the scroll twice.
-- `src/CLAUDE.md` carries the placement rule as "Where a Store Lives".
+- `src/AGENTS.md` carries the placement rule as "Where a Store Lives".
 
 ### The dialog layer, ADR-0033
 
@@ -85,7 +85,7 @@ The findings below are the evidence at `018fe6e`. This section is what no longer
 - `WorkshopDialogs` and `LibraryDialogs` mount their module's store dialogs once, at the route
   every consumer sits under. `PackDialog` and `DeleteConfirmDialog` were mounted on two routes
   each.
-- `src/CLAUDE.md` carries the rules as "Dialogs".
+- `src/AGENTS.md` carries the rules as "Dialogs".
 
 ### The root route and the boot chunk
 
@@ -164,7 +164,7 @@ The stack is React 19.2, TanStack Query 5, TanStack Router 1.168 with file route
 6. **About forty mutations fail silently.** No `onError`, no toast, nothing in the log. Section 6.
 7. **Seventeen stores have one consumer and live in the global directory.** Twelve hold backend
    payloads, one performs I/O. Section 5.
-8. **`src/CLAUDE.md` teaches the pattern the lib hook exists to replace.** The event section cites
+8. **`src/AGENTS.md` teaches the pattern the lib hook exists to replace.** The event section cites
    one of the three files still hand-rolling `listen`. Section 6.
 
 ## 3. Boot and bundle
@@ -238,7 +238,7 @@ Each is `file -> module/index.ts -> components/index.ts -> file`.
 
 `eslint.config.js` carries `react`, `react-hooks`, `simple-import-sort`, `i18next` and the
 TypeScript recommended set. It has no `import/no-cycle`, no `no-restricted-imports`, no
-`boundaries`, no `max-lines`. Every structural rule in `src/CLAUDE.md` is prose, and each of the
+`boundaries`, no `max-lines`. Every structural rule in `src/AGENTS.md` is prose, and each of the
 violations below got in past a green lint.
 
 ### Inside workshop
@@ -278,7 +278,7 @@ Seventeen of thirty-one stores are read by one module:
 
 ### Backend state in stores
 
-`src/CLAUDE.md` reserves zustand for client state. Twelve stores import from `@/lib/tauri` and
+`src/AGENTS.md` reserves zustand for client state. Twelve stores import from `@/lib/tauri` and
 hold backend payloads: `deepLink.ts:3`, `extractDialog.ts:4`, `extractRun.ts:3`, `incidents.ts:3`,
 `libraryDialogs.ts:3`, `patcherFailure.ts:3`, `playSession.ts:3`, `references.ts:3`,
 `updater.ts:5`, `workshopDialogs.ts:4`, plus `devConsole` (a log ring buffer streamed from
@@ -427,7 +427,7 @@ own invalidation.
 `library/api/useLibraryWatcher.ts:21-31`, `patcher/api/useOverlayProgress.ts:25-52` (three copies
 of one effect), `workshop/gameBrowser/useGameExtract.ts:77`.
 
-The "Tauri Event Listening" section of `src/CLAUDE.md` describes the raw pattern and cites
+The "Tauri Event Listening" section of `src/AGENTS.md` describes the raw pattern and cites
 `useOverlayProgress.ts` as the example. `useTauriEvent` is documented nowhere.
 
 ## 7. Rendering and data handling
@@ -585,7 +585,7 @@ their source (`hooks/useReorderTransition.test.tsx`, `hooks/useZoomHotkeys.test.
 `i18n/errors.test.ts`, `i18n/index.test.ts`, `lib/useTauriEvent.test.ts`,
 `lib/useTauriProgress.test.ts`). `hooks/` and `lib/` each use all three.
 
-## 9. Conventions against `src/CLAUDE.md`
+## 9. Conventions against `src/AGENTS.md`
 
 | Rule                         | State                                                                                                                                        |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -740,7 +740,7 @@ The two raw `invoke("reveal_in_explorer")` calls become `api.revealInExplorer`. 
 migration continues per module as ADR-0029 sets out, with `library` next, since its 30-odd
 commands are the largest hand-written block.
 
-`src/CLAUDE.md`'s event section names `useTauriEvent` and `useTauriProgress` and cites
+`src/AGENTS.md`'s event section names `useTauriEvent` and `useTauriProgress` and cites
 `launcher/api/useLeagueSession.ts`. The three hand-rolled listeners convert.
 
 ### Lift the duplicates
@@ -844,7 +844,7 @@ and the health sweep, both of which stream today as an event plus a status poll.
 
 1. ESLint guards. One PR, no behavior change, stops regressions. **Landed.**
 2. Fonts on demand and `DataTable` removal. Boot cost, no structural risk. **Landed.**
-3. `MutationCache.onError` and the CLAUDE.md event section. Two small edits with wide effect.
+3. `MutationCache.onError` and the AGENTS.md event section. Two small edits with wide effect.
    **Landed.**
 4. The patcher event. One backend emit, one frontend hook change. **Landed.**
 5. The library grid: thumbnails command, lazy images, virtualization. **Lazy images only.**
