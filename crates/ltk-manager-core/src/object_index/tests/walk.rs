@@ -177,6 +177,43 @@ fn every_hit_is_a_row_the_bin_document_draws() {
 }
 
 #[test]
+fn a_repeated_key_hits_on_the_row_of_the_entry_that_links() {
+    let map = values::Map::new(
+        Kind::Hash,
+        Kind::ObjectLink,
+        vec![
+            (
+                values::Hash::new(h("run")).into(),
+                values::ObjectLink::new(h("characters/elsewhere")).into(),
+            ),
+            (
+                values::Hash::new(h("run")).into(),
+                values::ObjectLink::new(h(RESOURCES)).into(),
+            ),
+        ],
+    )
+    .unwrap();
+    let bin = Bin::<NoMeta>::builder()
+        .object(
+            BinObject::builder(h(SKIN), h("Skin"))
+                .property(h("clips"), map)
+                .build(),
+        )
+        .build();
+    let mut out = Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    let bytes = out.into_inner();
+
+    let paths = wire_paths(&scanned(&bytes, WalkTarget::Linked(h(RESOURCES))));
+    assert_eq!(paths, [format!("{}{{{:08x}}}#1", field("clips"), h("run"))]);
+
+    let document = BinDocument::parse(bytes).unwrap();
+    let mut rows = Vec::new();
+    row_paths(&document, h(SKIN), "", &mut rows);
+    assert!(rows.contains(&paths[0]));
+}
+
+#[test]
 fn a_patch_walks_the_objects_it_adds() {
     let mut bin = BinOverride::<NoMeta>::new();
     let object = BinObject::builder(h("characters/added"), h("Added"))
@@ -482,6 +519,7 @@ fn a_hit_spells_its_path_through_the_tables_and_hex_where_they_miss() {
             HitStep::Key {
                 text: format!("{:08x}", h("weapon")).into(),
                 hash: Some(h("weapon")),
+                occurrence: 0,
             },
             HitStep::Field {
                 class: h("Part"),
@@ -491,10 +529,12 @@ fn a_hit_spells_its_path_through_the_tables_and_hex_where_they_miss() {
             HitStep::Key {
                 text: "3".into(),
                 hash: None,
+                occurrence: 1,
             },
             HitStep::Key {
                 text: "deadbeef".into(),
                 hash: Some(BinHash(0xdead_beef)),
+                occurrence: 0,
             },
         ],
     };
@@ -504,14 +544,14 @@ fn a_hit_spells_its_path_through_the_tables_and_hex_where_they_miss() {
     assert_eq!(
         property.path,
         format!(
-            "{}{{{:08x}}}.9c4e1b02[2]{{3}}{{deadbeef}}",
+            "{}{{{:08x}}}.9c4e1b02[2]{{3}}#1{{deadbeef}}",
             field("lookup"),
             h("weapon")
         )
     );
     assert_eq!(
         property.label,
-        "lookup{\"weapon\"}.0x9c4e1b02[2]{3}{0xdeadbeef}"
+        "lookup{\"weapon\"}.0x9c4e1b02[2]{3}#1{0xdeadbeef}"
     );
 }
 

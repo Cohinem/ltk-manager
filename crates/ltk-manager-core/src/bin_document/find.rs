@@ -121,7 +121,7 @@ fn want_under(node: Node<'_>, wanted: &mut Wanted) {
                 value
             }
             Child::Element(_, value) => value,
-            Child::Entry(key, value) => {
+            Child::Entry(key, value, _) => {
                 wanted.key(key);
                 value
             }

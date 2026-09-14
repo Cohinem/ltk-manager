@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use super::edit::{Edit, LeafValue, bin_hash, edit_node, set};
 use super::properties::empty_struct;
 use super::{
-    BinDocument, BinDocumentError, EditRejection, Node, Step, descend, dot, hex, is_null,
+    BinDocument, BinDocumentError, EditRejection, EntryKey, Node, Step, descend, dot, hex, is_null,
     parse_steps, wire_key,
 };
 use crate::meta_schema::SchemaAt;
@@ -171,6 +171,12 @@ impl BinDocument {
                     .flatten()
             });
         let value = item_start(item_kind, class).map_err(refuse)?;
+        if let (Some(key), Node::Value(PropertyValueEnum::Map(map))) =
+            (&key, self.node(entry, holder)?)
+            && holds_key(map, key)
+        {
+            return Err(refuse(EditRejection::KeyExists));
+        }
 
         let inverse = self.put_item(entry, holder, item.index, key, value)?;
         let path = landing(&inverse).to_owned();
@@ -241,8 +247,11 @@ impl BinDocument {
             return Err(refuse(EditRejection::NotAnItem));
         };
         let key = key_value(map.key_kind(), text).map_err(refuse)?;
-        if wire_key(&key) == held {
+        if wire_key(&key) == held.text {
             return Ok(path.to_owned());
+        }
+        if holds_key(map, &key) {
+            return Err(refuse(EditRejection::KeyExists));
         }
 
         let inverse = self.swap_key(entry, path, key)?;
@@ -356,6 +365,8 @@ impl BinDocument {
     }
 
     /// Set the key of the entry at `path` to `key`, answering the edit that sets it back.
+    ///
+    /// A key another entry holds is taken as a repeat, which is how an undo puts one back.
     pub(super) fn swap_key(
         &mut self,
         entry: BinHash,
@@ -366,31 +377,22 @@ impl BinDocument {
         let Some((holder, Step::Key(held))) = split_item(path) else {
             return Err(rejected(entry, path, EditRejection::NotAnItem));
         };
-        let segment = wire_key(&key);
-        let old = self.edit_value(entry, &holder, |node| {
+        let (old, landed) = self.edit_value(entry, &holder, |node| {
             let ValueMut::Map(map) = node else {
                 return Err(EditRejection::NotAnItem);
             };
             if key.kind() != map.key_kind() {
                 return Err(EditRejection::InvalidShape);
             }
-            let entries = map.entries();
-            let at = entries
-                .iter()
-                .position(|(each, _)| wire_key(each) == held)
+            let at = held
+                .position(map.entries())
                 .ok_or(EditRejection::NotAnItem)?;
-            let taken = entries
-                .iter()
-                .enumerate()
-                .any(|(index, (each, _))| index != at && wire_key(each) == segment);
-            if taken {
-                return Err(EditRejection::KeyExists);
-            }
-            Ok(rebuild_map(map, |all| mem::replace(&mut all[at].0, key)))
+            let old = rebuild_map(map, |all| mem::replace(&mut all[at].0, key));
+            Ok((old, EntryKey::of(map.entries(), at)))
         })?;
         Ok(Edit::SetKey {
             entry,
-            path: format!("{holder}{{{segment}}}"),
+            path: format!("{holder}{landed}"),
             key: old,
         })
     }
@@ -520,20 +522,12 @@ fn insert_into(
             if key.kind() != map.key_kind() || value.kind() != map.value_kind() {
                 return Err(EditRejection::InvalidShape);
             }
-            let segment = wire_key(&key);
-            if map
-                .entries()
-                .iter()
-                .any(|(held, _)| wire_key(held) == segment)
-            {
-                return Err(EditRejection::KeyExists);
-            }
             let at = index.unwrap_or(map.entries().len());
             if at > map.entries().len() {
                 return Err(EditRejection::NoSuchIndex);
             }
             rebuild_map(map, |all| all.insert(at, (key, value)));
-            Ok(format!("{{{segment}}}"))
+            Ok(EntryKey::of(map.entries(), at).to_string())
         }
         ValueMut::Optional(optional) => {
             if optional.is_some() {
@@ -565,11 +559,9 @@ fn take_from(
             }
             Ok((*at, None, rebuild_list(items, |all| all.remove(*at))))
         }
-        (ValueMut::Map(map), Step::Key(text)) => {
-            let at = map
-                .entries()
-                .iter()
-                .position(|(key, _)| wire_key(key) == *text)
+        (ValueMut::Map(map), Step::Key(held)) => {
+            let at = held
+                .position(map.entries())
                 .ok_or(EditRejection::NotAnItem)?;
             let (key, value) = rebuild_map(map, |all| all.remove(at));
             Ok((at, Some(key), value))
@@ -583,6 +575,12 @@ fn take_from(
         }
         _ => Err(EditRejection::NotAnItem),
     }
+}
+
+/// Whether an entry of `map` holds `key` already.
+fn holds_key(map: &values::Map, key: &PropertyValueEnum) -> bool {
+    let text = wire_key(key);
+    map.entries().iter().any(|(held, _)| wire_key(held) == text)
 }
 
 /// Rebuild `items` around `change`, which keeps every item the list's own kind.
@@ -628,7 +626,7 @@ fn wire_path(steps: &[Step]) -> String {
         let _ = match step {
             Step::Field(field) => write!(path, "{}{:08x}", dot(&path), field.0),
             Step::Index(index) => write!(path, "[{index}]"),
-            Step::Key(text) => write!(path, "{{{text}}}"),
+            Step::Key(held) => write!(path, "{held}"),
         };
     }
     path

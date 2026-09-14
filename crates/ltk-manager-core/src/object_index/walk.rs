@@ -3,6 +3,7 @@
 //!
 //! "The References document" in `docs/ux/PROJECT_EDITOR.md`.
 
+use std::collections::HashMap;
 use std::io::Cursor;
 
 use ltk_hash::BinHash;
@@ -60,10 +61,12 @@ pub(super) enum HitStep {
     Field { class: BinHash, field: BinHash },
     /// An element of a container, or the value of an optional that holds rows of its own.
     Index(usize),
-    /// A map entry: its key as the wire writes it, and the hash the key holds, if it holds one.
+    /// A map entry: its key as the wire writes it, the hash the key holds, if it holds one,
+    /// and how many earlier entries of the map hold the same key.
     Key {
         text: Box<str>,
         hash: Option<BinHash>,
+        occurrence: usize,
     },
 }
 
@@ -143,9 +146,20 @@ struct Scan<'h, V> {
 }
 
 enum Step<V> {
-    Field { class: BinHash, field: BinHash },
+    Field {
+        class: BinHash,
+        field: BinHash,
+    },
     Index(usize),
-    Key(V),
+    /// A key, and how many earlier entries of its map hold the same key.
+    Key(V, usize),
+}
+
+/// What tells two keys of one map apart: the hash a hash key holds, else its wire text.
+#[derive(PartialEq, Eq, Hash)]
+enum KeyId {
+    Hash(BinHash),
+    Text(String),
 }
 
 impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
@@ -239,13 +253,27 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
         if !keyed && !valued {
             return Ok(());
         }
+        let mut seen: HashMap<KeyId, usize> = HashMap::new();
         for child in value.children()? {
             let (Child::Key(key), item) = child? else {
                 continue;
             };
-            self.steps.push(Step::Key(key));
+            let leaf = key.leaf()?;
+            let id = match leaf {
+                Some(Leaf::Hash(hash) | Leaf::Link(hash)) => KeyId::Hash(hash),
+                other => {
+                    let mut text = String::new();
+                    write_key(&mut text, other);
+                    KeyId::Text(text)
+                }
+            };
+            let count = seen.entry(id).or_default();
+            let occurrence = *count;
+            *count += 1;
+
+            self.steps.push(Step::Key(key, occurrence));
             let mut scanned = Ok(());
-            if keyed && key.leaf()?.is_some_and(|leaf| self.target.links(leaf)) {
+            if keyed && leaf.is_some_and(|leaf| self.target.links(leaf)) {
                 self.hit();
             }
             if valued {
@@ -284,7 +312,7 @@ fn hit_step<'a, V: TreeValue<'a>>(step: &Step<V>) -> HitStep {
             field: *field,
         },
         Step::Index(index) => HitStep::Index(*index),
-        Step::Key(key) => {
+        Step::Key(key, occurrence) => {
             let leaf = key.leaf().ok().flatten();
             let mut text = String::new();
             write_key(&mut text, leaf);
@@ -295,6 +323,7 @@ fn hit_step<'a, V: TreeValue<'a>>(step: &Step<V>) -> HitStep {
             HitStep::Key {
                 text: text.into(),
                 hash,
+                occurrence: *occurrence,
             }
         }
     }

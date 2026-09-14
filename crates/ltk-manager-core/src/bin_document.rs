@@ -778,7 +778,7 @@ impl BinDocument {
                     wanted.value(value);
                 }
                 Child::Element(_, value) => wanted.value(value),
-                Child::Entry(key, value) => {
+                Child::Entry(key, value, _) => {
                     wanted.key(key);
                     wanted.value(value);
                 }
@@ -1440,14 +1440,59 @@ fn dot(prefix: &str) -> &'static str {
 enum Step {
     Field(BinHash),
     Index(usize),
-    /// The text inside `{}`, as [`wire_key`] writes it.
-    Key(String),
+    Key(EntryKey),
+}
+
+/// The step to one map entry: its key as [`wire_key`] writes it, and which entry of that key.
+///
+/// A map the file writes with one key twice holds two entries a key alone cannot tell apart.
+/// The first is `{key}`, which every address of a map without repeats keeps, and the later
+/// ones are `{key}#1`, `{key}#2` and on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct EntryKey {
+    text: String,
+    /// How many earlier entries of the map hold the same key.
+    occurrence: usize,
+}
+
+impl EntryKey {
+    /// The key of the entry at `at` of `entries`.
+    fn of(entries: &[(PropertyValueEnum, PropertyValueEnum)], at: usize) -> Self {
+        let text = wire_key(&entries[at].0);
+        let occurrence = entries[..at]
+            .iter()
+            .filter(|(key, _)| wire_key(key) == text)
+            .count();
+        Self { text, occurrence }
+    }
+
+    /// Where in `entries` the entry this names sits, or `None` where no entry is it.
+    fn position(&self, entries: &[(PropertyValueEnum, PropertyValueEnum)]) -> Option<usize> {
+        entries
+            .iter()
+            .enumerate()
+            .filter(|(_, (key, _))| wire_key(key) == self.text)
+            .nth(self.occurrence)
+            .map(|(at, _)| at)
+    }
+}
+
+/// The step on the wire: `{key}`, then `#n` for a repeat.
+impl fmt::Display for EntryKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{{}}}", self.text)?;
+        if self.occurrence > 0 {
+            write!(f, "#{}", self.occurrence)?;
+        }
+        Ok(())
+    }
 }
 
 /// The steps of a wire path, or `None` where the text is not one.
 ///
 /// The grammar is the one a Problems finding writes: `.` before every field but the
-/// first, eight hex digits per field, `[i]` for an index and `{key}` for a map entry.
+/// first, eight hex digits per field, `[i]` for an index and `{key}` for a map entry. A
+/// repeated key takes `#n` after its braces, which [`EntryKey`] describes.
 fn parse_steps(path: &str) -> Option<Vec<Step>> {
     let mut steps = Vec::new();
     let mut rest = path;
@@ -1458,7 +1503,19 @@ fn parse_steps(path: &str) -> Option<Vec<Step>> {
             rest = tail;
         } else if let Some(after) = rest.strip_prefix('{') {
             let (key, tail) = split_key(after)?;
-            steps.push(Step::Key(key.to_owned()));
+            let (occurrence, tail) = match tail.strip_prefix('#') {
+                Some(count) => {
+                    let end = count
+                        .find(|character: char| !character.is_ascii_digit())
+                        .unwrap_or(count.len());
+                    (count[..end].parse().ok()?, &count[end..])
+                }
+                None => (0, tail),
+            };
+            steps.push(Step::Key(EntryKey {
+                text: key.to_owned(),
+                occurrence,
+            }));
             rest = tail;
         } else {
             let after = match (rest.strip_prefix('.'), steps.is_empty()) {
@@ -1567,11 +1624,8 @@ fn descend<'a>(object: &'a BinObject, steps: &[Step]) -> Option<(Node<'a>, Vec<T
                 trace.push(Trace::Index(*index));
                 Node::Value(item)
             }
-            (Step::Key(text), Node::Value(PropertyValueEnum::Map(map))) => {
-                let (key, value) = map
-                    .entries()
-                    .iter()
-                    .find(|(key, _)| wire_key(key) == *text)?;
+            (Step::Key(held), Node::Value(PropertyValueEnum::Map(map))) => {
+                let (key, value) = &map.entries()[held.position(map.entries())?];
                 trace.push(Trace::Key(key));
                 Node::Value(value)
             }
@@ -1596,7 +1650,8 @@ fn element(value: &PropertyValueEnum, index: usize) -> Option<&PropertyValueEnum
 enum Child<'a> {
     Field(BinHash, &'a PropertyValueEnum),
     Element(usize, &'a PropertyValueEnum),
-    Entry(&'a PropertyValueEnum, &'a PropertyValueEnum),
+    /// A key, its value, and how many earlier entries of the map hold the same key.
+    Entry(&'a PropertyValueEnum, &'a PropertyValueEnum, usize),
 }
 
 /// One child as its row names it: the segment that reaches it, in both forms.
@@ -1644,13 +1699,22 @@ impl<'a> Segment<'a> {
                     readable: text,
                 }
             }
-            Child::Entry(key, value) => {
+            Child::Entry(key, value, occurrence) => {
                 let (text, unnamed) = key_label(key, &lens.named);
+                let repeat = if occurrence > 0 {
+                    format!("#{occurrence}")
+                } else {
+                    String::new()
+                };
                 Self {
                     value,
                     node: RowNode::Entry,
-                    wire: format!("{{{}}}", wire_key(key)),
-                    readable: format!("{{{text}}}"),
+                    wire: EntryKey {
+                        text: wire_key(key),
+                        occurrence,
+                    }
+                    .to_string(),
+                    readable: format!("{{{text}}}{repeat}"),
                     name: text,
                     unnamed,
                 }
@@ -1679,11 +1743,18 @@ fn children_of(node: Node<'_>) -> Vec<Child<'_>> {
             .map(|value| Child::Element(0, value))
             .into_iter()
             .collect(),
-        PropertyValueEnum::Map(map) => map
-            .entries()
-            .iter()
-            .map(|(key, value)| Child::Entry(key, value))
-            .collect(),
+        PropertyValueEnum::Map(map) => {
+            let mut seen: HashMap<String, usize> = HashMap::new();
+            map.entries()
+                .iter()
+                .map(|(key, value)| {
+                    let count = seen.entry(wire_key(key)).or_default();
+                    let occurrence = *count;
+                    *count += 1;
+                    Child::Entry(key, value, occurrence)
+                })
+                .collect()
+        }
         _ => Vec::new(),
     }
 }

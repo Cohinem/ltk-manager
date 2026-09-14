@@ -13,6 +13,7 @@ import {
   type ReactNode,
   use,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -29,8 +30,11 @@ import { typedKey } from "./addItem";
 import {
   canExpand,
   fieldHash,
+  guideBlocks,
   INDENT,
+  lineParent,
   MAX_INDENT_DEPTH,
+  repeatsKey,
   rowKey,
   type RowLine,
   type VisibleRow,
@@ -53,6 +57,7 @@ import {
 } from "./leafText";
 import { FileChip, ObjectChip, StringValue } from "./LinkChip";
 import { EDIT_ICON, editLabel, keyEdit, onHover, type RowEdit, rowEdits } from "./rowEdits";
+import { useGuideLevels } from "./treeGuides";
 import { type BinEdit, BinEditContext, useRowEdit } from "./useBinEdit";
 import { ObjectNameContext } from "./useLinkTargets";
 import { useValueMark } from "./useValueMarks";
@@ -218,7 +223,7 @@ interface MoreRowProps {
 export function MoreRow({ line }: MoreRowProps) {
   return (
     <div className="flex h-6 items-center gap-2 pr-2 text-meta text-surface-400">
-      <Guides depth={line.depth} />
+      <Guides depth={line.depth} parent={lineParent(line)} />
       <span className="w-3 shrink-0" />
       <SpinnerGapIcon className="h-3 w-3 animate-spin" />
       <span>{m.workshop_bin_more_label({ loaded: line.loaded, total: line.total })}</span>
@@ -226,21 +231,37 @@ export function MoreRow({ line }: MoreRowProps) {
   );
 }
 
-/** One guide per open level, each under the caret of the level it belongs to. */
-export function Guides({ depth }: { depth: number }) {
+interface GuidesProps {
+  depth: number;
+  /** The key of the row the line hangs under. Null at depth zero. */
+  parent: string | null;
+}
+
+/**
+ * One guide per open level, each under the caret of the level it belongs to.
+ *
+ * A guide runs the line's full height, so a block's guides join into one edge. The block
+ * the reader stands in takes the accent, and the block under the pointer lifts a rung.
+ */
+export function Guides({ depth, parent }: GuidesProps) {
+  const blocks = useMemo(() => guideBlocks(parent, depth), [parent, depth]);
+  const { active, hover } = useGuideLevels(blocks);
   const indented = Math.min(depth, MAX_INDENT_DEPTH);
-  const stacked = depth - indented;
+  const tone = (level: number) =>
+    twMerge(
+      "shrink-0 border-l border-surface-700/60",
+      level === hover && "border-surface-600",
+      level === active && "border-accent-500",
+      level >= indented && "w-0.5",
+    );
   return (
     <span className="flex shrink-0 translate-x-[6px] self-stretch" aria-hidden>
-      {Array.from({ length: indented }, (_, level) => (
+      {Array.from({ length: depth }, (_, level) => (
         <span
           key={level}
-          className="shrink-0 border-l border-surface-700/60"
-          style={{ width: INDENT }}
+          className={tone(level)}
+          style={level < indented ? { width: INDENT } : undefined}
         />
-      ))}
-      {Array.from({ length: stacked }, (_, level) => (
-        <span key={`stacked-${level}`} className="w-0.5 shrink-0 border-l border-surface-700/60" />
       ))}
     </span>
   );
@@ -295,13 +316,13 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   return (
     <span
       className={twMerge(
-        "flex min-w-0 shrink-0 items-center gap-1.5",
+        "flex min-w-0 shrink-0 items-center gap-1.5 self-stretch",
         /* An element sits outside the column: its value follows its index rather than
            starting where a property's value does. */
         object || element ? "max-w-[60%]" : "w-[min(calc(var(--bin-name-cols)*1ch+2rem),50%)]",
       )}
     >
-      <Guides depth={depth} />
+      <Guides depth={depth} parent={lineParent(line)} />
       <Caret expandable={expandable} expanded={expanded} loading={loading} />
       {object && (
         <ObjectGlyph
@@ -331,6 +352,14 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
         </TextEdit>
       )}
       {!property && !rekeyable && <span className={nameClasses}>{row.name}</span>}
+      {repeatsKey(row) && (
+        <Tooltip content={m.workshop_bin_repeated_key_hint()}>
+          <WarningCircleIcon
+            aria-label={m.workshop_bin_repeated_key_hint()}
+            className="h-3.5 w-3.5 shrink-0 text-warning-text"
+          />
+        </Tooltip>
+      )}
       {held && <ClassCard classHash={held.classHash} name={held.class} />}
       {!object && !element && <KindTag row={row} />}
     </span>

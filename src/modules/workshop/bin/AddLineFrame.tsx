@@ -6,7 +6,7 @@ import { errorSummary } from "@/i18n";
 import type { AppError } from "@/lib/tauri";
 
 import { Guides } from "./BinRow";
-import type { AddLine } from "./binRows";
+import { type AddLine, lineParent } from "./binRows";
 
 interface AddLineFrameProps {
   line: AddLine;
@@ -27,8 +27,8 @@ export function AddLineFrame({ line, pending, error, children }: AddLineFramePro
       aria-level={line.depth + 1}
       className="group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row"
     >
-      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-        <Guides depth={line.depth} />
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch">
+        <Guides depth={line.depth} parent={lineParent(line)} />
         <span className="flex h-4 w-3 shrink-0 items-center justify-center text-surface-400">
           {pending && <SpinnerGapIcon className="h-3 w-3 animate-spin" />}
           {!pending && <PlusIcon weight="bold" className="h-3 w-3" />}

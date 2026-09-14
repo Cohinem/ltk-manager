@@ -527,7 +527,11 @@ impl<'s> HitNames<'s> {
                     let _ = write!(path, "[{index}]");
                     let _ = write!(label, "[{index}]");
                 }
-                HitStep::Key { text, hash } => {
+                HitStep::Key {
+                    text,
+                    hash,
+                    occurrence,
+                } => {
                     let _ = write!(path, "{{{text}}}");
                     label.push('{');
                     match hash {
@@ -538,6 +542,10 @@ impl<'s> HitNames<'s> {
                         None => label.push_str(text),
                     }
                     label.push('}');
+                    if *occurrence > 0 {
+                        let _ = write!(path, "#{occurrence}");
+                        let _ = write!(label, "#{occurrence}");
+                    }
                 }
             }
         }

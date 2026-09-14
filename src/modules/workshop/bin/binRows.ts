@@ -161,11 +161,31 @@ function segmentEnd(path: string, at: number): number | null {
     const close = path.indexOf("]", at);
     return close < 0 ? null : close + 1;
   }
-  if (path[at] === "{") return keyEnd(path, at + 1);
+  if (path[at] === "{") {
+    const end = keyEnd(path, at + 1);
+    return end === null ? null : repeatEnd(path, end);
+  }
 
   /* A field is eight hex digits, and every one but the first opens with a dot. */
   const start = path[at] === "." ? at + 1 : at;
   return start + 8 <= path.length ? start + 8 : null;
+}
+
+/** Where a repeated key's `#n` starting at `at` ends, or `at` where the key takes none. */
+function repeatEnd(path: string, at: number): number {
+  if (path[at] !== "#") return at;
+  let end = at + 1;
+  while (end < path.length && path[end]! >= "0" && path[end]! <= "9") end += 1;
+  return end;
+}
+
+/**
+ * Whether an entry row repeats the key of an earlier entry of its map.
+ *
+ * The backend writes the later entries of one key as `{key}#n`, so each has a path.
+ */
+export function repeatsKey(row: Pick<BinRow, "node" | "path">): boolean {
+  return row.node === "entry" && /}#\d+$/.test(row.path);
 }
 
 /** Where the map key starting at `at` ends, quoted or bare, as the backend writes one. */
@@ -488,6 +508,32 @@ export function toggled(expanded: ReadonlySet<string>, key: string): Set<string>
   const next = new Set(expanded);
   if (!next.delete(key)) next.add(key);
   return next;
+}
+
+/** The key of the row a line hangs under, which names the block its innermost guide draws. */
+export function lineParent(line: VisibleRow): string | null {
+  if (line.depth === 0) return null;
+  switch (line.kind) {
+    case "row":
+      return line.parent === null ? null : rowKey(line.parent);
+    case "more":
+      return line.parent;
+    case "add":
+      return rowKey(line);
+  }
+}
+
+/**
+ * The block each guide of a line belongs to, outermost first: the key of the row at that depth.
+ *
+ * `parent` is the row the line hangs under, at `depth - 1`. A guide is one block's edge, so
+ * every line under that row draws the same key at the same level.
+ */
+export function guideBlocks(parent: string | null, depth: number): string[] {
+  if (parent === null || depth === 0) return [];
+  const chain = ancestorKeys(parent);
+  const top = chain.length - depth;
+  return Array.from({ length: depth }, (_, level) => chain[top + level] ?? "");
 }
 
 /** One level of depth, as the guide draws it. Characters, because the tree is mono. */
