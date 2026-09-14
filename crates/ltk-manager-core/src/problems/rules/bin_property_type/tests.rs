@@ -3,7 +3,8 @@
 use super::*;
 use crate::config::Config;
 use fs_err as fs;
-use ltk_meta::{Bin, BinFile, BinObject};
+use indexmap::IndexMap;
+use ltk_meta::{Bin, BinFile};
 
 /// `SkinCharacterDataProperties`, which 225 of 232 real project bins declare.
 const SKIN: BinHash = BinHash(0x9b67_e9f6);
@@ -788,7 +789,7 @@ fn a_half_named_map_prints_only_what_is_missing() {
 // ---- the fix, end to end ---------------------------------------------
 
 /// A hit under an index and under a map key: the address the check records
-/// is the address the repair's own trail matches on.
+/// is the address the mutable walk's trail matches on.
 #[test]
 fn a_fix_reaches_a_property_under_an_index_and_a_key() {
     const NESTED: BinHash = BinHash(0x0000_1111);
@@ -843,11 +844,22 @@ fn fix_all(bin: &Bin) -> (Applied, BinFile) {
 
 /// [`fix_all`], beside a game install on `installed`.
 fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
+    let (applied, written) = fix_bytes_on(&bytes_of(bin), installed);
+    let parsed = read_bin_bytes(&written).unwrap();
+    (applied, parsed)
+}
+
+/// [`fix_all`] over a file's own bytes, handing back the bytes that landed.
+fn fix_bytes(bytes: &[u8]) -> (Applied, Vec<u8>) {
+    fix_bytes_on(bytes, None)
+}
+
+fn fix_bytes_on(bytes: &[u8], installed: Option<GameBuild>) -> (Applied, Vec<u8>) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
     fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    fs::write(&file, bytes_of(bin)).unwrap();
+    fs::write(&file, bytes).unwrap();
 
     let config = config_beside(tmp.path(), installed);
     let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
@@ -865,8 +877,118 @@ fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
     let applied = rule.fix(&borrowed, &mut run).unwrap();
     run.finish().unwrap();
 
-    let written = read_bin(&file).unwrap();
-    (applied, written)
+    (applied, fs::read(&file).unwrap())
+}
+
+/// Every object's bytes, by path hash, in file order.
+fn object_bytes(bytes: &[u8]) -> Vec<(BinHash, Vec<u8>)> {
+    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(bytes)).unwrap();
+    stream
+        .toc()
+        .unwrap()
+        .entries()
+        .iter()
+        .map(|entry| {
+            let range = entry.byte_range();
+            let range = usize::try_from(range.start).unwrap()..usize::try_from(range.end).unwrap();
+            (entry.path_hash, bytes[range].to_vec())
+        })
+        .collect()
+}
+
+/// A repair writes back only the object it converted. The version the file
+/// declared and every other object's bytes are the ones it held, which a
+/// whole-file transcode at version 3 would not keep.
+#[test]
+fn a_fix_keeps_the_version_and_every_object_it_did_not_convert() {
+    const OTHER: BinHash = BinHash(0x8765_4321);
+    let bin = Bin::new(
+        [
+            BinObject::<NoMeta>::builder(ENTRY, SKIN)
+                .property(ICON_AVATAR, text(ICON))
+                .build(),
+            BinObject::<NoMeta>::builder(OTHER, BinHash(0x0bad_c1a5))
+                .property(BinHash(0xdead_beef), text("untouched.dds"))
+                .build(),
+        ],
+        ["common.bin"],
+    );
+    let mut bytes = bytes_of(&bin);
+    bytes[4..8].copy_from_slice(&2u32.to_le_bytes());
+
+    let (applied, written) = fix_bytes(&bytes);
+    assert_eq!(applied.applied, 1);
+
+    assert_eq!(
+        written[4..8],
+        2u32.to_le_bytes(),
+        "the version passes through"
+    );
+    let before = object_bytes(&bytes);
+    let after = object_bytes(&written);
+    assert_eq!(after[1], before[1], "the other object keeps its bytes");
+    assert_ne!(after[0], before[0], "the converted object is re-encoded");
+
+    let written = read_bin_bytes(&written).unwrap();
+    let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
+    assert!(
+        matches!(value, PropertyValueEnum::WadChunkLink(_)),
+        "{value:?}"
+    );
+}
+
+/// A delta writes `PROP` bins only, so a patch bin is repaired whole.
+#[test]
+fn a_fix_repairs_a_patch_bin() {
+    let mut patch = ltk_meta::BinOverride::new();
+    patch.objects.insert(
+        ENTRY,
+        BinObject::<NoMeta>::builder(ENTRY, SKIN)
+            .property(ICON_AVATAR, text(ICON))
+            .build(),
+    );
+    let mut bytes = Cursor::new(Vec::new());
+    patch.to_writer(&mut bytes).unwrap();
+
+    let (applied, written) = fix_bytes(&bytes.into_inner());
+    assert_eq!(applied.applied, 1);
+
+    let written = read_bin_bytes(&written).unwrap();
+    assert!(matches!(written, BinFile::Override(_)));
+    let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
+    assert!(
+        matches!(value, PropertyValueEnum::WadChunkLink(_)),
+        "{value:?}"
+    );
+}
+
+/// A delta refuses a bin read under the legacy kind numbering, so that bin is
+/// transcoded whole.
+#[test]
+fn a_fix_transcodes_a_bin_read_under_the_legacy_numbering() {
+    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        .property(ICON_AVATAR, text(ICON))
+        .property(BinHash(0x0000_3333), values::Struct::default())
+        .build();
+    let mut bytes = bytes_of(&Bin::new([object], std::iter::empty::<&str>()));
+    /* `Struct` is 19 in the legacy numbering. The null pointer is the last
+    property, and only zeros follow its kind byte. */
+    let modern = u8::from(Kind::Struct);
+    let at = bytes.iter().rposition(|&byte| byte == modern).unwrap();
+    bytes[at] = 19;
+    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(&bytes)).unwrap();
+    stream.object(ENTRY).unwrap().unwrap().read().unwrap();
+    assert!(stream.numbering().is_legacy(), "the fixture latches");
+
+    let (applied, written) = fix_bytes(&bytes);
+    assert_eq!(applied.applied, 1);
+
+    let written = read_bin_bytes(&written).unwrap();
+    let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
+    assert!(
+        matches!(value, PropertyValueEnum::WadChunkLink(_)),
+        "{value:?}"
+    );
 }
 
 #[test]

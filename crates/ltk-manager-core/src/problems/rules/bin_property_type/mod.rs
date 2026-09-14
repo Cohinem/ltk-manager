@@ -64,18 +64,18 @@ pub mod table;
 use fs_err as fs;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::io::Cursor;
 use std::sync::Arc;
 
-use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
-use ltk_meta::walk::{Node, TreeValue as _, Visit, Visitor};
+use ltk_meta::walk::{Node, PropertyMut, Visit, Visitor, VisitorMut};
+use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyValueEnum};
 
 use crate::bin_document::{PropertyKind, hex, owned};
 use crate::meta_schema::{self, MetaSchema};
 use crate::problems::names::BinNames;
-use crate::problems::walk::{self, Address, Declared, FieldNames};
+use crate::problems::walk::{Address, Declared, FieldNames};
 use crate::problems::{
     Applied, BinVisitor, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress,
     Pass, Preserved, PreservedNames, Problem, ProjectFiles, Rule, RuleId, Severity, Sink,
@@ -184,16 +184,6 @@ impl Rule for BinPropertyType {
 
         for ((layer, path), wanted) in group_by_file(problems) {
             let bytes = run.read(&layer, &path)?;
-            let mut bin = match read_bin_bytes(&bytes) {
-                Ok(bin) => bin,
-                Err(message) => {
-                    return Err(FixError::Parse {
-                        layer,
-                        path,
-                        message,
-                    });
-                }
-            };
 
             let mut addressed: HashMap<BinHash, HashSet<&str>> = HashMap::new();
             for address in &wanted {
@@ -203,102 +193,185 @@ impl Rule for BinPropertyType {
                     .insert(address.path.as_str());
             }
 
-            let file_applied = fix_bin(&mut bin, &addressed, lens, run.kept_names());
-
-            // The mod as it now is, read off the tree in memory. A genuine
-            // check rather than arithmetic over what the fix claimed, and it
-            // costs a walk rather than a second parse.
-            for (entry, hit) in check_bin(&bin, lens) {
-                if addressed
-                    .get(&entry)
-                    .is_some_and(|paths| paths.contains(hit.address.hashes()))
-                {
-                    run.left(ID, &layer, &path, entry, hit.address.into_hashes());
+            let repaired = match repair_file(&bytes, &addressed, lens, run.kept_names()) {
+                Ok(repaired) => repaired,
+                Err(Unrepaired::Parse(message)) => {
+                    return Err(FixError::Parse {
+                        layer,
+                        path,
+                        message,
+                    });
                 }
+                Err(Unrepaired::Write(source)) => {
+                    return Err(FixError::File {
+                        layer,
+                        path,
+                        source,
+                    });
+                }
+            };
+
+            for (entry, node) in repaired.left {
+                run.left(ID, &layer, &path, entry, node);
             }
 
-            let file_skipped = wanted.len() as u32 - file_applied;
-            applied.applied += file_applied;
+            let file_skipped = wanted.len() as u32 - repaired.applied;
+            applied.applied += repaired.applied;
             applied.skipped += file_skipped;
 
-            if file_applied == 0 {
-                run.skipped(&layer, &path, file_skipped);
-                continue;
+            match repaired.bytes {
+                Some(out) => run.write(&layer, &path, &out, repaired.applied, file_skipped)?,
+                None => run.skipped(&layer, &path, file_skipped),
             }
-
-            let mut out = std::io::Cursor::new(Vec::with_capacity(bytes.len()));
-            bin.to_writer(&mut out).map_err(|e| FixError::File {
-                layer: layer.clone(),
-                path: path.clone(),
-                source: e,
-            })?;
-            run.write(&layer, &path, &out.into_inner(), file_applied, file_skipped)?;
         }
 
         Ok(applied)
     }
 }
 
-/// One step of the repair's path to a node, kept as what it is rather than as
-/// text.
-///
-/// The check's trail is the walk's own. The repair walks mutably and keeps this
-/// one, rendered through the same [`Address`] as the check's, which is what
-/// keeps the two addressing the same node.
-#[derive(Clone)]
-enum Step {
-    /// A property of the node.
-    Field(BinHash),
-    /// One element of a container, or a present optional.
-    Index(usize),
-    /// One entry of a map, subscripted by a copy of its key.
-    ///
-    /// Copied on the way down rather than borrowed, because a repair holds the
-    /// map through a `&mut`.
-    Key(PropertyValueEnum),
+/// One bin's repair, before the run records it.
+#[derive(Debug, Default)]
+struct Repaired {
+    /// How many addressed properties converted.
+    applied: u32,
+    /// Every addressed property the check still objects to, by object and hash form.
+    left: Vec<(BinHash, String)>,
+    /// The bin as repaired, where any property converted.
+    bytes: Option<Vec<u8>>,
 }
 
-/// The path to the node a repair is standing on, pushed and popped as it goes.
-#[derive(Clone, Default)]
-struct Trail(Vec<Step>);
+/// Why one bin's repair wrote nothing.
+#[derive(Debug)]
+enum Unrepaired {
+    /// The file does not read as a bin.
+    Parse(String),
+    /// The repaired bin does not encode.
+    Write(std::io::Error),
+}
 
-impl Trail {
-    /// Step into a property.
-    fn field(&mut self, field: BinHash) {
-        self.0.push(Step::Field(field));
+/// Repair the addressed properties of one bin's bytes.
+///
+/// A `PROP` bin is written back through a delta, so only the addressed objects
+/// decode and every other object keeps its bytes. A `PTCH` bin, and a `PROP`
+/// read under the legacy numbering a delta refuses, are transcoded whole.
+fn repair_file(
+    bytes: &[u8],
+    addressed: &HashMap<BinHash, HashSet<&str>>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> Result<Repaired, Unrepaired> {
+    if BinKind::identify_from_bytes(bytes) == Some(BinKind::Prop)
+        && let Some(repaired) = repair_prop(bytes, addressed, lens, kept)?
+    {
+        return Ok(repaired);
+    }
+    repair_whole(bytes, addressed, lens, kept)
+}
+
+/// [`repair_file`] over a `PROP` bin, through `BinStream::write_patched`.
+///
+/// `None`, before any edit, for a bin whose addressed objects read under the
+/// legacy numbering a delta refuses.
+fn repair_prop(
+    bytes: &[u8],
+    addressed: &HashMap<BinHash, HashSet<&str>>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> Result<Option<Repaired>, Unrepaired> {
+    let parse = |error: ltk_meta::Error| Unrepaired::Parse(error.to_string());
+    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(bytes)).map_err(parse)?;
+
+    let mut objects = Vec::with_capacity(addressed.len());
+    let mut batch = stream.objects_batch(addressed.keys().copied());
+    while let Some(mut object) = batch.next().map_err(parse)? {
+        objects.push(object.read().map_err(parse)?);
+    }
+    if stream.numbering().is_legacy() {
+        return Ok(None);
     }
 
-    /// Step into one element of a container or a present optional.
-    fn index(&mut self, index: usize) {
-        self.0.push(Step::Index(index));
-    }
-
-    /// Step into one entry of a map, subscripted by its key.
-    fn key(&mut self, key: &PropertyValueEnum) {
-        self.0.push(Step::Key(key.clone()));
-    }
-
-    fn back(&mut self) {
-        self.0.pop();
-    }
-
-    /// The hash form, for a repair matching against what a check recorded.
-    ///
-    /// A repair addresses a node by the hash form, which no table can move, so
-    /// nothing is named.
-    fn hashes(&self) -> String {
-        let mut address = Address::default();
-        for step in &self.0 {
-            match step {
-                /* Nothing is named, so no class is asked with. 0 is the unknown
-                class (W15). */
-                Step::Field(field) => address.push_field(*field, BinHash(0), &()),
-                Step::Index(index) => address.push_index(*index),
-                Step::Key(key) => address.push_key(key, &()),
-            }
+    let mut repaired = Repaired::default();
+    let mut delta = BinDelta::new();
+    for mut object in objects {
+        let paths = &addressed[&object.path_hash];
+        let applied = repair_object(&mut object, paths, lens, kept);
+        repaired.left.extend(left_in(&object, paths, lens));
+        if applied > 0 {
+            repaired.applied += applied;
+            delta.replace(object);
         }
-        address.into_hashes()
     }
+
+    if !delta.is_empty() {
+        let mut out = Vec::with_capacity(bytes.len());
+        stream
+            .write_patched(&delta, &mut out)
+            .map_err(|error| Unrepaired::Write(std::io::Error::other(error)))?;
+        repaired.bytes = Some(out);
+    }
+    Ok(Some(repaired))
+}
+
+/// [`repair_file`] over the whole parsed tree, transcoded back.
+fn repair_whole(
+    bytes: &[u8],
+    addressed: &HashMap<BinHash, HashSet<&str>>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> Result<Repaired, Unrepaired> {
+    let mut bin = read_bin_bytes(bytes).map_err(Unrepaired::Parse)?;
+
+    let mut repaired = Repaired::default();
+    for (entry, object) in bin.objects_mut() {
+        let Some(paths) = addressed.get(entry) else {
+            continue;
+        };
+        repaired.applied += repair_object(object, paths, lens, kept);
+        repaired.left.extend(left_in(object, paths, lens));
+    }
+
+    if repaired.applied > 0 {
+        let mut out = Cursor::new(Vec::with_capacity(bytes.len()));
+        bin.to_writer(&mut out).map_err(Unrepaired::Write)?;
+        repaired.bytes = Some(out.into_inner());
+    }
+    Ok(repaired)
+}
+
+/// Convert every addressed property of one object, and count them.
+fn repair_object(
+    object: &mut BinObject,
+    addressed: &HashSet<&str>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> u32 {
+    let mut repair = Repair {
+        lens,
+        addressed,
+        kept,
+        applied: 0,
+    };
+    owned(object.walk_mut(&mut repair));
+    repair.applied
+}
+
+/// The addressed properties of one repaired object the check still objects to.
+///
+/// A check over the tree in memory rather than arithmetic over what the repair
+/// claimed, at the cost of a walk rather than a second parse.
+fn left_in(
+    object: &BinObject,
+    addressed: &HashSet<&str>,
+    lens: Lens<'_>,
+) -> Vec<(BinHash, String)> {
+    let mut check = Check::new(lens);
+    owned(object.walk(&mut check));
+    check
+        .found
+        .into_iter()
+        .filter(|(_, hit)| addressed.contains(hit.address.hashes()))
+        .map(|(entry, hit)| (entry, hit.address.into_hashes()))
+        .collect()
 }
 
 /// The check as the pass runs it: what every bin is read with.
@@ -567,12 +640,10 @@ fn retags_an_empty_option<'a>(to: &TypeSpec, value: impl Declared<'a>) -> bool {
 }
 
 /// Every property of one bin a table objects to.
-///
-/// The check and the repair's own verification are the same call, so a bin
-/// repaired and then re-read is a tree walk rather than a second parse.
+#[cfg(test)]
 fn check_bin(bin: &ltk_meta::BinFile, lens: Lens<'_>) -> Vec<(BinHash, Hit)> {
     let mut check = Check::new(lens);
-    owned(walk::bin(bin, &mut check));
+    owned(crate::problems::walk::bin(bin, &mut check));
     check.found
 }
 
@@ -618,73 +689,45 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Check<'_> {
     }
 }
 
-/// Convert every addressed property of one bin, and count them.
+/// The repair as a mutable visitor: every addressed property of one object,
+/// converted in place.
 ///
 /// Re-derives each change from the value in front of it rather than from what
 /// the check recorded, so a property that no longer matches `from` is left
-/// alone and counted as skipped.
-///
-/// It walks with the same [`Trail`] the check used - only the hash form is
-/// compared, and building it through one shared step is what keeps the two
-/// passes addressing the same node.
-fn fix_bin(
-    bin: &mut ltk_meta::BinFile,
-    addressed: &HashMap<BinHash, HashSet<&str>>,
-    lens: Lens<'_>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
-    for (entry, object) in bin.objects_mut() {
-        let Some(addressed) = addressed.get(entry) else {
-            continue;
-        };
-        applied += repair(
-            object.class_hash,
-            &mut object.properties,
-            &mut Trail::default(),
-            lens,
-            addressed,
-            kept,
-        );
-    }
-    applied
+/// alone and counted as skipped. The trail is the walk's own, which renders
+/// the hash form the check recorded.
+struct Repair<'l, 'k, 'p> {
+    lens: Lens<'l>,
+    addressed: &'l HashSet<&'l str>,
+    kept: &'k mut PreservedNames<'p>,
+    applied: u32,
 }
 
-fn repair(
-    class: BinHash,
-    properties: &mut IndexMap<BinHash, PropertyValueEnum>,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
+impl VisitorMut for Repair<'_, '_, '_> {
+    type Error = ltk_meta::Error;
 
-    for (field, value) in properties.iter_mut() {
-        let objection = owned(lens.objection(class, *field, &*value));
-        let holds_node = owned((&*value).holds_node());
-        if objection.is_none() && !holds_node {
-            continue;
-        }
+    fn enter_property(&mut self, property: &mut PropertyMut<'_>) -> Result<Visit, ltk_meta::Error> {
+        let class = property.node_class_hash();
+        let field = property.field();
+        let Some(objection) = self.lens.objection(class, field, property.value())? else {
+            return Ok(Visit::Continue);
+        };
 
-        trail.field(*field);
-
-        if let Some(objection) = objection
-            && addressed.contains(trail.hashes().as_str())
-            && keep_names(value, &objection.migration, lens.names, kept)
-            && convert(value, &objection.migration, lens.names)
+        /* Nothing is named, since only the hash form is compared. */
+        let address = Address::of(property.trail(), field, class, &());
+        if self.addressed.contains(address.hashes())
+            && keep_names(
+                property.value(),
+                &objection.migration,
+                self.lens.names,
+                self.kept,
+            )
+            && convert(property.value_mut(), &objection.migration, self.lens.names)
         {
-            applied += 1;
+            self.applied += 1;
         }
-
-        if holds_node {
-            applied += repair_into(value.as_mut(), trail, lens, addressed, kept);
-        }
-
-        trail.back();
+        Ok(Visit::Continue)
     }
-
-    applied
 }
 
 /// Keep every path this conversion is about to hash away. Reports whether the
@@ -727,95 +770,6 @@ fn keeps<'p>(paths: impl IntoIterator<Item = &'p str>, kept: &mut PreservedNames
     paths
         .into_iter()
         .all(|path| kept.keep(path) == Preserved::Kept)
-}
-
-/// Walk `repair` into whatever object-like nodes `value` holds.
-///
-/// Takes the borrow that cannot change a value's kind, because a container, an
-/// option and a map each declare their item kind once and hand out no other.
-/// A repair only ever edits properties further down, so that is all it needs.
-fn repair_into(
-    value: ValueMut<'_>,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    match value {
-        ValueMut::Struct(inner) => repair(
-            inner.class_hash,
-            &mut inner.properties,
-            trail,
-            lens,
-            addressed,
-            kept,
-        ),
-        ValueMut::Embedded(inner) => repair(
-            inner.0.class_hash,
-            &mut inner.0.properties,
-            trail,
-            lens,
-            addressed,
-            kept,
-        ),
-        ValueMut::Container(items) => repair_container(items, trail, lens, addressed, kept),
-        ValueMut::UnorderedContainer(items) => {
-            repair_container(&mut items.0, trail, lens, addressed, kept)
-        }
-        ValueMut::Optional(inner) => match inner.slot() {
-            Some(mut slot) => {
-                trail.index(0);
-                let applied = repair_into(slot.as_mut(), trail, lens, addressed, kept);
-                trail.back();
-                applied
-            }
-            None => 0,
-        },
-        ValueMut::Map(map) => repair_map(map, trail, lens, addressed, kept),
-        _ => 0,
-    }
-}
-
-/// Walk `repair` into a map's values.
-///
-/// The key is written into the trail before the slot is taken, because a map
-/// lends its keys and its values apart and never both at once.
-fn repair_map(
-    map: &mut values::Map,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
-    for index in 0..map.entries().len() {
-        trail.key(&map.entries()[index].0);
-        if let Some(mut slot) = map.slot(index) {
-            applied += repair_into(slot.as_mut(), trail, lens, addressed, kept);
-        }
-        trail.back();
-    }
-    applied
-}
-
-/// Walk `repair` into the object-like items a container holds.
-fn repair_container(
-    items: &mut values::Container,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
-    for index in 0..items.len() {
-        let Some(mut slot) = items.slot(index) else {
-            continue;
-        };
-        trail.index(index);
-        applied += repair_into(slot.as_mut(), trail, lens, addressed, kept);
-        trail.back();
-    }
-    applied
 }
 
 /// Rewrite one property under its new type. Reports whether it changed.
