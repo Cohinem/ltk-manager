@@ -1,4 +1,5 @@
 export * from "./authorName";
+export * from "./binSaves";
 export * from "./editorFile";
 export * from "./explorer";
 export * from "./extractDialog";

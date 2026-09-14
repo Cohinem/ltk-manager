@@ -144,7 +144,7 @@ fn prop_bytes() -> Vec<u8> {
 }
 
 fn document() -> BinDocument {
-    BinDocument::parse(&prop_bytes()).unwrap()
+    BinDocument::parse(prop_bytes()).unwrap()
 }
 
 /// Tables that name what the fixture writes with a name, and nothing else.
@@ -762,7 +762,7 @@ fn a_projected_read_past_the_row_cap_is_refused_and_names_it() {
     let bin = Bin::<NoMeta>::builder().object(object).build();
     let mut out = Cursor::new(Vec::new());
     bin.to_writer(&mut out).unwrap();
-    let document = BinDocument::parse(&out.into_inner()).unwrap();
+    let document = BinDocument::parse(out.into_inner()).unwrap();
 
     let paths: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|f| wire(f)).collect();
     let error = document
@@ -820,7 +820,7 @@ fn a_patch_bin_opens_to_its_added_objects_and_counts_what_it_does_not_draw() {
     let mut out = Cursor::new(Vec::new());
     patch.to_writer(&mut out).unwrap();
 
-    let document = BinDocument::parse(&out.into_inner()).unwrap();
+    let document = BinDocument::parse(out.into_inner()).unwrap();
     assert_eq!(
         document.header(),
         BinHeader {
@@ -1322,6 +1322,6 @@ fn the_headers_dependencies_hash_as_wad_paths() {
     patch.objects.insert(added.path_hash, added);
     let mut out = Cursor::new(Vec::new());
     patch.to_writer(&mut out).unwrap();
-    let patch = BinDocument::parse(&out.into_inner()).unwrap();
+    let patch = BinDocument::parse(out.into_inner()).unwrap();
     assert!(patch.dependency_hashes().is_empty());
 }

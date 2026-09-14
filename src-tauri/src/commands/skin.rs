@@ -36,7 +36,7 @@ pub async fn read_skin(
             let wads = app_handle.state::<WadCache>();
             let mut read = |asset: &AssetRef| match asset
                 .read(&config, &wads)
-                .and_then(|bytes| Ok(BinDocument::parse(&bytes)?))
+                .and_then(|bytes| Ok(BinDocument::parse(bytes)?))
             {
                 Ok(bin) => Some(bin),
                 Err(e) => {
@@ -93,7 +93,7 @@ pub async fn read_animation_graph(
             let wads = app_handle.state::<WadCache>();
             let mut read = |asset: &AssetRef| match asset
                 .read(&config, &wads)
-                .and_then(|bytes| Ok(BinDocument::parse(&bytes)?))
+                .and_then(|bytes| Ok(BinDocument::parse(bytes)?))
             {
                 Ok(bin) => Some(bin),
                 Err(e) => {

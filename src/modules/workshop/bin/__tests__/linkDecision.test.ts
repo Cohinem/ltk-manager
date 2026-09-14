@@ -37,7 +37,7 @@ const DECLARED: DeclaredObject = {
 const LOCATED: GameFileEntry = {
   pathHash: "00cc",
   path: "assets/characters/aatrox/aatrox.tex",
-  sizeBytes: 12n,
+  sizeBytes: 12,
   wad: "Champions/Aatrox.wad.client",
 };
 

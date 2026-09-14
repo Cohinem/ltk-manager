@@ -36,6 +36,7 @@ import {
   useFindReferences,
 } from "../references/useFindReferences";
 import { clickIntent, useCurveAimRequest, useSettleCurveAim } from "../state";
+import { BinEditState } from "./BinEditState";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { ClassCard } from "./ClassCard";
 import { classLayout, type LayoutFrame, shellHoldsCurve } from "./classLayouts";
@@ -44,8 +45,9 @@ import { CurveSurface } from "./CurveSurface";
 import { type CurveDock, CurveDockContext, type CurveTarget } from "./curveTarget";
 import { OtherDeclarations } from "./OtherDeclarations";
 import { ShellHeaderContext, ShellHeaderSlot, useShellHeaderSlots } from "./shellHeader";
-import { useBinDocument } from "./useBinDocument";
+import { useBinDocument, useObjectRoots } from "./useBinDocument";
 import { useShowInFile } from "./useShowInFile";
+import { useUndoKeys } from "./useUndoKeys";
 
 /**
  * One declaration of an object as a document of its own (ADR-0028).
@@ -120,6 +122,8 @@ function OpenObject({
   const narrow = useNarrowToolbar();
   const objectName = useCallback(() => object.name, [object.name]);
   const layout = classLayout(object.classHash);
+  const roots = useObjectRoots(handle);
+  const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
 
   const [mode, setMode] = useState<Mode>(layout ? "layout" : "properties");
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
@@ -166,7 +170,13 @@ function OpenObject({
   const shelled = frame === "shell" && mode === "layout";
 
   return (
-    <div data-ui="ObjectDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <div
+      data-ui="ObjectDocument"
+      /* Focusable, so a click anywhere in the tab is where its undo keys land. */
+      tabIndex={-1}
+      className="flex min-h-0 flex-1 flex-col bg-surface-950 outline-none"
+      onKeyDown={undoKeys}
+    >
       <DocumentToolbar active={active}>
         <span className="flex min-w-0 shrink-0 items-center gap-2 text-meta text-surface-400 select-none">
           <ClassCard classHash={object.classHash} name={object.class} />
@@ -202,6 +212,12 @@ function OpenObject({
             {m.workshop_bin_show_in_file_action()}
           </Button>
         )}
+        <BinEditState
+          document={handle.document}
+          asset={asset}
+          readOnly={handle.readOnly}
+          onReload={reopen}
+        />
         {shelled && <ShellHeaderSlot name="panes" onElement={registerSlot} />}
         <HeaderMenu object={object} onShowInFile={narrow ? showFile : undefined} />
       </DocumentToolbar>
@@ -213,7 +229,7 @@ function OpenObject({
                 <ClassView
                   document={handle.document}
                   asset={asset}
-                  roots={handle.rows}
+                  roots={roots}
                   classHash={object.classHash}
                   layout={layout}
                   objectName={objectName}
@@ -226,12 +242,14 @@ function OpenObject({
                 <BinTree
                   document={handle.document}
                   asset={asset}
-                  roots={handle.rows}
+                  roots={roots}
                   rootOwner={object.classHash}
                   label={object.name}
                   reveal={reveal}
                   objectName={objectName}
                   onNotOpen={reopen}
+                  editable={handle.readOnly === null}
+                  rootEntry={object.entry}
                 />
               )}
             </Panel>

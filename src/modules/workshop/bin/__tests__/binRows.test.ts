@@ -343,6 +343,8 @@ describe("nameColumns", () => {
     expanded: false,
     loading: false,
     owner: null,
+    parent: null,
+    index: 0,
   });
 
   const noTag = () => null;

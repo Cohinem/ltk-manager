@@ -103,7 +103,7 @@ function toRow(hit: ObjectSearchHit): RankedRow {
       },
     },
     band: hit.band,
-    score: hit.score,
+    score: hit.score ?? 0,
     nameRanges: hit.ranges,
     pathRanges: [],
   };

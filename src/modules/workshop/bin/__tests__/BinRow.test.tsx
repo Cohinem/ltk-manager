@@ -54,6 +54,8 @@ function line(row: BinRow, owner: string | null = SKIN_CLASS): RowLine {
     expanded: false,
     loading: false,
     owner,
+    parent: null,
+    index: 0,
   };
 }
 

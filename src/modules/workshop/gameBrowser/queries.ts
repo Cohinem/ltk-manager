@@ -128,7 +128,7 @@ export const objectIndexQueries = {
       queryKey: gameKeys.declaredObjects(objectHashes),
       queryFn:
         objectHashes.length > 0
-          ? queryFnWithArgs(api.declaredObjects, [...objectHashes])
+          ? queryFnWithArgs(api.objects.declared, [...objectHashes])
           : skipToken,
       staleTime: Infinity,
       refetchInterval: (query) =>
@@ -142,7 +142,7 @@ export const objectIndexQueries = {
   search: (query: string, active: boolean) =>
     queryOptions<ObjectSearch, AppError>({
       queryKey: gameKeys.objectSearch(query),
-      queryFn: active ? queryFnWithArgs(api.searchObjectIndex, query) : skipToken,
+      queryFn: active ? queryFnWithArgs(api.objects.search, query) : skipToken,
       placeholderData: keepPreviousData,
       refetchInterval: (result) => {
         const status = result.state.data?.status;

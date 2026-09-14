@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                        |
-| ---------- | ------------------------------------------------------------- |
-| 2026-09-14 | Cut a chip's path under its object, and name the target class |
-| 2026-09-14 | Draw a string-table key with its in-game line                 |
-| 2026-09-13 | Add the clips pane over the animation graph                   |
-| 2026-09-13 | Draw every layout section as field rows                       |
-| 2026-09-12 | Band a rich value and drop the inspector's tabs               |
-| 2026-09-12 | Flag the timeline's playhead and trace the pointer            |
-| 2026-09-11 | Draw the random spread as lanes and a density edge            |
-| 2026-09-11 | Draw a value's random spread on its graph                     |
-| 2026-09-11 | Draw a child lane's emitter in the inspector                  |
-| 2026-09-11 | Add the particle timeline, and redraw the inspector           |
+| Date       | Change                                                         |
+| ---------- | -------------------------------------------------------------- |
+| 2026-09-14 | Edit list items, map entries, options and pointers inline      |
+| 2026-09-14 | Add and remove a property inline, at the schema's default      |
+| 2026-09-14 | Save a leaf edit as a delta, and refuse a file changed on disk |
+| 2026-09-14 | Cut a chip's path under its object, and name the target class  |
+| 2026-09-14 | Draw a string-table key with its in-game line                  |
+| 2026-09-13 | Add the clips pane over the animation graph                    |
+| 2026-09-13 | Draw every layout section as field rows                        |
+| 2026-09-12 | Band a rich value and drop the inspector's tabs                |
+| 2026-09-12 | Flag the timeline's playhead and trace the pointer             |
+| 2026-09-11 | Draw the random spread as lanes and a density edge             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -70,10 +70,11 @@ This table holds every major feature of the bin editor. A status word has one me
 | Inspector rows        | Available   | Every group, named values, units, a curve per animated row       |
 | Inspector bands       | Planned     | A rich value on its own band, the roll rail, and no group tabs   |
 | In-document search    | Planned     | The bar's `@` scope over the open rows                           |
-| Leaf editing          | Proposed    | The primitive widgets, and the patch that carries an edit        |
-| Container editing     | Proposed    | Add, remove, reorder, and a `Map` key                            |
-| Autosave              | Proposed    | The strings editor's debounce and save state                     |
-| Undo                  | Proposed    | An inverse-patch stack per document                              |
+| Leaf editing          | In progress | The primitive widgets, and the patch that carries an edit        |
+| Property editing      | In progress | Add and remove a property inline, at the schema's default        |
+| Container editing     | In progress | List items, map entries, options and pointers, inline            |
+| Autosave              | In progress | The strings editor's debounce, saved as a delta. ADR-0040        |
+| Undo                  | In progress | An inverse-patch stack per held tree                             |
 | Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses    |
 | Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
 | Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
@@ -193,6 +194,9 @@ frontend drew.** This is the single decision the correctness of the feature rest
 serialized to JSON, edited, and serialized back loses whatever the crossing did not model: a
 kind with no widget, a hash no table names, a container order, a duplicate key. Losing any of
 it corrupts game data silently, which is the one failure a mod manager cannot ship.
+
+The save writes the objects a patch touched, out of that tree, over the bytes the file opened
+with. Every other object is copied byte for byte. ADR-0040.
 
 Under this model the frontend cannot lose data, because it never holds any. What it fails to
 draw, it fails to draw. The file is unharmed.
@@ -1933,7 +1937,8 @@ The rule falls out of `AssetRef` and needs no new state.
 | `File`      | Read-only | Anywhere on disk, and owned by nobody the app knows |
 
 The source is one of two gates. A `PTCH` file is read-only from either side of that table, for
-a reason of its own that the next section gives.
+a reason of its own that the next section gives. The header of a read-only document names the
+gate it stands behind: the install, a file outside a project, or a patch layer.
 
 A read-only document draws the same blocks with the widgets disabled, and offers **Copy into
 layer**, which writes the chunk into the active project's layer and reopens it editable. That
@@ -1965,19 +1970,125 @@ drawn, and drawing them is what opens the write.
 
 A patch, applied to the tree in Rust, answered with the rows that changed.
 
-| Operation       | Carries                        |
-| --------------- | ------------------------------ |
-| Set value       | A path and a value             |
-| Add element     | A path, and an index           |
-| Remove element  | A path                         |
-| Move element    | A path, and a destination      |
-| Add property    | An object path, a hash, a kind |
-| Remove property | A path                         |
-| Set map key     | A path, and a key              |
+| Operation       | Carries                                       |
+| --------------- | --------------------------------------------- |
+| Set value       | A path and a value                            |
+| Insert item     | A holder path, an index, and a key or a class |
+| Remove item     | A path                                        |
+| Move item       | A path, and a destination                     |
+| Add property    | A holder path, and a field                    |
+| Remove property | A path                                        |
+| Set map key     | A path, and a key                             |
+| Set pointer     | A path, and a class or null                   |
 
-A text or number field is controlled locally and commits on blur, on `Enter`, or after the
-same debounce the strings editor uses. A patch per keystroke is a round trip per keystroke,
-and neither the tree nor the disk wants one.
+A text or number field is controlled locally and commits on blur or on `Enter`, and
+`Escape` drops the draft. A patch per keystroke is a round trip per keystroke, and neither the
+tree nor the disk wants one.
+
+A value drawn as a chip - a string naming a file, a `hash`, a `link`, a `file` - keeps its chip,
+and the row's edit action opens a field over it holding the string, the name, or the hex. A
+name typed into a `hash` or a `link` is hashed in Rust. An integer an enum table reads edits
+through a select of the engine's words, and a flags value through its number.
+
+### Adding a property
+
+**Inline, and never a dialog.** An expanded holder - an object, an embed, a pointer struct that
+is not null - ends in an add line under its last property, and an object tab's roots end in one.
+An editable holder expands while it is empty, so an embed with no fields still has its line.
+The holder row's `+` action and its menu item open the holder and focus the line.
+
+The line is a field. The text narrows the fields the holder's class and its bases declare at the
+install's build, less the ones the holder writes, each with its kind and the class that
+declares it. `Enter` adds the highlighted field.
+
+A field the schema does not offer is typed the way ritobin writes one: `mySpeed: f32`,
+`tags: list[hash]`, `names: map[hash,string]`, `mesh: embed = SkinMeshDataProperties`. A name
+is hashed as any field name is, and `0x` with eight hex digits is taken as the hash.
+
+| Added field            | Starts at                                                    |
+| ---------------------- | ------------------------------------------------------------ |
+| A declared leaf        | The schema's published default                               |
+| A declared list, map   | The default's items where they are leaves, empty otherwise   |
+| An embed, a pointer    | Its class with no fields. The game reads each at its default |
+| A fixed list of embeds | That many embeds of the class, each with no fields           |
+| A typed field          | Its kind's zero value                                        |
+| No published default   | Its kind's zero value                                        |
+
+An added property lands at the end of its holder, and the game reads fields by hash. Focus moves
+to the new value: a number, a vector and a colour into their first box, a string, a hash, a link
+and a file into their field. `Enter` on that value returns focus to the add line, so a run of
+fields types straight through. An added embed opens and focuses its own add line. A kind with no
+field to type into leaves focus on the add line, which clears for the next field.
+
+**Remove property** is the property row's `-` action and a menu item. The game reads the
+field's default where the file writes none. An undo of a remove puts the property back at its
+position.
+
+### Editing a list, a map, an option and a pointer
+
+**Every add is inline, and a list takes an item at any position.** A list of a few thousand items
+is common in a particle system, so an add that only reaches the end of one is an add a modder has
+to scroll for.
+
+```
+weights       list[f32]           3 items     [list+]
+  [0]  [ 0.5 ]                                [row+][-]
+  [1]  [ 1.0 ]                                [row+][-]
+  + add item
+emitters      list[pointer]       2 items     [list+]
+  [0] VfxEmitterDefinitionData                [+][row+][-]
+  + [ Vfx|                                  ]
+    | VfxEmitterDefinitionData   in list    |
+names         map[hash,string]    1 entry     [list+]
+  {"Idle"}  string  "idle.anm"                [row+][-]
+  + [ key| ]
+scale         option[f32]         [ 1.5 ]     [x]
+mesh          pointer             null        [+]
+  + [ SkinMeshDataProperties|               ]
+```
+
+| Row                       | Hover actions                              | Menu                                          |
+| ------------------------- | ------------------------------------------ | --------------------------------------------- |
+| A list                    | Add item                                   | Add item                                      |
+| A map                     | Add entry                                  | Add entry                                     |
+| An item of a list         | Insert after, Remove item                  | Insert after, Move up, Move down, Remove item |
+| An entry of a map         | Insert after, Remove entry, the key's edit | Insert after, Remove entry                    |
+| An absent option          | Set value                                  | Set value                                     |
+| A present option          | Clear value                                | Clear value                                   |
+| A null pointer            | Set class                                  | Set class                                     |
+| A pointer holding a class | Add property                               | Add property, Set to null                     |
+
+**A list.** An expanded list ends in an add line. `Enter` on it appends an item and focuses the
+item's value, and `Enter` on the value returns focus to the line. The list row's **Add item**
+reaches the end from anywhere, paging the rows in on the way. An item row's **Insert after** and
+`Ctrl+Enter` on a focused item put an item right after it. An item of a leaf kind starts at the
+kind's zero.
+
+**A class is picked in the line.** An item of an embed or a pointer list is a struct, so its add
+line and its Insert after line are a field over classes: the ones the list holds already, the
+class the schema declares for the list, and the classes that derive from it at the install's
+build. A name the schema does not offer is typed in and hashed. An added struct opens and focuses
+its own add line, where its properties go.
+
+**Order.** `Alt+Up` and `Alt+Down` move the focused item one place, and Move up and Move down do
+the same from the menu. Focus follows the item. A map's entries keep their order, because the game
+reads a map by key.
+
+**A map.** The add line and an entry's Insert after line are a field for the key: digits for an
+integer key, the text for a `string`, and a name or `0x` and eight hex digits for a `hash`. `Enter`
+adds the entry at its value's zero and focuses the value. An entry's key edits in place through
+the name's edit action. A key the map holds already is refused and the field is marked.
+
+**An option.** Set value on an absent option writes its kind's zero and focuses it, and an option
+of a struct picks the class in a line under it. Clear value empties a present one.
+
+**A pointer.** Set class on a null pointer opens a class line under it, over the class the field
+declares and its subclasses. Set to null drops the class and every property under it, and an undo
+brings them back.
+
+Each of these is an edit, with the undo of every other. A removed item or entry comes back at its
+index, a move goes back, and a key edit restores the key. The rows a reader expanded under a list
+follow an insert, a remove, a move and a key edit, so an expanded item stays the one expanded.
 
 ### Validation
 
@@ -1995,39 +2106,50 @@ Autosave. There is no save button, the debounce is the strings editor's `SAVE_DE
 the state union is the one that editor already ships.
 
 ```
-clean → pending → saving → clean
-                        ↘ failed
+clean -> pending -> saving -> clean
+                           -> failed
 blocked                              while any field is invalid
 ```
 
-The write goes through `ltk_meta`'s writer to a temp file and then renames, and the tab's
-unsaved dot follows `blocked` and `failed` only, because a document that autosaves is clean
-between keystrokes and a dot that blinks on every edit means nothing.
+The tab's unsaved dot follows `blocked` and `failed` only. A document that autosaves is clean
+between keystrokes, and a dot that blinks on every edit means nothing.
+
+**The write is a delta over the bytes the document opened.** ADR-0040. The document holds its
+file's bytes beside the tree, and the path hash of every object a patch touched. A save mounts
+those bytes as a `BinStream`, replaces each touched object with its copy from the tree in a
+`BinDelta`, and writes through `write_patched` to a temp file beside the target, then renames.
+An object no patch touched keeps every byte. The written bytes are the next save's base.
+
+**A file changed on disk refuses the save.** The save reads the file first and compares it with
+the base. A difference writes nothing, and the save state goes to `failed` with the toolbar
+naming the change and offering **Reload**. The tree keeps its edits until the reload, which
+reopens the file and drops the edits and the undo stack.
+
+A tab closed with an edit still waiting on the debounce saves it before the close.
 
 ### The version-3 write
 
-`ltk_meta` documents its writer as always writing version 3, whatever version it read. A bin
-of version 1 or 2 therefore comes back upgraded, and a save that changes one float also
-changes the file's version.
+`Bin::to_writer` writes version 3 whatever version it read. `write_patched` writes the version
+the base mounted, and a delta save keeps the file's version.
 
-This is a hazard and not a decision. Two ways out, and the upstream one is preferred:
-
-- `ltk_meta` writes the version it read, or takes the version as an argument
-- The editor refuses to save a bin below version 3 until it does
-
-Until one of them lands the editor opens such a file read-only and says why.
+A base latched onto the legacy kind numbering refuses a delta. The save transcodes that file whole
+through `Bin::to_writer`, as the problems repair does, and a version 1 or 2 file of that kind comes
+back as version 3. No shipped file latches.
 
 ### Undo
 
-An inverse-patch stack per document, in Rust, bounded. `Ctrl+Z` and `Ctrl+Shift+Z` while the
-document is active. The stack is per document rather than global, because the tab strip holds
-several and an undo that crosses them undoes work a user is not looking at.
+An inverse-patch stack in Rust, bounded, one per held tree. `Ctrl+Z` and `Ctrl+Shift+Z` while a
+document over the tree is active. A file tab and the object tabs over one asset share a tree
+(ADR-0028), and they share its stack. An undo never crosses into another asset's tree. An undo
+that crosses tabs undoes work a user is not looking at.
+
+An undo is a patch, and it saves like one. A text field holding an uncommitted change takes the
+keystroke as the field's own undo.
 
 ### What an edit cannot do
 
 - Change an object's path hash. It is the object's identity, and every link to it holds it
 - Change an object's class. The properties of the old class are not the properties of the new
-- Add a property the class does not declare, once the schema lands
 
 Each of these is a legal operation on the format and a destructive one in practice. They stay
 out until there is a reason and a confirmation to put in front of them.
@@ -2076,15 +2198,15 @@ Targets, not measurements. Nothing here is measured until there is something to 
 
 Nothing hard-blocks the first stage.
 
-| Item              | Where     | Status                                                 |
-| ----------------- | --------- | ------------------------------------------------------ |
-| `ltk_meta` 0.8.1  | Workspace | Compiled, pinned to the rev that carries the walk      |
-| `bin_tables()`    | This repo | Landed 2026-08-23, as `BinHashTables`                  |
-| `BinStream`       | Upstream  | Landed in 0.8.1. The object index's, optional here     |
-| The write version | Upstream  | Read [The version-3 write](#the-version-3-write)       |
-| Patch records     | Upstream  | `BinOverride` reads and writes one. Nothing draws them |
-| The meta dump     | Upstream  | Stage four only, for schema-aware editing              |
-| `ltk_ritobin`     | Upstream  | Git only. Publish before the text view                 |
+| Item             | Where     | Status                                                 |
+| ---------------- | --------- | ------------------------------------------------------ |
+| `ltk_meta` 0.8.1 | Workspace | Compiled, pinned to the rev that carries the walk      |
+| `bin_tables()`   | This repo | Landed 2026-08-23, as `BinHashTables`                  |
+| `BinStream`      | Upstream  | Landed in 0.8.1. The object index's, optional here     |
+| The delta write  | Upstream  | `write_patched` at the pinned rev. ADR-0040            |
+| Patch records    | Upstream  | `BinOverride` reads and writes one. Nothing draws them |
+| The meta dump    | Upstream  | Stage four only, for schema-aware editing              |
+| `ltk_ritobin`    | Upstream  | Git only. Publish before the text view                 |
 
 `ltk_meta` is a dependency of the workspace already, through the problems pass.
 
@@ -2097,17 +2219,30 @@ nothing about Tauri.
 `src-tauri/src/commands/bin.rs` is the seam, and `BinDocuments` is a third managed state
 beside `SettingsState` and `PatcherState`.
 
-| Command             | Answers                                                             |
-| ------------------- | ------------------------------------------------------------------- |
-| `bin_open`          | A handle, the header facts, and the root rows                       |
-| `bin_children`      | The rows under one address                                          |
-| `bin_read`          | The rows under each of several addresses, in one call               |
-| `bin_patch`         | The rows that changed, or a rejection                               |
-| `bin_undo`          | The same                                                            |
-| `bin_close`         | Nothing                                                             |
-| `class_schema`      | One class's fields and their declared kinds, at the install's build |
-| `declared_objects`  | What declares each of a page's link and hash targets, in link order |
-| `locate_game_files` | The install's copy of each of a page's `file` targets               |
+| Command               | Answers                                                              |
+| --------------------- | -------------------------------------------------------------------- |
+| `bin_open`            | A handle, the header facts, and the root rows                        |
+| `bin_children`        | The rows under one address                                           |
+| `bin_read`            | The rows under each of several addresses, in one call                |
+| `bin_patch`           | The value the leaf held, or a rejection                              |
+| `bin_undo`            | Whether an edit was held to revert                                   |
+| `bin_redo`            | Whether an undone edit was held to apply                             |
+| `bin_reload`          | Nothing. Every id over the asset reads the file again                |
+| `bin_save`            | Nothing, or a refusal naming a file changed on disk                  |
+| `bin_addable_fields`  | The fields a holder's class and bases declare that it does not write |
+| `bin_add_property`    | Nothing, or a rejection                                              |
+| `bin_remove_property` | Nothing, or a rejection                                              |
+| `bin_item_classes`    | The classes an item, an option or a pointer at a path can hold       |
+| `bin_insert_item`     | The new item's path, or a rejection                                  |
+| `bin_remove_item`     | Nothing, or a rejection                                              |
+| `bin_move_item`       | The item's new path, or a rejection                                  |
+| `bin_set_key`         | The entry's new path, or a rejection                                 |
+| `bin_set_pointer`     | Nothing, or a rejection                                              |
+| `bin_roots`           | A file's rows at depth zero, read again after an edit                |
+| `bin_close`           | Nothing                                                              |
+| `class_schema`        | One class's fields and their declared kinds, at the install's build  |
+| `declared_objects`    | What declares each of a page's link and hash targets, in link order  |
+| `locate_game_files`   | The install's copy of each of a page's `file` targets                |
 
 An object tab is `bin_open` with an entry named, answering that object's rows at depth zero and
 the header facts of the object. A file tab and the object tabs over one asset share one held
@@ -2171,8 +2306,9 @@ its own.
 
 **The editing track.**
 
-1. **Leaf editing.** The primitive widgets, `bin_patch`, validation, autosave, undo. Layer
-   sources only
+1. **Leaf editing.** The primitive widgets on the Properties rows, `bin_patch`, validation,
+   autosave as a delta (ADR-0040), the refusal of a file changed on disk, undo. Layer sources
+   only
 2. **Container editing.** Add, remove, reorder, and a `Map` key. This is where the complexity
    is
 3. **Cells that edit.** A layout's cell is a path and a value, so the leaf widgets reach every

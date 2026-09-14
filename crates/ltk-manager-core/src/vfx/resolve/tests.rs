@@ -113,7 +113,7 @@ fn document_of(objects: Vec<BinObject>) -> BinDocument {
     }
     let mut out = Cursor::new(Vec::new());
     bin.build().to_writer(&mut out).unwrap();
-    BinDocument::parse(&out.into_inner()).unwrap()
+    BinDocument::parse(out.into_inner()).unwrap()
 }
 
 fn document() -> BinDocument {

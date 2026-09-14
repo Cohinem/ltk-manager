@@ -43,6 +43,7 @@ pub async fn read_game_dir(path: String, app_handle: AppHandle) -> IpcResult<Gam
 ///
 /// For the `file` links of a page of bin rows, checked in one call.
 #[tauri::command]
+#[specta::specta]
 pub async fn locate_game_files(
     paths: Vec<String>,
     app_handle: AppHandle,

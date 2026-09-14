@@ -337,7 +337,7 @@ export function useCheckLinkTargets(
     .filter((group) => group.hashes.length > 0)
     .map((group) => ({
       queryKey: linkKeys.declared(document, group.key, group.hashes),
-      queryFn: async () => unwrapForQuery(await api.declaredObjects(group.hashes, document)),
+      queryFn: async () => unwrapForQuery(await api.objects.declared(group.hashes, document)),
       staleTime: Infinity,
       retry: false,
       refetchInterval: (query) =>
@@ -349,7 +349,7 @@ export function useCheckLinkTargets(
     .filter((group) => group.paths.length > 0)
     .map((group) => ({
       queryKey: linkKeys.located(group.key, group.paths),
-      queryFn: async () => unwrapForQuery(await api.locateGameFiles(group.paths)),
+      queryFn: async () => unwrapForQuery(await api.objects.locateGameFiles(group.paths)),
       staleTime: Infinity,
       retry: false,
     }));

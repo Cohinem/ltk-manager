@@ -8,6 +8,7 @@ import type {
   PatcherError,
   WorkshopError,
 } from "@/lib/bindings";
+import type { EditRejection, ReadOnly } from "@/lib/bindings.gen";
 import { m } from "@/paraglide/messages";
 import { isAppError } from "@/utils/errors";
 
@@ -83,6 +84,21 @@ export function describeError(error: AppError): ErrorCopy {
       title: m["error.BIN_READ_TOO_DEEP.title"](),
       description: m["error.BIN_READ_TOO_DEEP.description"](),
     }))
+    .with({ code: "BIN_READ_ONLY" }, ({ gate }) => ({
+      title: m["error.BIN_READ_ONLY.title"](),
+      description: readOnlyDescription(gate),
+    }))
+    .with({ code: "BIN_EDIT_REJECTED" }, ({ rejection }) => ({
+      title: m["error.BIN_EDIT_REJECTED.title"](),
+      description: editRejection(rejection),
+    }))
+    .with({ code: "BIN_CHANGED_ON_DISK" }, () => ({
+      title: m["error.BIN_CHANGED_ON_DISK.title"](),
+      description: m["error.BIN_CHANGED_ON_DISK.description"](),
+    }))
+    .with({ code: "BIN_UNWRITABLE" }, (e) =>
+      withDetail(m["error.BIN_UNWRITABLE.title"](), e.detail),
+    )
     .with({ code: "OVERLAY" }, ({ category, detail }) => withDetail(overlayTitle(category), detail))
     .with({ code: "UNTRUSTED_DOMAIN" }, ({ domain }) => ({
       title: m["error.UNTRUSTED_DOMAIN.title"]({ domain }),
@@ -100,6 +116,52 @@ export function errorSummary(error: AppError): string {
 
 function withDetail(title: string, detail: string): ErrorCopy {
   return { title, detail };
+}
+
+/** Why a bin takes no edit, as the gate it stands behind. */
+export function readOnlyDescription(gate: ReadOnly): string {
+  return match(gate)
+    .with("install", () => m["error.BIN_READ_ONLY.install.description"]())
+    .with("loose", () => m["error.BIN_READ_ONLY.loose.description"]())
+    .with("patch", () => m["error.BIN_READ_ONLY.patch.description"]())
+    .exhaustive();
+}
+
+/** What is wrong with a value a leaf turned down, in one line under the field. */
+export function editRejection(rejection: EditRejection): string {
+  return match(rejection)
+    .with({ reason: "notALeaf" }, () => m["error.BIN_EDIT_REJECTED.notALeaf.description"]())
+    .with({ reason: "wrongKind" }, ({ kind }) =>
+      m["error.BIN_EDIT_REJECTED.wrongKind.description"]({ kind }),
+    )
+    .with({ reason: "outOfRange" }, ({ kind }) =>
+      m["error.BIN_EDIT_REJECTED.outOfRange.description"]({ kind }),
+    )
+    .with({ reason: "notFinite" }, () => m["error.BIN_EDIT_REJECTED.notFinite.description"]())
+    .with({ reason: "wrongLength" }, ({ expected }) =>
+      m["error.BIN_EDIT_REJECTED.wrongLength.description"]({ expected }),
+    )
+    .with({ reason: "malformedHash" }, () =>
+      m["error.BIN_EDIT_REJECTED.malformedHash.description"](),
+    )
+    .with({ reason: "notAHolder" }, () => m["error.BIN_EDIT_REJECTED.notAHolder.description"]())
+    .with({ reason: "notAProperty" }, () => m["error.BIN_EDIT_REJECTED.notAProperty.description"]())
+    .with({ reason: "propertyExists" }, () =>
+      m["error.BIN_EDIT_REJECTED.propertyExists.description"](),
+    )
+    .with({ reason: "undeclaredField" }, () =>
+      m["error.BIN_EDIT_REJECTED.undeclaredField.description"](),
+    )
+    .with({ reason: "missingClass" }, () => m["error.BIN_EDIT_REJECTED.missingClass.description"]())
+    .with({ reason: "invalidShape" }, () => m["error.BIN_EDIT_REJECTED.invalidShape.description"]())
+    .with({ reason: "notAList" }, () => m["error.BIN_EDIT_REJECTED.notAList.description"]())
+    .with({ reason: "notAnItem" }, () => m["error.BIN_EDIT_REJECTED.notAnItem.description"]())
+    .with({ reason: "notAPointer" }, () => m["error.BIN_EDIT_REJECTED.notAPointer.description"]())
+    .with({ reason: "keyExists" }, () => m["error.BIN_EDIT_REJECTED.keyExists.description"]())
+    .with({ reason: "missingKey" }, () => m["error.BIN_EDIT_REJECTED.missingKey.description"]())
+    .with({ reason: "valueHeld" }, () => m["error.BIN_EDIT_REJECTED.valueHeld.description"]())
+    .with({ reason: "noSuchIndex" }, () => m["error.BIN_EDIT_REJECTED.noSuchIndex.description"]())
+    .exhaustive();
 }
 
 /** The category's own title, so a wrong game dir does not read as a broken mod. */

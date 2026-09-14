@@ -88,5 +88,7 @@ export function cellLine(row: BinRow, classHash: string): RowLine {
     expanded: false,
     loading: false,
     owner: row.node === "property" ? classHash : null,
+    parent: null,
+    index: 0,
   };
 }

@@ -17,6 +17,7 @@ use crate::preview::AssetRef;
 /// into `path`. An object or a class no table names reads as its hex.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectSearchHit {
@@ -41,6 +42,7 @@ pub struct ObjectSearchHit {
 /// One class an ambiguous `class:` term matched, offered as a completion.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectClassHit {
@@ -55,6 +57,7 @@ pub struct ObjectClassHit {
 /// What one search of the object index found.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectSearchResult {
@@ -86,6 +89,7 @@ impl ObjectSearchResult {
 /// One declaration of an object: the file that declares it and the class it carries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectDeclaration {
@@ -102,6 +106,7 @@ pub struct ObjectDeclaration {
 /// Every declaration of one object, with the path they share.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct DeclaredObject {
@@ -142,6 +147,7 @@ impl DeclaredObject {
 /// A node an object bears is an [`ObjectNodeEntry`] and not one of these.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectPrefixEntry {
@@ -156,6 +162,7 @@ pub struct ObjectPrefixEntry {
 /// One object at a listed prefix, with what sits below it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectNodeEntry {
@@ -176,6 +183,7 @@ pub struct ObjectNodeEntry {
 /// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectDirListing {
@@ -188,6 +196,7 @@ pub struct ObjectDirListing {
 /// One object the full search matched, with the runs its path marks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFindHit {
@@ -204,6 +213,7 @@ pub struct ObjectFindHit {
 /// What one full search of the object index found.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFindResult {
@@ -232,6 +242,7 @@ impl ObjectFindResult {
 /// One object a reference query found, in the file that declares it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceHit {
@@ -248,6 +259,7 @@ pub struct ReferenceHit {
 /// The objects one file declares, as a reference query groups them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceGroup {
@@ -262,6 +274,7 @@ pub struct ReferenceGroup {
 /// What one reference query found.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceResult {

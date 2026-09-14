@@ -1,17 +1,21 @@
-import { useQueries, type UseQueryOptions } from "@tanstack/react-query";
+import { queryOptions, useQueries, useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   api,
+  type AddableFields,
   type AppError,
   type AssetRef,
   type BinDocumentHandle,
   type BinDocumentId,
+  type BinRow,
   type BinRows,
+  type ClassChoice,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { assetKey } from "../preview/assetRef";
+import { flushBinSave, isQueuedThrough } from "../state";
 import { type LoadedChildren, mergePages, PAGE_SIZE, splitKey } from "./binRows";
 
 export type BinOpenState =
@@ -44,9 +48,9 @@ export function useBinDocument(
     let opened: BinDocumentId | null = null;
     setState((previous) => (previous.status === "open" ? previous : { status: "opening" }));
 
-    void api.binOpen(latest.current.asset, latest.current.entry).then((result) => {
+    void api.bin.open(latest.current.asset, latest.current.entry).then((result) => {
       if (!live) {
-        if (result.ok) void api.binClose(result.value.document);
+        if (result.ok) void api.bin.close(result.value.document);
         return;
       }
       if (result.ok) {
@@ -57,9 +61,17 @@ export function useBinDocument(
       setState({ status: "failed", error: result.error });
     });
 
+    const held = assetKey(latest.current.asset);
     return () => {
       live = false;
-      if (opened !== null) void api.binClose(opened);
+      if (opened === null) return;
+      const closing = opened;
+      /* The last id over a tree takes its edits with it, so a queued save lands first. */
+      if (isQueuedThrough(held, closing)) {
+        void flushBinSave(held).finally(() => void api.bin.close(closing));
+      } else {
+        void api.bin.close(closing);
+      }
     };
   }, [key, generation]);
 
@@ -71,6 +83,62 @@ export const binKeys = {
   children: (document: BinDocumentId, key: string, page: number) =>
     ["bin-children", document, key, page] as const,
 };
+
+/** Every row under one node, which is what an object open reads at depth zero. */
+const WHOLE = Number.MAX_SAFE_INTEGER;
+
+export const binQueries = {
+  /** A file's rows at depth zero, standing on what the open answered until an edit. */
+  fileRoots: (document: BinDocumentId, opened: readonly BinRow[]) =>
+    queryOptions<readonly BinRow[], AppError>({
+      queryKey: ["bin-file-roots", document],
+      queryFn: async () => unwrapForQuery(await api.bin.roots(document)),
+      initialData: opened,
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The fields a holder can take, asked again after every edit. */
+  addable: (document: BinDocumentId, entry: string, path: string) =>
+    queryOptions<AddableFields, AppError>({
+      queryKey: ["bin-addable", document, entry, path],
+      queryFn: async () => unwrapForQuery(await api.bin.addableFields(document, entry, path)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The classes an item, an option or a pointer at `path` can hold, asked again after every edit. */
+  itemClasses: (document: BinDocumentId, entry: string, path: string) =>
+    queryOptions<ClassChoice[], AppError>({
+      queryKey: ["bin-item-classes", document, entry, path],
+      queryFn: async () => unwrapForQuery(await api.bin.itemClasses(document, entry, path)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** An object's properties at depth zero, standing on what the open answered until an edit. */
+  roots: (document: BinDocumentId, entry: string, opened: readonly BinRow[]) =>
+    queryOptions<readonly BinRow[], AppError>({
+      queryKey: ["bin-roots", document, entry],
+      queryFn: async () =>
+        unwrapForQuery(await api.bin.children(document, entry, "", 0, WHOLE)).rows,
+      initialData: opened,
+      staleTime: Infinity,
+      retry: false,
+    }),
+};
+
+/** The rows a file open draws at depth zero, read again after an edit. */
+export function useFileRoots(handle: BinDocumentHandle): readonly BinRow[] {
+  return useQuery(binQueries.fileRoots(handle.document, handle.rows)).data;
+}
+
+/**
+ * The properties an object open draws at depth zero, read again after an edit.
+ *
+ * The open's own answer stands until then, so the first draw costs no call.
+ */
+export function useObjectRoots(handle: BinDocumentHandle): readonly BinRow[] {
+  const entry = handle.object?.entry ?? "";
+  return useQuery(binQueries.roots(handle.document, entry, handle.rows)).data;
+}
 
 /** One expanded node, and how many pages of it the list wants. */
 export interface ChildrenRequest {
@@ -108,7 +176,7 @@ export function useBinChildren(
     return Array.from({ length: request.pages }, (_, page) => ({
       queryKey: binKeys.children(document, request.key, page),
       queryFn: async () =>
-        unwrapForQuery(await api.binChildren(document, entry, path, page * PAGE_SIZE, PAGE_SIZE)),
+        unwrapForQuery(await api.bin.children(document, entry, path, page * PAGE_SIZE, PAGE_SIZE)),
       staleTime: Infinity,
       retry: false,
     }));

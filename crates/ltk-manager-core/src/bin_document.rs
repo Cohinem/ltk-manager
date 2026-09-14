@@ -4,23 +4,30 @@
 //! node by the object's hash and the game's property path, every field a hash on the
 //! wire and a name for a person.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::{self, Write as _};
 use std::io::Cursor;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use lru::LruCache;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
-use parking_lot::Mutex;
+use parking_lot::{ArcRwLockReadGuard, Mutex, RawRwLock, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod edit;
+mod items;
+mod properties;
 pub(crate) mod resolve;
+
+pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
+pub use items::{ClassChoice, NewItem};
+pub use properties::{AddableField, AddableFields, NewProperty};
 
 pub use resolve::{AssetLookup, NamedAsset, hex, owned};
 pub(crate) use resolve::{
@@ -82,6 +89,25 @@ pub enum BinDocumentError {
     /// A resolved read nested deeper than one call answers.
     #[error("a resolved read nests deeper than one call answers")]
     ReadTooDeep,
+
+    /// The document takes no edit.
+    #[error("the bin is read-only as {0}")]
+    ReadOnly(ReadOnly),
+
+    /// An edit's value does not fit the node it addresses.
+    #[error("the edit at {address} is refused: {rejection}")]
+    EditRejected {
+        address: String,
+        rejection: EditRejection,
+    },
+
+    /// The file on disk holds other bytes than the document opened.
+    #[error("the bin changed on disk since it opened")]
+    ChangedOnDisk,
+
+    /// The edited tree does not encode.
+    #[error("the bin does not encode: {0}")]
+    Unwritable(#[source] ltk_meta::Error),
 }
 
 /// The open documents, one tree per asset, bounded, evicting the least recently used.
@@ -94,21 +120,54 @@ pub struct BinDocuments {
 
 struct Store {
     next: u32,
+    /// The bound the store keeps to while every tree over it is clean.
+    bound: NonZeroUsize,
     /// The asset each id is over. An id whose asset was evicted reads as not open.
     ids: HashMap<BinDocumentId, AssetRef>,
     held: LruCache<AssetRef, Held>,
 }
 
+/// A read of one document, held with the store unlocked. A patch waits for it.
+pub type DocumentRead = ArcRwLockReadGuard<RawRwLock, BinDocument>;
+
 /// One parsed asset, and how many ids hold it.
 struct Held {
     /// Shared, so a read can walk the tree with the store unlocked.
-    document: Arc<BinDocument>,
+    document: Arc<RwLock<BinDocument>>,
     /// The chunk paths this asset's project names, scanned once with the parse.
     chunks: Arc<LayerChunks>,
     holders: usize,
 }
 
 impl Store {
+    /// Leave room for one more asset, evicting the least recently used clean tree.
+    ///
+    /// A tree with unsaved edits is never evicted (ADR-0026). A store of dirty trees
+    /// grows past its bound instead, and [`BinDocuments::close`] shrinks it back.
+    fn make_room(&mut self) {
+        if self.held.len() < self.held.cap().get() {
+            return;
+        }
+        /* A tree a save holds for writing counts as dirty. */
+        let clean = self
+            .held
+            .iter()
+            .rev()
+            .find(|(_, held)| {
+                held.document
+                    .try_read()
+                    .is_some_and(|open| !open.is_dirty())
+            })
+            .map(|(asset, _)| asset.clone());
+        match clean {
+            Some(asset) => {
+                self.held.pop(&asset);
+                self.ids.retain(|_, over| *over != asset);
+            }
+            None => self.held.resize(self.held.cap().saturating_add(1)),
+        }
+    }
+
     /// A fresh id over `asset`.
     fn issue(&mut self, asset: AssetRef) -> BinDocumentId {
         let id = BinDocumentId(self.next);
@@ -142,6 +201,7 @@ impl BinDocuments {
         Self {
             inner: Mutex::new(Store {
                 next: 0,
+                bound: capacity,
                 ids: HashMap::new(),
                 held: LruCache::new(capacity),
             }),
@@ -151,7 +211,7 @@ impl BinDocuments {
     /// Hold `asset` open, answering a fresh id over its tree.
     ///
     /// `bytes` is read and parsed only while no id is over the asset. At capacity, the
-    /// least recently used asset leaves the store with every id over it. The lock is
+    /// least recently used clean asset leaves the store with every id over it. The lock is
     /// not held over `bytes`. Two opens racing on one asset both parse, and one parse
     /// is kept.
     ///
@@ -172,7 +232,7 @@ impl BinDocuments {
             }
         }
 
-        let document = BinDocument::parse(&bytes()?)?;
+        let document = BinDocument::parse(bytes()?)?;
         /* Scanned beside the parse, and outside the lock, because both read the disk. */
         let chunks = LayerChunks::of(&asset);
 
@@ -181,13 +241,12 @@ impl BinDocuments {
             Some(held) => held.holders += 1,
             None => {
                 let held = Held {
-                    document: Arc::new(document),
+                    document: Arc::new(RwLock::new(document)),
                     chunks: Arc::new(chunks),
                     holders: 1,
                 };
-                if let Some((evicted, _)) = store.held.push(asset.clone(), held) {
-                    store.ids.retain(|_, over| *over != evicted);
-                }
+                store.make_room();
+                store.held.push(asset.clone(), held);
             }
         }
         Ok(store.issue(asset))
@@ -204,13 +263,8 @@ impl BinDocuments {
         id: BinDocumentId,
         read: impl FnOnce(&BinDocument) -> AppResult<T>,
     ) -> AppResult<T> {
-        let mut store = self.inner.lock();
-        let Store { ids, held, .. } = &mut *store;
-        let held = ids
-            .get(&id)
-            .and_then(|asset| held.get(asset))
-            .ok_or(BinDocumentError::NotOpen(id))?;
-        read(&held.document)
+        let document = self.document(id)?;
+        read(&document)
     }
 
     /// The document under one id, for a read that runs with the store unlocked.
@@ -222,13 +276,243 @@ impl BinDocuments {
     ///
     /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
     /// evicted.
-    pub fn document(&self, id: BinDocumentId) -> Result<Arc<BinDocument>, BinDocumentError> {
+    pub fn document(&self, id: BinDocumentId) -> Result<DocumentRead, BinDocumentError> {
+        Ok(self.held(id)?.1.read_arc())
+    }
+
+    /// The asset under one id and its tree. The ask marks the asset the most recently used.
+    fn held(
+        &self,
+        id: BinDocumentId,
+    ) -> Result<(AssetRef, Arc<RwLock<BinDocument>>), BinDocumentError> {
         let mut store = self.inner.lock();
         let Store { ids, held, .. } = &mut *store;
-        ids.get(&id)
-            .and_then(|asset| held.get(asset))
+        let asset = ids.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
+        let document = held
+            .get(asset)
             .map(|held| Arc::clone(&held.document))
-            .ok_or(BinDocumentError::NotOpen(id))
+            .ok_or(BinDocumentError::NotOpen(id))?;
+        Ok((asset.clone(), document))
+    }
+
+    /// Why the document under one id takes no edit, or `None` where it takes them.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
+    /// evicted.
+    pub fn read_only(&self, id: BinDocumentId) -> Result<Option<ReadOnly>, BinDocumentError> {
+        let (asset, document) = self.held(id)?;
+        Ok(document.read().read_only(&asset))
+    }
+
+    /// Set one leaf of the document under `id`, answering the value it held.
+    ///
+    /// Every id over the asset reads the edit. [`BinDocument::set_leaf`] has the rules.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
+    /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
+    /// [`BinDocument::set_leaf`] raises.
+    pub fn patch(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+        value: LeafValue,
+    ) -> Result<LeafValue, BinDocumentError> {
+        self.edit(id, |document| document.set_leaf(entry, path, value))
+    }
+
+    /// Add a property to the holder at `holder` of the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
+    /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
+    /// [`BinDocument::add_property`] raises.
+    pub fn add_property(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        holder: &str,
+        property: NewProperty,
+        schema: SchemaAt<'_>,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| {
+            document.add_property(entry, holder, property, schema)
+        })
+    }
+
+    /// Take the property at `path` out of its holder in the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::remove_property`]
+    /// raises.
+    pub fn remove_property(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.remove_property(entry, path))
+    }
+
+    /// Put an item into the list, map or option at `holder` of the document under `id`,
+    /// answering the new item's path.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::insert_item`] raises.
+    pub fn insert_item(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        holder: &str,
+        item: NewItem,
+        schema: SchemaAt<'_>,
+    ) -> Result<String, BinDocumentError> {
+        self.edit(id, |document| {
+            document.insert_item(entry, holder, item, schema)
+        })
+    }
+
+    /// Take the item at `path` out of its holder in the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::remove_item`] raises.
+    pub fn remove_item(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.remove_item(entry, path))
+    }
+
+    /// Move the item at `path` to `to` in its list in the document under `id`, answering its
+    /// new path.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::move_item`] raises.
+    pub fn move_item(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+        to: usize,
+    ) -> Result<String, BinDocumentError> {
+        self.edit(id, |document| document.move_item(entry, path, to))
+    }
+
+    /// Set the key of the map entry at `path` in the document under `id`, answering the
+    /// entry's new path.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::set_key`] raises.
+    pub fn set_key(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+        key: &str,
+    ) -> Result<String, BinDocumentError> {
+        self.edit(id, |document| document.set_key(entry, path, key))
+    }
+
+    /// Give the null pointer at `path` of the document under `id` a class, or set a pointer
+    /// to null.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::set_pointer`] raises.
+    pub fn set_pointer(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+        class: Option<&str>,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.set_pointer(entry, path, class))
+    }
+
+    /// Revert the latest edit of the document under `id`, answering whether one was held.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
+    /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
+    /// [`BinDocument::undo`] raises.
+    pub fn undo(&self, id: BinDocumentId) -> Result<bool, BinDocumentError> {
+        self.edit(id, BinDocument::undo)
+    }
+
+    /// Apply the latest undone edit of the document under `id` again, answering whether
+    /// one was held.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::undo`].
+    pub fn redo(&self, id: BinDocumentId) -> Result<bool, BinDocumentError> {
+        self.edit(id, BinDocument::redo)
+    }
+
+    /// Run `edit` on the document under `id`, behind its gate.
+    fn edit<T>(
+        &self,
+        id: BinDocumentId,
+        edit: impl FnOnce(&mut BinDocument) -> Result<T, BinDocumentError>,
+    ) -> Result<T, BinDocumentError> {
+        let (asset, document) = self.held(id)?;
+        let mut document = document.write();
+        if let Some(gate) = document.read_only(&asset) {
+            return Err(BinDocumentError::ReadOnly(gate));
+        }
+        edit(&mut document)
+    }
+
+    /// Read the asset under `id` again, replacing the tree every id over it reads.
+    ///
+    /// The edits the tree held are dropped.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
+    /// [`BinDocumentError::Unreadable`] when the bytes are not a bin, and with whatever
+    /// `bytes` raises. A failed reload leaves the tree as it was.
+    pub fn reload(
+        &self,
+        id: BinDocumentId,
+        bytes: impl FnOnce(&AssetRef) -> AppResult<Vec<u8>>,
+    ) -> AppResult<()> {
+        let (asset, document) = self.held(id)?;
+        let fresh = BinDocument::parse(bytes(&asset)?)?;
+        *document.write() = fresh;
+        Ok(())
+    }
+
+    /// Write the document under `id` back to its layer file. ADR-0040.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
+    /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
+    /// [`BinDocument::save_to`] raises.
+    pub fn save(&self, id: BinDocumentId) -> AppResult<()> {
+        let (asset, document) = self.held(id)?;
+        let mut document = document.write();
+        if let Some(gate) = document.read_only(&asset) {
+            return Err(BinDocumentError::ReadOnly(gate).into());
+        }
+        let Some(path) = asset.layer_file() else {
+            return Err(BinDocumentError::ReadOnly(ReadOnly::Loose).into());
+        };
+        document.save_to(&path?)
     }
 
     /// The chunk names the project behind `id`'s asset holds.
@@ -268,6 +552,12 @@ impl BinDocuments {
         });
         if last {
             store.held.pop(&asset);
+            let (len, cap, bound) = (store.held.len(), store.held.cap(), store.bound);
+            if cap > bound && len < cap.get() {
+                store
+                    .held
+                    .resize(NonZeroUsize::new(len).map_or(bound, |len| len.max(bound)));
+            }
         }
     }
 
@@ -282,10 +572,18 @@ impl BinDocuments {
     }
 }
 
-/// One parsed bin, of either kind.
+/// One parsed bin, of either kind, and the bytes it parsed from.
 #[derive(Debug)]
 pub struct BinDocument {
     file: BinFile,
+    /// The bytes `file` parsed from, which a save writes the touched objects over.
+    base: Vec<u8>,
+    /// Every object a patch touched since the base was read.
+    touched: IndexSet<BinHash>,
+    /// The edits an undo reverts, the latest last, at most [`UNDO_DEPTH`].
+    undo: VecDeque<edit::Edit>,
+    /// The edits a redo applies again, the latest undone last.
+    redo: Vec<edit::Edit>,
 }
 
 impl BinDocument {
@@ -295,9 +593,14 @@ impl BinDocument {
     ///
     /// Fails with [`BinDocumentError::Unreadable`] when the bytes are not a bin the
     /// toolkit reads.
-    pub fn parse(bytes: &[u8]) -> Result<Self, BinDocumentError> {
+    pub fn parse(bytes: impl Into<Vec<u8>>) -> Result<Self, BinDocumentError> {
+        let base = bytes.into();
         Ok(Self {
-            file: BinFile::from_reader(&mut Cursor::new(bytes))?,
+            file: BinFile::from_reader(&mut Cursor::new(&base))?,
+            base,
+            touched: IndexSet::new(),
+            undo: VecDeque::new(),
+            redo: Vec::new(),
         })
     }
 
@@ -666,6 +969,8 @@ pub struct BinDocumentHandle {
     pub rows: Vec<BinRow>,
     /// The object the open is over. Absent for a file open.
     pub object: Option<BinObjectHeader>,
+    /// The gate a read-only document stands behind. Absent where it takes edits.
+    pub read_only: Option<ReadOnly>,
 }
 
 /// A window of rows under one node, and how many there are in all.
@@ -835,6 +1140,40 @@ impl PropertyKind {
             Self::Optional => "option",
             Self::Map => "map",
             Self::BitBool => "flag",
+        }
+    }
+}
+
+impl From<PropertyKind> for Kind {
+    fn from(kind: PropertyKind) -> Self {
+        match kind {
+            PropertyKind::None => Self::None,
+            PropertyKind::Bool => Self::Bool,
+            PropertyKind::I8 => Self::I8,
+            PropertyKind::U8 => Self::U8,
+            PropertyKind::I16 => Self::I16,
+            PropertyKind::U16 => Self::U16,
+            PropertyKind::I32 => Self::I32,
+            PropertyKind::U32 => Self::U32,
+            PropertyKind::I64 => Self::I64,
+            PropertyKind::U64 => Self::U64,
+            PropertyKind::F32 => Self::F32,
+            PropertyKind::Vector2 => Self::Vector2,
+            PropertyKind::Vector3 => Self::Vector3,
+            PropertyKind::Vector4 => Self::Vector4,
+            PropertyKind::Matrix44 => Self::Matrix44,
+            PropertyKind::Color => Self::Color,
+            PropertyKind::String => Self::String,
+            PropertyKind::Hash => Self::Hash,
+            PropertyKind::WadChunkLink => Self::WadChunkLink,
+            PropertyKind::Container => Self::Container,
+            PropertyKind::UnorderedContainer => Self::UnorderedContainer,
+            PropertyKind::Struct => Self::Struct,
+            PropertyKind::Embedded => Self::Embedded,
+            PropertyKind::ObjectLink => Self::ObjectLink,
+            PropertyKind::Optional => Self::Optional,
+            PropertyKind::Map => Self::Map,
+            PropertyKind::BitBool => Self::BitBool,
         }
     }
 }

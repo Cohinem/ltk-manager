@@ -17,7 +17,7 @@ export const skinQueries = {
   skin: (document: BinDocumentId, entry: string) =>
     queryOptions<SkinModel, AppError>({
       queryKey: ["skin", document, entry],
-      queryFn: async () => unwrapForQuery(await api.readSkin(document, entry)),
+      queryFn: async () => unwrapForQuery(await api.bin.readSkin(document, entry)),
       staleTime: Infinity,
       retry: false,
     }),
@@ -28,7 +28,7 @@ export const skinQueries = {
       queryFn:
         document === null || graph === null
           ? skipToken
-          : async () => unwrapForQuery(await api.readAnimationGraph(document, graph)),
+          : async () => unwrapForQuery(await api.bin.readAnimationGraph(document, graph)),
       staleTime: Infinity,
       retry: false,
     }),
@@ -37,7 +37,9 @@ export const skinQueries = {
     queryOptions<ClipHeader, AppError>({
       queryKey: ["skin-clip-header", asset],
       queryFn:
-        asset === null ? skipToken : async () => unwrapForQuery(await api.readClipHeader(asset)),
+        asset === null
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.readClipHeader(asset)),
       staleTime: Infinity,
       retry: false,
     }),

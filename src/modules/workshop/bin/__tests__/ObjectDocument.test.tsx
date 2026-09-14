@@ -53,6 +53,7 @@ const PROJECT: WorkshopProject = {
 
 vi.mock("../useBinDocument", () => ({
   useBinDocument: () => ({ state: { status: "open", handle: HANDLE }, reopen: () => {} }),
+  useObjectRoots: () => HANDLE.rows,
 }));
 
 vi.mock("../OtherDeclarations", () => ({ OtherDeclarations: () => null }));

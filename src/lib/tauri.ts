@@ -12,7 +12,6 @@ import type {
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
-  DeclaredObjects,
   EditModMetadataArgs,
   ExportScope,
   ExportShape,
@@ -24,7 +23,6 @@ import type {
   FantomePeekResult,
   FixReport,
   GameDirListing,
-  GameFileEntry,
   GameFindResult,
   GameIndexStats,
   GameSearchResult,
@@ -54,10 +52,6 @@ import type {
   ModStorage,
   ModWadReport,
   Notice,
-  ObjectDir,
-  ObjectFind,
-  ObjectReferences,
-  ObjectSearch,
   PackProjectArgs,
   PackResult,
   PatcherConfig,
@@ -65,7 +59,6 @@ import type {
   PlatformSupport,
   ProblemId,
   Profile,
-  ReferenceQuery,
   ReleasePage,
   Run,
   SaveProjectConfigArgs,
@@ -78,13 +71,23 @@ import type {
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
-import type { ProjectTextFile, Revision, UiError } from "@/lib/bindings.gen";
+import type {
+  LeafValue,
+  NewItem,
+  NewProperty,
+  ProjectTextFile,
+  ReferenceQuery,
+  Revision,
+  UiError,
+} from "@/lib/bindings.gen";
 import { type BinDocumentId, commands } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
 // The bin editor's types, per ADR-0029. An explicit export shadows the star above.
 export type {
+  AddableField,
+  AddableFields,
   BinDocumentHandle,
   BinDocumentId,
   BinFileKind,
@@ -93,13 +96,43 @@ export type {
   BinRow,
   BinRows,
   BinValue,
+  ClassChoice,
   ClassSchema,
   DeclaredKind,
+  EditRejection,
   FieldRevision,
   FieldSchema,
   KindShape,
+  LeafValue,
+  NewItem,
+  NewProperty,
   PropertyKind,
+  ReadOnly,
   RowNode,
+} from "@/lib/bindings.gen";
+// The object index's types, per ADR-0029.
+export type {
+  DeclaredObject,
+  DeclaredObjects,
+  GameFileEntry,
+  ObjectClassHit,
+  ObjectDeclaration,
+  ObjectDir,
+  ObjectDirListing,
+  ObjectFind,
+  ObjectFindHit,
+  ObjectFindResult,
+  ObjectIndexStatus,
+  ObjectNodeEntry,
+  ObjectPrefixEntry,
+  ObjectReferences,
+  ObjectSearch,
+  ObjectSearchHit,
+  ObjectSearchResult,
+  ReferenceGroup,
+  ReferenceHit,
+  ReferenceQuery,
+  ReferenceResult,
 } from "@/lib/bindings.gen";
 // The ignore rules' type, per ADR-0029.
 export type { IgnoreRules } from "@/lib/bindings.gen";
@@ -366,23 +399,8 @@ export const api = {
   refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
   searchGameIndex: (query: string) =>
     invokeResult<GameSearchResult>("search_game_index", { query }),
-  locateGameFiles: (paths: readonly string[]) =>
-    invokeResult<Record<string, GameFileEntry>>("locate_game_files", { paths }),
   findInGameIndex: (pattern: string, regex: boolean) =>
     invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
-
-  // Object index
-  searchObjectIndex: (query: string) =>
-    invokeResult<ObjectSearch>("search_object_index", { query }),
-  warmObjectIndex: () => invokeResult<void>("warm_object_index"),
-  dropObjectIndex: () => invokeResult<void>("drop_object_index"),
-  declaredObjects: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
-    invokeResult<DeclaredObjects>("declared_objects", { objectHashes, document }),
-  objectDir: (prefix: string) => invokeResult<ObjectDir>("object_dir", { prefix }),
-  findObjects: (pattern: string, regex: boolean, cls: string | null) =>
-    invokeResult<ObjectFind>("find_objects", { pattern, regex, class: cls }),
-  findReferences: (query: ReferenceQuery) =>
-    invokeResult<ObjectReferences>("find_references", { query }),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
@@ -393,31 +411,6 @@ export const api = {
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the run finished looks like.
   cancelExtract: () => invokeResult<boolean>("cancel_extract"),
-
-  // Bin viewer
-  binOpen: (asset: AssetRef, entry: string | null) => commands.binOpen(asset, entry).then(toResult),
-  binChildren: (
-    document: BinDocumentId,
-    entry: string,
-    path: string,
-    offset: number,
-    limit: number,
-  ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
-  binRead: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
-    commands.binRead(document, entry, [...paths]).then(toResult),
-  binClose: (document: BinDocumentId) => commands.binClose(document).then(toResult),
-  classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
-
-  // Particle renderer
-  readVfxSystem: (document: BinDocumentId, entry: string) =>
-    commands.readVfxSystem(document, entry).then(toResult),
-
-  // Skin preview
-  readSkin: (document: BinDocumentId, entry: string) =>
-    commands.readSkin(document, entry).then(toResult),
-  readAnimationGraph: (document: BinDocumentId, entry: string) =>
-    commands.readAnimationGraph(document, entry).then(toResult),
-  readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
@@ -447,6 +440,69 @@ export const api = {
     invokeResult<StorageMedium>("detect_storage_medium", { path }),
 
   // Diagnostics. One group per migrated module: the generated `commands` object is
+  // The bin editor and the class reads over its documents, on tauri-specta.
+  bin: {
+    open: (asset: AssetRef, entry: string | null) => commands.binOpen(asset, entry).then(toResult),
+    children: (
+      document: BinDocumentId,
+      entry: string,
+      path: string,
+      offset: number,
+      limit: number,
+    ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
+    read: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
+      commands.binRead(document, entry, [...paths]).then(toResult),
+    patch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) =>
+      commands.binPatch(document, entry, path, value).then(toResult),
+    save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
+    reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
+    undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),
+    redo: (document: BinDocumentId) => commands.binRedo(document).then(toResult),
+    roots: (document: BinDocumentId) => commands.binRoots(document).then(toResult),
+    addableFields: (document: BinDocumentId, entry: string, path: string) =>
+      commands.binAddableFields(document, entry, path).then(toResult),
+    addProperty: (document: BinDocumentId, entry: string, path: string, property: NewProperty) =>
+      commands.binAddProperty(document, entry, path, property).then(toResult),
+    removeProperty: (document: BinDocumentId, entry: string, path: string) =>
+      commands.binRemoveProperty(document, entry, path).then(toResult),
+    itemClasses: (document: BinDocumentId, entry: string, path: string) =>
+      commands.binItemClasses(document, entry, path).then(toResult),
+    insertItem: (document: BinDocumentId, entry: string, path: string, item: NewItem) =>
+      commands.binInsertItem(document, entry, path, item).then(toResult),
+    removeItem: (document: BinDocumentId, entry: string, path: string) =>
+      commands.binRemoveItem(document, entry, path).then(toResult),
+    moveItem: (document: BinDocumentId, entry: string, path: string, to: number) =>
+      commands.binMoveItem(document, entry, path, to).then(toResult),
+    setKey: (document: BinDocumentId, entry: string, path: string, key: string) =>
+      commands.binSetKey(document, entry, path, key).then(toResult),
+    setPointer: (document: BinDocumentId, entry: string, path: string, className: string | null) =>
+      commands.binSetPointer(document, entry, path, className).then(toResult),
+    close: (document: BinDocumentId) => commands.binClose(document).then(toResult),
+    classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
+    readVfxSystem: (document: BinDocumentId, entry: string) =>
+      commands.readVfxSystem(document, entry).then(toResult),
+    readSkin: (document: BinDocumentId, entry: string) =>
+      commands.readSkin(document, entry).then(toResult),
+    readAnimationGraph: (document: BinDocumentId, entry: string) =>
+      commands.readAnimationGraph(document, entry).then(toResult),
+    readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),
+  },
+
+  // The object index and the install lookups a bin page makes, on tauri-specta.
+  objects: {
+    search: (query: string) => commands.searchObjectIndex(query).then(toResult),
+    warm: () => commands.warmObjectIndex().then(toResult),
+    drop: () => commands.dropObjectIndex().then(toResult),
+    declared: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
+      commands.declaredObjects([...objectHashes], document).then(toResult),
+    dir: (prefix: string) => commands.objectDir(prefix).then(toResult),
+    find: (pattern: string, regex: boolean, cls: string | null) =>
+      commands.findObjects(pattern, regex, cls).then(toResult),
+    references: (query: ReferenceQuery) => commands.findReferences(query).then(toResult),
+    locateGameFiles: (paths: readonly string[]) =>
+      commands.locateGameFiles([...paths]).then(toResult),
+  },
+
   // flat, so the module boundary lives here.
   diagnostics: {
     run: () => commands.runDiagnostics().then(toResult),

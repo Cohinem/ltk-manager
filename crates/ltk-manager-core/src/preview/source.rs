@@ -59,18 +59,11 @@ impl AssetRef {
     /// with I/O or WAD errors when the store itself cannot be read.
     pub fn read(&self, config: &Config, wads: &WadCache) -> AppResult<Vec<u8>> {
         match self {
-            Self::Layer {
-                project,
-                layer,
-                path,
-            } => {
-                /* Under `content` rather than under the layer, so one check
-                covers the layer name as well as the path inside it. */
-                let root = Path::new(project).join("content");
-                Ok(fs::read(resolve_within(
-                    &root,
-                    &format!("{layer}/{path}"),
-                )?)?)
+            Self::Layer { .. } => {
+                let path = self
+                    .layer_file()
+                    .expect("a layer asset names a layer file")?;
+                Ok(fs::read(path)?)
             }
             Self::GameChunk { wad, path_hash } => {
                 let path_hash = path_hash.parse().map_err(|_| {
@@ -80,6 +73,27 @@ impl AssetRef {
             }
             Self::File { path } => Ok(fs::read(path)?),
         }
+    }
+
+    /// The file a layer asset names on disk, or `None` for an asset of another source.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::InvalidPath`] when the path escapes its layer, and with
+    /// [`AppError::Io`] when the file does not exist.
+    pub fn layer_file(&self) -> Option<AppResult<PathBuf>> {
+        let Self::Layer {
+            project,
+            layer,
+            path,
+        } = self
+        else {
+            return None;
+        };
+        /* Under `content` rather than under the layer, so one check covers the layer
+        name as well as the path inside it. */
+        let root = Path::new(project).join("content");
+        Some(resolve_within(&root, &format!("{layer}/{path}")))
     }
 
     /// The name a viewer shows, and what a guess at the file kind falls back to.

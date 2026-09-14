@@ -8,6 +8,7 @@ import {
   TreeStructureIcon,
   WaveSineIcon,
 } from "@phosphor-icons/react";
+import { use } from "react";
 
 import { ContextMenu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
@@ -27,6 +28,8 @@ import { nameHash } from "./binHash";
 import { fieldHash, type VisibleRow } from "./binRows";
 import { useCurveDock } from "./curveTarget";
 import { chunkPath, decideLink, type LinkDecision, type MissingChunk } from "./linkDecision";
+import { EDIT_ICON, editLabel, rowEdits } from "./rowEdits";
+import { BinEditContext } from "./useBinEdit";
 import { type LinkTargets, useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 import { useValueMark } from "./useValueMarks";
 import { markText } from "./valueRows";
@@ -66,8 +69,10 @@ export function BinContextMenu({
   const { aim } = useCurveDock();
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
+  const edit = use(BinEditContext);
 
   if (row === null || line?.kind !== "row") return null;
+  const edits = edit === null ? [] : rowEdits(line);
   const object = row.node === "object";
   const property = row.node === "property";
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
@@ -153,6 +158,15 @@ export function BinContextMenu({
           {(object || struct !== null || onShowInProperties || mark?.curve === true) && (
             <ContextMenu.Separator />
           )}
+          {edits.map((kind) => {
+            const Glyph = EDIT_ICON[kind];
+            return (
+              <ContextMenu.Item key={kind} icon={<Glyph />} onClick={() => edit?.run(line, kind)}>
+                {editLabel(kind)}
+              </ContextMenu.Item>
+            );
+          })}
+          {edits.length > 0 && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}

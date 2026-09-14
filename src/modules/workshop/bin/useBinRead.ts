@@ -113,7 +113,7 @@ export function useBinRead(
     (): ReadQuery[] =>
       batches.map((batch) => ({
         queryKey: readKeys.read(document, batch.entry, batch.paths),
-        queryFn: async () => unwrapForQuery(await api.binRead(document, batch.entry, batch.paths)),
+        queryFn: async () => unwrapForQuery(await api.bin.read(document, batch.entry, batch.paths)),
         staleTime: Infinity,
         retry: false,
       })),
