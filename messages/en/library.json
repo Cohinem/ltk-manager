@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "library_card_select_label": "Select {name}",
   "library_details_cancel_action": "Cancel",
   "library_details_champions_description": "Comma-separated list of champions (e.g. Ahri, Yasuo)",
   "library_details_champions_label": "Champions",

@@ -79,7 +79,9 @@ export const MenuPopup = forwardRef<HTMLDivElement, MenuPopupProps>(
       <BaseMenu.Popup
         ref={ref}
         className={twMerge(
-          "min-w-40 rounded-xl border border-surface-700 bg-surface-800 p-1 shadow-xl outline-none",
+          "min-w-40 rounded-xl border border-surface-700 p-1 shadow-xl outline-none",
+          /* DS-GLASS */
+          "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
           "transition-[opacity,transform] duration-150 ease-out",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
@@ -107,7 +109,7 @@ export interface MenuItemProps extends Omit<BaseMenu.Item.Props, "className"> {
 
 /** What every row in a popup shares, whatever it does when clicked. */
 const itemClasses =
-  "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm outline-none select-none " +
+  "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm outline-none select-none " +
   // Base UI stops a disabled item responding but leaves it looking
   // identical to a live one, so it needs its own resting color.
   "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400";

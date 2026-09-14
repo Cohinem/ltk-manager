@@ -163,7 +163,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       data-ui="ContentBrowser:surface"
       /* DS-GROUND: the grid is one island, so the frame is the surface's and not
          each leaf's. A split then shows one divider where two leaves meet. */
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-xl border border-surface-700"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip border border-surface-700"
     >
       {isLoading && (
         <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
@@ -208,7 +208,10 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       : [sidebarPanel, seam, surfacePanel];
 
   return (
-    <div data-ui="ContentBrowser" className="relative flex h-full min-h-0 rounded-xl px-1.5 pb-1.5">
+    <div
+      data-ui="ContentBrowser"
+      className="relative flex h-full min-h-0 bg-surface-900 px-1.5 pb-1.5"
+    >
       {/* Outside the Group the panel is a share of, because the rail answers for
           the project rather than for the panel and stays while that panel is hidden. */}
       {layerPanelSide === "left" && <SidebarRail />}

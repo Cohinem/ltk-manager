@@ -12,6 +12,8 @@ export interface SplitLayoutProps {
   onLayoutChanged: (splitId: string, layout: Record<string, number>) => void;
   /** Draws one editor group, so this module never learns what a document is. */
   renderLeaf: (leaf: LeafNode) => ReactNode;
+  /** A gap between framed panes, or a divider between unframed panes. */
+  seamVariant?: SeamProps["variant"];
   /** The one leaf drawn, per "Maximizing a panel" in `docs/ux/PROJECT_EDITOR.md`. */
   maximizedLeafId?: string | null;
   /** The restore Esc runs while a leaf is maximized. */
@@ -33,6 +35,7 @@ export function SplitLayout({
   node,
   onLayoutChanged,
   renderLeaf,
+  seamVariant = "divider",
   maximizedLeafId,
   onRestore,
 }: SplitLayoutProps) {
@@ -63,11 +66,16 @@ export function SplitLayout({
     >
       {node.children.map((child, index) => (
         <Fragment key={child.id}>
-          {index > 0 && <Seam orientation={orientation} variant="divider" />}
+          {index > 0 && <Seam orientation={orientation} variant={seamVariant} />}
           <Panel id={child.id} minSize={120} className="flex h-full w-full flex-col">
             {child.kind === "leaf" && renderLeaf(child)}
             {child.kind === "split" && (
-              <SplitLayout node={child} onLayoutChanged={onLayoutChanged} renderLeaf={renderLeaf} />
+              <SplitLayout
+                node={child}
+                onLayoutChanged={onLayoutChanged}
+                renderLeaf={renderLeaf}
+                seamVariant={seamVariant}
+              />
             )}
           </Panel>
         </Fragment>
@@ -105,7 +113,8 @@ export function Seam({ orientation, variant = "gap" }: SeamProps) {
         "group/seam relative flex shrink-0 items-center justify-center outline-none",
         horizontal ? "w-1.5" : "h-1.5",
         /* A rung over the panes it parts, not under them: DS-GROUND. */
-        divider && "bg-surface-900",
+        divider && "border-surface-800 bg-surface-900",
+        divider && (horizontal ? "border-x" : "border-y"),
       )}
     >
       {divider && (

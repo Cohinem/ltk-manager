@@ -92,7 +92,7 @@ export function Library({ folderId }: LibraryProps = {}) {
         playButton={<PlayButton disabled={isInstalling} />}
       />
       <LibraryBody mods={mods}>
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-900/40">
+        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-900 shadow-pressed">
           <LibraryContent
             mods={mods}
             searchQuery={searchQuery}

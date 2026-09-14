@@ -30,9 +30,6 @@ type MenuScope = "card" | "selection";
 /* Accent-500 rather than the dimmed one the pointer gets: DS-HOVER. */
 const FOCUS_RING = "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none";
 
-/* The grid draws on the ground, so a card is the default raised surface over
-   it: DS-GROUND. */
-
 export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCardProps) {
   const { data: thumbnailUrl } = useProjectThumbnail(project.path, project.thumbnailPath);
 
@@ -220,7 +217,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
       tabIndex={tabIndex}
       aria-label={project.displayName}
       className={twMerge(
-        "group relative cursor-pointer rounded-xl border bg-surface-900 transition-[background-color,border-color] duration-150 ease-out hover:border-accent-hover hover:bg-surface-800",
+        "sculpted-card group relative cursor-pointer overflow-hidden rounded-xl border bg-surface-900 shadow-concave transition-[background-color,border-color] duration-150 ease-out hover:border-accent-hover hover:bg-surface-800",
         FOCUS_RING,
         gridBorderClass,
         isPatcherActive && !isTestingThis && "opacity-50",
@@ -263,7 +260,12 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
         )}
       </div>
 
-      <div className="flex items-start gap-1 p-3">
+      <div className="sculpted-card-details flex items-start gap-1 p-3">
+        {thumbnailUrl && (
+          <span aria-hidden="true" className="sculpted-card-art">
+            <img src={thumbnailUrl} alt="" loading="lazy" decoding="async" />
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <h3 className="mb-1 truncate text-sm font-medium text-surface-100">
             {project.displayName}

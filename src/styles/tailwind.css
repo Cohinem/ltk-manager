@@ -137,6 +137,8 @@
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
   --shadow-glass: var(--shadow-glass);
+  --shadow-concave: var(--shadow-concave);
+  --shadow-pressed: var(--shadow-pressed);
 
   /* Z-index */
   --z-index-dropdown: var(--z-dropdown);
