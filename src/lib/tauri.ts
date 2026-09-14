@@ -72,6 +72,9 @@ import type {
   WorkshopProject,
 } from "@/lib/bindings";
 import type {
+  IntegrationAction,
+  MenuConflictPolicy,
+  Tool,
   LeafValue,
   NewItem,
   NewProperty,
@@ -84,6 +87,17 @@ import { type BinDocumentId, commands } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
+export type {
+  IntegrationAction,
+  IntegrationError,
+  IntegrationOperation,
+  IntegrationRelease,
+  IntegrationStage,
+  IntegrationStatus,
+  MenuConflictPolicy,
+  MenuStatus,
+  Tool,
+} from "@/lib/bindings.gen";
 // The bin editor's types, per ADR-0029. An explicit export shadows the star above.
 export type {
   AddableField,
@@ -254,6 +268,13 @@ export type PendingDeepLink =
 
 // API functions
 export const api = {
+  integrations: {
+    status: () => commands.integrationStatus().then(toResult),
+    release: (tool: Tool) => commands.integrationRelease(tool).then(toResult),
+    change: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) =>
+      commands.changeIntegration(tool, action, conflicts).then(toResult),
+    cancel: (operationId: string) => commands.cancelIntegrationDownload(operationId).then(toResult),
+  },
   getAppInfo: () => invokeResult<AppInfo>("get_app_info"),
   getPlatformSupport: () => invokeResult<PlatformSupport>("get_platform_support"),
   showMainWindow: () => invokeResult<void>("show_main_window"),

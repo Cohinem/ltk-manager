@@ -8,7 +8,7 @@ import type {
   PatcherError,
   WorkshopError,
 } from "@/lib/bindings";
-import type { EditRejection, ReadOnly } from "@/lib/bindings.gen";
+import type { EditRejection, ReadOnly, IntegrationError } from "@/lib/bindings.gen";
 import { m } from "@/paraglide/messages";
 import { isAppError } from "@/utils/errors";
 
@@ -23,6 +23,7 @@ export interface ErrorCopy {
 /** The copy for a backend error, exhaustive over its `code` so a new variant fails `tsc`. */
 export function describeError(error: AppError): ErrorCopy {
   return match(error)
+    .with({ code: "INTEGRATION" }, (e) => integrationError(e.error))
     .with({ code: "IO" }, (e) => withDetail(m["error.IO.title"](), e.detail))
     .with({ code: "SERIALIZATION" }, (e) => withDetail(m["error.SERIALIZATION.title"](), e.detail))
     .with({ code: "MODPKG" }, (e) => withDetail(m["error.MODPKG.title"](), e.detail))
@@ -301,4 +302,35 @@ export function errorMessage(error: unknown): string {
   if (isAppError(error)) return errorSummary(error);
   if (error instanceof Error) return error.message;
   return m.common_unknown_error_label();
+}
+
+function integrationError(error: IntegrationError): ErrorCopy {
+  return match(error)
+    .with({ kind: "unsupported" }, () => ({
+      title: m.settings_integrations_error_unsupported_title(),
+    }))
+    .with({ kind: "busy" }, () => ({ title: m.settings_integrations_error_busy_title() }))
+    .with({ kind: "conflict" }, () => ({
+      title: m.settings_integrations_error_conflict_title(),
+      description: m.settings_integrations_error_conflict_description(),
+    }))
+    .with({ kind: "notInstalled" }, () => ({
+      title: m.settings_integrations_error_not_installed_title(),
+    }))
+    .with({ kind: "invalidReceipt" }, () => ({
+      title: m.settings_integrations_error_receipt_title(),
+      description: m.settings_integrations_error_receipt_description(),
+    }))
+    .with({ kind: "release" }, (e) =>
+      withDetail(m.settings_integrations_error_release_title(), e.detail),
+    )
+    .with({ kind: "integrity" }, () => ({
+      title: m.settings_integrations_error_integrity_title(),
+      description: m.settings_integrations_error_integrity_description(),
+    }))
+    .with({ kind: "cancelled" }, () => ({ title: m.settings_integrations_error_cancelled_title() }))
+    .with({ kind: "operation" }, (e) =>
+      withDetail(m.settings_integrations_error_operation_title(), e.detail),
+    )
+    .exhaustive();
 }

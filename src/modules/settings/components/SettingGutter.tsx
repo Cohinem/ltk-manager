@@ -3,6 +3,7 @@ import { type MouseEvent, type ReactNode, useState } from "react";
 
 import { Menu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { type IndexedSettingKey, settingEntry, settingLink } from "../settingsIndex";
@@ -15,6 +16,7 @@ interface PointerAnchor {
 
 interface SettingGutterProps {
   setting?: IndexedSettingKey;
+  target?: { id: string; title: string };
   className?: string;
   children: ReactNode;
 }
@@ -22,20 +24,23 @@ interface SettingGutterProps {
 /**
  * The gear and the modified bar in the column left of one row.
  *
- * The gear belongs to every row the index carries, because an id is worth
- * copying whether or not the value behind it can be put back. A row with no key
- * is an action, and it draws neither.
+ * An explicit target provides copying for a section without a setting or reset state.
  */
-export function SettingGutter({ setting, className, children }: SettingGutterProps) {
+export function SettingGutter({ setting, target, className, children }: SettingGutterProps) {
   const { resettable, changed, label, reset } = useSettingDefault(setting);
   const copy = useCopyToClipboard();
   const [open, setOpen] = useState(false);
   const [pointer, setPointer] = useState<PointerAnchor | null>(null);
 
-  const entry = setting === undefined ? undefined : settingEntry(setting);
+  const entry = setting === undefined ? target : settingEntry(setting);
+  const copyIdLabel =
+    setting === undefined ? m.settings_target_id_label() : m.settings_property_id_label();
+  const copyLinkLabel =
+    setting === undefined ? m.settings_target_link_label() : m.settings_property_link_label();
 
   function openAtPointer(event: MouseEvent) {
     event.preventDefault();
+    event.stopPropagation();
     const { clientX, clientY } = event;
     setPointer({ getBoundingClientRect: () => new DOMRect(clientX, clientY, 0, 0) });
     setOpen(true);
@@ -65,7 +70,7 @@ export function SettingGutter({ setting, className, children }: SettingGutterPro
           /* Untabbed: 45 rows would otherwise double the page's tab order with a
              menu nobody opened. The keyboard path is a right-click on the row. */
           tabIndex={-1}
-          aria-label={`Actions for ${entry.title}`}
+          aria-label={m.settings_target_actions_label({ name: entry.title })}
           onClick={() => setPointer(null)}
           className={twMerge(
             "absolute top-0.5 -left-7 flex h-5 w-5 items-center justify-center rounded-md",
@@ -89,26 +94,28 @@ export function SettingGutter({ setting, className, children }: SettingGutterPro
                 icon={<ArrowCounterClockwiseIcon className="h-4 w-4" />}
                 onClick={reset}
               >
-                Reset setting
+                {m.settings_property_reset_action()}
               </Menu.Item>
             )}
             {label && (
               <div className="px-2 pt-1 pb-0.5 text-xs text-surface-400 select-none">
-                Default: {label}
+                {m.settings_property_default_label({ value: label })}
               </div>
             )}
             {resettable && <Menu.Separator />}
             <Menu.Item
               icon={<CopyIcon className="h-4 w-4" />}
-              onClick={() => void copy(entry.id, "setting ID")}
+              onClick={() => void copy(entry.id, copyIdLabel)}
             >
-              Copy setting ID
+              {setting === undefined && m.settings_target_copy_id_action()}
+              {setting !== undefined && m.settings_property_copy_id_action()}
             </Menu.Item>
             <Menu.Item
               icon={<LinkIcon className="h-4 w-4" />}
-              onClick={() => void copy(settingLink(entry.id), "link to setting")}
+              onClick={() => void copy(settingLink(entry.id), copyLinkLabel)}
             >
-              Copy link to setting
+              {setting === undefined && m.settings_target_copy_link_action()}
+              {setting !== undefined && m.settings_property_copy_link_action()}
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>

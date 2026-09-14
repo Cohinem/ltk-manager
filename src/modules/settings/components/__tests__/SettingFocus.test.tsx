@@ -4,6 +4,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SettingsTab } from "../../tabs";
+import { IntegrationSectionCard } from "../IntegrationSectionCard";
 import { SettingFocusProvider } from "../SettingFocus";
 import { SettingGroup } from "../SettingGroup";
 import { SettingRow } from "../SettingRow";
@@ -46,6 +47,22 @@ describe("focus", () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it.each([
+    ["wadtools", "Wad Tools"],
+    ["tex-toolz", "Tex Tools"],
+  ] as const)("opens and focuses the %s integration", async (tool, title) => {
+    search = { focus: `integrations.${tool}` };
+    renderSettings(
+      <SettingFocusProvider>
+        <IntegrationSectionCard tool={tool} title={title}>
+          <p>Installation</p>
+        </IntegrationSectionCard>
+      </SettingFocusProvider>,
+    );
+    await waitFor(() => expect(screen.getByRole("region", { name: title })).toHaveFocus());
+    expect(navigatedSearch()).toEqual({ tab: "integrations", focus: undefined });
   });
 
   it("lands on the row it names and drops the param", async () => {

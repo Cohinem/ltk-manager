@@ -4603,6 +4603,14 @@
       ]
     },
     {
+      "name": "winreg",
+      "version": "0.55.0",
+      "url": "https://github.com/gentoo90/winreg-rs",
+      "licenses": [
+        69
+      ]
+    },
+    {
       "name": "writeable",
       "version": "0.6.3",
       "url": "https://github.com/unicode-org/icu4x",

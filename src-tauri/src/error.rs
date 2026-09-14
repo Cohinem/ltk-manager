@@ -32,6 +32,10 @@ use crate::github::{GitHubError, GitHubErrorKind};
     rename_all_fields = "camelCase"
 )]
 pub enum AppErrorResponse {
+    /// An external tool installation failed.
+    Integration {
+        error: ltk_manager_core::integrations::IntegrationError,
+    },
     /// File system I/O failed.
     Io { detail: String },
     /// JSON could not be read or written.

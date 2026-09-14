@@ -4,6 +4,14 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
+	/**  Local executable and Explorer state for each tool. */
+	integrationStatus: () => __TAURI_INVOKE<({ ok: true; value: IntegrationStatus[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("integration_status"),
+	/**  Latest stable release available for a tool. */
+	integrationRelease: (tool: Tool) => __TAURI_INVOKE<({ ok: true; value: IntegrationRelease }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("integration_release", { tool }),
+	/**  Apply an explicit installation or context-menu change. */
+	changeIntegration: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("change_integration", { tool, action, conflicts }),
+	/**  Cancel a matching download before registration begins. */
+	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
 	/**
 	 *  Hold `asset` open as a bin, answering the header and the rows at depth zero.
 	 * 
@@ -371,6 +379,8 @@ export type AnimationGraph = {
  *  crate error, which the frontend draws as data under a title of its own.
  */
 export type AppErrorResponse = 
+/**  An external tool installation failed. */
+{ code: "INTEGRATION"; error: IntegrationError } |
 /**  File system I/O failed. */
 { code: "IO"; detail: string } | 
 /**  JSON could not be read or written. */
@@ -1378,6 +1388,111 @@ export type InstallMismatch = {
 	sessionPath: string,
 };
 
+/**  The requested installation change. */
+export type IntegrationAction =
+/**  Install or update to a verified stable release. */
+"install" |
+/**  Install the executable without adding context menus. */
+"installOnly" |
+/**  Restore the installed release's files. */
+"repair" |
+/**  Remove owned registrations and executable files. */
+"uninstall" |
+/**  Register classic context menus. */
+"enableMenu" |
+/**  Restore the registrations replaced by Manager. */
+"disableMenu";
+
+/**  A retryable integration failure. */
+export type IntegrationError =
+/**  No supported Windows architecture is available. */
+{ kind: "unsupported" } |
+/**  Another mutation holds the installation lock. */
+{ kind: "busy" } |
+/**  Explorer registrations changed outside Manager. */
+{ kind: "conflict" } |
+/**  No managed installation is available. */
+{ kind: "notInstalled" } |
+/**  A receipt is invalid or newer than this reader. */
+{ kind: "invalidReceipt" } |
+/**  A release cannot be used by this adapter. */
+{ kind: "release"; detail: string } |
+/**  Downloaded bytes do not match the release digest. */
+{ kind: "integrity" } |
+/**  The user cancelled before registration. */
+{ kind: "cancelled" } |
+/**  An operating system or transport operation failed. */
+{ kind: "operation"; detail: string };
+
+/**  The operation snapshot retained when the settings panel unmounts. */
+export type IntegrationOperation = {
+	/**  Unique operation identity. */
+	id: string,
+	/**  The tool being changed. */
+	tool: Tool,
+	/**  Current lifecycle stage. */
+	stage: IntegrationStage,
+	/**  Bytes received during the current download. */
+	downloaded: number,
+	/**  Expected bytes for the current download. */
+	total: number | null,
+	/**  The terminal failure, if any. */
+	error: IntegrationError | null,
+};
+
+/**  A stable release available for installation. */
+export type IntegrationRelease = {
+	/**  Release tag from the tool repository. */
+	tag: string,
+	/**  Human-readable release page. */
+	url: string,
+};
+
+/**  A stage of an installation operation. */
+export type IntegrationStage =
+/**  Resolving release metadata. */
+"checking" |
+/**  Downloading and verifying release files. */
+"downloading" |
+/**  Applying the executable installation. */
+"installing" |
+/**  Changing Explorer registrations. */
+"registering" |
+/**  Removing owned files. */
+"removing" |
+/**  The requested operation completed. */
+"complete" |
+/**  The operation failed and can be inspected. */
+"failed" |
+/**  The download was cancelled before registration. */
+"cancelled";
+
+/**  Local files and Explorer registrations observed independently of release availability. */
+export type IntegrationStatus = {
+	/**  The external tool. */
+	tool: Tool,
+	/**  Whether mutations are supported on this machine. */
+	supported: boolean,
+	/**  Installed release from the ownership receipt. */
+	version: string | null,
+	/**  The managed executable directory. */
+	directory: string | null,
+	/**  Managed files are missing or an operation was interrupted. */
+	needsRepair: boolean,
+	/**  Old executable files could not yet be removed. */
+	pendingCleanup: boolean,
+	/**  Classic context-menu health. */
+	menu: MenuStatus,
+	/**  Whether the managed installation requests classic menus. */
+	menuRequested: boolean,
+	/**  Unmanaged executable candidates, never run during discovery. */
+	externalPaths: string[],
+	/**  The registered machine-wide texture handler path, if present. */
+	handlerPath: string | null,
+	/**  Last operation observed in this application process. */
+	operation: IntegrationOperation | null,
+};
+
 /**  A key one clip names into a map of the graph. */
 export type KeyRef = {
 	/**  The key as the tables name it, and its hash where none does. */
@@ -1547,6 +1662,24 @@ export type MaterialWarning =
 { kind: "stringTexturePath"; name: string; path: string } | 
 /**  The base texture names a path nothing on this machine holds. */
 { kind: "textureNotFound"; name: string; path: string };
+
+/**  An explicit replacement decision for existing context menus. */
+export type MenuConflictPolicy =
+/**  Preserve another installation's registrations. */
+"preserve" |
+/**  Replace observed registrations, keeping their backup. */
+"replace";
+
+/**  An observed classic context-menu state. */
+export type MenuStatus =
+/**  No menus are registered. */
+"absent" |
+/**  All menus match the Manager receipt. */
+"enabled" |
+/**  Existing menus are not owned by this installation. */
+"external" |
+/**  Registrations changed or an operation was interrupted. */
+"changed";
 
 /**  A path a bin names, and where its bytes live. */
 export type NamedAsset = {
@@ -2202,6 +2335,13 @@ export type SyncGroup = {
 	/**  `mType`. */
 	kind: number,
 };
+
+/**  A supported external tool. */
+export type Tool =
+/**  WAD extraction and hashtable tools. */
+"wadtools" |
+/**  Texture conversion and Explorer tools. */
+"tex-toolz";
 
 /**  One entry of `mTrackDataMap`. */
 export type Track = {
