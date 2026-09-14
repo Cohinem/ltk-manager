@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { SettingGroup } from "../SettingGroup";
@@ -28,10 +28,9 @@ describe("SettingGroup", () => {
       </SettingGroup>,
     );
 
-    expect(screen.getByRole("group", { name: "Injector" })).toHaveClass(
-      "border-t",
-      "first:border-t-0",
-      "first:pt-0",
-    );
+    const group = screen.getByRole("group", { name: "Injector" });
+    expect(group).not.toHaveClass("border-t");
+    expect(group).toHaveClass("first:pt-0");
+    expect(within(group).getByRole("separator")).toHaveClass("group-first/setting-group:hidden");
   });
 });

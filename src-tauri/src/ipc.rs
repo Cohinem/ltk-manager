@@ -28,6 +28,10 @@ macro_rules! migrated {
 }
 
 migrated![
+    integration_status,
+    integration_release,
+    change_integration,
+    cancel_integration_download,
     // Bin editor
     bin_open,
     bin_children,

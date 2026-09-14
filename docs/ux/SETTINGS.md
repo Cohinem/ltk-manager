@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-14 | Integrations adds managed tool installations and classic Explorer menus |
 | 2026-09-06 | The gear returns to the title bar. A menu cannot mark a page current    |
 | 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings     |
 | 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391            |
@@ -13,7 +14,6 @@
 | 2026-08-25 | Phase 4b shipped. The index, the public id, the palette and the copy    |
 | 2026-08-25 | Phase 4a shipped. The gutter gear, the modified bar and three resets    |
 | 2026-08-25 | Adopt the VS Code settings editor: a gutter gear replaces the marker    |
-| 2026-08-25 | Phases 1 to 3 shipped. The group, the keys and the anchor are available |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -76,7 +76,7 @@ A status word has one meaning.
 
 | Feature                 | Status    | Note                                                                   |
 | ----------------------- | --------- | ---------------------------------------------------------------------- |
-| The tab rail            | Available | Eight tabs, `Tabs.List variant="pills"` in `Settings.tsx`              |
+| The tab rail            | Available | Nine tabs, `Tabs.List variant="pills"` in `Settings.tsx`               |
 | The section card        | Available | `SectionCard`. Heading on the ground, panel under it                   |
 | The two-column grid     | Available | `SettingsGrid`, with `lg:col-span-2` for a wide card                   |
 | The setting row         | Available | `SettingRow`, inline and stacked, toggle and action                    |
@@ -983,3 +983,48 @@ Closed on 2026-08-25:
   question waits with it. `SettingRow.hidden` is the answer's likely shape: a row that stays mounted
   and draws nothing is what lets a group know its own scope without a second list, and a collapsed
   group could keep its rows the same way
+
+## Integrations
+
+The Integrations tab follows Workshop and holds one section for **Wad Tools** and one for
+**Tex Tools**. Each section separates tool status from Windows Explorer. Tool versions, paths,
+errors and external installation candidates are selectable data.
+
+Status and primary actions lead each section without a separate Installation heading. Locations
+expands to show paths grouped under Manager and Elsewhere, with the external count on its trigger
+and equivalent Windows path spellings shown once. Each path offers an open-folder action on hover
+or keyboard focus. Repair and Uninstall sit beside Check for updates. Before installation, the context-menu choice
+replaces the unavailable Enable action. Downloads show inline progress, and completed operations
+give way to the observed installation status.
+
+Install downloads a verified stable release for the current user. The initial context-menu option
+starts enabled and can be cleared before installation. Update preserves the installed menu choice,
+and Repair restores the installed release. Uninstall asks for confirmation, removes owned executable
+files, and preserves configuration, outputs, shared caches and independently installed handlers.
+Locked executable files remain pending cleanup until the user retries removal.
+
+Classic context menus can be enabled or disabled independently of installation. Replacing an existing
+menu requires a confirmation that shows its detected target. Disabling restores the values that
+Manager replaced only while the registry still matches Manager's changes. A conflict asks the user
+to review replacement instead of silently overwriting another installation. Existing modern Windows
+11 menu packages remain untouched, and classic entries appear under Show more options.
+
+The thumbnail, preview and file-details handlers are one administrator-installed tex toolz bundle.
+Their management in Manager is deferred until the upstream installer supports ownership-safe removal
+and desktop elevation. The section explains that limitation and preserves any existing handler.
+
+Installation state is observed software state, so it has no reset gear or modified marker. Release
+checks fail independently of local status. A failed network request leaves installed versions and
+removal actions available. Operations continue when the user leaves the tab, and returning shows
+the current stage. Only the download stage can be cancelled.
+
+Management is available on Windows x64. Unsupported platforms retain the sections and repository
+links with installation actions disabled. Group links use `integrations.wadtools.installation`,
+`integrations.wadtools.explorer`, `integrations.tex-toolz.installation` and
+`integrations.tex-toolz.explorer`.
+
+Each tool card uses the standard cogwheel menu for Copy ID and Copy link, also available by
+right-clicking the card. The links open Integrations and focus the tool's whole card:
+
+- Wad Tools: `ltk://settings?focus=integrations.wadtools`
+- Tex Tools: `ltk://settings?focus=integrations.tex-toolz`

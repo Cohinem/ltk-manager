@@ -1,7 +1,7 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 
-import { Button, HintIcon, Tooltip } from "@/components";
+import { Button, HintIcon, Separator, Tooltip } from "@/components";
 import { twMerge } from "@/utils";
 
 import { useSettingMark } from "./SettingFocus";
@@ -82,10 +82,11 @@ export function SettingGroup({
           aria-labelledby={headingId}
           /* DS-SETTING-LEVEL. */
           className={twMerge(
-            "flex scroll-mt-6 flex-col gap-3 border-t border-surface-700/40 pt-4 outline-none first:border-t-0 first:pt-0",
+            "group/setting-group relative flex scroll-mt-6 flex-col gap-3 pt-4 outline-none first:pt-0",
             mark.className,
           )}
         >
+          <Separator className="absolute inset-x-0 top-0 my-0 bg-surface-700/40 group-first/setting-group:hidden" />
           <div
             data-ui="SettingGroup:header"
             /* DS-SETTING-GUTTER. */

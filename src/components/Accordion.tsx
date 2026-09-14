@@ -30,7 +30,7 @@ export const AccordionRoot = forwardRef<HTMLDivElement, AccordionRootProps>(
     return (
       <BaseAccordion.Root
         ref={ref}
-        className={twMerge("flex flex-col", variantClasses, className)}
+        className={twMerge("flex flex-col overflow-hidden rounded-lg", variantClasses, className)}
         {...props}
       />
     );

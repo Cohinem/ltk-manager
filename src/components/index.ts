@@ -15,6 +15,7 @@ export * from "./EmptyState";
 export * from "./ErrorBoundary";
 export * from "./ExternalLink";
 export * from "./FieldAffix";
+export * from "./FilesystemPath";
 export * from "./FilterColumn";
 export * from "./FilterOption";
 export * from "./FilterSection";

@@ -3046,6 +3046,7 @@ dependencies = [
  "walkdir",
  "webp",
  "windows-sys 0.59.0",
+ "winreg 0.55.0",
  "zip 2.4.2",
 ]
 
