@@ -15,6 +15,12 @@ import { ProjectProvider } from "../../components/ProjectContext";
 import { nameHash } from "../binHash";
 import { BinRowLine } from "../BinRow";
 import type { RowLine } from "../binRows";
+import {
+  type LinkTargets,
+  LinkTargetsContext,
+  NO_LINK_TARGETS,
+  ObjectNameContext,
+} from "../useLinkTargets";
 import { ValueMarksContext } from "../useValueMarks";
 import type { ValueMark } from "../valueRows";
 
@@ -325,6 +331,73 @@ describe("the mismatch mark", () => {
       ),
     );
     expect(screen.queryByRole("img", { name: "Type mismatch" })).toBeNull();
+  });
+});
+
+describe("a hash's chip", () => {
+  const OBJECT = "ClientStates/Gameplay/UX/Chat";
+  const TARGET = `${OBJECT}/UIBase/ChatFrame/ChatFrame_Bounds`;
+  const HASH = nameHash(TARGET);
+
+  function links(declared: boolean): LinkTargets {
+    return {
+      ...NO_LINK_TARGETS,
+      index: { status: "ready" },
+      declared: new Map(
+        declared
+          ? [
+              [
+                HASH,
+                {
+                  path: TARGET,
+                  declarations: [
+                    {
+                      asset: { kind: "gameChunk", wad: "UI.wad.client", pathHash: "00aa" },
+                      file: "clientstates/gameplay/ux/chat/uibase",
+                      classHash: "0x0a5d0595",
+                      class: "UiElementRegionData",
+                    },
+                  ],
+                },
+              ],
+            ]
+          : [],
+      ),
+    };
+  }
+
+  function renderHash(declared: boolean) {
+    const hashRow = row({ kind: "hash", value: { type: "hash", hash: HASH, name: TARGET } });
+    render(
+      <ObjectNameContext value={(entry) => (entry === ENTRY ? OBJECT : entry)}>
+        <LinkTargetsContext value={links(declared)}>
+          <BinRowLine line={line(hashRow)} focused={false} onToggle={() => {}} />
+        </LinkTargetsContext>
+      </ObjectNameContext>,
+      { wrapper: Providers },
+    );
+  }
+
+  it("cuts the path of the object the row sits in, and names the whole path", () => {
+    renderHash(true);
+
+    expect(screen.getByRole("button", { name: TARGET })).toBeInTheDocument();
+    expect(screen.getByText("…/UIBase/ChatFrame/")).toBeInTheDocument();
+    expect(screen.getByText("ChatFrame_Bounds")).toBeInTheDocument();
+  });
+
+  it("follows a resolved chip with the class its target declares", () => {
+    renderHash(true);
+
+    expect(screen.getByText("UiElementRegionData")).toBeInTheDocument();
+  });
+
+  it("draws a hash nothing declares as cut text with no class", () => {
+    renderHash(false);
+
+    expect(screen.queryByRole("button", { name: TARGET })).toBeNull();
+    expect(screen.getByTitle(TARGET)).toHaveTextContent("…/UIBase/ChatFrame/ChatFrame_Bounds");
+    expect(screen.queryByText("UiElementRegionData")).toBeNull();
   });
 });
 

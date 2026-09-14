@@ -1,5 +1,5 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { IconButton, TextareaField, Tooltip } from "@/components";
 import type { StringKeySuggestion } from "@/lib/tauri";
@@ -20,7 +20,16 @@ interface StringOverridesTableProps {
   onUpdateEntry: (id: string, field: OverrideEntryField, value: string) => void;
   onPickSuggestion: (id: string, suggestion: StringKeySuggestion) => void;
   onRemoveEntry: (id: string) => void;
+  /** A key and its starting text the composer takes up. A new token takes it up again. */
+  seed?: ComposerSeed | null;
   className?: string;
+}
+
+/** What the composer starts from when something outside the table hands it a key. */
+export interface ComposerSeed {
+  readonly key: string;
+  readonly value: string;
+  readonly token: number;
 }
 
 /**
@@ -41,6 +50,7 @@ export function StringOverridesTable({
   onUpdateEntry,
   onPickSuggestion,
   onRemoveEntry,
+  seed = null,
   className,
 }: StringOverridesTableProps) {
   return (
@@ -50,7 +60,7 @@ export function StringOverridesTable({
         className,
       )}
     >
-      <ComposerRow onCommit={onCommitEntry} />
+      <ComposerRow key={seed?.token} seed={seed} onCommit={onCommitEntry} />
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-md">
         {entries.length === 0 && emptyState}
@@ -75,6 +85,8 @@ export function StringOverridesTable({
 }
 
 interface ComposerRowProps {
+  /** Mounted afresh per seed, so the row starts from it the way a picked suggestion does. */
+  seed: ComposerSeed | null;
   onCommit: (key: string, value: string) => void;
 }
 
@@ -86,11 +98,17 @@ interface ComposerRowProps {
  * Committing hands the row to the list below and returns focus to the key
  * box, so entering several overrides is pick, type, Enter, repeat.
  */
-function ComposerRow({ onCommit }: ComposerRowProps) {
-  const [key, setKey] = useState("");
-  const [value, setValue] = useState("");
+function ComposerRow({ seed, onCommit }: ComposerRowProps) {
+  const [key, setKey] = useState(seed?.key ?? "");
+  const [value, setValue] = useState(seed?.value ?? "");
   const keyRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!seed) return;
+    valueRef.current?.focus();
+    valueRef.current?.select();
+  }, [seed]);
 
   function commit() {
     if (!key.trim()) return;

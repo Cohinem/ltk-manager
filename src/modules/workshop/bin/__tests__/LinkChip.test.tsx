@@ -24,7 +24,9 @@ const PROJECT: WorkshopProject = {
   tags: [],
   champions: [],
   maps: [],
-  layers: [],
+  layers: [
+    { name: "base", displayName: "Base", priority: 0, description: null, stringOverrides: {} },
+  ],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
 };
@@ -33,11 +35,15 @@ function located(path: string): GameFileEntry {
   return { pathHash: "00cc", path, sizeBytes: 12n, wad: "Champions/Aatrox.wad.client" };
 }
 
-function targets(paths: readonly string[]): LinkTargets {
+function targets(
+  paths: readonly string[],
+  strings: ReadonlyMap<string, string> = new Map(),
+): LinkTargets {
   return {
     index: { status: "ready" },
     declared: new Map(),
     located: new Map(paths.map((path) => [path, located(path)])),
+    strings,
     pending: false,
   };
 }
@@ -160,6 +166,7 @@ describe("StringValue", () => {
         ],
       ]),
       located: new Map(),
+      strings: new Map(),
       pending: false,
     };
 
@@ -172,5 +179,12 @@ describe("StringValue", () => {
 
     expect(screen.getByText("Justicar Aatrox")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("draws a string-table key as a chip followed by its in-game line", () => {
+    renderString("hud_Chat_Party", targets([], new Map([["hud_Chat_Party", "Party"]])));
+
+    expect(screen.getByRole("button", { name: "hud_Chat_Party" })).toBeInTheDocument();
+    expect(screen.getByText('"Party"')).toBeInTheDocument();
   });
 });

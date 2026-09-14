@@ -65,6 +65,16 @@ export interface IgnoreLineRevealRequest {
   readonly token: number;
 }
 
+/** A bin value's request that one open strings document take up a string-table key. */
+export interface StringKeyAimRequest {
+  readonly documentId: string;
+  readonly key: string;
+  /** What the game says for the key today, which an override starts from. */
+  readonly line: string;
+  /** Bumped per request. Aiming twice at one key is two aims. */
+  readonly token: number;
+}
+
 /**
  * A file tab's request that one object tab open with its dock on a row.
  *
@@ -166,6 +176,8 @@ export interface ProjectEditor {
   revealIgnoreLine: IgnoreLineRevealRequest | null;
   /** The pending curve request, which at most one open object tab answers. */
   aimCurve: CurveAimRequest | null;
+  /** The pending key request, which at most one open strings document answers. */
+  aimStringKey: StringKeyAimRequest | null;
   /**
    * Each shell's tree of panes, and the leaf a reopened pane lands in.
    *
@@ -309,6 +321,9 @@ interface WorkshopEditorStore {
   aimCurve: (projectPath: string, documentId: string, row: BinRow, chain: string) => void;
   /** Drops the curve request with `token`. A settled request reaches no later open. */
   settleCurveAim: (projectPath: string, token: number) => void;
+  aimStringKey: (projectPath: string, documentId: string, key: string, line: string) => void;
+  /** Drops the key request with `token`. A settled request reaches no later open. */
+  settleStringKeyAim: (projectPath: string, token: number) => void;
   /** Follows a project whose path changed, so a rename keeps its editor. */
   moveProject: (fromPath: string, toPath: string) => void;
   /** Drops a deleted project, which would otherwise sit in storage forever. */
@@ -335,6 +350,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   revealObject: null,
   revealIgnoreLine: null,
   aimCurve: null,
+  aimStringKey: null,
   shells: SHELL_ROOTS,
   maximizedLeafId: null,
   maximizedShellLeaf: {},
@@ -1327,6 +1343,23 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
       (state) =>
         updateProject(state, projectPath, (editor) =>
           editor.aimCurve?.token === token ? { ...editor, aimCurve: null } : editor,
+        ) ?? state,
+    ),
+
+  aimStringKey: (projectPath, documentId, key, line) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => ({
+          ...editor,
+          aimStringKey: { documentId, key, line, token: (editor.aimStringKey?.token ?? 0) + 1 },
+        })) ?? state,
+    ),
+
+  settleStringKeyAim: (projectPath, token) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) =>
+          editor.aimStringKey?.token === token ? { ...editor, aimStringKey: null } : editor,
         ) ?? state,
     ),
 

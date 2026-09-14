@@ -1,17 +1,23 @@
 import { ArchiveIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { type MouseEvent as ReactMouseEvent, type ReactNode, use } from "react";
 
 import { Code, LayerIcon, Popover, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { type ContentDocumentOf, declaringFileContext } from "../documents/contentDocument";
+import {
+  type ContentDocumentOf,
+  declaringFileContext,
+  stringsDocument,
+} from "../documents/contentDocument";
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { OpenIntent } from "../palette/types";
 import { useAssetInfo } from "../preview/useAssetInfo";
-import { clickIntent, useOpenDocumentAs } from "../state";
+import { clickIntent, useAimStringKey, useOpenDocumentAs, useSelectedLayerName } from "../state";
+import { DEFAULT_LOCALE } from "../string-overrides/constants";
 import { nameHash } from "./binHash";
+import { ClassCard } from "./ClassCard";
 import { fileLinkMark } from "./fileLinkMark";
 import { KindBadge } from "./KindBadge";
 import {
@@ -21,9 +27,9 @@ import {
   decideObjectLink,
   decideStringLink,
 } from "./linkDecision";
-import { splitPath } from "./textCut";
+import { pathUnder, splitPath } from "./textCut";
 import { TextureSwatch } from "./TextureSwatch";
-import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
+import { LinkAssetContext, useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
 /** Hover for this long opens the card, the tooltip delay. */
 const CARD_DELAY = 600;
@@ -40,6 +46,10 @@ interface ObjectChipProps {
    * alone where every row of a list shares the folder. The whole path is on hover either way.
    */
   reading?: "path" | "name";
+  /** The path of the object the value sits in, cut from the start of a path under it. */
+  base?: string | null;
+  /** Whether a resolved chip is followed by the class its target declares. */
+  classMark?: "after" | "none";
 }
 
 /**
@@ -49,7 +59,14 @@ interface ObjectChipProps {
  * A click that lands while the index is absent builds it. The tree opens the target
  * on the check's answer.
  */
-export function ObjectChip({ hash, name, kind, reading = "path" }: ObjectChipProps) {
+export function ObjectChip({
+  hash,
+  name,
+  kind,
+  reading = "path",
+  base = null,
+  classMark = "none",
+}: ObjectChipProps) {
   const targets = useLinkTargets();
   const declared = targets.declared.get(hash);
   const decision = kind === "link" ? decideObjectLink(hash, targets) : decideHash(hash, targets);
@@ -57,14 +74,15 @@ export function ObjectChip({ hash, name, kind, reading = "path" }: ObjectChipPro
   const open = useOpenDocumentAs();
 
   const whole = name ?? declared?.path ?? hash;
-  const label = reading === "name" ? splitPath(whole).file : whole;
+  const label = reading === "name" ? splitPath(whole).file : pathUnder(whole, base);
   const cut = reading === "path" && whole.includes("/") ? "path" : "end";
+  const title = label === whole ? undefined : whole;
   if (decision.kind === "text" && kind === "link") return <Hex>{hash}</Hex>;
-  if (decision.kind === "text") return <Text>{whole}</Text>;
+  if (decision.kind === "text") return <Text title={title}>{label}</Text>;
   if (decision.kind === "pending" && kind === "link") {
     return <PendingChip label={label} whole={whole} />;
   }
-  if (decision.kind === "pending") return <Text>{whole}</Text>;
+  if (decision.kind === "pending") return <Text title={title}>{label}</Text>;
   if (decision.kind === "warm") {
     return (
       <LinkChip
@@ -77,7 +95,7 @@ export function ObjectChip({ hash, name, kind, reading = "path" }: ObjectChipPro
     );
   }
 
-  return (
+  const chip = (
     <LinkChip
       label={label}
       whole={whole}
@@ -85,6 +103,16 @@ export function ObjectChip({ hash, name, kind, reading = "path" }: ObjectChipPro
       card={declared && <TargetCard hash={hash} declared={declared} />}
       onOpen={(intent) => open(decision.document, intent)}
     />
+  );
+  const [first] = declared?.declarations ?? [];
+  if (classMark === "none" || !first) return chip;
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {chip}
+      <span className="flex min-w-0 shrink-1000">
+        <ClassCard classHash={first.classHash} name={first.class} />
+      </span>
+    </span>
   );
 }
 
@@ -138,6 +166,8 @@ export function StringValue({ text }: StringValueProps) {
 
   if (decision.kind === "missing" && path !== null) return <Text missing path={path} />;
   if (decision.kind === "missing") return <Text missing>{text}</Text>;
+  const line = targets.strings.get(text);
+  if (decision.kind !== "chip" && line !== undefined) return <StringKey text={text} line={line} />;
   if (decision.kind !== "chip") return <Text>{text}</Text>;
   const { document } = decision;
   if (document.kind === "preview" && path !== null) {
@@ -152,6 +182,51 @@ export function StringValue({ text }: StringValueProps) {
       card={declared && <TargetCard hash={hash} declared={declared} />}
       onOpen={(intent) => open(document, intent)}
     />
+  );
+}
+
+/**
+ * A string-table key as a chip opening its override, and the line the game says for it.
+ *
+ * The layer is the document's own, and the selected layer for a bin read from the install.
+ */
+function StringKey({ text, line }: { text: string; line: string }) {
+  const asset = use(LinkAssetContext);
+  const selected = useSelectedLayerName();
+  const open = useOpenDocumentAs();
+  const aim = useAimStringKey();
+  const layer = asset?.kind === "layer" ? asset.layer : selected;
+  const quoted = m.workshop_bin_string_line_label({ line });
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {layer === null && <Text>{text}</Text>}
+      {layer !== null && (
+        <LinkChip
+          label={text}
+          card={<StringCard text={text} line={line} />}
+          onOpen={(intent) => {
+            const document = stringsDocument(layer, DEFAULT_LOCALE);
+            open(document, intent);
+            aim(document.id, text, line);
+          }}
+        />
+      )}
+      <span title={quoted} className="min-w-0 shrink-1000 truncate text-surface-400 select-text">
+        {quoted}
+      </span>
+    </span>
+  );
+}
+
+/** The key and the whole of its in-game line, which the row cuts. */
+function StringCard({ text, line }: { text: string; line: string }) {
+  return (
+    <div data-ui="LinkChip:string-card" className="flex flex-col items-start gap-2">
+      <Code className="max-w-full truncate select-text">{text}</Code>
+      <span className="text-surface-400">{m.workshop_bin_string_card_label()}</span>
+      <p className="text-row whitespace-pre-wrap text-surface-100 select-text">{line}</p>
+    </div>
   );
 }
 
@@ -350,16 +425,19 @@ function Text({
   children,
   missing = false,
   path,
+  title = path,
 }: {
   children?: ReactNode;
   missing?: boolean;
   /** A path, cut from its start as a path chip is. */
   path?: string;
+  /** The whole of what the text names, where it draws a part of it. */
+  title?: string;
 }) {
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <span
-        title={path}
+        title={title}
         className={twMerge(
           "min-w-0 text-left select-text",
           path === undefined ? "truncate" : "flex",

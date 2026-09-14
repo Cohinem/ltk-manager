@@ -22,6 +22,7 @@ import {
   LinkAssetContext,
   LinkOpenContext,
   LinkTargetsContext,
+  ObjectNameContext,
   type RowGroup,
   useCheckLinkTargets,
   useWarmLinkOpen,
@@ -157,70 +158,74 @@ export function ClassView({
 
   return (
     <LinkAssetContext value={asset}>
-      <LinkTargetsContext value={linkTargets}>
-        <LinkOpenContext value={linkOpen}>
-          <ValueMarksContext value={marks}>
-            <RowDocumentContext value={document}>
-              <RowRegistryContext value={nested.registry}>
-                <EmitterChoiceContext value={emitters}>
-                  <SkinChoiceContext value={skinChoice}>
-                    <RunHost drawable={drawable} document={document} entry={entry}>
-                      <ContextMenu.Root>
-                        <ContextMenu.Trigger
-                          ref={measure}
-                          data-ui="ClassView"
-                          className="flex min-h-0 flex-1 flex-col select-none"
-                          onContextMenu={handleContextMenu}
-                        >
-                          {frame === "stack" && (
-                            <Stack
-                              placed={placed}
-                              pages={pages}
-                              view={view}
-                              hero={
-                                <>
-                                  {skin && <SkinHero view={view} entry={roots[0]?.entry ?? null} />}
-                                  {layout.shell === "vfx" && <VfxHero drawable={drawable} />}
-                                </>
-                              }
-                            />
-                          )}
-                          {frame === "shell" && layout.shell === "vfx" && (
-                            <VfxShell
-                              placed={placed}
-                              pages={pages}
-                              view={view}
-                              system={system}
-                              drawable={drawable}
-                            />
-                          )}
-                          {frame === "shell" && skin && (
-                            <SkinShell
-                              placed={placed}
-                              pages={pages}
-                              view={view}
-                              entry={roots[0]?.entry ?? null}
-                            />
-                          )}
-                        </ContextMenu.Trigger>
+      <ObjectNameContext value={objectName}>
+        <LinkTargetsContext value={linkTargets}>
+          <LinkOpenContext value={linkOpen}>
+            <ValueMarksContext value={marks}>
+              <RowDocumentContext value={document}>
+                <RowRegistryContext value={nested.registry}>
+                  <EmitterChoiceContext value={emitters}>
+                    <SkinChoiceContext value={skinChoice}>
+                      <RunHost drawable={drawable} document={document} entry={entry}>
+                        <ContextMenu.Root>
+                          <ContextMenu.Trigger
+                            ref={measure}
+                            data-ui="ClassView"
+                            className="flex min-h-0 flex-1 flex-col select-none"
+                            onContextMenu={handleContextMenu}
+                          >
+                            {frame === "stack" && (
+                              <Stack
+                                placed={placed}
+                                pages={pages}
+                                view={view}
+                                hero={
+                                  <>
+                                    {skin && (
+                                      <SkinHero view={view} entry={roots[0]?.entry ?? null} />
+                                    )}
+                                    {layout.shell === "vfx" && <VfxHero drawable={drawable} />}
+                                  </>
+                                }
+                              />
+                            )}
+                            {frame === "shell" && layout.shell === "vfx" && (
+                              <VfxShell
+                                placed={placed}
+                                pages={pages}
+                                view={view}
+                                system={system}
+                                drawable={drawable}
+                              />
+                            )}
+                            {frame === "shell" && skin && (
+                              <SkinShell
+                                placed={placed}
+                                pages={pages}
+                                view={view}
+                                entry={roots[0]?.entry ?? null}
+                              />
+                            )}
+                          </ContextMenu.Trigger>
 
-                        {/* Properties is this object's tree, which holds no child system's row. */}
-                        <BinContextMenu
-                          line={menuLine}
-                          objectName={objectName}
-                          onShowInProperties={
-                            menuLine?.row.entry === entry ? onShowInProperties : undefined
-                          }
-                        />
-                      </ContextMenu.Root>
-                    </RunHost>
-                  </SkinChoiceContext>
-                </EmitterChoiceContext>
-              </RowRegistryContext>
-            </RowDocumentContext>
-          </ValueMarksContext>
-        </LinkOpenContext>
-      </LinkTargetsContext>
+                          {/* Properties is this object's tree, which holds no child system's row. */}
+                          <BinContextMenu
+                            line={menuLine}
+                            objectName={objectName}
+                            onShowInProperties={
+                              menuLine?.row.entry === entry ? onShowInProperties : undefined
+                            }
+                          />
+                        </ContextMenu.Root>
+                      </RunHost>
+                    </SkinChoiceContext>
+                  </EmitterChoiceContext>
+                </RowRegistryContext>
+              </RowDocumentContext>
+            </ValueMarksContext>
+          </LinkOpenContext>
+        </LinkTargetsContext>
+      </ObjectNameContext>
     </LinkAssetContext>
   );
 }

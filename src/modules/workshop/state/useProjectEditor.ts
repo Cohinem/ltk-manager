@@ -17,6 +17,7 @@ import {
   NO_COLLAPSED_DIRS,
   type ObjectRevealRequest,
   type RevealRequest,
+  type StringKeyAimRequest,
   useWorkshopEditorStore,
 } from "./workshopEditor";
 
@@ -529,6 +530,34 @@ export function useSettleCurveAim() {
   const projectPath = useProjectPath();
   const settle = useWorkshopEditorStore((s) => s.settleCurveAim);
   return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+}
+
+/** The pending key request aimed at `documentId`, or null for a document nobody aimed. */
+export function useStringKeyAimRequest(documentId: string): StringKeyAimRequest | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).aimStringKey;
+    if (!request || request.documentId !== documentId) return null;
+    return request;
+  });
+}
+
+/** Drop the key request with `token`. The document it addressed has answered it. */
+export function useSettleStringKeyAim() {
+  const projectPath = useProjectPath();
+  const settle = useWorkshopEditorStore((s) => s.settleStringKeyAim);
+  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+}
+
+/** Ask the strings document `documentId` to take up `key`, whose in-game text is `line`. */
+export function useAimStringKey() {
+  const projectPath = useProjectPath();
+  const aimStringKey = useWorkshopEditorStore((s) => s.aimStringKey);
+  return useCallback(
+    (documentId: string, key: string, line: string) =>
+      aimStringKey(projectPath, documentId, key, line),
+    [aimStringKey, projectPath],
+  );
 }
 
 /** Ask the object tab `documentId` to open its dock on `row`, captioned `chain`. */

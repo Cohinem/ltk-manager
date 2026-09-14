@@ -111,6 +111,31 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("aimStringKey", () => {
+    it("carries the key and its in-game line to the strings document that was named", () => {
+      store().aimStringKey(A, "strings:base:default", "hud_Chat_Party", "Party");
+
+      expect(editorOf(A).aimStringKey).toEqual({
+        documentId: "strings:base:default",
+        key: "hud_Chat_Party",
+        line: "Party",
+        token: 1,
+      });
+      expect(editorOf(B).aimStringKey).toBeNull();
+    });
+
+    it("settles the request the document answered, and leaves one it did not standing", () => {
+      store().aimStringKey(A, "strings:base:default", "hud_Chat_Party", "Party");
+      store().aimStringKey(A, "strings:base:default", "hud_Chat_Party", "Party");
+
+      store().settleStringKeyAim(A, 1);
+      expect(editorOf(A).aimStringKey?.token).toBe(2);
+
+      store().settleStringKeyAim(A, 2);
+      expect(editorOf(A).aimStringKey).toBeNull();
+    });
+  });
+
   describe("setDocumentDirty", () => {
     /* Every project has a document called "details", so one flat dirty set
        marked the tab dirty in each of them at once. */

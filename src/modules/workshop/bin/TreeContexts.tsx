@@ -6,6 +6,7 @@ import {
   LinkAssetContext,
   LinkOpenContext,
   LinkTargetsContext,
+  ObjectNameContext,
   type RowGroup,
   useCheckLinkTargets,
   useWarmLinkOpen,
@@ -21,22 +22,33 @@ interface TreeContextsProps {
   groups: RowGroup[];
   /** The viewport's own rows, which is the page a value row's read is scoped to. */
   inView: readonly BinRow[];
+  /** The name of the object an entry hash addresses, which a row's chips read under. */
+  objectName: (entry: string) => string;
   children: ReactNode;
 }
 
-/** What a row reads around itself: the asset it came from, its links and its values. */
-export function TreeContexts({ document, asset, groups, inView, children }: TreeContextsProps) {
+/** What a row reads around itself: the asset it came from, its object, its links and its values. */
+export function TreeContexts({
+  document,
+  asset,
+  groups,
+  inView,
+  objectName,
+  children,
+}: TreeContextsProps) {
   const linkTargets = useCheckLinkTargets(document, groups);
   const linkOpen = useWarmLinkOpen(linkTargets);
   const marks = useValueMarks(document, inView);
 
   return (
     <LinkAssetContext value={asset}>
-      <LinkTargetsContext value={linkTargets}>
-        <LinkOpenContext value={linkOpen}>
-          <ValueMarksContext value={marks}>{children}</ValueMarksContext>
-        </LinkOpenContext>
-      </LinkTargetsContext>
+      <ObjectNameContext value={objectName}>
+        <LinkTargetsContext value={linkTargets}>
+          <LinkOpenContext value={linkOpen}>
+            <ValueMarksContext value={marks}>{children}</ValueMarksContext>
+          </LinkOpenContext>
+        </LinkTargetsContext>
+      </ObjectNameContext>
     </LinkAssetContext>
   );
 }

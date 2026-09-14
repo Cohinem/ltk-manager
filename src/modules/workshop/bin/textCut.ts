@@ -31,6 +31,19 @@ export function splitPath(text: string): { folder: string; file: string } {
 }
 
 /**
+ * `path` with the object path `base` cut from its start, an ellipsis standing in for it.
+ *
+ * Case-insensitive, as the hash an object path is resolved under is. A path that is `base`
+ * itself, or lies outside it, is returned whole.
+ */
+export function pathUnder(path: string, base: string | null): string {
+  if (base === null || base.length === 0 || path.length <= base.length + 1) return path;
+  if (path[base.length] !== "/") return path;
+  if (path.slice(0, base.length).toLowerCase() !== base.toLowerCase()) return path;
+  return ELLIPSIS + path.slice(base.length);
+}
+
+/**
  * A mono name column's CSS width: the longest of `names` plus `extra` pixels, capped at `cap`.
  *
  * In `ch`, so the width resolves in the font of the element it is set on.

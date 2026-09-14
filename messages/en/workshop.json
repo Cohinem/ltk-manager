@@ -424,6 +424,8 @@
   "workshop_bin_show_in_file_action": "Show in file",
   "workshop_bin_show_in_properties_action": "Show in properties",
   "workshop_bin_show_random_action": "Show what is random",
+  "workshop_bin_string_card_label": "In-game text",
+  "workshop_bin_string_line_label": "\"{line}\"",
   "workshop_bin_texture_container_format_label": "{container} · {format}",
   "workshop_bin_texture_dimensions_label": "{width} × {height}",
   "workshop_bin_texture_format_label": "Format",

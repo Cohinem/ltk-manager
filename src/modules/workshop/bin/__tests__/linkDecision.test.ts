@@ -42,7 +42,14 @@ const LOCATED: GameFileEntry = {
 };
 
 function targets(overrides: Partial<LinkTargets> = {}): LinkTargets {
-  return { index: null, declared: new Map(), located: new Map(), pending: false, ...overrides };
+  return {
+    index: null,
+    declared: new Map(),
+    located: new Map(),
+    strings: new Map(),
+    pending: false,
+    ...overrides,
+  };
 }
 
 const ready: ObjectIndexStatus = { status: "ready" };

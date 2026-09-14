@@ -16,6 +16,7 @@ import {
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
+import { stringQueries } from "../api/queries";
 import { useProjectContentTree } from "../api/useProjectContentTree";
 import { useOptionalProjectContext, useProjectContext } from "../components/ProjectContext";
 import { layerTitle } from "../documents/contentDocument";
@@ -42,6 +43,8 @@ export interface LinkTargets {
   readonly declared: ReadonlyMap<string, DeclaredObject>;
   /** By resolved chunk path: the install's copy. A path the install lacks is absent. */
   readonly located: ReadonlyMap<string, GameFileEntry>;
+  /** By string as the file holds it: the in-game line of the string-table key it is. */
+  readonly strings: ReadonlyMap<string, string>;
   /** A check is on its way for some page. */
   readonly pending: boolean;
 }
@@ -50,6 +53,7 @@ export const NO_LINK_TARGETS: LinkTargets = {
   index: null,
   declared: new Map(),
   located: new Map(),
+  strings: new Map(),
   pending: false,
 };
 
@@ -60,6 +64,9 @@ export const LinkTargetsContext = createContext<LinkTargets>(NO_LINK_TARGETS);
 export function useLinkTargets(): LinkTargets {
   return use(LinkTargetsContext);
 }
+
+/** The name of the object an entry hash addresses. Outside a tree, the hash itself. */
+export const ObjectNameContext = createContext<(entry: string) => string>((entry) => entry);
 
 /** The tree's way to open a link whose target the index has not answered for. */
 export interface LinkOpen {
@@ -117,6 +124,22 @@ export function useWarmLinkOpen(targets: LinkTargets): LinkOpen {
   }, [targets, open, wanting]);
 
   return linkOpen;
+}
+
+/**
+ * A string shaped like a string-table key: one word of letters, digits, dots and at
+ * least one underscore, which a plain word such as `Idle` never has.
+ */
+const STRING_KEY = /^(?=.*_)[\w.]+$/;
+
+/** The strings a group's `string` values hold that could be string-table keys, sorted, each once. */
+export function linkStringKeys(rows: readonly BinRow[]): string[] {
+  const keys = new Set<string>();
+  for (const { value } of rows) {
+    if (value.type !== "string" || chunkPath(value.value) !== null) continue;
+    if (STRING_KEY.test(value.value)) keys.add(value.value);
+  }
+  return [...keys].sort();
 }
 
 export const linkKeys = {
@@ -276,6 +299,14 @@ function combineLocated(
   return { entries, pending };
 }
 
+function combineStrings(
+  results: readonly UseQueryResult<Record<string, string>, AppError>[],
+): Readonly<Record<string, string>> {
+  const lines: Record<string, string> = {};
+  for (const result of results) Object.assign(lines, result.data);
+  return lines;
+}
+
 /**
  * Check every group's link and hash targets against the index and the project's
  * layers, and its `file` targets against the install, one call per group and per kind.
@@ -297,6 +328,7 @@ export function useCheckLinkTargets(
         key: group.key,
         hashes: linkHashes(group.rows),
         paths: linkPaths(group.rows),
+        keys: linkStringKeys(group.rows),
       })),
     [groups],
   );
@@ -323,6 +355,15 @@ export function useCheckLinkTargets(
     }));
   const locatedAnswer = useQueries({ queries: locatedQueries, combine: combineLocated });
 
+  /* Not part of `pending`: the first lookup builds the string index, and a `file` link
+     waiting on it would hold off its missing mark for no reason. */
+  const lines = useQueries({
+    queries: targets
+      .filter((group) => group.keys.length > 0)
+      .map((group) => stringQueries.values(group.keys)),
+    combine: combineStrings,
+  });
+
   return useMemo(() => {
     const install = new Map(Object.entries(declaredAnswer.objects));
     const located = new Map(Object.entries(locatedAnswer.entries));
@@ -335,9 +376,10 @@ export function useCheckLinkTargets(
       index: declaredAnswer.index,
       declared,
       located,
+      strings: new Map(Object.entries(lines)),
       pending: declaredAnswer.pending || locatedAnswer.pending,
     };
-  }, [declaredAnswer, locatedAnswer, project, targets, tree]);
+  }, [declaredAnswer, locatedAnswer, lines, project, targets, tree]);
 }
 
 /** What a layer directory holding an archive's chunks is named. */
