@@ -2164,7 +2164,7 @@
     },
     {
       "name": "ltk_anim",
-      "version": "0.3.6",
+      "version": "0.3.7",
       "licenses": [
         41
       ]
@@ -2215,8 +2215,15 @@
       ]
     },
     {
-      "name": "ltk_mesh",
+      "name": "ltk_io_ext",
       "version": "0.4.5",
+      "licenses": [
+        41
+      ]
+    },
+    {
+      "name": "ltk_mesh",
+      "version": "0.4.6",
       "licenses": [
         41
       ]
