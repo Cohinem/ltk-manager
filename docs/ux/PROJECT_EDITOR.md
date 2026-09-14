@@ -734,6 +734,11 @@ table names is decoded far enough to read its magic and read whole only when it 
 or a `PTCH`. The objects inside an unnamed bin are the case a modder holding a hash is in,
 which is why the sniff is worth its decode.
 
+**A chunk with a bare name is sniffed the same way.** Riot ships a UI scene's bin under a name
+with no extension, `clientstates/gameplay/ux/chat/uibase` among them, and the `hash` values of the
+view controller that loads it name the objects inside. A chunk whose extension names another kind
+is not sniffed.
+
 ### Where it is kept
 
 In memory, for the session, and rebuilt from the archives the next time the application

@@ -68,6 +68,43 @@ fn build_reads_a_prop_and_a_patch_and_skips_what_will_not_read() {
 }
 
 #[test]
+fn a_bare_named_chunk_is_read_under_its_name_when_its_magic_is_a_bins() {
+    let chunks: &[Chunk<'_>] = &[
+        (
+            "clientstates/gameplay/ux/chat/uibase",
+            prop(&[(
+                "ClientStates/Gameplay/UX/Chat/UIBase/ChatFrame",
+                "UiSceneData",
+            )]),
+        ),
+        ("ux/floatingtext", vec![0xAA; 64]),
+        (
+            "data/notes.txt",
+            prop(&[("characters/hidden", "Character")]),
+        ),
+    ];
+    let (_tmp, index) = build(&[("UI.wad.client", chunks)], 1);
+
+    assert_eq!(
+        declared(&index),
+        [row(
+            "ClientStates/Gameplay/UX/Chat/UIBase/ChatFrame",
+            "UiSceneData",
+            "clientstates/gameplay/ux/chat/uibase"
+        )],
+        "the bare bin under its name, and neither the bare non-bin nor a bin behind another extension"
+    );
+
+    let stats = index.stats();
+    assert_eq!(stats.files, 1, "the bare bin alone");
+    assert_eq!(
+        stats.sniffed, 0,
+        "a bare chunk is named, so not counted as sniffed"
+    );
+    assert_eq!(stats.skipped, 0, "a bare non-bin is not a skip");
+}
+
+#[test]
 fn an_unnamed_chunk_is_sniffed_and_read_only_when_its_magic_is_a_bins() {
     let chunks: &[Chunk<'_>] = &[
         (
