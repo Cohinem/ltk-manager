@@ -135,7 +135,11 @@ impl ModLibrary {
             if !profile.enabled_mods.iter().any(|id| id == mod_id) {
                 profile.enabled_mods.push(mod_id.to_string());
             }
-            index.promote_mod_to_folder_front(mod_id);
+            if config.promote_enabled_mods {
+                index.promote_mod_to_folder_front(mod_id);
+            } else {
+                index.sync_profile_orders();
+            }
 
             Ok(())
         })
@@ -195,7 +199,11 @@ impl ModLibrary {
                 .layer_states
                 .insert(mod_id.to_string(), layer_states);
 
-            index.promote_mod_to_folder_front(mod_id);
+            if config.promote_enabled_mods {
+                index.promote_mod_to_folder_front(mod_id);
+            } else {
+                index.sync_profile_orders();
+            }
 
             Ok(())
         })
@@ -411,3 +419,6 @@ fn thumbnail_path(storage_dir: &Path, entry: &LibraryModEntry) -> AppResult<Opti
 
     Ok(cached_path.map(|p| p.display().to_string()))
 }
+
+#[cfg(test)]
+mod tests;

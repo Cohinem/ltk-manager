@@ -1,3 +1,5 @@
+import { m } from "@/i18n";
+
 import type { SettingKey } from "./settingKey";
 import { DEFAULT_SETTINGS_TAB, isSettingsTab, type SettingsTab } from "./tabs";
 
@@ -58,6 +60,11 @@ const INDEX = [
     id: "library.autoCategorizationEnabled",
     key: "autoCategorizationEnabled",
     title: "Automatically categorize mods",
+  },
+  {
+    id: "library.promoteEnabledMods",
+    key: "promoteEnabledMods",
+    title: m.settings_library_promotion_title(),
   },
   { id: "library.watcherEnabled", key: "watcherEnabled", title: "Watch for external changes" },
   { id: "library.trustedDomains", key: "trustedDomains", title: "Trusted mod providers" },

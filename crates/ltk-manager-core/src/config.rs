@@ -102,6 +102,9 @@ pub struct Config {
     /// the user sets themselves are used. Default: true.
     #[serde(default = "default_true")]
     pub auto_categorization_enabled: bool,
+    /// Enabling a mod moves it to the front of its folder. Off by default.
+    #[serde(default)]
+    pub promote_enabled_mods: bool,
     /// Whether to enforce the anti-skinhack scan while patching. When on
     /// (default), a champion WAD that fails the scan aborts patching. When off,
     /// the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
@@ -178,6 +181,7 @@ impl Default for Config {
             wad_blocklist: default_wad_blocklist(),
             elevate_injector: false,
             auto_categorization_enabled: true,
+            promote_enabled_mods: false,
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
@@ -206,6 +210,7 @@ mod tests {
         assert!(config.wad_blocklist.is_empty());
         assert!(!config.elevate_injector);
         assert!(config.auto_categorization_enabled);
+        assert!(!config.promote_enabled_mods);
         assert!(config.enforce_skinhack_scan);
         assert!(!config.apply_string_overrides_to_all_locales);
         assert!(!config.verbose_patcher_logging);

@@ -7,8 +7,10 @@ import {
   type EditModMetadataArgs,
   type InstalledMod,
   type ModStorage,
+  type Settings,
 } from "@/lib/tauri";
 import { promoteToFolderFront } from "@/modules/library/utils";
+import { settingsKeys } from "@/modules/settings";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
@@ -70,10 +72,12 @@ export const modMutations = {
     mutationOptions<void, AppError, ToggleModVariables, ModsRollback>({
       mutationFn: async ({ modId, enabled }) => unwrapForQuery(await api.toggleMod(modId, enabled)),
       onMutate: ({ modId, enabled }) => {
+        const promote =
+          client.getQueryData<Settings>(settingsKeys.settings())?.promoteEnabledMods === true;
         beginReorderHold();
         return holdMods(client, (mods) => {
           const next = mods.map((mod) => (mod.id === modId ? { ...mod, enabled } : mod));
-          return enabled ? promoteToFolderFront(next, modId) : next;
+          return enabled && promote ? promoteToFolderFront(next, modId) : next;
         });
       },
       onError: (_error, _variables, context) => releaseMods(client, context),
@@ -97,15 +101,15 @@ export const modMutations = {
       mutationFn: async ({ modId, layerStates }) =>
         unwrapForQuery(await api.enableModWithLayers(modId, layerStates)),
       onMutate: ({ modId, layerStates }) => {
+        const promote =
+          client.getQueryData<Settings>(settingsKeys.settings())?.promoteEnabledMods === true;
         beginReorderHold();
-        return holdMods(client, (mods) =>
-          promoteToFolderFront(
-            mods.map((mod) =>
-              mod.id === modId ? { ...withLayers(mod, layerStates), enabled: true } : mod,
-            ),
-            modId,
-          ),
-        );
+        return holdMods(client, (mods) => {
+          const next = mods.map((mod) =>
+            mod.id === modId ? { ...withLayers(mod, layerStates), enabled: true } : mod,
+          );
+          return promote ? promoteToFolderFront(next, modId) : next;
+        });
       },
       onError: (_error, _variables, context) => releaseMods(client, context),
       onSettled: () => refreshMods(client),

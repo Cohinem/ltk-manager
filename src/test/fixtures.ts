@@ -37,6 +37,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     hasSeenDiagnosticsNotice: true,
     elevateInjector: false,
     autoCategorizationEnabled: true,
+    promoteEnabledMods: false,
     showModTags: true,
     enforceSkinhackScan: true,
     applyStringOverridesToAllLocales: false,

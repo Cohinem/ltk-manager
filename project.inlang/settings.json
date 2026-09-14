@@ -16,6 +16,7 @@
       "./messages/{locale}/updater.json",
       "./messages/{locale}/workshop.json",
       "./messages/{locale}/shell.json",
+      "./messages/{locale}/settings.json",
       "./messages/{locale}/common.json"
     ]
   }

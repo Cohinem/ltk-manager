@@ -164,6 +164,10 @@ elevateInjector: boolean,
  */
 autoCategorizationEnabled: boolean, 
 /**
+ * Enabling a mod moves it to the front of its folder. Off by default.
+ */
+promoteEnabledMods: boolean, 
+/**
  * Whether to enforce the anti-skinhack scan while patching. When on
  * (default), a champion WAD that fails the scan aborts patching. When off,
  * the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are

@@ -1,0 +1,19 @@
+{
+  "settings_library_cataloguing_title": "Cataloguing",
+  "settings_library_categorization_description": "Champions, maps and tags get read from each mod's files.",
+  "settings_library_categorization_hint": "They are offered as suggested categories and as library filters. Turn this off to rely only on the categories you set yourself.",
+  "settings_library_description": "Options for your mod library",
+  "settings_library_installing_title": "Installing",
+  "settings_library_priority_title": "Priority",
+  "settings_library_promotion_description": "Enabled mods move to the front of their folder in Priority sorting.",
+  "settings_library_promotion_title": "Move enabled mods to front",
+  "settings_library_storage_description": "Leave empty for the app data directory.",
+  "settings_library_storage_dialog_title": "Select Mod Storage Location",
+  "settings_library_storage_label": "Storage location",
+  "settings_library_storage_placeholder": "Default (app data directory)",
+  "settings_library_storage_title": "Storage",
+  "settings_library_title": "Library",
+  "settings_library_trusted_domains_description": "One-click links only install from these domains. Remove all of them to allow any source.",
+  "settings_library_watcher_description": "Mods added or removed outside the app show up in the library.",
+  "settings_library_watcher_hint": "Filesystem notifications vary across platforms and antivirus software, so watching can miss an update or fire falsely. Requires a restart to take effect."
+}
