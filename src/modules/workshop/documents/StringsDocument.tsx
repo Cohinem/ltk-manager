@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, EmptyState, Spinner } from "@/components";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
 import { useGameStringValues } from "../api/useGameStringValues";
-import { useSetDocumentDirty } from "../state";
+import { useProjectContext } from "../components/ProjectContext";
+import { useSetDocumentDirty, useSettleStringKeyAim, useStringKeyAimRequest } from "../state";
 import {
+  type ComposerSeed,
   matchesOverrideFilter,
   type OverrideSaveState,
   StringOverridesHelpPopover,
@@ -60,7 +62,27 @@ export function StringsDocument({
 
   const originals = useGameStringValues(editor.entries.map((entry) => entry.key)).data;
 
-  const { entries, filter, lastCommittedId } = editor;
+  const { entries, filter, lastCommittedId, setFilter } = editor;
+
+  /* A key already overridden is found by the filter. One that is not starts in the composer.
+     The saved overrides answer too, because a document opened by the aim has not loaded
+     its entries in the commit the aim lands in. */
+  const project = useProjectContext();
+  const aimed = useStringKeyAimRequest(documentId);
+  const settleAim = useSettleStringKeyAim();
+  const [seed, setSeed] = useState<ComposerSeed | null>(null);
+  useEffect(() => {
+    if (!aimed) return;
+    const saved = project.layers.find((layer) => layer.name === document.layerName)
+      ?.stringOverrides?.[locale];
+    const keys = [...entries.map((entry) => entry.key), ...Object.keys(saved ?? {})];
+    const wanted = aimed.key.toLowerCase();
+    setFilter(aimed.key);
+    if (!keys.some((key) => key.trim().toLowerCase() === wanted)) {
+      setSeed({ key: aimed.key, value: aimed.line, token: aimed.token });
+    }
+    settleAim(aimed.token);
+  }, [aimed, document.layerName, entries, locale, project, setFilter, settleAim]);
   const visible = useMemo(
     () =>
       entries.filter(
@@ -97,6 +119,7 @@ export function StringsDocument({
           onUpdateEntry={editor.updateEntry}
           onPickSuggestion={editor.pickSuggestion}
           onRemoveEntry={editor.removeEntry}
+          seed={seed}
         />
       </div>
     </div>

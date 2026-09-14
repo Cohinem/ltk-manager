@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { charsIn, cutText, nameColumn, splitPath } from "../textCut";
+import { charsIn, cutText, nameColumn, pathUnder, splitPath } from "../textCut";
 
 describe("textCut", () => {
   it("leaves a name that fits alone", () => {
@@ -33,6 +33,29 @@ describe("splitPath", () => {
   it("splits the folder from the file name after the last slash", () => {
     expect(splitPath("…/b/file.tex")).toEqual({ folder: "…/b/", file: "file.tex" });
     expect(splitPath("file.tex")).toEqual({ folder: "", file: "file.tex" });
+  });
+});
+
+describe("pathUnder", () => {
+  const base = "ClientStates/Gameplay/UX/Chat";
+
+  it("cuts the object's own path from a path under it", () => {
+    expect(pathUnder("ClientStates/Gameplay/UX/Chat/UIBase/ChatFrame", base)).toBe(
+      "…/UIBase/ChatFrame",
+    );
+  });
+
+  it("matches the object's path in any case", () => {
+    expect(pathUnder("clientstates/gameplay/ux/chat/UIBase", base)).toBe("…/UIBase");
+  });
+
+  it("keeps a path that is the object itself, a sibling, or has no object to read under", () => {
+    expect(pathUnder(base, base)).toBe(base);
+    expect(pathUnder(`${base}/`, base)).toBe(`${base}/`);
+    expect(pathUnder("ClientStates/Gameplay/UX/ChatBox/Frame", base)).toBe(
+      "ClientStates/Gameplay/UX/ChatBox/Frame",
+    );
+    expect(pathUnder("Characters/Aatrox", null)).toBe("Characters/Aatrox");
   });
 });
 

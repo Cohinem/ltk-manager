@@ -91,6 +91,7 @@ export function AlsoCheck({
       index: inner.index ?? outer.index,
       declared: joinDeclarations(outer.declared, inner.declared),
       located: new Map([...outer.located, ...inner.located]),
+      strings: new Map([...outer.strings, ...inner.strings]),
       pending: outer.pending || inner.pending,
     }),
     [outer, inner],

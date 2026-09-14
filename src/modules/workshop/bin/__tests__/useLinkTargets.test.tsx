@@ -16,6 +16,7 @@ import {
   layerDeclarations,
   linkHashes,
   linkPaths,
+  linkStringKeys,
   type RowGroup,
   useCheckLinkTargets,
 } from "../useLinkTargets";
@@ -59,6 +60,22 @@ describe("linkHashes and linkPaths", () => {
     expect(linkPaths(ROOTS)).toEqual(
       ["assets/aatrox.tex", "assets/characters/aatrox/aatrox.dds"].sort(),
     );
+  });
+});
+
+const KEY_ROWS: readonly BinRow[] = [
+  row("00000011", { type: "string", value: "hud_Chat_Team" }),
+  row("00000012", { type: "string", value: "hud_Chat_Party" }),
+  row("00000013", { type: "string", value: "hud_Chat_Party" }),
+  row("00000014", { type: "string", value: "Idle" }),
+  row("00000015", { type: "string", value: "Justicar Aatrox" }),
+  row("00000016", { type: "string", value: "ASSETS/Shared/some_texture.dds" }),
+  row("00000017", { type: "hash", hash: "0x00000001", name: "hud_chat" }),
+];
+
+describe("linkStringKeys", () => {
+  it("collects the strings shaped like a string-table key, sorted and each once", () => {
+    expect(linkStringKeys(KEY_ROWS)).toEqual(["hud_Chat_Party", "hud_Chat_Team"]);
   });
 });
 
@@ -126,6 +143,23 @@ describe("useCheckLinkTargets", () => {
     expect(result.current.located.get("assets/aatrox.tex")?.wad).toBe(
       "Champions/Aatrox.wad.client",
     );
+  });
+
+  it("answers a group's string-table keys with their in-game lines, outside pending", async () => {
+    mockInvoke.mockImplementation((command: string) => {
+      if (command === "lookup_string_values") {
+        return Promise.resolve({ ok: true, value: { hud_Chat_Party: "Party" } });
+      }
+      return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });
+    });
+    const groups: RowGroup[] = [{ key: "", rows: KEY_ROWS }];
+    const { result } = renderHook(() => useCheckLinkTargets(7, groups), { wrapper: Providers });
+
+    await waitFor(() => expect(result.current.strings.get("hud_Chat_Party")).toBe("Party"));
+    expect(result.current.strings.has("hud_Chat_Team")).toBe(false);
+    expect(mockInvoke).toHaveBeenCalledWith("lookup_string_values", {
+      keys: ["hud_Chat_Party", "hud_Chat_Team"],
+    });
   });
 
   it("makes no call for a group holding no target", () => {

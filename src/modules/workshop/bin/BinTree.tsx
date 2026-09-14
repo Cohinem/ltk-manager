@@ -122,7 +122,13 @@ export function BinTree({
   }
 
   return (
-    <TreeContexts document={document} asset={asset} groups={groups} inView={inView}>
+    <TreeContexts
+      document={document}
+      asset={asset}
+      groups={groups}
+      inView={inView}
+      objectName={objectName}
+    >
       <ContextMenu.Root>
         <ContextMenu.Trigger
           ref={scrollRef}

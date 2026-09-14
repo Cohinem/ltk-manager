@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                              |
-| ---------- | --------------------------------------------------- |
-| 2026-09-13 | Add the clips pane over the animation graph         |
-| 2026-09-13 | Draw every layout section as field rows             |
-| 2026-09-12 | Band a rich value and drop the inspector's tabs     |
-| 2026-09-12 | Flag the timeline's playhead and trace the pointer  |
-| 2026-09-11 | Draw the random spread as lanes and a density edge  |
-| 2026-09-11 | Draw a value's random spread on its graph           |
-| 2026-09-11 | Draw a child lane's emitter in the inspector        |
-| 2026-09-11 | Add the particle timeline, and redraw the inspector |
-| 2026-09-08 | Wrap the emitter cards into the pane                |
-| 2026-09-08 | Arrange the shell's panes as a split tree           |
+| Date       | Change                                                        |
+| ---------- | ------------------------------------------------------------- |
+| 2026-09-14 | Cut a chip's path under its object, and name the target class |
+| 2026-09-14 | Draw a string-table key with its in-game line                 |
+| 2026-09-13 | Add the clips pane over the animation graph                   |
+| 2026-09-13 | Draw every layout section as field rows                       |
+| 2026-09-12 | Band a rich value and drop the inspector's tabs               |
+| 2026-09-12 | Flag the timeline's playhead and trace the pointer            |
+| 2026-09-11 | Draw the random spread as lanes and a density edge            |
+| 2026-09-11 | Draw a value's random spread on its graph                     |
+| 2026-09-11 | Draw a child lane's emitter in the inspector                  |
+| 2026-09-11 | Add the particle timeline, and redraw the inspector           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -729,6 +729,22 @@ carries the same pair. A value nothing resolves draws as dim hex and is not a ch
 A chip's hover card shows the target's path, its class, its declaring file and its declaration
 count.
 
+**A path under the row's object drops that object's path.** A UI scene names its elements under
+its own path, so a column of them repeats one long folder and differs only at the end. The chip
+draws an ellipsis for the object's path and the rest after it, and the hover card and Copy value
+keep the whole path. The object is the one the row sits in, which a scroll or a page landing
+never moves.
+
+```
+ClientStates/Gameplay/UX/Chat
+  BaseLoadable     link  [.../UIBase]                             UiPropertyLoadable
+  ChatFrameBounds  hash  [.../UIBase/ChatFrame/ChatFrame_Bounds]  UiElementRegionData
+```
+
+**A resolved chip names its target's class after it,** in the class hue with the class card on
+hover, the way an `embed` row names the class it holds. The class gives way before the chip on a
+narrow pane.
+
 ### An object link
 
 An `ObjectLink` names an object that this file may not hold. The index resolves it, per
@@ -812,6 +828,26 @@ string as text rather than as a page of chips that would each warm it.
 Copy value hash on a resolved string offers the object hash the string was resolved under. A
 string that resolved as a chunk carries none, because the hash a chunk answers to is the
 resolver's over the path rather than a value the row holds.
+
+### A string-table key
+
+A string that names neither a chunk nor an object may be a key of the game's string table, such
+as `hud_Chat_Party`. One shaped like a key - one word holding an underscore - joins its row
+group's check, and a key the table holds draws as a chip followed by its in-game line, dim and
+quoted.
+
+```
+|  PartyChatChannelTra  string  [hud_Chat_Party]  "Party"  |
+```
+
+The line is the install locale's, which is the text the [strings](PROJECT_EDITOR.md#strings)
+editor shows under an override. The chip's hover card carries the whole line. A click opens the
+overrides of the document's own layer, or of the selected layer for a bin of the install, in
+the `default` locale, filtered to the key. A key the layer does not override yet starts in the
+composer with the in-game line as its text.
+
+The first check of a session builds the string index, so the lines arrive after the rows. A
+`file` link does not wait on it.
 
 ## Classes
 

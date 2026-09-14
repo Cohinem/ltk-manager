@@ -1,8 +1,9 @@
+use super::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::strings::{StringKeyIndexState, StringKeySearchResult};
 use std::collections::HashMap;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 
 /// Search known stringtable field names for the workshop strings editor.
 ///
@@ -21,16 +22,22 @@ pub fn search_string_keys(
     IpcResult::ok(index.search(&query, limit))
 }
 
-/// Current in-game text for override keys, for the editor's original line.
+/// Current in-game text for string-table keys, for the override editor and the bin editor.
 ///
 /// Shares the suggestion index with [`search_string_keys`], first-call build
-/// cost included. A key the game does not resolve is absent from the map.
+/// cost included, on a blocking thread because a bin opening asks for it. A key
+/// the game does not resolve is absent from the map.
 #[tauri::command]
-pub fn lookup_string_values(
+pub async fn lookup_string_values(
     keys: Vec<String>,
-    settings: State<SettingsState>,
-    index: State<StringKeyIndexState>,
+    app_handle: AppHandle,
 ) -> IpcResult<HashMap<String, String>> {
-    let index = index.get_or_build(&settings.config());
-    IpcResult::ok(index.lookup(&keys))
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let index = app_handle
+            .state::<StringKeyIndexState>()
+            .get_or_build(&config);
+        Ok(index.lookup(&keys))
+    })
+    .await
 }

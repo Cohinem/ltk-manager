@@ -5,7 +5,7 @@ import {
   SpinnerGapIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { type MouseEvent as ReactMouseEvent, type ReactNode, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, type ReactNode, use, useState } from "react";
 
 import { Checkbox, Code, Readout, SeverityGlyph, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
@@ -31,6 +31,7 @@ import { enumReading } from "./fieldEnums";
 import { type FieldUnit, fieldUnit, UNIT_SUFFIX } from "./fieldUnits";
 import { rowTag } from "./kindTag";
 import { FileChip, ObjectChip, StringValue } from "./LinkChip";
+import { ObjectNameContext } from "./useLinkTargets";
 import { useValueMark } from "./useValueMarks";
 import { channels, colorStops, markRanges, type ValueMark, type ValueRange } from "./valueRows";
 
@@ -262,9 +263,16 @@ const TAG_CLASSES = "text-bin-kind-text";
  * names no widget of its own.
  */
 export function RowValue({ row }: { row: BinRow }) {
+  const objectName = use(ObjectNameContext);
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
-      <Value value={row.value} node={row.node} rowKey={rowKey(row)} field={ownField(row)} />
+      <Value
+        value={row.value}
+        node={row.node}
+        rowKey={rowKey(row)}
+        field={ownField(row)}
+        object={objectName(row.entry)}
+      />
     </span>
   );
 }
@@ -282,9 +290,11 @@ interface ValueProps {
   rowKey: string;
   /** The field the value sits under, which its enum and its unit are keyed on. */
   field: string | null;
+  /** The path of the object the row sits in, which a link's path reads under. */
+  object: string;
 }
 
-function Value({ value, node, rowKey: key, field }: ValueProps) {
+function Value({ value, node, rowKey: key, field, object }: ValueProps) {
   switch (value.type) {
     case "none":
       return <Dim>{m.workshop_bin_none_label()}</Dim>;
@@ -303,11 +313,18 @@ function Value({ value, node, rowKey: key, field }: ValueProps) {
     case "string":
       return <StringValue text={value.value} />;
     case "hash":
-      return <ObjectChip hash={value.hash} name={value.name} kind="hash" />;
+    case "objectLink":
+      return (
+        <ObjectChip
+          hash={value.hash}
+          name={value.name}
+          kind={value.type === "hash" ? "hash" : "link"}
+          base={object}
+          classMark="after"
+        />
+      );
     case "wadChunkLink":
       return <FileChip hash={value.hash} path={value.path} />;
-    case "objectLink":
-      return <ObjectChip hash={value.hash} name={value.name} kind="link" />;
     case "container":
       if (value.len === 0) return <Dim>{m.workshop_bin_empty_label()}</Dim>;
       return <Dim>{m.workshop_bin_items_label({ count: value.len })}</Dim>;
