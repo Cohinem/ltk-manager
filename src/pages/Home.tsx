@@ -7,6 +7,7 @@ import {
   NewsTile,
   NoticeBanners,
   RecentChanges,
+  RuneforgeBanners,
   StatusLine,
   useMarkHomeSeen,
 } from "@/modules/home";
@@ -46,12 +47,15 @@ export function Home() {
       <DragDropOverlay visible={isDragOver} />
 
       {/* Capped and centred: a wider window buys margins, not one wider card. */}
-      <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 px-4 pt-4">
+      <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 p-4">
         {!patcherAvailable && <PatcherUnsupported />}
         <NoticeBanners />
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_20rem] gap-4">
-          <RecentChanges />
+          <div data-ui="Home:content" className="flex min-h-0 min-w-0 flex-col gap-4">
+            <RuneforgeBanners />
+            <RecentChanges />
+          </div>
           <div data-ui="Home:rail" className="flex min-h-0 flex-col gap-4">
             {/* Outside the scroller: the primary action stays put while the tiles move. */}
             <PlayButton block disabled={installing} />

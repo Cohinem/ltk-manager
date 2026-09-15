@@ -4,5 +4,6 @@ export { LibraryTile } from "./LibraryTile";
 export { NewsTile } from "./NewsTile";
 export { NoticeBanners } from "./NoticeBanners";
 export { RecentChanges } from "./RecentChanges";
+export { RuneforgeBanners } from "./RuneforgeBanners";
 export { StatusLine } from "./StatusLine";
 export { Tile } from "./Tile";
