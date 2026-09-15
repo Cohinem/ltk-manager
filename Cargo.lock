@@ -3116,7 +3116,7 @@ dependencies = [
 [[package]]
 name = "ltk_hash"
 version = "0.4.0"
-source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=1dee55fa2fc1bf95273a73e999fe3e37dc0b053c#1dee55fa2fc1bf95273a73e999fe3e37dc0b053c"
+source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=b800ad506d237c1c02128268389ceafaea7da281#b800ad506d237c1c02128268389ceafaea7da281"
 dependencies = [
  "byteorder",
  "serde",
@@ -3151,7 +3151,7 @@ dependencies = [
 [[package]]
 name = "ltk_io_ext"
 version = "0.4.4"
-source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=1dee55fa2fc1bf95273a73e999fe3e37dc0b053c#1dee55fa2fc1bf95273a73e999fe3e37dc0b053c"
+source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=b800ad506d237c1c02128268389ceafaea7da281#b800ad506d237c1c02128268389ceafaea7da281"
 dependencies = [
  "byteorder",
  "glam",
@@ -3190,7 +3190,7 @@ dependencies = [
 [[package]]
 name = "ltk_meta"
 version = "0.8.2"
-source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=1dee55fa2fc1bf95273a73e999fe3e37dc0b053c#1dee55fa2fc1bf95273a73e999fe3e37dc0b053c"
+source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=b800ad506d237c1c02128268389ceafaea7da281#b800ad506d237c1c02128268389ceafaea7da281"
 dependencies = [
  "byteorder",
  "enum_dispatch",
@@ -3311,7 +3311,7 @@ dependencies = [
 [[package]]
 name = "ltk_primitives"
 version = "0.3.5"
-source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=1dee55fa2fc1bf95273a73e999fe3e37dc0b053c#1dee55fa2fc1bf95273a73e999fe3e37dc0b053c"
+source = "git+https://github.com/LeagueToolkit/league-toolkit?rev=b800ad506d237c1c02128268389ceafaea7da281#b800ad506d237c1c02128268389ceafaea7da281"
 dependencies = [
  "byteorder",
  "glam",

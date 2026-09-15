@@ -182,7 +182,7 @@ impl ObjectRead for Resolvers<'_> {
         if map.kind() != Kind::Map {
             return Ok(());
         }
-        if let Some(keys) = map.item_count() {
+        if let Some(keys) = map.item_count()? {
             kept.keeps.push((object.object_hash(), keys));
         }
         Ok(())

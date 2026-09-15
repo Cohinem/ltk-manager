@@ -439,7 +439,7 @@ pub trait BinVisitor: Send + Sync {
 
 /// One instance's walk over one bin, over either tree.
 pub trait Walk<'f>:
-    for<'a> Visitor<'a, ValueView<'a>, Error = ltk_meta::Error>
+    for<'a> Visitor<'a, ViewValue<'a>, Error = ltk_meta::Error>
     + for<'a> Visitor<'a, &'a PropertyValueEnum, Error = ltk_meta::Error>
 {
     /// After the bin: the sink back, and anything the rule keeps across bins
@@ -457,7 +457,7 @@ The callbacks are the toolkit's ([`value-walk.md` section 5](https://github.com/
 and `exit_node` around every node, `enter_property` for every property, leaves included, and
 `exit_property` after each one descended. `Visit::Skip` from `enter_property` is the prune. A
 rule writes one generic implementation, `impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Check<'_>`,
-which satisfies both bounds of `Walk`, and never names `ValueView` or `PropertyValueEnum`
+which satisfies both bounds of `Walk`, and never names `ViewValue` or `PropertyValueEnum`
 (ADR-0020). The node is `ltk_meta::walk::Node`: `object_hash()` is the entry, `class_hash()`
 the class, `inner()` the properties, `trail()` where it is, `is_root()` whether it is the
 object itself.
@@ -594,7 +594,7 @@ visitor that wanted to be called per string item would not be a node visitor.
 ### <a id="s6.2"></a>6.2 The tree and the trail
 
 A visitor is written against `TreeValue` and `TreeNode` ([`value-walk.md` section 3](https://github.com/LeagueToolkit/league-toolkit/blob/main/docs/design/value-walk.md#s3))
-and runs over `ValueView` in the pass and over `&PropertyValueEnum` when a repair verifies its
+and runs over `ViewValue` in the pass and over `&PropertyValueEnum` when a repair verifies its
 work (ADR-0020). `walk::Declared` extends `TreeValue` with what a header declares and the tree
 traits leave to the tree: the item kind of a container or an optional, the key and value kinds
 of a map, the item count either declares, and the class a `Struct` or `Embedded` carries. A rule about a property's declared

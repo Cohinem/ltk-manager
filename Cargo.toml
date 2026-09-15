@@ -96,7 +96,7 @@ filetime = "0.2"
 # come from the same rev for the same reason. Move the pin to the release that
 # carries it.
 [patch.crates-io]
-ltk_meta = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "1dee55fa2fc1bf95273a73e999fe3e37dc0b053c" }
-ltk_hash = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "1dee55fa2fc1bf95273a73e999fe3e37dc0b053c" }
-ltk_io_ext = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "1dee55fa2fc1bf95273a73e999fe3e37dc0b053c" }
-ltk_primitives = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "1dee55fa2fc1bf95273a73e999fe3e37dc0b053c" }
+ltk_meta = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }
+ltk_hash = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }
+ltk_io_ext = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }
+ltk_primitives = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }

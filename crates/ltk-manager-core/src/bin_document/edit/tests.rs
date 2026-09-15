@@ -1,5 +1,5 @@
 //! Unit tests for a leaf edit and the delta save: every kind a patch sets, the refusals,
-//! the version and the untouched bytes a save keeps, and the store's gate.
+//! latest-format output, untouched object bytes, and the store's gate.
 
 use std::num::NonZeroUsize;
 
@@ -424,7 +424,7 @@ fn a_value_that_does_not_fit_is_refused_and_leaves_the_tree() {
 }
 
 #[test]
-fn a_save_keeps_the_version_and_every_untouched_byte() {
+fn a_save_writes_version_three_and_keeps_every_untouched_object() {
     let base = at_version(bytes_of(&bin()), 2);
     let (_dir, path) = layer_file(&base);
     let mut document = BinDocument::parse(base.clone()).unwrap();
@@ -437,8 +437,8 @@ fn a_save_keeps_the_version_and_every_untouched_byte() {
     let written = fs::read(&path).unwrap();
     assert_eq!(
         &written[4..8],
-        &2u32.to_le_bytes(),
-        "the version passes through"
+        &3u32.to_le_bytes(),
+        "saves use the latest format"
     );
     assert_eq!(
         object_bytes(&written, h(UNTOUCHED)),
@@ -466,6 +466,57 @@ fn a_second_save_writes_over_the_first() {
     let reread = BinDocument::parse(fs::read(&path).unwrap()).unwrap();
     let scale = &reread.object_at(edited()).unwrap().properties[&h("scale")];
     assert_eq!(scale, &values::F32::new(5.0).into());
+}
+
+#[test]
+fn a_version_one_save_writes_version_three() {
+    let source = Bin::new(
+        [BinObject::builder(edited(), h("Record"))
+            .property(h("scale"), values::F32::new(1.5))
+            .build()],
+        std::iter::empty::<&str>(),
+    );
+    let mut base = at_version(bytes_of(&source), 1);
+    base.drain(8..12);
+    let (_dir, path) = layer_file(&base);
+    let mut document = BinDocument::parse(base).unwrap();
+    document
+        .set_leaf(edited(), &field("scale"), LeafValue::Float { value: 4.0 })
+        .unwrap();
+    document.save_to(&path).unwrap();
+
+    let written = fs::read(&path).unwrap();
+    assert_eq!(&written[4..8], &3u32.to_le_bytes());
+    let reread = BinDocument::parse(written).unwrap();
+    assert_eq!(
+        reread.object_at(edited()).unwrap().properties[&h("scale")],
+        values::F32::new(4.0).into()
+    );
+    assert!(!document.is_dirty());
+}
+
+#[test]
+fn an_untouched_legacy_object_refuses_save_and_keeps_edits() {
+    let base = legacy_numbered_bytes_in(h(UNTOUCHED));
+    let (_dir, path) = layer_file(&base);
+    let mut document = BinDocument::parse(base.clone()).unwrap();
+    document
+        .set_leaf(edited(), &field("scale"), LeafValue::Float { value: 4.0 })
+        .unwrap();
+    let error = document.save_to(&path).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            AppError::BinDocument(BinDocumentError::Unwritable(_))
+        ),
+        "{error}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), base);
+    assert!(document.is_dirty());
+    assert_eq!(
+        document.object_at(edited()).unwrap().properties[&h("scale")],
+        values::F32::new(4.0).into()
+    );
 }
 
 #[test]
@@ -504,12 +555,22 @@ fn a_clean_document_writes_nothing() {
 
 /// A bin whose second property is a null pointer written with the legacy kind byte for
 /// `Struct`, beside a float a test edits.
-fn legacy_numbered_bytes() -> Vec<u8> {
-    let object = BinObject::builder(h(EDITED), h("Record"))
-        .property(h("scale"), values::F32::new(1.5))
-        .property(0x7777_0001u32, values::Struct::default())
-        .build();
-    let mut bytes = bytes_of(&Bin::new([object], std::iter::empty::<&str>()));
+fn legacy_numbered_bytes_in(pointer_entry: BinHash) -> Vec<u8> {
+    let mut objects: Vec<_> = [edited(), h(UNTOUCHED)]
+        .into_iter()
+        .map(|entry| {
+            BinObject::builder(entry, h("Record"))
+                .property(h("scale"), values::F32::new(1.5))
+                .build()
+        })
+        .collect();
+    objects
+        .iter_mut()
+        .find(|object| object.path_hash == pointer_entry)
+        .unwrap()
+        .properties
+        .insert(BinHash(0x7777_0001), values::Struct::default().into());
+    let mut bytes = bytes_of(&Bin::new(objects, std::iter::empty::<&str>()));
 
     let modern: u8 = ltk_meta::property::Kind::Struct.into();
     let marker = 0x7777_0001u32.to_le_bytes();
@@ -523,22 +584,27 @@ fn legacy_numbered_bytes() -> Vec<u8> {
 }
 
 #[test]
-fn a_legacy_numbered_base_saves_whole() {
-    let base = legacy_numbered_bytes();
+fn a_legacy_numbered_base_refuses_save_and_keeps_edits() {
+    let base = legacy_numbered_bytes_in(edited());
     let (_dir, path) = layer_file(&base);
-    let mut document = BinDocument::parse(base).unwrap();
+    let mut document = BinDocument::parse(base.clone()).unwrap();
 
     document
         .set_leaf(edited(), &field("scale"), LeafValue::Float { value: 4.0 })
         .unwrap();
-    document.save_to(&path).unwrap();
-
-    let reread = BinDocument::parse(fs::read(&path).unwrap()).unwrap();
-    let object = reread.object_at(edited()).unwrap();
-    assert_eq!(object.properties[&h("scale")], values::F32::new(4.0).into());
+    let error = document.save_to(&path).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            AppError::BinDocument(BinDocumentError::Unwritable(_))
+        ),
+        "{error}"
+    );
+    assert_eq!(fs::read(&path).unwrap(), base);
+    assert!(document.is_dirty());
     assert_eq!(
-        object.properties[&BinHash(0x7777_0001)],
-        values::Struct::default().into()
+        document.object_at(edited()).unwrap().properties[&h("scale")],
+        values::F32::new(4.0).into()
     );
 }
 

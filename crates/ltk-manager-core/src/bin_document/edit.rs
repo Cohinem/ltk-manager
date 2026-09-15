@@ -402,8 +402,6 @@ impl BinDocument {
     }
 
     /// The file as a save writes it: every touched object over the base.
-    ///
-    /// A base whose touched objects read under the legacy numbering is transcoded whole.
     fn encode(&self) -> Result<Vec<u8>, BinDocumentError> {
         let BinFile::Prop(bin) = &self.file else {
             return Err(BinDocumentError::ReadOnly(ReadOnly::Patch));
@@ -412,26 +410,13 @@ impl BinDocument {
 
         let mut stream =
             BinStream::<_, NoMeta>::mount(Cursor::new(self.base.as_slice())).map_err(unwritable)?;
-        let mut batch = stream.objects_batch(self.touched.iter().copied());
-        while let Some(mut object) = batch.next().map_err(unwritable)? {
-            object.read().map_err(unwritable)?;
-        }
-
-        let mut out = Cursor::new(Vec::with_capacity(self.base.len()));
-        if stream.numbering().is_legacy() {
-            bin.to_writer(&mut out)
-                .map_err(|error| unwritable(error.into()))?;
-            return Ok(out.into_inner());
-        }
-
+        let mut out = Vec::with_capacity(self.base.len());
         let mut delta = BinDelta::new();
         for object in self.touched.iter().filter_map(|hash| bin.objects.get(hash)) {
             delta.replace(object.clone());
         }
-        stream
-            .write_patched(&delta, out.get_mut())
-            .map_err(unwritable)?;
-        Ok(out.into_inner())
+        stream.write_patched(&delta, &mut out).map_err(unwritable)?;
+        Ok(out)
     }
 }
 

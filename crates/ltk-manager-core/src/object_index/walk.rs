@@ -9,7 +9,7 @@ use std::io::Cursor;
 use ltk_hash::BinHash;
 use ltk_meta::property::{Kind, NoMeta};
 use ltk_meta::stream::BinStream;
-use ltk_meta::walk::{Child, Leaf, OwnedNode, TreeNode, TreeValue};
+use ltk_meta::walk::{Child, Leaf, Node, OwnedNode, TreeNode, TreeValue, Visit, Visitor};
 use ltk_meta::{BinOverride, Error, PropertyValueEnum};
 
 use super::build::PATCH_MAGIC;
@@ -108,14 +108,7 @@ pub(super) fn scan_bin(
     while let Some(mut object) = objects.next()? {
         let view = object.view()?;
         let mut scan = Scan::new(target, view.path_hash(), view.class_hash(), hits);
-        for property in view.properties() {
-            let property = property?;
-            scan.property(
-                view.class_hash(),
-                property.name_hash(),
-                property.value_view()?,
-            )?;
-        }
+        view.walk(&mut scan)?;
     }
     Ok(())
 }
@@ -160,6 +153,20 @@ enum Step<V> {
 enum KeyId {
     Hash(BinHash),
     Text(String),
+}
+
+impl<'a, V: Declared<'a>> Visitor<'a, V> for Scan<'_, V> {
+    type Error = Error;
+
+    fn enter_property(
+        &mut self,
+        field: BinHash,
+        value: V,
+        node: &Node<'_, 'a, V>,
+    ) -> Result<Visit, Error> {
+        self.property(node.class_hash(), field, value)?;
+        Ok(Visit::Skip)
+    }
 }
 
 impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
@@ -220,7 +227,7 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
     }
 
     fn items(&mut self, value: V) -> Result<(), Error> {
-        let Some(item_kind) = value.item_kind() else {
+        let Some(item_kind) = value.item_kind()? else {
             return Ok(());
         };
         if !self.target.reaches(item_kind) {
@@ -245,10 +252,10 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
 
     fn entries(&mut self, value: V) -> Result<(), Error> {
         let keyed = value
-            .key_kind()
+            .key_kind()?
             .is_some_and(|kind| self.target.reaches(kind));
         let valued = value
-            .item_kind()
+            .item_kind()?
             .is_some_and(|kind| self.target.reaches(kind));
         if !keyed && !valued {
             return Ok(());

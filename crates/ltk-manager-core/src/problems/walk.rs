@@ -12,7 +12,9 @@ use std::fmt::Write as _;
 use ltk_hash::BinHash;
 use ltk_meta::property::Kind;
 use ltk_meta::stream::ValueView;
-use ltk_meta::walk::{Leaf, Trail, TrailStep, TreeValue, Visitor, WalkOutcome};
+use ltk_meta::walk::{
+    Leaf, Trail, TrailStep, TreeKind, TreeValue, ViewValue, Visitor, WalkOutcome,
+};
 use ltk_meta::{BinFile, PropertyValueEnum};
 
 /// Walk a bin of either kind: a `PROP`'s objects, or the objects a `PTCH` carries.
@@ -39,105 +41,140 @@ where
 /// over either tree.
 pub trait Declared<'a>: TreeValue<'a> {
     /// The item kind of a container or an optional, and the value kind of a map.
-    fn item_kind(&self) -> Option<Kind>;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn item_kind(&self) -> Result<Option<Kind>, ltk_meta::Error>;
 
     /// The key kind of a map.
-    fn key_kind(&self) -> Option<Kind>;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn key_kind(&self) -> Result<Option<Kind>, ltk_meta::Error>;
 
     /// The class a `Struct` or `Embedded` carries, which is 0 for a null pointer.
-    fn class_hash(&self) -> Option<BinHash>;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn class_hash(&self) -> Result<Option<BinHash>, ltk_meta::Error>;
 
     /// Whether this is an option whose header says it holds nothing.
     ///
     /// An option writes its item kind and its count apart, so an empty one
     /// still declares the type it would hold. False for every other kind.
-    fn is_empty_option(&self) -> bool;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn is_empty_option(&self) -> Result<bool, ltk_meta::Error>;
 
     /// How many items a container or a map declares, and 1 or 0 for an
     /// optional. `None` for a leaf and for a node.
-    fn item_count(&self) -> Option<usize>;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn item_count(&self) -> Result<Option<usize>, ltk_meta::Error>;
 }
 
 impl<'a, M> Declared<'a> for &'a PropertyValueEnum<M> {
-    fn item_kind(&self) -> Option<Kind> {
-        match self {
+    fn item_kind(&self) -> Result<Option<Kind>, ltk_meta::Error> {
+        Ok(match self {
             PropertyValueEnum::Container(items) => Some(items.item_kind()),
             PropertyValueEnum::UnorderedContainer(items) => Some(items.0.item_kind()),
             PropertyValueEnum::Optional(optional) => Some(optional.item_kind()),
             PropertyValueEnum::Map(map) => Some(map.value_kind()),
             _ => None,
-        }
+        })
     }
 
-    fn key_kind(&self) -> Option<Kind> {
-        match self {
+    fn key_kind(&self) -> Result<Option<Kind>, ltk_meta::Error> {
+        Ok(match self {
             PropertyValueEnum::Map(map) => Some(map.key_kind()),
             _ => None,
-        }
+        })
     }
 
-    fn class_hash(&self) -> Option<BinHash> {
-        match self {
+    fn class_hash(&self) -> Result<Option<BinHash>, ltk_meta::Error> {
+        Ok(match self {
             PropertyValueEnum::Struct(object) => Some(object.class_hash),
             PropertyValueEnum::Embedded(object) => Some(object.0.class_hash),
             _ => None,
-        }
+        })
     }
 
-    fn is_empty_option(&self) -> bool {
-        matches!(self, PropertyValueEnum::Optional(optional) if optional.is_none())
+    fn is_empty_option(&self) -> Result<bool, ltk_meta::Error> {
+        Ok(matches!(self, PropertyValueEnum::Optional(optional) if optional.is_none()))
     }
 
-    fn item_count(&self) -> Option<usize> {
-        match self {
+    fn item_count(&self) -> Result<Option<usize>, ltk_meta::Error> {
+        Ok(match self {
             PropertyValueEnum::Container(items) => Some(items.len()),
             PropertyValueEnum::UnorderedContainer(items) => Some(items.0.len()),
             PropertyValueEnum::Optional(optional) => Some(usize::from(optional.is_some())),
             PropertyValueEnum::Map(map) => Some(map.entries().len()),
             _ => None,
-        }
+        })
     }
 }
 
-impl<'a, M: Default> Declared<'a> for ValueView<'a, M> {
-    fn item_kind(&self) -> Option<Kind> {
-        match self {
+impl<'a, M: Default> Declared<'a> for ViewValue<'a, M> {
+    fn item_kind(&self) -> Result<Option<Kind>, ltk_meta::Error> {
+        if !self.kind().is_container() {
+            return Ok(None);
+        }
+        Ok(match self.value_view()? {
             ValueView::Container(items) | ValueView::UnorderedContainer(items) => {
                 Some(items.item_kind())
             }
             ValueView::Optional(optional) => Some(optional.item_kind()),
             ValueView::Map(map) => Some(map.value_kind()),
             _ => None,
-        }
+        })
     }
 
-    fn key_kind(&self) -> Option<Kind> {
-        match self {
+    fn key_kind(&self) -> Result<Option<Kind>, ltk_meta::Error> {
+        if self.kind() != Kind::Map {
+            return Ok(None);
+        }
+        Ok(match self.value_view()? {
             ValueView::Map(map) => Some(map.key_kind()),
             _ => None,
-        }
+        })
     }
 
-    fn class_hash(&self) -> Option<BinHash> {
-        match self {
+    fn class_hash(&self) -> Result<Option<BinHash>, ltk_meta::Error> {
+        if !self.kind().is_node() {
+            return Ok(None);
+        }
+        Ok(match self.value_view()? {
             ValueView::Struct(object) | ValueView::Embedded(object) => Some(object.class_hash()),
             _ => None,
+        })
+    }
+
+    fn is_empty_option(&self) -> Result<bool, ltk_meta::Error> {
+        if self.kind() != Kind::Optional {
+            return Ok(false);
         }
+        Ok(matches!(self.value_view()?, ValueView::Optional(optional) if optional.is_none()))
     }
 
-    fn is_empty_option(&self) -> bool {
-        matches!(self, ValueView::Optional(optional) if optional.is_none())
-    }
-
-    fn item_count(&self) -> Option<usize> {
-        match self {
+    fn item_count(&self) -> Result<Option<usize>, ltk_meta::Error> {
+        if !self.kind().is_container() {
+            return Ok(None);
+        }
+        Ok(match self.value_view()? {
             ValueView::Container(items) | ValueView::UnorderedContainer(items) => {
                 Some(items.len() as usize)
             }
             ValueView::Optional(optional) => Some(usize::from(!optional.is_none())),
             ValueView::Map(map) => Some(map.len() as usize),
             _ => None,
-        }
+        })
     }
 }
 

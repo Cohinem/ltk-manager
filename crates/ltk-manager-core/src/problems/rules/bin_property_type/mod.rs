@@ -252,32 +252,27 @@ enum Unrepaired {
 /// Repair the addressed properties of one bin's bytes.
 ///
 /// A `PROP` bin is written back through a delta, so only the addressed objects
-/// decode and every other object keeps its bytes. A `PTCH` bin, and a `PROP`
-/// read under the legacy numbering a delta refuses, are transcoded whole.
+/// decode into owned values. Every base object is validated before output.
+/// A `PTCH` bin is transcoded whole.
 fn repair_file(
     bytes: &[u8],
     addressed: &HashMap<BinHash, HashSet<&str>>,
     lens: Lens<'_>,
     kept: &mut PreservedNames<'_>,
 ) -> Result<Repaired, Unrepaired> {
-    if BinKind::identify_from_bytes(bytes) == Some(BinKind::Prop)
-        && let Some(repaired) = repair_prop(bytes, addressed, lens, kept)?
-    {
-        return Ok(repaired);
+    if BinKind::identify_from_bytes(bytes) == Some(BinKind::Prop) {
+        return repair_prop(bytes, addressed, lens, kept);
     }
     repair_whole(bytes, addressed, lens, kept)
 }
 
 /// [`repair_file`] over a `PROP` bin, through `BinStream::write_patched`.
-///
-/// `None`, before any edit, for a bin whose addressed objects read under the
-/// legacy numbering a delta refuses.
 fn repair_prop(
     bytes: &[u8],
     addressed: &HashMap<BinHash, HashSet<&str>>,
     lens: Lens<'_>,
     kept: &mut PreservedNames<'_>,
-) -> Result<Option<Repaired>, Unrepaired> {
+) -> Result<Repaired, Unrepaired> {
     let parse = |error: ltk_meta::Error| Unrepaired::Parse(error.to_string());
     let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(bytes)).map_err(parse)?;
 
@@ -285,9 +280,6 @@ fn repair_prop(
     let mut batch = stream.objects_batch(addressed.keys().copied());
     while let Some(mut object) = batch.next().map_err(parse)? {
         objects.push(object.read().map_err(parse)?);
-    }
-    if stream.numbering().is_legacy() {
-        return Ok(None);
     }
 
     let mut repaired = Repaired::default();
@@ -309,7 +301,7 @@ fn repair_prop(
             .map_err(|error| Unrepaired::Write(std::io::Error::other(error)))?;
         repaired.bytes = Some(out);
     }
-    Ok(Some(repaired))
+    Ok(repaired)
 }
 
 /// [`repair_file`] over the whole parsed tree, transcoded back.
@@ -512,7 +504,7 @@ impl Lens<'_> {
             answered = Some(build);
             if !TypeSpec::from(shape).matches(value)? {
                 return Ok(Some(Objection {
-                    migration: Cow::Owned(derived(class, field, expected, value)),
+                    migration: Cow::Owned(derived(class, field, expected, value)?),
                     build,
                 }));
             }
@@ -607,18 +599,18 @@ fn derived<'a>(
     field: BinHash,
     expected: meta_schema::Expected<'_>,
     value: impl Declared<'a>,
-) -> Migration {
+) -> Result<Migration, ltk_meta::Error> {
     let to = TypeSpec::from(
         expected
             .shape
             .expect("a mismatch needs a type to disagree with"),
     );
-    let from = TypeSpec::of(value);
+    let from = TypeSpec::of(value)?;
     let conversion = match Conversion::between(&from, &to) {
-        Conversion::Unknown if retags_an_empty_option(&to, value) => Conversion::EmptyOption,
+        Conversion::Unknown if retags_an_empty_option(&to, value)? => Conversion::EmptyOption,
         crossed => crossed,
     };
-    Migration {
+    Ok(Migration {
         class,
         field,
         class_name: expected.class_name.map(str::to_owned),
@@ -626,7 +618,7 @@ fn derived<'a>(
         conversion,
         from,
         to,
-    }
+    })
 }
 
 /// Whether the whole of this repair is the item type an empty option declares.
@@ -635,8 +627,11 @@ fn derived<'a>(
 /// here rather than in [`Conversion::between`]: two item types with no road
 /// between them still cross when there is no value under them to carry. The new
 /// item type has to be named for there to be anything to write.
-fn retags_an_empty_option<'a>(to: &TypeSpec, value: impl Declared<'a>) -> bool {
-    to.kind == Kind::Optional && to.value.is_some() && value.is_empty_option()
+fn retags_an_empty_option<'a>(
+    to: &TypeSpec,
+    value: impl Declared<'a>,
+) -> Result<bool, ltk_meta::Error> {
+    Ok(to.kind == Kind::Optional && to.value.is_some() && value.is_empty_option()?)
 }
 
 /// Every property of one bin a table objects to.

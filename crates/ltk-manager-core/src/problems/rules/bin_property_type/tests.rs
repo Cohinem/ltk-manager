@@ -855,6 +855,14 @@ fn fix_bytes(bytes: &[u8]) -> (Applied, Vec<u8>) {
 }
 
 fn fix_bytes_on(bytes: &[u8], installed: Option<GameBuild>) -> (Applied, Vec<u8>) {
+    let (applied, written) = try_fix_bytes_on(bytes, installed);
+    (applied.unwrap(), written)
+}
+
+fn try_fix_bytes_on(
+    bytes: &[u8],
+    installed: Option<GameBuild>,
+) -> (Result<Applied, FixError>, Vec<u8>) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
     fs::create_dir_all(&dir).unwrap();
@@ -874,7 +882,7 @@ fn fix_bytes_on(bytes: &[u8], installed: Option<GameBuild>) -> (Applied, Vec<u8>
         config,
         None,
     );
-    let applied = rule.fix(&borrowed, &mut run).unwrap();
+    let applied = rule.fix(&borrowed, &mut run);
     run.finish().unwrap();
 
     (applied, fs::read(&file).unwrap())
@@ -896,11 +904,8 @@ fn object_bytes(bytes: &[u8]) -> Vec<(BinHash, Vec<u8>)> {
         .collect()
 }
 
-/// A repair writes back only the object it converted. The version the file
-/// declared and every other object's bytes are the ones it held, which a
-/// whole-file transcode at version 3 would not keep.
 #[test]
-fn a_fix_keeps_the_version_and_every_object_it_did_not_convert() {
+fn a_fix_writes_version_three_and_keeps_every_untouched_object() {
     const OTHER: BinHash = BinHash(0x8765_4321);
     let bin = Bin::new(
         [
@@ -921,8 +926,8 @@ fn a_fix_keeps_the_version_and_every_object_it_did_not_convert() {
 
     assert_eq!(
         written[4..8],
-        2u32.to_le_bytes(),
-        "the version passes through"
+        3u32.to_le_bytes(),
+        "repairs use the latest format"
     );
     let before = object_bytes(&bytes);
     let after = object_bytes(&written);
@@ -962,10 +967,8 @@ fn a_fix_repairs_a_patch_bin() {
     );
 }
 
-/// A delta refuses a bin read under the legacy kind numbering, so that bin is
-/// transcoded whole.
 #[test]
-fn a_fix_transcodes_a_bin_read_under_the_legacy_numbering() {
+fn a_fix_refuses_legacy_numbering_and_keeps_the_file() {
     let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
         .property(ICON_AVATAR, text(ICON))
         .property(BinHash(0x0000_3333), values::Struct::default())
@@ -980,15 +983,9 @@ fn a_fix_transcodes_a_bin_read_under_the_legacy_numbering() {
     stream.object(ENTRY).unwrap().unwrap().read().unwrap();
     assert!(stream.numbering().is_legacy(), "the fixture latches");
 
-    let (applied, written) = fix_bytes(&bytes);
-    assert_eq!(applied.applied, 1);
-
-    let written = read_bin_bytes(&written).unwrap();
-    let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
-    assert!(
-        matches!(value, PropertyValueEnum::WadChunkLink(_)),
-        "{value:?}"
-    );
+    let (applied, written) = try_fix_bytes_on(&bytes, None);
+    assert!(matches!(applied, Err(FixError::File { .. })));
+    assert_eq!(written, bytes);
 }
 
 #[test]
@@ -1975,7 +1972,7 @@ fn schema_migration(
     let expected = schema
         .expected(class, field, build)
         .unwrap_or_else(|| panic!("the shipped database names {class:#010x}:{field:#010x}"));
-    derived(class, field, expected, value)
+    derived(class, field, expected, value).unwrap()
 }
 
 /// Story: a mod holds its icons as a `List2` of paths and 16.18 reads a `List`

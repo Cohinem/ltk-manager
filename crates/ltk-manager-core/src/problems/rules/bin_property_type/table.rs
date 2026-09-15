@@ -234,12 +234,15 @@ impl TypeSpec {
 
     /// The type `value` is written as, which is the `from` side of a
     /// schema-derived row.
-    #[must_use]
-    pub fn of<'a>(value: impl Declared<'a>) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    pub fn of<'a>(value: impl Declared<'a>) -> Result<Self, ltk_meta::Error> {
         let mut spec = Self::bare(value.kind());
-        spec.key = value.key_kind();
-        spec.value = value.item_kind();
-        spec
+        spec.key = value.key_kind()?;
+        spec.value = value.item_kind()?;
+        Ok(spec)
     }
 
     /// Whether `value` is declared as this type, over either tree.
@@ -256,17 +259,13 @@ impl TypeSpec {
         }
         Ok(match value.kind() {
             Kind::Container | Kind::UnorderedContainer => self.matches_items(value)?,
-            Kind::Optional => self
-                .value
-                .is_none_or(|item| value.item_kind() == Some(item)),
+            Kind::Optional => self.value.is_none() || value.item_kind()? == self.value,
             Kind::Map => {
-                self.key.is_none_or(|key| value.key_kind() == Some(key))
-                    && self
-                        .value
-                        .is_none_or(|item| value.item_kind() == Some(item))
+                (self.key.is_none() || value.key_kind()? == self.key)
+                    && (self.value.is_none() || value.item_kind()? == self.value)
             }
             Kind::Struct | Kind::Embedded => value
-                .class_hash()
+                .class_hash()?
                 .is_some_and(|class| self.matches_class(class)),
             _ => true,
         })
@@ -277,21 +276,18 @@ impl TypeSpec {
     /// An empty container matches, because a container holding nothing holds
     /// nothing of the wrong class.
     fn matches_items<'a>(&self, container: impl Declared<'a>) -> Result<bool, ltk_meta::Error> {
-        if self
-            .value
-            .is_some_and(|item| container.item_kind() != Some(item))
-        {
+        if self.value.is_some() && container.item_kind()? != self.value {
             return Ok(false);
         }
         let Some(class) = self.class else {
             return Ok(true);
         };
-        if !matches!(container.item_kind(), Some(Kind::Struct | Kind::Embedded)) {
+        if !matches!(container.item_kind()?, Some(Kind::Struct | Kind::Embedded)) {
             return Ok(false);
         }
         for held in container.children()? {
             let (_, item) = held?;
-            if item.class_hash() != Some(class) {
+            if item.class_hash()? != Some(class) {
                 return Ok(false);
             }
         }

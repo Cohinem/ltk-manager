@@ -269,9 +269,15 @@ impl TableSet {
             }
             let times = table.property(KEY_TIMES)?;
             let factors = table.property(KEY_VALUES)?;
-            let counted = |list: Option<V>| list.and_then(|each| each.item_count()).unwrap_or(0);
-            let chances = counted(times);
-            if chances > 0 && chances != counted(factors) {
+            let counted = |list: Option<V>| -> Result<usize, ltk_meta::Error> {
+                Ok(list
+                    .map(|each| each.item_count())
+                    .transpose()?
+                    .flatten()
+                    .unwrap_or(0))
+            };
+            let chances = counted(times)?;
+            if chances > 0 && chances != counted(factors)? {
                 set.mismatched += 1;
             } else if let Some(factors) = factors {
                 set.random |= varies(factors)?;

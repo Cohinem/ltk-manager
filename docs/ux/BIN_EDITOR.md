@@ -2239,12 +2239,12 @@ A tab closed with an edit still waiting on the debounce saves it before the clos
 
 ### The version-3 write
 
-`Bin::to_writer` writes version 3 whatever version it read. `write_patched` writes the version
-the base mounted, and a delta save keeps the file's version.
+A save writes version 3, including when the file opened as version 1 or 2. Objects with no
+edits keep their bytes.
 
-A base latched onto the legacy kind numbering refuses a delta. The save transcodes that file whole
-through `Bin::to_writer`, as the problems repair does, and a version 1 or 2 file of that kind comes
-back as version 3. No shipped file latches.
+A save validates every base object's structure before output. Legacy kind numbering refuses
+the save, including in an object replaced by an edit. A failed save keeps the file on disk and
+the document's unsaved edits.
 
 ### Undo
 
