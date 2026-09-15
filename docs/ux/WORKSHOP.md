@@ -501,22 +501,22 @@ the grid. The root's handler is the half to drop: a page that wants the key shou
 way the bar and the game search both do, through a store of its own rather than through a
 selector over the whole document.
 
-| Piece            | Where                                                  |
-| ---------------- | ------------------------------------------------------ |
-| The shell        | `src/routes/workshop.tsx`                              |
-| The grid route   | `src/routes/workshop/index.tsx`                        |
-| The header       | `src/modules/workshop/components/WorkshopHeader.tsx`   |
-| The grid's slots | `src/modules/workshop/components/WorkshopControls.tsx` |
-| The bar          | `src/modules/workshop/palette/WorkshopBar.tsx`         |
-| The mode         | `src/modules/workshop/palette/barMode.ts`              |
-| The sources      | `src/modules/workshop/palette/sources.ts`              |
-| Project rows     | `src/modules/workshop/palette/projectRows.tsx`         |
-| The grid         | `src/modules/workshop/components/ProjectGrid.tsx`      |
-| Its keyboard     | `src/modules/workshop/hooks/useProjectGridNav.ts`      |
-| The arrow walk   | `src/modules/workshop/utils/gridNav.ts`                |
-| The history      | `src/stores/workshopEditor.ts`                         |
-| Its hooks        | `src/modules/workshop/state/useShellHistory.ts`        |
-| The grid filter  | `src/modules/workshop/api/useFilteredProjects.ts`      |
+| Piece            | Where                                                           |
+| ---------------- | --------------------------------------------------------------- |
+| The shell        | `src/routes/workshop.tsx`                                       |
+| The grid route   | `src/routes/workshop/index.tsx`                                 |
+| The header       | `src/modules/workshop/projects/components/WorkshopHeader.tsx`   |
+| The grid's slots | `src/modules/workshop/projects/components/WorkshopControls.tsx` |
+| The bar          | `src/modules/workshop/palette/components/WorkshopBar.tsx`       |
+| The mode         | `src/modules/workshop/palette/utils/barMode.ts`                 |
+| The sources      | `src/modules/workshop/palette/utils/sources.ts`                 |
+| Project rows     | `src/modules/workshop/palette/components/projectRows.tsx`       |
+| The grid         | `src/modules/workshop/projects/components/ProjectGrid.tsx`      |
+| Its keyboard     | `src/modules/workshop/projects/hooks/useProjectGridNav.ts`      |
+| The arrow walk   | `src/modules/workshop/shared/utils/gridNav.ts`                  |
+| The history      | `src/stores/workshopEditor.ts`                                  |
+| Its hooks        | `src/modules/workshop/shell/hooks/useShellHistory.ts`           |
+| The grid filter  | `src/modules/workshop/projects/hooks/useFilteredProjects.ts`    |
 
 ## Ideas for review
 

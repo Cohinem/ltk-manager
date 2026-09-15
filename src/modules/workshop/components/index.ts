@@ -1,20 +1,26 @@
-export { BulkDeleteDialog } from "./BulkDeleteDialog";
-export { BulkPackDialog } from "./BulkPackDialog";
-export { ContentBrowser } from "./ContentBrowser";
-export { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+export { ImportFantomeDialog } from "../imports/components/ImportFantomeDialog";
+export { ImportGitRepoDialog } from "../imports/components/ImportGitRepoDialog";
+export { LayerFileDropOverlay } from "../layers/components/LayerFileDropOverlay";
+export { BulkPackDialog } from "../packing/components/BulkPackDialog";
+export { PackDialog } from "../packing/components/PackDialog";
+export { BulkDeleteDialog } from "../projects/components/BulkDeleteDialog";
+export { DeleteConfirmDialog } from "../projects/components/DeleteConfirmDialog";
 export {
   ErrorState,
   LoadingState,
   NoProjectsState,
   NoSearchResultsState,
   NotConfiguredState,
-} from "./EmptyStates";
-export { ImportFantomeDialog } from "./ImportFantomeDialog";
-export { ImportGitRepoDialog } from "./ImportGitRepoDialog";
-export { LayerFileDropOverlay } from "./LayerFileDropOverlay";
-export { LeafProvider, useLeafId } from "./LeafContext";
-export { NewProjectDialog } from "./NewProjectDialog";
-export { ObjectGlyph, type ObjectIcon, objectIcon } from "./ObjectGlyph";
+} from "../projects/components/EmptyStates";
+export { NewProjectDialog } from "../projects/components/NewProjectDialog";
+export { ProjectActions } from "../projects/components/ProjectActions";
+export { ProjectCard } from "../projects/components/ProjectCard";
+export * from "../projects/components/ProjectCardMenuItems";
+export { ProjectGrid } from "../projects/components/ProjectGrid";
+export * from "../projects/components/RenameProjectDialog";
+export { WorkshopActiveFilterChips } from "../projects/components/WorkshopActiveFilterChips";
+export { WorkshopFilterPopover } from "../projects/components/WorkshopFilterPopover";
+export { WorkshopHeader } from "../projects/components/WorkshopHeader";
 export {
   appendAuthor,
   AuthorsSection,
@@ -25,15 +31,13 @@ export {
   removeAuthorAt,
   ThumbnailSection,
   updateAuthorAt,
-} from "./overview";
-export { PackDialog } from "./PackDialog";
-export { ProjectActions } from "./ProjectActions";
-export { ProjectCard } from "./ProjectCard";
-export * from "./ProjectCardMenuItems";
-export { ProjectProvider, useOptionalProjectContext, useProjectContext } from "./ProjectContext";
-export { ProjectGrid } from "./ProjectGrid";
-export * from "./RenameProjectDialog";
-export { SessionProjectNames } from "./SessionProjectNames";
+} from "../projects/details";
+export {
+  ProjectProvider,
+  useOptionalProjectContext,
+  useProjectContext,
+} from "../projects/state/ProjectContext";
+export { ObjectGlyph, type ObjectIcon, objectIcon } from "../shared/components/ObjectGlyph";
 export {
   CaretSlot,
   FolderGlyph,
@@ -41,9 +45,9 @@ export {
   TREE_ROW_BASE_CLASSES,
   TREE_ROW_STATE_CLASSES,
   TreeLoadingRow,
-} from "./TreeRowParts";
-export { TreeSearchBox } from "./TreeSearchBox";
-export { WorkshopActiveFilterChips } from "./WorkshopActiveFilterChips";
-export { WorkshopDialogs } from "./WorkshopDialogs";
-export { WorkshopFilterPopover } from "./WorkshopFilterPopover";
-export { WorkshopHeader } from "./WorkshopHeader";
+} from "../shared/components/TreeRowParts";
+export { TreeSearchBox } from "../shared/components/TreeSearchBox";
+export { ContentBrowser } from "../shell/components/ContentBrowser";
+export { WorkshopDialogs } from "../shell/components/WorkshopDialogs";
+export { LeafProvider, useLeafId } from "../shell/state/LeafContext";
+export { SessionProjectNames } from "../testing/components/SessionProjectNames";

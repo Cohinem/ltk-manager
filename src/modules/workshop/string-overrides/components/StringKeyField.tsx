@@ -3,7 +3,7 @@ import { type Ref, useState } from "react";
 import { Combobox, Field } from "@/components";
 import type { StringKeySuggestion } from "@/lib/tauri";
 
-import { useStringKeySearch } from "../../api/useStringKeySearch";
+import { useStringKeySearch } from "../api/useStringKeySearch";
 
 interface StringKeyFieldProps {
   value: string;

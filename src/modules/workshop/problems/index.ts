@@ -1,4 +1,9 @@
-export { AheadToggle } from "./AheadToggle";
+export { AheadToggle } from "./components/AheadToggle";
+export { ProblemsActions } from "./components/ProblemsActions";
+export { ProblemsBadge } from "./components/ProblemsBadge";
+export { ProblemsCount } from "./components/ProblemsCount";
+export { ProblemsDocument } from "./components/ProblemsDocument";
+export { ProblemsList } from "./components/ProblemsList";
 export {
   countBySeverity,
   filterProblems,
@@ -9,9 +14,4 @@ export {
   type ProblemRow as ProblemRowData,
   type SeverityCounts,
   splitWadPath,
-} from "./problemGroups";
-export { ProblemsActions } from "./ProblemsActions";
-export { ProblemsBadge } from "./ProblemsBadge";
-export { ProblemsCount } from "./ProblemsCount";
-export { ProblemsDocument } from "./ProblemsDocument";
-export { ProblemsList } from "./ProblemsList";
+} from "./utils/problemGroups";

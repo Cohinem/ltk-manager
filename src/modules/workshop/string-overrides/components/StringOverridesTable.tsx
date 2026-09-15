@@ -5,7 +5,7 @@ import { IconButton, TextareaField, Tooltip } from "@/components";
 import type { StringKeySuggestion } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import type { OverrideEntry, OverrideEntryField } from "../types";
+import type { OverrideEntry, OverrideEntryField } from "../model/types";
 import { StringKeyField } from "./StringKeyField";
 
 interface StringOverridesTableProps {

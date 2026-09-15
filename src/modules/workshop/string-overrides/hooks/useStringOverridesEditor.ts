@@ -4,10 +4,10 @@ import { useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { StringKeySuggestion, WorkshopProject } from "@/lib/tauri";
 
-import { useSaveStringOverrides } from "../../api/useSaveStringOverrides";
-import { useProjectContext } from "../../components/ProjectContext";
-import { serializeDraft, validateEntries } from "../draft";
-import type { OverrideEntry, OverrideEntryField, OverrideSaveState } from "../types";
+import { useProjectContext } from "../../projects/state/ProjectContext";
+import { useSaveStringOverrides } from "../api/useSaveStringOverrides";
+import type { OverrideEntry, OverrideEntryField, OverrideSaveState } from "../model/types";
+import { serializeDraft, validateEntries } from "../utils/draft";
 
 /* Long enough to batch a burst of composer commits, short enough that the
    work is on disk before the author thinks to wonder. */

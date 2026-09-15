@@ -1,5 +1,9 @@
-export { ObjectsDocument } from "./ObjectsDocument";
-export { ObjectsTree } from "./ObjectsTree";
+export { objectKeys, useObjectDir, useObjectDirs } from "./api/useObjectDir";
+export { useObjectFind } from "./api/useObjectFind";
+export { ObjectsDocument } from "./components/ObjectsDocument";
+export { ObjectsTree } from "./components/ObjectsTree";
+export { declarationOf, useOpenObjectNode } from "./hooks/useOpenObjectNode";
+export { useRevealInObjects } from "./hooks/useRevealInObjects";
 export {
   type Activation,
   activation,
@@ -23,8 +27,4 @@ export {
   type ObjectTreeRow,
   rangesInName,
   UNNAMED_PREFIX,
-} from "./objectTree";
-export { objectKeys, useObjectDir, useObjectDirs } from "./useObjectDir";
-export { useObjectFind } from "./useObjectFind";
-export { declarationOf, useOpenObjectNode } from "./useOpenObjectNode";
-export { useRevealInObjects } from "./useRevealInObjects";
+} from "./utils/objectTree";

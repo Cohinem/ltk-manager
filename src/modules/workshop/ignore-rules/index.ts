@@ -1,3 +1,6 @@
+export { IgnoreRulesDocument } from "./components/IgnoreRulesDocument";
+export { type RuleSubject, useIgnoreRowActions } from "./hooks/useIgnoreRowActions";
+export { type IgnoreRuleProblem, useIgnoreRulesEditor } from "./hooks/useIgnoreRulesEditor";
 export {
   appendIgnoreLine,
   extensionIgnoreLine,
@@ -7,7 +10,4 @@ export {
   isOwnLine,
   MODIGNORE_FILE_NAME,
   removeIgnoreLine,
-} from "./ignoreLine";
-export { IgnoreRulesDocument } from "./IgnoreRulesDocument";
-export { type RuleSubject, useIgnoreRowActions } from "./useIgnoreRowActions";
-export { type IgnoreRuleProblem, useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
+} from "./utils/ignoreLine";

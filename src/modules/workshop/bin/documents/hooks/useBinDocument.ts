@@ -1,0 +1,225 @@
+import {
+  keepPreviousData,
+  queryOptions,
+  skipToken,
+  useQueries,
+  useQuery,
+  type UseQueryOptions,
+} from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import {
+  api,
+  type AddableFields,
+  type AppError,
+  type AssetRef,
+  type BinDocumentHandle,
+  type BinDocumentId,
+  type BinFindResult,
+  type BinRow,
+  type BinRows,
+  type ClassChoice,
+} from "@/lib/tauri";
+import { unwrapForQuery } from "@/utils/query";
+
+import { assetKey } from "../../../preview/utils/assetRef";
+import { flushBinSave, isQueuedThrough } from "../../../state";
+import { type LoadedChildren, mergePages, PAGE_SIZE, splitKey } from "../../tree/utils/binRows";
+
+export type BinOpenState =
+  | { readonly status: "opening" }
+  | { readonly status: "open"; readonly handle: BinDocumentHandle }
+  | { readonly status: "failed"; readonly error: AppError };
+
+/**
+ * One asset held open as a bin document for as long as the caller is mounted.
+ *
+ * The open and the close are explicit over IPC (ADR-0026). `entry` narrows the open to
+ * one object of the file (ADR-0028), `0x` and eight hex digits. `reopen` asks for a
+ * fresh handle and keeps the old one on screen until it answers. A document the store
+ * evicted is reopened this way.
+ */
+export function useBinDocument(
+  asset: AssetRef,
+  entry: string | null = null,
+): { state: BinOpenState; reopen: () => void } {
+  const key = `${assetKey(asset)}:${entry ?? ""}`;
+  const latest = useRef({ asset, entry });
+  latest.current = { asset, entry };
+
+  const [generation, setGeneration] = useState(0);
+  const [state, setState] = useState<BinOpenState>({ status: "opening" });
+
+  /* Keyed by what the reference names. A new object for the same asset is not a reopen. */
+  useEffect(() => {
+    let live = true;
+    let opened: BinDocumentId | null = null;
+    setState((previous) => (previous.status === "open" ? previous : { status: "opening" }));
+
+    void api.bin.open(latest.current.asset, latest.current.entry).then((result) => {
+      if (!live) {
+        if (result.ok) void api.bin.close(result.value.document);
+        return;
+      }
+      if (result.ok) {
+        opened = result.value.document;
+        setState({ status: "open", handle: result.value });
+        return;
+      }
+      setState({ status: "failed", error: result.error });
+    });
+
+    const held = assetKey(latest.current.asset);
+    return () => {
+      live = false;
+      if (opened === null) return;
+      const closing = opened;
+      /* The last id over a tree takes its edits with it, so a queued save lands first. */
+      if (isQueuedThrough(held, closing)) {
+        void flushBinSave(held).finally(() => void api.bin.close(closing));
+      } else {
+        void api.bin.close(closing);
+      }
+    };
+  }, [key, generation]);
+
+  const reopen = useCallback(() => setGeneration((count) => count + 1), []);
+  return { state, reopen };
+}
+
+export const binKeys = {
+  children: (document: BinDocumentId, key: string, page: number) =>
+    ["bin-children", document, key, page] as const,
+};
+
+/** What a search of an open bin is asked over: the id, and the object an object tab is over. */
+export interface FindScope {
+  readonly document: BinDocumentId;
+  readonly entry: string | null;
+}
+
+/** Every row under one node, which is what an object open reads at depth zero. */
+const WHOLE = Number.MAX_SAFE_INTEGER;
+
+export const binQueries = {
+  /** A file's rows at depth zero, standing on what the open answered until an edit. */
+  fileRoots: (document: BinDocumentId, opened: readonly BinRow[]) =>
+    queryOptions<readonly BinRow[], AppError>({
+      queryKey: ["bin-file-roots", document],
+      queryFn: async () => unwrapForQuery(await api.bin.roots(document)),
+      initialData: opened,
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The rows of an open bin whose name or value holds `query`. No scope asks nothing. */
+  find: (scope: FindScope | null, query: string) =>
+    queryOptions<BinFindResult, AppError>({
+      queryKey: ["bin-find", scope?.document ?? null, scope?.entry ?? null, query],
+      queryFn:
+        scope === null || query.length === 0
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.find(scope.document, scope.entry, query)),
+      placeholderData: keepPreviousData,
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+    }),
+  /** The fields a holder can take, asked again after every edit. */
+  addable: (document: BinDocumentId, entry: string, path: string) =>
+    queryOptions<AddableFields, AppError>({
+      queryKey: ["bin-addable", document, entry, path],
+      queryFn: async () => unwrapForQuery(await api.bin.addableFields(document, entry, path)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The classes an item, an option or a pointer at `path` can hold, asked again after every edit. */
+  itemClasses: (document: BinDocumentId, entry: string, path: string) =>
+    queryOptions<ClassChoice[], AppError>({
+      queryKey: ["bin-item-classes", document, entry, path],
+      queryFn: async () => unwrapForQuery(await api.bin.itemClasses(document, entry, path)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** An object's properties at depth zero, standing on what the open answered until an edit. */
+  roots: (document: BinDocumentId, entry: string, opened: readonly BinRow[]) =>
+    queryOptions<readonly BinRow[], AppError>({
+      queryKey: ["bin-roots", document, entry],
+      queryFn: async () =>
+        unwrapForQuery(await api.bin.children(document, entry, "", 0, WHOLE)).rows,
+      initialData: opened,
+      staleTime: Infinity,
+      retry: false,
+    }),
+};
+
+/** The rows a file open draws at depth zero, read again after an edit. */
+export function useFileRoots(handle: BinDocumentHandle): readonly BinRow[] {
+  return useQuery(binQueries.fileRoots(handle.document, handle.rows)).data;
+}
+
+/**
+ * The properties an object open draws at depth zero, read again after an edit.
+ *
+ * The open's own answer stands until then, so the first draw costs no call.
+ */
+export function useObjectRoots(handle: BinDocumentHandle): readonly BinRow[] {
+  const entry = handle.object?.entry ?? "";
+  return useQuery(binQueries.roots(handle.document, entry, handle.rows)).data;
+}
+
+/** One expanded node, and how many pages of it the list wants. */
+export interface ChildrenRequest {
+  readonly key: string;
+  readonly pages: number;
+}
+
+/** What the queries answered for every expanded node, and whether the document is gone. */
+export interface BinChildren {
+  readonly loaded: ReadonlyMap<string, LoadedChildren>;
+  /** The backend holds no document with this id. The caller reopens it. */
+  readonly notOpen: boolean;
+}
+
+type ChildrenQuery = UseQueryOptions<
+  BinRows,
+  AppError,
+  BinRows,
+  ReturnType<typeof binKeys.children>
+>;
+
+/**
+ * The children of every expanded node, one query per page, merged per node.
+ *
+ * A page that has not answered ends the node's rows at the page before it, and the
+ * node reads as pending. The queries never go stale. A reopen changes the document id
+ * and with it every key.
+ */
+export function useBinChildren(
+  document: BinDocumentId,
+  requests: readonly ChildrenRequest[],
+): BinChildren {
+  const queries: ChildrenQuery[] = requests.flatMap((request) => {
+    const [entry, path] = splitKey(request.key);
+    return Array.from({ length: request.pages }, (_, page) => ({
+      queryKey: binKeys.children(document, request.key, page),
+      queryFn: async () =>
+        unwrapForQuery(await api.bin.children(document, entry, path, page * PAGE_SIZE, PAGE_SIZE)),
+      staleTime: Infinity,
+      retry: false,
+    }));
+  });
+  const results = useQueries({ queries });
+
+  const loaded = new Map<string, LoadedChildren>();
+  let notOpen = false;
+  let at = 0;
+  for (const request of requests) {
+    const merged = mergePages(results.slice(at, at + request.pages));
+    at += request.pages;
+    if (!merged) continue;
+    loaded.set(request.key, merged);
+    if (merged.error?.code === "BIN_NOT_OPEN") notOpen = true;
+  }
+
+  return { loaded, notOpen };
+}

@@ -1,9 +1,9 @@
-export { ProjectTextDocument } from "./ProjectTextDocument";
+export { ProjectTextDocument } from "./components/ProjectTextDocument";
+export { type TextRefusal, useProjectTextEditor } from "./hooks/useProjectTextEditor";
 export {
   lacksTemplateSection,
   TEMPLATE_SECTIONS,
   type TextFileKind,
   textFileKind,
   withTemplateSections,
-} from "./textFileKind";
-export { type TextRefusal, useProjectTextEditor } from "./useProjectTextEditor";
+} from "./utils/textFileKind";
