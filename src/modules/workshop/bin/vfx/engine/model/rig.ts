@@ -6,7 +6,7 @@
 
 /* The numbers alone rather than the module barrel, for the reason basis.ts gives. */
 // eslint-disable-next-line no-restricted-imports -- the chunk the comment above names
-import { CHAMPION_HEIGHT, FORWARD } from "@/modules/viewport/space";
+import { CHAMPION_HEIGHT, FORWARD } from "@/modules/viewport/shared/utils/space";
 
 /** A motion and the lifecycle over it, which is what drives one system's origin. */
 export interface RigModel {

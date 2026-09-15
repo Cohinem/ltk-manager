@@ -1,6 +1,25 @@
-export { type JointAnchor, jointAnchor } from "./anchor";
-export { Armature, type ArmatureProps } from "./Armature";
-export { BufferError } from "./bufferReader";
+export { type JointAnchor, jointAnchor } from "./animation/evaluation/anchor";
+export {
+  createPose,
+  type JointSnap,
+  type Pose,
+  sequencePose,
+  sequenceStep,
+  snappedPose,
+} from "./animation/evaluation/pose";
+export { createSceneClock, type SceneClock } from "./animation/state/clock";
+export { viewportQueries } from "./assets/api/queries";
+export { clipDuration, type ClipModel, readClipBuffer } from "./assets/parsing/clipBuffer";
+export { type MeshGeometry, type MeshRange, readMeshBuffer } from "./assets/parsing/meshBuffer";
+export {
+  type JointModel,
+  readSkeletonBuffer,
+  type SkeletonModel,
+} from "./assets/parsing/skeletonBuffer";
+export { BufferError } from "./assets/utils/bufferReader";
+export { FitCamera, type FitCameraProps, useFitCamera } from "./camera/components/FitCamera";
+export { SceneCamera, type SceneCameraProps } from "./camera/components/SceneCamera";
+export { CameraPresetContext, useCameraPreset } from "./camera/state/presetContext";
 export {
   CAMERA,
   CAMERA_PRESETS,
@@ -12,12 +31,7 @@ export {
   presetFacing,
   upAcross,
   type ZoomRange,
-} from "./cameraPresets";
-export { Character, type CharacterProps } from "./Character";
-export { type CharacterSkin, CharacterSkinContext, useCharacterSkin } from "./characterSkin";
-export { clipDuration, type ClipModel, readClipBuffer } from "./clipBuffer";
-export { createSceneClock, type SceneClock } from "./clock";
-export { FitCamera, type FitCameraProps, useFitCamera } from "./FitCamera";
+} from "./camera/utils/cameraPresets";
 export {
   type Bounds,
   type Framing,
@@ -27,25 +41,19 @@ export {
   orthographicFraming,
   reachOfZoom,
   zoomOfReach,
-} from "./framing";
-export { type MeshGeometry, type MeshRange, readMeshBuffer } from "./meshBuffer";
+} from "./camera/utils/framing";
+export { Armature, type ArmatureProps } from "./character/components/Armature";
+export { Character, type CharacterProps } from "./character/components/Character";
+export { useCharacterTextures } from "./character/hooks/useCharacterTextures";
 export {
-  createPose,
-  type JointSnap,
-  type Pose,
-  sequencePose,
-  sequenceStep,
-  snappedPose,
-} from "./pose";
-export { CameraPresetContext, useCameraPreset } from "./presetContext";
-export { viewportQueries } from "./queries";
-export { SceneCamera, type SceneCameraProps } from "./SceneCamera";
-export { type SceneColors, useSceneColors } from "./sceneColors";
-export { type JointModel, readSkeletonBuffer, type SkeletonModel } from "./skeletonBuffer";
-export { Stage } from "./Stage";
-export { type FallbackColors, type SubmeshBinding } from "./submeshBinding";
-export { useCharacterTextures } from "./useCharacterTextures";
-export { Viewport, type ViewportProps } from "./Viewport";
+  type CharacterSkin,
+  CharacterSkinContext,
+  useCharacterSkin,
+} from "./character/state/characterSkin";
+export { type FallbackColors, type SubmeshBinding } from "./character/utils/submeshBinding";
+export { Stage } from "./scene/components/Stage";
+export { Viewport, type ViewportProps } from "./scene/components/Viewport";
+export { type SceneColors, useSceneColors } from "./scene/hooks/sceneColors";
 export {
   AXIS_SIGN,
   CHAMPION_HEIGHT,
@@ -56,4 +64,4 @@ export {
   TEXTURE_COLOR_SPACE,
   TONE_MAPPING,
   UNITS_PER_METRE,
-} from "./world";
+} from "./scene/utils/world";

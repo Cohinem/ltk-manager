@@ -10,7 +10,7 @@
 /* The numbers alone rather than the module barrel: the barrel pulls the renderer and
    ThreeJS with it, and the simulation is drawn in the shell's own chunk (ADR-0037). */
 // eslint-disable-next-line no-restricted-imports -- the chunk the comment above names
-import { AXIS_SIGN } from "@/modules/viewport/space";
+import { AXIS_SIGN } from "@/modules/viewport/shared/utils/space";
 
 import type { Point } from "../model/rig";
 
