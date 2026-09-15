@@ -1,6 +1,8 @@
-import { Canvas } from "@react-three/fiber";
-import type { ReactNode } from "react";
+import { Canvas, type RootState } from "@react-three/fiber";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { WebGLRenderer, type WebGLRendererParameters } from "three";
+
+import { useContentVisible, useResizeObserver } from "@/hooks";
 
 import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
@@ -57,26 +59,59 @@ function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRende
  */
 export function Viewport({ stage, textured, camera, onCameraStand, children }: ViewportProps) {
   const colors = useSceneColors();
+  const visible = useContentVisible();
+  const [sized, setSized] = useState(false);
+  const [started, setStarted] = useState(false);
+  const measure = useResizeObserver<HTMLDivElement>((element) => {
+    setSized(element.clientWidth > 0 && element.clientHeight > 0);
+  });
+  const running = visible && sized;
+  const root = useRef<RootState | null>(null);
+  const runningNow = useRef(running);
+  // Canvas skips configuration at zero size, so hidden panes stop the root directly.
+  useLayoutEffect(() => {
+    runningNow.current = running;
+    if (root.current !== null) setRunning(root.current, running);
+  }, [running]);
+  useEffect(() => {
+    if (running) setStarted(true);
+  }, [running]);
 
   return (
-    <Canvas
-      camera={{
-        position: [...CAMERA.position],
-        near: CAMERA.near,
-        far: CAMERA.far,
-        fov: CAMERA.fov,
-      }}
-      gl={opaqueRenderer}
-      onCreated={({ gl }) => {
-        gl.outputColorSpace = OUTPUT_COLOR_SPACE;
-        gl.toneMapping = TONE_MAPPING;
-      }}
-    >
-      <color attach="background" args={[colors.backdrop]} />
-      <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
-      <Sun />
-      <Stage colors={colors} shown={stage} textured={textured} />
-      <CameraPresetContext value={camera}>{children}</CameraPresetContext>
-    </Canvas>
+    <div ref={measure} className="relative size-full">
+      {(started || running) && (
+        <Canvas
+          frameloop={running ? "always" : "never"}
+          camera={{
+            position: [...CAMERA.position],
+            near: CAMERA.near,
+            far: CAMERA.far,
+            fov: CAMERA.fov,
+          }}
+          gl={opaqueRenderer}
+          onCreated={(state) => {
+            root.current = state;
+            setRunning(state, runningNow.current);
+            const { gl } = state;
+            gl.outputColorSpace = OUTPUT_COLOR_SPACE;
+            gl.toneMapping = TONE_MAPPING;
+          }}
+        >
+          <color attach="background" args={[colors.backdrop]} />
+          <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
+          <Sun />
+          <Stage colors={colors} shown={stage} textured={textured} />
+          <CameraPresetContext value={camera}>{children}</CameraPresetContext>
+        </Canvas>
+      )}
+    </div>
   );
+}
+
+function setRunning(root: RootState, running: boolean): void {
+  const state = root.get();
+  const mode = running ? "always" : "never";
+  if (state.frameloop !== mode) state.setFrameloop(mode);
+  // A queued automatic frame in manual mode treats the RAF timestamp as seconds.
+  if (!running) state.internal.frames = 0;
 }

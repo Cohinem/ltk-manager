@@ -5,6 +5,7 @@ import { previewBufferUrl } from "@/lib/previewUrl";
 import { AXIS_SIGN, type MeshGeometry, readMeshBuffer } from "@/modules/viewport";
 
 import type { MeshModel } from "../../engine/model/model";
+import { assetLoad, type AssetLoad } from "../utils/assetLoad";
 import { type MeshBuffers, meshBuffers } from "../utils/buffers";
 import type { DrawnEmitter } from "../utils/definitions";
 import { drawnIndices } from "../utils/submeshes";
@@ -21,10 +22,14 @@ const NONE: EmitterMeshes = new Map();
  * decode is the viewport's `meshBuffer.ts` rather than a parser of its own (decision 2.2
  * of docs/plans/vfx-particle-renderer.md).
  */
-export function useVfxMeshes(drawn: readonly DrawnEmitter[]): EmitterMeshes {
+export function useVfxMeshes(
+  drawn: readonly DrawnEmitter[],
+  report?: (load: AssetLoad) => void,
+): EmitterMeshes {
   const [meshes, setMeshes] = useState<EmitterMeshes>(NONE);
 
   useEffect(() => {
+    const batch = assetLoad(drawn.filter(({ emitter }) => emitter.mesh !== null).length, report);
     if (drawn.length === 0) {
       setMeshes(NONE);
       return;
@@ -40,19 +45,25 @@ export function useVfxMeshes(drawn: readonly DrawnEmitter[]): EmitterMeshes {
       void fetch(previewBufferUrl(mesh.asset, "geometry"))
         .then((answer) => (answer.ok ? answer.arrayBuffer() : null))
         .then((bytes) => {
-          if (!live || bytes === null) return;
+          if (!live) return;
+          if (bytes === null) {
+            batch.done(true);
+            return;
+          }
           loaded.set(key, meshBuffers(geometryOf(readMeshBuffer(bytes), mesh)));
           setMeshes(new Map(loaded));
+          batch.done();
         })
-        .catch(() => {});
+        .catch(() => batch.done(true));
     }
 
     return () => {
       live = false;
+      batch.cancel();
       for (const held of loaded.values()) held.geometry.dispose();
       setMeshes(NONE);
     };
-  }, [drawn]);
+  }, [drawn, report]);
 
   return meshes;
 }

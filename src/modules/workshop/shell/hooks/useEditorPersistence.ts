@@ -101,6 +101,7 @@ function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEdit
     previewId: editor.previewId,
     pinned: editor.pinned,
     shells: editor.shells,
+    abilities: editor.abilities,
   };
 }
 
@@ -116,7 +117,8 @@ function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor |
     a.selectedLayer === b.selectedLayer &&
     a.previewId === b.previewId &&
     a.pinned === b.pinned &&
-    a.shells === b.shells
+    a.shells === b.shells &&
+    a.abilities === b.abilities
   );
 }
 

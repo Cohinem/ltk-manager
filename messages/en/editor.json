@@ -15,5 +15,8 @@
   "editor_tab_split_down_action": "Split Down",
   "editor_tab_split_right_action": "Split Right",
   "editor_tab_unpin_action": "Unpin",
-  "editor_tab_unpin_label": "Unpin {title}"
+  "editor_tab_unpin_label": "Unpin {title}",
+  "editor_unsaved_close_hint": "{title} has unsaved changes. Closing it now throws them away.",
+  "editor_unsaved_close_title": "Close without saving?",
+  "editor_unsaved_discard_action": "Discard changes"
 }

@@ -1393,3 +1393,15 @@ describe("ClassView over sixty emitters", () => {
     expect(new Set(asked.flat())).toEqual(new Set(MANY));
   });
 });
+
+it("keeps the shell mounted while a hidden document reports zero width", async () => {
+  paneWidth = WIDE;
+  renderSystem();
+  await screen.findByText("lifetime");
+  const shell = document.querySelector('[data-ui="ClassView:shell"]');
+  expect(shell).not.toBeNull();
+  await resizeTo(0);
+  expect(document.querySelector('[data-ui="ClassView:shell"]')).toBe(shell);
+  await resizeTo(WIDE);
+  expect(document.querySelector('[data-ui="ClassView:shell"]')).toBe(shell);
+});

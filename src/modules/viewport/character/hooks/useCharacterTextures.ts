@@ -16,6 +16,7 @@ const NONE: ReadonlyMap<string, Texture> = new Map();
  */
 export function useCharacterTextures(
   assets: ReadonlyMap<string, AssetRef>,
+  report?: (load: { pending: number; failed: number }) => void,
 ): ReadonlyMap<string, Texture> {
   const [textures, setTextures] = useState(NONE);
 
@@ -23,6 +24,9 @@ export function useCharacterTextures(
     let live = true;
     const loaded = new Map<string, Texture>();
     const loader = new TextureLoader();
+    let pending = assets.size;
+    let failed = 0;
+    report?.({ pending, failed });
 
     for (const [key, asset] of assets) {
       loader.load(
@@ -37,9 +41,17 @@ export function useCharacterTextures(
           texture.flipY = false;
           loaded.set(key, texture);
           setTextures(new Map(loaded));
+          pending -= 1;
+          report?.({ pending, failed });
         },
         undefined,
-        (error) => console.error("Failed to read a character texture:", error),
+        (error) => {
+          if (!live) return;
+          pending -= 1;
+          failed += 1;
+          report?.({ pending, failed });
+          console.error("Failed to read a character texture:", error);
+        },
       );
     }
 
@@ -48,7 +60,7 @@ export function useCharacterTextures(
       for (const texture of loaded.values()) texture.dispose();
       setTextures(NONE);
     };
-  }, [assets]);
+  }, [assets, report]);
 
   return textures;
 }

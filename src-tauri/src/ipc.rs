@@ -61,6 +61,8 @@ migrated![
     search_object_index,
     declared_objects,
     object_dir,
+    character_spells,
+    read_spell,
     find_objects,
     find_references,
     cancel_reference_walk,

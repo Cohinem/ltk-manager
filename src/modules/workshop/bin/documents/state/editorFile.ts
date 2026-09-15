@@ -21,9 +21,11 @@ import {
   type ShellArrangements,
   type ShellKind,
 } from "../../shell/utils/shellPanes";
+import { type AbilityRecipe, readAbilities } from "../../spells/utils/abilityRecipe";
 
 /** The slice of one project's editor that survives a restart. */
 export interface PersistedProjectEditor {
+  abilities?: readonly AbilityRecipe[];
   documents: Record<string, ContentDocument>;
   layout: LayoutNode;
   activeLeafId: string;
@@ -74,6 +76,7 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       previewId: state.previewId,
       pinned: state.pinned,
       shells: state.shells,
+      abilities: state.abilities,
     },
     null,
     2,
@@ -171,6 +174,7 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
     previewId,
     pinned,
     shells: sanitizeShells(entry),
+    ...(entry.abilities === undefined ? {} : { abilities: readAbilities(entry.abilities) }),
   };
 }
 

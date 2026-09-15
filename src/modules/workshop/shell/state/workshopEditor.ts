@@ -36,6 +36,7 @@ import {
   type ShellKind,
   type ShellPaneId,
 } from "../../bin/shell/utils/shellPanes";
+import type { AbilityRecipe } from "../../bin/spells/utils/abilityRecipe";
 import type { ContentDocument } from "../../documents/utils/contentDocument";
 
 /** An outline's request that one layer's file tree scroll to an entry. */
@@ -134,6 +135,7 @@ const HISTORY_LIMIT = 50;
  * carrying across a restart.
  */
 export interface ProjectEditor {
+  abilities?: readonly AbilityRecipe[];
   /** Every open document, keyed by id. A leaf's tabs are ids into this map. */
   documents: Record<string, ContentDocument>;
   /** The split tree of editor groups. A single leaf until the user splits. */
@@ -192,6 +194,8 @@ export interface ProjectEditor {
 }
 
 interface WorkshopEditorStore {
+  saveAbility: (projectPath: string, recipe: AbilityRecipe) => void;
+  removeAbility: (projectPath: string, id: string) => void;
   /** Editor state per project path, so switching projects keeps every set. */
   byProject: Record<string, ProjectEditor>;
   /**
@@ -749,6 +753,23 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
   historyIndex: -1,
   pendingDocuments: {},
 
+  saveAbility: (projectPath, recipe) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => ({
+          ...editor,
+          abilities: [...(editor.abilities ?? []).filter((item) => item.id !== recipe.id), recipe],
+        })) ?? state,
+    ),
+  removeAbility: (projectPath, id) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => ({
+          ...editor,
+          abilities: (editor.abilities ?? []).filter((item) => item.id !== id),
+        })) ?? state,
+    ),
+
   requestDocument: (projectPath, document) =>
     set((current) => ({
       pendingDocuments: { ...current.pendingDocuments, [projectPath]: document },
@@ -778,6 +799,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           previewId: state.previewId,
           pinned: state.pinned,
           shells: state.shells,
+          abilities: state.abilities,
         },
       },
     })),

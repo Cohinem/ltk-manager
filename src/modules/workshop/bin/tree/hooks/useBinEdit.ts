@@ -65,6 +65,7 @@ const DOCUMENT_READS = [
   ["vfx-system"],
   ["skin"],
   ["skin-graph"],
+  ["spell"],
 ] as const;
 
 const NO_REFUSALS: ReadonlyMap<string, AppError> = new Map();

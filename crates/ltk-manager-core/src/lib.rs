@@ -27,6 +27,7 @@ pub mod preview;
 pub mod problems;
 pub mod ritobin;
 pub mod skin;
+pub mod spell;
 pub mod storage;
 pub mod strings;
 pub mod utils;

@@ -175,6 +175,10 @@ export const commands = {
 	 *  "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
 	 */
 	objectDir: (prefix: string) => __TAURI_INVOKE<({ ok: true; value: ObjectDir }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("object_dir", { prefix }),
+	/**  The install's spells below `Characters/{character}/Spells`. */
+	characterSpells: (character: string) => __TAURI_INVOKE<({ ok: true; value: CharacterSpells }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("character_spells", { character }),
+	/**  The missile inputs written on one spell in an open document. */
+	readSpell: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SpellPreview }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_spell", { document, entry }),
 	/**
 	 *  Every object of the install matching `pattern`, in path order.
 	 * 
@@ -711,6 +715,33 @@ export type Category =
 "storage" | 
 /**  Mod library state checks (index integrity). */
 "library";
+
+/**  One named spell and every file declaring its object. */
+export type CharacterSpell = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The resolved object path. */
+	path: string,
+	/**  The path below `Characters/{character}/Spells`. */
+	name: string,
+	/**  The first nested segment, which suggests a group without implying cast order. */
+	group: string | null,
+	/**  Every declaration, including conflicting classes, in archive order. */
+	declarations: ObjectDeclaration[],
+};
+
+/**  The character spell catalog and the index state supplying it. */
+export type CharacterSpells =
+/**  Nothing has warmed the index. */
+({ status: "absent" }) & { error?: never } |
+/**  The catalog is waiting for an index build. */
+({ status: "building" }) & { error?: never } |
+/**  The last index build failed. */
+{ status: "failed"; error: AppErrorResponse } |
+/**  Every named spell for the requested character. */
+{
+	status: "ready",
+} & SpellCatalog;
 
 /**  Result of a single diagnostic check. */
 export type Check = Check_Serialize | Check_Deserialize;
@@ -1681,6 +1712,33 @@ export type MenuStatus =
 /**  Registrations changed or an operation was interrupted. */
 "changed";
 
+/**  The movement class and its written speed or duration. */
+export type MissileMovement =
+/**  Constant speed in engine units per second. */
+{ kind: "fixedSpeed"; speed: number | null } |
+/**  A fixed travel duration in seconds. */
+{ kind: "fixedTime"; duration: number | null } |
+/**  A class whose trajectory is not implemented. */
+{ kind: "unsupported"; class_hash: string } |
+/**  No movement component was written. */
+{ kind: "missing" };
+
+/**  A missile's written placement inputs, with omitted values kept absent. */
+export type MissileSpec = {
+	/**  The movement component. */
+	movement: MissileMovement,
+	/**  The written launch delay, without the spell's cast timing added. */
+	startDelay: number | null,
+	/**  The requested launch bone, which an isolated preview replaces with a point. */
+	startBone: string | null,
+	/**  The requested target bone, which an isolated preview replaces with a point. */
+	targetBone: string | null,
+	/**  The target's height adjustment. */
+	targetHeight: number | null,
+	/**  The initial target-height offset. */
+	initialTargetHeight: number | null,
+};
+
 /**  A path a bin names, and where its bytes live. */
 export type NamedAsset = {
 	/**
@@ -2253,6 +2311,67 @@ export type SkinModel = {
 export type SkippedArchive = {
 	wad: string,
 	why: string,
+};
+
+/**  The install's named spells for one character, without a search result cap. */
+export type SpellCatalog = {
+	/**  Spells in natural path order. */
+	spells: CharacterSpell[],
+	/**  Unnamed spell objects across the install, whose character cannot be established. */
+	unnamed: number,
+};
+
+/**  A field the isolated preview cannot evaluate. */
+export type SpellIssue = {
+	/**  The named property path within the spell object. */
+	path: string,
+	/**  Whether the field is malformed or needs an unimplemented behavior. */
+	kind: SpellIssueKind,
+};
+
+/**  Why a missile field could not be used. */
+export type SpellIssueKind =
+/**  A written value has the wrong type or is not finite. */
+"invalid" |
+/**  The isolated preview does not evaluate this field. */
+"unsupported";
+
+/**  The spell's missile and flight-effect references before skin resolution. */
+export type SpellPreview = {
+	/**  The written `spellCastTime`, in seconds. */
+	spellCastTime: number | null,
+	/**  The written `mCastTime`, kept separate from `spellCastTime`. */
+	castTime: number | null,
+	/**  Whether the spell explicitly enables its hit effect. */
+	haveHitEffect: boolean | null,
+	/**  The hit effect's skin resolver key. */
+	hitEffectKey: string | null,
+	/**  The hit effect's written fallback name. */
+	hitEffectName: string | null,
+	/**  The seven written display ranges, including rank zero. */
+	castRangeDisplay: (number | null)[] | null,
+	/**  The seven legacy cast ranges, including rank zero. */
+	castRange: (number | null)[] | null,
+	/**  The seven ranges in `castRangeValues.values`. */
+	castRangeValues: (number | null)[] | null,
+	/**  The seven primary area radii. */
+	castRadius: (number | null)[] | null,
+	/**  The seven secondary area radii. */
+	castRadiusSecondary: (number | null)[] | null,
+	/**  The written cone angle in degrees. */
+	castConeAngle: number | null,
+	/**  The written cone distance in engine units. */
+	castConeDistance: number | null,
+	/**  The written animation-graph clip name, absent when the spell omits it. */
+	animationName: string | null,
+	/**  The missile specification, absent for spells without one. */
+	missile: MissileSpec | null,
+	/**  A resource key, never a system-object identity. */
+	effectKey: string | null,
+	/**  The written fallback effect name, retained for inspection. */
+	effectName: string | null,
+	/**  Fields requiring correction or an explicit preview approximation. */
+	issues: SpellIssue[],
 };
 
 /**

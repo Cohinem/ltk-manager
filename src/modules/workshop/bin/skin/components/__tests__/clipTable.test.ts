@@ -53,7 +53,7 @@ describe("shownColumns", () => {
   const keys = (clips: GraphClip[]) => shownColumns(clips).map((column) => column.key);
 
   it("leaves out the mask and sync group columns no clip holds a key for", () => {
-    expect(keys([clip("Run", "0x1")])).toEqual(["name", "file", "track", "rate", "events"]);
+    expect(keys([clip("Run", "0x1")])).toEqual(["name", "rate", "track", "events"]);
   });
 
   it("draws a column once one clip holds a key for it, rate before it", () => {
@@ -61,9 +61,8 @@ describe("shownColumns", () => {
 
     expect(keys([clip("Idle", "0x2"), masked])).toEqual([
       "name",
-      "file",
-      "track",
       "rate",
+      "track",
       "mask",
       "events",
     ]);

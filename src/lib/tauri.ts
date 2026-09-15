@@ -128,6 +128,8 @@ export type {
 } from "@/lib/bindings.gen";
 // The object index's types, per ADR-0029.
 export type {
+  CharacterSpell,
+  CharacterSpells,
   DeclaredObject,
   DeclaredObjects,
   GameFileEntry,
@@ -150,6 +152,7 @@ export type {
   ReferenceProperty,
   ReferenceQuery,
   ReferenceResult,
+  SpellCatalog,
 } from "@/lib/bindings.gen";
 // The ignore rules' type, per ADR-0029.
 export type { IgnoreRules } from "@/lib/bindings.gen";
@@ -157,6 +160,13 @@ export type { ProjectText, ProjectTextFile, Revision } from "@/lib/bindings.gen"
 // The particle renderer's types, per ADR-0029.
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
 // The skin preview's types, per ADR-0029.
+export type {
+  MissileMovement,
+  MissileSpec,
+  SpellIssue,
+  SpellIssueKind,
+  SpellPreview,
+} from "@/lib/bindings.gen";
 export type {
   AnimationGraph,
   BaseRule,
@@ -514,6 +524,8 @@ export const api = {
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
       commands.readAnimationGraph(document, entry).then(toResult),
     readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),
+    readSpell: (document: BinDocumentId, entry: string) =>
+      commands.readSpell(document, entry).then(toResult),
   },
 
   // The object index and the install lookups a bin page makes, on tauri-specta.
@@ -524,6 +536,7 @@ export const api = {
     declared: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
       commands.declaredObjects([...objectHashes], document).then(toResult),
     dir: (prefix: string) => commands.objectDir(prefix).then(toResult),
+    spells: (character: string) => commands.characterSpells(character).then(toResult),
     find: (pattern: string, regex: boolean, cls: string | null) =>
       commands.findObjects(pattern, regex, cls).then(toResult),
     references: (query: ReferenceQuery, project: string | null) =>

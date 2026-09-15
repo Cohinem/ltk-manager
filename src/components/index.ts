@@ -35,6 +35,7 @@ export * from "./Popover";
 export * from "./Progress";
 export * from "./RadioGroup";
 export * from "./Readout";
+export * from "./RetainedContent";
 export * from "./SectionCard";
 export * from "./SegmentedControl";
 export * from "./Select";

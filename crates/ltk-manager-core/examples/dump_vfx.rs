@@ -11,6 +11,7 @@
 //! name no hash list on hand carries, and names the chunk it found on stderr. Both `*` at
 //! once, with a fourth argument, lists every object of the WAD whose path holds that text,
 //! named through the app's own hash tables.
+//! `--spell` prints the isolated missile projection instead of the raw object.
 
 use std::io::Cursor;
 
@@ -24,7 +25,11 @@ use ltk_meta::BinFile;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let json = args.iter().any(|arg| arg == "--json");
-    let plain: Vec<&String> = args.iter().filter(|arg| *arg != "--json").collect();
+    let spell = args.iter().any(|arg| arg == "--spell");
+    let plain: Vec<&String> = args
+        .iter()
+        .filter(|arg| *arg != "--json" && *arg != "--spell")
+        .collect();
     let (wad_path, chunk_path, object_path, wanted_hash) = match plain.as_slice() {
         [wad, chunk, object] => (*wad, *chunk, *object, None),
         [wad, chunk, object, hash] => (*wad, *chunk, *object, Some(*hash)),
@@ -68,6 +73,16 @@ fn main() {
                 .into_vec()
         }
     };
+
+    if spell {
+        let document = BinDocument::parse(bytes).expect("parse bin");
+        let preview = ltk_manager_core::spell::read_spell(&document, wanted).expect("read spell");
+        println!(
+            "{}",
+            serde_json::to_string(&preview).expect("serialize spell")
+        );
+        return;
+    }
 
     if json {
         let document = BinDocument::parse(bytes).expect("parse bin");

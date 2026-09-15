@@ -5,7 +5,14 @@ import { m } from "@/i18n";
 import { type LayoutNode, leafHolding, leaves, singleLeaf } from "@/modules/editor/layout";
 
 /** One pane of a shell, which is what a leaf of a shell's tree holds. */
-export type ShellPaneId = "emitters" | "curve" | "inspector" | "preview" | "timeline" | "clips";
+export type ShellPaneId =
+  | "emitters"
+  | "curve"
+  | "inspector"
+  | "preview"
+  | "timeline"
+  | "clips"
+  | "spells";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -14,6 +21,7 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "preview",
   "timeline",
   "clips",
+  "spells",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
@@ -22,7 +30,7 @@ export type ShellKind = "vfx" | "skin";
 /** The panes each shell holds, in the order the Panes menu lists them. */
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters"],
-  skin: ["preview", "clips", "inspector"],
+  skin: ["preview", "clips", "spells", "inspector"],
 } as const satisfies Record<ShellKind, readonly ShellPaneId[]>;
 
 /** The panes a `K` shell holds, which its content names one body for each of. */
@@ -41,6 +49,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   preview: m.workshop_bin_pane_preview_label,
   timeline: m.workshop_bin_pane_timeline_label,
   clips: m.workshop_bin_pane_clips_label,
+  spells: m.workshop_bin_pane_spells_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -79,7 +88,7 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
           id: "split-4",
           dir: "col",
           children: [
-            { kind: "leaf", id: "leaf-5", tabs: ["clips"], activeTab: "clips" },
+            { kind: "leaf", id: "leaf-5", tabs: ["clips", "spells"], activeTab: "clips" },
             { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
           ],
         },

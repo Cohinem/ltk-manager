@@ -32,6 +32,8 @@ interface SliderProps {
   variant?: SliderVariant;
   /** Whether the slider is disabled. */
   disabled?: boolean;
+  /** Whether value changes ease into place, disabled for playback clocks. */
+  animated?: boolean;
   /** Additional class names to apply to the slider. */
   className?: string;
 }
@@ -41,8 +43,6 @@ function labelShift(index: number, count: number): string {
   if (index === count - 1) return "-translate-x-full";
   return "-translate-x-1/2";
 }
-
-const indicatorMotion = "transition-[width] duration-300 ease-[var(--ease-spring)]";
 
 export function Slider({
   value,
@@ -56,6 +56,7 @@ export function Slider({
   "aria-label": ariaLabel,
   variant = "default",
   disabled,
+  animated = true,
   className,
 }: SliderProps) {
   const isRuler = variant === "ruler";
@@ -88,7 +89,10 @@ export function Slider({
           )}
         >
           <BaseSlider.Indicator
-            className={twMerge("absolute h-full rounded-full bg-accent-500", indicatorMotion)}
+            className={twMerge(
+              "absolute h-full rounded-full bg-accent-500",
+              animated && "transition-[width] duration-300 ease-[var(--ease-spring)]",
+            )}
           />
         </BaseSlider.Track>
 
@@ -151,6 +155,7 @@ export function Slider({
               ? "h-4 w-1 rounded-full bg-transparent focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none"
               : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300 data-dragging:scale-y-125",
             !isRuler && !disabled && "hover:bg-accent-300",
+            !animated && "transition-none",
             disabled ? "cursor-not-allowed" : "cursor-pointer data-dragging:cursor-grabbing",
           )}
         />

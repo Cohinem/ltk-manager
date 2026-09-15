@@ -7,9 +7,6 @@ import { m } from "@/i18n";
 import type { GraphClip, KeyRef } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { previewDocument } from "../../../documents/utils/contentDocument";
-import { describeFileKind } from "../../../shared/utils/fileKindIcon";
-import { clickIntent, useOpenDocumentAs } from "../../../state";
 import { skinQueries } from "../api/skinQueries";
 import { type ClipTab, SkinChoiceContext } from "../state/skinChoice";
 
@@ -22,6 +19,7 @@ export interface Column {
   readonly label: () => string;
   readonly width: string;
   readonly draw: (clip: GraphClip) => ReactNode;
+  readonly value: (clip: GraphClip) => string | number | undefined;
   /** The column is drawn only while some clip holds a value for it. */
   readonly holds?: (clip: GraphClip) => boolean;
 }
@@ -31,31 +29,30 @@ export const COLUMNS: readonly Column[] = [
   {
     key: "name",
     label: m.workshop_bin_clip_column_name_label,
-    width: "w-64",
+    width: "w-64 grow",
+    value: (clip) => clip.name,
     draw: (clip) => <NameCell clip={clip} />,
   },
   {
-    key: "file",
-    label: m.workshop_bin_clip_column_file_label,
-    width: "w-8",
-    draw: (clip) => <FileCell clip={clip} />,
+    key: "rate",
+    label: m.workshop_bin_clip_column_rate_label,
+    width: "w-16",
+    value: (clip) =>
+      clip.tickDuration !== null && clip.tickDuration > 0 ? 1 / clip.tickDuration : undefined,
+    draw: (clip) => <RateCell clip={clip} />,
   },
   {
     key: "track",
     label: m.workshop_bin_clip_column_track_label,
     width: "w-32",
+    value: (clip) => clip.track?.name,
     draw: (clip) => <KeyChip tab="tracks" keyRef={clip.track} />,
-  },
-  {
-    key: "rate",
-    label: m.workshop_bin_clip_column_rate_label,
-    width: "w-20",
-    draw: (clip) => <RateCell clip={clip} />,
   },
   {
     key: "mask",
     label: m.workshop_bin_clip_column_mask_label,
     width: "w-32",
+    value: (clip) => clip.mask?.name,
     draw: (clip) => <KeyChip tab="masks" keyRef={clip.mask} />,
     holds: (clip) => clip.mask !== null,
   },
@@ -63,6 +60,7 @@ export const COLUMNS: readonly Column[] = [
     key: "syncGroup",
     label: m.workshop_bin_clip_column_sync_group_label,
     width: "w-32",
+    value: (clip) => clip.syncGroup?.name,
     draw: (clip) => <KeyChip tab="syncGroups" keyRef={clip.syncGroup} />,
     holds: (clip) => clip.syncGroup !== null,
   },
@@ -70,6 +68,7 @@ export const COLUMNS: readonly Column[] = [
     key: "events",
     label: m.workshop_bin_clip_column_events_label,
     width: "w-16",
+    value: (clip) => clip.events.length,
     draw: (clip) => (
       <span className={twMerge("tabular-nums", clip.events.length === 0 && "text-surface-500")}>
         {clip.events.length}
@@ -109,60 +108,6 @@ function NameCell({ clip }: { clip: GraphClip }) {
       {/* DS-CODE-CHIP */}
       <Code className="shrink-0 text-surface-400">{clipKind(clip)}</Code>
     </>
-  );
-}
-
-/**
- * The `.anm` an atomic clip names, as the animation mark: its path and archive on hover, and
- * the preview on a click. The missing warning stands in where nothing on the machine holds it.
- *
- * The read already located the file, so the cell opens what it was given rather than asking
- * the view's link targets, which hold the skin's own paths alone.
- */
-function FileCell({ clip }: { clip: GraphClip }) {
-  const open = useOpenDocumentAs();
-  if (clip.animation === null) return null;
-  const { path, asset } = clip.animation;
-
-  if (asset === null) {
-    return (
-      <Tooltip content={<FileTip path={path} note={m.workshop_bin_missing_chunk_description()} />}>
-        <WarningCircleIcon
-          weight="bold"
-          role="img"
-          aria-label={path}
-          className="h-3.5 w-3.5 shrink-0 text-warning-text"
-        />
-      </Tooltip>
-    );
-  }
-
-  const document = previewDocument(asset, path);
-  const Icon = describeFileKind("animation").icon;
-  return (
-    <Tooltip content={<FileTip path={path} note={document.context} />}>
-      <button
-        type="button"
-        aria-label={path}
-        className="flex shrink-0 cursor-pointer rounded-sm text-surface-300 hover:text-surface-100"
-        onClick={(event) => {
-          event.stopPropagation();
-          open(document, clickIntent(event));
-        }}
-      >
-        <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
-      </button>
-    </Tooltip>
-  );
-}
-
-/** A file's path, and under it the side that holds it or why none does. */
-function FileTip({ path, note }: { path: string; note?: string }) {
-  return (
-    <span className="flex flex-col gap-0.5">
-      <span className="font-mono text-code">{path}</span>
-      {note !== undefined && <span className="text-surface-400">{note}</span>}
-    </span>
   );
 }
 

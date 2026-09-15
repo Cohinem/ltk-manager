@@ -223,7 +223,13 @@ export default tseslint.config(
   {
     /* React Three Fiber's reconciler draws ThreeJS objects rather than DOM nodes, so
        every element and prop in this directory is one the DOM rule has never heard of. */
-    files: ["src/modules/viewport/**/*.tsx", "src/modules/workshop/bin/vfx/**/*.tsx"],
+    files: [
+      "src/modules/viewport/**/*.tsx",
+      "src/modules/workshop/bin/vfx/**/*.tsx",
+      "src/modules/workshop/bin/spells/components/MissileViewport.tsx",
+      "src/modules/workshop/bin/spells/components/AbilityPreview.tsx",
+      "src/modules/workshop/bin/spells/components/AbilityScene.tsx",
+    ],
     rules: { "react/no-unknown-property": "off" },
   },
   {

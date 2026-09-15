@@ -43,7 +43,11 @@ describe("defaultShellLayout", () => {
   it("puts the skin's preview first, wider than the clips over the inspector beside it", () => {
     const tree = defaultShellLayout("skin");
 
-    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([["preview"], ["clips"], ["inspector"]]);
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview"],
+      ["clips", "spells"],
+      ["inspector"],
+    ]);
     expect(tree.kind === "split" && tree.layout).toEqual({ "leaf-2": 3, "split-4": 2 });
     const column = tree.kind === "split" ? tree.children[1] : tree;
     expect(column?.kind === "split" && column.dir).toBe("col");

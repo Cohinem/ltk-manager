@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { CubeTexture, DataTexture, LinearFilter, type Texture, TextureLoader } from "three";
 
 import { previewCubeUrl } from "@/lib/previewUrl";
-import type { AssetRef } from "@/lib/tauri";
 import { PARTICLE_COLOR_SPACE } from "@/modules/viewport";
 
 import { previewUrl } from "../../../../preview/utils/assetRef";
+import { assetLoad, type AssetLoad } from "../utils/assetLoad";
 import type { DrawnEmitter } from "../utils/definitions";
 
 /** The samplers one emitter draws with, null for one it names nothing for or that has not arrived. */
@@ -98,10 +98,25 @@ async function cubeOf(url: string): Promise<CubeTexture | null> {
  * (decision 2.2 of docs/plans/vfx-particle-renderer.md). An emitter whose texture the
  * install does not ship draws untextured rather than not at all.
  */
-export function useVfxTextures(drawn: readonly DrawnEmitter[]): VfxTextures {
+export function useVfxTextures(
+  drawn: readonly DrawnEmitter[],
+  report?: (load: AssetLoad) => void,
+): VfxTextures {
   const [textures, setTextures] = useState<VfxTextures>(EMPTY);
 
   useEffect(() => {
+    const requests = drawn
+      .flatMap(({ key, emitter }) => [
+        { key, slot: "base" as const, named: emitter.texture },
+        { key, slot: "mult" as const, named: emitter.multTexture },
+        { key, slot: "color" as const, named: emitter.colorTexture },
+        { key, slot: "palette" as const, named: emitter.palette?.texture ?? null },
+        { key, slot: "erosion" as const, named: emitter.erosion?.map ?? null },
+        { key, slot: "normal" as const, named: emitter.distortion?.map ?? null },
+        { key, slot: "reflection" as const, named: emitter.reflection?.map ?? null },
+      ])
+      .filter(({ named }) => named !== null);
+    const batch = assetLoad(requests.length, report);
     if (drawn.length === 0) {
       setTextures(EMPTY);
       return;
@@ -131,35 +146,35 @@ export function useVfxTextures(drawn: readonly DrawnEmitter[]): VfxTextures {
       setTextures(new Map(bundles));
     };
 
-    for (const { key, emitter } of drawn) {
-      const wanted: [keyof EmitterSamplers, AssetRef | null][] = [
-        ["base", emitter.texture?.asset ?? null],
-        ["mult", emitter.multTexture?.asset ?? null],
-        ["color", emitter.colorTexture?.asset ?? null],
-        ["palette", emitter.palette?.texture?.asset ?? null],
-        ["erosion", emitter.erosion?.map?.asset ?? null],
-        ["normal", emitter.distortion?.map?.asset ?? null],
-      ];
-      for (const [slot, asset] of wanted) {
-        if (asset === null) continue;
+    for (const { key, slot, named } of requests) {
+      const asset = named?.asset;
+      if (asset == null) {
+        batch.done(true);
+        continue;
+      }
+      if (slot !== "reflection") {
         loader.load(
           previewUrl(asset),
-          (texture) => take(key, slot, texture),
+          (texture) => {
+            take(key, slot, texture);
+            batch.done();
+          },
           undefined,
-          () => {},
+          () => batch.done(true),
         );
-      }
-
-      const cube = emitter.reflection?.map?.asset ?? null;
-      if (cube !== null) {
-        void cubeOf(previewCubeUrl(cube))
-          .then((texture) => texture !== null && take(key, "reflection", texture))
-          .catch(() => {});
+      } else {
+        void cubeOf(previewCubeUrl(asset))
+          .then((texture) => {
+            if (texture !== null) take(key, slot, texture);
+            batch.done(texture === null);
+          })
+          .catch(() => batch.done(true));
       }
     }
 
     return () => {
       live = false;
+      batch.cancel();
       for (const bundle of bundles.values()) {
         for (const texture of Object.values(bundle)) {
           if (texture !== null && texture !== UNNAMED) texture.dispose();
@@ -167,7 +182,7 @@ export function useVfxTextures(drawn: readonly DrawnEmitter[]): VfxTextures {
       }
       setTextures(EMPTY);
     };
-  }, [drawn]);
+  }, [drawn, report]);
 
   return textures;
 }

@@ -87,9 +87,9 @@ export function ClassView({
   const pages = useLayoutRead(document, placed);
 
   const [wide, setWide] = useState(false);
-  const measure = useResizeObserver<HTMLDivElement>((element) =>
-    setWide(element.offsetWidth >= SHELL_WIDTH),
-  );
+  const measure = useResizeObserver<HTMLDivElement>((element) => {
+    if (element.offsetWidth > 0) setWide(element.offsetWidth >= SHELL_WIDTH);
+  });
   const frame: LayoutFrame = frameOf(layout) === "shell" && wide ? "shell" : "stack";
   useEffect(() => onFrame?.(frame), [onFrame, frame]);
 

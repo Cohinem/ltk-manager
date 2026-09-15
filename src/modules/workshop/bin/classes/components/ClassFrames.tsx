@@ -1,5 +1,6 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, lazy, Suspense, useMemo, useState } from "react";
 
+import { RetainedContent } from "@/components";
 import type { BinDocumentId } from "@/lib/tauri";
 import { leafHolding } from "@/modules/editor";
 
@@ -17,6 +18,8 @@ import type { ShellKind, ShellPaneId } from "../../shell/utils/shellPanes";
 import { ClipsHost } from "../../skin/components/ClipsSection";
 import { ClipTabs } from "../../skin/components/ClipTable";
 import { SkinPreview } from "../../skin/components/SkinPreview";
+import { SpellsPane } from "../../spells/components/SpellsPane";
+import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
 import { PreviewPane, RunKeys, TimelinePane, VfxRunProvider } from "../../vfx";
 import { EmitterFields, InspectorDefaults } from "../../vfx/inspector/components/EmitterInspector";
 import { EmitterModes, Emitters } from "../../vfx/inspector/components/VfxSections";
@@ -24,6 +27,8 @@ import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
 import type { PlacedSection } from "../utils/classLayouts";
 import type { LayoutPages, ViewContext } from "./ClassCells";
 import { Sections } from "./ClassSections";
+
+const AbilityPreview = lazy(() => import("../../spells/components/AbilityPreview"));
 
 export interface FrameProps {
   placed: readonly PlacedSection[];
@@ -119,13 +124,59 @@ interface SkinShellProps extends FrameProps {
  * the inspector column leaves it out.
  */
 export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
+  const tree = useShellLayout("skin");
+  const [previewOwner, setPreviewOwner] = useState<"skin" | "spell">("skin");
+  const [ability, setAbility] = useState<{
+    entry: string | null;
+    document: BinDocumentId;
+    recipe: AbilityRecipe;
+  } | null>(null);
+  const activeAbility =
+    ability?.entry === entry && ability.document === view.document ? ability.recipe : null;
+  const showSpell =
+    activeAbility !== null &&
+    previewOwner === "spell" &&
+    leafHolding(tree, "spells")?.activeTab === "spells";
   const others = useMemo(() => placed.filter((each) => each.widget !== "clips"), [placed]);
   const content = useMemo<ShellPaneContent<"skin">>(
     () => ({
       preview: {
-        body: <SkinPreview document={view.document} asset={view.asset} entry={entry} />,
+        body: (
+          <>
+            <RetainedContent active={!showSpell} defer className="flex min-h-0 flex-1 flex-col">
+              <SkinPreview document={view.document} asset={view.asset} entry={entry} />
+            </RetainedContent>
+            {activeAbility !== null && entry !== null && (
+              <RetainedContent active={showSpell} defer className="flex min-h-0 flex-1 flex-col">
+                <Suspense fallback={null}>
+                  <AbilityPreview
+                    source={{ document: view.document, asset: view.asset, entry }}
+                    recipe={activeAbility}
+                  />
+                </Suspense>
+              </RetainedContent>
+            )}
+          </>
+        ),
+      },
+      spells: {
+        onFocus: () => setPreviewOwner("spell"),
+        body: (
+          <SpellsPane
+            objectPath={entry === null ? null : view.objectName(entry)}
+            skin={entry === null ? undefined : { document: view.document, entry }}
+            abilitySource={
+              entry === null ? undefined : { document: view.document, asset: view.asset, entry }
+            }
+            onAbilityPreview={(recipe) => {
+              setAbility(recipe === null ? null : { document: view.document, entry, recipe });
+              if (recipe !== null) setPreviewOwner("spell");
+            }}
+          />
+        ),
       },
       clips: {
+        onFocus: () => setPreviewOwner("skin"),
         body: (
           <>
             <div
@@ -141,10 +192,11 @@ export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
         ),
       },
       inspector: {
+        onFocus: () => setPreviewOwner("skin"),
         body: <SectionColumn placed={others} pages={pages} view={view} />,
       },
     }),
-    [others, pages, view, entry],
+    [others, pages, view, entry, activeAbility, showSpell],
   );
 
   return (

@@ -48,6 +48,32 @@ describe("editorFile", () => {
       expect(parsed).toEqual({ kind: "ok", state });
     });
 
+    it("carries visual recipes across a project reload and drops malformed recipes", () => {
+      const recipe = {
+        version: 1 as const,
+        id: "q",
+        name: "Q",
+        character: "Galio",
+        clip: null,
+        bone: "",
+        release: 0.4,
+        castEffect: null,
+        projectileEffect: null,
+        flightDuration: 0.5,
+        impactEffect: "impact",
+        impactDuration: 0.5,
+        target: [500, 0, 0] as [number, number, number],
+      };
+      const state = { ...twoDocumentState(), abilities: [recipe] };
+      expect(parseEditorFile(serializeEditorFile(state))).toEqual({ kind: "ok", state });
+      expect(
+        sanitizeEditorState({
+          ...state,
+          abilities: [recipe, { ...recipe, id: "bad", release: -1 }],
+        })?.abilities,
+      ).toEqual([recipe]);
+    });
+
     it("carries a pinned tab across the file", () => {
       const state = twoDocumentState();
       const withPin = {

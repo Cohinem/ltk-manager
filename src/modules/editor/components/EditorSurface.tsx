@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 
-import { ConfirmDialog } from "@/components";
+import { ConfirmDialog, RetainedContent } from "@/components";
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
@@ -214,14 +215,14 @@ export function EditorSurface<D extends EditorDocumentBase>({
             const active = document.id === activeId;
 
             return (
-              <div
+              <RetainedContent
                 key={document.id}
                 data-ui={`EditorSurface:document:${document.kind}`}
-                hidden={!active}
+                active={active}
                 className="absolute inset-0 flex flex-col"
               >
                 <Editor document={document} active={active} />
-              </div>
+              </RetainedContent>
             );
           })}
         </DocumentToolbarSlotContext>
@@ -249,9 +250,9 @@ function UnsavedCloseDialog({ title, onCancel, onDiscard }: UnsavedCloseDialogPr
     <ConfirmDialog
       open={title !== undefined}
       onClose={onCancel}
-      title="Close without saving?"
-      description={<>{title} has unsaved changes. Closing it now throws them away.</>}
-      confirmLabel="Discard changes"
+      title={m.editor_unsaved_close_title()}
+      description={m.editor_unsaved_close_hint({ title: title ?? "" })}
+      confirmLabel={m.editor_unsaved_discard_action()}
       onConfirm={onDiscard}
       size="sm"
     />

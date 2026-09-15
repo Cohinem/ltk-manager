@@ -1189,7 +1189,7 @@ describe("workshopEditor store", () => {
 
     it("starts every project on the arrangement the shell ships", () => {
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
-      expect(panesOf(A, "skin")).toEqual([["preview"], ["clips"], ["inspector"]]);
+      expect(panesOf(A, "skin")).toEqual([["preview"], ["clips", "spells"], ["inspector"]]);
     });
 
     it("closes a pane and gives its room to the panel beside it", () => {
@@ -1261,7 +1261,10 @@ describe("workshopEditor store", () => {
         toLeafId: "leaf-2",
       });
 
-      expect(panesOf(A, "skin")).toEqual([["preview", "inspector"], ["clips"]]);
+      expect(panesOf(A, "skin")).toEqual([
+        ["preview", "inspector"],
+        ["clips", "spells"],
+      ]);
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
     });
 
@@ -1271,7 +1274,7 @@ describe("workshopEditor store", () => {
 
       store().resetShellLayout(A, "skin");
 
-      expect(panesOf(A, "skin")).toEqual([["preview"], ["clips"], ["inspector"]]);
+      expect(panesOf(A, "skin")).toEqual([["preview"], ["clips", "spells"], ["inspector"]]);
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"]]);
     });
   });

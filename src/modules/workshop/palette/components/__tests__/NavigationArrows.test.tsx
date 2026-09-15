@@ -7,11 +7,13 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { detailsDocument, workshopKeys } from "@/modules/workshop";
+import { EditorTabs, findLeaf } from "@/modules/editor";
+import { detailsDocument, gameDocument, workshopKeys } from "@/modules/workshop";
 import { useWorkshopEditorStore } from "@/modules/workshop/shell/state/workshopEditor";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../../projects/state/ProjectContext";
+import { useActivateDocument } from "../../../shell/hooks/useProjectEditor";
 import { NavigationArrows } from "../NavigationArrows";
 
 const mockNavigate = vi.fn();
@@ -48,7 +50,7 @@ function standOnTheGrid() {
   store().navigateHistory(-1);
 }
 
-function renderArrows(project: WorkshopProject | null) {
+function renderArrows(project: WorkshopProject | null, tabs = false) {
   const queryClient = createTestQueryClient();
   queryClient.setQueryData(workshopKeys.projects(), [PROJECT]);
 
@@ -59,7 +61,13 @@ function renderArrows(project: WorkshopProject | null) {
       </QueryClientProvider>
     );
   }
-  return render(<NavigationArrows />, { wrapper: Providers });
+  return render(
+    <>
+      <NavigationArrows />
+      {tabs && <HistoryTabs />}
+    </>,
+    { wrapper: Providers },
+  );
 }
 
 describe("NavigationArrows", () => {
@@ -152,4 +160,37 @@ describe("NavigationArrows", () => {
     expect(thumb("mouseup", 2).defaultPrevented).toBe(false);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
+});
+
+function HistoryTabs() {
+  const editor = useWorkshopEditorStore((state) => state.byProject[PROJECT.path]);
+  const leaf = findLeaf(editor.layout, editor.activeLeafId)!;
+  const activate = useActivateDocument();
+  return (
+    <EditorTabs
+      leafId={leaf.id}
+      activeId={leaf.activeTab}
+      tabs={leaf.tabs.map((id) => ({ id, title: id }))}
+      onActivate={(id) => activate(leaf.id, id)}
+      onClose={() => {}}
+    />
+  );
+}
+
+it("records document-tab clicks and lets Back and Forward restore the selected tab", async () => {
+  mockNavigate.mockReset();
+  useWorkshopEditorStore.setState({ byProject: {}, history: [], historyIndex: -1 });
+  store().openDocument(PROJECT.path, detailsDocument());
+  store().openDocument(PROJECT.path, gameDocument());
+  renderArrows(PROJECT, true);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("tab", { name: "details" }));
+  expect(
+    store().history.map((stop) => (stop.kind === "document" ? stop.documentId : stop.kind)),
+  ).toEqual(["details", "game", "details"]);
+  await user.click(screen.getByRole("button", { name: "Back" }));
+  expect(screen.getByRole("tab", { name: "game" })).toHaveAttribute("aria-selected", "true");
+  await user.click(screen.getByRole("button", { name: "Forward" }));
+  expect(screen.getByRole("tab", { name: "details" })).toHaveAttribute("aria-selected", "true");
+  expect(store().history).toHaveLength(3);
 });

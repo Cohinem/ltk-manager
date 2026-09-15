@@ -10,6 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { useContentVisible } from "@/hooks";
 import type { AppError, BinDocumentId } from "@/lib/tauri";
 
 import {
@@ -166,6 +167,7 @@ export interface VfxRunProviderProps {
  */
 export function VfxRunProvider({ document, entry, children }: VfxRunProviderProps) {
   const { system, error, pending } = useVfxSystem(document, entry);
+  const visible = useContentVisible();
   const key = vfxRunKey(document, entry);
   const [kept] = useState(() => rememberedVfxRun(key));
 
@@ -232,7 +234,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
   const pace = useRef({ speed, loop, span });
   pace.current = { speed, loop, span };
   useEffect(() => {
-    if (!playing || system === null) return;
+    if (!visible || !playing || system === null) return;
     let last: number | null = null;
     let frame = 0;
     const tick = (now: number) => {
@@ -248,7 +250,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [driver, playing, system, notify]);
+  }, [driver, playing, system, notify, visible]);
 
   /* Written on the way out rather than as it changes, off the values the last render
      held, so the store hears one memory per tab rather than one per frame. */

@@ -15,7 +15,7 @@ import {
 } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
-import { Button, IconButton, Menu, SegmentedControl, Spinner } from "@/components";
+import { Button, IconButton, Menu, RetainedContent, SegmentedControl, Spinner } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinObjectHeader } from "@/lib/tauri";
@@ -247,20 +247,30 @@ function OpenObject({
         <CurveDockContext value={dock}>
           <Group id="object" orientation="vertical" className="flex min-h-0 flex-1 flex-col">
             <Panel id="view" minSize={160} className="flex min-h-0 w-full flex-col">
-              {layout && mode === "layout" && (
-                <ClassView
-                  document={handle.document}
-                  asset={asset}
-                  roots={roots}
-                  classHash={object.classHash}
-                  layout={layout}
-                  objectName={objectName}
-                  onNotOpen={reopen}
-                  onShowInProperties={showInProperties}
-                  onFrame={setFrame}
-                />
+              {layout && (
+                <RetainedContent
+                  active={mode === "layout"}
+                  defer
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  <ClassView
+                    document={handle.document}
+                    asset={asset}
+                    roots={roots}
+                    classHash={object.classHash}
+                    layout={layout}
+                    objectName={objectName}
+                    onNotOpen={reopen}
+                    onShowInProperties={showInProperties}
+                    onFrame={setFrame}
+                  />
+                </RetainedContent>
               )}
-              {mode === "properties" && (
+              <RetainedContent
+                active={mode === "properties"}
+                defer
+                className="flex min-h-0 flex-1 flex-col"
+              >
                 <BinTree
                   document={handle.document}
                   asset={asset}
@@ -273,7 +283,7 @@ function OpenObject({
                   editable={handle.readOnly === null}
                   rootEntry={object.entry}
                 />
-              )}
+              </RetainedContent>
             </Panel>
             {docked && (
               <>

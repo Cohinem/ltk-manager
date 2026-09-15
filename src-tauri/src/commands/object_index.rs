@@ -16,7 +16,7 @@ use ltk_manager_core::object_index::{
     self, layer_bins, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDirListing,
     ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
     ObjectReferenceGeneration, ObjectSearchGeneration, ObjectSearchResult, ReferenceResult,
-    WalkRequest, WalkTarget,
+    SpellCatalog, WalkRequest, WalkTarget,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
@@ -156,6 +156,40 @@ pub enum ObjectDir {
     Failed { error: AppErrorResponse },
     /// The index answered.
     Ready(ObjectDirListing),
+}
+
+/// The character spell catalog and the index state supplying it.
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
+#[ts(export)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum CharacterSpells {
+    /// Nothing has warmed the index.
+    Absent,
+    /// The catalog is waiting for an index build.
+    Building,
+    /// The last index build failed.
+    Failed { error: AppErrorResponse },
+    /// Every named spell for the requested character.
+    Ready(SpellCatalog),
+}
+
+/// The install's spells below `Characters/{character}/Spells`.
+#[tauri::command]
+#[specta::specta]
+pub async fn character_spells(
+    character: String,
+    app_handle: AppHandle,
+) -> IpcResult<CharacterSpells> {
+    off_thread(move || {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
+            ObjectIndexSnapshot::Absent => return Ok(CharacterSpells::Absent),
+            ObjectIndexSnapshot::Building => return Ok(CharacterSpells::Building),
+            ObjectIndexSnapshot::Failed(error) => return Ok(CharacterSpells::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => index,
+        };
+        Ok(CharacterSpells::Ready(index.character_spells(&character)))
+    })
+    .await
 }
 
 /// What one prefix of the object tree holds.

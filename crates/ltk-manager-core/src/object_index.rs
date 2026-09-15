@@ -21,12 +21,14 @@ mod find;
 mod names;
 mod references;
 mod search;
+mod spells;
 mod state;
 mod walk;
 mod wire;
 
 pub use build::{Declaration, for_each_declaration};
 pub use names::{CacheNames, ObjectNames};
+pub use spells::{CharacterSpell, SpellCatalog};
 pub use state::{
     BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
     ObjectReferenceGeneration, ObjectSearchGeneration,

@@ -1,7 +1,7 @@
 import { CheckIcon, ColumnsIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { Button, Menu } from "@/components";
+import { Button, Menu, RetainedContent } from "@/components";
 import { m } from "@/i18n";
 import {
   LeafDropZones,
@@ -43,6 +43,7 @@ const PANE = "flex min-h-0 min-w-0 flex-1 flex-col border border-surface-700/50 
 /** What one pane draws: its body, and the controls its own strip carries. */
 export interface ShellPane {
   body: ReactNode;
+  onFocus?: () => void;
   /** Drawn at the right end of the strip while this pane is the open one. */
   actions?: ReactNode;
 }
@@ -110,18 +111,36 @@ function PaneLeaf<K extends ShellKind>({
 
   return (
     <LeafDropZones leafId={leaf.id} tabs={panes} maximized={maximizedLeafId === leaf.id}>
-      <div data-ui={`ShellPaneTree:${leaf.id}`} className={PANE}>
+      <div
+        data-ui={`ShellPaneTree:${leaf.id}`}
+        className={PANE}
+        onPointerDownCapture={() => active !== null && bodies[active]?.onFocus?.()}
+        onFocusCapture={() => active !== null && bodies[active]?.onFocus?.()}
+      >
         <PaneStrip
           leafId={leaf.id}
           panes={panes.map((pane) => ({ id: pane, title: SHELL_PANE_TITLE[pane]() }))}
           activeId={active}
-          onActivate={(id) => isShellPaneId(id) && activate(leaf.id, id)}
+          onActivate={(id) => {
+            if (!isShellPaneId(id)) return;
+            activate(leaf.id, id);
+            bodies[id]?.onFocus?.();
+          }}
           onClose={(id) => isShellPaneId(id) && close(leaf.id, id)}
           onMaximize={() => toggleMaximized(leaf.id)}
           actions={active === null ? null : bodies[active]?.actions}
         />
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {active !== null && bodies[active]?.body}
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {panes.map((pane) => (
+            <RetainedContent
+              key={pane}
+              active={pane === active}
+              defer
+              className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
+            >
+              {bodies[pane]?.body}
+            </RetainedContent>
+          ))}
           {active === null && <NoPanes />}
         </div>
       </div>

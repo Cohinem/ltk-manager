@@ -661,6 +661,22 @@ its path or its name. A container, a map, a struct and an optional read as no si
 they carry no Copy value. Copy value hash is the hash behind such a link, whether or not a table
 names it.
 
+### Preview lifetime
+
+Open documents and visited pane tabs retain their content while hidden. Switching an object
+between its class view and Properties retains the class preview. Returning from an ability
+preview restores the skin preview's camera and playback position. Closing a pane or document
+releases its content.
+
+The skin viewport follows the pane the reader uses. Clips and Inspector restore the character
+preview. Spells restores the selected ability preview, including its playback position. Closing
+Spells or leaving its selected ability restores the character preview. A separately placed
+Inspector takes ownership when its tab or content receives focus.
+
+A hidden viewport stops rendering, and a hidden document pauses its particle simulation.
+Showing it resumes from the same time. Hidden zero-size measurements do not change the class
+view's layout. A canvas is created only after its viewport first has a visible, usable size.
+
 ## The object tab
 
 An object opens as a document of its own. [ADR-0028](../adr/0028-an-object-is-a-document-of-its-own.md)
@@ -1179,6 +1195,67 @@ pointer would skin the whole mesh each time.
 
 The skin's shell writes the object's path on the header row beside its class, because the class
 only says what kind of object the tab holds and a skin tab is opened to read one skin.
+
+### The spells pane
+
+The Spells pane of the skin shell lists named `SpellObject` declarations below the character's
+`Characters/{name}/Spells` path in the installed game. New layouts place it beside Clips. Saved
+layouts can open it from the Panes menu.
+
+A filter narrows the current character's spell names. Nested paths share a heading for their
+first segment below `Spells`, while flat paths appear under Ungrouped. Rows show the spell's
+leaf name without repeating its group. The pane does not show install-wide unknown-name counts,
+declaration counts or containing files.
+
+The pane checks preview support before enabling a row. A click on a supported spell opens its
+preview directly in the selected skin's context. Unsupported spells, unreadable data and
+conflicting declarations remain disabled. No row expands or navigates to a bin file. Discovery
+retains all declarations internally, but the preview does not choose between conflicting ones.
+
+A spell opens an editable visual recipe beside the main character preview. Its written
+`mAnimationName` selects the animation through the skin's graph, including wrappers with one
+child. An unresolved name or a graph with multiple branches requires an explicit animation
+choice. A spell without an animation can preview effects on the character's bind pose.
+Animation-only spells are supported, including Galio Q.
+
+Spell previews suggest release time from written `spellCastTime` or `mCastTime`. Matching values
+need no choice. Conflicting values require a selection or an edited release time. Missile delay
+starts after release. Hit effects use the selected skin's resolver, with exact names as a fallback
+for missing keys. An explicit false `bHaveHitEffect` disables the automatic impact selection.
+
+Target distance uses rank one of the display range, then `castRangeValues.values`, then
+`castRange`. Missing or unusable distances retain the editor's 500-unit default. Range guides
+are optional, editable ground outlines for cast range, primary and secondary target radii, and
+a cone aimed at the target. The cone control uses its full opening angle in degrees. These are
+visual approximations, with no collision or server targeting behavior.
+
+**Create ability** starts an authored recipe. Its controls select an animation, cast bone,
+cast effect, optional projectile, release time, flight duration, impact effect, emission duration
+and target position. Resolver keys select effects for the current skin. An ambiguous key is
+not selected automatically. **Preview sequence** applies the draft to the main viewport.
+**Save recipe** stores it in the project's `.ltk/editor.json`. Saved recipes appear only for
+the current character and can be reopened or removed.
+
+The cast effect follows its bone and stops emitting at release. The projectile starts at the
+bone's position after the missile delay and travels to the target. Impact starts at arrival, or at release
+when there is no projectile. Each action owns its emission stop. The animation holds its final
+pose while particle tails finish. Animation graph particle events and idle effects are not
+added automatically, so recipe actions do not duplicate them.
+
+The preview shares one clock for animation and effects. Play, pause, replay, quarter speed and
+scrubbing sample the same seeded fixed-step simulation. Character and effect assets must finish
+loading before playback starts. A preparation scan measures the first step after the last action
+with no particles or child effects left and uses it as the timeline endpoint. A changed recipe
+cancels the scan and starts a fresh run. A 60-second limit bounds persistent effects.
+
+Recipes describe visual staging. Server scripts, collision, damage, branching, automatic
+multi-spell ordering and non-linear missile trajectories remain outside this player. Written
+fixed-speed or fixed-time movement can seed the initial flight duration. The recipe's timing
+and target remain editable. Project asset override resolution is a later stage of
+`docs/plans/ability-preview.md`.
+
+The standalone missile player remains available to callers without a character scene. It
+supports fixed-speed and fixed-time flights with manual anchors and the same measured endpoint.
 
 ### The clips pane
 
