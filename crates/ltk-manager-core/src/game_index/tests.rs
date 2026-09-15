@@ -353,8 +353,9 @@ fn search_obeys_the_shared_ranking_fixture() {
         reject: Vec<String>,
     }
 
-    let raw =
-        include_str!("../../../../src/modules/workshop/palette/__tests__/ranking.fixture.json");
+    let raw = include_str!(
+        "../../../../src/modules/workshop/palette/utils/__tests__/ranking.fixture.json"
+    );
     let fixture: Fixture = serde_json::from_str(raw).unwrap();
 
     for case in fixture.cases {

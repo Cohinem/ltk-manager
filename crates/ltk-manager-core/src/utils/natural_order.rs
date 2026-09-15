@@ -85,7 +85,7 @@ mod tests {
         }
 
         let raw = include_str!(
-            "../../../../src/modules/workshop/utils/__tests__/naturalOrder.fixture.json"
+            "../../../../src/modules/workshop/shared/utils/__tests__/naturalOrder.fixture.json"
         );
         let fixture: Fixture = serde_json::from_str(raw).unwrap();
 
