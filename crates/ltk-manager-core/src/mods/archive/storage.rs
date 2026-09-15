@@ -254,7 +254,10 @@ impl LibraryIndex {
     /// An index with no active profile reports the mod disabled with no layer
     /// states, which is what a conversion carries across when there is no
     /// profile to read.
-    fn profile_state(&self, mod_id: &str) -> (bool, Option<&HashMap<String, bool>>) {
+    pub(in crate::mods) fn profile_state(
+        &self,
+        mod_id: &str,
+    ) -> (bool, Option<&HashMap<String, bool>>) {
         match get_active_profile(self) {
             Ok(profile) => (
                 profile.enabled_mods.iter().any(|id| id == mod_id),

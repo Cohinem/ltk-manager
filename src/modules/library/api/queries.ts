@@ -47,7 +47,7 @@ export const modQueries = {
       queryKey: libraryKeys.thumbnail(modId),
       queryFn: async () => {
         const path = unwrapForQuery(await api.getModThumbnail(modId));
-        return path ? convertFileSrc(path) : "";
+        return path ? thumbnailUrl(path) : "";
       },
       staleTime: Infinity,
     }),
@@ -63,7 +63,7 @@ export const modQueries = {
         const paths = unwrapForQuery(await api.getModThumbnails([...modIds]));
         for (const id of modIds) {
           const path = paths[id];
-          seed.setQueryData(libraryKeys.thumbnail(id), path ? convertFileSrc(path) : "");
+          seed.setQueryData(libraryKeys.thumbnail(id), path ? thumbnailUrl(path) : "");
         }
         return paths;
       },
@@ -214,4 +214,9 @@ export function useFolders() {
 /** The order the folders sit in. */
 export function useFolderOrder() {
   return useQuery(folderQueries.order());
+}
+
+/** A refreshed asset URL after an archive replacement at the same path. */
+function thumbnailUrl(path: string): string {
+  return `${convertFileSrc(path)}?v=${Date.now()}`;
 }

@@ -40,6 +40,7 @@ import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
 import { twMerge } from "@/utils";
 
+import { ModCardUpdateItem } from "./ModCardUpdateItem";
 import type { ModCardView } from "./useModCardController";
 
 type CardVariant = "grid" | "list";
@@ -122,13 +123,16 @@ export function ModCardThumbnail({
 /** The list row's toggle. A grid card has none, since the card itself is the control. */
 export function ModCardToggle({ view }: { view: ModCardView }) {
   const { mod } = view;
+  const label = mod.enabled
+    ? m.library_mod_disable_label({ name: mod.displayName })
+    : m.library_mod_enable_label({ name: mod.displayName });
 
   return (
     <Switch
       disabled={view.disabled}
       checked={mod.enabled}
       onCheckedChange={(checked) => view.onToggle(mod.id, checked)}
-      aria-label={`${mod.enabled ? "Disable" : "Enable"} ${mod.displayName}`}
+      aria-label={label}
     />
   );
 }
@@ -198,7 +202,7 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
             variant="ghost"
             size="sm"
             compact
-            aria-label={`More options for ${view.mod.displayName}`}
+            aria-label={m.library_mod_options_label({ name: view.mod.displayName })}
             disabled={menuDisabled}
             className={className}
           />
@@ -279,6 +283,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
       </Menu.Item>
       {canChangeStorage && <ModCardStorageSubmenu view={view} />}
       <ModCardHealthItem modId={mod.id} />
+      <ModCardUpdateItem modId={mod.id} />
       <Menu.Item icon={<CopyIcon className="h-4 w-4" weight="bold" />} onClick={view.onCopyId}>
         {m.library_mod_copy_id_action()}
       </Menu.Item>
@@ -384,7 +389,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
            panel is where a finding is read, so the press opens it there. */
         if (verdict.health === "healthy") {
           if (total === 0) {
-            toast.success("No problems found");
+            toast.success(m.library_mod_health_clean_title());
             return;
           }
           showMod(modId);
@@ -492,7 +497,7 @@ export function ModPills({
     tone: "champion" as const,
     key,
     icon: <ChampionIcon className="h-3 w-3 shrink-0" />,
-    ariaLabel: `${champion} skin`,
+    ariaLabel: m.library_mod_champion_skin_label({ champion }),
   });
 
   // The folded pill leads: it names the mod's subject, where a tag only sorts it.
@@ -543,7 +548,7 @@ export function ModPills({
         </span>
       ))}
       {autoVisible.length > 0 && (
-        <Tooltip content="Auto-detected from this mod's contents">
+        <Tooltip content={m.library_mod_auto_categories_hint()}>
           <span className="inline-flex flex-wrap items-center gap-1">
             {autoVisible.map((pill) => (
               <AutoPill
@@ -557,7 +562,11 @@ export function ModPills({
           </span>
         </Tooltip>
       )}
-      {overflow > 0 && <span className="text-[0.625rem] text-surface-500">+{overflow}</span>}
+      {overflow > 0 && (
+        <span className="text-[0.625rem] text-surface-500">
+          {m.library_mod_overflow_label({ count: overflow })}
+        </span>
+      )}
     </div>
   );
 }
@@ -573,20 +582,18 @@ export function SkinhackInfoDialog({
     <Dialog.Shell
       open={open}
       onClose={() => onOpenChange(false)}
-      title="What is a skinhack?"
+      title={m.library_mod_skinhack_title()}
       size="sm"
     >
       <Dialog.Body>
         <p className="text-sm leading-relaxed text-surface-300">
-          A skinhack is a mod that grants access to paid League of Legends skins.
+          {m.library_mod_skinhack_description()}
         </p>
         <p className="mt-3 text-sm leading-relaxed text-surface-300">
-          Using skinhacks violates the distribution policy and can put your account at risk. LTK
-          Manager blocks these mods to protect both users and the modding community.
+          {m.library_mod_skinhack_policy_hint()}
         </p>
         <p className="mt-3 text-sm leading-relaxed text-surface-400">
-          If you believe this mod was flagged incorrectly, open an issue on the GitHub repository
-          page with the relevant info and we will investigate.
+          {m.library_mod_skinhack_report_hint()}
         </p>
       </Dialog.Body>
     </Dialog.Shell>

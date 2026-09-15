@@ -27,6 +27,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
+mod update;
+
 /// Prefix an in-flight install's directory and archive copy share under `mods/`.
 ///
 /// The leading dot keeps them out of directory discovery, which walks `mods/`

@@ -298,6 +298,8 @@ export const api = {
   installMod: (filePath: string) => invokeResult<InstalledMod>("install_mod", { filePath }),
   installMods: (filePaths: string[]) =>
     invokeResult<BulkInstallResult>("install_mods", { filePaths }),
+  updateMod: (modId: string, filePath: string) =>
+    invokeResult<InstalledMod>("update_mod", { modId, filePath }),
   uninstallMod: (modId: string) => invokeResult<void>("uninstall_mod", { modId }),
   exportMods: (scope: ExportScope, shape: ExportShape, destination: string) =>
     invokeResult<ExportSummary>("export_mods", { scope, shape, destination }),

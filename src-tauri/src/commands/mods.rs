@@ -65,6 +65,33 @@ pub fn install_mods(
     result.into()
 }
 
+/// Replace a library mod from a new archive.
+#[tauri::command]
+pub async fn update_mod(
+    mod_id: String,
+    file_path: String,
+    app_handle: AppHandle,
+) -> IpcResult<InstalledMod> {
+    let setup: AppResult<_> = (|| {
+        let patcher = app_handle.state::<PatcherState>();
+        reject_if_patcher_running(&patcher)?;
+        let config = app_handle.state::<SettingsState>().config();
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        Ok((config, library))
+    })();
+    let (config, library) = match setup {
+        Ok(value) => value,
+        Err(error) => return IpcResult::from(Err::<InstalledMod, _>(error)),
+    };
+    off_thread(move || {
+        let updated = library.update_mod_from_package(&config, &mod_id, &file_path)?;
+        library.announce_change();
+        library.spawn_categorization(&config, vec![mod_id.clone()]);
+        library.spawn_health_check(&config, vec![mod_id]);
+        Ok(updated)
+    })
+    .await
+}
 /// Uninstall a mod by id.
 #[tauri::command]
 pub fn uninstall_mod(
