@@ -1,12 +1,4 @@
-/**
- * The order an explorer draws its rows in, under every view.
- *
- * A sort applies to the whole explorer rather than to the open directory
- * alone, so a tree sorted by size is sorted by size at every depth. Nothing
- * here reaches a source: an archive holds every entry already, and the index
- * answers one directory at a time, so a sort reads rows the frontend holds
- * either way.
- */
+/** The directory-first ordering shared by the views within one explorer tab. */
 
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { SourceDirNode, SourceFileNode, SourceTreeNode } from "../gameBrowser/sourceIndex";

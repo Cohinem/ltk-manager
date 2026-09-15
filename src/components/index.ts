@@ -10,6 +10,7 @@ export * from "./Combobox";
 export * from "./CommandPalette";
 export * from "./ConfirmDialog";
 export * from "./ContextMenu";
+export * from "./DataTable";
 export * from "./Dialog";
 export * from "./EmptyState";
 export * from "./ErrorBoundary";

@@ -1,9 +1,16 @@
 import { CaretRightIcon, PlayIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { use, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, use, useEffect, useMemo, useRef } from "react";
 
-import { Field, SegmentedControl } from "@/components";
+import {
+  DataTable,
+  type DataTableColumn,
+  DataTableCells,
+  DataTableHeaders,
+  Field,
+  SegmentedControl,
+} from "@/components";
 import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { AnimationGraph, GraphClip } from "@/lib/tauri";
@@ -11,7 +18,7 @@ import { twMerge } from "@/utils";
 
 import { ROW_HEIGHT } from "../BinRow";
 import { Notice } from "../vfx/Notice";
-import { type Column, shownColumns } from "./ClipColumns";
+import { shownColumns } from "./ClipColumns";
 import { ClipDetail } from "./ClipDetail";
 import { MapTable } from "./ClipMaps";
 import { type ClipTab, SkinChoiceContext } from "./skinChoice";
@@ -135,64 +142,92 @@ function ClipTable({ graph, source }: { graph: AnimationGraph; source: GraphSour
   }, [mark, rows, virtualizer]);
 
   return (
-    <div
-      ref={scroller}
-      data-ui="ClipTable"
-      className="min-h-0 flex-1 overflow-auto p-1.5 font-mono text-mono-row scrollbar-md"
-      {...NO_OVERSCROLL}
-    >
-      <div className="min-w-max">
-        {/* DS-GROUND: opaque, since the rows scroll under it rather than past it. */}
-        <div className="sticky top-0 z-10 flex gap-2 bg-surface-900 px-1.5 pb-0.5 font-sans text-meta text-surface-400 select-none">
-          <span className="w-4 shrink-0" />
-          {columns.map((column) => (
-            <span key={column.key} className={twMerge("shrink-0 truncate", column.width)}>
-              {column.label()}
-            </span>
-          ))}
-        </div>
-        {rows.length === 0 && (
-          <span className="px-1.5 text-meta text-surface-400">
-            {m.workshop_bin_section_none_empty()}
-          </span>
-        )}
-        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-          {virtualizer.getVirtualItems().map((item) => {
-            const clip = rows[item.index];
-            if (clip === undefined) return null;
-            const expanded = choice?.isExpanded("clips", clip.hash) ?? false;
-            return (
-              <div
-                key={item.key}
-                ref={virtualizer.measureElement}
-                data-index={item.index}
-                className="absolute top-0 left-0 w-full"
-                style={{ transform: `translateY(${item.start}px)` }}
-              >
-                <ClipRow
-                  clip={clip}
-                  columns={columns}
-                  posing={picked === clip.hash}
-                  marked={marked === clip.hash}
-                  expanded={expanded}
-                  onToggle={() => choice?.toggleExpanded("clips", clip.hash)}
-                  onClick={() => {
-                    if (playable.has(clip.hash)) choice?.setPicked(clip.hash);
-                  }}
+    <DataTable
+      ariaLabel={m.workshop_bin_clip_tab_clips_label()}
+      options={{
+        data: rows,
+        getRowId: (clip) => clip.hash,
+        enableSorting: false,
+        columns: columns.map((column): DataTableColumn<GraphClip> => ({
+          id: column.key,
+          header: () => (
+            <span className={twMerge("shrink-0 truncate", column.width)}>{column.label()}</span>
+          ),
+          cell: ({ row }) => (
+            <span
+              className={twMerge("flex shrink-0 items-center gap-2 overflow-hidden", column.width)}
+            >
+              {column.key === "name" && picked === row.id && (
+                <PlayIcon
+                  weight="fill"
+                  role="img"
+                  aria-label={m.workshop_bin_clip_posing_label()}
+                  className="h-3 w-3 shrink-0 text-accent-300"
                 />
-                {expanded && <ClipDetail source={source} clip={clip} />}
-              </div>
-            );
-          })}
+              )}
+              {column.draw(row.original)}
+            </span>
+          ),
+        })),
+      }}
+    >
+      {(table) => (
+        <div
+          ref={scroller}
+          data-ui="ClipTable"
+          className="min-h-0 flex-1 overflow-auto p-1.5 font-mono text-mono-row scrollbar-md"
+          {...NO_OVERSCROLL}
+        >
+          <div className="min-w-max">
+            {/* DS-GROUND: opaque, since the rows scroll under it rather than past it. */}
+            <div className="sticky top-0 z-10 flex gap-2 bg-surface-900 px-1.5 pb-0.5 font-sans text-meta text-surface-400 select-none">
+              <span className="w-4 shrink-0" />
+              <DataTableHeaders headers={table.getFlatHeaders()} customCells />
+            </div>
+            {rows.length === 0 && (
+              <span className="px-1.5 text-meta text-surface-400">
+                {m.workshop_bin_section_none_empty()}
+              </span>
+            )}
+            <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+              {virtualizer.getVirtualItems().map((item) => {
+                const row = table.getRowModel().rows[item.index];
+                if (row === undefined) return null;
+                const clip = row.original;
+                const expanded = choice?.isExpanded("clips", clip.hash) ?? false;
+                return (
+                  <div
+                    key={item.key}
+                    ref={virtualizer.measureElement}
+                    data-index={item.index}
+                    className="absolute top-0 left-0 w-full"
+                    style={{ transform: `translateY(${item.start}px)` }}
+                  >
+                    <ClipRow
+                      posing={picked === clip.hash}
+                      marked={marked === clip.hash}
+                      expanded={expanded}
+                      onToggle={() => choice?.toggleExpanded("clips", clip.hash)}
+                      onClick={() => {
+                        if (playable.has(clip.hash)) choice?.setPicked(clip.hash);
+                      }}
+                    >
+                      <DataTableCells row={row} customCells />
+                    </ClipRow>
+                    {expanded && <ClipDetail source={source} clip={clip} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </DataTable>
   );
 }
 
 interface ClipRowProps {
-  readonly clip: GraphClip;
-  readonly columns: readonly Column[];
+  readonly children: ReactNode;
   /** The preview plays this clip. */
   readonly posing: boolean;
   /** A chip jumped to this row. */
@@ -204,7 +239,7 @@ interface ClipRowProps {
 }
 
 /** One clip across the columns, marked for what the preview holds of it, with the caret that unfolds it. */
-function ClipRow({ clip, columns, posing, marked, expanded, onToggle, onClick }: ClipRowProps) {
+function ClipRow({ children, posing, marked, expanded, onToggle, onClick }: ClipRowProps) {
   return (
     <div
       role="button"
@@ -231,22 +266,7 @@ function ClipRow({ clip, columns, posing, marked, expanded, onToggle, onClick }:
       }}
     >
       <FoldCaret expanded={expanded} onToggle={onToggle} />
-      {columns.map((column) => (
-        <span
-          key={column.key}
-          className={twMerge("flex shrink-0 items-center gap-2 overflow-hidden", column.width)}
-        >
-          {column.key === "name" && posing && (
-            <PlayIcon
-              weight="fill"
-              role="img"
-              aria-label={m.workshop_bin_clip_posing_label()}
-              className="h-3 w-3 shrink-0 text-accent-300"
-            />
-          )}
-          {column.draw(clip)}
-        </span>
-      ))}
+      {children}
     </div>
   );
 }

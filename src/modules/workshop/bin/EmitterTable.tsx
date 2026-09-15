@@ -1,8 +1,8 @@
 import { type ReactNode, useMemo, useRef } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { useHorizontalWheel } from "@/hooks";
 import type { BinRow } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { nameHash } from "./binHash";
 import { RowValue } from "./BinRow";
@@ -107,29 +107,29 @@ export function EmitterTable({ section, pages, view }: WidgetProps) {
     <ValueMarksContext value={marks}>
       <div ref={scroller} className="overflow-x-auto scrollbar-md">
         <div className="min-w-max">
-          <div className="flex gap-2 px-1.5 pb-0.5 text-meta text-surface-400">
-            {ADDRESSED.map((column) => (
-              <span key={column.field} className={twMerge("shrink-0 truncate", column.width)}>
-                {column.field}
-              </span>
-            ))}
-          </div>
-          <TableRows rows={emitters}>
-            {(emitter) => {
-              const fields = fieldsOf(pages.get(rowKey(emitter)));
-              return ADDRESSED.map((column) => (
-                <span
-                  key={column.field}
-                  className={twMerge(
-                    "flex shrink-0 items-center gap-2 overflow-hidden",
-                    column.width,
-                  )}
-                >
-                  {column.draw(fields(column.hash), pages)}
-                </span>
-              ));
-            }}
-          </TableRows>
+          <TableRows
+            rows={emitters}
+            showHeader
+            columns={ADDRESSED.map((column) => ({
+              id: column.field,
+              header: () => (
+                <span className={twMerge("shrink-0 truncate", column.width)}>{column.field}</span>
+              ),
+              cell: ({ row }) => {
+                const fields = fieldsOf(pages.get(row.id));
+                return (
+                  <span
+                    className={twMerge(
+                      "flex shrink-0 items-center gap-2 overflow-hidden",
+                      column.width,
+                    )}
+                  >
+                    {column.draw(fields(column.hash), pages)}
+                  </span>
+                );
+              },
+            }))}
+          />
         </div>
       </div>
     </ValueMarksContext>

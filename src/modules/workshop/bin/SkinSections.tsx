@@ -1,6 +1,7 @@
 import { ArrowRightIcon } from "@phosphor-icons/react";
-import { use, useEffect, useRef, useState } from "react";
+import { createContext, use, useEffect, useRef, useState } from "react";
 
+import type { DataTableColumn } from "@/components";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
@@ -305,38 +306,64 @@ function Resource({
   return null;
 }
 
+interface EffectRowsContextValue {
+  pages: LayoutPages;
+  resources: ReadonlyMap<string, BinRow>;
+}
+const EffectRowsContext = createContext<EffectRowsContextValue | null>(null);
+
+const EFFECT_COLUMNS: DataTableColumn<BinRow>[] = [
+  { id: "effect", cell: EffectCell },
+  { id: "bone", cell: BoneCell },
+  { id: "target", cell: TargetCell },
+];
+
 /** A row per effect: the system it resolves to, the bone it sits on, and the bone it aims at. */
 function EffectRows({
   effects,
   pages,
   resources,
-}: {
-  effects: readonly BinRow[];
-  pages: LayoutPages;
-  resources: ReadonlyMap<string, BinRow>;
-}) {
+}: EffectRowsContextValue & { effects: readonly BinRow[] }) {
   return (
-    <TableRows rows={effects}>
-      {(element) => {
-        const fields = fieldsOf(pages.get(rowKey(element)));
-        const key = fields(EFFECT.key);
-        const name = fields(EFFECT.name);
-        const target = fields(EFFECT.targetBone);
-        return (
-          <>
-            <Cell row={key ?? name} className="flex min-w-0 flex-1 items-center gap-2">
-              <Resource effect={key} name={name} resources={resources} />
-            </Cell>
-            <TextCell row={fields(EFFECT.bone)} className="w-32 shrink-0 text-surface-400" />
-            {Boolean(textOf(target)) && (
-              <span className="flex w-32 shrink-0 items-center gap-1 text-surface-400">
-                <ArrowRightIcon aria-hidden className="h-3 w-3 shrink-0" />
-                <TextCell row={target} className="min-w-0" />
-              </span>
-            )}
-          </>
-        );
-      }}
-    </TableRows>
+    <EffectRowsContext value={{ pages, resources }}>
+      <TableRows rows={effects} columns={EFFECT_COLUMNS} />
+    </EffectRowsContext>
+  );
+}
+
+function EffectCell({ row }: { row: { id: string } }) {
+  const context = use(EffectRowsContext);
+  if (context === null) return null;
+  const fields = fieldsOf(context.pages.get(row.id));
+  const key = fields(EFFECT.key);
+  const name = fields(EFFECT.name);
+  return (
+    <Cell row={key ?? name} className="flex min-w-0 flex-1 items-center gap-2">
+      <Resource effect={key} name={name} resources={context.resources} />
+    </Cell>
+  );
+}
+
+function BoneCell({ row }: { row: { id: string } }) {
+  const context = use(EffectRowsContext);
+  if (context === null) return null;
+  return (
+    <TextCell
+      row={fieldsOf(context.pages.get(row.id))(EFFECT.bone)}
+      className="w-32 shrink-0 text-surface-400"
+    />
+  );
+}
+
+function TargetCell({ row }: { row: { id: string } }) {
+  const context = use(EffectRowsContext);
+  if (context === null) return null;
+  const target = fieldsOf(context.pages.get(row.id))(EFFECT.targetBone);
+  if (!textOf(target)) return null;
+  return (
+    <span className="flex w-32 shrink-0 items-center gap-1 text-surface-400">
+      <ArrowRightIcon aria-hidden className="h-3 w-3 shrink-0" />
+      <TextCell row={target} className="min-w-0" />
+    </span>
   );
 }

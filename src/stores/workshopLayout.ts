@@ -137,25 +137,16 @@ interface WorkshopLayoutStore extends PreviewDisplay {
    * the switch above the list takes them off it.
    */
   forwardLookingMeta: boolean;
-  /**
-   * How every explorer draws, and what its tiles look like.
-   *
-   * A work habit rather than a place, so it belongs to the application and not
-   * to a document: a modder who reads by size reads every explorer by size, and
-   * one on a laptop turns the thumbnails off once. Where an explorer is stands
-   * apart, in the session store beside the expansion it already keeps.
-   */
+  /** The shared geometry and artwork preferences of the explorers. */
   explorerView: ExplorerView;
   explorerTileSize: ExplorerTileSize;
   explorerRowHeight: ExplorerRowHeight;
   explorerThumbnails: boolean;
-  explorerSort: ExplorerSort;
   explorerColumns: ExplorerColumns;
   setExplorerView: (explorerView: ExplorerView) => void;
   setExplorerTileSize: (explorerTileSize: ExplorerTileSize) => void;
   setExplorerRowHeight: (explorerRowHeight: ExplorerRowHeight) => void;
   setExplorerThumbnails: (explorerThumbnails: boolean) => void;
-  setExplorerSort: (explorerSort: ExplorerSort) => void;
   setExplorerColumn: (column: keyof ExplorerColumns, width: number) => void;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
@@ -217,7 +208,6 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       explorerTileSize: 128,
       explorerRowHeight: 24,
       explorerThumbnails: true,
-      explorerSort: { field: "name", direction: "asc" },
       explorerColumns: { size: 88, kind: 112 },
       ...PROJECT_EDITOR_DEFAULTS,
       ...PREVIEW_DISPLAY_DEFAULTS,
@@ -225,7 +215,6 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setExplorerTileSize: (explorerTileSize) => set({ explorerTileSize }),
       setExplorerRowHeight: (explorerRowHeight) => set({ explorerRowHeight }),
       setExplorerThumbnails: (explorerThumbnails) => set({ explorerThumbnails }),
-      setExplorerSort: (explorerSort) => set({ explorerSort }),
       /* One column rather than the record, so a drag's writer is stable across
          the re-renders the drag itself causes. */
       setExplorerColumn: (column, width) =>
@@ -249,8 +238,14 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 1,
-      migrate: keepUnversioned<WorkshopLayoutStore>,
+      version: 2,
+      migrate: (persisted) => {
+        const state = {
+          ...keepUnversioned<WorkshopLayoutStore & { explorerSort?: ExplorerSort }>(persisted),
+        };
+        delete state.explorerSort;
+        return state;
+      },
     },
   ),
 );
@@ -286,8 +281,6 @@ export const useSetExplorerTileSize = () => useWorkshopLayoutStore((s) => s.setE
 export const useExplorerThumbnails = () => useWorkshopLayoutStore((s) => s.explorerThumbnails);
 export const useSetExplorerThumbnails = () =>
   useWorkshopLayoutStore((s) => s.setExplorerThumbnails);
-export const useExplorerSort = () => useWorkshopLayoutStore((s) => s.explorerSort);
-export const useSetExplorerSort = () => useWorkshopLayoutStore((s) => s.setExplorerSort);
 export const useExplorerColumns = () => useWorkshopLayoutStore((s) => s.explorerColumns);
 export const useSetExplorerColumn = () => useWorkshopLayoutStore((s) => s.setExplorerColumn);
 export const useLayerPanelSide = () => useWorkshopLayoutStore((s) => s.layerPanelSide);

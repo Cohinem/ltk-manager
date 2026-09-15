@@ -1895,6 +1895,10 @@ reason, because the pointer leaves the 12px grab area long before the drag ends.
 
 ### Sorting
 
+Each Game index and WAD tab owns its sort field and direction. The sidebar has separate ordering.
+A tab's sort survives a remount during the session and applies to every directory and view in that
+tab. Changing it does not change another tab or the sidebar. A restart restores name order.
+
 | Field    | Reads                                       | Available in       |
 | -------- | ------------------------------------------- | ------------------ |
 | Name     | the label, in natural order                 | every explorer     |
@@ -2206,20 +2210,20 @@ the rows take it as a move to the parent.
 
 ### Where the state lives
 
-| State                   | Belongs to                     | Because                                                 |
-| ----------------------- | ------------------------------ | ------------------------------------------------------- |
-| The view mode           | the app, per host              | a work habit, and a panel and a surface differ          |
-| The tile size           | the app                        | a work habit                                            |
-| Thumbnails on or off    | the app                        | a work habit, and a modder on a laptop turns them off   |
-| The sort                | the app                        | a modder who reads by size reads every explorer by size |
-| The location            | the document                   | it is where the user left the project                   |
-| The expansion           | the document                   | the same, and the trees hold it already                 |
-| The filter and the text | the document, and not the file | it answers one question and is gone by the next open    |
-| The selection           | the document, for the session  | it feeds one copy, and a restart has no copy pending    |
-| The copied files        | the app, for the session       | a copy in one project pastes into another               |
-| The conflict answer     | the app                        | a work habit, and the dialog's checkbox writes it       |
+| State                   | Belongs to                     | Because                                               |
+| ----------------------- | ------------------------------ | ----------------------------------------------------- |
+| The view mode           | the app, per host              | a work habit, and a panel and a surface differ        |
+| The tile size           | the app                        | a work habit                                          |
+| Thumbnails on or off    | the app                        | a work habit, and a modder on a laptop turns them off |
+| The sort                | the tab, within its project    | each tab answers its own question                     |
+| The location            | the document                   | it is where the user left the project                 |
+| The expansion           | the document                   | the same, and the trees hold it already               |
+| The filter and the text | the document, and not the file | it answers one question and is gone by the next open  |
+| The selection           | the document, for the session  | it feeds one copy, and a restart has no copy pending  |
+| The copied files        | the app, for the session       | a copy in one project pastes into another             |
+| The conflict answer     | the app                        | a work habit, and the dialog's checkbox writes it     |
 
-`workshopLayout` holds the application's four, beside the alpha checkerboard and the tab open
+`workshopLayout` holds the application preferences, beside the alpha checkerboard and the tab open
 mode that it holds now. A preview's zoom and pan are in neither. They belong to one open preview
 and go when it closes, which [Panning and zooming a preview](#panning-and-zooming-a-preview)
 gives the reason for.
@@ -3656,9 +3660,7 @@ for Tauri. The payload is the same list, and the target runs
    reading, and it is what a user who closed a preview by mistake would want.
 3. Which key opens the bar on a keyboard that is not `Ctrl`-based? The Linux and macOS
    builds are not in scope yet, and `Ctrl+P` is a Windows answer.
-4. Does the sort belong to the application or to each explorer? One sort for every explorer
-   is one thing to learn, and a modder reading the game index by size may still want their
-   own layer by name.
+4. The sort belongs to each tab within its project. The sidebar keeps separate ordering.
 5. Does a thumbnail survive a scroll? Nothing is stored today. A bounded cache of encoded
    thumbnails is the escalation, and a measurement should buy it.
 6. Does an extract obey the filter chips? The proposal says yes, because the explorer shows

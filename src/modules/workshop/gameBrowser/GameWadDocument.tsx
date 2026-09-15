@@ -5,16 +5,13 @@ import { type BreadcrumbItem, Button, EmptyState } from "@/components";
 import { m } from "@/i18n";
 import type { AppError, AssetRef, GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
-import {
-  useExplorerSort,
-  useExplorerThumbnails,
-  useExplorerTileSize,
-  useExplorerView,
-} from "@/stores";
+import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import type { ContentDocumentOf } from "../documents/contentDocument";
 import {
+  ExplorerSortScope,
+  useExplorerSort,
   CrumbSiblings,
   crumbsOf,
   ExplorerBar,
@@ -103,33 +100,35 @@ export function GameWadDocument({
   });
 
   return (
-    <div
-      data-ui="GameWadDocument"
-      className="flex min-h-0 flex-1 flex-col bg-surface-950"
-      onKeyDown={handleKeyDown}
-    >
-      <DocumentToolbar active={active}>
-        <ArchiveBar
+    <ExplorerSortScope documentId={document.id}>
+      <div
+        data-ui="GameWadDocument"
+        className="flex min-h-0 flex-1 flex-col bg-surface-950"
+        onKeyDown={handleKeyDown}
+      >
+        <DocumentToolbar active={active}>
+          <ArchiveBar
+            explorerId={explorerId}
+            summary={summary}
+            listings={listings}
+            nav={nav}
+            typing={typing}
+            onTypingChange={setTyping}
+            boxRef={boxRef}
+          />
+        </DocumentToolbar>
+        <ArchiveBody
           explorerId={explorerId}
+          wadName={wadName}
           summary={summary}
+          entries={entries}
           listings={listings}
+          pending={wads.isPending || entriesQuery.isPending}
+          error={error}
           nav={nav}
-          typing={typing}
-          onTypingChange={setTyping}
-          boxRef={boxRef}
         />
-      </DocumentToolbar>
-      <ArchiveBody
-        explorerId={explorerId}
-        wadName={wadName}
-        summary={summary}
-        entries={entries}
-        listings={listings}
-        pending={wads.isPending || entriesQuery.isPending}
-        error={error}
-        nav={nav}
-      />
-    </div>
+      </div>
+    </ExplorerSortScope>
   );
 }
 

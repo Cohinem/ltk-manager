@@ -5,16 +5,13 @@ import { type BreadcrumbItem, EmptyState, IconButton, Spinner, Tooltip } from "@
 import { m } from "@/i18n";
 import type { AssetRef, GameFindResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
-import {
-  useExplorerSort,
-  useExplorerThumbnails,
-  useExplorerTileSize,
-  useExplorerView,
-} from "@/stores";
+import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { twMerge } from "@/utils";
 
 import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
 import {
+  ExplorerSortScope,
+  useExplorerSort,
   CrumbSiblings,
   crumbsOf,
   ExplorerBar,
@@ -92,16 +89,18 @@ export function GameDocument({ document, active }: EditorDocumentProps<ContentDo
   });
 
   return (
-    <div
-      data-ui="GameDocument"
-      className="flex min-h-0 flex-1 flex-col bg-surface-950"
-      onKeyDown={handleKeyDown}
-    >
-      <DocumentToolbar active={active}>
-        <GameExplorerBar nav={nav} typing={typing} onTypingChange={setTyping} boxRef={boxRef} />
-      </DocumentToolbar>
-      <GameBody location={nav.location} onNavigate={nav.goTo} onUp={nav.goUp} />
-    </div>
+    <ExplorerSortScope documentId={document.id}>
+      <div
+        data-ui="GameDocument"
+        className="flex min-h-0 flex-1 flex-col bg-surface-950"
+        onKeyDown={handleKeyDown}
+      >
+        <DocumentToolbar active={active}>
+          <GameExplorerBar nav={nav} typing={typing} onTypingChange={setTyping} boxRef={boxRef} />
+        </DocumentToolbar>
+        <GameBody location={nav.location} onNavigate={nav.goTo} onUp={nav.goUp} />
+      </div>
+    </ExplorerSortScope>
   );
 }
 

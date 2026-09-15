@@ -1,11 +1,3 @@
-/**
- * The controls at the explorer bar's trailing end.
- *
- * Everything here reads the application's own view settings rather than the
- * explorer's, because how a modder likes to read a directory travels with them
- * and where they are does not.
- */
-
 import {
   ListBulletsIcon,
   RowsIcon,
@@ -15,6 +7,13 @@ import {
   SquaresFourIcon,
   XIcon,
 } from "@phosphor-icons/react";
+/**
+ * The controls at the explorer bar's trailing end.
+ *
+ * Everything here reads the application's own view settings rather than the
+ * explorer's, because how a modder likes to read a directory travels with them
+ * and where they are does not.
+ */
 import { useCallback } from "react";
 
 import {
@@ -38,11 +37,9 @@ import {
   type ExplorerTileSize,
   type ExplorerView,
   useExplorerRowHeight,
-  useExplorerSort,
   useExplorerThumbnails,
   useExplorerTileSize,
   useSetExplorerRowHeight,
-  useSetExplorerSort,
   useSetExplorerThumbnails,
   useSetExplorerTileSize,
   useSetExplorerView,
@@ -50,6 +47,7 @@ import {
 import { formatBytes } from "@/utils";
 
 import { nearestRowHeight } from "./detailsRow";
+import { useExplorerSort, useSetExplorerSort } from "./ExplorerSortScope";
 import { type ExplorerFilter, filterIsActive, KIND_GROUPS, type KindGroupId } from "./filter";
 import type { SelectionSummary } from "./selection";
 

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { DataTable, type DataTableColumn } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -28,53 +29,54 @@ export function KeyTable({ keys, family, selected, onSelect }: KeyTableProps) {
   if (keys.length === 0) return <Empty />;
 
   const names = CHANNELS[family];
+  const columns: DataTableColumn<CurveKey>[] = [
+    {
+      id: "time",
+      header: () => <Head>{m.workshop_bin_curve_time_column()}</Head>,
+      cell: ({ row }) => <Cell className="text-surface-400">{row.original.time.toFixed(3)}</Cell>,
+    },
+  ];
+  if (family === "color")
+    columns.push({
+      id: "color",
+      header: () => <Head />,
+      cell: ({ row }) => (
+        <td className="px-1.5 py-0.5">
+          <ColorCell values={row.original.values} />
+        </td>
+      ),
+    });
+  columns.push(
+    ...names.map((name, channel): DataTableColumn<CurveKey> => ({
+      id: name,
+      header: () => (
+        <Head className={names.length > 1 ? (CHIP[channel] ?? CHIP[0]) : undefined}>{name}</Head>
+      ),
+      cell: ({ row }) => <Cell>{format(row.original.values[channel])}</Cell>,
+    })),
+  );
   return (
     <div
       data-ui="KeyTable"
       className="min-h-0 flex-1 overflow-auto font-mono text-code scrollbar-sm"
     >
-      <table className="w-full border-separate border-spacing-0 text-left tabular-nums">
-        <thead className="sticky top-0 bg-surface-900">
-          <tr className="text-meta text-surface-400 select-none">
-            <Head>{m.workshop_bin_curve_time_column()}</Head>
-            {family === "color" && <Head />}
-            {names.map((name, channel) => (
-              /* DS-KIND-HUE: the column carries the hue its line draws in on the graph. */
-              <Head
-                key={name}
-                className={names.length > 1 ? (CHIP[channel] ?? CHIP[0]) : undefined}
-              >
-                {name}
-              </Head>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {keys.map((key, at) => (
-            <tr
-              key={at}
-              aria-selected={onSelect === undefined ? undefined : at === selected}
-              /* DS-VEIL */
-              className={twMerge(
-                "hover:bg-surface-veil-soft",
-                onSelect !== undefined && "cursor-pointer",
-                at === selected && onSelect !== undefined && "bg-surface-veil",
-              )}
-              onClick={onSelect === undefined ? undefined : () => onSelect(at)}
-            >
-              <Cell className="text-surface-400">{key.time.toFixed(3)}</Cell>
-              {family === "color" && (
-                <td className="px-1.5 py-0.5">
-                  <ColorCell values={key.values} />
-                </td>
-              )}
-              {names.map((name, channel) => (
-                <Cell key={name}>{format(key.values[channel])}</Cell>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <DataTable
+        ariaLabel={m.workshop_bin_random_keys_action()}
+        options={{ data: keys, columns, enableSorting: false }}
+        className="text-left text-code tabular-nums"
+        headerClassName="sticky top-0 bg-surface-900 text-meta text-surface-400 select-none"
+        customCells
+        customHeaders
+        rowProps={({ index }) => ({
+          "aria-selected": onSelect === undefined ? undefined : index === selected,
+          className: twMerge(
+            "hover:bg-surface-veil-soft",
+            onSelect !== undefined && "cursor-pointer",
+            index === selected && onSelect !== undefined && "bg-surface-veil",
+          ),
+          onClick: onSelect === undefined ? undefined : () => onSelect(index),
+        })}
+      />
     </div>
   );
 }

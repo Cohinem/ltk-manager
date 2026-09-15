@@ -6,6 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import { type ReactNode, use, useMemo } from "react";
 
+import { DataTable, DataTableCells, DataTableHeaders, type DataTableColumn } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow, BinRows } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -212,25 +213,38 @@ const INDENT = "0.75rem";
 /** One row per element of the containers a section placed, drawn by the widget. */
 export function TableRows({
   rows,
-  children,
+  columns,
+  showHeader = false,
 }: {
   rows: readonly BinRow[];
-  children: (element: BinRow) => ReactNode;
+  columns: DataTableColumn<BinRow>[];
+  showHeader?: boolean;
 }) {
-  if (rows.length === 0) return <None />;
   return (
-    <div className="flex flex-col">
-      {rows.map((element) => (
-        <div
-          key={rowKey(element)}
-          data-row-key={rowKey(element)}
-          /* DS-VEIL, DS-RADIUS */
-          className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
-        >
-          {children(element)}
+    <DataTable
+      ariaLabel={m.workshop_bin_row_fields_action()}
+      options={{ data: rows, columns, getRowId: rowKey, enableSorting: false }}
+    >
+      {(table) => (
+        <div className="flex flex-col">
+          {showHeader && (
+            <div className="flex gap-2 px-1.5 pb-0.5 text-meta text-surface-400">
+              <DataTableHeaders headers={table.getFlatHeaders()} customCells />
+            </div>
+          )}
+          {rows.length === 0 && <None />}
+          {table.getRowModel().rows.map((row) => (
+            <div
+              key={row.id}
+              data-row-key={row.id}
+              className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
+            >
+              <DataTableCells row={row} customCells />
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      )}
+    </DataTable>
   );
 }
 

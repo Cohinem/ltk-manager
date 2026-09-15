@@ -8,6 +8,7 @@ import { twMerge } from "@/utils";
 
 import { Code } from "./Code";
 import { ExternalLink, isLeavable } from "./ExternalLink";
+import { Table } from "./Table";
 
 interface MarkdownViewProps {
   text: string;
@@ -61,15 +62,22 @@ function renderers(root: string | null): Components {
     hr: () => <hr className="my-4 border-surface-700" />,
     table: ({ children }) => (
       <div className="mb-3 overflow-x-auto scrollbar-md">
-        <table className="w-full border-collapse text-meta">{children}</table>
+        <Table.Root className="border-collapse text-meta">{children}</Table.Root>
       </div>
     ),
+    thead: ({ children }) => <Table.Header>{children}</Table.Header>,
+    tbody: ({ children }) => <Table.Body>{children}</Table.Body>,
+    tr: ({ children }) => <Table.Row>{children}</Table.Row>,
     th: ({ children }) => (
-      <th className="border border-surface-700 px-2 py-1 text-left font-medium text-surface-200">
+      <Table.Head className="border border-surface-700 bg-transparent px-2 py-1 text-left text-meta font-medium text-surface-200">
         {children}
-      </th>
+      </Table.Head>
     ),
-    td: ({ children }) => <td className="border border-surface-700 px-2 py-1">{children}</td>,
+    td: ({ children }) => (
+      <Table.Cell className="border border-surface-700 px-2 py-1 align-middle">
+        {children}
+      </Table.Cell>
+    ),
     /* DS-CODE-CHIP for the inline case. A block is the row it is, so it keeps
        plain mono on an inset rather than a chip per line. */
     code: ({ children, className: language }) => {

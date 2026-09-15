@@ -1,25 +1,21 @@
 import type { ReactNode } from "react";
-import { useCallback, useMemo, useRef } from "react";
+import { createContext, use, useCallback, useMemo, useRef } from "react";
 
+import { DataTable, DataTableCells, type DataTableColumn } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import type { AssetRef } from "@/lib/tauri";
-import {
-  useExplorerColumns,
-  useExplorerRowHeight,
-  useExplorerSort,
-  useSetExplorerSort,
-  useZoomLevel,
-} from "@/stores";
+import { useExplorerColumns, useExplorerRowHeight, useZoomLevel } from "@/stores";
 import { twMerge } from "@/utils";
 
-import { columnTemplate, visibleColumns } from "./columns";
+import { fileKindFromPath } from "../gameBrowser/fileKind";
+import { type ExplorerColumn, columnTemplate, visibleColumns } from "./columns";
 import { ART_REQUEST_WIDTH, artBoxFor, nameTypeForRow } from "./detailsRow";
+import { ExplorerCell } from "./ExplorerCell";
 import { ExplorerDetailsHeader } from "./ExplorerDetailsHeader";
-import { ExplorerRow } from "./ExplorerRow";
+import { useExplorerSort, useSetExplorerSort } from "./ExplorerSortScope";
 import { type ExplorerRowAttributes, ExplorerSurface, useMeasuredWidth } from "./ExplorerSurface";
 import { type ExplorerFileItem, type ExplorerItem, itemPath } from "./items";
 import { itemStateClasses } from "./itemState";
-import type { ExplorerSortField } from "./sort";
 import type { ExplorerSelectionApi } from "./useExplorer";
 
 /** The header's height in px before the zoom. A row's own height is a setting. */
@@ -80,15 +76,18 @@ export function ExplorerDetails({
   const nameType = nameTypeForRow(height);
   const rowStyle = useMemo(() => ({ gridTemplateColumns: template }), [template]);
 
-  const onSort = useCallback(
-    (field: ExplorerSortField) => {
-      if (field !== sort.field) {
-        setSort({ field, direction: "asc" });
-        return;
-      }
-      setSort({ field, direction: sort.direction === "asc" ? "desc" : "asc" });
-    },
-    [sort, setSort],
+  const definitions = useMemo<DataTableColumn<ExplorerItem>[]>(
+    () =>
+      columns.map((column) => ({
+        id: column,
+        accessorFn: (item) => {
+          if (column === "name") return item.name;
+          if (column === "size") return item.kind === "dir" ? item.fileCount : item.entry.sizeBytes;
+          return item.kind === "dir" ? "folder" : fileKindFromPath(item.entry.path ?? item.name);
+        },
+        cell: ({ row }) => <DetailsCell item={row.original} column={column} />,
+      })),
+    [columns],
   );
 
   const rowAttrs = useCallback(
@@ -103,7 +102,7 @@ export function ExplorerDetails({
         "aria-selected": selected,
         tabIndex: from === focused ? 0 : -1,
         className: twMerge(
-          "cursor-pointer rounded-sm outline-none hover:bg-surface-veil",
+          "cursor-pointer outline-none hover:bg-surface-veil",
           nameType.className,
           itemStateClasses({
             selected,
@@ -117,48 +116,87 @@ export function ExplorerDetails({
   );
 
   return (
-    <ExplorerSurface
-      items={items}
-      scrollRef={scrollRef}
-      columns={1}
-      rowHeight={rowHeight}
-      selection={selection}
-      ariaLabel={ariaLabel}
-      dataUi="ExplorerDetails"
-      scrollClassName="px-1 pb-2 select-none"
-      rowClassName="grid items-center"
-      rowStyle={rowStyle}
-      rowAttrs={rowAttrs}
-      headerHeight={headerHeight}
-      header={
-        <ExplorerDetailsHeader
-          columns={columns}
-          template={template}
-          height={headerHeight}
-          sortField={sort.field}
-          sortDescending={sort.direction === "desc"}
-          onSort={onSort}
-        />
-      }
-      onDescend={onDescend}
-      onOpen={onOpen}
-      onUp={onUp}
-      renderMenu={renderMenu}
-      onRun={onRun}
-      renderRow={(row) =>
-        row.map((item) => (
-          <ExplorerRow
-            key={item.id}
-            item={item}
-            columns={columns}
-            artBox={artBox}
-            requestWidth={ART_REQUEST_WIDTH}
-            thumbnails={thumbnails}
-            selected={selection.isSelected(item.id)}
-            assetOf={assetOf}
+    <CellContext value={{ artBox, thumbnails, selection, assetOf }}>
+      <DataTable
+        ariaLabel={ariaLabel}
+        options={{
+          data: items,
+          columns: definitions,
+          getRowId: (item) => item.id,
+          // Directory-first ordering is shared by the views within this tab.
+          manualSorting: true,
+          enableSortingRemoval: false,
+          state: { sorting: [{ id: sort.field, desc: sort.direction === "desc" }] },
+          onSortingChange: (update) => {
+            const current = [{ id: sort.field, desc: sort.direction === "desc" }];
+            const next = typeof update === "function" ? update(current) : update;
+            const first = next[0];
+            if (first && (first.id === "name" || first.id === "size" || first.id === "kind")) {
+              setSort({ field: first.id, direction: first.desc ? "desc" : "asc" });
+            }
+          },
+        }}
+      >
+        {(table) => (
+          <ExplorerSurface
+            items={items}
+            scrollRef={scrollRef}
+            columns={1}
+            rowHeight={rowHeight}
+            selection={selection}
+            ariaLabel={ariaLabel}
+            dataUi="ExplorerDetails"
+            scrollClassName="select-none"
+            rowClassName="grid items-center"
+            rowStyle={rowStyle}
+            rowAttrs={rowAttrs}
+            headerHeight={headerHeight}
+            header={
+              <ExplorerDetailsHeader
+                columns={columns}
+                template={template}
+                height={headerHeight}
+                sortField={sort.field}
+                sortDescending={sort.direction === "desc"}
+                onSort={(field) =>
+                  table
+                    .getColumn(field)
+                    ?.toggleSorting(sort.field === field ? sort.direction !== "desc" : false)
+                }
+              />
+            }
+            onDescend={onDescend}
+            onOpen={onOpen}
+            onUp={onUp}
+            renderMenu={renderMenu}
+            onRun={onRun}
+            renderRow={(_row, from) => {
+              const row = table.getRowModel().rows[from];
+              return row && <DataTableCells row={row} customCells />;
+            }}
           />
-        ))
-      }
+        )}
+      </DataTable>
+    </CellContext>
+  );
+}
+
+const CellContext = createContext<
+  (Pick<ExplorerDetailsProps, "thumbnails" | "selection" | "assetOf"> & { artBox: number }) | null
+>(null);
+
+function DetailsCell({ item, column }: { item: ExplorerItem; column: ExplorerColumn }) {
+  const context = use(CellContext);
+  if (context === null) return null;
+  return (
+    <ExplorerCell
+      item={item}
+      column={column}
+      artBox={context.artBox}
+      requestWidth={ART_REQUEST_WIDTH}
+      thumbnails={context.thumbnails}
+      selected={context.selection.isSelected(item.id)}
+      assetOf={context.assetOf}
     />
   );
 }

@@ -11,9 +11,9 @@ import { ExplorerArt } from "./ExplorerArt";
 import type { ExplorerItem } from "./items";
 import { itemNameClass } from "./itemState";
 
-export interface ExplorerRowProps {
+export interface ExplorerCellProps {
   item: ExplorerItem;
-  columns: readonly ExplorerColumn[];
+  column: ExplorerColumn;
   /** The art's box in px, which the zoom has already been applied to. */
   artBox: number;
   /** The width a thumbnail is asked for, which is the smallest tile size. */
@@ -23,46 +23,45 @@ export interface ExplorerRowProps {
   assetOf: (item: ExplorerItem) => AssetRef | null;
 }
 
-/**
- * One item's cells, which the row around them lays out.
- *
- * The row owns the template, the fill and the focus, so these are cells and
- * nothing else: three of them under a wide pane and two under a narrow one.
- */
-function ExplorerRowInner({
+/** One explorer column's content and cell element. */
+function ExplorerCellInner({
   item,
-  columns,
+  column,
   artBox,
   requestWidth,
   thumbnails,
   selected,
   assetOf,
-}: ExplorerRowProps) {
+}: ExplorerCellProps) {
   return (
     <>
-      <span role="gridcell" className="flex min-w-0 items-center gap-2 pl-1.5">
-        <ExplorerArt
-          item={item}
-          box={artBox}
-          requestWidth={requestWidth}
-          thumbnails={thumbnails}
-          assetOf={assetOf}
-          variant="row"
-        />
-        <span
-          title={item.name}
-          className={twMerge("truncate font-medium", itemNameClass(selected))}
-        >
-          {item.name}
+      {column === "name" && (
+        <span role="gridcell" className="flex min-w-0 items-center gap-2 pl-1.5">
+          <ExplorerArt
+            item={item}
+            box={artBox}
+            requestWidth={requestWidth}
+            thumbnails={thumbnails}
+            assetOf={assetOf}
+            variant="row"
+          />
+          <span
+            title={item.name}
+            className={twMerge("truncate font-medium", itemNameClass(selected))}
+          >
+            {item.name}
+          </span>
         </span>
-      </span>
-      <span
-        role="gridcell"
-        className="truncate pr-3 text-right font-mono text-meta text-surface-400 tabular-nums"
-      >
-        {sizeCell(item)}
-      </span>
-      {columns.includes("kind") && (
+      )}
+      {column === "size" && (
+        <span
+          role="gridcell"
+          className="truncate pr-3 text-right font-mono text-meta text-surface-400 tabular-nums"
+        >
+          {sizeCell(item)}
+        </span>
+      )}
+      {column === "kind" && (
         <span role="gridcell" className="truncate pr-2 text-meta text-surface-500">
           {kindCell(item)}
         </span>
@@ -71,7 +70,7 @@ function ExplorerRowInner({
   );
 }
 
-export const ExplorerRow = memo(ExplorerRowInner);
+export const ExplorerCell = memo(ExplorerCellInner);
 
 /* A directory reads what it holds, because no source totals the bytes below
    one, and a blank cell in a size column reads as a size of zero. */

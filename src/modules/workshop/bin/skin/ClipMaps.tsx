@@ -1,5 +1,6 @@
 import { type ReactNode, use } from "react";
 
+import { DataTable, type DataTableColumn, DataTableCells, DataTableHeaders } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks";
 import { m } from "@/i18n";
 import type { AnimationGraph, Mask } from "@/lib/tauri";
@@ -147,78 +148,89 @@ function Rows<T extends { hash: string }>({
   const marked = choice?.marked?.tab === tab ? choice.marked.hash : null;
 
   return (
-    <div
-      data-ui={`ClipTable:${tab}`}
-      className="min-h-0 flex-1 overflow-auto p-1.5 font-mono text-mono-row scrollbar-md"
-      {...NO_OVERSCROLL}
-    >
-      <div className="min-w-max">
-        <div className="sticky top-0 z-10 flex gap-2 bg-surface-900 px-1.5 pb-0.5 font-sans text-meta text-surface-400 select-none">
-          {detail !== undefined && <span className="w-4 shrink-0" />}
-          {columns.map((column) => (
-            <span key={column.key} className={twMerge("shrink-0 truncate", column.width)}>
-              {column.label()}
-            </span>
-          ))}
-        </div>
-        {rows.length === 0 && (
-          <span className="px-1.5 text-meta text-surface-400">
-            {m.workshop_bin_section_none_empty()}
-          </span>
-        )}
-        {rows.map((row) => {
-          const expanded = detail !== undefined && (choice?.isExpanded(tab, row.hash) ?? false);
-          return (
-            <div
-              key={row.hash}
-              ref={(element) => {
-                if (marked === row.hash) element?.scrollIntoView?.({ block: "nearest" });
-              }}
+    <DataTable
+      ariaLabel={m.workshop_bin_clip_tabs_label()}
+      options={{
+        data: rows,
+        getRowId: (row) => row.hash,
+        enableSorting: false,
+        columns: columns.map((column): DataTableColumn<T> => ({
+          id: column.key,
+          header: () => (
+            <span className={twMerge("shrink-0 truncate", column.width)}>{column.label()}</span>
+          ),
+          cell: ({ row }) => (
+            <span
+              className={twMerge("flex shrink-0 items-center gap-2 overflow-hidden", column.width)}
             >
-              <div
-                role={onPick === undefined ? undefined : "button"}
-                tabIndex={onPick === undefined ? undefined : 0}
-                aria-pressed={onPick === undefined ? undefined : pressed === row.hash}
-                aria-expanded={detail === undefined ? undefined : expanded}
-                /* DS-VEIL, DS-RADIUS */
-                className={twMerge(
-                  "flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
-                  onPick !== undefined && "cursor-pointer",
-                  marked === row.hash && "bg-accent-500/10",
-                  pressed === row.hash && "bg-accent-500/15",
-                )}
-                onClick={() => onPick?.(row)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onPick?.(row);
-                  }
-                }}
-              >
-                {detail !== undefined && (
-                  <FoldCaret
-                    expanded={expanded}
-                    onToggle={() => choice?.toggleExpanded(tab, row.hash)}
-                  />
-                )}
-                {columns.map((column) => (
-                  <span
-                    key={column.key}
-                    className={twMerge(
-                      "flex shrink-0 items-center gap-2 overflow-hidden",
-                      column.width,
-                    )}
-                  >
-                    {column.draw(row)}
-                  </span>
-                ))}
-              </div>
-              {expanded && detail?.(row)}
+              {column.draw(row.original)}
+            </span>
+          ),
+        })),
+      }}
+    >
+      {(table) => (
+        <div
+          data-ui={`ClipTable:${tab}`}
+          className="min-h-0 flex-1 overflow-auto p-1.5 font-mono text-mono-row scrollbar-md"
+          {...NO_OVERSCROLL}
+        >
+          <div className="min-w-max">
+            <div className="sticky top-0 z-10 flex gap-2 bg-surface-900 px-1.5 pb-0.5 font-sans text-meta text-surface-400 select-none">
+              {detail !== undefined && <span className="w-4 shrink-0" />}
+              <DataTableHeaders headers={table.getFlatHeaders()} customCells />
             </div>
-          );
-        })}
-      </div>
-    </div>
+            {rows.length === 0 && (
+              <span className="px-1.5 text-meta text-surface-400">
+                {m.workshop_bin_section_none_empty()}
+              </span>
+            )}
+            {table.getRowModel().rows.map((tableRow) => {
+              const row = tableRow.original;
+              const expanded = detail !== undefined && (choice?.isExpanded(tab, row.hash) ?? false);
+              return (
+                <div
+                  key={row.hash}
+                  ref={(element) => {
+                    if (marked === row.hash) element?.scrollIntoView?.({ block: "nearest" });
+                  }}
+                >
+                  <div
+                    role={onPick === undefined ? undefined : "button"}
+                    tabIndex={onPick === undefined ? undefined : 0}
+                    aria-pressed={onPick === undefined ? undefined : pressed === row.hash}
+                    aria-expanded={detail === undefined ? undefined : expanded}
+                    /* DS-VEIL, DS-RADIUS */
+                    className={twMerge(
+                      "flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
+                      onPick !== undefined && "cursor-pointer",
+                      marked === row.hash && "bg-accent-500/10",
+                      pressed === row.hash && "bg-accent-500/15",
+                    )}
+                    onClick={() => onPick?.(row)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onPick?.(row);
+                      }
+                    }}
+                  >
+                    {detail !== undefined && (
+                      <FoldCaret
+                        expanded={expanded}
+                        onToggle={() => choice?.toggleExpanded(tab, row.hash)}
+                      />
+                    )}
+                    <DataTableCells row={tableRow} customCells />
+                  </div>
+                  {expanded && detail?.(row)}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </DataTable>
   );
 }
 
@@ -227,25 +239,60 @@ function MaskJoints({ mask, joints }: { mask: Mask; joints: readonly string[] | 
   const weighed = weighedJoints(mask);
   if (weighed.length === 0) return <None />;
 
-  return (
-    <div data-ui="ClipTable:mask-joints" className="flex flex-col py-1 pl-5">
-      <div className="flex gap-2 px-1.5 font-sans text-meta text-surface-400 select-none">
-        <span className="w-10 shrink-0">#</span>
+  const columns: DataTableColumn<{ slot: number }>[] = [
+    {
+      id: "slot",
+      header: () => <span className="w-10 shrink-0">#</span>,
+      cell: ({ row }) => (
+        <span className="w-10 shrink-0 text-surface-400 tabular-nums">{row.original.slot}</span>
+      ),
+    },
+    {
+      id: "joint",
+      header: () => (
         <span className="w-48 shrink-0">{m.workshop_bin_clip_column_joint_label()}</span>
+      ),
+      cell: ({ row }) => (
+        <span className="w-48 min-w-0 shrink-0 truncate text-surface-200 select-text">
+          {joints?.[row.original.slot] ?? ""}
+        </span>
+      ),
+    },
+    {
+      id: "weight",
+      header: () => (
         <span className="w-16 shrink-0">{m.workshop_bin_clip_column_weight_label()}</span>
-      </div>
-      {weighed.map((slot) => (
-        <div key={slot} className="flex min-h-5 items-center gap-2 px-1.5">
-          <span className="w-10 shrink-0 text-surface-400 tabular-nums">{slot}</span>
-          <span className="w-48 min-w-0 shrink-0 truncate text-surface-200 select-text">
-            {joints?.[slot] ?? ""}
-          </span>
-          <span className="w-16 shrink-0 text-surface-300 tabular-nums">
-            {(mask.weights[slot] ?? 0).toFixed(WEIGHT_DECIMALS)}
-          </span>
+      ),
+      cell: ({ row }) => (
+        <span className="w-16 shrink-0 text-surface-300 tabular-nums">
+          {(mask.weights[row.original.slot] ?? 0).toFixed(WEIGHT_DECIMALS)}
+        </span>
+      ),
+    },
+  ];
+  return (
+    <DataTable
+      ariaLabel={m.workshop_bin_clip_column_joint_label()}
+      options={{
+        data: weighed.map((slot) => ({ slot })),
+        columns,
+        getRowId: (row) => String(row.slot),
+        enableSorting: false,
+      }}
+    >
+      {(table) => (
+        <div data-ui="ClipTable:mask-joints" className="flex flex-col py-1 pl-5">
+          <div className="flex gap-2 px-1.5 font-sans text-meta text-surface-400 select-none">
+            <DataTableHeaders headers={table.getFlatHeaders()} customCells />
+          </div>
+          {table.getRowModel().rows.map((row) => (
+            <div key={row.id} className="flex min-h-5 items-center gap-2 px-1.5">
+              <DataTableCells row={row} customCells />
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      )}
+    </DataTable>
   );
 }
 

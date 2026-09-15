@@ -3,8 +3,11 @@ import { create } from "zustand";
 import type { ExplorerScope } from "../explorer/ExplorerSearchBox";
 import { type ExplorerFilter, NO_FILTER } from "../explorer/filter";
 import { NO_SELECTION, type Selection } from "../explorer/selection";
+import type { ExplorerSort } from "../explorer/sort";
 
 interface ExplorerStore {
+  sorts: Record<string, ExplorerSort>;
+  setSort: (scope: string, sort: ExplorerSort) => void;
   /** Where each explorer is, by its id. Absent reads as the root. */
   locations: Record<string, string>;
   goTo: (explorerId: string, location: string) => void;
@@ -32,6 +35,8 @@ interface ExplorerStore {
  * next open, and a selection feeds one copy, which a restart has none of.
  */
 export const useExplorerStore = create<ExplorerStore>()((set) => ({
+  sorts: {},
+  setSort: (scope, sort) => set((state) => ({ sorts: { ...state.sorts, [scope]: sort } })),
   locations: {},
   goTo: (explorerId, location) =>
     set((state) => ({ locations: { ...state.locations, [explorerId]: location } })),

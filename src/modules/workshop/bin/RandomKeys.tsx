@@ -1,14 +1,14 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
-import { Popover } from "@/components";
+import { DataTable, type DataTableColumn, Popover } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { channelName, CHIP } from "./curveChannels";
 import { type ChannelDraw, neverRolled } from "./randomDraw";
 import { factorText, readout } from "./randomText";
-import type { ValueFamily } from "./valueRows";
+import type { CurveKey, ValueFamily } from "./valueRows";
 
 /** A random channel's keys, behind a button at the end of its row. */
 export function KeysPopover({ channel, family }: { channel: ChannelDraw; family: ValueFamily }) {
@@ -49,40 +49,49 @@ function ChanceTable({ channel }: { channel: ChannelDraw }) {
   if (table === null) return null;
   const base = channel.results === null ? null : channel.base;
 
+  const factor = (key: CurveKey) => key.values[0] ?? table.single;
+  const columns: DataTableColumn<CurveKey>[] = [
+    {
+      id: "chance",
+      header: () => <Head>{m.workshop_bin_random_chance_column()}</Head>,
+      cell: ({ row }) => <Cell>{row.original.time.toFixed(3)}</Cell>,
+    },
+    {
+      id: "factor",
+      header: () => <Head>{m.workshop_bin_random_factor_column()}</Head>,
+      cell: ({ row }) => <Cell>{readout(factor(row.original))}</Cell>,
+    },
+  ];
+  if (base !== null)
+    columns.push({
+      id: "result",
+      header: () => <Head>{m.workshop_bin_random_result_column()}</Head>,
+      cell: ({ row }) => <Cell>{readout(factor(row.original) * base)}</Cell>,
+    });
+  columns.push({
+    id: "status",
+    header: () => <Head />,
+    cell: ({ row }) => (
+      <td className="px-1.5 py-0.5 font-sans text-meta select-none">
+        {neverRolled(row.original.time) && m.workshop_bin_random_never_rolled_label()}
+      </td>
+    ),
+  });
   return (
-    <table className="w-fit border-separate border-spacing-0 text-left font-mono text-code tabular-nums">
-      <thead>
-        <tr className="text-meta text-surface-400 select-none">
-          <Head>{m.workshop_bin_random_chance_column()}</Head>
-          <Head>{m.workshop_bin_random_factor_column()}</Head>
-          {base !== null && <Head>{m.workshop_bin_random_result_column()}</Head>}
-          <Head />
-        </tr>
-      </thead>
-      <tbody>
-        {table.keys.map((key, at) => {
-          const factor = key.values[0] ?? table.single;
-          const unreached = neverRolled(key.time);
-          return (
-            <tr
-              key={at}
-              /* DS-VEIL */
-              className={twMerge(
-                "text-surface-200 hover:bg-surface-veil-soft",
-                unreached && "text-surface-500",
-              )}
-            >
-              <Cell>{key.time.toFixed(3)}</Cell>
-              <Cell>{readout(factor)}</Cell>
-              {base !== null && <Cell>{readout(factor * base)}</Cell>}
-              <td className="px-1.5 py-0.5 font-sans text-meta select-none">
-                {unreached && m.workshop_bin_random_never_rolled_label()}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <DataTable
+      ariaLabel={m.workshop_bin_random_keys_action()}
+      options={{ data: table.keys, columns, enableSorting: false }}
+      className="w-fit text-left font-mono text-code tabular-nums"
+      headerClassName="text-meta text-surface-400 select-none"
+      customCells
+      customHeaders
+      rowProps={({ original }) => ({
+        className: twMerge(
+          "text-surface-200 hover:bg-surface-veil-soft",
+          neverRolled(original.time) && "text-surface-500",
+        ),
+      })}
+    />
   );
 }
 

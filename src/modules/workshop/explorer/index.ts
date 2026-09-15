@@ -3,6 +3,7 @@ export { ExplorerBar, type ExplorerBarProps } from "./ExplorerBar";
 export { ExplorerDetails } from "./ExplorerDetails";
 export { ExplorerGrid } from "./ExplorerGrid";
 export { type ExplorerScope, ExplorerSearchBox } from "./ExplorerSearchBox";
+export { ExplorerSortScope, useExplorerSort, useSetExplorerSort } from "./ExplorerSortScope";
 export { ExplorerTile } from "./ExplorerTile";
 export {
   type ExplorerFilter,

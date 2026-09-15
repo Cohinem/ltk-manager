@@ -3,6 +3,22 @@
 import { useWorkshopLayoutStore } from "../workshopLayout";
 
 describe("workshopLayout", () => {
+  it("drops the former global sort while retaining layout preferences", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.(
+      {
+        explorerSort: { field: "size", direction: "desc" },
+        explorerView: "details",
+        explorerColumns: { size: 100, kind: 160 },
+      },
+      1,
+    );
+    expect(migrated).toEqual({
+      explorerView: "details",
+      explorerColumns: { size: 100, kind: 160 },
+    });
+  });
+
   beforeEach(() => {
     useWorkshopLayoutStore.setState({ tabOpenMode: "append" });
     localStorage.clear();
