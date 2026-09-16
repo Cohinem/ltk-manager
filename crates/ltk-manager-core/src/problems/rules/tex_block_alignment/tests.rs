@@ -31,6 +31,34 @@ fn bc3() -> EncodeFormat {
     }
 }
 
+fn bc1() -> EncodeFormat {
+    EncodeFormat::Bc1 {
+        weigh_colour_by_alpha: false,
+    }
+}
+
+/// The texture the repair wrote into the fixture project.
+fn repaired_in(tmp: &tempfile::TempDir) -> Tex {
+    let bytes = fs::read(
+        tmp.path()
+            .join("content")
+            .join("base")
+            .join(TEX_IN_LAYER.replace('/', std::path::MAIN_SEPARATOR_STR)),
+    )
+    .unwrap();
+    Tex::from_reader(&mut Cursor::new(&bytes)).unwrap()
+}
+
+/// Every problem in `files`, fixed.
+fn fix_all(tmp: &tempfile::TempDir, files: &ProjectFiles) -> Applied {
+    let problems = found_in(files);
+    let chosen: Vec<&Problem> = problems.iter().collect();
+    let mut run = FixRun::open(tmp.path(), Vec::new(), None, Config::default(), None);
+    let applied = TexBlockAlignment::new().fix(&chosen, &mut run).unwrap();
+    run.finish().unwrap();
+    applied
+}
+
 /// A `.tex` of `size` in `format`, painted one colour.
 fn tex_bytes(size: (u32, u32), format: EncodeFormat) -> Vec<u8> {
     let pixels = image::RgbaImage::from_pixel(size.0, size.1, image::Rgba([12, 34, 56, 255]));
@@ -250,4 +278,58 @@ fn a_volume_texture_is_reported_with_no_fix() {
     assert_eq!(problems[0].fix, None);
     let message = problems[0].message.as_deref().unwrap_or_default();
     assert!(message.contains("volume texture of 4 slices"), "{message}");
+}
+
+/// Story: a mod ships a 2x2 BC1 texture. No whole block fits below it, so the
+/// repair rounds it up to one block and the Repair press reaches it.
+#[test]
+fn a_texture_smaller_than_one_block_previews_one_whole_block() {
+    let problems = found(&tex_bytes((2, 2), bc1()));
+
+    assert_eq!(problems.len(), 1);
+    let fix = problems[0]
+        .fix
+        .as_ref()
+        .expect("a texture under one block has a repair");
+    assert_eq!(fix.before.as_deref(), Some("2 × 2"));
+    assert_eq!(fix.after.as_deref(), Some("4 × 4"));
+}
+
+#[test]
+fn the_fix_writes_a_texture_smaller_than_one_block_as_one_whole_block() {
+    let (tmp, files) = project(&tex_bytes((2, 2), bc1()));
+
+    let applied = fix_all(&tmp, &files);
+
+    assert_eq!(
+        applied,
+        Applied {
+            applied: 1,
+            skipped: 0
+        }
+    );
+    let tex = repaired_in(&tmp);
+    assert_eq!((tex.width, tex.height), (4, 4));
+    assert_eq!(tex.format, Format::Bc1);
+    let pixels = tex.decode_mipmap(0).unwrap().into_rgba_image().unwrap();
+    let first = *pixels.get_pixel(0, 0);
+    assert!(
+        pixels.pixels().all(|pixel| *pixel == first),
+        "a one-colour texture stays one colour"
+    );
+}
+
+/// Only the dimension short of a block grows. The other rounds down as it
+/// always does.
+#[test]
+fn only_the_dimension_under_one_block_rounds_up() {
+    let (tmp, files) = project(&tex_bytes((2, 10), bc3()));
+
+    let fix = found_in(&files)[0].fix.clone().expect("a repair");
+    assert_eq!(fix.after.as_deref(), Some("4 × 8"));
+
+    fix_all(&tmp, &files);
+    let tex = repaired_in(&tmp);
+    assert_eq!((tex.width, tex.height), (4, 8));
+    assert!(Ragged::of(&tex).is_none());
 }

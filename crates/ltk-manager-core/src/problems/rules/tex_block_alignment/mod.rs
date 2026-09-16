@@ -13,10 +13,11 @@
 //!
 //! The repair decodes, resamples down to the nearest whole block in each
 //! dimension, and re-encodes to the format the file already had. Down rather
-//! than up, so no pixel is invented, and resampled rather than cropped, because
-//! texture coordinates are normalized and an image that stops covering its
-//! surface slides against the mesh it is painted on. It is the first repair the
-//! manager ships that loses fidelity - see ADR-0011.
+//! than up, so no pixel is invented. A dimension under one block has no whole
+//! block below it and grows to one, repeating its texels. Resampled rather than
+//! cropped, because texture coordinates are normalized and an image that stops
+//! covering its surface slides against the mesh it is painted on. It is the
+//! first repair the manager ships that loses fidelity - see ADR-0011.
 //!
 //! **The rule reads `.tex` and nothing else.** What a `.tex` can be beyond a
 //! plain 2D image is a volume, which its `depth` field is what declares. It
@@ -194,17 +195,16 @@ impl Ragged {
             ));
         }
 
-        let (width, height) = (
-            self.width - self.width % self.block.0,
-            self.height - self.height % self.block.1,
-        );
-        if width == 0 || height == 0 {
+        if self.width == 0 || self.height == 0 {
             return Err(format!(
-                "{}x{} is smaller than one {}x{} block, so there is nothing to round down to",
-                self.width, self.height, self.block.0, self.block.1
+                "{}x{} holds no pixels to resample",
+                self.width, self.height
             ));
         }
-        Ok((width, height))
+        Ok((
+            on_grid(self.width, self.block.0),
+            on_grid(self.height, self.block.1),
+        ))
     }
 
     /// What this one finding says, and what a repair would change.
@@ -223,6 +223,11 @@ impl Ragged {
     }
 }
 
+/// `size` rounded down to whole `block`s, and never below one block.
+fn on_grid(size: u32, block: u32) -> u32 {
+    (size - size % block).max(block)
+}
+
 /// Read a `.tex` header out of the first bytes of the file.
 fn read_header(head: &[u8]) -> Result<Tex, String> {
     Tex::from_reader(&mut Cursor::new(head)).map_err(|e| e.to_string())
@@ -239,7 +244,9 @@ fn resampled(tex: &Tex, size: (u32, u32)) -> Result<Tex, String> {
         .map_err(|e| e.to_string())?
         .into_rgba_image()
         .map_err(|e| e.to_string())?;
-    let smaller = image::imageops::resize(&pixels, size.0, size.1, FilterType::Lanczos3);
+    let (width, height) = pixels.dimensions();
+    let across = image::imageops::resize(&pixels, size.0, height, filter(width, size.0));
+    let resized = image::imageops::resize(&across, size.0, size.1, filter(height, size.1));
 
     let format = EncodeFormat::try_from(tex.format).map_err(|e| e.to_string())?;
     let mut options = EncodeOptions::new(format);
@@ -249,7 +256,19 @@ fn resampled(tex: &Tex, size: (u32, u32)) -> Result<Tex, String> {
             .with_mipmap_filter(MipmapFilter::Lanczos3);
     }
 
-    Tex::encode_rgba_image(&smaller, options).map_err(|e| e.to_string())
+    Tex::encode_rgba_image(&resized, options).map_err(|e| e.to_string())
+}
+
+/// The filter that takes one axis from `from` texels to `to`.
+///
+/// An axis that grows repeats its texels, which invents no colour the author
+/// did not paint.
+fn filter(from: u32, to: u32) -> FilterType {
+    if to > from {
+        FilterType::Nearest
+    } else {
+        FilterType::Lanczos3
+    }
 }
 
 #[cfg(test)]
