@@ -1,5 +1,7 @@
 //! What the schema answers, and what it declines to answer.
 
+use ltk_game_data::Schema as _;
+
 use super::*;
 
 /// The build `FloatTextIconData.mIconFileName` was a `String` at.
@@ -236,6 +238,110 @@ fn the_schema_at_a_build_declares_types_only_where_it_describes_the_build() {
         Some(Shape::bare(Kind::WadChunkLink))
     );
     assert!(at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0x1)).is_none());
+}
+
+#[test]
+fn a_patch_schema_types_an_edit_by_the_revision_at_its_build() {
+    let schema = Arc::new(schema());
+    let before = PatchSchema::new(Arc::clone(&schema), Some(BEFORE_RETYPE));
+    let after = PatchSchema::new(schema, Some(AFTER_RETYPE));
+
+    assert_eq!(
+        before.expected(FLOAT_TEXT_ICON_DATA, ICON_CIRCLE),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Optional,
+            key: None,
+            item: Some(Kind::String),
+        })
+    );
+    assert_eq!(
+        after.expected(FLOAT_TEXT_ICON_DATA, ICON_CIRCLE),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Optional,
+            key: None,
+            item: Some(Kind::WadChunkLink),
+        })
+    );
+    assert_eq!(
+        after.expected(FLOAT_TEXT_ICON_DATA, UNCENSORED_ICON_CIRCLES),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Map,
+            key: Some(Kind::Hash),
+            item: Some(Kind::WadChunkLink),
+        })
+    );
+}
+
+/// Story: silence types the edit from the base bin. A game newer than the database
+/// is typed that way rather than by the newest revision it names.
+#[test]
+fn a_patch_schema_says_nothing_where_the_database_is_silent() {
+    let schema = Arc::new(schema());
+    let past = PatchSchema::new(Arc::clone(&schema), Some(GameBuild::new(17, 1, 9_000_000)));
+    let unbuilt = PatchSchema::new(Arc::clone(&schema), None);
+    let at = PatchSchema::new(schema, Some(AFTER_RETYPE));
+
+    assert_eq!(past.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET), None);
+    assert_eq!(unbuilt.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET), None);
+    assert_eq!(
+        at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0xdead_beef)),
+        None,
+        "a type this build cannot map"
+    );
+    assert_eq!(at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0x1)), None);
+    assert_eq!(at.expected(BinHash(0x1), M_OFFSET), None);
+}
+
+/// Story: an edit names the class of the object it lands on, and most of that class's
+/// fields are its bases'.
+#[test]
+fn a_patch_schema_types_a_field_a_base_declares() {
+    let derived = BinHash(0x0000_0abc);
+    let json = published().replace(
+        r#""classes": {"#,
+        r#""classes": {
+            "0x00000abc": {
+              "name": "DerivedIconData",
+              "revisions": [{ "from": 5229820, "bases": ["0x16d88f43"], "interface": false, "value": false }],
+              "properties": {}
+            },"#,
+    );
+    let schema = Arc::new(MetaSchema::parse(json.as_bytes()).unwrap());
+    let at = PatchSchema::new(Arc::clone(&schema), Some(AFTER_RETYPE));
+    let past = PatchSchema::new(schema, Some(GameBuild::new(17, 1, 9_000_000)));
+
+    assert_eq!(
+        at.expected(derived, ICON_CIRCLE),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Optional,
+            key: None,
+            item: Some(Kind::WadChunkLink),
+        })
+    );
+    assert_eq!(past.expected(derived, ICON_CIRCLE), None);
+}
+
+#[test]
+fn a_patch_schema_knows_every_class_the_database_holds_named_or_not() {
+    let unnamed = published().replace(r#""name": "FloatTextIconData","#, "");
+    let schema = MetaSchema::parse(unnamed.as_bytes()).unwrap();
+    assert_eq!(schema.class_name(FLOAT_TEXT_ICON_DATA), None);
+    let schema = PatchSchema::new(Arc::new(schema), Some(AFTER_RETYPE));
+
+    assert!(schema.has_class(FLOAT_TEXT_ICON_DATA));
+    assert!(!schema.has_class(BinHash(0x1)));
+}
+
+/// Story: a class new on patch day is one the database has not taken yet, and refusing
+/// a pin to it is a refusal the database has no ground for.
+#[test]
+fn a_patch_schema_knows_every_class_at_a_build_the_database_does_not_describe() {
+    let schema = Arc::new(schema());
+    let past = PatchSchema::new(Arc::clone(&schema), Some(GameBuild::new(17, 1, 9_000_000)));
+    let unbuilt = PatchSchema::new(schema, None);
+
+    assert!(past.has_class(BinHash(0x1)));
+    assert!(unbuilt.has_class(BinHash(0x1)));
 }
 
 #[test]

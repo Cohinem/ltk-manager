@@ -22,8 +22,10 @@ use crate::bin_document::hex;
 use crate::problems::GameBuild;
 
 mod fields;
+mod game_data;
 
 pub use fields::DeclaredField;
+pub use game_data::PatchSchema;
 
 #[cfg(test)]
 mod tests;
@@ -566,6 +568,12 @@ impl MetaSchema {
     #[must_use]
     pub fn class_name(&self, class: BinHash) -> Option<&str> {
         self.classes.get(&class)?.name.as_deref()
+    }
+
+    /// Whether the database holds `class` at any build, named or not.
+    #[must_use]
+    pub fn has_class(&self, class: BinHash) -> bool {
+        self.classes.contains_key(&class)
     }
 
     /// One class as the class card draws it, or `None` for a class it does not describe.
