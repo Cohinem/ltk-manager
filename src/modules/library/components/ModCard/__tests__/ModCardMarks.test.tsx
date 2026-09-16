@@ -35,6 +35,7 @@ function view(): ModCardView {
     isFlagged: false,
     skinhackReason: "",
     canChangeStorage: false,
+    canCheckHealth: true,
     storageChangePending: false,
     disabled: false,
     menuDisabled: false,

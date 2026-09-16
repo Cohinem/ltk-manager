@@ -73,6 +73,19 @@ describe("a mod card's right click", () => {
     expect(screen.queryByRole("menuitem", { name: /Enable 1/ })).toBeNull();
   });
 
+  it("offers Check Health on a mod the check can read", async () => {
+    rightClick({ canCheckHealth: true });
+
+    expect(await screen.findByRole("menuitem", { name: "Check Health" })).toBeInTheDocument();
+  });
+
+  it("leaves Check Health out on a mod the check cannot read", async () => {
+    rightClick({ canCheckHealth: false });
+
+    expect(await screen.findByRole("menuitem", { name: "Details" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Check Health" })).toBeNull();
+  });
+
   it("opens nothing while the patcher owns the library", () => {
     rightClick({ menuDisabled: true });
 

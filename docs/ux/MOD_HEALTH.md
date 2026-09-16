@@ -263,7 +263,9 @@ Any repair that wrote also flushes the next overlay build, so the fix reaches th
 a manual rebuild.
 
 A modpkg is not checked or repaired. Its content only exists inside its archive, and there is
-no unpacked form to run the rules over - the same boundary as ADR-0001.
+no unpacked form to run the rules over - the same boundary as ADR-0001. Its card menu carries no
+Check Health row, the check at import passes over it without a log line, and a sweep over the
+library or a selection leaves it out of the count.
 
 ## How loud a finding is drawn
 
