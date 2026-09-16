@@ -31,10 +31,10 @@ impl PatchSchema {
 
 impl ltk_game_data::Schema for PatchSchema {
     fn expected(&self, class: BinHash, field: BinHash) -> Option<ltk_game_data::Shape> {
-        let declared = self
-            .schema
-            .declared_field(class, field, Some(self.build?))?;
-        Some(declared.shape.into())
+        self.schema
+            .expected(class, field, self.build?)?
+            .shape
+            .map(Into::into)
     }
 
     fn has_class(&self, class: BinHash) -> bool {

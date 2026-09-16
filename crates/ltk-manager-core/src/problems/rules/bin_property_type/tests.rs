@@ -173,9 +173,11 @@ fn a_property_that_matches_from_raises_one_problem() {
 fn the_check_reads_a_stream_as_it_reads_the_tree() {
     let bytes = bytes_of(&every_shape());
     let nothing = BinNames::none();
+    let schema = meta_schema::shared(None);
     let lens = Lens {
         tables: table::tables(),
-        schema: None,
+        schema: &schema,
+        judged: None,
         names: &nothing,
     };
 
@@ -828,9 +830,11 @@ fn a_fix_reaches_a_property_under_an_index_and_a_key() {
         }
     );
     let nothing = BinNames::none();
+    let schema = meta_schema::shared(None);
     let lens = Lens {
         tables: table::tables(),
-        schema: None,
+        schema: &schema,
+        judged: None,
         names: &nothing,
     };
     assert!(check_bin(&repaired, lens).is_empty());
@@ -1306,6 +1310,61 @@ fn without_an_install_the_schema_is_asked_nothing() {
     let (_tmp, files) = project(&bin);
 
     assert!(check_with(&files).is_empty());
+}
+
+/// `CharacterRecord`, which declares `areaIndicatorTextureName`.
+const CHARACTER_RECORD: BinHash = BinHash(0x23ea_1915);
+/// `TFTCharacterRecord`, which derives from `CharacterRecord` and declares none of its fields.
+const TFT_CHARACTER_RECORD: BinHash = BinHash(0x3044_96f1);
+/// `areaIndicatorTextureName`, which Riot retyped `String` to `File` in 16.17.
+const AREA_INDICATOR_TEXTURE_NAME: BinHash = BinHash(0xa6c2_a1c7);
+
+/// Story: the database writes a field on the class that declares it, and most of a
+/// class's fields are its bases'. A derived object holding the old type is the same
+/// defect as the base holding it.
+#[test]
+fn a_field_a_base_declares_is_reported_on_a_derived_object() {
+    let bin = object_bin(
+        TFT_CHARACTER_RECORD,
+        AREA_INDICATOR_TEXTURE_NAME,
+        text(ICON_TEX),
+    );
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].severity, Severity::Fatal);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "file");
+    assert_eq!(mismatch.found, "string");
+    assert!(problems[0].fix.is_some(), "the path is in the file");
+}
+
+/// Story: a table row names the class that declares a field, and the object in a mod's
+/// file is as often one deriving from it.
+#[test]
+fn a_table_row_on_a_base_reaches_a_derived_object() {
+    let names = |class| {
+        table::tables().iter().any(|table| {
+            table
+                .migration(class, AREA_INDICATOR_TEXTURE_NAME)
+                .is_some()
+        })
+    };
+    assert!(names(CHARACTER_RECORD) && !names(TFT_CHARACTER_RECORD));
+    let bin = object_bin(
+        TFT_CHARACTER_RECORD,
+        AREA_INDICATOR_TEXTURE_NAME,
+        text(ICON_TEX),
+    );
+
+    let problems = found(&bin);
+
+    assert_eq!(problems.len(), 1, "no install, so the table alone answers");
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "file");
+    assert_eq!(mismatch.found, "string");
 }
 
 /// Story: Riot ships property bins under a bare name, and a mod that replaces
@@ -1937,9 +1996,11 @@ fn the_check_over_a_stream_matches_the_check_over_the_owned_tree() {
     streamed.sort();
 
     let nothing = BinNames::none();
+    let schema = meta_schema::shared(None);
     let lens = Lens {
         tables: table::tables(),
-        schema: None,
+        schema: &schema,
+        judged: None,
         names: &nothing,
     };
     let mut owned: Vec<String> = check_bin(&BinFile::Prop(bin), lens)

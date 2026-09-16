@@ -154,7 +154,7 @@ impl Rule for BinPropertyType {
         let project = pass.project();
         let tables = table::tables();
         let judge = Judge::opened(project.build());
-        if tables.is_empty() && judge.lens().is_none() {
+        if tables.is_empty() && judge.judged().is_none() {
             return;
         }
         pass.bins().visit(TypeCheck {
@@ -177,7 +177,8 @@ impl Rule for BinPropertyType {
         let judge = Judge::opened(GameBuild::installed(run.config()));
         let lens = Lens {
             tables,
-            schema: judge.lens(),
+            schema: &judge.schema,
+            judged: judge.judged(),
             names: &names,
         };
         let mut applied = Applied::default();
@@ -379,7 +380,8 @@ impl BinVisitor for TypeCheck<'_> {
         Box::new(Reporting {
             check: Check::new(Lens {
                 tables: self.tables,
-                schema: self.judge.lens(),
+                schema: &self.judge.schema,
+                judged: self.judge.judged(),
                 names: self.names,
             }),
             build: self.build,
@@ -444,8 +446,10 @@ impl<'f> Walk<'f> for Reporting<'_, 'f> {
 #[derive(Clone, Copy)]
 struct Lens<'a> {
     tables: &'static [MigrationTable],
-    /// Absent without an install to judge against.
-    schema: Option<(&'a MetaSchema, GameBuild)>,
+    /// The database, whose hierarchy leads a derived class to the row naming its base.
+    schema: &'a MetaSchema,
+    /// The build the database judges at. Absent without an install to judge against.
+    judged: Option<GameBuild>,
     names: &'a BinNames,
 }
 
@@ -497,8 +501,8 @@ impl Lens<'_> {
         value: impl Declared<'a>,
     ) -> Result<Option<Objection>, ltk_meta::Error> {
         let mut answered = None;
-        if let Some((schema, build)) = self.schema
-            && let Some(expected) = schema.expected(class, field, build)
+        if let Some(build) = self.judged
+            && let Some(expected) = self.schema.expected(class, field, build)
             && let Some(shape) = expected.shape
         {
             answered = Some(build);
@@ -516,7 +520,7 @@ impl Lens<'_> {
             if answered.is_some_and(|installed| table.build() <= installed) {
                 continue;
             }
-            let Some(migration) = table.migration(class, field) else {
+            let Some(migration) = self.migration(table, class, field) else {
                 continue;
             };
             if migration.from.matches(value)? {
@@ -531,8 +535,9 @@ impl Lens<'_> {
 
     /// The field's name, from whichever of the rule's own sources holds one.
     fn field_name(&self, class: BinHash, field: BinHash) -> Option<&str> {
-        if let Some((schema, build)) = self.schema
-            && let Some(name) = schema
+        if let Some(build) = self.judged
+            && let Some(name) = self
+                .schema
                 .expected(class, field, build)
                 .and_then(|expected| expected.field_name)
         {
@@ -540,7 +545,21 @@ impl Lens<'_> {
         }
         self.tables
             .iter()
-            .find_map(|table| table.migration(class, field)?.field_name.as_deref())
+            .find_map(|table| self.migration(table, class, field)?.field_name.as_deref())
+    }
+
+    /// The row of `table` naming `field` on `class` or a base of it, the classes read at the
+    /// table's build.
+    fn migration(
+        &self,
+        table: &'static MigrationTable,
+        class: BinHash,
+        field: BinHash,
+    ) -> Option<&'static Migration> {
+        self.schema
+            .find_in_hierarchy(class, Some(table.build()), |owner| {
+                table.migration(owner, field)
+            })
     }
 }
 
@@ -577,16 +596,13 @@ impl Judge {
         }
     }
 
-    /// The schema to judge by, and the build to judge at.
+    /// The build to judge at.
     ///
     /// `None` without an install, since a revision is keyed on a build, and
     /// `None` past what the database reaches, which would judge against a
     /// change it has not taken yet.
-    fn lens(&self) -> Option<(&MetaSchema, GameBuild)> {
-        let build = self.build?;
-        self.schema
-            .describes(build)
-            .then_some((self.schema.as_ref(), build))
+    fn judged(&self) -> Option<GameBuild> {
+        self.build.filter(|build| self.schema.describes(*build))
     }
 }
 

@@ -206,6 +206,21 @@ impl Revision {
 /// What the database writes in a slot the type leaves empty.
 const EMPTY_SLOT: &str = "0x0";
 
+/// How many bases deep a walk up a class goes.
+///
+/// The bound ends a cycle a database writes by mistake, and sits above the
+/// deepest published hierarchy, which is nine classes.
+const BASE_DEPTH: usize = 16;
+
+/// Which revisions of a class's bases a walk up it follows.
+#[derive(Debug, Clone, Copy)]
+enum BasesAt {
+    /// The revision covering this content build.
+    Build(u32),
+    /// Every revision.
+    Any,
+}
+
 /// The type of one property, as the database writes it.
 ///
 /// Flat, the way the file is: `[kind, key, value, class]`, with `EMPTY_SLOT`
@@ -397,7 +412,7 @@ impl<'a> SchemaAt<'a> {
         self.schema.expected(class, field, self.build?)
     }
 
-    /// The field as the database names it, at any build.
+    /// The field as the database names it on `class` or a base of it, at any build.
     #[must_use]
     pub fn field_name(self, class: BinHash, field: BinHash) -> Option<&'a str> {
         self.schema.field_name(class, field)
@@ -524,6 +539,9 @@ impl MetaSchema {
 
     /// What the game expects `field` of `class` to hold at `build`.
     ///
+    /// The type is the one `class` or a base of it declares. See
+    /// [`MetaSchema::find_in_hierarchy`] for the order the classes answer in.
+    ///
     /// `None` for a class, property or build it does not describe - silence
     /// rather than a mismatch, since a schema that says nothing is not evidence.
     #[must_use]
@@ -533,15 +551,64 @@ impl MetaSchema {
         field: BinHash,
         build: GameBuild,
     ) -> Option<Expected<'_>> {
-        let parsed = self.classes.get(&class)?;
-        let property = parsed.properties.get(&field)?;
-        let revision = property.at(build.content())?;
+        let content = build.content();
+        let (property, revision) = self.walk_hierarchy(
+            class,
+            BasesAt::Build(content),
+            &mut |owner| {
+                let property = self.classes.get(&owner)?.properties.get(&field)?;
+                Some((property, property.at(content)?))
+            },
+            0,
+        )?;
 
         Some(Expected {
             shape: revision.shape,
-            class_name: parsed.name.as_deref(),
+            class_name: self.class_name(class),
             field_name: property.name.as_deref(),
         })
+    }
+
+    /// The first answer `find` gives for `class` or a base of it.
+    ///
+    /// `class` answers first, then its bases, depth first in the order a
+    /// revision lists them. The bases are read at `build` where the database
+    /// describes it, and at the newest build it names otherwise.
+    #[must_use]
+    pub fn find_in_hierarchy<T>(
+        &self,
+        class: BinHash,
+        build: Option<GameBuild>,
+        mut find: impl FnMut(BinHash) -> Option<T>,
+    ) -> Option<T> {
+        let bases = BasesAt::Build(self.content_build(build));
+        self.walk_hierarchy(class, bases, &mut find, 0)
+    }
+
+    /// [`MetaSchema::find_in_hierarchy`] from `depth` bases up.
+    fn walk_hierarchy<T>(
+        &self,
+        class: BinHash,
+        bases: BasesAt,
+        find: &mut impl FnMut(BinHash) -> Option<T>,
+        depth: usize,
+    ) -> Option<T> {
+        if let Some(found) = find(class) {
+            return Some(found);
+        }
+        if depth == BASE_DEPTH {
+            return None;
+        }
+        self.classes
+            .get(&class)?
+            .bases
+            .iter()
+            .filter(|revision| match bases {
+                BasesAt::Build(build) => revision.covers(build),
+                BasesAt::Any => true,
+            })
+            .flat_map(|revision| &revision.bases)
+            .find_map(|base| self.walk_hierarchy(*base, bases, find, depth + 1))
     }
 
     /// This database read at `build`, where it describes one.
@@ -553,15 +620,22 @@ impl MetaSchema {
         }
     }
 
-    /// The field as the database names it, at any build.
+    /// The field as the database names it on `class` or a base of it, at any build.
     #[must_use]
     pub fn field_name(&self, class: BinHash, field: BinHash) -> Option<&str> {
-        self.classes
-            .get(&class)?
-            .properties
-            .get(&field)?
-            .name
-            .as_deref()
+        self.walk_hierarchy(
+            class,
+            BasesAt::Any,
+            &mut |owner| {
+                self.classes
+                    .get(&owner)?
+                    .properties
+                    .get(&field)?
+                    .name
+                    .as_deref()
+            },
+            0,
+        )
     }
 
     /// The class as the database names it, at any build.

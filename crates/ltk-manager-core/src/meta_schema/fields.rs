@@ -145,7 +145,7 @@ impl MetaSchema {
 
     /// The build a read at `build` takes: `build` where the database describes it, and the
     /// newest one it names otherwise.
-    fn content_build(&self, build: Option<GameBuild>) -> u32 {
+    pub(super) fn content_build(&self, build: Option<GameBuild>) -> u32 {
         build
             .filter(|build| self.describes(*build))
             .map_or(self.latest, |build| build.content())
