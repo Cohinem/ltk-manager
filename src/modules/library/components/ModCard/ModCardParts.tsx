@@ -261,7 +261,7 @@ export function ModCardContextMenu({
  * different commands.
  */
 function ModCardMenuItems({ view }: { view: ModCardView }) {
-  const { mod, isFlagged, isInUserFolder, canChangeStorage } = view;
+  const { mod, isFlagged, isInUserFolder, canChangeStorage, canCheckHealth } = view;
 
   return (
     <>
@@ -282,7 +282,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
         {m.library_mod_open_location_action()}
       </Menu.Item>
       {canChangeStorage && <ModCardStorageSubmenu view={view} />}
-      <ModCardHealthItem modId={mod.id} />
+      {canCheckHealth && <ModCardHealthItem modId={mod.id} />}
       <ModCardUpdateItem modId={mod.id} />
       <Menu.Item icon={<CopyIcon className="h-4 w-4" weight="bold" />} onClick={view.onCopyId}>
         {m.library_mod_copy_id_action()}

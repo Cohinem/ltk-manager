@@ -43,6 +43,13 @@ export interface ModCardView {
    * no archive.
    */
   canChangeStorage: boolean;
+  /**
+   * Whether the menu offers Check Health.
+   *
+   * A modpkg has no unpacked form for the rules to read - ADR-0001. A row that
+   * refuses every press reads as a broken command.
+   */
+  canCheckHealth: boolean;
   storageChangePending: boolean;
   /** Whether the mod cannot be switched, because it is blocked or the patcher owns the library. */
   disabled: boolean;
@@ -112,6 +119,7 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
   // "Legacy is transient": ADR-0008.
   const canChangeStorage =
     mod.format === "fantome" && (mod.storage === "project" || mod.hasArchive) && mod.slug != null;
+  const canCheckHealth = mod.format === "fantome";
 
   function handleToggle(modId: string, enabled: boolean) {
     toggleMod.mutate(
@@ -201,6 +209,7 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     isFlagged,
     skinhackReason,
     canChangeStorage,
+    canCheckHealth,
     storageChangePending: setModStorage.isPending,
     disabled,
     menuDisabled,

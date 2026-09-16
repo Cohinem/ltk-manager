@@ -85,6 +85,20 @@ describe("useModCardController storage", () => {
     expect(view.current.canChangeStorage).toBe(false);
   });
 
+  it("offers Check Health on a fantome", () => {
+    const view = mount(createMockInstalledMod({ format: "fantome" }));
+
+    expect(view.current.canCheckHealth).toBe(true);
+  });
+
+  /* ADR-0001: a modpkg has no unpacked form for the rules to read, and the
+     check refuses every press on one. */
+  it("offers no Check Health on a modpkg", () => {
+    const view = mount(createMockInstalledMod({ format: "modpkg", storage: "archive" }));
+
+    expect(view.current.canCheckHealth).toBe(false);
+  });
+
   /* An archive mod is its archive, so with the file gone there is nothing to
      unpack. */
   it("offers nothing on an archive mod whose file is gone", () => {
