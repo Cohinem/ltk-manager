@@ -478,6 +478,7 @@ pub(crate) fn make_layered_fantome_zip(path: &Path) {
                     "Frost Archer".to_string(),
                 )]),
             )]),
+            game_data: None,
         },
     );
 

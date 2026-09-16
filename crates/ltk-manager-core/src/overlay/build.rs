@@ -64,7 +64,11 @@ pub fn build_overlay(
     let mut builder = ltk_overlay::OverlayBuilder::new(game_dir, overlay_root, state_dir)
         .with_blocked_wads(blocked_wads)
         .with_string_overrides(string_override_mode)
-        .with_progress(move |p| progress(translate_progress(p)));
+        .with_progress(move |p| {
+            if let Some(p) = translate_progress(p) {
+                progress(p);
+            }
+        });
 
     builder.set_enabled_mods(mods);
 
@@ -78,18 +82,23 @@ pub fn build_overlay(
 }
 
 /// Map the builder's progress into the shape the frontend listens for.
-fn translate_progress(progress: ltk_overlay::OverlayProgress) -> OverlayProgress {
+///
+/// A stage the manager does not know is not forwarded, and the frontend keeps the last one.
+fn translate_progress(progress: ltk_overlay::OverlayProgress) -> Option<OverlayProgress> {
     let stage = match progress.stage {
-        ltk_overlay::OverlayStage::Indexing => OverlayStage::Indexing,
+        ltk_overlay::OverlayStage::Indexing | ltk_overlay::OverlayStage::IndexingObjects => {
+            OverlayStage::Indexing
+        }
         ltk_overlay::OverlayStage::CollectingOverrides => OverlayStage::Collecting,
         ltk_overlay::OverlayStage::PatchingWad => OverlayStage::Patching,
         ltk_overlay::OverlayStage::ApplyingStringOverrides => OverlayStage::Strings,
         ltk_overlay::OverlayStage::Complete => OverlayStage::Complete,
+        _ => return None,
     };
-    OverlayProgress {
+    Some(OverlayProgress {
         stage,
         current_file: progress.current_file,
         current: progress.current,
         total: progress.total,
-    }
+    })
 }

@@ -31,7 +31,7 @@ tauri-plugin-window-state = "2"
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
 ltk-telemetry = { workspace = true }
 
-ltk_mod_core = { version = "0.1.0" }
+ltk_mod_core = { version = "0.1.1" }
 ltk_overlay = { workspace = true }
 ltk_file = { workspace = true }
 ltk_hash = { workspace = true }
