@@ -7,9 +7,10 @@ import type { FixPreview, Problem } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { useFixProblems } from "../../api";
+import { rowKey } from "../../bin/tree/utils/binRows";
 import { previewDocument } from "../../documents";
 import { useProjectContext } from "../../projects/state/ProjectContext";
-import { useOpenDocumentTab } from "../../state";
+import { useOpenDocumentTab, useRevealRow } from "../../state";
 import {
   problemAddress,
   type ProblemGroup,
@@ -161,23 +162,29 @@ export function ProblemObjectRow({ object, expanded, onToggle }: ObjectRowProps)
   );
 }
 
-/** One finding: where it is, what it becomes, and the repair for it. */
+/**
+ * One finding: where it is, what it becomes, and the repair for it.
+ *
+ * "From a problem to the file" in docs/ux/PROJECT_PROBLEMS.md.
+ */
 export function ProblemRow({ problem }: { problem: Problem }) {
   const project = useProjectContext();
   const openTab = useOpenDocumentTab();
+  const revealRow = useRevealRow();
   const fix = useFixProblems();
   const zoomed = useZoomedPx();
   const muted = useMutedProblem(problem);
 
   function open() {
-    openTab(
-      previewDocument({
-        kind: "layer",
-        project: project.path,
-        layer: problem.site.layer,
-        path: problem.site.path,
-      }),
-    );
+    const document = previewDocument({
+      kind: "layer",
+      project: project.path,
+      layer: problem.site.layer,
+      path: problem.site.path,
+    });
+    openTab(document);
+    const { node } = problem.site;
+    if (node) revealRow(document.id, rowKey(node));
   }
 
   function handleFix() {
