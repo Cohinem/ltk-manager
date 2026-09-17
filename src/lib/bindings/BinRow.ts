@@ -13,11 +13,13 @@ export type BinRow = {
  */
 entry: string, 
 /**
- * The property path on the wire, every field a hash. Empty for the object itself.
+ * The property path on the wire, every field a hash. Empty for the object itself,
+ * and `#` then the record's position under a patch target (ADR-0041).
  */
 path: string, 
 /**
- * The same path for a person. Empty for the object itself.
+ * The same path for a person. Empty for the object itself, and the record's own path
+ * first under a patch record.
  */
 label: string, node: RowNode, 
 /**
@@ -29,7 +31,7 @@ name: string,
  */
 unnamed: boolean, 
 /**
- * The value's kind. An object row has none.
+ * The value's kind. An object row and a target row have none.
  */
 kind: PropertyKind | null, value: BinValue, 
 /**

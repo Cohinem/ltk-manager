@@ -122,6 +122,7 @@ export type {
   LeafValue,
   NewItem,
   NewProperty,
+  ObjectName,
   PropertyKind,
   ReadOnly,
   RowNode,

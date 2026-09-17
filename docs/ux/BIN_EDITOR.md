@@ -4,6 +4,7 @@
 
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
+| 2026-09-17 | Draw a patch bin's records under the objects they target       |
 | 2026-09-14 | Address a map entry whose key repeats as `{k}#n`               |
 | 2026-09-14 | Search an open bin from the bar's `@` scope                    |
 | 2026-09-14 | Find an embedded class's uses and an object's incoming links   |
@@ -13,7 +14,6 @@
 | 2026-09-14 | Cut a chip's path under its object, and name the target class  |
 | 2026-09-14 | Draw a string-table key with its in-game line                  |
 | 2026-09-13 | Add the clips pane over the animation graph                    |
-| 2026-09-13 | Draw every layout section as field rows                        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -78,7 +78,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses    |
 | Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
 | Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
-| Patch bin records     | Planned     | `BinOverride` reads them. Drawn by nothing, so read-only         |
+| Patch bin records     | Available   | Grouped under the objects they target, read-only. ADR-0041       |
 | Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite          |
 
 ## Scope
@@ -94,8 +94,7 @@ Out of scope:
   [project editor](PROJECT_EDITOR.md), not a bin
 - Authoring a bin from nothing. Every bin this editor opens exists already
 - Writing into the install. Read [Why the game side is read-only](#why-the-game-side-is-read-only)
-- Authoring a patch record. It is named in the feature status, and it follows a viewer that
-  draws one
+- Authoring a patch record. It is named in the feature status
 - A second bin parser. The format belongs to `ltk_meta`
 
 ## Vocabulary
@@ -115,6 +114,8 @@ Out of scope:
 | Tag         | A row's kind, written after its name in ritobin's words                    |
 | Chip        | A value drawn as a `Code` chip, which opens what it names                  |
 | Patch       | One edit, as a path and an operation                                       |
+| Record      | One property-patch record of a `PTCH`: an object hash, a path and a value  |
+| Target      | The object a record names, which the file tab draws its records under      |
 
 ## What exists today
 
@@ -323,6 +324,23 @@ stands. A repeat draws a warning mark beside its key, reads and edits as its own
 add or a rename onto a key the map holds is refused. Like a hex segment, a path with `#n` is
 ours and never goes into a patch record.
 
+### A patch record
+
+A record's value sits in no object of the file, so its rows take an address of their own.
+ADR-0041.
+
+```
+0x4a47c414:#              the target: every record of the object
+0x4a47c414:#12            record 12 of the file
+0x4a47c414:#12.9c4e1b02   a field of the value record 12 writes
+```
+
+`#n` is the record's position in the file's record list. What follows it is the wire form of
+[Addressing a node](#addressing-a-node), each segment with its separator. The readable path starts
+with the record's own path, so Copy path on a field under the record writes
+`ClientStates/.../MinimapFrame:Position.UIRect.Size`. An object's key holds no path that starts
+with `#`, so a record on an object the same patch adds draws apart from that object.
+
 ### An index is a position
 
 An element index shifts when a sibling is removed. The frontend refetches the children of a
@@ -483,6 +501,33 @@ neither names.
 The document opens with every object collapsed and its class showing. A bin holding one
 object opens it expanded, because a collapsed single row is a document that says nothing.
 
+### A patch bin's records
+
+A `PTCH` draws the objects it adds as object blocks, then one target row per object its records
+patch. A target expands to its records in file order. The targets keep the order of each one's
+first record.
+
+```
+v .../Minimap/VoiceChatButton/VoiceChatPanel_ButtonClicked   3
+    Position.Anchors.Anchor    vec2    0, 1
+  > Position.UIRect            embed   UiElementRect
+v .../Minimap/MinimapFrame                                  2
+    FlipX                      flag    true
+> .../Minimap/MinimapIcons                                  4
+```
+
+| Part           | Reads                                                                      |
+| -------------- | -------------------------------------------------------------------------- |
+| A target       | The object's path, or its hash, and its record count                       |
+| A record       | The record's path as the file writes it, its kind, and its value           |
+| Under a record | What the value holds, as the rows of a property of that kind               |
+| Open object    | A target's hover action and menu item, where the index declares the object |
+
+A record row carries no mismatch mark. The class of the object it patches is outside the file.
+A field under an embed or a pointer the record writes reads its declared kind through that
+value's class. A record's value reads no base: the value the record replaces is one Open object
+away.
+
 ### The property row
 
 A row is a name, a tag and a value, on one line. The name column is one width for the whole
@@ -631,8 +676,10 @@ The document's own row in the tab strip carries what the file is, and follows th
 
 A `PTCH` bin patches objects rather than declaring them, and the header says so, because the
 same block drawn under different semantics is the kind of thing a user has to be told once.
-On a narrow tab the row keeps the object count, the dependencies and the fact that the file is a
-patch, and drops the version and the patch tallies.
+The header counts the records, and the objects the patch deletes where it deletes any. The
+deleted count opens a list of the deleted objects, each a link. On a narrow tab the row keeps the
+object count, the dependencies and the fact that the file is a patch, and drops the version and
+the patch tallies.
 Read [A patch bin is read-only](#a-patch-bin-is-read-only) for the rest of what it says.
 
 ### The row menu
@@ -957,7 +1004,8 @@ class at any depth.
 
 The project bar's `@` scope over the active bin or object tab lists the rows whose name or value
 holds the query, case aside: a string, a number, the name behind a hash or a link and its hex, a
-file's path, and the class a struct holds. An object tab searches its object alone. Each row reads
+file's path, and the class a struct holds. An object tab searches its object alone. A file tab
+over a `PTCH` searches its targets, its records and the rows under them after its objects. Each row reads
 by its name over its readable path, with its value at the trailing edge, and the backend answers
 the first 200 in tree order.
 
@@ -2060,21 +2108,17 @@ live in a mod.
 A `PTCH` file is a layer rather than a file of its own. After its object table it carries
 property-patch records - an entry hash, a value type, a path and a value each - and the game
 applies them to whatever bin the layer is attached to. Riot ships its UI variants that way, as
-a few hundred one-property edits rather than a duplicated scene, so a patch bin is mostly
-patches and only incidentally objects.
+a few hundred one-property edits rather than a duplicated scene. A patch bin is mostly patches
+and only incidentally objects.
 
-**`ltk_meta` reads them, since the rev the workspace pins.** `BinOverride` holds the three
-things a patch does, `deleted`, `objects` and `patches`, reads them with
-`BinOverride::from_reader` and writes them with `BinOverride::to_writer`. A record's path is the
-crate's own `PropertyPath`, the syntax [Addressing a node](#addressing-a-node) adopts. What is
-still upstream is the streaming form of the read, league-toolkit issue **#210**, and the delta
-write-back, **#211**.
+`ltk_meta` reads the three lists a patch holds, `deleted`, `objects` and `patches`, through
+`BinOverride::from_reader`, and writes them through `BinOverride::to_writer`. A record's path is
+the crate's own `PropertyPath`, the syntax [Addressing a node](#addressing-a-node) adopts. The
+file tab draws the records, per [A patch bin's records](#a-patch-bins-records).
 
-So a `PTCH` still opens read-only whatever its source, and the reason is now this editor's
-rather than the crate's. Nothing here draws a patch record, and a save that rewrites records a
-viewer never showed is the silent loss [Rust owns the tree](#rust-owns-the-tree) exists to
-prevent. The header says both that the file is a patch layer and that its records are not
-drawn, and drawing them is what opens the write.
+A `PTCH` opens read-only whatever its source. No edit writes a record, and the position that
+addresses a record (ADR-0041) holds only while the record list does not change. Patch authoring is
+the feature that opens the write. The header names the file a patch layer.
 
 ### What an edit is
 
@@ -2308,15 +2352,15 @@ Targets, not measurements. Nothing here is measured until there is something to 
 
 Nothing hard-blocks the first stage.
 
-| Item             | Where     | Status                                                 |
-| ---------------- | --------- | ------------------------------------------------------ |
-| `ltk_meta` 0.8.1 | Workspace | Compiled, pinned to the rev that carries the walk      |
-| `bin_tables()`   | This repo | Landed 2026-08-23, as `BinHashTables`                  |
-| `BinStream`      | Upstream  | Landed in 0.8.1. The object index's, optional here     |
-| The delta write  | Upstream  | `write_patched` at the pinned rev. ADR-0040            |
-| Patch records    | Upstream  | `BinOverride` reads and writes one. Nothing draws them |
-| The meta dump    | Upstream  | Stage four only, for schema-aware editing              |
-| `ltk_ritobin`    | Upstream  | Git only. Publish before the text view                 |
+| Item             | Where     | Status                                                  |
+| ---------------- | --------- | ------------------------------------------------------- |
+| `ltk_meta` 0.8.1 | Workspace | Compiled, pinned to the rev that carries the walk       |
+| `bin_tables()`   | This repo | Landed 2026-08-23, as `BinHashTables`                   |
+| `BinStream`      | Upstream  | Landed in 0.8.1. The object index's, optional here      |
+| The delta write  | Upstream  | `write_patched` at the pinned rev. ADR-0040             |
+| Patch records    | Upstream  | `BinOverride` reads and writes one. ADR-0041 draws them |
+| The meta dump    | Upstream  | Stage four only, for schema-aware editing               |
+| `ltk_ritobin`    | Upstream  | Git only. Publish before the text view                  |
 
 `ltk_meta` is a dependency of the workspace already, through the problems pass.
 

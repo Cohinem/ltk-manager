@@ -3,6 +3,7 @@
 //!
 //! "Open questions" in `docs/ux/BIN_EDITOR.md`, under "Answered".
 
+use indexmap::IndexMap;
 use ltk_hash::BinHash;
 use ltk_meta::BinObject;
 use serde::Serialize;
@@ -10,8 +11,10 @@ use serde::Serialize;
 use crate::matcher::Range;
 use crate::meta_schema::SchemaAt;
 
+use super::records::record_path;
 use super::{
-    BinDocument, BinValue, Child, Lens, Node, RowNames, Segment, Wanted, children_of, hex,
+    BinDocument, BinValue, Child, Lens, Node, RowNames, Segment, TARGET_PATH, Wanted, children_of,
+    hex,
 };
 
 /// How many rows one search answers. The total counts on past it.
@@ -59,7 +62,8 @@ impl BinDocument {
     /// Every row whose name or value holds `query`, case aside, in tree order.
     ///
     /// `entry` narrows the search to one object's properties, which is what an object tab
-    /// draws. Without it every object row is searched too. A row's value matches by the
+    /// draws. Without it every object row is searched too, and after the objects every patch
+    /// target, its records and the rows under them (ADR-0041). A row's value matches by the
     /// text it draws: a string, a number, the name behind a hash or a link or its hex, a
     /// file's path, and the class a struct holds. A blank query matches nothing.
     #[must_use]
@@ -79,11 +83,25 @@ impl BinDocument {
             None => self.file.objects().values().collect(),
         };
 
+        let records = self.records();
+        let targets = match entry {
+            Some(_) => IndexMap::new(),
+            None => self.targets(),
+        };
+
         let mut wanted = Wanted::default();
         for object in &objects {
             wanted.entries.push(object.path_hash);
             wanted.classes.push(object.class_hash);
             want_under(Node::Object(object), &mut wanted);
+        }
+        for (&target, positions) in &targets {
+            wanted.entries.push(target);
+            for &index in positions {
+                let value = &records[index].value;
+                wanted.value(value);
+                want_under(Node::Value(value), &mut wanted);
+            }
         }
         let lens = Lens {
             named: wanted.resolve(names, schema),
@@ -107,6 +125,20 @@ impl BinDocument {
                 search.consider("", "", &name, Some(value), None);
             }
             search.under(Node::Object(object), "", "");
+        }
+        for (&target, positions) in &targets {
+            search.entry = hex(target);
+            search.object = lens.named.entry(target).0;
+            let name = search.object.clone();
+            search.consider(TARGET_PATH, "", &name, None, None);
+            for &index in positions {
+                let record = &records[index];
+                let path = record_path(index);
+                let label = record.path.as_str();
+                let value = lens.named.value_of(&record.value);
+                search.consider(&path, label, label, value_text(&value), value_hash(&value));
+                search.under(Node::Value(&record.value), &path, label);
+            }
         }
         search.result
     }
@@ -224,7 +256,8 @@ fn value_text(value: &BinValue) -> Option<String> {
         | BinValue::Null
         | BinValue::Optional { .. }
         | BinValue::Map { .. }
-        | BinValue::Undrawn => None,
+        | BinValue::Undrawn
+        | BinValue::Records { .. } => None,
     }
 }
 

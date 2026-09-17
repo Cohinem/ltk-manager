@@ -1,4 +1,9 @@
-import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
+import {
+  elementScroll,
+  useVirtualizer,
+  type VirtualItem,
+  type Virtualizer,
+} from "@tanstack/react-virtual";
 import { type RefObject, useCallback, useEffect, useMemo } from "react";
 
 import { useZoomedPx } from "@/hooks";
@@ -23,6 +28,24 @@ export interface RowWindow {
 }
 
 /**
+ * The virtualizer's element scroll, instant unless its caller asks for smooth.
+ *
+ * The app's `scroll-behavior: smooth` animates a plain `scrollTo`. A reveal re-aims on every
+ * frame a row measures, and each re-aim restarts that animation.
+ */
+function instantScroll(
+  offset: number,
+  { adjustments, behavior }: { adjustments?: number; behavior?: ScrollBehavior },
+  instance: Virtualizer<HTMLDivElement, Element>,
+): void {
+  elementScroll(
+    offset,
+    { adjustments, behavior: behavior === "smooth" ? "smooth" : "instant" },
+    instance,
+  );
+}
+
+/**
  * A window over `visible`, measured row by row.
  *
  * A row is a line of text until it holds a value editor, so the heights are measured
@@ -41,6 +64,7 @@ export function useRowWindow(
     estimateSize: () => rowHeight,
     overscan: 16,
     getItemKey: (index) => visible[index]?.key ?? index,
+    scrollToFn: instantScroll,
   });
 
   /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not one of

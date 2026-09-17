@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                        |
-| ---------- | ------------------------------------------------------------- |
-| 2026-09-05 | Point the lazy-read link at the reader that landed            |
-| 2026-09-01 | The meta schema judges, and a table speaks for later builds   |
-| 2026-08-30 | A bin is recognized by its content, and repaired at its hash  |
-| 2026-08-28 | Preserve the names a fix hashes, and drop the restore point   |
-| 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md         |
-| 2026-08-24 | Draw the forward-looking lints by default, dimmed             |
-| 2026-08-24 | Give the forward-looking switch a row, and drop the notice    |
-| 2026-08-23 | Put the forward-looking lints behind one editor setting       |
-| 2026-08-23 | Mute what waits for a build, rather than withholding it       |
-| 2026-08-22 | Wait for the build a table names, and let a modder ask anyway |
+| Date       | Change                                                       |
+| ---------- | ------------------------------------------------------------ |
+| 2026-09-17 | Open a bin finding at the node it names                      |
+| 2026-09-05 | Point the lazy-read link at the reader that landed           |
+| 2026-09-01 | The meta schema judges, and a table speaks for later builds  |
+| 2026-08-30 | A bin is recognized by its content, and repaired at its hash |
+| 2026-08-28 | Preserve the names a fix hashes, and drop the restore point  |
+| 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md        |
+| 2026-08-24 | Draw the forward-looking lints by default, dimmed            |
+| 2026-08-24 | Give the forward-looking switch a row, and drop the notice   |
+| 2026-08-23 | Put the forward-looking lints behind one editor setting      |
+| 2026-08-23 | Mute what waits for a build, rather than withholding it      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -64,7 +64,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | Grouping by object   | Available | A file's findings sit under the bin object that holds them             |
 | The count in the bar | Available | An error count beside Test, which opens the tab                        |
 | Forward-looking lint | Available | On by default, muted, and a switch in a row under the filter           |
-| Open at the property | Blocked   | Needs the [bin editor](BIN_EDITOR.md). Reveals the file now            |
+| Open at the property | Available | A click opens the bin scrolled to the node the finding names           |
 | Hash-name repair     | Proposed  | The 8 rows that need `binhashes` to name a hash                        |
 | Move the old checks  | Proposed  | The three checks below become rules and lose their shapes              |
 | Linked bin rule      | Proposed  | `bin/missing-link`, from the overlay build's offenders                 |
@@ -1023,8 +1023,10 @@ in, not to hide it behind a second click.
 
 ### From a problem to the file
 
-**A click on a row opens the file.** A row is a place a reader is going, and one click is what
-it costs. The panel does not move the file tree to match: a reader opened Problems to read
+**A click on a row opens the file at the node the finding names.** A row is a place a reader is
+going, and one click is what it costs. A bin finding carries its node, and the
+[bin editor](BIN_EDITOR.md) expands every level down to it, focuses the row and scrolls to it. A
+finding with no node opens the file alone. The panel does not move the file tree to match: a reader opened Problems to read
 problems, and a list that scrolls a tree behind them on every click is a list that fights
 whatever they had that tree pointing at.
 
@@ -1032,8 +1034,7 @@ The open goes through the same hook a tree row uses, so the tab mode a user chos
 too, and a tab is keyed by the asset it names rather than by the problem - the second finding
 in one file activates the tab the first one opened rather than adding another.
 
-Enter opens the file at the property, and until the [bin editor](BIN_EDITOR.md) lands that is
-the same tab. That is the same fallback the object index takes, and the same upgrade path.
+Enter on a focused row does what a click does.
 
 ### The count in the project bar
 

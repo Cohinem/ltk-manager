@@ -18,6 +18,7 @@ import {
   nameColumns,
   PAGE_SIZE,
   pagesWanted,
+  recordField,
   repeatsKey,
   revealPage,
   rowKey,
@@ -276,6 +277,16 @@ describe("isUnder", () => {
     expect(isUnder("0x1:aaaaaaaa[3]", "0x1:aaaaaaaa[30]")).toBe(false);
     expect(isUnder("0x1:aaaaaaaa", "0x2:aaaaaaaa")).toBe(false);
   });
+
+  it("keeps an object's rows and its patch target's records apart", () => {
+    expect(isUnder("0x1:#", "0x1:#3")).toBe(true);
+    expect(isUnder("0x1:#", "0x1:#3.aaaaaaaa")).toBe(true);
+    expect(isUnder("0x1:#1", "0x1:#1[0]")).toBe(true);
+    expect(isUnder("0x1:#1", "0x1:#10")).toBe(false);
+    expect(isUnder("0x1:", "0x1:#3")).toBe(false);
+    expect(isUnder("0x1:#", "0x1:aaaaaaaa")).toBe(false);
+    expect(isUnder("0x1:#", "0x2:#3")).toBe(false);
+  });
 });
 
 describe("childCount", () => {
@@ -295,6 +306,11 @@ describe("childCount", () => {
     );
   });
 
+  it("counts the records under a patch target", () => {
+    expect(childCount(row({ node: "target", value: { type: "records", len: 4 } }))).toBe(4);
+    expect(canExpand(row({ node: "target", value: { type: "records", len: 4 } }))).toBe(true);
+  });
+
   it("counts nothing under a leaf", () => {
     expect(childCount(row({ value: { type: "float", value: 1 } }))).toBe(0);
   });
@@ -308,6 +324,17 @@ describe("ancestorKeys", () => {
       `${ENTRY}:0000000a[3]`,
       `${ENTRY}:0000000a[3].0000000b`,
     ]);
+  });
+
+  it("walks a record path down from its target, the record's own key second", () => {
+    expect(ancestorKeys(`${ENTRY}:#12[3].0000000b`)).toEqual([
+      `${ENTRY}:#`,
+      `${ENTRY}:#12`,
+      `${ENTRY}:#12[3]`,
+      `${ENTRY}:#12[3].0000000b`,
+    ]);
+    expect(ancestorKeys(`${ENTRY}:#12`)).toEqual([`${ENTRY}:#`, `${ENTRY}:#12`]);
+    expect(ancestorKeys(`${ENTRY}:#`)).toEqual([`${ENTRY}:#`]);
   });
 
   it("answers the object's own key for the object itself", () => {
@@ -335,6 +362,15 @@ describe("ancestorKeys", () => {
       `${ENTRY}:0000000a`,
       `${ENTRY}:0000000a[3`,
     ]);
+  });
+});
+
+describe("recordField", () => {
+  it("hashes the name a record's path ends in, and nothing for a subscript", () => {
+    expect(recordField("Position.Anchors.Anchor")).toBe(nameHash("Anchor"));
+    expect(recordField("FlipX")).toBe(nameHash("flipx"));
+    expect(recordField("Elements[3]")).toBeNull();
+    expect(recordField('Lookup{"a.b"}')).toBeNull();
   });
 });
 

@@ -604,10 +604,10 @@ export type BinHeader = {
 	/**  The objects the file declares. For a `PTCH`, the objects it adds. */
 	objects: number,
 	dependencies: string[],
-	/**  The patch records of a `PTCH`. Nothing draws them. */
+	/**  The patch records of a `PTCH`. */
 	patches: number,
-	/**  The objects a `PTCH` deletes. */
-	deleted: number,
+	/**  The objects a `PTCH` deletes, in file order. */
+	deleted: ObjectName[],
 };
 
 /**  The facts an object tab's header draws. "The object tab" in docs/ux/BIN_EDITOR.md. */
@@ -630,16 +630,22 @@ export type BinObjectHeader = {
 export type BinRow = {
 	/**  The object's path hash, `0x` and eight hex digits. */
 	entry: string,
-	/**  The property path on the wire, every field a hash. Empty for the object itself. */
+	/**
+	 *  The property path on the wire, every field a hash. Empty for the object itself,
+	 *  and `#` then the record's position under a patch target (ADR-0041).
+	 */
 	path: string,
-	/**  The same path for a person. Empty for the object itself. */
+	/**
+	 *  The same path for a person. Empty for the object itself, and the record's own path
+	 *  first under a patch record.
+	 */
 	label: string,
 	node: RowNode,
 	/**  What the row is called: the object's path, the property's name, `[i]` or the key. */
 	name: string,
 	/**  The name is a hash no table names. */
 	unnamed: boolean,
-	/**  The value's kind. An object row has none. */
+	/**  The value's kind. An object row and a target row have none. */
 	kind: PropertyKind | null,
 	value: BinValue,
 	/**
@@ -687,7 +693,9 @@ export type BinValue = { type: "none" } |
 /**  The entries, and the kinds the map declares for its keys and its values. */
 { type: "map"; len: number; keyKind: PropertyKind; valueKind: PropertyKind } | 
 /**  A leaf this build has no widget for. */
-{ type: "undrawn" };
+{ type: "undrawn" } | 
+/**  The patch records a `PTCH` writes to one object. */
+{ type: "records"; len: number };
 
 /**  Patcher binary identity */
 export type BinaryId = {
@@ -1874,6 +1882,14 @@ export type ObjectIndexStatus =
 /**  The index answered. */
 { status: "ready" };
 
+/**  One object by hash, and by path where a table names it. */
+export type ObjectName = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The object's path. Absent where no table names it. */
+	name: string | null,
+};
+
 /**  One object at a listed prefix, with what sits below it. */
 export type ObjectNodeEntry = {
 	/**  The object's path hash, as `0x` and eight hex digits. */
@@ -2089,7 +2105,7 @@ export type ReadOnly =
 "install" | 
 /**  A file outside every project. */
 "loose" | 
-/**  A `PTCH` layer, whose records nothing draws. */
+/**  A `PTCH` layer. No edit writes a patch record. */
 "patch";
 
 /**  The objects one file declares, as a reference query groups them. */
@@ -2186,7 +2202,11 @@ export type RowNode =
 /**  One element of a container, or the value of a present optional. */
 "element" | 
 /**  One entry of a map. */
-"entry";
+"entry" | 
+/**  An object the patch records of a `PTCH` target, holding those records (ADR-0041). */
+"target" | 
+/**  One patch record of a `PTCH`. */
+"record";
 
 /**  Which scan the DLL ran, as it decided from the flags and the command line. */
 export type ScanMode = "eager" | "lazy";

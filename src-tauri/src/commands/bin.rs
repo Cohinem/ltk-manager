@@ -70,7 +70,7 @@ pub async fn bin_open(
             };
             Ok(BinDocumentHandle {
                 document,
-                header: open.header(),
+                header: open.header(&names),
                 rows,
                 object,
                 read_only,

@@ -10,6 +10,7 @@ use ltk_meta::{Bin, BinOverride, PropertyPatch};
 use std::collections::HashMap;
 
 mod find;
+mod records;
 mod repeats;
 
 fn h(text: &str) -> BinHash {
@@ -815,7 +816,7 @@ fn a_wire_path_parses_into_its_steps() {
 }
 
 #[test]
-fn a_patch_bin_opens_to_its_added_objects_and_counts_what_it_does_not_draw() {
+fn a_patch_bin_opens_to_its_added_objects_and_the_target_of_its_records() {
     let mut patch = BinOverride::<NoMeta>::new();
     patch.deleted.push(h("Characters/Gone"));
     let added = BinObject::new(h("Characters/Aatrox"), h("CharacterRecord"));
@@ -832,32 +833,44 @@ fn a_patch_bin_opens_to_its_added_objects_and_counts_what_it_does_not_draw() {
 
     let document = BinDocument::parse(out.into_inner()).unwrap();
     assert_eq!(
-        document.header(),
+        document.header(&named()),
         BinHeader {
             kind: BinFileKind::Patch,
             version: None,
             objects: 1,
             dependencies: Vec::new(),
             patches: 2,
-            deleted: 1,
+            deleted: vec![ObjectName {
+                hash: hex(h("Characters/Gone")),
+                name: None,
+            }],
         }
     );
     let rows = document.roots(&named(), None);
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].name, "Characters/Aatrox");
+    let drawn: Vec<_> = rows
+        .iter()
+        .map(|row| (row.node, row.name.as_str()))
+        .collect();
+    assert_eq!(
+        drawn,
+        [
+            (RowNode::Object, "Characters/Aatrox"),
+            (RowNode::Target, "Characters/Aatrox"),
+        ]
+    );
 }
 
 #[test]
 fn a_prop_header_carries_its_version_and_dependencies() {
     assert_eq!(
-        document().header(),
+        document().header(&named()),
         BinHeader {
             kind: BinFileKind::Prop,
             version: Some(3),
             objects: 3,
             dependencies: vec!["common.bin".to_owned()],
             patches: 0,
-            deleted: 0,
+            deleted: Vec::new(),
         }
     );
 }

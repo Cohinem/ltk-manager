@@ -691,6 +691,25 @@ describe("ProblemsDocument", () => {
     );
   });
 
+  it("asks the opened file to reveal the node the problem names", async () => {
+    mockBackend({ ok: true, value: run() });
+    renderPanel();
+
+    await skin0Group();
+    await userEvent.click(problemRow(/iconAvatar/));
+
+    const request = useWorkshopEditorStore.getState().byProject[PROJECT.path]?.revealRow;
+    expect(request).toMatchObject({
+      documentId: previewDocumentId({
+        kind: "layer",
+        project: PROJECT.path,
+        layer: "base",
+        path: SKIN0,
+      }),
+      key: `${ENTRY}:iconAvatar`,
+    });
+  });
+
   /// The preview is keyed by the asset it names, so the file's second problem
   /// activates the tab the first one opened rather than adding another.
   it("opens one tab for two problems of the same file", async () => {

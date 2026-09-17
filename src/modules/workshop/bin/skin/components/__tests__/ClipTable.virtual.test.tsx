@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AnimationGraph, GraphClip } from "@/lib/tauri";
 
+import { ROW_HEIGHT } from "../../../tree/components/BinRow";
 import { skinQueries } from "../../api/skinQueries";
 import { SkinChoiceContext, useSkinChoice } from "../../state/skinChoice";
 import { ClipsPane, ClipTabs } from "../ClipTable";
@@ -51,7 +52,7 @@ vi.mock("@tanstack/react-virtual", async (importOriginal) => {
         observeElementRect: (_instance, callback) => {
           callback({ width: 800, height: 240 });
         },
-        measureElement: () => 24,
+        measureElement: () => ROW_HEIGHT,
       }),
   };
 });
@@ -141,13 +142,13 @@ describe("clip virtualization", () => {
     expect(draw.mock.calls.length).toBeLessThan(40);
     draw.mockClear();
     act(() => {
-      scroller.scrollTop = 24;
+      scroller.scrollTop = ROW_HEIGHT;
       fireEvent.scroll(scroller);
     });
     expect(draw.mock.calls.some(([hash]) => hash === "1")).toBe(false);
     expect(draw.mock.calls.length).toBeLessThan(5);
     act(() => {
-      scroller.scrollTop = 24000;
+      scroller.scrollTop = ROW_HEIGHT * 1000;
       fireEvent.scroll(scroller);
     });
     expect(screen.getByText("Clip1000")).toBeInTheDocument();

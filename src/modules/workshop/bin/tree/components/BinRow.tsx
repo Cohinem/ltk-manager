@@ -29,7 +29,8 @@ import { clickIntent } from "../../../state";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { DeclaredLine, FieldCard } from "../../classes/components/FieldCard";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
-import { ObjectNameContext } from "../../links/hooks/useLinkTargets";
+import { ObjectNameContext, useObjectOpen } from "../../links/hooks/useLinkTargets";
+import { CutText } from "../../shared/components/CutText";
 import { ColorMark } from "../../values/components/ColorMark";
 import { useValueMark } from "../../values/hooks/useValueMarks";
 import { enumReading, enumText, type FieldEnum, fieldEnum } from "../../values/utils/fieldEnums";
@@ -52,6 +53,8 @@ import {
   INDENT,
   lineParent,
   MAX_INDENT_DEPTH,
+  outsideColumn,
+  recordField,
   repeatsKey,
   rowKey,
   type RowLine,
@@ -69,8 +72,13 @@ import {
 } from "../utils/leafText";
 import { EDIT_ICON, editLabel, keyEdit, onHover, type RowEdit, rowEdits } from "../utils/rowEdits";
 
-/** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
-export const ROW_HEIGHT = 24;
+/**
+ * One line at zoom 100, which is what sizes the virtualizer. A matrix opened in place grows past it.
+ *
+ * `min-h-6` is six spacing units of 4.5px. An estimate off the drawn height moves every row
+ * below a row as it measures.
+ */
+export const ROW_HEIGHT = 27;
 
 const AXES = ["x", "y", "z", "w"] as const;
 const CHANNELS = ["r", "g", "b", "a"] as const;
@@ -149,7 +157,11 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
       onKeyDown={keys}
     >
       <NameCell line={line} expandable={expandable} expanded={expanded} loading={loading} />
-      <RowValue row={row} />
+      {row.value.type === "records" ? (
+        <span className="shrink-0 text-meta text-surface-400">{row.value.len}</span>
+      ) : (
+        <RowValue row={row} />
+      )}
       {error && (
         <Tooltip content={errorSummary(error)}>
           <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-warning-text" />
@@ -169,6 +181,7 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
       {row.node === "object" && onOpenObject && (
         <OpenObjectAction onOpen={(intent) => onOpenObject(row, intent)} />
       )}
+      {row.node === "target" && <OpenTargetAction hash={row.entry} />}
     </div>
   );
 }
@@ -219,6 +232,13 @@ function OpenObjectAction({ onOpen }: { onOpen: (intent: OpenIntent) => void }) 
       </button>
     </Tooltip>
   );
+}
+
+/** A patch target row's hover action, opening the object the records patch where one declares it. */
+function OpenTargetAction({ hash }: { hash: string }) {
+  const open = useObjectOpen(hash);
+  if (open === null) return null;
+  return <OpenObjectAction onOpen={open} />;
 }
 
 interface MoreRowProps {
@@ -306,7 +326,9 @@ interface NameCellProps {
 function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   const { row, owner, depth } = line;
   const { edit, refusal } = useRowEdit(line.key);
-  const object = row.node === "object";
+  /* A target is an object of another file, drawn as the heading its records sit under. */
+  const target = row.node === "target";
+  const object = row.node === "object" || target;
   const property = row.node === "property";
   const element = row.node === "element";
   const rekeyable = edit !== null && row.node === "entry";
@@ -325,7 +347,11 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
         "flex min-w-0 shrink-0 items-center gap-1.5 self-stretch",
         /* An element sits outside the column: its value follows its index rather than
            starting where a property's value does. */
-        object || element ? "max-w-[60%]" : "w-[min(calc(var(--bin-name-cols)*1ch+2rem),50%)]",
+        /* A target draws no class after its path, so the path takes the line and cuts in its
+           middle, where the paths of one patch share their folders. */
+        target && "min-w-0 flex-1",
+        !target && outsideColumn(row.node) && "max-w-[60%]",
+        !outsideColumn(row.node) && "w-[min(calc(var(--bin-name-cols)*1ch+2rem),50%)]",
       )}
     >
       <Guides depth={depth} parent={lineParent(line)} />
@@ -357,7 +383,8 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
           <span className={nameClasses}>{row.name}</span>
         </TextEdit>
       )}
-      {!property && !rekeyable && <span className={nameClasses}>{row.name}</span>}
+      {target && <CutText text={row.name} className={nameClasses} />}
+      {!property && !rekeyable && !target && <span className={nameClasses}>{row.name}</span>}
       {repeatsKey(row) && (
         <Tooltip content={m.workshop_bin_repeated_key_hint()}>
           <WarningCircleIcon
@@ -697,9 +724,15 @@ function EnumSelect({ held, text, onChange }: EnumSelectProps) {
   );
 }
 
-/** The field hash a row's own tables are keyed on, and null for a row that is no property. */
+/**
+ * The field hash a row's own tables are keyed on, and null for a row that is no property.
+ *
+ * A patch record counts as the property its path ends in.
+ */
 export function ownField(row: BinRow): string | null {
-  return row.node === "property" ? fieldHash(row.path) : null;
+  if (row.node === "property") return fieldHash(row.path);
+  if (row.node === "record") return recordField(row.name);
+  return null;
 }
 
 interface ValueProps {
@@ -760,6 +793,8 @@ function Value({ value, node, rowKey: key, field, object }: ValueProps) {
       return <Dim>{m.workshop_bin_absent_label()}</Dim>;
     case "undrawn":
       return <Dim>{m.workshop_bin_undrawn_label()}</Dim>;
+    case "records":
+      return <span className="ml-auto text-meta text-surface-400">{value.len}</span>;
   }
 }
 

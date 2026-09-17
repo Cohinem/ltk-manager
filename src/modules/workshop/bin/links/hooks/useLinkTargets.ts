@@ -89,6 +89,24 @@ export function useLinkOpen(): LinkOpen {
 }
 
 /**
+ * What opens the object `hash` names from the enclosing tree, or null where nothing does.
+ *
+ * A declared object opens its tab. While the index is absent or building, the open warms
+ * it and lands on the answer. A hash nothing declares, a check still on its way and a null
+ * `hash` open nothing.
+ */
+export function useObjectOpen(hash: string | null): ((intent: OpenIntent) => void) | null {
+  const targets = useLinkTargets();
+  const { wantOpen } = useLinkOpen();
+  const open = useOpenDocumentAs();
+  if (hash === null) return null;
+  const decision = decideObjectLink(hash, targets);
+  if (decision.kind === "chip") return (intent) => open(decision.document, intent);
+  if (decision.kind === "warm") return (intent) => wantOpen(hash, intent);
+  return null;
+}
+
+/**
  * The warm-and-open a surface of link chips provides to the chips and menus under it.
  *
  * A link clicked while the index is absent: the build runs, and the click lands on the
@@ -153,14 +171,16 @@ export const linkKeys = {
 };
 
 /**
- * The object hashes a group's values name, sorted, each once.
+ * The object hashes a group's rows name, sorted, each once.
  *
- * A `link` and a `hash` carry theirs. A `string` is hashed as an object path, so a
- * string that names one resolves in the same call rather than in one of its own.
+ * A `link` and a `hash` carry theirs, and a patch target row its entry. A `string` is
+ * hashed as an object path, so a string that names one resolves in the same call rather
+ * than in one of its own.
  */
 export function linkHashes(rows: readonly BinRow[]): string[] {
   const hashes = new Set<string>();
-  for (const { value } of rows) {
+  for (const { node, entry, value } of rows) {
+    if (node === "target") hashes.add(entry);
     if (value.type === "objectLink" || value.type === "hash") hashes.add(value.hash);
     if (value.type === "string") hashes.add(nameHash(value.value));
   }
