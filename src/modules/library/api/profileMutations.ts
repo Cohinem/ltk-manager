@@ -4,6 +4,7 @@ import { api, type AppError, type Profile } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
+import { refreshMods } from "./modMutations";
 
 /** What renaming one profile takes. */
 export interface RenameProfileVariables {
@@ -44,7 +45,7 @@ export const profileMutations = {
       mutationFn: async (profileId) => unwrapForQuery(await api.switchModProfile(profileId)),
       onSuccess: () => {
         client.invalidateQueries({ queryKey: libraryKeys.activeProfile() });
-        client.invalidateQueries({ queryKey: libraryKeys.mods() });
+        refreshMods(client);
       },
     }),
 } as const;

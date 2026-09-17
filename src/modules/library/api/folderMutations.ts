@@ -4,6 +4,7 @@ import { api, type AppError, type LibraryFolder } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
+import { refreshMods } from "./modMutations";
 
 /** What renaming one folder takes. */
 export interface RenameFolderVariables {
@@ -61,7 +62,7 @@ export const folderMutations = {
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folders() });
         client.invalidateQueries({ queryKey: libraryKeys.folderOrder() });
-        client.invalidateQueries({ queryKey: libraryKeys.mods() });
+        refreshMods(client);
       },
     }),
 
@@ -69,8 +70,6 @@ export const folderMutations = {
     mutationOptions<void, AppError, ToggleFolderVariables>({
       mutationFn: async ({ folderId, enabled }) =>
         unwrapForQuery(await api.toggleFolder(folderId, enabled)),
-      onSettled: () => {
-        client.invalidateQueries({ queryKey: libraryKeys.mods() });
-      },
+      onSettled: () => refreshMods(client),
     }),
 } as const;

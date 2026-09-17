@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 
 import type { InstalledMod } from "@/lib/tauri";
@@ -48,4 +49,92 @@ describe.each(["toggle", "enableWithLayers"] as const)("%s optimistic order", (k
       client.clear();
     },
   );
+});
+
+describe("settling a write against one mod", () => {
+  /* Every card reads its thumbnail from under the mods key, and a thumbnail
+     refetch mints a new asset URL, so invalidating the prefix redraws every
+     card's image. */
+  function seed() {
+    const client = createTestQueryClient();
+    client.setQueryData(libraryKeys.mods(), [
+      createMockInstalledMod({ id: "first" }),
+      createMockInstalledMod({ id: "second" }),
+    ]);
+    client.setQueryData(libraryKeys.thumbnails(["first", "second"]), {});
+    for (const id of ["first", "second"]) {
+      client.setQueryData(libraryKeys.thumbnail(id), `asset://${id}`);
+      client.setQueryData(libraryKeys.readme(id), { status: "absent" });
+      client.setQueryData(libraryKeys.licenseText(id), { status: "absent" });
+    }
+    return client;
+  }
+
+  function invalidated(client: QueryClient): QueryKey[] {
+    return client
+      .getQueryCache()
+      .getAll()
+      .filter((query) => query.state.isInvalidated)
+      .map((query) => query.queryKey);
+  }
+
+  function context(client: QueryClient) {
+    return { client, meta: undefined, mutationKey: undefined };
+  }
+
+  it.each([
+    ["toggle", { modId: "second", enabled: false }],
+    ["setLayers", { modId: "second", layerStates: {} }],
+    ["enableWithLayers", { modId: "second", layerStates: {} }],
+    ["uninstall", "second"],
+  ] as const)("%s refetches the list and nothing a card draws from", (kind, variables) => {
+    const client = seed();
+    const { onSettled } = modMutations[kind](client) as {
+      onSettled?: (...args: unknown[]) => unknown;
+    };
+
+    onSettled!(undefined, null, variables, undefined, context(client));
+
+    expect(invalidated(client)).toEqual([libraryKeys.mods()]);
+    client.clear();
+  });
+
+  it("edit refetches the list and nothing a card draws from", () => {
+    const client = seed();
+
+    modMutations.edit(client).onSettled!(
+      undefined,
+      null,
+      { modId: "second", metadata: {} as never },
+      undefined,
+      context(client),
+    );
+
+    expect(invalidated(client)).toEqual([libraryKeys.mods()]);
+    client.clear();
+  });
+
+  it("setStorage refetches the list and that mod's own documents", () => {
+    const client = seed();
+
+    modMutations.setStorage(client).onSettled!(
+      undefined,
+      null,
+      { modId: "second", storage: "project" },
+      undefined,
+      context(client),
+    );
+
+    expect(invalidated(client)).toEqual(
+      expect.arrayContaining([
+        libraryKeys.mods(),
+        libraryKeys.thumbnail("second"),
+        libraryKeys.readme("second"),
+        libraryKeys.licenseText("second"),
+      ]),
+    );
+    expect(invalidated(client)).not.toContainEqual(libraryKeys.thumbnail("first"));
+    expect(invalidated(client)).not.toContainEqual(libraryKeys.thumbnails(["first", "second"]));
+    client.clear();
+  });
 });

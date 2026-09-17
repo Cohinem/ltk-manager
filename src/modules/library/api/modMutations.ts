@@ -50,7 +50,7 @@ async function holdMods(
   client: QueryClient,
   edit: (mods: InstalledMod[]) => InstalledMod[],
 ): Promise<ModsRollback> {
-  await client.cancelQueries({ queryKey: libraryKeys.mods() });
+  await client.cancelQueries({ queryKey: libraryKeys.mods(), exact: true });
   const previous = client.getQueryData<InstalledMod[]>(libraryKeys.mods());
   client.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) => (old ? edit(old) : old));
   return { previous };
@@ -61,9 +61,15 @@ function releaseMods(client: QueryClient, context: ModsRollback | undefined): vo
   if (context?.previous) client.setQueryData(libraryKeys.mods(), context.previous);
 }
 
-/** Invalidate the mods list once a write has settled either way. */
+/**
+ * Invalidate the mods list once a write has settled either way.
+ *
+ * The list alone. Each mod's thumbnail, readme and license text sit under the
+ * same key, and a thumbnail refetch mints a new asset URL, so a prefix match
+ * reloads the image on every card for a write that touched one mod's flag.
+ */
 function refreshMods(client: QueryClient): void {
-  client.invalidateQueries({ queryKey: libraryKeys.mods() });
+  client.invalidateQueries({ queryKey: libraryKeys.mods(), exact: true });
 }
 
 /** Writes against the installed mods. */
@@ -131,8 +137,10 @@ export const modMutations = {
       onSettled: (_updated, _error, { modId }) => {
         refreshMods(client);
         /* The tree the overlay reads was rewritten, so the cached scan of it is
-           about a directory that no longer exists. */
+           about a directory that no longer exists, and the archive the mod's
+           documents are read from may be gone with it. */
         client.invalidateQueries({ queryKey: libraryKeys.wadReport(modId) });
+        client.invalidateQueries({ queryKey: libraryKeys.mod(modId) });
       },
     }),
 

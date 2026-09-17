@@ -74,7 +74,7 @@ describe("useSetModStorage", () => {
     result.current.mutate({ modId: "test-mod-id", storage: "project" });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: libraryKeys.mods() });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: libraryKeys.mods(), exact: true });
     expect(invalidate).toHaveBeenCalledWith({
       queryKey: libraryKeys.wadReport("test-mod-id"),
     });
