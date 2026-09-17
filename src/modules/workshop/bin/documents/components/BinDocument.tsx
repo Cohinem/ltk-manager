@@ -2,7 +2,14 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 
 import { Popover, Spinner } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentHandle, BinHeader, BinRow } from "@/lib/tauri";
+import type {
+  AssetRef,
+  BinDocumentHandle,
+  BinDocumentId,
+  BinHeader,
+  BinRow,
+  ObjectName,
+} from "@/lib/tauri";
 import { DocumentToolbar, useNarrowToolbar } from "@/modules/editor";
 
 import { objectDocument } from "../../../documents/utils/contentDocument";
@@ -17,8 +24,16 @@ import {
   useSettleRowReveal,
 } from "../../../state";
 import { type CurveDock, CurveDockContext } from "../../curves/state/curveTarget";
+import { ObjectChip } from "../../links/components/LinkChip";
+import {
+  LinkOpenContext,
+  LinkTargetsContext,
+  type RowGroup,
+  useCheckLinkTargets,
+  useWarmLinkOpen,
+} from "../../links/hooks/useLinkTargets";
 import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
-import { objectKey, rowKey } from "../../tree/utils/binRows";
+import { objectKey, rowKey, targetKey } from "../../tree/utils/binRows";
 import { useBinDocument, useFileRoots } from "../hooks/useBinDocument";
 import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
@@ -39,8 +54,9 @@ interface BinDocumentProps {
 /**
  * A property bin as blocks over its parsed tree.
  *
- * One row per object at depth zero, each expanding to its properties. A file that does
- * not parse lands in the handoff pane, with the error and the VS Code action.
+ * One row per object at depth zero, each expanding to its properties, then one per object
+ * a `PTCH` patches, each expanding to its records. A file that does not parse lands in the
+ * handoff pane, with the error and the VS Code action.
  */
 export function BinDocument({ documentId, asset, name, file, active, actions }: BinDocumentProps) {
   const { state, reopen } = useBinDocument(asset);
@@ -161,7 +177,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
       onKeyDown={undoKeys}
     >
       <DocumentToolbar active={active}>
-        <BinFacts header={handle.header} narrow={narrow} />
+        <BinFacts document={handle.document} header={handle.header} narrow={narrow} />
         <BinEditState
           document={handle.document}
           asset={asset}
@@ -179,7 +195,9 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
           label={name}
           initialExpanded={initialExpanded}
           reveal={reveal}
-          objectName={(entry) => rootByKey.get(objectKey(entry))?.name ?? entry}
+          objectName={(entry) =>
+            (rootByKey.get(objectKey(entry)) ?? rootByKey.get(targetKey(entry)))?.name ?? entry
+          }
           onNotOpen={reopen}
           onOpenObject={openObject}
           editable={handle.readOnly === null}
@@ -190,13 +208,14 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
 }
 
 interface BinFactsProps {
+  document: BinDocumentId;
   header: BinHeader;
   /** The toolbar has room for the count and what opens, and for none of the rest. */
   narrow: boolean;
 }
 
 /** What the file is, in the row its tab owns: the count, the version, the dependencies. */
-function BinFacts({ header, narrow }: BinFactsProps) {
+function BinFacts({ document, header, narrow }: BinFactsProps) {
   return (
     <span className="flex min-w-0 items-center gap-2 text-meta text-surface-400 select-none">
       <span>{m.workshop_bin_objects_label({ count: header.objects })}</span>
@@ -220,10 +239,10 @@ function BinFacts({ header, narrow }: BinFactsProps) {
             <>
               <Dot />
               <span>{m.workshop_bin_patch_records_label({ count: header.patches })}</span>
-              {header.deleted > 0 && (
+              {header.deleted.length > 0 && (
                 <>
                   <Dot />
-                  <span>{m.workshop_bin_patch_deleted_label({ count: header.deleted })}</span>
+                  <Deleted document={document} objects={header.deleted} />
                 </>
               )}
             </>
@@ -266,6 +285,77 @@ function Dependencies({ paths }: { paths: readonly string[] }) {
       </Popover.Portal>
     </Popover.Root>
   );
+}
+
+interface DeletedProps {
+  document: BinDocumentId;
+  objects: readonly ObjectName[];
+}
+
+/** The count of objects a patch deletes, opening to a link to each. */
+function Deleted({ document, objects }: DeletedProps) {
+  const label = m.workshop_bin_patch_deleted_label({ count: objects.length });
+
+  return (
+    <Popover.Root>
+      <Popover.Trigger
+        render={
+          <button
+            type="button"
+            className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-surface-200"
+          />
+        }
+      >
+        {label}
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner side="bottom" align="start" sideOffset={8}>
+          <Popover.Popup aria-label={label} className="max-w-md p-2">
+            <DeletedLinks document={document} objects={objects} />
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+/** Each deleted object as the chip a `link` to it draws, checked the way a tree checks one. */
+function DeletedLinks({ document, objects }: DeletedProps) {
+  const groups = useMemo<RowGroup[]>(
+    () => [{ key: "deleted", rows: objects.map(linkRow) }],
+    [objects],
+  );
+  const targets = useCheckLinkTargets(document, groups);
+  const linkOpen = useWarmLinkOpen(targets);
+
+  return (
+    <LinkTargetsContext value={targets}>
+      <LinkOpenContext value={linkOpen}>
+        <ul className="flex flex-col gap-0.5 font-mono text-code text-surface-200 select-text">
+          {objects.map((object) => (
+            <li key={object.hash} className="flex min-w-0">
+              <ObjectChip hash={object.hash} name={object.name} kind="link" />
+            </li>
+          ))}
+        </ul>
+      </LinkOpenContext>
+    </LinkTargetsContext>
+  );
+}
+
+/** A deleted object as the `link` row a link check reads. */
+function linkRow(object: ObjectName): BinRow {
+  return {
+    entry: object.hash,
+    path: "",
+    label: "",
+    node: "object",
+    name: object.name ?? object.hash,
+    unnamed: object.name === null,
+    kind: null,
+    value: { type: "objectLink", hash: object.hash, name: object.name },
+    declared: null,
+  };
 }
 
 /** The separator between two facts of a toolbar. */

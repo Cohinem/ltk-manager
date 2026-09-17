@@ -24,12 +24,14 @@ mod edit;
 mod find;
 mod items;
 mod properties;
+mod records;
 pub(crate) mod resolve;
 
 pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
 pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
+pub use records::TARGET_PATH;
 
 pub use resolve::{AssetLookup, NamedAsset, hex, owned};
 pub(crate) use resolve::{
@@ -606,9 +608,9 @@ impl BinDocument {
         })
     }
 
-    /// The facts the header row draws.
+    /// The facts the header row draws. `names` names the objects a `PTCH` deletes.
     #[must_use]
-    pub fn header(&self) -> BinHeader {
+    pub fn header(&self, names: &dyn RowNames) -> BinHeader {
         match &self.file {
             BinFile::Prop(bin) => BinHeader {
                 kind: BinFileKind::Prop,
@@ -616,16 +618,30 @@ impl BinDocument {
                 objects: bin.objects.len(),
                 dependencies: bin.dependencies.clone(),
                 patches: 0,
-                deleted: 0,
+                deleted: Vec::new(),
             },
-            BinFile::Override(patch) => BinHeader {
-                kind: BinFileKind::Patch,
-                version: None,
-                objects: patch.objects.len(),
-                dependencies: Vec::new(),
-                patches: patch.patches.len(),
-                deleted: patch.deleted.len(),
-            },
+            BinFile::Override(patch) => {
+                let wanted = Wanted {
+                    entries: patch.deleted.clone(),
+                    ..Wanted::default()
+                };
+                let named = wanted.resolve(names, None);
+                BinHeader {
+                    kind: BinFileKind::Patch,
+                    version: None,
+                    objects: patch.objects.len(),
+                    dependencies: Vec::new(),
+                    patches: patch.patches.len(),
+                    deleted: patch
+                        .deleted
+                        .iter()
+                        .map(|&hash| ObjectName {
+                            hash: hex(hash),
+                            name: named.entries.get(&hash).cloned(),
+                        })
+                        .collect(),
+                }
+            }
         }
     }
 
@@ -698,17 +714,25 @@ impl BinDocument {
         }
     }
 
-    /// One row per object, in file order. `schema` names a class the tables miss.
+    /// One row per object in file order, then one per object the patch records target.
+    ///
+    /// A target keeps the order of its first record (ADR-0041). `schema` names a class the
+    /// tables miss.
     #[must_use]
     pub fn roots(&self, names: &dyn RowNames, schema: Option<SchemaAt<'_>>) -> Vec<BinRow> {
         let objects = self.file.objects();
+        let targets = self.targets();
         let mut wanted = Wanted::default();
         wanted.entries.extend(objects.keys().copied());
+        wanted.entries.extend(targets.keys().copied());
         wanted
             .classes
             .extend(objects.values().map(|object| object.class_hash));
         let named = wanted.resolve(names, schema);
 
+        let targets = targets
+            .iter()
+            .map(|(&target, records)| records::target_row(target, records.len(), &named));
         objects
             .values()
             .map(|object| {
@@ -729,20 +753,22 @@ impl BinDocument {
                     declared: None,
                 }
             })
+            .chain(targets)
             .collect()
     }
 
     /// The rows under one node: `offset` in, at most `limit` of them, and the total.
     ///
-    /// `path` is the wire form of ADR-0027, empty for the object itself. A leaf, a null
-    /// struct and an absent optional have no rows under them. `schema` is the database
-    /// at the install's build. `None` leaves every declared kind absent and every
-    /// field the tables miss as hex.
+    /// `path` is the wire form of ADR-0027, empty for the object itself. [`TARGET_PATH`]
+    /// answers the patch records `entry` takes, and a record's own path what its value
+    /// holds (ADR-0041). A leaf, a null struct and an absent optional have no rows under
+    /// them. `schema` is the database at the install's build. `None` leaves every declared
+    /// kind absent and every field the tables miss as hex.
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
-    /// document or `path` reaches nothing inside it.
+    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object and no
+    /// target of the document, or `path` reaches nothing under it.
     pub fn children(
         &self,
         entry: BinHash,
@@ -755,9 +781,12 @@ impl BinDocument {
         let not_found = || BinDocumentError::NodeNotFound {
             address: format!("{}:{path}", hex(entry)),
         };
-        let object = self.file.objects().get(&entry).ok_or_else(not_found)?;
-        let steps = parse_steps(path).ok_or_else(not_found)?;
-        let (node, trace) = descend(object, &steps).ok_or_else(not_found)?;
+        if path == TARGET_PATH {
+            return self
+                .records_of(entry, offset, limit, names, schema)
+                .ok_or_else(not_found);
+        }
+        let (node, trace, base) = self.locate(entry, path).ok_or_else(not_found)?;
 
         let children = children_of(node);
         let total = children.len();
@@ -790,7 +819,7 @@ impl BinDocument {
         };
 
         let class = node.class();
-        let parent_label = label_of(&trace, &lens);
+        let parent_label = label_of(base, &trace, &lens);
         let entry_hex = hex(entry);
         let rows = window
             .map(|child| {
@@ -824,9 +853,9 @@ impl BinDocument {
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
-    /// document, and with [`BinDocumentError::ReadTooWide`] when the paths together
-    /// reach more than [`READ_ROW_CAP`] rows.
+    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object and no
+    /// target of the document, and with [`BinDocumentError::ReadTooWide`] when the paths
+    /// together reach more than [`READ_ROW_CAP`] rows.
     pub fn children_each(
         &self,
         entry: BinHash,
@@ -834,25 +863,26 @@ impl BinDocument {
         names: &dyn RowNames,
         schema: Option<SchemaAt<'_>>,
     ) -> Result<Vec<BinRows>, BinDocumentError> {
-        let object =
-            self.file
-                .objects()
-                .get(&entry)
-                .ok_or_else(|| BinDocumentError::NodeNotFound {
-                    address: format!("{}:", hex(entry)),
-                })?;
+        let targets = self.targets();
+        if !self.file.objects().contains_key(&entry) && !targets.contains_key(&entry) {
+            return Err(BinDocumentError::NodeNotFound {
+                address: format!("{}:", hex(entry)),
+            });
+        }
 
         /* Counted before a row is built, so a call over the cap costs a walk rather
         than the whole answer it is about to be refused. */
         let mut rows = 0;
         for path in paths {
-            let Some(steps) = parse_steps(path) else {
-                continue;
+            let under = if path == TARGET_PATH {
+                targets.get(&entry).map_or(0, Vec::len)
+            } else {
+                match self.locate(entry, path) {
+                    Some((node, ..)) => children_of(node).len(),
+                    None => continue,
+                }
             };
-            let Some((node, _)) = descend(object, &steps) else {
-                continue;
-            };
-            rows += children_of(node).len().min(READ_PAGE);
+            rows += under.min(READ_PAGE);
         }
         if rows > READ_ROW_CAP {
             return Err(BinDocumentError::ReadTooWide {
@@ -873,6 +903,25 @@ impl BinDocument {
                 },
             )
             .collect()
+    }
+
+    /// The node a wire address reaches, the trace down to it, and the readable path above.
+    ///
+    /// Under an object the readable path starts empty. Under a record it starts with the
+    /// record's own path, and the record has to target `entry`.
+    fn locate(&self, entry: BinHash, path: &str) -> Option<(Node<'_>, Vec<Trace<'_>>, &str)> {
+        if let Some((index, rest)) = records::record_address(path) {
+            let record = self
+                .records()
+                .get(index)
+                .filter(|record| record.object_hash == entry)?;
+            let steps = records::steps_under(rest)?;
+            let (node, trace) = descend_from(Node::Value(&record.value), &steps)?;
+            return Some((node, trace, record.path.as_str()));
+        }
+        let object = self.file.objects().get(&entry)?;
+        let (node, trace) = descend(object, &parse_steps(path)?)?;
+        Some((node, trace, ""))
     }
 }
 
@@ -911,10 +960,23 @@ pub struct BinHeader {
     /// The objects the file declares. For a `PTCH`, the objects it adds.
     pub objects: usize,
     pub dependencies: Vec<String>,
-    /// The patch records of a `PTCH`. Nothing draws them.
+    /// The patch records of a `PTCH`.
     pub patches: usize,
-    /// The objects a `PTCH` deletes.
-    pub deleted: usize,
+    /// The objects a `PTCH` deletes, in file order.
+    pub deleted: Vec<ObjectName>,
+}
+
+/// One object by hash, and by path where a table names it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct ObjectName {
+    /// The object's path hash, `0x` and eight hex digits.
+    pub hash: String,
+    /// The object's path. Absent where no table names it.
+    pub name: Option<String>,
 }
 
 /// The facts an object tab's header draws. "The object tab" in docs/ux/BIN_EDITOR.md.
@@ -1001,6 +1063,10 @@ pub enum RowNode {
     Element,
     /// One entry of a map.
     Entry,
+    /// An object the patch records of a `PTCH` target, holding those records (ADR-0041).
+    Target,
+    /// One patch record of a `PTCH`.
+    Record,
 }
 
 /// One row of the viewer, flat.
@@ -1012,16 +1078,18 @@ pub enum RowNode {
 pub struct BinRow {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
-    /// The property path on the wire, every field a hash. Empty for the object itself.
+    /// The property path on the wire, every field a hash. Empty for the object itself,
+    /// and `#` then the record's position under a patch target (ADR-0041).
     pub path: String,
-    /// The same path for a person. Empty for the object itself.
+    /// The same path for a person. Empty for the object itself, and the record's own path
+    /// first under a patch record.
     pub label: String,
     pub node: RowNode,
     /// What the row is called: the object's path, the property's name, `[i]` or the key.
     pub name: String,
     /// The name is a hash no table names.
     pub unnamed: bool,
-    /// The value's kind. An object row has none.
+    /// The value's kind. An object row and a target row have none.
     pub kind: Option<PropertyKind>,
     pub value: BinValue,
     /// What the schema declares for the field at the install's build. Absent for an
@@ -1298,6 +1366,10 @@ pub enum BinValue {
     },
     /// A leaf this build has no widget for.
     Undrawn,
+    /// The patch records a `PTCH` writes to one object.
+    Records {
+        len: usize,
+    },
 }
 
 /// The names a row projection reads, one batch per table.
@@ -1606,7 +1678,11 @@ enum Trace<'a> {
 
 /// Walk `steps` down from `object`, or `None` where a step reaches nothing.
 fn descend<'a>(object: &'a BinObject, steps: &[Step]) -> Option<(Node<'a>, Vec<Trace<'a>>)> {
-    let mut node = Node::Object(object);
+    descend_from(Node::Object(object), steps)
+}
+
+/// Walk `steps` down from `node`, or `None` where a step reaches nothing.
+fn descend_from<'a>(mut node: Node<'a>, steps: &[Step]) -> Option<(Node<'a>, Vec<Trace<'a>>)> {
     let mut trace = Vec::with_capacity(steps.len());
     for step in steps {
         node = match (step, node) {
@@ -1796,9 +1872,9 @@ fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
     }
 }
 
-/// The readable path of the node `trace` reached.
-fn label_of(trace: &[Trace<'_>], lens: &Lens<'_>) -> String {
-    let mut label = String::new();
+/// The readable path of the node `trace` reached from a node whose readable path is `base`.
+fn label_of(base: &str, trace: &[Trace<'_>], lens: &Lens<'_>) -> String {
+    let mut label = base.to_owned();
     for step in trace {
         match step {
             Trace::Field { class, field } => {

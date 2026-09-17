@@ -336,8 +336,8 @@
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
       "match": {
-        "countPlural=one": "{count} record not drawn",
-        "countPlural=other": "{count} records not drawn"
+        "countPlural=one": "{count} record",
+        "countPlural=other": "{count} records"
       }
     }
   ],

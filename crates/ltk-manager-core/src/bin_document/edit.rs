@@ -216,7 +216,7 @@ pub enum ReadOnly {
     Install,
     /// A file outside every project.
     Loose,
-    /// A `PTCH` layer, whose records nothing draws.
+    /// A `PTCH` layer. No edit writes a patch record.
     Patch,
 }
 

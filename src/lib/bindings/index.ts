@@ -154,6 +154,7 @@ export type { ObjectFindHit } from "./ObjectFindHit";
 export type { ObjectFindResult } from "./ObjectFindResult";
 export type { ObjectIndexStatus } from "./ObjectIndexStatus";
 export type { ObjectInfo } from "./ObjectInfo";
+export type { ObjectName } from "./ObjectName";
 export type { ObjectNodeEntry } from "./ObjectNodeEntry";
 export type { ObjectPrefixEntry } from "./ObjectPrefixEntry";
 export type { ObjectReferences } from "./ObjectReferences";

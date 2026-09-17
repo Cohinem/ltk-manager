@@ -1,4 +1,12 @@
-import type { AppError, BinDocumentId, BinRow, BinRows, BinValue, PropertyKind } from "@/lib/tauri";
+import type {
+  AppError,
+  BinDocumentId,
+  BinRow,
+  BinRows,
+  BinValue,
+  PropertyKind,
+  RowNode,
+} from "@/lib/tauri";
 
 import { nameHash } from "../../shared/utils/binHash";
 
@@ -15,6 +23,24 @@ export function objectKey(entry: string): string {
   return `${entry}:`;
 }
 
+/** The wire path of a target row, which holds the patch records of one object. ADR-0041. */
+export const TARGET_PATH = "#";
+
+/** The key of the target row an entry hash names. */
+export function targetKey(entry: string): string {
+  return `${entry}:${TARGET_PATH}`;
+}
+
+/**
+ * The hash of the field a patch record's path ends in, or null where it ends in a subscript.
+ *
+ * The record writes its path as text, so the name hashes as the game hashes it.
+ */
+export function recordField(path: string): string | null {
+  const last = path.slice(path.lastIndexOf(".") + 1);
+  return /^\w+$/.test(last) ? nameHash(last) : null;
+}
+
 /** A key's two halves: the entry hash and the wire path. */
 export function splitKey(key: string): [entry: string, path: string] {
   const cut = key.indexOf(":");
@@ -25,11 +51,15 @@ export function splitKey(key: string): [entry: string, path: string] {
  * Whether `key` is `parent` or sits under it.
  *
  * A field is eight hex digits. A segment after it opens with `.`, `[` or `{`. `[3]` is
- * not under `[30]`. Everything of an object sits under the object's own key.
+ * not under `[30]`, and `#1` is not under `#10`. Everything of an object sits under the
+ * object's own key, and every record of a target under the target's (ADR-0041).
  */
 export function isUnder(parent: string, key: string): boolean {
   if (key === parent) return true;
-  if (parent.endsWith(":")) return key.startsWith(parent);
+  if (!key.startsWith(parent)) return false;
+  const next = key[parent.length] ?? "";
+  if (parent.endsWith(`:${TARGET_PATH}`)) return next >= "0" && next <= "9";
+  if (parent.endsWith(":")) return next !== TARGET_PATH;
   return (
     key.startsWith(`${parent}.`) || key.startsWith(`${parent}[`) || key.startsWith(`${parent}{`)
   );
@@ -104,6 +134,7 @@ export function childCount(row: BinRow): number {
     case "struct":
     case "container":
     case "map":
+    case "records":
       return value.len;
     case "optional":
       return value.present ? 1 : 0;
@@ -113,15 +144,18 @@ export function childCount(row: BinRow): number {
 }
 
 /**
- * Every key on the way down to `key`, the object's own first and `key` itself last.
+ * Every key on the way down to `key`, the object's or the target's own first and `key`
+ * itself last.
  *
  * A reveal opens each of them, so a row nested under a container is on screen once
  * every level has answered. A path this cannot read answers what it reached.
  */
 export function ancestorKeys(key: string): string[] {
   const [entry, path] = splitKey(key);
-  const keys = [`${entry}:`];
-  let at = 0;
+  const record = path.startsWith(TARGET_PATH);
+  const keys = [record ? targetKey(entry) : objectKey(entry)];
+  let at = record ? recordEnd(path) : 0;
+  if (record && at > TARGET_PATH.length) keys.push(`${entry}:${path.slice(0, at)}`);
   while (at < path.length) {
     const end = segmentEnd(path, at);
     if (end === null) break;
@@ -171,6 +205,13 @@ function segmentEnd(path: string, at: number): number | null {
   return start + 8 <= path.length ? start + 8 : null;
 }
 
+/** Where the record position of a record path ends: the digits after its `#`. */
+function recordEnd(path: string): number {
+  let end = TARGET_PATH.length;
+  while (end < path.length && path[end]! >= "0" && path[end]! <= "9") end += 1;
+  return end;
+}
+
 /** Where a repeated key's `#n` starting at `at` ends, or `at` where the key takes none. */
 function repeatEnd(path: string, at: number): number {
   if (path[at] !== "#") return at;
@@ -218,6 +259,7 @@ function holdsChildren(value: BinValue): boolean {
     case "struct":
     case "container":
     case "map":
+    case "records":
       return value.len > 0;
     case "optional":
       return value.present;
@@ -536,6 +578,11 @@ export function guideBlocks(parent: string | null, depth: number): string[] {
   return Array.from({ length: depth }, (_, level) => chain[top + level] ?? "");
 }
 
+/** Whether a row of `node` draws its name outside the name column. */
+export function outsideColumn(node: RowNode): boolean {
+  return node === "object" || node === "target" || node === "element";
+}
+
 /** One level of depth, as the guide draws it. Characters, because the tree is mono. */
 export const INDENT = "2ch";
 
@@ -562,8 +609,8 @@ export function nameColumns(
 ): number {
   let widest = MIN_NAME_COLS;
   for (const line of visible) {
-    /* An object and an element sit outside the column, so neither widens it. */
-    if (line.kind !== "row" || line.row.node === "object" || line.row.node === "element") continue;
+    /* An object, a target and an element sit outside the column, so none widens it. */
+    if (line.kind !== "row" || outsideColumn(line.row.node)) continue;
     const tag = tagOf(line.row);
     const held = line.row.value.type === "struct" ? (line.row.value.class ?? "") : "";
     const cols =

@@ -31,6 +31,7 @@ import {
   useLayerCopy,
   useLinkOpen,
   useLinkTargets,
+  useObjectOpen,
 } from "../../links/hooks/useLinkTargets";
 import {
   chunkPath,
@@ -62,7 +63,7 @@ interface BinContextMenuProps {
  * It enumerates rather than reading what sits under the pointer, per `DS-MENU-SCOPE`, and
  * "The row menu" in docs/ux/BIN_EDITOR.md is what each item is offered on. Copy path is the
  * address of ADR-0027 as a person reads it: the object's path and the property path joined
- * on a colon, and the object's path alone for an object row.
+ * on a colon, and the object's path alone for an object row and a patch target row.
  */
 export function BinContextMenu({
   line,
@@ -81,12 +82,16 @@ export function BinContextMenu({
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
   const edit = use(BinEditContext);
+  const openTarget = useObjectOpen(row?.node === "target" ? row.entry : null);
 
   if (row === null || line?.kind !== "row") return null;
   const edits = edit === null ? [] : rowEdits(line);
   const object = row.node === "object";
+  const target = row.node === "target";
   const property = row.node === "property";
-  const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
+  const path = object || target ? row.name : `${objectName(row.entry)}:${row.label}`;
+  const openObject =
+    object && onOpenObject ? (intent: OpenIntent) => onOpenObject(row, intent) : openTarget;
   const struct = row.value.type === "struct" ? row.value : null;
   const structName = struct?.class ?? null;
   const valueText = readableValue(row.value) ?? markText(mark);
@@ -109,24 +114,18 @@ export function BinContextMenu({
               <ContextMenu.Separator />
             </>
           )}
-          {object && onOpenObject && (
+          {openObject && (
             <>
-              <ContextMenu.Item
-                icon={<ArrowSquareOutIcon />}
-                onClick={() => onOpenObject(row, "default")}
-              >
+              <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openObject("default")}>
                 {m.workshop_bin_open_object_action()}
               </ContextMenu.Item>
-              <ContextMenu.Item
-                icon={<ArrowSquareOutIcon />}
-                onClick={() => onOpenObject(row, "beside")}
-              >
+              <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openObject("beside")}>
                 {m.workshop_bin_open_object_beside_action()}
               </ContextMenu.Item>
               <ContextMenu.Separator />
             </>
           )}
-          {object && (
+          {(object || target) && (
             <>
               <ContextMenu.Item
                 icon={<MagnifyingGlassIcon />}
@@ -172,7 +171,7 @@ export function BinContextMenu({
               {m.workshop_bin_show_curve_action()}
             </ContextMenu.Item>
           )}
-          {(object || struct !== null || onShowInProperties || mark?.curve === true) && (
+          {(object || target || struct !== null || onShowInProperties || mark?.curve === true) && (
             <ContextMenu.Separator />
           )}
           {edits.map((kind) => {
