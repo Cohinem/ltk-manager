@@ -69,8 +69,13 @@ import {
 } from "../utils/leafText";
 import { EDIT_ICON, editLabel, keyEdit, onHover, type RowEdit, rowEdits } from "../utils/rowEdits";
 
-/** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
-export const ROW_HEIGHT = 24;
+/**
+ * One line at zoom 100, which is what sizes the virtualizer. A matrix opened in place grows past it.
+ *
+ * `min-h-6` is six spacing units of 4.5px. An estimate off the drawn height moves every row
+ * below a row as it measures.
+ */
+export const ROW_HEIGHT = 27;
 
 const AXES = ["x", "y", "z", "w"] as const;
 const CHANNELS = ["r", "g", "b", "a"] as const;
