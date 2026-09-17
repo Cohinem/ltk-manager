@@ -92,7 +92,7 @@ fn undecoded(error: SurfaceError) -> PreviewError {
 }
 
 /// `image` as the PNG a preview answers with.
-fn png_of(image: &RgbaImage) -> Result<PreviewImage, PreviewError> {
+pub(super) fn png_of(image: &RgbaImage) -> Result<PreviewImage, PreviewError> {
     /* Fast and unfiltered rather than compressed: this is a response to one
     `<img>` on the same machine, and nothing stores it. */
     let mut png = Vec::new();

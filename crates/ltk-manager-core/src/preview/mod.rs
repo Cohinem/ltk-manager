@@ -10,6 +10,7 @@ mod mesh;
 mod skeleton;
 mod source;
 mod texture;
+mod tga;
 
 use std::io::Cursor;
 use std::num::NonZeroU32;
@@ -113,6 +114,10 @@ pub enum PreviewError {
     #[error("Could not encode the preview: {0}")]
     Encode(#[from] image::ImageError),
 
+    /// The bytes are not an image of the format the file's kind names.
+    #[error("Not a readable image: {0}")]
+    Image(image::ImageError),
+
     /// A mesh in a format this build names but has no reader for.
     #[error("No geometry from a {0} file")]
     UnsupportedMesh(&'static str),
@@ -184,6 +189,7 @@ impl AssetRef {
             LeagueFileKind::Texture | LeagueFileKind::TextureDds => {
                 texture::render(&bytes, min_width)?
             }
+            LeagueFileKind::Tga => tga::render(&bytes, min_width)?,
             LeagueFileKind::Png => PreviewImage {
                 bytes,
                 mime: "image/png",
@@ -213,11 +219,18 @@ impl AssetRef {
             LeagueFileKind::Texture | LeagueFileKind::TextureDds => {
                 AssetInfo::Texture(texture::info(&bytes)?)
             }
-            kind @ (LeagueFileKind::Png | LeagueFileKind::Jpeg) => {
-                let (width, height) = image::ImageReader::new(Cursor::new(&bytes))
+            kind @ (LeagueFileKind::Png | LeagueFileKind::Jpeg | LeagueFileKind::Tga) => {
+                /* A TGA has no magic to guess from, so the kind's format stands
+                wherever the bytes name none. */
+                let format = match kind {
+                    LeagueFileKind::Png => image::ImageFormat::Png,
+                    LeagueFileKind::Jpeg => image::ImageFormat::Jpeg,
+                    _ => image::ImageFormat::Tga,
+                };
+                let (width, height) = image::ImageReader::with_format(Cursor::new(&bytes), format)
                     .with_guessed_format()?
                     .into_dimensions()
-                    .map_err(PreviewError::Encode)?;
+                    .map_err(PreviewError::Image)?;
                 AssetInfo::Image {
                     width,
                     height,
@@ -242,8 +255,10 @@ impl AssetRef {
     ///
     /// Nothing is lost to a misleading extension: the two texture kinds share
     /// one viewer, and `ltk_texture` reads the container off the magic anyway.
-    /// Reading the name first also sidesteps [`LeagueFileKind::Tga`], whose
-    /// pattern is a three-byte heuristic that any binary can satisfy.
+    ///
+    /// [`LeagueFileKind::Tga`] comes from a name only. Its pattern is a
+    /// three-byte heuristic that any binary can satisfy, so a nameless chunk
+    /// the pattern matches stays unknown.
     fn file_kind(&self, bytes: &[u8]) -> LeagueFileKind {
         let named = self
             .name()
@@ -253,7 +268,10 @@ impl AssetRef {
             });
 
         match named {
-            LeagueFileKind::Unknown => LeagueFileKind::identify_from_bytes(bytes),
+            LeagueFileKind::Unknown => match LeagueFileKind::identify_from_bytes(bytes) {
+                LeagueFileKind::Tga => LeagueFileKind::Unknown,
+                kind => kind,
+            },
             kind => kind,
         }
     }
@@ -382,6 +400,54 @@ mod tests {
         );
 
         assert_eq!(preview.mime, "image/png");
+    }
+
+    /// The webview has no TGA decoder, so a TGA arrives as a PNG.
+    #[test]
+    fn a_tga_renders_as_a_png_and_reports_its_dimensions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut tga = Vec::new();
+        image::RgbaImage::new(8, 4)
+            .write_to(&mut Cursor::new(&mut tga), image::ImageFormat::Tga)
+            .unwrap();
+        let asset = loose(&tmp, "icon.tga", &tga);
+
+        let preview = drawn(
+            asset
+                .preview(FULL_IMAGE, &Config::default(), &WadCache::default())
+                .unwrap(),
+        );
+
+        assert_eq!(preview.mime, "image/png");
+        assert!(matches!(
+            asset
+                .info(&Config::default(), &WadCache::default())
+                .unwrap(),
+            AssetInfo::Image {
+                width: 8,
+                height: 4,
+                file_kind: WorkshopFileKind::Tga,
+                ..
+            }
+        ));
+    }
+
+    /// The TGA pattern is a heuristic, so bytes alone never make a TGA.
+    #[test]
+    fn bytes_that_only_match_the_tga_pattern_have_no_viewer() {
+        let tmp = tempfile::tempdir().unwrap();
+        let asset = loose(&tmp, "0123456789abcdef", b"\x00\x01\x02\x03");
+
+        let info = asset
+            .info(&Config::default(), &WadCache::default())
+            .unwrap();
+
+        assert!(matches!(
+            info,
+            AssetInfo::Unsupported {
+                file_kind: WorkshopFileKind::Unknown
+            }
+        ));
     }
 
     /// A caller who asks a texture for geometry has asked the wrong asset, and hears so
