@@ -37,7 +37,7 @@ import {
   type ShellPaneId,
 } from "../../bin/shell/utils/shellPanes";
 import type { AbilityRecipe } from "../../bin/spells/utils/abilityRecipe";
-import type { ContentDocument } from "../../documents/utils/contentDocument";
+import { type ContentDocument, documentLayerName } from "../../documents/utils/contentDocument";
 
 /** An outline's request that one layer's file tree scroll to an entry. */
 export interface RevealRequest {
@@ -232,6 +232,13 @@ interface WorkshopEditorStore {
   setDocumentPinned: (projectPath: string, id: string, pinned: boolean) => void;
   activateDocument: (projectPath: string, leafId: string, id: string) => void;
   closeDocument: (projectPath: string, leafId: string, id: string) => void;
+  /**
+   * Closes every document scoped to one layer, in whichever group holds it.
+   *
+   * What a layer delete asks for: the layer is gone, so its file tree, its
+   * locales and every preview of its files have nothing left to read.
+   */
+  closeLayerDocuments: (projectPath: string, layerName: string) => void;
   /** Rewrites one strip's order from a full list of its ids. */
   reorderDocuments: (projectPath: string, leafId: string, ids: readonly string[]) => void;
   moveDocument: (projectPath: string, documentId: string, toLeafId: string, index?: number) => void;
@@ -360,6 +367,17 @@ export const EMPTY_EDITOR: ProjectEditor = {
   maximizedShellLeaf: {},
 };
 
+/**
+ * Every document holding unsaved edits, across the projects the shell has open.
+ *
+ * The dirty set is memory-only and an editor reports its own, so this names
+ * what is mounted now. What a quit asks about.
+ */
+export function unsavedDocumentIds(): readonly string[] {
+  const { byProject } = useWorkshopEditorStore.getState();
+  return Object.values(byProject).flatMap((editor) => [...editor.dirty]);
+}
+
 /** The collapsed-set of a layer nobody has shut a directory in. */
 export const NO_COLLAPSED_DIRS: ReadonlySet<string> = new Set();
 
@@ -377,8 +395,8 @@ interface EditorMove {
   readonly editor: ProjectEditor;
   /** The document the action landed on, which the stack records. */
   readonly visited?: string;
-  /** A document that is gone, whose stops the stack drops. */
-  readonly forgotten?: string;
+  /** Documents that are gone, whose stops the stack drops. */
+  readonly forgotten?: readonly string[];
 }
 
 function asMove(target: ProjectEditor | EditorMove): EditorMove {
@@ -463,11 +481,11 @@ function foldStack(stack: Stack, project: string, move: EditorMove): Stack | nul
   let next: Stack | null = null;
 
   if (move.forgotten !== undefined) {
-    const documentId = move.forgotten;
+    const gone = new Set(move.forgotten);
     next = dropStops(
       stack,
       (entry) =>
-        entry.kind === "document" && entry.project === project && entry.documentId === documentId,
+        entry.kind === "document" && entry.project === project && gone.has(entry.documentId),
     );
   }
 
@@ -488,9 +506,12 @@ function recordVisit(target: ProjectEditor | EditorMove, documentId: string): Ed
   return { ...asMove(target), visited: documentId };
 }
 
-/** Tag a closed document, so a back never lands on a tab that is gone. */
-function forgetVisits(target: ProjectEditor | EditorMove, documentId: string): EditorMove {
-  return { ...asMove(target), forgotten: documentId };
+/** Tag closed documents, so a back never lands on a tab that is gone. */
+function forgetVisits(
+  target: ProjectEditor | EditorMove,
+  documentIds: readonly string[],
+): EditorMove {
+  return { ...asMove(target), forgotten: documentIds };
 }
 
 /**
@@ -747,6 +768,45 @@ function shellDrop(tree: LayoutNode, outcome: DropOutcome): { tree: LayoutNode; 
   }
 }
 
+/**
+ * The editor a removal leaves behind, with what the tree dropped forgotten.
+ *
+ * `layout` is the tree after the removal and `removedIds` what it was asked to
+ * drop. An id the tree still holds somewhere keeps its document, its dirty flag
+ * and its pin.
+ */
+function afterRemoval(
+  editor: ProjectEditor,
+  layout: LayoutNode,
+  removedIds: readonly string[],
+): EditorMove {
+  const documents = { ...editor.documents };
+  const dirty = new Set(editor.dirty);
+  let pinned = editor.pinned;
+  let previewId = editor.previewId;
+
+  for (const id of removedIds) {
+    if (leafHolding(layout, id)) continue;
+
+    delete documents[id];
+    dirty.delete(id);
+    /* Rebuilt only for a document that held a pin, so a close of any other one
+       leaves the persisted slice comparing equal. */
+    if (pinned.includes(id)) pinned = pinned.filter((candidate) => candidate !== id);
+    if (previewId === id) previewId = null;
+  }
+
+  /* Closing a leaf's last tab prunes it, which can take the focused leaf with it. */
+  const activeLeafId = findLeaf(layout, editor.activeLeafId)
+    ? editor.activeLeafId
+    : leaves(layout)[0].id;
+
+  return forgetVisits(
+    { ...editor, documents, layout, activeLeafId, dirty, pinned, previewId },
+    removedIds,
+  );
+}
+
 export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) => ({
   byProject: {},
   history: [],
@@ -876,7 +936,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
                     activeLeafId: previous.id,
                     previewId: document.id,
                   },
-                  replaced,
+                  [replaced],
                 ),
                 document.id,
               );
@@ -947,31 +1007,29 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
         updateProject(state, projectPath, (editor) => {
           const layout = removeTab(editor.layout, leafId, id);
           if (layout === editor.layout) return null;
+          return afterRemoval(editor, layout, [id]);
+        }) ?? state,
+    ),
 
-          const documents = { ...editor.documents };
-          const dirty = new Set(editor.dirty);
-          let pinned = editor.pinned;
-          if (!leafHolding(layout, id)) {
-            delete documents[id];
-            dirty.delete(id);
-            /* Rebuilt only for a document that held a pin, so a close of any
-               other one leaves the persisted slice comparing equal. */
-            if (pinned.includes(id)) {
-              pinned = pinned.filter((candidate) => candidate !== id);
-            }
+  closeLayerDocuments: (projectPath, layerName) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const scoped = Object.values(editor.documents)
+            .filter((document) => documentLayerName(document) === layerName)
+            .map((document) => document.id);
+          if (scoped.length === 0) return null;
+
+          /* Through the store rather than through one strip, so the close
+             reaches whichever group each tab ended up in. */
+          let layout = editor.layout;
+          for (const id of scoped) {
+            const holder = leafHolding(layout, id);
+            if (holder) layout = removeTab(layout, holder.id, id);
           }
-          const previewId = editor.previewId === id ? null : editor.previewId;
+          if (layout === editor.layout) return null;
 
-          /* Closing a leaf's last tab prunes it, which can take the
-             focused leaf with it. */
-          const activeLeafId = findLeaf(layout, editor.activeLeafId)
-            ? editor.activeLeafId
-            : leaves(layout)[0].id;
-
-          return forgetVisits(
-            { ...editor, documents, layout, activeLeafId, dirty, pinned, previewId },
-            id,
-          );
+          return afterRemoval(editor, layout, scoped);
         }) ?? state,
     ),
 

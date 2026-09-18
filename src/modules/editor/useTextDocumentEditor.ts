@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /* Long enough to batch a burst of typing, short enough that the work is on
    disk before the author thinks to wonder. The ignore rules and strings
@@ -36,8 +36,15 @@ export interface TextDocumentEditor<R> {
   saveState: TextSaveState;
   /** Why the file refused the buffer that stands, null for any other outcome. */
   refusal: R | null;
-  /** Write whatever the wait still holds. */
+  /** Write whatever the wait still holds, leaving the outcome to `saveState`. */
   saveNow: () => void;
+  /**
+   * Write whatever the wait still holds, and wait for it.
+   *
+   * Rejects with what the file did about the buffer, for a caller that closes
+   * or quits on the write rather than reading `saveState`.
+   */
+  flush: () => Promise<void>;
 }
 
 /**
@@ -81,8 +88,8 @@ export function useTextDocumentEditor<E, R>({
   const differs = isRead && buffer !== null && buffer !== (saved ?? "");
   const settled = buffer !== null && buffer === attempt?.text;
 
-  const performSave = () => {
-    if (buffer === null) return;
+  const performSave = (): Promise<void> => {
+    if (buffer === null) return Promise.resolve();
     const attempted = buffer;
     const from = file;
 
@@ -108,12 +115,18 @@ export function useTextDocumentEditor<E, R>({
 
     setIsSaving(true);
     try {
-      save(attempted).then(
+      /* The rejection travels on as well as landing in the state above, for the
+         caller that awaited this write rather than reading the save state. */
+      return save(attempted).then(
         () => settle({ outcome: "written", text: attempted }),
-        (error: E) => settle(refused(error)),
+        (error: E) => {
+          settle(refused(error));
+          throw error;
+        },
       );
-    } catch {
+    } catch (error) {
       settle({ outcome: "failed", text: attempted });
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -122,14 +135,20 @@ export function useTextDocumentEditor<E, R>({
     performSaveRef.current = performSave;
   });
 
+  /* The rejection is for a caller that waited on the write. An autosave and a
+     control beside the save status read the outcome off `saveState`. */
+  const flushQuietly = useCallback(() => {
+    void performSaveRef.current().catch(() => {});
+  }, []);
+
   /* `buffer` is a dependency so that every keystroke restarts the wait, which
      is what makes a burst of typing one save. */
   useEffect(() => {
     if (!differs || isSaving || settled) return;
 
-    const timer = setTimeout(() => performSaveRef.current(), delayMs);
+    const timer = setTimeout(flushQuietly, delayMs);
     return () => clearTimeout(timer);
-  }, [differs, isSaving, settled, buffer, delayMs]);
+  }, [differs, isSaving, settled, buffer, delayMs, flushQuietly]);
 
   const refusal = settled && attempt.outcome === "refused" ? attempt.reason : null;
 
@@ -150,7 +169,11 @@ export function useTextDocumentEditor<E, R>({
     saveState: saveStateOf(),
     refusal,
     saveNow: () => {
-      if (differs && !isSaving) performSaveRef.current();
+      if (differs && !isSaving) flushQuietly();
+    },
+    flush: () => {
+      if (!differs || isSaving) return Promise.resolve();
+      return performSaveRef.current();
     },
   };
 }

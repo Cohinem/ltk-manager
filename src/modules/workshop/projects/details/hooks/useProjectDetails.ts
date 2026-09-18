@@ -1,8 +1,7 @@
 import { useStore } from "@tanstack/react-form";
 import { useState } from "react";
 
-import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { m } from "@/i18n";
 import { useAppForm } from "@/lib/form";
 import type { WorkshopAuthor, WorkshopProject } from "@/lib/tauri";
 
@@ -35,7 +34,6 @@ const VERSION_PATTERN =
  */
 export function useProjectDetails(project: WorkshopProject) {
   const saveConfig = useSaveProjectConfig();
-  const toast = useToast();
 
   const [authors, setAuthors] = useState<WorkshopAuthor[]>(() => seedAuthors(project));
   const [tags, setTags] = useState<Set<string>>(() => new Set(project.tags));
@@ -71,25 +69,26 @@ export function useProjectDetails(project: WorkshopProject) {
     champions: project.champions,
   });
 
-  function save() {
-    if (!canSubmit) return;
+  /**
+   * Write the metadata. Rejects where a field is invalid and where the write failed.
+   *
+   * A caller that closes or quits on the save reads the rejection, so it keeps
+   * the document open rather than dropping the edits.
+   */
+  async function save(): Promise<void> {
+    if (edited === saved) return;
+    if (!canSubmit) throw new Error(m.workshop_details_invalid_hint());
 
-    saveConfig.mutate(
-      {
-        projectPath: project.path,
-        displayName: values.displayName,
-        version: values.version,
-        description: values.description,
-        authors: filterEmptyAuthors(authors),
-        tags: [...tags],
-        champions: parseChampionsText(championsText),
-        maps: [...maps],
-      },
-      {
-        onSuccess: () => toast.success("Project configuration saved"),
-        onError: (error) => toast.error(`Failed to save: ${errorSummary(error)}`),
-      },
-    );
+    await saveConfig.mutateAsync({
+      projectPath: project.path,
+      displayName: values.displayName,
+      version: values.version,
+      description: values.description,
+      authors: filterEmptyAuthors(authors),
+      tags: [...tags],
+      champions: parseChampionsText(championsText),
+      maps: [...maps],
+    });
   }
 
   function discard() {

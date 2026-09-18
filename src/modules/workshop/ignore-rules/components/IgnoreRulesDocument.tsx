@@ -3,7 +3,12 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { Button, Code, EmptyState, Spinner } from "@/components";
 import { m } from "@/i18n";
-import { DocumentToolbar, type EditorDocumentProps, SaveStatus } from "@/modules/editor";
+import {
+  DocumentToolbar,
+  type EditorDocumentProps,
+  SaveStatus,
+  useDocumentFlush,
+} from "@/modules/editor";
 import { twMerge } from "@/utils";
 
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
@@ -38,6 +43,9 @@ export function IgnoreRulesDocument({
   useEffect(() => {
     return () => setDocumentDirty(documentId, false);
   }, [documentId, setDocumentDirty]);
+
+  /* What the debounce still owes the file, for a quit that writes it. */
+  useDocumentFlush(documentId, editor.flush);
 
   const saveNow = useRef(editor.saveNow);
   useEffect(() => {

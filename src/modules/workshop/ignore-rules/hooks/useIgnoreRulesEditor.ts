@@ -54,6 +54,7 @@ export function useIgnoreRulesEditor(at: string | null) {
     problem: editor.refusal,
     saveState: editor.saveState,
     saveNow: editor.saveNow,
+    flush: editor.flush,
     addRecommended: () => {
       editor.setText(null);
       addRecommended.mutate(project.path);

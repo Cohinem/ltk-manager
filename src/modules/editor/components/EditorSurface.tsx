@@ -1,12 +1,14 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 
-import { ConfirmDialog, RetainedContent } from "@/components";
+import { RetainedContent } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
+import { useCloseQueue } from "../useCloseQueue";
 import { DocumentToolbarSlotContext } from "./DocumentToolbar";
 import { EditorTabs } from "./EditorTabs";
+import { UnsavedCloseDialog } from "./UnsavedCloseDialog";
 
 export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   /** The leaf this surface draws, which the strip scopes its drag ids by. */
@@ -74,9 +76,6 @@ export function EditorSurface<D extends EditorDocumentBase>({
   empty,
   className,
 }: EditorSurfaceProps<D>) {
-  /* A queue rather than one document: Close Others can meet several unsaved
-     editors at once, and each of them is its own question. */
-  const [pendingCloses, setPendingCloses] = useState<readonly D[]>([]);
   const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
@@ -113,60 +112,14 @@ export function EditorSurface<D extends EditorDocumentBase>({
     [documents, definitionFor, dirtyIds, pinnedIds, previewId],
   );
 
-  /** The strip's own order, minus whatever a pin holds back. */
-  const closableIds = useCallback(
-    (candidates: readonly D[]) =>
-      candidates.filter((document) => !pinnedIds.includes(document.id)).map((it) => it.id),
-    [pinnedIds],
-  );
-
-  /** Close what can go now, and queue whatever would lose edits. */
-  const requestClose = useCallback(
-    (ids: readonly string[]) => {
-      const pending: D[] = [];
-      for (const id of ids) {
-        const document = documents.find((candidate) => candidate.id === id);
-        if (document && dirtyIds.has(id)) pending.push(document);
-        else onClose(id);
-      }
-      setPendingCloses(pending);
-    },
-    [documents, dirtyIds, onClose],
-  );
-
-  const closeOne = useCallback((id: string) => requestClose([id]), [requestClose]);
-
-  const closeOthers = useCallback(
-    (id: string) => requestClose(closableIds(documents.filter((document) => document.id !== id))),
-    [closableIds, documents, requestClose],
-  );
-
-  const closeToRight = useCallback(
-    (id: string) => {
-      const from = documents.findIndex((document) => document.id === id);
-      if (from < 0) return;
-      requestClose(closableIds(documents.slice(from + 1)));
-    },
-    [closableIds, documents, requestClose],
-  );
-
-  const closeAll = useCallback(
-    () => requestClose(closableIds(documents)),
-    [closableIds, documents, requestClose],
-  );
-
-  function discardPending() {
-    const [head, ...rest] = pendingCloses;
-    if (!head) return;
-    onClose(head.id);
-    setPendingCloses(rest);
-  }
-
-  function pendingTitle(): string | undefined {
-    const document = pendingCloses[0];
-    if (!document) return undefined;
-    return definitionFor(document)?.label(document).title;
-  }
+  const close = useCloseQueue({
+    documents,
+    dirtyIds,
+    pinnedIds,
+    titleOf: (document) => definitionFor(document)?.label(document).title,
+    onClose,
+    onActivate,
+  });
 
   return (
     <div
@@ -182,10 +135,10 @@ export function EditorSurface<D extends EditorDocumentBase>({
         tabs={tabs}
         activeId={activeId}
         onActivate={onActivate}
-        onClose={closeOne}
-        onCloseOthers={closeOthers}
-        onCloseToRight={closeToRight}
-        onCloseAll={closeAll}
+        onClose={close.closeOne}
+        onCloseOthers={close.closeOthers}
+        onCloseToRight={close.closeToRight}
+        onCloseAll={close.closeAll}
         onSplit={onSplit}
         onPromote={onPromote}
         onTogglePin={onTogglePin}
@@ -229,32 +182,14 @@ export function EditorSurface<D extends EditorDocumentBase>({
       </div>
 
       <UnsavedCloseDialog
-        title={pendingTitle()}
-        onCancel={() => setPendingCloses([])}
-        onDiscard={discardPending}
+        open={close.question !== null}
+        title={m.editor_unsaved_close_title()}
+        description={m.editor_unsaved_close_hint({ title: close.question?.title ?? "" })}
+        saveLabel={close.question?.saves === true ? m.editor_unsaved_save_action() : undefined}
+        discardLabel={m.editor_unsaved_discard_action()}
+        saving={close.saving}
+        onAnswer={close.answer}
       />
     </div>
-  );
-}
-
-interface UnsavedCloseDialogProps {
-  /** The document being closed. Absent means the queue is empty. */
-  title: string | undefined;
-  /** Drops the whole queue, since one refusal answers for the batch. */
-  onCancel: () => void;
-  onDiscard: () => void;
-}
-
-function UnsavedCloseDialog({ title, onCancel, onDiscard }: UnsavedCloseDialogProps) {
-  return (
-    <ConfirmDialog
-      open={title !== undefined}
-      onClose={onCancel}
-      title={m.editor_unsaved_close_title()}
-      description={m.editor_unsaved_close_hint({ title: title ?? "" })}
-      confirmLabel={m.editor_unsaved_discard_action()}
-      onConfirm={onDiscard}
-      size="sm"
-    />
   );
 }

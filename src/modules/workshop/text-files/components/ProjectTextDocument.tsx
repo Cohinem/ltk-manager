@@ -8,6 +8,7 @@ import {
   type EditorDocumentProps,
   SaveStatus,
   Seam,
+  useDocumentFlush,
   useNarrowToolbar,
 } from "@/modules/editor";
 
@@ -42,6 +43,9 @@ export function ProjectTextDocument({
   useEffect(() => {
     return () => setDocumentDirty(documentId, false);
   }, [documentId, setDocumentDirty]);
+
+  /* What the debounce still owes the file, for a quit that writes it. */
+  useDocumentFlush(documentId, editor.flush);
 
   const saveNow = useRef(editor.saveNow);
   useEffect(() => {

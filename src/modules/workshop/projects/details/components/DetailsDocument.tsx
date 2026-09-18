@@ -2,9 +2,9 @@ import { InfoIcon, PackageIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 
-import { Button, Code, Field, SectionCard, Tooltip } from "@/components";
-import { m, Marked } from "@/i18n";
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { Button, Code, Field, SectionCard, Tooltip, useToast } from "@/components";
+import { errorMessage, m, Marked } from "@/i18n";
+import { DocumentToolbar, type EditorDocumentProps, useDocumentSave } from "@/modules/editor";
 import { useSettings } from "@/modules/settings";
 
 import { projectTextDocument } from "../../../documents/utils/contentDocument";
@@ -26,6 +26,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
   const editor = useProjectDetails(project);
   const setDocumentDirty = useSetDocumentDirty();
   const moveDocuments = useMoveProjectDocuments();
+  const toast = useToast();
 
   const { data: settings } = useSettings();
   const { form, hasChanges } = editor;
@@ -38,9 +39,22 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
     return () => setDocumentDirty(DETAILS_DOCUMENT_ID, false);
   }, [setDocumentDirty]);
 
-  const save = useRef(editor.save);
+  /* This is the one document that holds its edits until it is asked, so it is
+     the one the close dialog offers a save for. */
+  useDocumentSave(DETAILS_DOCUMENT_ID, editor.save);
+
+  /** Write, and say what the write did. What the button and `Ctrl+S` ask for. */
+  function reportSave() {
+    editor.save().then(
+      () => toast.success(m.workshop_details_saved_hint()),
+      (error: unknown) =>
+        toast.error(m.workshop_details_save_failed_hint({ reason: errorMessage(error) })),
+    );
+  }
+
+  const save = useRef(reportSave);
   useEffect(() => {
-    save.current = editor.save;
+    save.current = reportSave;
   });
 
   useEffect(() => {
@@ -70,7 +84,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
           variant="filled"
           size="xs"
           compact
-          onClick={editor.save}
+          onClick={reportSave}
           disabled={!hasChanges || !editor.canSave}
           loading={editor.isSaving}
         >

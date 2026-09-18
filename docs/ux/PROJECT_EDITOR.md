@@ -2,19 +2,19 @@
 
 ## Changes
 
-| Date       | Change                                                                  |
-| ---------- | ----------------------------------------------------------------------- |
-| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links     |
-| 2026-09-12 | Fill the primary side panel from a rail of views                        |
-| 2026-09-12 | Write a project's readme beside its rendered half                       |
-| 2026-09-12 | Report what the ignore rules left out of a package                      |
-| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude      |
-| 2026-09-11 | Maximize a panel from its tab                                           |
-| 2026-09-10 | Give the location and the box the explorer bar's first row              |
-| 2026-09-10 | Set a details row's height, and grab a column boundary that holds       |
-| 2026-09-10 | Read a game explorer as a details list, over one surface with the grid  |
-| 2026-09-10 | Walk an explorer's directories with the navigation arrows               |
-| 2026-09-10 | Step a tile's name with its size, and gather the bar behind one control |
+| Date       | Change                                                                 |
+| ---------- | ---------------------------------------------------------------------- |
+| 2026-09-18 | Save from the close question, queue the rest, and guard a quit         |
+| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links    |
+| 2026-09-12 | Fill the primary side panel from a rail of views                       |
+| 2026-09-12 | Write a project's readme beside its rendered half                      |
+| 2026-09-12 | Report what the ignore rules left out of a package                     |
+| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude     |
+| 2026-09-11 | Maximize a panel from its tab                                          |
+| 2026-09-10 | Give the location and the box the explorer bar's first row             |
+| 2026-09-10 | Set a details row's height, and grab a column boundary that holds      |
+| 2026-09-10 | Read a game explorer as a details list, over one surface with the grid |
+| 2026-09-10 | Walk an explorer's directories with the navigation arrows              |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -52,6 +52,8 @@ This table holds every major feature of the editor. A status word has one meanin
 | Tab strip, per project | Available   | -                                                                  |
 | Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock |
 | Group lock             | Available   | A locked group takes only what a gesture aims at it                |
+| Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document    |
+| Quit guard             | Available   | A window close asks while a document holds unsaved edits           |
 | Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
 | Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
 | Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
@@ -2293,8 +2295,11 @@ one open document. The active document fills the surface below the row.
 - Every open document stays mounted. A scroll position and a half typed edit survive a trip
   to another tab
 - A document with unsaved edits shows a dot in place of its close button
-- A close on a document with unsaved edits asks first
+- A close on a document with unsaved edits asks first, and the question offers **Save**,
+  **Discard** and **Cancel**. Read [The unsaved-edits question](#the-unsaved-edits-question)
 - The tab strip keeps its state per project, so a return to a project restores the documents
+- Deleting a layer closes every tab that layer opened: its file tree, its locales and every
+  preview of one of its files, in whichever group each one sits in
 
 The first visit opens the details document when the project still carries every default
 from the scaffold. In every other case the first visit selects the first layer.
@@ -2480,6 +2485,38 @@ click on a kept tab maximizes its panel, per [Maximizing a panel](#maximizing-a-
 Closing several tabs at once asks the unsaved-edits question once for each editor that has
 any. The clean ones close straight away and the rest queue behind one dialog, so a refusal
 answers for the whole batch.
+
+### The unsaved-edits question
+
+The question offers three answers, in the shape Visual Studio Code uses.
+
+- **Save** writes the document and then closes it. A write that fails leaves the tab open,
+  reports what stopped it, and drops the rest of the queue
+- **Discard** closes the document and stands the next question up
+- **Cancel** leaves every queued document open. One refusal answers for the batch
+
+**Save** shows for a document that holds its edits until it is asked. Mod details is the one
+such document, and every other editable document autosaves. A document that writes on its own
+offers Discard and Cancel alone.
+
+The document a question is about is the document on screen behind it. A batch close activates
+each queued document as its own question opens, so the surface always shows what is being
+answered for.
+
+A close request made while a question stands joins the queue rather than replacing it, and a
+request naming a document already queued changes nothing.
+
+### Quitting with unsaved edits
+
+Closing the application asks before it closes while any document holds unsaved edits. The
+question names how many, and offers the same three answers as a per-tab close, with **Save
+all** in place of Save.
+
+A pending autosave is written before the question is asked. A document mid-debounce reaches
+its file, and the question names only the documents that hold their edits until a save.
+
+A document that holds unsaved edits and offers no save of its own keeps the window open under
+**Save all**, and the report names how many wait on a tab of their own.
 
 ### Where a preview opens
 

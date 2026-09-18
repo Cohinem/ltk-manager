@@ -312,6 +312,16 @@ export function useCloseDocument() {
   );
 }
 
+/** Close every document a layer owns, which is what a delete of that layer asks for. */
+export function useCloseLayerDocuments() {
+  const projectPath = useProjectPath();
+  const closeLayerDocuments = useWorkshopEditorStore((s) => s.closeLayerDocuments);
+  return useCallback(
+    (layerName: string) => closeLayerDocuments(projectPath, layerName),
+    [closeLayerDocuments, projectPath],
+  );
+}
+
 export function useReorderDocuments() {
   const projectPath = useProjectPath();
   const reorderDocuments = useWorkshopEditorStore((s) => s.reorderDocuments);
