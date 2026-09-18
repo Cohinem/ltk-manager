@@ -23,6 +23,7 @@ import {
   useSplitWithDocument,
   useToggleMaximizedLeaf,
 } from "../../state";
+import { useSharedTabTitles } from "../hooks/useSharedTabTitles";
 import { LeafProvider } from "../state/LeafContext";
 
 interface ContentLeafProps {
@@ -47,6 +48,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const maximizedLeafId = useMaximizedLeafId();
   const toggleMaximized = useToggleMaximizedLeaf();
   const revealRowSearch = useRevealRowSearch(leaf.activeTab);
+  const sharedTitles = useSharedTabTitles();
 
   return (
     <LeafProvider leafId={leaf.id}>
@@ -59,6 +61,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           dirtyIds={dirtyIds}
           pinnedIds={pinnedIds}
           previewId={previewId}
+          sharedTitles={sharedTitles}
           onActivate={(id) => activateDocument(leaf.id, id)}
           onPromote={promoteDocument}
           onTogglePin={setDocumentPinned}

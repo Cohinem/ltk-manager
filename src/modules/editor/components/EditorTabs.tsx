@@ -32,6 +32,9 @@ import { twMerge } from "@/utils";
 
 import { tabDroppableId } from "../layout/dnd";
 import { useForeignCaretIndex } from "../layout/useForeignCaretIndex";
+import { anyClosable } from "../useCloseQueue";
+import { useTabOverflow } from "../useTabOverflow";
+import { TabOverflowList } from "./TabOverflowList";
 
 export interface EditorTab {
   id: string;
@@ -107,7 +110,8 @@ export function EditorTabs({
   className,
 }: EditorTabsProps) {
   const sortableIds = tabs.map((tab) => tabDroppableId(leafId, tab.id));
-  const pinnedCount = tabs.filter((tab) => tab.pinned === true).length;
+  const ids = tabs.map((tab) => tab.id);
+  const pinnedIds = tabs.filter((tab) => tab.pinned === true).map((tab) => tab.id);
   const caretIndex = useForeignCaretIndex(
     leafId,
     tabs.map((tab) => tab.id),
@@ -116,6 +120,7 @@ export function EditorTabs({
   const listRef = useRef<HTMLDivElement>(null);
   useHorizontalWheel(listRef);
   useActiveTabInView(listRef, activeId);
+  const offscreen = useTabOverflow(listRef, tabs.length);
 
   return (
     <Tabs.Root
@@ -148,10 +153,13 @@ export function EditorTabs({
               focused={focused === true}
               caretBefore={caretIndex === index}
               splittable={onSplit !== undefined && tabs.length > 1}
-              othersClosable={closable(tabs, (other) => other.id !== tab.id)}
-              rightClosable={closable(tabs.slice(index + 1))}
-              allClosable={closable(tabs)}
-              dividerAfter={index === pinnedCount - 1 && pinnedCount < tabs.length}
+              othersClosable={anyClosable(
+                ids.filter((other) => other !== tab.id),
+                pinnedIds,
+              )}
+              rightClosable={anyClosable(ids.slice(index + 1), pinnedIds)}
+              allClosable={anyClosable(ids, pinnedIds)}
+              dividerAfter={index === pinnedIds.length - 1 && pinnedIds.length < tabs.length}
               locked={locked === true}
               onSplit={onSplit}
               onPromote={onPromote}
@@ -167,23 +175,20 @@ export function EditorTabs({
         </SortableContext>
         {caretIndex === tabs.length && <DropCaret />}
       </Tabs.List>
-      {/* Outside the scroll lane, so a strip too full to fit still shows it, and
-          only over a strip with tabs, where a lock has something to hold. */}
+      {/* Outside the scroll lane, which a full strip leaves no room in. */}
+      <TabOverflowList
+        tabs={tabs}
+        activeId={activeId}
+        offscreen={offscreen}
+        onActivate={onActivate}
+        onClose={onClose}
+      />
+      {/* Only over a strip with tabs, where a lock has something to hold. */}
       {onToggleLock && tabs.length > 0 && (
         <LockToggle locked={locked === true} onToggle={onToggleLock} />
       )}
     </Tabs.Root>
   );
-}
-
-/**
- * A batch close has work: one of these tabs is unpinned.
- *
- * A pin is what a batch close passes over, so an item whose whole batch is
- * pinned would do nothing and reads as disabled instead.
- */
-function closable(tabs: readonly EditorTab[], among: (tab: EditorTab) => boolean = () => true) {
-  return tabs.some((tab) => tab.pinned !== true && among(tab));
 }
 
 interface LockToggleProps {

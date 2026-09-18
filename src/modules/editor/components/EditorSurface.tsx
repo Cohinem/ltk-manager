@@ -4,6 +4,8 @@ import { RetainedContent } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { useLeafCloses } from "../state/leafCloses";
+import { NO_SHARED_TITLES } from "../tabTitles";
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
 import { useCloseQueue } from "../useCloseQueue";
 import { useEditorKeys } from "../useEditorKeys";
@@ -23,6 +25,8 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   pinnedIds: readonly string[];
   /** The ephemeral tab, which draws in italic. Null when the strip holds none. */
   previewId?: string | null;
+  /** Titles more than one open document carries, whose tabs name their layer. */
+  sharedTitles?: ReadonlySet<string>;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   /** The keyboard route to a split, offered from a tab's context menu. */
@@ -69,6 +73,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
   dirtyIds,
   pinnedIds,
   previewId,
+  sharedTitles = NO_SHARED_TITLES,
   onActivate,
   onClose,
   onSplit,
@@ -104,10 +109,13 @@ export function EditorSurface<D extends EditorDocumentBase>({
         const definition = definitionFor(document);
         if (!definition) return [];
 
+        const { title, context, layer, path } = definition.label(document);
         return [
           {
             id: document.id,
-            ...definition.label(document),
+            title,
+            context: context ?? (sharedTitles.has(title) ? layer : undefined),
+            path,
             icon: definition.icon(document),
             dirty: dirtyIds.has(document.id),
             preview: document.id === previewId,
@@ -116,7 +124,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
           },
         ];
       }),
-    [documents, definitionFor, dirtyIds, pinnedIds, previewId],
+    [documents, definitionFor, dirtyIds, pinnedIds, previewId, sharedTitles],
   );
 
   const close = useCloseQueue({
@@ -127,6 +135,8 @@ export function EditorSurface<D extends EditorDocumentBase>({
     onClose,
     onActivate,
   });
+
+  useLeafCloses(leafId, close);
 
   const documentIds = useMemo(() => documents.map((document) => document.id), [documents]);
 

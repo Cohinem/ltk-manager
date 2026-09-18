@@ -10,6 +10,14 @@ export interface EditorTabLabel {
   title: string;
   /** Dim text after the title, saying where the document lives. */
   context?: string;
+  /**
+   * The layer this document edits, which the strip shows after the title only
+   * while another open tab takes the same title.
+   *
+   * Its own field rather than a {@link EditorTabLabel.context} the definition
+   * fills. A context a document sets stands whatever else the strip holds.
+   */
+  layer?: string;
   /** What the tab's Copy path writes. Absent for a document no path addresses. */
   path?: string;
 }

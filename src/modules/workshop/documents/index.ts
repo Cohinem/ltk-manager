@@ -2,7 +2,7 @@ export { FilesDocument } from "../content/components/FilesDocument";
 export { DetailsDocument } from "../projects/details/components/DetailsDocument";
 export { useProjectDetails, validateVersion } from "../projects/details/hooks/useProjectDetails";
 export { StringsDocument } from "../string-overrides/components/StringsDocument";
-export { contentEditors, useContentEditors } from "./state/registry";
+export { contentEditors, documentDefinition, useContentEditors } from "./state/registry";
 export {
   type ContentDocument,
   type ContentDocumentOf,

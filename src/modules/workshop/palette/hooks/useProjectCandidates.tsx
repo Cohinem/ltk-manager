@@ -1,11 +1,12 @@
 import { TranslateIcon } from "@phosphor-icons/react";
-import { type ReactNode, useMemo } from "react";
+import { useMemo } from "react";
 
 import { m } from "@/i18n";
 import type { LayerContent } from "@/lib/tauri";
 
 import { useProjectContentTree } from "../../content/api/useProjectContentTree";
 import {
+  documentDefinition,
   filesDocument,
   layerTitle,
   objectDocumentId,
@@ -57,17 +58,10 @@ function useDocumentCandidates(): readonly PaletteCandidate[] {
 
   return useMemo(() => {
     return documents.flatMap((document) => {
-      const definition = editors[document.kind];
+      const definition = documentDefinition(editors, document);
       if (!definition) return [];
 
-      /* The registry narrows to one kind per key, which a lookup by a union's
-         own kind cannot express. The key comes off the document, so the two
-         agree. */
-      const entry = definition as {
-        icon: (document: never) => ReactNode;
-        label: (document: never) => { title: string; context?: string };
-      };
-      const label = entry.label(document as never);
+      const label = definition.label(document);
 
       return [
         buildCandidate({
@@ -75,8 +69,8 @@ function useDocumentCandidates(): readonly PaletteCandidate[] {
           source: "documents",
           name: label.title,
           path: "",
-          trailing: label.context,
-          icon: entry.icon(document as never),
+          trailing: label.context ?? label.layer,
+          icon: definition.icon(document),
           target: { kind: "document", document },
         }),
       ];
