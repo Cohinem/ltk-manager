@@ -889,7 +889,7 @@
       }
     }
   ],
-  "workshop_references_empty_description": "Find all references on a class, or Find references on an object.",
+  "workshop_references_empty_description": "Find all references on a class, or Find references on an object or a file.",
   "workshop_references_empty_title": "Nothing asked yet",
   "workshop_references_files_label": [
     {
@@ -902,6 +902,7 @@
     }
   ],
   "workshop_references_find_class_action": "Find class references",
+  "workshop_references_find_file_action": "Find references",
   "workshop_references_find_object_action": "Find references",
   "workshop_references_no_match_description": "The install declares nothing that answers it.",
   "workshop_references_no_match_title": "No references",

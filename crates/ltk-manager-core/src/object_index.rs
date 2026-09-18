@@ -33,7 +33,7 @@ pub use state::{
     BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
     ObjectReferenceGeneration, ObjectSearchGeneration,
 };
-pub use walk::{LayerBin, WalkRequest, WalkTarget, layer_bins};
+pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
 pub use wire::{
     DeclaredObject, ObjectClassHit, ObjectDeclaration, ObjectDirListing, ObjectFindHit,
     ObjectFindResult, ObjectIndexStats, ObjectNodeEntry, ObjectPrefixEntry, ObjectSearchHit,

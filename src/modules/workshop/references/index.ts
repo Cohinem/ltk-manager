@@ -1,4 +1,10 @@
-export { classReferences, objectReferences, useFindReferences } from "./api/useFindReferences";
+export {
+  chunkReferences,
+  classReferences,
+  fileReferences,
+  objectReferences,
+  useFindReferences,
+} from "./api/useFindReferences";
 export { referenceKeys, useReferences } from "./api/useReferences";
 export { ReferencesDocument } from "./components/ReferencesDocument";
 export { ReferencesTree } from "./components/ReferencesTree";

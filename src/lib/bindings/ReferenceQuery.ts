@@ -15,4 +15,12 @@ classHash: string, } | { "kind": "object",
 /**
  * The object's path hash, `0x` and eight hex digits.
  */
-objectHash: string, };
+objectHash: string, } | { "kind": "file", 
+/**
+ * The chunk path, as the tables spell it.
+ */
+path: string, } | { "kind": "chunk", 
+/**
+ * The chunk's path hash, sixteen hex digits.
+ */
+pathHash: string, };

@@ -1,9 +1,24 @@
-import { ArrowSquareOutIcon, CopyIcon, HashIcon, PathIcon, TabsIcon } from "@phosphor-icons/react";
+import {
+  ArrowSquareOutIcon,
+  CopyIcon,
+  HashIcon,
+  MagnifyingGlassIcon,
+  PathIcon,
+  TabsIcon,
+} from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
+import { m } from "@/i18n";
 
 import { isPropertyBin, useOpenInRitobin, useRitobinIntegration } from "../../preview";
+/* The leaf rather than the references barrel, which reaches this module back through
+   the documents registry mid-evaluation. */
+import {
+  chunkReferences,
+  fileReferences,
+  useFindReferences,
+} from "../../references/api/useFindReferences";
 import { ExtractMenuItems } from "../extraction/components/ExtractMenuItems";
 import type { ExtractHow } from "../extraction/hooks/useExtractActions";
 import { fileKindFromPath } from "../utils/fileKind";
@@ -29,6 +44,7 @@ export function SourceTreeContextMenu({ node, onOpen, onRun }: SourceTreeContext
   const copy = useCopyToClipboard();
   const ritobin = useRitobinIntegration();
   const openInRitobin = useOpenInRitobin();
+  const find = useFindReferences();
 
   /* A directory row gets the ways out and nothing else. It is a segment of a
      resolved chunk path rather than anything on disk, so it has no name, no
@@ -82,6 +98,15 @@ export function SourceTreeContextMenu({ node, onOpen, onRun }: SourceTreeContext
           {(onOpen || bin) && <ContextMenu.Separator />}
           {onRun && <ExtractMenuItems onRun={(how) => onRun(node, how)} />}
           {onRun && <ContextMenu.Separator />}
+          <ContextMenu.Item
+            icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+            onClick={() =>
+              find(path !== null ? fileReferences(path) : chunkReferences(node.entry.pathHash))
+            }
+          >
+            {m.workshop_references_find_file_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Separator />
           <ContextMenu.Item
             icon={<CopyIcon className="h-4 w-4" />}
             onClick={() => void copy(node.name, "name")}

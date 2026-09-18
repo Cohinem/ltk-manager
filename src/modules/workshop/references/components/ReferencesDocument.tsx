@@ -83,7 +83,7 @@ export function ReferencesDocument({
   );
 }
 
-/** The question in the header: a class as its card, an object as its path. */
+/** The question in the header: a class as its card, an object or a file as its path. */
 function Question({ request }: { request: ReferenceRequest | null }) {
   if (request === null) {
     return (
@@ -92,7 +92,7 @@ function Question({ request }: { request: ReferenceRequest | null }) {
       </span>
     );
   }
-  if (request.query.kind !== "object") {
+  if (request.query.kind === "class" || request.query.kind === "embedded") {
     const label =
       request.query.kind === "class"
         ? m.workshop_references_of_class_label()

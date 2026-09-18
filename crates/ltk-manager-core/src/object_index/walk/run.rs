@@ -217,7 +217,7 @@ impl ObjectIndex {
             request.workers,
             |_| 0,
             |unit| match unit {
-                Unit::Layer(bin) => walk_layer(bin, request.target, &walked)
+                Unit::Layer(bin) => walk_layer(bin, &request.target, &walked)
                     .map(|hits| vec![(0, hits)])
                     .unwrap_or_default(),
                 Unit::Archive { wad, files } => {
@@ -354,7 +354,7 @@ impl ObjectIndex {
                 }
             };
             let mut hits = Vec::new();
-            if let Err(e) = scan_bin(&bytes, request.target, &mut hits) {
+            if let Err(e) = scan_bin(&bytes, &request.target, &mut hits) {
                 tracing::debug!("Walked {name}/{} only in part: {e}", hex_name(path_hash));
             }
             walked.advance(hits.len());
@@ -369,7 +369,7 @@ impl ObjectIndex {
 /// The hits of one layer bin, or `None` where the walk stopped before it.
 fn walk_layer<O, P>(
     bin: &LayerBin,
-    target: WalkTarget,
+    target: &WalkTarget,
     walked: &Walked<'_, O, P>,
 ) -> Option<Vec<WalkHit>>
 where

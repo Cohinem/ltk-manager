@@ -3476,10 +3476,13 @@ name, and it opens the object tab expanded down to that row.
 | Every object of a class           | An object row, an object tab's kebab        | The index           |
 | Every use of an embedded class    | An `embed` or `pointer` row                 | A walk of every bin |
 | Every object linking to an object | Find references on every menu an object has | The same walk       |
+| Every object naming a file        | A file row of the game tree or Content tree | The same walk       |
 
 The walk reads the project's layers first, then the install's declaring files in archive
-order, one job per archive on the bounded pool the problems pass uses. A `link` and a `hash`
-value match, map keys included. It runs on demand. A band under the header draws the bins read
+order, one job per archive on the bounded pool the problems pass uses. For an object, a `link`
+and a `hash` value match, map keys included. For a file, a `hash` of its path, a `file` of its
+chunk hash and a `string` of its path in any case match, and a chunk no table names is matched
+by a `file` value alone. It runs on demand. A band under the header draws the bins read
 and the references found, with a Cancel that stops the walk before its next bin, and a
 cancelled walk keeps what it found and marks the header partial. The declaring files of an
 object are no query of their own, because the object tab's `n files` chip lists them.

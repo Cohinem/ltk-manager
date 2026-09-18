@@ -49,6 +49,13 @@ prose is what is wrong.
 
 **No redundant comments.** Do not add inline comments that restate what the code already expresses. If the code is descriptive enough (clear variable names, well-known patterns like temp-file-then-rename, obvious API calls), leave it uncommented. This applies to AI-generated code and suggestions too - strip narration comments before committing. The same goes for what a symbol's own doc expresses: a call site that restates the constant or type it is using is writing that doc twice. Needing the explanation there usually means the code is in the wrong place - move it beside what it explains, and the comment stops being needed.
 
+Let the code speak through its quality: clear names, small named components and functions, and named constants, rather than comments that explain it.
+
+- **One rich doc per unit** - document the exported component, hook or function with a single structured doc comment: what it is, its parts, non-obvious behaviour, accessibility, gotchas. Reference, not a story.
+- **Inline comments are the exception** - only for what the code cannot say: a hidden constraint, a workaround and its cause, a magic value. One or two lines.
+- **Never** narrate history ("used to", "the old X"), argue design or product decisions at length, retell the change, or restate the code. That belongs in the commit or PR.
+- If comments outweigh the code around them, cut them.
+
 **Cite a rule, do not restate it.** Code written to satisfy a documented design rule
 names that rule by its code and stops - `/* Duotone rather than fill: DS-ICON-WEIGHT. */`,
 not a paragraph reproducing the reasoning. `DS-*` codes are defined in the `design-system`

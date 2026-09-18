@@ -6,7 +6,13 @@ import {
   REFERENCES_DOCUMENT_ID,
   referencesDocument,
 } from "../../../documents/utils/contentDocument";
-import { classReferences, embeddedReferences, objectReferences } from "../useFindReferences";
+import {
+  chunkReferences,
+  classReferences,
+  embeddedReferences,
+  fileReferences,
+  objectReferences,
+} from "../useFindReferences";
 
 describe("referencesDocument", () => {
   /* One project answers one question at a time, so a second Find all references
@@ -44,6 +50,24 @@ describe("objectReferences", () => {
     expect(objectReferences("0x2a1f3c7d", "characters/aatrox/skins/skin0")).toEqual({
       query: { kind: "object", objectHash: "0x2a1f3c7d" },
       label: "characters/aatrox/skins/skin0",
+    });
+  });
+});
+
+describe("fileReferences", () => {
+  it("asks for the file and reads by its chunk path", () => {
+    expect(fileReferences("assets/characters/aatrox/skins/base/aatrox_base_tx_cm.tex")).toEqual({
+      query: { kind: "file", path: "assets/characters/aatrox/skins/base/aatrox_base_tx_cm.tex" },
+      label: "assets/characters/aatrox/skins/base/aatrox_base_tx_cm.tex",
+    });
+  });
+});
+
+describe("chunkReferences", () => {
+  it("asks for the chunk and reads by its path hash", () => {
+    expect(chunkReferences("0123456789abcdef")).toEqual({
+      query: { kind: "chunk", pathHash: "0123456789abcdef" },
+      label: "0123456789abcdef",
     });
   });
 });

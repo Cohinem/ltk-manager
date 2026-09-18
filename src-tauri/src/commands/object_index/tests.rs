@@ -11,7 +11,9 @@ use ltk_manager_core::game_index::GameIndex;
 use ltk_manager_core::game_wads::GameArchives;
 use ltk_manager_core::hashtables::{HashtableCache, WadPathResolver};
 use ltk_manager_core::meta_schema;
-use ltk_manager_core::object_index::{CacheNames, ObjectIndex, WalkRequest, WalkTarget};
+use ltk_manager_core::object_index::{
+    CacheNames, FileTarget, ObjectIndex, WalkRequest, WalkTarget,
+};
 use ltk_manager_core::problems::budget::files_at_once;
 use ltk_manager_core::problems::{Budget, GameBuild};
 
@@ -74,6 +76,9 @@ fn measure_the_reference_walk() {
     for target in [
         WalkTarget::Linked(BinHash::hash_str("Characters/Aatrox/CharacterRecords/Root")),
         WalkTarget::Embedded(BinHash::hash_str("VfxEmitterDefinitionData")),
+        WalkTarget::File(FileTarget::named(
+            "ASSETS/Characters/Aatrox/Skins/Base/Aatrox_Base_TX_CM.tex",
+        )),
     ] {
         let budget = Budget::sweep();
         let request = WalkRequest {
@@ -86,7 +91,8 @@ fn measure_the_reference_walk() {
         let started = Instant::now();
         let result = index.walk(&request, &names, Some(schema.at(build)), || false, |_| {});
         println!(
-            "{target:?}: {} bins, {} references in {} files, {} ms on {} workers",
+            "{:?}: {} bins, {} references in {} files, {} ms on {} workers",
+            request.target,
             index.stats().files,
             result.total,
             result.groups.len(),
@@ -115,5 +121,15 @@ fn a_reference_query_arrives_tagged_by_what_it_asks_for() {
         serde_json::from_str(r#"{"kind":"object","objectHash":"0x9abcdef0"}"#).unwrap();
     assert!(
         matches!(object, ReferenceQuery::Object { object_hash } if object_hash == "0x9abcdef0")
+    );
+
+    let file: ReferenceQuery =
+        serde_json::from_str(r#"{"kind":"file","path":"assets/x.tex"}"#).unwrap();
+    assert!(matches!(file, ReferenceQuery::File { path } if path == "assets/x.tex"));
+
+    let chunk: ReferenceQuery =
+        serde_json::from_str(r#"{"kind":"chunk","pathHash":"0123456789abcdef"}"#).unwrap();
+    assert!(
+        matches!(chunk, ReferenceQuery::Chunk { path_hash } if path_hash == "0123456789abcdef")
     );
 }

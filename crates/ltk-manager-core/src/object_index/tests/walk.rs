@@ -1,5 +1,5 @@
-//! The walk: embedded class hits, link and hash hits, the paths they carry, and a walk
-//! over a synthetic install and a project's layers.
+//! The walk: embedded class hits, link and hash hits, file hits, the paths they carry,
+//! and a walk over a synthetic install and a project's layers.
 
 use super::*;
 use crate::bin_document::{BinDocument, RowNames};
@@ -7,7 +7,7 @@ use crate::problems::Budget;
 use ltk_meta::property::Kind;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use super::super::walk::{HitStep, WalkHit, scan_bin, spelled_property};
+use super::super::walk::{FileTarget, HitStep, WalkHit, scan_bin, spelled_property};
 
 const SKIN: &str = "characters/aatrox/skins/skin0";
 const RESOURCES: &str = "characters/aatrox/skins/skin0/resources";
@@ -94,7 +94,7 @@ fn skin_bytes() -> Vec<u8> {
 
 fn scanned(bytes: &[u8], target: WalkTarget) -> Vec<WalkHit> {
     let mut hits = Vec::new();
-    scan_bin(bytes, target, &mut hits).unwrap();
+    scan_bin(bytes, &target, &mut hits).unwrap();
     hits
 }
 
@@ -170,7 +170,7 @@ fn every_hit_is_a_row_the_bin_document_draws() {
         WalkTarget::Embedded(h("Part")),
         WalkTarget::Linked(h(RESOURCES)),
     ] {
-        for path in wire_paths(&scanned(&bytes, target)) {
+        for path in wire_paths(&scanned(&bytes, target.clone())) {
             assert!(rows.contains(&path), "no row at {path} for {target:?}");
         }
     }
@@ -259,6 +259,88 @@ fn a_map_entry_whose_key_and_value_both_link_is_one_hit() {
     assert_eq!(
         scanned(&out.into_inner(), WalkTarget::Linked(h(RESOURCES))).len(),
         1
+    );
+}
+
+const TEXTURE: &str = "assets/characters/aatrox/skins/base/aatrox_base_tx_cm.tex";
+
+/// A skin naming [`TEXTURE`] as every kind of value a file can be named by, and as an
+/// object link, which names no file.
+fn texture_bytes() -> Vec<u8> {
+    let by_chunk = values::Map::new(
+        Kind::WadChunkLink,
+        Kind::String,
+        vec![(
+            values::WadChunkLink::new(WadHash::hash_str(TEXTURE)).into(),
+            values::String::from("diffuse").into(),
+        )],
+    )
+    .unwrap();
+    let object = BinObject::builder(h(SKIN), h("SkinMeshDataProperties"))
+        .property(h("texture"), values::String::from(TEXTURE.to_uppercase()))
+        .property(h("textureHash"), values::Hash::new(h(TEXTURE)))
+        .property(
+            h("textureFile"),
+            values::WadChunkLink::new(WadHash::hash_str(TEXTURE)),
+        )
+        .property(h("notAFile"), values::ObjectLink::new(h(TEXTURE)))
+        .property(h("other"), values::String::from("assets/other.tex"))
+        .property(
+            h("layers"),
+            values::Container::from(vec![
+                values::String::from("assets/other.tex"),
+                values::String::from(TEXTURE),
+            ]),
+        )
+        .property(h("byChunk"), by_chunk)
+        .build();
+    let bin = Bin::<NoMeta>::builder().object(object).build();
+    let mut out = Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    out.into_inner()
+}
+
+#[test]
+fn a_named_file_hits_through_string_hash_and_file_values_at_every_depth() {
+    let bytes = texture_bytes();
+    let hits = scanned(&bytes, WalkTarget::File(FileTarget::named(TEXTURE)));
+    let chunk_key = format!("{:016x}", WadHash::hash_str(TEXTURE).0);
+
+    let paths = wire_paths(&hits);
+    assert_eq!(
+        paths,
+        [
+            field("texture"),
+            field("textureHash"),
+            field("textureFile"),
+            format!("{}[1]", field("layers")),
+            format!("{}{{{chunk_key}}}", field("byChunk")),
+        ],
+        "a string in any case, a hash, a file, a list item and a map key, never a link"
+    );
+
+    let document = BinDocument::parse(bytes).unwrap();
+    let mut rows = Vec::new();
+    row_paths(&document, h(SKIN), "", &mut rows);
+    for path in &paths {
+        assert!(rows.contains(path), "no row at {path}");
+    }
+}
+
+#[test]
+fn an_unnamed_chunk_hits_through_file_values_alone() {
+    let hits = scanned(
+        &texture_bytes(),
+        WalkTarget::File(FileTarget::unnamed(WadHash::hash_str(TEXTURE))),
+    );
+    let chunk_key = format!("{:016x}", WadHash::hash_str(TEXTURE).0);
+
+    assert_eq!(
+        wire_paths(&hits),
+        [
+            field("textureFile"),
+            format!("{}{{{chunk_key}}}", field("byChunk")),
+        ]
     );
 }
 

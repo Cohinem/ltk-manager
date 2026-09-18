@@ -197,8 +197,8 @@ export const commands = {
 	 *  What `query` names, grouped by the file that holds it.
 	 * 
 	 *  A class answers from the index with every object the install declares as it. An
-	 *  embedded class and an object answer from a walk of `project`'s layers and the
-	 *  install, reporting `reference-walk-progress` as it reads. The scan carries a
+	 *  embedded class, an object and a file answer from a walk of `project`'s layers and
+	 *  the install, reporting `reference-walk-progress` as it reads. The scan carries a
 	 *  generation of its own, so a re-run gives up only the reference scan it overtakes.
 	 * 
 	 *  "The References document" in `docs/ux/PROJECT_EDITOR.md`.
@@ -2153,7 +2153,15 @@ classHash: string } |
 /**  Every `link` or `hash` value naming one object, from the walk. */
 { kind: "object"; 
 /**  The object's path hash, `0x` and eight hex digits. */
-objectHash: string };
+objectHash: string } | 
+/**  Every `hash`, `file` or `string` value naming one file, from the walk. */
+{ kind: "file"; 
+/**  The chunk path, as the tables spell it. */
+path: string } | 
+/**  Every `file` value naming one chunk no table names, from the walk. */
+{ kind: "chunk"; 
+/**  The chunk's path hash, sixteen hex digits. */
+pathHash: string };
 
 /**  What one reference query found. */
 export type ReferenceResult = {

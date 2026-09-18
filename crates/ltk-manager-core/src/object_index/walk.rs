@@ -1,12 +1,12 @@
 //! The walk of every bin for what the index does not hold: the uses of an embedded
-//! class, and the values that link to an object.
+//! class, and the values that link to an object or name a file.
 //!
 //! "The References document" in `docs/ux/PROJECT_EDITOR.md`.
 
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use ltk_hash::BinHash;
+use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, NoMeta};
 use ltk_meta::stream::BinStream;
 use ltk_meta::walk::{Child, Leaf, Node, OwnedNode, TreeNode, TreeValue, Visit, Visitor};
@@ -22,17 +22,19 @@ pub(super) use run::spelled_property;
 pub use run::{LayerBin, WalkRequest, layer_bins};
 
 /// What a walk looks for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum WalkTarget {
     /// Every `pointer` or `embed` value of a class, below the root of an object.
     Embedded(BinHash),
     /// Every `link` or `hash` value holding an object's path hash, map keys included.
     Linked(BinHash),
+    /// Every `hash`, `file` or `string` value naming one file, map keys included.
+    File(FileTarget),
 }
 
 impl WalkTarget {
     /// Whether a value of `kind` can hold what the walk looks for, itself or below it.
-    fn reaches(self, kind: Kind) -> bool {
+    fn reaches(&self, kind: Kind) -> bool {
         match kind {
             Kind::Struct
             | Kind::Embedded
@@ -40,17 +42,59 @@ impl WalkTarget {
             | Kind::UnorderedContainer
             | Kind::Optional
             | Kind::Map => true,
-            Kind::Hash | Kind::ObjectLink => matches!(self, Self::Linked(_)),
+            Kind::Hash => matches!(self, Self::Linked(_) | Self::File(_)),
+            Kind::ObjectLink => matches!(self, Self::Linked(_)),
+            Kind::WadChunkLink => matches!(self, Self::File(_)),
+            Kind::String => matches!(self, Self::File(file) if file.path.is_some()),
             _ => false,
         }
     }
 
     /// Whether `leaf` is a value this target links to.
-    fn links(self, leaf: Leaf<'_>) -> bool {
-        matches!(
-            (self, leaf),
-            (Self::Linked(target), Leaf::Hash(hash) | Leaf::Link(hash)) if hash == target
-        )
+    fn links(&self, leaf: Leaf<'_>) -> bool {
+        match self {
+            Self::Embedded(_) => false,
+            Self::Linked(target) => {
+                matches!(leaf, Leaf::Hash(hash) | Leaf::Link(hash) if hash == *target)
+            }
+            Self::File(file) => file.is_named_by(leaf),
+        }
+    }
+}
+
+/// One file, as the values that name it hold it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FileTarget {
+    /// The chunk path hash, which a `file` value holds.
+    chunk: WadHash,
+    /// The chunk path and its name hash, which a `string` and a `hash` value hold.
+    path: Option<(Box<str>, BinHash)>,
+}
+
+impl FileTarget {
+    /// A file by its chunk path, which a `hash`, a `file` and a `string` value can name.
+    #[must_use]
+    pub fn named(path: &str) -> Self {
+        Self {
+            chunk: WadHash::hash_str(path),
+            path: Some((path.into(), BinHash::hash_str(path))),
+        }
+    }
+
+    /// A chunk no table names, which only a `file` value can name.
+    #[must_use]
+    pub fn unnamed(chunk: WadHash) -> Self {
+        Self { chunk, path: None }
+    }
+
+    /// Whether `leaf` names this file. A path compares without regard to ASCII case.
+    fn is_named_by(&self, leaf: Leaf<'_>) -> bool {
+        match (leaf, &self.path) {
+            (Leaf::File(chunk), _) => chunk == self.chunk,
+            (Leaf::Hash(hash), Some((_, named))) => hash == *named,
+            (Leaf::String(text), Some((path, _))) => text.eq_ignore_ascii_case(path),
+            _ => false,
+        }
     }
 }
 
@@ -91,7 +135,7 @@ pub(super) struct WalkHit {
 /// failure stay pushed.
 pub(super) fn scan_bin(
     bytes: &[u8],
-    target: WalkTarget,
+    target: &WalkTarget,
     hits: &mut Vec<WalkHit>,
 ) -> Result<(), Error> {
     if bytes.starts_with(&PATCH_MAGIC) {
@@ -130,7 +174,7 @@ fn holds_rows(kind: Kind) -> bool {
 
 /// One object's descent, with the steps to where it stands.
 struct Scan<'h, V> {
-    target: WalkTarget,
+    target: &'h WalkTarget,
     object: BinHash,
     class: BinHash,
     /// A key is the tree's own value, rendered only for a hit.
@@ -171,7 +215,7 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Scan<'_, V> {
 
 impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
     fn new(
-        target: WalkTarget,
+        target: &'h WalkTarget,
         object: BinHash,
         class: BinHash,
         hits: &'h mut Vec<WalkHit>,
@@ -209,12 +253,12 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
                 let Some(node) = value.as_node()? else {
                     return Ok(());
                 };
-                if self.target == WalkTarget::Embedded(node.class_hash()) {
+                if *self.target == WalkTarget::Embedded(node.class_hash()) {
                     self.hit();
                 }
                 self.node(node)
             }
-            Kind::Hash | Kind::ObjectLink => {
+            Kind::Hash | Kind::ObjectLink | Kind::WadChunkLink | Kind::String => {
                 if value.leaf()?.is_some_and(|leaf| self.target.links(leaf)) {
                     self.hit();
                 }

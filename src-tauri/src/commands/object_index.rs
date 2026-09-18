@@ -5,6 +5,7 @@ use super::off_thread;
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::state::SettingsState;
+use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::{BackendEvent, EventSink as _};
@@ -13,8 +14,8 @@ use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
 use ltk_manager_core::object_index::{
-    self, layer_bins, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDirListing,
-    ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
+    self, layer_bins, parse_hash, BuildTicket, CacheNames, DeclaredObject, FileTarget,
+    ObjectDirListing, ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
     ObjectReferenceGeneration, ObjectSearchGeneration, ObjectSearchResult, ReferenceResult,
     SpellCatalog, WalkRequest, WalkTarget,
 };
@@ -306,15 +307,55 @@ pub enum ReferenceQuery {
         /// The object's path hash, `0x` and eight hex digits.
         object_hash: String,
     },
+    /// Every `hash`, `file` or `string` value naming one file, from the walk.
+    #[serde(rename_all = "camelCase")]
+    File {
+        /// The chunk path, as the tables spell it.
+        path: String,
+    },
+    /// Every `file` value naming one chunk no table names, from the walk.
+    #[serde(rename_all = "camelCase")]
+    Chunk {
+        /// The chunk's path hash, sixteen hex digits.
+        path_hash: String,
+    },
+}
+
+/// A reference query resolved to its lookup: a class in the index, or a walk.
+#[derive(Debug)]
+enum ReferenceLookup {
+    Class(BinHash),
+    Walk(WalkTarget),
 }
 
 impl ReferenceQuery {
-    /// The hash the query names, whichever it names.
-    fn hash_text(&self) -> &str {
-        let (Self::Class { class_hash: text }
-        | Self::Embedded { class_hash: text }
-        | Self::Object { object_hash: text }) = self;
-        text
+    /// The lookup the query resolves to.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the hash the query names does not parse.
+    fn resolve(&self) -> AppResult<ReferenceLookup> {
+        let object_hash = |text: &str| {
+            parse_hash(text).ok_or_else(|| {
+                AppError::ValidationFailed(format!("Not an object index hash: {text}"))
+            })
+        };
+        Ok(match self {
+            Self::Class { class_hash } => ReferenceLookup::Class(object_hash(class_hash)?),
+            Self::Embedded { class_hash } => {
+                ReferenceLookup::Walk(WalkTarget::Embedded(object_hash(class_hash)?))
+            }
+            Self::Object { object_hash: text } => {
+                ReferenceLookup::Walk(WalkTarget::Linked(object_hash(text)?))
+            }
+            Self::File { path } => ReferenceLookup::Walk(WalkTarget::File(FileTarget::named(path))),
+            Self::Chunk { path_hash } => {
+                let chunk = path_hash.parse().map_err(|_| {
+                    AppError::ValidationFailed(format!("Not a chunk path hash: {path_hash}"))
+                })?;
+                ReferenceLookup::Walk(WalkTarget::File(FileTarget::unnamed(chunk)))
+            }
+        })
     }
 }
 
@@ -346,8 +387,8 @@ const WALK_PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 /// What `query` names, grouped by the file that holds it.
 ///
 /// A class answers from the index with every object the install declares as it. An
-/// embedded class and an object answer from a walk of `project`'s layers and the
-/// install, reporting `reference-walk-progress` as it reads. The scan carries a
+/// embedded class, an object and a file answer from a walk of `project`'s layers and
+/// the install, reporting `reference-walk-progress` as it reads. The scan carries a
 /// generation of its own, so a re-run gives up only the reference scan it overtakes.
 ///
 /// "The References document" in `docs/ux/PROJECT_EDITOR.md`.
@@ -358,10 +399,9 @@ pub async fn find_references(
     project: Option<String>,
     app_handle: AppHandle,
 ) -> IpcResult<ObjectReferences> {
-    let asked = query.hash_text().to_owned();
-    let Some(hash) = parse_hash(&asked) else {
-        let e = AppError::ValidationFailed(format!("Not an object index hash: {asked}"));
-        return IpcResult::from(Err::<ObjectReferences, _>(e));
+    let lookup = match query.resolve() {
+        Ok(lookup) => lookup,
+        Err(e) => return IpcResult::from(Err::<ObjectReferences, _>(e)),
     };
 
     let ticket = app_handle.state::<ObjectReferenceGeneration>().claim();
@@ -382,17 +422,14 @@ pub async fn find_references(
             ObjectIndexSnapshot::Ready(index) => index,
         };
 
-        let target = match query {
-            ReferenceQuery::Class { .. } => None,
-            ReferenceQuery::Embedded { .. } => Some(WalkTarget::Embedded(hash)),
-            ReferenceQuery::Object { .. } => Some(WalkTarget::Linked(hash)),
-        };
-        let result = match target {
-            None => index.class_references(hash, overtaken),
-            Some(target) => walk(&app_handle, &index, target, project.as_deref(), overtaken)?,
+        let result = match lookup {
+            ReferenceLookup::Class(class) => index.class_references(class, overtaken),
+            ReferenceLookup::Walk(target) => {
+                walk(&app_handle, &index, target, project.as_deref(), overtaken)?
+            }
         };
         tracing::debug!(
-            hash = %asked,
+            query = ?query,
             groups = result.groups.len(),
             total = result.total,
             superseded = result.superseded,

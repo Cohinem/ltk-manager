@@ -19,6 +19,16 @@ export function objectReferences(objectHash: string, objectPath: string): Refere
   return { query: { kind: "object", objectHash }, label: objectPath };
 }
 
+/** Every value naming one file, labelled by its chunk path. */
+export function fileReferences(path: string): ReferenceQuestion {
+  return { query: { kind: "file", path }, label: path };
+}
+
+/** Every `file` value naming one chunk no table names, labelled by its path hash. */
+export function chunkReferences(pathHash: string): ReferenceQuestion {
+  return { query: { kind: "chunk", pathHash }, label: pathHash };
+}
+
 /**
  * Open the References document on a new question, which replaces the last.
  *

@@ -5,6 +5,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   FolderOpenIcon,
+  MagnifyingGlassIcon,
   TabsIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
@@ -15,6 +16,7 @@ import { m } from "@/i18n";
 import type { IgnoreMatch } from "@/lib/tauri";
 import { api } from "@/lib/tauri";
 
+import { entryChunkPath } from "../../bin/links/hooks/useLinkTargets";
 import { fileKindFromPath } from "../../gameBrowser/utils/fileKind";
 import {
   extensionIgnoreLine,
@@ -24,6 +26,9 @@ import {
   useIgnoreRowActions,
 } from "../../ignore-rules";
 import { isPropertyBin, useOpenInRitobin, useRitobinIntegration } from "../../preview";
+/* The leaf rather than the references barrel, which reaches this module back through
+   the documents registry mid-evaluation. */
+import { fileReferences, useFindReferences } from "../../references/api/useFindReferences";
 import type { ContentTreeNode, FileNode } from "../utils/contentTree";
 
 interface ContentTreeContextMenuProps {
@@ -53,6 +58,7 @@ export function ContentTreeContextMenu({
   const copy = useCopyToClipboard();
   const ritobin = useRitobinIntegration();
   const openInRitobin = useOpenInRitobin();
+  const find = useFindReferences();
 
   if (!node) return null;
 
@@ -60,6 +66,7 @@ export function ContentTreeContextMenu({
   const absolutePath = `${projectPath}/content/${layerName}/${relativePath}`;
   const file = node.type === "file" ? node : null;
   const bin = file !== null && isPropertyBin(fileKindFromPath(file.name)) && ritobin.data === true;
+  const chunk = file !== null ? entryChunkPath(relativePath) : null;
 
   return (
     <ContextMenu.Portal>
@@ -88,7 +95,15 @@ export function ContentTreeContextMenu({
               {m.workshop_tree_open_vscode_action()}
             </ContextMenu.Item>
           )}
-          {((file && onOpen) || bin) && <ContextMenu.Separator />}
+          {chunk !== null && (
+            <ContextMenu.Item
+              icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+              onClick={() => find(fileReferences(chunk))}
+            >
+              {m.workshop_references_find_file_action()}
+            </ContextMenu.Item>
+          )}
+          {((file && onOpen) || bin || chunk !== null) && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<CopyIcon className="h-4 w-4" />}
             onClick={() => void copy(node.name, "name")}
