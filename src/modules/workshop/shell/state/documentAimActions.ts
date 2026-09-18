@@ -1,7 +1,7 @@
 import type { BinRow } from "@/lib/tauri";
 
 import type { EditorSet } from "./editorRoot";
-import { updateProject } from "./projectUpdate";
+import { setProject } from "./projectUpdate";
 
 /** Requests aimed at one open document, and the settles that drop an answered one. */
 export interface DocumentAimActions {
@@ -23,81 +23,55 @@ export interface DocumentAimActions {
 export function createDocumentAimActions(set: EditorSet): DocumentAimActions {
   return {
     revealRow: (projectPath, documentId, key) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => ({
-            ...editor,
-            revealRow: {
-              documentId,
-              key,
-              token: (editor.revealRow?.token ?? 0) + 1,
-            },
-          })) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => ({
+        ...editor,
+        revealRow: {
+          documentId,
+          key,
+          token: (editor.revealRow?.token ?? 0) + 1,
+        },
+      })),
 
     settleRowReveal: (projectPath, token) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) =>
-            editor.revealRow?.token === token ? { ...editor, revealRow: null } : editor,
-          ) ?? state,
+      setProject(set, projectPath, (editor) =>
+        editor.revealRow?.token === token ? { ...editor, revealRow: null } : editor,
       ),
 
     revealIgnoreLine: (projectPath, documentId, line) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => ({
-            ...editor,
-            revealIgnoreLine: {
-              documentId,
-              line,
-              token: (editor.revealIgnoreLine?.token ?? 0) + 1,
-            },
-          })) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => ({
+        ...editor,
+        revealIgnoreLine: {
+          documentId,
+          line,
+          token: (editor.revealIgnoreLine?.token ?? 0) + 1,
+        },
+      })),
 
     settleIgnoreLineReveal: (projectPath, token) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) =>
-            editor.revealIgnoreLine?.token === token
-              ? { ...editor, revealIgnoreLine: null }
-              : editor,
-          ) ?? state,
+      setProject(set, projectPath, (editor) =>
+        editor.revealIgnoreLine?.token === token ? { ...editor, revealIgnoreLine: null } : editor,
       ),
 
     aimCurve: (projectPath, documentId, row, chain) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => ({
-            ...editor,
-            aimCurve: { documentId, row, chain, token: (editor.aimCurve?.token ?? 0) + 1 },
-          })) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => ({
+        ...editor,
+        aimCurve: { documentId, row, chain, token: (editor.aimCurve?.token ?? 0) + 1 },
+      })),
 
     settleCurveAim: (projectPath, token) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) =>
-            editor.aimCurve?.token === token ? { ...editor, aimCurve: null } : editor,
-          ) ?? state,
+      setProject(set, projectPath, (editor) =>
+        editor.aimCurve?.token === token ? { ...editor, aimCurve: null } : editor,
       ),
 
     aimStringKey: (projectPath, documentId, key, line) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => ({
-            ...editor,
-            aimStringKey: { documentId, key, line, token: (editor.aimStringKey?.token ?? 0) + 1 },
-          })) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => ({
+        ...editor,
+        aimStringKey: { documentId, key, line, token: (editor.aimStringKey?.token ?? 0) + 1 },
+      })),
 
     settleStringKeyAim: (projectPath, token) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) =>
-            editor.aimStringKey?.token === token ? { ...editor, aimStringKey: null } : editor,
-          ) ?? state,
+      setProject(set, projectPath, (editor) =>
+        editor.aimStringKey?.token === token ? { ...editor, aimStringKey: null } : editor,
       ),
   };
 }

@@ -52,9 +52,9 @@ export function createHistoryActions(set: EditorSet, get: EditorGet): HistoryAct
     openLocationStops: (project, documentId, stops) =>
       set((state) => {
         /* Written once, when the tab's own stop still names no directory of it.
-         A mount is not a navigation: an explorer remounts whenever its route
-         does, and a remount that laid these down again would drop whatever the
-         arrows had ahead of them and stand two junk stops in its place. */
+           A mount is not a navigation: an explorer remounts whenever its route
+           does, and a remount that laid these down again would drop whatever the
+           arrows had ahead of them and stand two junk stops in its place. */
         const placed = state.history.some(
           (entry) =>
             entry.kind === "document" &&
@@ -83,7 +83,7 @@ export function createHistoryActions(set: EditorSet, get: EditorGet): HistoryAct
       }
 
       /* A stop whose tab is gone is skipped rather than repaired: `dropStops`
-       clears a close, and what is left is a project the shell has forgotten. */
+         clears a close, and what is left is a project the shell has forgotten. */
       const editor = state.byProject[entry.project];
       const holder = editor ? leafHolding(editor.layout, entry.documentId) : null;
       if (!editor || !holder) return null;

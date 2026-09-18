@@ -5,9 +5,9 @@ import { findLeaf, type LayoutNode, leafHolding, leaves } from "@/modules/editor
 
 import type { ShellArrangement, ShellKind } from "../../bin/shell/utils/shellPanes";
 import { CLOSED_LIMIT, type ClosedDocument } from "./closedTabs";
-import type { EditorRoot } from "./editorRoot";
+import type { EditorRoot, EditorSet } from "./editorRoot";
 import { dropStops, type NavigationStack, pushStop } from "./navigationStack";
-import { withHeldLeaves, withoutPreviewDocument } from "./previewTabs";
+import { withoutLostLeaves, withoutPreviewDocument } from "./previewTabs";
 import { EMPTY_EDITOR, type ProjectEditor } from "./projectEditor";
 import { withoutShellLeaf } from "./shellMoves";
 
@@ -18,7 +18,7 @@ import { withoutShellLeaf } from "./shellMoves";
  * slice cannot write it. It tags what it did instead, and `updateProject` folds
  * the tag into the shell's stack with the project the action was given.
  */
-interface EditorMove {
+export interface EditorMove {
   readonly editor: ProjectEditor;
   /** The document the action landed on, which the stack records. */
   readonly visited?: string;
@@ -64,7 +64,36 @@ export function updateProject(
   };
 }
 
-/** The closed list with this action's tabs on top, or null for an action that closed none. */
+/**
+ * Write one project's editor, or leave the state object standing.
+ *
+ * The shape every action outside this module has: it names the project and
+ * hands a change, and {@link updateProject} decides whether anything moved.
+ */
+export function setProject(
+  set: EditorSet,
+  projectPath: string,
+  change: (editor: ProjectEditor) => ProjectEditor | EditorMove | null,
+): void {
+  set((state) => updateProject(state, projectPath, change) ?? state);
+}
+
+/** Write one shell of one project's editor, the way {@link setProject} writes the editor. */
+export function setShell(
+  set: EditorSet,
+  projectPath: string,
+  kind: ShellKind,
+  change: (shell: ShellArrangement) => ShellArrangement | null,
+): void {
+  set((state) => updateShell(state, projectPath, kind, change) ?? state);
+}
+
+/**
+ * The closed list with this action's tabs on top, or null for an action that closed none.
+ *
+ * The bound is per project rather than over the whole list, so a run of closes
+ * in one project leaves another project's tabs reopenable.
+ */
 function foldClosed(
   state: EditorRoot,
   project: string,
@@ -72,8 +101,15 @@ function foldClosed(
 ): Pick<EditorRoot, "closed"> | null {
   if (move.closed === undefined || move.closed.length === 0) return null;
 
-  const closed = [...move.closed.map((tab) => ({ ...tab, project })), ...state.closed];
-  return { closed: closed.slice(0, CLOSED_LIMIT) };
+  const held = new Map<string, number>();
+  const closed = [...move.closed.map((tab) => ({ ...tab, project })), ...state.closed].filter(
+    (tab) => {
+      const kept = (held.get(tab.project) ?? 0) + 1;
+      held.set(tab.project, kept);
+      return kept <= CLOSED_LIMIT;
+    },
+  );
+  return { closed };
 }
 
 /**
@@ -97,7 +133,7 @@ function dropPrunedLeaves(editor: ProjectEditor): ProjectEditor {
     }
   }
 
-  const previewIds = withHeldLeaves(editor.previewIds, editor.layout);
+  const previewIds = withoutLostLeaves(editor.previewIds, editor.layout);
 
   if (
     maximizedLeafId === editor.maximizedLeafId &&
@@ -165,17 +201,22 @@ export function updateShell(
   });
 }
 
+/** Whether the tabs a removal took can come back, or went with what they read. */
+export type ClosedTabFate = "reopenable" | "gone";
+
 /**
  * The editor a removal leaves behind, with what the tree dropped forgotten.
  *
  * `layout` is the tree after the removal and `removedIds` what it was asked to
  * drop. An id the tree still holds somewhere keeps its document, its dirty flag
- * and its pin.
+ * and its pin. `fate` says whether the reopen list holds what was taken: a
+ * layer delete leaves its documents nothing to read, so nothing to reopen.
  */
 export function afterRemoval(
   editor: ProjectEditor,
   layout: LayoutNode,
   removedIds: readonly string[],
+  fate: ClosedTabFate = "reopenable",
 ): EditorMove {
   const documents = { ...editor.documents };
   const dirty = new Set(editor.dirty);
@@ -190,7 +231,7 @@ export function afterRemoval(
        a reopen names the group the tab was closed from. */
     const from = leafHolding(editor.layout, id);
     const document = documents[id];
-    if (from && document) {
+    if (fate === "reopenable" && from && document) {
       closed.push({ document, leafId: from.id, pinned: editor.pinned.includes(id) });
     }
 

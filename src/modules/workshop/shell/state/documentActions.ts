@@ -22,7 +22,13 @@ import { openGroup } from "./documentPlacement";
 import type { EditorGet, EditorSet } from "./editorRoot";
 import { withoutPreviewDocument, withPreview } from "./previewTabs";
 import { EMPTY_EDITOR } from "./projectEditor";
-import { afterRemoval, forgetVisits, recordVisit, updateProject } from "./projectUpdate";
+import {
+  afterRemoval,
+  forgetVisits,
+  recordVisit,
+  setProject,
+  updateProject,
+} from "./projectUpdate";
 import { atPinnedBoundary, clampToPinnedRun, pinnedFirst, reorderLeafTabs } from "./tabOrder";
 
 /** What the editor does to the documents it holds: open, close, place and reopen. */
@@ -110,161 +116,142 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
       })),
 
     openDocument: (projectPath, document, leafId) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const holder = leafHolding(editor.layout, document.id);
-            if (holder) {
-              /* Already open: activate where it is and keep the stored
-               document, whose editor may hold state the argument lacks. An
-               open that lands on the preview promotes it, which is what makes
-               "open it properly" one gesture rather than two. */
-              const layout = setActiveTab(editor.layout, holder.id, document.id);
-              const previewIds = withoutPreviewDocument(editor.previewIds, document.id);
-              if (
-                layout === editor.layout &&
-                editor.activeLeafId === holder.id &&
-                previewIds === editor.previewIds
-              ) {
-                return recordVisit(editor, document.id);
-              }
-              return recordVisit(
-                { ...editor, layout, activeLeafId: holder.id, previewIds },
-                document.id,
-              );
-            }
+      setProject(set, projectPath, (editor) => {
+        const holder = leafHolding(editor.layout, document.id);
+        if (holder) {
+          /* Already open: activate where it is and keep the stored
+             document, whose editor may hold state the argument lacks. An
+             open that lands on the preview promotes it, which is what makes
+             "open it properly" one gesture rather than two. */
+          const layout = setActiveTab(editor.layout, holder.id, document.id);
+          const previewIds = withoutPreviewDocument(editor.previewIds, document.id);
+          if (
+            layout === editor.layout &&
+            editor.activeLeafId === holder.id &&
+            previewIds === editor.previewIds
+          ) {
+            return recordVisit(editor, document.id);
+          }
+          return recordVisit(
+            { ...editor, layout, activeLeafId: holder.id, previewIds },
+            document.id,
+          );
+        }
 
-            const group = openGroup(editor, document, leafId);
-            return recordVisit(
-              {
-                ...editor,
-                documents: { ...editor.documents, [document.id]: document },
-                layout: insertTab(group.layout, group.leafId, document.id),
-                activeLeafId: group.leafId,
-              },
-              document.id,
-            );
-          }) ?? state,
-      ),
+        const group = openGroup(editor, document, leafId);
+        return recordVisit(
+          {
+            ...editor,
+            documents: { ...editor.documents, [document.id]: document },
+            layout: insertTab(group.layout, group.leafId, document.id),
+            activeLeafId: group.leafId,
+          },
+          document.id,
+        );
+      }),
 
     openPreview: (projectPath, document, leafId) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            /* Already on screen: activate it and leave its role alone, so
-             asking for the same file twice does not churn the tree. */
-            const holder = leafHolding(editor.layout, document.id);
-            if (holder) {
-              const layout = setActiveTab(editor.layout, holder.id, document.id);
-              if (layout === editor.layout && editor.activeLeafId === holder.id) {
-                return recordVisit(editor, document.id);
-              }
-              return recordVisit({ ...editor, layout, activeLeafId: holder.id }, document.id);
-            }
+      setProject(set, projectPath, (editor) => {
+        /* Already on screen: activate it and leave its role alone, so
+           asking for the same file twice does not churn the tree. */
+        const holder = leafHolding(editor.layout, document.id);
+        if (holder) {
+          const layout = setActiveTab(editor.layout, holder.id, document.id);
+          if (layout === editor.layout && editor.activeLeafId === holder.id) {
+            return recordVisit(editor, document.id);
+          }
+          return recordVisit({ ...editor, layout, activeLeafId: holder.id }, document.id);
+        }
 
-            const documents = { ...editor.documents, [document.id]: document };
-            const group = openGroup(editor, document, leafId);
-            const target = findLeaf(group.layout, group.leafId);
-            const replaced = editor.previewIds[group.leafId];
+        const documents = { ...editor.documents, [document.id]: document };
+        const group = openGroup(editor, document, leafId);
+        const target = findLeaf(group.layout, group.leafId);
+        const replaced = editor.previewIds[group.leafId];
 
-            /* The group the open lands in holds the tab it replaces. A group the
-             open never reaches keeps its own, which is what makes a walk
-             through a tree in one group leave another group alone.
+        /* The group the open lands in holds the tab it replaces. A group the
+           open never reaches keeps its own, which is what makes a walk
+           through a tree in one group leave another group alone.
 
-             A lock makes that group's preview tab permanent: the replacement
-             cannot land there, so the tab it would have taken stays put. */
-            if (replaced !== undefined && target && acceptsOpen(target)) {
-              const layout = replaceTab(group.layout, group.leafId, replaced, document.id);
-              if (layout !== group.layout) {
-                delete documents[replaced];
-                /* Forgotten rather than closed: a walk through a tree replaces a
-                 preview per row, and a reopen list of those is a list of rows
-                 the user never asked to keep. */
-                return recordVisit(
-                  forgetVisits(
-                    {
-                      ...editor,
-                      documents,
-                      layout,
-                      activeLeafId: group.leafId,
-                      previewIds: withPreview(editor.previewIds, group.leafId, document.id),
-                    },
-                    [replaced],
-                  ),
-                  document.id,
-                );
-              }
-            }
-
+           A lock makes that group's preview tab permanent: the replacement
+           cannot land there, so the tab it would have taken stays put. */
+        if (replaced !== undefined && target && acceptsOpen(target)) {
+          const layout = replaceTab(group.layout, group.leafId, replaced, document.id);
+          if (layout !== group.layout) {
+            delete documents[replaced];
+            /* Forgotten rather than closed, per "Reopening a closed tab" in
+               `docs/ux/PROJECT_EDITOR.md`. */
             return recordVisit(
-              {
-                ...editor,
-                documents,
-                layout: insertTab(group.layout, group.leafId, document.id),
-                activeLeafId: group.leafId,
-                previewIds: withPreview(editor.previewIds, group.leafId, document.id),
-              },
+              forgetVisits(
+                {
+                  ...editor,
+                  documents,
+                  layout,
+                  activeLeafId: group.leafId,
+                  previewIds: withPreview(editor.previewIds, group.leafId, document.id),
+                },
+                [replaced],
+              ),
               document.id,
             );
-          }) ?? state,
-      ),
+          }
+        }
+
+        return recordVisit(
+          {
+            ...editor,
+            documents,
+            layout: insertTab(group.layout, group.leafId, document.id),
+            activeLeafId: group.leafId,
+            previewIds: withPreview(editor.previewIds, group.leafId, document.id),
+          },
+          document.id,
+        );
+      }),
 
     promoteDocument: (projectPath, id) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const previewIds = withoutPreviewDocument(editor.previewIds, id);
-            return previewIds === editor.previewIds ? null : { ...editor, previewIds };
-          }) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => {
+        const previewIds = withoutPreviewDocument(editor.previewIds, id);
+        return previewIds === editor.previewIds ? null : { ...editor, previewIds };
+      }),
 
     setDocumentPinned: (projectPath, id, pinned) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const holder = leafHolding(editor.layout, id);
-            if (!holder || editor.pinned.includes(id) === pinned) return null;
+      setProject(set, projectPath, (editor) => {
+        const holder = leafHolding(editor.layout, id);
+        if (!holder || editor.pinned.includes(id) === pinned) return null;
 
-            const next = pinned
-              ? [...editor.pinned, id]
-              : editor.pinned.filter((candidate) => candidate !== id);
-            const layout = reorderLeafTabs(
-              editor.layout,
-              holder.id,
-              atPinnedBoundary(holder, id, next),
-            );
+        const next = pinned
+          ? [...editor.pinned, id]
+          : editor.pinned.filter((candidate) => candidate !== id);
+        const layout = reorderLeafTabs(
+          editor.layout,
+          holder.id,
+          atPinnedBoundary(holder, id, next),
+        );
 
-            /* A pin is what says the tab is worth keeping, so it cannot stay the
-             one the next open replaces. */
-            const previewIds = pinned
-              ? withoutPreviewDocument(editor.previewIds, id)
-              : editor.previewIds;
-            return { ...editor, layout, pinned: next, previewIds };
-          }) ?? state,
-      ),
+        /* A pin is what says the tab is worth keeping, so it cannot stay the
+           one the next open replaces. */
+        const previewIds = pinned
+          ? withoutPreviewDocument(editor.previewIds, id)
+          : editor.previewIds;
+        return { ...editor, layout, pinned: next, previewIds };
+      }),
 
     activateDocument: (projectPath, leafId, id) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            if (!findLeaf(editor.layout, leafId)) return null;
-            const layout = setActiveTab(editor.layout, leafId, id);
-            if (layout === editor.layout && editor.activeLeafId === leafId) {
-              return recordVisit(editor, id);
-            }
-            return recordVisit({ ...editor, layout, activeLeafId: leafId }, id);
-          }) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => {
+        if (!findLeaf(editor.layout, leafId)) return null;
+        const layout = setActiveTab(editor.layout, leafId, id);
+        if (layout === editor.layout && editor.activeLeafId === leafId) {
+          return recordVisit(editor, id);
+        }
+        return recordVisit({ ...editor, layout, activeLeafId: leafId }, id);
+      }),
 
     closeDocument: (projectPath, leafId, id) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const layout = removeTab(editor.layout, leafId, id);
-            if (layout === editor.layout) return null;
-            return afterRemoval(editor, layout, [id]);
-          }) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => {
+        const layout = removeTab(editor.layout, leafId, id);
+        if (layout === editor.layout) return null;
+        return afterRemoval(editor, layout, [id]);
+      }),
 
     reopenClosedDocument: (projectPath) => {
       const entry = get().closed.find((tab) => tab.project === projectPath);
@@ -276,7 +263,7 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
           const { document } = entry;
 
           /* Reopened by hand while the list still named it: the tab is the one
-           that stands, and the list drops the entry either way. */
+             that stands, and the list drops the entry either way. */
           const holder = leafHolding(editor.layout, document.id);
           if (holder) {
             return recordVisit(
@@ -294,8 +281,8 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
             findLeaf(editor.layout, editor.activeLeafId) ??
             leaves(editor.layout)[0];
 
-          /* Permanent whatever role it held: a reopen is a deliberate gesture,
-           the way a drag into another group is. */
+          /* Permanent and pinned as it was, per "Reopening a closed tab" in
+             `docs/ux/PROJECT_EDITOR.md`. */
           const pinned =
             entry.pinned && !editor.pinned.includes(document.id)
               ? [...editor.pinned, document.id]
@@ -324,140 +311,121 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
     },
 
     closeLayerDocuments: (projectPath, layerName) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const scoped = Object.values(editor.documents)
-              .filter((document) => documentLayerName(document) === layerName)
-              .map((document) => document.id);
-            if (scoped.length === 0) return null;
+      setProject(set, projectPath, (editor) => {
+        const scoped = Object.values(editor.documents)
+          .filter((document) => documentLayerName(document) === layerName)
+          .map((document) => document.id);
+        if (scoped.length === 0) return null;
 
-            /* Through the store rather than through one strip, so the close
-             reaches whichever group each tab ended up in. */
-            let layout = editor.layout;
-            for (const id of scoped) {
-              const holder = leafHolding(layout, id);
-              if (holder) layout = removeTab(layout, holder.id, id);
-            }
-            if (layout === editor.layout) return null;
+        /* Through the store rather than through one strip, so the close
+           reaches whichever group each tab ended up in. */
+        let layout = editor.layout;
+        for (const id of scoped) {
+          const holder = leafHolding(layout, id);
+          if (holder) layout = removeTab(layout, holder.id, id);
+        }
+        if (layout === editor.layout) return null;
 
-            return afterRemoval(editor, layout, scoped);
-          }) ?? state,
-      ),
+        return afterRemoval(editor, layout, scoped, "gone");
+      }),
 
     reorderDocuments: (projectPath, leafId, ids) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const layout = reorderLeafTabs(editor.layout, leafId, pinnedFirst(ids, editor.pinned));
-            return layout === editor.layout ? null : { ...editor, layout };
-          }) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => {
+        const layout = reorderLeafTabs(editor.layout, leafId, pinnedFirst(ids, editor.pinned));
+        return layout === editor.layout ? null : { ...editor, layout };
+      }),
 
     moveDocument: (projectPath, documentId, toLeafId, index) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const target = findLeaf(editor.layout, toLeafId);
-            if (!target) return null;
+      setProject(set, projectPath, (editor) => {
+        const target = findLeaf(editor.layout, toLeafId);
+        if (!target) return null;
 
-            const at = clampToPinnedRun(
-              target.tabs,
-              documentId,
-              index ?? target.tabs.length,
-              editor.pinned,
-            );
-            const layout = moveTab(editor.layout, documentId, toLeafId, at);
-            if (layout === editor.layout) return null;
+        const at = clampToPinnedRun(
+          target.tabs,
+          documentId,
+          index ?? target.tabs.length,
+          editor.pinned,
+        );
+        const layout = moveTab(editor.layout, documentId, toLeafId, at);
+        if (layout === editor.layout) return null;
 
-            /* A move into another group is a deliberate placement, which says the
-             document is worth keeping. A reorder inside one strip goes through
-             `reorderDocuments` and leaves the role alone, since the tab did not
-             go anywhere. */
-            const moved = leafHolding(editor.layout, documentId)?.id !== toLeafId;
-            return {
-              ...editor,
-              layout,
-              activeLeafId: toLeafId,
-              previewIds: moved
-                ? withoutPreviewDocument(editor.previewIds, documentId)
-                : editor.previewIds,
-            };
-          }) ?? state,
-      ),
+        /* A move into another group is a deliberate placement, which says the
+           document is worth keeping. A reorder inside one strip goes through
+           `reorderDocuments` and leaves the role alone, since the tab did not
+           go anywhere. */
+        const moved = leafHolding(editor.layout, documentId)?.id !== toLeafId;
+        return {
+          ...editor,
+          layout,
+          activeLeafId: toLeafId,
+          previewIds: moved
+            ? withoutPreviewDocument(editor.previewIds, documentId)
+            : editor.previewIds,
+        };
+      }),
 
     splitWithDocument: (projectPath, documentId, targetLeafId, edge) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const split = splitLeaf(editor.layout, targetLeafId, edge, documentId);
-            if (split.tree === editor.layout) return null;
+      setProject(set, projectPath, (editor) => {
+        const split = splitLeaf(editor.layout, targetLeafId, edge, documentId);
+        if (split.tree === editor.layout) return null;
 
-            /* A split with the tab places it in a group of its own, which is the
-             same deliberate placement a move is. */
-            return {
-              ...editor,
-              layout: split.tree,
-              activeLeafId: split.leafId,
-              previewIds: withoutPreviewDocument(editor.previewIds, documentId),
-            };
-          }) ?? state,
-      ),
+        /* A split with the tab places it in a group of its own, which is the
+           same deliberate placement a move is. */
+        return {
+          ...editor,
+          layout: split.tree,
+          activeLeafId: split.leafId,
+          previewIds: withoutPreviewDocument(editor.previewIds, documentId),
+        };
+      }),
 
     openDocumentBeside: (projectPath, document) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            const focused =
-              findLeaf(editor.layout, editor.activeLeafId) ?? leaves(editor.layout)[0];
+      setProject(set, projectPath, (editor) => {
+        const focused = findLeaf(editor.layout, editor.activeLeafId) ?? leaves(editor.layout)[0];
 
-            /* An empty group has nothing to sit beside, so it takes the document
-             rather than splitting into two with one of them showing nothing. */
-            if (focused.tabs.length === 0) {
-              return recordVisit(
-                {
-                  ...editor,
-                  documents: { ...editor.documents, [document.id]: document },
-                  layout: insertTab(editor.layout, focused.id, document.id),
-                  activeLeafId: focused.id,
-                },
-                document.id,
-              );
-            }
+        /* An empty group has nothing to sit beside, so it takes the document
+           rather than splitting into two with one of them showing nothing. */
+        if (focused.tabs.length === 0) {
+          return recordVisit(
+            {
+              ...editor,
+              documents: { ...editor.documents, [document.id]: document },
+              layout: insertTab(editor.layout, focused.id, document.id),
+              activeLeafId: focused.id,
+            },
+            document.id,
+          );
+        }
 
-            if (leafHolding(editor.layout, document.id)) {
-              const split = splitLeaf(editor.layout, focused.id, "right", document.id);
-              if (split.tree === editor.layout) return recordVisit(editor, document.id);
-              return recordVisit(
-                { ...editor, layout: split.tree, activeLeafId: split.leafId },
-                document.id,
-              );
-            }
+        if (leafHolding(editor.layout, document.id)) {
+          const split = splitLeaf(editor.layout, focused.id, "right", document.id);
+          if (split.tree === editor.layout) return recordVisit(editor, document.id);
+          return recordVisit(
+            { ...editor, layout: split.tree, activeLeafId: split.leafId },
+            document.id,
+          );
+        }
 
-            const split = splitEmpty(editor.layout, focused.id, "right");
-            return recordVisit(
-              {
-                ...editor,
-                documents: { ...editor.documents, [document.id]: document },
-                layout: insertTab(split.tree, split.leafId, document.id),
-                activeLeafId: split.leafId,
-              },
-              document.id,
-            );
-          }) ?? state,
-      ),
+        const split = splitEmpty(editor.layout, focused.id, "right");
+        return recordVisit(
+          {
+            ...editor,
+            documents: { ...editor.documents, [document.id]: document },
+            layout: insertTab(split.tree, split.leafId, document.id),
+            activeLeafId: split.leafId,
+          },
+          document.id,
+        );
+      }),
 
     setDocumentDirty: (projectPath, id, dirty) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => {
-            if (editor.dirty.has(id) === dirty) return null;
+      setProject(set, projectPath, (editor) => {
+        if (editor.dirty.has(id) === dirty) return null;
 
-            const next = new Set(editor.dirty);
-            if (dirty) next.add(id);
-            else next.delete(id);
-            return { ...editor, dirty: next };
-          }) ?? state,
-      ),
+        const next = new Set(editor.dirty);
+        if (dirty) next.add(id);
+        else next.delete(id);
+        return { ...editor, dirty: next };
+      }),
   };
 }

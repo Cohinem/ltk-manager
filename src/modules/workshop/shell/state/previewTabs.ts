@@ -25,7 +25,7 @@ export function withoutPreviewDocument(held: PreviewIds, documentId: string): Pr
 }
 
 /** The map without every entry naming a leaf `layout` has lost, and itself where none is. */
-export function withHeldLeaves(held: PreviewIds, layout: LayoutNode): PreviewIds {
+export function withoutLostLeaves(held: PreviewIds, layout: LayoutNode): PreviewIds {
   const entries = Object.entries(held).filter(([leafId]) => findLeaf(layout, leafId) !== null);
   if (entries.length === Object.keys(held).length) return held;
   return Object.fromEntries(entries);

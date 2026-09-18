@@ -1,7 +1,7 @@
 import type { AbilityRecipe } from "../../bin/spells/utils/abilityRecipe";
 import type { EditorSet } from "./editorRoot";
 import { dropStops } from "./navigationStack";
-import { updateProject } from "./projectUpdate";
+import { setProject } from "./projectUpdate";
 
 /** What a project's own life asks of the editor: its recipes, a rename, a delete. */
 export interface ProjectActions {
@@ -17,24 +17,15 @@ export interface ProjectActions {
 export function createProjectActions(set: EditorSet): ProjectActions {
   return {
     saveAbility: (projectPath, recipe) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => ({
-            ...editor,
-            abilities: [
-              ...(editor.abilities ?? []).filter((item) => item.id !== recipe.id),
-              recipe,
-            ],
-          })) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => ({
+        ...editor,
+        abilities: [...(editor.abilities ?? []).filter((item) => item.id !== recipe.id), recipe],
+      })),
     removeAbility: (projectPath, id) =>
-      set(
-        (state) =>
-          updateProject(state, projectPath, (editor) => ({
-            ...editor,
-            abilities: (editor.abilities ?? []).filter((item) => item.id !== id),
-          })) ?? state,
-      ),
+      setProject(set, projectPath, (editor) => ({
+        ...editor,
+        abilities: (editor.abilities ?? []).filter((item) => item.id !== id),
+      })),
 
     moveProject: (fromPath, toPath) =>
       set((state) => {
@@ -46,7 +37,7 @@ export function createProjectActions(set: EditorSet): ProjectActions {
         byProject[toPath] = current;
 
         /* The stops keep pointing at the editor they were recorded in, which the
-         rename moved rather than replaced. */
+           rename moved rather than replaced. */
         const history = state.history.map((entry) =>
           entry.kind === "document" && entry.project === fromPath
             ? { ...entry, project: toPath }

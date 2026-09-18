@@ -15,12 +15,12 @@ export interface EditorRoot extends NavigationStack {
   /** Editor state per project path, so switching projects keeps every set. */
   readonly byProject: Record<string, ProjectEditor>;
   /**
-   * What the shell closed, newest first, bounded to a short run.
+   * What the shell closed, newest first, bounded per project to a short run.
    *
    * One list rather than one per project, for the reason the history is one:
-   * session-only state, which a project's own file has no business holding. A
-   * batch close records its tabs in strip order, so a run of reopens rebuilds
-   * the strip the way it read.
+   * session-only state, which a project's own file has no business holding.
+   * What a reopen puts back is "Reopening a closed tab" in
+   * `docs/ux/PROJECT_EDITOR.md`.
    */
   readonly closed: readonly ClosedTab[];
   /**

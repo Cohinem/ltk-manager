@@ -511,6 +511,33 @@ describe("workshopEditor store", () => {
       expect(store().reopenClosedDocument(A)).toBeNull();
     });
 
+    /* The layer is gone, so its file tree, its locales and every preview of its
+       files have nothing left to read. */
+    it("holds no tab a layer delete took", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(A, stringsDocument("base", "en_us"));
+
+      store().closeLayerDocuments(A, "base");
+
+      expect(store().reopenClosedDocument(A)).toBeNull();
+    });
+
+    /* One project's closes cannot push another project's tabs off the list. */
+    it("keeps a project's closed tabs through a run of closes in another", () => {
+      store().openDocument(A, detailsDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      for (let at = 0; at < 25; at += 1) {
+        const document = previewDocument({ kind: "file", path: `C:/loose/icon${at}.tex` });
+        store().openDocument(B, document);
+        const holder = leafHolding(editorOf(B).layout, document.id);
+        if (holder) store().closeDocument(B, holder.id, document.id);
+      }
+
+      expect(store().reopenClosedDocument(A)?.id).toBe("details");
+    });
+
     it("drops the closed tabs of a project the shell forgot", () => {
       store().openDocument(A, detailsDocument());
       store().closeDocument(A, ROOT_LEAF, "details");

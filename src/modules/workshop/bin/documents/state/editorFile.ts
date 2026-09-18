@@ -13,6 +13,7 @@ import {
 } from "@/modules/editor/layout";
 
 import type { ContentDocument } from "../../../documents";
+import type { PreviewIds } from "../../../shell/state/previewTabs";
 import {
   defaultShellArrangements,
   firstShellLeafId,
@@ -31,7 +32,7 @@ export interface PersistedProjectEditor {
   activeLeafId: string;
   selectedLayer: string | null;
   /** Each group's ephemeral tab, as leaf id to document id. Empty where none holds one. */
-  previewIds: Readonly<Record<string, string>>;
+  previewIds: PreviewIds;
   /** The pinned documents, which lead the strip that holds them. */
   pinned: readonly string[];
   /** Each shell's tree of panes, which every object tab of its kind draws in. */
@@ -189,7 +190,7 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
 function readPreviewIds(
   entry: Partial<PersistedProjectEditor> & LegacyPreview,
   layout: LayoutNode,
-): Readonly<Record<string, string>> {
+): PreviewIds {
   if (typeof entry.previewIds !== "object" || entry.previewIds === null) {
     const one = entry.previewId;
     if (typeof one !== "string") return {};
