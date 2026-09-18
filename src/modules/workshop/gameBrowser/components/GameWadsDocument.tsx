@@ -1,13 +1,13 @@
 import { FileArchiveIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, ContextMenu, EmptyState, Field, IconButton } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
@@ -41,10 +41,14 @@ const SCROLL_KEY = "game-wads";
  * The root browser merges the archives away on purpose, so a modder after one
  * archive by name needs this instead.
  */
-export function GameWadsDocument({ active }: EditorDocumentProps<ContentDocumentOf<"game-wads">>) {
+export function GameWadsDocument({
+  document,
+  active,
+}: EditorDocumentProps<ContentDocumentOf<"game-wads">>) {
   const wads = useGameWads();
   const filter = useWadFilter();
   const setFilter = useSetWadFilter();
+  const boxRef = useFindBox(document.id);
 
   const matches = useMemo(() => {
     const all = wads.data ?? [];
@@ -57,7 +61,12 @@ export function GameWadsDocument({ active }: EditorDocumentProps<ContentDocument
   return (
     <div data-ui="GameWadsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <DocumentToolbar active={active}>
-        <FilterField value={filter} onChange={setFilter} total={wads.data?.length ?? 0} />
+        <FilterField
+          value={filter}
+          onChange={setFilter}
+          total={wads.data?.length ?? 0}
+          boxRef={boxRef}
+        />
       </DocumentToolbar>
 
       <ArchiveList
@@ -74,9 +83,11 @@ interface FilterFieldProps {
   onChange: (value: string) => void;
   /** How many the install holds, which the placeholder reports. */
   total: number;
+  /** The box a find reaches. */
+  boxRef: RefObject<HTMLInputElement | null>;
 }
 
-function FilterField({ value, onChange, total }: FilterFieldProps) {
+function FilterField({ value, onChange, total, boxRef }: FilterFieldProps) {
   /* The count rides the placeholder rather than a label of its own, so the row
      is the one control it looks like. Nothing is lost while filtering: what a
      filter left is the list itself. */
@@ -86,6 +97,7 @@ function FilterField({ value, onChange, total }: FilterFieldProps) {
     <Field.Root className="relative min-w-0 flex-1">
       <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
       <Field.Control
+        ref={boxRef}
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}

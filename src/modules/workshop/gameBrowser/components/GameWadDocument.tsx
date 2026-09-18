@@ -1,10 +1,10 @@
 import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { type BreadcrumbItem, Button, EmptyState } from "@/components";
 import { m } from "@/i18n";
 import type { AppError, AssetRef, GameWadSummary } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
 import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { formatBytes } from "@/utils";
 
@@ -91,7 +91,7 @@ export function GameWadDocument({
 
   const nav = useExplorerNav(explorerId, document.id);
   const [typing, setTyping] = useState(false);
-  const boxRef = useRef<HTMLInputElement>(null);
+  const boxRef = useFindBox(document.id);
 
   const handleKeyDown = useExplorerKeys({
     onUp: nav.goUp,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
 
 /* The document type rather than the barrel, which reaches back here for the
    component this file exports. */
@@ -14,8 +14,12 @@ import { ProblemsList } from "./ProblemsList";
 import { ProblemsToolbar } from "./ProblemsToolbar";
 
 /** Everything the manager's checks found in this project, in a tab of its own. */
-export function ProblemsDocument({ active }: EditorDocumentProps<ContentDocumentOf<"problems">>) {
+export function ProblemsDocument({
+  document,
+  active,
+}: EditorDocumentProps<ContentDocumentOf<"problems">>) {
   const [query, setQuery] = useState("");
+  const boxRef = useFindBox(document.id);
 
   /* Counted here and filtered again in the list. The two are the same call over
      the same memoized run, and threading the result down would tie the list's
@@ -35,6 +39,7 @@ export function ProblemsDocument({ active }: EditorDocumentProps<ContentDocument
           onQueryChange={setQuery}
           shown={shown}
           total={problems.length}
+          boxRef={boxRef}
         />
         <ProblemsCount />
         <ProblemsActions />

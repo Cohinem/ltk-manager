@@ -10,5 +10,8 @@ export type { SaveStatusProps } from "./SaveStatus";
 export { SaveStatus } from "./SaveStatus";
 export type { SidePanelProps, SidePanelSection } from "./SidePanel";
 export { SidePanel } from "./SidePanel";
+export type { TextBufferProps } from "./TextBuffer";
+export { TextBuffer } from "./TextBuffer";
+export { TextFindBar } from "./TextFindBar";
 export type { UnsavedAnswer, UnsavedCloseDialogProps } from "./UnsavedCloseDialog";
 export { UnsavedCloseDialog } from "./UnsavedCloseDialog";

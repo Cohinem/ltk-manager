@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-18 | Answer the editor's keys, and find text inside a text document         |
 | 2026-09-18 | Save from the close question, queue the rest, and guard a quit         |
 | 2026-09-14 | Walk every bin for an embedded class and an object's incoming links    |
 | 2026-09-12 | Fill the primary side panel from a rail of views                       |
@@ -54,6 +55,9 @@ This table holds every major feature of the editor. A status word has one meanin
 | Group lock             | Available   | A locked group takes only what a gesture aims at it                |
 | Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document    |
 | Quit guard             | Available   | A window close asks while a document holds unsaved edits           |
+| Editor keys            | Available   | Close, walk, take by index, save and find, in the focused group    |
+| Find in a text file    | Available   | A bar in the readme, the license and the ignore rules              |
+| Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves        |
 | Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
 | Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
 | Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
@@ -2300,9 +2304,65 @@ one open document. The active document fills the surface below the row.
 - The tab strip keeps its state per project, so a return to a project restores the documents
 - Deleting a layer closes every tab that layer opened: its file tree, its locales and every
   preview of one of its files, in whichever group each one sits in
+- The focused group answers the editor's keys. Read [The editor's keys](#the-editors-keys)
 
 The first visit opens the details document when the project still carries every default
 from the scaffold. In every other case the first visit selects the first layer.
+
+### The editor's keys
+
+The focused group answers these and the other groups leave them alone. A key pressed while
+the palette, a dialog or a menu stands over the editor belongs to whatever is on top.
+
+| Key                | Does                                                      |
+| ------------------ | --------------------------------------------------------- |
+| `Ctrl+W`           | Closes the active tab, through the unsaved-edits question |
+| `Ctrl+Tab`         | Next tab, wrapping at the end                             |
+| `Ctrl+Shift+Tab`   | Previous tab, wrapping at the start                       |
+| `Ctrl+PageDown`    | Next tab                                                  |
+| `Ctrl+PageUp`      | Previous tab                                              |
+| `Alt+1` to `Alt+8` | The tab at that position in the strip                     |
+| `Alt+9`            | The last tab, whatever the strip holds                    |
+| `Ctrl+S`           | Writes the active document now                            |
+| `Ctrl+F`           | Finds inside the active document                          |
+
+`Alt` rather than `Ctrl` for a tab by index, because `Ctrl+1`, `Ctrl+2` and `Ctrl+3` route to
+home, mods and workshop. Visual Studio Code on Windows binds a tab by index to `Alt` as well,
+so the keys a reader brings from it are the keys they get here.
+
+**`Ctrl+S`** writes whatever the active document holds. A document that autosaves writes what
+its debounce still owes, and its save status reads saving and then clean. Mod details runs the
+same save as its button. A document that offers no write of its own - a game browser, a
+preview - answers with nothing, and reports nothing broken.
+
+**`Ctrl+F`** goes to the box the active document carries. The game index, a game archive, the
+WADs list, the objects browser and the problems list each have one, and a text document opens
+its own find bar. A bin or an object tab has no box, so the key opens the palette in its `@`
+scope, which reads the rows of that tab. A document with neither leaves the key alone.
+
+A walk with nothing open goes nowhere, and an index past the end of the strip takes no tab.
+
+### Finding text in a document
+
+The readme, the license and the ignore rules each answer a find bar of their own, opened by
+`Ctrl+F` and closed by `Escape`, which hands the caret back to the text.
+
+- The field holds the query and reads `1 of 4` beside it, or `No results` for a query the
+  text does not hold
+- `Enter` and the next control walk the matches forward, `Shift+Enter` and the previous
+  control walk back. Both wrap
+- Every match is marked in the text, and the one the bar sits on is marked apart from the
+  rest, selected in the buffer and scrolled to
+- The query outlives a close of the bar and a trip to another tab, so reopening the bar
+  searches for whatever was searched for last
+- A find asked for while a readme too narrow for both halves is showing its rendered half
+  brings the raw text back, because the matches are in the text
+
+A match is painted by a copy of the text laid under the buffer, because a textarea cannot
+mark a range inside itself. Both layers carry the same padding and wrapping and scroll as
+one.
+
+Replace is out of scope. These files are edited by hand, and a replace is a second decision.
 
 ### Document chrome
 
@@ -3482,6 +3542,12 @@ other seam.
 
 The tab strip drags with `@dnd-kit` today. The four boundaries of a leaf become drop
 targets of the same kind, so one drag reaches both a reorder and a split.
+
+The keyboard reaches the same gesture. A focused tab starts a drag on `Space`, the arrow
+keys step it to the neighbouring strip position, another group or an edge, `Space` drops it
+and `Escape` gives it up. The drop resolves through the same rules a pointer drop does, so a
+keyboard move reaches every target a pointer move reaches. A tab announces itself as
+draggable, which is what tells a reader the gesture is there at all.
 
 An explorer item drags onto the same zones and opens rather than moves. Read
 [An item is a drag source](#an-item-is-a-drag-source).
