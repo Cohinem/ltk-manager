@@ -44,6 +44,7 @@ import {
   useSplitWithDocument,
 } from "../../state";
 import { ContentLeaf } from "./ContentLeaf";
+import { UnsavedQuitGuard } from "./UnsavedQuitGuard";
 
 interface ContentBrowserProps {
   project: WorkshopProject;
@@ -235,6 +236,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
 
       {layerPanelSide === "right" && <SidebarRail />}
       <LayerFileDropOverlay visible={showDropOverlay} layerDisplayName={selectedLayerDisplayName} />
+      <UnsavedQuitGuard />
     </div>
   );
 }

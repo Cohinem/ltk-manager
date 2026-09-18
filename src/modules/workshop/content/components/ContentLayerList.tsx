@@ -27,7 +27,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 
 import { IconButton, Menu, useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, type LayerContent, type WorkshopLayer, type WorkshopProject } from "@/lib/tauri";
 import { useShowLayerStats } from "@/stores";
 import { twMerge } from "@/utils";
@@ -42,6 +42,7 @@ import {
 } from "../../layers";
 import { LayerGlyph } from "../../layers/components/LayerGlyph";
 import { workshopKeys } from "../../shared/api/keys";
+import { useCloseLayerDocuments } from "../../state";
 
 interface ContentLayerListProps {
   project: WorkshopProject;
@@ -71,6 +72,7 @@ export function ContentLayerList({
 
   const deleteLayer = useDeleteLayer();
   const reorderLayers = useReorderLayers();
+  const closeLayerDocuments = useCloseLayerDocuments();
 
   function invalidateContent() {
     queryClient.invalidateQueries({ queryKey: workshopKeys.contentTree(project.path) });
@@ -85,9 +87,11 @@ export function ContentLayerList({
         onSuccess: () => {
           setDeleteTarget(null);
           invalidateContent();
+          closeLayerDocuments(deleteTarget.name);
           if (deletingSelected) onSelect("base");
         },
-        onError: (err) => toast.error(`Failed to delete layer: ${errorSummary(err)}`),
+        onError: (err) =>
+          toast.error(m.workshop_layer_delete_failed_hint({ reason: errorSummary(err) })),
       },
     );
   }

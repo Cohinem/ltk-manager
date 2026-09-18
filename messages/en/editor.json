@@ -2,6 +2,29 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "editor_group_lock_action": "Lock Group",
   "editor_group_unlock_action": "Unlock Group",
+  "editor_quit_save_all_action": "Save all",
+  "editor_quit_save_failed_hint": "Couldn't save everything: {reason}",
+  "editor_quit_save_missing_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} document has to be saved from its own tab.",
+        "countPlural=other": "{count} documents have to be saved from their own tabs."
+      }
+    }
+  ],
+  "editor_quit_unsaved_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} document has unsaved changes. Quitting now throws them away.",
+        "countPlural=other": "{count} documents have unsaved changes. Quitting now throws them away."
+      }
+    }
+  ],
+  "editor_quit_unsaved_title": "Quit without saving?",
   "editor_save_failed_hint": "Couldn't save",
   "editor_save_retry_action": "Retry",
   "editor_tab_close_action": "Close",
@@ -16,7 +39,10 @@
   "editor_tab_split_right_action": "Split Right",
   "editor_tab_unpin_action": "Unpin",
   "editor_tab_unpin_label": "Unpin {title}",
+  "editor_unsaved_cancel_action": "Cancel",
   "editor_unsaved_close_hint": "{title} has unsaved changes. Closing it now throws them away.",
   "editor_unsaved_close_title": "Close without saving?",
-  "editor_unsaved_discard_action": "Discard changes"
+  "editor_unsaved_discard_action": "Discard changes",
+  "editor_unsaved_save_action": "Save",
+  "editor_unsaved_save_failed_hint": "Couldn't save {title}: {reason}"
 }

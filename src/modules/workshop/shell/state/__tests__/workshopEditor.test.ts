@@ -9,6 +9,7 @@ import {
   migrateFromV1,
   previewDocument,
   readLegacyEditorSeed,
+  stringsDocument,
 } from "@/modules/workshop";
 import {
   defaultShellArrangements,
@@ -366,6 +367,37 @@ describe("workshopEditor store", () => {
       expect(leaves(editorOf(A).layout).map((leaf) => leaf.id)).toEqual([ROOT_LEAF]);
       expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
       expect("files:base" in editorOf(A).documents).toBe(false);
+    });
+  });
+
+  describe("closeLayerDocuments", () => {
+    /** A file of one layer, which is what a click in that layer's tree opens. */
+    function preview(layer: string, path: string) {
+      return previewDocument({ kind: "layer", project: A, layer, path });
+    }
+
+    it("closes every document of the layer across both groups", () => {
+      const rightLeaf = splitApart(A);
+      store().openDocument(A, stringsDocument("base", "en_us"), ROOT_LEAF);
+      store().openDocument(A, preview("base", "assets/icon.tex"), rightLeaf);
+      store().openDocument(A, filesDocument("skins"), ROOT_LEAF);
+      store().setDocumentDirty(A, "strings:base:en_us", true);
+
+      store().closeLayerDocuments(A, "base");
+
+      expect(openIds(A)).toEqual(["details", "files:skins"]);
+      expect(Object.keys(editorOf(A).documents).sort()).toEqual(["details", "files:skins"]);
+      expect(editorOf(A).dirty.has("strings:base:en_us")).toBe(false);
+    });
+
+    it("leaves an editor whose documents belong to other layers alone", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("skins"));
+      const before = editorOf(A);
+
+      store().closeLayerDocuments(A, "base");
+
+      expect(editorOf(A)).toBe(before);
     });
   });
 

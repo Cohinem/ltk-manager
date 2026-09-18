@@ -55,6 +55,7 @@ export function useProjectTextEditor(file: ProjectTextFile) {
     isLoading: read.isLoading,
     saveState: editor.saveState,
     saveNow: editor.saveNow,
+    flush: editor.flush,
     /** The file moved under the buffer, and nothing is written until it is answered. */
     conflict: editor.refusal !== null,
 
