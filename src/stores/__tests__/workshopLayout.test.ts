@@ -20,20 +20,20 @@ describe("workshopLayout", () => {
   });
 
   beforeEach(() => {
-    useWorkshopLayoutStore.setState({ tabOpenMode: "append" });
+    useWorkshopLayoutStore.setState({ previewOnClick: true });
     localStorage.clear();
   });
 
-  describe("tabOpenMode", () => {
-    /* Every open gets its own tab unless the user asks otherwise, so a walk
-       through a directory leaves the files it opened behind. */
-    it("appends by default", () => {
-      expect(useWorkshopLayoutStore.getState().tabOpenMode).toBe("append");
+  describe("previewOnClick", () => {
+    /* A walk through a directory stays one tab wide unless the user asks for
+       a tab per file. */
+    it("previews on a single click out of the box", () => {
+      expect(useWorkshopLayoutStore.getInitialState().previewOnClick).toBe(true);
     });
 
-    it("switches to reusing one tab", () => {
-      useWorkshopLayoutStore.getState().setTabOpenMode("replace");
-      expect(useWorkshopLayoutStore.getState().tabOpenMode).toBe("replace");
+    it("switches to a click that only selects", () => {
+      useWorkshopLayoutStore.getState().setPreviewOnClick(false);
+      expect(useWorkshopLayoutStore.getState().previewOnClick).toBe(false);
     });
   });
 

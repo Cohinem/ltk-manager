@@ -7,6 +7,7 @@ import {
   type LayoutNode,
   type LeafNode,
   leaves,
+  neighbourLeaf,
   splitEmpty,
 } from "@/modules/editor/layout";
 
@@ -22,10 +23,9 @@ function isPreviewKind(kind: ContentDocument["kind"]): boolean {
  * The group a document opens into, with the layout that holds it.
  *
  * An explicit `leafId` wins, and anything that is not a preview lands in the
- * focused group. Previews gather in one group beside whoever asked for them, so
- * a browser keeps its own group and a walk through a tree never pushes it off
- * screen. The first preview splits that group off, and every later one joins
- * the group it left behind.
+ * focused group. A preview opens in the group beside the one that asked for it,
+ * so a browser keeps its own group and a walk through a tree never pushes it
+ * off screen. A group with no neighbour splits one off to its right.
  *
  * A locked group takes neither, since neither gesture named it.
  */
@@ -41,22 +41,30 @@ export function openGroup(
   if (leafId !== undefined) return { layout: editor.layout, leafId: focused.id };
   if (!isPreviewKind(document.kind)) return unlockedGroup(editor.layout, focused);
 
-  const previews = leaves(editor.layout).find(
-    (leaf) =>
-      acceptsOpen(leaf) &&
-      leaf.tabs.some((id) => {
-        const kind = editor.documents[id]?.kind;
-        return kind !== undefined && isPreviewKind(kind);
-      }),
-  );
-  if (previews) return { layout: editor.layout, leafId: previews.id };
-
   /* An empty group has nothing to sit beside, so it takes the preview rather
-     than splitting into two with one of them showing nothing. */
-  if (focused.tabs.length === 0) return { layout: editor.layout, leafId: focused.id };
+     than splitting into two with one of them showing nothing. A group already
+     showing previews is where the next one belongs, which is what keeps a walk
+     continued from the preview itself out of the browser's strip. */
+  if (focused.tabs.length === 0 || showsPreview(editor, focused)) {
+    return { layout: editor.layout, leafId: focused.id };
+  }
+
+  const beside = neighbourLeaf(editor.layout, focused.id);
+  if (beside && acceptsOpen(beside)) return { layout: editor.layout, leafId: beside.id };
 
   const split = splitEmpty(editor.layout, focused.id, "right");
   return { layout: split.tree, leafId: split.leafId };
+}
+
+/** Whether this group already shows a preview, which makes it the place for the next one. */
+function showsPreview(editor: ProjectEditor, leaf: LeafNode): boolean {
+  return (
+    acceptsOpen(leaf) &&
+    leaf.tabs.some((id) => {
+      const kind = editor.documents[id]?.kind;
+      return kind !== undefined && isPreviewKind(kind);
+    })
+  );
 }
 
 /*

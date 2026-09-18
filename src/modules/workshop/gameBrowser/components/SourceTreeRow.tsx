@@ -32,6 +32,8 @@ interface SourceTreeRowProps {
   onFocusRow: (index: number) => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: SourceFileNode) => void;
+  /** A single click on a file row, which previews it while the setting is on. */
+  onPreview?: (node: SourceFileNode) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
@@ -130,6 +132,7 @@ function FileRow({
   onSelect,
   onFocusRow,
   onOpen,
+  onPreview,
   height,
   rowIndex,
   tabIndex,
@@ -146,7 +149,10 @@ function FileRow({
       data-ui="SourceTreeRow:file"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={(event) => onSelect(rowIndex, event)}
+      onClick={(event) => {
+        onSelect(rowIndex, event);
+        onPreview?.(node);
+      }}
       onDoubleClick={() => onOpen?.(node)}
       onFocus={() => onFocusRow(rowIndex)}
       style={{ height: `${height}px` }}

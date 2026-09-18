@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                               |
-| ---------- | -------------------------------------------------------------------- |
-| 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen       |
-| 2026-09-18 | Command routes to every document, closes, maximize, and a strip list |
-| 2026-09-18 | Answer the editor's keys, and find text inside a text document       |
-| 2026-09-18 | Save from the close question, queue the rest, and guard a quit       |
-| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links  |
-| 2026-09-12 | Fill the primary side panel from a rail of views                     |
-| 2026-09-12 | Write a project's readme beside its rendered half                    |
-| 2026-09-12 | Report what the ignore rules left out of a package                   |
-| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude   |
-| 2026-09-11 | Maximize a panel from its tab                                        |
+| Date       | Change                                                                |
+| ---------- | --------------------------------------------------------------------- |
+| 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
+| 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
+| 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
+| 2026-09-18 | Answer the editor's keys, and find text inside a text document        |
+| 2026-09-18 | Save from the close question, queue the rest, and guard a quit        |
+| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links   |
+| 2026-09-12 | Fill the primary side panel from a rail of views                      |
+| 2026-09-12 | Write a project's readme beside its rendered half                     |
+| 2026-09-12 | Report what the ignore rules left out of a package                    |
+| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -58,7 +58,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves        |
 | Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
 | Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
-| Preview tabs           | Available   | A tab of its own, or one reusable tab per group. A setting picks   |
+| Preview tabs           | Available   | One reusable tab per group, opened beside the browser that asked   |
 | Reopen a closed tab    | Available   | `Ctrl+Shift+T` and a command, over the session's last twenty       |
 | Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
 | Tab title prefix       | Available   | The layer after the title, where two tabs take the same name       |
@@ -330,8 +330,8 @@ see in the tree does not come back.
 The switch that matters is Game. A modder who never copies a game file pays nothing for the
 scan, and a modder who does gets the whole install in the same box as their own project. The
 setting belongs to the application and not to the project, because it describes how a user
-works rather than what a project holds. It sits beside **Opening a file** in the same section,
-and `workshopLayout` persists it.
+works rather than what a project holds. It sits beside **Preview on a single click** in the same
+section, and `workshopLayout` persists it.
 
 ### Scopes
 
@@ -2574,21 +2574,28 @@ reason, which turns the sum back into a ratio at every zoom.
 
 ### How a file opens
 
-Opening is a deliberate gesture. A single click on a tree row selects it, a double click
-opens it, and the row's context menu offers **Open** for the same thing. A single click used
-to open, which turned every walk through a tree into a series of loads.
+A single click on a tree row opens it in the group's one replaceable tab, and a double click
+keeps what it opened. The next click then takes a fresh replaceable tab beside the kept one, so
+a reader walks a directory in one tab and keeps the files worth keeping as they go. The row's
+context menu offers **Open** for a tab of its own.
+
+The cost a click used to carry is what the replaceable tab answers: a walk through a tree
+loads one file at a time and leaves one tab behind, whatever it passed through.
+
+**Preview on a single click** in the Project editor settings turns it off, and a click then
+selects the row alone while a double click opens a tab of its own.
+
+A click carrying `Ctrl`, `Shift` or `Cmd` in a grid or a details list is a click about the
+selection, so it opens nothing.
 
 ### Preview tabs
 
 A scan of a large layer opens one tab for each file that a user looks at. The strip then
 holds more tabs than a user can read, and the user closes them by hand.
 
-There are two answers, and the settings hold the choice.
-
-- **New tab**, the default - every open adds a tab, so four textures compared against each
-  other are four tabs
-- **Reuse tab** - one replaceable tab holds whatever opened last, so a walk through a
-  directory stays one tab wide
+The replaceable tab is the answer, and **Preview on a single click** in the settings holds the
+choice. On, a click reuses one tab and a double click keeps it. Off, every open adds a tab, so
+four textures compared against each other are four tabs.
 
 A replaceable tab shows its name in italic, and a double click on the tab itself keeps it.
 A pin keeps it too, per [A pinned tab](#a-pinned-tab). A double click on a kept tab maximizes
@@ -2654,11 +2661,14 @@ A document that holds unsaved edits and offers no save of its own keeps the wind
 
 ### Where a preview opens
 
-Every preview opens as a tab, in one group of its own beside whatever asked for it. The
-first preview splits that group off the requesting one, and every later preview joins it.
-The browser keeps its own group either way, so a walk through a tree never pushes the tree
-off screen. A group that is empty takes the preview instead of splitting, since one half of
-that split would show nothing.
+Every preview opens as a tab, in the group beside the one that asked for it. A group with no
+neighbour splits one off to its right, and a group that is empty takes the preview instead of
+splitting, since one half of that split would show nothing. The browser keeps its own group
+either way, so a walk through a tree never pushes the tree off screen.
+
+A group already showing a preview takes the next one, which is what keeps a walk continued
+from the preview itself out of the browser's strip. A locked group takes neither, and the
+preview goes to the group beside it.
 
 Nothing else moves. A document opened from the sidebar lands in the focused group, as
 before, and a preview dragged out of the group settles wherever it is dropped - the group

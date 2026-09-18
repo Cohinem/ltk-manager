@@ -42,15 +42,6 @@ interface PreviewDisplay {
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
   inspectorDefaults: boolean;
 }
-/**
- * What opening a file from a tree does to the strip.
- *
- * `append` gives every file its own tab, so a comparison across four textures
- * is four tabs. `replace` keeps one ephemeral tab and reuses it, which suits
- * reading through a directory one file at a time.
- */
-type TabOpenMode = "append" | "replace";
-
 /** Which drawing of an explorer's rows is on screen. */
 type ExplorerView = "tree" | "grid" | "details";
 
@@ -101,7 +92,14 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   browserSplit: Record<string, number> | null;
   showLayerStats: boolean;
   wadSort: WadSort;
-  tabOpenMode: TabOpenMode;
+  /**
+   * Whether a single click on a tree row opens the file as the replaceable tab.
+   *
+   * On, a click previews and a double click keeps what it opened, which is how
+   * a reader walks a directory one file at a time. Off, a click selects the row
+   * alone and a double click opens a tab of its own.
+   */
+  previewOnClick: boolean;
   /**
    * Whether every preview draws its asset on the alpha checkerboard.
    *
@@ -157,7 +155,7 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setBrowserSplit: (browserSplit: Record<string, number>) => void;
   setShowLayerStats: (showLayerStats: boolean) => void;
   setWadSort: (wadSort: WadSort) => void;
-  setTabOpenMode: (tabOpenMode: TabOpenMode) => void;
+  setPreviewOnClick: (previewOnClick: boolean) => void;
   setPreviewCheckered: (previewCheckered: boolean) => void;
   setSearchGame: (searchGame: boolean) => void;
   setSearchObjects: (searchObjects: boolean) => void;
@@ -181,13 +179,13 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
 /* What the Project editor card shows. The rest of this store is geometry, which is
    remembered rather than chosen, so a settings key exists only for these four. */
 const PROJECT_EDITOR_DEFAULTS = {
-  tabOpenMode: "append",
+  previewOnClick: true,
   searchGame: true,
   searchObjects: false,
   forwardLookingMeta: true,
 } satisfies Pick<
   WorkshopLayoutStore,
-  "tabOpenMode" | "searchGame" | "searchObjects" | "forwardLookingMeta"
+  "previewOnClick" | "searchGame" | "searchObjects" | "forwardLookingMeta"
 >;
 
 type ProjectEditorKey = keyof typeof PROJECT_EDITOR_DEFAULTS;
@@ -229,7 +227,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setBrowserSplit: (browserSplit) => set({ browserSplit }),
       setShowLayerStats: (showLayerStats) => set({ showLayerStats }),
       setWadSort: (wadSort) => set({ wadSort }),
-      setTabOpenMode: (tabOpenMode) => set({ tabOpenMode }),
+      setPreviewOnClick: (previewOnClick) => set({ previewOnClick }),
       setPreviewCheckered: (previewCheckered) => set({ previewCheckered }),
       setSearchGame: (searchGame) => set({ searchGame }),
       setSearchObjects: (searchObjects) => set({ searchObjects }),
@@ -238,12 +236,17 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 2,
+      version: 3,
       migrate: (persisted) => {
         const state = {
-          ...keepUnversioned<WorkshopLayoutStore & { explorerSort?: ExplorerSort }>(persisted),
+          ...keepUnversioned<
+            WorkshopLayoutStore & { explorerSort?: ExplorerSort; tabOpenMode?: string }
+          >(persisted),
         };
         delete state.explorerSort;
+        /* The mode a click used to carry is now what a click does, and every
+           editor takes the new default rather than the value it never chose. */
+        delete state.tabOpenMode;
         return state;
       },
     },
@@ -269,7 +272,6 @@ export type {
   PreviewWireframe,
   ProjectEditorKey,
   SidebarViewId,
-  TabOpenMode,
   WadSort,
 };
 export const useExplorerView = () => useWorkshopLayoutStore((s) => s.explorerView);
@@ -301,8 +303,8 @@ export const useShowLayerStats = () => useWorkshopLayoutStore((s) => s.showLayer
 export const useSetShowLayerStats = () => useWorkshopLayoutStore((s) => s.setShowLayerStats);
 export const useWadSort = () => useWorkshopLayoutStore((s) => s.wadSort);
 export const useSetWadSort = () => useWorkshopLayoutStore((s) => s.setWadSort);
-export const useTabOpenMode = () => useWorkshopLayoutStore((s) => s.tabOpenMode);
-export const useSetTabOpenMode = () => useWorkshopLayoutStore((s) => s.setTabOpenMode);
+export const usePreviewOnClick = () => useWorkshopLayoutStore((s) => s.previewOnClick);
+export const useSetPreviewOnClick = () => useWorkshopLayoutStore((s) => s.setPreviewOnClick);
 export const usePreviewCheckered = () => useWorkshopLayoutStore((s) => s.previewCheckered);
 export const useSetPreviewCheckered = () => useWorkshopLayoutStore((s) => s.setPreviewCheckered);
 export const useSearchGame = () => useWorkshopLayoutStore((s) => s.searchGame);

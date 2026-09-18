@@ -73,6 +73,29 @@ export function leaves(tree: LayoutNode): LeafNode[] {
   return tree.children.flatMap(leaves);
 }
 
+/**
+ * The leaf beside this one across its own seam, or null for a leaf standing alone.
+ *
+ * The one after it in its own split, falling back to the one before it at the
+ * end of a row or a column. A sibling that is itself a split answers with the
+ * first leaf a reader meets inside it, which is the one against the seam.
+ */
+export function neighbourLeaf(tree: LayoutNode, leafId: string): LeafNode | null {
+  if (tree.kind === "leaf") return null;
+
+  const index = tree.children.findIndex((child) => child.kind === "leaf" && child.id === leafId);
+  if (index >= 0) {
+    const sibling = tree.children[index + 1] ?? tree.children[index - 1];
+    return sibling ? (leaves(sibling)[0] ?? null) : null;
+  }
+
+  for (const child of tree.children) {
+    const found = neighbourLeaf(child, leafId);
+    if (found) return found;
+  }
+  return null;
+}
+
 /* Ids are `leaf-N` and `split-N` over one shared counter, read back off the
    tree itself so a tree restored from storage never mints an id it holds. */
 function maxIdNumber(node: LayoutNode): number {

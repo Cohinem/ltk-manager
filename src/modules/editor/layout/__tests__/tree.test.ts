@@ -8,6 +8,7 @@ import {
   leaves,
   mergeToSingleLeaf,
   moveTab,
+  neighbourLeaf,
   removeTab,
   replaceTab,
   setActiveTab,
@@ -102,6 +103,30 @@ describe("leafHolding", () => {
 describe("leaves", () => {
   it("walks depth first in reading order", () => {
     expect(leaves(nested).map((node) => node.id)).toEqual(["leaf-1", "leaf-4", "leaf-5", "leaf-6"]);
+  });
+});
+
+describe("neighbourLeaf", () => {
+  it("answers with the leaf after it in its own split", () => {
+    expect(neighbourLeaf(nested, "leaf-1")?.id).toBe("leaf-4");
+  });
+
+  /* The sibling is itself a split, and the leaf a reader meets first inside it
+     is the one that answers. */
+  it("falls back to the split before it at the end of a row", () => {
+    expect(neighbourLeaf(nested, "leaf-6")?.id).toBe("leaf-4");
+  });
+
+  it("answers inside a nested split for a leaf that sits in one", () => {
+    expect(neighbourLeaf(nested, "leaf-5")?.id).toBe("leaf-4");
+  });
+
+  it("returns null for a leaf that is the whole tree", () => {
+    expect(neighbourLeaf(singleLeaf(["files:base"]), "leaf-1")).toBeNull();
+  });
+
+  it("returns null for a leaf the tree does not hold", () => {
+    expect(neighbourLeaf(nested, "leaf-99")).toBeNull();
   });
 });
 

@@ -70,7 +70,11 @@ const INDEX = [
   { id: "library.trustedDomains", key: "trustedDomains", title: "Trusted mod providers" },
 
   { id: "workshop.workshopPath", key: "workshopPath", title: "Workshop directory" },
-  { id: "workshop.tabOpenMode", key: "layout.tabOpenMode", title: "Opening a file" },
+  {
+    id: "workshop.previewOnClick",
+    key: "layout.previewOnClick",
+    title: "Preview on a single click",
+  },
   { id: "workshop.searchGame", key: "layout.searchGame", title: "Search the game" },
   { id: "workshop.searchObjects", key: "layout.searchObjects", title: "Search bin objects" },
   {

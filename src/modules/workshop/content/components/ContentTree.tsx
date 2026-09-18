@@ -14,7 +14,8 @@ import { useProjectContext } from "../../projects/state/ProjectContext";
 import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
 import {
   useCollapsedDirs,
-  useOpenDocumentTab,
+  useOpenDocument,
+  useOpenRowPreview,
   useRevealRequest,
   useToggleCollapsed,
 } from "../../state";
@@ -62,26 +63,30 @@ export function ContentTree({ layer }: ContentTreeProps) {
   const toggle = useToggleCollapsed(layerName);
   const rows = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
 
-  const openTab = useOpenDocumentTab();
-  const openFile = useCallback(
-    (node: FileNode) => {
+  const documentFor = useCallback(
+    (node: FileNode) =>
       /* A nested `.modignore` opens as rules rather than as bytes, which is the
          only way the tree reaches one. */
-      if (node.name === MODIGNORE_FILE_NAME) {
-        openTab(ignoreRulesDocument(`content/${layerName}/${node.entry.relativePath}`));
-        return;
-      }
+      node.name === MODIGNORE_FILE_NAME
+        ? ignoreRulesDocument(`content/${layerName}/${node.entry.relativePath}`)
+        : previewDocument({
+            kind: "layer",
+            project: projectPath,
+            layer: layerName,
+            path: node.entry.relativePath,
+          }),
+    [projectPath, layerName],
+  );
 
-      openTab(
-        previewDocument({
-          kind: "layer",
-          project: projectPath,
-          layer: layerName,
-          path: node.entry.relativePath,
-        }),
-      );
-    },
-    [openTab, projectPath, layerName],
+  const previewRow = useOpenRowPreview();
+  const openDocument = useOpenDocument();
+  const previewFile = useCallback(
+    (node: FileNode) => previewRow(documentFor(node)),
+    [previewRow, documentFor],
+  );
+  const openFile = useCallback(
+    (node: FileNode) => openDocument(documentFor(node)),
+    [openDocument, documentFor],
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -281,6 +286,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
                       onToggle={toggle}
                       onSelect={setFocusedIndex}
                       onOpen={openFile}
+                      onPreview={previewFile}
                       height={rowHeight}
                       rowIndex={virtualRow.index}
                       tabIndex={isSelected ? 0 : -1}

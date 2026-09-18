@@ -65,6 +65,8 @@ export interface ExplorerSurfaceProps {
   /** A double click on a directory, or `Enter` on one. */
   onDescend: (path: string) => void;
   onOpen: (item: ExplorerFileItem) => void;
+  /** A plain single click on a file, which previews it while the setting is on. */
+  onPreview?: (item: ExplorerFileItem) => void;
   /** The parent of the location, which `Backspace` and `Alt+↑` go to. */
   onUp: () => void;
   /**
@@ -104,6 +106,7 @@ export function ExplorerSurface({
   renderRow,
   onDescend,
   onOpen,
+  onPreview,
   onUp,
   renderMenu,
   onRun,
@@ -224,12 +227,14 @@ export function ExplorerSurface({
       if (!item) return;
 
       setFocused(index);
-      selection.select(item.id, {
-        toggle: event.ctrlKey || event.metaKey,
-        extend: event.shiftKey,
-      });
+      const toggle = event.ctrlKey || event.metaKey;
+      selection.select(item.id, { toggle, extend: event.shiftKey });
+
+      /* A click carrying a modifier is a click about the selection, so only a
+         plain one on a file reaches the strip. */
+      if (!toggle && !event.shiftKey && item.kind !== "dir") onPreview?.(item);
     },
-    [items, selection],
+    [items, selection, onPreview],
   );
 
   const handleDoubleClick = useCallback(

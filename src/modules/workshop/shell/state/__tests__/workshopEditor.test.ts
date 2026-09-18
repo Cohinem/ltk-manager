@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { BinRow } from "@/lib/tauri";
-import { findLeaf, leafHolding, leaves, singleLeaf } from "@/modules/editor";
+import { findLeaf, leafHolding, leaves, neighbourLeaf, singleLeaf } from "@/modules/editor";
 import {
   detailsDocument,
   filesDocument,
@@ -303,6 +303,26 @@ describe("workshopEditor store", () => {
 
       expect(leaves(editorOf(A).layout)).toHaveLength(2);
       expect(tabsOf(A, previews)).toEqual([first.id, second.id]);
+    });
+
+    /* The group beside the browser that asked, rather than whichever group of
+       the grid happens to hold a preview. */
+    it("lands beside the group that asked, not in a far preview group", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, preview("first.tex"));
+      const previews = editorOf(A).activeLeafId;
+      store().openDocument(A, filesDocument("base"), ROOT_LEAF);
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "bottom");
+      const browser = editorOf(A).activeLeafId;
+
+      const second = preview("second.tex");
+      store().openDocument(A, second);
+
+      expect(tabsOf(A, previews)).toEqual(["preview:layer:base:first.tex"]);
+      expect(tabsOf(A, browser)).toEqual(["files:base"]);
+      expect(leafHolding(editorOf(A).layout, second.id)?.id).toBe(
+        neighbourLeaf(editorOf(A).layout, browser)?.id,
+      );
     });
 
     /* Everything else opens where the focus is, so the sidebar's own documents
@@ -801,7 +821,9 @@ describe("workshopEditor store", () => {
       expect(tabsOf(A, right)).toEqual(["files:base", "game", "details"]);
     });
 
-    it("keeps the preview tab of a locked group and opens the next one elsewhere", () => {
+    /* The lock holds the group against an open it did not ask for, so the next
+       preview goes to the group beside it rather than taking its tab. */
+    it("keeps the preview tab of a locked group and opens the next one beside it", () => {
       store().openDocument(A, detailsDocument());
       const first = preview("first.tex");
       store().openPreview(A, first);
@@ -813,8 +835,9 @@ describe("workshopEditor store", () => {
 
       expect(tabsOf(A, previews)).toEqual([first.id]);
       expect(previewOf(A, previews)).toBe(first.id);
-      expect(previewOf(A, editorOf(A).activeLeafId)).toBe(second.id);
-      expect(leaves(editorOf(A).layout)).toHaveLength(3);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", second.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBe(second.id);
+      expect(leaves(editorOf(A).layout)).toHaveLength(2);
     });
 
     it("returns the same state for a leaf that already reads that way", () => {
