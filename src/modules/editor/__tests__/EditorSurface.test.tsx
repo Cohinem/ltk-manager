@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 
 import { EditorSurface } from "../components/EditorSurface";
 import { useDocumentSave } from "../state/documentSaves";
+import { leafCloses } from "../state/leafCloses";
 import type { EditorDocumentBase, EditorDocumentProps, EditorRegistry } from "../types";
 
 interface Note extends EditorDocumentBase {
@@ -43,21 +44,39 @@ const SAVING: EditorRegistry<Note> = {
   },
 };
 
+/** A document whose label names a layer, as the strings and preview tabs do. */
+const LAYERED: EditorRegistry<Note> = {
+  note: {
+    icon: () => null,
+    label: (document) => ({ title: document.title, layer: `From ${document.id}` }),
+    component: ({ document }) => <p>{document.title} body</p>,
+  },
+};
+
 interface DrawOptions {
   registry?: EditorRegistry<Note>;
+  dirtyIds?: ReadonlySet<string>;
+  sharedTitles?: ReadonlySet<string>;
   onClose?: (id: string) => void;
   onActivate?: (id: string) => void;
 }
 
-function draw({ registry = PLAIN, onClose = vi.fn(), onActivate = vi.fn() }: DrawOptions = {}) {
+function draw({
+  registry = PLAIN,
+  dirtyIds = new Set(["a", "b"]),
+  sharedTitles,
+  onClose = vi.fn(),
+  onActivate = vi.fn(),
+}: DrawOptions = {}) {
   render(
     <EditorSurface
       leafId="leaf-1"
       documents={NOTES}
       activeId="a"
       registry={registry}
-      dirtyIds={new Set(["a", "b"])}
+      dirtyIds={dirtyIds}
       pinnedIds={[]}
+      sharedTitles={sharedTitles}
       onActivate={onActivate}
       onClose={onClose}
     />,
@@ -141,6 +160,31 @@ describe("EditorSurface", () => {
     closeTab("Alpha");
 
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  });
+
+  it("publishes its closes, which a command outside the strip runs", async () => {
+    const { onClose } = draw({ dirtyIds: new Set() });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Alpha" }));
+    leafCloses("leaf-1")?.closeAll();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith("a"));
+    expect(onClose).toHaveBeenCalledWith("b");
+  });
+
+  it("asks the strip's own question for a close a command asked for", async () => {
+    draw();
+
+    leafCloses("leaf-1")?.closeOne("a");
+
+    expect(await screen.findByText(/Alpha has unsaved changes/)).toBeTruthy();
+  });
+
+  it("names a tab's layer only where another tab takes its title", () => {
+    draw({ registry: LAYERED, sharedTitles: new Set(["Alpha"]) });
+
+    expect(screen.getByRole("tab", { name: /Alpha From a/ })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Beta" })).toBeTruthy();
   });
 
   /* On the tab itself rather than the box around it, which is what a reader

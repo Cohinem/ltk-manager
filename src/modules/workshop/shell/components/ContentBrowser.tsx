@@ -6,7 +6,6 @@ import { errorSummary } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import {
   type DropOutcome,
-  type EditorDocumentDefinition,
   type LeafNode,
   Seam,
   SplitLayout,
@@ -22,8 +21,8 @@ import {
 
 import { useAddFilesToLayer, useLayerFileDrop, useProjectContentTree } from "../../api";
 import {
-  type ContentDocument,
   detailsDocument,
+  documentDefinition,
   filesDocument,
   layerTitle,
   useContentEditors,
@@ -250,19 +249,17 @@ function TabDragGhost({ documentId }: { documentId: string }) {
   const document = documents.find((candidate) => candidate.id === documentId);
   if (!document) return null;
 
-  /* The registry narrows to one kind per key, which a lookup by a union's own
-     kind cannot express. The key comes off the document, so the two agree. */
-  const definition = editors[document.kind as ContentDocument["kind"]] as unknown as
-    | EditorDocumentDefinition<ContentDocument>
-    | undefined;
+  const definition = documentDefinition(editors, document);
   if (!definition) return null;
 
-  const { title, context } = definition.label(document);
+  const { title, context, layer } = definition.label(document);
   return (
     <div className="flex h-6 items-center gap-1.5 rounded-md bg-surface-800 px-2 text-xs text-surface-100 shadow-lg select-none">
       <TabGlyph>{definition.icon(document)}</TabGlyph>
       <span className="truncate">{title}</span>
-      {context && <span className="truncate text-[0.6875rem] text-surface-400">{context}</span>}
+      {(context ?? layer) && (
+        <span className="truncate text-[0.6875rem] text-surface-400">{context ?? layer}</span>
+      )}
     </div>
   );
 }

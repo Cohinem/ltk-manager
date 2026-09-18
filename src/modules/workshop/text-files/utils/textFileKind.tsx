@@ -22,7 +22,6 @@ const KINDS: Record<ProjectTextFile, TextFileKind> = {
     markdown: true,
     icon: (className) => <BookOpenTextIcon className={className} />,
   },
-  /* No route opens it yet. The kind is what a license surface starts from. */
   license: {
     title: () => m.workshop_license_title(),
     fileName: "LICENSE",

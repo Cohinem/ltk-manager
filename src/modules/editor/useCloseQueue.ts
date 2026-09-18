@@ -45,6 +45,11 @@ export interface CloseQueueOptions<D extends EditorDocumentBase> {
   onActivate: (id: string) => void;
 }
 
+/** A batch close over `ids` has work: one of them is unpinned. */
+export function anyClosable(ids: readonly string[], pinnedIds: readonly string[]): boolean {
+  return ids.some((id) => !pinnedIds.includes(id));
+}
+
 /**
  * The four closes, and the question a close with unsaved edits asks.
  *

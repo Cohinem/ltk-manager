@@ -1,5 +1,6 @@
 import {
   CubeIcon,
+  EyeSlashIcon,
   FileArchiveIcon,
   FolderOpenIcon,
   LayoutIcon,
@@ -14,13 +15,23 @@ import {
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
   TrashIcon,
+  WarningDiamondIcon,
 } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
-import { detailsDocument, gameDocument, gameWadsDocument, objectsDocument } from "../../documents";
+import {
+  detailsDocument,
+  gameDocument,
+  gameWadsDocument,
+  ignoreRulesDocument,
+  objectsDocument,
+  problemsDocument,
+  projectTextDocument,
+  referencesDocument,
+} from "../../documents";
 import { useRevealGameSearch } from "../../gameBrowser";
 import { useProjectActions } from "../../projects/hooks/useProjectActions";
 import { useProjectContext } from "../../projects/state/ProjectContext";
@@ -36,8 +47,10 @@ import {
   useSplitWithDocument,
 } from "../../state";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
+import { textFileKind } from "../../text-files";
 import type { ProjectCommand } from "../utils/types";
 import { useGlobalCommands } from "./useGlobalCommands";
+import { useGroupCommands } from "./useGroupCommands";
 
 const GLYPH = "h-4 w-4";
 
@@ -56,6 +69,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   const actions = useProjectActions(project);
   const testState = useWorkshopTestState(project);
   const global = useGlobalCommands();
+  const group = useGroupCommands();
 
   const openDocument = useOpenDocument();
   const resetLayout = useResetLayout();
@@ -147,6 +161,46 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         icon: <CubeIcon className={GLYPH} />,
         run: () => openDocument(objectsDocument()),
       },
+      {
+        id: "go.problems",
+        title: "Open the problems list",
+        group: "Go to",
+        keywords: ["check", "findings", "errors", "warnings"],
+        icon: <WarningDiamondIcon className={GLYPH} />,
+        run: () => openDocument(problemsDocument()),
+      },
+      {
+        id: "go.readme",
+        title: "Open the readme",
+        group: "Go to",
+        keywords: ["description", "markdown", "text"],
+        icon: textFileKind("readme").icon(GLYPH),
+        run: () => openDocument(projectTextDocument("readme")),
+      },
+      {
+        id: "go.license",
+        title: "Open the license",
+        group: "Go to",
+        keywords: ["terms", "rights", "text"],
+        icon: textFileKind("license").icon(GLYPH),
+        run: () => openDocument(projectTextDocument("license")),
+      },
+      {
+        id: "go.ignoreRules",
+        title: "Open the ignore rules",
+        group: "Go to",
+        keywords: ["modignore", "exclude", "skip", "pack"],
+        icon: <EyeSlashIcon className={GLYPH} />,
+        run: () => openDocument(ignoreRulesDocument()),
+      },
+      {
+        id: "go.references",
+        title: "Open the references",
+        group: "Go to",
+        keywords: ["usages", "links", "objects"],
+        icon: <MagnifyingGlassIcon className={GLYPH} />,
+        run: () => openDocument(referencesDocument()),
+      },
 
       {
         id: "view.splitRight",
@@ -208,6 +262,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         icon: <LayoutIcon className={GLYPH} />,
         run: resetLayout,
       },
+      ...group,
       {
         id: "view.toggleSidebar",
         title: layerPanelOpen ? "Hide the side panel" : "Show the side panel",
@@ -235,6 +290,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     activeLeafId,
     activeLeafLocked,
     global,
+    group,
     layerCount,
     layerPanelOpen,
     openDocument,

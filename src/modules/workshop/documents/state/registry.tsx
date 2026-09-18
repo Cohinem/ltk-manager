@@ -12,7 +12,7 @@ import { useMemo } from "react";
 import { ContextMenu, LeagueIcon, PlayerTitleIcon } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
-import type { EditorRegistry } from "@/modules/editor";
+import type { EditorDocumentDefinition, EditorRegistry } from "@/modules/editor";
 
 import { ObjectDocument } from "../../bin/documents/components/ObjectDocument";
 import { FilesDocument } from "../../content/components/FilesDocument";
@@ -43,6 +43,7 @@ import {
   type ContentDocument,
   type ContentDocumentOf,
   declaringFileContext,
+  documentLayerName,
   layerTitle,
   objectTitle,
 } from "../utils/contentDocument";
@@ -80,7 +81,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       icon: () => <TranslateIcon className="h-4 w-4 shrink-0 text-doc-strings-text" />,
       label: (document) => ({
         title: document.locale,
-        context: layerTitle(project, document.layerName),
+        layer: layerTitle(project, document.layerName),
       }),
       component: StringsDocument,
     },
@@ -137,13 +138,20 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
     },
     preview: {
       icon: (document) => <PreviewGlyph title={document.title} />,
-      label: (document) => ({
-        title: document.title,
-        context: document.context,
-        /* A tab restored from a file written before the field existed derives
+      label: (document) => {
+        const layerName = documentLayerName(document);
+        const layer = layerName === null ? undefined : layerTitle(project, layerName);
+
+        return {
+          title: document.title,
+          /* An archive stays a context, which stands whatever else is open. */
+          context: layer === undefined ? document.context : undefined,
+          layer,
+          /* A tab restored from a file written before the field existed derives
              one, which costs the resolved chunk path and nothing else. */
-        path: document.path ?? assetPath(document.asset),
-      }),
+          path: document.path ?? assetPath(document.asset),
+        };
+      },
       component: PreviewDocument,
       tabMenu: (document) => {
         /* A layer file and a loose file are on disk already, so only a game
@@ -205,6 +213,22 @@ function ObjectTabMenu({ objectHash, objectPath }: ObjectTabMenuProps) {
 export function useContentEditors(): EditorRegistry<ContentDocument> {
   const project = useProjectContext();
   return useMemo(() => contentEditors(project), [project]);
+}
+
+/**
+ * The definition holding one document's kind, for a caller with the union in hand.
+ *
+ * The registry narrows to one kind per key, which a lookup by a union's own
+ * kind cannot express. The key comes off the document, and the two agree.
+ */
+export function documentDefinition(
+  editors: EditorRegistry<ContentDocument>,
+  document: ContentDocument,
+): EditorDocumentDefinition<ContentDocument> | null {
+  const definition = editors[document.kind] as unknown as
+    | EditorDocumentDefinition<ContentDocument>
+    | undefined;
+  return definition ?? null;
 }
 
 function GameWadTabMenu({ wadName }: { wadName: string }) {

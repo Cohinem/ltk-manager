@@ -2,20 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                 |
-| ---------- | ---------------------------------------------------------------------- |
-| 2026-09-18 | Answer the editor's keys, and find text inside a text document         |
-| 2026-09-18 | Save from the close question, queue the rest, and guard a quit         |
-| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links    |
-| 2026-09-12 | Fill the primary side panel from a rail of views                       |
-| 2026-09-12 | Write a project's readme beside its rendered half                      |
-| 2026-09-12 | Report what the ignore rules left out of a package                     |
-| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude     |
-| 2026-09-11 | Maximize a panel from its tab                                          |
-| 2026-09-10 | Give the location and the box the explorer bar's first row             |
-| 2026-09-10 | Set a details row's height, and grab a column boundary that holds      |
-| 2026-09-10 | Read a game explorer as a details list, over one surface with the grid |
-| 2026-09-10 | Walk an explorer's directories with the navigation arrows              |
+| Date       | Change                                                               |
+| ---------- | -------------------------------------------------------------------- |
+| 2026-09-18 | Command routes to every document, closes, maximize, and a strip list |
+| 2026-09-18 | Answer the editor's keys, and find text inside a text document       |
+| 2026-09-18 | Save from the close question, queue the rest, and guard a quit       |
+| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links  |
+| 2026-09-12 | Fill the primary side panel from a rail of views                     |
+| 2026-09-12 | Write a project's readme beside its rendered half                    |
+| 2026-09-12 | Report what the ignore rules left out of a package                   |
+| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude   |
+| 2026-09-11 | Maximize a panel from its tab                                        |
+| 2026-09-10 | Give the location and the box the explorer bar's first row           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -62,7 +60,8 @@ This table holds every major feature of the editor. A status word has one meanin
 | Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
 | Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
 | Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
-| Tab title prefix       | Planned     | `<layer>/<file>` when two tabs take the same name                  |
+| Tab title prefix       | Available   | The layer after the title, where two tabs take the same name       |
+| Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it         |
 | Panel host choice      | Planned     | Either side panel accepts any panel type                           |
 | Tree expansion rules   | Planned     | Stops the full expand of every directory                           |
 | Layer conflict mark    | Planned     | No backend work, because the payload holds every layer             |
@@ -102,7 +101,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**               |
 | Source control section | Planned     | Git history for the declarative data                               |
 | Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                    |
-| Panel maximize         | Planned     | A kept tab's double click fills the grid, and Esc restores it      |
+| Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it      |
 | Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
 | Project bar            | Available   | Takes the header's middle, from the project name title             |
 | Command palette        | Available   | The project, the game and the bin objects of both halves           |
@@ -398,6 +397,18 @@ The first set is the actions the editor already holds: Test, Pack, Open project 
 project, Mod details, Game index, Game WADs, Rebuild the game index, Reset the layout, Split
 right, Split down, Pin the tab, Lock the group, the four closes, and the routes into the
 settings.
+
+**Go to** holds a route to each document the project owns on its own: Mod details, the game
+index, the game WADs, the objects browser, the problems list, the readme, the license, the
+ignore rules and the references. A route to a document already open activates the tab it sits
+in. A route to a file the project does not hold yet opens the document that writes it.
+
+**View** holds the four closes and the maximize beside the splits, the pin and the lock. Each
+close acts on the focused group and its active tab, through the queue that group's surface
+published. A dirty document asks the question it asks from the strip's own menu. A close
+with nothing to take is disabled and names what holds it: a strip of pinned tabs alone, or a
+tab with nothing to its right. **Maximize the panel** reads **Restore the panel** while a
+panel fills the grid, and gives the tree back whichever group that panel belongs to.
 
 ## The scan of the game
 
@@ -2305,6 +2316,8 @@ one open document. The active document fills the surface below the row.
 - Deleting a layer closes every tab that layer opened: its file tree, its locales and every
   preview of one of its files, in whichever group each one sits in
 - The focused group answers the editor's keys. Read [The editor's keys](#the-editors-keys)
+- A strip too full for its width lists what it holds. Read
+  [A full strip lists its tabs](#a-full-strip-lists-its-tabs)
 
 The first visit opens the details document when the project still carries every default
 from the scaffold. In every other case the first visit selects the first layer.
@@ -2364,6 +2377,22 @@ one.
 
 Replace is out of scope. These files are edited by hand, and a replace is a second decision.
 
+### A full strip lists its tabs
+
+A control at the trailing edge of the strip, left of the lock, opens the whole list of that
+group's tabs in strip order. It carries the number of tabs the lane does not hold whole, and
+it stands only while that number is above zero.
+
+- A row carries the tab's glyph, its title, its context and the dot a dirty tab carries, and
+  the active row rises off the popup the way the active tab rises off the strip
+- Picking a row activates that tab, which scrolls it into view
+- Each row carries its own close, which runs the strip's own guarded close
+- The list belongs to one group. A split draws one control per strip, each over its own tabs
+
+The count comes from the laid-out boxes rather than from the tab count. A pin, a long title
+and the lock each count for the width they take. A tab the lane cuts in half counts as off
+screen.
+
 ### Document chrome
 
 A document's own controls - a save, a filter, an import - sit at the trailing edge of the
@@ -2389,11 +2418,21 @@ A file name is therefore not unique in the strip. Two layers hold the same relat
 and two tabs then carry the same title.
 
 - A title is the file name alone while it is unique in the strip
-- A title becomes `<layer>/<file>` as soon as a second tab takes the same name
+- The layer joins the title as a dim field after it as soon as a second tab takes the same
+  name
 - The layer part returns to hidden when the other tab closes
 
 The tab already carries a dim context field after the title, and the strings document
 already fills it with a layer name. The rule above sets when that field shows.
+
+A document's label names its layer in a field of its own, apart from the context field. The
+strip fills the context from the layer field only for a title a second open tab takes. The
+comparison spans every group of the project rather than one strip. A split holds two strips a
+user reads at once.
+
+A context a document sets itself stands whatever else is open: an archive on a game chunk's
+preview, a declaring file on an object, a path on a nested rules file. Those name something
+other than a layer.
 
 ### Document types today
 
