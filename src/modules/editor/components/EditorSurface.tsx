@@ -6,6 +6,7 @@ import { twMerge } from "@/utils";
 
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
 import { useCloseQueue } from "../useCloseQueue";
+import { useEditorKeys } from "../useEditorKeys";
 import { DocumentToolbarSlotContext } from "./DocumentToolbar";
 import { EditorTabs } from "./EditorTabs";
 import { UnsavedCloseDialog } from "./UnsavedCloseDialog";
@@ -38,6 +39,8 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   onMaximize?: () => void;
   /** A pointer landing anywhere in the surface, tab strip or document body. */
   onFocus?: () => void;
+  /** Where a find goes for an active document with no search box of its own. */
+  onFindElsewhere?: () => void;
   /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
   focused?: boolean;
   /** Shown while nothing is open. */
@@ -51,6 +54,9 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
  * Every open document stays mounted and inactive ones are hidden, so
  * scroll position and half-typed edits survive a trip to another tab.
  * Closing one with unsaved edits asks first.
+ *
+ * The focused group answers the editor's keys, per "The editor's keys" in
+ * `docs/ux/PROJECT_EDITOR.md`.
  *
  * The row under the strip is a slot the active document fills through
  * {@link DocumentToolbar}, rather than chrome this surface is handed.
@@ -72,6 +78,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
   onToggleLock,
   onMaximize,
   onFocus,
+  onFindElsewhere,
   focused,
   empty,
   className,
@@ -119,6 +126,17 @@ export function EditorSurface<D extends EditorDocumentBase>({
     titleOf: (document) => definitionFor(document)?.label(document).title,
     onClose,
     onActivate,
+  });
+
+  const documentIds = useMemo(() => documents.map((document) => document.id), [documents]);
+
+  useEditorKeys({
+    enabled: focused === true,
+    documentIds,
+    activeId,
+    onActivate,
+    onClose: close.closeOne,
+    onFindElsewhere,
   });
 
   return (

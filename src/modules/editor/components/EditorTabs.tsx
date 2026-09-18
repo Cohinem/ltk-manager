@@ -304,8 +304,9 @@ const SortableTab = memo(function SortableTab({
   onCloseToRight,
   onCloseAll,
 }: SortableTabProps) {
-  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: tabDroppableId(leafId, tab.id),
+    attributes: { roleDescription: m.editor_tab_drag_label() },
   });
   const copy = useCopyToClipboard();
   const pinned = tab.pinned === true;
@@ -339,6 +340,12 @@ const SortableTab = memo(function SortableTab({
       <Tabs.Tab
         variant="plain"
         value={tab.id}
+        /* The two announcing attributes rather than all of dnd-kit's: the rest
+           carry a role and a tab stop, and the strip's roving focus already
+           gives this element both. The listeners stay on the box around it, so
+           a key pressed here still reaches the drag sensor. */
+        aria-roledescription={attributes["aria-roledescription"]}
+        aria-describedby={attributes["aria-describedby"]}
         /* `shrink` beats the base tab's `shrink-0`, without which the strip's
            max width clips the label rather than eliding it. */
         className="min-w-0 shrink cursor-pointer gap-1.5 py-0.5 pr-1 pl-0.5 text-xs"

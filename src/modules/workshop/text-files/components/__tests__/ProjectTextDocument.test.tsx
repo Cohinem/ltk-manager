@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
 
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { DocumentToolbarSlotContext } from "@/modules/editor";
+import { documentFind, DocumentToolbarSlotContext } from "@/modules/editor";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
 
@@ -189,5 +189,46 @@ describe("ProjectTextDocument", () => {
     await screen.findByRole("textbox", { name: "Readme text" });
     expect(await screen.findByRole("heading", { name: "My Mod" })).toBeInTheDocument();
     expect(screen.getByText("It swaps a skin.")).toBeInTheDocument();
+  });
+  /* The find bar is reached by the key, which runs what the document published. */
+  describe("the find bar", () => {
+    async function reveal() {
+      await screen.findByRole("textbox", { name: "Readme text" });
+      act(() => documentFind("text:readme")?.());
+      return screen.findByRole("textbox", { name: "Find" });
+    }
+
+    it("counts the matches, and walks them", async () => {
+      world.text = "# My Mod\n\nThe mod swaps a skin.\n";
+      const user = userEvent.setup();
+      draw();
+
+      await user.type(await reveal(), "mod");
+
+      expect(await screen.findByText("1 of 2")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Next match" }));
+      expect(await screen.findByText("2 of 2")).toBeInTheDocument();
+      /* Past the end is the first match again. */
+      await user.click(screen.getByRole("button", { name: "Next match" }));
+      expect(await screen.findByText("1 of 2")).toBeInTheDocument();
+    });
+
+    it("says so for a query the text does not hold", async () => {
+      const user = userEvent.setup();
+      draw();
+
+      await user.type(await reveal(), "epsilon");
+
+      expect(await screen.findByText("No results")).toBeInTheDocument();
+    });
+
+    it("closes on escape", async () => {
+      const user = userEvent.setup();
+      draw();
+
+      await user.type(await reveal(), "{Escape}");
+
+      expect(screen.queryByRole("textbox", { name: "Find" })).not.toBeInTheDocument();
+    });
   });
 });

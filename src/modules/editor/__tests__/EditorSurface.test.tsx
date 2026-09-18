@@ -142,4 +142,14 @@ describe("EditorSurface", () => {
 
     expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
   });
+
+  /* On the tab itself rather than the box around it, which is what a reader
+     lands on and what tells them the tab moves at all. */
+  it("announces a tab as draggable", () => {
+    draw();
+
+    const tab = screen.getByRole("tab", { name: "Alpha" });
+    expect(tab).toHaveAttribute("aria-roledescription", "Draggable tab");
+    expect(tab).toHaveAttribute("aria-describedby");
+  });
 });

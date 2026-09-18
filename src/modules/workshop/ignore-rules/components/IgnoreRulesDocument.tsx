@@ -7,7 +7,12 @@ import {
   DocumentToolbar,
   type EditorDocumentProps,
   SaveStatus,
+  TextBuffer,
+  type TextFind,
+  TextFindBar,
+  useDocumentFind,
   useDocumentFlush,
+  useTextFind,
 } from "@/modules/editor";
 import { twMerge } from "@/utils";
 
@@ -44,28 +49,11 @@ export function IgnoreRulesDocument({
     return () => setDocumentDirty(documentId, false);
   }, [documentId, setDocumentDirty]);
 
-  /* What the debounce still owes the file, for a quit that writes it. */
+  /* What the debounce still owes the file, for a `Ctrl+S` and for a quit. */
   useDocumentFlush(documentId, editor.flush);
 
-  const saveNow = useRef(editor.saveNow);
-  useEffect(() => {
-    saveNow.current = editor.saveNow;
-  });
-
-  useEffect(() => {
-    if (!active) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!event.ctrlKey && !event.metaKey) return;
-      if (event.key.toLowerCase() !== "s") return;
-
-      event.preventDefault();
-      saveNow.current();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [active]);
+  const find = useTextFind(editor.text);
+  useDocumentFind(documentId, find.reveal);
 
   return (
     <div
@@ -97,7 +85,9 @@ export function IgnoreRulesDocument({
         />
       </DocumentToolbar>
 
-      <Body editor={editor} documentId={documentId} at={at} />
+      {find.open && <TextFindBar find={find} />}
+
+      <Body editor={editor} documentId={documentId} at={at} find={find} />
     </div>
   );
 }
@@ -109,9 +99,10 @@ interface BodyProps {
   documentId: string;
   /** The file's project-relative path, null for the project's root rules. */
   at: string | null;
+  find: TextFind;
 }
 
-function Body({ editor, documentId, at }: BodyProps) {
+function Body({ editor, documentId, at, find }: BodyProps) {
   if (editor.isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -126,7 +117,7 @@ function Body({ editor, documentId, at }: BodyProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Buffer editor={editor} documentId={documentId} />
+      <Buffer editor={editor} documentId={documentId} find={find} />
       {editor.problem && (
         <p className="shrink-0 border-t border-danger/40 px-3 py-1.5 text-meta text-danger-text">
           {m.workshop_ignore_problem_hint({
@@ -141,10 +132,18 @@ function Body({ editor, documentId, at }: BodyProps) {
 }
 
 /** The buffer, its line numbers, and the one number a refusal marks. */
-function Buffer({ editor, documentId }: { editor: Editor; documentId: string }) {
+function Buffer({
+  editor,
+  documentId,
+  find,
+}: {
+  editor: Editor;
+  documentId: string;
+  find: TextFind;
+}) {
   const lines = useMemo(() => editor.text.split("\n").length, [editor.text]);
   const gutter = useRef<HTMLDivElement>(null);
-  const buffer = useRef<HTMLTextAreaElement>(null);
+  const buffer = find.bufferRef;
 
   const requested = useIgnoreLineRevealRequest(documentId);
   const settleReveal = useSettleIgnoreLineReveal();
@@ -182,16 +181,19 @@ function Buffer({ editor, documentId }: { editor: Editor; documentId: string }) 
         ))}
       </div>
 
-      <textarea
-        ref={buffer}
+      <TextBuffer
         value={editor.text}
+        onChange={(next) => editor.setText(next)}
+        ariaLabel={m.workshop_ignore_buffer_label()}
         spellCheck={false}
-        aria-label={m.workshop_ignore_buffer_label()}
-        onChange={(event) => editor.setText(event.target.value)}
-        onScroll={(event) => {
-          if (gutter.current) gutter.current.scrollTop = event.currentTarget.scrollTop;
+        matches={find.matches}
+        current={find.index}
+        bufferRef={buffer}
+        onScroll={(scrollTop) => {
+          if (gutter.current) gutter.current.scrollTop = scrollTop;
         }}
-        className="min-w-0 flex-1 resize-none bg-transparent py-2 pr-2 pl-2 leading-relaxed text-surface-200 outline-none scrollbar-md"
+        wrapperClassName="bg-transparent"
+        className="py-2 pr-2 pl-2 leading-relaxed"
       />
     </div>
   );

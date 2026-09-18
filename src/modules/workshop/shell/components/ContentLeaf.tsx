@@ -4,6 +4,7 @@ import { EditorSurface, LeafDropZones, type LeafNode } from "@/modules/editor";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
 import { gameDocument, objectsDocument, useContentEditors } from "../../documents";
+import { useRevealRowSearch } from "../../palette";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import {
   useActivateDocument,
@@ -45,6 +46,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const setLeafLocked = useSetLeafLocked();
   const maximizedLeafId = useMaximizedLeafId();
   const toggleMaximized = useToggleMaximizedLeaf();
+  const revealRowSearch = useRevealRowSearch(leaf.activeTab);
 
   return (
     <LeafProvider leafId={leaf.id}>
@@ -66,6 +68,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           locked={leaf.locked === true}
           onToggleLock={(locked) => setLeafLocked(leaf.id, locked)}
           onFocus={() => focusLeaf(leaf.id)}
+          onFindElsewhere={revealRowSearch}
           focused={activeLeafId === leaf.id}
           empty={<NothingOpenState />}
         />

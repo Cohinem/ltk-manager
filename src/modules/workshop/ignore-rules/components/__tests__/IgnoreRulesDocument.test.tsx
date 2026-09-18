@@ -1,13 +1,13 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { DocumentToolbarSlotContext } from "@/modules/editor";
+import { documentFind, DocumentToolbarSlotContext } from "@/modules/editor";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient, renderWithProviders } from "@/test/utils";
 
@@ -199,5 +199,18 @@ describe("IgnoreRulesDocument", () => {
     await user.click(await screen.findByRole("button", { name: "Add 1 missing recommended rule" }));
 
     await waitFor(() => expect(calls("add_recommended_ignore_rules")).toHaveLength(1));
+  });
+
+  /* The rules answer the same find bar the readme does. */
+  it("finds text in the rules", async () => {
+    world.text = "*.psd\n*.psb\n";
+    const user = userEvent.setup();
+    draw();
+
+    await screen.findByRole("textbox", { name: "Ignore rules" });
+    act(() => documentFind("ignore-rules")?.());
+    await user.type(await screen.findByRole("textbox", { name: "Find" }), "*.ps");
+
+    expect(await screen.findByText("1 of 2")).toBeInTheDocument();
   });
 });

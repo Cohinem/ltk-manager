@@ -1,5 +1,5 @@
 import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
-import { useRef } from "react";
+import type { RefObject } from "react";
 
 import { FieldControl, FieldRoot, IconButton } from "@/components";
 
@@ -9,18 +9,24 @@ interface ProblemsToolbarProps {
   /** Problems the filter leaves on screen, against `total` for the count. */
   shown: number;
   total: number;
+  /** The box a find reaches, which the document owns because the key is its own. */
+  boxRef: RefObject<HTMLInputElement | null>;
 }
 
 /** The document's toolbar row: the filter, and how much of the run it leaves. */
-export function ProblemsToolbar({ query, onQueryChange, shown, total }: ProblemsToolbarProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
+export function ProblemsToolbar({
+  query,
+  onQueryChange,
+  shown,
+  total,
+  boxRef,
+}: ProblemsToolbarProps) {
   return (
     <>
       <FieldRoot className="relative min-w-0 flex-1">
         <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
         <FieldControl
-          ref={inputRef}
+          ref={boxRef}
           type="text"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
@@ -44,7 +50,7 @@ export function ProblemsToolbar({ query, onQueryChange, shown, total }: Problems
             compact
             onClick={() => {
               onQueryChange("");
-              inputRef.current?.focus();
+              boxRef.current?.focus();
             }}
             aria-label="Clear the filter"
             className="absolute top-1/2 right-1 h-4 w-4 -translate-y-1/2"

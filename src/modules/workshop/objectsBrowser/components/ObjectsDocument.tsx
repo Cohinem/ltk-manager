@@ -1,9 +1,9 @@
-import { useCallback, useMemo, useRef } from "react";
+import { type RefObject, useCallback, useMemo, useRef } from "react";
 
 import { Button, EmptyState, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { ObjectFindResult } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
 import { useSearchObjects, useSetSearchObjects } from "@/stores";
 import { twMerge } from "@/utils";
 import { hasErrorCode } from "@/utils/errors";
@@ -55,9 +55,13 @@ import { ObjectsTree } from "./ObjectsTree";
  * lazily, one prefix read as it opens. Typed into, the body swaps to the tree the
  * pattern leaves and back without losing where the browse had gotten to.
  */
-export function ObjectsDocument({ active }: EditorDocumentProps<ContentDocumentOf<"objects">>) {
+export function ObjectsDocument({
+  document,
+  active,
+}: EditorDocumentProps<ContentDocumentOf<"objects">>) {
   const pattern = useObjectsSearchPattern();
   const bodyRef = useRef<HTMLDivElement>(null);
+  const boxRef = useFindBox(document.id);
 
   const searching = pattern.length > 0;
 
@@ -68,7 +72,7 @@ export function ObjectsDocument({ active }: EditorDocumentProps<ContentDocumentO
       className="flex min-h-0 flex-1 flex-col bg-surface-950"
     >
       <DocumentToolbar active={active}>
-        <SearchField onCommit={() => focusRows(bodyRef.current)} />
+        <SearchField onCommit={() => focusRows(bodyRef.current)} boxRef={boxRef} />
         <ObjectsStats />
       </DocumentToolbar>
 
@@ -98,9 +102,11 @@ function ObjectsStats() {
 
 interface SearchFieldProps {
   onCommit: () => void;
+  /** The box a find reaches. */
+  boxRef: RefObject<HTMLInputElement | null>;
 }
 
-function SearchField({ onCommit }: SearchFieldProps) {
+function SearchField({ onCommit, boxRef }: SearchFieldProps) {
   const pattern = useObjectsSearchPattern();
   const regex = useObjectsSearchRegex();
   const onPatternChange = useSetObjectsSearchPattern();
@@ -120,6 +126,7 @@ function SearchField({ onCommit }: SearchFieldProps) {
       regexToggleLabel={m.workshop_objects_regex_action()}
       clearLabel={m.workshop_objects_clear_search_action()}
       onCommit={onCommit}
+      inputRef={boxRef}
     >
       {counted && (
         <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">

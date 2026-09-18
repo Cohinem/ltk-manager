@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 import type { StringKeySuggestion, WorkshopProject } from "@/lib/tauri";
 
 import { useProjectContext } from "../../projects/state/ProjectContext";
@@ -35,7 +33,6 @@ function savedOverridesOf(
  */
 export function useStringOverridesEditor(layerName: string, locale: string) {
   const project = useProjectContext();
-  const toast = useToast();
 
   const [entries, setEntries] = useState<OverrideEntry[]>([]);
   /** What the project file holds, in {@link serializeDraft}'s shape. */
@@ -75,9 +72,9 @@ export function useStringOverridesEditor(layerName: string, locale: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layerName, locale, project.path]);
 
-  function performSave() {
+  function performSave(): Promise<void> {
     const layer = project.layers.find((candidate) => candidate.name === layerName);
-    if (!layer) return;
+    if (!layer) return Promise.resolve();
 
     const attempted = draft;
 
@@ -97,19 +94,20 @@ export function useStringOverridesEditor(layerName: string, locale: string) {
       delete allOverrides[locale];
     }
 
-    saveOverrides.mutate(
-      { projectPath: project.path, layerName, stringOverrides: allOverrides },
-      {
-        onSuccess: () => {
+    /* The rejection travels on as well as being reported here, for the caller
+       that awaited this write - a `Ctrl+S`, or a quit that writes first. */
+    return saveOverrides
+      .mutateAsync({ projectPath: project.path, layerName, stringOverrides: allOverrides })
+      .then(
+        () => {
           setSaved(attempted);
           setFailedDraft(null);
         },
-        onError: (error) => {
+        (error: unknown) => {
           setFailedDraft(attempted);
-          toast.error("Couldn't save the overrides", errorSummary(error));
+          throw error;
         },
-      },
-    );
+      );
   }
 
   const hasErrors = Object.keys(errors).length > 0;
@@ -118,11 +116,12 @@ export function useStringOverridesEditor(layerName: string, locale: string) {
   /* The timeout and the cleanup below fire these, and a ref keeps them from
      holding the render they were scheduled in. */
   const performSaveRef = useRef(performSave);
-  const flushRef = useRef(() => {});
+  const flushRef = useRef((): Promise<void> => Promise.resolve());
   useEffect(() => {
     performSaveRef.current = performSave;
     flushRef.current = () => {
-      if (differs && !hasErrors && !isSaving) performSave();
+      if (!differs || hasErrors || isSaving) return Promise.resolve();
+      return performSave();
     };
   });
 
@@ -132,18 +131,18 @@ export function useStringOverridesEditor(layerName: string, locale: string) {
        the next edit's, to ask - so a hard failure cannot loop. */
     if (draft === failedDraft) return;
 
-    const timer = setTimeout(() => performSaveRef.current(), SAVE_DELAY_MS);
+    const timer = setTimeout(() => void performSaveRef.current().catch(() => {}), SAVE_DELAY_MS);
     return () => clearTimeout(timer);
   }, [differs, hasErrors, isSaving, draft, failedDraft]);
 
   /* Whatever the debounce still holds goes to disk when this locale's editor
      ends - a switch to another locale, or the document closing. */
   useEffect(() => {
-    return () => flushRef.current();
+    return () => void flushRef.current().catch(() => {});
   }, [layerName, locale]);
 
   function saveNow() {
-    if (differs && !hasErrors && !isSaving) performSave();
+    if (differs && !hasErrors && !isSaving) void performSave().catch(() => {});
   }
 
   function saveStateOf(): OverrideSaveState {
@@ -216,6 +215,13 @@ export function useStringOverridesEditor(layerName: string, locale: string) {
     lastCommittedId,
     saveState: saveStateOf(),
     saveNow,
+    /**
+     * Write whatever the debounce still holds, and wait for it.
+     *
+     * Rejects with what stopped the write, for a caller that closes or quits on
+     * it rather than reading `saveState`.
+     */
+    flush: (): Promise<void> => flushRef.current(),
     commitEntry,
     removeEntry,
     updateEntry,

@@ -5,11 +5,13 @@ import {
   type DragEndEvent,
   DragOverlay,
   type DragStartEvent,
+  KeyboardSensor,
   PointerSensor,
   pointerWithin,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { type ReactNode, useCallback, useState } from "react";
 
 import { decodeDroppableId, type DropOutcome, resolveDrop } from "./dnd";
@@ -55,7 +57,12 @@ const collisionDetection: CollisionDetection = (args) => {
 export function TabDndProvider({ tree, onDrop, overlay, children }: TabDndProviderProps) {
   /* Below the threshold the gesture stays a click, so a tab still activates and
      its close button still fires without a drag starting under them. */
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const pointer = useSensor(PointerSensor, { activationConstraint: { distance: 6 } });
+  /* The coordinate getter steps to the droppable the arrow points at, whichever
+     strip or edge holds it, so a keyboard drag reaches everywhere a pointer
+     drag does and resolves through the same drop. */
+  const keyboard = useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates });
+  const sensors = useSensors(pointer, keyboard);
 
   const [draggedDocumentId, setDraggedDocumentId] = useState<string | null>(null);
 

@@ -22,6 +22,7 @@ import { WorkshopFilterPopover } from "../../projects/components/WorkshopFilterP
 import { useFilteredProjects } from "../../projects/hooks/useFilteredProjects";
 import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import { useSetWorkshopSearchQuery, useWorkshopSearchQuery } from "../../state";
+import { usePaletteRevealTarget } from "../state/paletteReveal";
 import { type BarIntent, barMode, barPlaceholder } from "../utils/barMode";
 import { prefixScope } from "../utils/sources";
 import type { PaletteSourceId } from "../utils/types";
@@ -102,6 +103,11 @@ export function WorkshopBar() {
      the query and hands focus back to the idle trigger, mid-flow. It is the
      bar's own popup, so while it is open the bar has not been left. */
   useClickOutside(boxRef, close, intent !== null && !filterOpen);
+
+  /* The route in from the editor, where `Ctrl+F` over a bin tab means the rows
+     of that tab rather than a box the document holds. */
+  usePaletteRevealTarget(openWith);
+
   useHotkeys("ctrl+p, ctrl+k", () => openWith(null), {
     preventDefault: true,
     enableOnFormTags: true,
@@ -111,8 +117,9 @@ export function WorkshopBar() {
     enableOnFormTags: true,
   });
 
-  /* Only over the grid, where the bar is the only box the key could mean. A
-     project's editor has boxes of its own, and each claims the key for itself. */
+  /* Only over the grid, where the bar is the only box the key could mean. In a
+     project's editor the key belongs to the active document, which `useEditorKeys`
+     routes to its own box or to the `@` scope of this palette. */
   useHotkeys(
     "ctrl+f",
     openFilter,

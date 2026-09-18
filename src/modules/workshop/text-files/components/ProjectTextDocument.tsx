@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
 import { Button, Code, EmptyState, MarkdownView, SegmentedControl, Spinner } from "@/components";
@@ -8,8 +8,13 @@ import {
   type EditorDocumentProps,
   SaveStatus,
   Seam,
+  TextBuffer,
+  type TextFind,
+  TextFindBar,
+  useDocumentFind,
   useDocumentFlush,
   useNarrowToolbar,
+  useTextFind,
 } from "@/modules/editor";
 
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
@@ -44,28 +49,16 @@ export function ProjectTextDocument({
     return () => setDocumentDirty(documentId, false);
   }, [documentId, setDocumentDirty]);
 
-  /* What the debounce still owes the file, for a quit that writes it. */
+  /* What the debounce still owes the file, for a `Ctrl+S` and for a quit. */
   useDocumentFlush(documentId, editor.flush);
 
-  const saveNow = useRef(editor.saveNow);
-  useEffect(() => {
-    saveNow.current = editor.saveNow;
+  const find = useTextFind(editor.text);
+  /* The matches are in the text, so a find over the rendered half brings the
+     text back rather than counting what is not on screen. */
+  useDocumentFind(documentId, () => {
+    setHalf("raw");
+    find.reveal();
   });
-
-  useEffect(() => {
-    if (!active) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!event.ctrlKey && !event.metaKey) return;
-      if (event.key.toLowerCase() !== "s") return;
-
-      event.preventDefault();
-      saveNow.current();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [active]);
 
   const showsTemplate = kind.markdown && editor.exists && lacksTemplateSection(editor.text);
 
@@ -104,7 +97,9 @@ export function ProjectTextDocument({
         />
       </DocumentToolbar>
 
-      <Body editor={editor} file={document.file} half={narrow ? half : null} />
+      {find.open && <TextFindBar find={find} />}
+
+      <Body editor={editor} file={document.file} half={narrow ? half : null} find={find} />
     </div>
   );
 }
@@ -116,9 +111,10 @@ interface BodyProps {
   file: ContentDocumentOf<"text">["file"];
   /** The half on screen, or null where the document is wide enough for both. */
   half: Half | null;
+  find: TextFind;
 }
 
-function Body({ editor, file, half }: BodyProps) {
+function Body({ editor, file, half, find }: BodyProps) {
   const kind = textFileKind(file);
 
   if (editor.isLoading) {
@@ -145,8 +141,8 @@ function Body({ editor, file, half }: BodyProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {kind.markdown && <Split editor={editor} half={half} kind={kind} />}
-      {!kind.markdown && <Buffer editor={editor} label={kind.title()} />}
+      {kind.markdown && <Split editor={editor} half={half} kind={kind} find={find} />}
+      {!kind.markdown && <Buffer editor={editor} label={kind.title()} find={find} />}
       {editor.conflict && <Conflict editor={editor} fileName={kind.fileName} />}
     </div>
   );
@@ -159,14 +155,24 @@ function Body({ editor, file, half }: BodyProps) {
  * to the node it drew, which the renderer does not give up cheaply, and a
  * sync that works for prose but not for a table reads worse than none.
  */
-function Split({ editor, half, kind }: { editor: Editor; half: Half | null; kind: TextFileKind }) {
-  if (half === "raw") return <Buffer editor={editor} label={kind.title()} />;
+function Split({
+  editor,
+  half,
+  kind,
+  find,
+}: {
+  editor: Editor;
+  half: Half | null;
+  kind: TextFileKind;
+  find: TextFind;
+}) {
+  if (half === "raw") return <Buffer editor={editor} label={kind.title()} find={find} />;
   if (half === "preview") return <Rendered editor={editor} kind={kind} />;
 
   return (
     <Group id="readme" orientation="horizontal" className="flex min-h-0 flex-1">
       <Panel id="raw" minSize={200} className="flex min-h-0 flex-col">
-        <Buffer editor={editor} label={kind.title()} />
+        <Buffer editor={editor} label={kind.title()} find={find} />
       </Panel>
       <Seam orientation="horizontal" variant="divider" />
       <Panel id="rendered" minSize={200} className="flex min-h-0 flex-col">
@@ -176,15 +182,18 @@ function Split({ editor, half, kind }: { editor: Editor; half: Half | null; kind
   );
 }
 
-function Buffer({ editor, label }: { editor: Editor; label: string }) {
+function Buffer({ editor, label, find }: { editor: Editor; label: string; find: TextFind }) {
   return (
-    <textarea
+    <TextBuffer
       value={editor.text}
+      onChange={(next) => editor.setText(next)}
+      ariaLabel={m.workshop_text_buffer_label({ title: label })}
       spellCheck
-      aria-label={m.workshop_text_buffer_label({ title: label })}
-      onChange={(event) => editor.setText(event.target.value)}
+      matches={find.matches}
+      current={find.index}
+      bufferRef={find.bufferRef}
       /* DS-MONO-SIZE: prose is written where it is read, in the editor's mono. */
-      className="min-h-0 min-w-0 flex-1 resize-none bg-surface-950 p-3 font-mono text-mono-row leading-relaxed text-surface-200 outline-none scrollbar-md"
+      className="p-3 font-mono text-mono-row leading-relaxed"
     />
   );
 }

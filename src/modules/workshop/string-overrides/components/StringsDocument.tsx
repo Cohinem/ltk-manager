@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button, EmptyState, Spinner } from "@/components";
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, useDocumentFlush } from "@/modules/editor";
 
 import {
   type ComposerSeed,
@@ -40,25 +40,8 @@ export function StringsDocument({
     return () => setDocumentDirty(documentId, false);
   }, [documentId, setDocumentDirty]);
 
-  const saveNow = useRef(editor.saveNow);
-  useEffect(() => {
-    saveNow.current = editor.saveNow;
-  });
-
-  useEffect(() => {
-    if (!active) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!event.ctrlKey && !event.metaKey) return;
-      if (event.key.toLowerCase() !== "s") return;
-
-      event.preventDefault();
-      saveNow.current();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [active]);
+  /* What the debounce still owes the file, for a `Ctrl+S` and for a quit. */
+  useDocumentFlush(documentId, editor.flush);
 
   const originals = useGameStringValues(editor.entries.map((entry) => entry.key)).data;
 
