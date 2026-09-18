@@ -97,10 +97,12 @@ export function useActiveDocumentId(): string | null {
   });
 }
 
-/** The ephemeral tab, which draws in italic and the next open replaces. */
-export function usePreviewDocumentId(): string | null {
+/** One group's ephemeral tab, which draws in italic and that group's next open replaces. */
+export function usePreviewDocumentId(leafId: string): string | null {
   const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).previewId);
+  return useWorkshopEditorStore(
+    (s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).previewIds[leafId] ?? null,
+  );
 }
 
 export function useDirtyDocumentIds(): ReadonlySet<string> {
@@ -320,6 +322,29 @@ export function useCloseLayerDocuments() {
     (layerName: string) => closeLayerDocuments(projectPath, layerName),
     [closeLayerDocuments, projectPath],
   );
+}
+
+/** Whether a reopen has anything to put back, which the key and the command read. */
+export function useHasClosedDocuments(): boolean {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => s.closed.some((tab) => tab.project === projectPath));
+}
+
+/**
+ * Puts the newest tab this project closed back, permanent and pinned as it was.
+ *
+ * What `Ctrl+Shift+T` and the palette's own row ask for. A press with nothing
+ * closed does nothing.
+ */
+export function useReopenClosedDocument() {
+  const projectPath = useProjectPath();
+  return useCallback(() => {
+    const store = useWorkshopEditorStore.getState();
+    const document = store.reopenClosedDocument(projectPath);
+
+    const layerName = documentLayerName(document);
+    if (layerName) store.selectLayer(projectPath, layerName);
+  }, [projectPath]);
 }
 
 export function useReorderDocuments() {

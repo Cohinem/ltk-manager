@@ -32,7 +32,7 @@ function twoDocumentState(): PersistedProjectEditor {
     layout,
     activeLeafId: layout.id,
     selectedLayer: "base",
-    previewId: null,
+    previewIds: {},
     pinned: [],
     shells: defaultShellArrangements(),
   };
@@ -130,7 +130,7 @@ describe("editorFile", () => {
       if (parsed.kind !== "ok") return;
       expect(findLeaf(parsed.state.layout, parsed.state.activeLeafId)?.tabs).toEqual(["details"]);
       expect(parsed.state.documents.details?.id).toBe("details");
-      expect(parsed.state.previewId).toBeNull();
+      expect(parsed.state.previewIds).toEqual({});
       expect(parsed.state.pinned).toEqual([]);
     });
 
@@ -292,11 +292,11 @@ describe("editorFile", () => {
         layout,
         activeLeafId: layout.id,
         selectedLayer: "base",
-        previewId: preview.id,
+        previewIds: { [layout.id]: preview.id },
       });
 
       expect(state?.documents[preview.id]).toEqual(preview);
-      expect(state?.previewId).toBe(preview.id);
+      expect(state?.previewIds).toEqual({ [layout.id]: preview.id });
     });
 
     it("keeps an object document and the tab holding it", () => {
@@ -313,11 +313,11 @@ describe("editorFile", () => {
         layout,
         activeLeafId: layout.id,
         selectedLayer: "base",
-        previewId: object.id,
+        previewIds: { [layout.id]: object.id },
       });
 
       expect(state?.documents[object.id]).toEqual(object);
-      expect(state?.previewId).toBe(object.id);
+      expect(state?.previewIds).toEqual({ [layout.id]: object.id });
     });
 
     /* A file this build wrote before the field existed, and one whose preview
@@ -332,10 +332,44 @@ describe("editorFile", () => {
         selectedLayer: null,
       };
 
-      expect(sanitizeEditorState(entry)?.previewId).toBeNull();
+      expect(sanitizeEditorState(entry)?.previewIds).toEqual({});
       expect(
-        sanitizeEditorState({ ...entry, previewId: "preview:layer:base:gone.tex" })?.previewId,
-      ).toBeNull();
+        sanitizeEditorState({
+          ...entry,
+          previewIds: { [layout.id]: "preview:layer:base:gone.tex" },
+        })?.previewIds,
+      ).toEqual({});
+    });
+
+    /* A group holds its own ephemeral tab, so an entry naming a group that
+       does not hold that document names nothing. */
+    it("drops a preview id held by another group", () => {
+      const layout = singleLeaf(["details"], "details");
+
+      const state = sanitizeEditorState({
+        documents: { details: detailsDocument() },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: null,
+        previewIds: { "leaf-99": "details" },
+      });
+
+      expect(state?.previewIds).toEqual({});
+    });
+
+    /* A file written while the role was one per project. */
+    it("reads a single preview id as the ephemeral tab of the group holding it", () => {
+      const layout = singleLeaf(["details"], "details");
+
+      const state = sanitizeEditorState({
+        documents: { details: detailsDocument() },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: null,
+        previewId: "details",
+      });
+
+      expect(state?.previewIds).toEqual({ [layout.id]: "details" });
     });
 
     it("completes an entry that lost fields rather than crashing on it", () => {

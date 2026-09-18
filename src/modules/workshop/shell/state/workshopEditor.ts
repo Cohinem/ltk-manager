@@ -125,6 +125,26 @@ export interface ExplorerStop {
 /** How far back the arrows reach before the oldest stop is dropped. */
 const HISTORY_LIMIT = 50;
 
+/** How many closed tabs a reopen reaches back through, per shell. */
+const CLOSED_LIMIT = 20;
+
+/** The ephemeral tab of each editor group, as leaf id to document id. */
+export type PreviewIds = Readonly<Record<string, string>>;
+
+/** What one closed tab left behind, in the project it was closed in. */
+export interface ClosedTab extends ClosedDocument {
+  readonly project: string;
+}
+
+/** One closed tab, enough of it to put back where it was. */
+interface ClosedDocument {
+  readonly document: ContentDocument;
+  /** The group it was closed from, which a reopen prefers while it stands. */
+  readonly leafId: string;
+  /** Whether it led its strip, which a reopen gives back. */
+  readonly pinned: boolean;
+}
+
 /**
  * Everything the editor holds for one project.
  *
@@ -151,13 +171,14 @@ export interface ProjectEditor {
    */
   selectedLayer: string | null;
   /**
-   * The one ephemeral tab, which the next open replaces.
+   * The ephemeral tab of each group, which that group's next open replaces.
    *
-   * Null unless the user asked for the `replace` tab mode. One per project
-   * rather than per leaf, so a preview opened from a second editor group
-   * replaces the first group's rather than joining it.
+   * Empty unless the user asked for the `replace` tab mode. One per leaf rather
+   * than one per project, so a walk through a tree in one group leaves the
+   * replaceable tab of another group standing. Keyed by leaf id, holding a
+   * document id.
    */
-  previewId: string | null;
+  previewIds: PreviewIds;
   /** Ids with unsaved edits. Editors report their own. */
   dirty: ReadonlySet<string>;
   /**
@@ -209,6 +230,23 @@ interface WorkshopEditorStore {
   /** Where in `history` the arrows stand. -1 while nothing has been visited. */
   historyIndex: number;
   /**
+   * What the shell closed, newest first, bounded to {@link CLOSED_LIMIT}.
+   *
+   * One list rather than one per project, for the reason the history is one:
+   * session-only state, which a project's own file has no business holding. A
+   * batch close records its tabs in strip order, so a run of reopens rebuilds
+   * the strip the way it read.
+   */
+  closed: readonly ClosedTab[];
+  /**
+   * Puts the newest tab this project closed back, and returns it.
+   *
+   * Lands in the group it was closed from while the tree still holds that
+   * group, and in the focused group where a prune took it. Returns null while
+   * the project has closed nothing.
+   */
+  reopenClosedDocument: (projectPath: string) => ContentDocument | null;
+  /**
    * A document each project's editor opens as soon as it is hydrated.
    *
    * Outside `byProject`, because an entry there is what tells
@@ -224,7 +262,7 @@ interface WorkshopEditorStore {
   hydrateProject: (projectPath: string, state: PersistedProjectEditor) => void;
   /** Opens into `leafId`, falling back to the focused leaf. A document already open activates where it is. */
   openDocument: (projectPath: string, document: ContentDocument, leafId?: string) => void;
-  /** Opens as the ephemeral tab, replacing whichever one holds that role. */
+  /** Opens as the ephemeral tab, replacing the one its own group holds. */
   openPreview: (projectPath: string, document: ContentDocument, leafId?: string) => void;
   /** Makes a document permanent, which is what a double click asks for. */
   promoteDocument: (projectPath: string, id: string) => void;
@@ -353,7 +391,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   layout: ROOT,
   activeLeafId: ROOT.id,
   selectedLayer: null,
-  previewId: null,
+  previewIds: {},
   dirty: new Set(),
   pinned: [],
   collapsed: {},
@@ -381,6 +419,31 @@ export function unsavedDocumentIds(): readonly string[] {
 /** The collapsed-set of a layer nobody has shut a directory in. */
 export const NO_COLLAPSED_DIRS: ReadonlySet<string> = new Set();
 
+/**
+ * The map with `leafId` holding `documentId` as its ephemeral tab.
+ *
+ * Returns the map itself where it already says so, so an open that changes no
+ * role leaves the persisted slice comparing equal.
+ */
+function withPreview(held: PreviewIds, leafId: string, documentId: string): PreviewIds {
+  if (held[leafId] === documentId) return held;
+  return { ...held, [leafId]: documentId };
+}
+
+/** The map without whichever group's entry names `documentId`, and itself where none does. */
+function withoutPreviewDocument(held: PreviewIds, documentId: string): PreviewIds {
+  const entries = Object.entries(held).filter(([, id]) => id !== documentId);
+  if (entries.length === Object.keys(held).length) return held;
+  return Object.fromEntries(entries);
+}
+
+/** The map without every entry naming a leaf `layout` has lost, and itself where none is. */
+function withHeldLeaves(held: PreviewIds, layout: LayoutNode): PreviewIds {
+  const entries = Object.entries(held).filter(([leafId]) => findLeaf(layout, leafId) !== null);
+  if (entries.length === Object.keys(held).length) return held;
+  return Object.fromEntries(entries);
+}
+
 /** The shell's stack, apart from the editors the stops point into. */
 type Stack = Pick<WorkshopEditorStore, "history" | "historyIndex">;
 
@@ -397,6 +460,8 @@ interface EditorMove {
   readonly visited?: string;
   /** Documents that are gone, whose stops the stack drops. */
   readonly forgotten?: readonly string[];
+  /** Tabs a close took, which the closed list holds for a reopen. */
+  readonly closed?: readonly ClosedDocument[];
 }
 
 function asMove(target: ProjectEditor | EditorMove): EditorMove {
@@ -422,26 +487,40 @@ function updateProject(
   if (result === null) return null;
 
   const move = asMove(result);
-  const editor = dropPrunedMaximized(move.editor);
+  const editor = dropPrunedLeaves(move.editor);
   const stack = foldStack(state, projectPath, move);
+  const closed = foldClosed(state, projectPath, move);
   const moved = editor !== current;
-  if (!moved && stack === null) return null;
+  if (!moved && stack === null && closed === null) return null;
 
   return {
     ...(moved ? { byProject: { ...state.byProject, [projectPath]: editor } } : null),
     ...stack,
+    ...closed,
   };
 }
 
+/** The closed list with this action's tabs on top, or null for an action that closed none. */
+function foldClosed(
+  state: WorkshopEditorStore,
+  project: string,
+  move: EditorMove,
+): Pick<WorkshopEditorStore, "closed"> | null {
+  if (move.closed === undefined || move.closed.length === 0) return null;
+
+  const closed = [...move.closed.map((tab) => ({ ...tab, project })), ...state.closed];
+  return { closed: closed.slice(0, CLOSED_LIMIT) };
+}
+
 /**
- * The editor without a maximized panel its tree has lost.
+ * The editor without the leaf ids its tree has lost: a maximized panel, a preview.
  *
  * Every close and every drop reaches a tree through {@link updateProject}, and
  * each of them prunes the leaf that gave up its last tab. A leaf id is minted
  * off the tree that holds it. An id kept past the prune names whichever leaf
  * takes the number next.
  */
-function dropPrunedMaximized(editor: ProjectEditor): ProjectEditor {
+function dropPrunedLeaves(editor: ProjectEditor): ProjectEditor {
   const maximizedLeafId =
     editor.maximizedLeafId !== null && !findLeaf(editor.layout, editor.maximizedLeafId)
       ? null
@@ -454,13 +533,16 @@ function dropPrunedMaximized(editor: ProjectEditor): ProjectEditor {
     }
   }
 
+  const previewIds = withHeldLeaves(editor.previewIds, editor.layout);
+
   if (
     maximizedLeafId === editor.maximizedLeafId &&
-    maximizedShellLeaf === editor.maximizedShellLeaf
+    maximizedShellLeaf === editor.maximizedShellLeaf &&
+    previewIds === editor.previewIds
   ) {
     return editor;
   }
-  return { ...editor, maximizedLeafId, maximizedShellLeaf };
+  return { ...editor, maximizedLeafId, maximizedShellLeaf, previewIds };
 }
 
 /** The map without `kind`, and the map itself where it holds no pane for one. */
@@ -782,18 +864,27 @@ function afterRemoval(
 ): EditorMove {
   const documents = { ...editor.documents };
   const dirty = new Set(editor.dirty);
+  const closed: ClosedDocument[] = [];
   let pinned = editor.pinned;
-  let previewId = editor.previewId;
+  let previewIds = editor.previewIds;
 
   for (const id of removedIds) {
     if (leafHolding(layout, id)) continue;
+
+    /* Read off the tree the removal was given rather than the one it left, so
+       a reopen names the group the tab was closed from. */
+    const from = leafHolding(editor.layout, id);
+    const document = documents[id];
+    if (from && document) {
+      closed.push({ document, leafId: from.id, pinned: editor.pinned.includes(id) });
+    }
 
     delete documents[id];
     dirty.delete(id);
     /* Rebuilt only for a document that held a pin, so a close of any other one
        leaves the persisted slice comparing equal. */
     if (pinned.includes(id)) pinned = pinned.filter((candidate) => candidate !== id);
-    if (previewId === id) previewId = null;
+    previewIds = withoutPreviewDocument(previewIds, id);
   }
 
   /* Closing a leaf's last tab prunes it, which can take the focused leaf with it. */
@@ -801,16 +892,20 @@ function afterRemoval(
     ? editor.activeLeafId
     : leaves(layout)[0].id;
 
-  return forgetVisits(
-    { ...editor, documents, layout, activeLeafId, dirty, pinned, previewId },
-    removedIds,
-  );
+  return {
+    ...forgetVisits(
+      { ...editor, documents, layout, activeLeafId, dirty, pinned, previewIds },
+      removedIds,
+    ),
+    closed,
+  };
 }
 
 export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) => ({
   byProject: {},
   history: [],
   historyIndex: -1,
+  closed: [],
   pendingDocuments: {},
 
   saveAbility: (projectPath, recipe) =>
@@ -856,7 +951,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           layout: state.layout,
           activeLeafId: state.activeLeafId,
           selectedLayer: state.selectedLayer,
-          previewId: state.previewId,
+          previewIds: state.previewIds,
           pinned: state.pinned,
           shells: state.shells,
           abilities: state.abilities,
@@ -875,16 +970,16 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
                open that lands on the preview promotes it, which is what makes
                "open it properly" one gesture rather than two. */
             const layout = setActiveTab(editor.layout, holder.id, document.id);
-            const previewId = editor.previewId === document.id ? null : editor.previewId;
+            const previewIds = withoutPreviewDocument(editor.previewIds, document.id);
             if (
               layout === editor.layout &&
               editor.activeLeafId === holder.id &&
-              previewId === editor.previewId
+              previewIds === editor.previewIds
             ) {
               return recordVisit(editor, document.id);
             }
             return recordVisit(
-              { ...editor, layout, activeLeafId: holder.id, previewId },
+              { ...editor, layout, activeLeafId: holder.id, previewIds },
               document.id,
             );
           }
@@ -918,23 +1013,31 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           }
 
           const documents = { ...editor.documents, [document.id]: document };
-          const previous = editor.previewId ? leafHolding(editor.layout, editor.previewId) : null;
+          const group = openGroup(editor, document, leafId);
+          const target = findLeaf(group.layout, group.leafId);
+          const replaced = editor.previewIds[group.leafId];
 
-          /* A lock makes the group's preview tab permanent: the replacement
+          /* The group the open lands in holds the tab it replaces. A group the
+             open never reaches keeps its own, which is what makes a walk
+             through a tree in one group leave another group alone.
+
+             A lock makes that group's preview tab permanent: the replacement
              cannot land there, so the tab it would have taken stays put. */
-          if (previous && acceptsOpen(previous) && editor.previewId) {
-            const layout = replaceTab(editor.layout, previous.id, editor.previewId, document.id);
-            if (layout !== editor.layout) {
-              const replaced = editor.previewId;
+          if (replaced !== undefined && target && acceptsOpen(target)) {
+            const layout = replaceTab(group.layout, group.leafId, replaced, document.id);
+            if (layout !== group.layout) {
               delete documents[replaced];
+              /* Forgotten rather than closed: a walk through a tree replaces a
+                 preview per row, and a reopen list of those is a list of rows
+                 the user never asked to keep. */
               return recordVisit(
                 forgetVisits(
                   {
                     ...editor,
                     documents,
                     layout,
-                    activeLeafId: previous.id,
-                    previewId: document.id,
+                    activeLeafId: group.leafId,
+                    previewIds: withPreview(editor.previewIds, group.leafId, document.id),
                   },
                   [replaced],
                 ),
@@ -943,14 +1046,13 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
             }
           }
 
-          const group = openGroup(editor, document, leafId);
           return recordVisit(
             {
               ...editor,
               documents,
               layout: insertTab(group.layout, group.leafId, document.id),
               activeLeafId: group.leafId,
-              previewId: document.id,
+              previewIds: withPreview(editor.previewIds, group.leafId, document.id),
             },
             document.id,
           );
@@ -960,9 +1062,10 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
   promoteDocument: (projectPath, id) =>
     set(
       (state) =>
-        updateProject(state, projectPath, (editor) =>
-          editor.previewId === id ? { ...editor, previewId: null } : null,
-        ) ?? state,
+        updateProject(state, projectPath, (editor) => {
+          const previewIds = withoutPreviewDocument(editor.previewIds, id);
+          return previewIds === editor.previewIds ? null : { ...editor, previewIds };
+        }) ?? state,
     ),
 
   setDocumentPinned: (projectPath, id, pinned) =>
@@ -983,8 +1086,10 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
 
           /* A pin is what says the tab is worth keeping, so it cannot stay the
              one the next open replaces. */
-          const previewId = pinned && editor.previewId === id ? null : editor.previewId;
-          return { ...editor, layout, pinned: next, previewId };
+          const previewIds = pinned
+            ? withoutPreviewDocument(editor.previewIds, id)
+            : editor.previewIds;
+          return { ...editor, layout, pinned: next, previewIds };
         }) ?? state,
     ),
 
@@ -1010,6 +1115,63 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           return afterRemoval(editor, layout, [id]);
         }) ?? state,
     ),
+
+  reopenClosedDocument: (projectPath) => {
+    const entry = get().closed.find((tab) => tab.project === projectPath);
+    if (!entry) return null;
+
+    set((state) => {
+      const closed = state.closed.filter((tab) => tab !== entry);
+      const reopened = updateProject(state, projectPath, (editor) => {
+        const { document } = entry;
+
+        /* Reopened by hand while the list still named it: the tab is the one
+           that stands, and the list drops the entry either way. */
+        const holder = leafHolding(editor.layout, document.id);
+        if (holder) {
+          return recordVisit(
+            {
+              ...editor,
+              layout: setActiveTab(editor.layout, holder.id, document.id),
+              activeLeafId: holder.id,
+            },
+            document.id,
+          );
+        }
+
+        const target =
+          findLeaf(editor.layout, entry.leafId) ??
+          findLeaf(editor.layout, editor.activeLeafId) ??
+          leaves(editor.layout)[0];
+
+        /* Permanent whatever role it held: a reopen is a deliberate gesture,
+           the way a drag into another group is. */
+        const pinned =
+          entry.pinned && !editor.pinned.includes(document.id)
+            ? [...editor.pinned, document.id]
+            : editor.pinned;
+        const inserted = insertTab(editor.layout, target.id, document.id);
+        const leaf = findLeaf(inserted, target.id);
+        const layout =
+          leaf && pinned !== editor.pinned
+            ? reorderLeafTabs(inserted, target.id, pinnedFirst(leaf.tabs, pinned))
+            : inserted;
+
+        return recordVisit(
+          {
+            ...editor,
+            documents: { ...editor.documents, [document.id]: document },
+            layout,
+            activeLeafId: target.id,
+            pinned,
+          },
+          document.id,
+        );
+      });
+      return { ...state, ...reopened, closed };
+    });
+    return entry.document;
+  },
 
   closeLayerDocuments: (projectPath, layerName) =>
     set(
@@ -1057,7 +1219,20 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           );
           const layout = moveTab(editor.layout, documentId, toLeafId, at);
           if (layout === editor.layout) return null;
-          return { ...editor, layout, activeLeafId: toLeafId };
+
+          /* A move into another group is a deliberate placement, which says the
+             document is worth keeping. A reorder inside one strip goes through
+             `reorderDocuments` and leaves the role alone, since the tab did not
+             go anywhere. */
+          const moved = leafHolding(editor.layout, documentId)?.id !== toLeafId;
+          return {
+            ...editor,
+            layout,
+            activeLeafId: toLeafId,
+            previewIds: moved
+              ? withoutPreviewDocument(editor.previewIds, documentId)
+              : editor.previewIds,
+          };
         }) ?? state,
     ),
 
@@ -1067,7 +1242,15 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
         updateProject(state, projectPath, (editor) => {
           const split = splitLeaf(editor.layout, targetLeafId, edge, documentId);
           if (split.tree === editor.layout) return null;
-          return { ...editor, layout: split.tree, activeLeafId: split.leafId };
+
+          /* A split with the tab places it in a group of its own, which is the
+             same deliberate placement a move is. */
+          return {
+            ...editor,
+            layout: split.tree,
+            activeLeafId: split.leafId,
+            previewIds: withoutPreviewDocument(editor.previewIds, documentId),
+          };
         }) ?? state,
     ),
 
@@ -1459,7 +1642,10 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           ? { ...entry, project: toPath }
           : entry,
       );
-      return { byProject, history };
+      const closed = state.closed.map((tab) =>
+        tab.project === fromPath ? { ...tab, project: toPath } : tab,
+      );
+      return { byProject, history, closed };
     }),
 
   forgetProject: (projectPath) =>
@@ -1472,6 +1658,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
         state,
         (entry) => entry.kind === "document" && entry.project === projectPath,
       );
-      return { byProject, ...stack };
+      const closed = state.closed.filter((tab) => tab.project !== projectPath);
+      return { byProject, ...stack, closed };
     }),
 }));

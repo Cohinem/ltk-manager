@@ -17,6 +17,7 @@ import {
   useOpenDocument,
   usePinnedDocumentIds,
   usePreviewDocumentId,
+  useReopenClosedDocument,
   usePromoteDocument,
   useSetDocumentPinned,
   useSetLeafLocked,
@@ -40,7 +41,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const splitWithDocument = useSplitWithDocument();
   const focusLeaf = useFocusLeaf();
   const activeLeafId = useActiveLeafId();
-  const previewId = usePreviewDocumentId();
+  const previewId = usePreviewDocumentId(leaf.id);
   const promoteDocument = usePromoteDocument();
   const pinnedIds = usePinnedDocumentIds();
   const setDocumentPinned = useSetDocumentPinned();
@@ -48,6 +49,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const maximizedLeafId = useMaximizedLeafId();
   const toggleMaximized = useToggleMaximizedLeaf();
   const revealRowSearch = useRevealRowSearch(leaf.activeTab);
+  const reopenClosed = useReopenClosedDocument();
   const sharedTitles = useSharedTabTitles();
 
   return (
@@ -72,6 +74,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           onToggleLock={(locked) => setLeafLocked(leaf.id, locked)}
           onFocus={() => focusLeaf(leaf.id)}
           onFindElsewhere={revealRowSearch}
+          onReopenClosed={reopenClosed}
           focused={activeLeafId === leaf.id}
           empty={<NothingOpenState />}
         />

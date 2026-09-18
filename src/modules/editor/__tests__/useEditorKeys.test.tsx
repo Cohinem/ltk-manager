@@ -58,6 +58,26 @@ describe("useEditorKeys", () => {
     expect(onClose).toHaveBeenCalledWith("beta");
   });
 
+  it("reopens the newest closed tab on ctrl, shift and t", () => {
+    const onReopenClosed = vi.fn<() => void>();
+    keys({ onReopenClosed });
+
+    press("KeyT", ctrlShift);
+
+    expect(onReopenClosed).toHaveBeenCalledTimes(1);
+  });
+
+  /* A strip with nothing open still answers the key, because what it puts back
+     is held outside that strip. */
+  it("reopens from a group holding no tabs", () => {
+    const onReopenClosed = vi.fn<() => void>();
+    keys({ onReopenClosed, documentIds: [], activeId: null });
+
+    press("KeyT", ctrlShift);
+
+    expect(onReopenClosed).toHaveBeenCalledTimes(1);
+  });
+
   it("walks to the next tab and wraps at the end", () => {
     const { onActivate } = keys();
 

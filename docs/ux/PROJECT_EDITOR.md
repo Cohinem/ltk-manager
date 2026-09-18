@@ -4,6 +4,7 @@
 
 | Date       | Change                                                               |
 | ---------- | -------------------------------------------------------------------- |
+| 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen       |
 | 2026-09-18 | Command routes to every document, closes, maximize, and a strip list |
 | 2026-09-18 | Answer the editor's keys, and find text inside a text document       |
 | 2026-09-18 | Save from the close question, queue the rest, and guard a quit       |
@@ -13,7 +14,6 @@
 | 2026-09-12 | Report what the ignore rules left out of a package                   |
 | 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude   |
 | 2026-09-11 | Maximize a panel from its tab                                        |
-| 2026-09-10 | Give the location and the box the explorer bar's first row           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -43,80 +43,81 @@ This table holds every major feature of the editor. A status word has one meanin
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature                | Status      | Note                                                               |
-| ---------------------- | ----------- | ------------------------------------------------------------------ |
-| Layer file tree        | Available   | Moves to the secondary side panel                                  |
-| Mod details document   | Available   | -                                                                  |
-| String overrides       | Available   | -                                                                  |
-| Tab strip, per project | Available   | -                                                                  |
-| Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock |
-| Group lock             | Available   | A locked group takes only what a gesture aims at it                |
-| Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document    |
-| Quit guard             | Available   | A window close asks while a document holds unsaved edits           |
-| Editor keys            | Available   | Close, walk, take by index, save and find, in the focused group    |
-| Find in a text file    | Available   | A bar in the readme, the license and the ignore rules              |
-| Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves        |
-| Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
-| Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
-| Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
-| Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
-| Tab title prefix       | Available   | The layer after the title, where two tabs take the same name       |
-| Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it         |
-| Panel host choice      | Planned     | Either side panel accepts any panel type                           |
-| Tree expansion rules   | Planned     | Stops the full expand of every directory                           |
-| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer             |
-| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                       |
-| Directory size and bar | Planned     | Needs a size total for each directory                              |
-| File type filter       | In progress | The kind groups, in a game grid. The layer file tree remains       |
-| Explorer bar           | In progress | The two game explorers draw it. The layer file tree remains        |
-| Breadcrumb navigator   | In progress | Crumbs, caret menus and `Ctrl+L`. The fold is by count, not width  |
-| Grid view              | In progress | Tiles in the two game explorers. The layer file tree remains       |
-| Asset thumbnails       | Available   | `?w=` and the queue, which the bin swatch already rode             |
-| Details list           | In progress | Name, size and kind in the two game explorers. Modified remains    |
-| Explorer sorting       | In progress | Name, size and kind, directories first. The layer tree remains     |
-| Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views         |
-| Multi-select and copy  | In progress | One model under both game views. The layer file tree remains       |
-| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                        |
-| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                |
-| Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
-| Object tab             | Available   | One declaration as a document. ADR-0028                            |
-| Objects browser        | Available   | Every object of the install, one tree over its paths               |
-| References document    | Available   | A class's objects from the index, the rest from a walk             |
-| Mesh preview           | Planned     | A model in a small viewport                                        |
-| Modified time          | Planned     | Needs a time field in the content scan                             |
-| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |
-| Game browser           | In progress | A folded read-only tree and a grid over it, on one bar             |
-| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains           |
-| Scoped game browser    | Available   | One tab for each archive, from either list of archives             |
-| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings          |
-| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain           |
-| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick             |
-| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once            |
-| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer                  |
-| Held mark              | Proposed    | A game row that the selected layer holds. No backend work          |
-| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer           |
-| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains                    |
-| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view           |
-| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**                |
-| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**               |
-| Source control section | Planned     | Git history for the declarative data                               |
-| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                    |
-| Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it      |
-| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
-| Project bar            | Available   | Takes the header's middle, from the project name title             |
-| Command palette        | Available   | The project, the game and the bin objects of both halves           |
-| Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions |
-| Project object index   | Available   | The layers' own bins, read with the content scan, matched in place |
-| Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed |
-| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
-| Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories    |
-| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
-| Merged layer view      | Proposed    | Names the layer that wins for each path                            |
-| Layer diff             | Proposed    | Compares one path across two layers                                |
-| Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md) |
-| Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent              |
-| Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`        |
-| Texture facts          | Available   | In the preview's status strip. The inspector row remains           |
+| Feature                | Status      | Note                                                                |
+| ---------------------- | ----------- | ------------------------------------------------------------------- |
+| Layer file tree        | Available   | Moves to the secondary side panel                                   |
+| Mod details document   | Available   | -                                                                   |
+| String overrides       | Available   | -                                                                   |
+| Tab strip, per project | Available   | -                                                                   |
+| Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock  |
+| Group lock             | Available   | A locked group takes only what a gesture aims at it                 |
+| Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document     |
+| Quit guard             | Available   | A window close asks while a document holds unsaved edits            |
+| Editor keys            | Available   | Close, walk, take by index, save and find, in the focused group     |
+| Find in a text file    | Available   | A bar in the readme, the license and the ignore rules               |
+| Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves         |
+| Pinned tabs            | Available   | Lead their strip, and a batch close passes them over                |
+| Secondary side panel   | In progress | Holds the file tree and the asset inspector                         |
+| Preview tabs           | Available   | A tab of its own, or one replaceable tab per group. A setting picks |
+| Reopen a closed tab    | Available   | `Ctrl+Shift+T` and a command, over the session's last twenty        |
+| Tree search            | Planned     | Reads every layer, and groups a result by layer                     |
+| Tab title prefix       | Available   | The layer after the title, where two tabs take the same name        |
+| Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it          |
+| Panel host choice      | Planned     | Either side panel accepts any panel type                            |
+| Tree expansion rules   | Planned     | Stops the full expand of every directory                            |
+| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer              |
+| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                        |
+| Directory size and bar | Planned     | Needs a size total for each directory                               |
+| File type filter       | In progress | The kind groups, in a game grid. The layer file tree remains        |
+| Explorer bar           | In progress | The two game explorers draw it. The layer file tree remains         |
+| Breadcrumb navigator   | In progress | Crumbs, caret menus and `Ctrl+L`. The fold is by count, not width   |
+| Grid view              | In progress | Tiles in the two game explorers. The layer file tree remains        |
+| Asset thumbnails       | Available   | `?w=` and the queue, which the bin swatch already rode              |
+| Details list           | In progress | Name, size and kind in the two game explorers. Modified remains     |
+| Explorer sorting       | In progress | Name, size and kind, directories first. The layer tree remains      |
+| Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views          |
+| Multi-select and copy  | In progress | One model under both game views. The layer file tree remains        |
+| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                         |
+| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                 |
+| Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)            |
+| Object tab             | Available   | One declaration as a document. ADR-0028                             |
+| Objects browser        | Available   | Every object of the install, one tree over its paths                |
+| References document    | Available   | A class's objects from the index, the rest from a walk              |
+| Mesh preview           | Planned     | A model in a small viewport                                         |
+| Modified time          | Planned     | Needs a time field in the content scan                              |
+| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index              |
+| Game browser           | In progress | A folded read-only tree and a grid over it, on one bar              |
+| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains            |
+| Scoped game browser    | Available   | One tab for each archive, from either list of archives              |
+| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings           |
+| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain            |
+| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick              |
+| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once             |
+| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer                   |
+| Held mark              | Proposed    | A game row that the selected layer holds. No backend work           |
+| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer            |
+| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains                     |
+| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view            |
+| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**                 |
+| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**                |
+| Source control section | Planned     | Git history for the declarative data                                |
+| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                     |
+| Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it       |
+| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains         |
+| Project bar            | Available   | Takes the header's middle, from the project name title              |
+| Command palette        | Available   | The project, the game and the bin objects of both halves            |
+| Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions  |
+| Project object index   | Available   | The layers' own bins, read with the content scan, matched in place  |
+| Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed  |
+| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                 |
+| Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories     |
+| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for          |
+| Merged layer view      | Proposed    | Names the layer that wins for each path                             |
+| Layer diff             | Proposed    | Compares one path across two layers                                 |
+| Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md)  |
+| Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent               |
+| Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`         |
+| Texture facts          | Available   | In the preview's status strip. The inspector row remains            |
 
 ## Scope
 
@@ -403,12 +404,14 @@ index, the game WADs, the objects browser, the problems list, the readme, the li
 ignore rules and the references. A route to a document already open activates the tab it sits
 in. A route to a file the project does not hold yet opens the document that writes it.
 
-**View** holds the four closes and the maximize beside the splits, the pin and the lock. Each
-close acts on the focused group and its active tab, through the queue that group's surface
-published. A dirty document asks the question it asks from the strip's own menu. A close
+**View** holds the four closes, the reopen and the maximize beside the splits, the pin and the
+lock. Each close acts on the focused group and its active tab, through the queue that group's
+surface published. A dirty document asks the question it asks from the strip's own menu. A close
 with nothing to take is disabled and names what holds it: a strip of pinned tabs alone, or a
-tab with nothing to its right. **Maximize the panel** reads **Restore the panel** while a
-panel fills the grid, and gives the tree back whichever group that panel belongs to.
+tab with nothing to its right. **Reopen the closed tab** puts the newest closed tab back, per
+[Reopening a closed tab](#reopening-a-closed-tab), and reads **Nothing closed yet** while the
+project has closed none. **Maximize the panel** reads **Restore the panel** while a panel fills
+the grid, and gives the tree back whichever group that panel belongs to.
 
 ## The scan of the game
 
@@ -2316,6 +2319,7 @@ one open document. The active document fills the surface below the row.
 - Deleting a layer closes every tab that layer opened: its file tree, its locales and every
   preview of one of its files, in whichever group each one sits in
 - The focused group answers the editor's keys. Read [The editor's keys](#the-editors-keys)
+- A closed tab comes back. Read [Reopening a closed tab](#reopening-a-closed-tab)
 - A strip too full for its width lists what it holds. Read
   [A full strip lists its tabs](#a-full-strip-lists-its-tabs)
 
@@ -2330,6 +2334,7 @@ the palette, a dialog or a menu stands over the editor belongs to whatever is on
 | Key                | Does                                                      |
 | ------------------ | --------------------------------------------------------- |
 | `Ctrl+W`           | Closes the active tab, through the unsaved-edits question |
+| `Ctrl+Shift+T`     | Reopens the newest closed tab                             |
 | `Ctrl+Tab`         | Next tab, wrapping at the end                             |
 | `Ctrl+Shift+Tab`   | Previous tab, wrapping at the start                       |
 | `Ctrl+PageDown`    | Next tab                                                  |
@@ -2354,6 +2359,24 @@ its own find bar. A bin or an object tab has no box, so the key opens the palett
 scope, which reads the rows of that tab. A document with neither leaves the key alone.
 
 A walk with nothing open goes nowhere, and an index past the end of the strip takes no tab.
+
+### Reopening a closed tab
+
+`Ctrl+Shift+T` puts the newest closed tab back, and a run of presses walks back through the
+closed tabs newest first. **Reopen the closed tab** in the palette's View group runs the same
+thing, and reads its reason while nothing is closed.
+
+- A tab lands in the group it was closed from, and in the focused group where a prune took
+  that group with the tab
+- It comes back permanent, whatever role it held, and takes back the pin it led its strip with
+- A batch close records its tabs in strip order, so a run of reopens rebuilds the strip
+- The list holds the last twenty closed tabs of the session, and a walk to another project and
+  back keeps them
+- A replaced ephemeral tab is not a closed tab. A walk through a tree replaces one per row,
+  and a list of those is a list of rows nobody asked to keep
+
+The list is session-only, the way the navigation history is. `.ltk/editor.json` holds where a
+user left a project, not what they closed on the way there.
 
 ### Finding text in a document
 
@@ -2566,8 +2589,18 @@ There are two answers, and the settings hold the choice.
   directory stays one tab wide
 
 A replaceable tab shows its name in italic, and a double click on the tab itself keeps it.
-The strip holds one at a time. A pin keeps it too, per [A pinned tab](#a-pinned-tab). A double
-click on a kept tab maximizes its panel, per [Maximizing a panel](#maximizing-a-panel).
+A pin keeps it too, per [A pinned tab](#a-pinned-tab). A double click on a kept tab maximizes
+its panel, per [Maximizing a panel](#maximizing-a-panel).
+
+**Each editor group holds its own replaceable tab.** A walk through a tree in one group
+replaces that group's tab and leaves every other group standing, so a split holds as many
+replaceable tabs as it holds groups. A reader comparing a texture in one group against a tree
+in another keeps the texture.
+
+A gesture that places a tab keeps it. A drag into another group and a split with the tab both
+say the document is worth keeping, so both make it permanent. A reorder inside one strip
+leaves the role alone, because the tab did not go anywhere. A group that gives up its
+replaceable tab holds none until its next open.
 
 ### What a tab's context menu holds
 
