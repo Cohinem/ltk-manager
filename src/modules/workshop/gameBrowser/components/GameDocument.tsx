@@ -51,7 +51,7 @@ import { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "../a
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { indexDirTarget } from "../extraction/utils/extractTargets";
 import { useGameSearchRevealTarget } from "../hooks/useGameSearchReveal";
-import { useSourcePreview } from "../hooks/useSourcePreview";
+import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview";
 import {
   buildIndexTree,
   flattenSourceTree,
@@ -322,6 +322,7 @@ export function GameIndexTree() {
   const expanded = useExpandedGameDirs();
   const toggleDir = useToggleGameDir();
   const openFile = useSourcePreview();
+  const previewFile = useSourceRowPreview();
   const sort = useExplorerSort();
 
   const root = useGameDir("");
@@ -374,6 +375,7 @@ export function GameIndexTree() {
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onOpen={openFile}
+        onPreview={previewFile}
         /* A shut row here holds no children yet, so the backend expands it
            through the index rather than the tree walking what it has. */
         dirTargets={(node) => [indexDirTarget(node.path)]}
@@ -398,6 +400,7 @@ interface GameIndexItemsProps {
 function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps) {
   const here = useGameDir(location);
   const openFile = useSourcePreview();
+  const previewFile = useSourceRowPreview();
   const filter = useExplorerFilter(EXPLORER_ID);
   const sort = useExplorerSort();
   const tileSize = useExplorerTileSize();
@@ -414,6 +417,10 @@ function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps
   const handleOpen = useCallback(
     (item: ExplorerFileItem) => openFile(fileNodeOf(item)),
     [openFile],
+  );
+  const handlePreview = useCallback(
+    (item: ExplorerFileItem) => previewFile(fileNodeOf(item)),
+    [previewFile],
   );
 
   const { run } = useExtractActions();
@@ -453,6 +460,7 @@ function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps
     ariaLabel: m.workshop_game_files_tree_label(),
     onDescend,
     onOpen: handleOpen,
+    onPreview: handlePreview,
     onUp,
     assetOf: gameAsset,
     renderMenu,

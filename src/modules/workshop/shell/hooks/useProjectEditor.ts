@@ -3,7 +3,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import type { BinRow } from "@/lib/tauri";
 import { type DropOutcome, type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
-import { useTabOpenMode } from "@/stores/workshopLayout";
+import { usePreviewOnClick } from "@/stores/workshopLayout";
 
 import {
   isShellPaneId,
@@ -97,10 +97,12 @@ export function useActiveDocumentId(): string | null {
   });
 }
 
-/** The ephemeral tab, which draws in italic and the next open replaces. */
-export function usePreviewDocumentId(): string | null {
+/** One group's ephemeral tab, which draws in italic and that group's next open replaces. */
+export function usePreviewDocumentId(leafId: string): string | null {
   const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).previewId);
+  return useWorkshopEditorStore(
+    (s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).previewIds[leafId] ?? null,
+  );
 }
 
 export function useDirtyDocumentIds(): ReadonlySet<string> {
@@ -194,8 +196,8 @@ export function useOpenDocument() {
  * Opens a document as the ephemeral tab, in place of whichever one holds that
  * role.
  *
- * What the `replace` tab mode calls. {@link useOpenDocumentTab} picks between
- * this and a permanent open, and is what a tree row actually wires up.
+ * What a single click on a row calls while the preview setting is on.
+ * {@link useOpenDocumentTab} picks between this and a permanent open.
  */
 export function useOpenPreview() {
   const projectPath = useProjectPath();
@@ -212,22 +214,42 @@ export function useOpenPreview() {
 }
 
 /**
- * Opens a document the way the user asked tabs to open.
+ * Opens a document the way the user asked a click to open one.
  *
- * What a tree row wires up. `append` gives the document its own tab and
- * `replace` reuses the ephemeral one, and either way a document that is
- * already open activates where it sits rather than opening twice.
+ * The replaceable tab while the setting is on, and a tab of its own while it is
+ * off. Either way a document that is already open activates where it sits
+ * rather than opening twice.
  */
 export function useOpenDocumentTab() {
-  const mode = useTabOpenMode();
+  const previewOnClick = usePreviewOnClick();
   const openPreview = useOpenPreview();
   const openDocument = useOpenDocument();
   return useCallback(
     (document: ContentDocument) => {
-      if (mode === "replace") openPreview(document);
+      if (previewOnClick) openPreview(document);
       else openDocument(document);
     },
-    [mode, openPreview, openDocument],
+    [previewOnClick, openPreview, openDocument],
+  );
+}
+
+/**
+ * What a single click on a tree row opens: the replaceable tab, or nothing.
+ *
+ * A click that opens nothing is a click that selects the row alone, which is
+ * what the setting off asks for. A double click opens through
+ * {@link useOpenDocument} either way, which keeps whatever the click previewed.
+ *
+ * Per "How a file opens" in `docs/ux/PROJECT_EDITOR.md`.
+ */
+export function useOpenRowPreview() {
+  const previewOnClick = usePreviewOnClick();
+  const openPreview = useOpenPreview();
+  return useCallback(
+    (document: ContentDocument) => {
+      if (previewOnClick) openPreview(document);
+    },
+    [previewOnClick, openPreview],
   );
 }
 
@@ -320,6 +342,29 @@ export function useCloseLayerDocuments() {
     (layerName: string) => closeLayerDocuments(projectPath, layerName),
     [closeLayerDocuments, projectPath],
   );
+}
+
+/** Whether a reopen has anything to put back, which the key and the command read. */
+export function useHasClosedDocuments(): boolean {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => s.closed.some((tab) => tab.project === projectPath));
+}
+
+/**
+ * Puts the newest tab this project closed back, permanent and pinned as it was.
+ *
+ * What `Ctrl+Shift+T` and the palette's own row ask for. A press with nothing
+ * closed does nothing.
+ */
+export function useReopenClosedDocument() {
+  const projectPath = useProjectPath();
+  return useCallback(() => {
+    const store = useWorkshopEditorStore.getState();
+    const document = store.reopenClosedDocument(projectPath);
+
+    const layerName = documentLayerName(document);
+    if (layerName) store.selectLayer(projectPath, layerName);
+  }, [projectPath]);
 }
 
 export function useReorderDocuments() {

@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                               |
-| ---------- | -------------------------------------------------------------------- |
-| 2026-09-18 | Command routes to every document, closes, maximize, and a strip list |
-| 2026-09-18 | Answer the editor's keys, and find text inside a text document       |
-| 2026-09-18 | Save from the close question, queue the rest, and guard a quit       |
-| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links  |
-| 2026-09-12 | Fill the primary side panel from a rail of views                     |
-| 2026-09-12 | Write a project's readme beside its rendered half                    |
-| 2026-09-12 | Report what the ignore rules left out of a package                   |
-| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude   |
-| 2026-09-11 | Maximize a panel from its tab                                        |
-| 2026-09-10 | Give the location and the box the explorer bar's first row           |
+| Date       | Change                                                                |
+| ---------- | --------------------------------------------------------------------- |
+| 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
+| 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
+| 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
+| 2026-09-18 | Answer the editor's keys, and find text inside a text document        |
+| 2026-09-18 | Save from the close question, queue the rest, and guard a quit        |
+| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links   |
+| 2026-09-12 | Fill the primary side panel from a rail of views                      |
+| 2026-09-12 | Write a project's readme beside its rendered half                     |
+| 2026-09-12 | Report what the ignore rules left out of a package                    |
+| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -58,7 +58,8 @@ This table holds every major feature of the editor. A status word has one meanin
 | Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves        |
 | Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
 | Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
-| Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
+| Preview tabs           | Available   | One reusable tab per group, opened beside the browser that asked   |
+| Reopen a closed tab    | Available   | `Ctrl+Shift+T` and a command, over the session's last twenty       |
 | Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
 | Tab title prefix       | Available   | The layer after the title, where two tabs take the same name       |
 | Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it         |
@@ -329,8 +330,8 @@ see in the tree does not come back.
 The switch that matters is Game. A modder who never copies a game file pays nothing for the
 scan, and a modder who does gets the whole install in the same box as their own project. The
 setting belongs to the application and not to the project, because it describes how a user
-works rather than what a project holds. It sits beside **Opening a file** in the same section,
-and `workshopLayout` persists it.
+works rather than what a project holds. It sits beside **Preview on a single click** in the same
+section, and `workshopLayout` persists it.
 
 ### Scopes
 
@@ -403,12 +404,14 @@ index, the game WADs, the objects browser, the problems list, the readme, the li
 ignore rules and the references. A route to a document already open activates the tab it sits
 in. A route to a file the project does not hold yet opens the document that writes it.
 
-**View** holds the four closes and the maximize beside the splits, the pin and the lock. Each
-close acts on the focused group and its active tab, through the queue that group's surface
-published. A dirty document asks the question it asks from the strip's own menu. A close
+**View** holds the four closes, the reopen and the maximize beside the splits, the pin and the
+lock. Each close acts on the focused group and its active tab, through the queue that group's
+surface published. A dirty document asks the question it asks from the strip's own menu. A close
 with nothing to take is disabled and names what holds it: a strip of pinned tabs alone, or a
-tab with nothing to its right. **Maximize the panel** reads **Restore the panel** while a
-panel fills the grid, and gives the tree back whichever group that panel belongs to.
+tab with nothing to its right. **Reopen the closed tab** puts the newest closed tab back, per
+[Reopening a closed tab](#reopening-a-closed-tab), and is disabled with **Nothing closed yet**
+while the project has closed none. **Maximize the panel** reads **Restore the panel** while a panel fills
+the grid, and gives the tree back whichever group that panel belongs to.
 
 ## The scan of the game
 
@@ -2316,6 +2319,7 @@ one open document. The active document fills the surface below the row.
 - Deleting a layer closes every tab that layer opened: its file tree, its locales and every
   preview of one of its files, in whichever group each one sits in
 - The focused group answers the editor's keys. Read [The editor's keys](#the-editors-keys)
+- A closed tab comes back. Read [Reopening a closed tab](#reopening-a-closed-tab)
 - A strip too full for its width lists what it holds. Read
   [A full strip lists its tabs](#a-full-strip-lists-its-tabs)
 
@@ -2330,6 +2334,7 @@ the palette, a dialog or a menu stands over the editor belongs to whatever is on
 | Key                | Does                                                      |
 | ------------------ | --------------------------------------------------------- |
 | `Ctrl+W`           | Closes the active tab, through the unsaved-edits question |
+| `Ctrl+Shift+T`     | Reopens the newest closed tab                             |
 | `Ctrl+Tab`         | Next tab, wrapping at the end                             |
 | `Ctrl+Shift+Tab`   | Previous tab, wrapping at the start                       |
 | `Ctrl+PageDown`    | Next tab                                                  |
@@ -2354,6 +2359,26 @@ its own find bar. A bin or an object tab has no box, so the key opens the palett
 scope, which reads the rows of that tab. A document with neither leaves the key alone.
 
 A walk with nothing open goes nowhere, and an index past the end of the strip takes no tab.
+
+### Reopening a closed tab
+
+`Ctrl+Shift+T` puts the newest closed tab back, and a run of presses walks back through the
+closed tabs newest first. **Reopen the closed tab** in the palette's View group runs the same
+thing, and reads its reason while nothing is closed.
+
+- A tab lands in the group it was closed from, and in the focused group where a prune took
+  that group with the tab
+- It comes back permanent, whatever role it held, and takes back the pin it led its strip with
+- A batch close records its tabs in strip order, so a run of reopens rebuilds the strip
+- The list holds the last twenty closed tabs of each project of the session, and a walk to
+  another project and back keeps them
+- A layer delete takes its documents with the layer. Its file tree, its locales and every
+  preview of its files have nothing left to read, so none of them comes back
+- A replaced ephemeral tab is not a closed tab. A walk through a tree replaces one per row,
+  and a list of those is a list of rows nobody asked to keep
+
+The list is session-only, the way the navigation history is. `.ltk/editor.json` holds where a
+user left a project, not what they closed on the way there.
 
 ### Finding text in a document
 
@@ -2549,25 +2574,42 @@ reason, which turns the sum back into a ratio at every zoom.
 
 ### How a file opens
 
-Opening is a deliberate gesture. A single click on a tree row selects it, a double click
-opens it, and the row's context menu offers **Open** for the same thing. A single click used
-to open, which turned every walk through a tree into a series of loads.
+A single click on a tree row opens it in the group's one replaceable tab, and a double click
+keeps what it opened. The next click then takes a fresh replaceable tab beside the kept one, so
+a reader walks a directory in one tab and keeps the files worth keeping as they go. The row's
+context menu offers **Open** for a tab of its own.
+
+The cost a click used to carry is what the replaceable tab answers: a walk through a tree
+loads one file at a time and leaves one tab behind, whatever it passed through.
+
+**Preview on a single click** in the Project editor settings turns it off, and a click then
+selects the row alone while a double click opens a tab of its own.
+
+A click carrying `Ctrl`, `Shift` or `Cmd` in a grid or a details list is a click about the
+selection, so it opens nothing.
 
 ### Preview tabs
 
 A scan of a large layer opens one tab for each file that a user looks at. The strip then
 holds more tabs than a user can read, and the user closes them by hand.
 
-There are two answers, and the settings hold the choice.
-
-- **New tab**, the default - every open adds a tab, so four textures compared against each
-  other are four tabs
-- **Reuse tab** - one replaceable tab holds whatever opened last, so a walk through a
-  directory stays one tab wide
+The replaceable tab is the answer, and **Preview on a single click** in the settings holds the
+choice. On, a click reuses one tab and a double click keeps it. Off, every open adds a tab, so
+four textures compared against each other are four tabs.
 
 A replaceable tab shows its name in italic, and a double click on the tab itself keeps it.
-The strip holds one at a time. A pin keeps it too, per [A pinned tab](#a-pinned-tab). A double
-click on a kept tab maximizes its panel, per [Maximizing a panel](#maximizing-a-panel).
+A pin keeps it too, per [A pinned tab](#a-pinned-tab). A double click on a kept tab maximizes
+its panel, per [Maximizing a panel](#maximizing-a-panel).
+
+**Each editor group holds its own replaceable tab.** A walk through a tree in one group
+replaces that group's tab and leaves every other group standing, so a split holds as many
+replaceable tabs as it holds groups. A reader comparing a texture in one group against a tree
+in another keeps the texture.
+
+A gesture that places a tab keeps it. A drag into another group and a split with the tab both
+say the document is worth keeping, so both make it permanent. A reorder inside one strip
+leaves the role alone, because the tab did not go anywhere. A group that gives up its
+replaceable tab holds none until its next open.
 
 ### What a tab's context menu holds
 
@@ -2619,11 +2661,14 @@ A document that holds unsaved edits and offers no save of its own keeps the wind
 
 ### Where a preview opens
 
-Every preview opens as a tab, in one group of its own beside whatever asked for it. The
-first preview splits that group off the requesting one, and every later preview joins it.
-The browser keeps its own group either way, so a walk through a tree never pushes the tree
-off screen. A group that is empty takes the preview instead of splitting, since one half of
-that split would show nothing.
+Every preview opens as a tab, in the group beside the one that asked for it. A group with no
+neighbour splits one off to its right, and a group that is empty takes the preview instead of
+splitting, since one half of that split would show nothing. The browser keeps its own group
+either way, so a walk through a tree never pushes the tree off screen.
+
+A group already showing a preview takes the next one, which is what keeps a walk continued
+from the preview itself out of the browser's strip. A locked group takes neither, and the
+preview goes to the group beside it.
 
 Nothing else moves. A document opened from the sidebar lands in the focused group, as
 before, and a preview dragged out of the group settles wherever it is dropped - the group

@@ -1,6 +1,6 @@
 import { TabsIcon } from "@phosphor-icons/react";
 
-import { SectionCard, SegmentedControl, Separator, Switch } from "@/components";
+import { SectionCard, Separator, Switch } from "@/components";
 import {
   useForwardLookingMeta,
   useSearchGame,
@@ -8,21 +8,16 @@ import {
   useSetForwardLookingMeta,
   useSetSearchGame,
   useSetSearchObjects,
-  useSetTabOpenMode,
-  useTabOpenMode,
+  usePreviewOnClick,
+  useSetPreviewOnClick,
 } from "@/stores";
 
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
 
-const TAB_OPEN_OPTIONS = [
-  { value: "append" as const, label: "New tab" },
-  { value: "replace" as const, label: "Reuse tab" },
-];
-
 export function ProjectEditorSection() {
-  const tabOpenMode = useTabOpenMode();
-  const setTabOpenMode = useSetTabOpenMode();
+  const previewOnClick = usePreviewOnClick();
+  const setPreviewOnClick = useSetPreviewOnClick();
   const searchGame = useSearchGame();
   const setSearchGame = useSetSearchGame();
   const searchObjects = useSearchObjects();
@@ -38,15 +33,10 @@ export function ProjectEditorSection() {
     >
       <SettingRows>
         <SettingRow
-          setting="layout.tabOpenMode"
-          description="Reusing keeps one tab and swaps what it holds, so a walk through a directory stays one tab wide."
-          control={
-            <SegmentedControl
-              options={TAB_OPEN_OPTIONS}
-              value={tabOpenMode}
-              onChange={setTabOpenMode}
-            />
-          }
+          setting="layout.previewOnClick"
+          description="A click opens the file in one replaceable tab, and a double click keeps it."
+          hint="Off, a click selects the row and a double click opens a tab of its own."
+          control={<Switch checked={previewOnClick} onCheckedChange={setPreviewOnClick} />}
         />
 
         <Separator className="my-0" />

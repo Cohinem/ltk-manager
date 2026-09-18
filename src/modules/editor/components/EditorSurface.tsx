@@ -45,6 +45,8 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   onFocus?: () => void;
   /** Where a find goes for an active document with no search box of its own. */
   onFindElsewhere?: () => void;
+  /** Puts the newest closed tab back, which `Ctrl+Shift+T` asks the focused group for. */
+  onReopenClosed?: () => void;
   /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
   focused?: boolean;
   /** Shown while nothing is open. */
@@ -84,6 +86,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
   onMaximize,
   onFocus,
   onFindElsewhere,
+  onReopenClosed,
   focused,
   empty,
   className,
@@ -147,6 +150,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
     onActivate,
     onClose: close.closeOne,
     onFindElsewhere,
+    onReopenClosed,
   });
 
   return (

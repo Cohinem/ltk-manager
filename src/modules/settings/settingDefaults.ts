@@ -120,7 +120,7 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   "display.scrollMode": titleCase,
   "display.scrollbarSize": titleCase,
 
-  "layout.tabOpenMode": titleCase,
+  "layout.previewOnClick": onOff,
   "layout.searchGame": onOff,
   "layout.searchObjects": onOff,
   "layout.forwardLookingMeta": onOff,

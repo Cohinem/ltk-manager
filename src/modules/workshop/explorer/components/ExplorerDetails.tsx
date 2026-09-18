@@ -28,6 +28,7 @@ export interface ExplorerDetailsProps {
   ariaLabel: string;
   onDescend: (path: string) => void;
   onOpen: (item: ExplorerFileItem) => void;
+  onPreview?: (item: ExplorerFileItem) => void;
   onUp: () => void;
   assetOf: (item: ExplorerItem) => AssetRef | null;
   renderMenu?: (item: ExplorerItem | null) => ReactNode;
@@ -48,6 +49,7 @@ export function ExplorerDetails({
   ariaLabel,
   onDescend,
   onOpen,
+  onPreview,
   onUp,
   assetOf,
   renderMenu,
@@ -167,6 +169,7 @@ export function ExplorerDetails({
             }
             onDescend={onDescend}
             onOpen={onOpen}
+            onPreview={onPreview}
             onUp={onUp}
             renderMenu={renderMenu}
             onRun={onRun}

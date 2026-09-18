@@ -40,10 +40,12 @@ export interface EditorKeysOptions {
   onClose: (id: string) => void;
   /** Where a find goes for a document with no search box of its own. */
   onFindElsewhere?: () => void;
+  /** Puts the newest closed tab back. Absent leaves the key unbound. */
+  onReopenClosed?: () => void;
 }
 
 /**
- * The keys one editor group answers: close, walk, take by index, save, find.
+ * The keys one editor group answers: close, reopen, walk, take by index, save, find.
  *
  * Per "The editor's keys" in `docs/ux/PROJECT_EDITOR.md`. Bound by every group
  * and answered by the focused one, so a key reads the strip a reader is looking
@@ -56,6 +58,7 @@ export function useEditorKeys({
   onActivate,
   onClose,
   onFindElsewhere,
+  onReopenClosed,
 }: EditorKeysOptions): void {
   const toast = useToast();
 
@@ -108,7 +111,13 @@ export function useEditorKeys({
     onFindElsewhere?.();
   }
 
+  function reopenClosed() {
+    if (claimed()) return;
+    onReopenClosed?.();
+  }
+
   useHotkeys("ctrl+w", closeActive, { ...OPTIONS, enabled }, [enabled, activeId, onClose]);
+  useHotkeys("ctrl+shift+t", reopenClosed, { ...OPTIONS, enabled }, [enabled, onReopenClosed]);
   useHotkeys("ctrl+tab, ctrl+pagedown", () => walk(1), { ...OPTIONS, enabled }, [
     enabled,
     documentIds,

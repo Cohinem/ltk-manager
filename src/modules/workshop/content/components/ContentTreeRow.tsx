@@ -65,6 +65,8 @@ interface TreeRowProps {
   onSelect: (index: number) => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: FileNode) => void;
+  /** A single click on a file row, which previews it while the setting is on. */
+  onPreview?: (node: FileNode) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
@@ -79,6 +81,7 @@ function TreeRowInner({
   onToggle,
   onSelect,
   onOpen,
+  onPreview,
   height,
   rowIndex,
   tabIndex,
@@ -106,6 +109,7 @@ function TreeRowInner({
       isSelected={isSelected}
       onSelect={onSelect}
       onOpen={onOpen}
+      onPreview={onPreview}
       height={height}
       rowIndex={rowIndex}
       tabIndex={tabIndex}
@@ -212,6 +216,7 @@ interface FileRowProps {
   isSelected: boolean;
   onSelect: (index: number) => void;
   onOpen?: (node: FileNode) => void;
+  onPreview?: (node: FileNode) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
@@ -223,6 +228,7 @@ function FileRow({
   isSelected,
   onSelect,
   onOpen,
+  onPreview,
   height,
   rowIndex,
   tabIndex,
@@ -239,7 +245,10 @@ function FileRow({
       data-ui="ContentTreeRow:file"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={() => onSelect(rowIndex)}
+      onClick={() => {
+        onSelect(rowIndex);
+        onPreview?.(node);
+      }}
       onDoubleClick={() => onOpen?.(node)}
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}

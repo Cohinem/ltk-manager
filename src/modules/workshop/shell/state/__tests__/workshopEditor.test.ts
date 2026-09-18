@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { BinRow } from "@/lib/tauri";
-import { findLeaf, leafHolding, leaves, singleLeaf } from "@/modules/editor";
+import { findLeaf, leafHolding, leaves, neighbourLeaf, singleLeaf } from "@/modules/editor";
 import {
   detailsDocument,
   filesDocument,
@@ -36,6 +36,11 @@ function editorOf(projectPath: string) {
 
 function tabsOf(projectPath: string, leafId: string): readonly string[] {
   return findLeaf(editorOf(projectPath).layout, leafId)?.tabs ?? [];
+}
+
+/** One group's ephemeral tab, which is the tab that group's next open replaces. */
+function previewOf(projectPath: string, leafId: string): string | null {
+  return editorOf(projectPath).previewIds[leafId] ?? null;
 }
 
 function activeTabOf(projectPath: string, leafId: string): string | null {
@@ -76,7 +81,7 @@ const CURVE_ROW: BinRow = {
 
 describe("workshopEditor store", () => {
   beforeEach(() => {
-    useWorkshopEditorStore.setState({ byProject: {}, history: [], historyIndex: -1 });
+    useWorkshopEditorStore.setState({ byProject: {}, history: [], historyIndex: -1, closed: [] });
   });
 
   describe("aimCurve", () => {
@@ -204,7 +209,7 @@ describe("workshopEditor store", () => {
       store().openPreview(A, document);
 
       expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
-      expect(editorOf(A).previewId).toBe(document.id);
+      expect(previewOf(A, ROOT_LEAF)).toBe(document.id);
     });
 
     /* Removing and re-inserting would send the tab to the end of the strip and
@@ -219,7 +224,7 @@ describe("workshopEditor store", () => {
       store().openPreview(A, second);
 
       expect(tabsOf(A, previews)).toEqual([second.id, "files:base"]);
-      expect(editorOf(A).previewId).toBe(second.id);
+      expect(previewOf(A, previews)).toBe(second.id);
       expect(editorOf(A).documents["preview:layer:base:first.tex"]).toBeUndefined();
     });
 
@@ -234,22 +239,37 @@ describe("workshopEditor store", () => {
 
       expect(tabsOf(A, previews)).toEqual([document.id]);
       expect(activeTabOf(A, previews)).toBe(document.id);
-      expect(editorOf(A).previewId).toBe(document.id);
+      expect(previewOf(A, previews)).toBe(document.id);
     });
 
-    /* One preview across the whole project, so a click in a second group
-       replaces the first group's rather than leaving two on screen. */
-    it("replaces a preview held by another leaf", () => {
+    /* One ephemeral tab per group, so a walk through a tree in one group
+       leaves the tab another group is showing standing. */
+    it("keeps the ephemeral tab another group holds", () => {
       const first = preview("first.tex");
       store().openPreview(A, first);
+      const held = editorOf(A).activeLeafId;
       const other = splitApart(A);
       const second = preview("second.tex");
 
       store().openPreview(A, second, other);
 
+      expect(openIds(A)).toContain(first.id);
+      expect(previewOf(A, held)).toBe(first.id);
+      expect(previewOf(A, other)).toBe(second.id);
+    });
+
+    /* The group the open lands in is the group that gives up a tab. */
+    it("replaces the ephemeral tab of the group it opens into", () => {
+      const other = splitApart(A);
+      const first = preview("first.tex");
+      store().openPreview(A, first, other);
+      const second = preview("second.tex");
+
+      store().openPreview(A, second, other);
+
       expect(openIds(A)).not.toContain(first.id);
-      expect(openIds(A)).toContain(second.id);
-      expect(editorOf(A).previewId).toBe(second.id);
+      expect(previewOf(A, other)).toBe(second.id);
+      expect(editorOf(A).documents[first.id]).toBeUndefined();
     });
   });
 
@@ -285,6 +305,26 @@ describe("workshopEditor store", () => {
       expect(tabsOf(A, previews)).toEqual([first.id, second.id]);
     });
 
+    /* The group beside the browser that asked, rather than whichever group of
+       the grid happens to hold a preview. */
+    it("lands beside the group that asked, not in a far preview group", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, preview("first.tex"));
+      const previews = editorOf(A).activeLeafId;
+      store().openDocument(A, filesDocument("base"), ROOT_LEAF);
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "bottom");
+      const browser = editorOf(A).activeLeafId;
+
+      const second = preview("second.tex");
+      store().openDocument(A, second);
+
+      expect(tabsOf(A, previews)).toEqual(["preview:layer:base:first.tex"]);
+      expect(tabsOf(A, browser)).toEqual(["files:base"]);
+      expect(leafHolding(editorOf(A).layout, second.id)?.id).toBe(
+        neighbourLeaf(editorOf(A).layout, browser)?.id,
+      );
+    });
+
     /* Everything else opens where the focus is, so the sidebar's own documents
        do not scatter across the grid. */
     it("leaves a document that is not a preview in the focused group", () => {
@@ -313,7 +353,7 @@ describe("workshopEditor store", () => {
       store().promoteDocument(A, document.id);
 
       expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
-      expect(editorOf(A).previewId).toBeNull();
+      expect(previewOf(A, ROOT_LEAF)).toBeNull();
     });
 
     it("returns the same state for a document that is not the preview", () => {
@@ -334,7 +374,7 @@ describe("workshopEditor store", () => {
       store().openDocument(A, document);
 
       expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
-      expect(editorOf(A).previewId).toBeNull();
+      expect(previewOf(A, ROOT_LEAF)).toBeNull();
     });
   });
 
@@ -401,6 +441,143 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("reopenClosedDocument", () => {
+    it("brings three closed tabs back, newest first", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().closeDocument(A, ROOT_LEAF, "details");
+      store().closeDocument(A, ROOT_LEAF, "game");
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(store().reopenClosedDocument(A)?.id).toBe("files:base");
+      expect(store().reopenClosedDocument(A)?.id).toBe("game");
+      expect(store().reopenClosedDocument(A)?.id).toBe("details");
+      expect(openIds(A).sort()).toEqual(["details", "files:base", "game"]);
+    });
+
+    it("lands in the group the tab was closed from", () => {
+      const rightLeaf = splitApart(A);
+      store().openDocument(A, gameDocument(), rightLeaf);
+      store().closeDocument(A, rightLeaf, "game");
+
+      store().reopenClosedDocument(A);
+
+      expect(tabsOf(A, rightLeaf)).toEqual(["files:base", "game"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("game");
+      expect(editorOf(A).activeLeafId).toBe(rightLeaf);
+    });
+
+    /* Closing a leaf's last tab prunes it, so the group the tab names is gone
+       by the time the reopen runs. */
+    it("lands in the focused group when the group it left is gone", () => {
+      const rightLeaf = splitApart(A);
+      store().closeDocument(A, rightLeaf, "files:base");
+
+      store().reopenClosedDocument(A);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "files:base"]);
+    });
+
+    it("gives a pinned tab its pin back", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().setDocumentPinned(A, "game", true);
+      store().closeDocument(A, ROOT_LEAF, "game");
+
+      store().reopenClosedDocument(A);
+
+      expect(editorOf(A).pinned).toEqual(["game"]);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "details"]);
+    });
+
+    /* Permanent whatever role it held, the way a drag into another group
+       leaves a tab permanent. */
+    it("reopens an ephemeral tab as a permanent one", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+      store().closeDocument(A, ROOT_LEAF, document.id);
+
+      store().reopenClosedDocument(A);
+
+      expect(editorOf(A).previewIds).toEqual({});
+      expect(openIds(A)).toEqual([document.id]);
+    });
+
+    it("keeps one project's closed tabs out of another's", () => {
+      store().openDocument(A, detailsDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+      store().openDocument(B, gameDocument());
+
+      expect(store().reopenClosedDocument(B)).toBeNull();
+      expect(store().reopenClosedDocument(A)?.id).toBe("details");
+      expect(openIds(B)).toEqual(["game"]);
+    });
+
+    it("returns null while the project has closed nothing", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      expect(store().reopenClosedDocument(A)).toBeNull();
+      expect(store().byProject).toBe(before);
+    });
+
+    /* A walk through a tree replaces a preview per row, and a reopen list of
+       those is a list of rows the user never asked to keep. */
+    it("holds no tab a preview replaced", () => {
+      store().openPreview(A, previewDocument({ kind: "file", path: "C:/loose/first.tex" }));
+      store().openPreview(A, previewDocument({ kind: "file", path: "C:/loose/second.tex" }));
+
+      expect(store().reopenClosedDocument(A)).toBeNull();
+    });
+
+    /* The layer is gone, so its file tree, its locales and every preview of its
+       files have nothing left to read. */
+    it("holds no tab a layer delete took", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(A, stringsDocument("base", "en_us"));
+
+      store().closeLayerDocuments(A, "base");
+
+      expect(store().reopenClosedDocument(A)).toBeNull();
+    });
+
+    /* One project's closes cannot push another project's tabs off the list. */
+    it("keeps a project's closed tabs through a run of closes in another", () => {
+      store().openDocument(A, detailsDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      for (let at = 0; at < 25; at += 1) {
+        const document = previewDocument({ kind: "file", path: `C:/loose/icon${at}.tex` });
+        store().openDocument(B, document);
+        const holder = leafHolding(editorOf(B).layout, document.id);
+        if (holder) store().closeDocument(B, holder.id, document.id);
+      }
+
+      expect(store().reopenClosedDocument(A)?.id).toBe("details");
+    });
+
+    it("drops the closed tabs of a project the shell forgot", () => {
+      store().openDocument(A, detailsDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      store().forgetProject(A);
+
+      expect(store().closed).toEqual([]);
+    });
+
+    it("carries the closed tabs of a project a rename moved", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      store().moveProject(A, B);
+
+      expect(store().reopenClosedDocument(B)?.id).toBe("details");
+    });
+  });
+
   describe("moveDocument", () => {
     it("carries the tab to the target leaf and focuses it", () => {
       const rightLeaf = splitApart(A);
@@ -412,6 +589,24 @@ describe("workshopEditor store", () => {
       expect(tabsOf(A, rightLeaf)).toEqual(["files:base", "details"]);
       expect(activeTabOf(A, rightLeaf)).toBe("details");
       expect(editorOf(A).activeLeafId).toBe(rightLeaf);
+    });
+
+    /* A drag into another group is a deliberate placement, so the next open
+       cannot take the tab away again. */
+    it("promotes an ephemeral tab dragged into another group", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/first.tex" });
+      store().openPreview(A, document);
+      const rightLeaf = splitApart(A);
+
+      store().moveDocument(A, document.id, rightLeaf);
+
+      expect(previewOf(A, ROOT_LEAF)).toBeNull();
+      expect(previewOf(A, rightLeaf)).toBeNull();
+      expect(tabsOf(A, rightLeaf)).toContain(document.id);
+
+      store().openPreview(A, previewDocument({ kind: "file", path: "C:/loose/second.tex" }));
+
+      expect(openIds(A)).toContain(document.id);
     });
   });
 
@@ -435,6 +630,19 @@ describe("workshopEditor store", () => {
       store().splitWithDocument(A, "details", ROOT_LEAF, "right");
 
       expect(store().byProject).toBe(before);
+    });
+
+    /* A split places the tab in a group of its own, which says the same thing
+       a move into another group says. */
+    it("promotes the ephemeral tab it splits with", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+      store().openDocument(A, detailsDocument());
+
+      store().splitWithDocument(A, document.id, ROOT_LEAF, "right");
+
+      expect(editorOf(A).previewIds).toEqual({});
+      expect(tabsOf(A, editorOf(A).activeLeafId)).toEqual([document.id]);
     });
   });
 
@@ -512,7 +720,7 @@ describe("workshopEditor store", () => {
 
       store().setDocumentPinned(A, document.id, true);
 
-      expect(editorOf(A).previewId).toBeNull();
+      expect(previewOf(A, leafId)).toBeNull();
       expect(tabsOf(A, leafId)).toEqual([document.id]);
     });
 
@@ -613,7 +821,9 @@ describe("workshopEditor store", () => {
       expect(tabsOf(A, right)).toEqual(["files:base", "game", "details"]);
     });
 
-    it("keeps the preview tab of a locked group and opens the next one elsewhere", () => {
+    /* The lock holds the group against an open it did not ask for, so the next
+       preview goes to the group beside it rather than taking its tab. */
+    it("keeps the preview tab of a locked group and opens the next one beside it", () => {
       store().openDocument(A, detailsDocument());
       const first = preview("first.tex");
       store().openPreview(A, first);
@@ -624,8 +834,10 @@ describe("workshopEditor store", () => {
       store().openPreview(A, second);
 
       expect(tabsOf(A, previews)).toEqual([first.id]);
-      expect(editorOf(A).previewId).toBe(second.id);
-      expect(leaves(editorOf(A).layout)).toHaveLength(3);
+      expect(previewOf(A, previews)).toBe(first.id);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", second.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBe(second.id);
+      expect(leaves(editorOf(A).layout)).toHaveLength(2);
     });
 
     it("returns the same state for a leaf that already reads that way", () => {
@@ -707,6 +919,19 @@ describe("workshopEditor store", () => {
 
       expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "files:base"]);
     });
+
+    /* A reorder inside one strip leaves the role alone: the tab did not go
+       anywhere, so nothing was placed. */
+    it("leaves an ephemeral tab ephemeral", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+      store().openDocument(A, detailsDocument());
+
+      store().reorderDocuments(A, ROOT_LEAF, ["details", document.id]);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", document.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBe(document.id);
+    });
   });
 
   describe("moveProject", () => {
@@ -781,7 +1006,7 @@ describe("workshopEditor store", () => {
         layout,
         activeLeafId: layout.id,
         selectedLayer: "base",
-        previewId: null,
+        previewIds: {},
         pinned: ["details"],
         shells: defaultShellArrangements(),
       });

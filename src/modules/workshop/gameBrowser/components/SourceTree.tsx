@@ -37,6 +37,8 @@ interface SourceTreeProps {
   onToggle: (node: SourceDirNode) => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: SourceFileNode) => void;
+  /** A single click on a file row, which previews it while the setting is on. */
+  onPreview?: (node: SourceFileNode) => void;
   /** Names this tree's scroll to the browser store. Absent starts at the top. */
   scrollKey?: string;
   /**
@@ -65,6 +67,7 @@ export function SourceTree({
   isExpanded,
   onToggle,
   onOpen,
+  onPreview,
   scrollKey,
   dirTargets = filesUnder,
   selection,
@@ -230,6 +233,7 @@ export function SourceTree({
                   onSelect={handleRowSelect}
                   onFocusRow={handleFocusRow}
                   onOpen={onOpen}
+                  onPreview={onPreview}
                   height={rowHeight}
                   rowIndex={pin.index}
                   tabIndex={-1}
@@ -266,6 +270,7 @@ export function SourceTree({
                     onSelect={handleRowSelect}
                     onFocusRow={handleFocusRow}
                     onOpen={onOpen}
+                    onPreview={onPreview}
                     height={rowHeight}
                     rowIndex={virtualRow.index}
                     tabIndex={focused ? 0 : -1}

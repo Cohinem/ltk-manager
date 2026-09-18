@@ -1,4 +1,5 @@
 import {
+  ArrowCounterClockwiseIcon,
   ArrowLineRightIcon,
   CornersInIcon,
   CornersOutIcon,
@@ -12,10 +13,12 @@ import { anyClosable, type LeafCloses, leafCloses } from "@/modules/editor";
 
 import {
   useActiveLeafId,
+  useHasClosedDocuments,
   useLeafActiveId,
   useLeafTabs,
   useMaximizedLeafId,
   usePinnedDocumentIds,
+  useReopenClosedDocument,
   useRestoreMaximizedLeaf,
   useToggleMaximizedLeaf,
 } from "../../state";
@@ -46,6 +49,8 @@ export function useGroupCommands(): readonly ProjectCommand[] {
   const maximizedLeafId = useMaximizedLeafId();
   const toggleMaximized = useToggleMaximizedLeaf();
   const restoreMaximized = useRestoreMaximizedLeaf();
+  const hasClosed = useHasClosedDocuments();
+  const reopenClosed = useReopenClosedDocument();
 
   return useMemo<readonly ProjectCommand[]>(() => {
     const ids = tabs.map((tab) => tab.id);
@@ -108,6 +113,17 @@ export function useGroupCommands(): readonly ProjectCommand[] {
         disabledReason: batch.length === 0 ? empty : PINNED_THROUGH,
       })),
       {
+        id: "view.reopenClosed",
+        title: "Reopen the closed tab",
+        group: VIEW,
+        keywords: ["restore", "undo", "back", "strip"],
+        icon: <ArrowCounterClockwiseIcon className={GLYPH} />,
+        shortcut: "Ctrl+Shift+T",
+        enabled: hasClosed,
+        disabledReason: "Nothing closed yet",
+        run: reopenClosed,
+      },
+      {
         id: "view.maximize",
         title: maximized ? "Restore the panel" : "Maximize the panel",
         group: VIEW,
@@ -124,5 +140,15 @@ export function useGroupCommands(): readonly ProjectCommand[] {
         run: () => (maximized ? restoreMaximized() : toggleMaximized(activeLeafId)),
       },
     ];
-  }, [activeId, activeLeafId, maximizedLeafId, pinnedIds, restoreMaximized, tabs, toggleMaximized]);
+  }, [
+    activeId,
+    activeLeafId,
+    hasClosed,
+    maximizedLeafId,
+    pinnedIds,
+    reopenClosed,
+    restoreMaximized,
+    tabs,
+    toggleMaximized,
+  ]);
 }

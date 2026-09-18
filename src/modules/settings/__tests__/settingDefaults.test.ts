@@ -52,10 +52,10 @@ describe("settingValue", () => {
   it("reads each namespace from the store that owns it", () => {
     const settings = { autoRun: true } as never;
     const display = { zoomLevel: 120 } as never;
-    const layout = { tabOpenMode: "replace" } as never;
+    const layout = { previewOnClick: true } as never;
 
     expect(settingValue("autoRun", settings, display, layout)).toBe(true);
     expect(settingValue("display.zoomLevel", settings, display, layout)).toBe(120);
-    expect(settingValue("layout.tabOpenMode", settings, display, layout)).toBe("replace");
+    expect(settingValue("layout.previewOnClick", settings, display, layout)).toBe(true);
   });
 });

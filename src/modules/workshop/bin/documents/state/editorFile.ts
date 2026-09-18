@@ -13,6 +13,7 @@ import {
 } from "@/modules/editor/layout";
 
 import type { ContentDocument } from "../../../documents";
+import type { PreviewIds } from "../../../shell/state/previewTabs";
 import {
   defaultShellArrangements,
   firstShellLeafId,
@@ -30,8 +31,8 @@ export interface PersistedProjectEditor {
   layout: LayoutNode;
   activeLeafId: string;
   selectedLayer: string | null;
-  /** The ephemeral tab, or null when the strip holds none. */
-  previewId: string | null;
+  /** Each group's ephemeral tab, as leaf id to document id. Empty where none holds one. */
+  previewIds: PreviewIds;
   /** The pinned documents, which lead the strip that holds them. */
   pinned: readonly string[];
   /** Each shell's tree of panes, which every object tab of its kind draws in. */
@@ -42,6 +43,11 @@ export interface PersistedProjectEditor {
 interface LegacyShell {
   shellLayout?: unknown;
   shellLeafId?: unknown;
+}
+
+/** The one ephemeral tab a file written before the role was per group carries. */
+interface LegacyPreview {
+  previewId?: unknown;
 }
 
 /** What `parseEditorFile` made of a `.ltk/editor.json`'s content. */
@@ -73,7 +79,7 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       layout: state.layout,
       activeLeafId: state.activeLeafId,
       selectedLayer: state.selectedLayer,
-      previewId: state.previewId,
+      previewIds: state.previewIds,
       pinned: state.pinned,
       shells: state.shells,
       abilities: state.abilities,
@@ -129,7 +135,7 @@ export function parseEditorFile(raw: string): EditorFileParseResult {
  */
 export function sanitizeEditorState(value: unknown): PersistedProjectEditor | null {
   if (typeof value !== "object" || value === null) return null;
-  const entry = value as Partial<PersistedProjectEditor> & LegacyShell;
+  const entry = value as Partial<PersistedProjectEditor> & LegacyShell & LegacyPreview;
 
   const documents: Record<string, ContentDocument> = {};
   if (typeof entry.documents === "object" && entry.documents !== null) {
@@ -159,23 +165,46 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
       ? entry.activeLeafId
       : leaves(layout)[0].id;
 
-  /* A preview tab whose document did not survive the sanitize is no longer
-     ephemeral - it is gone - so the role goes with it. */
-  const previewId =
-    typeof entry.previewId === "string" && leafHolding(layout, entry.previewId)
-      ? entry.previewId
-      : null;
-
   return {
     documents,
     layout,
     activeLeafId,
     selectedLayer: typeof entry.selectedLayer === "string" ? entry.selectedLayer : null,
-    previewId,
+    previewIds: readPreviewIds(entry, layout),
     pinned,
     shells: sanitizeShells(entry),
     ...(entry.abilities === undefined ? {} : { abilities: readAbilities(entry.abilities) }),
   };
+}
+
+/**
+ * Each group's ephemeral tab out of an untrusted entry.
+ *
+ * A preview whose document did not survive the sanitize is no longer ephemeral
+ * - it is gone - so the role goes with it, and so does one naming a group the
+ * layout does not hold or a document that group does not.
+ *
+ * A file written while the role was one per project carries a `previewId`
+ * string, which reads back as the ephemeral tab of whichever group holds it.
+ */
+function readPreviewIds(
+  entry: Partial<PersistedProjectEditor> & LegacyPreview,
+  layout: LayoutNode,
+): PreviewIds {
+  if (typeof entry.previewIds !== "object" || entry.previewIds === null) {
+    const one = entry.previewId;
+    if (typeof one !== "string") return {};
+
+    const holder = leafHolding(layout, one);
+    return holder === null ? {} : { [holder.id]: one };
+  }
+
+  const held: Record<string, string> = {};
+  for (const [leafId, documentId] of Object.entries(entry.previewIds)) {
+    if (typeof documentId !== "string") continue;
+    if (leafHolding(layout, documentId)?.id === leafId) held[leafId] = documentId;
+  }
+  return held;
 }
 
 /** Sort every strip so its pinned tabs lead it, keeping untouched nodes' identity. */

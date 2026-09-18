@@ -14,7 +14,7 @@ import {
   useToggleFindDir,
 } from "../../state";
 import { useGameFind } from "../api/useGameFind";
-import { useSourcePreview } from "../hooks/useSourcePreview";
+import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview";
 import {
   buildSourceTree,
   flattenSourceTree,
@@ -39,6 +39,7 @@ export function GameFindResults() {
   const regex = useGameSearchRegex();
   const { data, error, isFetching } = useGameFind(pattern, regex);
   const openFile = useSourcePreview();
+  const previewFile = useSourceRowPreview();
 
   /* The parse error belongs under the box, because the fix is the next
      keystroke. Every other failure replaces the tree, because the fix is not. */
@@ -86,6 +87,7 @@ export function GameFindResults() {
             isExpanded={isExpanded}
             onToggle={handleToggle}
             onOpen={openFile}
+            onPreview={previewFile}
             /* Per pattern, so a fresh search opens at its first hit rather than
                where the last one was read to. */
             scrollKey={`game-find:${regex ? "re" : "text"}:${pattern}`}

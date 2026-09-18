@@ -48,7 +48,7 @@ import { useGameWadEntries } from "../api/useGameWadEntries";
 import { useGameWads } from "../api/useGameWads";
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { archiveTarget, entryTarget } from "../extraction/utils/extractTargets";
-import { useSourcePreview } from "../hooks/useSourcePreview";
+import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview";
 import {
   buildSourceTree,
   flattenSourceTree,
@@ -326,6 +326,7 @@ function ArchiveBody(props: ArchiveBodyProps) {
 
 function ArchiveTree({ explorerId, wadName, summary, entries, listings }: ArchiveBodyProps) {
   const openFile = useSourcePreview();
+  const previewFile = useSourceRowPreview();
   const shutDirs = useShutWadDirs(wadName);
   const toggleWadDir = useToggleWadDir();
   const filter = useExplorerFilter(explorerId);
@@ -369,6 +370,7 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
       isExpanded={isExpanded}
       onToggle={handleToggle}
       onOpen={openFile}
+      onPreview={previewFile}
       selection={selection}
       selectionTargets={targets}
       scrollKey={`game-wad:${wadName}`}
@@ -385,6 +387,7 @@ function ArchiveItems({
   nav,
 }: ArchiveBodyProps & { view: "grid" | "details" }) {
   const openFile = useSourcePreview();
+  const previewFile = useSourceRowPreview();
   const filter = useExplorerFilter(explorerId);
   const scope = useExplorerScope(explorerId);
   const sort = useExplorerSort();
@@ -410,6 +413,10 @@ function ArchiveItems({
   const handleOpen = useCallback(
     (item: ExplorerFileItem) => openFile(fileNodeOf(item)),
     [openFile],
+  );
+  const handlePreview = useCallback(
+    (item: ExplorerFileItem) => previewFile(fileNodeOf(item)),
+    [previewFile],
   );
 
   const dirTargetsAt = useCallback(
@@ -451,6 +458,7 @@ function ArchiveItems({
     ariaLabel: m.workshop_archive_grid_label(),
     onDescend: nav.goTo,
     onOpen: handleOpen,
+    onPreview: handlePreview,
     onUp: nav.goUp,
     assetOf: chunkAsset,
     renderMenu,
