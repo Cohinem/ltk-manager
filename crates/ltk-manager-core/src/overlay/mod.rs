@@ -79,8 +79,15 @@ impl ModLibrary {
         tracing::info!("Overlay: overlay_root={}", overlay_root.display());
         tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
-        let builtin_mods = builtin_mods::sync(&storage_dir, config, &game_dir)?;
-        let mods = self.collect_overlay_mods(builtin_mods, workshop_project_paths, enabled_mods)?;
+        let mods = self.collect_overlay_mods(workshop_project_paths, enabled_mods)?;
+        let tables = self.wad_resolver();
+        let mods = builtin_mods::inject(
+            &storage_dir,
+            &config.builtin_mods,
+            &game_dir,
+            &*tables,
+            mods,
+        )?;
 
         let utf8_state_dir = profile_dir.try_into_utf8("profile directory")?;
         artifacts::clean_corrupt_overlay_state(&utf8_state_dir);
@@ -135,10 +142,9 @@ impl ModLibrary {
         })
     }
 
-    /// The overlay's mods, highest priority first: built-in mods, workshop projects, enabled mods.
+    /// The overlay's mods below the built-in ones, highest priority first: workshop projects, then enabled mods.
     fn collect_overlay_mods(
         &self,
-        builtin_mods: Vec<ltk_overlay::EnabledMod>,
         workshop_project_paths: &[PathBuf],
         enabled_mods: Vec<ltk_overlay::EnabledMod>,
     ) -> AppResult<Vec<ltk_overlay::EnabledMod>> {
@@ -152,7 +158,7 @@ impl ModLibrary {
             enabled_ids.join(", ")
         );
 
-        let mut all_mods = builtin_mods;
+        let mut all_mods = Vec::new();
         for project_path in workshop_project_paths {
             let utf8_path = project_path
                 .clone()

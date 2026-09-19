@@ -11,25 +11,14 @@ fn fs_mod(id: &str) -> ltk_overlay::EnabledMod {
 }
 
 #[test]
-fn built_in_mods_outrank_workshop_projects_and_enabled_mods() {
+fn workshop_projects_outrank_enabled_mods() {
     let storage = tempfile::tempdir().unwrap();
     let (library, _config) = make_test_library(storage.path());
 
     let mods = library
-        .collect_overlay_mods(
-            vec![fs_mod("builtin:default-ward-skins")],
-            &[storage.path().join("project")],
-            vec![fs_mod("installed")],
-        )
+        .collect_overlay_mods(&[storage.path().join("project")], vec![fs_mod("installed")])
         .unwrap();
 
     let ids: Vec<&str> = mods.iter().map(|m| m.id.as_str()).collect();
-    assert_eq!(
-        ids,
-        [
-            "builtin:default-ward-skins",
-            "workshop:project",
-            "installed"
-        ]
-    );
+    assert_eq!(ids, ["workshop:project", "installed"]);
 }

@@ -230,10 +230,10 @@ _Avoid_: patch, override
 copy of that entry at every build instead of copied into the mod. Not what Find references lists,
 which is the places a bin names an object, class or file.
 
-**Built-in mod** — a mod project the manager generates from the installed game when a setting
-turns it on, under `<storage>/builtin/<slug>`. It is injected above workshop projects and every
-enabled mod, belongs to no profile, and never enters the library. Default ward skins is the first
-one. See ADR-0043.
+**Built-in mod** — a mod project the manager generates from the installed game and the other
+mods when a setting turns it on, under `<storage>/builtin/<slug>`. It is injected above workshop
+projects and every enabled mod, belongs to no profile, and never enters the library. Default ward
+skins and base skins are the two. See ADR-0043.
 _Avoid_: tweak, preset
 
 **Profile** — a named set of enabled mods, their order, and their per-mod layer states. The active

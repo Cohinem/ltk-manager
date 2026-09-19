@@ -25,8 +25,8 @@ The overlay builder adds and replaces chunks. It removes none.
 
 **A built-in mod is a mod project the manager writes before each build.** It lives under
 `<storage>/builtin/<slug>`, is read through `FsModContent` like a workshop project, and is
-generated against the installed game. A file whose bytes are unchanged is left alone, so the
-builder's content fingerprint holds and an unchanged overlay is reused. The project of a mod
+generated against the installed game and the mods below it. A file whose bytes are unchanged is
+left alone, so the builder's content fingerprint holds and an unchanged overlay is reused. The project of a mod
 turned off is deleted.
 
 **A built-in mod outranks every other mod.** The order is built-in mods, workshop projects,
@@ -38,6 +38,32 @@ chunk loses to it.
 `DATA/FINAL/Maps/Shipping` holds, in that archive. Ids are generated and matched against each
 archive's chunk table, so no hash list is needed and a new patch's skins are picked up.
 
+**Base skins gives each skin past the base a stand-in for the base skin.** The scope is modded
+champions or every champion. Each `skin<N>.bin` with N from 1 to 511 that an unlocalized archive
+in `DATA/FINAL/Champions` holds for a character in scope is overridden with a stand-in: the two
+top-level objects of that character's `skin0.bin`, `Characters/<C>/Skins/Skin0` and its
+`/Resources`, renamed to skin N, with the properties' link to the resolver renamed with it. The
+stand-in depends on `skin0.bin` and on every bin `skin0.bin` depends on, where the objects the two
+copies link to live. The game loads a whole skin N whose content is skin 0, a mod's where one
+replaces it, and no fallback runs.
+
+A champion does not take `JUNK` the way a ward does. At 16.18, a player's own champion on a
+`JUNK` skin bin crashed the game as the loading screen came up, a null read in the game rather
+than the fallback to `skin0.bin` the loader's code describes. A ward survives it because its own
+`skin0.bin` loads and only the SightWard alias meets `JUNK`.
+
+- A mod **ships** a skin bin when an enabled mod or workshop project holds it in a layer turned
+  on, with bytes other than the game's. A bin a mod ships stays that mod's. A whole archive a
+  mod repacks ships only the bins it changed.
+- **Modded champions** takes in each character whose `skin0.bin` a mod ships. **Every
+  champion** takes in each character with a skin bin in a champion archive.
+- A skin bin is named by its plain path, by the WAD path tables, or as the skin bin of a
+  character a champion archive is named after. The tables name a champion's companions, such as
+  Tibbers in Annie's archive.
+- A character whose `skin0.bin` does not hold both objects keeps its skins.
+- What each mod ships is read out of it once and cached in the project directory, keyed by the
+  mod's content fingerprint and layer selection.
+
 ## Consequences
 
 - Turning a built-in mod on makes the overlay carry its own copy of each archive it touches. For
@@ -45,13 +71,24 @@ archive's chunk table, so no hash list is needed and a new patch's skins are pic
 - The effect is on the user's screen alone. Every other player's wards show default there, and
   the server still names the equipped skin.
 - `JUNK` stands in for a removal the builder cannot make. Chunk removal in `ltk_overlay` replaces
-  it, and the project then declares removals rather than files.
+  it for wards, and that project then declares removals rather than files.
 - A **merge** must pass a built-in mod's chunk through untouched. A `JUNK` chunk merged over the
   game's bin would load, and the fallback would not fire.
-- A second built-in mod is a variant of `BuiltinMod`, a generator returning a
-  `GeneratedProject`, and a field of `BuiltinMods` in the settings.
-- The switches nest under one `builtinMods` object in `settings.json`, the one group in a file
-  ADR-0024 keeps flat. The row's id is `patching.defaultWardSkins` and its key the path
-  `builtinMods.defaultWardSkins`.
-- A built-in mod on is something to patch. Play and the patcher start with no library mod
-  enabled while one is on.
+- Base skins on modded champions adds no archive to the overlay beyond the ones the skin mods
+  already put there. On every champion it adds every champion archive, about 16 GB at 16.18.
+- The first build with base skins on reads each enabled mod once more. Every champion writes
+  about 14,000 stand-ins, about 100 MB, and generating and comparing them costs each build about
+  4 s at 16.18.
+- A stand-in still carries the original skin id, so the asset table the game builds from it can
+  bring skin N's animations or particles onto the base skin.
+- With no WAD path tables, a companion character keeps its skins.
+- Another built-in mod is a type implementing `BuiltinMod`, which returns the chunks it
+  overrides from the game and the mods below it, and a field of `BuiltinModSettings`. The
+  game's skin bins and the ones a mod ships are read through `GameSkins` and `ModSkins`.
+- The settings nest under one `builtinMods` object in `settings.json`, the one group in a file
+  ADR-0024 keeps flat. A row's id is `patching.defaultWardSkins` and its key the path
+  `builtinMods.defaultWardSkins`. Base skins is `builtinMods.baseSkins`, one of `off`,
+  `moddedChampions` and `allChampions`.
+- A built-in mod that changes the game alone is something to patch. Play and the patcher start
+  with no library mod enabled while default ward skins or base skins on every champion is on.
+  Base skins on modded champions only reworks other mods, so it does not count.

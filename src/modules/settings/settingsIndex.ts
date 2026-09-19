@@ -112,6 +112,11 @@ const INDEX = [
     key: "builtinMods.defaultWardSkins",
     title: m.settings_patching_ward_skins_title(),
   },
+  {
+    id: "patching.baseSkins",
+    key: "builtinMods.baseSkins",
+    title: m.settings_patching_base_skins_title(),
+  },
   { id: "patching.readGameLog", key: "readGameLog", title: "Allow reading game logs" },
   { id: "patching.keepIncidents", key: "keepIncidents", title: "Keep incidents" },
   {

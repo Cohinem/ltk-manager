@@ -6,6 +6,7 @@ import {
   Button,
   FieldControl,
   SectionCard,
+  SegmentedControl,
   Switch,
   TftIcon,
   useToast,
@@ -15,6 +16,7 @@ import type { Settings } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
 
+import { baseSkinsOptions } from "../builtinMods";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
@@ -156,6 +158,21 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
                     ...settings,
                     builtinMods: { ...settings.builtinMods, defaultWardSkins: checked },
                   })
+                }
+              />
+            }
+          />
+          <SettingRow
+            setting="builtinMods.baseSkins"
+            description={m.settings_patching_base_skins_description()}
+            hint={m.settings_patching_base_skins_hint()}
+            control={
+              <SegmentedControl
+                aria-label={m.settings_patching_base_skins_title()}
+                options={baseSkinsOptions()}
+                value={settings.builtinMods.baseSkins}
+                onChange={(baseSkins) =>
+                  onSave({ ...settings, builtinMods: { ...settings.builtinMods, baseSkins } })
                 }
               />
             }

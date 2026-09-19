@@ -57,7 +57,7 @@ function mockBackend({
           value: createMockSettings({
             hasSeenHddWarning: true,
             launchMode,
-            builtinMods: { defaultWardSkins: builtinMods },
+            builtinMods: { defaultWardSkins: builtinMods, baseSkins: "off" },
           }),
         });
       case "get_installed_mods":

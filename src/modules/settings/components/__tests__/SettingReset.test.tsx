@@ -91,14 +91,17 @@ describe("the gear", () => {
     const user = userEvent.setup();
     renderSettings(
       <SettingRow setting="builtinMods.defaultWardSkins" control={<input type="checkbox" />} />,
-      { settings: { builtinMods: { defaultWardSkins: true } } },
+      { settings: { builtinMods: { defaultWardSkins: true, baseSkins: "allChampions" } } },
     );
 
     await user.click(screen.getByLabelText("Actions for Default ward skins"));
     await user.click(await screen.findByRole("menuitem", { name: "Reset setting" }));
 
     await waitFor(() => expect(saveCount()).toBe(1));
-    expect(savedSettings().builtinMods).toEqual({ defaultWardSkins: false });
+    expect(savedSettings().builtinMods).toEqual({
+      defaultWardSkins: false,
+      baseSkins: "allChampions",
+    });
   });
 
   it("copies the public id rather than the key the row reads", async () => {

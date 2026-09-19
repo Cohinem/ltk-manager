@@ -1,55 +1,34 @@
 //! The built-in mod that shows every ward in its own base skin, per ADR-0043.
 
-use super::BuiltinMod;
-use super::project::GeneratedProject;
+use super::game_skins::GameSkins;
+use super::overrides::Overrides;
+use super::{BuiltinMod, Context};
 use crate::error::AppResult;
-use crate::utils::game::GameDir;
-use fs_err as fs;
-use ltk_wad::{Wad, WadHash};
-use std::io::BufReader;
-use std::path::Path;
 
-/// What each ward skin bin is replaced with. No bin starts with these four bytes.
+/// What a ward skin bin is replaced with, so the game falls back to the ward's base skin. No bin
+/// starts with these four bytes.
 const JUNK: &[u8] = b"JUNK";
 
-/// The highest skin id looked for, a margin over the 267 the game ships at 16.18.
-const MAX_SKIN_ID: u32 = 511;
+/// Every ward shows its own base skin.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct DefaultWardSkins;
 
-/// The project breaking every ward skin bin the map archives under `game_dir` hold.
-///
-/// A map archive that does not mount is passed over, as the overlay build passes over it.
-///
-/// # Errors
-///
-/// Fails when the maps directory cannot be listed.
-pub(super) fn project(game_dir: &GameDir) -> AppResult<GeneratedProject> {
-    let skin_bins: Vec<(String, WadHash)> = (1..=MAX_SKIN_ID)
-        .map(|id| {
-            let path = format!("data/characters/sightward/skins/skin{id}.bin");
-            let hash = WadHash::from(path.as_str());
-            (path, hash)
-        })
-        .collect();
-
-    let mut project =
-        GeneratedProject::new(BuiltinMod::DefaultWardSkins.slug(), "Default ward skins");
-    for (name, path) in game_dir.map_archives()? {
-        let wad = match mount(&path) {
-            Ok(wad) => wad,
-            Err(e) => {
-                tracing::warn!("Default ward skins: passing over {}: {e}", path.display());
-                continue;
-            }
-        };
-        for (skin_bin, hash) in &skin_bins {
-            if wad.chunks().contains(*hash) {
-                project.insert(&name, skin_bin, JUNK);
-            }
-        }
+impl BuiltinMod for DefaultWardSkins {
+    fn slug(&self) -> &'static str {
+        "default-ward-skins"
     }
-    Ok(project)
-}
 
-fn mount(path: &Path) -> AppResult<Wad<BufReader<fs::File>>> {
-    Ok(Wad::mount(BufReader::new(fs::File::open(path)?))?)
+    fn display_name(&self) -> &'static str {
+        "Default ward skins"
+    }
+
+    /// `JUNK` over each ward skin bin past the base that a map archive holds.
+    fn generate(&self, cx: &mut Context<'_>) -> AppResult<Overrides> {
+        let maps = GameSkins::maps(cx.game_dir, cx.tables)?;
+        let mut overrides = Overrides::default();
+        for (archive, bin) in maps.past_base_of("sightward") {
+            overrides.insert(archive, &bin.path(), JUNK);
+        }
+        Ok(overrides)
+    }
 }

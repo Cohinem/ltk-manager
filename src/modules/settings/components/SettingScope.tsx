@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { useToast } from "@/components";
-import type { BuiltinMods, Settings } from "@/lib/tauri";
+import type { BuiltinModSettings, Settings } from "@/lib/tauri";
 import {
   APPEARANCE_DEFAULTS,
   PROJECT_EDITOR_DEFAULTS,
@@ -164,7 +164,7 @@ function useCurrentValue(key: SettingKey | undefined): unknown {
   if (key.startsWith("display.")) return display;
   if (key.startsWith("layout.")) return layout;
   if (key.startsWith("builtinMods.")) {
-    return settings?.builtinMods[key.slice(12) as keyof BuiltinMods];
+    return settings?.builtinMods[key.slice(12) as keyof BuiltinModSettings];
   }
   return settings?.[key as keyof Settings];
 }
