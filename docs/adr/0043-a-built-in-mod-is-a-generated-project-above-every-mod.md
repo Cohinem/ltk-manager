@@ -86,9 +86,10 @@ than the fallback to `skin0.bin` the loader's code describes. A ward survives it
   overrides from the game and the mods below it, and a field of `BuiltinModSettings`. The
   game's skin bins and the ones a mod ships are read through `GameSkins` and `ModSkins`.
 - The settings nest under one `builtinMods` object in `settings.json`, the one group in a file
-  ADR-0024 keeps flat. A row's id is `patching.defaultWardSkins` and its key the path
-  `builtinMods.defaultWardSkins`. Base skins is `builtinMods.baseSkins`, one of `off`,
-  `moddedChampions` and `allChampions`.
+  ADR-0024 keeps flat. They have a settings tab of their own, so a row's id is
+  `builtins.defaultWardSkins` and its key the path `builtinMods.defaultWardSkins`. Base skins is
+  `builtinMods.baseSkins`, one of `off`, `moddedChampions` and `allChampions`. The ids the rows
+  carried on the patching tab stay as aliases, so a link written then still opens them.
 - A built-in mod that changes the game alone is something to patch. Play and the patcher start
   with no library mod enabled while default ward skins or base skins on every champion is on.
   Base skins on modded champions only reworks other mods, so it does not count.

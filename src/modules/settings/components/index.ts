@@ -1,5 +1,6 @@
 export { AboutSection } from "./AboutSection";
 export { AppearanceSection } from "./AppearanceSection";
+export { BuiltinModsSection } from "./BuiltinModsSection";
 export { CacheSection } from "./CacheSection";
 export { DiagnosticsNoticeDialog } from "./DiagnosticsNoticeDialog";
 export { GeneralSection } from "./GeneralSection";

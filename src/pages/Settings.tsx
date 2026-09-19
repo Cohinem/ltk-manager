@@ -6,6 +6,7 @@ import {
   KeyboardIcon,
   PaletteIcon,
   PlugsConnectedIcon,
+  PuzzlePieceIcon,
   SpinnerGapIcon,
 } from "@phosphor-icons/react";
 import { getRouteApi } from "@tanstack/react-router";
@@ -17,6 +18,7 @@ import { MigrationPanel } from "@/modules/migration";
 import {
   AboutSection,
   AppearanceSection,
+  BuiltinModsSection,
   CacheSection,
   DEFAULT_SETTINGS_TAB,
   GeneralSection,
@@ -42,6 +44,7 @@ const TABS: { value: SettingsTab; icon: ReactNode }[] = [
   { value: "general", icon: <GearIcon className="h-5 w-5 shrink-0" /> },
   { value: "library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
   { value: "workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
+  { value: "builtins", icon: <PuzzlePieceIcon className="h-5 w-5 shrink-0" /> },
   { value: "integrations", icon: <PlugsConnectedIcon className="h-5 w-5 shrink-0" /> },
   { value: "patching", icon: <PatcherIcon className="h-5 w-5 shrink-0" /> },
   { value: "cache", icon: <DatabaseIcon className="h-5 w-5 shrink-0" /> },
@@ -121,6 +124,10 @@ export function Settings() {
 
             <Tabs.Panel value="workshop" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
               <WorkshopSection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="builtins" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <BuiltinModsSection settings={settings} onSave={saveSettings} />
             </Tabs.Panel>
 
             <Tabs.Panel value="integrations" className="mx-auto max-w-5xl px-6 pt-4 pb-6">

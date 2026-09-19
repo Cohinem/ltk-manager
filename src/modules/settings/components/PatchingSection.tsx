@@ -6,17 +6,15 @@ import {
   Button,
   FieldControl,
   SectionCard,
-  SegmentedControl,
   Switch,
   TftIcon,
   useToast,
 } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { errorSummary } from "@/i18n";
 import type { Settings } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
 
-import { baseSkinsOptions } from "../builtinMods";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
@@ -143,40 +141,6 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               Enforcement is off, so mods flagged as skinhacks will load.
             </AlertBox>
           )}
-        </SettingGroup>
-
-        <SettingGroup id="patching.builtin-mods" title={m.settings_patching_builtin_mods_title()}>
-          <SettingRow
-            setting="builtinMods.defaultWardSkins"
-            description={m.settings_patching_ward_skins_description()}
-            hint={m.settings_patching_ward_skins_hint()}
-            control={
-              <Switch
-                checked={settings.builtinMods.defaultWardSkins}
-                onCheckedChange={(checked) =>
-                  onSave({
-                    ...settings,
-                    builtinMods: { ...settings.builtinMods, defaultWardSkins: checked },
-                  })
-                }
-              />
-            }
-          />
-          <SettingRow
-            setting="builtinMods.baseSkins"
-            description={m.settings_patching_base_skins_description()}
-            hint={m.settings_patching_base_skins_hint()}
-            control={
-              <SegmentedControl
-                aria-label={m.settings_patching_base_skins_title()}
-                options={baseSkinsOptions()}
-                value={settings.builtinMods.baseSkins}
-                onChange={(baseSkins) =>
-                  onSave({ ...settings, builtinMods: { ...settings.builtinMods, baseSkins } })
-                }
-              />
-            }
-          />
         </SettingGroup>
 
         <SettingGroup id="patching.game-archives" title="Game archives">

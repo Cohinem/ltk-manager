@@ -37,6 +37,13 @@ describe("the index", () => {
     expect(settingById("patching.patchTft")?.key).toBe("patchTft");
     expect(settingById("patchTft")).toBeUndefined();
   });
+
+  /* The built-in mods left the patching tab, so a link written while they were
+     on it has to land on the row rather than on the tab it names. */
+  it("resolves an id a row answered to before it moved", () => {
+    expect(settingById("patching.baseSkins")?.id).toBe("builtins.baseSkins");
+    expect(settingFocusTab("patching.defaultWardSkins")).toBe("builtins");
+  });
 });
 
 describe("settingLink", () => {

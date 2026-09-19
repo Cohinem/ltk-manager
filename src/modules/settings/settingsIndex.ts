@@ -83,6 +83,19 @@ const INDEX = [
     title: "Lints for the coming patch",
   },
 
+  {
+    id: "builtins.defaultWardSkins",
+    key: "builtinMods.defaultWardSkins",
+    title: m.settings_builtins_ward_skins_title(),
+    aliases: ["patching.defaultWardSkins"],
+  },
+  {
+    id: "builtins.baseSkins",
+    key: "builtinMods.baseSkins",
+    title: m.settings_builtins_base_skins_title(),
+    aliases: ["patching.baseSkins"],
+  },
+
   { id: "patching.patchTft", key: "patchTft", title: "Patch TFT files" },
   { id: "patching.elevateInjector", key: "elevateInjector", title: "Run injector elevated" },
   {
@@ -106,16 +119,6 @@ const INDEX = [
     id: "patching.disableCrashReporting",
     key: "disableCrashReporting",
     title: "Disable crash reporting",
-  },
-  {
-    id: "patching.defaultWardSkins",
-    key: "builtinMods.defaultWardSkins",
-    title: m.settings_patching_ward_skins_title(),
-  },
-  {
-    id: "patching.baseSkins",
-    key: "builtinMods.baseSkins",
-    title: m.settings_patching_base_skins_title(),
   },
   { id: "patching.readGameLog", key: "readGameLog", title: "Allow reading game logs" },
   { id: "patching.keepIncidents", key: "keepIncidents", title: "Keep incidents" },
