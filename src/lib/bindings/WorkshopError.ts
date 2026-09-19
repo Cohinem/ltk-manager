@@ -6,4 +6,4 @@
  * Sent over IPC as the `context` payload of an `AppError` with code `WORKSHOP`.
  * Frontend code can switch on `kind` to handle each variant.
  */
-export type WorkshopError = { "kind": "LAYER_FILE_CONFLICT", conflicts: Array<string>, } | { "kind": "IGNORE_RULE_PATTERN", line: number, message: string, } | { "kind": "PACK_IGNORE_PATTERN", path: string, line: number, message: string, } | { "kind": "TEXT_FILE_CHANGED", path: string, };
+export type WorkshopError = { "kind": "LAYER_FILE_CONFLICT", conflicts: Array<string>, } | { "kind": "IGNORE_RULE_PATTERN", line: number, message: string, } | { "kind": "PACK_IGNORE_PATTERN", path: string, line: number, message: string, } | { "kind": "TEXT_FILE_CHANGED", path: string, } | { "kind": "DECLARATIONS_CHANGED_ON_DISK", path: string, } | { "kind": "DECLARATIONS_NOT_YAML", path: string, } | { "kind": "DECLARATIONS_INVALID", path: string, message: string, } | { "kind": "DECLARATIONS_UNEDITABLE", path: string, reason: string, };

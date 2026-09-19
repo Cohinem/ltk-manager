@@ -1,5 +1,6 @@
 mod chunk_names;
 mod content;
+mod declarations;
 mod ignore_rules;
 pub mod layer;
 mod layers;
@@ -56,6 +57,23 @@ pub enum WorkshopError {
     /// A root text file that changed on disk under the buffer being saved.
     #[error("{path} changed since it was read")]
     TextFileChanged { path: String },
+
+    /// A layer's declarations manifest that changed on disk since it was read.
+    #[error("{path} changed since it was read")]
+    DeclarationsChangedOnDisk { path: String },
+
+    /// A layer whose declarations manifest is JSON or TOML. The editor writes
+    /// `game_data.yaml` only.
+    #[error("{path} is not YAML, and the editor writes game_data.yaml only")]
+    DeclarationsNotYaml { path: String },
+
+    /// A layer's declarations manifest that does not load.
+    #[error("{path} does not load: {message}")]
+    DeclarationsInvalid { path: String, message: String },
+
+    /// An edit the text of a declarations manifest cannot take.
+    #[error("{path} cannot take the edit: {reason}")]
+    DeclarationsUneditable { path: String, reason: String },
 }
 
 /// Managed struct that encapsulates workshop operations.

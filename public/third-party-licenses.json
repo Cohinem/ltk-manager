@@ -1177,6 +1177,14 @@
       ]
     },
     {
+      "name": "countme",
+      "version": "3.0.1",
+      "url": "https://github.com/matklad/countme",
+      "licenses": [
+        28
+      ]
+    },
+    {
       "name": "cpufeatures",
       "version": "0.2.17",
       "url": "https://github.com/RustCrypto/utils",
@@ -1764,6 +1772,14 @@
     },
     {
       "name": "hashbrown",
+      "version": "0.14.5",
+      "url": "https://github.com/rust-lang/hashbrown",
+      "licenses": [
+        28
+      ]
+    },
+    {
+      "name": "hashbrown",
       "version": "0.17.1",
       "url": "https://github.com/rust-lang/hashbrown",
       "licenses": [
@@ -2176,6 +2192,14 @@
       "url": "https://github.com/jeromefroe/lru-rs.git",
       "licenses": [
         88
+      ]
+    },
+    {
+      "name": "ltk-declarations",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        59
       ]
     },
     {
@@ -3137,11 +3161,27 @@
       ]
     },
     {
+      "name": "rowan",
+      "version": "0.16.1",
+      "url": "https://github.com/rust-analyzer/rowan",
+      "licenses": [
+        28
+      ]
+    },
+    {
       "name": "rsa",
       "version": "0.9.10",
       "url": "https://github.com/RustCrypto/RSA",
       "licenses": [
         27
+      ]
+    },
+    {
+      "name": "rustc-hash",
+      "version": "1.1.0",
+      "url": "https://github.com/rust-lang-nursery/rustc-hash",
+      "licenses": [
+        28
       ]
     },
     {
@@ -3838,6 +3878,14 @@
       "url": "https://github.com/jansol/texpresso",
       "licenses": [
         87
+      ]
+    },
+    {
+      "name": "text-size",
+      "version": "1.1.1",
+      "url": "https://github.com/rust-analyzer/text-size",
+      "licenses": [
+        35
       ]
     },
     {
@@ -4727,6 +4775,14 @@
       "url": "https://github.com/image-rs/y4m.git",
       "licenses": [
         127
+      ]
+    },
+    {
+      "name": "yaml-edit",
+      "version": "0.3.2",
+      "url": "https://github.com/jelmer/yaml-edit",
+      "licenses": [
+        41
       ]
     },
     {
