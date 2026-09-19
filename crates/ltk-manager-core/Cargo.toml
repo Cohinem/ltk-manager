@@ -19,6 +19,7 @@ ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl", "dep:specta"]
 [dependencies]
 ritoclient = { workspace = true }
 
+ltk-declarations = { workspace = true }
 ltk_anim = { workspace = true }
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }

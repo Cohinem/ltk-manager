@@ -1,5 +1,10 @@
 [workspace]
-members = ["src-tauri", "crates/ltk-manager-core", "crates/ltk-telemetry"]
+members = [
+    "src-tauri",
+    "crates/ltk-declarations",
+    "crates/ltk-manager-core",
+    "crates/ltk-telemetry",
+]
 resolver = "2"
 
 # Dependencies only, so our own crates stay debuggable. A debug build parses
@@ -24,6 +29,7 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
+ltk-declarations = { path = "crates/ltk-declarations" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.11", features = ["serde"] }
@@ -82,6 +88,10 @@ walkdir = "2.5"
 webp = "0.3"
 windows-sys = "0.59"
 zip = "2.2.0"
+# Lossless YAML: the declarations writer edits `game_data.yaml` in place (#626).
+# `rowan` is the tree it is built on, pinned to the same minor.
+yaml-edit = { version = "0.3.2", default-features = false }
+rowan = "0.16"
 
 rmp-serde = "1"
 base64 = "0.22"

@@ -1,5 +1,13 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "workshop.DECLARATIONS_CHANGED_ON_DISK.description": "{path} was written by something else since it was read, so the edit was not saved over it.",
+  "workshop.DECLARATIONS_CHANGED_ON_DISK.title": "The game data file changed on disk",
+  "workshop.DECLARATIONS_INVALID.description": "{path}: {message}",
+  "workshop.DECLARATIONS_INVALID.title": "This layer's game data does not load",
+  "workshop.DECLARATIONS_NOT_YAML.description": "{path} is JSON or TOML. Edits from a game bin are written to game_data.yaml only.",
+  "workshop.DECLARATIONS_NOT_YAML.title": "This layer's game data is not YAML",
+  "workshop.DECLARATIONS_UNEDITABLE.description": "{path}: {reason}",
+  "workshop.DECLARATIONS_UNEDITABLE.title": "The edit could not be written",
   "workshop.IGNORE_RULE_PATTERN.description": "Line {line}: {message}",
   "workshop.IGNORE_RULE_PATTERN.title": "That ignore rule cannot be read",
   "workshop.LAYER_FILE_CONFLICT.description": [

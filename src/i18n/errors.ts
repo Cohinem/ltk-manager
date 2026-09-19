@@ -284,6 +284,22 @@ export function describeWorkshopError(error: WorkshopError): ErrorCopy {
       title: m["workshop.TEXT_FILE_CHANGED.title"](),
       description: m["workshop.TEXT_FILE_CHANGED.description"]({ path }),
     }))
+    .with({ kind: "DECLARATIONS_CHANGED_ON_DISK" }, ({ path }) => ({
+      title: m["workshop.DECLARATIONS_CHANGED_ON_DISK.title"](),
+      description: m["workshop.DECLARATIONS_CHANGED_ON_DISK.description"]({ path }),
+    }))
+    .with({ kind: "DECLARATIONS_NOT_YAML" }, ({ path }) => ({
+      title: m["workshop.DECLARATIONS_NOT_YAML.title"](),
+      description: m["workshop.DECLARATIONS_NOT_YAML.description"]({ path }),
+    }))
+    .with({ kind: "DECLARATIONS_INVALID" }, ({ path, message }) => ({
+      title: m["workshop.DECLARATIONS_INVALID.title"](),
+      description: m["workshop.DECLARATIONS_INVALID.description"]({ path, message }),
+    }))
+    .with({ kind: "DECLARATIONS_UNEDITABLE" }, ({ path, reason }) => ({
+      title: m["workshop.DECLARATIONS_UNEDITABLE.title"](),
+      description: m["workshop.DECLARATIONS_UNEDITABLE.description"]({ path, reason }),
+    }))
     .exhaustive();
 }
 
