@@ -7,6 +7,7 @@
 
 mod artifacts;
 mod build;
+pub(crate) mod builtin_mods;
 mod resolve;
 
 pub(crate) use artifacts::OverlayStorageExt;
@@ -42,7 +43,7 @@ impl ModLibrary {
     /// UI events as a side effect of asking for one.
     ///
     /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
-    /// to the enabled mod list so they take highest priority.
+    /// to the enabled mod list, and the built-in mods `config` turns on go above them.
     ///
     /// # Errors
     ///
@@ -78,7 +79,8 @@ impl ModLibrary {
         tracing::info!("Overlay: overlay_root={}", overlay_root.display());
         tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
-        let mods = self.collect_overlay_mods(workshop_project_paths, enabled_mods)?;
+        let builtin_mods = builtin_mods::sync(&storage_dir, config, &game_dir)?;
+        let mods = self.collect_overlay_mods(builtin_mods, workshop_project_paths, enabled_mods)?;
 
         let utf8_state_dir = profile_dir.try_into_utf8("profile directory")?;
         artifacts::clean_corrupt_overlay_state(&utf8_state_dir);
@@ -133,9 +135,10 @@ impl ModLibrary {
         })
     }
 
-    /// Prepend workshop projects to the enabled mods so they take highest priority.
+    /// The overlay's mods, highest priority first: built-in mods, workshop projects, enabled mods.
     fn collect_overlay_mods(
         &self,
+        builtin_mods: Vec<ltk_overlay::EnabledMod>,
         workshop_project_paths: &[PathBuf],
         enabled_mods: Vec<ltk_overlay::EnabledMod>,
     ) -> AppResult<Vec<ltk_overlay::EnabledMod>> {
@@ -149,7 +152,7 @@ impl ModLibrary {
             enabled_ids.join(", ")
         );
 
-        let mut all_mods = Vec::new();
+        let mut all_mods = builtin_mods;
         for project_path in workshop_project_paths {
             let utf8_path = project_path
                 .clone()
@@ -231,3 +234,6 @@ fn log_game_data_diagnostic(diagnostic: &GameDataDiagnostic) {
         _ => tracing::warn!(?kind, mod_id, layer, target_name = ?target, "Game data: {message}"),
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -167,6 +167,18 @@ pub struct Config {
     /// of the same age. Default: 50.
     #[serde(default = "default_keep_incidents")]
     pub keep_incidents: u32,
+    /// Which built-in mods the overlay injects above every other mod.
+    #[serde(default)]
+    pub builtin_mods: BuiltinMods,
+}
+
+/// The built-in mods a user turned on, every one off by default.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase", default)]
+pub struct BuiltinMods {
+    /// Every ward shows its own base skin.
+    pub default_ward_skins: bool,
 }
 
 impl Default for Config {
@@ -190,6 +202,7 @@ impl Default for Config {
             hide_riot_client_on_launch: true,
             read_game_log: true,
             keep_incidents: default_keep_incidents(),
+            builtin_mods: BuiltinMods::default(),
         }
     }
 }
@@ -219,6 +232,18 @@ mod tests {
         assert!(config.hide_riot_client_on_launch);
         assert!(config.read_game_log);
         assert_eq!(config.keep_incidents, 50);
+        assert_eq!(config.builtin_mods, BuiltinMods::default());
+    }
+
+    /// A built-in mod reads from its group, and an empty group reads as off.
+    #[test]
+    fn a_built_in_mod_reads_from_its_group() {
+        let config: Config =
+            serde_json::from_str(r#"{ "builtinMods": { "defaultWardSkins": true } }"#).unwrap();
+        assert!(config.builtin_mods.default_ward_skins);
+
+        let config: Config = serde_json::from_str(r#"{ "builtinMods": {} }"#).unwrap();
+        assert!(!config.builtin_mods.default_ward_skins);
     }
 
     /// A config written before the retention setting was removed still carries

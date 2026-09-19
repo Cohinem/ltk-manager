@@ -126,6 +126,38 @@ impl GameDir {
             .collect()
     }
 
+    /// Each archive in `DATA/FINAL/Maps/Shipping`, by file name, and none where it is absent.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the directory exists and cannot be listed.
+    pub fn map_archives(&self) -> AppResult<Vec<(String, PathBuf)>> {
+        let dir = self
+            .0
+            .join("DATA")
+            .join("FINAL")
+            .join("Maps")
+            .join("Shipping");
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(e.into()),
+        };
+
+        let mut archives = Vec::new();
+        for entry in entries {
+            let path = entry?.path();
+            let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+                continue;
+            };
+            if name.to_ascii_lowercase().ends_with(".wad.client") && path.is_file() {
+                archives.push((name.to_owned(), path));
+            }
+        }
+        archives.sort();
+        Ok(archives)
+    }
+
     /// The League client's configured locale, e.g. `"en_us"`.
     pub fn locale(&self) -> Option<String> {
         super::locale::detect_league_locale(self)

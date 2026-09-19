@@ -17,7 +17,7 @@ import { type GuardedLaunch, ModHealthLaunchGuard } from "@/modules/library";
 import { useInstalledMods } from "@/modules/library/api";
 import { usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useHddWarning } from "@/modules/settings";
-import { useSettings } from "@/modules/settings";
+import { hasBuiltinMods, useSettings } from "@/modules/settings";
 import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 import { twMerge } from "@/utils";
 
@@ -54,13 +54,13 @@ function playLabel(
 function primaryTooltip(
   patcherOnly: boolean,
   leagueRunning: boolean,
-  hasEnabledMods: boolean,
+  hasModsToApply: boolean,
 ): string {
-  if (leagueRunning && !hasEnabledMods) return m.library_play_league_running_no_mods_hint();
+  if (leagueRunning && !hasModsToApply) return m.library_play_league_running_no_mods_hint();
   if (leagueRunning) return m.library_play_league_running_hint();
-  if (patcherOnly && !hasEnabledMods) return m.library_patcher_no_mods_hint();
+  if (patcherOnly && !hasModsToApply) return m.library_patcher_no_mods_hint();
   if (patcherOnly) return m.library_patcher_start_hint();
-  if (!hasEnabledMods) return m.library_play_no_mods_hint();
+  if (!hasModsToApply) return m.library_play_no_mods_hint();
   return m.library_play_hint();
 }
 
@@ -224,7 +224,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
 
   const isRunning = status?.running ?? false;
   const isBuilding = status?.phase === "building";
-  const hasEnabledMods = mods.some((m) => m.enabled);
+  const hasModsToApply = mods.some((m) => m.enabled) || hasBuiltinMods(settings);
   const canLaunch = availability?.canLaunch ?? false;
   const leagueRunning = availability?.leagueRunning ?? false;
 
@@ -235,7 +235,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
 
   // With nothing enabled there is no overlay worth building, so Play collapses
   // to a plain launch rather than spending a build on an empty mod list.
-  const handlePlay = hasEnabledMods ? play : launchOnly;
+  const handlePlay = hasModsToApply ? play : launchOnly;
 
   // Settings still loading reads as classic: it is the default, and it is the
   // safer guess - a button that turns out not to launch beats one that launches
@@ -325,7 +325,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
     <Tooltip
       content={
         <>
-          {primaryTooltip(patcherOnly, leagueRunning, hasEnabledMods)}{" "}
+          {primaryTooltip(patcherOnly, leagueRunning, hasModsToApply)}{" "}
           {patcherOnly && <Kbd shortcut="Ctrl+P" />}
         </>
       }
@@ -335,7 +335,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
         size={size}
         onClick={() => ask(primaryAction)}
         loading={isBusy || isBuilding}
-        disabled={busy || (patcherOnly && !hasEnabledMods)}
+        disabled={busy || (patcherOnly && !hasModsToApply)}
         left={<PrimaryIcon patcherOnly={patcherOnly} />}
         className="grow gap-3 font-bold tracking-wide uppercase"
       >
@@ -377,7 +377,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
                 <Menu.Item
                   icon={<PatcherIcon className="h-4 w-4" />}
                   onClick={() => ask(handleStartPatcherOnly)}
-                  disabled={!hasEnabledMods}
+                  disabled={!hasModsToApply}
                   shortcut="Ctrl+P"
                 >
                   {m.library_patcher_only_action()}

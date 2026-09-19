@@ -10,7 +10,7 @@ import {
   TftIcon,
   useToast,
 } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import type { Settings } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
@@ -141,6 +141,25 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               Enforcement is off, so mods flagged as skinhacks will load.
             </AlertBox>
           )}
+        </SettingGroup>
+
+        <SettingGroup id="patching.builtin-mods" title={m.settings_patching_builtin_mods_title()}>
+          <SettingRow
+            setting="builtinMods.defaultWardSkins"
+            description={m.settings_patching_ward_skins_description()}
+            hint={m.settings_patching_ward_skins_hint()}
+            control={
+              <Switch
+                checked={settings.builtinMods.defaultWardSkins}
+                onCheckedChange={(checked) =>
+                  onSave({
+                    ...settings,
+                    builtinMods: { ...settings.builtinMods, defaultWardSkins: checked },
+                  })
+                }
+              />
+            }
+          />
         </SettingGroup>
 
         <SettingGroup id="patching.game-archives" title="Game archives">

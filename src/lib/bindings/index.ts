@@ -17,6 +17,7 @@ export type { BinObjectHeader } from "./BinObjectHeader";
 export type { BinRow } from "./BinRow";
 export type { BinRows } from "./BinRows";
 export type { BinValue } from "./BinValue";
+export type { BuiltinMods } from "./BuiltinMods";
 export type { BulkInstallError } from "./BulkInstallError";
 export type { BulkInstallResult } from "./BulkInstallResult";
 export type { Category } from "./Category";

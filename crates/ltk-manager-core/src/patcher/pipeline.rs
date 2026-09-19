@@ -347,9 +347,9 @@ impl IncidentPipeline {
         })
     }
 
-    /// The enabled mods in the overlay's merge order, after the workshop
-    /// projects it prepends. The first mod in the list wins a conflict, so its
-    /// position is its priority.
+    /// The enabled mods in the overlay's merge order, after the built-in mods
+    /// and workshop projects it puts first. The first mod in the list wins a
+    /// conflict, so its position is its priority.
     fn mod_footprints(&self) -> Vec<ModFootprint> {
         let mods = match self.library.get_installed_mods(&self.config) {
             Ok(mods) => mods,
@@ -359,7 +359,8 @@ impl IncidentPipeline {
             }
         };
         let reports = self.library.wad_reports().0.lock();
-        let offset = self.workshop_paths.len();
+        let offset = crate::overlay::builtin_mods::count_enabled(&self.config.builtin_mods)
+            + self.workshop_paths.len();
         mods.into_iter()
             .filter(|m| m.enabled)
             .enumerate()

@@ -1,5 +1,5 @@
 import { MONO_FACES, SANS_FACES } from "@/lib/fonts";
-import type { Settings } from "@/lib/tauri";
+import type { BuiltinMods, Settings } from "@/lib/tauri";
 import type { AppearanceKey, ProjectEditorKey } from "@/stores";
 
 import { LTK_PRESET } from "./api";
@@ -14,6 +14,8 @@ export function settingValue(
 ): unknown {
   if (key.startsWith("display.")) return display[key.slice(8) as AppearanceKey];
   if (key.startsWith("layout.")) return layout[key.slice(7) as ProjectEditorKey];
+  if (key.startsWith("builtinMods."))
+    return settings.builtinMods[key.slice(12) as keyof BuiltinMods];
   return settings[key as keyof Settings];
 }
 
@@ -106,6 +108,7 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   readGameLog: onOff,
   disableCrashReporting: onOff,
   keepIncidents: plain,
+  "builtinMods.defaultWardSkins": onOff,
 
   theme: titleCase,
   accentColor: accentName,

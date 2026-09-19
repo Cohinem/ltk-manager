@@ -34,6 +34,8 @@ interface BackendOptions {
   stopFails?: boolean;
   /** Whether the one enabled mod comes back with a repairable verdict. */
   brokenMods?: boolean;
+  /** Whether the default ward skins built-in mod is on. */
+  builtinMods?: boolean;
 }
 
 function mockBackend({
@@ -43,6 +45,7 @@ function mockBackend({
   patcherRunning = false,
   stopFails = false,
   brokenMods = false,
+  builtinMods = false,
 }: BackendOptions = {}) {
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
@@ -51,7 +54,11 @@ function mockBackend({
       case "get_settings":
         return Promise.resolve({
           ok: true,
-          value: createMockSettings({ hasSeenHddWarning: true, launchMode }),
+          value: createMockSettings({
+            hasSeenHddWarning: true,
+            launchMode,
+            builtinMods: { defaultWardSkins: builtinMods },
+          }),
         });
       case "get_installed_mods":
         return Promise.resolve({
@@ -218,6 +225,25 @@ describe("PlayButton", () => {
 
     await screen.findByTestId("mods-ready");
     await waitFor(() => expect(screen.getByRole("button", { name: "Start" })).toBeDisabled());
+  });
+
+  /// A built-in mod is something to patch even with the library all off.
+  it("starts the patcher for a built-in mod with no library mod enabled", async () => {
+    mockBackend({ enabledMods: false, builtinMods: true });
+    render(
+      <>
+        <ModsProbe />
+        <PlayButton />
+      </>,
+      { wrapper },
+    );
+
+    await screen.findByTestId("mods-ready");
+    const button = screen.getByRole("button", { name: "Start" });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+
+    await waitFor(() => expect(invokedCommands()).toContain("start_patcher"));
   });
 
   /// Classic mode is the setting for people who start League themselves, so the
