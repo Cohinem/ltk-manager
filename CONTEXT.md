@@ -219,6 +219,17 @@ and an object combines field by field. It happens while the overlay is built and
 into the mod, so it is not a **repair** and costs the mod nothing — see ADR-0012.
 _Avoid_: layer, patch, override
 
+**Declaration** — one property edit a layer's `game_data.yaml` carries: an entry, a property path
+and a value, applied over the game's copy of every chunk declaring the entry while the overlay is
+built. The mod names the key it changes and ships no copy of the chunk. A game bin opened inside a
+project writes its edits as declarations — see ADR-0042. Not a **merge**, which reads a whole chunk
+the mod ships.
+_Avoid_: patch, override
+
+**Game-copy reference** — a declaration's value spelled `!ref <entry>:<path>`, read from the game's
+copy of that entry at every build instead of copied into the mod. Not what Find references lists,
+which is the places a bin names an object, class or file.
+
 **Profile** — a named set of enabled mods, their order, and their per-mod layer states. The active
 profile is what the overlay is built from.
 
