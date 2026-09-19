@@ -126,6 +126,35 @@ impl GameDir {
             .collect()
     }
 
+    /// Each archive in `DATA/FINAL/Maps/Shipping`, by file name, and none where it is absent.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the directory exists and cannot be listed.
+    pub fn map_archives(&self) -> AppResult<Vec<(String, PathBuf)>> {
+        archives_in(
+            &self
+                .0
+                .join("DATA")
+                .join("FINAL")
+                .join("Maps")
+                .join("Shipping"),
+        )
+    }
+
+    /// Each unlocalized archive in `DATA/FINAL/Champions`, by file name, and none where it is absent.
+    ///
+    /// `Ahri.wad.client` is one, and `Ahri.en_US.wad.client` is not.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the directory exists and cannot be listed.
+    pub fn champion_archives(&self) -> AppResult<Vec<(String, PathBuf)>> {
+        let mut archives = archives_in(&self.0.join("DATA").join("FINAL").join("Champions"))?;
+        archives.retain(|(name, _)| !archive_stem(name).contains('.'));
+        Ok(archives)
+    }
+
     /// The League client's configured locale, e.g. `"en_us"`.
     pub fn locale(&self) -> Option<String> {
         super::locale::detect_league_locale(self)
@@ -172,6 +201,39 @@ impl GameDir {
     /// The directory holding the game's localized WADs.
     fn localized_dir(&self) -> PathBuf {
         self.0.join("DATA").join("FINAL").join("Localized")
+    }
+}
+
+const ARCHIVE_SUFFIX: &str = ".wad.client";
+
+/// Each archive directly in `dir`, by file name and sorted, and none where `dir` is absent.
+fn archives_in(dir: &Path) -> AppResult<Vec<(String, PathBuf)>> {
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e.into()),
+    };
+
+    let mut archives = Vec::new();
+    for entry in entries {
+        let path = entry?.path();
+        let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        if name.to_ascii_lowercase().ends_with(ARCHIVE_SUFFIX) && path.is_file() {
+            archives.push((name.to_owned(), path));
+        }
+    }
+    archives.sort();
+    Ok(archives)
+}
+
+/// `name` without its archive suffix, in any case, and `name` whole where it has none.
+pub(crate) fn archive_stem(name: &str) -> &str {
+    let split = name.len().saturating_sub(ARCHIVE_SUFFIX.len());
+    match name.get(split..) {
+        Some(suffix) if suffix.eq_ignore_ascii_case(ARCHIVE_SUFFIX) => &name[..split],
+        _ => name,
     }
 }
 
@@ -267,6 +329,34 @@ mod tests {
         let mut names = GameDir::from_path(dir.path()).champion_names();
         names.sort();
         assert_eq!(names, vec!["Aatrox", "MonkeyKing"]);
+    }
+
+    #[test]
+    fn champion_archives_leave_out_localized_archives() {
+        let dir = tempfile::tempdir().unwrap();
+        let champ_dir = dir.path().join("DATA").join("FINAL").join("Champions");
+        fs::create_dir_all(&champ_dir).unwrap();
+        for name in [
+            "Ahri.wad.client",
+            "Ahri.en_US.wad.client",
+            "MonkeyKing.WAD.CLIENT",
+        ] {
+            fs::write(champ_dir.join(name), b"").unwrap();
+        }
+
+        let archives = GameDir::from_path(dir.path()).champion_archives().unwrap();
+
+        let names: Vec<&str> = archives.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, ["Ahri.wad.client", "MonkeyKing.WAD.CLIENT"]);
+    }
+
+    #[test]
+    fn an_archive_stem_drops_the_suffix_in_any_case() {
+        assert_eq!(archive_stem("Ahri.wad.client"), "Ahri");
+        assert_eq!(archive_stem("MonkeyKing.WAD.CLIENT"), "MonkeyKing");
+        assert_eq!(archive_stem("Ahri.en_US.wad.client"), "Ahri.en_US");
+        assert_eq!(archive_stem("client"), "client");
+        assert_eq!(archive_stem("Ahri.wad"), "Ahri.wad");
     }
 
     #[test]

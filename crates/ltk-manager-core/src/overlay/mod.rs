@@ -7,6 +7,7 @@
 
 mod artifacts;
 mod build;
+pub(crate) mod builtin_mods;
 mod resolve;
 
 pub(crate) use artifacts::OverlayStorageExt;
@@ -42,7 +43,7 @@ impl ModLibrary {
     /// UI events as a side effect of asking for one.
     ///
     /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
-    /// to the enabled mod list so they take highest priority.
+    /// to the enabled mod list, and the built-in mods `config` turns on go above them.
     ///
     /// # Errors
     ///
@@ -79,6 +80,14 @@ impl ModLibrary {
         tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
         let mods = self.collect_overlay_mods(workshop_project_paths, enabled_mods)?;
+        let tables = self.wad_resolver();
+        let mods = builtin_mods::inject(
+            &storage_dir,
+            &config.builtin_mods,
+            &game_dir,
+            &*tables,
+            mods,
+        )?;
 
         let utf8_state_dir = profile_dir.try_into_utf8("profile directory")?;
         artifacts::clean_corrupt_overlay_state(&utf8_state_dir);
@@ -133,7 +142,7 @@ impl ModLibrary {
         })
     }
 
-    /// Prepend workshop projects to the enabled mods so they take highest priority.
+    /// The overlay's mods below the built-in ones, highest priority first: workshop projects, then enabled mods.
     fn collect_overlay_mods(
         &self,
         workshop_project_paths: &[PathBuf],
@@ -231,3 +240,6 @@ fn log_game_data_diagnostic(diagnostic: &GameDataDiagnostic) {
         _ => tracing::warn!(?kind, mod_id, layer, target_name = ?target, "Game data: {message}"),
     }
 }
+
+#[cfg(test)]
+mod tests;

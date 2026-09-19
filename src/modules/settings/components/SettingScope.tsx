@@ -10,7 +10,7 @@ import {
 } from "react";
 
 import { useToast } from "@/components";
-import type { Settings } from "@/lib/tauri";
+import type { BuiltinModSettings, Settings } from "@/lib/tauri";
 import {
   APPEARANCE_DEFAULTS,
   PROJECT_EDITOR_DEFAULTS,
@@ -120,15 +120,22 @@ function useWriteSettings() {
       const next: Record<string, unknown> = { ...current };
       const display: Record<string, unknown> = {};
       const layout: Record<string, unknown> = {};
+      const builtinMods: Record<string, unknown> = {};
       let touchesBackend = false;
 
       for (const [key, value] of values) {
         if (key.startsWith("display.")) display[key.slice(8)] = value;
         else if (key.startsWith("layout.")) layout[key.slice(7)] = value;
-        else {
+        else if (key.startsWith("builtinMods.")) {
+          builtinMods[key.slice(12)] = value;
+          touchesBackend = true;
+        } else {
           next[key] = value;
           touchesBackend = true;
         }
+      }
+      if (Object.keys(builtinMods).length > 0) {
+        next.builtinMods = { ...current.builtinMods, ...builtinMods };
       }
 
       if (touchesBackend) save(next as unknown as Settings);
@@ -156,6 +163,9 @@ function useCurrentValue(key: SettingKey | undefined): unknown {
   if (!key) return undefined;
   if (key.startsWith("display.")) return display;
   if (key.startsWith("layout.")) return layout;
+  if (key.startsWith("builtinMods.")) {
+    return settings?.builtinMods[key.slice(12) as keyof BuiltinModSettings];
+  }
   return settings?.[key as keyof Settings];
 }
 

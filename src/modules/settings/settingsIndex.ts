@@ -83,6 +83,19 @@ const INDEX = [
     title: "Lints for the coming patch",
   },
 
+  {
+    id: "builtins.defaultWardSkins",
+    key: "builtinMods.defaultWardSkins",
+    title: m.settings_builtins_ward_skins_title(),
+    aliases: ["patching.defaultWardSkins"],
+  },
+  {
+    id: "builtins.baseSkins",
+    key: "builtinMods.baseSkins",
+    title: m.settings_builtins_base_skins_title(),
+    aliases: ["patching.baseSkins"],
+  },
+
   { id: "patching.patchTft", key: "patchTft", title: "Patch TFT files" },
   { id: "patching.elevateInjector", key: "elevateInjector", title: "Run injector elevated" },
   {
