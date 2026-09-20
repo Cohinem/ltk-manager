@@ -2,21 +2,26 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { Texture } from "three";
 
-import { api, type AssetRef, type BinDocumentId, type MaterialPreview } from "@/lib/tauri";
+import {
+  api,
+  type AssetRef,
+  type BinDocumentId,
+  type MapPath,
+  type MaterialPreview,
+} from "@/lib/tauri";
 
 import { viewportQueries } from "../../assets/api/queries";
 import type { MapGeometry } from "../../assets/parsing/mapBuffer";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
 
-/**
- * The maps a backdrop can be drawn from, by the entry path their container names.
- *
- * A picker enumerated from the built game index is its own issue. Until it exists the
- * list is the one map the effort is measured against.
- */
-export const BACKDROP_MAPS = {
-  summonersRift: "Maps/MapGeometry/Map11/Base_SRX",
-} as const;
+/** Where the install keeps every map's geometry, one directory per map. */
+const MAP_GEOMETRY_DIR = "data/maps/mapgeometry";
+
+/** The prefix under which a map's files sit, which mirrors `MapPath` in core. */
+const DATA_PREFIX = "data/";
+
+/** The suffix a map's geometry carries, which mirrors `MapPath::geometry` in core. */
+const GEOMETRY_SUFFIX = ".mapgeo";
 
 /**
  * The width a map's textures land at before the whole ones replace them.
@@ -26,14 +31,20 @@ export const BACKDROP_MAPS = {
  */
 const PREVIEW_WIDTH = 64;
 
-/** Which map a backdrop draws. */
-export type BackdropMap = keyof typeof BACKDROP_MAPS;
-
 /** Which map a backdrop draws, and the project whose layer answers before the install. */
 export interface BackdropSource {
-  readonly map: BackdropMap;
+  readonly map: MapPath;
   /** Any open document of that project, and null outside one. */
   readonly document: BinDocumentId | null;
+}
+
+/** One map the install can draw a backdrop from. */
+export interface BackdropChoice {
+  readonly map: MapPath;
+  /** The directory the geometry sits in, `map11`, which is what names the map. */
+  readonly folder: string;
+  /** The geometry's own file name without its suffix, `base_srx`. */
+  readonly geometry: string;
 }
 
 /**
@@ -42,13 +53,46 @@ export interface BackdropSource {
  * An entry path names no file of its own: each of a map's files is that path lowercased
  * under the data prefix with the file's own suffix.
  */
-function geometryPath(map: BackdropMap): string {
-  return `data/${BACKDROP_MAPS[map].toLowerCase()}.mapgeo`;
+function geometryPath(map: MapPath): string {
+  return `${DATA_PREFIX}${map.toLowerCase()}${GEOMETRY_SUFFIX}`;
 }
 
 /** Where the install keeps a map's files, which nothing invalidates for the app's life. */
 const backdropQueries = {
-  chunk: (map: BackdropMap | null) =>
+  /* The index answers a directory as a lookup rather than a walk, so enumerating every
+     map is one read of the geometry root and one of each map under it. */
+  maps: () =>
+    queryOptions<readonly BackdropChoice[]>({
+      queryKey: ["viewport-backdrop", "maps"],
+      queryFn: async () => {
+        const root = await api.readGameDir(MAP_GEOMETRY_DIR);
+        if (!root.ok) return [];
+        const listings = await Promise.all(
+          root.value.dirs.map(async (dir) => ({ dir, read: await api.readGameDir(dir.path) })),
+        );
+        const found: BackdropChoice[] = [];
+        for (const { dir, read } of listings) {
+          if (!read.ok) continue;
+          for (const file of read.value.files) {
+            const path = file.path;
+            if (path === null) continue;
+            if (!path.startsWith(DATA_PREFIX) || !path.endsWith(GEOMETRY_SUFFIX)) continue;
+            const map = path.slice(DATA_PREFIX.length, -GEOMETRY_SUFFIX.length);
+            found.push({
+              map,
+              folder: dir.name,
+              geometry: map.slice(map.lastIndexOf("/") + 1),
+            });
+          }
+        }
+        found.sort((a, b) => a.map.localeCompare(b.map, undefined, { numeric: true }));
+        return found;
+      },
+      staleTime: Infinity,
+      retry: false,
+    }),
+
+  chunk: (map: MapPath | null) =>
     queryOptions<AssetRef | null>({
       queryKey: ["viewport-backdrop", map],
       queryFn: async () => {
@@ -68,7 +112,7 @@ const backdropQueries = {
      exactly what the read closes over. The paths are the buffer's own string table, so
      their identity is stable for as long as the answer is. */
   materials: (
-    map: BackdropMap | null,
+    map: MapPath | null,
     document: BinDocumentId | null,
     paths: readonly string[] | null,
   ) =>
@@ -76,7 +120,7 @@ const backdropQueries = {
       queryKey: ["viewport-backdrop", "materials", map, document, paths],
       queryFn: async () => {
         if (map === null || paths === null) return [];
-        const answer = await api.bin.readMap(document, BACKDROP_MAPS[map], [...paths]);
+        const answer = await api.bin.readMap(document, map, [...paths]);
         if (!answer.ok) return [];
         return answer.value.materials;
       },
@@ -101,6 +145,11 @@ export interface Backdrop {
 
 const NO_MATERIALS: readonly (MaterialPreview | null)[] = [];
 const NO_TEXTURES: ReadonlyMap<string, Texture> = new Map();
+
+/** Every map this install can draw a backdrop from, in map order. */
+export function useBackdropMaps() {
+  return useQuery(backdropQueries.maps());
+}
 
 /**
  * The map `source` names, fetched once and decoded once.

@@ -182,6 +182,8 @@ export type {
   HashRef,
   IdleEffect,
   KeyRef,
+  MapModel,
+  MapPath,
   Mask,
   MaterialPreview,
   MaterialWarning,

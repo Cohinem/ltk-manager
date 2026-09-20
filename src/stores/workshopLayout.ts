@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { BackdropMap, CameraPreset } from "@/modules/viewport";
+import type { MapPath } from "@/lib/tauri";
+import type { CameraPreset } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
 
@@ -26,8 +27,8 @@ interface PreviewDisplay {
   previewGround: boolean;
   /** The ground wears the midlane's texture. */
   previewMidlane: boolean;
-  /** Which map is drawn behind the subject, and null for the flat stage. */
-  previewBackdrop: BackdropMap | null;
+  /** Which map is drawn behind the subject, by its entry path, and null for the flat stage. */
+  previewBackdrop: MapPath | null;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -165,6 +166,9 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setPreviewDisplay: (display: Partial<PreviewDisplay>) => void;
 }
 
+/** The map the backdrop was fixed to, as the game index spells its entry path. */
+const SUMMONERS_RIFT = "maps/mapgeometry/map11/base_srx";
+
 const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewGround: true,
   previewMidlane: true,
@@ -239,7 +243,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
         const state = {
           ...keepUnversioned<
@@ -250,6 +254,11 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
         /* The mode a click used to carry is now what a click does, and every
            editor takes the new default rather than the value it never chose. */
         delete state.tabOpenMode;
+        /* The one map the backdrop could draw was named rather than addressed, and the
+           picker addresses every map by the entry path the index spells. */
+        if ((state.previewBackdrop as string | null) === "summonersRift") {
+          state.previewBackdrop = SUMMONERS_RIFT;
+        }
         return state;
       },
     },

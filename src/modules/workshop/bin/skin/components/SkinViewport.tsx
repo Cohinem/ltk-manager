@@ -14,9 +14,10 @@ import { type ReactNode, use, useCallback, useEffect, useMemo, useRef, useState 
 
 import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentId, GraphClip, SkinModel } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId, GraphClip, MapPath, SkinModel } from "@/lib/tauri";
 import {
   Armature,
+  type BackdropChoice,
   Character,
   createPose,
   FitCamera,
@@ -26,6 +27,7 @@ import {
   sequencePose,
   snappedPose,
   useAssetTextures,
+  useBackdropMaps,
   useSceneColors,
   Viewport,
   viewportQueries,
@@ -413,14 +415,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks each button's own size. */
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
-          <ViewToggle
-            label={m.workshop_bin_preview_backdrop_label()}
-            active={backdrop !== null}
-            icon={<MountainsIcon weight="bold" className="h-4 w-4" />}
-            onClick={() =>
-              setDisplay({ previewBackdrop: backdrop === null ? "summonersRift" : null })
-            }
-          />
+          <BackdropToggle />
           <ViewToggle
             label={m.workshop_bin_preview_stage_label()}
             active={ground}
@@ -514,6 +509,91 @@ function ViewToggle({ label, active, icon, onClick }: ViewToggleProps) {
         onClick={onClick}
       />
     </Tooltip>
+  );
+}
+
+/**
+ * What a map's row reads, where the game's own name for it is one this app can state.
+ *
+ * The index spells a map by its directory, `map11`, and that directory is all that says
+ * which map it is. Only the two everyone names are named, and every other map reads as
+ * its own directory rather than as a guess.
+ */
+const MAP_NAMES: Record<string, () => string> = {
+  map11: m.workshop_bin_preview_backdrop_map11_label,
+  map12: m.workshop_bin_preview_backdrop_map12_label,
+};
+
+function mapLabel(choice: BackdropChoice, ambiguous: boolean): string {
+  const named =
+    MAP_NAMES[choice.folder]?.() ?? choice.folder.charAt(0).toUpperCase() + choice.folder.slice(1);
+  if (!ambiguous) return named;
+  return `${named} (${choice.geometry})`;
+}
+
+/** The map behind the subject: a switch, and the install's maps behind the kebab beside it. */
+function BackdropToggle() {
+  const backdrop = usePreviewBackdrop();
+  const setDisplay = useSetPreviewDisplay();
+  const maps = useBackdropMaps();
+  /* Turning the backdrop off drops which map it drew, so the switch hands the same map
+     back rather than returning to the first one in the install. */
+  const last = useRef<MapPath | null>(null);
+  if (backdrop !== null) last.current = backdrop;
+
+  const choices = maps.data ?? [];
+  const folders = choices.map((choice) => choice.folder);
+  const opening = last.current ?? choices[0]?.map ?? null;
+
+  return (
+    <>
+      <ViewToggle
+        label={m.workshop_bin_preview_backdrop_label()}
+        active={backdrop !== null}
+        icon={<MountainsIcon weight="bold" className="h-4 w-4" />}
+        onClick={() => setDisplay({ previewBackdrop: backdrop === null ? opening : null })}
+      />
+      <Menu.Root>
+        <Tooltip content={m.workshop_bin_preview_backdrop_menu_label()}>
+          <Menu.Trigger
+            render={
+              <IconButton
+                variant="ghost"
+                size="xs"
+                compact
+                aria-label={m.workshop_bin_preview_backdrop_menu_label()}
+                icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+              />
+            }
+          />
+        </Tooltip>
+        <Menu.Portal>
+          <Menu.Positioner align="end">
+            <Menu.Popup data-ui="BackdropMenu" className="w-52">
+              {choices.length === 0 && (
+                <Menu.Item disabled>{m.workshop_bin_preview_backdrop_empty_label()}</Menu.Item>
+              )}
+              <Menu.RadioGroup
+                value={backdrop}
+                onValueChange={(map) => setDisplay({ previewBackdrop: map as MapPath | null })}
+              >
+                <Menu.RadioItem value={null}>
+                  {m.workshop_bin_preview_backdrop_none_label()}
+                </Menu.RadioItem>
+                {choices.map((choice) => (
+                  <Menu.RadioItem key={choice.map} value={choice.map}>
+                    {mapLabel(
+                      choice,
+                      folders.indexOf(choice.folder) !== folders.lastIndexOf(choice.folder),
+                    )}
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioGroup>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    </>
   );
 }
 

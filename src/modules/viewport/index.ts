@@ -64,9 +64,9 @@ export { Stage } from "./scene/components/Stage";
 export { Viewport, type ViewportProps } from "./scene/components/Viewport";
 export { type SceneColors, useSceneColors } from "./scene/hooks/sceneColors";
 export {
-  BACKDROP_MAPS,
-  type BackdropMap,
+  type BackdropChoice,
   type BackdropSource,
+  useBackdropMaps,
   useMapBackdrop,
 } from "./scene/hooks/useMapBackdrop";
 export {
