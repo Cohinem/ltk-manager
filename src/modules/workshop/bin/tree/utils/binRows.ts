@@ -18,6 +18,42 @@ export function rowKey(row: Pick<BinRow, "entry" | "path">): string {
   return `${row.entry}:${row.path}`;
 }
 
+/** The class a depth-zero row is sorted under, and null for a row that states none. */
+function rootClass(row: BinRow): string | null {
+  return row.value.type === "struct" ? (row.value.class ?? row.value.classHash) : null;
+}
+
+/** Named before unnamed, then by the text itself, digits by their value. */
+function byText(a: string, aUnnamed: boolean, b: string, bUnnamed: boolean): number {
+  if (aUnnamed !== bUnnamed) return aUnnamed ? 1 : -1;
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+/**
+ * A file's depth-zero rows in the order its tree lists them: objects ahead of patch
+ * targets, each run by class and then by name.
+ *
+ * A file keeps its objects in the order its hash table fell out in, which says nothing to
+ * a reader. A class or an object no table names sorts after the named ones, by its hash.
+ */
+export function sortedRoots(rows: readonly BinRow[]): BinRow[] {
+  return rows
+    .map((row) => ({ row, class: rootClass(row) }))
+    .sort((a, b) => {
+      const targets = Number(a.row.node === "target") - Number(b.row.node === "target");
+      if (targets !== 0) return targets;
+      const classes = byText(
+        a.class ?? "",
+        a.row.value.type === "struct" && a.row.value.class === null,
+        b.class ?? "",
+        b.row.value.type === "struct" && b.row.value.class === null,
+      );
+      if (classes !== 0) return classes;
+      return byText(a.row.name, a.row.unnamed, b.row.name, b.row.unnamed);
+    })
+    .map(({ row }) => row);
+}
+
 /** The key of the object row an entry hash names. */
 export function objectKey(entry: string): string {
   return `${entry}:`;
