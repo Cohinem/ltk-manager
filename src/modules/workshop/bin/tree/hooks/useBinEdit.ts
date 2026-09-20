@@ -62,6 +62,7 @@ const DOCUMENT_READS = [
   ["bin-file-roots"],
   ["bin-addable"],
   ["bin-item-classes"],
+  ["bin-declared"],
   ["vfx-system"],
   ["skin"],
   ["skin-graph"],

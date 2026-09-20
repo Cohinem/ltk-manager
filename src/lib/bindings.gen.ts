@@ -75,6 +75,14 @@ export const commands = {
 	 */
 	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
 	/**
+	 *  What the document says beside its rows: the layer it declares into, the project's
+	 *  layers, and the rows a declaration of that layer touches. `None` for a document that
+	 *  declares nothing. ADR-0042.
+	 */
+	binDeclared: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: DeclaredState | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declared", { document }),
+	/**  Write the edits that follow on a declared document to `layer`. ADR-0042. */
+	binDeclareInto: (document: BinDocumentId, layer: string) => __TAURI_INVOKE<({ ok: true; value: DeclaredState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_into", { document, layer }),
+	/**
 	 *  The fields the holder at `path` of an open document can take, out of the meta schema.
 	 * 
 	 *  `path` is empty for the object itself. The fields are the ones the holder's class and
@@ -545,7 +553,12 @@ path: string } |
 /**  A `DATA/FINAL`-relative archive name. */
 wad: string; 
 /**  The chunk's path hash as 16 lowercase hex digits. */
-pathHash: string } | 
+pathHash: string; 
+/**
+ *  The project directory whose game tree the chunk was opened from, which makes a
+ *  bin of it a declared document (ADR-0042). Absent for a chunk opened anywhere else.
+ */
+project?: string | null } | 
 /**
  *  Any file on disk, for a preview that belongs to no project.
  * 
@@ -602,6 +615,8 @@ export type BinDocumentHandle = {
 	object: BinObjectHeader | null,
 	/**  The gate a read-only document stands behind. Absent where it takes edits. */
 	readOnly: ReadOnly | null,
+	/**  What a declared document says beside its rows. Absent for every other document. */
+	declared: DeclaredState | null,
 };
 
 /**
@@ -941,6 +956,20 @@ export type DeclaredKind = {
 	mismatch: boolean,
 };
 
+/**  One row a declaration of the chosen layer touches. */
+export type DeclaredMark = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The row's path on the wire. Empty where the declared path reaches no row. */
+	path: string,
+	sign: DeclaredSign,
+	/**
+	 *  The game's value as a declaration spells it. Absent where the game holds none, and
+	 *  for a value that does not render.
+	 */
+	game: string | null,
+};
+
 /**  Every declaration of one object, with the path they share. */
 export type DeclaredObject = {
 	/**  The object's path, or its hash when no table names it. */
@@ -955,6 +984,19 @@ export type DeclaredObjects = {
 	index: ObjectIndexStatus,
 	/**  By the object's hash, `0x` and eight hex digits. A hash nothing declares is absent. */
 	objects: { [key in string]: DeclaredObject },
+};
+
+/**  The sign of a declared key. */
+export type DeclaredSign = "set" | "add" | "remove";
+
+/**  What a declared document says beside its rows. */
+export type DeclaredState = {
+	/**  The layer an edit writes to. */
+	layer: string,
+	/**  The project's layers in build order. */
+	layers: string[],
+	/**  The rows a declaration of `layer` touches. */
+	marks: DeclaredMark[],
 };
 
 /**
@@ -1083,7 +1125,14 @@ export type EditRejection =
 /**  The option or the pointer holds a value already. */
 { reason: "valueHeld" } | 
 /**  The list holds no such position. */
-{ reason: "noSuchIndex" };
+{ reason: "noSuchIndex" } | 
+/**
+ *  The path runs through a field no table names, or a key a map holds twice, which no
+ *  declaration spells. ADR-0042.
+ */
+{ reason: "namelessPath" } | 
+/**  No declaration expresses the edit. ADR-0042. */
+{ reason: "undeclarable" };
 
 /**  One key of the skin's resolver, and the system it stands for. */
 export type EffectSystem = {

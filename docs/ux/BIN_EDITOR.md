@@ -4,6 +4,7 @@
 
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
+| 2026-09-21 | Declare a game bin's leaf edit into a project layer            |
 | 2026-09-20 | Open a map's files on the map, and sort a file's objects       |
 | 2026-09-17 | Draw a patch bin's records under the objects they target       |
 | 2026-09-14 | Address a map entry whose key repeats as `{k}#n`               |
@@ -13,7 +14,6 @@
 | 2026-09-14 | Add and remove a property inline, at the schema's default      |
 | 2026-09-14 | Save a leaf edit as a delta, and refuse a file changed on disk |
 | 2026-09-14 | Cut a chip's path under its object, and name the target class  |
-| 2026-09-14 | Draw a string-table key with its in-game line                  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -21,8 +21,10 @@ The bin editor is the LTK Manager viewer and editor for a `.bin` file. The core 
 is blocks rather than text. A property bin is already a tree of typed values, and the manager
 draws that tree directly instead of turning it into ritobin source for a user to read as code.
 
-The name covers one surface in two modes. A `.bin` of the installed game opens read-only, and
-a `.bin` of a project layer opens editable. Both draw the same blocks.
+The name covers one surface in three modes. A `.bin` of the installed game opens read-only, a
+`.bin` of a project layer opens editable, and a `.bin` of the game opened from a project's game
+tree opens declared: its edits land in a layer's `game_data.yaml`. All three draw the same
+blocks.
 
 ## Goals
 
@@ -79,6 +81,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
 | Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
 | Patch bin records     | Available   | Grouped under the objects they target, read-only. ADR-0041       |
+| Declared game bin     | In progress | A leaf edit of a game bin lands as a declaration. ADR-0042       |
 | Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite          |
 
 ## Scope
@@ -2114,11 +2117,15 @@ promises nothing it cannot do.
 
 The rule falls out of `AssetRef` and needs no new state.
 
-| Source      | Mode      | Why                                                 |
-| ----------- | --------- | --------------------------------------------------- |
-| `Layer`     | Editable  | The project's own file                              |
-| `GameChunk` | Read-only | Inside the install, which the manager never writes  |
-| `File`      | Read-only | Anywhere on disk, and owned by nobody the app knows |
+| Source                     | Mode      | Why                                                 |
+| -------------------------- | --------- | --------------------------------------------------- |
+| `Layer`                    | Editable  | The project's own file                              |
+| `GameChunk`                | Read-only | Inside the install, which the manager never writes  |
+| `GameChunk` with a project | Declared  | An edit writes the project's declarations. ADR-0042 |
+| `File`                     | Read-only | Anywhere on disk, and owned by nobody the app knows |
+
+A game chunk carries its project when it opens from that project's game tree. The same chunk
+opened from the Library carries none and stays read-only.
 
 The source is one of two gates. A `PTCH` file is read-only from either side of that table, for
 a reason of its own that the next section gives. The header of a read-only document names the
@@ -2128,6 +2135,35 @@ A read-only document draws the same blocks with the widgets disabled, and offers
 layer**, which writes the chunk into the active project's layer and reopens it editable. That
 is the route a modder wants anyway, because a change to a game file is a change that has to
 live in a mod.
+
+### Declaring from a game bin
+
+A declared document draws the game's copy of the chunk with the project's declarations
+applied: every layer in build order, through the function and the schema the overlay build
+uses. What the reader sees is what the build makes.
+
+| Part           | What it does                                                             |
+| -------------- | ------------------------------------------------------------------------ |
+| The layer chip | Names the layer an edit writes to, in the toolbar where the lock stands  |
+| The mark       | Stands on each row a declaration of the chosen layer touches             |
+| The hover      | Names the layer and spells the game's value as a declaration writes it   |
+| A leaf edit    | Writes one key under an `entries` module of the layer's `game_data.yaml` |
+| Undo and redo  | Restore the manifest text from before and after the edit                 |
+
+The chip opens on the layer last used for the project, else `base`, and switches among the
+project's layers in build order. A declaration another layer holds draws applied and
+carries no mark.
+
+An edit is on disk once it answers, so a declared document has no unsaved state and no save
+status. The entry is spelled by its name from the tables, else by its hash. An undo over a
+manifest edited since, by hand or from another tab, is refused and leaves the file as it is.
+
+Two edits are refused with the reason on the row. A path through a field no table names has
+no spelling in a declaration, and neither has a map key the file holds twice. Every edit
+other than a leaf set waits on the container declarations.
+
+One re-apply over the largest skin bin of the install (Viego, 3.7 MiB, 483 objects) takes
+65 ms in a release build.
 
 ### A patch bin is read-only
 

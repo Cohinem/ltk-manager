@@ -1,6 +1,6 @@
 # ADR-0042: A game bin edit inside a project declares into a layer
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-19
 - **Crates:** `ltk-manager-core`, `src-tauri`, frontend
 - **Related:** [ADR-0012](0012-the-overlay-merges-a-mod-over-the-games-copy.md), whose merge this

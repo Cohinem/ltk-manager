@@ -357,6 +357,7 @@ impl From<AppError> for AppErrorResponse {
             AppError::BinDocument(BinDocumentError::EditRejected { address, rejection }) => {
                 Self::BinEditRejected { address, rejection }
             }
+            AppError::BinDocument(BinDocumentError::Declaring(inner)) => Self::from(*inner),
             AppError::BinDocument(BinDocumentError::ChangedOnDisk) => Self::BinChangedOnDisk,
             AppError::BinDocument(BinDocumentError::Unwritable(e)) => Self::BinUnwritable {
                 detail: e.to_string(),

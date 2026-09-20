@@ -113,6 +113,7 @@ impl AssetLookup for DocumentAssets<'_> {
         Some(AssetRef::GameChunk {
             wad: file.wad,
             path_hash: file.path_hash,
+            project: None,
         })
     }
 
@@ -124,6 +125,7 @@ impl AssetLookup for DocumentAssets<'_> {
         Some(AssetRef::GameChunk {
             wad: file.wad,
             path_hash: file.path_hash,
+            project: None,
         })
     }
 }

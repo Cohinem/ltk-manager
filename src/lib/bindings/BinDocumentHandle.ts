@@ -3,6 +3,7 @@ import type { BinDocumentId } from "./BinDocumentId";
 import type { BinHeader } from "./BinHeader";
 import type { BinObjectHeader } from "./BinObjectHeader";
 import type { BinRow } from "./BinRow";
+import type { DeclaredState } from "./DeclaredState";
 import type { ReadOnly } from "./ReadOnly";
 
 /**
@@ -19,4 +20,8 @@ object: BinObjectHeader | null,
 /**
  * The gate a read-only document stands behind. Absent where it takes edits.
  */
-readOnly: ReadOnly | null, };
+readOnly: ReadOnly | null, 
+/**
+ * What a declared document says beside its rows. Absent for every other document.
+ */
+declared: DeclaredState | null, };

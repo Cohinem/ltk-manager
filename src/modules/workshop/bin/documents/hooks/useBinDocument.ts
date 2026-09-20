@@ -23,6 +23,7 @@ import {
 import { unwrapForQuery } from "@/utils/query";
 
 import { assetKey } from "../../../preview/utils/assetRef";
+import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { flushBinSave, isQueuedThrough } from "../../../state";
 import { type LoadedChildren, mergePages, PAGE_SIZE, splitKey } from "../../tree/utils/binRows";
 
@@ -44,8 +45,12 @@ export function useBinDocument(
   entry: string | null = null,
 ): { state: BinOpenState; reopen: () => void } {
   const key = `${assetKey(asset)}:${entry ?? ""}`;
-  const latest = useRef({ asset, entry });
-  latest.current = { asset, entry };
+  /* A game chunk opened inside a project declares into it (ADR-0042). */
+  const project = useOptionalProjectContext()?.path;
+  const opened =
+    asset.kind === "gameChunk" && project !== undefined ? { ...asset, project } : asset;
+  const latest = useRef({ asset: opened, entry });
+  latest.current = { asset: opened, entry };
 
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });

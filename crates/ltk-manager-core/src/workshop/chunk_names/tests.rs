@@ -284,6 +284,7 @@ fn an_asset_outside_a_project_names_nothing() {
     let asset = AssetRef::GameChunk {
         wad: "Aatrox.wad.client".to_owned(),
         path_hash: "0040cb0b0c8560aa".to_owned(),
+        project: None,
     };
 
     assert!(LayerChunks::of(&asset).is_empty());

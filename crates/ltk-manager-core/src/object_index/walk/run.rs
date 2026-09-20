@@ -295,6 +295,7 @@ impl ObjectIndex {
                     AssetRef::GameChunk {
                         wad: self.declared.wads[*wad as usize].clone(),
                         path_hash: hex_name(file.path_hash),
+                        project: None,
                     },
                     self.file_name(file),
                 )

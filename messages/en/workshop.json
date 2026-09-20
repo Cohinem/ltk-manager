@@ -185,8 +185,12 @@
       }
     }
   ],
+  "workshop_bin_declared_game_value_label": "Game",
   "workshop_bin_declared_in_label": "Declared in",
   "workshop_bin_declared_label": "Declared",
+  "workshop_bin_declared_row_label": "Declared in {layer}",
+  "workshop_bin_declares_into_hint": "Edits of this game bin are written to this layer's game_data.yaml",
+  "workshop_bin_declares_into_label": "Layer the edits declare into",
   "workshop_bin_dependencies_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

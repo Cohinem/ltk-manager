@@ -115,6 +115,9 @@ export type {
   ClassChoice,
   ClassSchema,
   DeclaredKind,
+  DeclaredMark,
+  DeclaredSign,
+  DeclaredState,
   EditRejection,
   FieldRevision,
   FieldSchema,
@@ -506,6 +509,9 @@ export const api = {
     reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
     undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),
     redo: (document: BinDocumentId) => commands.binRedo(document).then(toResult),
+    declared: (document: BinDocumentId) => commands.binDeclared(document).then(toResult),
+    declareInto: (document: BinDocumentId, layer: string) =>
+      commands.binDeclareInto(document, layer).then(toResult),
     roots: (document: BinDocumentId) => commands.binRoots(document).then(toResult),
     addableFields: (document: BinDocumentId, entry: string, path: string) =>
       commands.binAddableFields(document, entry, path).then(toResult),
