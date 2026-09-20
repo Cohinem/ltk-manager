@@ -4,6 +4,7 @@ import { previewBufferUrl, type PreviewForm } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
 import { readClipBuffer } from "../parsing/clipBuffer";
+import { readMapBuffer } from "../parsing/mapBuffer";
 import { readMeshBuffer } from "../parsing/meshBuffer";
 import { readSkeletonBuffer } from "../parsing/skeletonBuffer";
 
@@ -28,6 +29,17 @@ export const viewportQueries = {
         asset === null
           ? skipToken
           : async () => readMeshBuffer(await fetchBuffer(asset, "geometry")),
+      staleTime: Infinity,
+      structuralSharing: false,
+      retry: false,
+    }),
+  /* Its own entry rather than a `mesh` of another form, because a map is tens of MiB and
+     must not share a cache key with anything a character preview evicts. */
+  map: (asset: AssetRef | null) =>
+    queryOptions({
+      queryKey: ["viewport", "map", asset],
+      queryFn:
+        asset === null ? skipToken : async () => readMapBuffer(await fetchBuffer(asset, "map")),
       staleTime: Infinity,
       structuralSharing: false,
       retry: false,

@@ -10,6 +10,15 @@ export {
 export { createSceneClock, type SceneClock } from "./animation/state/clock";
 export { viewportQueries } from "./assets/api/queries";
 export { clipDuration, type ClipModel, readClipBuffer } from "./assets/parsing/clipBuffer";
+export {
+  DEFAULT_LAYER,
+  drawnMeshes,
+  type MapGeometry,
+  type MapMesh,
+  type MapSubmesh,
+  MESH_FLAG,
+  readMapBuffer,
+} from "./assets/parsing/mapBuffer";
 export { type MeshGeometry, type MeshRange, readMeshBuffer } from "./assets/parsing/meshBuffer";
 export {
   type JointModel,
@@ -51,9 +60,11 @@ export {
   useCharacterSkin,
 } from "./character/state/characterSkin";
 export { type FallbackColors, type SubmeshBinding } from "./character/utils/submeshBinding";
+export { Backdrop } from "./scene/components/Backdrop";
 export { Stage } from "./scene/components/Stage";
 export { Viewport, type ViewportProps } from "./scene/components/Viewport";
 export { type SceneColors, useSceneColors } from "./scene/hooks/sceneColors";
+export { BACKDROP_MAPS, type BackdropMap, useMapBackdrop } from "./scene/hooks/useMapBackdrop";
 export {
   AXIS_SIGN,
   CHAMPION_HEIGHT,

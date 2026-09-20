@@ -376,6 +376,7 @@
   "workshop_bin_preview_joint_names_label": "Names",
   "workshop_bin_preview_loading_label": "Reading the system",
   "workshop_bin_preview_loop_label": "Loop",
+  "workshop_bin_preview_backdrop_label": "Map backdrop",
   "workshop_bin_preview_midlane_label": "Midlane",
   "workshop_bin_preview_pane_empty": "Open a particle system to preview it",
   "workshop_bin_preview_pane_label": "Particle preview",

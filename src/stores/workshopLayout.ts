@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { CameraPreset } from "@/modules/viewport";
+import type { BackdropMap, CameraPreset } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
 
@@ -26,6 +26,8 @@ interface PreviewDisplay {
   previewGround: boolean;
   /** The ground wears the midlane's texture. */
   previewMidlane: boolean;
+  /** Which map is drawn behind the subject, and null for the flat stage. */
+  previewBackdrop: BackdropMap | null;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -166,6 +168,7 @@ interface WorkshopLayoutStore extends PreviewDisplay {
 const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewGround: true,
   previewMidlane: true,
+  previewBackdrop: null,
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
@@ -316,6 +319,7 @@ export const useSetForwardLookingMeta = () =>
   useWorkshopLayoutStore((s) => s.setForwardLookingMeta);
 export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGround);
 export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
+export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);

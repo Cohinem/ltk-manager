@@ -8,7 +8,9 @@ import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
 import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
 import { useSceneColors } from "../hooks/sceneColors";
+import { type BackdropMap, useMapBackdrop } from "../hooks/useMapBackdrop";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
+import { Backdrop } from "./Backdrop";
 import { Stage } from "./Stage";
 import { Sun } from "./Sun";
 
@@ -17,6 +19,13 @@ export interface ViewportProps {
   readonly stage: boolean;
   /** The ground wears the midlane's texture rather than the flat token fill. */
   readonly textured: boolean;
+  /**
+   * The game's own map drawn behind the subject, and null for the flat stage.
+   *
+   * A backdrop replaces the stage rather than standing on it, so neither the ground plane
+   * nor its grid is drawn while one is up.
+   */
+  readonly backdrop?: BackdropMap | null;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
@@ -57,8 +66,16 @@ function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRende
  * gizmo draws as a HUD over the frame, so a child of the canvas has to own the render
  * loop, which `Passes` does.
  */
-export function Viewport({ stage, textured, camera, onCameraStand, children }: ViewportProps) {
+export function Viewport({
+  stage,
+  textured,
+  backdrop = null,
+  camera,
+  onCameraStand,
+  children,
+}: ViewportProps) {
   const colors = useSceneColors();
+  const map = useMapBackdrop(backdrop);
   const visible = useContentVisible();
   const [sized, setSized] = useState(false);
   const [started, setStarted] = useState(false);
@@ -100,7 +117,8 @@ export function Viewport({ stage, textured, camera, onCameraStand, children }: V
           <color attach="background" args={[colors.backdrop]} />
           <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
           <Sun />
-          <Stage colors={colors} shown={stage} textured={textured} />
+          <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
+          {map.geometry !== null && <Backdrop map={map.geometry} />}
           <CameraPresetContext value={camera}>{children}</CameraPresetContext>
         </Canvas>
       )}

@@ -4,6 +4,7 @@ import {
   FrameCornersIcon,
   GridFourIcon,
   MapTrifoldIcon,
+  MountainsIcon,
   SparkleIcon,
   StackIcon,
 } from "@phosphor-icons/react";
@@ -32,6 +33,7 @@ import {
 import {
   usePreviewArmature,
   usePreviewCamera,
+  usePreviewBackdrop,
   usePreviewGround,
   usePreviewJointNames,
   usePreviewMidlane,
@@ -131,6 +133,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   const { parameter, setParameter, shown, setShown, resetShown } = use(SkinChoiceContext) ?? own;
 
   const ground = usePreviewGround();
+  const backdrop = usePreviewBackdrop();
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
   const armature = usePreviewArmature();
@@ -322,6 +325,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
         <Viewport
           stage={ground}
           textured={midlane}
+          backdrop={backdrop}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >
@@ -403,6 +407,14 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks each button's own size. */
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
+          <ViewToggle
+            label={m.workshop_bin_preview_backdrop_label()}
+            active={backdrop !== null}
+            icon={<MountainsIcon weight="bold" className="h-4 w-4" />}
+            onClick={() =>
+              setDisplay({ previewBackdrop: backdrop === null ? "summonersRift" : null })
+            }
+          />
           <ViewToggle
             label={m.workshop_bin_preview_stage_label()}
             active={ground}
