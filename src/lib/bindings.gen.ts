@@ -946,6 +946,34 @@ export type Consequence =
 /**  The game did not survive. */
 "game-stopped";
 
+/**  One diagnostic of the last apply, on the row it names. */
+export type DeclaredDiagnostic = {
+	/**
+	 *  The object's path hash, `0x` and eight hex digits. Empty where the diagnostic names no
+	 *  object of the chunk.
+	 */
+	entry: string,
+	/**
+	 *  The row's path on the wire. Empty where the key reaches no row, which lists the
+	 *  diagnostic under its object.
+	 */
+	path: string,
+	/**  The layer whose declaration raised it. */
+	layer: string,
+	/**  The signed key, the link path or the override path the diagnostic is about. */
+	key: string,
+	kind: DeclaredDiagnosticKind,
+	/**  Why a property edit was skipped. Absent for every other kind. */
+	reason: SkipReason | null,
+	/**  What a lower layer said, where it said something the codes do not carry. */
+	detail: string | null,
+};
+
+/**  The category of a [`DeclaredDiagnostic`], as `ltk_game_data` names it. */
+export type DeclaredDiagnosticKind = "overrideUnreadable" | "overrideInvalid" | "overrideRecordSkipped" | "linkRemovalUnmatched" | "propertyEditSkipped" | 
+/**  A property typed from the game's copy, the schema saying nothing. Information. */
+"schemaFallback" | "referenceUnreadable" | "unknown";
+
 /**  What the schema declares for a field, beside whether the file's kind is that. */
 export type DeclaredKind = {
 	shape: KindShape,
@@ -999,6 +1027,8 @@ export type DeclaredState = {
 	layers: string[],
 	/**  The rows a declaration of `layer` touches. */
 	marks: DeclaredMark[],
+	/**  What the last apply reported, over every layer. */
+	diagnostics: DeclaredDiagnostic[],
 };
 
 /**
@@ -2571,6 +2601,9 @@ export type SkinModel = {
 	 */
 	effectSystems: EffectSystem[],
 };
+
+/**  Why a property edit does not apply, as `ltk_game_data` names it. */
+export type SkipReason = "missingObject" | "missingProperty" | "nullPointer" | "cannotDescend" | "notIndexable" | "indexOutOfRange" | "invalidKey" | "keyNotFound" | "typeMismatch" | "invalidPath" | "untypable" | "unknownClass" | "pinMismatch" | "signOnScalar" | "containerAbsent" | "removalUnmatched" | "kindMismatch" | "outOfRange" | "precisionLoss" | "arityMismatch" | "referenceMissingEntry" | "referenceUnresolved" | "unknown";
 
 /**  An archive the lazy scan skipped, with the DLL's reason. */
 export type SkippedArchive = {

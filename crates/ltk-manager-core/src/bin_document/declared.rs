@@ -19,6 +19,8 @@ use ltk_meta::{Bin, BinFile, BinObject, PropertyValueEnum};
 use ltk_mod_project::{ModProjectLayer, game_data::load_layer};
 use serde::Serialize;
 
+use self::diagnostics::Raised;
+pub use self::diagnostics::{DeclaredDiagnostic, DeclaredDiagnosticKind, SkipReason};
 use super::edit::UNDO_DEPTH;
 use super::{BinDocument, BinDocumentError, EditRejection, EntryKey, RowNames, Trace, hex};
 use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
@@ -62,6 +64,9 @@ pub(super) struct Declared {
     /// The project's layers in build order.
     layers: Vec<String>,
     marks: Vec<DeclaredMark>,
+    /// What the last apply reported, as it raised it and on the rows it names.
+    raised: Vec<Raised>,
+    diagnostics: Vec<DeclaredDiagnostic>,
     undo: VecDeque<TextEdit>,
     redo: Vec<TextEdit>,
 }
@@ -98,6 +103,8 @@ pub struct DeclaredState {
     pub layers: Vec<String>,
     /// The rows a declaration of `layer` touches.
     pub marks: Vec<DeclaredMark>,
+    /// What the last apply reported, over every layer.
+    pub diagnostics: Vec<DeclaredDiagnostic>,
 }
 
 /// One row a declaration of the chosen layer touches.
@@ -169,6 +176,8 @@ impl BinDocument {
             layer: BASE_LAYER.to_owned(),
             layers: Vec::new(),
             marks: Vec::new(),
+            raised: Vec::new(),
+            diagnostics: Vec::new(),
             undo: VecDeque::new(),
             redo: Vec::new(),
         };
@@ -186,6 +195,7 @@ impl BinDocument {
             layer: declared.layer.clone(),
             layers: declared.layers.clone(),
             marks: declared.marks.clone(),
+            diagnostics: declared.diagnostics.clone(),
         })
     }
 
@@ -281,6 +291,7 @@ impl Declared {
         let ignore = project.ignore_filter()?;
         let entries: Vec<BinHash> = self.game_tree.objects.keys().copied().collect();
         let mut bytes = self.game.clone();
+        self.raised.clear();
         for layer in &self.layers {
             let loaded = load_layer(root, layer, &ignore);
             let Ok(Some(declarations)) = &loaded.declarations else {
@@ -316,6 +327,8 @@ impl Declared {
                 &self.context.schema,
             )
             .map_err(|error| AppError::Other(format!("The declarations do not apply: {error}")))?;
+            self.raised
+                .extend(Raised::of(layer, &edits, applied.diagnostics));
             bytes = applied.bytes;
         }
         Ok(bytes)
@@ -324,6 +337,14 @@ impl Declared {
     /// Read the rows the chosen layer's declarations touch, against the applied `file`.
     fn mark(&mut self, file: &BinFile) {
         self.marks.clear();
+        self.diagnostics = match file {
+            BinFile::Prop(applied) => self
+                .raised
+                .iter()
+                .map(|raised| raised.place(applied))
+                .collect(),
+            BinFile::Override(_) => Vec::new(),
+        };
         let Ok(root) = self.context.project.path().try_as_utf8("project directory") else {
             return;
         };
@@ -623,6 +644,7 @@ fn not_declared() -> BinDocumentError {
     ))
 }
 
+mod diagnostics;
 mod edits;
 #[cfg(test)]
 mod tests;

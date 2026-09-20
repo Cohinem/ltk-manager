@@ -4,6 +4,7 @@
 
 | Date       | Change                                                          |
 | ---------- | --------------------------------------------------------------- |
+| 2026-09-21 | Draw what an apply reports on the row it names                  |
 | 2026-09-21 | Declare a game bin's container edits, and refuse what none says |
 | 2026-09-21 | Declare a game bin's leaf edit into a project layer             |
 | 2026-09-20 | Open a map's files on the map, and sort a file's objects        |
@@ -13,7 +14,6 @@
 | 2026-09-14 | Find an embedded class's uses and an object's incoming links    |
 | 2026-09-14 | Edit list items, map entries, options and pointers inline       |
 | 2026-09-14 | Add and remove a property inline, at the schema's default       |
-| 2026-09-14 | Save a leaf edit as a delta, and refuse a file changed on disk  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -2187,6 +2187,13 @@ A map is compared by its entries in any order, because an addition lands at the 
 Three edits are refused with the reason. A path through a field no table names has no
 spelling in a declaration, and neither has a map key the file holds twice. No declaration
 removes a property, so Remove property is disabled and its menu item carries the reason.
+
+What the apply reports draws on the row it names, over every layer of the project and not
+the chosen one alone. A skipped key draws a warning with its reason, the key as the manifest
+spells it and the layer holding it. A property typed from the game's copy, where the schema
+says nothing, draws as information. A key that reaches no row lists under its object, and a
+diagnostic that names no object of the chunk, a link or an override file, draws beside the
+layer chip.
 
 One re-apply over the largest skin bin of the install (Viego, 3.7 MiB, 483 objects) takes
 65 ms in a release build.

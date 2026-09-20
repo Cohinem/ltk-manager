@@ -28,8 +28,8 @@ import { ObjectGlyph } from "../../../shared/components/ObjectGlyph";
 import { clickIntent } from "../../../state";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { DeclaredLine, FieldCard } from "../../classes/components/FieldCard";
-import { DeclaredRowMark } from "../../documents/components/DeclaredLayer";
-import { useDeclaredMark, useDeclares } from "../../documents/hooks/useDeclared";
+import { DeclaredDiagnosticsMark, DeclaredRowMark } from "../../documents/components/DeclaredLayer";
+import { useDeclaredMark, useDeclares, useRowDiagnostics } from "../../documents/hooks/useDeclared";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
 import { ObjectNameContext, useObjectOpen } from "../../links/hooks/useLinkTargets";
 import { CutText } from "../../shared/components/CutText";
@@ -340,6 +340,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   const { row, owner, depth } = line;
   const { edit, refusal } = useRowEdit(line.key);
   const declared = useDeclaredMark(line.key);
+  const reported = useRowDiagnostics(line.key);
   /* A target is an object of another file, drawn as the heading its records sit under. */
   const target = row.node === "target";
   const object = row.node === "object" || target;
@@ -408,6 +409,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
         </Tooltip>
       )}
       {declared && <DeclaredRowMark mark={declared.mark} layer={declared.layer} />}
+      <DeclaredDiagnosticsMark diagnostics={reported} />
       {held && <ClassCard classHash={held.classHash} name={held.class} />}
       {!object && !element && <KindTag row={row} />}
     </span>
