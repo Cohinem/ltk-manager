@@ -2302,6 +2302,13 @@
       ]
     },
     {
+      "name": "ltk_mapgeo",
+      "version": "0.2.0",
+      "licenses": [
+        41
+      ]
+    },
+    {
       "name": "ltk_mesh",
       "version": "0.5.0",
       "licenses": [

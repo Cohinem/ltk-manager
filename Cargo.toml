@@ -45,6 +45,7 @@ ltk_overlay = "0.10.0"
 ltk_wad = "0.5.4"
 
 ltk_anim = "0.3.7"
+ltk_mapgeo = "0.2.0"
 ltk_mesh = "0.5.0"
 ltk_rst = "0.2.1"
 ltk_texture = { version = "0.6.1", features = ["intel-tex"] }

@@ -6,6 +6,7 @@
 //! the second.
 
 mod animation;
+mod map;
 mod mesh;
 mod skeleton;
 mod source;
@@ -38,6 +39,8 @@ pub enum PreviewRequest {
     Image { min_width: Option<NonZeroU32> },
     /// The asset's geometry, as one vertex buffer.
     Geometry,
+    /// A map's every mesh, baked into world space as one buffer.
+    Map,
     /// A skeleton's joints, as one joint buffer.
     Skeleton,
     /// A clip's poses, baked into one pose buffer.
@@ -134,6 +137,14 @@ pub enum PreviewError {
     #[error("The asset is larger than one preview buffer holds")]
     BufferTooLarge,
 
+    /// The bytes are not a map `ltk_mapgeo` reads.
+    #[error("Not a readable map: {0}")]
+    MapRead(#[from] ltk_mapgeo::ParseError),
+
+    /// A map mesh declares no positions in a layout this build decodes.
+    #[error("A map mesh has no readable positions")]
+    MapVertexLayout,
+
     /// The bytes are not a skeleton `ltk_anim` reads.
     #[error("Not a readable skeleton: {0}")]
     SkeletonRead(#[from] ltk_anim::ParseError),
@@ -180,6 +191,7 @@ impl AssetRef {
         let min_width = match request {
             PreviewRequest::Image { min_width } => min_width,
             PreviewRequest::Geometry => return Ok(Preview::Buffer(mesh::render(&bytes)?)),
+            PreviewRequest::Map => return Ok(Preview::Buffer(map::render(&bytes)?)),
             PreviewRequest::Skeleton => return Ok(Preview::Buffer(skeleton::render(&bytes)?)),
             PreviewRequest::Animation => return Ok(Preview::Buffer(animation::render(&bytes)?)),
             PreviewRequest::Cube => return Ok(Preview::Image(texture::render_cube(&bytes)?)),
