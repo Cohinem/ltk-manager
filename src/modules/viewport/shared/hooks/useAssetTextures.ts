@@ -8,14 +8,31 @@ import { TEXTURE_COLOR_SPACE } from "../../scene/utils/world";
 
 const NONE: ReadonlyMap<string, Texture> = new Map();
 
+/** How many textures are asked for at once where the caller states no number. */
+const CONCURRENT = 4;
+
 /** How a set of textures arrives, where one whole-size wave is not wanted. */
 export interface TextureLoad {
   /**
-   * A mip at least this wide lands first, and the whole texture replaces it after every
+   * A mip at least this wide lands first, and the full texture replaces it after every
    * one of them has. A map is 183 textures, so a first pass a mip wide is the difference
    * between seconds of grey and a drawn map that sharpens.
    */
   readonly previewWidth?: number;
+  /**
+   * The widest the second wave asks for, and undefined for the whole texture.
+   *
+   * A backdrop draws behind its subject, where the whole of a 2048 kit texture is
+   * bytes the frame never resolves.
+   */
+  readonly fullWidth?: number;
+  /**
+   * How many textures are in flight at once.
+   *
+   * Every request costs a decode in the backend and an upload on the render thread, so
+   * asking for a whole set at once lands them in bursts a frame cannot absorb.
+   */
+  readonly concurrency?: number;
   readonly report?: (load: { pending: number; failed: number }) => void;
 }
 
@@ -28,7 +45,7 @@ export interface TextureLoad {
  */
 export function useAssetTextures(
   assets: ReadonlyMap<string, AssetRef>,
-  { previewWidth, report }: TextureLoad = {},
+  { previewWidth, fullWidth, concurrency = CONCURRENT, report }: TextureLoad = {},
 ): ReadonlyMap<string, Texture> {
   const [textures, setTextures] = useState(NONE);
 
@@ -79,26 +96,44 @@ export function useAssetTextures(
         },
       );
 
-    const whole = () => {
-      for (const [key, asset] of assets) {
-        load(key, previewUrl(asset), (ok) => {
-          pending -= 1;
-          if (!ok) failed += 1;
-          report?.({ pending, failed });
-        });
-      }
+    /** One wave over every asset, no more than `concurrency` of them in flight. */
+    const wave = (
+      width: number | undefined,
+      settled: (ok: boolean) => void,
+      finished: () => void,
+    ) => {
+      const queue = [...assets];
+      let running = 0;
+      const pump = () => {
+        if (!live) return;
+        if (running === 0 && queue.length === 0) {
+          finished();
+          return;
+        }
+        while (running < concurrency && queue.length > 0) {
+          const next = queue.shift();
+          if (next === undefined) break;
+          running += 1;
+          load(next[0], previewUrl(next[1], width), (ok) => {
+            running -= 1;
+            settled(ok);
+            pump();
+          });
+        }
+      };
+      pump();
     };
 
-    if (previewWidth === undefined) {
-      whole();
-    } else {
-      let waiting = assets.size;
-      const settled = () => {
-        waiting -= 1;
-        if (waiting === 0 && live) whole();
-      };
-      if (waiting === 0) whole();
-      for (const [key, asset] of assets) load(key, previewUrl(asset, previewWidth), settled);
+    const count = (ok: boolean) => {
+      pending -= 1;
+      if (!ok) failed += 1;
+      report?.({ pending, failed });
+    };
+    const whole = () => wave(fullWidth, count, () => {});
+
+    if (previewWidth === undefined) whole();
+    else {
+      wave(previewWidth, () => {}, whole);
     }
 
     return () => {
@@ -107,7 +142,7 @@ export function useAssetTextures(
       for (const texture of loaded.values()) texture.dispose();
       setTextures(NONE);
     };
-  }, [assets, previewWidth, report]);
+  }, [assets, previewWidth, fullWidth, concurrency, report]);
 
   return textures;
 }

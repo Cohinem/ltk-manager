@@ -31,6 +31,22 @@ const GEOMETRY_SUFFIX = ".mapgeo";
  */
 const PREVIEW_WIDTH = 64;
 
+/**
+ * The widest a backdrop's textures are asked for.
+ *
+ * A map ships kit textures at 2048, which a surface drawn behind the subject never
+ * resolves, and 183 of those are the seconds of stutter the mip pass was meant to end.
+ */
+const FULL_WIDTH = 1024;
+
+/**
+ * How many of a map's textures are in flight at once.
+ *
+ * Each costs a decode in the backend and an upload on the render thread, so a whole
+ * set asked for at once lands in bursts no frame absorbs.
+ */
+const CONCURRENT = 4;
+
 /** Which map a backdrop draws, and the project whose layer answers before the install. */
 export interface BackdropSource {
   readonly map: MapPath;
@@ -181,7 +197,11 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     }
     return held;
   }, [geometry.data, materials.data]);
-  const textures = useAssetTextures(assets, { previewWidth: PREVIEW_WIDTH });
+  const textures = useAssetTextures(assets, {
+    previewWidth: PREVIEW_WIDTH,
+    fullWidth: FULL_WIDTH,
+    concurrency: CONCURRENT,
+  });
   /* Two million vertices walked once per map, so it is held rather than asked per frame. */
   const origin = useMemo(
     () => (geometry.data === undefined ? null : mapOrigin(geometry.data, DEFAULT_LAYER)),

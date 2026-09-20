@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -123,15 +123,22 @@ export function Backdrop({
     return built;
   }, [geometry, map, slots, layer]);
 
+  /* What each material was last bound to, so a wave of arrivals rebinds the few that
+     moved rather than all 183 once a frame. Indexed by `bound`, because two entries of
+     it share one entry path where a mesh disables culling. */
+  const applied = useRef<(Texture | null)[]>([]);
+  useEffect(() => {
+    applied.current = [];
+  }, [bound, colors]);
+
   /* The mesh's own cull flag wins over the material's `cullEnable`, which the render-flag
      remap favours, so it is written back over what the binding put there. */
   useEffect(() => {
-    for (const entry of bound) {
-      applyBinding(
-        entry.material,
-        { material: entry.slots, base: textures.get(entry.path) ?? null, texture: null },
-        colors,
-      );
+    for (const [at, entry] of bound.entries()) {
+      const base = textures.get(entry.path) ?? null;
+      if (applied.current[at] === base) continue;
+      applied.current[at] = base;
+      applyBinding(entry.material, { material: entry.slots, base, texture: null }, colors);
       if (entry.doubleSided && entry.material.side !== DoubleSide) {
         entry.material.side = DoubleSide;
         recompileIfMoved(entry.material);
