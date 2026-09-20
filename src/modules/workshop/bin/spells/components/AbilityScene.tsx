@@ -69,7 +69,7 @@ export function AbilityScene({
   );
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const reportCharacter = useCallback((load: AssetLoad) => report("character", load), [report]);
-  const textures = useAssetTextures(assets, reportCharacter);
+  const textures = useAssetTextures(assets, { report: reportCharacter });
   const binding = useCallback(
     (submesh: string) => bindingOf(skin, textures, submesh),
     [skin, textures],

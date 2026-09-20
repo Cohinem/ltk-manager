@@ -200,6 +200,13 @@ static MASKED_SHADER: LazyLock<Regex> = LazyLock::new(|| {
 /// A shader whose name says it blends additively.
 static ADDITIVE_SHADER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)additive").expect("a valid additive pattern"));
+/// A shader that halves its tint, so a half-grey leaves the albedo where it was.
+///
+/// 149 of Summoner's Rift's 183 materials write `TintColor` at exactly 128 of 255 and
+/// the two on `VertexDeform` write 255 for the same neutral, which is what says the
+/// family scales rather than that the map is half grey.
+static DOUBLED_TINT_SHADER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)staticmesh/defaultenv").expect("a valid tint pattern"));
 
 /// One `StaticMaterialDef` as a preview draws it, cut down to the slots one stock
 /// material takes.
@@ -549,7 +556,18 @@ impl<'a> Reader<'a> {
         let tint = params
             .first_of(&TINT_NAMES)
             .filter(|value| value[..3].iter().all(|x| (0.0..=4.0).contains(x)))
-            .map(|value| [value[0], value[1], value[2]]);
+            .map(|value| {
+                let scale = if shader
+                    .path
+                    .as_deref()
+                    .is_some_and(|path| DOUBLED_TINT_SHADER.is_match(path))
+                {
+                    2.0
+                } else {
+                    1.0
+                };
+                [value[0] * scale, value[1] * scale, value[2] * scale]
+            });
         let opacity = params
             .first_of(&OPACITY_NAMES)
             .map(|value| value[0])

@@ -18,6 +18,14 @@ export const BACKDROP_MAPS = {
   summonersRift: "Maps/MapGeometry/Map11/Base_SRX",
 } as const;
 
+/**
+ * The width a map's textures land at before the whole ones replace them.
+ *
+ * 183 textures at full size is seconds of grey, and a mip this wide is a few kilobytes
+ * each, so the map draws at once and sharpens after.
+ */
+const PREVIEW_WIDTH = 64;
+
 /** Which map a backdrop draws. */
 export type BackdropMap = keyof typeof BACKDROP_MAPS;
 
@@ -122,7 +130,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     }
     return held;
   }, [geometry.data, materials.data]);
-  const textures = useAssetTextures(assets);
+  const textures = useAssetTextures(assets, { previewWidth: PREVIEW_WIDTH });
 
   if (source === null) {
     return {

@@ -25,6 +25,30 @@ import { AXIS_SIGN } from "../../shared/utils/space";
 const STONE = 0x9a958c;
 
 /**
+ * A shader that marks a place rather than covering one.
+ *
+ * `Indicator_Faelights` names no albedo and tints itself cyan, and the game draws no
+ * solid surface for it, so a backdrop that drew it would paint the river.
+ */
+const INDICATOR_SHADER = /indicator/i;
+
+/** One material of the array, and what it has to be rebound to when its texture lands. */
+interface Bound {
+  readonly material: SubmeshMaterial;
+  /** The material's own entry path, which its texture is held under. */
+  readonly path: string;
+  readonly slots: MaterialPreview | null;
+  /** The mesh's own `disable_backface_culling`, which outranks the material's state. */
+  readonly doubleSided: boolean;
+}
+
+/** Whether a submesh drawing `slots` covers anything at all. */
+function covers(slots: MaterialPreview | null | undefined): boolean {
+  if (slots == null) return true;
+  return slots.base !== null || !INDICATOR_SHADER.test(slots.shader ?? "");
+}
+
+/**
  * The game's own map, drawn behind whatever the scene draws.
  *
  * One `BufferGeometry` for the whole map and one group per submesh, per ADR-0044. A
@@ -49,48 +73,46 @@ export function Backdrop({
     held.setAttribute("uv", new BufferAttribute(map.uv0, 2));
     if (map.uv1 !== null) held.setAttribute("uv1", new BufferAttribute(map.uv1, 2));
     held.setIndex(new BufferAttribute(map.indices, 1));
+    /* Over 2.04 million vertices, so it is computed with the geometry and never again. */
+    held.computeBoundingSphere();
     return held;
   }, [map]);
 
-  /* One pass builds both, because a group's material index is an index into the array
-     this same walk fills, and a layer switch re-walks rather than refetching. */
-  const materials = useMemo(() => {
-    const built: SubmeshMaterial[] = [];
+  const colors = useMemo(() => ({ untextured: new Color(STONE), errored: new Color(STONE) }), []);
+
+  /* Built without the textures, which arrive over seconds. A material's class and a
+     group's material index are fixed by the map, so a texture landing rebinds one
+     material rather than rebuilding the array and re-walking 600 groups. */
+  const bound = useMemo(() => {
+    const built: Bound[] = [];
     const byKey = new Map<string, number>();
-    const colors = { untextured: new Color(STONE), errored: new Color(STONE) };
 
     const indexOf = (material: number, doubleSided: boolean): number => {
       const key = `${material}:${doubleSided}`;
       const held = byKey.get(key);
       if (held !== undefined) return held;
 
-      const path = map.materials[material] ?? "";
-      const binding = {
-        material: slots[material] ?? null,
-        base: textures.get(path) ?? null,
-        texture: null,
-      };
-      const drawn: SubmeshMaterial = lit(binding)
+      const named = slots[material] ?? null;
+      const drawn: SubmeshMaterial = lit({ material: named, base: null, texture: null })
         ? new MeshLambertMaterial()
         : new MeshBasicMaterial();
-      applyBinding(drawn, binding, colors);
-      /* The mesh's own flag wins over the material's `cullEnable`, which the render-flag
-         remap favours, and the program key was taken before it moved. */
-      if (doubleSided) {
-        drawn.side = DoubleSide;
-        recompileIfMoved(drawn);
-      }
-      built.push(drawn);
+      built.push({
+        material: drawn,
+        path: map.materials[material] ?? "",
+        slots: named,
+        doubleSided,
+      });
       byKey.set(key, built.length - 1);
       return built.length - 1;
     };
 
     geometry.clearGroups();
     for (const mesh of drawnMeshes(map, layer)) {
+      if (mesh.submeshCount === 0) continue;
       const doubleSided = (mesh.flags & MESH_FLAG.cullDisabled) !== 0;
       for (let at = 0; at < mesh.submeshCount; at += 1) {
         const submesh = map.submeshes[mesh.firstSubmesh + at];
-        if (submesh === undefined) continue;
+        if (submesh === undefined || !covers(slots[submesh.material])) continue;
         geometry.addGroup(
           submesh.startIndex,
           submesh.indexCount,
@@ -98,9 +120,26 @@ export function Backdrop({
         );
       }
     }
-    geometry.computeBoundingSphere();
     return built;
-  }, [geometry, map, slots, textures, layer]);
+  }, [geometry, map, slots, layer]);
+
+  /* The mesh's own cull flag wins over the material's `cullEnable`, which the render-flag
+     remap favours, so it is written back over what the binding put there. */
+  useEffect(() => {
+    for (const entry of bound) {
+      applyBinding(
+        entry.material,
+        { material: entry.slots, base: textures.get(entry.path) ?? null, texture: null },
+        colors,
+      );
+      if (entry.doubleSided && entry.material.side !== DoubleSide) {
+        entry.material.side = DoubleSide;
+        recompileIfMoved(entry.material);
+      }
+    }
+  }, [bound, textures, colors]);
+
+  const materials = useMemo(() => bound.map((entry) => entry.material), [bound]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => () => materials.forEach((material) => material.dispose()), [materials]);
