@@ -8,7 +8,7 @@ import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
 import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
 import { useSceneColors } from "../hooks/sceneColors";
-import { type BackdropMap, useMapBackdrop } from "../hooks/useMapBackdrop";
+import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { Backdrop } from "./Backdrop";
 import { Stage } from "./Stage";
@@ -25,7 +25,7 @@ export interface ViewportProps {
    * A backdrop replaces the stage rather than standing on it, so neither the ground plane
    * nor its grid is drawn while one is up.
    */
-  readonly backdrop?: BackdropMap | null;
+  readonly backdrop?: BackdropSource | null;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
@@ -118,7 +118,9 @@ export function Viewport({
           <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
           <Sun />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
-          {map.geometry !== null && <Backdrop map={map.geometry} />}
+          {map.geometry !== null && (
+            <Backdrop map={map.geometry} materials={map.materials} textures={map.textures} />
+          )}
           <CameraPresetContext value={camera}>{children}</CameraPresetContext>
         </Canvas>
       )}

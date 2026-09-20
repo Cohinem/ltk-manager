@@ -14,7 +14,7 @@ import {
   type MeshGeometry,
   type Pose,
   type SceneClock,
-  useCharacterTextures,
+  useAssetTextures,
   useSceneColors,
   Viewport,
 } from "@/modules/viewport";
@@ -69,7 +69,7 @@ export function AbilityScene({
   );
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const reportCharacter = useCallback((load: AssetLoad) => report("character", load), [report]);
-  const textures = useCharacterTextures(assets, reportCharacter);
+  const textures = useAssetTextures(assets, reportCharacter);
   const binding = useCallback(
     (submesh: string) => bindingOf(skin, textures, submesh),
     [skin, textures],

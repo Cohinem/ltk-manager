@@ -25,7 +25,7 @@ import {
   type SceneClock,
   sequencePose,
   snappedPose,
-  useCharacterTextures,
+  useAssetTextures,
   useSceneColors,
   Viewport,
   viewportQueries,
@@ -134,6 +134,12 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
 
   const ground = usePreviewGround();
   const backdrop = usePreviewBackdrop();
+  /* The skin's own document stands for its project, whose layer answers before the
+     install for a map the creator has replaced. */
+  const backdropSource = useMemo(
+    () => (backdrop === null ? null : { map: backdrop, document }),
+    [backdrop, document],
+  );
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
   const armature = usePreviewArmature();
@@ -250,7 +256,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   });
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
-  const textures = useCharacterTextures(assets);
+  const textures = useAssetTextures(assets);
   const bindingFor = useCallback(
     (submesh: string) => bindingOf(skin, textures, submesh),
     [skin, textures],
@@ -325,7 +331,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
         <Viewport
           stage={ground}
           textured={midlane}
-          backdrop={backdrop}
+          backdrop={backdropSource}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >

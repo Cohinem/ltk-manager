@@ -70,6 +70,7 @@ migrated![
     read_vfx_system,
     // Skin preview
     read_skin,
+    read_map,
     read_animation_graph,
     read_clip_header,
     // Diagnostics

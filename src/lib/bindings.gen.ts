@@ -228,6 +228,19 @@ export const commands = {
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**
+	 *  The materials a map's submeshes name, as a backdrop draws them.
+	 * 
+	 *  `map` is `MapContainer.mapPath`, an entry path such as
+	 *  `Maps/MapGeometry/Map11/Base_SRX`, and `materials` are the entry paths the map's own
+	 *  `LTKM` buffer carries, answered one for one and in that order. `document` names any
+	 *  open document of the project whose layer answers first, and none resolves against the
+	 *  install alone.
+	 * 
+	 *  A map whose `.materials.bin` cannot be read leaves every material unresolved rather
+	 *  than failing the read, which draws the map flat.
+	 */
+	readMap: (document: number | null, map: MapPath, materials: string[]) => __TAURI_INVOKE<({ ok: true; value: MapModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map", { document, map, materials }),
+	/**
 	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
 	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
@@ -1634,6 +1647,25 @@ export type LeafValue =
 { type: "wadChunkLink"; text: string } | 
 /**  An object path, or `0x` and eight hex digits. */
 { type: "objectLink"; text: string };
+
+/**  One map's materials, one per path asked for and in that order. */
+export type MapModel = {
+	/**
+	 *  Null where the map's own bin declares no object at that path, which a backdrop
+	 *  draws flat rather than not at all.
+	 */
+	materials: (MaterialPreview | null)[],
+};
+
+/**
+ *  Where a map lives, as `MapContainer.mapPath` states it.
+ * 
+ *  An entry path rather than a file path, such as `Maps/MapGeometry/Map11/Base_SRX`. It
+ *  names no file of its own: each of a map's files is this path lowercased under the
+ *  data prefix with that file's suffix, which is the one spelling a resolved WAD path
+ *  has.
+ */
+export type MapPath = string;
 
 /**  One entry of `mMaskDataMap`. */
 export type Mask = {

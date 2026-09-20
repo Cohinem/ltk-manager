@@ -35,7 +35,7 @@ pub(super) fn read_resolved<T>(
     document: BinDocumentId,
     read: impl FnOnce(&BinDocument, &dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
 ) -> AppResult<T> {
-    with_resolution(app, document, |names, assets| {
+    with_resolution(app, Some(document), |names, assets| {
         let open = app.state::<BinDocuments>().document(document)?;
         read(&open, names, assets)
     })
@@ -45,16 +45,22 @@ pub(super) fn read_resolved<T>(
 /// against, and without the document store held.
 ///
 /// For a read that also reads files the document names, which must not hold the store
-/// while the archive is read.
+/// while the archive is read. No document resolves against the install alone, which is
+/// what a viewport drawing outside a project does.
 pub(super) fn with_resolution<T>(
     app: &AppHandle,
-    document: BinDocumentId,
+    document: Option<BinDocumentId>,
     resolve: impl FnOnce(&dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
 ) -> AppResult<T> {
     let bin = app.state::<BinHashTablesState>().get();
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let cache = CacheNames::new(&bin, &wad);
-    let chunks = app.state::<BinDocuments>().chunks_of(document);
+    /* Chunks are the project's rather than the document's, so any open document of it
+    answers, and an absent one answers empty. */
+    let chunks = document.map_or_else(
+        || Arc::new(LayerChunks::default()),
+        |document| app.state::<BinDocuments>().chunks_of(document),
+    );
     let names = ProjectNames::new(&cache, &chunks);
 
     let config = app.state::<SettingsState>().config();

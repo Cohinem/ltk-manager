@@ -53,7 +53,6 @@ export {
 } from "./camera/utils/framing";
 export { Armature, type ArmatureProps } from "./character/components/Armature";
 export { Character, type CharacterProps } from "./character/components/Character";
-export { useCharacterTextures } from "./character/hooks/useCharacterTextures";
 export {
   type CharacterSkin,
   CharacterSkinContext,
@@ -64,7 +63,12 @@ export { Backdrop } from "./scene/components/Backdrop";
 export { Stage } from "./scene/components/Stage";
 export { Viewport, type ViewportProps } from "./scene/components/Viewport";
 export { type SceneColors, useSceneColors } from "./scene/hooks/sceneColors";
-export { BACKDROP_MAPS, type BackdropMap, useMapBackdrop } from "./scene/hooks/useMapBackdrop";
+export {
+  BACKDROP_MAPS,
+  type BackdropMap,
+  type BackdropSource,
+  useMapBackdrop,
+} from "./scene/hooks/useMapBackdrop";
 export {
   AXIS_SIGN,
   CHAMPION_HEIGHT,
@@ -76,3 +80,4 @@ export {
   TONE_MAPPING,
   UNITS_PER_METRE,
 } from "./scene/utils/world";
+export { useAssetTextures } from "./shared/hooks/useAssetTextures";

@@ -9,12 +9,12 @@ import { TEXTURE_COLOR_SPACE } from "../../scene/utils/world";
 const NONE: ReadonlyMap<string, Texture> = new Map();
 
 /**
- * Each asset as a texture a character draws with, under the key it was asked by.
+ * Each asset as a texture the viewport draws with, under the key it was asked by.
  *
  * A texture lands on its own, so the map grows as they arrive. The caller holds `assets`
  * stable, because a new map is a new set of loads.
  */
-export function useCharacterTextures(
+export function useAssetTextures(
   assets: ReadonlyMap<string, AssetRef>,
   report?: (load: { pending: number; failed: number }) => void,
 ): ReadonlyMap<string, Texture> {
@@ -37,7 +37,7 @@ export function useCharacterTextures(
             return;
           }
           texture.colorSpace = TEXTURE_COLOR_SPACE;
-          /* The first row is `v = 0`, as DirectX samples it and a `.skn` is unwrapped. */
+          /* The first row is `v = 0`, as DirectX samples it and the game unwraps. */
           texture.flipY = false;
           loaded.set(key, texture);
           setTextures(new Map(loaded));
@@ -50,7 +50,7 @@ export function useCharacterTextures(
           pending -= 1;
           failed += 1;
           report?.({ pending, failed });
-          console.error("Failed to read a character texture:", error);
+          console.error("Failed to read a texture:", error);
         },
       );
     }
