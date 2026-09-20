@@ -219,6 +219,14 @@ export interface Driver extends Source {
   births(): readonly ChildBirth[];
 }
 
+/** Where one driver departs from the shell's own run. */
+export interface DriverOptions {
+  /** How many particles the pool holds, which is what a scene of many small systems lowers. */
+  readonly capacity?: number;
+  /** The run keeps the checkpoints a seek starts from, which one that only plays on drops. */
+  readonly seekable?: boolean;
+}
+
 /**
  * One system simulated from a seed.
  *
@@ -233,8 +241,11 @@ export interface Driver extends Source {
  * engine yaws a missile toward its target, and the definition's own transform is the
  * outermost factor of everything the rig places.
  */
-export function createDriver(seed: number): Driver {
-  const pool = createPool(POOL_CAP);
+export function createDriver(
+  seed: number,
+  { capacity = POOL_CAP, seekable = true }: DriverOptions = {},
+): Driver {
+  const pool = createPool(capacity);
   const stepper: Stepper = variableStepper();
   let system = emptySystem(null);
   let rig: RigModel = FIRST_RIG.rig;
@@ -318,6 +329,7 @@ export function createDriver(seed: number): Driver {
 
   /** Keep the run at `now` where the quarter-second mark it has crossed holds none. */
   function keep(now: number): void {
+    if (!seekable) return;
     const at = Math.floor(now / MARK);
     if (!marks.wants(at)) return;
     const bytes = liveByteLength(pool) + children.byteLength();

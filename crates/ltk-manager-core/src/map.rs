@@ -1,4 +1,5 @@
-//! What a map gives a backdrop: the materials its submeshes name.
+//! What a map gives a backdrop: the materials its submeshes name, and the particles and
+//! characters it stands.
 //!
 //! A map's geometry rides the `ltk-asset` scheme as one `LTKM` buffer and never crosses
 //! IPC, so this module answers only the other half, which is the `StaticMaterialDef`
@@ -12,6 +13,15 @@ use serde::{Deserialize, Serialize};
 use crate::bin_document::{AssetLookup, BinDocument, RowNames};
 use crate::material::{MaterialPreview, resolve_material};
 use ltk_hash::{BinHash, Hash as _};
+
+mod characters;
+#[cfg(test)]
+mod fixtures;
+mod particles;
+mod placeable;
+
+pub use characters::{MapCharacter, map_characters};
+pub use particles::{MapParticle, map_particles};
 
 /// Where the game reads a map's files from, under the entry path its container names.
 const DATA_PREFIX: &str = "data/";

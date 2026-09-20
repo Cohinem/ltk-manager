@@ -29,6 +29,10 @@ interface PreviewDisplay {
   previewMidlane: boolean;
   /** Which map is drawn behind the subject, by its entry path, and null for the flat stage. */
   previewBackdrop: MapPath | null;
+  /** The backdrop plays the particle systems its map stands in it. */
+  previewBackdropParticles: boolean;
+  /** The backdrop stands the structures and the level props its map places. */
+  previewBackdropStructures: boolean;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -188,6 +192,8 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewGround: true,
   previewMidlane: true,
   previewBackdrop: null,
+  previewBackdropParticles: true,
+  previewBackdropStructures: true,
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
@@ -355,6 +361,10 @@ export const useSetForwardLookingMeta = () =>
 export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGround);
 export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
 export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);
+export const usePreviewBackdropParticles = () =>
+  useWorkshopLayoutStore((s) => s.previewBackdropParticles);
+export const usePreviewBackdropStructures = () =>
+  useWorkshopLayoutStore((s) => s.previewBackdropStructures);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);

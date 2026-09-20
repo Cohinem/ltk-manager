@@ -1,12 +1,16 @@
-//! The map backdrop's read: one map's materials, placed against a project first.
+//! The map backdrop's reads: one map's materials, placed against a project first, and
+//! the particles its open `.materials.bin` stands.
 
 use super::document_assets::with_resolution;
 use super::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
-use ltk_manager_core::bin_document::{BinDocument, BinDocumentId};
+use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::map::{resolve_map, unresolved_map, MapModel, MapPath};
+use ltk_manager_core::map::{
+    map_characters, map_particles, resolve_map, unresolved_map, MapCharacter, MapModel,
+    MapParticle, MapPath,
+};
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::AssetRef;
 use tauri::{AppHandle, Manager};
@@ -55,6 +59,40 @@ pub async fn read_map(
                 shaders.as_ref(),
             ))
         })
+    })
+    .await
+}
+
+/// Every particle the open `.materials.bin` under `document` stands in its map.
+///
+/// The systems they link are objects of the same document, so `read_vfx_system` answers
+/// each against the handle this was asked with.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_map_particles(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<MapParticle>> {
+    off_thread(move || {
+        let open = app_handle.state::<BinDocuments>().document(document)?;
+        Ok(map_particles(&open))
+    })
+    .await
+}
+
+/// Every character the open `.materials.bin` under `document` stands in its map.
+///
+/// Each names its skin by entry path, which lives in the character's own skin bin rather
+/// than in this document.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_map_characters(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<MapCharacter>> {
+    off_thread(move || {
+        let open = app_handle.state::<BinDocuments>().document(document)?;
+        Ok(map_characters(&open))
     })
     .await
 }

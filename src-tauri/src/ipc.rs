@@ -71,6 +71,8 @@ migrated![
     // Skin preview
     read_skin,
     read_map,
+    read_map_particles,
+    read_map_characters,
     read_animation_graph,
     read_clip_header,
     // Diagnostics

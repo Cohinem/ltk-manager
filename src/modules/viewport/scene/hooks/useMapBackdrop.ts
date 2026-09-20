@@ -23,6 +23,9 @@ const DATA_PREFIX = "data/";
 /** The suffix a map's geometry carries, which mirrors `MapPath::geometry` in core. */
 const GEOMETRY_SUFFIX = ".mapgeo";
 
+/** The suffix a map's materials carry, which mirrors `MapPath::materials` in core. */
+const MATERIALS_SUFFIX = ".materials.bin";
+
 /**
  * The width a map's textures land at before the whole ones replace them.
  *
@@ -64,13 +67,13 @@ export interface BackdropChoice {
 }
 
 /**
- * The file a map's geometry lives in, which mirrors `MapPath::geometry` in core.
+ * One of a map's files, which mirrors `MapPath::file` in core.
  *
  * An entry path names no file of its own: each of a map's files is that path lowercased
  * under the data prefix with the file's own suffix.
  */
-function geometryPath(map: MapPath): string {
-  return `${DATA_PREFIX}${map.toLowerCase()}${GEOMETRY_SUFFIX}`;
+function mapFile(map: MapPath, suffix: string): string {
+  return `${DATA_PREFIX}${map.toLowerCase()}${suffix}`;
 }
 
 /** Where the install keeps a map's files, which nothing invalidates for the app's life. */
@@ -108,12 +111,12 @@ const backdropQueries = {
       retry: false,
     }),
 
-  chunk: (map: MapPath | null) =>
+  chunk: (map: MapPath | null, suffix: string) =>
     queryOptions<AssetRef | null>({
-      queryKey: ["viewport-backdrop", map],
+      queryKey: ["viewport-backdrop", map, suffix],
       queryFn: async () => {
         if (map === null) return null;
-        const path = geometryPath(map);
+        const path = mapFile(map, suffix);
         const answer = await api.objects.locateGameFiles([path]);
         if (!answer.ok) return null;
         const held = answer.value[path];
@@ -170,6 +173,15 @@ export function useBackdropMaps() {
 }
 
 /**
+ * Where the install keeps `map`'s `.materials.bin`, and null until it is found.
+ *
+ * The file a scene opens to read what the map stands in it, such as its particles.
+ */
+export function useBackdropMaterials(map: MapPath | null): AssetRef | null {
+  return useQuery(backdropQueries.chunk(map, MATERIALS_SUFFIX)).data ?? null;
+}
+
+/**
  * The map `source` names, fetched once and decoded once.
  *
  * The geometry arrives whole in one buffer, so nothing streams as the camera moves
@@ -177,7 +189,7 @@ export function useBackdropMaps() {
  * string table and so cannot be asked for until it has landed.
  */
 export function useMapBackdrop(source: BackdropSource | null): Backdrop {
-  const located = useQuery(backdropQueries.chunk(source?.map ?? null));
+  const located = useQuery(backdropQueries.chunk(source?.map ?? null, GEOMETRY_SUFFIX));
   const geometry = useQuery(viewportQueries.map(located.data ?? null));
   const materials = useQuery(
     backdropQueries.materials(

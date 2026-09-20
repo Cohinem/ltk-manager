@@ -68,6 +68,7 @@ export {
   type BackdropChoice,
   type BackdropSource,
   useBackdropMaps,
+  useBackdropMaterials,
   useMapBackdrop,
 } from "./scene/hooks/useMapBackdrop";
 export {

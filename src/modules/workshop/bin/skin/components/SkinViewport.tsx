@@ -41,6 +41,8 @@ import {
   usePreviewArmature,
   usePreviewCamera,
   usePreviewBackdrop,
+  usePreviewBackdropParticles,
+  usePreviewBackdropStructures,
   usePreviewGround,
   usePreviewFacing,
   usePreviewJointNames,
@@ -61,6 +63,7 @@ import { distorts } from "../../vfx/rendering/utils/drawKind";
 import { fades } from "../../vfx/rendering/utils/softParticle";
 import { skinQueries } from "../api/skinQueries";
 import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/useGraphSource";
+import { useMapMaterialsFile, useMapParticles } from "../hooks/useMapParticles";
 import { useSkinKeys } from "../hooks/useSkinKeys";
 import { overriddenHidden, SkinChoiceContext, useSkinChoice } from "../state/skinChoice";
 import {
@@ -86,6 +89,8 @@ import {
 } from "../utils/skinScene";
 import { ClipEffect } from "./ClipEffect";
 import { IdleEffect } from "./IdleEffect";
+import { MapCharacters } from "./MapCharacters";
+import { MapParticles } from "./MapParticles";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
 
 /** `useFrame` runs the lowest priority first, so the clock moves before anything samples it. */
@@ -152,6 +157,8 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
     () => (backdrop === null ? null : { map: backdrop, document }),
     [backdrop, document],
   );
+  const backdropParticles = usePreviewBackdropParticles();
+  const backdropStructures = usePreviewBackdropStructures();
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
   const armature = usePreviewArmature();
@@ -289,6 +296,9 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
     () => [...(pinned ?? origin ?? FEET)],
     [pinned, origin],
   );
+  /* One open file answers both what the map plays and what it stands. */
+  const mapFile = useMapMaterialsFile(backdropParticles || backdropStructures ? backdrop : null);
+  const mapParticles = useMapParticles(backdropParticles ? mapFile.document : null);
   const bounds = useMemo(
     () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
     [mesh.data, skin.hidden, scale],
@@ -314,8 +324,11 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   );
   const worn = [...models, ...cueModels];
   const loaded = worn.map((model) => (model === null ? "-" : "+")).join("");
-  const warps = effects && worn.some((model) => model?.emitters.some(distorts) ?? false);
-  const softens = effects && worn.some((model) => model?.emitters.some(fades) ?? false);
+  /* The map's systems play whatever the skin's own switch says, and stay out of `loaded`,
+     whose change is a seek of every effect the skin wears. */
+  const played = [...(effects ? worn : []), ...mapParticles.map((group) => group.system)];
+  const warps = played.some((model) => model?.emitters.some(distorts) ?? false);
+  const softens = played.some((model) => model?.emitters.some(fades) ?? false);
 
   /* A clip changing starts the pose and every idle effect over together, so an effect
      rides the clip from its first frame. The pose a preview mounts on keeps the time the
@@ -348,6 +361,14 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
       {sources.map(([id, asset]) => (
         <SourceOpener key={id} id={id} asset={asset} onOpen={openSource} />
       ))}
+      {mapFile.source !== null && (
+        /* Keyed, so a change of map lets the last map's handle go before the next answers. */
+        <DocumentOpener
+          key={assetKey(mapFile.source)}
+          asset={mapFile.source}
+          onOpen={mapFile.onOpen}
+        />
+      )}
       <div
         ref={keys}
         tabIndex={-1}
@@ -371,6 +392,8 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           />
           <FitCamera bounds={bounds} ground={stood} token={fitToken} />
           <Passes warps={warps} softens={softens} />
+          <MapParticles groups={mapParticles} />
+          {backdropStructures && <MapCharacters document={mapFile.document} clock={clock} />}
           <Placement
             enabled={move}
             mode={moveMode}
@@ -588,6 +611,8 @@ function groupMaps(choices: readonly BackdropChoice[]): MapGroup[] {
 /** The map behind the subject: a switch, and the install's maps behind the kebab beside it. */
 function BackdropToggle() {
   const backdrop = usePreviewBackdrop();
+  const particles = usePreviewBackdropParticles();
+  const structures = usePreviewBackdropStructures();
   const setDisplay = useSetPreviewDisplay();
   const maps = useBackdropMaps();
   /* Turning the backdrop off drops which map it drew, so the switch hands the same map
@@ -636,6 +661,19 @@ function BackdropToggle() {
               {groups.map((group) => (
                 <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
               ))}
+              <Menu.Separator />
+              <Menu.CheckboxItem
+                checked={particles}
+                onCheckedChange={(checked) => setDisplay({ previewBackdropParticles: checked })}
+              >
+                {m.workshop_bin_preview_backdrop_particles_label()}
+              </Menu.CheckboxItem>
+              <Menu.CheckboxItem
+                checked={structures}
+                onCheckedChange={(checked) => setDisplay({ previewBackdropStructures: checked })}
+              >
+                {m.workshop_bin_preview_backdrop_structures_label()}
+              </Menu.CheckboxItem>
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>

@@ -72,6 +72,8 @@ export interface QuadsProps {
   /** Where the emitter falls in the system's draw order, from `drawRanks`. */
   rank: number;
   hidden: boolean;
+  /** How many particles the buffers hold, which a scene of many small systems lowers. */
+  room?: number;
 }
 
 /**
@@ -82,8 +84,15 @@ export interface QuadsProps {
  * quad and a ray the basis the CPU builds for the particle, and a simple emitter's quad
  * the world plane its `orientation` names.
  */
-export function Quads({ emitter, sources, samplers, rank, hidden }: QuadsProps) {
-  const buffers = useMemo(() => quadBuffers(QUADS_PER_EMITTER), []);
+export function Quads({
+  emitter,
+  sources,
+  samplers,
+  rank,
+  hidden,
+  room = QUADS_PER_EMITTER,
+}: QuadsProps) {
+  const buffers = useMemo(() => quadBuffers(room), [room]);
   const material = useMemo(
     () =>
       quadMaterial(
@@ -116,13 +125,13 @@ export function Quads({ emitter, sources, samplers, rank, hidden }: QuadsProps) 
      whole pool's capacity: the particles, the depth each stands at from the eye. */
   const picked = useMemo<Picked>(
     () => ({
-      order: new Int32Array(QUADS_PER_EMITTER),
-      owner: new Int32Array(QUADS_PER_EMITTER),
-      drawing: new Int32Array(QUADS_PER_EMITTER),
+      order: new Int32Array(room),
+      owner: new Int32Array(room),
+      drawing: new Int32Array(room),
     }),
-    [],
+    [room],
   );
-  const depth = useMemo(() => new Float32Array(QUADS_PER_EMITTER), []);
+  const depth = useMemo(() => new Float32Array(room), [room]);
 
   useFrame((state) => {
     if (!drawn) {
@@ -136,7 +145,7 @@ export function Quads({ emitter, sources, samplers, rank, hidden }: QuadsProps) 
     let held = 0;
     sources.forEach((source, from) => {
       const pool = source.pool;
-      for (let at = 0; at < pool.count && held < QUADS_PER_EMITTER; at += 1) {
+      for (let at = 0; at < pool.count && held < room; at += 1) {
         if (pool.emitter[at] !== emitter.index) continue;
         picked.order[held] = at;
         picked.owner[held] = from;

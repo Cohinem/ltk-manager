@@ -241,6 +241,20 @@ export const commands = {
 	 */
 	readMap: (document: number | null, map: MapPath, materials: string[]) => __TAURI_INVOKE<({ ok: true; value: MapModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map", { document, map, materials }),
 	/**
+	 *  Every particle the open `.materials.bin` under `document` stands in its map.
+	 * 
+	 *  The systems they link are objects of the same document, so `read_vfx_system` answers
+	 *  each against the handle this was asked with.
+	 */
+	readMapParticles: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapParticle[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_particles", { document }),
+	/**
+	 *  Every character the open `.materials.bin` under `document` stands in its map.
+	 * 
+	 *  Each names its skin by entry path, which lives in the character's own skin bin rather
+	 *  than in this document.
+	 */
+	readMapCharacters: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapCharacter[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_characters", { document }),
+	/**
 	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
 	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
@@ -1648,6 +1662,22 @@ export type LeafValue =
 /**  An object path, or `0x` and eight hex digits. */
 { type: "objectLink"; text: string };
 
+/**  One character a map stands in its scene. */
+export type MapCharacter = {
+	/**  The placeable's own name, which is unique within a map. */
+	name: string,
+	/**  The entry path of the skin it wears, such as `Characters/Turret/Skins/Skin0`. */
+	skin: string,
+	/**  Where it stands in the map's space, column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer, as a map mesh carries one. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+	/**  The team it stands for, where it states one. 300 is the neutral team a camp is on. */
+	team: number | null,
+};
+
 /**  One map's materials, one per path asked for and in that order. */
 export type MapModel = {
 	/**
@@ -1655,6 +1685,24 @@ export type MapModel = {
 	 *  draws flat rather than not at all.
 	 */
 	materials: (MaterialPreview | null)[],
+};
+
+/**  One particle system a map stands in its scene. */
+export type MapParticle = {
+	/**  The placeable's own name, which is unique within a map. */
+	name: string,
+	/**  The system it plays, an object of the same document, as `0x` and eight digits. */
+	system: string,
+	/**  Where it stands in the map's space, column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer, as a map mesh carries one. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+	/**  The game plays it once as the map changes rather than for as long as it stands. */
+	transitional: boolean,
+	/**  The game leaves it off until a script turns it on. */
+	startDisabled: boolean,
 };
 
 /**

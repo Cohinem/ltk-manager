@@ -7,6 +7,8 @@ import {
   type AssetRef,
   type BinDocumentId,
   type ClipHeader,
+  type MapCharacter,
+  type MapParticle,
   type SkinModel,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
@@ -29,6 +31,41 @@ export const skinQueries = {
         document === null || graph === null
           ? skipToken
           : async () => unwrapForQuery(await api.bin.readAnimationGraph(document, graph)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** Every particle the open `.materials.bin` under `document` stands in its map. */
+  mapParticles: (document: BinDocumentId | null) =>
+    queryOptions<MapParticle[], AppError>({
+      queryKey: ["skin-map-particles", document],
+      queryFn:
+        document === null
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.readMapParticles(document)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** Every character the open `.materials.bin` under `document` stands in its map. */
+  mapCharacters: (document: BinDocumentId | null) =>
+    queryOptions<MapCharacter[], AppError>({
+      queryKey: ["skin-map-characters", document],
+      queryFn:
+        document === null
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.readMapCharacters(document)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** Where the install keeps the file at `path`, and null where it keeps none. */
+  gameFile: (path: string) =>
+    queryOptions<AssetRef | null, AppError>({
+      queryKey: ["skin-game-file", path],
+      queryFn: async () => {
+        const held = unwrapForQuery(await api.objects.locateGameFiles([path]))[path];
+        return held === undefined
+          ? null
+          : { kind: "gameChunk", wad: held.wad, pathHash: held.pathHash };
+      },
       staleTime: Infinity,
       retry: false,
     }),

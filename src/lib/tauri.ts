@@ -182,7 +182,9 @@ export type {
   HashRef,
   IdleEffect,
   KeyRef,
+  MapCharacter,
   MapModel,
+  MapParticle,
   MapPath,
   Mask,
   MaterialPreview,
@@ -526,6 +528,10 @@ export const api = {
       commands.readSkin(document, entry).then(toResult),
     readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>
       commands.readMap(document, map, materials).then(toResult),
+    readMapParticles: (document: BinDocumentId) =>
+      commands.readMapParticles(document).then(toResult),
+    readMapCharacters: (document: BinDocumentId) =>
+      commands.readMapCharacters(document).then(toResult),
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
       commands.readAnimationGraph(document, entry).then(toResult),
     readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),

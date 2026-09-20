@@ -33,6 +33,8 @@ export interface VfxSystemProps {
   readonly hiddenOf?: (definition: DrawnEmitter) => boolean;
   /** Whether the emitters draw shaded, as their edges, or their edges over the shading. */
   readonly wireframe?: PreviewWireframe;
+  /** How many particles one quad emitter's buffers hold, and the kit's own where unset. */
+  readonly room?: number;
 }
 
 /**
@@ -48,6 +50,7 @@ export function VfxSystem({
   meshes,
   hiddenOf = noneHidden,
   wireframe = "off",
+  room,
 }: VfxSystemProps) {
   const rootSources = useMemo(() => [driver], [driver]);
   const sourcesOf = (definition: DrawnEmitter): readonly Source[] =>
@@ -67,6 +70,7 @@ export function VfxSystem({
             samplers={samplersOf(textures, definition)}
             rank={definition.rank}
             hidden={hiddenOf(definition)}
+            room={room}
           />
         ))}
       {drawn
