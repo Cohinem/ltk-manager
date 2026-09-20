@@ -41,6 +41,8 @@ const BEFORE_THE_POSES = -1;
 export interface MapCharactersProps {
   /** The map's open `.materials.bin`, and null until the scene holds it. */
   readonly document: BinDocumentId | null;
+  /** Any asset of the project whose layers answer a skin's bin before the install. */
+  readonly near: AssetRef;
   /** The chunks and placeables an outliner hid, which a backdrop has none of. */
   readonly hidden?: ReadonlySet<string>;
 }
@@ -54,7 +56,7 @@ const NONE_HIDDEN: ReadonlySet<string> = new Set();
  * map's, and drawn at every place the map stands it. They run on a clock of their own
  * rather than the scene's, since a map's banners wave on through a clip that restarts.
  */
-export function MapCharacters({ document, hidden = NONE_HIDDEN }: MapCharactersProps) {
+export function MapCharacters({ document, near, hidden = NONE_HIDDEN }: MapCharactersProps) {
   const placed = useQuery(mapQueries.characters(document));
   const skins = useMemo(
     () => [
@@ -70,9 +72,24 @@ export function MapCharacters({ document, hidden = NONE_HIDDEN }: MapCharactersP
   const clock = useMemo(createSceneClock, []);
   useFrame((_, delta) => clock.advance(delta), BEFORE_THE_POSES);
 
-  return skins.map(([skin, characters]) => (
-    <LocatedSkin key={skin} skin={skin} characters={characters} clock={clock} colors={colors} />
-  ));
+  const paths = useMemo(() => skins.map(([skin]) => skinFile(skin)), [skins]);
+  const files = useQuery(mapQueries.filesNear(near, paths)).data;
+
+  /* A skin whose bin nothing holds is a prop the map draws without. */
+  return skins.map(([skin, characters]) => {
+    const asset = files?.[skinFile(skin)];
+    if (asset === undefined) return null;
+    return (
+      <OpenedSkin
+        key={skin}
+        skin={skin}
+        characters={characters}
+        clock={clock}
+        colors={colors}
+        asset={asset}
+      />
+    );
+  });
 }
 
 interface SkinProps {
@@ -81,13 +98,6 @@ interface SkinProps {
   readonly characters: readonly MapCharacter[];
   readonly clock: SceneClock;
   readonly colors: SceneColors;
-}
-
-/** A skin whose bin this install holds. One it does not is a prop the map draws without. */
-function LocatedSkin(props: SkinProps) {
-  const file = useQuery(mapQueries.gameFile(skinFile(props.skin)));
-  if (file.data == null) return null;
-  return <OpenedSkin {...props} asset={file.data} />;
 }
 
 function OpenedSkin({ asset, ...props }: SkinProps & { readonly asset: AssetRef }) {

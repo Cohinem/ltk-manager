@@ -62,17 +62,31 @@ pub(super) fn with_resolution<T>(
         |document| app.state::<BinDocuments>().chunks_of(document),
     );
     let names = ProjectNames::new(&cache, &chunks);
+    resolve(&names, &assets_over(app, &chunks))
+}
 
+/// Run `locate` with the asset lookup of the project `near` sits in.
+///
+/// For a file a tab opens with no document open beside it, such as a map's geometry. An
+/// asset outside any project resolves against the install alone.
+pub(super) fn with_assets_near<T>(
+    app: &AppHandle,
+    near: &AssetRef,
+    locate: impl FnOnce(&dyn AssetLookup) -> T,
+) -> T {
+    let chunks = LayerChunks::of(near);
+    locate(&assets_over(app, &chunks))
+}
+
+fn assets_over<'a>(app: &AppHandle, chunks: &'a LayerChunks) -> DocumentAssets<'a> {
     let config = app.state::<SettingsState>().config();
-    let assets = DocumentAssets {
-        chunks: &chunks,
+    DocumentAssets {
+        chunks,
         index: built_game_index(app, &config)
             .map(|(index, _)| index)
             .inspect_err(|e| tracing::debug!("No game index for a document's assets: {e}"))
             .ok(),
-    };
-
-    resolve(&names, &assets)
+    }
 }
 
 /// Where the bytes of a name a document carries live.
@@ -103,6 +117,9 @@ impl AssetLookup for DocumentAssets<'_> {
     }
 
     fn locate_chunk(&self, hash: WadHash) -> Option<AssetRef> {
+        if let Some(asset) = self.chunks.asset_of_chunk(hash) {
+            return Some(asset.clone());
+        }
         let file = self.index.as_ref()?.unnamed_at(hash.0)?;
         Some(AssetRef::GameChunk {
             wad: file.wad,

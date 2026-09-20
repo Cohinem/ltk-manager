@@ -12,8 +12,4 @@ skin: string | null,
 /**
  * The map that skin draws.
  */
-map: MapPath, 
-/**
- * The file that map declares its materials and its chunks in.
- */
-materials: string, };
+map: MapPath, };

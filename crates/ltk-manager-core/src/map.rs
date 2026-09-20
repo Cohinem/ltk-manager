@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bin_document::{AssetLookup, BinDocument, RowNames};
 use crate::material::{MaterialPreview, resolve_material};
+use crate::preview::AssetRef;
 use ltk_hash::{BinHash, Hash as _};
 
 mod characters;
@@ -87,6 +88,19 @@ impl fmt::Display for MapPath {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
     }
+}
+
+/// Where the two files of one map live, each none where nothing holds it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct MapFiles {
+    /// The `.mapgeo`, which the scheme answers as one buffer.
+    pub geometry: Option<AssetRef>,
+    /// The `.materials.bin`, which declares the materials and the chunks.
+    pub materials: Option<AssetRef>,
 }
 
 /// One map's materials, one per path asked for and in that order.

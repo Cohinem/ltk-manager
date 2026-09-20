@@ -35,8 +35,6 @@ pub struct MapVariant {
     pub skin: Option<String>,
     /// The map that skin draws.
     pub map: MapPath,
-    /// The file that map declares its materials and its chunks in.
-    pub materials: String,
 }
 
 /// The maps the object at `entry` draws, in the order it names them.
@@ -52,7 +50,7 @@ pub fn map_variants(document: &BinDocument, entry: BinHash) -> Vec<MapVariant> {
     };
     match object.class_hash {
         MAP_CONTAINER => stated(&object.properties, MAP_PATH)
-            .map(|map| variant(None, map))
+            .map(|map| MapVariant { skin: None, map })
             .into_iter()
             .collect(),
         MAP_SKIN => skin_variant(&object.properties).into_iter().collect(),
@@ -67,18 +65,10 @@ pub fn map_variants(document: &BinDocument, entry: BinHash) -> Vec<MapVariant> {
 }
 
 fn skin_variant(skin: &Fields) -> Option<MapVariant> {
-    Some(variant(
-        text(skin.get(&SKIN_NAME)).map(str::to_owned),
-        stated(skin, CONTAINER_LINK)?,
-    ))
-}
-
-fn variant(skin: Option<String>, map: MapPath) -> MapVariant {
-    MapVariant {
-        skin,
-        materials: map.materials(),
-        map,
-    }
+    Some(MapVariant {
+        skin: text(skin.get(&SKIN_NAME)).map(str::to_owned),
+        map: stated(skin, CONTAINER_LINK)?,
+    })
 }
 
 /// The entry path `field` states, and none for the empty string a class defaults it to.

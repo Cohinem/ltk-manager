@@ -130,7 +130,7 @@ export default function SkinViewport({ document, asset, entry }: SkinViewportPro
   return (
     <>
       {opener}
-      <SkinScene skin={read.data} document={document} source={source} />
+      <SkinScene skin={read.data} document={document} asset={asset} source={source} />
     </>
   );
 }
@@ -139,11 +139,13 @@ interface SkinSceneProps {
   readonly skin: SkinModel;
   /** The skin's own document, which declares the systems its idle effects name. */
   readonly document: BinDocumentId;
+  /** What the document was read from, whose project answers a map's files first. */
+  readonly asset: AssetRef;
   /** Where the skin's animation graph is read from. */
   readonly source: GraphSource;
 }
 
-function SkinScene({ skin, document, source }: SkinSceneProps) {
+function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
   const own = useSkinChoice();
   const { clock, picked, setPicked, playing, setPlaying, speed, setSpeed } =
     use(SkinChoiceContext) ?? own;
@@ -394,7 +396,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           <FitCamera bounds={bounds} ground={stood} token={fitToken} />
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={mapParticles} />
-          {backdropStructures && <MapCharacters document={mapFile.document} />}
+          {backdropStructures && <MapCharacters document={mapFile.document} near={asset} />}
           <Placement
             enabled={move}
             mode={moveMode}

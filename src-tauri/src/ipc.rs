@@ -75,6 +75,8 @@ migrated![
     read_map_characters,
     read_map_variants,
     read_map_outline,
+    locate_map_files,
+    locate_files_near,
     read_animation_graph,
     read_clip_header,
     // Diagnostics

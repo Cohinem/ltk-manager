@@ -1,7 +1,9 @@
 //! The map backdrop's reads: one map's materials, placed against a project first, and
 //! the particles its open `.materials.bin` stands.
 
-use super::document_assets::{parse_entry, read_resolved, with_resolution};
+use super::document_assets::{parse_entry, read_resolved, with_assets_near, with_resolution};
+use std::collections::HashMap;
+
 use super::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
@@ -9,7 +11,7 @@ use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::map::{
     map_characters, map_outline, map_particles, map_variants, resolve_map, unresolved_map,
-    MapCharacter, MapChunk, MapModel, MapParticle, MapPath, MapVariant,
+    MapCharacter, MapChunk, MapFiles, MapModel, MapParticle, MapPath, MapVariant,
 };
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::AssetRef;
@@ -126,6 +128,51 @@ pub async fn read_map_outline(
         read_resolved(&app_handle, document, |open, names, _| {
             Ok(map_outline(open, names))
         })
+    })
+    .await
+}
+
+/// Where the two files of `map` live, the project `near` sits in answering before the install.
+///
+/// So a mod that ships its own geometry draws it, and one that ships only materials draws
+/// the install's geometry under them.
+#[tauri::command]
+#[specta::specta]
+pub async fn locate_map_files(
+    near: AssetRef,
+    map: MapPath,
+    app_handle: AppHandle,
+) -> IpcResult<MapFiles> {
+    off_thread(move || {
+        Ok(with_assets_near(&app_handle, &near, |assets| MapFiles {
+            geometry: assets.locate(&map.geometry()),
+            materials: assets.locate(&map.materials()),
+        }))
+    })
+    .await
+}
+
+/// Where each of `paths` lives, the project `near` sits in answering before the install.
+///
+/// One call for every file a scene is about to open, since finding a project's files
+/// walks its layers. A path nothing holds is absent.
+#[tauri::command]
+#[specta::specta]
+pub async fn locate_files_near(
+    near: AssetRef,
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<HashMap<String, AssetRef>> {
+    off_thread(move || {
+        Ok(with_assets_near(&app_handle, &near, |assets| {
+            paths
+                .into_iter()
+                .filter_map(|path| {
+                    let asset = assets.locate(&path)?;
+                    Some((path, asset))
+                })
+                .collect()
+        }))
     })
     .await
 }

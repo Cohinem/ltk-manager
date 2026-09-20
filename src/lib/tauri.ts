@@ -185,6 +185,7 @@ export type {
   MapCharacter,
   MapChunk,
   MapChunkItem,
+  MapFiles,
   MapItemKind,
   MapModel,
   MapParticle,
@@ -539,6 +540,10 @@ export const api = {
     readMapVariants: (document: BinDocumentId, entry: string) =>
       commands.readMapVariants(document, entry).then(toResult),
     readMapOutline: (document: BinDocumentId) => commands.readMapOutline(document).then(toResult),
+    locateFilesNear: (near: AssetRef, paths: readonly string[]) =>
+      commands.locateFilesNear(near, [...paths]).then(toResult),
+    locateMapFiles: (near: AssetRef, map: string) =>
+      commands.locateMapFiles(near, map).then(toResult),
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
       commands.readAnimationGraph(document, entry).then(toResult),
     readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),

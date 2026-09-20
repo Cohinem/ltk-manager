@@ -15,7 +15,7 @@ import {
   useWarmLinkOpen,
 } from "../../links/hooks/useLinkTargets";
 import { preloadMapViewport } from "../../map/components/MapPreview";
-import { MapSceneHost } from "../../map/state/mapScene";
+import { MapSceneHost, type MapSceneSource } from "../../map/state/mapScene";
 import { nameHash } from "../../shared/utils/binHash";
 import { preloadSkinViewport } from "../../skin/components/SkinPreview";
 import { SkinChoiceContext, useSkinChoice } from "../../skin/state/skinChoice";
@@ -111,6 +111,11 @@ export function ClassView({
     if (skin) preloadSkinViewport();
   }, [skin]);
   const map = layout.shell === "map";
+  const mapEntry = roots[0]?.entry ?? null;
+  const mapSource = useMemo<MapSceneSource>(
+    () => ({ kind: "object", document, entry: mapEntry }),
+    [document, mapEntry],
+  );
   useEffect(() => {
     if (map) preloadMapViewport();
   }, [map]);
@@ -187,11 +192,7 @@ export function ClassView({
                   <EmitterChoiceContext value={emitters}>
                     <SkinChoiceContext value={skinChoice}>
                       <RunHost drawable={drawable} document={document} entry={entry}>
-                        <MapSceneHost
-                          enabled={map}
-                          document={document}
-                          entry={roots[0]?.entry ?? null}
-                        >
+                        <MapSceneHost enabled={map} near={asset} source={mapSource}>
                           <ContextMenu.Root>
                             <ContextMenu.Trigger
                               ref={measure}

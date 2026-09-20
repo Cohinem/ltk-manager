@@ -8,7 +8,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import { Button, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type { BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
 import { type Bounds, FitCamera, useSceneColors, Viewport } from "@/modules/viewport";
 import {
   usePreviewBackdropParticles,
@@ -39,8 +39,11 @@ import { MapParticles } from "./MapParticles";
 const MAP_FRAME: Bounds = { min: [-1500, 0, -1500], max: [1500, 600, 1500] };
 
 export interface MapViewportProps {
-  /** The document the object lives in, whose project answers before the install. */
-  readonly document: BinDocumentId;
+  /**
+   * An open document of the project whose layer answers the map's materials first, and
+   * null for a scene opened off a file, which resolves through the map's own open bin.
+   */
+  readonly document: BinDocumentId | null;
 }
 
 /**
@@ -50,25 +53,36 @@ export interface MapViewportProps {
  * what the outliner hid and sent the camera to, is the `MapSceneHost` above it.
  */
 export default function MapViewport({ document }: MapViewportProps) {
-  const { variants, failed, chosen } = useMapScene();
+  const { variants, failed, chosen, located, geometry, hasMaterials, materials } = useMapScene();
+  const resolver = document ?? materials;
 
   if (failed) return <Notice text={m.workshop_bin_map_preview_failed_empty()} />;
   if (variants === undefined) return <Notice text={m.workshop_bin_map_preview_loading_label()} />;
   if (chosen === null) return <Notice text={m.workshop_bin_map_preview_missing_empty()} />;
-  return <MapScene document={document} variants={variants} chosen={chosen} />;
+  /* The materials read is keyed on the document it resolves through, so the scene waits
+     for the one it will keep rather than reading them twice. */
+  if (!located || (hasMaterials && resolver === null)) {
+    return <Notice text={m.workshop_bin_map_preview_loading_label()} />;
+  }
+  if (geometry === null) return <Notice text={m.workshop_bin_map_preview_no_geometry_empty()} />;
+  return <MapScene document={resolver} geometry={geometry} variants={variants} chosen={chosen} />;
 }
 
 interface MapSceneProps {
-  /** The document the object lives in, whose project answers before the install. */
-  readonly document: BinDocumentId;
+  readonly document: BinDocumentId | null;
+  /** The chosen variant's `.mapgeo`, wherever the scene found it. */
+  readonly geometry: AssetRef;
   readonly variants: readonly MapVariant[];
   readonly chosen: MapVariant;
 }
 
-function MapScene({ document, variants, chosen }: MapSceneProps) {
-  const { pick, materials, hidden, focus } = useMapScene();
+function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
+  const { near, pick, materials, hidden, focus } = useMapScene();
   const colors = useSceneColors();
-  const source = useMemo(() => ({ map: chosen.map, document }), [chosen.map, document]);
+  const source = useMemo(
+    () => ({ map: chosen.map, document, geometry }),
+    [chosen.map, document, geometry],
+  );
 
   const camera = usePreviewCamera();
   const particles = usePreviewBackdropParticles();
@@ -97,7 +111,7 @@ function MapScene({ document, variants, chosen }: MapSceneProps) {
           {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={played} />
-          {structures && <MapCharacters document={materials} hidden={hidden} />}
+          {structures && <MapCharacters document={materials} near={near} hidden={hidden} />}
           <MapFocus focus={focus} colors={colors} />
         </Viewport>
         {origin === null && (

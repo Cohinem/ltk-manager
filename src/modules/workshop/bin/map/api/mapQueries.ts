@@ -7,7 +7,9 @@ import {
   type BinDocumentId,
   type MapCharacter,
   type MapChunk,
+  type MapFiles,
   type MapParticle,
+  type MapPath,
   type MapVariant,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
@@ -15,11 +17,11 @@ import { unwrapForQuery } from "@/utils/query";
 /** The reads a map's scene draws from, each keyed on the open document it asks. */
 export const mapQueries = {
   /** The maps the `Map`, `MapSkin` or `MapContainer` at `entry` draws. */
-  variants: (document: BinDocumentId, entry: string | null) =>
+  variants: (document: BinDocumentId | null, entry: string | null) =>
     queryOptions<MapVariant[], AppError>({
       queryKey: ["map-variants", document, entry],
       queryFn:
-        entry === null
+        document === null || entry === null
           ? skipToken
           : async () => unwrapForQuery(await api.bin.readMapVariants(document, entry)),
       staleTime: Infinity,
@@ -58,17 +60,26 @@ export const mapQueries = {
       staleTime: Infinity,
       retry: false,
     }),
-  /** Where the install keeps the file at `path`, and null where it keeps none. */
-  gameFile: (path: string | null) =>
-    queryOptions<AssetRef | null, AppError>({
-      queryKey: ["map-game-file", path],
-      queryFn: async () => {
-        if (path === null) return null;
-        const held = unwrapForQuery(await api.objects.locateGameFiles([path]))[path];
-        return held === undefined
-          ? null
-          : { kind: "gameChunk", wad: held.wad, pathHash: held.pathHash };
-      },
+  /** Where the two files of `map` live, the project `near` sits in answering first. */
+  files: (near: AssetRef, map: MapPath | null) =>
+    queryOptions<MapFiles, AppError>({
+      queryKey: ["map-files", near, map],
+      queryFn:
+        map === null
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.locateMapFiles(near, map)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /**
+   * Where each of `paths` lives, the project `near` sits in answering first, asked in one
+   * call because finding a project's files walks its layers. A path nothing holds is absent.
+   */
+  filesNear: (near: AssetRef, paths: readonly string[]) =>
+    queryOptions<Partial<Record<string, AssetRef>>, AppError>({
+      queryKey: ["map-files-near", near, paths],
+      queryFn: async () =>
+        paths.length === 0 ? {} : unwrapForQuery(await api.bin.locateFilesNear(near, paths)),
       staleTime: Infinity,
       retry: false,
     }),

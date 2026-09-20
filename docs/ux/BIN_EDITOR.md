@@ -4,6 +4,7 @@
 
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
+| 2026-09-20 | Open a map's files on the map, and sort a file's objects       |
 | 2026-09-17 | Draw a patch bin's records under the objects they target       |
 | 2026-09-14 | Address a map entry whose key repeats as `{k}#n`               |
 | 2026-09-14 | Search an open bin from the bar's `@` scope                    |
@@ -13,7 +14,6 @@
 | 2026-09-14 | Save a leaf edit as a delta, and refuse a file changed on disk |
 | 2026-09-14 | Cut a chip's path under its object, and name the target class  |
 | 2026-09-14 | Draw a string-table key with its in-game line                  |
-| 2026-09-13 | Add the clips pane over the animation graph                    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1052,6 +1052,32 @@ control.
 ```
 
 The file tab keeps its blocks. A layout is the object tab's, per ADR-0028.
+
+### A map's files
+
+A `Map`, a `MapSkin` and a `MapContainer` open in a shell of three panes: the drawn map, an
+outliner of its chunks, and the object's sections. The outliner lists each
+`MapPlaceableContainer` of the map's `.materials.bin` and what it holds. A row sends the camera
+to where its placeable stands, and an eye hides a chunk or one placeable from the scene.
+
+A `.mapgeo` and a `.materials.bin` open on the same map, because the map is what a reader of
+either file came for. The path says which map it is, since both files are the map's entry path
+under `data/`. A `.materials.bin` keeps its blocks behind a Map and Objects switch in the
+toolbar, and a `.mapgeo` has no objects to switch to. A file no hash table names has no path to
+read, so it opens as the blocks it always did.
+
+Everything the scene reads is looked for in the project first and the install second: the
+geometry, the materials, their textures and the skins of what the map stands. A file an unpack
+named by the hex of its chunk hash answers the path that hashes to it, which is how the game
+itself reaches it.
+
+### The order of a file's objects
+
+A file's objects are listed by class and then by name, digits by their value and without regard
+to case. A file keeps them in the order its hash table fell out in, which says nothing to a
+reader, and sorting by class keeps the hundreds of materials a map declares apart from the one
+container that names it. A class or an object no table names sorts after the named ones. A
+patch's targets stay after the objects.
 
 ### A layout is complete
 

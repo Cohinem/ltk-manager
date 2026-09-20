@@ -263,6 +263,20 @@ export const commands = {
 	/**  Every chunk the open `.materials.bin` under `document` declares, and what each holds. */
 	readMapOutline: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapChunk[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_outline", { document }),
 	/**
+	 *  Where the two files of `map` live, the project `near` sits in answering before the install.
+	 * 
+	 *  So a mod that ships its own geometry draws it, and one that ships only materials draws
+	 *  the install's geometry under them.
+	 */
+	locateMapFiles: (near: AssetRef, map: MapPath) => __TAURI_INVOKE<({ ok: true; value: MapFiles }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_map_files", { near, map }),
+	/**
+	 *  Where each of `paths` lives, the project `near` sits in answering before the install.
+	 * 
+	 *  One call for every file a scene is about to open, since finding a project's files
+	 *  walks its layers. A path nothing holds is absent.
+	 */
+	locateFilesNear: (near: AssetRef, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: AssetRef } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_files_near", { near, paths }),
+	/**
 	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
 	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
@@ -1721,6 +1735,14 @@ export type MapChunkItem = {
 	controller: string | null,
 };
 
+/**  Where the two files of one map live, each none where nothing holds it. */
+export type MapFiles = {
+	/**  The `.mapgeo`, which the scheme answers as one buffer. */
+	geometry: AssetRef | null,
+	/**  The `.materials.bin`, which declares the materials and the chunks. */
+	materials: AssetRef | null,
+};
+
 /**  What a placeable is to a scene, which is what an outliner marks its row with. */
 export type MapItemKind = 
 /**  A `MapParticle`, which plays a system. */
@@ -1783,8 +1805,6 @@ export type MapVariant = {
 	skin: string | null,
 	/**  The map that skin draws. */
 	map: MapPath,
-	/**  The file that map declares its materials and its chunks in. */
-	materials: string,
 };
 
 /**  One entry of `mMaskDataMap`. */

@@ -44,7 +44,6 @@ fn a_container_answers_the_map_it_states() {
         vec![MapVariant {
             skin: None,
             map: MapPath::from(BASE_SRX),
-            materials: "data/maps/mapgeometry/map11/base_srx.materials.bin".to_owned(),
         }]
     );
 }
@@ -58,7 +57,6 @@ fn a_skin_answers_the_container_it_links_under_its_own_name() {
         vec![MapVariant {
             skin: Some("Default".to_owned()),
             map: MapPath::from(BASE_SRX),
-            materials: "data/maps/mapgeometry/map11/base_srx.materials.bin".to_owned(),
         }]
     );
 }

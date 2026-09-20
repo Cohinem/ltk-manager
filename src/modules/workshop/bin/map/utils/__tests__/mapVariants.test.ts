@@ -5,12 +5,10 @@ import { openingVariant, variantLabel } from "../mapVariants";
 const BLOOM: MapVariant = {
   skin: "Bloom",
   map: "Maps/MapGeometry/Map11/Bloom",
-  materials: "data/maps/mapgeometry/map11/bloom.materials.bin",
 };
 const BASE: MapVariant = {
   skin: "Default",
   map: "Maps/MapGeometry/Map11/Base_SRX",
-  materials: "data/maps/mapgeometry/map11/base_srx.materials.bin",
 };
 
 describe("openingVariant", () => {

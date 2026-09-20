@@ -58,6 +58,11 @@ export interface BackdropSource {
   readonly map: MapPath;
   /** Any open document of that project, and null outside one. */
   readonly document: BinDocumentId | null;
+  /**
+   * The map's `.mapgeo` where the scene has already found it, such as a copy a project
+   * ships. Absent, the install's is looked up.
+   */
+  readonly geometry?: AssetRef;
 }
 
 /** One map the install can draw a backdrop from. */
@@ -206,8 +211,12 @@ export function useBackdropMaterials(map: MapPath | null): AssetRef | null {
  * string table and so cannot be asked for until it has landed.
  */
 export function useMapBackdrop(source: BackdropSource | null): Backdrop {
-  const located = useQuery(backdropQueries.chunk(source?.map ?? null, GEOMETRY_SUFFIX));
-  const geometry = useQuery(viewportQueries.map(located.data ?? null));
+  const given = source?.geometry;
+  const located = useQuery(
+    backdropQueries.chunk(given === undefined ? (source?.map ?? null) : null, GEOMETRY_SUFFIX),
+  );
+  const asset = given ?? located.data ?? null;
+  const geometry = useQuery(viewportQueries.map(asset));
   const materials = useQuery(
     backdropQueries.materials(
       source?.map ?? null,
@@ -247,7 +256,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       failure: null,
     };
   }
-  if (located.isPending || geometry.isPending) {
+  if ((given === undefined && located.isPending) || (asset !== null && geometry.isPending)) {
     return {
       geometry: null,
       origin: null,
@@ -257,7 +266,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       failure: null,
     };
   }
-  if (located.data === null || located.data === undefined) {
+  if (asset === null) {
     return {
       geometry: null,
       origin: null,

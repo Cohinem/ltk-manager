@@ -14,7 +14,8 @@ export function preloadMapViewport(): void {
 }
 
 export interface MapPreviewProps {
-  document: BinDocumentId;
+  /** An open document of the map's project, and null for a scene opened off a file. */
+  document: BinDocumentId | null;
 }
 
 /**
