@@ -3142,7 +3142,7 @@ dependencies = [
  "byteorder",
  "glam",
  "ltk_hash",
- "ltk_io_ext 0.4.5",
+ "ltk_io_ext 0.4.6",
  "num_enum",
  "thiserror 1.0.69",
 ]
@@ -3266,9 +3266,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_io_ext"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ec1d1b478f517b53ea3abc436dfe0bb48447d067545a2c0815fc159f8342b16"
+checksum = "335f639821e042a294bcf35c40a587f6812dacbd2220b6430aa4733ec353101f"
 dependencies = [
  "byteorder",
  "glam",
@@ -3278,15 +3278,16 @@ dependencies = [
 
 [[package]]
 name = "ltk_mesh"
-version = "0.4.6"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a05eed66667b67fcc0cc7900bf8b85f9ccb8883cb590b4da468cbc42c22f500"
+checksum = "59a93afaa55f1c6e5316aba381eddf359c68755e3ea13274a4c5b17d7bdcde6d"
 dependencies = [
  "bitflags 2.13.1",
  "byteorder",
  "glam",
+ "half",
  "lazy_static",
- "ltk_io_ext 0.4.5",
+ "ltk_io_ext 0.4.6",
  "ltk_primitives",
  "num_enum",
  "thiserror 1.0.69",
@@ -3378,7 +3379,7 @@ dependencies = [
  "itertools",
  "ltk_game_data",
  "ltk_hashtable",
- "ltk_io_ext 0.4.5",
+ "ltk_io_ext 0.4.4",
  "rmp-serde",
  "semver",
  "serde",
@@ -3455,7 +3456,7 @@ dependencies = [
  "image",
  "image_dds",
  "intel_tex_2",
- "ltk_io_ext 0.4.5",
+ "ltk_io_ext 0.4.4",
  "num_enum",
  "texpresso",
  "texture2ddecoder",
@@ -3474,7 +3475,7 @@ dependencies = [
  "itertools",
  "ltk_file",
  "ltk_hash",
- "ltk_io_ext 0.4.5",
+ "ltk_io_ext 0.4.4",
  "memchr",
  "num_enum",
  "rsa",
