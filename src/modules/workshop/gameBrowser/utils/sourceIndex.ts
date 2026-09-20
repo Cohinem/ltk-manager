@@ -6,6 +6,7 @@
  */
 
 import { compareNames } from "../../shared/utils/naturalOrder";
+import { pathAncestors } from "../../shared/utils/pathAncestors";
 
 /** The path the index gives the group of entries no hash table names. */
 export const UNKNOWN_DIR = "?";
@@ -148,7 +149,22 @@ export function buildSourceTree(entries: readonly SourceEntry[], idPrefix = ""):
 }
 
 function fileNode(entry: SourceEntry, name: string, idPrefix: string): SourceFileNode {
-  return { type: "file", id: `${idPrefix}f:${entry.pathHash}`, name, entry };
+  return { type: "file", id: `${idPrefix}${indexFileId(entry.pathHash)}`, name, entry };
+}
+
+/** The row a chunk takes in the folded index, which is what a reveal aims at. */
+export function indexFileId(pathHash: string): string {
+  return `f:${pathHash}`;
+}
+
+/**
+ * The directories a reveal opens to reach `path`, outermost first.
+ *
+ * A chunk no hash table names sits in the unnamed group, which is the one
+ * directory above it.
+ */
+export function ancestorDirs(path: string | null): string[] {
+  return path === null ? [UNKNOWN_DIR] : pathAncestors(path);
 }
 
 function finalizeChildren(

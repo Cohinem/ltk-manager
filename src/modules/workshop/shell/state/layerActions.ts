@@ -6,6 +6,7 @@ import { setProject } from "./projectUpdate";
 export interface LayerActions {
   selectLayer: (projectPath: string, layerName: string) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
+  openDirs: (projectPath: string, layerName: string, paths: readonly string[]) => void;
   reveal: (projectPath: string, layerName: string, path: string) => void;
 }
 
@@ -23,6 +24,16 @@ export function createLayerActions(set: EditorSet): LayerActions {
         if (next.has(path)) next.delete(path);
         else next.add(path);
 
+        return { ...editor, collapsed: { ...editor.collapsed, [layerName]: next } };
+      }),
+
+    openDirs: (projectPath, layerName, paths) =>
+      setProject(set, projectPath, (editor) => {
+        const shut = editor.collapsed[layerName] ?? NO_COLLAPSED_DIRS;
+        if (paths.every((path) => !shut.has(path))) return null;
+
+        const next = new Set(shut);
+        for (const path of paths) next.delete(path);
         return { ...editor, collapsed: { ...editor.collapsed, [layerName]: next } };
       }),
 

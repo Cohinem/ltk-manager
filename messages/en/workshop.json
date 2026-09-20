@@ -652,6 +652,7 @@
   "workshop_explorer_view_label": "How the rows draw",
   "workshop_explorer_view_options_label": "Sort and view",
   "workshop_explorer_view_tree_label": "Tree",
+  "workshop_files_reveal_action": "Reveal in Files",
   "workshop_game_archives_label": [
     {
       "declarations": ["input count", "input formatted", "local countPlural = count: plural"],

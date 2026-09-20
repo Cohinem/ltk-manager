@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-09-20 | Reveal a file tab in the browser its file came from                   |
 | 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
 | 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
 | 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
@@ -13,7 +14,6 @@
 | 2026-09-12 | Fill the primary side panel from a rail of views                      |
 | 2026-09-12 | Write a project's readme beside its rendered half                     |
 | 2026-09-12 | Report what the ignore rules left out of a package                    |
-| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -50,6 +50,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | String overrides       | Available   | -                                                                  |
 | Tab strip, per project | Available   | -                                                                  |
 | Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock |
+| Reveal in Files        | Available   | A file tab's row, in the layer files or the game files             |
 | Group lock             | Available   | A locked group takes only what a gesture aims at it                |
 | Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document    |
 | Quit guard             | Available   | A window close asks while a document holds unsaved edits           |
@@ -2617,6 +2618,8 @@ replaceable tab holds none until its next open.
   the tab sits in, so the other group of a split keeps its own tabs
 - **Copy Path**, **Copy Name** - the path is whatever addresses the subject outside the app:
   a file's path on disk, and for a game chunk its archive and then the path inside it
+- **Reveal in Files**, on a file tab - the browser the file came from, scrolled to its row.
+  Read [Reveal in Files](#reveal-in-files)
 - **Pin**, and **Unpin** while it is pinned - the tab itself, at the top of the menu. Read
   [A pinned tab](#a-pinned-tab)
 - **Split Right**, **Split Down** - already there, now under the same menu
@@ -2626,6 +2629,15 @@ replaceable tab holds none until its next open.
 Closing several tabs at once asks the unsaved-edits question once for each editor that has
 any. The clean ones close straight away and the rest queue behind one dialog, so a refusal
 answers for the whole batch.
+
+### Reveal in Files
+
+A file tab's menu opens the browser the file came from and lands on its row, the way an
+object tab's menu opens the objects. A layer file opens that layer's files, reopens every
+directory shut above the row and scrolls to it. A game chunk shows the game files, reads the
+directories down to the chunk and selects it, and a chunk no hash table names lands in the
+unnamed group. The tree's filter is cleared, because a row it hides is a reveal that lands on
+nothing. A file picked off disk belongs to no browser here, so its tab carries no such item.
 
 ### The unsaved-edits question
 

@@ -2,7 +2,12 @@ import { keepScrollTop, keptScrollTop, useGameBrowserStore } from "../gameBrowse
 
 describe("gameBrowser store", () => {
   beforeEach(() => {
-    useGameBrowserStore.setState({ expandedDirs: new Set(), shutWadDirs: {}, scrollTops: {} });
+    useGameBrowserStore.setState({
+      expandedDirs: new Set(),
+      shutWadDirs: {},
+      scrollTops: {},
+      reveal: null,
+    });
   });
 
   describe("toggleDir", () => {
@@ -32,6 +37,55 @@ describe("gameBrowser store", () => {
       useGameBrowserStore.getState().toggleDir("assets");
       expect(useGameBrowserStore.getState().expandedDirs).not.toBe(before);
       expect(before.size).toBe(0);
+    });
+  });
+
+  describe("expandDirs", () => {
+    it("opens every directory a reveal has to pass through", () => {
+      useGameBrowserStore.setState({ expandedDirs: new Set(["data"]) });
+      useGameBrowserStore.getState().expandDirs(["assets", "assets/characters"]);
+
+      expect(useGameBrowserStore.getState().expandedDirs).toEqual(
+        new Set(["data", "assets", "assets/characters"]),
+      );
+    });
+
+    it("keeps the set when every directory is open already", () => {
+      useGameBrowserStore.setState({ expandedDirs: new Set(["assets"]) });
+      const before = useGameBrowserStore.getState().expandedDirs;
+
+      useGameBrowserStore.getState().expandDirs(["assets"]);
+
+      expect(useGameBrowserStore.getState().expandedDirs).toBe(before);
+    });
+  });
+
+  describe("reveal", () => {
+    it("bumps the token per request, so two reveals of one row both land", () => {
+      useGameBrowserStore.getState().requestReveal("f:0123456789abcdef");
+      useGameBrowserStore.getState().requestReveal("f:0123456789abcdef");
+
+      expect(useGameBrowserStore.getState().reveal).toEqual({
+        id: "f:0123456789abcdef",
+        token: 2,
+      });
+    });
+
+    it("drops the request the tree answered", () => {
+      useGameBrowserStore.getState().requestReveal("f:0123456789abcdef");
+      useGameBrowserStore.getState().settleReveal(1);
+
+      expect(useGameBrowserStore.getState().reveal).toBeNull();
+    });
+
+    /* The second tree drawing the index settles the token it answered, which is
+       no longer the one owed. */
+    it("keeps a request a stale token settles", () => {
+      useGameBrowserStore.getState().requestReveal("f:0123456789abcdef");
+      useGameBrowserStore.getState().requestReveal("f:fedcba9876543210");
+      useGameBrowserStore.getState().settleReveal(1);
+
+      expect(useGameBrowserStore.getState().reveal?.token).toBe(2);
     });
   });
 

@@ -37,6 +37,7 @@ import {
   useExpandedGameDirs,
   useExplorerFilter,
   useExplorerScope,
+  useGameReveal,
   useGameSearchPattern,
   useGameSearchRegex,
   useOpenDocument,
@@ -44,6 +45,7 @@ import {
   useSetExplorerScope,
   useSetGameSearchPattern,
   useSetGameSearchRegex,
+  useSettleGameReveal,
   useToggleGameDir,
 } from "../../state";
 import { useGameFind } from "../api/useGameFind";
@@ -324,6 +326,8 @@ export function GameIndexTree() {
   const openFile = useSourcePreview();
   const previewFile = useSourceRowPreview();
   const sort = useExplorerSort();
+  const reveal = useGameReveal();
+  const settleReveal = useSettleGameReveal();
 
   const root = useGameDir("");
   const expandedPaths = useMemo(() => [...expanded].sort(), [expanded]);
@@ -382,6 +386,8 @@ export function GameIndexTree() {
         selection={selection}
         selectionTargets={targets}
         scrollKey="game-index"
+        reveal={reveal}
+        onRevealed={settleReveal}
       />
     </>
   );
