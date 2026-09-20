@@ -1,4 +1,5 @@
 import {
+  ArrowsClockwiseIcon,
   ArrowsOutCardinalIcon,
   BoneIcon,
   DotsThreeVerticalIcon,
@@ -36,6 +37,7 @@ import {
   viewportQueries,
 } from "@/modules/viewport";
 import {
+  type PreviewDisplay,
   usePreviewArmature,
   usePreviewCamera,
   usePreviewBackdrop,
@@ -644,19 +646,37 @@ function BackdropToggle() {
   );
 }
 
+/** The next state of the placement switch, which cycles off, move, turn. */
+function nextPlacement(move: boolean, mode: PlacementMode): Partial<PreviewDisplay> {
+  if (!move) return { previewMove: true, previewMoveMode: "translate" };
+  if (mode === "translate") return { previewMoveMode: "rotate" };
+  return { previewMove: false };
+}
+
 /** Where the subject stands: a switch for the gizmo, and what it drags behind the kebab. */
 function PlacementToggle() {
   const move = usePreviewMove();
   const mode = usePreviewMoveMode();
   const setDisplay = useSetPreviewDisplay();
+  const turning = move && mode === "rotate";
 
   return (
     <>
       <ViewToggle
-        label={m.workshop_bin_preview_move_label()}
+        label={
+          turning ? m.workshop_bin_preview_move_rotate_label() : m.workshop_bin_preview_move_label()
+        }
         active={move}
-        icon={<ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />}
-        onClick={() => setDisplay({ previewMove: !move })}
+        icon={
+          turning ? (
+            <ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />
+          ) : (
+            <ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />
+          )
+        }
+        /* One button cycles off, move, turn: the mode is what a creator changes most and
+           it is not worth a trip through the kebab. */
+        onClick={() => setDisplay(nextPlacement(move, mode))}
       />
       <Menu.Root>
         <Tooltip content={m.workshop_bin_preview_move_menu_label()}>
