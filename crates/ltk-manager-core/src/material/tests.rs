@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use glam::vec4;
 use ltk_hash::WadHash;
-use ltk_meta::property::{Kind, NoMeta, values};
+use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
@@ -25,7 +25,6 @@ fn embedded(class: &str, properties: Vec<(BinHash, PropertyValueEnum)>) -> value
     values::Embedded(values::Struct {
         class_hash: h(class),
         properties: properties.into_iter().collect(),
-        meta: NoMeta,
     })
 }
 
@@ -240,7 +239,7 @@ fn shaders() -> BinDocument {
 }
 
 fn document_of(objects: Vec<BinObject>) -> BinDocument {
-    let mut bin = Bin::<NoMeta>::builder();
+    let mut bin = Bin::builder();
     for object in objects {
         bin = bin.object(object);
     }
@@ -915,7 +914,6 @@ fn a_dynamic_material_is_animated() {
         values::Struct {
             class_hash: h("DynamicMaterialDef"),
             properties: Default::default(),
-            meta: NoMeta,
         }
         .into(),
     );

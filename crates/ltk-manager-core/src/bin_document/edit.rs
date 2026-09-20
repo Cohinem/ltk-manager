@@ -10,7 +10,7 @@ use std::str::FromStr;
 use fs_err as fs;
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
+use ltk_meta::property::{Kind, ValueMut, values};
 use ltk_meta::{BinDelta, BinFile, BinObject, BinStream, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
@@ -409,7 +409,7 @@ impl BinDocument {
         let unwritable = BinDocumentError::Unwritable;
 
         let mut stream =
-            BinStream::<_, NoMeta>::mount(Cursor::new(self.base.as_slice())).map_err(unwritable)?;
+            BinStream::<_>::mount(Cursor::new(self.base.as_slice())).map_err(unwritable)?;
         let mut out = Vec::with_capacity(self.base.len());
         let mut delta = BinDelta::new();
         for object in self.touched.iter().filter_map(|hash| bin.objects.get(hash)) {

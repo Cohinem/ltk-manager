@@ -7,9 +7,9 @@ use std::collections::HashMap;
 use std::io::Cursor;
 
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::property::{Kind, NoMeta};
+use ltk_meta::property::Kind;
 use ltk_meta::stream::BinStream;
-use ltk_meta::walk::{Child, Leaf, Node, OwnedNode, TreeNode, TreeValue, Visit, Visitor};
+use ltk_meta::walk::{ChildSegment, Leaf, Node, NodeRef, TreeNode, TreeValue, Visit, Visitor};
 use ltk_meta::{BinOverride, Error, PropertyValueEnum};
 
 use super::build::PATCH_MAGIC;
@@ -139,10 +139,10 @@ pub(super) fn scan_bin(
     hits: &mut Vec<WalkHit>,
 ) -> Result<(), Error> {
     if bytes.starts_with(&PATCH_MAGIC) {
-        let patch = BinOverride::<NoMeta>::from_reader(&mut Cursor::new(bytes))?;
+        let patch = BinOverride::from_reader(&mut Cursor::new(bytes))?;
         for object in patch.objects.values() {
             Scan::<&PropertyValueEnum>::new(target, object.path_hash, object.class_hash, hits)
-                .node(OwnedNode::from(object))?;
+                .node(NodeRef::from(object))?;
         }
         return Ok(());
     }
@@ -259,7 +259,7 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
                 self.node(node)
             }
             Kind::Hash | Kind::ObjectLink | Kind::WadChunkLink | Kind::String => {
-                if value.leaf()?.is_some_and(|leaf| self.target.links(leaf)) {
+                if value.as_leaf()?.is_some_and(|leaf| self.target.links(leaf)) {
                     self.hit();
                 }
                 Ok(())
@@ -279,7 +279,7 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
         }
         let inline = value.kind() == Kind::Optional && !holds_rows(item_kind);
         for child in value.children()? {
-            let (Child::Index(index), item) = child? else {
+            let (ChildSegment::Index(index), item) = child? else {
                 continue;
             };
             if inline {
@@ -306,10 +306,10 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
         }
         let mut seen: HashMap<KeyId, usize> = HashMap::new();
         for child in value.children()? {
-            let (Child::Key(key), item) = child? else {
+            let (ChildSegment::Key(key), item) = child? else {
                 continue;
             };
-            let leaf = key.leaf()?;
+            let leaf = key.as_leaf()?;
             let id = match leaf {
                 Some(Leaf::Hash(hash) | Leaf::Link(hash)) => KeyId::Hash(hash),
                 other => {
@@ -364,7 +364,7 @@ fn hit_step<'a, V: TreeValue<'a>>(step: &Step<V>) -> HitStep {
         },
         Step::Index(index) => HitStep::Index(*index),
         Step::Key(key, occurrence) => {
-            let leaf = key.leaf().ok().flatten();
+            let leaf = key.as_leaf().ok().flatten();
             let mut text = String::new();
             write_key(&mut text, leaf);
             let hash = match leaf {

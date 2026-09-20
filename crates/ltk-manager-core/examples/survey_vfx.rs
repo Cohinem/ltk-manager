@@ -256,7 +256,7 @@ impl Survey {
         };
         let locked = matches!(
             mesh.get(&LOCK_MESH_TO_ATTACHMENT)
-                .and_then(|held| owned(held.leaf())),
+                .and_then(|held| owned(held.as_leaf())),
             Some(Leaf::Bool(true) | Leaf::Flag(true))
         );
 
@@ -277,7 +277,7 @@ impl Survey {
         }
         if let Some(held) = properties.get(&UNIFORM_SCALE)
             && matches!(
-                owned(held.leaf()),
+                owned(held.as_leaf()),
                 Some(Leaf::Bool(true) | Leaf::Flag(true))
             )
         {
@@ -329,7 +329,7 @@ impl Survey {
             let constant = inner
                 .properties
                 .get(&CONSTANT)
-                .map(|held| format!("{:?}", owned(held.leaf())))
+                .map(|held| format!("{:?}", owned(held.as_leaf())))
                 .unwrap_or_else(|| "default".to_owned());
             let keyed = inner.properties.get(&DYNAMICS).is_some_and(
                 |held| !matches!(held, PropertyValueEnum::Optional(o) if o.value().is_none()),

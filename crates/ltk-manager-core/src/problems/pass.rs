@@ -20,7 +20,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use ltk_meta::PropertyValueEnum;
-use ltk_meta::walk::ViewValue;
+use ltk_meta::walk::RawValue;
 use ltk_meta::walk::{Node, Visitor};
 use parking_lot::Mutex;
 
@@ -162,9 +162,9 @@ pub trait BinVisitor: Send + Sync {
 ///
 /// A rule writes one generic implementation,
 /// `impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Check<'_>`, which meets both
-/// bounds and never names `ViewValue` or `PropertyValueEnum` (ADR-0020).
+/// bounds and never names `RawValue` or `PropertyValueEnum` (ADR-0020).
 pub trait Walk<'f>:
-    for<'a> Visitor<'a, ViewValue<'a>, Error = ltk_meta::Error>
+    for<'a> Visitor<'a, RawValue<'a>, Error = ltk_meta::Error>
     + for<'a> Visitor<'a, &'a PropertyValueEnum, Error = ltk_meta::Error>
 {
     /// After the bin: the sink back, and anything the rule keeps across bins

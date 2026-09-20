@@ -114,7 +114,7 @@ fn a_search_caps_its_rows_and_counts_on_past_the_cap() {
             values::Container::from(vec![values::String::from("needle"); FIND_ROWS + 5]),
         )
         .build();
-    let bin = Bin::<NoMeta>::builder().object(object).build();
+    let bin = Bin::builder().object(object).build();
     let mut out = Cursor::new(Vec::new());
     bin.to_writer(&mut out).unwrap();
     let document = BinDocument::parse(out.into_inner()).unwrap();

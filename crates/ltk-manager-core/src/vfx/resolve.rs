@@ -164,14 +164,14 @@ impl<'a> Walk<'a> {
         depth: usize,
     ) -> Result<VfxValue, BinDocumentError> {
         if ASSET_FIELDS.contains(&field)
-            && let Some(Leaf::String(path)) = owned(value.leaf())
+            && let Some(Leaf::String(path)) = owned(value.as_leaf())
         {
             self.charge(depth)?;
             return Ok(self.asset(path.to_owned()));
         }
         if class == CHILD_IDENTIFIER
             && field == EFFECT_KEY
-            && let Some(Leaf::Hash(key)) = owned(value.leaf())
+            && let Some(Leaf::Hash(key)) = owned(value.as_leaf())
             && let Some(&target) = self.resources.get(&key)
             && self.document.object_at(target).is_some()
         {
@@ -201,7 +201,7 @@ impl<'a> Walk<'a> {
             | PropertyValueEnum::Embedded(values::Embedded(inner)) => {
                 self.node(inner.class_hash, &inner.properties, None, depth)
             }
-            leaf => self.leaf(owned(leaf.leaf()), depth),
+            leaf => self.leaf(owned(leaf.as_leaf()), depth),
         }
     }
 
@@ -312,7 +312,7 @@ impl<'a> Walk<'a> {
 
     /// A map key as the text the consumer keys by.
     fn key(&mut self, key: &PropertyValueEnum) -> String {
-        match owned(key.leaf()) {
+        match owned(key.as_leaf()) {
             Some(Leaf::Hash(hash)) => self.namer.value(hash).unwrap_or_else(|| hex(hash)),
             leaf => {
                 let mut text = String::new();

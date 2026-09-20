@@ -16,7 +16,7 @@
 use std::borrow::Cow;
 
 use ltk_hash::BinHash;
-use ltk_meta::walk::{Leaf, Node, TrailStep, TreeNode as _, TreeValue, Visit, Visitor};
+use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit, Visitor};
 
 use crate::problems::names::BinNames;
 use crate::problems::walk::{Address, Declared, FieldNames};
@@ -227,7 +227,7 @@ impl<'f> Walk<'f> for Reading<'_, 'f> {
 /// The `dynamics` node sits under `Color` or `scale0` of an emitter.
 fn rerolled<'a, V: TreeValue<'a>>(dynamics: &Node<'_, 'a, V>) -> bool {
     let trail = dynamics.trail();
-    let [.., TrailStep::Field(value), TrailStep::Field(pointer)] = trail.steps() else {
+    let [.., TrailSegment::Field(value), TrailSegment::Field(pointer)] = trail.segments() else {
         return false;
     };
     let [.., owner, _] = trail.classes() else {
@@ -267,8 +267,8 @@ impl TableSet {
             if set.slots == 1 {
                 set.first_held = true;
             }
-            let times = table.property(KEY_TIMES)?;
-            let factors = table.property(KEY_VALUES)?;
+            let times = table.get(KEY_TIMES)?;
+            let factors = table.get(KEY_VALUES)?;
             let counted = |list: Option<V>| -> Result<usize, ltk_meta::Error> {
                 Ok(list
                     .map(|each| each.item_count())
@@ -311,7 +311,7 @@ fn varies<'a, V: TreeValue<'a>>(factors: V) -> Result<bool, ltk_meta::Error> {
     let mut first = None;
     for child in factors.children()? {
         let (_, factor) = child?;
-        let Some(Leaf::F32(level)) = factor.leaf()? else {
+        let Some(Leaf::F32(level)) = factor.as_leaf()? else {
             continue;
         };
         match first {

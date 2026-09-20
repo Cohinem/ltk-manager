@@ -141,12 +141,12 @@ impl<'r, 'f> Fan<'r, 'f> {
 
     fn enter_property_with(
         &mut self,
-        holds_node: bool,
+        can_contain_node: bool,
         call: impl FnMut(&mut (dyn Walk<'f> + 'r)) -> Result<Visit, ltk_meta::Error>,
     ) -> Result<Visit, ltk_meta::Error> {
         let asked = self.active();
         let Asked { continued, .. } = self.ask(asked, call)?;
-        if holds_node {
+        if can_contain_node {
             // Exited symmetrically (W8), which is what pops it.
             self.scopes.push(continued);
             Ok(self.answer(continued))
@@ -193,8 +193,10 @@ where
         node: &Node<'_, 'a, V>,
     ) -> Result<Visit, ltk_meta::Error> {
         // The tree's answer, asked before any instance (W1, W7).
-        let holds_node = value.holds_node()?;
-        self.enter_property_with(holds_node, |walk| walk.enter_property(field, value, node))
+        let can_contain_node = value.can_contain_node()?;
+        self.enter_property_with(can_contain_node, |walk| {
+            walk.enter_property(field, value, node)
+        })
     }
 
     fn exit_property(

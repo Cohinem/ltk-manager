@@ -3,7 +3,7 @@
 
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::property::{NoMeta, values};
+use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
@@ -312,11 +312,10 @@ fn bin_naming(paths: &[&str]) -> Vec<u8> {
         )]
         .into_iter()
         .collect(),
-        meta: NoMeta,
     };
 
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(BIN_ENTRY, SKIN_AUDIO)
+        [BinObject::builder(BIN_ENTRY, SKIN_AUDIO)
             .property(
                 BANK_UNITS,
                 PropertyValueEnum::Container(vec![values::Embedded(unit)].into()),

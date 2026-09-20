@@ -2236,7 +2236,7 @@
     },
     {
       "name": "ltk_anim",
-      "version": "0.3.7",
+      "version": "0.3.8",
       "licenses": [
         41
       ]
@@ -2297,13 +2297,6 @@
     },
     {
       "name": "ltk_io_ext",
-      "version": "0.4.4",
-      "licenses": [
-        41
-      ]
-    },
-    {
-      "name": "ltk_io_ext",
       "version": "0.4.6",
       "licenses": [
         41
@@ -2325,7 +2318,7 @@
     },
     {
       "name": "ltk_meta",
-      "version": "0.8.2",
+      "version": "0.8.4",
       "licenses": [
         41
       ]
@@ -2386,14 +2379,14 @@
     },
     {
       "name": "ltk_texture",
-      "version": "0.6.1",
+      "version": "0.6.3",
       "licenses": [
         41
       ]
     },
     {
       "name": "ltk_wad",
-      "version": "0.5.4",
+      "version": "0.5.6",
       "licenses": [
         41
       ]

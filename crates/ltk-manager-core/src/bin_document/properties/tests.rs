@@ -5,7 +5,6 @@ use std::io::Cursor;
 
 use ltk_hash::Hash as _;
 use ltk_meta::Bin;
-use ltk_meta::property::NoMeta;
 
 use super::*;
 use crate::bin_document::{LeafValue, PropertyKind};
@@ -99,7 +98,6 @@ fn document() -> BinDocument {
             values::Embedded(values::Struct {
                 class_hash: h("InnerData"),
                 properties: IndexMap::new(),
-                meta: NoMeta,
             }),
         )
         .property(h("maybe"), values::Struct::default())
@@ -221,7 +219,6 @@ fn a_declared_field_starts_at_its_published_default() {
             &values::Struct {
                 class_hash: h("InnerData"),
                 properties: IndexMap::new(),
-                meta: NoMeta,
             }
             .into()
         ),

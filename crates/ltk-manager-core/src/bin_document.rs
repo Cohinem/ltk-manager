@@ -1846,7 +1846,7 @@ fn elements(items: &[PropertyValueEnum]) -> Vec<Child<'_>> {
 /// The text inside `{}` on the wire, the way a Problems finding writes it.
 fn wire_key(key: &PropertyValueEnum) -> String {
     let mut out = String::new();
-    walk::write_key(&mut out, owned(key.leaf()));
+    walk::write_key(&mut out, owned(key.as_leaf()));
     out
 }
 
@@ -1855,7 +1855,7 @@ fn wire_key(key: &PropertyValueEnum) -> String {
 /// A named `Hash` key is its string as a JSON literal. An unnamed one is `0x` and eight
 /// hex digits. Every other kind reads as it does on the wire.
 fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
-    match owned(key.leaf()) {
+    match owned(key.as_leaf()) {
         Some(Leaf::Hash(hash)) => match named.values.get(&hash) {
             Some(name) => {
                 let mut out = String::new();
@@ -2068,7 +2068,7 @@ impl Named {
                 class: self.classes.get(&inner.class_hash).cloned(),
                 len: inner.properties.len(),
             },
-            leaf => self.leaf_of(owned(leaf.leaf())),
+            leaf => self.leaf_of(owned(leaf.as_leaf())),
         }
     }
 

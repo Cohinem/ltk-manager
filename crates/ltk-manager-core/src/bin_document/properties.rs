@@ -415,7 +415,6 @@ pub(super) fn empty_struct(class: BinHash) -> values::Struct {
     values::Struct {
         class_hash: class,
         properties: IndexMap::new(),
-        meta: ltk_meta::property::NoMeta,
     }
 }
 
@@ -436,7 +435,7 @@ fn leaf_value(kind: Kind, value: &Value) -> Option<PropertyValueEnum> {
     };
 
     Some(match kind {
-        Kind::None => values::None::default().into(),
+        Kind::None => values::None.into(),
         Kind::Bool => values::Bool::new(value.as_bool()?).into(),
         Kind::BitBool => values::BitBool::new(value.as_bool()?).into(),
         Kind::I8 => values::I8::new(i8::try_from(value.as_i64()?).ok()?).into(),

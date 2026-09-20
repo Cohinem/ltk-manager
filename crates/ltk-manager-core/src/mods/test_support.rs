@@ -729,11 +729,9 @@ pub(crate) fn healthy_bin() -> ltk_meta::Bin {
 
 fn bin_holding(value: impl Into<ltk_meta::PropertyValueEnum>) -> ltk_meta::Bin {
     ltk_meta::Bin::new(
-        [
-            ltk_meta::BinObject::<ltk_meta::property::NoMeta>::builder(STALE_ENTRY, SKIN_CLASS)
-                .property(ICON_AVATAR, value)
-                .build(),
-        ],
+        [ltk_meta::BinObject::builder(STALE_ENTRY, SKIN_CLASS)
+            .property(ICON_AVATAR, value)
+            .build()],
         std::iter::empty::<&str>(),
     )
 }

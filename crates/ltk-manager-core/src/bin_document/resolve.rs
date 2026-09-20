@@ -104,7 +104,7 @@ pub(crate) fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (Bi
         _ => &[],
     };
     entries.iter().filter_map(
-        |(key, value)| match (owned(key.leaf()), owned(value.leaf())) {
+        |(key, value)| match (owned(key.as_leaf()), owned(value.as_leaf())) {
             (Some(Leaf::Hash(key)), Some(Leaf::Link(target))) => Some((key, target)),
             _ => None,
         },
@@ -215,7 +215,7 @@ pub fn items(value: Option<&PropertyValueEnum>) -> &[PropertyValueEnum] {
 
 /// The scalar `value` holds, and none for a value that holds others.
 pub fn leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
-    owned(value?.leaf())
+    owned(value?.as_leaf())
 }
 
 /// The string `value` holds.

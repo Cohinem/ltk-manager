@@ -40,7 +40,7 @@ ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.11", features = ["serde"] }
 ltk_hash = { version = "0.4.0", features = ["serde"] }
-ltk_meta = { version = "0.8.2", features = ["serde"] }
+ltk_meta = { version = "0.8.4", features = ["serde"] }
 
 ltk_fantome = "0.12.0"
 ltk_game_data = "0.2.0"
@@ -48,13 +48,13 @@ ltk_mod_project = { version = "0.10.0", features = ["modpkg", "fantome"] }
 ltk_hashtable = "0.1.2"
 ltk_modpkg = "0.10.0"
 ltk_overlay = "0.10.0"
-ltk_wad = "0.5.4"
+ltk_wad = "0.5.6"
 
-ltk_anim = "0.3.7"
+ltk_anim = "0.3.8"
 ltk_mapgeo = "0.2.0"
 ltk_mesh = "0.5.0"
 ltk_rst = "0.2.1"
-ltk_texture = { version = "0.6.1", features = ["intel-tex"] }
+ltk_texture = { version = "0.6.3", features = ["intel-tex"] }
 
 camino = "1.2"
 chrono = { version = "0.4", features = ["serde"] }
@@ -107,14 +107,25 @@ sha2 = "0.10"
 assert_matches = "1.5"
 filetime = "0.2"
 
-# `ltk_meta::walk` and `BinStream::write_patched` are on the toolkit's
-# `feat/value-walk` branch (PR 227) and not yet on crates.io. Patched rather
-# than pinned as a git dependency, so that `ltk_meta` and every other toolkit
-# crate here share one `ltk_hash`: the three crates `ltk_meta` pulls by path
-# come from the same rev for the same reason. Move the pin to the release that
-# carries it.
+# `ltk_meta::walk`, `BinStream::write_patched` and the bin merge are on the
+# toolkit's main and not yet on crates.io. Patched rather than pinned as a git
+# dependency, so that `ltk_meta` and every other toolkit crate here share one
+# `ltk_hash`: the three crates `ltk_meta` pulls by path come from the same rev
+# for the same reason. Move the pin to the release that carries it.
 [patch.crates-io]
-ltk_meta = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }
-ltk_hash = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }
-ltk_io_ext = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }
-ltk_primitives = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "b800ad506d237c1c02128268389ceafaea7da281" }
+ltk_meta = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
+ltk_hash = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
+ltk_io_ext = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
+ltk_primitives = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
+
+# Game-copy references and the build against `ltk_meta` 0.8.4 are on league-mod's
+# main and not yet on crates.io. Every league-mod crate comes from the one rev, so
+# they share one `ltk_game_data`. Move the pin to the release that carries them.
+ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_game_data = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_game_index = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_hashtable = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_mod_core = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }

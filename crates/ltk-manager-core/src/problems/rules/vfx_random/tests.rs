@@ -2,7 +2,7 @@
 
 use fs_err as fs;
 use ltk_hash::Hash as _;
-use ltk_meta::property::{Kind, NoMeta, values};
+use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
@@ -37,7 +37,6 @@ fn table(chances: &[f32], factors: &[f32]) -> PropertyValueEnum {
         properties: [(KEY_TIMES, floats(chances)), (KEY_VALUES, floats(factors))]
             .into_iter()
             .collect(),
-        meta: NoMeta,
     }
     .into()
 }
@@ -52,7 +51,6 @@ fn filler() -> PropertyValueEnum {
     values::Struct {
         class_hash: hash("VfxProbabilityTableData"),
         properties: Default::default(),
-        meta: NoMeta,
     }
     .into()
 }
@@ -70,12 +68,10 @@ fn value(slots: Vec<PropertyValueEnum>) -> PropertyValueEnum {
         properties: [(PROBABILITY_TABLES, PropertyValueEnum::Container(list))]
             .into_iter()
             .collect(),
-        meta: NoMeta,
     };
     values::Embedded(values::Struct {
         class_hash: hash("ValueColor"),
         properties: [(DYNAMICS, dynamics.into())].into_iter().collect(),
-        meta: NoMeta,
     })
     .into()
 }
@@ -85,19 +81,16 @@ fn bin(field: &str, value: PropertyValueEnum) -> Vec<u8> {
     let emitter = values::Struct {
         class_hash: EMITTER,
         properties: [(hash(field), value)].into_iter().collect(),
-        meta: NoMeta,
     };
     let emitters =
         values::Container::new(Kind::Embedded, vec![values::Embedded(emitter).into()]).unwrap();
     let bin = Bin::new(
-        [
-            BinObject::<NoMeta>::builder(SYSTEM, hash("VfxSystemDefinitionData"))
-                .property(
-                    hash("complexEmitterDefinitionData"),
-                    PropertyValueEnum::Container(emitters),
-                )
-                .build(),
-        ],
+        [BinObject::builder(SYSTEM, hash("VfxSystemDefinitionData"))
+            .property(
+                hash("complexEmitterDefinitionData"),
+                PropertyValueEnum::Container(emitters),
+            )
+            .build()],
         std::iter::empty::<&str>(),
     );
 

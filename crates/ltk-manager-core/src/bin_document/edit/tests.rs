@@ -24,7 +24,6 @@ fn embedded(properties: Vec<(BinHash, PropertyValueEnum)>) -> values::Embedded {
     values::Embedded(values::Struct {
         class_hash: h("Inner"),
         properties: properties.into_iter().collect(),
-        meta: NoMeta,
     })
 }
 
@@ -110,7 +109,7 @@ fn edited() -> BinHash {
 
 /// The raw bytes of `object` in `bytes`, out of the TOC.
 fn object_bytes(bytes: &[u8], object: BinHash) -> Vec<u8> {
-    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(bytes)).unwrap();
+    let mut stream = BinStream::<_>::mount(Cursor::new(bytes)).unwrap();
     let range = stream.toc().unwrap().entry(object).unwrap().byte_range();
     bytes[usize::try_from(range.start).unwrap()..usize::try_from(range.end).unwrap()].to_vec()
 }
@@ -629,7 +628,7 @@ fn only_a_prop_of_a_layer_takes_edits() {
     assert_eq!(prop.read_only(&loose), Some(ReadOnly::Loose));
 
     let mut out = Cursor::new(Vec::new());
-    ltk_meta::BinOverride::<NoMeta>::builder()
+    ltk_meta::BinOverride::builder()
         .build()
         .to_writer(&mut out)
         .unwrap();

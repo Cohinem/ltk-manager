@@ -1,11 +1,13 @@
 //! Unit tests for the address a trail renders to.
 
+use std::borrow::Cow;
+
 use super::*;
 use indexmap::IndexMap;
 use ltk_hash::WadHash;
 use ltk_meta::path::PropertyPath;
+use ltk_meta::property::Kind;
 use ltk_meta::property::values;
-use ltk_meta::property::{Kind, NoMeta};
 use ltk_meta::walk::{Node, Visit};
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
 
@@ -32,7 +34,6 @@ fn inner() -> values::Struct {
     values::Struct {
         class_hash: INNER,
         properties: IndexMap::from([(LEAF, values::U32::new(1).into())]),
-        meta: NoMeta,
     }
 }
 
@@ -55,7 +56,7 @@ fn object() -> BinObject {
     let slot = values::Optional::new(Kind::Struct, Some(inner().into()))
         .expect("a struct is a kind an optional holds");
 
-    BinObject::<NoMeta>::builder(ENTRY, OUTER)
+    BinObject::builder(ENTRY, OUTER)
         .property(LIST, list)
         .property(SLOT, slot)
         .property(
@@ -294,13 +295,13 @@ fn header_queries_skip_an_invalid_leaf_but_requesting_it_fails() {
             value: V,
             _: &Node<'_, 'a, V>,
         ) -> Result<Visit, Self::Error> {
-            value.leaf()?;
+            value.as_leaf()?;
             Ok(Visit::Continue)
         }
     }
 
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, OUTER)
+        [BinObject::builder(ENTRY, OUTER)
             .property(LEAF, values::String::new("payload".to_owned()))
             .build()],
         std::iter::empty::<&str>(),
@@ -315,7 +316,7 @@ fn header_queries_skip_an_invalid_leaf_but_requesting_it_fails() {
         .unwrap();
     bytes[at] = 0xff;
 
-    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(&bytes)).unwrap();
+    let mut stream = BinStream::<_>::mount(Cursor::new(&bytes)).unwrap();
     assert_eq!(stream.walk(&mut Headers).unwrap(), WalkOutcome::Completed);
     assert!(stream.walk(&mut ReadLeaf).is_err());
 }

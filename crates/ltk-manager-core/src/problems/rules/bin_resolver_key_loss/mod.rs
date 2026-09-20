@@ -176,7 +176,7 @@ impl ObjectRead for Resolvers<'_> {
         if object.class_hash() != RESOURCE_RESOLVER {
             return Ok(());
         }
-        let Some(map) = object.inner().property(RESOURCE_MAP)? else {
+        let Some(map) = object.inner().get(RESOURCE_MAP)? else {
             return Ok(());
         };
         if map.kind() != Kind::Map {

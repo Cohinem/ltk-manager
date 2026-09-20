@@ -68,8 +68,8 @@ use std::io::Cursor;
 use std::sync::Arc;
 
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
-use ltk_meta::walk::{Node, PropertyMut, Visit, Visitor, VisitorMut};
+use ltk_meta::property::{Kind, ValueMut, values};
+use ltk_meta::walk::{Node, PropertyRefMut, Visit, Visitor, VisitorMut};
 use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyValueEnum};
 
 use crate::bin_document::{PropertyKind, hex, owned};
@@ -275,7 +275,7 @@ fn repair_prop(
     kept: &mut PreservedNames<'_>,
 ) -> Result<Repaired, Unrepaired> {
     let parse = |error: ltk_meta::Error| Unrepaired::Parse(error.to_string());
-    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(bytes)).map_err(parse)?;
+    let mut stream = BinStream::<_>::mount(Cursor::new(bytes)).map_err(parse)?;
 
     let mut objects = Vec::with_capacity(addressed.len());
     let mut batch = stream.objects_batch(addressed.keys().copied());
@@ -717,7 +717,10 @@ struct Repair<'l, 'k, 'p> {
 impl VisitorMut for Repair<'_, '_, '_> {
     type Error = ltk_meta::Error;
 
-    fn enter_property(&mut self, property: &mut PropertyMut<'_>) -> Result<Visit, ltk_meta::Error> {
+    fn enter_property(
+        &mut self,
+        property: &mut PropertyRefMut<'_>,
+    ) -> Result<Visit, ltk_meta::Error> {
         let class = property.node_class_hash();
         let field = property.field();
         let Some(objection) = self.lens.objection(class, field, property.value())? else {
@@ -1080,16 +1083,12 @@ fn retagged(
             Kind::Container,
             PropertyValueEnum::UnorderedContainer(items),
         ) => Ok(items.0.into()),
-        (Kind::Bool, Kind::BitBool, PropertyValueEnum::Bool(flag)) => Ok(values::BitBool {
-            value: flag.value,
-            meta: flag.meta,
+        (Kind::Bool, Kind::BitBool, PropertyValueEnum::Bool(flag)) => {
+            Ok(values::BitBool::new(flag.value).into())
         }
-        .into()),
-        (Kind::BitBool, Kind::Bool, PropertyValueEnum::BitBool(flag)) => Ok(values::Bool {
-            value: flag.value,
-            meta: flag.meta,
+        (Kind::BitBool, Kind::Bool, PropertyValueEnum::BitBool(flag)) => {
+            Ok(values::Bool::new(flag.value).into())
         }
-        .into()),
         (_, _, other) => Err(other),
     }
 }
@@ -1277,7 +1276,7 @@ fn reclass(value: &mut PropertyValueEnum, class: BinHash) -> bool {
 }
 
 /// The `File` of a path, which is XXH64 of it lowercased.
-fn link(path: &str) -> values::WadChunkLink<NoMeta> {
+fn link(path: &str) -> values::WadChunkLink {
     values::WadChunkLink::new(WadHash::hash_str(path))
 }
 
