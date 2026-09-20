@@ -8,6 +8,7 @@ import { createPose, jointAnchor, viewportQueries } from "@/modules/viewport";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { useSkinGraphSource } from "../../skin/hooks/useGraphSource";
+import { clipFrameSeconds } from "../../skin/utils/clipEvents";
 import { Notice } from "../../vfx/preview/components/Notice";
 import { spellQueries } from "../api/spellQueries";
 import type { AbilityRecipe } from "../utils/abilityRecipe";
@@ -87,7 +88,13 @@ function ReadRecipe({
     const pose =
       skeleton.data === undefined
         ? null
-        : oncePose(createPose(skeleton.data, clipRead.data ?? null));
+        : oncePose(
+            createPose(
+              skeleton.data,
+              clipRead.data ?? null,
+              clipFrameSeconds(animation, clipRead.data?.fps ?? null),
+            ),
+          );
     const bone = preview.missile?.startBone ?? "";
     const slot = bone === "" ? -1 : (pose?.jointNamed(bone) ?? -1);
     const timing = castTiming(preview);

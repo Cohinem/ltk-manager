@@ -70,6 +70,7 @@ import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/u
 import { useSkinKeys } from "../hooks/useSkinKeys";
 import { overriddenHidden, SkinChoiceContext, useSkinChoice } from "../state/skinChoice";
 import {
+  clipFrameSeconds,
   hiddenAt,
   particleCues,
   snapCues,
@@ -206,8 +207,11 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
   });
   const stepPoses = useMemo(() => {
     const bones = skeleton.data;
-    return bones === undefined ? [] : clipModels.map((model) => createPose(bones, model));
-  }, [skeleton.data, clipModels]);
+    if (bones === undefined) return [];
+    return clipModels.map((model, at) =>
+      createPose(bones, model, clipFrameSeconds(playlist[at], model?.fps ?? null)),
+    );
+  }, [skeleton.data, clipModels, playlist]);
   const sequenced = useMemo(
     () => (skeleton.data === undefined ? null : sequencePose(skeleton.data, stepPoses)),
     [skeleton.data, stepPoses],
