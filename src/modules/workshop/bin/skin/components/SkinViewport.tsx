@@ -524,11 +524,25 @@ const MAP_NAMES: Record<string, () => string> = {
   map12: m.workshop_bin_preview_backdrop_map12_label,
 };
 
-function mapLabel(choice: BackdropChoice, ambiguous: boolean): string {
-  const named =
-    MAP_NAMES[choice.folder]?.() ?? choice.folder.charAt(0).toUpperCase() + choice.folder.slice(1);
-  if (!ambiguous) return named;
-  return `${named} (${choice.geometry})`;
+/** One map of the install and every skin of it the install ships geometry for. */
+interface MapGroup {
+  readonly folder: string;
+  readonly name: string;
+  readonly skins: readonly BackdropChoice[];
+}
+
+function groupMaps(choices: readonly BackdropChoice[]): MapGroup[] {
+  const groups = new Map<string, BackdropChoice[]>();
+  for (const choice of choices) {
+    const held = groups.get(choice.folder);
+    if (held === undefined) groups.set(choice.folder, [choice]);
+    else held.push(choice);
+  }
+  return [...groups].map(([folder, skins]) => ({
+    folder,
+    name: MAP_NAMES[folder]?.() ?? folder.charAt(0).toUpperCase() + folder.slice(1),
+    skins,
+  }));
 }
 
 /** The map behind the subject: a switch, and the install's maps behind the kebab beside it. */
@@ -542,8 +556,9 @@ function BackdropToggle() {
   if (backdrop !== null) last.current = backdrop;
 
   const choices = maps.data ?? [];
-  const folders = choices.map((choice) => choice.folder);
+  const groups = useMemo(() => groupMaps(maps.data ?? []), [maps.data]);
   const opening = last.current ?? choices[0]?.map ?? null;
+  const pick = (map: unknown) => setDisplay({ previewBackdrop: map as MapPath | null });
 
   return (
     <>
@@ -573,27 +588,58 @@ function BackdropToggle() {
               {choices.length === 0 && (
                 <Menu.Item disabled>{m.workshop_bin_preview_backdrop_empty_label()}</Menu.Item>
               )}
-              <Menu.RadioGroup
-                value={backdrop}
-                onValueChange={(map) => setDisplay({ previewBackdrop: map as MapPath | null })}
-              >
+              <Menu.RadioGroup value={backdrop} onValueChange={pick}>
                 <Menu.RadioItem value={null}>
                   {m.workshop_bin_preview_backdrop_none_label()}
                 </Menu.RadioItem>
-                {choices.map((choice) => (
-                  <Menu.RadioItem key={choice.map} value={choice.map}>
-                    {mapLabel(
-                      choice,
-                      folders.indexOf(choice.folder) !== folders.lastIndexOf(choice.folder),
-                    )}
-                  </Menu.RadioItem>
-                ))}
               </Menu.RadioGroup>
+              {groups.map((group) => (
+                <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
+              ))}
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>
     </>
+  );
+}
+
+interface MapSkinSubmenuProps {
+  readonly group: MapGroup;
+  /** Which map skin the backdrop draws, across every map rather than this one. */
+  readonly chosen: MapPath | null;
+  readonly onPick: (map: unknown) => void;
+}
+
+/**
+ * One map of the install, with its skins behind it.
+ *
+ * A map ships one geometry file per skin, so the skins are what the map's directory
+ * holds and the file's own name is what the skin is called.
+ */
+function MapSkinSubmenu({ group, chosen, onPick }: MapSkinSubmenuProps) {
+  const holds = group.skins.some((skin) => skin.map === chosen);
+
+  return (
+    <Menu.SubmenuRoot>
+      <Menu.SubmenuTrigger className={holds ? "text-accent-300" : undefined}>
+        {group.name}
+      </Menu.SubmenuTrigger>
+      <Menu.Portal>
+        <Menu.SubmenuPositioner>
+          {/* A map ships up to 37 skins, more than a menu shows without scrolling. */}
+          <Menu.Popup data-ui="BackdropMenu:skins" className="max-h-96 w-56 overflow-y-auto">
+            <Menu.RadioGroup value={chosen} onValueChange={onPick}>
+              {group.skins.map((skin) => (
+                <Menu.RadioItem key={skin.map} value={skin.map} closeOnClick>
+                  {skin.geometry}
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </Menu.Popup>
+        </Menu.SubmenuPositioner>
+      </Menu.Portal>
+    </Menu.SubmenuRoot>
   );
 }
 
