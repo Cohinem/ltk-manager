@@ -46,6 +46,13 @@ interface PreviewDisplay {
   previewMoveMode: PlacementMode;
   /** Where the subject stands, and null to stand it in the backdrop's own middle. */
   previewPlacement: [number, number, number] | null;
+  /**
+   * Which backdrop `previewPlacement` was dragged on.
+   *
+   * A placement is a point on one map, so it means nothing on another. A backdrop that
+   * does not match this one stands the subject in its own middle instead.
+   */
+  previewPlacedOn: MapPath | null;
   /** The subject's yaw in radians. */
   previewFacing: number;
   /** The timeline's lanes draw each emitter's live particles per step over its bar. */
@@ -190,6 +197,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewMove: false,
   previewMoveMode: "translate",
   previewPlacement: null,
+  previewPlacedOn: null,
   previewFacing: 0,
   timelineHistogram: false,
   inspectorDefaults: false,
@@ -255,7 +263,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 5,
+      version: 6,
       migrate: (persisted) => {
         const state = {
           ...keepUnversioned<
@@ -271,10 +279,11 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
         if ((state.previewBackdrop as string | null) === "summonersRift") {
           state.previewBackdrop = SUMMONERS_RIFT;
         }
-        /* A placement of its own used to mean the scene's origin, which now means the
-           middle of whatever map is behind the subject. */
-        if (state.previewPlacement?.every((value) => value === 0) === true) {
+        /* A placement used to be one point for every map, which now belongs to the map
+           it was dragged on, so the old one has no map to belong to. */
+        if (state.previewPlacement != null) {
           state.previewPlacement = null;
+          state.previewPlacedOn = null;
         }
         return state;
       },
@@ -355,6 +364,7 @@ export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.preview
 export const usePreviewMove = () => useWorkshopLayoutStore((s) => s.previewMove);
 export const usePreviewMoveMode = () => useWorkshopLayoutStore((s) => s.previewMoveMode);
 export const usePreviewPlacement = () => useWorkshopLayoutStore((s) => s.previewPlacement);
+export const usePreviewPlacedOn = () => useWorkshopLayoutStore((s) => s.previewPlacedOn);
 export const usePreviewFacing = () => useWorkshopLayoutStore((s) => s.previewFacing);
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);

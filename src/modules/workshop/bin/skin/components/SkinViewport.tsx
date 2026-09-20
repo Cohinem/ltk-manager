@@ -47,6 +47,7 @@ import {
   usePreviewMidlane,
   usePreviewMove,
   usePreviewMoveMode,
+  usePreviewPlacedOn,
   usePreviewPlacement,
   useSetPreviewDisplay,
 } from "@/stores";
@@ -158,6 +159,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   const move = usePreviewMove();
   const moveMode = usePreviewMoveMode();
   const placement = usePreviewPlacement();
+  const placedOn = usePreviewPlacedOn();
   const facing = usePreviewFacing();
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
   const setDisplay = useSetPreviewDisplay();
@@ -279,11 +281,13 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   );
   const colors = useSceneColors();
   const scale = skin.scale ?? 1;
-  /* Where the subject stands: what the creator dragged it to, else the backdrop's own
-     middle, else the scene's origin. */
+  /* Where the subject stands: what the creator dragged it to on this backdrop, else the
+     backdrop's own middle, else the scene's origin. A placement made on another map is a
+     point that map has and this one does not. */
+  const pinned = placement !== null && placedOn === backdrop ? placement : null;
   const stood = useMemo<[number, number, number]>(
-    () => [...(placement ?? origin ?? FEET)],
-    [placement, origin],
+    () => [...(pinned ?? origin ?? FEET)],
+    [pinned, origin],
   );
   const bounds = useMemo(() => {
     if (mesh.data === undefined) return null;
@@ -382,6 +386,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
             onMove={(placed) =>
               setDisplay({
                 previewPlacement: [...placed.position],
+                previewPlacedOn: backdrop,
                 previewFacing: placed.facing,
               })
             }
@@ -709,7 +714,11 @@ function PlacementToggle() {
                 </Menu.RadioItem>
               </Menu.RadioGroup>
               <Menu.Separator />
-              <Menu.Item onClick={() => setDisplay({ previewPlacement: null, previewFacing: 0 })}>
+              <Menu.Item
+                onClick={() =>
+                  setDisplay({ previewPlacement: null, previewPlacedOn: null, previewFacing: 0 })
+                }
+              >
                 {m.workshop_bin_preview_move_reset_action()}
               </Menu.Item>
             </Menu.Popup>
