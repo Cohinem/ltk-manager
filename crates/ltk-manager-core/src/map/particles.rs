@@ -8,11 +8,11 @@ use ltk_hash::BinHash;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
-use super::placeable::{controller, name, placeables, transform, visibility};
-use crate::bin_document::{BinDocument, Fields, hex, leaf, link};
+use super::placeable::{Placed, controller, name, placeables, transform, visibility};
+use crate::bin_document::{BinDocument, hex, leaf, link};
 
 /// `MapParticle`.
-const PARTICLE: BinHash = BinHash(0x592e_f6c3);
+pub(super) const PARTICLE: BinHash = BinHash(0x592e_f6c3);
 /// `MapParticle.system`.
 const SYSTEM: BinHash = BinHash(0x491e_0a9c);
 /// `MapParticle.Transitional`.
@@ -26,6 +26,10 @@ const START_DISABLED: BinHash = BinHash(0x3edc_338f);
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct MapParticle {
+    /// The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits.
+    pub chunk: String,
+    /// The key it sits under in that chunk, as `0x` and eight digits.
+    pub key: String,
     /// The placeable's own name, which is unique within a map.
     pub name: String,
     /// The system it plays, an object of the same document, as `0x` and eight digits.
@@ -48,12 +52,13 @@ pub struct MapParticle {
 #[must_use]
 pub fn map_particles(materials: &BinDocument) -> Vec<MapParticle> {
     placeables(materials)
-        .filter(|(class, _)| *class == PARTICLE)
-        .filter_map(|(_, fields)| particle(fields))
+        .filter(|placed| placed.class == PARTICLE)
+        .filter_map(|placed| particle(&placed))
         .collect()
 }
 
-fn particle(fields: &Fields) -> Option<MapParticle> {
+fn particle(placed: &Placed<'_>) -> Option<MapParticle> {
+    let fields = placed.fields;
     let flag = |field| {
         matches!(
             leaf(fields.get(&field)),
@@ -61,6 +66,8 @@ fn particle(fields: &Fields) -> Option<MapParticle> {
         )
     };
     Some(MapParticle {
+        chunk: hex(placed.chunk),
+        key: hex(placed.key),
         name: name(fields),
         system: hex(link(fields.get(&SYSTEM))?),
         transform: transform(fields),

@@ -5,6 +5,14 @@
  */
 export type MapCharacter = { 
 /**
+ * The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits.
+ */
+chunk: string, 
+/**
+ * The key it sits under in that chunk, as `0x` and eight digits.
+ */
+key: string, 
+/**
  * The placeable's own name, which is unique within a map.
  */
 name: string, 

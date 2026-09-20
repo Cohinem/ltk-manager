@@ -33,6 +33,7 @@ import {
   skinFile,
   stoodCharacters,
 } from "../utils/mapCharacters";
+import { isHidden } from "../utils/mapOutline";
 
 /** `useFrame` runs the lowest priority first, so the clock moves before a pose samples it. */
 const BEFORE_THE_POSES = -1;
@@ -40,7 +41,11 @@ const BEFORE_THE_POSES = -1;
 export interface MapCharactersProps {
   /** The map's open `.materials.bin`, and null until the scene holds it. */
   readonly document: BinDocumentId | null;
+  /** The chunks and placeables an outliner hid, which a backdrop has none of. */
+  readonly hidden?: ReadonlySet<string>;
 }
+
+const NONE_HIDDEN: ReadonlySet<string> = new Set();
 
 /**
  * The structures and level props a backdrop's map stands in its scene, each idling.
@@ -49,11 +54,17 @@ export interface MapCharactersProps {
  * map's, and drawn at every place the map stands it. They run on a clock of their own
  * rather than the scene's, since a map's banners wave on through a clip that restarts.
  */
-export function MapCharacters({ document }: MapCharactersProps) {
+export function MapCharacters({ document, hidden = NONE_HIDDEN }: MapCharactersProps) {
   const placed = useQuery(mapQueries.characters(document));
   const skins = useMemo(
-    () => [...charactersBySkin(stoodCharacters(placed.data ?? [], DEFAULT_LAYER))],
-    [placed.data],
+    () => [
+      ...charactersBySkin(
+        stoodCharacters(placed.data ?? [], DEFAULT_LAYER).filter(
+          (character) => !isHidden(hidden, character.chunk, character.key),
+        ),
+      ),
+    ],
+    [placed.data, hidden],
   );
   const colors = useSceneColors();
   const clock = useMemo(createSceneClock, []);

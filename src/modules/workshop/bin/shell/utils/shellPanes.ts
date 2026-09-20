@@ -12,7 +12,8 @@ export type ShellPaneId =
   | "preview"
   | "timeline"
   | "clips"
-  | "spells";
+  | "spells"
+  | "outliner";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -22,6 +23,7 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "timeline",
   "clips",
   "spells",
+  "outliner",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
@@ -31,7 +33,7 @@ export type ShellKind = "vfx" | "skin" | "map";
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters"],
   skin: ["preview", "clips", "spells", "inspector"],
-  map: ["preview", "inspector"],
+  map: ["preview", "outliner", "inspector"],
 } as const satisfies Record<ShellKind, readonly ShellPaneId[]>;
 
 /** The panes a `K` shell holds, which its content names one body for each of. */
@@ -51,6 +53,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   timeline: m.workshop_bin_pane_timeline_label,
   clips: m.workshop_bin_pane_clips_label,
   spells: m.workshop_bin_pane_spells_label,
+  outliner: m.workshop_bin_pane_outliner_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -81,10 +84,18 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
       kind: "split",
       id: "split-1",
       dir: "row",
-      layout: { "leaf-2": 3, "leaf-3": 1 },
+      layout: { "leaf-2": 3, "split-4": 1 },
       children: [
         { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
-        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+        {
+          kind: "split",
+          id: "split-4",
+          dir: "col",
+          children: [
+            { kind: "leaf", id: "leaf-5", tabs: ["outliner"], activeTab: "outliner" },
+            { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+          ],
+        },
       ],
     };
   }

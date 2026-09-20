@@ -17,11 +17,13 @@ use ltk_hash::{BinHash, Hash as _};
 mod characters;
 #[cfg(test)]
 mod fixtures;
+mod outline;
 mod particles;
 mod placeable;
 mod variants;
 
 pub use characters::{MapCharacter, map_characters};
+pub use outline::{MapChunk, MapChunkItem, MapItemKind, map_outline};
 pub use particles::{MapParticle, map_particles};
 pub use variants::{MapVariant, map_variants};
 

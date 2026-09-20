@@ -183,6 +183,9 @@ export type {
   IdleEffect,
   KeyRef,
   MapCharacter,
+  MapChunk,
+  MapChunkItem,
+  MapItemKind,
   MapModel,
   MapParticle,
   MapPath,
@@ -535,6 +538,7 @@ export const api = {
       commands.readMapCharacters(document).then(toResult),
     readMapVariants: (document: BinDocumentId, entry: string) =>
       commands.readMapVariants(document, entry).then(toResult),
+    readMapOutline: (document: BinDocumentId) => commands.readMapOutline(document).then(toResult),
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
       commands.readAnimationGraph(document, entry).then(toResult),
     readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),

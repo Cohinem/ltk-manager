@@ -1,15 +1,15 @@
 //! The map backdrop's reads: one map's materials, placed against a project first, and
 //! the particles its open `.materials.bin` stands.
 
-use super::document_assets::{parse_entry, with_resolution};
+use super::document_assets::{parse_entry, read_resolved, with_resolution};
 use super::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::map::{
-    map_characters, map_particles, map_variants, resolve_map, unresolved_map, MapCharacter,
-    MapModel, MapParticle, MapPath, MapVariant,
+    map_characters, map_outline, map_particles, map_variants, resolve_map, unresolved_map,
+    MapCharacter, MapChunk, MapModel, MapParticle, MapPath, MapVariant,
 };
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::AssetRef;
@@ -111,6 +111,21 @@ pub async fn read_map_variants(
         let entry = parse_entry(&entry)?;
         let open = app_handle.state::<BinDocuments>().document(document)?;
         Ok(map_variants(&open, entry))
+    })
+    .await
+}
+
+/// Every chunk the open `.materials.bin` under `document` declares, and what each holds.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_map_outline(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<MapChunk>> {
+    off_thread(move || {
+        read_resolved(&app_handle, document, |open, names, _| {
+            Ok(map_outline(open, names))
+        })
     })
     .await
 }

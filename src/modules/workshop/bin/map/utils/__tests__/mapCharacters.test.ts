@@ -13,6 +13,8 @@ const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
 function character(overrides: Partial<MapCharacter>): MapCharacter {
   return {
+    chunk: "0x0000000c",
+    key: "0x00000001",
     name: "0x00000001",
     skin: "Characters/Turret/Skins/Skin0",
     transform: IDENTITY as MapCharacter["transform"],

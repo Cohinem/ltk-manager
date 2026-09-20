@@ -22,17 +22,40 @@ pub(super) const VISIBILITY_CONTROLLER: BinHash = BinHash(0x5150_a6a1);
 /// The mask a placeable that writes none is drawn under, which is every layer.
 pub(super) const EVERY_LAYER: u8 = 255;
 
-/// Every placeable of every container in `materials`, as its class and its fields.
-pub(super) fn placeables(materials: &BinDocument) -> impl Iterator<Item = (BinHash, &Fields)> {
+/// One placeable, as the container that holds it states it.
+pub(super) struct Placed<'a> {
+    /// The `MapPlaceableContainer` that holds it, which is one chunk of the map.
+    pub chunk: BinHash,
+    /// The key it sits under in that container's items.
+    pub key: BinHash,
+    pub class: BinHash,
+    pub fields: &'a Fields,
+}
+
+/// Every placeable of every container in `materials`, in file order.
+pub(super) fn placeables(materials: &BinDocument) -> impl Iterator<Item = Placed<'_>> {
     materials
         .entries()
-        .filter_map(|entry| materials.object_at(entry))
-        .filter(|object| object.class_hash == PLACEABLE_CONTAINER)
-        .flat_map(|container| match container.properties.get(&ITEMS) {
-            Some(PropertyValueEnum::Map(map)) => map.entries(),
-            _ => &[],
+        .filter_map(|entry| Some((entry, materials.object_at(entry)?)))
+        .filter(|(_, object)| object.class_hash == PLACEABLE_CONTAINER)
+        .flat_map(|(chunk, container)| {
+            let items = match container.properties.get(&ITEMS) {
+                Some(PropertyValueEnum::Map(map)) => map.entries(),
+                _ => &[],
+            };
+            items.iter().filter_map(move |(key, value)| {
+                let (class, fields) = struct_of(Some(value))?;
+                match leaf(Some(key)) {
+                    Some(Leaf::Hash(key)) => Some(Placed {
+                        chunk,
+                        key,
+                        class,
+                        fields,
+                    }),
+                    _ => None,
+                }
+            })
         })
-        .filter_map(|(_, value)| struct_of(Some(value)))
 }
 
 /// The placeable's own name, which a gameplay object states as a hash.

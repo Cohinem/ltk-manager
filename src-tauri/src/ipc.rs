@@ -74,6 +74,7 @@ migrated![
     read_map_particles,
     read_map_characters,
     read_map_variants,
+    read_map_outline,
     read_animation_graph,
     read_clip_header,
     // Diagnostics

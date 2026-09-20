@@ -15,6 +15,7 @@ import {
   useWarmLinkOpen,
 } from "../../links/hooks/useLinkTargets";
 import { preloadMapViewport } from "../../map/components/MapPreview";
+import { MapSceneHost } from "../../map/state/mapScene";
 import { nameHash } from "../../shared/utils/binHash";
 import { preloadSkinViewport } from "../../skin/components/SkinPreview";
 import { SkinChoiceContext, useSkinChoice } from "../../skin/state/skinChoice";
@@ -186,65 +187,71 @@ export function ClassView({
                   <EmitterChoiceContext value={emitters}>
                     <SkinChoiceContext value={skinChoice}>
                       <RunHost drawable={drawable} document={document} entry={entry}>
-                        <ContextMenu.Root>
-                          <ContextMenu.Trigger
-                            ref={measure}
-                            data-ui="ClassView"
-                            className="flex min-h-0 flex-1 flex-col select-none"
-                            onContextMenu={handleContextMenu}
-                          >
-                            {frame === "stack" && (
-                              <Stack
-                                placed={placed}
-                                pages={pages}
-                                view={view}
-                                hero={
-                                  <>
-                                    {skin && (
-                                      <SkinHero view={view} entry={roots[0]?.entry ?? null} />
-                                    )}
-                                    {map && <MapHero view={view} entry={roots[0]?.entry ?? null} />}
-                                    {layout.shell === "vfx" && <VfxHero drawable={drawable} />}
-                                  </>
-                                }
-                              />
-                            )}
-                            {frame === "shell" && layout.shell === "vfx" && (
-                              <VfxShell
-                                placed={placed}
-                                pages={pages}
-                                view={view}
-                                system={system}
-                                drawable={drawable}
-                              />
-                            )}
-                            {frame === "shell" && map && (
-                              <MapShell
-                                placed={placed}
-                                pages={pages}
-                                view={view}
-                                entry={roots[0]?.entry ?? null}
-                              />
-                            )}
-                            {frame === "shell" && skin && (
-                              <SkinShell
-                                placed={placed}
-                                pages={pages}
-                                view={view}
-                                entry={roots[0]?.entry ?? null}
-                              />
-                            )}
-                          </ContextMenu.Trigger>
+                        <MapSceneHost
+                          enabled={map}
+                          document={document}
+                          entry={roots[0]?.entry ?? null}
+                        >
+                          <ContextMenu.Root>
+                            <ContextMenu.Trigger
+                              ref={measure}
+                              data-ui="ClassView"
+                              className="flex min-h-0 flex-1 flex-col select-none"
+                              onContextMenu={handleContextMenu}
+                            >
+                              {frame === "stack" && (
+                                <Stack
+                                  placed={placed}
+                                  pages={pages}
+                                  view={view}
+                                  hero={
+                                    <>
+                                      {skin && (
+                                        <SkinHero view={view} entry={roots[0]?.entry ?? null} />
+                                      )}
+                                      {map && <MapHero view={view} />}
+                                      {layout.shell === "vfx" && <VfxHero drawable={drawable} />}
+                                    </>
+                                  }
+                                />
+                              )}
+                              {frame === "shell" && layout.shell === "vfx" && (
+                                <VfxShell
+                                  placed={placed}
+                                  pages={pages}
+                                  view={view}
+                                  system={system}
+                                  drawable={drawable}
+                                />
+                              )}
+                              {frame === "shell" && map && (
+                                <MapShell
+                                  placed={placed}
+                                  pages={pages}
+                                  view={view}
+                                  entry={roots[0]?.entry ?? null}
+                                />
+                              )}
+                              {frame === "shell" && skin && (
+                                <SkinShell
+                                  placed={placed}
+                                  pages={pages}
+                                  view={view}
+                                  entry={roots[0]?.entry ?? null}
+                                />
+                              )}
+                            </ContextMenu.Trigger>
 
-                          {/* Properties is this object's tree, which holds no child system's row. */}
-                          <BinContextMenu
-                            line={menuLine}
-                            objectName={objectName}
-                            onShowInProperties={
-                              menuLine?.row.entry === entry ? onShowInProperties : undefined
-                            }
-                          />
-                        </ContextMenu.Root>
+                            {/* Properties is this object's tree, which holds no child system's row. */}
+                            <BinContextMenu
+                              line={menuLine}
+                              objectName={objectName}
+                              onShowInProperties={
+                                menuLine?.row.entry === entry ? onShowInProperties : undefined
+                              }
+                            />
+                          </ContextMenu.Root>
+                        </MapSceneHost>
                       </RunHost>
                     </SkinChoiceContext>
                   </EmitterChoiceContext>

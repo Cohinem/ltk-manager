@@ -15,12 +15,14 @@ export function preloadMapViewport(): void {
 
 export interface MapPreviewProps {
   document: BinDocumentId;
-  /** The `Map`, `MapSkin` or `MapContainer` object, and null where the view holds no row. */
-  entry: string | null;
 }
 
-/** The map an object of a map's own classes draws, filling whatever holds it. */
-export function MapPreview({ document, entry }: MapPreviewProps) {
+/**
+ * The map an object of a map's own classes draws, filling whatever holds it.
+ *
+ * Which object that is comes from the `MapSceneHost` above it.
+ */
+export function MapPreview({ document }: MapPreviewProps) {
   return (
     <div
       data-ui="MapPreview"
@@ -28,12 +30,9 @@ export function MapPreview({ document, entry }: MapPreviewProps) {
       role="group"
       aria-label={m.workshop_bin_map_preview_label()}
     >
-      {entry === null && <Notice text={m.workshop_bin_map_preview_missing_empty()} />}
-      {entry !== null && (
-        <Suspense fallback={<Notice text={m.workshop_bin_map_preview_loading_label()} />}>
-          <MapViewport document={document} entry={entry} />
-        </Suspense>
-      )}
+      <Suspense fallback={<Notice text={m.workshop_bin_map_preview_loading_label()} />}>
+        <MapViewport document={document} />
+      </Suspense>
     </div>
   );
 }

@@ -9,7 +9,7 @@ use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
 use super::placeable::{controller, name, placeables, transform, visibility};
-use crate::bin_document::{BinDocument, Fields, fields_of, items, leaf, struct_of, text};
+use crate::bin_document::{BinDocument, Fields, fields_of, hex, items, leaf, struct_of, text};
 
 /// `Character`, the component a gameplay placeable names its character in.
 const CHARACTER: BinHash = BinHash(0x8b3a_a710);
@@ -43,6 +43,10 @@ const LEVEL_PROP_PREFIX: &str = "LevelProp_";
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct MapCharacter {
+    /// The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits.
+    pub chunk: String,
+    /// The key it sits under in that chunk, as `0x` and eight digits.
+    pub key: String,
     /// The placeable's own name, which is unique within a map.
     pub name: String,
     /// The entry path of the skin it wears, such as `Characters/Turret/Skins/Skin0`.
@@ -64,15 +68,13 @@ pub struct MapCharacter {
 #[must_use]
 pub fn map_characters(materials: &BinDocument) -> Vec<MapCharacter> {
     placeables(materials)
-        .filter_map(|(class, fields)| {
-            let skin = if class == GDS_MAP_OBJECT {
-                level_prop_skin(fields)?
-            } else {
-                text(fields_of(fields.get(&CHARACTER))?.get(&SKIN))?.to_owned()
-            };
+        .filter_map(|placed| {
+            let fields = placed.fields;
             Some(MapCharacter {
+                chunk: hex(placed.chunk),
+                key: hex(placed.key),
+                skin: skin_of(placed.class, fields)?,
                 name: name(fields),
-                skin,
                 transform: transform(fields),
                 visibility: visibility(fields),
                 controller: controller(fields),
@@ -84,6 +86,15 @@ pub fn map_characters(materials: &BinDocument) -> Vec<MapCharacter> {
             })
         })
         .collect()
+}
+
+/// The skin a placeable of `class` draws, and none for one that draws no character.
+pub(super) fn skin_of(class: BinHash, fields: &Fields) -> Option<String> {
+    if class == GDS_MAP_OBJECT {
+        level_prop_skin(fields)
+    } else {
+        text(fields_of(fields.get(&CHARACTER))?.get(&SKIN)).map(str::to_owned)
+    }
 }
 
 /// The clip the placeable's animation info names, and none for an empty name.

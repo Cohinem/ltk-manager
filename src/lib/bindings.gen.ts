@@ -260,6 +260,8 @@ export const commands = {
 	 *  Empty for a skin that links no container and for an object of any other class.
 	 */
 	readMapVariants: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: MapVariant[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_variants", { document, entry }),
+	/**  Every chunk the open `.materials.bin` under `document` declares, and what each holds. */
+	readMapOutline: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapChunk[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_outline", { document }),
 	/**
 	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
@@ -1670,6 +1672,10 @@ export type LeafValue =
 
 /**  One character a map stands in its scene. */
 export type MapCharacter = {
+	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
+	chunk: string,
+	/**  The key it sits under in that chunk, as `0x` and eight digits. */
+	key: string,
 	/**  The placeable's own name, which is unique within a map. */
 	name: string,
 	/**  The entry path of the skin it wears, such as `Characters/Turret/Skins/Skin0`. */
@@ -1689,6 +1695,47 @@ export type MapCharacter = {
 	animation: string | null,
 };
 
+/**  One chunk of a map and everything it holds, in file order. */
+export type MapChunk = {
+	/**  The `MapPlaceableContainer` object, as `0x` and eight digits. */
+	entry: string,
+	/**  The object's path, else the key a `MapContainer` lists it under, else none. */
+	name: string | null,
+	items: MapChunkItem[],
+};
+
+/**  One placeable of a chunk. */
+export type MapChunkItem = {
+	/**  The key it sits under in its chunk, as `0x` and eight digits. */
+	key: string,
+	/**  The placeable's own name, and the hash itself where nothing names one. */
+	name: string,
+	/**  Its class by name, and by hash where no table names it. */
+	class: string,
+	kind: MapItemKind,
+	/**  Where it stands in the map's space. */
+	position: [(number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+};
+
+/**  What a placeable is to a scene, which is what an outliner marks its row with. */
+export type MapItemKind = 
+/**  A `MapParticle`, which plays a system. */
+"particle" | 
+/**  A structure or a level prop, which draws a character. */
+"character" | 
+/**  A `MapLocator` or a `MapScriptLocator`, a named point. */
+"locator" | 
+/**  A `MapGroup`, a named transform. */
+"group" | 
+/**  A `MapAudio`. */
+"audio" | 
+/**  Any other class. */
+"other";
+
 /**  One map's materials, one per path asked for and in that order. */
 export type MapModel = {
 	/**
@@ -1700,6 +1747,10 @@ export type MapModel = {
 
 /**  One particle system a map stands in its scene. */
 export type MapParticle = {
+	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
+	chunk: string,
+	/**  The key it sits under in that chunk, as `0x` and eight digits. */
+	key: string,
 	/**  The placeable's own name, which is unique within a map. */
 	name: string,
 	/**  The system it plays, an object of the same document, as `0x` and eight digits. */
@@ -1732,6 +1783,8 @@ export type MapVariant = {
 	skin: string | null,
 	/**  The map that skin draws. */
 	map: MapPath,
+	/**  The file that map declares its materials and its chunks in. */
+	materials: string,
 };
 
 /**  One entry of `mMaskDataMap`. */

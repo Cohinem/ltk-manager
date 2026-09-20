@@ -4,13 +4,12 @@ import {
   FrameCornersIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import { Button, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
-import { type Bounds, FitCamera, Viewport } from "@/modules/viewport";
+import { type Bounds, FitCamera, useSceneColors, Viewport } from "@/modules/viewport";
 import {
   usePreviewBackdropParticles,
   usePreviewBackdropStructures,
@@ -18,18 +17,17 @@ import {
   useSetPreviewDisplay,
 } from "@/stores";
 
-import { assetKey } from "../../../preview/utils/assetRef";
-import { DocumentOpener } from "../../skin/hooks/useGraphSource";
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
 import { Notice } from "../../vfx/preview/components/Notice";
 import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { distorts } from "../../vfx/rendering/utils/drawKind";
 import { fades } from "../../vfx/rendering/utils/softParticle";
-import { mapQueries } from "../api/mapQueries";
-import { useMapMaterialsFile, useMapParticles } from "../hooks/useMapParticles";
-import { openingVariant, variantLabel } from "../utils/mapVariants";
+import { useMapParticles } from "../hooks/useMapParticles";
+import { useMapScene } from "../state/mapScene";
+import { variantLabel } from "../utils/mapVariants";
 import { MapCharacters } from "./MapCharacters";
+import { MapFocus } from "./MapFocus";
 import { MapParticles } from "./MapParticles";
 
 /**
@@ -41,39 +39,35 @@ import { MapParticles } from "./MapParticles";
 const MAP_FRAME: Bounds = { min: [-1500, 0, -1500], max: [1500, 600, 1500] };
 
 export interface MapViewportProps {
+  /** The document the object lives in, whose project answers before the install. */
   readonly document: BinDocumentId;
-  /** The `Map`, `MapSkin` or `MapContainer` object, `0x` and eight hex digits. */
-  readonly entry: string;
 }
 
 /**
  * The map a `Map`, a `MapSkin` or a `MapContainer` draws, with what it plays and stands.
  *
- * A `Map` draws one of the skins it lists, which the reader picks between.
+ * A `Map` draws one of the skins it lists, which the reader picks between. Which one, and
+ * what the outliner hid and sent the camera to, is the `MapSceneHost` above it.
  */
-export default function MapViewport({ document, entry }: MapViewportProps) {
-  const variants = useQuery(mapQueries.variants(document, entry));
+export default function MapViewport({ document }: MapViewportProps) {
+  const { variants, failed, chosen } = useMapScene();
 
-  if (variants.error !== null) return <Notice text={m.workshop_bin_map_preview_failed_empty()} />;
-  if (variants.data === undefined) {
-    return <Notice text={m.workshop_bin_map_preview_loading_label()} />;
-  }
-  const opening = openingVariant(variants.data);
-  if (opening === null) return <Notice text={m.workshop_bin_map_preview_missing_empty()} />;
-  return <MapScene document={document} variants={variants.data} opening={opening} />;
+  if (failed) return <Notice text={m.workshop_bin_map_preview_failed_empty()} />;
+  if (variants === undefined) return <Notice text={m.workshop_bin_map_preview_loading_label()} />;
+  if (chosen === null) return <Notice text={m.workshop_bin_map_preview_missing_empty()} />;
+  return <MapScene document={document} variants={variants} chosen={chosen} />;
 }
 
 interface MapSceneProps {
   /** The document the object lives in, whose project answers before the install. */
   readonly document: BinDocumentId;
   readonly variants: readonly MapVariant[];
-  /** The variant drawn until the reader picks another. */
-  readonly opening: MapVariant;
+  readonly chosen: MapVariant;
 }
 
-function MapScene({ document, variants, opening }: MapSceneProps) {
-  const [picked, setPicked] = useState<MapPath | null>(null);
-  const chosen = variants.find((variant) => variant.map === picked) ?? opening;
+function MapScene({ document, variants, chosen }: MapSceneProps) {
+  const { pick, materials, hidden, focus } = useMapScene();
+  const colors = useSceneColors();
   const source = useMemo(() => ({ map: chosen.map, document }), [chosen.map, document]);
 
   const camera = usePreviewCamera();
@@ -82,9 +76,7 @@ function MapScene({ document, variants, opening }: MapSceneProps) {
   const setDisplay = useSetPreviewDisplay();
 
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
-  /* One open file answers both what the map plays and what it stands. */
-  const mapFile = useMapMaterialsFile(particles || structures ? chosen.map : null);
-  const played = useMapParticles(particles ? mapFile.document : null);
+  const played = useMapParticles(particles ? materials : null, hidden);
   const warps = played.some((group) => group.system.emitters.some(distorts));
   const softens = played.some((group) => group.system.emitters.some(fades));
 
@@ -93,14 +85,6 @@ function MapScene({ document, variants, opening }: MapSceneProps) {
 
   return (
     <>
-      {mapFile.source !== null && (
-        /* Keyed, so a change of map lets the last handle go before the next answers. */
-        <DocumentOpener
-          key={assetKey(mapFile.source)}
-          asset={mapFile.source}
-          onOpen={mapFile.onOpen}
-        />
-      )}
       <div data-ui="MapViewport" className="relative min-h-0 flex-1">
         <Viewport
           stage={false}
@@ -113,7 +97,8 @@ function MapScene({ document, variants, opening }: MapSceneProps) {
           {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={played} />
-          {structures && <MapCharacters document={mapFile.document} />}
+          {structures && <MapCharacters document={materials} hidden={hidden} />}
+          <MapFocus focus={focus} colors={colors} />
         </Viewport>
         {origin === null && (
           <div className="pointer-events-none absolute inset-0 flex">
@@ -126,9 +111,7 @@ function MapScene({ document, variants, opening }: MapSceneProps) {
           /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks the size of each button. */
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
-          {variants.length > 1 && (
-            <VariantMenu variants={variants} chosen={chosen} onPick={setPicked} />
-          )}
+          {variants.length > 1 && <VariantMenu variants={variants} chosen={chosen} onPick={pick} />}
           <ViewToggle
             label={m.workshop_bin_preview_backdrop_particles_label()}
             active={particles}

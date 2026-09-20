@@ -13,6 +13,8 @@ function particle(
   transform[13] = at[1];
   transform[14] = at[2];
   return {
+    chunk: "0x0000000c",
+    key: "0x00000001",
     name: "Brazier1",
     system: "0x00000001",
     transform: transform as MapParticle["transform"],

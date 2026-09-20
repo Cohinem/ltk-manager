@@ -15,6 +15,7 @@ import { systemModel } from "../../skin/utils/skinScene";
 import type { SystemModel } from "../../vfx/engine/model/model";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { mapQueries } from "../api/mapQueries";
+import { isHidden } from "../utils/mapOutline";
 import { particlesBySystem, playedParticles } from "../utils/mapParticles";
 
 /** One system a map plays, and every place the map stands it. */
@@ -42,6 +43,8 @@ export function useMapMaterialsFile(map: MapPath | null): MapMaterialsFile {
   return { source, onOpen: setOpened, document: source === null ? null : opened };
 }
 
+const NONE_HIDDEN: ReadonlySet<string> = new Set();
+
 /* Declared once, so the query client answers the same array for as long as no read moves. */
 function modelsOf(results: UseQueryResult<VfxSystem, AppError>[]): (SystemModel | null)[] {
   return results.map((result) => (result.data === undefined ? null : systemModel(result.data)));
@@ -52,15 +55,20 @@ function modelsOf(results: UseQueryResult<VfxSystem, AppError>[]): (SystemModel 
  *
  * A map declares its particles and the systems they play in that one file, so every read
  * here is against `document`. Each system joins as its read lands, and a null `document`
- * reads nothing.
+ * reads nothing. What an outliner hid, by chunk or by placeable, is left out.
  */
-export function useMapParticles(document: BinDocumentId | null): readonly MapParticleGroup[] {
+export function useMapParticles(
+  document: BinDocumentId | null,
+  hidden: ReadonlySet<string> = NONE_HIDDEN,
+): readonly MapParticleGroup[] {
   const placed = useQuery(mapQueries.particles(document));
 
-  const played = useMemo(
-    () => [...particlesBySystem(playedParticles(placed.data ?? [], DEFAULT_LAYER))],
-    [placed.data],
-  );
+  const played = useMemo(() => {
+    const shown = playedParticles(placed.data ?? [], DEFAULT_LAYER).filter(
+      (particle) => !isHidden(hidden, particle.chunk, particle.key),
+    );
+    return [...particlesBySystem(shown)];
+  }, [placed.data, hidden]);
   const models = useQueries({
     queries: document === null ? [] : played.map(([entry]) => vfxQueries.system(document, entry)),
     combine: modelsOf,
