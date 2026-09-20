@@ -7,6 +7,7 @@ import { useContentVisible, useResizeObserver } from "@/hooks";
 import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
 import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
+import { AXIS_SIGN } from "../../shared/utils/space";
 import { useSceneColors } from "../hooks/sceneColors";
 import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
@@ -30,6 +31,13 @@ export interface ViewportProps {
   readonly camera: CameraPreset;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
   readonly onCameraStand?: (preset: CameraPreset) => void;
+  /**
+   * Where a subject stands on the backdrop before anyone moves it, in the scene's space.
+   *
+   * Reported rather than applied, because the viewport draws the map and the scene owns
+   * what stands on it. Null while there is no backdrop.
+   */
+  readonly onBackdropOrigin?: (origin: readonly [number, number, number] | null) => void;
   /** What the preview draws in the scene, which must include the `Passes` owning the loop. */
   readonly children: ReactNode;
 }
@@ -72,6 +80,7 @@ export function Viewport({
   backdrop = null,
   camera,
   onCameraStand,
+  onBackdropOrigin,
   children,
 }: ViewportProps) {
   const colors = useSceneColors();
@@ -93,6 +102,17 @@ export function Viewport({
   useEffect(() => {
     if (running) setStarted(true);
   }, [running]);
+
+  const origin = map.origin;
+  useEffect(() => {
+    /* Mirrored the way the backdrop's own group is, so the point lands where the map
+       drew it rather than across the scene from it. */
+    onBackdropOrigin?.(
+      origin === null
+        ? null
+        : [origin[0] * AXIS_SIGN[0], origin[1] * AXIS_SIGN[1], origin[2] * AXIS_SIGN[2]],
+    );
+  }, [origin, onBackdropOrigin]);
 
   return (
     <div ref={measure} className="relative size-full">

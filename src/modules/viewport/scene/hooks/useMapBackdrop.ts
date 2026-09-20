@@ -11,7 +11,7 @@ import {
 } from "@/lib/tauri";
 
 import { viewportQueries } from "../../assets/api/queries";
-import type { MapGeometry } from "../../assets/parsing/mapBuffer";
+import { DEFAULT_LAYER, type MapGeometry, mapOrigin } from "../../assets/parsing/mapBuffer";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
 
 /** Where the install keeps every map's geometry, one directory per map. */
@@ -133,6 +133,8 @@ const backdropQueries = {
 /** A map backdrop's geometry and materials, and what it is doing while there is none. */
 export interface Backdrop {
   readonly geometry: MapGeometry | null;
+  /** Where a subject stands on this map before anyone moves it, in the map's own space. */
+  readonly origin: readonly [number, number, number] | null;
   /** One per entry of `geometry.materials`, and null where the map declares none. */
   readonly materials: readonly (MaterialPreview | null)[];
   /** Each material's base texture, under the material's own entry path. */
@@ -180,10 +182,16 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     return held;
   }, [geometry.data, materials.data]);
   const textures = useAssetTextures(assets, { previewWidth: PREVIEW_WIDTH });
+  /* Two million vertices walked once per map, so it is held rather than asked per frame. */
+  const origin = useMemo(
+    () => (geometry.data === undefined ? null : mapOrigin(geometry.data, DEFAULT_LAYER)),
+    [geometry.data],
+  );
 
   if (source === null) {
     return {
       geometry: null,
+      origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
       loading: false,
@@ -193,6 +201,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   if (located.isPending || geometry.isPending) {
     return {
       geometry: null,
+      origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
       loading: true,
@@ -202,6 +211,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   if (located.data === null || located.data === undefined) {
     return {
       geometry: null,
+      origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
       loading: false,
@@ -211,6 +221,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   if (geometry.error !== null) {
     return {
       geometry: null,
+      origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
       loading: false,
@@ -219,6 +230,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   }
   return {
     geometry: geometry.data ?? null,
+    origin,
     materials: materials.data ?? NO_MATERIALS,
     textures,
     loading: false,

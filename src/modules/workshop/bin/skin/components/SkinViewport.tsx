@@ -1,4 +1,5 @@
 import {
+  ArrowsOutCardinalIcon,
   BoneIcon,
   DotsThreeVerticalIcon,
   FrameCornersIcon,
@@ -22,6 +23,8 @@ import {
   createPose,
   FitCamera,
   meshBounds,
+  Placement,
+  type PlacementMode,
   type Pose,
   type SceneClock,
   sequencePose,
@@ -37,8 +40,12 @@ import {
   usePreviewCamera,
   usePreviewBackdrop,
   usePreviewGround,
+  usePreviewFacing,
   usePreviewJointNames,
   usePreviewMidlane,
+  usePreviewMove,
+  usePreviewMoveMode,
+  usePreviewPlacement,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -146,6 +153,11 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   const camera = usePreviewCamera();
   const armature = usePreviewArmature();
   const jointNames = usePreviewJointNames();
+  const move = usePreviewMove();
+  const moveMode = usePreviewMoveMode();
+  const placement = usePreviewPlacement();
+  const facing = usePreviewFacing();
+  const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
   const setDisplay = useSetPreviewDisplay();
 
   const mesh = useQuery(viewportQueries.mesh(skin.mesh?.asset ?? null));
@@ -265,10 +277,23 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   );
   const colors = useSceneColors();
   const scale = skin.scale ?? 1;
-  const bounds = useMemo(
-    () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
-    [mesh.data, skin.hidden, scale],
+  /* Where the subject stands: what the creator dragged it to, else the backdrop's own
+     middle, else the scene's origin. */
+  const stood = useMemo<[number, number, number]>(
+    () => [...(placement ?? origin ?? FEET)],
+    [placement, origin],
   );
+  const bounds = useMemo(() => {
+    if (mesh.data === undefined) return null;
+    const box = meshBounds(mesh.data, skin.hidden, scale);
+    if (box === null) return null;
+    /* Moved with the subject, so F frames where it stands rather than where it opened.
+       The yaw is left out: a champion's box is near enough square about its own axis. */
+    return {
+      min: box.min.map((value, axis) => value + stood[axis]) as [number, number, number],
+      max: box.max.map((value, axis) => value + stood[axis]) as [number, number, number],
+    };
+  }, [mesh.data, skin.hidden, scale, stood]);
   /* Fit answers the F key and the button. A change of preset frames again on its own. */
   const [fitToken, setFitToken] = useState(0);
   const refit = useCallback(() => setFitToken((token) => token + 1), []);
@@ -336,6 +361,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           backdrop={backdropSource}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
+          onBackdropOrigin={setOrigin}
         >
           <Clock clock={clock} playing={playing} speed={speed} />
           <VisibilityCues
@@ -344,62 +370,75 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
             duration={duration}
             onChange={setHidden}
           />
-          <FitCamera bounds={bounds} ground={FEET} token={fitToken} />
+          <FitCamera bounds={bounds} ground={stood} token={fitToken} />
           <Passes warps={warps} softens={softens} />
-          <Character
-            mesh={mesh.data}
-            pose={pose}
-            clock={clock}
-            bindingOf={bindingFor}
-            colors={colors}
-            hidden={hidden}
-            scale={scale}
-            highlighted={submesh}
-            jointWeights={maskWeights}
-            onSubmeshPick={pickSubmesh}
+          <Placement
+            enabled={move}
+            mode={moveMode}
+            position={stood}
+            facing={facing}
+            onMove={(placed) =>
+              setDisplay({
+                previewPlacement: [...placed.position],
+                previewFacing: placed.facing,
+              })
+            }
           >
-            {effects &&
-              idle.map(({ effect }, at) => {
-                const system = models[at];
-                if (system === null) return null;
-                return (
-                  <IdleEffect
-                    key={`${at}:${effect.effectKey}`}
-                    effect={effect}
-                    system={system}
-                    pose={pose}
-                    clock={clock}
-                    scale={scale}
-                  />
-                );
-              })}
-            {effects &&
-              cues.map((cue, at) => {
-                const system = cueModels[at];
-                if (system === null || system === undefined) return null;
-                return (
-                  <ClipEffect
-                    key={cue.key}
-                    cue={cue}
-                    system={system}
-                    pose={pose}
-                    clock={clock}
-                    scale={scale}
-                    duration={duration}
-                  />
-                );
-              })}
-          </Character>
-          {armature && (
-            <Armature
+            <Character
+              mesh={mesh.data}
               pose={pose}
               clock={clock}
-              scale={scale}
+              bindingOf={bindingFor}
               colors={colors}
+              hidden={hidden}
+              scale={scale}
+              highlighted={submesh}
               jointWeights={maskWeights}
-              labels={jointNames ? labels : null}
-            />
-          )}
+              onSubmeshPick={pickSubmesh}
+            >
+              {effects &&
+                idle.map(({ effect }, at) => {
+                  const system = models[at];
+                  if (system === null) return null;
+                  return (
+                    <IdleEffect
+                      key={`${at}:${effect.effectKey}`}
+                      effect={effect}
+                      system={system}
+                      pose={pose}
+                      clock={clock}
+                      scale={scale}
+                    />
+                  );
+                })}
+              {effects &&
+                cues.map((cue, at) => {
+                  const system = cueModels[at];
+                  if (system === null || system === undefined) return null;
+                  return (
+                    <ClipEffect
+                      key={cue.key}
+                      cue={cue}
+                      system={system}
+                      pose={pose}
+                      clock={clock}
+                      scale={scale}
+                      duration={duration}
+                    />
+                  );
+                })}
+            </Character>
+            {armature && (
+              <Armature
+                pose={pose}
+                clock={clock}
+                scale={scale}
+                colors={colors}
+                jointWeights={maskWeights}
+                labels={jointNames ? labels : null}
+              />
+            )}
+          </Placement>
         </Viewport>
         {armature && jointNames && (
           <canvas
@@ -416,6 +455,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
           <BackdropToggle />
+          <PlacementToggle />
           <ViewToggle
             label={m.workshop_bin_preview_stage_label()}
             active={ground}
@@ -596,6 +636,62 @@ function BackdropToggle() {
               {groups.map((group) => (
                 <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
               ))}
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    </>
+  );
+}
+
+/** Where the subject stands: a switch for the gizmo, and what it drags behind the kebab. */
+function PlacementToggle() {
+  const move = usePreviewMove();
+  const mode = usePreviewMoveMode();
+  const setDisplay = useSetPreviewDisplay();
+
+  return (
+    <>
+      <ViewToggle
+        label={m.workshop_bin_preview_move_label()}
+        active={move}
+        icon={<ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />}
+        onClick={() => setDisplay({ previewMove: !move })}
+      />
+      <Menu.Root>
+        <Tooltip content={m.workshop_bin_preview_move_menu_label()}>
+          <Menu.Trigger
+            render={
+              <IconButton
+                variant="ghost"
+                size="xs"
+                compact
+                aria-label={m.workshop_bin_preview_move_menu_label()}
+                icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+              />
+            }
+          />
+        </Tooltip>
+        <Menu.Portal>
+          <Menu.Positioner align="end">
+            <Menu.Popup data-ui="PlacementMenu" className="w-44">
+              <Menu.RadioGroup
+                value={mode}
+                onValueChange={(picked) =>
+                  setDisplay({ previewMove: true, previewMoveMode: picked as PlacementMode })
+                }
+              >
+                <Menu.RadioItem value="translate">
+                  {m.workshop_bin_preview_move_translate_label()}
+                </Menu.RadioItem>
+                <Menu.RadioItem value="rotate">
+                  {m.workshop_bin_preview_move_rotate_label()}
+                </Menu.RadioItem>
+              </Menu.RadioGroup>
+              <Menu.Separator />
+              <Menu.Item onClick={() => setDisplay({ previewPlacement: null, previewFacing: 0 })}>
+                {m.workshop_bin_preview_move_reset_action()}
+              </Menu.Item>
             </Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>

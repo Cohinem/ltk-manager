@@ -89,6 +89,82 @@ export function drawnMeshes(map: MapGeometry, layer: number): MapMesh[] {
 }
 
 /**
+ * Where a subject stands on a map before anyone moves it.
+ *
+ * The middle of the drawn meshes' union box on the flat axes, and the highest triangle
+ * over that point on the up axis, so the subject stands on ground rather than in the air
+ * above it or inside the terrain below. Null where the layer draws nothing.
+ */
+export function mapOrigin(map: MapGeometry, layer: number): [number, number, number] | null {
+  const drawn = drawnMeshes(map, layer);
+  if (drawn.length === 0) return null;
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const mesh of drawn) {
+    minX = Math.min(minX, mesh.min[0]);
+    maxX = Math.max(maxX, mesh.max[0]);
+    minY = Math.min(minY, mesh.min[1]);
+    minZ = Math.min(minZ, mesh.min[2]);
+    maxZ = Math.max(maxZ, mesh.max[2]);
+  }
+
+  const x = (minX + maxX) / 2;
+  const z = (minZ + maxZ) / 2;
+  return [x, groundAt(map, drawn, x, z) ?? minY, z];
+}
+
+/** The highest drawn triangle over `x, z`, and null where none covers the point. */
+function groundAt(
+  map: MapGeometry,
+  drawn: readonly MapMesh[],
+  x: number,
+  z: number,
+): number | null {
+  let best: number | null = null;
+  for (const mesh of drawn) {
+    /* The box filter is what makes this affordable: a map is two million vertices and a
+       handful of its meshes stand over any one point. */
+    if (x < mesh.min[0] || x > mesh.max[0] || z < mesh.min[2] || z > mesh.max[2]) continue;
+    for (let at = 0; at < mesh.submeshCount; at += 1) {
+      const run = map.submeshes[mesh.firstSubmesh + at];
+      if (run === undefined) continue;
+      const end = Math.min(run.startIndex + run.indexCount, map.indices.length);
+      for (let index = run.startIndex; index + 2 < end; index += 3) {
+        const y = heightIn(map, index, x, z);
+        if (y !== null && (best === null || y > best)) best = y;
+      }
+    }
+  }
+  return best;
+}
+
+/** The triangle's height over `x, z`, and null where the point is outside it. */
+function heightIn(map: MapGeometry, index: number, x: number, z: number): number | null {
+  const at = map.positions;
+  const a = map.indices[index] * 3;
+  const b = map.indices[index + 1] * 3;
+  const c = map.indices[index + 2] * 3;
+  const ax = at[a];
+  const az = at[a + 2];
+  const bx = at[b];
+  const bz = at[b + 2];
+  const cx = at[c];
+  const cz = at[c + 2];
+
+  const area = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+  if (area === 0) return null;
+  const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / area;
+  const v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / area;
+  const w = 1 - u - v;
+  if (u < 0 || v < 0 || w < 0) return null;
+  return u * at[a + 1] + v * at[b + 1] + w * at[c + 1];
+}
+
+/**
  * One map out of the bytes the scheme answered.
  *
  * # Throws

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { MapPath } from "@/lib/tauri";
-import type { CameraPreset } from "@/modules/viewport";
+import type { CameraPreset, PlacementMode } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
 
@@ -40,6 +40,14 @@ interface PreviewDisplay {
   /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
   previewCamera: CameraPreset;
   previewWireframe: PreviewWireframe;
+  /** The subject carries a gizmo that moves it around the scene. */
+  previewMove: boolean;
+  /** Which drag the gizmo does. */
+  previewMoveMode: PlacementMode;
+  /** Where the subject stands, and null to stand it in the backdrop's own middle. */
+  previewPlacement: [number, number, number] | null;
+  /** The subject's yaw in radians. */
+  previewFacing: number;
   /** The timeline's lanes draw each emitter's live particles per step over its bar. */
   timelineHistogram: boolean;
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
@@ -179,6 +187,10 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewJointNames: false,
   previewCamera: "game",
   previewWireframe: "off",
+  previewMove: false,
+  previewMoveMode: "translate",
+  previewPlacement: null,
+  previewFacing: 0,
   timelineHistogram: false,
   inspectorDefaults: false,
 };
@@ -243,7 +255,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 4,
+      version: 5,
       migrate: (persisted) => {
         const state = {
           ...keepUnversioned<
@@ -258,6 +270,11 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
            picker addresses every map by the entry path the index spells. */
         if ((state.previewBackdrop as string | null) === "summonersRift") {
           state.previewBackdrop = SUMMONERS_RIFT;
+        }
+        /* A placement of its own used to mean the scene's origin, which now means the
+           middle of whatever map is behind the subject. */
+        if (state.previewPlacement?.every((value) => value === 0) === true) {
+          state.previewPlacement = null;
         }
         return state;
       },
@@ -335,6 +352,10 @@ export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewA
 export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
 export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.previewWireframe);
+export const usePreviewMove = () => useWorkshopLayoutStore((s) => s.previewMove);
+export const usePreviewMoveMode = () => useWorkshopLayoutStore((s) => s.previewMoveMode);
+export const usePreviewPlacement = () => useWorkshopLayoutStore((s) => s.previewPlacement);
+export const usePreviewFacing = () => useWorkshopLayoutStore((s) => s.previewFacing);
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);
