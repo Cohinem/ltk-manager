@@ -1,4 +1,5 @@
 import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 
 import { Button, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -7,6 +8,8 @@ import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 /* The leaves rather than the barrels, which pull the documents that circle back
    into this file. */
 import { BinDocument } from "../../bin/documents/components/BinDocument";
+import { MapFileDocument } from "../../bin/map/components/MapFileDocument";
+import { mapPathOfFile } from "../../bin/map/utils/mapFile";
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
 import { useExtractActions } from "../../gameBrowser/extraction/hooks/useExtractActions";
 import { chunkTarget } from "../../gameBrowser/extraction/utils/extractTargets";
@@ -31,18 +34,35 @@ export function PreviewDocument({
   const info = useAssetInfo(document.asset, named === "unknown");
   const sniffed = info.data?.kind === "unsupported" && isPropertyBin(info.data.fileKind);
 
-  if (isPropertyBin(named) || sniffed) {
+  const bin = isPropertyBin(named) || sniffed;
+  const objects = (actions: ReactNode) => (
+    <BinDocument
+      documentId={document.id}
+      asset={document.asset}
+      name={document.title}
+      file={declaringFile(document)}
+      active={active}
+      actions={actions}
+    />
+  );
+
+  /* Either file of a map opens on the map it draws, per "A map's files" in
+     docs/ux/BIN_EDITOR.md. */
+  const map = mapPathOfFile(document.path ?? document.title);
+  if (map !== null && (bin || named === "map_geometry")) {
     return (
-      <BinDocument
-        documentId={document.id}
+      <MapFileDocument
+        key={document.id}
         asset={document.asset}
-        name={document.title}
-        file={declaringFile(document)}
+        map={map}
         active={active}
         actions={<PreviewActions document={document} />}
+        objects={bin ? objects : undefined}
       />
     );
   }
+
+  if (bin) return objects(<PreviewActions document={document} />);
 
   return (
     <>

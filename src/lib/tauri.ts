@@ -182,6 +182,15 @@ export type {
   HashRef,
   IdleEffect,
   KeyRef,
+  MapCharacter,
+  MapChunk,
+  MapChunkItem,
+  MapFiles,
+  MapItemKind,
+  MapModel,
+  MapParticle,
+  MapPath,
+  MapVariant,
   Mask,
   MaterialPreview,
   MaterialWarning,
@@ -522,6 +531,19 @@ export const api = {
       commands.readVfxSystem(document, entry).then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>
       commands.readSkin(document, entry).then(toResult),
+    readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>
+      commands.readMap(document, map, materials).then(toResult),
+    readMapParticles: (document: BinDocumentId) =>
+      commands.readMapParticles(document).then(toResult),
+    readMapCharacters: (document: BinDocumentId) =>
+      commands.readMapCharacters(document).then(toResult),
+    readMapVariants: (document: BinDocumentId, entry: string) =>
+      commands.readMapVariants(document, entry).then(toResult),
+    readMapOutline: (document: BinDocumentId) => commands.readMapOutline(document).then(toResult),
+    locateFilesNear: (near: AssetRef, paths: readonly string[]) =>
+      commands.locateFilesNear(near, [...paths]).then(toResult),
+    locateMapFiles: (near: AssetRef, map: string) =>
+      commands.locateMapFiles(near, map).then(toResult),
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
       commands.readAnimationGraph(document, entry).then(toResult),
     readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),

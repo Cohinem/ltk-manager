@@ -1,7 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { CameraPreset } from "@/modules/viewport";
+import type { MapPath } from "@/lib/tauri";
+import type { CameraPreset, PlacementMode } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
 
@@ -26,6 +27,12 @@ interface PreviewDisplay {
   previewGround: boolean;
   /** The ground wears the midlane's texture. */
   previewMidlane: boolean;
+  /** Which map is drawn behind the subject, by its entry path, and null for the flat stage. */
+  previewBackdrop: MapPath | null;
+  /** The backdrop plays the particle systems its map stands in it. */
+  previewBackdropParticles: boolean;
+  /** The backdrop stands the structures and the level props its map places. */
+  previewBackdropStructures: boolean;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -37,6 +44,21 @@ interface PreviewDisplay {
   /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
   previewCamera: CameraPreset;
   previewWireframe: PreviewWireframe;
+  /** The subject carries a gizmo that moves it around the scene. */
+  previewMove: boolean;
+  /** Which drag the gizmo does. */
+  previewMoveMode: PlacementMode;
+  /** Where the subject stands, and null to stand it in the backdrop's own middle. */
+  previewPlacement: [number, number, number] | null;
+  /**
+   * Which backdrop `previewPlacement` was dragged on.
+   *
+   * A placement is a point on one map, so it means nothing on another. A backdrop that
+   * does not match this one stands the subject in its own middle instead.
+   */
+  previewPlacedOn: MapPath | null;
+  /** The subject's yaw in radians. */
+  previewFacing: number;
   /** The timeline's lanes draw each emitter's live particles per step over its bar. */
   timelineHistogram: boolean;
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
@@ -163,15 +185,26 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setPreviewDisplay: (display: Partial<PreviewDisplay>) => void;
 }
 
+/** The map the backdrop was fixed to, as the game index spells its entry path. */
+const SUMMONERS_RIFT = "maps/mapgeometry/map11/base_srx";
+
 const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewGround: true,
   previewMidlane: true,
+  previewBackdrop: null,
+  previewBackdropParticles: true,
+  previewBackdropStructures: true,
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
   previewJointNames: false,
   previewCamera: "game",
   previewWireframe: "off",
+  previewMove: false,
+  previewMoveMode: "translate",
+  previewPlacement: null,
+  previewPlacedOn: null,
+  previewFacing: 0,
   timelineHistogram: false,
   inspectorDefaults: false,
 };
@@ -236,7 +269,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 3,
+      version: 6,
       migrate: (persisted) => {
         const state = {
           ...keepUnversioned<
@@ -247,6 +280,17 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
         /* The mode a click used to carry is now what a click does, and every
            editor takes the new default rather than the value it never chose. */
         delete state.tabOpenMode;
+        /* The one map the backdrop could draw was named rather than addressed, and the
+           picker addresses every map by the entry path the index spells. */
+        if ((state.previewBackdrop as string | null) === "summonersRift") {
+          state.previewBackdrop = SUMMONERS_RIFT;
+        }
+        /* A placement used to be one point for every map, which now belongs to the map
+           it was dragged on, so the old one has no map to belong to. */
+        if (state.previewPlacement != null) {
+          state.previewPlacement = null;
+          state.previewPlacedOn = null;
+        }
         return state;
       },
     },
@@ -316,12 +360,22 @@ export const useSetForwardLookingMeta = () =>
   useWorkshopLayoutStore((s) => s.setForwardLookingMeta);
 export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGround);
 export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
+export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);
+export const usePreviewBackdropParticles = () =>
+  useWorkshopLayoutStore((s) => s.previewBackdropParticles);
+export const usePreviewBackdropStructures = () =>
+  useWorkshopLayoutStore((s) => s.previewBackdropStructures);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
 export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
 export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.previewWireframe);
+export const usePreviewMove = () => useWorkshopLayoutStore((s) => s.previewMove);
+export const usePreviewMoveMode = () => useWorkshopLayoutStore((s) => s.previewMoveMode);
+export const usePreviewPlacement = () => useWorkshopLayoutStore((s) => s.previewPlacement);
+export const usePreviewPlacedOn = () => useWorkshopLayoutStore((s) => s.previewPlacedOn);
+export const usePreviewFacing = () => useWorkshopLayoutStore((s) => s.previewFacing);
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);

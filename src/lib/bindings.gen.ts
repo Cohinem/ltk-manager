@@ -228,6 +228,55 @@ export const commands = {
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**
+	 *  The materials a map's submeshes name, as a backdrop draws them.
+	 * 
+	 *  `map` is `MapContainer.mapPath`, an entry path such as
+	 *  `Maps/MapGeometry/Map11/Base_SRX`, and `materials` are the entry paths the map's own
+	 *  `LTKM` buffer carries, answered one for one and in that order. `document` names any
+	 *  open document of the project whose layer answers first, and none resolves against the
+	 *  install alone.
+	 * 
+	 *  A map whose `.materials.bin` cannot be read leaves every material unresolved rather
+	 *  than failing the read, which draws the map flat.
+	 */
+	readMap: (document: number | null, map: MapPath, materials: string[]) => __TAURI_INVOKE<({ ok: true; value: MapModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map", { document, map, materials }),
+	/**
+	 *  Every particle the open `.materials.bin` under `document` stands in its map.
+	 * 
+	 *  The systems they link are objects of the same document, so `read_vfx_system` answers
+	 *  each against the handle this was asked with.
+	 */
+	readMapParticles: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapParticle[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_particles", { document }),
+	/**
+	 *  Every character the open `.materials.bin` under `document` stands in its map.
+	 * 
+	 *  Each names its skin by entry path, which lives in the character's own skin bin rather
+	 *  than in this document.
+	 */
+	readMapCharacters: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapCharacter[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_characters", { document }),
+	/**
+	 *  The maps the `Map`, `MapSkin` or `MapContainer` at `entry` draws.
+	 * 
+	 *  Empty for a skin that links no container and for an object of any other class.
+	 */
+	readMapVariants: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: MapVariant[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_variants", { document, entry }),
+	/**  Every chunk the open `.materials.bin` under `document` declares, and what each holds. */
+	readMapOutline: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapChunk[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_outline", { document }),
+	/**
+	 *  Where the two files of `map` live, the project `near` sits in answering before the install.
+	 * 
+	 *  So a mod that ships its own geometry draws it, and one that ships only materials draws
+	 *  the install's geometry under them.
+	 */
+	locateMapFiles: (near: AssetRef, map: MapPath) => __TAURI_INVOKE<({ ok: true; value: MapFiles }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_map_files", { near, map }),
+	/**
+	 *  Where each of `paths` lives, the project `near` sits in answering before the install.
+	 * 
+	 *  One call for every file a scene is about to open, since finding a project's files
+	 *  walks its layers. A path nothing holds is absent.
+	 */
+	locateFilesNear: (near: AssetRef, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: AssetRef } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_files_near", { near, paths }),
+	/**
 	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
 	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
@@ -704,10 +753,15 @@ export type BinaryId = {
 	built: number | null,
 };
 
-/**  The three blends a preview tells apart. */
+/**  One side of the pair a pass blends by, a `StaticMaterialPassDef::BlendFactor`. */
+export type BlendFactor = "zero" | "one" | "srcColor" | "oneMinusSrcColor" | "dstColor" | "oneMinusDstColor" | "srcAlpha" | "oneMinusSrcAlpha";
+
+/**  The blends a preview tells apart. */
 export type Blending = "opaque" | 
 /**  Source alpha over one minus source alpha, which most character materials are. */
-"normal" | "additive";
+"normal" | "additive" | 
+/**  The target darkened by the source's own colour, which 17 shipped map materials do. */
+"modulate";
 
 /**  Coarse grouping for the UI. */
 export type Category = 
@@ -1630,6 +1684,129 @@ export type LeafValue =
 /**  An object path, or `0x` and eight hex digits. */
 { type: "objectLink"; text: string };
 
+/**  One character a map stands in its scene. */
+export type MapCharacter = {
+	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
+	chunk: string,
+	/**  The key it sits under in that chunk, as `0x` and eight digits. */
+	key: string,
+	/**  The placeable's own name, which is unique within a map. */
+	name: string,
+	/**  The entry path of the skin it wears, such as `Characters/Turret/Skins/Skin0`. */
+	skin: string,
+	/**  Where it stands in the map's space, column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer, as a map mesh carries one. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+	/**  The team it stands for, where it states one. 300 is the neutral team a camp is on. */
+	team: number | null,
+	/**
+	 *  The clip a `GDSMapObjectAnimationInfo` names for it, by the name its graph keys it
+	 *  under. None plays whatever the graph idles on.
+	 */
+	animation: string | null,
+};
+
+/**  One chunk of a map and everything it holds, in file order. */
+export type MapChunk = {
+	/**  The `MapPlaceableContainer` object, as `0x` and eight digits. */
+	entry: string,
+	/**  The object's path, else the key a `MapContainer` lists it under, else none. */
+	name: string | null,
+	items: MapChunkItem[],
+};
+
+/**  One placeable of a chunk. */
+export type MapChunkItem = {
+	/**  The key it sits under in its chunk, as `0x` and eight digits. */
+	key: string,
+	/**  The placeable's own name, and the hash itself where nothing names one. */
+	name: string,
+	/**  Its class by name, and by hash where no table names it. */
+	class: string,
+	kind: MapItemKind,
+	/**  Where it stands in the map's space. */
+	position: [(number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+};
+
+/**  Where the two files of one map live, each none where nothing holds it. */
+export type MapFiles = {
+	/**  The `.mapgeo`, which the scheme answers as one buffer. */
+	geometry: AssetRef | null,
+	/**  The `.materials.bin`, which declares the materials and the chunks. */
+	materials: AssetRef | null,
+};
+
+/**  What a placeable is to a scene, which is what an outliner marks its row with. */
+export type MapItemKind = 
+/**  A `MapParticle`, which plays a system. */
+"particle" | 
+/**  A structure or a level prop, which draws a character. */
+"character" | 
+/**  A `MapLocator` or a `MapScriptLocator`, a named point. */
+"locator" | 
+/**  A `MapGroup`, a named transform. */
+"group" | 
+/**  A `MapAudio`. */
+"audio" | 
+/**  Any other class. */
+"other";
+
+/**  One map's materials, one per path asked for and in that order. */
+export type MapModel = {
+	/**
+	 *  Null where the map's own bin declares no object at that path, which a backdrop
+	 *  draws flat rather than not at all.
+	 */
+	materials: (MaterialPreview | null)[],
+};
+
+/**  One particle system a map stands in its scene. */
+export type MapParticle = {
+	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
+	chunk: string,
+	/**  The key it sits under in that chunk, as `0x` and eight digits. */
+	key: string,
+	/**  The placeable's own name, which is unique within a map. */
+	name: string,
+	/**  The system it plays, an object of the same document, as `0x` and eight digits. */
+	system: string,
+	/**  Where it stands in the map's space, column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer, as a map mesh carries one. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+	/**  The game plays it once as the map changes rather than for as long as it stands. */
+	transitional: boolean,
+	/**  The game leaves it off until a script turns it on. */
+	startDisabled: boolean,
+};
+
+/**
+ *  Where a map lives, as `MapContainer.mapPath` states it.
+ * 
+ *  An entry path rather than a file path, such as `Maps/MapGeometry/Map11/Base_SRX`. It
+ *  names no file of its own: each of a map's files is this path lowercased under the
+ *  data prefix with that file's suffix, which is the one spelling a resolved WAD path
+ *  has.
+ */
+export type MapPath = string;
+
+/**  One map an object draws, and the skin that names it. */
+export type MapVariant = {
+	/**  The `MapSkin`'s own name, and none for a map a container states itself. */
+	skin: string | null,
+	/**  The map that skin draws. */
+	map: MapPath,
+};
+
 /**  One entry of `mMaskDataMap`. */
 export type Mask = {
 	name: string,
@@ -2178,8 +2355,17 @@ export type ReferenceResult = {
 /**  How a pass's fragments reach the target, from the first pass's own fields. */
 export type RenderState = {
 	blending: Blending,
-	/**  `PREMULTIPLIED_ALPHA=1` among the macros. */
+	/**  `StaticMaterialPassDef.srcColorBlendFactor`, defaulting to [`BlendFactor::One`]. */
+	srcFactor: BlendFactor,
+	/**  `StaticMaterialPassDef.dstColorBlendFactor`, defaulting to [`BlendFactor::Zero`]. */
+	dstFactor: BlendFactor,
+	/**  The pass multiplies its colour by its own alpha before blending. */
 	premultiplied: boolean,
+	/**
+	 *  The pass clips on a threshold it states itself and writes depth, so it draws
+	 *  unblended and the depth buffer resolves it rather than a sort.
+	 */
+	cutout: boolean,
 	/**  `cullEnable` is off, so both faces draw. */
 	doubleSided: boolean,
 	/**  The pass culls the winding the engine keeps by default, which an inverted hull does. */

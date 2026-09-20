@@ -3,6 +3,7 @@ members = [
     "src-tauri",
     "crates/ltk-declarations",
     "crates/ltk-manager-core",
+    "crates/ltk-manager-game",
     "crates/ltk-telemetry",
 ]
 resolver = "2"
@@ -18,6 +19,10 @@ opt-level = 3
 [profile.dev.package.ltk-manager-core]
 opt-level = 1
 
+# The class reads walk the same generic, instantiated in this crate.
+[profile.dev.package.ltk-manager-game]
+opt-level = 1
+
 [workspace.dependencies]
 # Pinned to a rev until it ships on crates.io. Declared here rather than in
 # `ltk-manager-core` so moving the pin is one edit in the place every other
@@ -30,6 +35,7 @@ ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996a
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
 ltk-declarations = { path = "crates/ltk-declarations" }
+ltk-manager-core = { path = "crates/ltk-manager-core" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.11", features = ["serde"] }
@@ -45,7 +51,8 @@ ltk_overlay = "0.10.0"
 ltk_wad = "0.5.4"
 
 ltk_anim = "0.3.7"
-ltk_mesh = "0.4.6"
+ltk_mapgeo = "0.2.0"
+ltk_mesh = "0.5.0"
 ltk_rst = "0.2.1"
 ltk_texture = { version = "0.6.1", features = ["intel-tex"] }
 

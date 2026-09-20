@@ -10,6 +10,15 @@ export {
 export { createSceneClock, type SceneClock } from "./animation/state/clock";
 export { viewportQueries } from "./assets/api/queries";
 export { clipDuration, type ClipModel, readClipBuffer } from "./assets/parsing/clipBuffer";
+export {
+  DEFAULT_LAYER,
+  drawnMeshes,
+  type MapGeometry,
+  type MapMesh,
+  type MapSubmesh,
+  MESH_FLAG,
+  readMapBuffer,
+} from "./assets/parsing/mapBuffer";
 export { type MeshGeometry, type MeshRange, readMeshBuffer } from "./assets/parsing/meshBuffer";
 export {
   type JointModel,
@@ -44,16 +53,24 @@ export {
 } from "./camera/utils/framing";
 export { Armature, type ArmatureProps } from "./character/components/Armature";
 export { Character, type CharacterProps } from "./character/components/Character";
-export { useCharacterTextures } from "./character/hooks/useCharacterTextures";
 export {
   type CharacterSkin,
   CharacterSkinContext,
   useCharacterSkin,
 } from "./character/state/characterSkin";
 export { type FallbackColors, type SubmeshBinding } from "./character/utils/submeshBinding";
+export { Backdrop } from "./scene/components/Backdrop";
+export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";
 export { Stage } from "./scene/components/Stage";
 export { Viewport, type ViewportProps } from "./scene/components/Viewport";
 export { type SceneColors, useSceneColors } from "./scene/hooks/sceneColors";
+export {
+  type BackdropChoice,
+  type BackdropSource,
+  useBackdropMaps,
+  useBackdropMaterials,
+  useMapBackdrop,
+} from "./scene/hooks/useMapBackdrop";
 export {
   AXIS_SIGN,
   CHAMPION_HEIGHT,
@@ -65,3 +82,5 @@ export {
   TONE_MAPPING,
   UNITS_PER_METRE,
 } from "./scene/utils/world";
+export { useAssetTextures } from "./shared/hooks/useAssetTextures";
+export { loadCubeTexture } from "./shared/utils/cubeTexture";

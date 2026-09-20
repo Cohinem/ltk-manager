@@ -58,7 +58,10 @@ function material(hash: string, base: AssetRef | null): MaterialPreview {
     uvScroll: null,
     renderState: {
       blending: "normal",
+      srcFactor: "srcAlpha",
+      dstFactor: "oneMinusSrcAlpha",
       premultiplied: false,
+      cutout: false,
       doubleSided: false,
       inverted: false,
       depthWrite: true,

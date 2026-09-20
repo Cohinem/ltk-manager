@@ -33,7 +33,7 @@ import {
   useWarmLinkOpen,
 } from "../../links/hooks/useLinkTargets";
 import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
-import { objectKey, rowKey, targetKey } from "../../tree/utils/binRows";
+import { objectKey, rowKey, sortedRoots, targetKey } from "../../tree/utils/binRows";
 import { useBinDocument, useFileRoots } from "../hooks/useBinDocument";
 import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
@@ -110,7 +110,8 @@ interface OpenBinProps {
 }
 
 function OpenBin({ documentId, asset, name, file, handle, active, actions, reopen }: OpenBinProps) {
-  const roots = useFileRoots(handle);
+  const read = useFileRoots(handle);
+  const roots = useMemo(() => sortedRoots(read), [read]);
   const rootByKey = useMemo(() => new Map(roots.map((row) => [rowKey(row), row])), [roots]);
 
   const narrow = useNarrowToolbar();

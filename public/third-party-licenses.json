@@ -2219,6 +2219,14 @@
       ]
     },
     {
+      "name": "ltk-manager-game",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        59
+      ]
+    },
+    {
       "name": "ltk-telemetry",
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
@@ -2296,14 +2304,21 @@
     },
     {
       "name": "ltk_io_ext",
-      "version": "0.4.5",
+      "version": "0.4.6",
+      "licenses": [
+        41
+      ]
+    },
+    {
+      "name": "ltk_mapgeo",
+      "version": "0.2.0",
       "licenses": [
         41
       ]
     },
     {
       "name": "ltk_mesh",
-      "version": "0.4.6",
+      "version": "0.5.0",
       "licenses": [
         41
       ]

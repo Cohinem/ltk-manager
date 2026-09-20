@@ -46,6 +46,9 @@
     ],
     "crates/ltk-manager-core/**/*.rs": [
       "cargo fmt --manifest-path crates/ltk-manager-core/Cargo.toml --"
+    ],
+    "crates/ltk-manager-game/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-game/Cargo.toml --"
     ]
   },
   "dependencies": {

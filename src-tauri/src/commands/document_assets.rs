@@ -35,7 +35,7 @@ pub(super) fn read_resolved<T>(
     document: BinDocumentId,
     read: impl FnOnce(&BinDocument, &dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
 ) -> AppResult<T> {
-    with_resolution(app, document, |names, assets| {
+    with_resolution(app, Some(document), |names, assets| {
         let open = app.state::<BinDocuments>().document(document)?;
         read(&open, names, assets)
     })
@@ -45,28 +45,48 @@ pub(super) fn read_resolved<T>(
 /// against, and without the document store held.
 ///
 /// For a read that also reads files the document names, which must not hold the store
-/// while the archive is read.
+/// while the archive is read. No document resolves against the install alone, which is
+/// what a viewport drawing outside a project does.
 pub(super) fn with_resolution<T>(
     app: &AppHandle,
-    document: BinDocumentId,
+    document: Option<BinDocumentId>,
     resolve: impl FnOnce(&dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
 ) -> AppResult<T> {
     let bin = app.state::<BinHashTablesState>().get();
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let cache = CacheNames::new(&bin, &wad);
-    let chunks = app.state::<BinDocuments>().chunks_of(document);
+    /* Chunks are the project's rather than the document's, so any open document of it
+    answers, and an absent one answers empty. */
+    let chunks = document.map_or_else(
+        || Arc::new(LayerChunks::default()),
+        |document| app.state::<BinDocuments>().chunks_of(document),
+    );
     let names = ProjectNames::new(&cache, &chunks);
+    resolve(&names, &assets_over(app, &chunks))
+}
 
+/// Run `locate` with the asset lookup of the project `near` sits in.
+///
+/// For a file a tab opens with no document open beside it, such as a map's geometry. An
+/// asset outside any project resolves against the install alone.
+pub(super) fn with_assets_near<T>(
+    app: &AppHandle,
+    near: &AssetRef,
+    locate: impl FnOnce(&dyn AssetLookup) -> T,
+) -> T {
+    let chunks = LayerChunks::of(near);
+    locate(&assets_over(app, &chunks))
+}
+
+fn assets_over<'a>(app: &AppHandle, chunks: &'a LayerChunks) -> DocumentAssets<'a> {
     let config = app.state::<SettingsState>().config();
-    let assets = DocumentAssets {
-        chunks: &chunks,
+    DocumentAssets {
+        chunks,
         index: built_game_index(app, &config)
             .map(|(index, _)| index)
             .inspect_err(|e| tracing::debug!("No game index for a document's assets: {e}"))
             .ok(),
-    };
-
-    resolve(&names, &assets)
+    }
 }
 
 /// Where the bytes of a name a document carries live.
@@ -97,6 +117,9 @@ impl AssetLookup for DocumentAssets<'_> {
     }
 
     fn locate_chunk(&self, hash: WadHash) -> Option<AssetRef> {
+        if let Some(asset) = self.chunks.asset_of_chunk(hash) {
+            return Some(asset.clone());
+        }
         let file = self.index.as_ref()?.unnamed_at(hash.0)?;
         Some(AssetRef::GameChunk {
             wad: file.wad,

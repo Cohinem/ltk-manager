@@ -83,7 +83,7 @@ pub async fn read_animation_graph(
     off_thread(move || {
         let entry = parse_entry(&entry)?;
         let config = app_handle.state::<SettingsState>().config();
-        with_resolution(&app_handle, document, |names, assets| {
+        with_resolution(&app_handle, Some(document), |names, assets| {
             let open = app_handle.state::<BinDocuments>().document(document)?;
             let linked = match graph_at(&open, entry, names, assets)? {
                 GraphRead::Found(graph) => return Ok(graph),

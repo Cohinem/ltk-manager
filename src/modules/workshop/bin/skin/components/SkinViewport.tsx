@@ -1,47 +1,67 @@
 import {
+  ArrowsClockwiseIcon,
+  ArrowsOutCardinalIcon,
   BoneIcon,
   DotsThreeVerticalIcon,
   FrameCornersIcon,
   GridFourIcon,
   MapTrifoldIcon,
+  MountainsIcon,
   SparkleIcon,
   StackIcon,
 } from "@phosphor-icons/react";
 import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { type ReactNode, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentId, GraphClip, SkinModel } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId, GraphClip, MapPath, SkinModel } from "@/lib/tauri";
 import {
   Armature,
+  type BackdropChoice,
   Character,
   createPose,
   FitCamera,
   meshBounds,
+  Placement,
+  type PlacementMode,
   type Pose,
   type SceneClock,
   sequencePose,
   snappedPose,
-  useCharacterTextures,
+  useAssetTextures,
+  useBackdropMaps,
   useSceneColors,
   Viewport,
   viewportQueries,
 } from "@/modules/viewport";
 import {
+  type PreviewDisplay,
   usePreviewArmature,
   usePreviewCamera,
+  usePreviewBackdrop,
+  usePreviewBackdropParticles,
+  usePreviewBackdropStructures,
   usePreviewGround,
+  usePreviewFacing,
   usePreviewJointNames,
   usePreviewMidlane,
+  usePreviewMove,
+  usePreviewMoveMode,
+  usePreviewPlacedOn,
+  usePreviewPlacement,
   useSetPreviewDisplay,
 } from "@/stores";
 
 import { assetKey } from "../../../preview/utils/assetRef";
+import { MapCharacters } from "../../map/components/MapCharacters";
+import { MapParticles } from "../../map/components/MapParticles";
+import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
 import { Notice } from "../../vfx/preview/components/Notice";
+import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { distorts } from "../../vfx/rendering/utils/drawKind";
 import { fades } from "../../vfx/rendering/utils/softParticle";
@@ -110,7 +130,7 @@ export default function SkinViewport({ document, asset, entry }: SkinViewportPro
   return (
     <>
       {opener}
-      <SkinScene skin={read.data} document={document} source={source} />
+      <SkinScene skin={read.data} document={document} asset={asset} source={source} />
     </>
   );
 }
@@ -119,11 +139,13 @@ interface SkinSceneProps {
   readonly skin: SkinModel;
   /** The skin's own document, which declares the systems its idle effects name. */
   readonly document: BinDocumentId;
+  /** What the document was read from, whose project answers a map's files first. */
+  readonly asset: AssetRef;
   /** Where the skin's animation graph is read from. */
   readonly source: GraphSource;
 }
 
-function SkinScene({ skin, document, source }: SkinSceneProps) {
+function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
   const own = useSkinChoice();
   const { clock, picked, setPicked, playing, setPlaying, speed, setSpeed } =
     use(SkinChoiceContext) ?? own;
@@ -131,10 +153,25 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   const { parameter, setParameter, shown, setShown, resetShown } = use(SkinChoiceContext) ?? own;
 
   const ground = usePreviewGround();
+  const backdrop = usePreviewBackdrop();
+  /* The skin's own document stands for its project, whose layer answers before the
+     install for a map the creator has replaced. */
+  const backdropSource = useMemo(
+    () => (backdrop === null ? null : { map: backdrop, document }),
+    [backdrop, document],
+  );
+  const backdropParticles = usePreviewBackdropParticles();
+  const backdropStructures = usePreviewBackdropStructures();
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
   const armature = usePreviewArmature();
   const jointNames = usePreviewJointNames();
+  const move = usePreviewMove();
+  const moveMode = usePreviewMoveMode();
+  const placement = usePreviewPlacement();
+  const placedOn = usePreviewPlacedOn();
+  const facing = usePreviewFacing();
+  const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
   const setDisplay = useSetPreviewDisplay();
 
   const mesh = useQuery(viewportQueries.mesh(skin.mesh?.asset ?? null));
@@ -247,13 +284,24 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   });
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
-  const textures = useCharacterTextures(assets);
+  const textures = useAssetTextures(assets);
   const bindingFor = useCallback(
     (submesh: string) => bindingOf(skin, textures, submesh),
     [skin, textures],
   );
   const colors = useSceneColors();
   const scale = skin.scale ?? 1;
+  /* Where the subject stands: what the creator dragged it to on this backdrop, else the
+     backdrop's own middle, else the scene's origin. A placement made on another map is a
+     point that map has and this one does not. */
+  const pinned = placement !== null && placedOn === backdrop ? placement : null;
+  const stood = useMemo<[number, number, number]>(
+    () => [...(pinned ?? origin ?? FEET)],
+    [pinned, origin],
+  );
+  /* One open file answers both what the map plays and what it stands. */
+  const mapFile = useMapMaterialsFile(backdropParticles || backdropStructures ? backdrop : null);
+  const mapParticles = useMapParticles(backdropParticles ? mapFile.document : null);
   const bounds = useMemo(
     () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
     [mesh.data, skin.hidden, scale],
@@ -279,8 +327,11 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   );
   const worn = [...models, ...cueModels];
   const loaded = worn.map((model) => (model === null ? "-" : "+")).join("");
-  const warps = effects && worn.some((model) => model?.emitters.some(distorts) ?? false);
-  const softens = effects && worn.some((model) => model?.emitters.some(fades) ?? false);
+  /* The map's systems play whatever the skin's own switch says, and stay out of `loaded`,
+     whose change is a seek of every effect the skin wears. */
+  const played = [...(effects ? worn : []), ...mapParticles.map((group) => group.system)];
+  const warps = played.some((model) => model?.emitters.some(distorts) ?? false);
+  const softens = played.some((model) => model?.emitters.some(fades) ?? false);
 
   /* A clip changing starts the pose and every idle effect over together, so an effect
      rides the clip from its first frame. The pose a preview mounts on keeps the time the
@@ -313,6 +364,14 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
       {sources.map(([id, asset]) => (
         <SourceOpener key={id} id={id} asset={asset} onOpen={openSource} />
       ))}
+      {mapFile.source !== null && (
+        /* Keyed, so a change of map lets the last map's handle go before the next answers. */
+        <DocumentOpener
+          key={assetKey(mapFile.source)}
+          asset={mapFile.source}
+          onOpen={mapFile.onOpen}
+        />
+      )}
       <div
         ref={keys}
         tabIndex={-1}
@@ -322,8 +381,10 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
         <Viewport
           stage={ground}
           textured={midlane}
+          backdrop={backdropSource}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
+          onBackdropOrigin={setOrigin}
         >
           <Clock clock={clock} playing={playing} speed={speed} />
           <VisibilityCues
@@ -332,62 +393,78 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
             duration={duration}
             onChange={setHidden}
           />
-          <FitCamera bounds={bounds} ground={FEET} token={fitToken} />
+          <FitCamera bounds={bounds} ground={stood} token={fitToken} />
           <Passes warps={warps} softens={softens} />
-          <Character
-            mesh={mesh.data}
-            pose={pose}
-            clock={clock}
-            bindingOf={bindingFor}
-            colors={colors}
-            hidden={hidden}
-            scale={scale}
-            highlighted={submesh}
-            jointWeights={maskWeights}
-            onSubmeshPick={pickSubmesh}
+          <MapParticles groups={mapParticles} />
+          {backdropStructures && <MapCharacters document={mapFile.document} near={asset} />}
+          <Placement
+            enabled={move}
+            mode={moveMode}
+            position={stood}
+            facing={facing}
+            onMove={(placed) =>
+              setDisplay({
+                previewPlacement: [...placed.position],
+                previewPlacedOn: backdrop,
+                previewFacing: placed.facing,
+              })
+            }
           >
-            {effects &&
-              idle.map(({ effect }, at) => {
-                const system = models[at];
-                if (system === null) return null;
-                return (
-                  <IdleEffect
-                    key={`${at}:${effect.effectKey}`}
-                    effect={effect}
-                    system={system}
-                    pose={pose}
-                    clock={clock}
-                    scale={scale}
-                  />
-                );
-              })}
-            {effects &&
-              cues.map((cue, at) => {
-                const system = cueModels[at];
-                if (system === null || system === undefined) return null;
-                return (
-                  <ClipEffect
-                    key={cue.key}
-                    cue={cue}
-                    system={system}
-                    pose={pose}
-                    clock={clock}
-                    scale={scale}
-                    duration={duration}
-                  />
-                );
-              })}
-          </Character>
-          {armature && (
-            <Armature
+            <Character
+              mesh={mesh.data}
               pose={pose}
               clock={clock}
-              scale={scale}
+              bindingOf={bindingFor}
               colors={colors}
+              hidden={hidden}
+              scale={scale}
+              highlighted={submesh}
               jointWeights={maskWeights}
-              labels={jointNames ? labels : null}
-            />
-          )}
+              onSubmeshPick={pickSubmesh}
+            >
+              {effects &&
+                idle.map(({ effect }, at) => {
+                  const system = models[at];
+                  if (system === null) return null;
+                  return (
+                    <IdleEffect
+                      key={`${at}:${effect.effectKey}`}
+                      effect={effect}
+                      system={system}
+                      pose={pose}
+                      clock={clock}
+                      scale={scale}
+                    />
+                  );
+                })}
+              {effects &&
+                cues.map((cue, at) => {
+                  const system = cueModels[at];
+                  if (system === null || system === undefined) return null;
+                  return (
+                    <ClipEffect
+                      key={cue.key}
+                      cue={cue}
+                      system={system}
+                      pose={pose}
+                      clock={clock}
+                      scale={scale}
+                      duration={duration}
+                    />
+                  );
+                })}
+            </Character>
+            {armature && (
+              <Armature
+                pose={pose}
+                clock={clock}
+                scale={scale}
+                colors={colors}
+                jointWeights={maskWeights}
+                labels={jointNames ? labels : null}
+              />
+            )}
+          </Placement>
         </Viewport>
         {armature && jointNames && (
           <canvas
@@ -403,6 +480,8 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks each button's own size. */
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
+          <BackdropToggle />
+          <PlacementToggle />
           <ViewToggle
             label={m.workshop_bin_preview_stage_label()}
             active={ground}
@@ -473,29 +552,227 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
   );
 }
 
-interface ViewToggleProps {
-  readonly label: string;
-  readonly active: boolean;
-  readonly icon: ReactNode;
-  readonly onClick: () => void;
+/**
+ * What a map's row reads, where the game's own name for it is one this app can state.
+ *
+ * The index spells a map by its directory, `map11`, and that directory is all that says
+ * which map it is. Only the two everyone names are named, and every other map reads as
+ * its own directory rather than as a guess.
+ */
+const MAP_NAMES: Record<string, () => string> = {
+  map11: m.workshop_bin_preview_backdrop_map11_label,
+  map12: m.workshop_bin_preview_backdrop_map12_label,
+};
+
+/** One map of the install and every skin of it the install ships geometry for. */
+interface MapGroup {
+  readonly folder: string;
+  readonly name: string;
+  readonly skins: readonly BackdropChoice[];
 }
 
-/** One of the preview's switches: an icon that reads as on through its accent fill, named on hover. */
-function ViewToggle({ label, active, icon, onClick }: ViewToggleProps) {
+function groupMaps(choices: readonly BackdropChoice[]): MapGroup[] {
+  const groups = new Map<string, BackdropChoice[]>();
+  for (const choice of choices) {
+    const held = groups.get(choice.folder);
+    if (held === undefined) groups.set(choice.folder, [choice]);
+    else held.push(choice);
+  }
+  return [...groups].map(([folder, skins]) => ({
+    folder,
+    name: MAP_NAMES[folder]?.() ?? folder.charAt(0).toUpperCase() + folder.slice(1),
+    skins,
+  }));
+}
+
+/** The map behind the subject: a switch, and the install's maps behind the kebab beside it. */
+function BackdropToggle() {
+  const backdrop = usePreviewBackdrop();
+  const particles = usePreviewBackdropParticles();
+  const structures = usePreviewBackdropStructures();
+  const setDisplay = useSetPreviewDisplay();
+  const maps = useBackdropMaps();
+  /* Turning the backdrop off drops which map it drew, so the switch hands the same map
+     back rather than returning to the first one in the install. */
+  const last = useRef<MapPath | null>(null);
+  if (backdrop !== null) last.current = backdrop;
+
+  const choices = maps.data ?? [];
+  const groups = useMemo(() => groupMaps(maps.data ?? []), [maps.data]);
+  const opening = last.current ?? choices[0]?.map ?? null;
+  const pick = (map: unknown) => setDisplay({ previewBackdrop: map as MapPath | null });
+
   return (
-    <Tooltip content={label}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        compact
-        aria-label={label}
-        aria-pressed={active}
-        /* DS-VEIL, DS-RADIUS */
-        className={active ? "bg-accent-500/15 text-accent-300 hover:bg-accent-500/25" : undefined}
-        icon={icon}
-        onClick={onClick}
+    <>
+      <ViewToggle
+        label={m.workshop_bin_preview_backdrop_label()}
+        active={backdrop !== null}
+        icon={<MountainsIcon weight="bold" className="h-4 w-4" />}
+        onClick={() => setDisplay({ previewBackdrop: backdrop === null ? opening : null })}
       />
-    </Tooltip>
+      <Menu.Root>
+        <Tooltip content={m.workshop_bin_preview_backdrop_menu_label()}>
+          <Menu.Trigger
+            render={
+              <IconButton
+                variant="ghost"
+                size="xs"
+                compact
+                aria-label={m.workshop_bin_preview_backdrop_menu_label()}
+                icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+              />
+            }
+          />
+        </Tooltip>
+        <Menu.Portal>
+          <Menu.Positioner align="end">
+            <Menu.Popup data-ui="BackdropMenu" className="w-52">
+              {choices.length === 0 && (
+                <Menu.Item disabled>{m.workshop_bin_preview_backdrop_empty_label()}</Menu.Item>
+              )}
+              <Menu.RadioGroup value={backdrop} onValueChange={pick}>
+                <Menu.RadioItem value={null}>
+                  {m.workshop_bin_preview_backdrop_none_label()}
+                </Menu.RadioItem>
+              </Menu.RadioGroup>
+              {groups.map((group) => (
+                <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
+              ))}
+              <Menu.Separator />
+              <Menu.CheckboxItem
+                checked={particles}
+                onCheckedChange={(checked) => setDisplay({ previewBackdropParticles: checked })}
+              >
+                {m.workshop_bin_preview_backdrop_particles_label()}
+              </Menu.CheckboxItem>
+              <Menu.CheckboxItem
+                checked={structures}
+                onCheckedChange={(checked) => setDisplay({ previewBackdropStructures: checked })}
+              >
+                {m.workshop_bin_preview_backdrop_structures_label()}
+              </Menu.CheckboxItem>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    </>
+  );
+}
+
+/** The next state of the placement switch, which cycles off, move, turn. */
+function nextPlacement(move: boolean, mode: PlacementMode): Partial<PreviewDisplay> {
+  if (!move) return { previewMove: true, previewMoveMode: "translate" };
+  if (mode === "translate") return { previewMoveMode: "rotate" };
+  return { previewMove: false };
+}
+
+/** Where the subject stands: a switch for the gizmo, and what it drags behind the kebab. */
+function PlacementToggle() {
+  const move = usePreviewMove();
+  const mode = usePreviewMoveMode();
+  const setDisplay = useSetPreviewDisplay();
+  const turning = move && mode === "rotate";
+
+  return (
+    <>
+      <ViewToggle
+        label={
+          turning ? m.workshop_bin_preview_move_rotate_label() : m.workshop_bin_preview_move_label()
+        }
+        active={move}
+        icon={
+          turning ? (
+            <ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />
+          ) : (
+            <ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />
+          )
+        }
+        /* One button cycles off, move, turn: the mode is what a creator changes most and
+           it is not worth a trip through the kebab. */
+        onClick={() => setDisplay(nextPlacement(move, mode))}
+      />
+      <Menu.Root>
+        <Tooltip content={m.workshop_bin_preview_move_menu_label()}>
+          <Menu.Trigger
+            render={
+              <IconButton
+                variant="ghost"
+                size="xs"
+                compact
+                aria-label={m.workshop_bin_preview_move_menu_label()}
+                icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+              />
+            }
+          />
+        </Tooltip>
+        <Menu.Portal>
+          <Menu.Positioner align="end">
+            <Menu.Popup data-ui="PlacementMenu" className="w-44">
+              <Menu.RadioGroup
+                value={mode}
+                onValueChange={(picked) =>
+                  setDisplay({ previewMove: true, previewMoveMode: picked as PlacementMode })
+                }
+              >
+                <Menu.RadioItem value="translate">
+                  {m.workshop_bin_preview_move_translate_label()}
+                </Menu.RadioItem>
+                <Menu.RadioItem value="rotate">
+                  {m.workshop_bin_preview_move_rotate_label()}
+                </Menu.RadioItem>
+              </Menu.RadioGroup>
+              <Menu.Separator />
+              <Menu.Item
+                onClick={() =>
+                  setDisplay({ previewPlacement: null, previewPlacedOn: null, previewFacing: 0 })
+                }
+              >
+                {m.workshop_bin_preview_move_reset_action()}
+              </Menu.Item>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    </>
+  );
+}
+
+interface MapSkinSubmenuProps {
+  readonly group: MapGroup;
+  /** Which map skin the backdrop draws, across every map rather than this one. */
+  readonly chosen: MapPath | null;
+  readonly onPick: (map: unknown) => void;
+}
+
+/**
+ * One map of the install, with its skins behind it.
+ *
+ * A map ships one geometry file per skin, so the skins are what the map's directory
+ * holds and the file's own name is what the skin is called.
+ */
+function MapSkinSubmenu({ group, chosen, onPick }: MapSkinSubmenuProps) {
+  const holds = group.skins.some((skin) => skin.map === chosen);
+
+  return (
+    <Menu.SubmenuRoot>
+      <Menu.SubmenuTrigger className={holds ? "text-accent-300" : undefined}>
+        {group.name}
+      </Menu.SubmenuTrigger>
+      <Menu.Portal>
+        <Menu.SubmenuPositioner>
+          {/* A map ships up to 37 skins, more than a menu shows without scrolling. */}
+          <Menu.Popup data-ui="BackdropMenu:skins" className="max-h-96 w-56 overflow-y-auto">
+            <Menu.RadioGroup value={chosen} onValueChange={onPick}>
+              {group.skins.map((skin) => (
+                <Menu.RadioItem key={skin.map} value={skin.map} closeOnClick>
+                  {skin.geometry}
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </Menu.Popup>
+        </Menu.SubmenuPositioner>
+      </Menu.Portal>
+    </Menu.SubmenuRoot>
   );
 }
 

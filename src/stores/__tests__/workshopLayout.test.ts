@@ -19,6 +19,12 @@ describe("workshopLayout", () => {
     });
   });
 
+  it("drops a placement made before one belonged to a map", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.({ previewPlacement: [100, 0, 250], previewFacing: 1.5 }, 5);
+    expect(migrated).toEqual({ previewPlacement: null, previewPlacedOn: null, previewFacing: 1.5 });
+  });
+
   beforeEach(() => {
     useWorkshopLayoutStore.setState({ previewOnClick: true });
     localStorage.clear();

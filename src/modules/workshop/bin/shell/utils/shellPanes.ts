@@ -12,7 +12,8 @@ export type ShellPaneId =
   | "preview"
   | "timeline"
   | "clips"
-  | "spells";
+  | "spells"
+  | "outliner";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -22,15 +23,17 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "timeline",
   "clips",
   "spells",
+  "outliner",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
-export type ShellKind = "vfx" | "skin";
+export type ShellKind = "vfx" | "skin" | "map";
 
 /** The panes each shell holds, in the order the Panes menu lists them. */
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters"],
   skin: ["preview", "clips", "spells", "inspector"],
+  map: ["preview", "outliner", "inspector"],
 } as const satisfies Record<ShellKind, readonly ShellPaneId[]>;
 
 /** The panes a `K` shell holds, which its content names one body for each of. */
@@ -50,6 +53,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   timeline: m.workshop_bin_pane_timeline_label,
   clips: m.workshop_bin_pane_clips_label,
   spells: m.workshop_bin_pane_spells_label,
+  outliner: m.workshop_bin_pane_outliner_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -69,12 +73,33 @@ export type ShellArrangements = Readonly<Record<ShellKind, ShellArrangement>>;
  * The panes as a shell ships them, which is what a reset produces.
  *
  * The shares are flex-grow ratios rather than sizes, so a panel keeps its proportion at
- * any window width. The preview takes the largest single share in both, because what is
+ * any window width. The preview takes the largest single share in each, because what is
  * drawn is what the reader edits the numbers against. The particle system's is the
  * arrangement of "The shell" in docs/ux/BIN_EDITOR.md (ADR-0037), and the skin's is
  * "The clips pane" there.
  */
 export function defaultShellLayout(kind: ShellKind): LayoutNode {
+  if (kind === "map") {
+    return {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      layout: { "leaf-2": 3, "split-4": 1 },
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        {
+          kind: "split",
+          id: "split-4",
+          dir: "col",
+          children: [
+            { kind: "leaf", id: "leaf-5", tabs: ["outliner"], activeTab: "outliner" },
+            { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+          ],
+        },
+      ],
+    };
+  }
+
   if (kind === "skin") {
     return {
       kind: "split",
@@ -132,7 +157,7 @@ export function defaultShellArrangements(): ShellArrangements {
     const layout = defaultShellLayout(kind);
     return { layout, leafId: firstShellLeafId(layout) };
   };
-  return { vfx: arranged("vfx"), skin: arranged("skin") };
+  return { vfx: arranged("vfx"), skin: arranged("skin"), map: arranged("map") };
 }
 
 /** The leaf a reopened pane lands in when the one the reader focused is gone. */

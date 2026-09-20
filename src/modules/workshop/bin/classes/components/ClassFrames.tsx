@@ -7,6 +7,8 @@ import { leafHolding } from "@/modules/editor";
 import { useShellLayout, useShellMaximizedLeaf } from "../../../state";
 import { ChanceReadout } from "../../curves/components/ChancePin";
 import { CurveSurface } from "../../curves/components/CurveSurface";
+import { MapOutliner } from "../../map/components/MapOutliner";
+import { MapPreview } from "../../map/components/MapPreview";
 import { ShellCrumb } from "../../shell/components/ShellCrumb";
 import {
   PanesMenu,
@@ -99,6 +101,15 @@ export function SkinHero({ view, entry }: { view: ViewContext; entry: string | n
   return (
     <Hero>
       <SkinPreview document={view.document} asset={view.asset} entry={entry} />
+    </Hero>
+  );
+}
+
+/** The map drawn above the sections of the stack. */
+export function MapHero({ view }: { view: ViewContext }) {
+  return (
+    <Hero>
+      <MapPreview document={view.document} />
     </Hero>
   );
 }
@@ -206,6 +217,37 @@ export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
         crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
       />
       <ShellPaneTree kind="skin" content={content} />
+    </div>
+  );
+}
+
+interface MapShellProps extends FrameProps {
+  /** The `Map`, `MapSkin` or `MapContainer` object, which the preview draws a map from. */
+  entry: string | null;
+}
+
+/**
+ * The panes of a map class: the drawn map, its chunk graph, and the sections of the object.
+ *
+ * The preview and the outliner share the `MapSceneHost` the view mounts above them.
+ */
+export function MapShell({ placed, pages, view, entry }: MapShellProps) {
+  const content = useMemo<ShellPaneContent<"map">>(
+    () => ({
+      preview: { body: <MapPreview document={view.document} /> },
+      outliner: { body: <MapOutliner /> },
+      inspector: { body: <SectionColumn placed={placed} pages={pages} view={view} /> },
+    }),
+    [placed, pages, view, entry],
+  );
+
+  return (
+    <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2">
+      <ShellHeader
+        kind="map"
+        crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
+      />
+      <ShellPaneTree kind="map" content={content} />
     </div>
   );
 }

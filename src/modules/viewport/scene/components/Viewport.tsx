@@ -7,8 +7,12 @@ import { useContentVisible, useResizeObserver } from "@/hooks";
 import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
 import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
+import { AXIS_SIGN } from "../../shared/utils/space";
 import { useSceneColors } from "../hooks/sceneColors";
+import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
+import { Backdrop } from "./Backdrop";
+import { Sky } from "./Sky";
 import { Stage } from "./Stage";
 import { Sun } from "./Sun";
 
@@ -17,10 +21,24 @@ export interface ViewportProps {
   readonly stage: boolean;
   /** The ground wears the midlane's texture rather than the flat token fill. */
   readonly textured: boolean;
+  /**
+   * The game's own map drawn behind the subject, and null for the flat stage.
+   *
+   * A backdrop replaces the stage rather than standing on it, so neither the ground plane
+   * nor its grid is drawn while one is up.
+   */
+  readonly backdrop?: BackdropSource | null;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
   readonly onCameraStand?: (preset: CameraPreset) => void;
+  /**
+   * Where a subject stands on the backdrop before anyone moves it, in the scene's space.
+   *
+   * Reported rather than applied, because the viewport draws the map and the scene owns
+   * what stands on it. Null while there is no backdrop.
+   */
+  readonly onBackdropOrigin?: (origin: readonly [number, number, number] | null) => void;
   /** What the preview draws in the scene, which must include the `Passes` owning the loop. */
   readonly children: ReactNode;
 }
@@ -57,8 +75,17 @@ function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRende
  * gizmo draws as a HUD over the frame, so a child of the canvas has to own the render
  * loop, which `Passes` does.
  */
-export function Viewport({ stage, textured, camera, onCameraStand, children }: ViewportProps) {
+export function Viewport({
+  stage,
+  textured,
+  backdrop = null,
+  camera,
+  onCameraStand,
+  onBackdropOrigin,
+  children,
+}: ViewportProps) {
   const colors = useSceneColors();
+  const map = useMapBackdrop(backdrop);
   const visible = useContentVisible();
   const [sized, setSized] = useState(false);
   const [started, setStarted] = useState(false);
@@ -76,6 +103,17 @@ export function Viewport({ stage, textured, camera, onCameraStand, children }: V
   useEffect(() => {
     if (running) setStarted(true);
   }, [running]);
+
+  const origin = map.origin;
+  useEffect(() => {
+    /* Mirrored the way the backdrop's own group is, so the point lands where the map
+       drew it rather than across the scene from it. */
+    onBackdropOrigin?.(
+      origin === null
+        ? null
+        : [origin[0] * AXIS_SIGN[0], origin[1] * AXIS_SIGN[1], origin[2] * AXIS_SIGN[2]],
+    );
+  }, [origin, onBackdropOrigin]);
 
   return (
     <div ref={measure} className="relative size-full">
@@ -100,7 +138,13 @@ export function Viewport({ stage, textured, camera, onCameraStand, children }: V
           <color attach="background" args={[colors.backdrop]} />
           <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
           <Sun />
-          <Stage colors={colors} shown={stage} textured={textured} />
+          <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
+          {map.geometry !== null && (
+            <>
+              <Sky />
+              <Backdrop map={map.geometry} materials={map.materials} textures={map.textures} />
+            </>
+          )}
           <CameraPresetContext value={camera}>{children}</CameraPresetContext>
         </Canvas>
       )}

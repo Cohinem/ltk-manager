@@ -1,23 +1,20 @@
 import {
-  AdditiveBlending,
-  BackSide,
   ClampToEdgeWrapping,
   type Color,
-  DoubleSide,
-  FrontSide,
-  type Material,
-  type MeshBasicMaterial,
-  type MeshLambertMaterial,
   MirroredRepeatWrapping,
-  NormalBlending,
   RepeatWrapping,
-  type Side,
   SRGBColorSpace,
   type Texture,
   type Wrapping,
 } from "three";
 
 import type { MaterialPreview, RenderState, Wrap } from "@/lib/tauri";
+
+import {
+  applyRenderState,
+  recompileIfMoved,
+  type SubmeshMaterial,
+} from "../../shared/utils/renderState";
 
 /**
  * What one submesh is drawn with, in the engine's order of choosing it.
@@ -49,11 +46,20 @@ const WRAPPING: Record<Wrap, Wrapping> = {
   border: ClampToEdgeWrapping,
 };
 
-/** The program parameters a binding can move, so a change of them compiles again. */
-const PROGRAMS = new WeakMap<Material, string>();
+export type { SubmeshMaterial };
 
-/** The stock material of each shading model, both of which take the same slots. */
-export type SubmeshMaterial = MeshBasicMaterial | MeshLambertMaterial;
+/** What a submesh no usable material reaches draws as: flat, both faces, depth on. */
+const UNBOUND: RenderState = {
+  blending: "opaque",
+  srcFactor: "one",
+  dstFactor: "zero",
+  premultiplied: false,
+  cutout: false,
+  doubleSided: true,
+  inverted: false,
+  depthWrite: true,
+  depthTest: true,
+};
 
 /**
  * Whether the binding's shading model is the lit one.
@@ -84,12 +90,7 @@ export function applyBinding(
   if (slots === null || slots.missing) {
     material.opacity = 1;
     material.alphaTest = 0;
-    material.transparent = false;
-    material.blending = NormalBlending;
-    material.premultipliedAlpha = false;
-    material.side = DoubleSide;
-    material.depthWrite = true;
-    material.depthTest = true;
+    applyRenderState(material, UNBOUND);
     if (slots !== null) material.color.copy(colors.errored);
     else if (map === null) material.color.copy(colors.untextured);
     else material.color.setRGB(1, 1, 1);
@@ -125,26 +126,6 @@ function mapOf(
   return slots.renderState.blending === "opaque" ? texture : null;
 }
 
-function applyRenderState(material: SubmeshMaterial, state: RenderState): void {
-  material.transparent = state.blending !== "opaque";
-  material.blending = state.blending === "additive" ? AdditiveBlending : NormalBlending;
-  material.premultipliedAlpha = state.premultiplied;
-  material.side = sideOf(state);
-  material.depthWrite = state.depthWrite;
-  material.depthTest = state.depthTest;
-}
-
-/**
- * The face a pass keeps.
- *
- * Three flips its front face under the mirrored axis of world.ts on its own, so the
- * engine's default winding is `FrontSide` here. Unjudged on screen against the game.
- */
-function sideOf(state: RenderState): Side {
-  if (state.doubleSided) return DoubleSide;
-  return state.inverted ? BackSide : FrontSide;
-}
-
 /** The base's wrap and repeat, which are the material's own and so safe to set on it. */
 function tile(base: Texture, slots: MaterialPreview): void {
   const [u, v] = slots.uvRepeat ?? [1, 1];
@@ -159,17 +140,4 @@ function tile(base: Texture, slots: MaterialPreview): void {
     /* A wrap mode is set at upload, so a change of one uploads again. */
     base.needsUpdate = true;
   }
-}
-
-/** Flag the program stale where a parameter it was compiled on has moved. */
-function recompileIfMoved(material: SubmeshMaterial): void {
-  const key = [
-    material.map !== null,
-    material.alphaTest > 0,
-    material.premultipliedAlpha,
-    material.side,
-  ].join(":");
-  if (PROGRAMS.get(material) === key) return;
-  PROGRAMS.set(material, key);
-  material.needsUpdate = true;
 }

@@ -182,11 +182,12 @@ impl Locator<'_> {
     }
 }
 
-pub(crate) type Fields = IndexMap<BinHash, PropertyValueEnum>;
+/// The properties of one struct, by field hash and in the file's order.
+pub type Fields = IndexMap<BinHash, PropertyValueEnum>;
 
 /// The class and the fields of the struct `value` holds, through an optional, and none
 /// for a null one.
-pub(crate) fn struct_of(value: Option<&PropertyValueEnum>) -> Option<(BinHash, &Fields)> {
+pub fn struct_of(value: Option<&PropertyValueEnum>) -> Option<(BinHash, &Fields)> {
     match value? {
         PropertyValueEnum::Struct(inner) | PropertyValueEnum::Embedded(values::Embedded(inner))
             if inner.class_hash.0 != 0 =>
@@ -198,11 +199,13 @@ pub(crate) fn struct_of(value: Option<&PropertyValueEnum>) -> Option<(BinHash, &
     }
 }
 
-pub(crate) fn fields_of(value: Option<&PropertyValueEnum>) -> Option<&Fields> {
+/// The fields of the struct `value` holds, whatever its class.
+pub fn fields_of(value: Option<&PropertyValueEnum>) -> Option<&Fields> {
     struct_of(value).map(|(_, fields)| fields)
 }
 
-pub(crate) fn items(value: Option<&PropertyValueEnum>) -> &[PropertyValueEnum] {
+/// What a container holds, and nothing for any other value.
+pub fn items(value: Option<&PropertyValueEnum>) -> &[PropertyValueEnum] {
     match value {
         Some(PropertyValueEnum::Container(items)) => items.items(),
         Some(PropertyValueEnum::UnorderedContainer(items)) => items.items(),
@@ -210,11 +213,13 @@ pub(crate) fn items(value: Option<&PropertyValueEnum>) -> &[PropertyValueEnum] {
     }
 }
 
-pub(crate) fn leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
+/// The scalar `value` holds, and none for a value that holds others.
+pub fn leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
     owned(value?.leaf())
 }
 
-pub(crate) fn text(value: Option<&PropertyValueEnum>) -> Option<&str> {
+/// The string `value` holds.
+pub fn text(value: Option<&PropertyValueEnum>) -> Option<&str> {
     match leaf(value)? {
         Leaf::String(text) => Some(text),
         _ => None,
@@ -222,7 +227,7 @@ pub(crate) fn text(value: Option<&PropertyValueEnum>) -> Option<&str> {
 }
 
 /// The object `value` links to, and none for a null link.
-pub(crate) fn link(value: Option<&PropertyValueEnum>) -> Option<BinHash> {
+pub fn link(value: Option<&PropertyValueEnum>) -> Option<BinHash> {
     match leaf(value)? {
         Leaf::Link(hash) if hash.0 != 0 => Some(hash),
         _ => None,
@@ -233,7 +238,7 @@ pub(crate) fn link(value: Option<&PropertyValueEnum>) -> Option<BinHash> {
 ///
 /// A row projection knows every hash before it builds a row, so it asks in one batch. A
 /// walk learns a hash where it reaches one, so it asks per hash and keeps the answer.
-pub(crate) struct Namer<'a> {
+pub struct Namer<'a> {
     names: &'a dyn RowNames,
     entries: HashMap<BinHash, Option<String>>,
     classes: HashMap<BinHash, Option<String>>,
@@ -243,7 +248,9 @@ pub(crate) struct Namer<'a> {
 }
 
 impl<'a> Namer<'a> {
-    pub(crate) fn new(names: &'a dyn RowNames) -> Self {
+    /// A namer that has asked `names` nothing yet.
+    #[must_use]
+    pub fn new(names: &'a dyn RowNames) -> Self {
         Self {
             names,
             entries: HashMap::new(),
@@ -254,35 +261,40 @@ impl<'a> Namer<'a> {
         }
     }
 
-    pub(crate) fn entry(&mut self, hash: BinHash) -> Option<String> {
+    /// The path of the object `hash` names.
+    pub fn entry(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, entries, .. } = self;
         kept(entries, hash, |hashes, visit| {
             names.for_each_entry(hashes, visit);
         })
     }
 
-    pub(crate) fn class(&mut self, hash: BinHash) -> Option<String> {
+    /// The name of the class `hash` is.
+    pub fn class(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, classes, .. } = self;
         kept(classes, hash, |hashes, visit| {
             names.for_each_class(hashes, visit);
         })
     }
 
-    pub(crate) fn field(&mut self, hash: BinHash) -> Option<String> {
+    /// The name of the property `hash` is.
+    pub fn field(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, fields, .. } = self;
         kept(fields, hash, |hashes, visit| {
             names.for_each_field(hashes, visit);
         })
     }
 
-    pub(crate) fn value(&mut self, hash: BinHash) -> Option<String> {
+    /// The string behind the `Hash` value `hash`.
+    pub fn value(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, values, .. } = self;
         kept(values, hash, |hashes, visit| {
             names.for_each_value(hashes, visit);
         })
     }
 
-    pub(crate) fn chunk(&mut self, hash: WadHash) -> Option<String> {
+    /// The path of the chunk `hash` names.
+    pub fn chunk(&mut self, hash: WadHash) -> Option<String> {
         let Self { names, chunks, .. } = self;
         kept(chunks, hash, |hashes, visit| {
             names.for_each_chunk(hashes, visit);

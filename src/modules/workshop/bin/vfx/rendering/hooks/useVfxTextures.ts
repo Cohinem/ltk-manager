@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { CubeTexture, DataTexture, LinearFilter, type Texture, TextureLoader } from "three";
+import { DataTexture, LinearFilter, type Texture, TextureLoader } from "three";
 
 import { previewCubeUrl } from "@/lib/previewUrl";
-import { PARTICLE_COLOR_SPACE } from "@/modules/viewport";
+import { loadCubeTexture, PARTICLE_COLOR_SPACE } from "@/modules/viewport";
 
 import { previewUrl } from "../../../../preview/utils/assetRef";
 import { assetLoad, type AssetLoad } from "../utils/assetLoad";
@@ -58,37 +58,6 @@ export function samplersOf(textures: VfxTextures, definition: DrawnEmitter): Emi
   const held = textures.get(definition.key);
   if (held !== undefined) return held;
   return definition.emitter.texture === null ? UNNAMED_SAMPLERS : NO_SAMPLERS;
-}
-
-/** The faces a cube map holds. */
-const CUBE_FACES = 6;
-
-/** A decode that keeps the file's bytes, neither premultiplied nor colour managed. */
-const RAW: ImageBitmapOptions = { premultiplyAlpha: "none", colorSpaceConversion: "none" };
-
-/**
- * The cube map `previewCubeUrl` answers, six square faces stacked top to bottom.
- *
- * Cut into bitmaps rather than drawn through a canvas, which would premultiply the alpha
- * and lose the colour under a transparent texel. Null for a map the scheme cannot answer.
- */
-async function cubeOf(url: string): Promise<CubeTexture | null> {
-  const answer = await fetch(url);
-  if (!answer.ok) return null;
-
-  const strip = await createImageBitmap(await answer.blob(), RAW);
-  const size = strip.width;
-  const faces = await Promise.all(
-    Array.from({ length: CUBE_FACES }, (_, face) =>
-      createImageBitmap(strip, 0, face * size, size, size, RAW),
-    ),
-  );
-  strip.close();
-
-  const cube = new CubeTexture(faces);
-  cube.generateMipmaps = false;
-  cube.needsUpdate = true;
-  return cube;
 }
 
 /**
@@ -163,7 +132,7 @@ export function useVfxTextures(
           () => batch.done(true),
         );
       } else {
-        void cubeOf(previewCubeUrl(asset))
+        void loadCubeTexture(previewCubeUrl(asset))
           .then((texture) => {
             if (texture !== null) take(key, slot, texture);
             batch.done(texture === null);

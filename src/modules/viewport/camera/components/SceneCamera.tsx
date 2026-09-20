@@ -17,6 +17,7 @@ import {
   type ZoomRange,
 } from "../utils/cameraPresets";
 import { reachOfZoom, zoomOfReach } from "../utils/framing";
+import { lookAtShortest } from "../utils/lookAt";
 import { type Look, OrientationGizmo } from "./OrientationGizmo";
 
 /** Where a camera stands before anything has been framed in it. */
@@ -193,13 +194,10 @@ function standOn(
     camera.updateProjectionMatrix();
   }
 
-  void controls.setLookAt(
-    target.x + look[0] * reach,
-    target.y + look[1] * reach,
-    target.z + look[2] * reach,
-    target.x,
-    target.y,
-    target.z,
+  lookAtShortest(
+    controls,
+    [target.x + look[0] * reach, target.y + look[1] * reach, target.z + look[2] * reach],
+    [target.x, target.y, target.z],
     animated,
   );
 }

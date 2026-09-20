@@ -35,6 +35,9 @@ const FORM_PARAMETER: &str = "as";
 /// The [`FORM_PARAMETER`] value asking a mesh for its vertex buffer.
 const GEOMETRY_FORM: &str = "geometry";
 
+/// The [`FORM_PARAMETER`] value asking a map for its every mesh in one buffer.
+const MAP_FORM: &str = "map";
+
 /// The [`FORM_PARAMETER`] value asking a skeleton for its joint buffer.
 const SKELETON_FORM: &str = "skeleton";
 
@@ -92,6 +95,7 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
             min_width: requested_width(query)?,
         }),
         Some(GEOMETRY_FORM) => Ok(PreviewRequest::Geometry),
+        Some(MAP_FORM) => Ok(PreviewRequest::Map),
         Some(SKELETON_FORM) => Ok(PreviewRequest::Skeleton),
         Some(ANIMATION_FORM) => Ok(PreviewRequest::Animation),
         Some(CUBE_FORM) => Ok(PreviewRequest::Cube),

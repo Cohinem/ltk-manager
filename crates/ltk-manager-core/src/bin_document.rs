@@ -33,11 +33,11 @@ pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
 pub use records::TARGET_PATH;
 
-pub use resolve::{AssetLookup, NamedAsset, hex, owned};
-pub(crate) use resolve::{
-    EFFECT_KEY, Fields, Locator, Namer, chunk_asset, fields_of, items, leaf, link, object_at,
-    resolver_entries, struct_of, text,
+pub use resolve::{
+    AssetLookup, Fields, NamedAsset, Namer, fields_of, hex, items, leaf, link, owned, struct_of,
+    text,
 };
+pub(crate) use resolve::{EFFECT_KEY, Locator, chunk_asset, object_at, resolver_entries};
 
 use crate::error::AppResult;
 use crate::meta_schema::{Expected, KindShape, SchemaAt};
