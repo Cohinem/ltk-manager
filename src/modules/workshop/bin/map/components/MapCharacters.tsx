@@ -23,6 +23,7 @@ import {
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
+import { clipFrameSeconds } from "../../skin/utils/clipEvents";
 import { bindingOf, playlistOf, textureAssets } from "../../skin/utils/skinScene";
 import { mapQueries } from "../api/mapQueries";
 import {
@@ -58,21 +59,26 @@ const NONE_HIDDEN: ReadonlySet<string> = new Set();
  */
 export function MapCharacters({ document, near, hidden = NONE_HIDDEN }: MapCharactersProps) {
   const placed = useQuery(mapQueries.characters(document));
+  const stood = useMemo(() => stoodCharacters(placed.data ?? [], DEFAULT_LAYER), [placed.data]);
   const skins = useMemo(
     () => [
       ...charactersBySkin(
-        stoodCharacters(placed.data ?? [], DEFAULT_LAYER).filter(
-          (character) => !isHidden(hidden, character.chunk, character.key),
-        ),
+        stood.filter((character) => !isHidden(hidden, character.chunk, character.key)),
       ),
     ],
-    [placed.data, hidden],
+    [stood, hidden],
   );
   const colors = useSceneColors();
   const clock = useMemo(createSceneClock, []);
   useFrame((_, delta) => clock.advance(delta), BEFORE_THE_POSES);
 
-  const paths = useMemo(() => skins.map(([skin]) => skinFile(skin)), [skins]);
+  /* Every skin the map stands rather than the shown ones. The lookup is keyed on this
+     list, so hiding one chunk would otherwise re-key it and drop every structure until
+     a new answer landed. */
+  const paths = useMemo(
+    () => [...new Set(stood.map((character) => skinFile(character.skin)))],
+    [stood],
+  );
   const files = useQuery(mapQueries.filesNear(near, paths)).data;
 
   /* A skin whose bin nothing holds is a prop the map draws without. */
@@ -187,9 +193,11 @@ function PosedCharacters({
     () =>
       sequencePose(
         skeleton,
-        clips.map((clip) => createPose(skeleton, clip)),
+        clips.map((clip, at) =>
+          createPose(skeleton, clip, clipFrameSeconds(playlist[at], clip?.fps ?? null)),
+        ),
       ),
-    [skeleton, clips],
+    [skeleton, clips, playlist],
   );
   const matrices = useMemo(
     () => characters.map((character) => new Matrix4().fromArray(sceneMatrix(character.transform))),

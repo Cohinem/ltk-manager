@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -42,6 +42,19 @@ interface Bound {
   readonly doubleSided: boolean;
 }
 
+/** One run of the index block and which of [`Drawn.bound`] draws it. */
+interface DrawGroup {
+  readonly startIndex: number;
+  readonly indexCount: number;
+  readonly material: number;
+}
+
+/** What the map draws, as the materials it draws with and the runs each one covers. */
+interface Drawn {
+  readonly bound: readonly Bound[];
+  readonly groups: readonly DrawGroup[];
+}
+
 /** Whether a submesh drawing `slots` covers anything at all. */
 function covers(slots: MaterialPreview | null | undefined): boolean {
   if (slots == null) return true;
@@ -83,8 +96,9 @@ export function Backdrop({
   /* Built without the textures, which arrive over seconds. A material's class and a
      group's material index are fixed by the map, so a texture landing rebinds one
      material rather than rebuilding the array and re-walking 600 groups. */
-  const bound = useMemo(() => {
-    const built: Bound[] = [];
+  const drawn = useMemo<Drawn>(() => {
+    const bound: Bound[] = [];
+    const groups: DrawGroup[] = [];
     const byKey = new Map<string, number>();
 
     const indexOf = (material: number, doubleSided: boolean): number => {
@@ -93,35 +107,47 @@ export function Backdrop({
       if (held !== undefined) return held;
 
       const named = slots[material] ?? null;
-      const drawn: SubmeshMaterial = lit({ material: named, base: null, texture: null })
+      const drawnWith: SubmeshMaterial = lit({ material: named, base: null, texture: null })
         ? new MeshLambertMaterial()
         : new MeshBasicMaterial();
-      built.push({
-        material: drawn,
+      bound.push({
+        material: drawnWith,
         path: map.materials[material] ?? "",
         slots: named,
         doubleSided,
       });
-      byKey.set(key, built.length - 1);
-      return built.length - 1;
+      byKey.set(key, bound.length - 1);
+      return bound.length - 1;
     };
 
-    geometry.clearGroups();
     for (const mesh of drawnMeshes(map, layer)) {
       if (mesh.submeshCount === 0) continue;
       const doubleSided = (mesh.flags & MESH_FLAG.cullDisabled) !== 0;
       for (let at = 0; at < mesh.submeshCount; at += 1) {
         const submesh = map.submeshes[mesh.firstSubmesh + at];
         if (submesh === undefined || !covers(slots[submesh.material])) continue;
-        geometry.addGroup(
-          submesh.startIndex,
-          submesh.indexCount,
-          indexOf(submesh.material, doubleSided),
-        );
+        groups.push({
+          startIndex: submesh.startIndex,
+          indexCount: submesh.indexCount,
+          material: indexOf(submesh.material, doubleSided),
+        });
       }
     }
-    return built;
-  }, [geometry, map, slots, layer]);
+    return { bound, groups };
+  }, [map, slots, layer]);
+
+  const bound = drawn.bound;
+  const materials = useMemo(() => bound.map((entry) => entry.material), [bound]);
+
+  /* Written here rather than beside the array they index, because a render the fibre
+     throws away would leave the geometry pointing into an array the mesh never took, and
+     ThreeJS draws no group whose material index the array does not reach. */
+  useLayoutEffect(() => {
+    geometry.clearGroups();
+    for (const group of drawn.groups) {
+      geometry.addGroup(group.startIndex, group.indexCount, group.material);
+    }
+  }, [geometry, drawn]);
 
   /* What each material was last bound to, so a wave of arrivals rebinds the few that
      moved rather than all 183 once a frame. Indexed by `bound`, because two entries of
@@ -145,8 +171,6 @@ export function Backdrop({
       }
     }
   }, [bound, textures, colors]);
-
-  const materials = useMemo(() => bound.map((entry) => entry.material), [bound]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => () => materials.forEach((material) => material.dispose()), [materials]);
