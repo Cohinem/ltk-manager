@@ -199,10 +199,12 @@ type MountedWad = Arc<Mutex<Wad<BufReader<fs::File>>>>;
 /// How many archives stay mounted at once.
 ///
 /// A mount holds an open handle and the archive's whole chunk table, so the
-/// cache trades memory for not re-reading that table. Four covers what a modder
-/// moves between while working - a champion, its VFX, `UI` and one more - and
-/// bounds the resident tables at the same time.
-const MOUNT_CAPACITY: NonZeroUsize = NonZeroUsize::new(4).unwrap();
+/// cache trades memory for not re-reading that table. Sized for one map rather
+/// than for a champion: a map preview reads its geometry, its materials, 183
+/// textures and every structure skin it stands, which reach across the map's own
+/// archive, the shared asset archives and one per champion-shaped prop. At four
+/// those evicted each other mid-load and every eviction re-read a whole table.
+const MOUNT_CAPACITY: NonZeroUsize = NonZeroUsize::new(16).unwrap();
 
 /// A bounded cache of mounted WAD archives.
 ///
