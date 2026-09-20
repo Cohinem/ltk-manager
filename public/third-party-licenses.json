@@ -905,6 +905,14 @@
     },
     {
       "name": "base64",
+      "version": "0.21.7",
+      "url": "https://github.com/marshallpierce/rust-base64",
+      "licenses": [
+        28
+      ]
+    },
+    {
+      "name": "base64",
       "version": "0.22.1",
       "url": "https://github.com/marshallpierce/rust-base64",
       "licenses": [
@@ -2533,6 +2541,14 @@
       "url": "https://github.com/wcampbell0x2a/no-std-io2",
       "licenses": [
         12
+      ]
+    },
+    {
+      "name": "nohash-hasher",
+      "version": "0.2.0",
+      "url": "https://github.com/paritytech/nohash-hasher",
+      "licenses": [
+        2
       ]
     },
     {

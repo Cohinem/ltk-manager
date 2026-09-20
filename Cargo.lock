@@ -3167,7 +3167,7 @@ dependencies = [
 [[package]]
 name = "ltk_fantome"
 version = "0.12.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
@@ -3197,7 +3197,7 @@ dependencies = [
 [[package]]
 name = "ltk_game_data"
 version = "0.2.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "camino",
  "glam",
@@ -3216,7 +3216,7 @@ dependencies = [
 [[package]]
 name = "ltk_game_index"
 version = "0.1.1"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "camino",
  "ltk_file",
@@ -3257,7 +3257,7 @@ dependencies = [
 [[package]]
 name = "ltk_hashtable"
 version = "0.1.2"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "camino",
  "ltk_hash",
@@ -3346,7 +3346,7 @@ dependencies = [
 [[package]]
 name = "ltk_mod_core"
 version = "0.1.1"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "camino",
  "serde",
@@ -3358,7 +3358,7 @@ dependencies = [
 [[package]]
 name = "ltk_mod_project"
 version = "0.10.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "camino",
  "ignore",
@@ -3384,7 +3384,7 @@ dependencies = [
 [[package]]
 name = "ltk_modpkg"
 version = "0.10.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "binrw",
  "byteorder",
@@ -3404,7 +3404,7 @@ dependencies = [
 [[package]]
 name = "ltk_overlay"
 version = "0.10.0"
-source = "git+https://github.com/LeagueToolkit/league-mod?rev=c3b0427bb0c4206fc7b6c00f034985d4d4d129ca#c3b0427bb0c4206fc7b6c00f034985d4d4d129ca"
+source = "git+https://github.com/LeagueToolkit/league-mod?rev=3515978b115d5018ec2cd6983446c8fc70a4bf69#3515978b115d5018ec2cd6983446c8fc70a4bf69"
 dependencies = [
  "byteorder",
  "camino",
@@ -3716,6 +3716,12 @@ checksum = "418abd1b6d34fbf6cae440dc874771b0525a604428704c76e48b29a5e67b8003"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "nom"
@@ -5379,11 +5385,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8050abb251097357e24aff63ba2c52a6309ecb7d23a5474023df960a02694d8"
 dependencies = [
  "annotate-snippets",
+ "base64 0.21.7",
  "encoding_rs_io",
  "granit-parser",
+ "nohash-hasher",
  "num-traits",
  "serde_core",
  "smallvec",
+ "zmij",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 use super::*;
 use assert_matches::assert_matches;
-use ltk_game_data::{BinHash, path_hash};
+use ltk_game_data::{BinHash, IndexMap, path_hash};
 
 const SKIN0: &str = "Characters/Teemo/Skins/Skin0";
 const RESOURCES: &str = "Characters/Teemo/Skins/Skin0/Resources";
@@ -695,5 +695,77 @@ fn a_one_line_value_turned_block_keeps_its_comment_on_the_key_line() {
             "        iconCircle: assets/characters/jade_teemo/hud/jade_teemo_circle_301.tex # circle\n",
             "        iconCircle: # circle\n          - a.tex\n          - b.tex\n"
         )])
+    );
+}
+
+#[test]
+fn a_rendered_value_sets_as_the_text_it_writes() {
+    let pin = Value::Mapping(IndexMap::from([(
+        "embed".to_owned(),
+        Value::Mapping(IndexMap::from([
+            (
+                "class".to_owned(),
+                Value::String("SkinMeshDataProperties".to_owned()),
+            ),
+            (
+                "set".to_owned(),
+                Value::Mapping(IndexMap::from([
+                    (
+                        "texture".to_owned(),
+                        Value::String("assets/x.tex".to_owned()),
+                    ),
+                    (
+                        "brushAlphaOverride".to_owned(),
+                        Value::List(vec![Value::Float(0.5), Value::Integer(1)]),
+                    ),
+                ])),
+            ),
+        ])),
+    )]));
+    let text = edited(
+        None,
+        &[
+            edit(
+                SKIN0,
+                "skinMeshProperties",
+                Operation::Set(ValueText::try_from(&pin).unwrap()),
+            ),
+            edit(
+                SKIN0,
+                "championSkinName",
+                Operation::Set(ValueText::try_from(&Value::String("true".to_owned())).unwrap()),
+            ),
+        ],
+    );
+    assert_eq!(
+        text,
+        "\
+version: 1
+modules:
+  - entries:
+      Characters/Teemo/Skins/Skin0:
+        skinMeshProperties:
+          embed:
+            class: SkinMeshDataProperties
+            set:
+              texture: assets/x.tex
+              brushAlphaOverride: [0.5, 1]
+        championSkinName: \"true\"
+",
+    );
+
+    let dir = layer(Some(&text));
+    let declarations = Manifest::read(dir.path())
+        .unwrap()
+        .declarations()
+        .unwrap()
+        .unwrap();
+    let ltk_game_data::Selector::Entries(entries) = &declarations.modules[0].selector else {
+        panic!("expected an entries module");
+    };
+    assert_eq!(entries[0].properties[0].value, pin);
+    assert_eq!(
+        entries[0].properties[1].value,
+        Value::String("true".to_owned())
     );
 }
