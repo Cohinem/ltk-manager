@@ -362,8 +362,23 @@ impl Manifest {
         Ok(())
     }
 
+    /// Replace the held text with `text`, which an undo holds from before an edit.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Uneditable`] for a text that is not blank and does not load, which leaves
+    /// the held text as it was.
+    pub fn restore(&mut self, text: &str) -> Result<(), Error> {
+        let text = DocumentText::new(text.replace("\r\n", "\n"));
+        if let Err(error) = self.load(&text) {
+            return Err(self.uneditable(Refusal::DoesNotLoad(error.to_string())));
+        }
+        self.text = text;
+        Ok(())
+    }
+
     /// Write the held text over the manifest, in the line ending it was read
-    /// with.
+    /// with. A blank text removes the manifest.
     ///
     /// # Errors
     ///
@@ -381,6 +396,12 @@ impl Manifest {
             });
         }
 
+        if self.text.is_blank() {
+            if self.read.take().is_some() {
+                fs::remove_file(&self.path)?;
+            }
+            return Ok(());
+        }
         let bytes = self.ending.apply(self.text.as_str()).into_bytes();
         if self.read.as_ref() == Some(&bytes) {
             return Ok(());
