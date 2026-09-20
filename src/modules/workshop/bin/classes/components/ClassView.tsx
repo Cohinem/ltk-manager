@@ -14,6 +14,7 @@ import {
   useCheckLinkTargets,
   useWarmLinkOpen,
 } from "../../links/hooks/useLinkTargets";
+import { preloadMapViewport } from "../../map/components/MapPreview";
 import { nameHash } from "../../shared/utils/binHash";
 import { preloadSkinViewport } from "../../skin/components/SkinPreview";
 import { SkinChoiceContext, useSkinChoice } from "../../skin/state/skinChoice";
@@ -32,7 +33,17 @@ import { emitterRows } from "../../vfx/inspector/utils/emitterCards";
 import { cellLine, cellRows, useLayoutRead } from "../hooks/useLayoutRead";
 import { type ClassLayout, frameOf, type LayoutFrame, placeRows } from "../utils/classLayouts";
 import type { ViewContext } from "./ClassCells";
-import { crumbName, RunHost, SkinHero, SkinShell, Stack, VfxHero, VfxShell } from "./ClassFrames";
+import {
+  crumbName,
+  MapHero,
+  MapShell,
+  RunHost,
+  SkinHero,
+  SkinShell,
+  Stack,
+  VfxHero,
+  VfxShell,
+} from "./ClassFrames";
 
 /**
  * The width a strip and an inspector both need, under which a shell falls to the stack.
@@ -98,6 +109,10 @@ export function ClassView({
   useEffect(() => {
     if (skin) preloadSkinViewport();
   }, [skin]);
+  const map = layout.shell === "map";
+  useEffect(() => {
+    if (map) preloadMapViewport();
+  }, [map]);
 
   /* The run is held above both frames (ADR-0037), so a change of frame mounts the preview
      in another place and loses neither the clock nor the seed. */
@@ -188,6 +203,7 @@ export function ClassView({
                                     {skin && (
                                       <SkinHero view={view} entry={roots[0]?.entry ?? null} />
                                     )}
+                                    {map && <MapHero view={view} entry={roots[0]?.entry ?? null} />}
                                     {layout.shell === "vfx" && <VfxHero drawable={drawable} />}
                                   </>
                                 }
@@ -200,6 +216,14 @@ export function ClassView({
                                 view={view}
                                 system={system}
                                 drawable={drawable}
+                              />
+                            )}
+                            {frame === "shell" && map && (
+                              <MapShell
+                                placed={placed}
+                                pages={pages}
+                                view={view}
+                                entry={roots[0]?.entry ?? null}
                               />
                             )}
                             {frame === "shell" && skin && (

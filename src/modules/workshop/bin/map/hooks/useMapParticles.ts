@@ -11,11 +11,11 @@ import type {
 } from "@/lib/tauri";
 import { DEFAULT_LAYER, useBackdropMaterials } from "@/modules/viewport";
 
+import { systemModel } from "../../skin/utils/skinScene";
 import type { SystemModel } from "../../vfx/engine/model/model";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
-import { skinQueries } from "../api/skinQueries";
+import { mapQueries } from "../api/mapQueries";
 import { particlesBySystem, playedParticles } from "../utils/mapParticles";
-import { systemModel } from "../utils/skinScene";
 
 /** One system a map plays, and every place the map stands it. */
 export interface MapParticleGroup {
@@ -55,7 +55,7 @@ function modelsOf(results: UseQueryResult<VfxSystem, AppError>[]): (SystemModel 
  * reads nothing.
  */
 export function useMapParticles(document: BinDocumentId | null): readonly MapParticleGroup[] {
-  const placed = useQuery(skinQueries.mapParticles(document));
+  const placed = useQuery(mapQueries.particles(document));
 
   const played = useMemo(
     () => [...particlesBySystem(playedParticles(placed.data ?? [], DEFAULT_LAYER))],

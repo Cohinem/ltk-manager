@@ -22,7 +22,9 @@ import {
 
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { nameHash } from "../../shared/utils/binHash";
-import { skinQueries } from "../api/skinQueries";
+import { skinQueries } from "../../skin/api/skinQueries";
+import { bindingOf, playlistOf, textureAssets } from "../../skin/utils/skinScene";
+import { mapQueries } from "../api/mapQueries";
 import {
   charactersByAnimation,
   charactersBySkin,
@@ -31,7 +33,6 @@ import {
   skinFile,
   stoodCharacters,
 } from "../utils/mapCharacters";
-import { bindingOf, playlistOf, textureAssets } from "../utils/skinScene";
 
 /** `useFrame` runs the lowest priority first, so the clock moves before a pose samples it. */
 const BEFORE_THE_POSES = -1;
@@ -49,7 +50,7 @@ export interface MapCharactersProps {
  * rather than the scene's, since a map's banners wave on through a clip that restarts.
  */
 export function MapCharacters({ document }: MapCharactersProps) {
-  const placed = useQuery(skinQueries.mapCharacters(document));
+  const placed = useQuery(mapQueries.characters(document));
   const skins = useMemo(
     () => [...charactersBySkin(stoodCharacters(placed.data ?? [], DEFAULT_LAYER))],
     [placed.data],
@@ -73,7 +74,7 @@ interface SkinProps {
 
 /** A skin whose bin this install holds. One it does not is a prop the map draws without. */
 function LocatedSkin(props: SkinProps) {
-  const file = useQuery(skinQueries.gameFile(skinFile(props.skin)));
+  const file = useQuery(mapQueries.gameFile(skinFile(props.skin)));
   if (file.data == null) return null;
   return <OpenedSkin {...props} asset={file.data} />;
 }

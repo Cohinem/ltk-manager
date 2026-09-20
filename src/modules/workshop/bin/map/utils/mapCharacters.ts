@@ -1,7 +1,7 @@
 import type { GraphClip, MapCharacter } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
-import { openingClip, playableClips } from "./skinScene";
+import { openingClip, playableClips } from "../../skin/utils/skinScene";
 
 /** The team a jungle camp stands for, which the game spawns on a timer rather than at load. */
 const NEUTRAL_TEAM = 300;

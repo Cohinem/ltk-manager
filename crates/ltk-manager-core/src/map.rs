@@ -1,5 +1,5 @@
-//! What a map gives a backdrop: the materials its submeshes name, and the particles and
-//! characters it stands.
+//! What a map gives a preview: the materials its submeshes name, the particles and
+//! characters it stands, and which map an object of a map's own classes draws.
 //!
 //! A map's geometry rides the `ltk-asset` scheme as one `LTKM` buffer and never crosses
 //! IPC, so this module answers only the other half, which is the `StaticMaterialDef`
@@ -19,9 +19,11 @@ mod characters;
 mod fixtures;
 mod particles;
 mod placeable;
+mod variants;
 
 pub use characters::{MapCharacter, map_characters};
 pub use particles::{MapParticle, map_particles};
+pub use variants::{MapVariant, map_variants};
 
 /// Where the game reads a map's files from, under the entry path its container names.
 const DATA_PREFIX: &str = "data/";

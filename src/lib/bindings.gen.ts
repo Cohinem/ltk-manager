@@ -255,6 +255,12 @@ export const commands = {
 	 */
 	readMapCharacters: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapCharacter[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_characters", { document }),
 	/**
+	 *  The maps the `Map`, `MapSkin` or `MapContainer` at `entry` draws.
+	 * 
+	 *  Empty for a skin that links no container and for an object of any other class.
+	 */
+	readMapVariants: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: MapVariant[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_variants", { document, entry }),
+	/**
 	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
 	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
@@ -1719,6 +1725,14 @@ export type MapParticle = {
  *  has.
  */
 export type MapPath = string;
+
+/**  One map an object draws, and the skin that names it. */
+export type MapVariant = {
+	/**  The `MapSkin`'s own name, and none for a map a container states itself. */
+	skin: string | null,
+	/**  The map that skin draws. */
+	map: MapPath,
+};
 
 /**  One entry of `mMaskDataMap`. */
 export type Mask = {

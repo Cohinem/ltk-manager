@@ -186,6 +186,7 @@ export type {
   MapModel,
   MapParticle,
   MapPath,
+  MapVariant,
   Mask,
   MaterialPreview,
   MaterialWarning,
@@ -532,6 +533,8 @@ export const api = {
       commands.readMapParticles(document).then(toResult),
     readMapCharacters: (document: BinDocumentId) =>
       commands.readMapCharacters(document).then(toResult),
+    readMapVariants: (document: BinDocumentId, entry: string) =>
+      commands.readMapVariants(document, entry).then(toResult),
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
       commands.readAnimationGraph(document, entry).then(toResult),
     readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),

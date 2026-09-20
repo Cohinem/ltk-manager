@@ -252,7 +252,7 @@ function sanitizeShells(entry: Partial<PersistedProjectEditor> & LegacyShell): S
         typeof leafId === "string" && findLeaf(layout, leafId) ? leafId : firstShellLeafId(layout),
     };
   };
-  return { vfx: read("vfx"), skin: read("skin") };
+  return { vfx: read("vfx"), skin: read("skin"), map: read("map") };
 }
 
 /* Every field of a reference reaches the backend, which checks each one against

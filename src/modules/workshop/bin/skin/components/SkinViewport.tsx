@@ -12,7 +12,7 @@ import {
 } from "@phosphor-icons/react";
 import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { type ReactNode, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -55,15 +55,18 @@ import {
 } from "@/stores";
 
 import { assetKey } from "../../../preview/utils/assetRef";
+import { MapCharacters } from "../../map/components/MapCharacters";
+import { MapParticles } from "../../map/components/MapParticles";
+import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
 import { Notice } from "../../vfx/preview/components/Notice";
+import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { distorts } from "../../vfx/rendering/utils/drawKind";
 import { fades } from "../../vfx/rendering/utils/softParticle";
 import { skinQueries } from "../api/skinQueries";
 import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/useGraphSource";
-import { useMapMaterialsFile, useMapParticles } from "../hooks/useMapParticles";
 import { useSkinKeys } from "../hooks/useSkinKeys";
 import { overriddenHidden, SkinChoiceContext, useSkinChoice } from "../state/skinChoice";
 import {
@@ -89,8 +92,6 @@ import {
 } from "../utils/skinScene";
 import { ClipEffect } from "./ClipEffect";
 import { IdleEffect } from "./IdleEffect";
-import { MapCharacters } from "./MapCharacters";
-import { MapParticles } from "./MapParticles";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
 
 /** `useFrame` runs the lowest priority first, so the clock moves before anything samples it. */
@@ -546,32 +547,6 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
         onClipChange={setPicked}
       />
     </>
-  );
-}
-
-interface ViewToggleProps {
-  readonly label: string;
-  readonly active: boolean;
-  readonly icon: ReactNode;
-  readonly onClick: () => void;
-}
-
-/** One of the preview's switches: an icon that reads as on through its accent fill, named on hover. */
-function ViewToggle({ label, active, icon, onClick }: ViewToggleProps) {
-  return (
-    <Tooltip content={label}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        compact
-        aria-label={label}
-        aria-pressed={active}
-        /* DS-VEIL, DS-RADIUS */
-        className={active ? "bg-accent-500/15 text-accent-300 hover:bg-accent-500/25" : undefined}
-        icon={icon}
-        onClick={onClick}
-      />
-    </Tooltip>
   );
 }
 

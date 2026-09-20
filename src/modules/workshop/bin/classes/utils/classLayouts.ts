@@ -197,6 +197,61 @@ export const animationGraphLayout: ClassLayout = {
 };
 
 /**
+ * The map, which lists the skins it plays under and draws the one a reader picks.
+ *
+ * It declares a shell as its skin and its container do, because the drawn map is what a
+ * reader of any of the three is looking at.
+ */
+export const mapLayout: ClassLayout = {
+  title: m.workshop_bin_layout_map_label,
+  shell: "map",
+  sections: [
+    { title: m.workshop_bin_section_identity_label, fields: ["mapStringId", "BasedOnMap"] },
+    { title: m.workshop_bin_section_map_skins_label, fields: ["mapSkins"], as: "rows" },
+    {
+      title: m.workshop_bin_section_characters_label,
+      fields: ["characterLists", "SharedCharacterLists"],
+      as: "rows",
+    },
+  ],
+};
+
+/** The map skin, which names the container whose geometry it draws. */
+export const mapSkinLayout: ClassLayout = {
+  title: m.workshop_bin_layout_map_skin_label,
+  shell: "map",
+  sections: [
+    { title: m.workshop_bin_section_identity_label, fields: ["name", "mMapContainerLink"] },
+    {
+      title: m.workshop_bin_section_look_label,
+      fields: [
+        "mSkyboxCubemapTexture",
+        "mGrassTintTexture",
+        "mColorizationPostEffect",
+        "GammaParameters",
+        "ShadowsEnabled",
+      ],
+    },
+    { title: m.workshop_bin_section_minimap_label, fields: ["mMinimapBackgroundConfig"] },
+    { title: m.workshop_bin_section_vfx_label, fields: ["WorldParticles", "mResourceResolvers"] },
+  ],
+};
+
+/** The map container, which states the map its file draws and the chunks it is cut into. */
+export const mapContainerLayout: ClassLayout = {
+  title: m.workshop_bin_layout_map_container_label,
+  shell: "map",
+  sections: [
+    {
+      title: m.workshop_bin_section_identity_label,
+      fields: ["mapPath", "boundsMin", "boundsMax", "lowestWalkableHeight"],
+    },
+    { title: m.workshop_bin_section_chunks_label, fields: ["chunks"], as: "rows" },
+    { title: m.workshop_bin_section_components_label, fields: ["components"], as: "tree" },
+  ],
+};
+
+/**
  * Every layout, by the class hash it draws.
  *
  * Each subclass is listed by hand, because the meta schema carries no inheritance and
@@ -208,6 +263,9 @@ const LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
   [nameHash("TftSkinCharacterDataProperties"), skinLayout],
   [nameHash("VfxSystemDefinitionData"), vfxLayout],
   [nameHash("AnimationGraphData"), animationGraphLayout],
+  [nameHash("Map"), mapLayout],
+  [nameHash("MapSkin"), mapSkinLayout],
+  [nameHash("MapContainer"), mapContainerLayout],
 ]);
 
 /** The layout `classHash` opens in, or undefined for a class that has none. */
