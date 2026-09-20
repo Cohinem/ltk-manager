@@ -331,7 +331,10 @@ fn a_body_material_reads_its_diffuse_tint_and_blend_off_its_own_fields() {
     assert_eq!(preview.alpha_test, None);
     assert_eq!(
         preview.render_state,
-        RenderState::default(),
+        RenderState {
+            dst_factor: BlendFactor::SrcAlpha,
+            ..RenderState::default()
+        },
         "the pass blends, and nothing says the material reads an alpha"
     );
     assert_eq!(preview.warnings, [MaterialWarning::NoShaderDefs]);
@@ -682,6 +685,120 @@ fn the_alpha_test_falls_to_a_half_on_a_masked_shader() {
 }
 
 #[test]
+fn the_blend_factor_pair_decides_the_class_and_whether_it_premultiplies() {
+    let blended = |src: u32, dst: u32| {
+        read(
+            Material::new()
+                .params(vec![param("AlphaTestValue", Some([0.3, 0.0, 0.0, 0.0]))])
+                .passes(vec![pass(
+                    SHADER_PATH,
+                    vec![
+                        (BLEND_ENABLE, values::Bool::new(true).into()),
+                        (SRC_COLOR_BLEND_FACTOR, values::U32::new(src).into()),
+                        (DST_COLOR_BLEND_FACTOR, values::U32::new(dst).into()),
+                    ],
+                )]),
+            None,
+        )
+        .render_state
+    };
+
+    assert_eq!(blended(1, 7).blending, Blending::Normal);
+    assert!(
+        blended(1, 7).premultiplied,
+        "one over one minus source alpha"
+    );
+    assert_eq!(blended(6, 7).blending, Blending::Normal);
+    assert!(!blended(6, 7).premultiplied, "straight alpha");
+    assert_eq!(blended(1, 0).blending, Blending::Opaque);
+    assert_eq!(blended(6, 1).blending, Blending::Additive);
+    assert_eq!(blended(1, 1).blending, Blending::Additive);
+    assert_eq!(blended(3, 0).blending, Blending::Modulate);
+    assert_eq!(blended(3, 0).src_factor, BlendFactor::OneMinusSrcColor);
+}
+
+#[test]
+fn a_pass_that_does_not_blend_is_opaque_whatever_its_factors_say() {
+    let state = read(
+        Material::new()
+            .with(SHADER_MACROS, string_map(&[("PREMULTIPLIED_ALPHA", "1")]))
+            .passes(vec![pass(
+                SHADER_PATH,
+                vec![
+                    (SRC_COLOR_BLEND_FACTOR, values::U32::new(6).into()),
+                    (DST_COLOR_BLEND_FACTOR, values::U32::new(7).into()),
+                ],
+            )]),
+        None,
+    )
+    .render_state;
+
+    assert_eq!(state.blending, Blending::Opaque);
+    assert_eq!(state.src_factor, BlendFactor::SrcAlpha);
+    assert!(
+        state.premultiplied,
+        "the macro still speaks where the pass does not blend"
+    );
+}
+
+#[test]
+fn a_cutout_takes_a_threshold_the_material_states_and_not_one_a_shader_implies() {
+    let straight = vec![
+        (BLEND_ENABLE, values::Bool::new(true).into()),
+        (SRC_COLOR_BLEND_FACTOR, values::U32::new(6).into()),
+        (DST_COLOR_BLEND_FACTOR, values::U32::new(7).into()),
+    ];
+    let clipped = read(
+        Material::new()
+            .params(vec![param("AlphaTestValue", Some([0.3, 0.0, 0.0, 0.0]))])
+            .passes(vec![pass(SHADER_PATH, straight.clone())]),
+        None,
+    );
+    let inferred = read(
+        Material::new()
+            .with(SHADER_MACROS, string_map(&[("FEATURE_MASKED", "1")]))
+            .passes(vec![pass(SHADER_PATH, straight.clone())]),
+        None,
+    );
+    let translucent = read(
+        Material::new()
+            .params(vec![
+                param("AlphaTestValue", Some([0.3, 0.0, 0.0, 0.0])),
+                param("Alpha", Some([0.5, 0.0, 0.0, 0.0])),
+            ])
+            .passes(vec![pass(SHADER_PATH, straight)]),
+        None,
+    );
+    let additive = read(
+        Material::new()
+            .params(vec![param("AlphaTestValue", Some([0.3, 0.0, 0.0, 0.0]))])
+            .passes(vec![pass(
+                SHADER_PATH,
+                vec![
+                    (BLEND_ENABLE, values::Bool::new(true).into()),
+                    (DST_COLOR_BLEND_FACTOR, values::U32::new(1).into()),
+                ],
+            )]),
+        None,
+    );
+
+    assert!(clipped.render_state.cutout);
+    assert_eq!(inferred.alpha_test, Some(0.5));
+    assert!(
+        !inferred.render_state.cutout,
+        "a threshold a shader name implies hardens an edge nobody authored"
+    );
+    assert!(
+        !translucent.render_state.cutout,
+        "it still blends its opacity"
+    );
+    assert!(
+        !additive.render_state.cutout,
+        "an additive pass is not a cutout"
+    );
+}
+
+#[test]
 fn the_uv_slots_take_their_guards() {
     let repeat = read(
         body().params(vec![
@@ -742,7 +859,10 @@ fn the_render_state_reads_the_pass_with_the_class_defaults() {
         additive.render_state,
         RenderState {
             blending: Blending::Additive,
+            src_factor: BlendFactor::One,
+            dst_factor: BlendFactor::One,
             premultiplied: false,
+            cutout: false,
             double_sided: true,
             inverted: false,
             depth_write: false,

@@ -704,10 +704,15 @@ export type BinaryId = {
 	built: number | null,
 };
 
-/**  The three blends a preview tells apart. */
+/**  One side of the pair a pass blends by, a `StaticMaterialPassDef::BlendFactor`. */
+export type BlendFactor = "zero" | "one" | "srcColor" | "oneMinusSrcColor" | "dstColor" | "oneMinusDstColor" | "srcAlpha" | "oneMinusSrcAlpha";
+
+/**  The blends a preview tells apart. */
 export type Blending = "opaque" | 
 /**  Source alpha over one minus source alpha, which most character materials are. */
-"normal" | "additive";
+"normal" | "additive" | 
+/**  The target darkened by the source's own colour, which 17 shipped map materials do. */
+"modulate";
 
 /**  Coarse grouping for the UI. */
 export type Category = 
@@ -2178,8 +2183,17 @@ export type ReferenceResult = {
 /**  How a pass's fragments reach the target, from the first pass's own fields. */
 export type RenderState = {
 	blending: Blending,
-	/**  `PREMULTIPLIED_ALPHA=1` among the macros. */
+	/**  `StaticMaterialPassDef.srcColorBlendFactor`, defaulting to [`BlendFactor::One`]. */
+	srcFactor: BlendFactor,
+	/**  `StaticMaterialPassDef.dstColorBlendFactor`, defaulting to [`BlendFactor::Zero`]. */
+	dstFactor: BlendFactor,
+	/**  The pass multiplies its colour by its own alpha before blending. */
 	premultiplied: boolean,
+	/**
+	 *  The pass clips on a threshold it states itself and writes depth, so it draws
+	 *  unblended and the depth buffer resolves it rather than a sort.
+	 */
+	cutout: boolean,
 	/**  `cullEnable` is off, so both faces draw. */
 	doubleSided: boolean,
 	/**  The pass culls the winding the engine keeps by default, which an inverted hull does. */

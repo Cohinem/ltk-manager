@@ -57,6 +57,8 @@ const PASSES: BinHash = BinHash(0x623c_d25c);
 const SHADER: BinHash = BinHash(0x355d_5568);
 /// `StaticMaterialPassDef.blendEnable`.
 const BLEND_ENABLE: BinHash = BinHash(0x23b7_5597);
+/// `StaticMaterialPassDef.srcColorBlendFactor`.
+const SRC_COLOR_BLEND_FACTOR: BinHash = BinHash(0x22c0_c7d0);
 /// `StaticMaterialPassDef.dstColorBlendFactor`.
 const DST_COLOR_BLEND_FACTOR: BinHash = BinHash(0xbe0a_bbf5);
 /// `StaticMaterialPassDef.cullEnable`.
@@ -102,8 +104,6 @@ const SWITCHED_ALPHA_SWITCHES: [&str; 4] = [
 ];
 /// The switch of that shader that makes its blend additive, which its name says of all.
 const SWITCHED_ADDITIVE_SWITCH: &str = "ADDITIVEALPHA_ON";
-/// The blend factor `One`, which on the destination makes a blend additive.
-const BLEND_FACTOR_ONE: u64 = 1;
 /// The `writeMask` bit that writes depth. The default mask is 31.
 const WRITE_DEPTH: u64 = 16;
 /// The `windingToCull` the engine culls by default, counter-clockwise.
@@ -311,8 +311,15 @@ impl Wrap {
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct RenderState {
     pub blending: Blending,
-    /// `PREMULTIPLIED_ALPHA=1` among the macros.
+    /// `StaticMaterialPassDef.srcColorBlendFactor`, defaulting to [`BlendFactor::One`].
+    pub src_factor: BlendFactor,
+    /// `StaticMaterialPassDef.dstColorBlendFactor`, defaulting to [`BlendFactor::Zero`].
+    pub dst_factor: BlendFactor,
+    /// The pass multiplies its colour by its own alpha before blending.
     pub premultiplied: bool,
+    /// The pass clips on a threshold it states itself and writes depth, so it draws
+    /// unblended and the depth buffer resolves it rather than a sort.
+    pub cutout: bool,
     /// `cullEnable` is off, so both faces draw.
     pub double_sided: bool,
     /// The pass culls the winding the engine keeps by default, which an inverted hull does.
@@ -326,7 +333,10 @@ impl Default for RenderState {
     fn default() -> Self {
         Self {
             blending: Blending::Opaque,
+            src_factor: BlendFactor::One,
+            dst_factor: BlendFactor::Zero,
             premultiplied: false,
+            cutout: false,
             double_sided: false,
             inverted: false,
             depth_write: true,
@@ -335,7 +345,7 @@ impl Default for RenderState {
     }
 }
 
-/// The three blends a preview tells apart.
+/// The blends a preview tells apart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -346,6 +356,54 @@ pub enum Blending {
     /// Source alpha over one minus source alpha, which most character materials are.
     Normal,
     Additive,
+    /// The target darkened by the source's own colour, which 17 shipped map materials do.
+    Modulate,
+}
+
+impl Blending {
+    /// The blend a pass's factor pair names, for a pass that blends at all.
+    fn of(src: BlendFactor, dst: BlendFactor) -> Self {
+        match (src, dst) {
+            (BlendFactor::One, BlendFactor::Zero) => Self::Opaque,
+            (BlendFactor::OneMinusSrcColor, BlendFactor::Zero) => Self::Modulate,
+            (_, BlendFactor::One) => Self::Additive,
+            _ => Self::Normal,
+        }
+    }
+}
+
+/// One side of the pair a pass blends by, a `StaticMaterialPassDef::BlendFactor`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum BlendFactor {
+    Zero,
+    One,
+    SrcColor,
+    OneMinusSrcColor,
+    DstColor,
+    OneMinusDstColor,
+    SrcAlpha,
+    OneMinusSrcAlpha,
+}
+
+impl BlendFactor {
+    /// The factor `value` names, and `default` where the pass states none this build reads.
+    fn of(value: Option<&PropertyValueEnum>, default: Self) -> Self {
+        match integer(value) {
+            Some(0) => Self::Zero,
+            Some(1) => Self::One,
+            Some(2) => Self::SrcColor,
+            Some(3) => Self::OneMinusSrcColor,
+            Some(4) => Self::DstColor,
+            Some(5) => Self::OneMinusDstColor,
+            Some(6) => Self::SrcAlpha,
+            Some(7) => Self::OneMinusSrcAlpha,
+            _ => default,
+        }
+    }
 }
 
 /// Something the engine does silently that a preview says out loud.
@@ -496,18 +554,18 @@ impl<'a> Reader<'a> {
             .first_of(&OPACITY_NAMES)
             .map(|value| value[0])
             .filter(|x| (0.0..=1.0).contains(x));
-        let alpha_test = params
+        let authored_alpha_test = params
             .first_of(&ALPHA_TEST_NAMES)
             .map(|value| value[0])
-            .filter(|x| *x > 0.0 && *x < 1.0)
-            .or_else(|| {
-                let masked = shader
-                    .path
-                    .as_deref()
-                    .is_some_and(|path| MASKED_SHADER.is_match(path))
-                    || macros.get("FEATURE_MASKED").is_some_and(|on| on == "1");
-                masked.then_some(MASKED_ALPHA_TEST)
-            });
+            .filter(|x| *x > 0.0 && *x < 1.0);
+        let alpha_test = authored_alpha_test.or_else(|| {
+            let masked = shader
+                .path
+                .as_deref()
+                .is_some_and(|path| MASKED_SHADER.is_match(path))
+                || macros.get("FEATURE_MASKED").is_some_and(|on| on == "1");
+            masked.then_some(MASKED_ALPHA_TEST)
+        });
         let uv_repeat = params
             .first_of(&UV_REPEAT_NAMES)
             .map(|value| [value[0], value[1]])
@@ -534,6 +592,13 @@ impl<'a> Reader<'a> {
         if render_state.blending == Blending::Normal && !reads_alpha {
             render_state.blending = Blending::Opaque;
         }
+        /* An inferred threshold is not enough to call a pass a cutout: 1,237 shipped
+        champion passes take theirs from a shader named `Masked` and would harden a wing
+        or a hair edge nobody authored. */
+        render_state.cutout = render_state.blending == Blending::Normal
+            && render_state.depth_write
+            && authored_alpha_test.is_some()
+            && opacity.is_none_or(|value| value >= 1.0);
 
         MaterialPreview {
             hash: hex(self.hash),
@@ -863,22 +928,37 @@ fn render_state(
 ) -> RenderState {
     let field = |hash: BinHash| pass.and_then(|pass| pass.get(&hash));
     let blend = boolean(field(BLEND_ENABLE)).unwrap_or(false);
-    let additive = (blend && integer(field(DST_COLOR_BLEND_FACTOR)) == Some(BLEND_FACTOR_ONE))
-        || macros
-            .get("SKINNED_MATERIAL_ADDITIVE")
-            .is_some_and(|on| on == "1")
-        || (blend && additive_shader);
+    let src = BlendFactor::of(field(SRC_COLOR_BLEND_FACTOR), BlendFactor::One);
+    let dst = BlendFactor::of(field(DST_COLOR_BLEND_FACTOR), BlendFactor::Zero);
+    let mut blending = if blend {
+        Blending::of(src, dst)
+    } else {
+        Blending::Opaque
+    };
+    /* A pass whose state says nothing additive still is where its shader says so, which
+    the packed shader does in a switch rather than in a factor. */
+    if macros
+        .get("SKINNED_MATERIAL_ADDITIVE")
+        .is_some_and(|on| on == "1")
+        || (blend && additive_shader)
+    {
+        blending = Blending::Additive;
+    }
     RenderState {
-        blending: if additive {
-            Blending::Additive
-        } else if blend {
-            Blending::Normal
+        blending,
+        src_factor: src,
+        dst_factor: dst,
+        /* Decided by the caller, which is where the clip parameters are read. */
+        cutout: false,
+        /* The pair is what the pass itself states and the macro is what its shader was
+        built with, so the pair decides wherever the pass blends at all. */
+        premultiplied: if blend {
+            src == BlendFactor::One && dst == BlendFactor::OneMinusSrcAlpha
         } else {
-            Blending::Opaque
+            macros
+                .get("PREMULTIPLIED_ALPHA")
+                .is_some_and(|on| on == "1")
         },
-        premultiplied: macros
-            .get("PREMULTIPLIED_ALPHA")
-            .is_some_and(|on| on == "1"),
         double_sided: !boolean(field(CULL_ENABLE)).unwrap_or(true),
         inverted: integer(field(WINDING_TO_CULL)).unwrap_or(CULL_CCW) != CULL_CCW,
         depth_write: integer(field(WRITE_MASK)).unwrap_or(31) & WRITE_DEPTH != 0,
