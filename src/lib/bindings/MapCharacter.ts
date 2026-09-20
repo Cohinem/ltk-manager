@@ -27,4 +27,9 @@ controller: string | null,
 /**
  * The team it stands for, where it states one. 300 is the neutral team a camp is on.
  */
-team: number | null, };
+team: number | null, 
+/**
+ * The clip a `GDSMapObjectAnimationInfo` names for it, by the name its graph keys it
+ * under. None plays whatever the graph idles on.
+ */
+animation: string | null, };

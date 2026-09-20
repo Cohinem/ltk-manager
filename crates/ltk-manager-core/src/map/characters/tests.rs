@@ -1,5 +1,5 @@
 use ltk_meta::PropertyValueEnum;
-use ltk_meta::property::values;
+use ltk_meta::property::{Kind, values};
 
 use super::*;
 use crate::bin_document::hex;
@@ -80,6 +80,36 @@ fn a_level_prop_wears_the_character_its_name_spells() {
             "Characters/Srx_Banner_VerticalThin/Skins/Skin0"
         ]
     );
+}
+
+#[test]
+fn a_level_prop_plays_the_clip_its_animation_info_names() {
+    let mut fields = vec![
+        (NAME, values::String::from("LevelProp_sru_bird3").into()),
+        (OBJECT_TYPE, values::U8::new(LEVEL_PROP).into()),
+    ];
+    let info = placeable(
+        "GDSMapObjectAnimationInfo",
+        vec![(DEFAULT_ANIMATION, values::String::from("Idle2").into())],
+    );
+    fields.push((
+        EXTRA_INFO,
+        values::Container::new(Kind::Struct, vec![info])
+            .unwrap()
+            .into(),
+    ));
+    let document = document_of(vec![container(
+        "Chunks/Props",
+        vec![
+            ("a", placeable("GdsMapObject", fields)),
+            ("b", gds_object("LevelProp_sru_snail1", LEVEL_PROP)),
+        ],
+    )]);
+
+    let characters = map_characters(&document);
+
+    assert_eq!(characters[0].animation.as_deref(), Some("Idle2"));
+    assert_eq!(characters[1].animation, None);
 }
 
 #[test]

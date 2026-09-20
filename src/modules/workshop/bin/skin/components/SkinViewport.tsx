@@ -393,7 +393,7 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
           <FitCamera bounds={bounds} ground={stood} token={fitToken} />
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={mapParticles} />
-          {backdropStructures && <MapCharacters document={mapFile.document} clock={clock} />}
+          {backdropStructures && <MapCharacters document={mapFile.document} />}
           <Placement
             enabled={move}
             mode={moveMode}

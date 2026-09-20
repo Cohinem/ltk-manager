@@ -9,7 +9,7 @@ use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
 use super::placeable::{controller, name, placeables, transform, visibility};
-use crate::bin_document::{BinDocument, Fields, fields_of, leaf, text};
+use crate::bin_document::{BinDocument, Fields, fields_of, items, leaf, struct_of, text};
 
 /// `Character`, the component a gameplay placeable names its character in.
 const CHARACTER: BinHash = BinHash(0x8b3a_a710);
@@ -23,6 +23,13 @@ const GDS_MAP_OBJECT: BinHash = BinHash(0xda9e_5c0c);
 const OBJECT_TYPE: BinHash = BinHash(0x5127_f14d);
 /// `GdsMapObject.mapObjectSkinID`.
 const OBJECT_SKIN_ID: BinHash = BinHash(0xd65a_78b6);
+
+/// `GdsMapObject.extraInfo`, a list of `GDSMapObjectExtraInfo`.
+const EXTRA_INFO: BinHash = BinHash(0xf549_ff11);
+/// `GDSMapObjectAnimationInfo`.
+const ANIMATION_INFO: BinHash = BinHash(0x892e_1ff2);
+/// `GDSMapObjectAnimationInfo.defaultAnimation`.
+const DEFAULT_ANIMATION: BinHash = BinHash(0xedf1_840c);
 
 /// The `GdsMapObject.type` of a level prop, which is the one type that draws a character.
 const LEVEL_PROP: u8 = 10;
@@ -48,6 +55,9 @@ pub struct MapCharacter {
     pub controller: Option<String>,
     /// The team it stands for, where it states one. 300 is the neutral team a camp is on.
     pub team: Option<u32>,
+    /// The clip a `GDSMapObjectAnimationInfo` names for it, by the name its graph keys it
+    /// under. None plays whatever the graph idles on.
+    pub animation: Option<String>,
 }
 
 /// Every character `materials` stands in its map, in file order.
@@ -70,9 +80,21 @@ pub fn map_characters(materials: &BinDocument) -> Vec<MapCharacter> {
                     Some(Leaf::U32(team)) => Some(team),
                     _ => None,
                 }),
+                animation: default_animation(fields),
             })
         })
         .collect()
+}
+
+/// The clip the placeable's animation info names, and none for an empty name.
+fn default_animation(fields: &Fields) -> Option<String> {
+    items(fields.get(&EXTRA_INFO))
+        .iter()
+        .filter_map(|info| struct_of(Some(info)))
+        .find(|(class, _)| *class == ANIMATION_INFO)
+        .and_then(|(_, info)| text(info.get(&DEFAULT_ANIMATION)))
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
 }
 
 /// The skin a level prop wears, off its name with the prefix and the trailing count gone.

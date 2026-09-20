@@ -1,5 +1,7 @@
-import type { MapCharacter } from "@/lib/tauri";
+import type { GraphClip, MapCharacter } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
+
+import { openingClip, playableClips } from "./skinScene";
 
 /** The team a jungle camp stands for, which the game spawns on a timer rather than at load. */
 const NEUTRAL_TEAM = 300;
@@ -39,6 +41,35 @@ export function charactersBySkin(
     else group.push(character);
   }
   return held;
+}
+
+/** `characters` under the clip the map names for each, and under null where it names none. */
+export function charactersByAnimation(
+  characters: readonly MapCharacter[],
+): Map<string | null, readonly MapCharacter[]> {
+  const held = new Map<string | null, MapCharacter[]>();
+  for (const character of characters) {
+    const key = character.animation?.toLowerCase() ?? null;
+    const group = held.get(key);
+    if (group === undefined) held.set(key, [character]);
+    else group.push(character);
+  }
+  return held;
+}
+
+/**
+ * The clip a map's character stands in: the one the map names, else the graph's idle.
+ *
+ * A name the graph keys no playable clip under falls back as no name does, and null is a
+ * graph with no idle, which stands in its bind pose.
+ */
+export function idleClip(clips: readonly GraphClip[], animation: string | null): GraphClip | null {
+  const playable = playableClips(clips);
+  const named =
+    animation === null
+      ? undefined
+      : playable.find((clip) => clip.name.toLowerCase() === animation.toLowerCase());
+  return named ?? openingClip(playable);
 }
 
 /** The file a skin's entry path lives in: `Characters/Turret/Skins/Skin0` under `data/`. */
