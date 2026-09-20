@@ -89,79 +89,77 @@ export function drawnMeshes(map: MapGeometry, layer: number): MapMesh[] {
 }
 
 /**
+ * How many indices of the drawn runs are stepped over between samples.
+ *
+ * Nine is one vertex of every third triangle, which leaves Summoner's Rift around 20,000
+ * points to take a median of rather than 183,000.
+ */
+const SAMPLE_STRIDE = 9;
+
+/**
+ * How wide a circle the ground height is read over, in engine units.
+ *
+ * Two champion heights. On open ground it holds terrain alone, and under a canopy it
+ * still holds far more terrain than leaves, which is what the median needs.
+ */
+const GROUND_RADIUS = 400;
+
+/**
  * Where a subject stands on a map before anyone moves it.
  *
- * The middle of the drawn meshes' union box on the flat axes, and the highest triangle
- * over that point on the up axis, so the subject stands on ground rather than in the air
- * above it or inside the terrain below. Null where the layer draws nothing.
+ * The median of the drawn geometry on each axis, rather than the middle of its bounding
+ * box. A map draws far scenery tens of thousands of units past the ground a game is
+ * played on, which drags a box's middle, and a mean with it, off the playable area
+ * entirely. A median follows where the geometry is dense instead.
+ *
+ * The height is the median of the points standing within [`GROUND_RADIUS`] of that spot,
+ * so neither a canopy above nor the skirt hanging under the terrain moves it. Null where
+ * the layer draws nothing.
  */
 export function mapOrigin(map: MapGeometry, layer: number): [number, number, number] | null {
-  const drawn = drawnMeshes(map, layer);
-  if (drawn.length === 0) return null;
+  const points = drawnPoints(map, layer);
+  const count = points.length / 3;
+  if (count === 0) return null;
 
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minY = Infinity;
-  let minZ = Infinity;
-  let maxZ = -Infinity;
-  for (const mesh of drawn) {
-    minX = Math.min(minX, mesh.min[0]);
-    maxX = Math.max(maxX, mesh.max[0]);
-    minY = Math.min(minY, mesh.min[1]);
-    minZ = Math.min(minZ, mesh.min[2]);
-    maxZ = Math.max(maxZ, mesh.max[2]);
+  const held = new Float64Array(count);
+  const middle = (axis: number) => {
+    for (let at = 0; at < count; at += 1) held[at] = points[at * 3 + axis];
+    return median(held);
+  };
+  const x = middle(0);
+  const z = middle(2);
+
+  const reach = GROUND_RADIUS * GROUND_RADIUS;
+  const near: number[] = [];
+  for (let at = 0; at < count; at += 1) {
+    const dx = points[at * 3] - x;
+    const dz = points[at * 3 + 2] - z;
+    if (dx * dx + dz * dz <= reach) near.push(points[at * 3 + 1]);
   }
-
-  const x = (minX + maxX) / 2;
-  const z = (minZ + maxZ) / 2;
-  return [x, groundAt(map, drawn, x, z) ?? minY, z];
+  return [x, near.length === 0 ? middle(1) : median(Float64Array.from(near)), z];
 }
 
-/** The highest drawn triangle over `x, z`, and null where none covers the point. */
-function groundAt(
-  map: MapGeometry,
-  drawn: readonly MapMesh[],
-  x: number,
-  z: number,
-): number | null {
-  let best: number | null = null;
-  for (const mesh of drawn) {
-    /* The box filter is what makes this affordable: a map is two million vertices and a
-       handful of its meshes stand over any one point. */
-    if (x < mesh.min[0] || x > mesh.max[0] || z < mesh.min[2] || z > mesh.max[2]) continue;
+/** The middle value of `values`, which are sorted in place to find it. */
+function median(values: Float64Array): number {
+  values.sort();
+  return values[values.length >> 1];
+}
+
+/** Every [`SAMPLE_STRIDE`]th vertex of what `layer` draws, as flat triples. */
+function drawnPoints(map: MapGeometry, layer: number): number[] {
+  const points: number[] = [];
+  for (const mesh of drawnMeshes(map, layer)) {
     for (let at = 0; at < mesh.submeshCount; at += 1) {
       const run = map.submeshes[mesh.firstSubmesh + at];
       if (run === undefined) continue;
       const end = Math.min(run.startIndex + run.indexCount, map.indices.length);
-      for (let index = run.startIndex; index + 2 < end; index += 3) {
-        const y = heightIn(map, index, x, z);
-        if (y !== null && (best === null || y > best)) best = y;
+      for (let index = run.startIndex; index < end; index += SAMPLE_STRIDE) {
+        const vertex = map.indices[index] * 3;
+        points.push(map.positions[vertex], map.positions[vertex + 1], map.positions[vertex + 2]);
       }
     }
   }
-  return best;
-}
-
-/** The triangle's height over `x, z`, and null where the point is outside it. */
-function heightIn(map: MapGeometry, index: number, x: number, z: number): number | null {
-  const at = map.positions;
-  const a = map.indices[index] * 3;
-  const b = map.indices[index + 1] * 3;
-  const c = map.indices[index + 2] * 3;
-  const ax = at[a];
-  const az = at[a + 2];
-  const bx = at[b];
-  const bz = at[b + 2];
-  const cx = at[c];
-  const cz = at[c + 2];
-
-  const area = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
-  if (area === 0) return null;
-  const u = ((bz - cz) * (x - cx) + (cx - bx) * (z - cz)) / area;
-  const v = ((cz - az) * (x - cx) + (ax - cx) * (z - cz)) / area;
-  const w = 1 - u - v;
-  if (u < 0 || v < 0 || w < 0) return null;
-  return u * at[a + 1] + v * at[b + 1] + w * at[c + 1];
+  return points;
 }
 
 /**

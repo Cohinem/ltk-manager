@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { BufferError } from "../../utils/bufferReader";
-import { drawnMeshes, type MapGeometry, MESH_FLAG, readMapBuffer } from "../mapBuffer";
+import { drawnMeshes, type MapGeometry, mapOrigin, MESH_FLAG, readMapBuffer } from "../mapBuffer";
 
 /** One mesh of the buffer a writer would produce, in the fields a test varies. */
 interface Written {
@@ -219,5 +219,55 @@ describe("drawnMeshes", () => {
 
   it("draws only the mesh present in every layer where no other one is", () => {
     expect(drawnMeshes(map, 7).map((mesh) => mesh.firstSubmesh)).toEqual([2]);
+  });
+});
+
+describe("mapOrigin", () => {
+  /** Terrain, a canopy over it, and far scenery, as the three things a median sees. */
+  function written(): MapGeometry {
+    const points: number[] = [];
+    /* Ten sampled terrain vertices, spread over ten units so the median is a real pick. */
+    for (let at = 0; at < 90; at += 1) points.push(1000 + (at % 10), 50, 1000 + (at % 10));
+    for (let at = 0; at < 9; at += 1) points.push(1005, 900, 1005);
+    for (let at = 0; at < 9; at += 1) points.push(30_000, 900, 30_000);
+
+    const positions = Float32Array.from(points);
+    const count = positions.length / 3;
+    return {
+      positions,
+      normals: new Float32Array(count * 3),
+      uv0: new Float32Array(count * 2),
+      uv1: null,
+      indices: Uint32Array.from({ length: count }, (_, at) => at),
+      meshes: [
+        {
+          min: [0, 0, 0],
+          max: [0, 0, 0],
+          visibility: 1,
+          quality: 31,
+          flags: 0,
+          firstSubmesh: 0,
+          submeshCount: 1,
+        },
+      ],
+      submeshes: [{ startIndex: 0, indexCount: count, material: 0 }],
+      materials: ["one"],
+    };
+  }
+
+  it("stands on the dense ground rather than in the middle of the box", () => {
+    const origin = mapOrigin(written(), 0);
+
+    /* The box runs out to 30,000, so its own middle would be 15,500. */
+    expect(origin?.[0]).toBeCloseTo(1005);
+    expect(origin?.[2]).toBeCloseTo(1005);
+  });
+
+  it("takes the height from the terrain under the spot and not from the canopy over it", () => {
+    expect(mapOrigin(written(), 0)?.[1]).toBe(50);
+  });
+
+  it("stands nowhere on a layer that draws nothing", () => {
+    expect(mapOrigin(written(), 3)).toBeNull();
   });
 });
