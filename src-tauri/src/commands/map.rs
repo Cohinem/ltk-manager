@@ -5,7 +5,7 @@ use super::document_assets::{parse_entry, read_resolved, with_assets_near, with_
 use std::collections::HashMap;
 
 use super::off_thread;
-use crate::error::IpcResult;
+use crate::error::{AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::game_wads::WadCache;
@@ -25,8 +25,10 @@ use tauri::{AppHandle, Manager};
 /// open document of the project whose layer answers first, and none resolves against the
 /// install alone.
 ///
-/// A map whose `.materials.bin` cannot be read leaves every material unresolved rather
-/// than failing the read, which draws the map flat.
+/// A map nothing holds a `.materials.bin` for leaves every material unresolved rather
+/// than failing the read, which draws the map flat. One whose file is there but will not
+/// read is reported, because the caller keeps this answer for the app's life and a flat
+/// map cached over a momentary failure is a map that never draws again.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_map(
@@ -39,20 +41,20 @@ pub async fn read_map(
         let config = app_handle.state::<SettingsState>().config();
         with_resolution(&app_handle, document, |names, assets| {
             let wads = app_handle.state::<WadCache>();
-            let read = |asset: &AssetRef| match asset
-                .read(&config, &wads)
-                .and_then(|bytes| Ok(BinDocument::parse(bytes)?))
-            {
-                Ok(bin) => Some(bin),
-                Err(e) => {
-                    tracing::debug!(?asset, "Passed over a map bin: {e}");
-                    None
-                }
+            let read = |asset: &AssetRef| -> AppResult<BinDocument> {
+                Ok(BinDocument::parse(asset.read(&config, &wads)?)?)
             };
-            let Some(bin) = assets.locate(&map.materials()).and_then(|a| read(&a)) else {
+            let Some(source) = assets.locate(&map.materials()) else {
                 return Ok(unresolved_map(&materials));
             };
-            let shaders = assets.locate(SHADER_DEFS_PATH).and_then(|a| read(&a));
+            let bin = read(&source)?;
+            /* The shader defs only decide which slot a texture came from, so a map draws
+            without them. */
+            let shaders = assets.locate(SHADER_DEFS_PATH).and_then(|asset| {
+                read(&asset)
+                    .inspect_err(|e| tracing::debug!(?asset, "Passed over the shader defs: {e}"))
+                    .ok()
+            });
             Ok(resolve_map(
                 &bin,
                 &materials,
