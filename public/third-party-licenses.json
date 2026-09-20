@@ -905,14 +905,6 @@
     },
     {
       "name": "base64",
-      "version": "0.21.7",
-      "url": "https://github.com/marshallpierce/rust-base64",
-      "licenses": [
-        28
-      ]
-    },
-    {
-      "name": "base64",
       "version": "0.22.1",
       "url": "https://github.com/marshallpierce/rust-base64",
       "licenses": [
@@ -2244,7 +2236,7 @@
     },
     {
       "name": "ltk_anim",
-      "version": "0.3.8",
+      "version": "0.3.9",
       "licenses": [
         41
       ]
@@ -2305,28 +2297,28 @@
     },
     {
       "name": "ltk_io_ext",
-      "version": "0.4.6",
+      "version": "0.4.7",
       "licenses": [
         41
       ]
     },
     {
       "name": "ltk_mapgeo",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "licenses": [
         41
       ]
     },
     {
       "name": "ltk_mesh",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "licenses": [
         41
       ]
     },
     {
       "name": "ltk_meta",
-      "version": "0.8.4",
+      "version": "0.8.5",
       "licenses": [
         41
       ]
@@ -2373,7 +2365,7 @@
     },
     {
       "name": "ltk_primitives",
-      "version": "0.3.5",
+      "version": "0.3.6",
       "licenses": [
         41
       ]
@@ -2387,14 +2379,14 @@
     },
     {
       "name": "ltk_texture",
-      "version": "0.6.3",
+      "version": "0.6.4",
       "licenses": [
         41
       ]
     },
     {
       "name": "ltk_wad",
-      "version": "0.5.6",
+      "version": "0.5.7",
       "licenses": [
         41
       ]

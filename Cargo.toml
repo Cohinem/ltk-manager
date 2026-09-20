@@ -40,7 +40,7 @@ ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.11", features = ["serde"] }
 ltk_hash = { version = "0.4.0", features = ["serde"] }
-ltk_meta = { version = "0.8.4", features = ["serde"] }
+ltk_meta = { version = "0.8.5", features = ["serde"] }
 
 ltk_fantome = "0.12.0"
 ltk_game_data = "0.2.0"
@@ -48,13 +48,13 @@ ltk_mod_project = { version = "0.10.0", features = ["modpkg", "fantome"] }
 ltk_hashtable = "0.1.2"
 ltk_modpkg = "0.10.0"
 ltk_overlay = "0.10.0"
-ltk_wad = "0.5.6"
+ltk_wad = "0.5.7"
 
-ltk_anim = "0.3.8"
-ltk_mapgeo = "0.2.0"
-ltk_mesh = "0.5.0"
+ltk_anim = "0.3.9"
+ltk_mapgeo = "0.2.1"
+ltk_mesh = "0.5.1"
 ltk_rst = "0.2.1"
-ltk_texture = { version = "0.6.3", features = ["intel-tex"] }
+ltk_texture = { version = "0.6.4", features = ["intel-tex"] }
 
 camino = "1.2"
 chrono = { version = "0.4", features = ["serde"] }
@@ -107,25 +107,15 @@ sha2 = "0.10"
 assert_matches = "1.5"
 filetime = "0.2"
 
-# `ltk_meta::walk`, `BinStream::write_patched` and the bin merge are on the
-# toolkit's main and not yet on crates.io. Patched rather than pinned as a git
-# dependency, so that `ltk_meta` and every other toolkit crate here share one
-# `ltk_hash`: the three crates `ltk_meta` pulls by path come from the same rev
-# for the same reason. Move the pin to the release that carries it.
 [patch.crates-io]
-ltk_meta = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
-ltk_hash = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
-ltk_io_ext = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
-ltk_primitives = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "073a2a1bc0b7c91af8f9c5fcd9dcbecea5480c68" }
-
-# Game-copy references and the build against `ltk_meta` 0.8.4 are on league-mod's
-# main and not yet on crates.io. Every league-mod crate comes from the one rev, so
+# Game-copy references and value rendering are on league-mod's `feat/value-rendering`
+# (PR 267) and not yet on crates.io. Every league-mod crate comes from the one rev, so
 # they share one `ltk_game_data`. Move the pin to the release that carries them.
-ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
-ltk_game_data = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
-ltk_game_index = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
-ltk_hashtable = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
-ltk_mod_core = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
-ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
-ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
-ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
+ltk_game_data = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
+ltk_game_index = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
+ltk_hashtable = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
+ltk_mod_core = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
+ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
+ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
+ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
