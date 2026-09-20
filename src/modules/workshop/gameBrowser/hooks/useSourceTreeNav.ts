@@ -31,6 +31,8 @@ interface UseSourceTreeNavParams {
 interface UseSourceTreeNavReturn {
   focusedIndex: number;
   setFocusedIndex: (i: number) => void;
+  /** Focus row `index`, scroll it into view and hand it the keyboard. */
+  moveFocus: (index: number) => void;
   handleKeyDown: (e: KeyboardEvent<HTMLDivElement>) => void;
 }
 
@@ -181,7 +183,7 @@ export function useSourceTreeNav({
     [rows, focusedIndex, isExpanded, onToggle, onOpen, onRun, selection, moveFocus, step],
   );
 
-  return { focusedIndex, setFocusedIndex, handleKeyDown };
+  return { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown };
 }
 
 /** What the selection holds a row by: a directory's path, a file's hash. */

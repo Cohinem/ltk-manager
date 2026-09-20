@@ -1,9 +1,24 @@
 import { create } from "zustand";
 
+/** A row the game index tree is asked to open down to, focus and scroll to. */
+export interface GameReveal {
+  /** The file row's id, which is what the tree matches on. */
+  readonly id: string;
+  /** Bumped per request. Two reveals of one row both land. */
+  readonly token: number;
+}
+
 interface GameBrowserStore {
   /** Directories the user has opened in the game index tree, by index path. */
   expandedDirs: ReadonlySet<string>;
   toggleDir: (path: string) => void;
+  /** Open every one of `paths`, for a reveal that walks down to a row. */
+  expandDirs: (paths: readonly string[]) => void;
+  /** The pending reveal, or null while none is owed. */
+  reveal: GameReveal | null;
+  requestReveal: (id: string) => void;
+  /** Drop the reveal with `token`. The tree it addressed has answered it. */
+  settleReveal: (token: number) => void;
   /** What the game index document's search box holds. */
   searchPattern: string;
   searchRegex: boolean;
@@ -48,6 +63,16 @@ function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
 export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
   expandedDirs: new Set(),
   toggleDir: (path) => set((state) => ({ expandedDirs: toggled(state.expandedDirs, path) })),
+  expandDirs: (paths) =>
+    set((state) => {
+      if (paths.every((path) => state.expandedDirs.has(path))) return state;
+      return { expandedDirs: new Set([...state.expandedDirs, ...paths]) };
+    }),
+  reveal: null,
+  requestReveal: (id) =>
+    set((state) => ({ reveal: { id, token: (state.reveal?.token ?? 0) + 1 } })),
+  settleReveal: (token) =>
+    set((state) => (state.reveal?.token === token ? { reveal: null } : state)),
   searchPattern: "",
   searchRegex: false,
   setSearchPattern: (searchPattern) => set({ searchPattern }),
@@ -70,6 +95,10 @@ export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
 
 export const useExpandedGameDirs = () => useGameBrowserStore((s) => s.expandedDirs);
 export const useToggleGameDir = () => useGameBrowserStore((s) => s.toggleDir);
+export const useExpandGameDirs = () => useGameBrowserStore((s) => s.expandDirs);
+export const useGameReveal = () => useGameBrowserStore((s) => s.reveal);
+export const useRequestGameReveal = () => useGameBrowserStore((s) => s.requestReveal);
+export const useSettleGameReveal = () => useGameBrowserStore((s) => s.settleReveal);
 export const useGameSearchPattern = () => useGameBrowserStore((s) => s.searchPattern);
 export const useSetGameSearchPattern = () => useGameBrowserStore((s) => s.setSearchPattern);
 export const useGameSearchRegex = () => useGameBrowserStore((s) => s.searchRegex);

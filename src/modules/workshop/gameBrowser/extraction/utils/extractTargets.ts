@@ -63,24 +63,37 @@ export function archiveTarget(wad: string): ExtractTarget {
 }
 
 /**
- * One previewed asset, as the thing to extract. `null` for a project file.
+ * A previewed chunk's path inside the install. `null` for a project file, and
+ * for a chunk no hash table names.
  *
  * `displayPath` is the tab's own path field, which prefixes the chunk path
  * with its archive, so the chunk path is what is left once that comes off. A
- * chunk no hash table names has its hash there instead, and a hash is not a
- * path - the extractor names such a chunk itself.
+ * chunk with no name has its hash there instead, and a hash is not a path.
  */
-export function chunkTarget(asset: AssetRef, displayPath?: string): ExtractTarget | null {
+export function chunkPath(asset: AssetRef, displayPath?: string): string | null {
   if (asset.kind !== "gameChunk") return null;
 
   const prefix = `${asset.wad}/`;
-  const inside = displayPath?.startsWith(prefix) ? displayPath.slice(prefix.length) : undefined;
+  if (displayPath === undefined || !displayPath.startsWith(prefix)) return null;
+
+  const inside = displayPath.slice(prefix.length);
+  return inside === asset.pathHash ? null : inside;
+}
+
+/**
+ * One previewed asset, as the thing to extract. `null` for a project file.
+ *
+ * An unnamed chunk carries no path, and the extractor names such a chunk
+ * itself.
+ */
+export function chunkTarget(asset: AssetRef, displayPath?: string): ExtractTarget | null {
+  if (asset.kind !== "gameChunk") return null;
 
   return {
     kind: "file",
     wad: asset.wad,
     pathHash: asset.pathHash,
-    path: inside && inside !== asset.pathHash ? inside : null,
+    path: chunkPath(asset, displayPath),
     /* Only the dialog's plan reads this, and a preview tab was opened with a
        reference rather than with the row that knew the size. */
     sizeBytes: 0,

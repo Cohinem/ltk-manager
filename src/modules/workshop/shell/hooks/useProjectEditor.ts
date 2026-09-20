@@ -507,6 +507,16 @@ export function useToggleCollapsed(layerName: string) {
   );
 }
 
+/** Open every directory in `paths` that the user had shut, for a reveal. */
+export function useOpenLayerDirs() {
+  const projectPath = useProjectPath();
+  const openDirs = useWorkshopEditorStore((s) => s.openDirs);
+  return useCallback(
+    (layerName: string, paths: readonly string[]) => openDirs(projectPath, layerName, paths),
+    [openDirs, projectPath],
+  );
+}
+
 export function useRevealInTree() {
   const projectPath = useProjectPath();
   const reveal = useWorkshopEditorStore((s) => s.reveal);

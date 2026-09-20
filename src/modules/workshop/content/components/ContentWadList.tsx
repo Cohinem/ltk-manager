@@ -9,11 +9,12 @@ import { Button, EmptyState, IconButton, Tooltip } from "@/components";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
-import { filesDocument, gameWadDocument } from "../../documents";
+import { gameWadDocument } from "../../documents";
 import { useGameWads, wadBasename } from "../../gameBrowser";
 import { useLayerWadImport } from "../../hooks";
 import { useProjectContext } from "../../projects/state/ProjectContext";
-import { useOpenDocument, useRevealInTree } from "../../state";
+import { useOpenDocument } from "../../state";
+import { useRevealInLayerFiles } from "../hooks/useRevealInLayerFiles";
 import type { LayerWad } from "../utils/contentTree";
 
 interface ContentWadListProps {
@@ -25,15 +26,12 @@ interface ContentWadListProps {
 
 /** One row per WAD in the selected layer, jumping the file tree to it. */
 export function ContentWadList({ wads, layerName, layerDisplayName }: ContentWadListProps) {
-  const reveal = useRevealInTree();
+  const reveal = useRevealInLayerFiles();
   const openDocument = useOpenDocument();
   const { data: gameWads } = useGameWads();
 
-  /* The tree it scrolls has to be the open document, so a WAD click opens the
-     layer's files first. */
   function show(path: string) {
     if (!layerName) return;
-    openDocument(filesDocument(layerName));
     reveal(layerName, path);
   }
 

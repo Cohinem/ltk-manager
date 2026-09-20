@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ancestorDirs,
   buildIndexTree,
   buildSourceTree,
   flattenSourceTree,
   hasOnlyUnknownPaths,
   holdsOnlyUnknown,
+  indexFileId,
   type SourceDirListing,
   type SourceDirNode,
   type SourceEntry,
@@ -304,5 +306,37 @@ describe("wadDirname", () => {
 
   it("is empty for an archive at the root", () => {
     expect(wadDirname("UI.wad.client")).toBe("");
+  });
+});
+
+describe("indexFileId", () => {
+  /* What a reveal aims at, so it has to be the id the tree gave the row. */
+  it("names the row the index tree gives a chunk", () => {
+    const entry = known("assets/maps/a.bin");
+    const [file] = buildIndexTree(
+      new Map([["", { dirs: [], files: [entry] }]]),
+      () => false,
+    ) as SourceFileNode[];
+
+    expect(indexFileId(entry.pathHash)).toBe(file!.id);
+  });
+});
+
+describe("ancestorDirs", () => {
+  it("names every directory above the file, outermost first", () => {
+    expect(ancestorDirs("assets/characters/aatrox/skins/skin0.bin")).toEqual([
+      "assets",
+      "assets/characters",
+      "assets/characters/aatrox",
+      "assets/characters/aatrox/skins",
+    ]);
+  });
+
+  it("names none for a file at the root", () => {
+    expect(ancestorDirs("description.json")).toEqual([]);
+  });
+
+  it("names the unnamed group for a chunk no hash table names", () => {
+    expect(ancestorDirs(null)).toEqual([UNKNOWN_DIR]);
   });
 });

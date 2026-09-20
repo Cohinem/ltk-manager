@@ -16,8 +16,10 @@ import type { EditorDocumentDefinition, EditorRegistry } from "@/modules/editor"
 
 import { ObjectDocument } from "../../bin/documents/components/ObjectDocument";
 import { FilesDocument } from "../../content/components/FilesDocument";
+import { useRevealInLayerFiles } from "../../content/hooks/useRevealInLayerFiles";
 import {
   archiveTarget,
+  chunkPath,
   chunkTarget,
   ExtractMenuItems,
   fileKindFromPath,
@@ -25,6 +27,7 @@ import {
   GameWadDocument,
   GameWadsDocument,
   useExtractActions,
+  useRevealInGameFiles,
   wadBasename,
 } from "../../gameBrowser";
 import { IgnoreRulesDocument } from "../../ignore-rules";
@@ -154,9 +157,9 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       },
       component: PreviewDocument,
       tabMenu: (document) => {
-        /* A layer file and a loose file are on disk already, so only a game
-             chunk has anywhere to go. */
-        if (document.asset.kind !== "gameChunk") return null;
+        /* A file picked off disk belongs to no browser of this editor, and the
+           strip's own items are the whole menu it gets. */
+        if (document.asset.kind === "file") return null;
         return <PreviewTabMenu document={document} />;
       },
     },
@@ -239,13 +242,40 @@ function GameWadTabMenu({ wadName }: { wadName: string }) {
   );
 }
 
-/* The same three the tree offers, on the tab of the chunk already open. */
+/* Reveal in Files, and the same three ways out the tree offers on the chunk
+   already open. */
 function PreviewTabMenu({ document }: { document: ContentDocumentOf<"preview"> }) {
   const { run } = useExtractActions();
   const target = chunkTarget(document.asset, document.path);
-  if (!target) return null;
 
-  return <ExtractMenuItems onRun={(how) => run(how, [target], document.title)} />;
+  return (
+    <>
+      <RevealInFilesItem document={document} />
+      {target && <ExtractMenuItems onRun={(how) => run(how, [target], document.title)} />}
+    </>
+  );
+}
+
+/** The browser the file came from, focused on its row, per "Reveal in Files". */
+function RevealInFilesItem({ document }: { document: ContentDocumentOf<"preview"> }) {
+  const revealInLayer = useRevealInLayerFiles();
+  const revealInGame = useRevealInGameFiles();
+  const asset = document.asset;
+
+  function reveal() {
+    if (asset.kind === "layer") {
+      revealInLayer(asset.layer, asset.path);
+      return;
+    }
+    if (asset.kind !== "gameChunk") return;
+    revealInGame(asset.pathHash, chunkPath(asset, document.path));
+  }
+
+  return (
+    <ContextMenu.Item icon={<FilesIcon className="h-4 w-4" />} onClick={reveal}>
+      {m.workshop_files_reveal_action()}
+    </ContextMenu.Item>
+  );
 }
 
 /** The tree row's own glyph, so a preview tab reads like the row that opened it. */

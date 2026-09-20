@@ -892,6 +892,35 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("openDirs", () => {
+    it("opens the directories a reveal has to pass through", () => {
+      store().toggleCollapsed(A, "base", "assets");
+      store().toggleCollapsed(A, "base", "assets/characters");
+
+      store().openDirs(A, "base", ["assets", "assets/characters"]);
+
+      expect(editorOf(A).collapsed.base).toEqual(new Set());
+    });
+
+    it("leaves the directories the reveal does not pass through shut", () => {
+      store().toggleCollapsed(A, "base", "assets");
+      store().toggleCollapsed(A, "base", "data");
+
+      store().openDirs(A, "base", ["assets"]);
+
+      expect(editorOf(A).collapsed.base).toEqual(new Set(["data"]));
+    });
+
+    it("keeps the layer's set when every directory is open already", () => {
+      store().toggleCollapsed(A, "base", "data");
+      const before = editorOf(A).collapsed.base;
+
+      store().openDirs(A, "base", ["assets", "assets/characters"]);
+
+      expect(editorOf(A).collapsed.base).toBe(before);
+    });
+  });
+
   describe("selectLayer", () => {
     it("holds the layer independently of the strip", () => {
       store().selectLayer(A, "test");

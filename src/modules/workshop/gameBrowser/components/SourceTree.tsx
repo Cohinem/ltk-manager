@@ -10,7 +10,7 @@ import { type ExplorerSelectionApi, selectionSubject } from "../../explorer";
 import { useStickyTreeRows } from "../../hooks";
 import { stirImages } from "../../preview/hooks/useImageSlot";
 import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
-import { keepScrollTop, keptScrollTop } from "../../state";
+import { type GameReveal, keepScrollTop, keptScrollTop } from "../../state";
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { type DirTargets, filesUnder, fileTarget } from "../extraction/utils/extractTargets";
 import { useSourceTreeNav } from "../hooks/useSourceTreeNav";
@@ -58,6 +58,10 @@ interface SourceTreeProps {
   selection?: ExplorerSelectionApi;
   /** What a run against the selection takes, where one is being held. */
   selectionTargets?: () => ReturnType<DirTargets>;
+  /** The row this tree is asked to focus, or null while none is owed. */
+  reveal?: GameReveal | null;
+  /** The reveal with `token` landed, or has no row to land on. */
+  onRevealed?: (token: number) => void;
 }
 
 /** A read-only virtualized tree over source nodes, from any source index. */
@@ -72,6 +76,8 @@ export function SourceTree({
   dirTargets = filesUnder,
   selection,
   selectionTargets,
+  reveal = null,
+  onRevealed,
 }: SourceTreeProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [initialOffset] = useState(() => (scrollKey ? keptScrollTop(scrollKey) : 0));
@@ -136,7 +142,7 @@ export function SourceTree({
     [run, dirTargets, selection, selectionTargets],
   );
 
-  const { focusedIndex, setFocusedIndex, handleKeyDown } = useSourceTreeNav({
+  const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useSourceTreeNav({
     rows,
     isExpanded,
     onToggle,
@@ -146,6 +152,24 @@ export function SourceTree({
     virtualizer,
     scrollElementRef: scrollRef,
   });
+
+  /* The row lands with the listing that holds it, at its first appearance in
+     `rows`. An id no row carries settles with the last loading row. */
+  const revealed = useRef<number | null>(null);
+  useEffect(() => {
+    if (reveal === null || revealed.current === reveal.token) return;
+    const index = rows.findIndex((row) => row.node.id === reveal.id);
+    if (index < 0 && rows.some((row) => row.node.type === "loading")) return;
+    revealed.current = reveal.token;
+
+    const id = index < 0 ? null : idOf(rows[index]!.node);
+    if (index >= 0) moveFocus(index);
+    /* A tree drawing a selection marks the selected rows and never the focused
+       one, so a reveal that only moved the focus would land on nothing a
+       reader can see. */
+    if (selection && id !== null) selection.select(id, { toggle: false, extend: false });
+    onRevealed?.(reveal.token);
+  }, [reveal, rows, onRevealed, moveFocus, selection]);
 
   const handleFocusRow = useCallback((index: number) => setFocusedIndex(index), [setFocusedIndex]);
 
