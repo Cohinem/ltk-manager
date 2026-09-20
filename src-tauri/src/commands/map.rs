@@ -9,12 +9,12 @@ use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::map::{
+use ltk_manager_core::material::SHADER_DEFS_PATH;
+use ltk_manager_core::preview::AssetRef;
+use ltk_manager_game::map::{
     map_characters, map_outline, map_particles, map_variants, resolve_map, unresolved_map,
     MapCharacter, MapChunk, MapFiles, MapModel, MapParticle, MapPath, MapVariant,
 };
-use ltk_manager_core::material::SHADER_DEFS_PATH;
-use ltk_manager_core::preview::AssetRef;
 use tauri::{AppHandle, Manager};
 
 /// The materials a map's submeshes name, as a backdrop draws them.

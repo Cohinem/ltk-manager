@@ -2219,6 +2219,14 @@
       ]
     },
     {
+      "name": "ltk-manager-game",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        59
+      ]
+    },
+    {
       "name": "ltk-telemetry",
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",

@@ -2,9 +2,9 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, values};
 
 use super::*;
-use crate::bin_document::hex;
 use crate::map::fixtures::{container, document_of, embedded, h, placeable};
 use crate::map::placeable::NAME;
+use ltk_manager_core::bin_document::hex;
 
 fn turret(team: Option<u32>) -> PropertyValueEnum {
     let mut fields = vec![

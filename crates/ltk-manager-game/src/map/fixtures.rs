@@ -7,7 +7,7 @@ use ltk_meta::property::{Kind, NoMeta, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::placeable::{ITEMS, PLACEABLE_CONTAINER};
-use crate::bin_document::BinDocument;
+use ltk_manager_core::bin_document::BinDocument;
 
 pub(super) fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)

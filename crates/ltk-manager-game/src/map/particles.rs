@@ -9,7 +9,7 @@ use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
 use super::placeable::{Placed, controller, name, placeables, transform, visibility};
-use crate::bin_document::{BinDocument, hex, leaf, link};
+use ltk_manager_core::bin_document::{BinDocument, hex, leaf, link};
 
 /// `MapParticle`.
 pub(super) const PARTICLE: BinHash = BinHash(0x592e_f6c3);

@@ -13,7 +13,7 @@ use serde::Serialize;
 use super::characters::skin_of;
 use super::particles::PARTICLE;
 use super::placeable::{NAME, Placed, controller, placeables, transform, visibility};
-use crate::bin_document::{BinDocument, Namer, RowNames, hex, leaf, link};
+use ltk_manager_core::bin_document::{BinDocument, Namer, RowNames, hex, leaf, link};
 
 /// `MapContainer`.
 const MAP_CONTAINER: BinHash = BinHash(0xdde8_c114);

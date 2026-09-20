@@ -10,10 +10,10 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 
-use crate::bin_document::{AssetLookup, BinDocument, RowNames};
-use crate::material::{MaterialPreview, resolve_material};
-use crate::preview::AssetRef;
 use ltk_hash::{BinHash, Hash as _};
+use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
+use ltk_manager_core::material::{MaterialPreview, resolve_material};
+use ltk_manager_core::preview::AssetRef;
 
 mod characters;
 #[cfg(test)]

@@ -7,7 +7,7 @@ use ltk_hash::BinHash;
 use serde::Serialize;
 
 use super::MapPath;
-use crate::bin_document::{BinDocument, Fields, items, link, text};
+use ltk_manager_core::bin_document::{BinDocument, Fields, items, link, text};
 
 /// `Map`.
 const MAP: BinHash = BinHash(0xdfa2_efb1);

@@ -8,12 +8,20 @@ governs `crates/ltk-manager-core/`, whose `AGENTS.md` points here.
 | Crate                     | Knows about                       | Depends on   | License            |
 | ------------------------- | --------------------------------- | ------------ | ------------------ |
 | `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient` | `GPL-3.0-or-later` |
-| `src-tauri`               | Tauri commands, IPC, events       | core         | `GPL-3.0-or-later` |
+| `crates/ltk-manager-game` | What League's own classes mean    | core         | `GPL-3.0-or-later` |
+| `src-tauri`               | Tauri commands, IPC, events       | core, game   | `GPL-3.0-or-later` |
 
 `ritoclient` is an external dependency rather than a workspace member, pinned to a git rev in the
 root `Cargo.toml` until it ships on crates.io. It is **Apache-2.0**, where this workspace is
 GPL-3.0-or-later - not an oversight to tidy. Re-run `pnpm generate:licenses` after any dependency
 is added or relicensed.
+
+`ltk-manager-game` sits above core. Core owns the open document, the names and where an asset
+lives, and the game crate owns the classes read out of them: a map today, and the material, skin,
+VFX and spell reads as they follow. Core never calls it, so nothing core holds knows what a
+`MapContainer` is. It reads a bin through what `bin_document` exports for that (`Fields`,
+`struct_of`, `items`, `leaf`, `link`, `text`, `Namer`) and never through `ltk_meta` matches of
+its own. A type of it that crosses IPC derives under its own `ts` feature, which takes core's.
 
 Dependencies point one way only. `ritoclient` takes plain arguments (`Option<&Path>`) and reports
 through its own `LaunchObserver` and `SessionObserver` traits - it must never learn about `Config`,
