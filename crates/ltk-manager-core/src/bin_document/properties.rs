@@ -132,6 +132,7 @@ impl BinDocument {
         property: NewProperty,
         schema: SchemaAt<'_>,
     ) -> Result<(), BinDocumentError> {
+        self.refuse_undeclarable(entry, holder)?;
         let rejected = |rejection| BinDocumentError::EditRejected {
             address: format!("{}:{holder}", hex(entry)),
             rejection,
@@ -181,6 +182,7 @@ impl BinDocument {
     /// Fails with [`BinDocumentError::NodeNotFound`] where the path reaches nothing, and
     /// with [`BinDocumentError::EditRejected`] where it reaches no property of a holder.
     pub fn remove_property(&mut self, entry: BinHash, path: &str) -> Result<(), BinDocumentError> {
+        self.refuse_undeclarable(entry, path)?;
         let inverse = self.take_property(entry, path)?;
         self.record(inverse);
         Ok(())

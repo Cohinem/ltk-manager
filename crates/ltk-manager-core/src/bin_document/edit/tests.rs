@@ -617,6 +617,7 @@ fn only_a_prop_of_a_layer_takes_edits() {
     let chunk = AssetRef::GameChunk {
         wad: "Champions/Aatrox.wad.client".to_owned(),
         path_hash: "0000000000000001".to_owned(),
+        project: None,
     };
     let loose = AssetRef::File {
         path: "a.bin".to_owned(),

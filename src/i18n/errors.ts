@@ -161,6 +161,8 @@ export function editRejection(rejection: EditRejection): string {
     .with({ reason: "keyExists" }, () => m["error.BIN_EDIT_REJECTED.keyExists.description"]())
     .with({ reason: "missingKey" }, () => m["error.BIN_EDIT_REJECTED.missingKey.description"]())
     .with({ reason: "valueHeld" }, () => m["error.BIN_EDIT_REJECTED.valueHeld.description"]())
+    .with({ reason: "namelessPath" }, () => m["error.BIN_EDIT_REJECTED.namelessPath.description"]())
+    .with({ reason: "undeclarable" }, () => m["error.BIN_EDIT_REJECTED.undeclarable.description"]())
     .with({ reason: "noSuchIndex" }, () => m["error.BIN_EDIT_REJECTED.noSuchIndex.description"]())
     .exhaustive();
 }

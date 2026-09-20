@@ -8,6 +8,8 @@ import { SaveStatus } from "@/modules/editor";
 import { assetKey } from "../../../preview/utils/assetRef";
 import { forgetBinSave, retryBinSave, useBinSave } from "../../../state";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
+import { useDeclaredState } from "../hooks/useDeclared";
+import { DeclaredLayerChip } from "./DeclaredLayer";
 
 interface BinEditStateProps {
   document: BinDocumentId;
@@ -18,9 +20,14 @@ interface BinEditStateProps {
   onReload: () => void;
 }
 
-/** What a bin tab's toolbar says about editing: the gate it stands behind, or its autosave. */
+/**
+ * What a bin tab's toolbar says about editing: the gate it stands behind, the layer it
+ * declares into, or its autosave.
+ */
 export function BinEditState({ document, asset, readOnly, onReload }: BinEditStateProps) {
+  const declared = useDeclaredState(document);
   if (readOnly !== null) return <ReadOnlyMark gate={readOnly} />;
+  if (declared !== null) return <DeclaredLayerChip document={document} declared={declared} />;
   return <AutosaveStatus document={document} asset={asset} onReload={onReload} />;
 }
 

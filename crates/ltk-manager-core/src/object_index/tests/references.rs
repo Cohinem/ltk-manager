@@ -91,6 +91,7 @@ fn a_group_carries_the_class_and_the_asset_of_every_object_in_it() {
         AssetRef::GameChunk {
             wad: "Aatrox.wad.client".to_owned(),
             path_hash: hex_name(WadHash::hash_str("data/resources.bin")),
+            project: None,
         }
     );
     let object = &group.objects[0];

@@ -769,3 +769,50 @@ modules:
         Value::String("true".to_owned())
     );
 }
+
+#[test]
+fn a_restore_puts_back_the_text_an_edit_replaced() {
+    let dir = layer(Some(MANIFEST));
+    let mut manifest = Manifest::read(dir.path()).unwrap();
+    manifest
+        .edit(&edit(SKIN0, "iconCircle", Operation::Set(value("x.tex"))))
+        .unwrap();
+    manifest.write().unwrap();
+
+    manifest.restore(MANIFEST).unwrap();
+    manifest.write().unwrap();
+    assert_eq!(
+        fs::read_to_string(dir.path().join(FILE_NAME)).unwrap(),
+        MANIFEST
+    );
+
+    assert_matches!(
+        manifest.restore("version: 9\n"),
+        Err(Error::Uneditable {
+            reason: Refusal::DoesNotLoad(_),
+            ..
+        })
+    );
+    assert_eq!(manifest.text(), MANIFEST);
+}
+
+#[test]
+fn a_restore_to_no_text_removes_the_manifest_an_edit_created() {
+    let dir = layer(None);
+    let mut manifest = Manifest::read(dir.path()).unwrap();
+    manifest
+        .edit(&edit(SKIN0, "iconCircle", Operation::Set(value("x.tex"))))
+        .unwrap();
+    manifest.write().unwrap();
+    assert!(dir.path().join(FILE_NAME).exists());
+
+    manifest.restore("").unwrap();
+    manifest.write().unwrap();
+    assert!(!dir.path().join(FILE_NAME).exists());
+
+    manifest
+        .edit(&edit(SKIN0, "iconCircle", Operation::Set(value("y.tex"))))
+        .unwrap();
+    manifest.write().unwrap();
+    assert!(dir.path().join(FILE_NAME).exists());
+}

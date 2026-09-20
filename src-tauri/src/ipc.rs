@@ -42,6 +42,8 @@ migrated![
     bin_reload,
     bin_undo,
     bin_redo,
+    bin_declared,
+    bin_declare_into,
     bin_addable_fields,
     bin_add_property,
     bin_remove_property,

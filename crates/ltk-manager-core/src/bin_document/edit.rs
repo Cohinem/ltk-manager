@@ -177,6 +177,11 @@ pub enum EditRejection {
     ValueHeld,
     /// The list holds no such position.
     NoSuchIndex,
+    /// The path runs through a field no table names, or a key a map holds twice, which no
+    /// declaration spells. ADR-0042.
+    NamelessPath,
+    /// No declaration expresses the edit. ADR-0042.
+    Undeclarable,
 }
 
 impl fmt::Display for EditRejection {
@@ -201,6 +206,8 @@ impl fmt::Display for EditRejection {
             Self::MissingKey => f.write_str("the entry names no key"),
             Self::ValueHeld => f.write_str("the node holds a value already"),
             Self::NoSuchIndex => f.write_str("the list holds no such position"),
+            Self::NamelessPath => f.write_str("no declaration spells the path"),
+            Self::Undeclarable => f.write_str("no declaration expresses the edit"),
         }
     }
 }
@@ -235,11 +242,18 @@ impl BinDocument {
     #[must_use]
     pub fn read_only(&self, asset: &AssetRef) -> Option<ReadOnly> {
         match (asset, &self.file) {
+            (AssetRef::GameChunk { .. }, _) if self.declares() => None,
             (AssetRef::GameChunk { .. }, _) => Some(ReadOnly::Install),
             (AssetRef::File { .. }, _) => Some(ReadOnly::Loose),
             (AssetRef::Layer { .. }, BinFile::Override(_)) => Some(ReadOnly::Patch),
             (AssetRef::Layer { .. }, BinFile::Prop(_)) => None,
         }
+    }
+
+    /// Whether an edit of the document lands as a declaration. ADR-0042.
+    #[must_use]
+    pub fn declares(&self) -> bool {
+        self.declared.is_some()
     }
 
     /// Whether a patch touched the tree since the base was read.
@@ -266,6 +280,9 @@ impl BinDocument {
         path: &str,
         value: LeafValue,
     ) -> Result<LeafValue, BinDocumentError> {
+        if self.declares() {
+            return self.declare_leaf(entry, path, value);
+        }
         let held = self.apply_leaf(entry, path, value)?;
         self.record(Edit::Leaf {
             entry,
@@ -288,6 +305,9 @@ impl BinDocument {
     ///
     /// Fails as [`BinDocument::set_leaf`] does, which no edit the stack took can.
     pub fn undo(&mut self) -> Result<bool, BinDocumentError> {
+        if self.declares() {
+            return self.undo_declared();
+        }
         let Some(edit) = self.undo.pop_back() else {
             return Ok(false);
         };
@@ -302,6 +322,9 @@ impl BinDocument {
     ///
     /// As [`BinDocument::undo`].
     pub fn redo(&mut self) -> Result<bool, BinDocumentError> {
+        if self.declares() {
+            return self.redo_declared();
+        }
         let Some(edit) = self.redo.pop() else {
             return Ok(false);
         };
@@ -351,7 +374,7 @@ impl BinDocument {
     }
 
     /// Set a leaf and mark its object touched, leaving both stacks alone.
-    fn apply_leaf(
+    pub(super) fn apply_leaf(
         &mut self,
         entry: BinHash,
         path: &str,

@@ -120,7 +120,7 @@ impl ObjectDeclaration {
     /// Where the declaration sits in a link's resolution order: 0 in `this` file, 1 in a
     /// file among `dependencies`, 2 anywhere else.
     fn rank(&self, this: &AssetRef, dependencies: &[WadHash]) -> u8 {
-        if self.asset == *this {
+        if self.asset.same_file(this) {
             return 0;
         }
         let AssetRef::GameChunk { path_hash, .. } = &self.asset else {

@@ -140,6 +140,7 @@ impl BinDocument {
         item: NewItem,
         schema: SchemaAt<'_>,
     ) -> Result<String, BinDocumentError> {
+        self.refuse_undeclarable(entry, holder)?;
         let refuse = |rejection| rejected(entry, holder, rejection);
         let (item_kind, key_kind) = match self.node(entry, holder)? {
             Node::Value(PropertyValueEnum::Container(items)) => (items.item_kind(), None),
@@ -193,6 +194,7 @@ impl BinDocument {
     /// Fails with [`BinDocumentError::NodeNotFound`] where the path reaches nothing, and
     /// with [`BinDocumentError::EditRejected`] where it ends in no item.
     pub fn remove_item(&mut self, entry: BinHash, path: &str) -> Result<(), BinDocumentError> {
+        self.refuse_undeclarable(entry, path)?;
         let inverse = self.take_item(entry, path)?;
         self.record(inverse);
         Ok(())
@@ -211,6 +213,7 @@ impl BinDocument {
         path: &str,
         to: usize,
     ) -> Result<String, BinDocumentError> {
+        self.refuse_undeclarable(entry, path)?;
         self.node(entry, path)?;
         let Some((_, Step::Index(from))) = split_item(path) else {
             return Err(rejected(entry, path, EditRejection::NotAnItem));
@@ -238,6 +241,7 @@ impl BinDocument {
         path: &str,
         text: &str,
     ) -> Result<String, BinDocumentError> {
+        self.refuse_undeclarable(entry, path)?;
         let refuse = |rejection| rejected(entry, path, rejection);
         self.node(entry, path)?;
         let Some((holder, Step::Key(held))) = split_item(path) else {
@@ -274,6 +278,7 @@ impl BinDocument {
         path: &str,
         class: Option<&str>,
     ) -> Result<(), BinDocumentError> {
+        self.refuse_undeclarable(entry, path)?;
         let refuse = |rejection| rejected(entry, path, rejection);
         let class = class
             .map(str::trim)

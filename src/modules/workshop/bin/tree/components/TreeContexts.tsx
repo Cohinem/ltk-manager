@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
+import { DeclaredRowsContext, useDeclaredRows } from "../../documents/hooks/useDeclared";
 import {
   LinkAssetContext,
   LinkOpenContext,
@@ -47,6 +48,7 @@ export function TreeContexts({
   const linkOpen = useWarmLinkOpen(linkTargets);
   const marks = useValueMarks(document, inView);
   const edit = useBinEditor(document, asset, editable, focus);
+  const declared = useDeclaredRows(document);
 
   return (
     <LinkAssetContext value={asset}>
@@ -54,7 +56,9 @@ export function TreeContexts({
         <LinkTargetsContext value={linkTargets}>
           <LinkOpenContext value={linkOpen}>
             <ValueMarksContext value={marks}>
-              <BinEditContext value={edit}>{children}</BinEditContext>
+              <DeclaredRowsContext value={declared}>
+                <BinEditContext value={edit}>{children}</BinEditContext>
+              </DeclaredRowsContext>
             </ValueMarksContext>
           </LinkOpenContext>
         </LinkTargetsContext>

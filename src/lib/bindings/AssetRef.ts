@@ -24,4 +24,9 @@ wad: string,
 /**
  * The chunk's path hash as 16 lowercase hex digits.
  */
-pathHash: string, } | { "kind": "file", path: string, };
+pathHash: string, 
+/**
+ * The project directory whose game tree the chunk was opened from, which makes a
+ * bin of it a declared document (ADR-0042). Absent for a chunk opened anywhere else.
+ */
+project?: string | null, } | { "kind": "file", path: string, };

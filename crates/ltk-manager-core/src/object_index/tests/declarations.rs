@@ -64,6 +64,7 @@ fn declared_answers_every_declaration_in_archive_order_with_its_file() {
         AssetRef::GameChunk {
             wad: "A.wad.client".to_owned(),
             path_hash: hex_name(WadHash::hash_str("data/a.bin")),
+            project: None,
         }
     );
 
@@ -80,6 +81,7 @@ fn a_link_resolves_this_file_then_a_dependency_then_archive_order() {
         asset: AssetRef::GameChunk {
             wad: wad.to_owned(),
             path_hash: hex_name(WadHash::hash_str(path)),
+            project: None,
         },
         file: path.to_owned(),
         class_hash: "0x00000000".to_owned(),
@@ -104,6 +106,7 @@ fn a_link_resolves_this_file_then_a_dependency_then_archive_order() {
     let this = AssetRef::GameChunk {
         wad: "C.wad.client".to_owned(),
         path_hash: hex_name(WadHash::hash_str("data/c.bin")),
+        project: None,
     };
     declared.resolve_for(&this, &[WadHash::hash_str("data/b.bin")]);
     assert_eq!(files(&declared), ["data/c.bin", "data/b.bin", "data/a.bin"]);

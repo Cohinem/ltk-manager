@@ -629,7 +629,7 @@ fn fold_own_declarations(
         if !declared
             .declarations
             .iter()
-            .any(|known| known.asset == asset)
+            .any(|known| known.asset.same_file(&asset))
         {
             declared.declarations.push(declaration);
         }

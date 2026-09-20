@@ -571,6 +571,7 @@ impl AssetLookup for Placed {
         (hash.0 == UNNAMED_CHUNK).then(|| AssetRef::GameChunk {
             wad: "Champions/Ahri.wad.client".to_owned(),
             path_hash: format!("{UNNAMED_CHUNK:016x}"),
+            project: None,
         })
     }
 }
@@ -619,6 +620,7 @@ fn an_unnamed_chunk_keeps_its_hash_for_a_path_and_is_placed_by_it() {
             asset: Some(AssetRef::GameChunk {
                 wad: "Champions/Ahri.wad.client".to_owned(),
                 path_hash: format!("{UNNAMED_CHUNK:016x}"),
+                project: None,
             }),
         })
     );

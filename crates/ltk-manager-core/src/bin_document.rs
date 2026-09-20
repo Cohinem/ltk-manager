@@ -20,6 +20,7 @@ use parking_lot::{ArcRwLockReadGuard, Mutex, RawRwLock, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod declared;
 mod edit;
 mod find;
 mod items;
@@ -27,6 +28,9 @@ mod properties;
 mod records;
 pub(crate) mod resolve;
 
+pub use declared::{
+    BASE_LAYER, DeclareContext, DeclaredMark, DeclaredSign, DeclaredState, GameCopy,
+};
 pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
 pub use items::{ClassChoice, NewItem};
@@ -112,6 +116,10 @@ pub enum BinDocumentError {
     /// The edited tree does not encode.
     #[error("the bin does not encode: {0}")]
     Unwritable(#[source] ltk_meta::Error),
+
+    /// A declared document's project, manifest or apply failed. ADR-0042.
+    #[error("{0}")]
+    Declaring(#[source] Box<crate::error::AppError>),
 }
 
 /// The open documents, one tree per asset, bounded, evicting the least recently used.
@@ -236,7 +244,46 @@ impl BinDocuments {
             }
         }
 
-        let document = BinDocument::parse(bytes()?)?;
+        self.hold(asset, || Ok(BinDocument::parse(bytes()?)?))
+    }
+
+    /// Hold the game chunk `asset` open as a declared document of `context`'s project,
+    /// answering a fresh id over its tree. ADR-0042.
+    ///
+    /// As [`BinDocuments::open`], with the tree the game's copy under the project's
+    /// declarations. `chunk_hash` is the chunk's path hash.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::open`], and with what [`BinDocument::declare`] raises.
+    pub fn open_declared(
+        &self,
+        asset: AssetRef,
+        chunk_hash: u64,
+        open: impl FnOnce() -> AppResult<(Vec<u8>, DeclareContext)>,
+    ) -> AppResult<BinDocumentId> {
+        self.hold(asset, || {
+            let (bytes, context) = open()?;
+            Ok(BinDocument::declare(bytes, chunk_hash, context)?)
+        })
+    }
+
+    /// Hold `asset` open over the tree `parse` answers, which runs only while no id is
+    /// over the asset.
+    fn hold(
+        &self,
+        asset: AssetRef,
+        parse: impl FnOnce() -> AppResult<BinDocument>,
+    ) -> AppResult<BinDocumentId> {
+        {
+            let mut store = self.inner.lock();
+            if let Some(held) = store.held.get_mut(&asset) {
+                held.holders += 1;
+                return Ok(store.issue(asset));
+            }
+        }
+
+        let document = parse()?;
         /* Scanned beside the parse, and outside the lock, because both read the disk. */
         let chunks = LayerChunks::of(&asset);
 
@@ -445,6 +492,33 @@ impl BinDocuments {
         self.edit(id, |document| document.set_pointer(entry, path, class))
     }
 
+    /// What the document under `id` says beside its rows, or `None` for one that declares
+    /// nothing.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed.
+    pub fn declared_state(
+        &self,
+        id: BinDocumentId,
+    ) -> Result<Option<DeclaredState>, BinDocumentError> {
+        Ok(self.held(id)?.1.read().declared_state())
+    }
+
+    /// Write the edits that follow on the document under `id` to `layer`.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, and with what
+    /// [`BinDocument::declare_into`] raises.
+    pub fn declare_into(
+        &self,
+        id: BinDocumentId,
+        layer: &str,
+    ) -> Result<DeclaredState, BinDocumentError> {
+        self.held(id)?.1.write().declare_into(layer)
+    }
+
     /// Revert the latest edit of the document under `id`, answering whether one was held.
     ///
     /// # Errors
@@ -495,8 +569,11 @@ impl BinDocuments {
         bytes: impl FnOnce(&AssetRef) -> AppResult<Vec<u8>>,
     ) -> AppResult<()> {
         let (asset, document) = self.held(id)?;
-        let fresh = BinDocument::parse(bytes(&asset)?)?;
-        *document.write() = fresh;
+        let mut document = document.write();
+        if document.declares() {
+            return Ok(document.reapply()?);
+        }
+        *document = BinDocument::parse(bytes(&asset)?)?;
         Ok(())
     }
 
@@ -512,6 +589,10 @@ impl BinDocuments {
         let mut document = document.write();
         if let Some(gate) = document.read_only(&asset) {
             return Err(BinDocumentError::ReadOnly(gate).into());
+        }
+        /* An edit of a declared document is on disk once it answers. */
+        if document.declares() {
+            return Ok(());
         }
         let Some(path) = asset.layer_file() else {
             return Err(BinDocumentError::ReadOnly(ReadOnly::Loose).into());
@@ -588,6 +669,9 @@ pub struct BinDocument {
     undo: VecDeque<edit::Edit>,
     /// The edits a redo applies again, the latest undone last.
     redo: Vec<edit::Edit>,
+    /// The project the document declares into. Absent for every document but a game chunk
+    /// opened from a project's game tree (ADR-0042).
+    declared: Option<declared::Declared>,
 }
 
 impl BinDocument {
@@ -605,6 +689,7 @@ impl BinDocument {
             touched: IndexSet::new(),
             undo: VecDeque::new(),
             redo: Vec::new(),
+            declared: None,
         })
     }
 
@@ -1035,6 +1120,8 @@ pub struct BinDocumentHandle {
     pub object: Option<BinObjectHeader>,
     /// The gate a read-only document stands behind. Absent where it takes edits.
     pub read_only: Option<ReadOnly>,
+    /// What a declared document says beside its rows. Absent for every other document.
+    pub declared: Option<DeclaredState>,
 }
 
 /// A window of rows under one node, and how many there are in all.
