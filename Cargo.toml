@@ -121,11 +121,11 @@ ltk_primitives = { git = "https://github.com/LeagueToolkit/league-toolkit", rev 
 # Game-copy references and the build against `ltk_meta` 0.8.4 are on league-mod's
 # main and not yet on crates.io. Every league-mod crate comes from the one rev, so
 # they share one `ltk_game_data`. Move the pin to the release that carries them.
-ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
-ltk_game_data = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
-ltk_game_index = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
-ltk_hashtable = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
-ltk_mod_core = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
-ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
-ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
-ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "c3b0427bb0c4206fc7b6c00f034985d4d4d129ca" }
+ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_game_data = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_game_index = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_hashtable = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_mod_core = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }
+ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3515978b115d5018ec2cd6983446c8fc70a4bf69" }

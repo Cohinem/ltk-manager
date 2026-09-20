@@ -59,7 +59,7 @@ use std::path::{Path, PathBuf};
 use fs_err as fs;
 use ltk_game_data::{
     Declarations, EntryName, Error as GameDataError, ErrorKind as GameDataErrorKind,
-    MANIFEST_NAMES, Sign, load_declarations,
+    MANIFEST_NAMES, Sign, Value, load_declarations,
 };
 use ltk_meta::path::PropertyPath;
 
@@ -103,6 +103,23 @@ impl ValueText {
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+}
+
+impl TryFrom<&Value> for ValueText {
+    type Error = Error;
+
+    /// The text `value` writes as YAML.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidValue`] for a value `ltk_game_data` does not write, which no loaded
+    /// or rendered value is.
+    fn try_from(value: &Value) -> Result<Self, Error> {
+        let text = value
+            .to_yaml()
+            .map_err(|error| Error::InvalidValue(error.to_string()))?;
+        Self::new(text)
     }
 }
 
