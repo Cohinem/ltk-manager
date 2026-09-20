@@ -20,9 +20,21 @@ struct Decoded {
     uv0: Vec<f32>,
     uv1: Option<Vec<f32>>,
     indices: Vec<u32>,
-    meshes: Vec<([f32; 3], [f32; 3], u8, u8, u8, u32, u32)>,
+    meshes: Vec<DecodedMesh>,
     submeshes: Vec<(u32, u32, u32)>,
     materials: Vec<String>,
+}
+
+/// One mesh record as the decoder reads it back, apart from the encoder's own type.
+#[derive(Debug, PartialEq)]
+struct DecodedMesh {
+    min: [f32; 3],
+    max: [f32; 3],
+    visibility: u8,
+    quality: u8,
+    flags: u8,
+    first_submesh: u32,
+    submesh_count: u32,
 }
 
 /// A position in a map buffer, for the decoder to walk.
@@ -96,15 +108,15 @@ fn decode(buffer: &[u8]) -> (Decoded, Vec<usize>) {
             let (visibility, quality, mesh_flags, reserved) =
                 (reader.byte(), reader.byte(), reader.byte(), reader.byte());
             assert_eq!(reserved, 0, "the padding byte of a mesh record is zero");
-            (
+            DecodedMesh {
                 min,
                 max,
                 visibility,
                 quality,
-                mesh_flags,
-                reader.word(),
-                reader.word(),
-            )
+                flags: mesh_flags,
+                first_submesh: reader.word(),
+                submesh_count: reader.word(),
+            }
         })
         .collect();
 
@@ -244,15 +256,15 @@ fn a_mesh_record_carries_its_bounds_and_the_fields_a_viewport_filters_on() {
 
     assert_eq!(
         decoded.meshes,
-        vec![(
-            [-1.0, -2.0, -3.0],
-            [4.0, 5.0, 6.0],
-            0b1000_0001,
-            0x1f,
-            MESH_CULL_DISABLED,
-            0,
-            2
-        )]
+        vec![DecodedMesh {
+            min: [-1.0, -2.0, -3.0],
+            max: [4.0, 5.0, 6.0],
+            visibility: 0b1000_0001,
+            quality: 0x1f,
+            flags: MESH_CULL_DISABLED,
+            first_submesh: 0,
+            submesh_count: 2,
+        }]
     );
 }
 
@@ -331,7 +343,7 @@ fn the_bake_agrees_with_the_bounds_a_shipped_map_states() {
         .expect("a target names a chunk with #");
     let hash = u64::from_str_radix(hash, 16).expect("a chunk hash is hex");
 
-    let mut wad = ltk_wad::Wad::mount(std::fs::File::open(path).unwrap()).unwrap();
+    let mut wad = ltk_wad::Wad::mount(fs_err::File::open(path).unwrap()).unwrap();
     let chunk = *wad.chunks().get(ltk_hash::WadHash(hash)).unwrap();
     let bytes = wad.load_chunk_decompressed(&chunk).unwrap();
 
@@ -363,9 +375,10 @@ fn the_bake_agrees_with_the_bounds_a_shipped_map_states() {
     let mut worst = 0.0f32;
 
     for (mesh, source) in decoded.meshes.iter().zip(asset.meshes()) {
-        let (min, max, _, _, flags, first, count) = mesh;
+        let (min, max) = (mesh.min, mesh.max);
+        let first = mesh.first_submesh as usize;
 
-        for submesh in &decoded.submeshes[*first as usize..(*first + *count) as usize] {
+        for submesh in &decoded.submeshes[first..first + mesh.submesh_count as usize] {
             let range = submesh.0 as usize..(submesh.0 + submesh.1) as usize;
             for index in &decoded.indices[range] {
                 let at = *index as usize;
@@ -381,7 +394,7 @@ fn the_bake_agrees_with_the_bounds_a_shipped_map_states() {
             }
         }
 
-        if flags & MESH_REGION_ANCHORED != 0 {
+        if mesh.flags & MESH_REGION_ANCHORED != 0 {
             region_anchored += 1;
             continue;
         }
