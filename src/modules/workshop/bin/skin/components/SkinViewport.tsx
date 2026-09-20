@@ -289,17 +289,10 @@ function SkinScene({ skin, document, source }: SkinSceneProps) {
     () => [...(pinned ?? origin ?? FEET)],
     [pinned, origin],
   );
-  const bounds = useMemo(() => {
-    if (mesh.data === undefined) return null;
-    const box = meshBounds(mesh.data, skin.hidden, scale);
-    if (box === null) return null;
-    /* Moved with the subject, so F frames where it stands rather than where it opened.
-       The yaw is left out: a champion's box is near enough square about its own axis. */
-    return {
-      min: box.min.map((value, axis) => value + stood[axis]) as [number, number, number],
-      max: box.max.map((value, axis) => value + stood[axis]) as [number, number, number],
-    };
-  }, [mesh.data, skin.hidden, scale, stood]);
+  const bounds = useMemo(
+    () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
+    [mesh.data, skin.hidden, scale],
+  );
   /* Fit answers the F key and the button. A change of preset frames again on its own. */
   const [fitToken, setFitToken] = useState(0);
   const refit = useCallback(() => setFitToken((token) => token + 1), []);
