@@ -11,6 +11,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { m } from "@/i18n";
+import type { BinRow } from "@/lib/tauri";
 
 import type { RowLine } from "./binRows";
 
@@ -68,6 +69,18 @@ export function rowEdits({
   if (within?.type === "map") edits.push("insertAfter", "removeEntry");
   if (row.node === "property") edits.push("removeProperty");
   return edits;
+}
+
+/**
+ * Why a declared document refuses `edit` on `row`, or null where it takes it. "Declaring from
+ * a game bin" in docs/ux/BIN_EDITOR.md.
+ */
+export function undeclarable(edit: RowEdit, row: Pick<BinRow, "unnamed" | "node">): string | null {
+  if (row.node === "property" && row.unnamed) {
+    return m["error.BIN_EDIT_REJECTED.namelessPath.description"]();
+  }
+  if (edit === "removeProperty") return m.workshop_bin_undeclarable_remove_property_hint();
+  return null;
 }
 
 /** The edit a keystroke on a row asks for: `Alt+Up` and `Alt+Down` move, `Ctrl+Enter` inserts after. */

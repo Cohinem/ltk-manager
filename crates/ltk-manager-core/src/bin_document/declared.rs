@@ -10,7 +10,7 @@ use std::fmt;
 use std::io::Cursor;
 use std::sync::Arc;
 
-use ltk_declarations::{Edit as ManifestEdit, Operation, ValueText};
+use ltk_declarations::Edit as ManifestEdit;
 use ltk_game_data::{Edit, EntryName, Module, Names, PropertyEdit, Selector, Sign, Value, apply};
 use ltk_hash::{BinHash, WadHash};
 use ltk_meta::path::{FieldNames, MapKey, PropertyPath, Subscript, ValuePath};
@@ -20,10 +20,7 @@ use ltk_mod_project::{ModProjectLayer, game_data::load_layer};
 use serde::Serialize;
 
 use super::edit::UNDO_DEPTH;
-use super::{
-    BinDocument, BinDocumentError, EditRejection, EntryKey, LeafValue, RowNames, Step, Trace,
-    descend, hex, parse_steps,
-};
+use super::{BinDocument, BinDocumentError, EditRejection, EntryKey, RowNames, Trace, hex};
 use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
 use crate::meta_schema::PatchSchema;
 
@@ -115,6 +112,8 @@ pub struct DeclaredMark {
     /// The row's path on the wire. Empty where the declared path reaches no row.
     pub path: String,
     pub sign: DeclaredSign,
+    /// The declaration sets a whole list or map, which no later change of the game's reaches.
+    pub whole: bool,
     /// The game's value as a declaration spells it. Absent where the game holds none, and
     /// for a value that does not render.
     pub game: Option<String>,
@@ -222,72 +221,6 @@ impl BinDocument {
             address: format!("{}:{path}", hex(entry)),
             rejection: EditRejection::Undeclarable,
         })
-    }
-
-    /// Set the leaf at `path` under `entry` by declaring it in the chosen layer.
-    pub(super) fn declare_leaf(
-        &mut self,
-        entry: BinHash,
-        path: &str,
-        value: LeafValue,
-    ) -> Result<LeafValue, BinDocumentError> {
-        let held = self.apply_leaf(entry, path, value)?;
-        let outcome = self.declare_value_at(entry, path);
-        /* The tree is the apply's and never the edit's, so a refused write leaves no trace. */
-        let applied = self.reapply();
-        outcome?;
-        applied?;
-        Ok(held)
-    }
-
-    /// Declare the value the tree holds at `path` as a set of the chosen layer.
-    fn declare_value_at(&mut self, entry: BinHash, path: &str) -> Result<(), BinDocumentError> {
-        let address = || format!("{}:{path}", hex(entry));
-        let not_found = || BinDocumentError::NodeNotFound { address: address() };
-        let nameless = || BinDocumentError::EditRejected {
-            address: address(),
-            rejection: EditRejection::NamelessPath,
-        };
-
-        let steps = parse_steps(path).ok_or_else(not_found)?;
-        let object = self.object_at(entry).ok_or_else(not_found)?;
-        let (node, trace) = descend(object, &steps).ok_or_else(not_found)?;
-        let super::Node::Value(value) = node else {
-            return Err(not_found());
-        };
-        if steps
-            .iter()
-            .any(|step| matches!(step, Step::Key(EntryKey { occurrence, .. }) if *occurrence > 0))
-        {
-            return Err(nameless());
-        }
-        let walked = value_path(&trace).ok_or_else(nameless)?;
-
-        let declared = self.declared.as_ref().ok_or_else(not_declared)?;
-        let mut spelled = None;
-        declared.context.game.with_names(&mut |names| {
-            let names = RenderNames(names);
-            spelled = Some((|| {
-                let path = walked.to_property_path(&names).ok()?;
-                let value = Value::render(value, &names).ok()?;
-                Some((path, value, entry_name(entry, &names)))
-            })());
-        });
-        let (property, value, name) = spelled.flatten().ok_or_else(nameless)?;
-
-        let declared = self.declared.as_mut().ok_or_else(not_declared)?;
-        declared
-            .write(&ManifestEdit {
-                chunk_hash: declared.chunk_hash,
-                entry: name,
-                path: property,
-                operation: Operation::Set(
-                    ValueText::try_from(&value)
-                        .map_err(AppError::from)
-                        .map_err(declaring)?,
-                ),
-            })
-            .map_err(declaring)
     }
 
     /// Restore the manifest text from before the latest edit, answering whether one was held.
@@ -426,25 +359,30 @@ impl Declared {
         self.marks = marks;
     }
 
-    /// Apply `edit` to the chosen layer's manifest and write it, holding the texts for an undo.
-    fn write(&mut self, edit: &ManifestEdit) -> AppResult<()> {
+    /// Apply `plan` to the chosen layer's manifest and write it, answering the texts an undo
+    /// holds. `None` where the plan left the text as it was.
+    fn write(&self, plan: &[ManifestEdit]) -> AppResult<Option<TextEdit>> {
         let mut manifest = self.context.project.declarations_manifest(&self.layer)?;
         let before = manifest.text().to_owned();
-        manifest.edit(edit)?;
+        for edit in plan {
+            manifest.edit(edit)?;
+        }
         manifest.write()?;
         let after = manifest.text().to_owned();
-        if before != after {
-            if self.undo.len() == UNDO_DEPTH {
-                self.undo.pop_front();
-            }
-            self.undo.push_back(TextEdit {
-                layer: self.layer.clone(),
-                before,
-                after,
-            });
-            self.redo.clear();
+        Ok((before != after).then(|| TextEdit {
+            layer: self.layer.clone(),
+            before,
+            after,
+        }))
+    }
+
+    /// Hold `edit` for an undo, which empties the redo stack.
+    fn remember(&mut self, edit: TextEdit) {
+        if self.undo.len() == UNDO_DEPTH {
+            self.undo.pop_front();
         }
-        Ok(())
+        self.undo.push_back(edit);
+        self.redo.clear();
     }
 
     /// Replace the text `from` of `layer`'s manifest with `to`.
@@ -555,6 +493,13 @@ fn marks_of(
         entry: hex(entry),
         path: wire_path(object, &property.path).unwrap_or_default(),
         sign: property.sign.into(),
+        whole: property.sign == Sign::Set
+            && matches!(
+                object.resolve(&property.path),
+                Ok(PropertyValueEnum::Container(_)
+                    | PropertyValueEnum::UnorderedContainer(_)
+                    | PropertyValueEnum::Map(_))
+            ),
         game: game
             .and_then(|game| game.resolve(&property.path).ok())
             .and_then(|value| Value::render(value, names).ok())
@@ -678,5 +623,6 @@ fn not_declared() -> BinDocumentError {
     ))
 }
 
+mod edits;
 #[cfg(test)]
 mod tests;

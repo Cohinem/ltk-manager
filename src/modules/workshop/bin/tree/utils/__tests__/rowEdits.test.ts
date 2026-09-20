@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { BinRow } from "@/lib/tauri";
 
-import { keyEdit, onHover, rowEdits } from "../rowEdits";
+import { keyEdit, onHover, rowEdits, undeclarable } from "../rowEdits";
 
 function row(overrides: Partial<BinRow>): BinRow {
   return {
@@ -92,5 +92,19 @@ describe("keyEdit", () => {
     expect(keyEdit({ ...keys, key: "Enter", ctrlKey: true }, item(1))).toBe("insertAfter");
     expect(keyEdit({ ...keys, key: "ArrowUp", altKey: true }, item(0))).toBeNull();
     expect(keyEdit({ ...keys, key: "Enter" }, item(1))).toBeNull();
+  });
+});
+
+describe("undeclarable", () => {
+  it("refuses removing a property, which no declaration expresses", () => {
+    expect(undeclarable("removeProperty", { node: "property", unnamed: false })).toBe(
+      "No declaration removes a property from a game bin",
+    );
+    expect(undeclarable("addItem", { node: "property", unnamed: false })).toBeNull();
+  });
+
+  it("refuses every edit of a property no table names", () => {
+    expect(undeclarable("addItem", { node: "property", unnamed: true })).not.toBeNull();
+    expect(undeclarable("removeItem", { node: "element", unnamed: true })).toBeNull();
   });
 });

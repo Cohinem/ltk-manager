@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                         |
-| ---------- | -------------------------------------------------------------- |
-| 2026-09-21 | Declare a game bin's leaf edit into a project layer            |
-| 2026-09-20 | Open a map's files on the map, and sort a file's objects       |
-| 2026-09-17 | Draw a patch bin's records under the objects they target       |
-| 2026-09-14 | Address a map entry whose key repeats as `{k}#n`               |
-| 2026-09-14 | Search an open bin from the bar's `@` scope                    |
-| 2026-09-14 | Find an embedded class's uses and an object's incoming links   |
-| 2026-09-14 | Edit list items, map entries, options and pointers inline      |
-| 2026-09-14 | Add and remove a property inline, at the schema's default      |
-| 2026-09-14 | Save a leaf edit as a delta, and refuse a file changed on disk |
-| 2026-09-14 | Cut a chip's path under its object, and name the target class  |
+| Date       | Change                                                          |
+| ---------- | --------------------------------------------------------------- |
+| 2026-09-21 | Declare a game bin's container edits, and refuse what none says |
+| 2026-09-21 | Declare a game bin's leaf edit into a project layer             |
+| 2026-09-20 | Open a map's files on the map, and sort a file's objects        |
+| 2026-09-17 | Draw a patch bin's records under the objects they target        |
+| 2026-09-14 | Address a map entry whose key repeats as `{k}#n`                |
+| 2026-09-14 | Search an open bin from the bar's `@` scope                     |
+| 2026-09-14 | Find an embedded class's uses and an object's incoming links    |
+| 2026-09-14 | Edit list items, map entries, options and pointers inline       |
+| 2026-09-14 | Add and remove a property inline, at the schema's default       |
+| 2026-09-14 | Save a leaf edit as a delta, and refuse a file changed on disk  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -81,7 +81,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
 | Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
 | Patch bin records     | Available   | Grouped under the objects they target, read-only. ADR-0041       |
-| Declared game bin     | In progress | A leaf edit of a game bin lands as a declaration. ADR-0042       |
+| Declared game bin     | In progress | A row edit of a game bin lands as a declaration. ADR-0042        |
 | Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite          |
 
 ## Scope
@@ -2158,9 +2158,35 @@ An edit is on disk once it answers, so a declared document has no unsaved state 
 status. The entry is spelled by its name from the tables, else by its hash. An undo over a
 manifest edited since, by hand or from another tab, is refused and leaves the file as it is.
 
-Two edits are refused with the reason on the row. A path through a field no table names has
-no spelling in a declaration, and neither has a map key the file holds twice. Every edit
-other than a leaf set waits on the container declarations.
+Every row edit lands as the declaration that says it.
+
+| Row edit                                  | Declaration                            |
+| ----------------------------------------- | -------------------------------------- |
+| A leaf set, a field of a list element     | `path: value`, `list[i].field: value`  |
+| Add an entry to a map                     | `+map: {key: value}`                   |
+| Remove an entry of a map                  | `-map: [key]`                          |
+| Set the key of a map entry                | `-map: [old]` and `+map: {new: value}` |
+| Add an item at the end of a list          | `+list: [value]`                       |
+| Remove an item of a list of leaves        | `-list: [value]`                       |
+| Remove an item of a list of structs       | `-list: [index]`                       |
+| Insert mid-list, move up, move down       | The whole list                         |
+| Give an option a value, or clear it       | The option's value, or `null`          |
+| Give a pointer a class, or set it to null | A struct pin, or `null`                |
+| Add a property                            | A set of the new property              |
+
+A declaration is checked before it stands. The project's declarations apply again, and the
+value under the edit has to come out as the edit left it. Where the keys above do not, the
+whole value is set in their place and the signed keys of that path are dropped: a removal by
+value in a list holding the value twice is one such case. An edit under a whole value the
+layer already sets joins that set. A row whose declaration sets a whole list or map says so
+on its mark, because a later change of the game's no longer reaches it. An edit that neither
+form reproduces is refused, and the manifest is left as it was.
+
+A map is compared by its entries in any order, because an addition lands at the end of one.
+
+Three edits are refused with the reason. A path through a field no table names has no
+spelling in a declaration, and neither has a map key the file holds twice. No declaration
+removes a property, so Remove property is disabled and its menu item carries the reason.
 
 One re-apply over the largest skin bin of the install (Viego, 3.7 MiB, 483 objects) takes
 65 ms in a release build.

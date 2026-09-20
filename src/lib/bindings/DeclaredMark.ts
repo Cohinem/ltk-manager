@@ -14,6 +14,10 @@ entry: string,
  */
 path: string, sign: DeclaredSign, 
 /**
+ * The declaration sets a whole list or map, which no later change of the game's reaches.
+ */
+whole: boolean, 
+/**
  * The game's value as a declaration spells it. Absent where the game holds none, and
  * for a value that does not render.
  */

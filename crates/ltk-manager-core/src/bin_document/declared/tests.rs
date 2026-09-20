@@ -7,23 +7,24 @@ use ltk_hash::Hash as _;
 use ltk_meta::property::values;
 
 use super::*;
+use crate::bin_document::LeafValue;
 use crate::meta_schema;
 use crate::preview::AssetRef;
 
-const SKIN: &str = "Characters/Teemo/Skins/Skin0";
+pub(super) const SKIN: &str = "Characters/Teemo/Skins/Skin0";
 const CHUNK: &str = "data/characters/teemo/skins/skin0.bin";
 
-fn h(name: &str) -> BinHash {
+pub(super) fn h(name: &str) -> BinHash {
     BinHash::hash_str(name)
 }
 
 /// The game with no entry to reference, naming what `names` holds.
-struct Game {
+pub(super) struct Game {
     names: HashMap<BinHash, &'static str>,
 }
 
 impl Game {
-    fn naming(names: &[&'static str]) -> Arc<Self> {
+    pub(super) fn naming(names: &[&'static str]) -> Arc<Self> {
         Arc::new(Self {
             names: names.iter().map(|name| (h(name), *name)).collect(),
         })
@@ -65,7 +66,7 @@ impl RowNames for Game {
 }
 
 /// A project directory with a `base` and a `chroma` layer.
-fn project(dir: &Path) -> ProjectDir {
+pub(super) fn project(dir: &Path) -> ProjectDir {
     let config = serde_json::json!({
         "name": "jade-teemo",
         "display_name": "Jade Teemo",
@@ -146,7 +147,7 @@ fn glow(document: &BinDocument) -> f32 {
     }
 }
 
-fn manifest(dir: &Path, layer: &str) -> String {
+pub(super) fn manifest(dir: &Path, layer: &str) -> String {
     fs::read_to_string(
         dir.join("content")
             .join(layer)
@@ -177,6 +178,7 @@ fn a_hand_written_manifest_applies_and_marks_the_row_it_touches() {
             entry: hex(h(SKIN)),
             path: glow_path(),
             sign: DeclaredSign::Set,
+            whole: false,
             game: Some("0.0".to_owned()),
         }]
     );

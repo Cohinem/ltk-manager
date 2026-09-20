@@ -280,22 +280,28 @@ impl BinDocument {
         path: &str,
         value: LeafValue,
     ) -> Result<LeafValue, BinDocumentError> {
-        if self.declares() {
-            return self.declare_leaf(entry, path, value);
-        }
         let held = self.apply_leaf(entry, path, value)?;
         self.record(Edit::Leaf {
             entry,
             path: path.to_owned(),
             value: held.clone(),
-        });
+        })?;
         Ok(held)
     }
 
-    /// Push the edit that reverts the latest one, and empty the redo stack.
-    pub(super) fn record(&mut self, inverse: Edit) {
+    /// Push the edit that reverts the latest one, and empty the redo stack. A declared
+    /// document declares the edit instead (ADR-0042).
+    ///
+    /// # Errors
+    ///
+    /// What [`BinDocument::declare_edit`] raises, which leaves the tree as it was.
+    pub(super) fn record(&mut self, inverse: Edit) -> Result<(), BinDocumentError> {
+        if self.declares() {
+            return self.declare_edit(&inverse);
+        }
         push_bounded(&mut self.undo, inverse);
         self.redo.clear();
+        Ok(())
     }
 
     /// Revert the latest edit, answering whether one was held. The revert joins the redo
