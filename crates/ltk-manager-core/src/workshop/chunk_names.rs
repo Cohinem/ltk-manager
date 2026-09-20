@@ -13,6 +13,7 @@ use fs_err as fs;
 use ltk_hash::{Hash as _, WadHash};
 use ltk_hashtable::Hashtable;
 use ltk_mod_project::{CONTENT_DIR_NAME, ModProject};
+use ltk_wad::is_hex_chunk_path;
 use walkdir::WalkDir;
 
 use crate::preview::AssetRef;
@@ -28,6 +29,9 @@ pub struct LayerChunks {
     /// declared table names alone has no file, so it is absent here. Where two layers
     /// hold one path, the file kept is the higher-priority layer's.
     by_path: HashMap<String, AssetRef>,
+    /// The layer file an unpack named by its chunk's hash, which no table had a path for.
+    /// The hash is all such a file says of where the game reads it.
+    by_chunk: HashMap<WadHash, AssetRef>,
 }
 
 impl LayerChunks {
@@ -63,10 +67,23 @@ impl LayerChunks {
     /// The layer file holding `path`, or `None` for a path no layer of this project has.
     ///
     /// Matched without regard to case: a layer spells a path as its author does, and the
-    /// tables spell it lowercase.
+    /// tables spell it lowercase. A file an unpack named by its hash answers the path that
+    /// hashes to it, as the game itself would reach it.
     #[must_use]
     pub fn asset_at(&self, path: &str) -> Option<&AssetRef> {
-        self.by_path.get(&path.to_lowercase())
+        let spelled = path.to_lowercase();
+        self.by_path
+            .get(&spelled)
+            .or_else(|| self.by_chunk.get(&WadHash::hash_str(&spelled)))
+    }
+
+    /// The layer file of the chunk `hash` addresses, whether a layer names it by its path or
+    /// an unpack named it by the hash, or `None` where no layer holds it.
+    #[must_use]
+    pub fn asset_of_chunk(&self, hash: WadHash) -> Option<&AssetRef> {
+        self.by_chunk
+            .get(&hash)
+            .or_else(|| self.by_path.get(&self.by_hash.get(&hash)?.to_lowercase()))
     }
 
     /// How many paths the scan named.
@@ -134,17 +151,18 @@ impl LayerChunks {
             if path.is_empty() {
                 continue;
             }
+            let asset = AssetRef::Layer {
+                project: project.to_owned(),
+                layer: layer.to_owned(),
+                path: format!("{archive}/{path}"),
+            };
+            if let Some(chunk) = hex_chunk(&path) {
+                self.by_chunk.insert(chunk, asset.clone());
+            }
             /* Overwritten rather than kept, so the spelling `get` answers with is the
             spelling of the same layer whose file `asset_at` answers with. */
             self.by_hash.insert(WadHash::hash_str(&path), path.clone());
-            self.by_path.insert(
-                path.to_lowercase(),
-                AssetRef::Layer {
-                    project: project.to_owned(),
-                    layer: layer.to_owned(),
-                    path: format!("{archive}/{path}"),
-                },
-            );
+            self.by_path.insert(path.to_lowercase(), asset);
         }
     }
 
@@ -240,6 +258,15 @@ impl Layer for LayerDir {
 }
 
 /// The last component of `path`, where it is one the platform spells in UTF-8.
+/// The chunk a file is named by, where an unpack wrote it as the hex of its hash.
+fn hex_chunk(path: &str) -> Option<WadHash> {
+    let path = Utf8Path::new(path);
+    if !is_hex_chunk_path(path) {
+        return None;
+    }
+    u64::from_str_radix(path.file_stem()?, 16).ok().map(WadHash)
+}
+
 fn dir_name(path: &Path) -> Option<&str> {
     path.file_name().and_then(|name| name.to_str())
 }

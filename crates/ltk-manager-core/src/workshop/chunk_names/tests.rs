@@ -86,6 +86,25 @@ fn a_chunk_path_reaches_the_layer_file_holding_it_whatever_its_casing() {
 }
 
 #[test]
+fn a_file_an_unpack_named_by_its_hash_answers_the_path_that_hashes_to_it() {
+    let path = "ASSETS/Maps/KitPieces/SRX/Textures/Unnamed.tex";
+    let hash = WadHash::hash_str(path);
+    let file = format!("base/Map11.wad.client/{:016x}.tex", hash.0);
+    let dir = project(&[&file], &[]);
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    let held = AssetRef::Layer {
+        project: dir.path().display().to_string(),
+        layer: "base".to_owned(),
+        path: format!("Map11.wad.client/{:016x}.tex", hash.0),
+    };
+    assert_eq!(chunks.asset_at(path), Some(&held));
+    assert_eq!(chunks.asset_of_chunk(hash), Some(&held));
+    assert_eq!(chunks.asset_at("assets/another.tex"), None);
+}
+
+#[test]
 fn a_path_only_a_declared_table_names_reaches_no_file() {
     let path = "assets/x.tex";
     let dir = project(&[], &[("game.hashes.txt", &format!("{path}\n"))]);
