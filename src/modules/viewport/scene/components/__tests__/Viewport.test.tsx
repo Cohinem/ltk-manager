@@ -1,10 +1,12 @@
 // @vitest-environment happy-dom
 
+import { QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { type ReactNode, useEffect, useLayoutEffect, useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { ContentVisibilityContext } from "@/hooks";
+import { createTestQueryClient } from "@/test/utils";
 
 import { Viewport } from "../Viewport";
 
@@ -58,12 +60,16 @@ afterEach(() => {
 });
 
 it("creates one renderer on first visibility and pauses it across hidden or zero-size states", () => {
+  /* Viewport asks for a backdrop, and a query needs a client even to answer none. */
+  const client = createTestQueryClient();
   const view = (visible: boolean) => (
-    <ContentVisibilityContext value={visible}>
-      <Viewport stage={false} textured={false} camera="orbit">
-        {null}
-      </Viewport>
-    </ContentVisibilityContext>
+    <QueryClientProvider client={client}>
+      <ContentVisibilityContext value={visible}>
+        <Viewport stage={false} textured={false} camera="orbit">
+          {null}
+        </Viewport>
+      </ContentVisibilityContext>
+    </QueryClientProvider>
   );
   const { rerender, unmount } = render(view(false));
   act(() => measure({ clientWidth: 800, clientHeight: 600 }));
