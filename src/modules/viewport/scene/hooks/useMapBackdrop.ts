@@ -23,6 +23,9 @@ const DATA_PREFIX = "data/";
 /** The suffix a map's geometry carries, which mirrors `MapPath::geometry` in core. */
 const GEOMETRY_SUFFIX = ".mapgeo";
 
+/** The one sky the install ships, which every map's archive carries a copy of. */
+const SKY_PATH = "assets/maps/skyboxes/riots_sru_skybox_cubemap.dds";
+
 /** The suffix a map's materials carry, which mirrors `MapPath::materials` in core. */
 const MATERIALS_SUFFIX = ".materials.bin";
 
@@ -77,7 +80,7 @@ function mapFile(map: MapPath, suffix: string): string {
 }
 
 /** Where the install keeps a map's files, which nothing invalidates for the app's life. */
-const backdropQueries = {
+export const backdropQueries = {
   /* The index answers a directory as a lookup rather than a walk, so enumerating every
      map is one read of the geometry root and one of each map under it. */
   maps: () =>
@@ -106,6 +109,20 @@ const backdropQueries = {
         }
         found.sort((a, b) => a.map.localeCompare(b.map, undefined, { numeric: true }));
         return found;
+      },
+      staleTime: Infinity,
+      retry: false,
+    }),
+
+  sky: () =>
+    queryOptions<AssetRef | null>({
+      queryKey: ["viewport-backdrop", "sky"],
+      queryFn: async () => {
+        const answer = await api.objects.locateGameFiles([SKY_PATH]);
+        const held = answer.ok ? answer.value[SKY_PATH] : undefined;
+        return held === undefined
+          ? null
+          : { kind: "gameChunk", wad: held.wad, pathHash: held.pathHash };
       },
       staleTime: Infinity,
       retry: false,

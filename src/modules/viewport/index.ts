@@ -83,3 +83,4 @@ export {
   UNITS_PER_METRE,
 } from "./scene/utils/world";
 export { useAssetTextures } from "./shared/hooks/useAssetTextures";
+export { loadCubeTexture } from "./shared/utils/cubeTexture";

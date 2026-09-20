@@ -12,6 +12,7 @@ import { useSceneColors } from "../hooks/sceneColors";
 import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { Backdrop } from "./Backdrop";
+import { Sky } from "./Sky";
 import { Stage } from "./Stage";
 import { Sun } from "./Sun";
 
@@ -139,7 +140,10 @@ export function Viewport({
           <Sun />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (
-            <Backdrop map={map.geometry} materials={map.materials} textures={map.textures} />
+            <>
+              <Sky />
+              <Backdrop map={map.geometry} materials={map.materials} textures={map.textures} />
+            </>
           )}
           <CameraPresetContext value={camera}>{children}</CameraPresetContext>
         </Canvas>
