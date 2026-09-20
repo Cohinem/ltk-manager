@@ -7,7 +7,6 @@ use glam::Vec3;
 use indexmap::IndexMap;
 use ltk_hash::Hash as _;
 use ltk_meta::Bin;
-use ltk_meta::property::NoMeta;
 
 use super::*;
 use crate::bin_document::PropertyKind;
@@ -80,7 +79,6 @@ fn empty(class: &str) -> values::Struct {
     values::Struct {
         class_hash: h(class),
         properties: IndexMap::new(),
-        meta: NoMeta,
     }
 }
 

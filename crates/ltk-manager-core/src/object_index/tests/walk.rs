@@ -22,7 +22,6 @@ fn part(name: &str) -> values::Struct {
         properties: [(h("name"), values::String::from(name).into())]
             .into_iter()
             .collect(),
-        meta: NoMeta,
     }
 }
 
@@ -82,7 +81,7 @@ fn skin() -> BinObject {
 }
 
 fn skin_bytes() -> Vec<u8> {
-    let bin = Bin::<NoMeta>::builder()
+    let bin = Bin::builder()
         .object(skin())
         .object(BinObject::new(h(RESOURCES), h("ResourceResolver")))
         .object(BinObject::new(h("characters/aatrox/parts/root"), h("Part")))
@@ -193,7 +192,7 @@ fn a_repeated_key_hits_on_the_row_of_the_entry_that_links() {
         ],
     )
     .unwrap();
-    let bin = Bin::<NoMeta>::builder()
+    let bin = Bin::builder()
         .object(
             BinObject::builder(h(SKIN), h("Skin"))
                 .property(h("clips"), map)
@@ -215,7 +214,7 @@ fn a_repeated_key_hits_on_the_row_of_the_entry_that_links() {
 
 #[test]
 fn a_patch_walks_the_objects_it_adds() {
-    let mut bin = BinOverride::<NoMeta>::new();
+    let mut bin = BinOverride::new();
     let object = BinObject::builder(h("characters/added"), h("Added"))
         .property(h("resolver"), values::ObjectLink::new(h(RESOURCES)))
         .build();
@@ -246,7 +245,7 @@ fn a_map_entry_whose_key_and_value_both_link_is_one_hit() {
         )],
     )
     .unwrap();
-    let bin = Bin::<NoMeta>::builder()
+    let bin = Bin::builder()
         .object(
             BinObject::builder(h(SKIN), h("Skin"))
                 .property(h("lookup"), map)
@@ -294,7 +293,7 @@ fn texture_bytes() -> Vec<u8> {
         )
         .property(h("byChunk"), by_chunk)
         .build();
-    let bin = Bin::<NoMeta>::builder().object(object).build();
+    let bin = Bin::builder().object(object).build();
     let mut out = Cursor::new(Vec::new());
     bin.to_writer(&mut out).unwrap();
     out.into_inner()
@@ -419,7 +418,7 @@ fn project_with(files: &[(&str, Vec<u8>)]) -> TempDir {
 }
 
 fn linking_bin(object: &str) -> Vec<u8> {
-    let bin = Bin::<NoMeta>::builder()
+    let bin = Bin::builder()
         .object(
             BinObject::builder(h(object), h("Skin"))
                 .property(h("resolver"), values::ObjectLink::new(h(RESOURCES)))

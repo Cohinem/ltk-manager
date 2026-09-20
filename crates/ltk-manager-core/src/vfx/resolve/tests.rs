@@ -4,7 +4,7 @@
 use std::io::Cursor;
 
 use ltk_hash::Hash as _;
-use ltk_meta::property::{Kind, NoMeta};
+use ltk_meta::property::Kind;
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
@@ -35,7 +35,6 @@ fn embedded(class: &str, properties: Vec<(BinHash, PropertyValueEnum)>) -> value
     values::Embedded(values::Struct {
         class_hash: h(class),
         properties: properties.into_iter().collect(),
-        meta: NoMeta,
     })
 }
 
@@ -72,7 +71,7 @@ fn emitter() -> values::Embedded {
             ),
             (
                 h("rate"),
-                values::Optional::<NoMeta>::empty(Kind::F32).unwrap().into(),
+                values::Optional::empty(Kind::F32).unwrap().into(),
             ),
             (h("lookup"), lookup.into()),
             (
@@ -107,7 +106,7 @@ fn child() -> BinObject {
 }
 
 fn document_of(objects: Vec<BinObject>) -> BinDocument {
-    let mut bin = Bin::<NoMeta>::builder();
+    let mut bin = Bin::builder();
     for object in objects {
         bin = bin.object(object);
     }

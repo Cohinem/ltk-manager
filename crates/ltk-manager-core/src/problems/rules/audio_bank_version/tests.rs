@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use fs_err as fs;
 use ltk_hash::BinHash;
-use ltk_meta::property::{NoMeta, values};
+use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
@@ -64,11 +64,10 @@ fn bin_asking_for(paths: &[&str]) -> Vec<u8> {
         )]
         .into_iter()
         .collect(),
-        meta: NoMeta,
     };
 
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, SKIN_AUDIO)
+        [BinObject::builder(ENTRY, SKIN_AUDIO)
             .property(
                 BANK_UNITS,
                 PropertyValueEnum::Container(vec![values::Embedded(unit)].into()),

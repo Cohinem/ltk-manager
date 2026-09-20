@@ -5,7 +5,6 @@ use super::*;
 use crate::meta_schema::MetaSchema;
 use crate::problems::GameBuild;
 use ltk_meta::path::PropertyPath;
-use ltk_meta::property::NoMeta;
 use ltk_meta::{Bin, BinOverride, PropertyPatch};
 use std::collections::HashMap;
 
@@ -29,7 +28,6 @@ fn embedded(class: &str, properties: Vec<(BinHash, PropertyValueEnum)>) -> value
     values::Embedded(values::Struct {
         class_hash: h(class),
         properties: properties.into_iter().collect(),
-        meta: NoMeta,
     })
 }
 
@@ -89,10 +87,7 @@ fn skin() -> BinObject {
         h("maybe"),
         values::Optional::from(Some(values::F32::new(1.5))),
     )
-    .property(
-        h("never"),
-        values::Optional::<NoMeta>::empty(Kind::I32).unwrap(),
-    )
+    .property(h("never"), values::Optional::empty(Kind::I32).unwrap())
     .property(
         h("iconSquare"),
         values::Optional::from(Some(values::WadChunkLink::new(WadHash::hash_str(
@@ -106,7 +101,6 @@ fn skin() -> BinObject {
             properties: [(h("name"), values::String::from("b0").into())]
                 .into_iter()
                 .collect(),
-            meta: NoMeta,
         }))),
     )
     .property(h("pointer"), values::Struct::default())
@@ -128,7 +122,6 @@ fn skin() -> BinObject {
             properties: [(h("name"), values::String::from("s0").into())]
                 .into_iter()
                 .collect(),
-            meta: NoMeta,
         },
     )
     .property(UNNAMED_FIELD, values::Bool::new(false))
@@ -136,7 +129,7 @@ fn skin() -> BinObject {
 }
 
 fn prop_bytes() -> Vec<u8> {
-    let bin = Bin::<NoMeta>::builder()
+    let bin = Bin::builder()
         .dependency("common.bin")
         .object(skin())
         .object(BinObject::new(h("Characters/Aatrox"), h("CharacterRecord")))
@@ -763,7 +756,7 @@ fn a_projected_read_past_the_row_cap_is_refused_and_names_it() {
         .property(list("d").0, list("d").1)
         .property(list("e").0, list("e").1)
         .build();
-    let bin = Bin::<NoMeta>::builder().object(object).build();
+    let bin = Bin::builder().object(object).build();
     let mut out = Cursor::new(Vec::new());
     bin.to_writer(&mut out).unwrap();
     let document = BinDocument::parse(out.into_inner()).unwrap();
@@ -817,7 +810,7 @@ fn a_wire_path_parses_into_its_steps() {
 
 #[test]
 fn a_patch_bin_opens_to_its_added_objects_and_the_target_of_its_records() {
-    let mut patch = BinOverride::<NoMeta>::new();
+    let mut patch = BinOverride::new();
     patch.deleted.push(h("Characters/Gone"));
     let added = BinObject::new(h("Characters/Aatrox"), h("CharacterRecord"));
     patch.objects.insert(added.path_hash, added);
@@ -1340,7 +1333,7 @@ fn the_headers_dependencies_hash_as_wad_paths() {
         [WadHash::hash_str("common.bin")]
     );
 
-    let mut patch = BinOverride::<NoMeta>::new();
+    let mut patch = BinOverride::new();
     let added = BinObject::new(h("Characters/Aatrox"), h("CharacterRecord"));
     patch.objects.insert(added.path_hash, added);
     let mut out = Cursor::new(Vec::new());

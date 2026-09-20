@@ -25,7 +25,7 @@ fn repeating() -> BinDocument {
         ],
     )
     .unwrap();
-    let bin = Bin::<NoMeta>::builder()
+    let bin = Bin::builder()
         .object(
             BinObject::builder(h(LOOKUP), h("AnimationGraphData"))
                 .property(h("clips"), map)

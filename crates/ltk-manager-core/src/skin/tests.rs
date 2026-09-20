@@ -2,7 +2,7 @@ use std::io::Cursor;
 
 use glam::vec3;
 use ltk_hash::{Hash as _, WadHash};
-use ltk_meta::property::{Kind, NoMeta, values};
+use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
@@ -33,7 +33,6 @@ fn embedded(class: &str, properties: Vec<(BinHash, PropertyValueEnum)>) -> value
     values::Embedded(values::Struct {
         class_hash: h(class),
         properties: properties.into_iter().collect(),
-        meta: NoMeta,
     })
 }
 
@@ -41,7 +40,6 @@ fn pointer(class: &str, properties: Vec<(BinHash, PropertyValueEnum)>) -> Proper
     values::Struct {
         class_hash: h(class),
         properties: properties.into_iter().collect(),
-        meta: NoMeta,
     }
     .into()
 }
@@ -511,7 +509,7 @@ fn document_of(objects: Vec<BinObject>) -> BinDocument {
 }
 
 fn document_linking(objects: Vec<BinObject>, dependencies: &[&str]) -> BinDocument {
-    let mut bin = Bin::<NoMeta>::builder().dependencies(dependencies.iter().copied());
+    let mut bin = Bin::builder().dependencies(dependencies.iter().copied());
     for object in objects {
         bin = bin.object(object);
     }

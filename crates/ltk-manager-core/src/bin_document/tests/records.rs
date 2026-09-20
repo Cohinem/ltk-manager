@@ -11,7 +11,7 @@ fn part(name: &str) -> values::Embedded {
 
 /// A patch adding one object, deleting one, and writing six records over three targets.
 fn patched() -> BinDocument {
-    let mut patch = BinOverride::<NoMeta>::new();
+    let mut patch = BinOverride::new();
     patch.deleted.push(h("Characters/Gone"));
     let added = BinObject::new(h(ADDED), h("CharacterRecord"));
     patch.objects.insert(added.path_hash, added);

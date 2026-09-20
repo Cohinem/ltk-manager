@@ -1,8 +1,5 @@
 use super::*;
-use ltk_meta::{
-    Bin, BinObject,
-    property::{NoMeta, values},
-};
+use ltk_meta::{Bin, BinObject, property::values};
 use std::io::Cursor;
 
 #[test]
@@ -29,7 +26,6 @@ fn pointer(class: &str, fields: Vec<(&str, PropertyValueEnum)>) -> PropertyValue
             .into_iter()
             .map(|(name, value)| (h(name), value))
             .collect(),
-        meta: NoMeta,
     }
     .into()
 }
@@ -38,7 +34,7 @@ fn read(fields: Vec<(&str, PropertyValueEnum)>) -> SpellPreview {
     let object = BinObject::builder(h("Spell"), h("SpellObject"))
         .property(h("mSpell"), pointer("SpellDataResource", fields))
         .build();
-    let bin = Bin::<NoMeta>::new([object], std::iter::empty::<&str>());
+    let bin = Bin::new([object], std::iter::empty::<&str>());
     let mut bytes = Cursor::new(Vec::new());
     bin.to_writer(&mut bytes).unwrap();
     let document = BinDocument::parse(bytes.into_inner()).unwrap();
@@ -173,7 +169,6 @@ fn cast_suggestions_keep_written_values_and_rank_zero() {
     let embedded = values::Embedded(values::Struct {
         class_hash: BinHash(0x0a0e_ddc9),
         properties: [(h("values"), ranks(&range))].into_iter().collect(),
-        meta: NoMeta,
     });
     let spell = read(vec![
         ("spellCastTime", values::F32::new(0.25).into()),

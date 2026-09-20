@@ -31,7 +31,7 @@ fn bytes_of(bin: &Bin) -> Vec<u8> {
 
 fn bin_with(field: BinHash, value: impl Into<PropertyValueEnum>) -> Bin {
     Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        [BinObject::builder(ENTRY, SKIN)
             .property(field, value)
             .build()],
         std::iter::empty::<&str>(),
@@ -80,7 +80,7 @@ fn every_shape() -> Bin {
     let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
     map.push(values::Hash::new(BinHash(1)).into(), text(ICON).into())
         .unwrap();
-    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+    let object = BinObject::builder(ENTRY, SKIN)
         .property(ICON_AVATAR, text(ICON))
         .property(
             ALTERNATE_ICONS_CIRCLE,
@@ -187,7 +187,7 @@ fn the_check_reads_a_stream_as_it_reads_the_tree() {
         .map(|(entry, hit)| (entry, hit.address.into_hashes(), hit.migration.field))
         .collect();
 
-    let mut stream = ltk_meta::BinStream::<_, NoMeta>::mount(std::io::Cursor::new(&bytes)).unwrap();
+    let mut stream = ltk_meta::BinStream::<_>::mount(std::io::Cursor::new(&bytes)).unwrap();
     let mut check = Check::new(lens);
     stream.walk::<ltk_meta::Error, _>(&mut check).unwrap();
     let viewed: Vec<(BinHash, String, BinHash)> = check
@@ -230,7 +230,7 @@ fn a_property_the_object_does_not_declare_raises_nothing() {
 #[test]
 fn a_class_the_table_does_not_name_raises_nothing() {
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, BinHash(0x0bad_0bad))
+        [BinObject::builder(ENTRY, BinHash(0x0bad_0bad))
             .property(ICON_AVATAR, text(ICON))
             .build()],
         std::iter::empty::<&str>(),
@@ -715,7 +715,6 @@ fn none_moves_no_bytes_and_only_changes_the_tag() {
     let embed = values::Embedded(values::Struct {
         class_hash: BinHash(0x73b4_a2eb),
         properties: IndexMap::new(),
-        meta: NoMeta,
     });
     let migration = table::tables()
         .iter()
@@ -800,14 +799,13 @@ fn a_fix_reaches_a_property_under_an_index_and_a_key() {
     let skin = || values::Struct {
         class_hash: SKIN,
         properties: IndexMap::from([(ICON_AVATAR, text(ICON).into())]),
-        meta: NoMeta,
     };
     let list = values::Container::new(Kind::Struct, vec![skin().into()])
         .expect("a struct is a kind a container holds");
     let mut map = values::Map::empty(Kind::String, Kind::Struct).expect("kinds a map can hold");
     map.push(text("k").into(), skin().into()).unwrap();
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        [BinObject::builder(ENTRY, SKIN)
             .property(NESTED, list)
             .property(KEYED, map)
             .build()],
@@ -894,7 +892,7 @@ fn try_fix_bytes_on(
 
 /// Every object's bytes, by path hash, in file order.
 fn object_bytes(bytes: &[u8]) -> Vec<(BinHash, Vec<u8>)> {
-    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(bytes)).unwrap();
+    let mut stream = BinStream::<_>::mount(Cursor::new(bytes)).unwrap();
     stream
         .toc()
         .unwrap()
@@ -913,10 +911,10 @@ fn a_fix_writes_version_three_and_keeps_every_untouched_object() {
     const OTHER: BinHash = BinHash(0x8765_4321);
     let bin = Bin::new(
         [
-            BinObject::<NoMeta>::builder(ENTRY, SKIN)
+            BinObject::builder(ENTRY, SKIN)
                 .property(ICON_AVATAR, text(ICON))
                 .build(),
-            BinObject::<NoMeta>::builder(OTHER, BinHash(0x0bad_c1a5))
+            BinObject::builder(OTHER, BinHash(0x0bad_c1a5))
                 .property(BinHash(0xdead_beef), text("untouched.dds"))
                 .build(),
         ],
@@ -952,7 +950,7 @@ fn a_fix_repairs_a_patch_bin() {
     let mut patch = ltk_meta::BinOverride::new();
     patch.objects.insert(
         ENTRY,
-        BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        BinObject::builder(ENTRY, SKIN)
             .property(ICON_AVATAR, text(ICON))
             .build(),
     );
@@ -973,7 +971,7 @@ fn a_fix_repairs_a_patch_bin() {
 
 #[test]
 fn a_fix_refuses_legacy_numbering_and_keeps_the_file() {
-    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+    let object = BinObject::builder(ENTRY, SKIN)
         .property(ICON_AVATAR, text(ICON))
         .property(BinHash(0x0000_3333), values::Struct::default())
         .build();
@@ -983,7 +981,7 @@ fn a_fix_refuses_legacy_numbering_and_keeps_the_file() {
     let modern = u8::from(Kind::Struct);
     let at = bytes.iter().rposition(|&byte| byte == modern).unwrap();
     bytes[at] = 19;
-    let mut stream = BinStream::<_, NoMeta>::mount(Cursor::new(&bytes)).unwrap();
+    let mut stream = BinStream::<_>::mount(Cursor::new(&bytes)).unwrap();
     stream.object(ENTRY).unwrap().unwrap().read().unwrap();
     assert!(stream.numbering().is_legacy(), "the fixture latches");
 
@@ -1023,7 +1021,7 @@ fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
     let vfx = BinHash::hash_str("VfxAssetRemap");
     let old_asset = BinHash::hash_str("oldAsset");
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, vfx)
+        [BinObject::builder(ENTRY, vfx)
             .property(old_asset, values::Hash::new(BinHash::hash_str(PATH)))
             .build()],
         std::iter::empty::<&str>(),
@@ -1072,7 +1070,7 @@ fn a_fix_leaves_an_unnamed_hash_alone_and_counts_it_skipped() {
     let vfx = BinHash::hash_str("VfxAssetRemap");
     let old_asset = BinHash::hash_str("oldAsset");
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, vfx)
+        [BinObject::builder(ENTRY, vfx)
             .property(old_asset, values::Hash::new(BinHash(0x1111_2222)))
             .build()],
         std::iter::empty::<&str>(),
@@ -1099,7 +1097,7 @@ fn a_fix_repairs_every_shape_the_class_carries() {
 
 #[test]
 fn a_fix_leaves_a_property_the_rule_raised_nothing_for_alone() {
-    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+    let object = BinObject::builder(ENTRY, SKIN)
         .property(ICON_AVATAR, text(ICON))
         .property(BinHash(0xdead_beef), text("untouched.dds"))
         .build();
@@ -1190,7 +1188,7 @@ const AFTER_GOLD_RETYPE: GameBuild = GameBuild::new(13, 21, 5_876_777);
 
 fn object_bin(class: BinHash, field: BinHash, value: impl Into<PropertyValueEnum>) -> Bin {
     Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, class)
+        [BinObject::builder(ENTRY, class)
             .property(field, value)
             .build()],
         std::iter::empty::<&str>(),
@@ -1498,10 +1496,10 @@ const DRIVER: BinHash = BinHash(0x2222_3333);
 fn a_none_where_the_schema_says_pointer_is_repaired_as_a_null_pointer() {
     let nones = values::Container::new(Kind::None, vec![Kind::None.default_value(); 2])
         .expect("a list of none");
-    let skin = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+    let skin = BinObject::builder(ENTRY, SKIN)
         .property(SECONDARY_RESOURCE_HUD, Kind::None.default_value())
         .build();
-    let driver = BinObject::<NoMeta>::builder(DRIVER, MAX_MATERIAL_DRIVER)
+    let driver = BinObject::builder(DRIVER, MAX_MATERIAL_DRIVER)
         .property(M_DRIVERS, nones)
         .build();
     let bin = Bin::new([skin, driver], std::iter::empty::<&str>());
@@ -1765,7 +1763,6 @@ fn an_embed_the_game_reads_as_a_pointer_is_retagged() {
     let embed = values::Embedded(values::Struct {
         class_hash: PLAYER_TEMPLATE_CLASS,
         properties: IndexMap::new(),
-        meta: NoMeta,
     });
     let bin = object_bin(TFT_SCOREBOARD, PLAYER_SELF_TEMPLATE, embed);
     let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
@@ -1796,7 +1793,6 @@ fn a_pointer_the_game_reads_as_an_embed_is_retagged() {
     let pointer = values::Struct {
         class_hash: LIFETIME_CLASS,
         properties: IndexMap::new(),
-        meta: NoMeta,
     };
     let bin = object_bin(VFX_EMITTER, PARTICLE_LIFETIME, pointer);
     let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
@@ -1885,7 +1881,6 @@ fn a_list2_the_game_reads_as_a_list_is_retagged() {
                 values::Struct {
                     class_hash: MAX_MATERIAL_DRIVER,
                     properties: IndexMap::new(),
-                    meta: NoMeta,
                 }
                 .into(),
             ],
