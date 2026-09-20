@@ -1,6 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type HashtableSyncReport, type Settings } from "@/lib/tauri";
+import { dropPlacements } from "@/modules/viewport";
 import { mutationFn, queryFn } from "@/utils/query";
 
 import { settingsKeys } from "./keys";
@@ -33,6 +34,9 @@ export const hashtableMutations = {
       onSettled: () => {
         client.invalidateQueries({ queryKey: settingsKeys.hashtableCache() });
         client.invalidateQueries({ queryKey: settingsKeys.hashtableUpdates() });
+        /* The sync drops the game index behind it, so every placement read out of the
+           old one now names a file by a name that install no longer resolves. */
+        dropPlacements(client);
       },
     }),
 } as const;
