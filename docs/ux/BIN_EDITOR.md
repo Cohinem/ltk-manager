@@ -4,6 +4,7 @@
 
 | Date       | Change                                                          |
 | ---------- | --------------------------------------------------------------- |
+| 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference  |
 | 2026-09-21 | Draw what an apply reports on the row it names                  |
 | 2026-09-21 | Declare a game bin's container edits, and refuse what none says |
 | 2026-09-21 | Declare a game bin's leaf edit into a project layer             |
@@ -13,7 +14,6 @@
 | 2026-09-14 | Search an open bin from the bar's `@` scope                     |
 | 2026-09-14 | Find an embedded class's uses and an object's incoming links    |
 | 2026-09-14 | Edit list items, map entries, options and pointers inline       |
-| 2026-09-14 | Add and remove a property inline, at the schema's default       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -82,6 +82,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
 | Patch bin records     | Available   | Grouped under the objects they target, read-only. ADR-0041       |
 | Declared game bin     | In progress | A row edit of a game bin lands as a declaration. ADR-0042        |
+| Declaration actions   | In progress | Copy a row as a declaration or a reference, and paste one        |
 | Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite          |
 
 ## Scope
@@ -2194,6 +2195,27 @@ spells it and the layer holding it. A property typed from the game's copy, where
 says nothing, draws as information. A key that reaches no row lists under its object, and a
 diagnostic that names no object of the chunk, a link or an override file, draws beside the
 layer chip.
+
+The row menu carries the declaration actions.
+
+| Item                | Offered on             | What it does                                          |
+| ------------------- | ---------------------- | ----------------------------------------------------- |
+| Copy as declaration | A value row of any bin | The row as an `entries` module, ready under `modules` |
+| Copy reference      | A value row of any bin | `!ref <entry>:<path>`, the path Copy path writes      |
+| Paste reference     | A declared document    | Sets the row to the copied reference                  |
+| Merge reference     | A list or a map of one | Adds the copied reference with `+`                    |
+
+Both copies work on a read-only bin, because a declaration is written from the game's copy
+as often as into it. A row whose path runs through a field no table names copies neither,
+and a struct holding such a field copies its reference alone. The item is disabled and its
+title carries the reason. The app holds the reference it copied, so a paste reads no
+clipboard.
+
+A reference reads the installed game and never the project: the first chunk declaring the
+entry in the game index's order, which is the overlay's rule. A row whose declaration is a
+reference draws the resolved value, and its mark names the entry and the path it came from. A
+reference the game does not answer is written all the same, and the apply reports it on the
+row.
 
 One re-apply over the largest skin bin of the install (Viego, 3.7 MiB, 483 objects) takes
 65 ms in a release build.

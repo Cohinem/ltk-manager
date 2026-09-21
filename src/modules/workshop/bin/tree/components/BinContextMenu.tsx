@@ -26,6 +26,7 @@ import {
 } from "../../../references/api/useFindReferences";
 import { useOpenDocumentAs } from "../../../state";
 import { useCurveDock } from "../../curves/state/curveTarget";
+import { DeclarationMenuItems } from "../../documents/components/DeclarationMenuItems";
 import { useDeclares } from "../../documents/hooks/useDeclared";
 import {
   type LinkTargets,
@@ -192,6 +193,7 @@ export function BinContextMenu({
             );
           })}
           {edits.length > 0 && <ContextMenu.Separator />}
+          <DeclarationMenuItems row={row} />
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}

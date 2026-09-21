@@ -132,6 +132,12 @@ export function DeclaredRowMark({ mark, layer }: DeclaredRowMarkProps) {
         <span className="flex flex-col gap-1">
           <span>{label}</span>
           {mark.whole && <span>{m.workshop_bin_declared_whole_hint()}</span>}
+          {mark.reference !== null && (
+            <span className="flex items-baseline gap-1.5">
+              {m.workshop_bin_declared_reference_label()}
+              <Code>{mark.reference}</Code>
+            </span>
+          )}
           {mark.game !== null && (
             <span className="flex items-baseline gap-1.5">
               {m.workshop_bin_declared_game_value_label()}

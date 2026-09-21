@@ -19,6 +19,7 @@ use ltk_meta::{Bin, BinFile, BinObject, PropertyValueEnum};
 use ltk_mod_project::{ModProjectLayer, game_data::load_layer};
 use serde::Serialize;
 
+pub use self::copy::RowDeclaration;
 use self::diagnostics::Raised;
 pub use self::diagnostics::{DeclaredDiagnostic, DeclaredDiagnosticKind, SkipReason};
 use super::edit::UNDO_DEPTH;
@@ -121,6 +122,8 @@ pub struct DeclaredMark {
     pub sign: DeclaredSign,
     /// The declaration sets a whole list or map, which no later change of the game's reaches.
     pub whole: bool,
+    /// The game-copy reference the declaration's value is, `<entry>:<property path>`.
+    pub reference: Option<String>,
     /// The game's value as a declaration spells it. Absent where the game holds none, and
     /// for a value that does not render.
     pub game: Option<String>,
@@ -514,6 +517,7 @@ fn marks_of(
         entry: hex(entry),
         path: wire_path(object, &property.path).unwrap_or_default(),
         sign: property.sign.into(),
+        reference: property.value.reference().map(str::to_owned),
         whole: property.sign == Sign::Set
             && matches!(
                 object.resolve(&property.path),
@@ -644,6 +648,7 @@ fn not_declared() -> BinDocumentError {
     ))
 }
 
+mod copy;
 mod diagnostics;
 mod edits;
 #[cfg(test)]

@@ -18,6 +18,10 @@ path: string, sign: DeclaredSign,
  */
 whole: boolean, 
 /**
+ * The game-copy reference the declaration's value is, `<entry>:<property path>`.
+ */
+reference: string | null, 
+/**
  * The game's value as a declaration spells it. Absent where the game holds none, and
  * for a value that does not render.
  */

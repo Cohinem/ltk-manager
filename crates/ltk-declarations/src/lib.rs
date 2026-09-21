@@ -177,6 +177,28 @@ pub struct Edit {
     pub operation: Operation,
 }
 
+impl Edit {
+    /// The `entries` module the edit writes into a layer with no manifest, as the list item
+    /// that stands under a manifest's `modules` key. `None` for a drop, which writes nothing.
+    #[must_use]
+    pub fn module_text(&self) -> Option<String> {
+        const MODULES: &str = "modules:
+";
+        let text = DocumentText::default().apply(self).ok()?;
+        let (_, modules) = text.as_str().split_once(MODULES)?;
+        let lines: Vec<&str> = modules
+            .lines()
+            .map(|line| line.strip_prefix("  ").unwrap_or(line))
+            .collect();
+        (!lines.is_empty()).then(|| {
+            lines.join(
+                "
+",
+            )
+        })
+    }
+}
+
 /// Why an edit cannot be placed in a manifest's text.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]

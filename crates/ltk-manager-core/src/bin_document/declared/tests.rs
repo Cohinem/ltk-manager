@@ -18,22 +18,32 @@ pub(super) fn h(name: &str) -> BinHash {
     BinHash::hash_str(name)
 }
 
-/// The game with no entry to reference, naming what `names` holds.
+/// The game, naming what `names` holds and declaring what `chunks` holds.
 pub(super) struct Game {
     names: HashMap<BinHash, &'static str>,
+    chunks: HashMap<BinHash, Vec<u8>>,
 }
 
 impl Game {
     pub(super) fn naming(names: &[&'static str]) -> Arc<Self> {
+        Self::declaring(names, HashMap::new())
+    }
+
+    /// The game whose chunk of each entry of `chunks` is the bytes beside it.
+    pub(super) fn declaring(
+        names: &[&'static str],
+        chunks: HashMap<BinHash, Vec<u8>>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             names: names.iter().map(|name| (h(name), *name)).collect(),
+            chunks,
         })
     }
 }
 
 impl GameCopy for Game {
-    fn declaring_chunk(&self, _entry: BinHash) -> AppResult<Option<Vec<u8>>> {
-        Ok(None)
+    fn declaring_chunk(&self, entry: BinHash) -> AppResult<Option<Vec<u8>>> {
+        Ok(self.chunks.get(&entry).cloned())
     }
 
     fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
@@ -189,6 +199,7 @@ fn a_hand_written_manifest_applies_and_marks_the_row_it_touches() {
             path: glow_path(),
             sign: DeclaredSign::Set,
             whole: false,
+            reference: None,
             game: Some("0.0".to_owned()),
         }]
     );

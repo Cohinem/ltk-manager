@@ -816,3 +816,44 @@ fn a_restore_to_no_text_removes_the_manifest_an_edit_created() {
     manifest.write().unwrap();
     assert!(dir.path().join(FILE_NAME).exists());
 }
+
+#[test]
+fn an_edit_spells_the_module_a_clipboard_takes() {
+    let set = edit(
+        SKIN0,
+        "skinMeshProperties.selfIllumination",
+        Operation::Set(value("0.37")),
+    );
+    assert_eq!(
+        set.module_text().as_deref(),
+        Some(
+            "- entries:
+    Characters/Teemo/Skins/Skin0:
+      skinMeshProperties.selfIllumination: 0.37"
+        ),
+    );
+
+    let block = edit(
+        RESOURCES,
+        "resourceMap",
+        Operation::Add(value(
+            "Teemo_E: x
+Teemo_W: y",
+        )),
+    );
+    assert_eq!(
+        block.module_text().as_deref(),
+        Some(
+            "- entries:
+    Characters/Teemo/Skins/Skin0/Resources:
+      +resourceMap:
+        Teemo_E: x
+        Teemo_W: y"
+        ),
+    );
+
+    assert_eq!(
+        edit(SKIN0, "iconCircle", Operation::Drop(Sign::Set)).module_text(),
+        None
+    );
+}
