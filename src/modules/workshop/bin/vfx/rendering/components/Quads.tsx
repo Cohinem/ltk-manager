@@ -119,7 +119,10 @@ export function Quads({
   const pair = useDrawPair<Mesh>(material, distorts(emitter));
 
   const drawn = !hidden && !emitter.disabled && drawsAsQuad(emitter);
-  const sorted = sortsBackToFront(emitter.blendMode);
+  const sorted =
+    emitter.customMaterial !== null && !emitter.customMaterial.missing
+      ? emitter.customMaterial.renderState.blending !== "opaque"
+      : sortsBackToFront(emitter.blendMode);
 
   /* Scratch keyed by the emitter's own slot rather than by a pool index, which runs to a
      whole pool's capacity: the particles, the depth each stands at from the eye. */

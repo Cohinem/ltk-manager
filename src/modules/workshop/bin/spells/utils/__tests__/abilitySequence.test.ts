@@ -71,6 +71,7 @@ function system() {
     },
   });
   return readVfxSystem({
+    materials: [],
     entry: "0x1",
     name: null,
     classHash: nameHash("VfxSystemDefinitionData"),

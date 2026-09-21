@@ -40,6 +40,7 @@ import {
 import { mirrorInto, standingInto } from "../../../engine/utils/basis";
 import { geometryOf } from "../../hooks/useVfxMeshes";
 import type { EmitterSamplers } from "../../hooks/useVfxTextures";
+import { CUSTOM_FRAGMENT } from "../../shaders/custom";
 import { ARBITRARY_UV } from "../../shaders/quad";
 import { blendState, drawState, fragmentTests, premultiplyInto, sortsBackToFront } from "../blend";
 import { meshBuffers, MESHES_PER_EMITTER, quadBuffers } from "../buffers";
@@ -53,6 +54,7 @@ import {
 } from "../materials";
 import { fadeOf } from "../softParticle";
 import { colorDefines, type DepthOffset, layersOf, type QuadLayers } from "../uniforms";
+import { materialPreview } from "./materialFixture";
 
 const EVERY_MODE = Object.values(BLEND_MODE) as BlendMode[];
 
@@ -212,6 +214,24 @@ const PLAIN_LAYERS: QuadLayers = {
 };
 
 const PASSING = { alphaRef: 0, depthTest: true };
+
+describe("custom material geometry", () => {
+  it("uses the custom preview on quads, meshes, attached meshes and ribbons", () => {
+    const layers = { ...PLAIN_LAYERS, customMaterial: materialPreview() };
+    const materials = [
+      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, layers, PASSING),
+      meshMaterial(BLEND_MODE.add, null, [0, 0], layers, PASSING, FrontSide),
+      attachedMaterial(BLEND_MODE.add, null, [0, 0], layers, PASSING, FrontSide),
+      ribbonMaterial(BLEND_MODE.add, null, [0, 0], layers, PASSING),
+    ];
+
+    for (const material of materials) {
+      expect(material.fragmentShader).toBe(CUSTOM_FRAGMENT);
+      expect(material.uniforms.materialTint.value).toEqual([0.25, 0.5, 1, 0.4]);
+      material.dispose();
+    }
+  });
+});
 
 describe("the rim and the reflection", () => {
   const REFLECTION: ReflectionModel = {

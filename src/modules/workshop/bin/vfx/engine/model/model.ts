@@ -1,4 +1,4 @@
-import type { AssetRef, NamedAsset } from "@/lib/tauri";
+import type { AssetRef, MaterialPreview, NamedAsset } from "@/lib/tauri";
 
 import type { CurveKey, ProbabilityTable } from "./curve";
 import {
@@ -501,6 +501,8 @@ export interface OrbitalFieldModel {
 
 /** One emitter of a system, as the renderer reads it. */
 export interface EmitterModel {
+  /** The shared static preview of `CustomMaterial`, and null for the particle shader. */
+  readonly customMaterial: MaterialPreview | null;
   readonly emissionSurface: EmissionSurfaceModel | null;
   /** Where the emitter sits across both lists, which is the index the pool holds. */
   readonly index: number;

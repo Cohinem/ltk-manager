@@ -36,6 +36,7 @@ function simulation() {
     complexEmitterDefinitionData: { type: "container", items: [emitter] },
   });
   const parsed = readVfxSystem({
+    materials: [],
     entry: "0x1",
     name: null,
     classHash: nameHash("VfxSystemDefinitionData"),

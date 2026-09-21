@@ -11,9 +11,10 @@ use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
 use crate::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Namer, RowNames, chunk_asset, hex,
-    object_at, owned, resolver_entries,
+    AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Locator, Namer, RowNames, chunk_asset,
+    hex, link, object_at, owned, resolver_entries,
 };
+use crate::material::{MaterialPreview, linked_material};
 use crate::problems::walk;
 
 /// How many values one system answers, past which the read is refused.
@@ -57,6 +58,9 @@ const ASSET_FIELDS: [BinHash; 16] = [
 
 const ANIMATION_VARIANTS: BinHash = BinHash(0x147f_071c);
 
+const MATERIAL_DEFINITION: BinHash = BinHash(0x2820_c167);
+const MATERIAL: BinHash = BinHash(0xd2e4_d060);
+
 /// `VfxChildIdentifier`, the one class whose `effectKey` a walk resolves.
 ///
 /// Other classes write the field too, and nothing reads theirs as a child.
@@ -93,6 +97,8 @@ pub fn resolve_system(
         resources: resources(document),
         open: vec![entry],
         values: 0,
+        locator: Locator { names, assets },
+        materials: IndexMap::new(),
     };
     let root = walk.object(entry, object, 0)?;
 
@@ -102,6 +108,7 @@ pub fn resolve_system(
         class_hash: hex(object.class_hash),
         class: walk.namer.class(object.class_hash),
         root,
+        materials: walk.materials.into_values().collect(),
     })
 }
 
@@ -116,6 +123,8 @@ struct Walk<'a> {
     /// The objects the walk is inside, which a link back into answers as a link.
     open: Vec<BinHash>,
     values: usize,
+    locator: Locator<'a>,
+    materials: IndexMap<BinHash, MaterialPreview>,
 }
 
 impl<'a> Walk<'a> {
@@ -169,6 +178,16 @@ impl<'a> Walk<'a> {
         value: &PropertyValueEnum,
         depth: usize,
     ) -> Result<VfxValue, BinDocumentError> {
+        if class == MATERIAL_DEFINITION
+            && field == MATERIAL
+            && let Some(hash) = link(Some(value))
+            && hash != BinHash(0)
+        {
+            self.materials.entry(hash).or_insert_with(|| {
+                linked_material(self.document, hash, &self.locator, Some(self.document))
+            });
+        }
+
         if field == ANIMATION_VARIANTS
             && let PropertyValueEnum::Container(items) = value
         {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { AssetRef, VfxSystem, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../../shared/utils/binHash";
+import { materialPreview } from "../../../rendering/utils/__tests__/materialFixture";
 import {
   drawsAsMesh,
   drawsAsQuad,
@@ -68,6 +69,7 @@ function keyed(times: number[], values: VfxValue[]): VfxValue {
 
 function system(emitters: VfxValue[], simple: VfxValue[] = []): VfxSystem {
   return {
+    materials: [],
     entry: "0x12345678",
     name: "particles/test",
     classHash: nameHash("VfxSystemDefinitionData"),
@@ -84,6 +86,79 @@ function emitter(fields: Record<string, VfxValue>): VfxValue {
 }
 
 describe("readVfxSystem", () => {
+  it("selects the custom material's base texture through a resolved material link", () => {
+    const preview = materialPreview({
+      base: {
+        name: "Diffuse_Texture",
+        texture: { path: "assets/custom.tex", asset: null },
+        rule: "exact",
+        wrap: ["repeat", "clamp"],
+      },
+    });
+    const material: VfxValue = {
+      type: "struct",
+      classHash: nameHash("StaticMaterialDef"),
+      class: null,
+      fields: [],
+      object: { entry: preview.hash, name: preview.name },
+    };
+    const value = system([
+      emitter({
+        CustomMaterial: struct(nameHash("VfxMaterialDefinitionData"), { Material: material }),
+      }),
+    ]);
+    value.materials = [preview];
+
+    const [model] = readVfxSystem(value).emitters;
+
+    expect(model.customMaterial).toEqual(preview);
+    expect(model.texture).toEqual(preview.base?.texture);
+  });
+
+  it("keeps a missing custom material and the authored fallback texture", () => {
+    const preview = materialPreview({ missing: true });
+    const fallback = { type: "asset", path: "assets/fallback.tex", asset: null } as const;
+    const value = system([
+      emitter({
+        texture: fallback,
+        CustomMaterial: struct(nameHash("VfxMaterialDefinitionData"), {
+          Material: { type: "link", hash: preview.hash, name: preview.name },
+        }),
+      }),
+    ]);
+    value.materials = [preview];
+
+    const [model] = readVfxSystem(value).emitters;
+
+    expect(model.customMaterial?.missing).toBe(true);
+    expect(model.texture?.path).toBe(fallback.path);
+  });
+
+  it("shares resolved custom materials with nested child systems", () => {
+    const preview = materialPreview();
+    const child = system([
+      emitter({
+        CustomMaterial: struct(nameHash("VfxMaterialDefinitionData"), {
+          Material: { type: "link", hash: preview.hash, name: preview.name },
+        }),
+      }),
+    ]);
+    const value = system([
+      emitter({
+        childParticleSetDefinition: struct(nameHash("VfxChildParticleSetDefinitionData"), {
+          childrenIdentifiers: container(
+            struct(nameHash("VfxChildIdentifier"), { effect: child.root }),
+          ),
+        }),
+      }),
+    ]);
+    value.materials = [preview];
+
+    const [model] = readVfxSystem(value).emitters;
+
+    expect(model.childSet?.children[0]?.emitters[0].customMaterial).toEqual(preview);
+  });
+
   it("reads kAnalyticDragMotion off the system's flags, and off at their default", () => {
     const flagged = (flags: number): VfxSystem => ({
       ...system([]),
@@ -892,6 +967,7 @@ describe("readVfxSystem", () => {
 
   it("answers an empty system for a root that is no object", () => {
     const model = readVfxSystem({
+      materials: [],
       entry: "0xdeadbeef",
       name: null,
       classHash: nameHash("VfxSystemDefinitionData"),

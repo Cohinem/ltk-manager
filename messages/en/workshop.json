@@ -449,6 +449,7 @@
   "workshop_bin_preview_camera_orbit_label": "Orbit",
   "workshop_bin_preview_camera_side_label": "Side",
   "workshop_bin_preview_camera_top_label": "Top",
+  "workshop_bin_preview_custom_material_hint": "{count} custom materials use a static approximation. Shader graphs and material drivers are not previewed.",
   "workshop_bin_preview_emitters_empty": "This system has no emitters",
   "workshop_bin_preview_failed_empty": "The system could not be read",
   "workshop_bin_preview_fit_action": "Frame the system",

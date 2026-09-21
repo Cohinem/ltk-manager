@@ -5,6 +5,7 @@ import { ATTACHED_VERTEX, MESH_VERTEX } from "../shaders/mesh";
 import { FRAGMENT, VERTEX } from "../shaders/quad";
 import { RIBBON_FRAGMENT, RIBBON_VERTEX } from "../shaders/ribbon";
 import { drawState, type FragmentTests } from "./blend";
+import { customMaterial } from "./customMaterial";
 import {
   ALPHA_LOCK,
   colorDefines,
@@ -85,7 +86,7 @@ export function quadMaterial(
 ): ShaderMaterial {
   const state = drawState(mode, layers.distortion !== null);
 
-  return new ShaderMaterial({
+  const material = new ShaderMaterial({
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
     uniforms: {
@@ -117,6 +118,8 @@ export function quadMaterial(
     blendDstAlpha: state.blendDstAlpha,
     ...polygonOffsetOf(depth.bias),
   });
+
+  return customMaterial(material, layers.customMaterial);
 }
 
 /**
@@ -138,7 +141,7 @@ export function meshMaterial(
 ): ShaderMaterial {
   const state = drawState(mode, layers.distortion !== null);
 
-  return new ShaderMaterial({
+  const material = new ShaderMaterial({
     vertexShader: MESH_VERTEX,
     fragmentShader: FRAGMENT,
     uniforms: {
@@ -165,6 +168,8 @@ export function meshMaterial(
     blendDstAlpha: state.blendDstAlpha,
     ...polygonOffsetOf(bias),
   });
+
+  return customMaterial(material, layers.customMaterial);
 }
 
 /**
@@ -222,7 +227,7 @@ export function ribbonMaterial(
 ): ShaderMaterial {
   const state = drawState(mode, layers.distortion !== null);
 
-  return new ShaderMaterial({
+  const material = new ShaderMaterial({
     vertexShader: RIBBON_VERTEX,
     fragmentShader: RIBBON_FRAGMENT,
     uniforms: {
@@ -260,6 +265,8 @@ export function ribbonMaterial(
     blendDstAlpha: state.blendDstAlpha,
     ...polygonOffsetOf(bias),
   });
+
+  return customMaterial(material, layers.customMaterial);
 }
 
 /**

@@ -3028,6 +3028,8 @@ export type VfxSystem = {
 	class: string | null,
 	/**  The object's own properties, resolved. Always a [`VfxValue::Struct`]. */
 	root: VfxValue,
+	/**  Static previews of custom materials referenced by this system and its children. */
+	materials: MaterialPreview[],
 };
 
 /**  A value of a resolved system's tree. */

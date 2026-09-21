@@ -1,4 +1,4 @@
-import type { VfxSystem, VfxValue } from "@/lib/tauri";
+import type { MaterialPreview, VfxSystem, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { COLOR_LOOKUP, DRAG_MOTION, STENCIL_MODE } from "../model/enums";
@@ -171,11 +171,18 @@ const INHERITANCE = { mode: nameHash("Mode"), offset: nameHash("RelativeOffset")
  * schema's default rather than dropping the emitter.
  */
 export function readVfxSystem(system: VfxSystem): SystemModel {
-  return readSystem(system.root, system.entry, system.name);
+  const materials = new Map(system.materials.map((material) => [material.hash, material]));
+
+  return readSystem(system.root, system.entry, system.name, materials);
 }
 
 /** One `VfxSystemDefinitionData` struct, which is a read's root or a child set inlined. */
-function readSystem(root: VfxValue, entry: string | null, name: string | null): SystemModel {
+function readSystem(
+  root: VfxValue,
+  entry: string | null,
+  name: string | null,
+  materials: ReadonlyMap<string, MaterialPreview>,
+): SystemModel {
   if (root.type !== "struct") return emptySystem(entry);
 
   const emitters: EmitterModel[] = [];
@@ -186,7 +193,7 @@ function readSystem(root: VfxValue, entry: string | null, name: string | null): 
        apart: one addresses the pool, and one joins a card to the emitter it drew. */
     held.items.forEach((item, listIndex) => {
       if (item.type !== "struct") return;
-      emitters.push(readEmitter(item, emitters.length, list.simple, listIndex));
+      emitters.push(readEmitter(item, emitters.length, list.simple, listIndex, materials));
     });
   }
 
@@ -206,7 +213,19 @@ function readEmitter(
   index: number,
   simple: boolean,
   listIndex: number,
+  materials: ReadonlyMap<string, MaterialPreview>,
 ): EmitterModel {
+  const custom = field(node, nameHash("CustomMaterial"));
+  const material = field(custom, nameHash("Material"));
+  let materialHash: string | undefined;
+  if (material?.type === "struct") {
+    materialHash = material.object?.entry;
+  } else if (material?.type === "link") {
+    materialHash = material.hash;
+  }
+
+  const customMaterial = materials.get(materialHash ?? "") ?? null;
+
   const primitive = field(node, FIELD.primitive);
   const texture = field(node, FIELD.texture);
   const colorTexture = field(node, FIELD.colorTexture);
@@ -225,6 +244,7 @@ function readEmitter(
   const locked = legacySimple?.lockedToEmitter === true;
 
   return {
+    customMaterial,
     index,
     simple,
     listIndex,
@@ -293,7 +313,10 @@ function readEmitter(
     color: curve(field(node, FIELD.color), DEFAULT.white),
     birthColor: curve(field(node, FIELD.birthColor), DEFAULT.white),
 
-    texture: namedAsset(texture),
+    texture:
+      customMaterial !== null && !customMaterial.missing
+        ? (customMaterial.base?.texture ?? null)
+        : namedAsset(texture),
     uv,
     uvMode: uvMode(field(node, FIELD.uvMode)),
     multTexture: namedAsset(multTexture),
@@ -313,7 +336,7 @@ function readEmitter(
     mesh: readMesh(primitive),
     trail: readTrail(primitive),
     beam: readBeam(primitive),
-    childSet: readChildSet(field(node, FIELD.childSet)),
+    childSet: readChildSet(field(node, FIELD.childSet), materials),
     fields: readFields(field(node, FIELD.fields)),
 
     depthBias: pair(field(node, FIELD.depthBias)),
@@ -328,13 +351,17 @@ function readEmitter(
  * A child the resolver could not reach reads as no system rather than dropping out, which
  * keeps its place so `childrenProbability` still indexes the list as authored.
  */
-function readChildSet(node: VfxValue | null): ChildSetModel | null {
+function readChildSet(
+  node: VfxValue | null,
+  materials: ReadonlyMap<string, MaterialPreview>,
+): ChildSetModel | null {
   if (node?.type !== "struct") return null;
   const listed = field(node, CHILD_SET.children);
   const inheritance = field(node, CHILD_SET.inheritance);
 
   return {
-    children: listed?.type === "container" ? listed.items.map(readChild) : [],
+    children:
+      listed?.type === "container" ? listed.items.map((child) => readChild(child, materials)) : [],
     bones: texts(field(node, CHILD_SET.bones)),
     probability: curve(field(node, CHILD_SET.probability), DEFAULT.zero),
     onDeath: flag(field(node, CHILD_SET.onDeath)),
@@ -349,11 +376,14 @@ function readChildSet(node: VfxValue | null): ChildSetModel | null {
 }
 
 /** The system one `VfxChildIdentifier` names, where the resolver inlined it. */
-function readChild(identifier: VfxValue): SystemModel | null {
+function readChild(
+  identifier: VfxValue,
+  materials: ReadonlyMap<string, MaterialPreview>,
+): SystemModel | null {
   for (const hash of CHILD_NAMES) {
     const held = field(identifier, hash);
     if (held?.type === "struct") {
-      return readSystem(held, held.object?.entry ?? null, held.object?.name ?? null);
+      return readSystem(held, held.object?.entry ?? null, held.object?.name ?? null, materials);
     }
   }
   return null;

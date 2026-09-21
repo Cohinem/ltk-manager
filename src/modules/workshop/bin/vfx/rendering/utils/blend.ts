@@ -113,6 +113,10 @@ const DISTORTION_STATE: BlendState = custom(SrcAlphaFactor, OneMinusSrcAlphaFact
  * mask. Decision 2.49 of docs/plans/vfx-particle-renderer.md.
  */
 export function premultiplyInto(emitter: EmitterModel, color: Float32Array): void {
+  if (emitter.customMaterial != null && !emitter.customMaterial.missing) {
+    return;
+  }
+
   if (distorts(emitter)) return;
   if (emitter.blendMode !== BLEND_MODE.add && emitter.blendMode !== BLEND_MODE.subtract) return;
   for (let channel = 0; channel < 3; channel += 1) color[channel] *= color[3];

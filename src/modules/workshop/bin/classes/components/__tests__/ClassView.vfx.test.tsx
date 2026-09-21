@@ -281,6 +281,7 @@ const vfxList = (...items: VfxValue[]): VfxValue => ({ type: "container", items 
 
 /** The system as the run reads it, Glow spawning the child system. */
 const RESOLVED: VfxSystem = {
+  materials: [],
   entry: ENTRY,
   name: "Particles/Smolder_Base_Idle",
   classHash: SYSTEM,

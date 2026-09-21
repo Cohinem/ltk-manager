@@ -219,6 +219,69 @@ fn resolved() -> VfxSystem {
     resolve_system(&document(), h(SYSTEM), &named(), &Placed).unwrap()
 }
 
+#[test]
+fn custom_materials_use_the_shared_preview_reader_once_per_link() {
+    let material_hash = h("Materials/Custom");
+    let definition = embedded(
+        "VfxMaterialDefinitionData",
+        vec![(MATERIAL, values::ObjectLink::new(material_hash).into())],
+    );
+    let system = BinObject::builder(h(SYSTEM), h("VfxSystemDefinitionData"))
+        .property(h("CustomMaterial"), definition.clone())
+        .property(h("second"), definition)
+        .build();
+    let material = BinObject::builder(material_hash, h("StaticMaterialDef")).build();
+    let document = document_of(vec![system, material]);
+    let names = named();
+
+    let resolved = resolve_system(&document, h(SYSTEM), &names, &Placed).unwrap();
+    let expected = crate::material::resolve_material(
+        &document,
+        material_hash,
+        &names,
+        &Placed,
+        Some(&document),
+    )
+    .unwrap();
+
+    assert_eq!(resolved.materials, [expected]);
+}
+
+#[test]
+fn an_unresolved_custom_material_keeps_the_missing_preview() {
+    let material_hash = h("Materials/Missing");
+    let system = BinObject::builder(h(SYSTEM), h("VfxSystemDefinitionData"))
+        .property(
+            h("CustomMaterial"),
+            embedded(
+                "VfxMaterialDefinitionData",
+                vec![(MATERIAL, values::ObjectLink::new(material_hash).into())],
+            ),
+        )
+        .build();
+
+    let resolved =
+        resolve_system(&document_of(vec![system]), h(SYSTEM), &named(), &Placed).unwrap();
+
+    assert_eq!(resolved.materials.len(), 1);
+    assert_eq!(resolved.materials[0].hash, hex(material_hash));
+    assert!(resolved.materials[0].missing);
+}
+
+#[test]
+fn a_material_field_on_another_class_adds_no_custom_preview() {
+    let system = BinObject::builder(h(SYSTEM), h("VfxSystemDefinitionData"))
+        .property(MATERIAL, values::ObjectLink::new(h("Materials/Other")))
+        .build();
+
+    let resolved =
+        resolve_system(&document_of(vec![system]), h(SYSTEM), &named(), &Placed).unwrap();
+
+    assert!(resolved.materials.is_empty());
+    assert_eq!(MATERIAL_DEFINITION, h("VfxMaterialDefinitionData"));
+    assert_eq!(MATERIAL, h("Material"));
+}
+
 fn field<'a>(value: &'a VfxValue, name: &str) -> &'a VfxValue {
     let VfxValue::Struct { fields, .. } = value else {
         panic!("not a struct: {value:?}");

@@ -10,6 +10,7 @@ import { readVfxSystem } from "../../../engine/parsing/readVfxSystem";
 import { useVfxRun, VfxRunProvider, type VfxRun } from "../run";
 
 const system = readVfxSystem({
+  materials: [],
   entry: "0x1",
   name: null,
   classHash: "0x1",
