@@ -114,6 +114,8 @@ export type {
   BinValue,
   ClassChoice,
   ClassSchema,
+  DeclaredDiagnostic,
+  DeclaredDiagnosticKind,
   DeclaredKind,
   DeclaredMark,
   DeclaredSign,
@@ -129,6 +131,7 @@ export type {
   PropertyKind,
   ReadOnly,
   RowNode,
+  SkipReason,
 } from "@/lib/bindings.gen";
 // The object index's types, per ADR-0029.
 export type {

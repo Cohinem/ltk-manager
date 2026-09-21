@@ -43,6 +43,26 @@ const DECLARED: DeclaredState = {
   layer: "base",
   layers: ["base", "chroma"],
   marks: [{ entry: ENTRY, path: GLOW, sign: "set", whole: false, game: "0.0" }],
+  diagnostics: [
+    {
+      entry: ENTRY,
+      path: GLOW,
+      layer: "base",
+      key: "skinMeshProperties.selfIllumination",
+      kind: "propertyEditSkipped",
+      reason: "kindMismatch",
+      detail: null,
+    },
+    {
+      entry: "",
+      path: "",
+      layer: "chroma",
+      key: "-links",
+      kind: "linkRemovalUnmatched",
+      reason: null,
+      detail: null,
+    },
+  ],
 };
 
 function Providers({ children }: { children: ReactNode }) {
@@ -93,7 +113,7 @@ beforeEach(() => {
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_declared") return Promise.resolve({ ok: true, value: declared });
     if (command === "bin_declare_into") {
-      declared = { ...DECLARED, layer: args?.layer as string, marks: [] };
+      declared = { ...DECLARED, layer: args?.layer as string, marks: [], diagnostics: [] };
       return Promise.resolve({ ok: true, value: declared });
     }
     return Promise.reject(new Error(`unexpected command ${command}`));
@@ -112,6 +132,18 @@ describe("a declared row", () => {
 
     expect(await screen.findAllByRole("img", { name: "Declared in Base" })).toHaveLength(1);
   });
+
+  it("draws what the apply reported on the row it names", async () => {
+    render(
+      <MarkedRows>
+        <BinRowLine line={glowLine(GLOW)} focused={false} onToggle={() => {}} />
+        <BinRowLine line={glowLine("0000000a.0000000c")} focused={false} onToggle={() => {}} />
+      </MarkedRows>,
+      { wrapper: Providers },
+    );
+
+    expect(await screen.findAllByRole("img", { name: "1 apply diagnostic" })).toHaveLength(1);
+  });
 });
 
 describe("the toolbar of a declared document", () => {
@@ -125,6 +157,14 @@ describe("the toolbar of a declared document", () => {
     expect(
       await screen.findByRole("button", { name: "Layer the edits declare into" }),
     ).toHaveTextContent("Base");
+  });
+
+  it("draws a diagnostic that names no row beside the layer", async () => {
+    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
+      wrapper: Providers,
+    });
+
+    expect(await screen.findByRole("img", { name: "1 apply diagnostic" })).toBeInTheDocument();
   });
 
   it("declares into the layer the menu picks", async () => {

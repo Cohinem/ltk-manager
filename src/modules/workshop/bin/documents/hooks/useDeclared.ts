@@ -5,6 +5,7 @@ import {
   api,
   type AppError,
   type BinDocumentId,
+  type DeclaredDiagnostic,
   type DeclaredMark,
   type DeclaredState,
 } from "@/lib/tauri";
@@ -66,6 +67,8 @@ export function useDeclareInto(
 export interface DeclaredRows {
   readonly layer: string;
   readonly marks: ReadonlyMap<string, DeclaredMark>;
+  /** What the last apply reported, by the key of the row it names, or of its object. */
+  readonly diagnostics: ReadonlyMap<string, readonly DeclaredDiagnostic[]>;
 }
 
 /** The declared rows of the enclosing tree, or null for a tree that declares nothing. */
@@ -79,8 +82,29 @@ export function useDeclaredRows(document: BinDocumentId): DeclaredRows | null {
     return {
       layer: declared.layer,
       marks: new Map(declared.marks.map((mark) => [rowKey(mark), mark])),
+      diagnostics: byRow(declared.diagnostics),
     };
   }, [declared]);
+}
+
+const NO_DIAGNOSTICS: readonly DeclaredDiagnostic[] = [];
+
+/** The diagnostics that name an object of the chunk, by the key of the row each names. */
+function byRow(
+  diagnostics: readonly DeclaredDiagnostic[],
+): ReadonlyMap<string, readonly DeclaredDiagnostic[]> {
+  const rows = new Map<string, DeclaredDiagnostic[]>();
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.entry.length === 0) continue;
+    const key = rowKey(diagnostic);
+    rows.set(key, [...(rows.get(key) ?? []), diagnostic]);
+  }
+  return rows;
+}
+
+/** What the last apply reported on the row under `key`. */
+export function useRowDiagnostics(key: string): readonly DeclaredDiagnostic[] {
+  return use(DeclaredRowsContext)?.diagnostics.get(key) ?? NO_DIAGNOSTICS;
 }
 
 /** Whether the enclosing tree is a declared document's, whose edits land as declarations. */

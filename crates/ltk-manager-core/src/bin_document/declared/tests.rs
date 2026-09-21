@@ -104,6 +104,14 @@ fn game_bin() -> Vec<u8> {
             h("championSkinName"),
             values::String::new("Teemo".to_owned()),
         )
+        .property(
+            h("tags"),
+            values::Container::new(
+                ltk_meta::property::Kind::Hash,
+                vec![values::Hash::new(h("a")).into()],
+            )
+            .unwrap(),
+        )
         .property(BinHash(0x1234_5678), values::U8::new(1))
         .build();
     let mut bytes = Cursor::new(Vec::new());
@@ -115,7 +123,7 @@ fn game_bin() -> Vec<u8> {
     bytes.into_inner()
 }
 
-fn declared(project: ProjectDir) -> BinDocument {
+pub(super) fn declared(project: ProjectDir) -> BinDocument {
     let context = DeclareContext {
         project,
         schema: PatchSchema::new(meta_schema::shared(None), None),
@@ -125,6 +133,8 @@ fn declared(project: ProjectDir) -> BinDocument {
             "selfIllumination",
             "texture",
             "championSkinName",
+            "tags",
+            "a",
         ]),
     };
     BinDocument::declare(game_bin(), ltk_game_data::path_hash(CHUNK), context).unwrap()

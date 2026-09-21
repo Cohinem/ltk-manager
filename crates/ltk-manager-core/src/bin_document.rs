@@ -29,7 +29,8 @@ mod records;
 pub(crate) mod resolve;
 
 pub use declared::{
-    BASE_LAYER, DeclareContext, DeclaredMark, DeclaredSign, DeclaredState, GameCopy,
+    BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredMark,
+    DeclaredSign, DeclaredState, GameCopy, SkipReason,
 };
 pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
