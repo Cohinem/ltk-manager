@@ -44,9 +44,12 @@ const PROGRAMS = new WeakMap<Material, string>();
  * bindings and a field left alone keeps what the last one put there.
  */
 export function applyRenderState(material: SubmeshMaterial, state: RenderState): void {
-  /* A cutout blends nothing it does not clip away, so it draws in the opaque queue where
-     the depth buffer resolves it per fragment and no sort is owed. */
-  material.transparent = state.blending !== "opaque" && !state.cutout;
+  /* A cutout still blends the fringe its filtered alpha leaves above the threshold, as the
+     game's pass does, and drawn opaque that fringe is the dark edge of a black transparent
+     texel. It writes depth, so a missorted neighbour costs a fringe and one pass per side
+     is enough. */
+  material.transparent = state.blending !== "opaque";
+  material.forceSinglePass = state.cutout;
   material.blending = BLENDING[state.blending];
   /* Read only under CustomBlending, and set unconditionally so a material that stops
      modulating stops carrying the factors of the one that did. */

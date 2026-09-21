@@ -2,7 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { MapPath } from "@/lib/tauri";
-import type { CameraPreset, PlacementMode } from "@/modules/viewport";
+import type {
+  AmbientOcclusion,
+  CameraPreset,
+  PlacementMode,
+  PostEffects,
+  SunLight,
+} from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
 
@@ -33,6 +39,12 @@ interface PreviewDisplay {
   previewBackdropParticles: boolean;
   /** The backdrop stands the structures and the level props its map places. */
   previewBackdropStructures: boolean;
+  /** The sun of every backdrop, and null for each map's own. */
+  previewSun: SunLight | null;
+  /** The post effects of every backdrop, and null for each map's own. */
+  previewPostEffects: PostEffects | null;
+  /** The ambient occlusion of every backdrop, and null for each map's own. */
+  previewAmbientOcclusion: AmbientOcclusion | null;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -194,6 +206,9 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewBackdrop: null,
   previewBackdropParticles: true,
   previewBackdropStructures: true,
+  previewSun: null,
+  previewPostEffects: null,
+  previewAmbientOcclusion: null,
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
@@ -365,6 +380,10 @@ export const usePreviewBackdropParticles = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropParticles);
 export const usePreviewBackdropStructures = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropStructures);
+export const usePreviewSun = () => useWorkshopLayoutStore((s) => s.previewSun);
+export const usePreviewPostEffects = () => useWorkshopLayoutStore((s) => s.previewPostEffects);
+export const usePreviewAmbientOcclusion = () =>
+  useWorkshopLayoutStore((s) => s.previewAmbientOcclusion);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);

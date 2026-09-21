@@ -8,6 +8,7 @@
 mod animation;
 mod map;
 mod mesh;
+mod mips;
 mod skeleton;
 mod source;
 mod texture;
@@ -47,6 +48,9 @@ pub enum PreviewRequest {
     Animation,
     /// A cube map's six faces at full resolution, stacked top to bottom as one image.
     Cube,
+    /// A texture's own mip chain from the smallest mipmap at least `min_width` wide down,
+    /// as one buffer.
+    Mips { min_width: Option<NonZeroU32> },
 }
 
 /// A decoded preview of one asset, ready for a webview to draw.
@@ -195,6 +199,9 @@ impl AssetRef {
             PreviewRequest::Skeleton => return Ok(Preview::Buffer(skeleton::render(&bytes)?)),
             PreviewRequest::Animation => return Ok(Preview::Buffer(animation::render(&bytes)?)),
             PreviewRequest::Cube => return Ok(Preview::Image(texture::render_cube(&bytes)?)),
+            PreviewRequest::Mips { min_width } => {
+                return Ok(Preview::Buffer(mips::render(&bytes, min_width)?));
+            }
         };
 
         let image = match self.file_kind(&bytes) {

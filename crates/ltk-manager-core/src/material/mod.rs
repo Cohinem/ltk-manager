@@ -324,8 +324,8 @@ pub struct RenderState {
     pub dst_factor: BlendFactor,
     /// The pass multiplies its colour by its own alpha before blending.
     pub premultiplied: bool,
-    /// The pass clips on a threshold it states itself and writes depth, so it draws
-    /// unblended and the depth buffer resolves it rather than a sort.
+    /// The pass clips on a threshold it states itself and writes depth, so the depth buffer
+    /// resolves its body and only the fringe its filtering leaves blends.
     pub cutout: bool,
     /// `cullEnable` is off, so both faces draw.
     pub double_sided: bool,

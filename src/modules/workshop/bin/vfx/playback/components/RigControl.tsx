@@ -8,15 +8,7 @@ import {
   SpiralIcon,
 } from "@phosphor-icons/react";
 
-import {
-  Button,
-  IconButton,
-  Popover,
-  SegmentedControl,
-  Slider,
-  Switch,
-  Tooltip,
-} from "@/components";
+import { Button, IconButton, Popover, SegmentedControl, Switch, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { CHAMPION_HEIGHT } from "@/modules/viewport";
 
@@ -28,6 +20,7 @@ import {
   type RigModel,
   type RigPreset,
 } from "../../engine/model/rig";
+import { SliderRow } from "../../preview/components/SliderRow";
 import { useVfxRun } from "../state/run";
 
 /** What each slider spans, in the engine's own units and seconds. */
@@ -111,7 +104,7 @@ export function RigControl() {
             />
 
             <div className="mt-3 flex flex-col gap-3">
-              <Row
+              <SliderRow
                 label={m.workshop_bin_preview_rig_height_label()}
                 reading={m.workshop_bin_preview_rig_units_label({
                   value: Math.round(choice.rig.height),
@@ -152,7 +145,7 @@ export function RigControl() {
                 />
               </div>
               {choice.rig.stopAt != null && (
-                <Row
+                <SliderRow
                   label={m.workshop_bin_preview_rig_stop_after_label()}
                   reading={m.workshop_bin_preview_time_label({
                     seconds: choice.rig.stopAt.toFixed(2),
@@ -209,14 +202,14 @@ function MotionRows({
 
     return (
       <>
-        <Row
+        <SliderRow
           label={m.workshop_bin_preview_rig_distance_label()}
           reading={m.workshop_bin_preview_rig_units_label({ value: Math.round(flown) })}
           value={flown}
           range={RANGE.distance}
           onValueChange={(distance) => onMotionChange(flightPath(distance, motion.speed))}
         />
-        <Row
+        <SliderRow
           label={m.workshop_bin_preview_rig_speed_label()}
           reading={m.workshop_bin_preview_rig_rate_label({ value: Math.round(motion.speed) })}
           value={motion.speed}
@@ -230,14 +223,14 @@ function MotionRows({
   if (motion.kind === "orbit") {
     return (
       <>
-        <Row
+        <SliderRow
           label={m.workshop_bin_preview_rig_radius_label()}
           reading={m.workshop_bin_preview_rig_units_label({ value: Math.round(motion.radius) })}
           value={motion.radius}
           range={RANGE.radius}
           onValueChange={(radius) => onMotionChange({ ...motion, radius })}
         />
-        <Row
+        <SliderRow
           label={m.workshop_bin_preview_rig_period_label()}
           reading={m.workshop_bin_preview_time_label({ seconds: motion.period.toFixed(2) })}
           value={motion.period}
@@ -249,40 +242,6 @@ function MotionRows({
   }
 
   return null;
-}
-
-/** One parameter: what it is called, where it stands, and the track that moves it. */
-function Row({
-  label,
-  reading,
-  value,
-  range,
-  onValueChange,
-}: {
-  label: string;
-  reading: string;
-  value: number;
-  range: { least: number; most: number; step: number };
-  onValueChange: (next: number) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-xs text-surface-300">{label}</span>
-        <span className="font-mono text-meta text-code text-surface-400 tabular-nums">
-          {reading}
-        </span>
-      </div>
-      <Slider
-        aria-label={label}
-        value={value}
-        min={range.least}
-        max={range.most}
-        step={range.step}
-        onValueChange={onValueChange}
-      />
-    </div>
-  );
 }
 
 /** The four presets as the track's own segments, in the order the picker reads them. */

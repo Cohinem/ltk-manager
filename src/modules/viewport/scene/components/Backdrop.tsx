@@ -14,7 +14,7 @@ import type { MaterialPreview } from "@/lib/tauri";
 import { drawnMeshes, type MapGeometry, MESH_FLAG } from "../../assets/parsing/mapBuffer";
 import { applyBinding, lit } from "../../character/utils/submeshBinding";
 import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/renderState";
-import { AXIS_SIGN } from "../../shared/utils/space";
+import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
 
 /** A flat neutral the map's own shape reads against, where no material reaches it. */
 const STONE = 0x9a958c;
@@ -175,7 +175,12 @@ export function Backdrop({
     <group scale={[AXIS_SIGN[0], AXIS_SIGN[1], AXIS_SIGN[2]]}>
       {/* Nothing rewinds triangles. The mirror above gives the world matrix a negative
           determinant, which ThreeJS already reads to flip its front face. */}
-      <mesh geometry={geometry} material={materials} frustumCulled={false} />
+      <mesh
+        geometry={geometry}
+        material={materials}
+        renderOrder={STAGE_ORDER}
+        frustumCulled={false}
+      />
     </group>
   );
 }

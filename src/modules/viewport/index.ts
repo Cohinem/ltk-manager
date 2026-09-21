@@ -76,11 +76,33 @@ export {
   type BackdropChoice,
   type BackdropFlags,
   type BackdropSource,
+  useBackdropAmbientOcclusion,
   useBackdropFlags,
   useBackdropMaps,
   useBackdropMaterials,
+  useBackdropPostEffects,
+  useBackdropSun,
   useMapBackdrop,
 } from "./scene/hooks/useMapBackdrop";
+export {
+  type AmbientOcclusion,
+  NO_AMBIENT_OCCLUSION,
+  occlusionSamples,
+} from "./scene/utils/ambientOcclusion";
+export {
+  type DepthOfField,
+  type Fog,
+  NO_POST_EFFECTS,
+  type PostEffects,
+} from "./scene/utils/postEffects";
+export {
+  DEFAULT_SUN,
+  type SunAngles,
+  sunAngles,
+  type SunColor,
+  sunDirection,
+  type SunLight,
+} from "./scene/utils/sunLight";
 export {
   AXIS_SIGN,
   CHAMPION_HEIGHT,

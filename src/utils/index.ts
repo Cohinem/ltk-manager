@@ -1,3 +1,4 @@
+export * from "./color";
 export * from "./dnd";
 export * from "./errors";
 export * from "./formatBytes";

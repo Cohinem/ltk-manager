@@ -48,6 +48,9 @@ const ANIMATION_FORM: &str = "animation";
 /// The [`FORM_PARAMETER`] value asking a cube map for its six faces as one image.
 const CUBE_FORM: &str = "cube";
 
+/// The [`FORM_PARAMETER`] value asking a texture for its own mip chain in one buffer.
+const MIPS_FORM: &str = "mips";
+
 /// Answer one preview request, whatever [`serve`] does.
 ///
 /// A panic here would otherwise unwind past the responder and drop it unused, and a
@@ -115,6 +118,9 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
         Some(SKELETON_FORM) => Ok(PreviewRequest::Skeleton),
         Some(ANIMATION_FORM) => Ok(PreviewRequest::Animation),
         Some(CUBE_FORM) => Ok(PreviewRequest::Cube),
+        Some(MIPS_FORM) => Ok(PreviewRequest::Mips {
+            min_width: requested_width(query)?,
+        }),
         Some(form) => Err(format!("Not a form: {FORM_PARAMETER}={form}")),
     }
 }
@@ -289,6 +295,21 @@ mod tests {
     #[test]
     fn a_cube_form_asks_for_the_six_faces() {
         assert_eq!(requested(Some("as=cube")), Ok(PreviewRequest::Cube));
+    }
+
+    #[test]
+    fn a_mips_form_carries_the_width_its_chain_starts_at() {
+        assert_eq!(
+            requested(Some("as=mips&w=64")),
+            Ok(PreviewRequest::Mips {
+                min_width: NonZeroU32::new(64)
+            })
+        );
+        assert_eq!(
+            requested(Some("as=mips")),
+            Ok(PreviewRequest::Mips { min_width: None })
+        );
+        assert!(requested(Some("as=mips&w=0")).is_err());
     }
 
     /// A form nothing answers is a mistake in the caller's URL, and answering the image

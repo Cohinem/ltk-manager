@@ -52,6 +52,9 @@ import {
   usePreviewMoveMode,
   usePreviewPlacedOn,
   usePreviewPlacement,
+  usePreviewAmbientOcclusion,
+  usePreviewPostEffects,
+  usePreviewSun,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -59,6 +62,8 @@ import { assetKey } from "../../../preview/utils/assetRef";
 import { BackdropLayerMenu } from "../../map/components/BackdropLayerMenu";
 import { MapCharacters } from "../../map/components/MapCharacters";
 import { MapParticles } from "../../map/components/MapParticles";
+import { PostEffectsControl } from "../../map/components/PostEffectsControl";
+import { SunControl } from "../../map/components/SunControl";
 import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
@@ -179,6 +184,9 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
   const placement = usePreviewPlacement();
   const placedOn = usePreviewPlacedOn();
   const facing = usePreviewFacing();
+  const sun = usePreviewSun();
+  const postEffects = usePreviewPostEffects();
+  const ambientOcclusion = usePreviewAmbientOcclusion();
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
   const setDisplay = useSetPreviewDisplay();
 
@@ -394,6 +402,9 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
           textured={midlane}
           backdrop={backdropSource}
           backdropFlags={backdropFlags}
+          sun={backdrop === null ? null : sun}
+          postEffects={backdrop === null ? null : postEffects}
+          ambientOcclusion={backdrop === null ? null : ambientOcclusion}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
@@ -496,11 +507,15 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
         >
           <BackdropToggle />
           {backdrop !== null && (
-            <BackdropLayerMenu
-              layers={backdropLayers}
-              flags={backdropFlags}
-              onLayerChange={setBackdropLayer}
-            />
+            <>
+              <BackdropLayerMenu
+                layers={backdropLayers}
+                flags={backdropFlags}
+                onLayerChange={setBackdropLayer}
+              />
+              <SunControl source={backdropSource} />
+              <PostEffectsControl source={backdropSource} />
+            </>
           )}
           <PlacementToggle />
           <ViewToggle

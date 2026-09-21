@@ -16,16 +16,23 @@ use ltk_manager_core::material::{MaterialPreview, resolve_material};
 use ltk_manager_core::preview::AssetRef;
 
 mod characters;
+mod component;
 #[cfg(test)]
 mod fixtures;
 mod outline;
 mod particles;
 mod placeable;
+mod post_effects;
+mod ssao;
+mod sun;
 mod variants;
 
 pub use characters::{MapCharacter, map_characters};
 pub use outline::{MapChunk, MapChunkItem, MapItemKind, map_outline};
 pub use particles::{MapParticle, map_particles};
+pub use post_effects::{MapDepthOfField, MapFog, MapPostEffects, map_post_effects};
+pub use ssao::{MapSsao, map_ssao};
+pub use sun::{MapSun, map_sun};
 pub use variants::{MapVariant, map_variants};
 
 /// Where the game reads a map's files from, under the entry path its container names.
@@ -103,7 +110,7 @@ pub struct MapFiles {
     pub materials: Option<AssetRef>,
 }
 
-/// One map's materials, one per path asked for and in that order.
+/// One map's materials, one per path asked for and in that order, and its lighting and screen effects.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -113,9 +120,16 @@ pub struct MapModel {
     /// Null where the map's own bin declares no object at that path, which a backdrop
     /// draws flat rather than not at all.
     pub materials: Vec<Option<MaterialPreview>>,
+    /// Null where the map's container states no sun, which a backdrop lights with a default.
+    pub sun: Option<MapSun>,
+    /// Null where the map's container states no post effects, which no shipped map does.
+    pub post_effects: Option<MapPostEffects>,
+    /// Null where the map's container states no ambient occlusion, as all but one shipped map.
+    pub ssao: Option<MapSsao>,
 }
 
-/// The materials `paths` name, read out of a map's own `.materials.bin`.
+/// The materials `paths` name and the lighting and screen effects of `map`, read out of its own
+/// `.materials.bin`.
 ///
 /// `paths` are the entry paths an `LTKM` buffer's string table carries, so the two sides
 /// join on the string itself and neither hashes on the other's behalf. `shaders` is
@@ -124,6 +138,7 @@ pub struct MapModel {
 #[must_use]
 pub fn resolve_map(
     materials: &BinDocument,
+    map: &MapPath,
     paths: &[String],
     names: &dyn RowNames,
     assets: &dyn AssetLookup,
@@ -136,14 +151,20 @@ pub fn resolve_map(
                 resolve_material(materials, BinHash::hash_str(path), names, assets, shaders).ok()
             })
             .collect(),
+        sun: map_sun(materials, map),
+        post_effects: map_post_effects(materials, map),
+        ssao: map_ssao(materials, map),
     }
 }
 
-/// A map whose every material is unresolved, which a backdrop draws flat.
+/// A map with every material unresolved and no lighting or screen effects, drawn flat.
 #[must_use]
 pub fn unresolved_map(paths: &[String]) -> MapModel {
     MapModel {
         materials: paths.iter().map(|_| None).collect(),
+        sun: None,
+        post_effects: None,
+        ssao: None,
     }
 }
 

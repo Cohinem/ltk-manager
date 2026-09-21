@@ -32,10 +32,12 @@ export const FORWARD: readonly [number, number, number] = [0, 0, 1];
 export const GROUND_LEVEL = 0;
 
 /**
- * The draw order the stage's ground takes, before anything laid on it.
+ * The draw order the ground takes, the stage's plane or a map backdrop, before anything
+ * laid on it.
  *
  * A ground-layer emitter draws as an opaque object under the character, and the ground
- * plane writes depth under it, so the plane has to be down before the emitter is.
+ * plane writes depth under it, so the plane has to be down before the emitter is. A
+ * backdrop's blended cutouts write depth too, so a particle has to blend over them.
  */
 export const STAGE_ORDER = -2_000_000;
 

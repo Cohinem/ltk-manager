@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { type Texture, TextureLoader } from "three";
+import { Texture, TextureLoader } from "three";
 
-import { previewUrl } from "@/lib/previewUrl";
+import { previewMipsUrl, previewUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
+import { readMipBuffer } from "../../assets/parsing/mipBuffer";
 import { TEXTURE_COLOR_SPACE } from "../../scene/utils/world";
 
 const NONE: ReadonlyMap<string, Texture> = new Map();
@@ -42,6 +43,13 @@ export interface TextureLoad {
    * asking for a whole set at once lands them in bursts a frame cannot absorb.
    */
   readonly concurrency?: number;
+  /**
+   * Each texture draws the file's own mip chain rather than one the GPU averages.
+   *
+   * An alpha-tested texture ships every level at binary alpha with level 0's coverage,
+   * and an averaged level fades the cutout away with distance.
+   */
+  readonly mips?: boolean;
   readonly report?: (load: { pending: number; failed: number }) => void;
 }
 
@@ -54,7 +62,7 @@ export interface TextureLoad {
  */
 export function useAssetTextures(
   assets: ReadonlyMap<string, AssetRef>,
-  { previewWidth, fullWidth, concurrency = CONCURRENT, report }: TextureLoad = {},
+  { previewWidth, fullWidth, concurrency = CONCURRENT, mips = false, report }: TextureLoad = {},
 ): ReadonlyMap<string, Texture> {
   const [textures, setTextures] = useState(NONE);
 
@@ -97,7 +105,13 @@ export function useAssetTextures(
       publish();
     };
 
-    const load = (key: string, url: string, done: (ok: boolean) => void) => {
+    const load = (
+      key: string,
+      asset: AssetRef,
+      width: number | undefined,
+      done: (ok: boolean) => void,
+    ) => {
+      const url = previewUrl(asset, width);
       let settled = false;
       const finish = (ok: boolean) => {
         if (settled) return;
@@ -112,23 +126,24 @@ export function useAssetTextures(
       }, REQUEST_TIMEOUT_MS);
       timers.add(timer);
 
-      loader.load(
-        url,
-        (texture) => {
-          if (!live || settled) {
-            texture.dispose();
-            return;
-          }
-          take(key, texture);
-          finish(true);
-        },
-        undefined,
-        (error) => {
-          if (!live) return;
-          console.error("Failed to read a texture:", error);
-          finish(false);
-        },
-      );
+      const landed = (texture: Texture) => {
+        if (!live || settled) {
+          texture.dispose();
+          return;
+        }
+        take(key, texture);
+        finish(true);
+      };
+      const failed = (error: unknown) => {
+        if (!live) return;
+        console.error("Failed to read a texture:", error);
+        finish(false);
+      };
+
+      const image = () => loader.load(url, landed, undefined, failed);
+      /* A PNG or a TGA has no chain to answer with, so it arrives as the image it is. */
+      if (mips) loadMips(previewMipsUrl(asset, width)).then(landed, image);
+      else image();
     };
 
     /** One wave over `entries`, no more than `concurrency` of them in flight. */
@@ -150,7 +165,7 @@ export function useAssetTextures(
           const next = queue.shift();
           if (next === undefined) break;
           running += 1;
-          load(next[0], previewUrl(next[1], width), (ok) => {
+          load(next[0], next[1], width, (ok) => {
             running -= 1;
             settled(ok);
             pump();
@@ -198,7 +213,38 @@ export function useAssetTextures(
       for (const texture of superseded) texture.dispose();
       setTextures(NONE);
     };
-  }, [assets, previewWidth, fullWidth, concurrency, report]);
+  }, [assets, previewWidth, fullWidth, concurrency, mips, report]);
 
   return textures;
+}
+
+/**
+ * A texture drawing every level of the chain `url` answers, as the file stores them.
+ *
+ * A chain of one level is the whole file, so the GPU builds its mipmaps as for any image.
+ */
+async function loadMips(url: string): Promise<Texture> {
+  const answer = await fetch(url);
+  if (!answer.ok) throw new Error(await answer.text());
+  const levels = readMipBuffer(await answer.arrayBuffer());
+  const images = await Promise.all(
+    levels.map(({ png }) =>
+      createImageBitmap(new Blob([png], { type: "image/png" }), {
+        premultiplyAlpha: "none",
+        colorSpaceConversion: "none",
+      }),
+    ),
+  );
+  const texture = new Texture(images[0]);
+  if (images.length > 1) {
+    /* ThreeJS uploads any image source level by level and types the levels as canvases. */
+    texture.mipmaps = images as unknown as HTMLCanvasElement[];
+    texture.generateMipmaps = false;
+  }
+  texture.needsUpdate = true;
+  /* A bitmap keeps its pixels until it is closed, where an image lets the browser drop them. */
+  texture.addEventListener("dispose", () => {
+    for (const image of images) image.close();
+  });
+  return texture;
 }
