@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 use tauri::image::Image;
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::Manager;
+use tauri::{AppHandle, Emitter, Manager, Runtime};
+
+const TRAY_ID: &str = "main-tray";
 
 // states, profiles and workshop
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
@@ -16,11 +18,9 @@ pub enum AppTrayState {
 }
 
 pub fn setup(app: &mut tauri::App) -> tauri::Result<()> {
-    let show_item = MenuItem::with_id(app, "show", "Show Manager", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-    let tray_menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+    let tray_menu = menu(app, None)?;
 
-    let _tray = TrayIconBuilder::with_id("main-tray")
+    let _tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().unwrap())
         .tooltip("LTK Manager")
         .menu(&tray_menu)
@@ -32,23 +32,17 @@ pub fn setup(app: &mut tauri::App) -> tauri::Result<()> {
                 ..
             } = event
             {
-                let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.unminimize();
-                    let _ = window.set_focus();
-                }
+                reveal(tray.app_handle());
             }
         })
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "show" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.unminimize();
-                    let _ = window.set_focus();
-                }
+            "show" => reveal(app),
+            "update" => {
+                reveal(app);
+                let _ = app.emit(crate::updater::REQUESTED_EVENT, ());
             }
             "quit" => {
+                crate::updater::install_on_quit(app);
                 app.exit(0);
             }
             _ => {}
@@ -58,9 +52,59 @@ pub fn setup(app: &mut tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+fn reveal(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+/// The tray menu, led by an entry for `update` when a release is on offer.
+fn menu<R: Runtime, M: Manager<R>>(manager: &M, update: Option<&str>) -> tauri::Result<Menu<R>> {
+    let menu = Menu::new(manager)?;
+    if let Some(version) = update {
+        let label = format!("Update to v{version}");
+        menu.append(&MenuItem::with_id(
+            manager,
+            "update",
+            label,
+            true,
+            None::<&str>,
+        )?)?;
+        menu.append(&PredefinedMenuItem::separator(manager)?)?;
+    }
+    menu.append(&MenuItem::with_id(
+        manager,
+        "show",
+        "Show Manager",
+        true,
+        None::<&str>,
+    )?)?;
+    menu.append(&MenuItem::with_id(
+        manager,
+        "quit",
+        "Quit",
+        true,
+        None::<&str>,
+    )?)?;
+    Ok(menu)
+}
+
+/// Rebuild the tray menu for the release on offer, or for none.
+pub fn show_update(app: &AppHandle, version: Option<&str>) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let rebuilt = menu(app, version).and_then(|menu| tray.set_menu(Some(menu)));
+    if let Err(error) = rebuilt {
+        tracing::warn!(%error, "The tray menu could not be rebuilt");
+    }
+}
+
 #[tauri::command]
 pub fn set_tray_state(app: tauri::AppHandle, state: AppTrayState) -> Result<(), String> {
-    let tray = app.tray_by_id("main-tray").ok_or("Tray not found")?;
+    let tray = app.tray_by_id(TRAY_ID).ok_or("Tray not found")?;
 
     let (icon_bytes, tooltip) = match state {
         AppTrayState::Default => (None, "LTK Manager"),

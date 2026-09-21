@@ -225,7 +225,9 @@ jobs:
           prerelease: ${{ steps.version.outputs.prerelease }}
           updaterJsonPreferNsis: true
 
+      # The pinned manifest is what every install checks, so a pre-release never reaches it.
       - name: Update updater release
+        if: steps.version.outputs.prerelease == 'false'
         shell: bash
         run: |
           TAG="${{ steps.version.outputs.tag }}"

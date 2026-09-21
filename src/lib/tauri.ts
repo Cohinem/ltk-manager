@@ -234,6 +234,7 @@ export type {
   OriginKind,
   OverlayOutcome,
   PatcherBinaries_Serialize as PatcherBinaries,
+  PendingUpdate,
   ScanMode,
   ScanStatus,
   SessionFailure,
@@ -305,7 +306,6 @@ export const api = {
   getAppInfo: () => invokeResult<AppInfo>("get_app_info"),
   getPlatformSupport: () => invokeResult<PlatformSupport>("get_platform_support"),
   showMainWindow: () => invokeResult<void>("show_main_window"),
-  prepareForUpdate: () => invokeResult<void>("prepare_for_update"),
   listReleases: (page: number) => invokeResult<ReleasePage>("list_releases", { page }),
   listAnnouncements: () => invokeResult<Announcement[]>("list_announcements"),
   listNotices: () => invokeResult<Notice[]>("list_notices"),
@@ -611,6 +611,14 @@ export const api = {
     checkInstallMismatch: () => commands.checkInstallMismatch().then(toResult),
     switchLeagueInstall: (installRoot: string) =>
       commands.switchLeagueInstall(installRoot).then(toResult),
+  },
+
+  // The app's own update, on tauri-specta.
+  updater: {
+    check: () => commands.checkUpdate().then(toResult),
+    download: () => commands.downloadUpdate().then(toResult),
+    install: () => commands.installUpdate().then(toResult),
+    discard: () => commands.discardUpdate().then(toResult),
   },
 
   // A project's ignore rules, on tauri-specta.

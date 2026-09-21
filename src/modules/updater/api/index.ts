@@ -1,3 +1,4 @@
+export { downloadUpdate } from "./downloadUpdate";
 export { updaterKeys } from "./keys";
 export { stripReleasePreamble } from "./releaseNotes";
 export { useCheckForUpdate } from "./useCheckForUpdate";
@@ -7,3 +8,4 @@ export {
   useReleaseHistory,
   type UseReleaseHistoryOptions,
 } from "./useReleaseHistory";
+export { useSkipVersion } from "./useSkipVersion";

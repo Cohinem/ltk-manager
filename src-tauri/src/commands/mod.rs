@@ -58,6 +58,7 @@ mod skin;
 mod spell;
 mod storage;
 mod strings;
+mod updater;
 mod vfx;
 mod workshop;
 
@@ -92,6 +93,7 @@ pub use skin::*;
 pub use spell::*;
 pub use storage::*;
 pub use strings::*;
+pub use updater::*;
 pub use vfx::*;
 pub use workshop::*;
 

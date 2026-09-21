@@ -400,6 +400,14 @@ export const commands = {
 	 *  next start.
 	 */
 	switchLeagueInstall: (installRoot: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_league_install", { installRoot }),
+	/**  A release newer than the running build, or `None` when this build is the latest. */
+	checkUpdate: () => __TAURI_INVOKE<({ ok: true; value: PendingUpdate | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_update"),
+	/**  Download the offered release's installer ahead of the install. */
+	downloadUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("download_update"),
+	/**  Install the downloaded release and relaunch into it. */
+	installUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_update"),
+	/**  Drop the downloaded installer, so quitting installs nothing. */
+	discardUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("discard_update"),
 };
 
 /* Types */
@@ -2340,6 +2348,16 @@ export type PatcherError =
  *  from a game that was never patched, since they call for different advice.
  */
 { kind: "INJECTION_FAILED"; stage: InjectionStage; message: string };
+
+/**  A release newer than the running build. */
+export type PendingUpdate = {
+	/**  The release on offer. */
+	version: string,
+	/**  The build that is running. */
+	currentVersion: string,
+	/**  The release notes, in markdown. */
+	body: string | null,
+};
 
 /**  One of a project's root text files, as the editor reads it. */
 export type ProjectText = {
