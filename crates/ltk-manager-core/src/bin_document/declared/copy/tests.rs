@@ -1,5 +1,8 @@
 use std::collections::HashMap;
 
+use indexmap::IndexMap;
+use ltk_hash::BinHash;
+
 use ltk_game_data::{Selector, load_declarations};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
@@ -105,7 +108,7 @@ fn a_leaf_copies_as_a_module_that_loads_to_one_set() {
 }
 
 #[test]
-fn a_struct_holding_a_nameless_field_copies_its_reference_alone() {
+fn a_struct_copies_as_a_block_of_its_named_fields() {
     let dir = tempfile::tempdir().unwrap();
     let document = declared(project(dir.path()));
     /* `texture` is left out of the names, so the embed holds a field nothing spells. */
@@ -115,14 +118,17 @@ fn a_struct_holding_a_nameless_field_copies_its_reference_alone() {
         .row_declaration(h(SKIN), &field("skinMeshProperties"), &*names)
         .unwrap();
 
-    assert_eq!(copied.declaration, None);
+    assert_eq!(
+        copied.declaration.as_deref(),
+        Some(
+            "- entries:\n    Characters/Teemo/Skins/Skin0:\n      skinMeshProperties:\n        \
+             selfIllumination: 0.0"
+        )
+    );
+    assert_eq!(copied.skipped, 1);
     assert_eq!(
         copied.reference.as_deref(),
         Some("Characters/Teemo/Skins/Skin0:skinMeshProperties")
-    );
-    assert_eq!(
-        document.row_declaration(h(SKIN), "", &*names).unwrap(),
-        RowDeclaration::default()
     );
     assert_eq!(
         document
@@ -130,6 +136,95 @@ fn a_struct_holding_a_nameless_field_copies_its_reference_alone() {
             .unwrap(),
         RowDeclaration::default()
     );
+}
+
+#[test]
+fn an_object_copies_as_its_entry_with_every_named_field() {
+    let dir = tempfile::tempdir().unwrap();
+    let document = declared(project(dir.path()));
+    let names = Game::naming(&[
+        SKIN,
+        "skinMeshProperties",
+        "selfIllumination",
+        "texture",
+        "championSkinName",
+        "tags",
+        "a",
+    ]);
+
+    let copied = document.row_declaration(h(SKIN), "", &*names).unwrap();
+
+    let module = copied
+        .declaration
+        .expect("an object copies as a declaration");
+    assert_eq!(
+        module,
+        "- entries:\n    Characters/Teemo/Skins/Skin0:\n      skinMeshProperties:\n        \
+         selfIllumination: 0.0\n        texture: assets/teemo.tex\n      championSkinName: \
+         Teemo\n      tags: [a]"
+    );
+    assert_eq!(copied.reference, None);
+    assert_eq!(copied.skipped, 1, "the unnamed field is left out");
+
+    /* The copy applied over the game's own copy changes nothing, the unnamed field included. */
+    let indented: String = module.lines().map(|line| format!("  {line}\n")).collect();
+    fs_err::write(
+        dir.path().join("content/base/game_data.yaml"),
+        format!("version: 1\nmodules:\n{indented}"),
+    )
+    .unwrap();
+    let applied = declared(project(dir.path()));
+    let game = BinDocument::parse(super::super::tests::game_bin()).unwrap();
+    assert_eq!(applied.object_at(h(SKIN)), game.object_at(h(SKIN)));
+    assert_eq!(applied.declared_state().unwrap().marks.len(), 4);
+}
+
+#[test]
+fn a_list_whose_items_hold_a_nameless_field_copies_a_key_per_item() {
+    let emitter = |name: &str, unnamed: bool| -> PropertyValueEnum {
+        let mut properties: IndexMap<BinHash, PropertyValueEnum> = [(
+            h("emitterName"),
+            values::String::new(name.to_owned()).into(),
+        )]
+        .into();
+        if unnamed {
+            properties.insert(BinHash(0x0bad_f00d), values::U8::new(1).into());
+        }
+        values::Embedded(values::Struct {
+            class_hash: h("VfxEmitterDefinitionData"),
+            properties,
+        })
+        .into()
+    };
+    let object = BinObject::builder(h(SKIN), h("VfxSystemDefinitionData"))
+        .property(
+            h("emitters"),
+            values::Container::new(
+                Kind::Embedded,
+                vec![emitter("one", false), emitter("two", true)],
+            )
+            .unwrap(),
+        )
+        .build();
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    Bin::builder()
+        .object(object)
+        .build()
+        .to_writer(&mut bytes)
+        .unwrap();
+    let document = BinDocument::parse(bytes.into_inner()).unwrap();
+    let names = Game::naming(&[SKIN, "emitters", "emitterName"]);
+
+    let copied = document.row_declaration(h(SKIN), "", &*names).unwrap();
+
+    assert_eq!(
+        copied.declaration.as_deref(),
+        Some(
+            "- entries:\n    Characters/Teemo/Skins/Skin0:\n      emitters[0]:\n        \
+             emitterName: one\n      emitters[1]:\n        emitterName: two"
+        )
+    );
+    assert_eq!(copied.skipped, 1);
 }
 
 #[test]

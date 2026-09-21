@@ -96,7 +96,7 @@ pub(super) fn project(dir: &Path) -> ProjectDir {
 }
 
 /// The game's copy of Teemo's skin: a glow inside an embed, a list, and an unnamed field.
-fn game_bin() -> Vec<u8> {
+pub(super) fn game_bin() -> Vec<u8> {
     let mesh = values::Embedded(values::Struct {
         class_hash: h("SkinMeshDataProperties"),
         properties: [

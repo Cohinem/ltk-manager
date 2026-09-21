@@ -151,7 +151,7 @@
   "workshop_bin_copy_class_name_action": "Copy class name",
   "workshop_bin_copy_command_action": "Copy the command",
   "workshop_bin_copy_declaration_action": "Copy as declaration",
-  "workshop_bin_copy_declaration_refused_hint": "No declaration spells this row. Its path or its value holds a field no table names.",
+  "workshop_bin_copy_declaration_refused_hint": "No declaration spells this row. Its path runs through a field no table names, or nothing under it has a name.",
   "workshop_bin_copy_field_hash_action": "Copy field hash",
   "workshop_bin_copy_hash_action": "Copy hash",
   "workshop_bin_copy_name_action": "Copy name",
@@ -180,6 +180,16 @@
   "workshop_bin_curve_tab_table_label": "Table",
   "workshop_bin_curve_time_column": "Time",
   "workshop_bin_declaration_label": "Declaration",
+  "workshop_bin_declaration_skipped_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} field or entry no declaration can spell is left as the game has it",
+        "countPlural=other": "{count} fields or entries no declaration can spell are left as the game has them"
+      }
+    }
+  ],
   "workshop_bin_declarations_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

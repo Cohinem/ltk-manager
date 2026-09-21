@@ -29,15 +29,19 @@ function elide(value: string): string {
  * Not memoized, because `useToast` builds its handle per render and nothing
  * downstream could hold a stable identity anyway.
  */
-export function useCopyToClipboard(): (text: string, label: string) => Promise<void> {
+export function useCopyToClipboard(): (
+  text: string,
+  label: string,
+  description?: string,
+) => Promise<void> {
   const { toast } = useToast();
 
-  return async (text, label) => {
+  return async (text, label, description) => {
     try {
       await navigator.clipboard.writeText(text);
       toast({
         title: `Copied ${label}`,
-        description: elide(text),
+        description: description ?? elide(text),
         type: "success",
         timeout: 2500,
       });

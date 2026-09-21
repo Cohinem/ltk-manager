@@ -4,6 +4,7 @@
 
 | Date       | Change                                                          |
 | ---------- | --------------------------------------------------------------- |
+| 2026-09-21 | Copy a whole object or struct as a declaration                  |
 | 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference  |
 | 2026-09-21 | Draw what an apply reports on the row it names                  |
 | 2026-09-21 | Declare a game bin's container edits, and refuse what none says |
@@ -13,7 +14,6 @@
 | 2026-09-14 | Address a map entry whose key repeats as `{k}#n`                |
 | 2026-09-14 | Search an open bin from the bar's `@` scope                     |
 | 2026-09-14 | Find an embedded class's uses and an object's incoming links    |
-| 2026-09-14 | Edit list items, map entries, options and pointers inline       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -2200,15 +2200,23 @@ The row menu carries the declaration actions.
 
 | Item                | Offered on             | What it does                                          |
 | ------------------- | ---------------------- | ----------------------------------------------------- |
-| Copy as declaration | A value row of any bin | The row as an `entries` module, ready under `modules` |
+| Copy as declaration | Any row of any bin     | The row as an `entries` module, ready under `modules` |
 | Copy reference      | A value row of any bin | `!ref <entry>:<path>`, the path Copy path writes      |
 | Paste reference     | A declared document    | Sets the row to the copied reference                  |
 | Merge reference     | A list or a map of one | Adds the copied reference with `+`                    |
 
 Both copies work on a read-only bin, because a declaration is written from the game's copy
-as often as into it. A row whose path runs through a field no table names copies neither,
-and a struct holding such a field copies its reference alone. The item is disabled and its
-title carries the reason. The app holds the reference it copied, so a paste reads no
+as often as into it. An object row copies as its entry with every field, and an object tab's
+menu offers the same copy, because the tab draws no row for the object itself. An object
+copies no reference, because a reference names a value.
+
+An object and a struct copy as a block of their fields, the way an author writes one: a
+nested struct is a nested block, and no class is pinned. An apply sets the fields one by one
+on the game's own struct. A field no table names is left out, and so is a map entry whose
+key has no spelling. An apply leaves each as the game has it, and the copy's toast says how
+many. A list whose items hold such a field copies a key per item, `list[i]`, each a block of
+its named fields. A row whose path runs through a field no table names copies neither, and
+its items are disabled with the reason as their title. The app holds the reference it copied, so a paste reads no
 clipboard.
 
 A reference reads the installed game and never the project: the first chunk declaring the

@@ -182,21 +182,26 @@ impl Edit {
     /// that stands under a manifest's `modules` key. `None` for a drop, which writes nothing.
     #[must_use]
     pub fn module_text(&self) -> Option<String> {
-        const MODULES: &str = "modules:
-";
-        let text = DocumentText::default().apply(self).ok()?;
-        let (_, modules) = text.as_str().split_once(MODULES)?;
-        let lines: Vec<&str> = modules
-            .lines()
-            .map(|line| line.strip_prefix("  ").unwrap_or(line))
-            .collect();
-        (!lines.is_empty()).then(|| {
-            lines.join(
-                "
-",
-            )
-        })
+        module_text(std::slice::from_ref(self))
     }
+}
+
+/// The modules `edits` write into a layer with no manifest, in order, as the list items that
+/// stand under a manifest's `modules` key. `None` where they write nothing, or where the text
+/// cannot take one of them.
+#[must_use]
+pub fn module_text(edits: &[Edit]) -> Option<String> {
+    const MODULES: &str = "modules:\n";
+    let mut text = DocumentText::default();
+    for edit in edits {
+        text = text.apply(edit).ok()?;
+    }
+    let (_, modules) = text.as_str().split_once(MODULES)?;
+    let lines: Vec<&str> = modules
+        .lines()
+        .map(|line| line.strip_prefix("  ").unwrap_or(line))
+        .collect();
+    (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
 /// Why an edit cannot be placed in a manifest's text.

@@ -857,3 +857,25 @@ Teemo_W: y",
         None
     );
 }
+
+#[test]
+fn several_edits_of_one_entry_spell_one_module() {
+    let edits = [
+        edit(SKIN0, "championSkinName", Operation::Set(value("Jade"))),
+        edit(
+            SKIN0,
+            "skinMeshProperties",
+            Operation::Set(value("texture: x.tex\nselfIllumination: 0.5")),
+        ),
+        edit(SKIN0, "tags[0]", Operation::Set(value("a"))),
+    ];
+    assert_eq!(
+        module_text(&edits).as_deref(),
+        Some(
+            "- entries:\n    Characters/Teemo/Skins/Skin0:\n      championSkinName: Jade\n      \
+             skinMeshProperties:\n        texture: x.tex\n        selfIllumination: 0.5\n      \
+             tags[0]: a"
+        ),
+    );
+    assert_eq!(module_text(&[]), None);
+}

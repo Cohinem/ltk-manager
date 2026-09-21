@@ -13,7 +13,7 @@ import { api, type BinRow } from "@/lib/tauri";
 
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
-import { useDeclares, useRowDeclaration } from "../hooks/useDeclared";
+import { useCopyDeclaration, useDeclares, useRowDeclaration } from "../hooks/useDeclared";
 import { useCopiedReference, useRememberReference } from "../state/copiedReference";
 
 /**
@@ -31,8 +31,11 @@ export function DeclarationMenuItems({ row }: { row: BinRow }) {
   const toast = useToast();
 
   const spelled = useRowDeclaration(document, row.entry, row.path);
+  const copyDeclaration = useCopyDeclaration();
 
-  if (document === null || row.path.length === 0 || row.node === "record") return null;
+  if (document === null || row.node === "record" || row.node === "target") return null;
+  /* An object copies as its entry. A reference and a paste name a value, which it is not. */
+  const object = row.node === "object";
   const declaration = spelled?.declaration ?? null;
   const reference = spelled?.reference ?? null;
   const merges = row.value.type === "container" || row.value.type === "map";
@@ -54,25 +57,25 @@ export function DeclarationMenuItems({ row }: { row: BinRow }) {
         icon={<CodeBlockIcon />}
         disabled={declaration === null}
         title={declaration === null ? m.workshop_bin_copy_declaration_refused_hint() : undefined}
-        onClick={() =>
-          declaration !== null && void copy(declaration, m.workshop_bin_declaration_label())
-        }
+        onClick={() => spelled !== null && copyDeclaration(spelled)}
       >
         {m.workshop_bin_copy_declaration_action()}
       </ContextMenu.Item>
-      <ContextMenu.Item
-        icon={<LinkSimpleIcon />}
-        disabled={reference === null}
-        title={reference === null ? m.workshop_bin_copy_reference_refused_hint() : undefined}
-        onClick={() => {
-          if (reference === null) return;
-          remember(reference);
-          void copy(`!ref ${reference}`, m.workshop_bin_reference_label());
-        }}
-      >
-        {m.workshop_bin_copy_reference_action()}
-      </ContextMenu.Item>
-      {declares && (
+      {!object && (
+        <ContextMenu.Item
+          icon={<LinkSimpleIcon />}
+          disabled={reference === null}
+          title={reference === null ? m.workshop_bin_copy_reference_refused_hint() : undefined}
+          onClick={() => {
+            if (reference === null) return;
+            remember(reference);
+            void copy(`!ref ${reference}`, m.workshop_bin_reference_label());
+          }}
+        >
+          {m.workshop_bin_copy_reference_action()}
+        </ContextMenu.Item>
+      )}
+      {declares && !object && (
         <ContextMenu.Item
           icon={<ClipboardTextIcon />}
           disabled={copied === null}
@@ -82,7 +85,7 @@ export function DeclarationMenuItems({ row }: { row: BinRow }) {
           {m.workshop_bin_paste_reference_action()}
         </ContextMenu.Item>
       )}
-      {declares && merges && (
+      {declares && !object && merges && (
         <ContextMenu.Item
           icon={<ArrowsMergeIcon />}
           disabled={copied === null}

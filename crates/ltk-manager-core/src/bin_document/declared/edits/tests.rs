@@ -405,13 +405,7 @@ fn an_undo_restores_a_hand_written_manifest_byte_for_byte() {
     fs::write(
         dir.path().join("content/base/game_data.yaml"),
         format!(
-            "# mine
-version: 1
-modules:
-  - entries:
-      {SKIN}:
-        +tags: [c] # kept
-"
+            "# mine\nversion: 1\nmodules:\n  - entries:\n      {SKIN}:\n        +tags: [c] # kept\n"
         ),
     )
     .unwrap();

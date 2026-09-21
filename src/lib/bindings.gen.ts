@@ -2486,14 +2486,20 @@ export type Revision = {
 };
 
 /**
- *  What a row copies as. Each half is absent where the row has no spelling for it: the object
- *  row itself, a path through a field no table names, and a value holding such a field.
+ *  What a row copies as. Each half is absent where the row has no spelling for it: a path
+ *  through a field no table names, a value nothing under which is named, and the reference of
+ *  an object, which names no path.
  */
 export type RowDeclaration = {
 	/**  An `entries` module setting the row to its value, as it stands under `modules`. */
 	declaration: string | null,
 	/**  The row as a game-copy reference, `<entry>:<property path>`. */
 	reference: string | null,
+	/**
+	 *  How many fields and items the declaration leaves out because it cannot spell them. An
+	 *  apply leaves each as the game has it.
+	 */
+	skipped: number,
 };
 
 /**  Where a row sits in the tree. */

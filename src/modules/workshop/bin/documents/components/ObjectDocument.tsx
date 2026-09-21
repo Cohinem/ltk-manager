@@ -1,4 +1,5 @@
 import {
+  CodeBlockIcon,
   CopyIcon,
   DotsThreeVerticalIcon,
   FileIcon,
@@ -18,7 +19,7 @@ import { Group, Panel } from "react-resizable-panels";
 import { Button, IconButton, Menu, RetainedContent, SegmentedControl, Spinner } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentHandle, BinObjectHeader } from "@/lib/tauri";
+import type { AssetRef, BinDocumentHandle, BinDocumentId, BinObjectHeader } from "@/lib/tauri";
 import {
   DocumentToolbar,
   type EditorDocumentProps,
@@ -57,6 +58,7 @@ import {
 } from "../../shell/state/shellHeader";
 import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
 import { useBinDocument, useObjectRoots } from "../hooks/useBinDocument";
+import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
 import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
 
@@ -241,7 +243,11 @@ function OpenObject({
           onReload={reopen}
         />
         {shelled && <ShellHeaderSlot name="panes" onElement={registerSlot} />}
-        <HeaderMenu object={object} onShowInFile={narrow ? showFile : undefined} />
+        <HeaderMenu
+          document={handle.document}
+          object={object}
+          onShowInFile={narrow ? showFile : undefined}
+        />
       </DocumentToolbar>
       <ShellHeaderContext value={slots}>
         <CurveDockContext value={dock}>
@@ -311,14 +317,18 @@ function OpenObject({
 type Mode = "layout" | "properties";
 
 interface HeaderMenuProps {
+  /** The open the object is read under. */
+  document: BinDocumentId;
   object: BinObjectHeader;
   /** Show in file, where the toolbar is too narrow to carry it as a button of its own. */
   onShowInFile?: (event: ReactMouseEvent) => void;
 }
 
 /** The header's actions, which no row underneath carries. `DS-MENU-SCOPE`, `DS-GLYPH-ROLE`. */
-function HeaderMenu({ object, onShowInFile }: HeaderMenuProps) {
+function HeaderMenu({ document, object, onShowInFile }: HeaderMenuProps) {
   const copy = useCopyToClipboard();
+  const spelled = useRowDeclaration(document, object.entry, "");
+  const copyDeclaration = useCopyDeclaration();
   const findReferences = useFindReferences();
   const label = m.workshop_bin_object_actions_label();
   const objectClass = object.class;
@@ -366,6 +376,18 @@ function HeaderMenu({ object, onShowInFile }: HeaderMenuProps) {
               onClick={() => void copy(object.name, m.workshop_bin_path_label())}
             >
               {m.workshop_bin_copy_path_action()}
+            </Menu.Item>
+            <Menu.Item
+              icon={<CodeBlockIcon className="h-4 w-4" />}
+              disabled={spelled?.declaration == null}
+              title={
+                spelled !== null && spelled.declaration === null
+                  ? m.workshop_bin_copy_declaration_refused_hint()
+                  : undefined
+              }
+              onClick={() => spelled !== null && copyDeclaration(spelled)}
+            >
+              {m.workshop_bin_copy_declaration_action()}
             </Menu.Item>
             <Menu.Item
               icon={<HashIcon className="h-4 w-4" />}
