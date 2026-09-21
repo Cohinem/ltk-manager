@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -514,5 +514,42 @@ describe("ClassView over a skin in a pane wide enough for the shell", () => {
     expect(screen.getByRole("menuitem", { name: "Clips" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Inspector" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Curve" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the one preview mounted as the pane falls to the stack and back", async () => {
+    const observed = new Set<(entries: readonly unknown[]) => void>();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(private readonly callback: (entries: readonly unknown[]) => void) {}
+        observe() {
+          observed.add(this.callback);
+        }
+        unobserve() {}
+        disconnect() {
+          observed.delete(this.callback);
+        }
+      },
+    );
+    const resizeTo = (width: number) => {
+      paneWidth = width;
+      act(() => observed.forEach((callback) => callback([])));
+    };
+
+    try {
+      renderSkin();
+      await screen.findByRole("tab", { name: "Preview" });
+      const preview = screen.getByRole("group", { name: "Mesh preview" });
+
+      resizeTo(600);
+      expect(screen.queryByRole("tab", { name: "Preview" })).not.toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Mesh preview" })).toBe(preview);
+
+      resizeTo(1200);
+      expect(await screen.findByRole("tab", { name: "Preview" })).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Mesh preview" })).toBe(preview);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

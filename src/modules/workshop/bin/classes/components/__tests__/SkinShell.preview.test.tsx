@@ -7,11 +7,13 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import { useContentVisible } from "@/hooks";
 import type { WorkshopProject } from "@/lib/tauri";
+import { HostedContent, PortalSlot, usePortalHosts } from "@/modules/editor";
 
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
 import { useWorkshopEditorStore } from "../../../../shell/state/workshopEditor";
 import type { AbilityRecipe } from "../../../spells/utils/abilityRecipe";
-import { SkinShell } from "../ClassFrames";
+import type { ViewContext } from "../ClassCells";
+import { FramePreview, SkinShell } from "../ClassFrames";
 
 function Preview({ name }: { name: string }) {
   const visible = useContentVisible();
@@ -74,25 +76,40 @@ const PROJECT: WorkshopProject = {
   thumbnailPath: null,
   lastModified: "",
 };
+const VIEW: ViewContext = {
+  document: 1,
+  asset: { kind: "file", path: "skin.bin" },
+  classHash: "0x1",
+  frame: "shell",
+  objectName: () => "Characters/Galio/Skins/Skin0",
+  onNotOpen: () => {},
+};
 afterEach(cleanup);
+
+/* The preview is hosted above the shell and adopted by its pane, as ClassView does it. */
+function HostedSkinShell() {
+  const host = usePortalHosts()("preview");
+  return (
+    <>
+      <SkinShell
+        placed={[]}
+        pages={new Map()}
+        entry="0xskin"
+        view={VIEW}
+        preview={<PortalSlot host={host} />}
+      />
+      <HostedContent host={host}>
+        <FramePreview kind="skin" view={VIEW} entry="0xskin" drawable={false} />
+      </HostedContent>
+    </>
+  );
+}
 
 it("switches preview ownership between spells, clips and a separate inspector without remounting", async () => {
   useWorkshopEditorStore.setState({ byProject: {} });
   render(
     <ProjectProvider project={PROJECT}>
-      <SkinShell
-        placed={[]}
-        pages={new Map()}
-        entry="0xskin"
-        view={{
-          document: 1,
-          asset: { kind: "file", path: "skin.bin" },
-          classHash: "0x1",
-          frame: "shell",
-          objectName: () => "Characters/Galio/Skins/Skin0",
-          onNotOpen: () => {},
-        }}
-      />
+      <HostedSkinShell />
     </ProjectProvider>,
   );
   const user = userEvent.setup();

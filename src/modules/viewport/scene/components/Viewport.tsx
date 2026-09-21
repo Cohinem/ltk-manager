@@ -1,5 +1,12 @@
 import { Canvas, type RootState } from "@react-three/fiber";
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { WebGLRenderer, type WebGLRendererParameters } from "three";
 
 import { useContentVisible, useResizeObserver } from "@/hooks";
@@ -44,6 +51,15 @@ export interface ViewportProps {
   /** What the preview draws in the scene, which must include the `Passes` owning the loop. */
   readonly children: ReactNode;
 }
+
+/**
+ * How the fibre measures the canvas: on every change, and never on a scroll.
+ *
+ * The default waits 50ms for a resize to settle, which leaves a dragged seam drawing a
+ * frame sized for the old box. Pointer events read offsets, so nothing reads where the
+ * canvas stands on the page.
+ */
+const MEASURE: ComponentProps<typeof Canvas>["resize"] = { scroll: false, debounce: 0 };
 
 /** What `opaqueRenderer` reads of the defaults the fibre hands a renderer factory. */
 interface CanvasDefaults {
@@ -119,9 +135,14 @@ export function Viewport({
   }, [origin, onBackdropOrigin]);
 
   return (
-    <div ref={measure} className="relative size-full">
+    <div
+      ref={measure}
+      /* ThreeJS pins the canvas at the size last measured, a frame behind the box. */
+      className="relative size-full [&_canvas]:size-full!"
+    >
       {(started || running) && (
         <Canvas
+          resize={MEASURE}
           frameloop={running ? "always" : "never"}
           camera={{
             position: [...CAMERA.position],

@@ -11,6 +11,7 @@ import {
   type LeafNode,
   leaves,
   PaneStrip,
+  type PortalHost,
   PortalSlot,
   SplitLayout,
   TabDndProvider,
@@ -106,7 +107,7 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
           >
             {bodies[pane]?.body}
           </RetainedContent>,
-          hostOf(pane),
+          hostOf(pane).node,
           pane,
         );
       })}
@@ -143,7 +144,7 @@ function PaneLeaf<K extends ShellKind>({
   leaf,
   content,
   hostOf,
-}: { leaf: LeafNode; hostOf: (pane: ShellPaneId) => HTMLElement } & ShellPaneTreeProps<K>) {
+}: { leaf: LeafNode; hostOf: (pane: ShellPaneId) => PortalHost } & ShellPaneTreeProps<K>) {
   const panes = useShellPanes(kind, leaf.id);
   const active = useShellActivePane(kind, leaf.id);
   const activate = useActivateShellPane(kind);

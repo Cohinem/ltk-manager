@@ -38,7 +38,12 @@ export interface FrameProps {
   view: ViewContext;
 }
 
-interface ShellProps extends FrameProps {
+interface ShellFrameProps extends FrameProps {
+  /** Where the preview pane shows the view's one preview. */
+  preview: ReactNode;
+}
+
+interface ShellProps extends ShellFrameProps {
   /** What the crumb's first segment carries, which is the object without its path. */
   system: string;
   /** The object's class is one the renderer draws. */
@@ -84,7 +89,7 @@ export function Stack({ placed, pages, view, hero }: FrameProps & { hero?: React
 }
 
 /** The box above the stack's sections that a shell pane would give a preview. */
-function Hero({ children }: { children: ReactNode }) {
+export function Hero({ children }: { children: ReactNode }) {
   return (
     <div
       data-ui="ClassView:hero"
@@ -96,34 +101,35 @@ function Hero({ children }: { children: ReactNode }) {
   );
 }
 
-/** The skin drawn above the stack's sections. */
-export function SkinHero({ view, entry }: { view: ViewContext; entry: string | null }) {
-  return (
-    <Hero>
-      <SkinPreview document={view.document} asset={view.asset} entry={entry} />
-    </Hero>
-  );
+interface FramePreviewProps {
+  kind: ShellKind;
+  view: ViewContext;
+  /** The object the skin or map preview draws. */
+  entry: string | null;
+  /** The object's class is one the renderer draws. */
+  drawable: boolean;
 }
 
-/** The map drawn above the sections of the stack. */
-export function MapHero({ view }: { view: ViewContext }) {
-  return (
-    <Hero>
-      <MapPreview document={view.document} />
-    </Hero>
-  );
+/**
+ * What a shell's preview pane or the stack's hero draws, rendered once whichever frame
+ * shows it.
+ */
+export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps) {
+  if (kind === "map") return <MapPreview document={view.document} />;
+  if (kind === "skin") {
+    return <SkinPreview document={view.document} asset={view.asset} entry={entry} />;
+  }
+  return <VfxPreview drawable={drawable} frame={view.frame} />;
 }
 
-/** The run drawn above the stack's sections, over the mini transport a stack gives it. */
-export function VfxHero({ drawable }: { drawable: boolean }) {
-  return (
-    <Hero>
-      <PreviewPane drawable={drawable} transport="mini" />
-    </Hero>
-  );
+/** The run, over the mini transport unless the shell shows the timeline beside it. */
+function VfxPreview({ drawable, frame }: { drawable: boolean; frame: ViewContext["frame"] }) {
+  const timelineShown = useShellPaneShown("timeline");
+  const transport = frame === "shell" && timelineShown ? "none" : "mini";
+  return <PreviewPane drawable={drawable} transport={transport} />;
 }
 
-interface SkinShellProps extends FrameProps {
+interface SkinShellProps extends ShellFrameProps {
   /** The skin object, which the preview reads its model from. */
   entry: string | null;
 }
@@ -134,7 +140,7 @@ interface SkinShellProps extends FrameProps {
  * "The clips pane" in docs/ux/BIN_EDITOR.md. The Clips section is the pane's own, so
  * the inspector column leaves it out.
  */
-export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
+export function SkinShell({ placed, pages, view, entry, preview }: SkinShellProps) {
   const tree = useShellLayout("skin");
   const [previewOwner, setPreviewOwner] = useState<"skin" | "spell">("skin");
   const [ability, setAbility] = useState<{
@@ -155,7 +161,7 @@ export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
         body: (
           <>
             <RetainedContent active={!showSpell} defer className="flex min-h-0 flex-1 flex-col">
-              <SkinPreview document={view.document} asset={view.asset} entry={entry} />
+              {preview}
             </RetainedContent>
             {activeAbility !== null && entry !== null && (
               <RetainedContent active={showSpell} defer className="flex min-h-0 flex-1 flex-col">
@@ -207,7 +213,7 @@ export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
         body: <SectionColumn placed={others} pages={pages} view={view} />,
       },
     }),
-    [others, pages, view, entry, activeAbility, showSpell],
+    [others, pages, view, entry, activeAbility, showSpell, preview],
   );
 
   return (
@@ -221,7 +227,7 @@ export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
   );
 }
 
-interface MapShellProps extends FrameProps {
+interface MapShellProps extends ShellFrameProps {
   /** The `Map`, `MapSkin` or `MapContainer` object, which the preview draws a map from. */
   entry: string | null;
 }
@@ -231,14 +237,14 @@ interface MapShellProps extends FrameProps {
  *
  * The preview and the outliner share the `MapSceneHost` the view mounts above them.
  */
-export function MapShell({ placed, pages, view, entry }: MapShellProps) {
+export function MapShell({ placed, pages, view, entry, preview }: MapShellProps) {
   const content = useMemo<ShellPaneContent<"map">>(
     () => ({
-      preview: { body: <MapPreview document={view.document} /> },
+      preview: { body: preview },
       outliner: { body: <MapOutliner /> },
       inspector: { body: <SectionColumn placed={placed} pages={pages} view={view} /> },
     }),
-    [placed, pages, view, entry],
+    [placed, pages, view, preview],
   );
 
   return (
@@ -299,10 +305,9 @@ function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
  * Where each pane sits and how much room it takes is the project's own tree, so this
  * builds the five of them and hands them over without arranging any of it (ADR-0034).
  */
-export function VfxShell({ placed, pages, view, system, drawable }: ShellProps) {
+export function VfxShell({ placed, pages, view, system, drawable, preview }: ShellProps) {
   const emitters = useMemo(() => placed.find((each) => each.widget === "emitters"), [placed]);
   const others = useMemo(() => placed.filter((each) => each.widget !== "emitters"), [placed]);
-  const timelineShown = useShellPaneShown("timeline");
 
   const content = useMemo<ShellPaneContent<"vfx">>(
     () => ({
@@ -326,12 +331,10 @@ export function VfxShell({ placed, pages, view, system, drawable }: ShellProps) 
           </>
         ),
       },
-      preview: {
-        body: <PreviewPane drawable={drawable} transport={timelineShown ? "none" : "mini"} />,
-      },
+      preview: { body: preview },
       timeline: { body: <TimelinePane drawable={drawable} /> },
     }),
-    [emitters, others, pages, view, drawable, timelineShown],
+    [emitters, others, pages, view, drawable, preview],
   );
 
   return (

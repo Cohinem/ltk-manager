@@ -238,7 +238,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       {!layerPanelOpen && <PortalSlot host={hostOf("surface")} />}
       {/* Rendered once and adopted by whichever slot stands, so the rail's toggle and a
           side flip leave every open document mounted. */}
-      {createPortal(surface, hostOf("surface"))}
+      {createPortal(surface, hostOf("surface").node)}
 
       {layerPanelSide === "right" && <SidebarRail />}
       <LayerFileDropOverlay visible={showDropOverlay} layerDisplayName={selectedLayerDisplayName} />

@@ -3,6 +3,7 @@ import { type MouseEvent as ReactMouseEvent, useEffect, useMemo, useState } from
 import { ContextMenu } from "@/components";
 import { useResizeObserver } from "@/hooks";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
+import { HostedContent, PortalSlot, usePortalHosts } from "@/modules/editor";
 
 import { useCurveFollow } from "../../curves/utils/curveFollow";
 import {
@@ -36,13 +37,12 @@ import { type ClassLayout, frameOf, type LayoutFrame, placeRows } from "../utils
 import type { ViewContext } from "./ClassCells";
 import {
   crumbName,
-  MapHero,
+  FramePreview,
+  Hero,
   MapShell,
   RunHost,
-  SkinHero,
   SkinShell,
   Stack,
-  VfxHero,
   VfxShell,
 } from "./ClassFrames";
 
@@ -149,6 +149,12 @@ export function ClassView({
     [document, asset, classHash, objectName, onNotOpen, shown],
   );
 
+  /* One preview for both frames, which the hero or the shell's pane adopts, so crossing
+     SHELL_WIDTH moves the canvas rather than remounting it. */
+  const previewHost = usePortalHosts()("preview");
+  /* Memoized, because each shell keys its pane content on it. */
+  const previewSlot = useMemo(() => <PortalSlot host={previewHost} />, [previewHost]);
+
   /* The roots and everything the read answered, each checked as one group. A tree
      section runs its own checks, because it is a tree. */
   const groups = useMemo<RowGroup[]>(
@@ -217,15 +223,7 @@ export function ClassView({
                                   placed={placed}
                                   pages={pages}
                                   view={view}
-                                  hero={
-                                    <>
-                                      {skin && (
-                                        <SkinHero view={view} entry={roots[0]?.entry ?? null} />
-                                      )}
-                                      {map && <MapHero view={view} />}
-                                      {layout.shell === "vfx" && <VfxHero drawable={drawable} />}
-                                    </>
-                                  }
+                                  hero={layout.shell !== undefined && <Hero>{previewSlot}</Hero>}
                                 />
                               )}
                               {frame === "shell" && layout.shell === "vfx" && (
@@ -235,6 +233,7 @@ export function ClassView({
                                   view={view}
                                   system={system}
                                   drawable={drawable}
+                                  preview={previewSlot}
                                 />
                               )}
                               {frame === "shell" && map && (
@@ -243,6 +242,7 @@ export function ClassView({
                                   pages={pages}
                                   view={view}
                                   entry={roots[0]?.entry ?? null}
+                                  preview={previewSlot}
                                 />
                               )}
                               {frame === "shell" && skin && (
@@ -251,7 +251,18 @@ export function ClassView({
                                   pages={pages}
                                   view={view}
                                   entry={roots[0]?.entry ?? null}
+                                  preview={previewSlot}
                                 />
+                              )}
+                              {layout.shell !== undefined && (
+                                <HostedContent host={previewHost}>
+                                  <FramePreview
+                                    kind={layout.shell}
+                                    view={view}
+                                    entry={roots[0]?.entry ?? null}
+                                    drawable={drawable}
+                                  />
+                                </HostedContent>
                               )}
                             </ContextMenu.Trigger>
 
