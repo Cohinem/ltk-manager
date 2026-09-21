@@ -140,7 +140,6 @@ impl BinDocument {
         item: NewItem,
         schema: SchemaAt<'_>,
     ) -> Result<String, BinDocumentError> {
-        self.refuse_undeclarable(entry, holder)?;
         let refuse = |rejection| rejected(entry, holder, rejection);
         let (item_kind, key_kind) = match self.node(entry, holder)? {
             Node::Value(PropertyValueEnum::Container(items)) => (items.item_kind(), None),
@@ -181,7 +180,7 @@ impl BinDocument {
 
         let inverse = self.put_item(entry, holder, item.index, key, value)?;
         let path = landing(&inverse).to_owned();
-        self.record(inverse);
+        self.record(inverse)?;
         Ok(path)
     }
 
@@ -194,9 +193,8 @@ impl BinDocument {
     /// Fails with [`BinDocumentError::NodeNotFound`] where the path reaches nothing, and
     /// with [`BinDocumentError::EditRejected`] where it ends in no item.
     pub fn remove_item(&mut self, entry: BinHash, path: &str) -> Result<(), BinDocumentError> {
-        self.refuse_undeclarable(entry, path)?;
         let inverse = self.take_item(entry, path)?;
-        self.record(inverse);
+        self.record(inverse)?;
         Ok(())
     }
 
@@ -213,7 +211,6 @@ impl BinDocument {
         path: &str,
         to: usize,
     ) -> Result<String, BinDocumentError> {
-        self.refuse_undeclarable(entry, path)?;
         self.node(entry, path)?;
         let Some((_, Step::Index(from))) = split_item(path) else {
             return Err(rejected(entry, path, EditRejection::NotAnItem));
@@ -223,7 +220,7 @@ impl BinDocument {
         }
         let inverse = self.shift_item(entry, path, to)?;
         let moved = landing(&inverse).to_owned();
-        self.record(inverse);
+        self.record(inverse)?;
         Ok(moved)
     }
 
@@ -241,7 +238,6 @@ impl BinDocument {
         path: &str,
         text: &str,
     ) -> Result<String, BinDocumentError> {
-        self.refuse_undeclarable(entry, path)?;
         let refuse = |rejection| rejected(entry, path, rejection);
         self.node(entry, path)?;
         let Some((holder, Step::Key(held))) = split_item(path) else {
@@ -260,7 +256,7 @@ impl BinDocument {
 
         let inverse = self.swap_key(entry, path, key)?;
         let rekeyed = landing(&inverse).to_owned();
-        self.record(inverse);
+        self.record(inverse)?;
         Ok(rekeyed)
     }
 
@@ -278,7 +274,6 @@ impl BinDocument {
         path: &str,
         class: Option<&str>,
     ) -> Result<(), BinDocumentError> {
-        self.refuse_undeclarable(entry, path)?;
         let refuse = |rejection| rejected(entry, path, rejection);
         let class = class
             .map(str::trim)
@@ -297,7 +292,7 @@ impl BinDocument {
 
         let value = class.map_or_else(values::Struct::default, empty_struct);
         let inverse = self.swap_pointer(entry, path, value)?;
-        self.record(inverse);
+        self.record(inverse)?;
         Ok(())
     }
 
@@ -616,7 +611,7 @@ fn rebuild_map<R>(
 
 /// The holder's path and the item step a path ends in, or `None` where it ends in a field
 /// or reads as no path.
-fn split_item(path: &str) -> Option<(String, Step)> {
+pub(super) fn split_item(path: &str) -> Option<(String, Step)> {
     let mut steps = parse_steps(path)?;
     match steps.pop()? {
         step @ (Step::Index(_) | Step::Key(_)) => Some((wire_path(&steps), step)),

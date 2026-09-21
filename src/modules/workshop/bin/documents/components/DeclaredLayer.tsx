@@ -82,6 +82,7 @@ export function DeclaredRowMark({ mark, layer }: DeclaredRowMarkProps) {
       content={
         <span className="flex flex-col gap-1">
           <span>{label}</span>
+          {mark.whole && <span>{m.workshop_bin_declared_whole_hint()}</span>}
           {mark.game !== null && (
             <span className="flex items-baseline gap-1.5">
               {m.workshop_bin_declared_game_value_label()}

@@ -29,7 +29,7 @@ import { clickIntent } from "../../../state";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { DeclaredLine, FieldCard } from "../../classes/components/FieldCard";
 import { DeclaredRowMark } from "../../documents/components/DeclaredLayer";
-import { useDeclaredMark } from "../../documents/hooks/useDeclared";
+import { useDeclaredMark, useDeclares } from "../../documents/hooks/useDeclared";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
 import { ObjectNameContext, useObjectOpen } from "../../links/hooks/useLinkTargets";
 import { CutText } from "../../shared/components/CutText";
@@ -72,7 +72,15 @@ import {
   stringLeaf,
   vectorLeaf,
 } from "../utils/leafText";
-import { EDIT_ICON, editLabel, keyEdit, onHover, type RowEdit, rowEdits } from "../utils/rowEdits";
+import {
+  EDIT_ICON,
+  editLabel,
+  keyEdit,
+  onHover,
+  type RowEdit,
+  rowEdits,
+  undeclarable,
+} from "../utils/rowEdits";
 
 /**
  * One line at zoom 100, which is what sizes the virtualizer. A matrix opened in place grows past it.
@@ -119,6 +127,7 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
   const { row, depth, expanded, loading } = line;
   const edit = use(BinEditContext);
   const expandable = canExpand(row, edit !== null);
+  const declares = useDeclares();
   const edits = edit === null ? NO_EDITS : rowEdits(line);
   const rowRef = useRef<HTMLDivElement>(null);
   const focusHere = edit !== null && edit.focusKey === line.key;
@@ -172,6 +181,8 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
       {edit !== null &&
         edits
           .filter(onHover)
+          /* A refused edit states its reason in the menu, where a label has room. */
+          .filter((kind) => !declares || undeclarable(kind, row) === null)
           .map((kind) => (
             <RowAction
               key={kind}

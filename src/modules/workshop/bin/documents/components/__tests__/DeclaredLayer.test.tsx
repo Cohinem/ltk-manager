@@ -42,7 +42,7 @@ const PROJECT: WorkshopProject = {
 const DECLARED: DeclaredState = {
   layer: "base",
   layers: ["base", "chroma"],
-  marks: [{ entry: ENTRY, path: GLOW, sign: "set", game: "0.0" }],
+  marks: [{ entry: ENTRY, path: GLOW, sign: "set", whole: false, game: "0.0" }],
 };
 
 function Providers({ children }: { children: ReactNode }) {

@@ -26,6 +26,7 @@ import {
 } from "../../../references/api/useFindReferences";
 import { useOpenDocumentAs } from "../../../state";
 import { useCurveDock } from "../../curves/state/curveTarget";
+import { useDeclares } from "../../documents/hooks/useDeclared";
 import {
   type LinkTargets,
   useLayerCopy,
@@ -44,7 +45,7 @@ import { useValueMark } from "../../values/hooks/useValueMarks";
 import { markText } from "../../values/utils/valueRows";
 import { BinEditContext } from "../hooks/useBinEdit";
 import { fieldHash, type VisibleRow } from "../utils/binRows";
-import { EDIT_ICON, editLabel, rowEdits } from "../utils/rowEdits";
+import { EDIT_ICON, editLabel, rowEdits, undeclarable } from "../utils/rowEdits";
 
 interface BinContextMenuProps {
   /** The line the menu was opened on. Absent while it has never been opened. */
@@ -82,6 +83,7 @@ export function BinContextMenu({
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
   const edit = use(BinEditContext);
+  const declares = useDeclares();
   const openTarget = useObjectOpen(row?.node === "target" ? row.entry : null);
 
   if (row === null || line?.kind !== "row") return null;
@@ -176,8 +178,15 @@ export function BinContextMenu({
           )}
           {edits.map((kind) => {
             const Glyph = EDIT_ICON[kind];
+            const refused = declares ? undeclarable(kind, row) : null;
             return (
-              <ContextMenu.Item key={kind} icon={<Glyph />} onClick={() => edit?.run(line, kind)}>
+              <ContextMenu.Item
+                key={kind}
+                icon={<Glyph />}
+                disabled={refused !== null}
+                title={refused ?? undefined}
+                onClick={() => edit?.run(line, kind)}
+              >
                 {editLabel(kind)}
               </ContextMenu.Item>
             );

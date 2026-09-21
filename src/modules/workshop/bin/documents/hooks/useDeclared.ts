@@ -83,6 +83,11 @@ export function useDeclaredRows(document: BinDocumentId): DeclaredRows | null {
   }, [declared]);
 }
 
+/** Whether the enclosing tree is a declared document's, whose edits land as declarations. */
+export function useDeclares(): boolean {
+  return use(DeclaredRowsContext) !== null;
+}
+
 /** The declaration standing on the row under `key` and its layer, or null where none does. */
 export function useDeclaredMark(key: string): { mark: DeclaredMark; layer: string } | null {
   const rows = use(DeclaredRowsContext);

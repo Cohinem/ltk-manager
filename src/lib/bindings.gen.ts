@@ -963,6 +963,8 @@ export type DeclaredMark = {
 	/**  The row's path on the wire. Empty where the declared path reaches no row. */
 	path: string,
 	sign: DeclaredSign,
+	/**  The declaration sets a whole list or map, which no later change of the game's reaches. */
+	whole: boolean,
 	/**
 	 *  The game's value as a declaration spells it. Absent where the game holds none, and
 	 *  for a value that does not render.
