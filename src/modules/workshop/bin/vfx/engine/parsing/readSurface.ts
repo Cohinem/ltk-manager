@@ -1,4 +1,4 @@
-import type { VfxValue } from "@/lib/tauri";
+import type { NamedAsset, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { ADDRESS_MODE, type AddressMode } from "../model/enums";
@@ -109,6 +109,8 @@ const PRIMITIVE_FIELD = {
 const MESH = {
   skinned: nameHash("mMeshName"),
   skeleton: nameHash("mMeshSkeletonName"),
+  animation: nameHash("mAnimationName"),
+  variants: nameHash("mAnimationVariants"),
   simple: nameHash("mSimpleMeshName"),
   submeshes: nameHash("mSubmeshesToDraw"),
   submeshesAlways: nameHash("mSubmeshesToDrawAlways"),
@@ -208,6 +210,9 @@ export function readMesh(primitive: VfxValue | null): MeshModel | null {
 
   return {
     asset: named.asset,
+    skeleton: skinned === null ? null : namedAsset(field(held, MESH.skeleton)),
+    animation: namedAsset(field(held, MESH.animation)),
+    animationVariants: animationVariants(field(held, MESH.variants)),
     path: named.path,
     skinned: skinned !== null,
     submeshes: hashes(field(held, MESH.submeshes)),
@@ -215,6 +220,11 @@ export function readMesh(primitive: VfxValue | null): MeshModel | null {
     alignPitch: flag(field(primitive, PRIMITIVE_FIELD.alignPitch)),
     alignYaw: flag(field(primitive, PRIMITIVE_FIELD.alignYaw)),
   };
+}
+
+function animationVariants(node: VfxValue | null): NamedAsset[] {
+  if (node?.type !== "container") return [];
+  return node.items.map(namedAsset).filter((asset): asset is NamedAsset => asset !== null);
 }
 
 /**

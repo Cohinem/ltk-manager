@@ -377,6 +377,9 @@ export interface LegacySimpleModel {
 
 /** The mesh a mesh primitive names, and how it is turned. */
 export interface MeshModel {
+  readonly skeleton: NamedAsset | null;
+  readonly animation: NamedAsset | null;
+  readonly animationVariants: readonly NamedAsset[];
   /** Where the geometry's bytes live. */
   readonly asset: AssetRef;
   /** The path the emitter named, for a message about a mesh nothing resolves. */
@@ -401,6 +404,19 @@ export interface MeshModel {
    * inverse is the other yawed half a turn about the camera's up.
    */
   readonly skinned: boolean;
+}
+
+/** A mesh or skeleton sampled at particle birth, in emitter space. */
+export interface EmissionSurfaceModel {
+  readonly kind: "mesh" | "skeleton";
+  readonly mesh: NamedAsset | null;
+  readonly skeleton: NamedAsset | null;
+  readonly animation: NamedAsset | null;
+  readonly submeshes: readonly string[];
+  readonly joints: readonly string[];
+  readonly scale: number;
+  readonly maxJointWeights: number;
+  readonly useNormal: boolean;
 }
 
 /**
@@ -485,6 +501,7 @@ export interface OrbitalFieldModel {
 
 /** One emitter of a system, as the renderer reads it. */
 export interface EmitterModel {
+  readonly emissionSurface: EmissionSurfaceModel | null;
   /** Where the emitter sits across both lists, which is the index the pool holds. */
   readonly index: number;
   /** The emitter came out of `simpleEmitterDefinitionData` rather than the complex list. */

@@ -14,6 +14,7 @@ import {
   standAt,
 } from "./childBearing";
 import { capacityOf, givePool, takePool } from "./childPool";
+import type { EmissionSurfaces } from "./emissionSurface";
 import {
   copyEmitterStates,
   createEmitterStates,
@@ -78,6 +79,8 @@ const MOST_BIRTHS = 4096;
 
 /** What every child of one viewport's system shares: the lists a draw reads, the pools and the caps. */
 export interface Lineage {
+  meshJoints: ReadonlyMap<string, Joints>;
+  surfaces: EmissionSurfaces;
   readonly seed: number;
   /** The live children of each definition path, which the draw of that definition reads. */
   readonly feeds: Map<string, Source[]>;
@@ -106,6 +109,8 @@ export function createLineage(seed: number): Lineage {
     live: 0,
     joints: null,
     pinned: null,
+    surfaces: new Map(),
+    meshJoints: new Map(),
   };
 }
 
@@ -238,11 +243,21 @@ export function createChildren(lineage: Lineage, prefix: string, depth: number):
       return;
     }
 
-    const joints = lineage.joints;
+    const key = prefix === "" ? `${emitter}` : `${prefix.slice(0, -1)}:${emitter}`;
+    const ownJoints = lineage.meshJoints.get(key);
+    const joints = ownJoints ?? lineage.joints;
     if (joints === null) return;
     const count = boneChildCount(set);
     for (let slot = 0; slot < count; slot += 1) {
-      const anchor = joints(set.bones[slot]);
+      const held = joints(set.bones[slot]);
+      const bornAt = now - birth.time;
+      const anchor =
+        held === null || ownJoints === undefined
+          ? held
+          : {
+              originAt: (time: number) => held.originAt(time - bornAt),
+              basisInto: (time: number, out: Float32Array) => held.basisInto(time - bornAt, out),
+            };
       if (anchor === null) continue;
       const path = childPath(prefix, emitter, slot);
       const rng = new Rng(seedOf(lineage.seed, path, serial));
@@ -354,7 +369,7 @@ export function createChildren(lineage: Lineage, prefix: string, depth: number):
         standAt(child, BEARING, now);
       }
 
-      for (const child of mine) advance(child, dt, now, lineage.pinned);
+      for (const child of mine) advance(child, dt, now, lineage);
       for (let index = mine.length - 1; index >= 0; index -= 1) {
         if (playedOut(mine[index])) release(index);
       }
@@ -565,7 +580,7 @@ function boneChildCount(set: ChildSetModel): number {
 }
 
 /** One step of a child, then of its own children, the way the driver steps the root. */
-function advance(child: Child, dt: number, now: number, pinned: number | null): void {
+function advance(child: Child, dt: number, now: number, lineage: Lineage): void {
   child.time = now;
   child.elapsed = now - child.bornAt;
   if (child.stopAt !== null && now >= child.stopAt) child.stopped = true;
@@ -582,7 +597,8 @@ function advance(child: Child, dt: number, now: number, pinned: number | null): 
     yaw: child.yaw,
     world: child.world.basis,
     stopped: child.stopped,
-    pinned,
+    pinned: lineage.pinned,
+    surfaces: lineage.surfaces,
   };
   stepEmitters(child.pool, child.system, step, child.rng, child.states);
   child.children.step(child, child.system, dt, now);

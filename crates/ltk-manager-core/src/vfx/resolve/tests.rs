@@ -492,9 +492,14 @@ fn every_asset_field_is_the_hash_of_the_name_it_claims() {
         "erosionMapName",
         "normalMapTexture",
         "reflectionMapTexture",
+        "mAnimationName",
+        "AnimationName",
+        "meshName",
+        "skeletonName",
     ];
 
     assert_eq!(ASSET_FIELDS.to_vec(), names.map(h).to_vec());
+    assert_eq!(ANIMATION_VARIANTS, h("mAnimationVariants"));
 }
 
 #[test]

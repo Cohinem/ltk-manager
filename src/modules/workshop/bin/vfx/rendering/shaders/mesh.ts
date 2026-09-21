@@ -85,6 +85,22 @@ void main() {
    emitter's own geometry rather than `instanceColor`, which three types as a `vec3`. */
 export const MESH_VERTEX = /* glsl */ `
 ${SHEEN_VERTEX}
+#ifdef PARTICLE_SKINNING
+uniform sampler2D particleBones;
+attribute vec4 skinIndex;
+attribute vec4 skinWeight;
+
+mat4 particleBone(float bone) {
+  int column = int(bone) * 4;
+  int row = gl_InstanceID;
+  return mat4(
+    texelFetch(particleBones, ivec2(column, row), 0),
+    texelFetch(particleBones, ivec2(column + 1, row), 0),
+    texelFetch(particleBones, ivec2(column + 2, row), 0),
+    texelFetch(particleBones, ivec2(column + 3, row), 0)
+  );
+}
+#endif
 attribute vec4 tint;
 attribute float erode;
 attribute vec3 uvTurn;
@@ -110,9 +126,21 @@ void main() {
   vShiftMult = uvShiftMult;
   vLookup = vec2(0.0);
   vErode = erode;
-  vec4 world = grounded(modelMatrix * instanceMatrix * vec4(position, 1.0));
+  vec3 posedPosition = position;
+  vec3 posedNormal = normal;
+  #ifdef PARTICLE_SKINNING
+  if (dot(skinWeight, vec4(1.0)) > 0.0) {
+    mat4 skin = mat4(0.0);
+    for (int i = 0; i < 4; i++) {
+      if (skinWeight[i] > 0.0) skin += skinWeight[i] * particleBone(skinIndex[i]);
+    }
+    posedPosition = (skin * vec4(position, 1.0)).xyz;
+    posedNormal = mat3(skin) * normal;
+  }
+  #endif
+  vec4 world = grounded(modelMatrix * instanceMatrix * vec4(posedPosition, 1.0));
   // The world matrix turns the normal as it turns the vertex, which is what mesh_vs does.
-  facingTerms(world.xyz, mat3(modelMatrix) * mat3(instanceMatrix) * normal);
+  facingTerms(world.xyz, mat3(modelMatrix) * mat3(instanceMatrix) * posedNormal);
   gl_Position = projectionMatrix * viewMatrix * world;
 }
 `;

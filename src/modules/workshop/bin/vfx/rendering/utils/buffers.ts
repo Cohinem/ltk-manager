@@ -6,6 +6,8 @@ import {
   InstancedBufferGeometry,
 } from "three";
 
+import type { MeshPose } from "./meshPose";
+
 /** How many particles one emitter's buffers hold, which caps its share of the pool. */
 export const QUADS_PER_EMITTER = 4096;
 
@@ -106,6 +108,7 @@ export const MESHES_PER_EMITTER = 512;
 
 /** The instanced attributes one mesh emitter carries on its geometry, written once per frame. */
 export interface MeshBuffers {
+  readonly pose?: MeshPose;
   readonly geometry: BufferGeometry;
   /**
    * three reads `instanceMatrix` off the geometry ahead of the mesh's own, so the solid

@@ -14,6 +14,7 @@ const BURST_SHARE = 0.33;
 
 /** Scratch the spawn shape writes one birth into, reused across every spawn. */
 const BORN = birth();
+const SURFACE_BIRTH = { position: new Float32Array(3), normal: new Float32Array(3) };
 
 /** Scratch a trail's or a beam's tiling is drawn into, of which the pool keeps two. */
 const TILED = new Float32Array(3);
@@ -86,6 +87,11 @@ export function emit(
        here, and the emitter's space stores what the integrator then moves. The whole
        local placement is turned by the spawn frame, and so is the birth velocity. */
     sampleShape(emitter.shape, rng, t01, chance, BORN);
+    const surface = step.surfaces?.get(emitter);
+    const onSurface = surface?.sample(state.age, rng, SURFACE_BIRTH) ?? false;
+    if (onSurface) {
+      for (let axis = 0; axis < 3; axis += 1) BORN.offset[axis] += SURFACE_BIRTH.position[axis];
+    }
     for (let axis = 0; axis < 3; axis += 1) {
       BORN.offset[axis] += state.position[axis] + emitter.translationOverride[axis];
     }
@@ -95,6 +101,15 @@ export function emit(
     }
     pool.frame.set(state.frame, at * FRAME_SLOTS);
     drawCurveInto(emitter.birthVelocity, t01, chance, pool.velocity, at * 3);
+    if (onSurface && emitter.emissionSurface?.useNormal) {
+      const speed = Math.hypot(
+        pool.velocity[at * 3],
+        pool.velocity[at * 3 + 1],
+        pool.velocity[at * 3 + 2],
+      );
+      for (let axis = 0; axis < 3; axis += 1)
+        pool.velocity[at * 3 + axis] = SURFACE_BIRTH.normal[axis] * speed;
+    }
     if (BORN.turned) turnInto(BORN.turn, pool.velocity, at * 3);
     turnInto(state.frame, pool.velocity, at * 3);
     if (emitter.legacySimple === null) {

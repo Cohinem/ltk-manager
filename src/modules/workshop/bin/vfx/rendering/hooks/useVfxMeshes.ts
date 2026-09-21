@@ -1,13 +1,23 @@
 import { useEffect, useState } from "react";
 import { BufferAttribute, BufferGeometry } from "three";
 
-import { previewBufferUrl } from "@/lib/previewUrl";
-import { AXIS_SIGN, type MeshGeometry, readMeshBuffer } from "@/modules/viewport";
+import { previewBufferUrl, type PreviewForm } from "@/lib/previewUrl";
+import type { AssetRef, NamedAsset } from "@/lib/tauri";
+import {
+  AXIS_SIGN,
+  createPose,
+  type MeshGeometry,
+  readClipBuffer,
+  readMeshBuffer,
+  readSkeletonBuffer,
+} from "@/modules/viewport";
 
+import { fnv1a32 } from "../../../shared/utils/binHash";
 import type { MeshModel } from "../../engine/model/model";
 import { assetLoad, type AssetLoad } from "../utils/assetLoad";
 import { type MeshBuffers, meshBuffers } from "../utils/buffers";
 import type { DrawnEmitter } from "../utils/definitions";
+import { meshPose, skinWeights } from "../utils/meshPose";
 import { drawnIndices } from "../utils/submeshes";
 
 /** One geometry per drawn emitter that resolved a mesh, by the drawn emitter's key. */
@@ -42,15 +52,14 @@ export function useVfxMeshes(
       if (emitter.mesh === null) continue;
       const mesh = emitter.mesh;
 
-      void fetch(previewBufferUrl(mesh.asset, "geometry"))
-        .then((answer) => (answer.ok ? answer.arrayBuffer() : null))
-        .then((bytes) => {
-          if (!live) return;
-          if (bytes === null) {
-            batch.done(true);
+      void loadMesh(mesh, key)
+        .then((buffers) => {
+          if (!live) {
+            buffers.geometry.dispose();
+            buffers.pose?.texture.dispose();
             return;
           }
-          loaded.set(key, meshBuffers(geometryOf(readMeshBuffer(bytes), mesh)));
+          loaded.set(key, buffers);
           setMeshes(new Map(loaded));
           batch.done();
         })
@@ -60,12 +69,56 @@ export function useVfxMeshes(
     return () => {
       live = false;
       batch.cancel();
-      for (const held of loaded.values()) held.geometry.dispose();
+      for (const held of loaded.values()) {
+        held.geometry.dispose();
+        held.pose?.texture.dispose();
+      }
       setMeshes(NONE);
     };
   }, [drawn, report]);
 
   return meshes;
+}
+
+async function buffer(asset: AssetRef, form: PreviewForm): Promise<ArrayBuffer> {
+  const answer = await fetch(previewBufferUrl(asset, form));
+  if (!answer.ok) throw new Error(`Mesh ${form} load failed: ${answer.status}`);
+
+  return answer.arrayBuffer();
+}
+
+/** A stable definition-level variant, unchanged by seeks or asset reloads. */
+export function animationOf(model: MeshModel, key: string): NamedAsset | null {
+  const variants = model.animationVariants;
+  if (variants.length === 0) return model.animation;
+
+  const hash = fnv1a32(`${model.path ?? ""}:${key}`);
+  return variants[hash % variants.length];
+}
+
+async function loadMesh(model: MeshModel, key: string): Promise<MeshBuffers> {
+  const animation = animationOf(model, key);
+  const [bytes, skeletonBytes, clipBytes] = await Promise.all([
+    buffer(model.asset, "geometry"),
+    model.skinned && model.skeleton?.asset ? buffer(model.skeleton.asset, "skeleton") : null,
+    model.skinned && animation?.asset ? buffer(animation.asset, "animation") : null,
+  ]);
+
+  const mesh = readMeshBuffer(bytes);
+  const skeleton = skeletonBytes === null ? null : readSkeletonBuffer(skeletonBytes);
+  const clip = clipBytes === null ? null : readClipBuffer(clipBytes);
+
+  const geometry = geometryOf(mesh, model);
+  const buffers = meshBuffers(geometry);
+  if (skeleton === null || mesh.skinIndices === null || mesh.skinWeights === null) return buffers;
+
+  geometry.setAttribute("skinIndex", new BufferAttribute(mesh.skinIndices, 4));
+  geometry.setAttribute(
+    "skinWeight",
+    new BufferAttribute(skinWeights(mesh, skeleton.influences.length), 4),
+  );
+
+  return { ...buffers, pose: meshPose(createPose(skeleton, clip)) };
 }
 
 /**

@@ -36,7 +36,7 @@ pub const MAX_DEPTH: usize = 64;
 /// `VfxReflectionDefinitionData` names. The mult hash is the emitter's own pointer to the
 /// mult as well, and the two are told apart by the value rather than by the field: only a
 /// string is located.
-const ASSET_FIELDS: [BinHash; 12] = [
+const ASSET_FIELDS: [BinHash; 16] = [
     BinHash(0x3c64_68f4), // texture
     BinHash(0xa5b8_cdf4), // falloffTexture
     BinHash(0xb56e_8811), // particleColorTexture
@@ -49,7 +49,13 @@ const ASSET_FIELDS: [BinHash; 12] = [
     BinHash(0x5da0_5f9b), // erosionMapName
     BinHash(0xe672_d557), // normalMapTexture
     BinHash(0x85a3_4efd), // reflectionMapTexture
+    BinHash(0xfbd1_6fb5), // mAnimationName
+    BinHash(0x9855_7a5e), // AnimationName
+    BinHash(0xf83c_a5b7), // meshName
+    BinHash(0x7012_f6cd), // skeletonName
 ];
+
+const ANIMATION_VARIANTS: BinHash = BinHash(0x147f_071c);
 
 /// `VfxChildIdentifier`, the one class whose `effectKey` a walk resolves.
 ///
@@ -163,6 +169,21 @@ impl<'a> Walk<'a> {
         value: &PropertyValueEnum,
         depth: usize,
     ) -> Result<VfxValue, BinDocumentError> {
+        if field == ANIMATION_VARIANTS
+            && let PropertyValueEnum::Container(items) = value
+        {
+            self.charge(depth)?;
+            let mut resolved = Vec::with_capacity(items.items().len());
+            for item in items.items() {
+                if let Some(Leaf::String(path)) = owned(item.as_leaf()) {
+                    self.charge(depth + 1)?;
+                    resolved.push(self.asset(path.to_owned()));
+                } else {
+                    resolved.push(self.value(item, depth + 1)?);
+                }
+            }
+            return Ok(VfxValue::Container { items: resolved });
+        }
         if ASSET_FIELDS.contains(&field)
             && let Some(Leaf::String(path)) = owned(value.as_leaf())
         {

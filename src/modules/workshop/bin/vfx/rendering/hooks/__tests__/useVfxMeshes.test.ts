@@ -18,6 +18,9 @@ const CONE: MeshGeometry = {
 };
 
 const MODEL: MeshModel = {
+  skeleton: null,
+  animation: null,
+  animationVariants: [],
   asset: { kind: "gameChunk", wad: "Ahri.wad.client", pathHash: "0" },
   path: null,
   submeshes: [],

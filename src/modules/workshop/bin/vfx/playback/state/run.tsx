@@ -45,6 +45,7 @@ export const FRAME = 1 / 60;
  * loop, so a closed preview stops nothing.
  */
 export interface VfxRun {
+  readonly document: BinDocumentId;
   readonly system: SystemModel | null;
   readonly error: AppError | null;
   readonly pending: boolean;
@@ -289,6 +290,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
 
   const run = useMemo<VfxRun>(
     () => ({
+      document,
       system,
       error,
       pending,
@@ -321,6 +323,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
       subscribe,
     }),
     [
+      document,
       system,
       error,
       pending,

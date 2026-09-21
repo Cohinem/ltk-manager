@@ -11,6 +11,7 @@
 //! name no hash list on hand carries, and names the chunk it found on stderr. Both `*` at
 //! once, with a fourth argument, lists every object of the WAD whose path holds that text,
 //! named through the app's own hash tables.
+//! A search starting with `field:` matches a property hash instead of an object name.
 //! `--spell` prints the isolated missile projection instead of the raw object.
 
 use std::io::Cursor;
@@ -166,7 +167,18 @@ fn search<S: std::io::Read + std::io::Seek>(wad: &mut ltk_wad::Wad<S>, needle: &
             let Some(name) = tables.entry(entry) else {
                 continue;
             };
-            if !name.to_lowercase().contains(needle) {
+            let matches = if let Some(hash) = needle.strip_prefix("field:") {
+                let hash = u32::from_str_radix(hash.trim_start_matches("0x"), 16)
+                    .expect("field search is a hexadecimal property hash");
+                let text = format!("{:#?}", document.object_at(entry));
+                let word = format!("{hash},");
+
+                text.split_whitespace().any(|part| part == word)
+            } else {
+                name.to_lowercase().contains(needle)
+            };
+
+            if !matches {
                 continue;
             }
             let class = document

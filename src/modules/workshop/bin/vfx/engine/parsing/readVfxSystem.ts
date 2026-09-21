@@ -4,6 +4,7 @@ import { nameHash } from "../../../shared/utils/binHash";
 import { COLOR_LOOKUP, DRAG_MOTION, STENCIL_MODE } from "../model/enums";
 import type { ChildSetModel, EmitterModel, SystemModel, UvLayer } from "../model/model";
 import { emptySystem } from "../model/systemModel";
+import { readEmissionSurface } from "./readEmissionSurface";
 import {
   readBeam,
   readFields,
@@ -247,6 +248,7 @@ function readEmitter(
     emitterPosition: curve(field(node, FIELD.emitterPosition), DEFAULT.zero3),
     emitterSpace: locked || flag(field(node, FIELD.emitterSpace)),
     shape: readShape(field(node, FIELD.spawnShape)),
+    emissionSurface: readEmissionSurface(field(node, nameHash("emissionSurfaceDefinition"))),
     rotationOverride: triple(field(node, FIELD.rotationOverride)),
     scaleOverride: tripleOr(field(node, FIELD.scaleOverride), [1, 1, 1]),
     translationOverride: triple(field(node, FIELD.translationOverride)),

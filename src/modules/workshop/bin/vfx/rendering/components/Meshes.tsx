@@ -90,18 +90,21 @@ export interface MeshesProps {
  */
 export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: MeshesProps) {
   const { geometry, tint, erode } = buffers;
-  const material = useMemo(
-    () =>
-      meshMaterial(
-        emitter.blendMode,
-        samplers.base,
-        emitter.depthBias,
-        layersOf(emitter, samplers, DRAWS),
-        fragmentTests(emitter),
-        emitter.backfaceCull ? FrontSide : DoubleSide,
-      ),
-    [emitter, samplers],
-  );
+  const material = useMemo(() => {
+    const material = meshMaterial(
+      emitter.blendMode,
+      samplers.base,
+      emitter.depthBias,
+      layersOf(emitter, samplers, DRAWS),
+      fragmentTests(emitter),
+      emitter.backfaceCull ? FrontSide : DoubleSide,
+    );
+    if (buffers.pose) {
+      material.defines.PARTICLE_SKINNING = 1;
+      material.uniforms.particleBones = { value: buffers.pose.texture };
+    }
+    return material;
+  }, [emitter, samplers, buffers.pose]);
 
   const pair = useDrawPair<InstancedMesh>(material, distorts(emitter));
 
@@ -137,6 +140,7 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
         premultiplyInto(emitter, DRAWN.color);
 
         const age = time - pool.birthTime[at];
+        buffers.pose?.write(instance, age);
         const through = age01(pool, at, time);
         for (let layer = 0; layer < turns.length; layer += 1) {
           const over = layerOf(emitter, layer);
@@ -179,6 +183,7 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
     held.count = instance;
     if (twin !== null) twin.count = instance;
     if (instance === 0) return;
+    if (buffers.pose) buffers.pose.texture.needsUpdate = true;
     for (const attribute of [buffers.instanceMatrix, tint, erode, ...turns, ...shifts]) {
       written(attribute, instance);
     }

@@ -14,6 +14,7 @@ function fakeRun(): { run: VfxRun; tick: () => void } {
   const listeners = new Set<() => void>();
   const driver = createDriver(1);
   const run: VfxRun = {
+    document: 1,
     system: null,
     error: null,
     pending: false,
