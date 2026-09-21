@@ -17,12 +17,14 @@ export {
 export { viewportQueries } from "./assets/api/queries";
 export { clipDuration, type ClipModel, readClipBuffer } from "./assets/parsing/clipBuffer";
 export {
-  DEFAULT_LAYER,
   drawnMeshes,
   type MapGeometry,
+  type MapLayer,
+  mapLayers,
   type MapMesh,
   type MapSubmesh,
   MESH_FLAG,
+  openingFlags,
   readMapBuffer,
 } from "./assets/parsing/mapBuffer";
 export { type MeshGeometry, type MeshRange, readMeshBuffer } from "./assets/parsing/meshBuffer";
@@ -72,7 +74,9 @@ export { Viewport, type ViewportProps } from "./scene/components/Viewport";
 export { type SceneColors, useSceneColors } from "./scene/hooks/sceneColors";
 export {
   type BackdropChoice,
+  type BackdropFlags,
   type BackdropSource,
+  useBackdropFlags,
   useBackdropMaps,
   useBackdropMaterials,
   useMapBackdrop,

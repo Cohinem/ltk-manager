@@ -8,7 +8,6 @@ import {
   Character,
   createPose,
   createSceneClock,
-  DEFAULT_LAYER,
   type MeshGeometry,
   type SceneClock,
   type SceneColors,
@@ -44,6 +43,8 @@ export interface MapCharactersProps {
   readonly document: BinDocumentId | null;
   /** Any asset of the project whose layers answer a skin's bin before the install. */
   readonly near: AssetRef;
+  /** The visibility flags the backdrop draws, as a mask. */
+  readonly flags: number;
   /** The chunks and placeables an outliner hid, which a backdrop has none of. */
   readonly hidden?: ReadonlySet<string>;
 }
@@ -57,9 +58,9 @@ const NONE_HIDDEN: ReadonlySet<string> = new Set();
  * map's, and drawn at every place the map stands it. They run on a clock of their own
  * rather than the scene's, since a map's banners wave on through a clip that restarts.
  */
-export function MapCharacters({ document, near, hidden = NONE_HIDDEN }: MapCharactersProps) {
+export function MapCharacters({ document, near, flags, hidden = NONE_HIDDEN }: MapCharactersProps) {
   const placed = useQuery(mapQueries.characters(document));
-  const stood = useMemo(() => stoodCharacters(placed.data ?? [], DEFAULT_LAYER), [placed.data]);
+  const stood = useMemo(() => stoodCharacters(placed.data ?? [], flags), [placed.data, flags]);
   const skins = useMemo(
     () => [
       ...charactersBySkin(

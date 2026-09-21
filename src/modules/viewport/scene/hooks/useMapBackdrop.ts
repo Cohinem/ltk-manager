@@ -1,5 +1,5 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { Texture } from "three";
 
 import {
@@ -12,7 +12,13 @@ import {
 
 import { BACKDROP_ROOT } from "../../assets/api/placements";
 import { viewportQueries } from "../../assets/api/queries";
-import { DEFAULT_LAYER, type MapGeometry, mapOrigin } from "../../assets/parsing/mapBuffer";
+import {
+  type MapGeometry,
+  type MapLayer,
+  mapLayers,
+  mapOrigin,
+  openingFlags,
+} from "../../assets/parsing/mapBuffer";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
 
 /** Where the install keeps every map's geometry, one directory per map. */
@@ -182,6 +188,8 @@ export const backdropQueries = {
 /** A map backdrop's geometry and materials, and what it is doing while there is none. */
 export interface Backdrop {
   readonly geometry: MapGeometry | null;
+  /** The visibility flags the map opens on, and 0 while there is no geometry. */
+  readonly opening: number;
   /** Where a subject stands on this map before anyone moves it, in the map's own space. */
   readonly origin: readonly [number, number, number] | null;
   /** One per entry of `geometry.materials`, and null where the map declares none. */
@@ -195,6 +203,7 @@ export interface Backdrop {
 }
 
 const NO_MATERIALS: readonly (MaterialPreview | null)[] = [];
+const NO_LAYERS: readonly MapLayer[] = [];
 const NO_TEXTURES: ReadonlyMap<string, Texture> = new Map();
 
 /** Every map this install can draw a backdrop from, in map order. */
@@ -219,12 +228,7 @@ export function useBackdropMaterials(map: MapPath | null): AssetRef | null {
  * string table and so cannot be asked for until it has landed.
  */
 export function useMapBackdrop(source: BackdropSource | null): Backdrop {
-  const given = source?.geometry;
-  const located = useQuery(
-    backdropQueries.chunk(given === undefined ? (source?.map ?? null) : null, GEOMETRY_SUFFIX),
-  );
-  const asset = given ?? located.data ?? null;
-  const geometry = useQuery(viewportQueries.map(asset));
+  const { given, located, asset, geometry } = useBackdropGeometry(source);
   const materials = useQuery(
     backdropQueries.materials(
       source?.map ?? null,
@@ -248,15 +252,21 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     fullWidth: FULL_WIDTH,
     concurrency: CONCURRENT,
   });
-  /* Two million vertices walked once per map, so it is held rather than asked per frame. */
-  const origin = useMemo(
-    () => (geometry.data === undefined ? null : mapOrigin(geometry.data, DEFAULT_LAYER)),
+  const opening = useMemo(
+    () => (geometry.data === undefined ? 0 : openingFlags(geometry.data)),
     [geometry.data],
+  );
+  /* Two million vertices walked once per map, so it is held rather than asked per frame.
+     Off the opening flags rather than the active ones, so a toggle moves no subject. */
+  const origin = useMemo(
+    () => (geometry.data === undefined ? null : mapOrigin(geometry.data, opening)),
+    [geometry.data, opening],
   );
 
   if (source === null) {
     return {
       geometry: null,
+      opening: 0,
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
@@ -267,6 +277,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   if ((given === undefined && located.isPending) || (asset !== null && geometry.isPending)) {
     return {
       geometry: null,
+      opening: 0,
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
@@ -277,6 +288,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   if (asset === null) {
     return {
       geometry: null,
+      opening: 0,
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
@@ -287,6 +299,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   if (geometry.error !== null) {
     return {
       geometry: null,
+      opening: 0,
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
@@ -296,10 +309,59 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   }
   return {
     geometry: geometry.data ?? null,
+    opening,
     origin,
     materials: materials.data ?? NO_MATERIALS,
     textures,
     loading: false,
     failure: null,
   };
+}
+
+/** Where `source`'s geometry is and the geometry itself, read once however many ask. */
+function useBackdropGeometry(source: BackdropSource | null) {
+  const given = source?.geometry;
+  const located = useQuery(
+    backdropQueries.chunk(given === undefined ? (source?.map ?? null) : null, GEOMETRY_SUFFIX),
+  );
+  const asset = given ?? located.data ?? null;
+  const geometry = useQuery(viewportQueries.map(asset));
+  return { given, located, asset, geometry };
+}
+
+/** The visibility flags a backdrop draws, and the layers its map offers to toggle. */
+export interface BackdropFlags {
+  /** Every layer a mesh of the map names, and none until the geometry lands. */
+  readonly layers: readonly MapLayer[];
+  /** The active set as a mask, and 0 until the geometry lands. */
+  readonly flags: number;
+  readonly setLayer: (index: number, on: boolean) => void;
+}
+
+/**
+ * The visibility flags `source`'s backdrop draws, opening on the map's own and toggled after.
+ *
+ * A toggle is held against the geometry it was made on, so another map opens on its own
+ * flags. The geometry is the one [`useMapBackdrop`] reads, so asking here fetches nothing.
+ */
+export function useBackdropFlags(source: BackdropSource | null): BackdropFlags {
+  const map = useBackdropGeometry(source).geometry.data;
+  const layers = useMemo(() => (map === undefined ? NO_LAYERS : mapLayers(map)), [map]);
+  const opening = useMemo(() => (map === undefined ? 0 : openingFlags(map)), [map]);
+  const [toggled, setToggled] = useState<{ map: MapGeometry; flags: number } | null>(null);
+  const flags = toggled !== null && toggled.map === map ? toggled.flags : opening;
+
+  const setLayer = useCallback(
+    (index: number, on: boolean) => {
+      if (map === undefined) return;
+      setToggled((held) => {
+        const from = held !== null && held.map === map ? held.flags : opening;
+        const bit = 1 << index;
+        return { map, flags: on ? from | bit : from & ~bit };
+      });
+    },
+    [map, opening],
+  );
+
+  return { layers, flags, setLayer };
 }
