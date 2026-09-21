@@ -3,6 +3,7 @@
 //! The installer downloads ahead of the press, so installing is a restart, and one the user
 //! never pressed for runs as the app quits. Per ADR-0046.
 
+#[cfg(windows)]
 use fs_err as fs;
 use parking_lot::Mutex;
 use serde::Serialize;
