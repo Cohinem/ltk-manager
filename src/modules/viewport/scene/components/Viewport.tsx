@@ -17,8 +17,16 @@ import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
 import { AXIS_SIGN } from "../../shared/utils/space";
 import { useSceneColors } from "../hooks/sceneColors";
 import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
+import {
+  type AmbientOcclusion,
+  drawsAmbientOcclusion,
+  NO_AMBIENT_OCCLUSION,
+} from "../utils/ambientOcclusion";
+import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
+import { DEFAULT_SUN, type SunLight } from "../utils/sunLight";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { Backdrop } from "./Backdrop";
+import { PostEffectsPass } from "./PostEffectsPass";
 import { Sky } from "./Sky";
 import { Stage } from "./Stage";
 import { Sun } from "./Sun";
@@ -37,6 +45,12 @@ export interface ViewportProps {
   readonly backdrop?: BackdropSource | null;
   /** The visibility flags the backdrop draws, as a mask, and the map's own opening ones absent. */
   readonly backdropFlags?: number;
+  /** The scene's sun and sky, and the backdrop's own or `DEFAULT_SUN` when absent. */
+  readonly sun?: SunLight | null;
+  /** The scene's post effects, and the backdrop's own or none when absent. */
+  readonly postEffects?: PostEffects | null;
+  /** The scene's ambient occlusion, and the backdrop's own or none when absent. */
+  readonly ambientOcclusion?: AmbientOcclusion | null;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
@@ -98,6 +112,9 @@ export function Viewport({
   textured,
   backdrop = null,
   backdropFlags,
+  sun = null,
+  postEffects = null,
+  ambientOcclusion = null,
   camera,
   onCameraStand,
   onBackdropOrigin,
@@ -122,6 +139,9 @@ export function Viewport({
   useEffect(() => {
     if (running) setStarted(true);
   }, [running]);
+
+  const effects = postEffects ?? map.postEffects ?? NO_POST_EFFECTS;
+  const occlusion = ambientOcclusion ?? map.ambientOcclusion ?? NO_AMBIENT_OCCLUSION;
 
   const origin = map.origin;
   useEffect(() => {
@@ -161,7 +181,7 @@ export function Viewport({
         >
           <color attach="background" args={[colors.backdrop]} />
           <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
-          <Sun />
+          <Sun light={sun ?? map.sun ?? DEFAULT_SUN} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (
             <>
@@ -175,6 +195,9 @@ export function Viewport({
             </>
           )}
           <CameraPresetContext value={camera}>{children}</CameraPresetContext>
+          {(drawsPostEffects(effects) || drawsAmbientOcclusion(occlusion)) && (
+            <PostEffectsPass effects={effects} occlusion={occlusion} />
+          )}
         </Canvas>
       )}
     </div>

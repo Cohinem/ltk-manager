@@ -6,6 +6,7 @@ import {
   api,
   type AssetRef,
   type BinDocumentId,
+  type MapModel,
   type MapPath,
   type MaterialPreview,
 } from "@/lib/tauri";
@@ -20,6 +21,9 @@ import {
   openingFlags,
 } from "../../assets/parsing/mapBuffer";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
+import { type AmbientOcclusion, ambientOcclusionOf } from "../utils/ambientOcclusion";
+import { type PostEffects, postEffectsOf } from "../utils/postEffects";
+import { type SunLight, sunLightOf } from "../utils/sunLight";
 
 /** Where the install keeps every map's geometry, one directory per map. */
 const MAP_GEOMETRY_DIR = "data/maps/mapgeometry";
@@ -166,18 +170,15 @@ export const backdropQueries = {
   /* Each input is named rather than reached through a source object, so the key holds
      exactly what the read closes over. The paths are the buffer's own string table, so
      their identity is stable for as long as the answer is. */
-  materials: (
-    map: MapPath | null,
-    document: BinDocumentId | null,
-    paths: readonly string[] | null,
-  ) =>
-    queryOptions({
-      queryKey: [...BACKDROP_ROOT, "materials", map, document, paths],
+  model: (map: MapPath | null, document: BinDocumentId | null, paths: readonly string[] | null) =>
+    queryOptions<MapModel>({
+      queryKey: [...BACKDROP_ROOT, "model", map, document, paths],
       queryFn: async () => {
-        if (map === null || paths === null) return [];
+        if (map === null || paths === null)
+          return { materials: [], sun: null, postEffects: null, ssao: null };
         const answer = await api.bin.readMap(document, map, [...paths]);
         if (!answer.ok) throw answer.error;
-        return answer.value.materials;
+        return answer.value;
       },
       enabled: map !== null && paths !== null,
       staleTime: Infinity,
@@ -196,6 +197,12 @@ export interface Backdrop {
   readonly materials: readonly (MaterialPreview | null)[];
   /** Each material's base texture, under the material's own entry path. */
   readonly textures: ReadonlyMap<string, Texture>;
+  /** The light the map states, and null until it lands or where it states none. */
+  readonly sun: SunLight | null;
+  /** The post effects the map states, and null until they land or where it states none. */
+  readonly postEffects: PostEffects | null;
+  /** The ambient occlusion the map states, and null until it lands or where it states none. */
+  readonly ambientOcclusion: AmbientOcclusion | null;
   /** The bytes are on their way. One map is 73 to 93 MiB, so this is seconds. */
   readonly loading: boolean;
   /** Why there is nothing to draw, for the one line a disabled option carries. */
@@ -224,29 +231,36 @@ export function useBackdropMaterials(map: MapPath | null): AssetRef | null {
  * The map `source` names, fetched once and decoded once.
  *
  * The geometry arrives whole in one buffer, so nothing streams as the camera moves
- * (ADR-0044). The materials follow it over IPC, because they join the buffer's own
- * string table and so cannot be asked for until it has landed.
+ * (ADR-0044). The materials, the sun and the screen effects follow it over IPC, because
+ * they join the buffer's own string table and so cannot be asked for until it has landed.
  */
 export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   const { given, located, asset, geometry } = useBackdropGeometry(source);
-  const materials = useQuery(
-    backdropQueries.materials(
-      source?.map ?? null,
-      source?.document ?? null,
-      geometry.data?.materials ?? null,
-    ),
+  const model = useBackdropModel(source, geometry.data);
+  const materials = model.data?.materials;
+  const sun = useMemo(
+    () => (model.data?.sun == null ? null : sunLightOf(model.data.sun)),
+    [model.data],
+  );
+  const postEffects = useMemo(
+    () => (model.data?.postEffects == null ? null : postEffectsOf(model.data.postEffects)),
+    [model.data],
+  );
+  const ambientOcclusion = useMemo(
+    () => (model.data?.ssao == null ? null : ambientOcclusionOf(model.data.ssao)),
+    [model.data],
   );
 
   const assets = useMemo(() => {
     const held = new Map<string, AssetRef>();
     const paths = geometry.data?.materials ?? [];
-    for (const [at, slots] of (materials.data ?? []).entries()) {
+    for (const [at, slots] of (materials ?? []).entries()) {
       const asset = slots?.base?.texture.asset;
       const path = paths[at];
       if (asset != null && path !== undefined) held.set(path, asset);
     }
     return held;
-  }, [geometry.data, materials.data]);
+  }, [geometry.data, materials]);
   const textures = useAssetTextures(assets, {
     previewWidth: PREVIEW_WIDTH,
     fullWidth: FULL_WIDTH,
@@ -271,6 +285,9 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
+      sun: null,
+      postEffects: null,
+      ambientOcclusion: null,
       loading: false,
       failure: null,
     };
@@ -282,6 +299,9 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
+      sun: null,
+      postEffects: null,
+      ambientOcclusion: null,
       loading: true,
       failure: null,
     };
@@ -293,6 +313,9 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
+      sun: null,
+      postEffects: null,
+      ambientOcclusion: null,
       loading: false,
       failure: "This install has no geometry for that map",
     };
@@ -304,6 +327,9 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       origin: null,
       materials: NO_MATERIALS,
       textures: NO_TEXTURES,
+      sun: null,
+      postEffects: null,
+      ambientOcclusion: null,
       loading: false,
       failure: geometry.error.message,
     };
@@ -312,8 +338,11 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     geometry: geometry.data ?? null,
     opening,
     origin,
-    materials: materials.data ?? NO_MATERIALS,
+    materials: materials ?? NO_MATERIALS,
     textures,
+    sun,
+    postEffects,
+    ambientOcclusion,
     loading: false,
     failure: null,
   };
@@ -328,6 +357,38 @@ function useBackdropGeometry(source: BackdropSource | null) {
   const asset = given ?? located.data ?? null;
   const geometry = useQuery(viewportQueries.map(asset));
   return { given, located, asset, geometry };
+}
+
+/** The materials, sun and screen effects of `source`'s map, asked for once `geometry` lands. */
+function useBackdropModel(source: BackdropSource | null, geometry: MapGeometry | undefined) {
+  return useQuery(
+    backdropQueries.model(
+      source?.map ?? null,
+      source?.document ?? null,
+      geometry?.materials ?? null,
+    ),
+  );
+}
+
+/**
+ * The light `source`'s map states, and null until it lands or where it states none.
+ *
+ * The read is the one [`useMapBackdrop`] makes, so asking here fetches nothing.
+ */
+export function useBackdropSun(source: BackdropSource | null): SunLight | null {
+  const sun = useBackdropModel(source, useBackdropGeometry(source).geometry.data).data?.sun;
+  return useMemo(() => (sun == null ? null : sunLightOf(sun)), [sun]);
+}
+
+/**
+ * The post effects `source`'s map states, and null until they land or where it states none.
+ *
+ * The read is the one [`useMapBackdrop`] makes, so asking here fetches nothing.
+ */
+export function useBackdropPostEffects(source: BackdropSource | null): PostEffects | null {
+  const model = useBackdropModel(source, useBackdropGeometry(source).geometry.data);
+  const effects = model.data?.postEffects;
+  return useMemo(() => (effects == null ? null : postEffectsOf(effects)), [effects]);
 }
 
 /** The visibility flags a backdrop draws, and the layers its map offers to toggle. */
@@ -365,4 +426,17 @@ export function useBackdropFlags(source: BackdropSource | null): BackdropFlags {
   );
 
   return { layers, flags, setLayer };
+}
+
+/**
+ * The ambient occlusion `source`'s map states, and null until it lands or where it states none.
+ *
+ * The read is the one [`useMapBackdrop`] makes, so asking here fetches nothing.
+ */
+export function useBackdropAmbientOcclusion(
+  source: BackdropSource | null,
+): AmbientOcclusion | null {
+  const model = useBackdropModel(source, useBackdropGeometry(source).geometry.data);
+  const ssao = model.data?.ssao;
+  return useMemo(() => (ssao == null ? null : ambientOcclusionOf(ssao)), [ssao]);
 }

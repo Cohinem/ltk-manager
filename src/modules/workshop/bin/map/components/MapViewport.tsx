@@ -20,6 +20,9 @@ import {
   usePreviewBackdropParticles,
   usePreviewBackdropStructures,
   usePreviewCamera,
+  usePreviewAmbientOcclusion,
+  usePreviewPostEffects,
+  usePreviewSun,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -36,6 +39,8 @@ import { BackdropLayerMenu } from "./BackdropLayerMenu";
 import { MapCharacters } from "./MapCharacters";
 import { MapFocus } from "./MapFocus";
 import { MapParticles } from "./MapParticles";
+import { PostEffectsControl } from "./PostEffectsControl";
+import { SunControl } from "./SunControl";
 
 /**
  * What a free camera frames of a map, around where the middle of the map stands.
@@ -94,6 +99,9 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const camera = usePreviewCamera();
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
+  const sun = usePreviewSun();
+  const postEffects = usePreviewPostEffects();
+  const ambientOcclusion = usePreviewAmbientOcclusion();
   const setDisplay = useSetPreviewDisplay();
   const { layers, flags, setLayer } = useBackdropFlags(source);
 
@@ -113,6 +121,9 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           textured={false}
           backdrop={source}
           backdropFlags={flags}
+          sun={sun}
+          postEffects={postEffects}
+          ambientOcclusion={ambientOcclusion}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
@@ -150,6 +161,8 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
             onClick={() => setDisplay({ previewBackdropStructures: !structures })}
           />
           <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />
+          <SunControl source={source} />
+          <PostEffectsControl source={source} />
           <CameraMenu />
           <Tooltip content={m.workshop_bin_mesh_preview_fit_action()}>
             <IconButton

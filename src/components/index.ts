@@ -6,6 +6,7 @@ export * from "./Button";
 export * from "./ButtonGroup";
 export * from "./Checkbox";
 export * from "./Code";
+export * from "./ColorPicker";
 export * from "./Combobox";
 export * from "./CommandPalette";
 export * from "./ConfirmDialog";

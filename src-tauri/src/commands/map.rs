@@ -17,7 +17,7 @@ use ltk_manager_game::map::{
 };
 use tauri::{AppHandle, Manager};
 
-/// The materials a map's submeshes name, as a backdrop draws them.
+/// The materials a map's submeshes name, and its lighting and screen effects.
 ///
 /// `map` is `MapContainer.mapPath`, an entry path such as
 /// `Maps/MapGeometry/Map11/Base_SRX`, and `materials` are the entry paths the map's own
@@ -57,6 +57,7 @@ pub async fn read_map(
             });
             Ok(resolve_map(
                 &bin,
+                &map,
                 &materials,
                 names,
                 assets,

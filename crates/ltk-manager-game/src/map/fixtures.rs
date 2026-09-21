@@ -6,6 +6,7 @@ use ltk_hash::{BinHash, Hash as _};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
+use super::component::{COMPONENTS, MAP_CONTAINER};
 use super::placeable::{ITEMS, PLACEABLE_CONTAINER};
 use ltk_manager_core::bin_document::BinDocument;
 
@@ -47,6 +48,15 @@ pub(super) fn container(path: &str, items: Vec<(&str, PropertyValueEnum)>) -> Bi
     .unwrap();
     BinObject::builder(h(path), PLACEABLE_CONTAINER)
         .property(ITEMS, items)
+        .build()
+}
+
+pub(super) fn map_container(entry: &str, components: Vec<PropertyValueEnum>) -> BinObject {
+    BinObject::builder(h(entry), MAP_CONTAINER)
+        .property(
+            COMPONENTS,
+            values::Container::new(Kind::Struct, components).unwrap(),
+        )
         .build()
 }
 

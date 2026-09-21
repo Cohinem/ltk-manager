@@ -29,10 +29,13 @@ fn a_map_path_is_a_plain_string_on_the_wire() {
 }
 
 #[test]
-fn an_unresolved_map_answers_one_material_per_path_asked_for() {
+fn an_unresolved_map_answers_one_material_per_path_asked_for_and_no_lighting_or_screen_effects() {
     let paths = ["a".to_owned(), "b".to_owned(), "c".to_owned()];
 
     assert_eq!(unresolved_map(&paths).materials.len(), 3);
     assert!(unresolved_map(&paths).materials.iter().all(Option::is_none));
+    assert!(unresolved_map(&paths).sun.is_none());
+    assert!(unresolved_map(&paths).post_effects.is_none());
+    assert!(unresolved_map(&paths).ssao.is_none());
     assert!(unresolved_map(&[]).materials.is_empty());
 }

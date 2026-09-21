@@ -249,7 +249,7 @@ export const commands = {
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**
-	 *  The materials a map's submeshes name, as a backdrop draws them.
+	 *  The materials a map's submeshes name, and its lighting and screen effects.
 	 * 
 	 *  `map` is `MapContainer.mapPath`, an entry path such as
 	 *  `Maps/MapGeometry/Map11/Base_SRX`, and `materials` are the entry paths the map's own
@@ -1841,12 +1841,38 @@ export type MapChunkItem = {
 	controller: string | null,
 };
 
+/**  The depth of field of [`MapPostEffects`]. */
+export type MapDepthOfField = {
+	/**  The blur is drawn. */
+	enabled: boolean,
+	/**  The distance from the camera that is sharpest. */
+	focalDistance: number | null,
+	/**  How deep the sharp band around `focal_distance` is. */
+	inFocusWidth: number | null,
+	/**  `Coc`, the circle of confusion the blur widens to. */
+	coc: number | null,
+};
+
 /**  Where the two files of one map live, each none where nothing holds it. */
 export type MapFiles = {
 	/**  The `.mapgeo`, which the scheme answers as one buffer. */
 	geometry: AssetRef | null,
 	/**  The `.materials.bin`, which declares the materials and the chunks. */
 	materials: AssetRef | null,
+};
+
+/**  One fog of [`MapPostEffects`], ramping from nothing at `start` to its most at `end`. */
+export type MapFog = {
+	/**  The fog is drawn. */
+	enabled: boolean,
+	/**  RGBA with each channel 0 to 1, as the bin writes it. */
+	color: [(number | null), (number | null), (number | null), (number | null)],
+	/**  Where the fog begins, a distance or a height in world units. */
+	start: number | null,
+	/**  Where the fog reaches `max_intensity`. */
+	end: number | null,
+	/**  The most the fog covers, 0 to 1. */
+	maxIntensity: number | null,
 };
 
 /**  What a placeable is to a scene, which is what an outliner marks its row with. */
@@ -1864,13 +1890,19 @@ export type MapItemKind =
 /**  Any other class. */
 "other";
 
-/**  One map's materials, one per path asked for and in that order. */
+/**  One map's materials, one per path asked for and in that order, and its lighting and screen effects. */
 export type MapModel = {
 	/**
 	 *  Null where the map's own bin declares no object at that path, which a backdrop
 	 *  draws flat rather than not at all.
 	 */
 	materials: (MaterialPreview | null)[],
+	/**  Null where the map's container states no sun, which a backdrop lights with a default. */
+	sun: MapSun | null,
+	/**  Null where the map's container states no post effects, which no shipped map does. */
+	postEffects: MapPostEffects | null,
+	/**  Null where the map's container states no ambient occlusion, as all but one shipped map. */
+	ssao: MapSsao | null,
 };
 
 /**  One particle system a map stands in its scene. */
@@ -1904,6 +1936,65 @@ export type MapParticle = {
  *  has.
  */
 export type MapPath = string;
+
+/**
+ *  A map's post effects, as its `PostEffectOptions` states them.
+ * 
+ *  A field the map leaves out reads as the class default, which [`MapPostEffects::default`]
+ *  returns and which switches every effect off.
+ */
+export type MapPostEffects = {
+	/**  `DepthFog` and its fields, which fog by distance from the camera. */
+	depthFog: MapFog,
+	/**  `HeightFog` and its fields, which fog by height in the world. */
+	heightFog: MapFog,
+	/**  `Dof` and its fields. */
+	depthOfField: MapDepthOfField,
+};
+
+/**
+ *  A map's screen-space ambient occlusion, as its `MapSSAOSettings` states it.
+ * 
+ *  A field the map leaves out reads as the class default, which [`MapSsao::default`]
+ *  returns.
+ */
+export type MapSsao = {
+	/**  `SampleQuality`, 0 for four samples a pixel and 1 for eight. */
+	sampleQuality: number,
+	/**  `SampleRadius`, how far from a pixel its samples reach, in world units. */
+	sampleRadius: number | null,
+	/**  `Bias`, how far in front of a sample the scene must be to occlude it, in world units. */
+	bias: number | null,
+	/**  `power`, the exponent the unoccluded share of a pixel is raised to. */
+	power: number | null,
+	/**  `intensity`, how much of the occlusion reaches the frame, 0 to 1. */
+	intensity: number | null,
+	/**  `BufferScale`, the occlusion's resolution as a share of the frame's. */
+	bufferScale: number | null,
+	/**  `EdgeAwareBlur`, the blur keeps a nearer surface's occlusion off the one behind it. */
+	edgeAwareBlur: boolean,
+};
+
+/**
+ *  A map's sun and sky, as its `MapSunProperties` states them.
+ * 
+ *  Colours are RGBA with each channel 0 to 1, as the bin writes them. A field the map
+ *  leaves out reads as the class default, which [`MapSun::default`] returns.
+ */
+export type MapSun = {
+	/**  `sunDirection`, which points at the sun in the engine's space. */
+	direction: [(number | null), (number | null), (number | null)],
+	/**  `sunColor`. */
+	color: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `SunIntensityScale`. */
+	intensity: number | null,
+	/**  `skyLightColor`. */
+	skyColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `groundColor`. */
+	groundColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `skyLightScale`. */
+	skyScale: number | null,
+};
 
 /**  One map an object draws, and the skin that names it. */
 export type MapVariant = {
