@@ -42,12 +42,12 @@ ltk_file = { version = "0.2.11", features = ["serde"] }
 ltk_hash = { version = "0.4.0", features = ["serde"] }
 ltk_meta = { version = "0.8.5", features = ["serde"] }
 
-ltk_fantome = "0.12.0"
-ltk_game_data = "0.2.0"
-ltk_mod_project = { version = "0.10.0", features = ["modpkg", "fantome"] }
-ltk_hashtable = "0.1.2"
-ltk_modpkg = "0.10.0"
-ltk_overlay = "0.10.0"
+ltk_fantome = "0.14.0"
+ltk_game_data = "0.4.0"
+ltk_mod_project = { version = "0.12.0", features = ["modpkg", "fantome"] }
+ltk_hashtable = "0.1.3"
+ltk_modpkg = "0.12.0"
+ltk_overlay = "0.12.0"
 ltk_wad = "0.5.7"
 
 ltk_anim = "0.3.9"
@@ -106,16 +106,3 @@ sha2 = "0.10"
 
 assert_matches = "1.5"
 filetime = "0.2"
-
-[patch.crates-io]
-# Game-copy references and value rendering are on league-mod's `feat/value-rendering`
-# (PR 267) and not yet on crates.io. Every league-mod crate comes from the one rev, so
-# they share one `ltk_game_data`. Move the pin to the release that carries them.
-ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
-ltk_game_data = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
-ltk_game_index = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
-ltk_hashtable = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
-ltk_mod_core = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
-ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
-ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
-ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "7019694da8c7446b3a1537c4642c22dbda8ad74f" }
