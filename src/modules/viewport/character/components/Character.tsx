@@ -31,6 +31,7 @@ import {
   type SubmeshBinding,
   type SubmeshMaterial,
 } from "../utils/submeshBinding";
+import { scrollAt } from "../utils/uvScroll";
 
 export interface CharacterProps {
   readonly mesh: MeshGeometry;
@@ -153,7 +154,7 @@ export function Character({
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
-  useFrame((_, delta) => {
+  useFrame(() => {
     pose.localsInto(clock.time, locals);
     rig.bones.forEach((bone, slot) => {
       const at = slot * LOCAL_FLOATS;
@@ -161,9 +162,10 @@ export function Character({
       bone.quaternion.fromArray(locals, at + 3);
       bone.scale.fromArray(locals, at + 7);
     });
+    /* Read off the clock rather than summed over the frames: the texture is the one every
+       placement of this skin draws, so a sum advances it once per placement (ADR-0035). */
     for (const { map, scroll } of scrolling.current) {
-      map.offset.x += scroll[0] * delta;
-      map.offset.y += scroll[1] * delta;
+      map.offset.set(scrollAt(scroll[0], clock.time), scrollAt(scroll[1], clock.time));
     }
   });
 

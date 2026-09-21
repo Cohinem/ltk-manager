@@ -12,6 +12,7 @@ import {
   type MapPath,
   type MapVariant,
 } from "@/lib/tauri";
+import { MAP_FILES_NEAR_ROOT, MAP_FILES_ROOT } from "@/modules/viewport";
 import { unwrapForQuery } from "@/utils/query";
 
 /** The reads a map's scene draws from, each keyed on the open document it asks. */
@@ -63,7 +64,7 @@ export const mapQueries = {
   /** Where the two files of `map` live, the project `near` sits in answering first. */
   files: (near: AssetRef, map: MapPath | null) =>
     queryOptions<MapFiles, AppError>({
-      queryKey: ["map-files", near, map],
+      queryKey: [...MAP_FILES_ROOT, near, map],
       queryFn:
         map === null
           ? skipToken
@@ -77,7 +78,7 @@ export const mapQueries = {
    */
   filesNear: (near: AssetRef, paths: readonly string[]) =>
     queryOptions<Partial<Record<string, AssetRef>>, AppError>({
-      queryKey: ["map-files-near", near, paths],
+      queryKey: [...MAP_FILES_NEAR_ROOT, near, paths],
       queryFn: async () =>
         paths.length === 0 ? {} : unwrapForQuery(await api.bin.locateFilesNear(near, paths)),
       staleTime: Infinity,

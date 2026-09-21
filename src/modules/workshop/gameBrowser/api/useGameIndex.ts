@@ -2,6 +2,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 import { useCallback } from "react";
 
 import { api, type AppError } from "@/lib/tauri";
+import { dropPlacements } from "@/modules/viewport";
 import { useSearchObjects } from "@/stores";
 import { mutationFn } from "@/utils/query";
 
@@ -73,6 +74,9 @@ export function useRefreshGameIndex() {
       queryClient.invalidateQueries({ queryKey: gameKeys.dirs });
       queryClient.invalidateQueries({ queryKey: gameKeys.wads });
       queryClient.invalidateQueries({ queryKey: gameKeys.objectSearches });
+      /* A viewport holds where a file lived, which the index it was read out of no
+         longer answers. */
+      dropPlacements(queryClient);
       if (searchObjects) warmMutate();
     },
   });

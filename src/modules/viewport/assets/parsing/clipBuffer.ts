@@ -28,9 +28,14 @@ export interface ClipModel {
   readonly poses: Float32Array;
 }
 
-/** How long one pass of `clip` lasts, in seconds. */
-export function clipDuration(clip: ClipModel): number {
-  return clip.frames > 1 ? (clip.frames - 1) / clip.fps : 0;
+/**
+ * How long one pass of `clip` lasts, in seconds.
+ *
+ * `frameSeconds` is how long one frame lasts, which an animation graph states per clip
+ * and which outranks the rate the file itself was authored at.
+ */
+export function clipDuration(clip: ClipModel, frameSeconds: number = 1 / clip.fps): number {
+  return clip.frames > 1 ? (clip.frames - 1) * frameSeconds : 0;
 }
 
 /**

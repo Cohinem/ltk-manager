@@ -232,3 +232,46 @@ describe("jointNamed", () => {
     expect(createPose(ARM, null).jointNamed("Weapon")).toBe(-1);
   });
 });
+
+describe("createPose at the rate a graph states", () => {
+  /* `REACH` is two frames authored at two a second, so its file lasts half a second. A
+     graph holding each frame a whole second stretches the same table over two. */
+  const HELD_A_SECOND = 1;
+
+  it("lasts as long as the stated tick holds its frames", () => {
+    expect(createPose(ARM, REACH, HELD_A_SECOND).duration).toBe(1);
+  });
+
+  it("reaches the same place at the same fraction of the pass", () => {
+    const own = createPose(ARM, REACH);
+    const slowed = createPose(ARM, REACH, HELD_A_SECOND);
+    const locals = new Float32Array(2 * LOCAL_FLOATS);
+
+    const halfway = localOf(own.localsInto(0.25, locals), 1);
+    expect(localOf(slowed.localsInto(0.5, locals), 1)).toEqual(halfway);
+  });
+
+  it("is where the file's own rate would be twice as far along", () => {
+    const slowed = createPose(ARM, REACH, HELD_A_SECOND);
+    const locals = new Float32Array(2 * LOCAL_FLOATS);
+
+    expect(localOf(slowed.localsInto(0.25, locals), 1).slice(0, 3)).toEqual([1, 0, 0]);
+    expect(localOf(createPose(ARM, REACH).localsInto(0.25, locals), 1).slice(0, 3)).toEqual([
+      2, 0, 0,
+    ]);
+  });
+
+  it("loops at the stated pass rather than the file's", () => {
+    const slowed = createPose(ARM, REACH, HELD_A_SECOND);
+    const locals = new Float32Array(2 * LOCAL_FLOATS);
+
+    expect(localOf(slowed.localsInto(1, locals), 1).slice(0, 3)).toEqual([0, 0, 0]);
+    expect(localOf(slowed.localsInto(1.5, locals), 1).slice(0, 3)).toEqual([2, 0, 0]);
+  });
+
+  it("falls back to the file's own rate where the graph states none", () => {
+    for (const stated of [null, undefined, 0, -1]) {
+      expect(createPose(ARM, REACH, stated).duration).toBe(0.5);
+    }
+  });
+});

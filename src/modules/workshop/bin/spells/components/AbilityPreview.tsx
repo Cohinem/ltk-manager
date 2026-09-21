@@ -7,6 +7,7 @@ import { createPose, viewportQueries } from "@/modules/viewport";
 
 import { skinQueries } from "../../skin/api/skinQueries";
 import { type GraphSource, useSkinGraphSource } from "../../skin/hooks/useGraphSource";
+import { clipFrameSeconds } from "../../skin/utils/clipEvents";
 import { systemModel } from "../../skin/utils/skinScene";
 import { Notice } from "../../vfx/preview/components/Notice";
 import { abilityQueries } from "../api/abilityQueries";
@@ -60,8 +61,14 @@ function AbilityRead({
     () =>
       skeleton.data === undefined || (recipe.clip !== null && clip.data === undefined)
         ? null
-        : oncePose(createPose(skeleton.data, clip.data ?? null)),
-    [skeleton.data, clip.data, recipe.clip],
+        : oncePose(
+            createPose(
+              skeleton.data,
+              clip.data ?? null,
+              clipFrameSeconds(chosen, clip.data?.fps ?? null),
+            ),
+          ),
+    [skeleton.data, clip.data, recipe.clip, chosen],
   );
   const effects = useMemo(
     () =>

@@ -8,6 +8,12 @@ export {
   snappedPose,
 } from "./animation/evaluation/pose";
 export { createSceneClock, type SceneClock } from "./animation/state/clock";
+export {
+  BACKDROP_ROOT,
+  dropPlacements,
+  MAP_FILES_NEAR_ROOT,
+  MAP_FILES_ROOT,
+} from "./assets/api/placements";
 export { viewportQueries } from "./assets/api/queries";
 export { clipDuration, type ClipModel, readClipBuffer } from "./assets/parsing/clipBuffer";
 export {

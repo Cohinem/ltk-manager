@@ -98,12 +98,21 @@ export function ClassView({
   const placed = useMemo(() => placeRows(roots, layout), [roots, layout]);
   const pages = useLayoutRead(document, placed);
 
-  const [wide, setWide] = useState(false);
+  /* Null until the pane has been measured, so a preview mounts once in the frame it
+     stays in rather than in the stack for the render before the observer answers. */
+  const [wide, setWide] = useState<boolean | null>(null);
   const measure = useResizeObserver<HTMLDivElement>((element) => {
-    if (element.offsetWidth > 0) setWide(element.offsetWidth >= SHELL_WIDTH);
+    const width = element.offsetWidth;
+    /* A later zero is a pane with no size rather than a narrow one, and must not pull a
+       settled frame back to the stack. The first measurement still settles it, so a pane
+       that never reports a width draws the stack. */
+    setWide((settled) => (width > 0 || settled === null ? width >= SHELL_WIDTH : settled));
   });
-  const frame: LayoutFrame = frameOf(layout) === "shell" && wide ? "shell" : "stack";
-  useEffect(() => onFrame?.(frame), [onFrame, frame]);
+  const frame: LayoutFrame | null =
+    wide === null ? null : frameOf(layout) === "shell" && wide ? "shell" : "stack";
+  useEffect(() => {
+    if (frame !== null) onFrame?.(frame);
+  }, [onFrame, frame]);
 
   /* Warmed beside the read, so the chunk three sits in is on its way before the skin answers. */
   const skin = layout.shell === "skin";
@@ -132,9 +141,12 @@ export function ClassView({
      another place, and must not lose the clip, the transport or the time. */
   const skinChoice = useSkinChoice();
 
+  /* The stack stands in until the pane is measured. Neither frame is drawn then, so
+     what this carries is what the first drawn one will. */
+  const shown: LayoutFrame = frame ?? "stack";
   const view = useMemo<ViewContext>(
-    () => ({ document, asset, classHash, objectName, onNotOpen, frame }),
-    [document, asset, classHash, objectName, onNotOpen, frame],
+    () => ({ document, asset, classHash, objectName, onNotOpen, frame: shown }),
+    [document, asset, classHash, objectName, onNotOpen, shown],
   );
 
   /* The roots and everything the read answered, each checked as one group. A tree
@@ -151,7 +163,7 @@ export function ClassView({
 
   /* The strip is held here rather than in its own section, because a shell draws its two
      halves in two columns and a fall back to the stack must not lose the reader's place. */
-  const emitters = useEmitterChoice(document, placed, pages, frame);
+  const emitters = useEmitterChoice(document, placed, pages, shown);
   useCurveFollow(emitters.card);
   const held = useMemo(() => cellRows(placed, pages), [placed, pages]);
   const childRows = useMemo(

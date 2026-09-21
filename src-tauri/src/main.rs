@@ -65,7 +65,7 @@ fn main() {
             let app = ctx.app_handle().clone();
             // A decode is tens of milliseconds, and this handler is the main thread.
             tauri::async_runtime::spawn_blocking(move || {
-                responder.respond(protocol::serve(&app, &request));
+                responder.respond(protocol::answer(&app, &request));
             });
         })
         .manage(logging_guards)

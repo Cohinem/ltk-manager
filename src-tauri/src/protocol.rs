@@ -7,6 +7,7 @@
 
 use std::io;
 use std::num::NonZeroU32;
+use std::panic::AssertUnwindSafe;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -46,6 +47,21 @@ const ANIMATION_FORM: &str = "animation";
 
 /// The [`FORM_PARAMETER`] value asking a cube map for its six faces as one image.
 const CUBE_FORM: &str = "cube";
+
+/// Answer one preview request, whatever [`serve`] does.
+///
+/// A panic here would otherwise unwind past the responder and drop it unused, and a
+/// webview request nothing responds to never settles: an `<img>` fires neither its load
+/// nor its error event, so a viewport waiting on one waits for the session.
+pub fn answer(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
+    std::panic::catch_unwind(AssertUnwindSafe(|| serve(app, request))).unwrap_or_else(|_| {
+        tracing::error!("Panicked serving {}", request.uri());
+        message_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "The preview could not be read",
+        )
+    })
+}
 
 /// Answer one preview request.
 ///

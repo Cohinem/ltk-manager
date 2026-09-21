@@ -10,6 +10,7 @@ import {
   type MaterialPreview,
 } from "@/lib/tauri";
 
+import { BACKDROP_ROOT } from "../../assets/api/placements";
 import { viewportQueries } from "../../assets/api/queries";
 import { DEFAULT_LAYER, type MapGeometry, mapOrigin } from "../../assets/parsing/mapBuffer";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
@@ -84,22 +85,28 @@ function mapFile(map: MapPath, suffix: string): string {
   return `${DATA_PREFIX}${map.toLowerCase()}${suffix}`;
 }
 
-/** Where the install keeps a map's files, which nothing invalidates for the app's life. */
+/**
+ * Where the install keeps a map's files.
+ *
+ * Every one of these is `staleTime: Infinity`, so a read that failed must reject rather
+ * than answer nothing: an empty answer is cached as the truth about the install, and one
+ * momentary failure would draw the map flat or missing for the rest of the session.
+ */
 export const backdropQueries = {
   /* The index answers a directory as a lookup rather than a walk, so enumerating every
      map is one read of the geometry root and one of each map under it. */
   maps: () =>
     queryOptions<readonly BackdropChoice[]>({
-      queryKey: ["viewport-backdrop", "maps"],
+      queryKey: [...BACKDROP_ROOT, "maps"],
       queryFn: async () => {
         const root = await api.readGameDir(MAP_GEOMETRY_DIR);
-        if (!root.ok) return [];
+        if (!root.ok) throw root.error;
         const listings = await Promise.all(
           root.value.dirs.map(async (dir) => ({ dir, read: await api.readGameDir(dir.path) })),
         );
         const found: BackdropChoice[] = [];
         for (const { dir, read } of listings) {
-          if (!read.ok) continue;
+          if (!read.ok) throw read.error;
           for (const file of read.value.files) {
             const path = file.path;
             if (path === null) continue;
@@ -121,13 +128,14 @@ export const backdropQueries = {
 
   sky: () =>
     queryOptions<AssetRef | null>({
-      queryKey: ["viewport-backdrop", "sky"],
+      queryKey: [...BACKDROP_ROOT, "sky"],
       queryFn: async () => {
         const answer = await api.objects.locateGameFiles([SKY_PATH]);
-        const held = answer.ok ? answer.value[SKY_PATH] : undefined;
-        return held === undefined
+        if (!answer.ok) throw answer.error;
+        const found = answer.value[SKY_PATH];
+        return found === undefined
           ? null
-          : { kind: "gameChunk", wad: held.wad, pathHash: held.pathHash };
+          : { kind: "gameChunk", wad: found.wad, pathHash: found.pathHash };
       },
       staleTime: Infinity,
       retry: false,
@@ -135,12 +143,12 @@ export const backdropQueries = {
 
   chunk: (map: MapPath | null, suffix: string) =>
     queryOptions<AssetRef | null>({
-      queryKey: ["viewport-backdrop", map, suffix],
+      queryKey: [...BACKDROP_ROOT, map, suffix],
       queryFn: async () => {
         if (map === null) return null;
         const path = mapFile(map, suffix);
         const answer = await api.objects.locateGameFiles([path]);
-        if (!answer.ok) return null;
+        if (!answer.ok) throw answer.error;
         const held = answer.value[path];
         if (held === undefined) return null;
         return { kind: "gameChunk", wad: held.wad, pathHash: held.pathHash };
@@ -158,11 +166,11 @@ export const backdropQueries = {
     paths: readonly string[] | null,
   ) =>
     queryOptions({
-      queryKey: ["viewport-backdrop", "materials", map, document, paths],
+      queryKey: [...BACKDROP_ROOT, "materials", map, document, paths],
       queryFn: async () => {
         if (map === null || paths === null) return [];
         const answer = await api.bin.readMap(document, map, [...paths]);
-        if (!answer.ok) return [];
+        if (!answer.ok) throw answer.error;
         return answer.value.materials;
       },
       enabled: map !== null && paths !== null,

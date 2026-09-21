@@ -7,6 +7,7 @@ use super::object_index::ObjectIndexState;
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
+use ltk_hash::{Hash as _, WadHash};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::game_index::{
     FindGeneration, GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState,
@@ -41,7 +42,10 @@ pub async fn read_game_dir(path: String, app_handle: AppHandle) -> IpcResult<Gam
 /// The install's copy of each of `paths`, by path. A path the install does not ship is
 /// absent.
 ///
-/// For the `file` links of a page of bin rows, checked in one call.
+/// For the `file` links of a page of bin rows, checked in one call. Lowercased and then
+/// looked for by hash, which is what `DocumentAssets::locate` does: a chunk no table
+/// names is reached by its path's hash, and the two lookups must not disagree about
+/// whether the install holds a file.
 #[tauri::command]
 #[specta::specta]
 pub async fn locate_game_files(
@@ -52,7 +56,9 @@ pub async fn locate_game_files(
         Ok(paths
             .into_iter()
             .filter_map(|path| {
-                let entry = index.file_at(&path)?;
+                let entry = index
+                    .file_at(&path.to_lowercase())
+                    .or_else(|| index.unnamed_at(WadHash::hash_str(&path).0))?;
                 Some((path, entry))
             })
             .collect())

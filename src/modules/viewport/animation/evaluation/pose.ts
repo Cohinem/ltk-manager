@@ -40,15 +40,24 @@ export interface Pose {
  * A joint the clip holds no track for stands in its bind pose under whatever its parent
  * does. The track is found by the hash the skeleton buffer carries, which is the one an
  * `.anm` writes.
+ *
+ * `frameSeconds` is how long one frame lasts. A graph retimes a clip by its own tick
+ * and places the clip's events on that tick, so a pose sampled at the file's rate instead
+ * would run at a speed the events no longer line up with.
  */
-export function createPose(skeleton: SkeletonModel, clip: ClipModel | null): Pose {
-  const duration = clip === null ? 0 : clipDuration(clip);
+export function createPose(
+  skeleton: SkeletonModel,
+  clip: ClipModel | null,
+  frameSeconds?: number | null,
+): Pose {
+  const step = clip === null ? 0 : frameLength(clip, frameSeconds);
+  const duration = clip === null ? 0 : clipDuration(clip, step);
   const tracks = trackSlots(skeleton, clip);
   const rotation = new Quaternion();
   const turnTo = new Quaternion();
 
   function localsInto(time: number, out: Float32Array): Float32Array {
-    const frame = clip === null ? null : frameAt(clip, duration, time);
+    const frame = clip === null ? null : frameAt(clip, duration, time, step);
     skeleton.joints.forEach((joint, slot) => {
       const at = slot * LOCAL_FLOATS;
       const track = tracks[slot];
@@ -262,14 +271,20 @@ function trackSlots(skeleton: SkeletonModel, clip: ClipModel | null): Int32Array
   return tracks;
 }
 
+/** How long one frame of `clip` lasts: what the caller states, else the file's own rate. */
+function frameLength(clip: ClipModel, frameSeconds: number | null | undefined): number {
+  return frameSeconds != null && frameSeconds > 0 ? frameSeconds : 1 / clip.fps;
+}
+
 /** The two frames `time` falls between and how far it is along, looping the clip. */
 function frameAt(
   clip: ClipModel,
   duration: number,
   time: number,
+  step: number,
 ): { from: number; to: number; mix: number } {
   const looped = duration > 0 ? ((time % duration) + duration) % duration : 0;
-  const at = Math.min(looped * clip.fps, clip.frames - 1);
+  const at = Math.min(looped / step, clip.frames - 1);
   const from = Math.floor(at);
   return { from, to: Math.min(from + 1, clip.frames - 1), mix: at - from };
 }

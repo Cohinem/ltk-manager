@@ -144,7 +144,10 @@ export const commands = {
 	 *  The install's copy of each of `paths`, by path. A path the install does not ship is
 	 *  absent.
 	 * 
-	 *  For the `file` links of a page of bin rows, checked in one call.
+	 *  For the `file` links of a page of bin rows, checked in one call. Lowercased and then
+	 *  looked for by hash, which is what `DocumentAssets::locate` does: a chunk no table
+	 *  names is reached by its path's hash, and the two lookups must not disagree about
+	 *  whether the install holds a file.
 	 */
 	locateGameFiles: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: GameFileEntry } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_game_files", { paths }),
 	/**
@@ -244,8 +247,10 @@ export const commands = {
 	 *  open document of the project whose layer answers first, and none resolves against the
 	 *  install alone.
 	 * 
-	 *  A map whose `.materials.bin` cannot be read leaves every material unresolved rather
-	 *  than failing the read, which draws the map flat.
+	 *  A map nothing holds a `.materials.bin` for leaves every material unresolved rather
+	 *  than failing the read, which draws the map flat. One whose file is there but will not
+	 *  read is reported, because the caller keeps this answer for the app's life and a flat
+	 *  map cached over a momentary failure is a map that never draws again.
 	 */
 	readMap: (document: number | null, map: MapPath, materials: string[]) => __TAURI_INVOKE<({ ok: true; value: MapModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map", { document, map, materials }),
 	/**

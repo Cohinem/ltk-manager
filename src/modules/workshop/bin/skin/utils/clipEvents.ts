@@ -81,6 +81,18 @@ export function frameSeconds(clip: GraphClip, fps: number | null): number {
   return 1 / (fps !== null && fps > 0 ? fps : DEFAULT_FPS);
 }
 
+/**
+ * How long one frame lasts while `clip` plays a file of `fps`, and null for no clip.
+ *
+ * What a pose of that step is sampled on, so the pose and the events read the same clock.
+ */
+export function clipFrameSeconds(
+  clip: GraphClip | null | undefined,
+  fps: number | null,
+): number | null {
+  return clip == null ? null : frameSeconds(clip, fps);
+}
+
 /** `playlist` placed on its pass: each step starts where the ones before it end. */
 export function timedSteps(
   playlist: readonly GraphClip[],
