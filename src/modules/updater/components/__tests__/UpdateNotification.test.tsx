@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
-import type { Update } from "@tauri-apps/plugin-updater";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PendingUpdate } from "@/lib/tauri";
 import { useDialogQueueStore, useUpdaterStore } from "@/stores";
 import { renderWithProviders } from "@/test/utils";
 
@@ -19,7 +19,7 @@ vi.mock("../../api", async (importOriginal) => ({
 const location = { pathname: "/" };
 vi.mock("@tanstack/react-router", () => ({ useLocation: () => location }));
 
-const UPDATE = { version: "1.15.0", currentVersion: "1.14.1", body: "" } as unknown as Update;
+const UPDATE: PendingUpdate = { version: "1.15.0", currentVersion: "1.14.1", body: "" };
 
 function history(): ReleaseFeed {
   return {

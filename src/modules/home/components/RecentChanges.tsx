@@ -28,7 +28,7 @@ export function RecentChanges() {
           <ReleaseSection
             pending
             version={update.version}
-            body={update.body}
+            body={update.body ?? undefined}
             action={
               <Button variant="filled" size="xs" onClick={() => setDialogOpen(true)}>
                 {m.home_release_update_action()}

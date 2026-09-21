@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Button, ExternalLink, SectionCard } from "@/components";
 import { type AppInfo, revealPath } from "@/lib/tauri";
+import { UpdateCheckRow } from "@/modules/updater";
 
 import { LicensesDialog } from "./LicensesDialog";
 
@@ -27,6 +28,9 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
               Open Log File
             </Button>
           )}
+        </div>
+        <div className="mt-3">
+          <UpdateCheckRow />
         </div>
         <p className="mt-3 text-sm text-surface-400">
           LTK Manager is part of the LeagueToolkit project. It provides a graphical interface for

@@ -1,11 +1,10 @@
 // @vitest-environment happy-dom
 
-import type { Update } from "@tauri-apps/plugin-updater";
 import { screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ReleaseNote } from "@/lib/tauri";
-import { useUpdaterStore } from "@/stores";
+import type { PendingUpdate, ReleaseNote } from "@/lib/tauri";
+import { usePlaySessionStore, useUpdaterStore } from "@/stores";
 import { renderWithProviders } from "@/test/utils";
 
 import type { ReleaseFeed, UseReleaseHistoryOptions } from "../../api";
@@ -18,11 +17,11 @@ vi.mock("../../api", async (importOriginal) => ({
   useReleaseHistory: (options: UseReleaseHistoryOptions) => useReleaseHistory(options),
 }));
 
-const UPDATE = {
+const UPDATE: PendingUpdate = {
   version: "1.15.0",
   currentVersion: "1.14.1",
   body: "## Fixes\n\n- The patcher lets go of the executable",
-} as unknown as Update;
+};
 
 function release(version: string, body: string, over: Partial<ReleaseNote> = {}): ReleaseNote {
   return {
@@ -57,10 +56,12 @@ describe("UpdateChangelogDialog", () => {
       update: UPDATE,
       dialogOpen: true,
       updating: false,
+      downloaded: false,
       progress: 0,
       error: null,
       skippedVersion: null,
     });
+    usePlaySessionStore.setState({ session: null });
   });
 
   it("names the version on offer and what it changes", () => {
@@ -83,6 +84,22 @@ describe("UpdateChangelogDialog", () => {
     expect(screen.queryByRole("button", { name: "Update Now" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  it("offers a restart once the installer is downloaded", () => {
+    useUpdaterStore.setState({ downloaded: true, progress: 100 });
+    renderWithProviders(<UpdateChangelogDialog />);
+
+    expect(screen.getByRole("button", { name: "Restart to Update" })).toBeEnabled();
+    expect(screen.getByText("Downloaded. It installs when you quit LTK Manager.")).toBeVisible();
+  });
+
+  it("holds the install while League is running", () => {
+    usePlaySessionStore.setState({ session: { phase: "Gameplay", running: true, version: null } });
+    renderWithProviders(<UpdateChangelogDialog />);
+
+    expect(screen.getByRole("button", { name: "Update Now" })).toBeDisabled();
+    expect(screen.getByText("League is running. Update once the game closes.")).toBeVisible();
   });
 
   it("turns a failed install into a retry", () => {

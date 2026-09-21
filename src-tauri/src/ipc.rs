@@ -106,6 +106,11 @@ migrated![
     // Launcher
     check_install_mismatch,
     switch_league_install,
+    // Updater
+    check_update,
+    download_update,
+    install_update,
+    discard_update,
 ];
 
 /// The builder the bindings are generated from and the handler is built out of.

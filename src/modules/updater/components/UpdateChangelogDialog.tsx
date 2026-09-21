@@ -3,19 +3,20 @@ import { DownloadIcon, SparkleIcon } from "@phosphor-icons/react";
 import { AlertBox, Button, Checkbox, Dialog, Progress } from "@/components";
 import { m } from "@/i18n";
 import {
+  usePlaySessionStore,
   useQueuedDialog,
   useUpdaterDialogOpen,
   useUpdaterDismissError,
+  useUpdaterDownloaded,
   useUpdaterError,
   useUpdaterProgress,
   useUpdaterSetDialogOpen,
-  useUpdaterSetSkipVersion,
   useUpdaterSkippedVersion,
   useUpdaterUpdate,
   useUpdaterUpdating,
 } from "@/stores";
 
-import { useInstallUpdate } from "../api";
+import { useInstallUpdate, useSkipVersion } from "../api";
 import { ReleaseHistory } from "./ReleaseHistory";
 import { ReleaseSection } from "./ReleaseSection";
 
@@ -23,18 +24,24 @@ export function UpdateChangelogDialog() {
   const update = useUpdaterUpdate();
   const dialogOpen = useUpdaterDialogOpen();
   const setDialogOpen = useUpdaterSetDialogOpen();
-  const downloadAndInstall = useInstallUpdate();
+  const install = useInstallUpdate();
   const updating = useUpdaterUpdating();
+  const downloaded = useUpdaterDownloaded();
+  const leagueRunning = usePlaySessionStore((s) => s.session?.running === true);
   const progress = useUpdaterProgress();
   const error = useUpdaterError();
   const dismissError = useUpdaterDismissError();
   const skippedVersion = useUpdaterSkippedVersion();
-  const setSkipVersion = useUpdaterSetSkipVersion();
+  const setSkipVersion = useSkipVersion();
   const showing = useQueuedDialog("update", dialogOpen && update !== null);
   if (!update) return null;
 
   const skipped = skippedVersion === update.version;
-  const installLabel = error ? m.updater_install_retry_action() : m.updater_install_action();
+  const installLabel = error
+    ? m.updater_install_retry_action()
+    : downloaded
+      ? m.updater_restart_action()
+      : m.updater_install_action();
 
   return (
     <Dialog.Root open={showing} onOpenChange={updating ? undefined : setDialogOpen}>
@@ -70,6 +77,14 @@ export function UpdateChangelogDialog() {
               </AlertBox>
             )}
 
+            {leagueRunning && !updating && (
+              <AlertBox variant="info">{m.updater_league_running_hint()}</AlertBox>
+            )}
+
+            {downloaded && !updating && !skipped && (
+              <p className="text-sm text-surface-400">{m.updater_install_on_quit_hint()}</p>
+            )}
+
             {updating && (
               <div className="flex flex-col gap-1.5">
                 <Progress.Root
@@ -86,7 +101,7 @@ export function UpdateChangelogDialog() {
             )}
 
             <div className="-mx-2 flex-1 overflow-y-auto px-2 select-none">
-              <ReleaseSection pending version={update.version} body={update.body} />
+              <ReleaseSection pending version={update.version} body={update.body ?? undefined} />
               <ReleaseHistory enabled={showing} excludeVersion={update.version} />
             </div>
           </Dialog.Body>
@@ -106,7 +121,8 @@ export function UpdateChangelogDialog() {
                 <Button
                   variant="filled"
                   left={<DownloadIcon weight="bold" className="h-4 w-4" />}
-                  onClick={downloadAndInstall}
+                  disabled={leagueRunning}
+                  onClick={install}
                 >
                   {installLabel}
                 </Button>

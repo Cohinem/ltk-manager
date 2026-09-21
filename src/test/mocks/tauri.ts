@@ -36,7 +36,3 @@ vi.mock("@tauri-apps/plugin-process", () => ({
   exit: vi.fn(),
   relaunch: vi.fn(),
 }));
-
-vi.mock("@tauri-apps/plugin-updater", () => ({
-  check: vi.fn(),
-}));

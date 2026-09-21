@@ -148,7 +148,17 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     crate::telemetry::refresh_from_document(&app_handle);
 
+    app.manage(crate::updater::UpdaterState::default());
     crate::tray::setup(app)?;
+
+    if let Some(window) = app_handle.get_webview_window("main") {
+        let app = app_handle.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                crate::updater::install_on_quit(&app);
+            }
+        });
+    }
 
     #[cfg(target_os = "macos")]
     {

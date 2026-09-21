@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 
 import { open } from "@tauri-apps/plugin-shell";
-import type { Update } from "@tauri-apps/plugin-updater";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -327,7 +326,7 @@ describe("Home", () => {
 
     it("draws a pending update first, with an Update button that opens the dialog", async () => {
       useUpdaterStore.setState({
-        update: { version: "1.16.0", body: "- Something new" } as unknown as Update,
+        update: { version: "1.16.0", currentVersion: "1.15.0", body: "- Something new" },
       });
       renderWithProviders(<Home />);
 
