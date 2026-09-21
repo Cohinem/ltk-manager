@@ -1,6 +1,8 @@
 import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useCallback, useEffect, useMemo } from "react";
 
+import { useCopyToClipboard } from "@/hooks";
+import { m } from "@/i18n";
 import {
   api,
   type AppError,
@@ -29,20 +31,36 @@ const rowDeclarationQuery = (document: BinDocumentId | null, entry: string, path
   queryOptions<RowDeclaration, AppError>({
     queryKey: ["bin-row-declaration", document, entry, path],
     queryFn:
-      document === null || path.length === 0
+      document === null
         ? skipToken
         : async () => unwrapForQuery(await api.bin.rowDeclaration(document, entry, path)),
     staleTime: 0,
     retry: false,
   });
 
-/** The row as the declaration and the reference an author writes, or null while unanswered. */
+/**
+ * The row as the declaration and the reference an author writes, or null while unanswered.
+ * An empty path is the object itself.
+ */
 export function useRowDeclaration(
   document: BinDocumentId | null,
   entry: string,
   path: string,
 ): RowDeclaration | null {
   return useQuery(rowDeclarationQuery(document, entry, path)).data ?? null;
+}
+
+/** Copy a row's declaration, saying how much of it is left as the game has it. */
+export function useCopyDeclaration(): (declaration: RowDeclaration) => void {
+  const copy = useCopyToClipboard();
+  return (declaration) => {
+    if (declaration.declaration === null) return;
+    const left =
+      declaration.skipped > 0
+        ? m.workshop_bin_declaration_skipped_hint({ count: declaration.skipped })
+        : undefined;
+    void copy(declaration.declaration, m.workshop_bin_declaration_label(), left);
+  };
 }
 
 /**

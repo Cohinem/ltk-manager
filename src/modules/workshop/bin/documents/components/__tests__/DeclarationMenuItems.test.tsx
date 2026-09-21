@@ -62,7 +62,7 @@ function Menu({ declares, row = ROW }: { declares: boolean; row?: BinRow }) {
 }
 
 let spelled: RowDeclaration;
-const writeText = vi.fn(() => Promise.resolve());
+const writeText = vi.fn((_text: string) => Promise.resolve());
 
 async function openMenu() {
   const user = userEvent.setup();
@@ -73,7 +73,11 @@ async function openMenu() {
 }
 
 beforeEach(() => {
-  spelled = { declaration: "- entries:\n    A:\n      resourceMap: {}", reference: REFERENCE };
+  spelled = {
+    declaration: "- entries:\n    A:\n      resourceMap: {}",
+    reference: REFERENCE,
+    skipped: 0,
+  };
   useCopiedReferenceStore.setState({ reference: null });
   writeText.mockClear();
   mockInvoke.mockReset();
@@ -102,7 +106,7 @@ describe("the declaration actions of a row", () => {
   });
 
   it("disables Copy as declaration with its reason where the value has no spelling", async () => {
-    spelled = { declaration: null, reference: REFERENCE };
+    spelled = { declaration: null, reference: REFERENCE, skipped: 0 };
     render(<Menu declares={false} />);
     await openMenu();
 
@@ -146,5 +150,41 @@ describe("the declaration actions of a row", () => {
 
     await screen.findByRole("menuitem", { name: "Paste reference" });
     expect(screen.queryByRole("menuitem", { name: "Merge reference" })).toBeNull();
+  });
+
+  it("copies an object as its entry, and offers no reference or paste on it", async () => {
+    spelled = {
+      declaration: "- entries:\n    A:\n      championSkinName: Teemo",
+      reference: null,
+      skipped: 2,
+    };
+    useCopiedReferenceStore.setState({ reference: REFERENCE });
+    const object: BinRow = { ...ROW, path: "", node: "object", kind: null };
+    render(<Menu declares row={object} />);
+    const user = await openMenu();
+
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Copy as declaration" })).not.toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    expect(screen.queryByRole("menuitem", { name: "Copy reference" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Paste reference" })).toBeNull();
+    await user.click(screen.getByRole("menuitem", { name: "Copy as declaration" }));
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("- entries:\n    A:\n      championSkinName: Teemo"),
+    );
+    expect(
+      await screen.findByText(
+        "2 fields or entries no declaration can spell are left as the game has them",
+      ),
+    ).toBeInTheDocument();
+    expect(mockInvoke).toHaveBeenCalledWith("bin_row_declaration", {
+      document: DOCUMENT,
+      entry: ROW.entry,
+      path: "",
+    });
   });
 });
