@@ -27,6 +27,7 @@ function constant(...values: number[]) {
 
 function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
   return {
+    emissionSurface: null,
     index: 0,
     simple: false,
     listIndex: 0,

@@ -446,6 +446,9 @@ describe("ARBITRARY_UV", () => {
         alignPitch: false,
         alignYaw: false,
         skinned: false,
+        skeleton: null,
+        animation: null,
+        animationVariants: [],
       },
     ).getAttribute("position");
     const bulge = turned([0, 1, 0], [blade.getX(0), blade.getY(0), blade.getZ(0)]);

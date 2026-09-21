@@ -58,7 +58,7 @@ function collect(
 ): void {
   const set = parent.childSet;
   if (set === null || parent.disabled || depth > MAX_CHILD_DEPTH) return;
-  if (set.bones.length > 0 && !posed) return;
+  if (set.bones.length > 0 && !posed && !parent.mesh?.skinned) return;
 
   set.children.forEach((child, slot) => {
     if (child === null) return;

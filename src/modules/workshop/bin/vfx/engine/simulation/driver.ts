@@ -9,6 +9,7 @@ import {
   phaseAt,
   type Point,
   type RigModel,
+  type Joints,
   runLength,
   targetAt,
 } from "../model/rig";
@@ -24,6 +25,7 @@ import {
   feedOf,
   snapshotByteLength,
 } from "./children";
+import type { EmissionSurfaces } from "./emissionSurface";
 import {
   copyEmitterStates,
   createEmitterStates,
@@ -203,6 +205,8 @@ export interface Driver extends Source {
   restart(): void;
   /** Read every birth's tables at `chance` from here on, and at its own draw again for null. */
   pin(chance: number | null): void;
+  setSurfaces(surfaces: EmissionSurfaces): void;
+  setMeshJoints(joints: ReadonlyMap<string, Joints>): void;
   /** Draw the next appearance pass from `next`, keeping the particles already alive. */
   swap(next: SystemModel): void;
   /** Carry the system on `next`, restarting the run where the motion itself changed. */
@@ -294,6 +298,7 @@ export function createDriver(
         world: world.basis,
         stopped: (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached),
         pinned: lineage.pinned,
+        surfaces: lineage.surfaces,
       };
 
       stepEmitters(pool, system, placed, rng, states);
@@ -401,6 +406,7 @@ export function createDriver(
         world: world.basis,
         stopped: false,
         pinned: lineage.pinned,
+        surfaces: lineage.surfaces,
       };
       stepEmitters(pool, system, placed, rng, states);
       children.step(driver, system, SEEK_STEP, now);
@@ -475,6 +481,26 @@ export function createDriver(
     pin(chance) {
       lineage.pinned = chance;
       marks.clear();
+    },
+    setSurfaces(surfaces) {
+      if (lineage.surfaces === surfaces) return;
+      lineage.surfaces = surfaces;
+      const time = stepper.now;
+      rewind();
+      const steps = Math.min(SEEK_STEPS, Math.floor(time / SEEK_STEP));
+      for (let at = 0; at < steps; at += 1) run(SEEK_STEP);
+    },
+    setMeshJoints(joints) {
+      if (lineage.meshJoints === joints) return;
+
+      lineage.meshJoints = joints;
+      const time = stepper.now;
+      rewind();
+
+      const steps = Math.min(SEEK_STEPS, Math.floor(time / SEEK_STEP));
+      for (let at = 0; at < steps; at += 1) {
+        run(SEEK_STEP);
+      }
     },
 
     /*

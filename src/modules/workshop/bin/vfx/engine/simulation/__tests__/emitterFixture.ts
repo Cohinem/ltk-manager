@@ -38,6 +38,7 @@ export function emitterOf(index: number, over: Partial<EmitterModel> = {}): Emit
     emitterPosition: flat(0, 0, 0),
     emitterSpace: false,
     shape: POINT_SHAPE,
+    emissionSurface: null,
     rotationOverride: [0, 0, 0],
     scaleOverride: [1, 1, 1],
     translationOverride: [0, 0, 0],

@@ -107,6 +107,7 @@ function fakeRun(over: Partial<VfxRun> = {}): VfxRun {
   driver.swap(SYSTEM);
   return {
     system: SYSTEM,
+    document: 1,
     error: null,
     pending: false,
     driver,

@@ -77,6 +77,7 @@ function keyed(...keys: [number, ...number[]][]): ValueCurve {
 
 function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
   return {
+    emissionSurface: null,
     index: 0,
     simple: false,
     listIndex: 0,

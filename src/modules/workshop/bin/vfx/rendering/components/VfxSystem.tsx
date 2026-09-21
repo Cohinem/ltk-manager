@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
-import { useSceneColors } from "@/modules/viewport";
+import { jointAnchor, useSceneColors } from "@/modules/viewport";
 import type { PreviewWireframe } from "@/stores";
 
+import type { Joints } from "../../engine/model/rig";
 import type { Driver } from "../../engine/simulation/driver";
 import type { Source } from "../../engine/simulation/particleRead";
+import { useEmissionSurfaces } from "../hooks/useEmissionSurfaces";
 import type { EmitterMeshes } from "../hooks/useVfxMeshes";
 import { samplersOf, type VfxTextures } from "../hooks/useVfxTextures";
 import { WireframeContext } from "../state/wire";
@@ -52,6 +54,26 @@ export function VfxSystem({
   wireframe = "off",
   room,
 }: VfxSystemProps) {
+  useEmissionSurfaces(drawn, driver);
+  const joints = useMemo(() => {
+    const held = new Map<string, Joints>();
+    for (const [key, buffers] of meshes) {
+      const pose = buffers.pose?.source;
+      if (pose === undefined) continue;
+
+      held.set(key, (name) => {
+        const slot = pose.jointNamed(name);
+        return slot < 0 ? null : jointAnchor(pose, slot, [0, 0, 0], 1);
+      });
+    }
+
+    return held;
+  }, [meshes]);
+
+  useEffect(() => {
+    driver.setMeshJoints(joints);
+  }, [driver, joints]);
+
   const rootSources = useMemo(() => [driver], [driver]);
   const sourcesOf = (definition: DrawnEmitter): readonly Source[] =>
     definition.path === "" ? rootSources : driver.sources(definition.path);

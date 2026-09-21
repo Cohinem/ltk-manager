@@ -32,6 +32,13 @@ embedded snapshot already matches.
 
 ## Code Style
 
+**Separate logical steps with blank lines.** In every language, group statements that serve
+one purpose and leave a blank line when the context changes: setup, validation, loading,
+transformation, side effects, or the final result. Keep a guard beside the value it checks.
+Separate function declarations, and give nested loops and branches the same logical spacing.
+Expand compound control flow into braced blocks. Apply this to new and changed code, and
+review the grouping after formatting, since a formatter cannot identify context boundaries.
+
 Avoid trivially descriptive comments. Only comment non-obvious business logic, workarounds, edge cases, or a decision the code cannot show. Document all public Rust APIs with `///` doc comments.
 
 **A comment explains the code, not the product.** The test is whether deleting it would let a

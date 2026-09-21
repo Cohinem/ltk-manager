@@ -35,6 +35,7 @@ import { CameraMenu } from "./CameraMenu";
 import { Notice } from "./Notice";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
+import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
 import { WireframeMenu } from "./WireframeMenu";
 
 export interface VfxViewportProps {
@@ -67,6 +68,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const drawn = useMemo(() => (system === null ? [] : drawnEmitters(system)), [system]);
   const textures = useVfxTextures(drawn);
   const meshes = useVfxMeshes(drawn);
+  const host = useVfxHost();
 
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
@@ -120,14 +122,16 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >
           <Passes warps={warps} softens={softens} />
-          <VfxSystem
-            drawn={drawn}
-            driver={driver}
-            textures={textures}
-            meshes={meshes}
-            hiddenOf={hiddenOf}
-            wireframe={wireframe}
-          />
+          <VfxHost host={host}>
+            <VfxSystem
+              drawn={drawn}
+              driver={driver}
+              textures={textures}
+              meshes={meshes}
+              hiddenOf={hiddenOf}
+              wireframe={wireframe}
+            />
+          </VfxHost>
           <Fit token={fitRequest} system={system} drawn={drawn} rig={rig.rig} />
           {gizmo && opened !== null && (
             <EmitterGizmo system={system} driver={driver} emitter={opened} />
@@ -182,7 +186,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
               })}
             </span>
           )}
-          {attached > 0 && (
+          {attached > 0 && !host.ready && (
             <span className="rounded-sm bg-surface-veil px-1.5 py-0.5 text-meta text-surface-400">
               {m.workshop_bin_preview_attachment_hint({ count: attached })}
             </span>
@@ -192,6 +196,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
         {stats && <Stats feed={feed} />}
       </div>
 
+      <VfxHostControls host={host} />
       {transport === "mini" && (
         <RunTransport variant="mini" className="border-t border-surface-700/50" />
       )}
