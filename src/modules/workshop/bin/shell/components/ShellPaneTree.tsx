@@ -1,15 +1,20 @@
 import { CheckIcon, ColumnsIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import { Button, Menu, RetainedContent } from "@/components";
 import { m } from "@/i18n";
 import {
+  type LayoutNode,
   LeafDropZones,
   leafHolding,
   type LeafNode,
+  leaves,
   PaneStrip,
+  PortalSlot,
   SplitLayout,
   TabDndProvider,
+  usePortalHosts,
 } from "@/modules/editor";
 import { twMerge } from "@/utils";
 
@@ -62,6 +67,10 @@ interface ShellPaneTreeProps<K extends ShellKind> {
  *
  * A pane is a tab of a leaf, so the same drag that moves a document between
  * editor groups moves a pane between panels, and the same seam resizes one.
+ *
+ * Each body renders here, into a portal host its panel adopts, rather than inside the
+ * panel. Closing, maximizing or moving a pane rebuilds the panels, and a body mounted
+ * in one would take the preview's WebGL context and every upload with it.
  */
 export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneTreeProps<K>) {
   const tree = useShellLayout(kind);
@@ -69,6 +78,8 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
   const setSplitLayout = useSetShellSplitLayout(kind);
   const maximizedLeafId = useShellMaximizedLeaf(kind);
   const restoreMaximized = useRestoreMaximizedShellLeaf(kind);
+  const hostOf = usePortalHosts();
+  const bodies: Partial<Record<ShellPaneId, ShellPane>> = content;
 
   return (
     <TabDndProvider tree={tree} onDrop={applyDrop} overlay={PaneGhost}>
@@ -76,11 +87,43 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
         node={tree}
         seamVariant="gap"
         onLayoutChanged={setSplitLayout}
-        renderLeaf={(leaf) => <PaneLeaf key={leaf.id} kind={kind} leaf={leaf} content={content} />}
+        renderLeaf={(leaf) => (
+          <PaneLeaf key={leaf.id} kind={kind} leaf={leaf} content={content} hostOf={hostOf} />
+        )}
         maximizedLeafId={maximizedLeafId}
         onRestore={restoreMaximized}
       />
+      {/* After the tree, so a panel has adopted its host before a body's layout effects run. */}
+      {heldPanes(tree, maximizedLeafId).map(({ pane, shown }) => {
+        const focus = () => bodies[pane]?.onFocus?.();
+        return createPortal(
+          <RetainedContent
+            active={shown}
+            defer
+            className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
+            onPointerDownCapture={focus}
+            onFocusCapture={focus}
+          >
+            {bodies[pane]?.body}
+          </RetainedContent>,
+          hostOf(pane),
+          pane,
+        );
+      })}
     </TabDndProvider>
+  );
+}
+
+/** Every pane the tree holds, and whether it is the front tab of a panel on screen. */
+function heldPanes(
+  tree: LayoutNode,
+  maximizedLeafId: string | null,
+): { pane: ShellPaneId; shown: boolean }[] {
+  return leaves(tree).flatMap((leaf) =>
+    leaf.tabs.filter(isShellPaneId).map((pane) => ({
+      pane,
+      shown: leaf.activeTab === pane && (maximizedLeafId === null || maximizedLeafId === leaf.id),
+    })),
   );
 }
 
@@ -94,12 +137,13 @@ function PaneGhost(paneId: string) {
   );
 }
 
-/** One panel of the tree: its strip, and whichever of its panes is open. */
+/** One panel of the tree: its strip, and the hosts its panes' bodies render into. */
 function PaneLeaf<K extends ShellKind>({
   kind,
   leaf,
   content,
-}: { leaf: LeafNode } & ShellPaneTreeProps<K>) {
+  hostOf,
+}: { leaf: LeafNode; hostOf: (pane: ShellPaneId) => HTMLElement } & ShellPaneTreeProps<K>) {
   const panes = useShellPanes(kind, leaf.id);
   const active = useShellActivePane(kind, leaf.id);
   const activate = useActivateShellPane(kind);
@@ -132,14 +176,7 @@ function PaneLeaf<K extends ShellKind>({
         />
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {panes.map((pane) => (
-            <RetainedContent
-              key={pane}
-              active={pane === active}
-              defer
-              className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
-            >
-              {bodies[pane]?.body}
-            </RetainedContent>
+            <PortalSlot key={pane} host={hostOf(pane)} />
           ))}
           {active === null && <NoPanes />}
         </div>

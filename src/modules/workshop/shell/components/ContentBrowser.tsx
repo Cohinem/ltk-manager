@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Group, Panel } from "react-resizable-panels";
 
 import { Spinner } from "@/components";
@@ -7,10 +8,12 @@ import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import {
   type DropOutcome,
   type LeafNode,
+  PortalSlot,
   Seam,
   SplitLayout,
   TabDndProvider,
   TabGlyph,
+  usePortalHosts,
 } from "@/modules/editor";
 import {
   useBrowserSplit,
@@ -68,6 +71,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const selectedLayerName = useSelectedLayerName();
   const maximizedLeafId = useMaximizedLeafId();
   const restoreMaximized = useRestoreMaximizedLeaf();
+  const hostOf = usePortalHosts();
 
   const contentLayers = useMemo<readonly LayerContent[]>(() => data?.layers ?? [], [data]);
 
@@ -197,7 +201,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       minSize={360}
       className="flex h-full min-h-0 w-full min-w-0 flex-col"
     >
-      {surface}
+      <PortalSlot host={hostOf("surface")} />
     </Panel>
   );
 
@@ -231,7 +235,10 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
           {panels}
         </Group>
       )}
-      {!layerPanelOpen && surface}
+      {!layerPanelOpen && <PortalSlot host={hostOf("surface")} />}
+      {/* Rendered once and adopted by whichever slot stands, so the rail's toggle and a
+          side flip leave every open document mounted. */}
+      {createPortal(surface, hostOf("surface"))}
 
       {layerPanelSide === "right" && <SidebarRail />}
       <LayerFileDropOverlay visible={showDropOverlay} layerDisplayName={selectedLayerDisplayName} />
