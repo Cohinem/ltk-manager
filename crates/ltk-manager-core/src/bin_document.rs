@@ -30,7 +30,7 @@ pub(crate) mod resolve;
 
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredMark,
-    DeclaredSign, DeclaredState, GameCopy, SkipReason,
+    DeclaredSign, DeclaredState, GameCopy, RowDeclaration, SkipReason,
 };
 pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
@@ -518,6 +518,27 @@ impl BinDocuments {
         layer: &str,
     ) -> Result<DeclaredState, BinDocumentError> {
         self.held(id)?.1.write().declare_into(layer)
+    }
+
+    /// Declare the row at `path` under `entry` of the document under `id` as the game-copy
+    /// reference `reference`, or with `merge` add it to the row's list or map.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, and with what
+    /// [`BinDocument::declare_reference`] raises.
+    pub fn declare_reference(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+        reference: &str,
+        merge: bool,
+    ) -> Result<(), BinDocumentError> {
+        self.held(id)?
+            .1
+            .write()
+            .declare_reference(entry, path, reference, merge)
     }
 
     /// Revert the latest edit of the document under `id`, answering whether one was held.

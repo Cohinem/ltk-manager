@@ -14,6 +14,7 @@ import {
 } from "../../links/hooks/useLinkTargets";
 import { useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
 import { BinEditContext, type TreeFocus, useBinEditor } from "../hooks/useBinEdit";
+import { RowDocumentContext } from "../state/rowFold";
 
 interface TreeContextsProps {
   /** The open's id, which every read carries. */
@@ -57,7 +58,9 @@ export function TreeContexts({
           <LinkOpenContext value={linkOpen}>
             <ValueMarksContext value={marks}>
               <DeclaredRowsContext value={declared}>
-                <BinEditContext value={edit}>{children}</BinEditContext>
+                <RowDocumentContext value={document}>
+                  <BinEditContext value={edit}>{children}</BinEditContext>
+                </RowDocumentContext>
               </DeclaredRowsContext>
             </ValueMarksContext>
           </LinkOpenContext>

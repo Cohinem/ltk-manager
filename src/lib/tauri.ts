@@ -130,6 +130,7 @@ export type {
   ObjectName,
   PropertyKind,
   ReadOnly,
+  RowDeclaration,
   RowNode,
   SkipReason,
 } from "@/lib/bindings.gen";
@@ -515,6 +516,15 @@ export const api = {
     declared: (document: BinDocumentId) => commands.binDeclared(document).then(toResult),
     declareInto: (document: BinDocumentId, layer: string) =>
       commands.binDeclareInto(document, layer).then(toResult),
+    rowDeclaration: (document: BinDocumentId, entry: string, path: string) =>
+      commands.binRowDeclaration(document, entry, path).then(toResult),
+    declareReference: (
+      document: BinDocumentId,
+      entry: string,
+      path: string,
+      reference: string,
+      merge: boolean,
+    ) => commands.binDeclareReference(document, entry, path, reference, merge).then(toResult),
     roots: (document: BinDocumentId) => commands.binRoots(document).then(toResult),
     addableFields: (document: BinDocumentId, entry: string, path: string) =>
       commands.binAddableFields(document, entry, path).then(toResult),

@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useCallback, useEffect, useMemo } from "react";
 
 import {
@@ -8,6 +8,7 @@ import {
   type DeclaredDiagnostic,
   type DeclaredMark,
   type DeclaredState,
+  type RowDeclaration,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -23,6 +24,26 @@ const declaredQuery = (document: BinDocumentId) =>
     staleTime: Infinity,
     retry: false,
   });
+
+const rowDeclarationQuery = (document: BinDocumentId | null, entry: string, path: string) =>
+  queryOptions<RowDeclaration, AppError>({
+    queryKey: ["bin-row-declaration", document, entry, path],
+    queryFn:
+      document === null || path.length === 0
+        ? skipToken
+        : async () => unwrapForQuery(await api.bin.rowDeclaration(document, entry, path)),
+    staleTime: 0,
+    retry: false,
+  });
+
+/** The row as the declaration and the reference an author writes, or null while unanswered. */
+export function useRowDeclaration(
+  document: BinDocumentId | null,
+  entry: string,
+  path: string,
+): RowDeclaration | null {
+  return useQuery(rowDeclarationQuery(document, entry, path)).data ?? null;
+}
 
 /**
  * What a declared document says beside its rows, or null for a document that declares

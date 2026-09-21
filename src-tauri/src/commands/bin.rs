@@ -15,7 +15,7 @@ use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{
     AddableFields, BinDocumentHandle, BinDocumentId, BinDocuments, BinFindResult, BinRow, BinRows,
     ClassChoice, DeclareContext, DeclaredState, GameCopy, LeafValue, NewItem, NewProperty,
-    ProjectNames, RowNames,
+    ProjectNames, RowDeclaration, RowNames,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
@@ -536,6 +536,51 @@ pub async fn bin_declare_into(
         Ok(app_handle
             .state::<BinDocuments>()
             .declare_into(document, &layer)?)
+    })
+    .await
+}
+
+/// The row at `path` under `entry` as the declaration and the game-copy reference an author
+/// would write for it, from any open bin. ADR-0042.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_row_declaration(
+    document: BinDocumentId,
+    entry: String,
+    path: String,
+    app_handle: AppHandle,
+) -> IpcResult<RowDeclaration> {
+    off_thread(move || {
+        let entry = parse_hash(&entry)
+            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
+        let bin = app_handle.state::<BinHashTablesState>().get();
+        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
+        let names = CacheNames::new(&bin, &wad);
+        app_handle.state::<BinDocuments>().read(document, |open| {
+            Ok(open.row_declaration(entry, &path, &names)?)
+        })
+    })
+    .await
+}
+
+/// Declare the row at `path` under `entry` of a declared document as `reference`, a game-copy
+/// reference, or with `merge` add it to the row's list or map. ADR-0042.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_declare_reference(
+    document: BinDocumentId,
+    entry: String,
+    path: String,
+    reference: String,
+    merge: bool,
+    app_handle: AppHandle,
+) -> IpcResult<()> {
+    off_thread(move || {
+        let entry = parse_hash(&entry)
+            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
+        Ok(app_handle
+            .state::<BinDocuments>()
+            .declare_reference(document, entry, &path, &reference, merge)?)
     })
     .await
 }

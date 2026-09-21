@@ -83,6 +83,16 @@ export const commands = {
 	/**  Write the edits that follow on a declared document to `layer`. ADR-0042. */
 	binDeclareInto: (document: BinDocumentId, layer: string) => __TAURI_INVOKE<({ ok: true; value: DeclaredState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_into", { document, layer }),
 	/**
+	 *  The row at `path` under `entry` as the declaration and the game-copy reference an author
+	 *  would write for it, from any open bin. ADR-0042.
+	 */
+	binRowDeclaration: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: RowDeclaration }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_row_declaration", { document, entry, path }),
+	/**
+	 *  Declare the row at `path` under `entry` of a declared document as `reference`, a game-copy
+	 *  reference, or with `merge` add it to the row's list or map. ADR-0042.
+	 */
+	binDeclareReference: (document: BinDocumentId, entry: string, path: string, reference: string, merge: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_reference", { document, entry, path, reference, merge }),
+	/**
 	 *  The fields the holder at `path` of an open document can take, out of the meta schema.
 	 * 
 	 *  `path` is empty for the object itself. The fields are the ones the holder's class and
@@ -998,6 +1008,8 @@ export type DeclaredMark = {
 	sign: DeclaredSign,
 	/**  The declaration sets a whole list or map, which no later change of the game's reaches. */
 	whole: boolean,
+	/**  The game-copy reference the declaration's value is, `<entry>:<property path>`. */
+	reference: string | null,
 	/**
 	 *  The game's value as a declaration spells it. Absent where the game holds none, and
 	 *  for a value that does not render.
@@ -2471,6 +2483,17 @@ export type Revision = {
 	/**  Milliseconds since the Unix epoch, or 0 where the platform has no time. */
 	modifiedMs: number,
 	size: number,
+};
+
+/**
+ *  What a row copies as. Each half is absent where the row has no spelling for it: the object
+ *  row itself, a path through a field no table names, and a value holding such a field.
+ */
+export type RowDeclaration = {
+	/**  An `entries` module setting the row to its value, as it stands under `modules`. */
+	declaration: string | null,
+	/**  The row as a game-copy reference, `<entry>:<property path>`. */
+	reference: string | null,
 };
 
 /**  Where a row sits in the tree. */
