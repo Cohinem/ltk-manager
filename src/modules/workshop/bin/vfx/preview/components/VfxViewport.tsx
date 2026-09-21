@@ -83,6 +83,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const feed = useMemo(createStatsFeed, []);
 
   const undrawn = useMemo(() => undrawnKinds(system), [system]);
+  const customMaterials = drawn.filter(({ emitter }) => emitter.customMaterial !== null).length;
   const attached = useMemo(() => attachmentCount(system), [system]);
   const warps = useMemo(() => (system?.emitters ?? []).some(distorts), [system]);
   const softens = useMemo(() => drawn.some((definition) => fades(definition.emitter)), [drawn]);
@@ -189,6 +190,11 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           {attached > 0 && !host.ready && (
             <span className="rounded-sm bg-surface-veil px-1.5 py-0.5 text-meta text-surface-400">
               {m.workshop_bin_preview_attachment_hint({ count: attached })}
+            </span>
+          )}
+          {customMaterials > 0 && (
+            <span className="rounded-sm bg-surface-veil px-1.5 py-0.5 text-meta text-warning-text">
+              {m.workshop_bin_preview_custom_material_hint({ count: customMaterials })}
             </span>
           )}
         </div>

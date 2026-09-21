@@ -13,6 +13,7 @@ const SYSTEM_CLASS = nameHash("VfxSystemDefinitionData");
 /** An emitter read off an empty struct, so every field is the schema's default. */
 function emitterAt(index: number, over: Partial<EmitterModel> = {}): EmitterModel {
   const [read] = readVfxSystem({
+    materials: [],
     entry: "0x1",
     name: null,
     classHash: SYSTEM_CLASS,

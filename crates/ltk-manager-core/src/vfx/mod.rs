@@ -11,6 +11,7 @@ pub use resolve::{MAX_DEPTH, MAX_NODES, resolve_system};
 
 use serde::Serialize;
 
+use crate::material::MaterialPreview;
 use crate::preview::AssetRef;
 
 /// One particle system, as the renderer reads it.
@@ -30,6 +31,8 @@ pub struct VfxSystem {
     pub class: Option<String>,
     /// The object's own properties, resolved. Always a [`VfxValue::Struct`].
     pub root: VfxValue,
+    /// Static previews of custom materials referenced by this system and its children.
+    pub materials: Vec<MaterialPreview>,
 }
 
 /// A value of a resolved system's tree.

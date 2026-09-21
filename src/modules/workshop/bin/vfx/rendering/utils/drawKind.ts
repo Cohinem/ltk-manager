@@ -69,6 +69,10 @@ export function drawsAsQuad(emitter: EmitterModel): boolean {
  * docs/plans/vfx-particle-renderer.md.
  */
 export function distorts(emitter: EmitterModel): boolean {
+  if (emitter.customMaterial != null && !emitter.customMaterial.missing) {
+    return false;
+  }
+
   return emitter.distortion !== null;
 }
 

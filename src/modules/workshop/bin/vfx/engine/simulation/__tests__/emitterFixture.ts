@@ -16,6 +16,7 @@ export function flat(...constant: number[]): ValueCurve {
 /** An emitter of the opened system at `index`, spawning nothing, with `over` written on it. */
 export function emitterOf(index: number, over: Partial<EmitterModel> = {}): EmitterModel {
   return {
+    customMaterial: null,
     index,
     simple: false,
     listIndex: index,

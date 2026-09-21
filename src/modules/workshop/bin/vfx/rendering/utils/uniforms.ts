@@ -1,5 +1,7 @@
 import type { Texture } from "three";
 
+import type { MaterialPreview } from "@/lib/tauri";
+
 import { type BlendMode, UV_MODE, type UvMode } from "../../engine/model/enums";
 import type {
   DistortionModel,
@@ -56,6 +58,7 @@ export const OVERLAY: DepthBias = [-1, -1];
 
 /** The two texture layers one emitter samples, and the second one's own texture. */
 export interface QuadLayers {
+  readonly customMaterial?: MaterialPreview | null;
   readonly base: UvLayer;
   /** `textureMult`, and null for an emitter carrying no second layer. */
   readonly mult: UvLayer | null;
@@ -99,6 +102,7 @@ export function layersOf(
   draws: LayerDraws,
 ): QuadLayers {
   return {
+    customMaterial: emitter.customMaterial,
     base: emitter.uv,
     mult: emitter.multUv,
     multTexture: samplers.mult,
