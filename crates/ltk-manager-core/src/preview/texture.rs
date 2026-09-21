@@ -144,7 +144,7 @@ pub fn info(bytes: &[u8]) -> Result<TextureInfo, PreviewError> {
 /// Mip dimensions halve per level with a floor of 1, in both containers. A
 /// `mip_count` past what the width halves into is the header's claim and the
 /// decoder's to report.
-fn level_for(width: u32, mip_count: u32, min_width: Option<NonZeroU32>) -> u32 {
+pub(super) fn level_for(width: u32, mip_count: u32, min_width: Option<NonZeroU32>) -> u32 {
     let Some(min_width) = min_width else {
         return 0;
     };
@@ -160,7 +160,7 @@ fn level_for(width: u32, mip_count: u32, min_width: Option<NonZeroU32>) -> u32 {
 ///
 /// A mip that runs past the data the file holds is a truncated file, which is
 /// the user's rather than a bug in this program.
-fn decode_mipmap(texture: &Texture, level: u32) -> Result<Surface<'_>, PreviewError> {
+pub(super) fn decode_mipmap(texture: &Texture, level: u32) -> Result<Surface<'_>, PreviewError> {
     match texture.decode_mipmap(level) {
         Ok(surface) => Ok(surface),
         Err(DecompressError::Tex(DecodeErr::MipOutOfBounds { .. })) => Err(PreviewError::Truncated),

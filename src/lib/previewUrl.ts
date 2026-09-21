@@ -39,6 +39,15 @@ export function previewBufferUrl(asset: AssetRef, form: PreviewForm): string {
 }
 
 /**
+ * The URL a texture's own mip chain arrives on, from the smallest mipmap at least
+ * `minWidth` wide down, in the layout `crates/ltk-manager-core/src/preview/mips.rs` documents.
+ */
+export function previewMipsUrl(asset: AssetRef, minWidth?: number): string {
+  const url = `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=mips`;
+  return minWidth === undefined ? url : `${url}&${WIDTH_PARAMETER}=${minWidth}`;
+}
+
+/**
  * The URL a cube map's six faces arrive on, as one image stacked top to bottom.
  *
  * The faces keep the order a DDS stores them in, which is the order `CubeTexture` takes.

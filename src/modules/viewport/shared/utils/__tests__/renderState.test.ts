@@ -57,10 +57,11 @@ describe("applyRenderState", () => {
     expect(material.blending).toBe(AdditiveBlending);
   });
 
-  /* The whole point of the class: a cutout clips rather than blends, so the depth buffer
-     resolves it and the backdrop owes no sort. */
-  it("keeps a cutout out of the transparent queue although it blends", () => {
-    expect(applied({ blending: "normal", cutout: true }).transparent).toBe(false);
+  it("sorts a cutout with the blended passes, one pass per side", () => {
+    const material = applied({ blending: "normal", cutout: true });
+
+    expect(material.transparent).toBe(true);
+    expect(material.forceSinglePass).toBe(true);
   });
 
   it("modulates by one minus the source colour", () => {

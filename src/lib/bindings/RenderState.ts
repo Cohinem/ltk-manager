@@ -19,8 +19,8 @@ dstFactor: BlendFactor,
  */
 premultiplied: boolean, 
 /**
- * The pass clips on a threshold it states itself and writes depth, so it draws
- * unblended and the depth buffer resolves it rather than a sort.
+ * The pass clips on a threshold it states itself and writes depth, so the depth buffer
+ * resolves its body and only the fringe its filtering leaves blends.
  */
 cutout: boolean, 
 /**

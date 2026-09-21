@@ -251,6 +251,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     previewWidth: PREVIEW_WIDTH,
     fullWidth: FULL_WIDTH,
     concurrency: CONCURRENT,
+    mips: true,
   });
   const opening = useMemo(
     () => (geometry.data === undefined ? 0 : openingFlags(geometry.data)),

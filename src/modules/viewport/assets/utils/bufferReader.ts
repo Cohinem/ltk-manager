@@ -88,7 +88,7 @@ export class BufferReader {
     return new Uint32Array(this.#held, this.#viewed(count, 4), count);
   }
 
-  bytes(count: number): Uint8Array {
+  bytes(count: number): Uint8Array<ArrayBuffer> {
     this.#take(count);
     const held = new Uint8Array(this.#view.buffer, this.#view.byteOffset + this.#at, count).slice();
     this.#at += count;
