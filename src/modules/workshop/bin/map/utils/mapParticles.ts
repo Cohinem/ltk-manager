@@ -7,17 +7,16 @@ import type { Anchor, Point, RigModel } from "../../vfx/engine/model/rig";
 const TRANSLATION = 12;
 
 /**
- * The particles of `particles` a backdrop plays on `layer`.
+ * The particles of `particles` a backdrop plays under the visibility `flags`, a mask.
  *
  * A transitional particle is the game's one-shot as the map changes, and one a script or
  * a visibility controller turns on is an event the backdrop is not in, so none of them
  * play.
  */
-export function playedParticles(particles: readonly MapParticle[], layer: number): MapParticle[] {
-  const bit = 1 << layer;
+export function playedParticles(particles: readonly MapParticle[], flags: number): MapParticle[] {
   return particles.filter(
     (particle) =>
-      (particle.visibility & bit) !== 0 &&
+      (particle.visibility & flags) !== 0 &&
       !particle.transitional &&
       !particle.startDisabled &&
       particle.controller === null,

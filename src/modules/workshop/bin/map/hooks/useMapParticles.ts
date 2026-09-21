@@ -9,7 +9,7 @@ import type {
   MapPath,
   VfxSystem,
 } from "@/lib/tauri";
-import { DEFAULT_LAYER, useBackdropMaterials } from "@/modules/viewport";
+import { useBackdropMaterials } from "@/modules/viewport";
 
 import { systemModel } from "../../skin/utils/skinScene";
 import type { SystemModel } from "../../vfx/engine/model/model";
@@ -55,20 +55,22 @@ function modelsOf(results: UseQueryResult<VfxSystem, AppError>[]): (SystemModel 
  *
  * A map declares its particles and the systems they play in that one file, so every read
  * here is against `document`. Each system joins as its read lands, and a null `document`
- * reads nothing. What an outliner hid, by chunk or by placeable, is left out.
+ * reads nothing. What the visibility `flags` leave off, and what an outliner hid by chunk or
+ * by placeable, is left out.
  */
 export function useMapParticles(
   document: BinDocumentId | null,
+  flags: number,
   hidden: ReadonlySet<string> = NONE_HIDDEN,
 ): readonly MapParticleGroup[] {
   const placed = useQuery(mapQueries.particles(document));
 
   const played = useMemo(() => {
-    const shown = playedParticles(placed.data ?? [], DEFAULT_LAYER).filter(
+    const shown = playedParticles(placed.data ?? [], flags).filter(
       (particle) => !isHidden(hidden, particle.chunk, particle.key),
     );
     return [...particlesBySystem(shown)];
-  }, [placed.data, hidden]);
+  }, [placed.data, flags, hidden]);
   const models = useQueries({
     queries: document === null ? [] : played.map(([entry]) => vfxQueries.system(document, entry)),
     combine: modelsOf,

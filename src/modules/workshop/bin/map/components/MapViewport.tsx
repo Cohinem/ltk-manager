@@ -9,7 +9,13 @@ import { useCallback, useMemo, useState } from "react";
 import { Button, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
-import { type Bounds, FitCamera, useSceneColors, Viewport } from "@/modules/viewport";
+import {
+  type Bounds,
+  FitCamera,
+  useBackdropFlags,
+  useSceneColors,
+  Viewport,
+} from "@/modules/viewport";
 import {
   usePreviewBackdropParticles,
   usePreviewBackdropStructures,
@@ -26,6 +32,7 @@ import { fades } from "../../vfx/rendering/utils/softParticle";
 import { useMapParticles } from "../hooks/useMapParticles";
 import { useMapScene } from "../state/mapScene";
 import { variantLabel } from "../utils/mapVariants";
+import { BackdropLayerMenu } from "./BackdropLayerMenu";
 import { MapCharacters } from "./MapCharacters";
 import { MapFocus } from "./MapFocus";
 import { MapParticles } from "./MapParticles";
@@ -88,9 +95,10 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
   const setDisplay = useSetPreviewDisplay();
+  const { layers, flags, setLayer } = useBackdropFlags(source);
 
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
-  const played = useMapParticles(particles ? materials : null, hidden);
+  const played = useMapParticles(particles ? materials : null, flags, hidden);
   const warps = played.some((group) => group.system.emitters.some(distorts));
   const softens = played.some((group) => group.system.emitters.some(fades));
 
@@ -104,6 +112,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           stage={false}
           textured={false}
           backdrop={source}
+          backdropFlags={flags}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
@@ -111,7 +120,9 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={played} />
-          {structures && <MapCharacters document={materials} near={near} hidden={hidden} />}
+          {structures && (
+            <MapCharacters document={materials} near={near} flags={flags} hidden={hidden} />
+          )}
           <MapFocus focus={focus} colors={colors} />
         </Viewport>
         {origin === null && (
@@ -138,6 +149,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
             icon={<CastleTurretIcon weight="bold" className="h-4 w-4" />}
             onClick={() => setDisplay({ previewBackdropStructures: !structures })}
           />
+          <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />
           <CameraMenu />
           <Tooltip content={m.workshop_bin_mesh_preview_fit_action()}>
             <IconButton

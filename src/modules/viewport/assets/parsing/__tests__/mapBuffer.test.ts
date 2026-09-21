@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { BufferError } from "../../utils/bufferReader";
-import { drawnMeshes, type MapGeometry, mapOrigin, MESH_FLAG, readMapBuffer } from "../mapBuffer";
+import {
+  drawnMeshes,
+  type MapGeometry,
+  mapLayers,
+  mapOrigin,
+  MESH_FLAG,
+  openingFlags,
+  readMapBuffer,
+} from "../mapBuffer";
 
 /** One mesh of the buffer a writer would produce, in the fields a test varies. */
 interface Written {
@@ -212,13 +220,93 @@ describe("drawnMeshes", () => {
     ],
   });
 
-  it("keeps the meshes whose mask carries the layer's bit", () => {
-    expect(drawnMeshes(map, 0).map((mesh) => mesh.firstSubmesh)).toEqual([0, 2]);
-    expect(drawnMeshes(map, 3).map((mesh) => mesh.firstSubmesh)).toEqual([1, 2]);
+  it("keeps the meshes whose mask shares a bit with the flags", () => {
+    expect(drawnMeshes(map, 0b0000_0001).map((mesh) => mesh.firstSubmesh)).toEqual([0, 2]);
+    expect(drawnMeshes(map, 0b0000_1000).map((mesh) => mesh.firstSubmesh)).toEqual([1, 2]);
   });
 
   it("draws only the mesh present in every layer where no other one is", () => {
-    expect(drawnMeshes(map, 7).map((mesh) => mesh.firstSubmesh)).toEqual([2]);
+    expect(drawnMeshes(map, 0b1000_0000).map((mesh) => mesh.firstSubmesh)).toEqual([2]);
+  });
+
+  it("stacks the variants of two layers turned on together", () => {
+    expect(drawnMeshes(map, 0b0000_1001).map((mesh) => mesh.firstSubmesh)).toEqual([0, 1, 2]);
+  });
+
+  it("draws nothing with every flag off", () => {
+    expect(drawnMeshes(map, 0)).toEqual([]);
+  });
+});
+
+/** A map of one mesh per mask, each drawing `triangles` triangles. */
+function layered(meshes: { visibility: number; triangles: number }[]): MapGeometry {
+  let start = 0;
+  return simple({
+    meshes: meshes.map((mesh, at) => ({
+      visibility: mesh.visibility,
+      firstSubmesh: at,
+      submeshCount: 1,
+    })),
+    submeshes: meshes.map((mesh) => {
+      const run = { startIndex: start, indexCount: mesh.triangles * 3, material: 0 };
+      start += run.indexCount;
+      return run;
+    }),
+  });
+}
+
+describe("mapLayers", () => {
+  it("lists only the layers a mesh names, counting shared meshes on each", () => {
+    const map = layered([
+      { visibility: 0b0000_0100, triangles: 10 },
+      { visibility: 0b0100_0100, triangles: 5 },
+    ]);
+
+    expect(mapLayers(map)).toEqual([
+      { index: 2, triangles: 15 },
+      { index: 6, triangles: 5 },
+    ]);
+  });
+
+  it("lists nothing for a map whose meshes are on no layer", () => {
+    expect(mapLayers(layered([{ visibility: 0, triangles: 4 }]))).toEqual([]);
+  });
+});
+
+describe("openingFlags", () => {
+  it("opens on layer 0 while it draws half the map", () => {
+    const map = layered([
+      { visibility: 0b0000_0001, triangles: 250 },
+      { visibility: 0b0000_1000, triangles: 180 },
+      { visibility: 0b1111_1111, triangles: 80 },
+    ]);
+
+    expect(openingFlags(map)).toBe(0b0000_0001);
+  });
+
+  /* A TFT board: two variants of the board on two layers, and layer 0 reached only by
+     what every layer shares. */
+  it("opens on the fullest layer where layer 0 draws under half the map", () => {
+    const map = layered([
+      { visibility: 0b0000_1000, triangles: 5860 },
+      { visibility: 0b0100_0000, triangles: 5995 },
+      { visibility: 0b1111_1111, triangles: 8 },
+    ]);
+
+    expect(openingFlags(map)).toBe(0b0100_0000);
+  });
+
+  it("takes the lower layer of two that draw alike", () => {
+    const map = layered([
+      { visibility: 0b0000_0100, triangles: 100 },
+      { visibility: 0b0000_1000, triangles: 100 },
+    ]);
+
+    expect(openingFlags(map)).toBe(0b0000_0100);
+  });
+
+  it("opens on nothing where no mesh is on a layer", () => {
+    expect(openingFlags(layered([{ visibility: 0, triangles: 3 }]))).toBe(0);
   });
 });
 
@@ -256,7 +344,7 @@ describe("mapOrigin", () => {
   }
 
   it("stands on the dense ground rather than in the middle of the box", () => {
-    const origin = mapOrigin(written(), 0);
+    const origin = mapOrigin(written(), 0b0000_0001);
 
     /* The box runs out to 30,000, so its own middle would be 15,500. */
     expect(origin?.[0]).toBeCloseTo(1005);
@@ -264,10 +352,10 @@ describe("mapOrigin", () => {
   });
 
   it("takes the height from the terrain under the spot and not from the canopy over it", () => {
-    expect(mapOrigin(written(), 0)?.[1]).toBe(50);
+    expect(mapOrigin(written(), 0b0000_0001)?.[1]).toBe(50);
   });
 
-  it("stands nowhere on a layer that draws nothing", () => {
-    expect(mapOrigin(written(), 3)).toBeNull();
+  it("stands nowhere on flags that draw nothing", () => {
+    expect(mapOrigin(written(), 0b0000_1000)).toBeNull();
   });
 });

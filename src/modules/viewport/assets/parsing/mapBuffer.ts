@@ -73,19 +73,67 @@ export interface MapGeometry {
   readonly materials: readonly string[];
 }
 
-/** The visibility layer a backdrop draws when nothing else is chosen. */
-export const DEFAULT_LAYER = 0;
+/** How many visibility layers a mask names, one bit each. */
+const LAYER_COUNT = 8;
+
+/** One visibility layer some mesh of a map names, and what turning it on draws. */
+export interface MapLayer {
+  /** The layer's bit in a mask. */
+  readonly index: number;
+  /** Every triangle of the meshes whose mask carries the layer, shared ones included. */
+  readonly triangles: number;
+}
 
 /**
- * The meshes `layer` draws, which is the filter that stops the map z-fighting itself.
+ * The meshes an active set of visibility `flags` draws: those whose mask shares a bit with it.
  *
- * Summoner's Rift carries seven small masks that are seven variants of the dragon pit
- * rather than seven regions, so drawing every mask stacks up to seven coincident floors
- * there. Filtering to one layer is a correctness requirement and not a saving.
+ * `flags` is a mask like a mesh's own, so two variants on at once stack, as they would in
+ * the engine.
  */
-export function drawnMeshes(map: MapGeometry, layer: number): MapMesh[] {
-  const bit = 1 << layer;
-  return map.meshes.filter((mesh) => (mesh.visibility & bit) !== 0);
+export function drawnMeshes(map: MapGeometry, flags: number): MapMesh[] {
+  return map.meshes.filter((mesh) => (mesh.visibility & flags) !== 0);
+}
+
+/** Every visibility layer a mesh of `map` names, in bit order. */
+export function mapLayers(map: MapGeometry): MapLayer[] {
+  const triangles = new Array<number>(LAYER_COUNT).fill(0);
+  let named = 0;
+  for (const mesh of map.meshes) {
+    named |= mesh.visibility;
+    const drawn = meshTriangles(map, mesh);
+    for (let index = 0; index < LAYER_COUNT; index += 1) {
+      if ((mesh.visibility & (1 << index)) !== 0) triangles[index] += drawn;
+    }
+  }
+  return triangles.flatMap((count, index) =>
+    (named & (1 << index)) === 0 ? [] : [{ index, triangles: count }],
+  );
+}
+
+/**
+ * The flags a map opens on: layer 0 while it draws half the map, else the fullest layer.
+ *
+ * Per ADR-0045. Zero for a map with no mesh on any layer.
+ */
+export function openingFlags(map: MapGeometry): number {
+  const layers = mapLayers(map);
+  const total = map.meshes.reduce((sum, mesh) => sum + meshTriangles(map, mesh), 0);
+  const base = layers.find((layer) => layer.index === 0);
+  if (base !== undefined && base.triangles * 2 >= total) return 1;
+  const fullest = layers.reduce<MapLayer | null>(
+    (best, layer) => (best === null || layer.triangles > best.triangles ? layer : best),
+    null,
+  );
+  return fullest === null ? 0 : 1 << fullest.index;
+}
+
+/** How many triangles `mesh`'s submeshes draw. */
+function meshTriangles(map: MapGeometry, mesh: MapMesh): number {
+  let indices = 0;
+  for (let at = 0; at < mesh.submeshCount; at += 1) {
+    indices += map.submeshes[mesh.firstSubmesh + at]?.indexCount ?? 0;
+  }
+  return Math.floor(indices / 3);
 }
 
 /**
@@ -114,10 +162,10 @@ const GROUND_RADIUS = 400;
  *
  * The height is the median of the points standing within [`GROUND_RADIUS`] of that spot,
  * so neither a canopy above nor the skirt hanging under the terrain moves it. Null where
- * the layer draws nothing.
+ * the flags draw nothing.
  */
-export function mapOrigin(map: MapGeometry, layer: number): [number, number, number] | null {
-  const points = drawnPoints(map, layer);
+export function mapOrigin(map: MapGeometry, flags: number): [number, number, number] | null {
+  const points = drawnPoints(map, flags);
   const count = points.length / 3;
   if (count === 0) return null;
 
@@ -145,10 +193,10 @@ function median(values: Float64Array): number {
   return values[values.length >> 1];
 }
 
-/** Every [`SAMPLE_STRIDE`]th vertex of what `layer` draws, as flat triples. */
-function drawnPoints(map: MapGeometry, layer: number): number[] {
+/** Every [`SAMPLE_STRIDE`]th vertex of what `flags` draw, as flat triples. */
+function drawnPoints(map: MapGeometry, flags: number): number[] {
   const points: number[] = [];
-  for (const mesh of drawnMeshes(map, layer)) {
+  for (const mesh of drawnMeshes(map, flags)) {
     for (let at = 0; at < mesh.submeshCount; at += 1) {
       const run = map.submeshes[mesh.firstSubmesh + at];
       if (run === undefined) continue;

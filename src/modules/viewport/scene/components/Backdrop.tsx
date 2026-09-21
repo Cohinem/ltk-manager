@@ -11,12 +11,7 @@ import {
 
 import type { MaterialPreview } from "@/lib/tauri";
 
-import {
-  DEFAULT_LAYER,
-  drawnMeshes,
-  type MapGeometry,
-  MESH_FLAG,
-} from "../../assets/parsing/mapBuffer";
+import { drawnMeshes, type MapGeometry, MESH_FLAG } from "../../assets/parsing/mapBuffer";
 import { applyBinding, lit } from "../../character/utils/submeshBinding";
 import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/renderState";
 import { AXIS_SIGN } from "../../shared/utils/space";
@@ -72,12 +67,13 @@ export function Backdrop({
   map,
   materials: slots,
   textures,
-  layer = DEFAULT_LAYER,
+  flags,
 }: {
   readonly map: MapGeometry;
   readonly materials: readonly (MaterialPreview | null)[];
   readonly textures: ReadonlyMap<string, Texture>;
-  readonly layer?: number;
+  /** The visibility flags drawn, as a mask. */
+  readonly flags: number;
 }) {
   const geometry = useMemo(() => {
     const held = new BufferGeometry();
@@ -120,7 +116,7 @@ export function Backdrop({
       return bound.length - 1;
     };
 
-    for (const mesh of drawnMeshes(map, layer)) {
+    for (const mesh of drawnMeshes(map, flags)) {
       if (mesh.submeshCount === 0) continue;
       const doubleSided = (mesh.flags & MESH_FLAG.cullDisabled) !== 0;
       for (let at = 0; at < mesh.submeshCount; at += 1) {
@@ -134,7 +130,7 @@ export function Backdrop({
       }
     }
     return { bound, groups };
-  }, [map, slots, layer]);
+  }, [map, slots, flags]);
 
   const bound = drawn.bound;
   const materials = useMemo(() => bound.map((entry) => entry.material), [bound]);

@@ -31,6 +31,7 @@ import {
   sequencePose,
   snappedPose,
   useAssetTextures,
+  useBackdropFlags,
   useBackdropMaps,
   useSceneColors,
   Viewport,
@@ -55,6 +56,7 @@ import {
 } from "@/stores";
 
 import { assetKey } from "../../../preview/utils/assetRef";
+import { BackdropLayerMenu } from "../../map/components/BackdropLayerMenu";
 import { MapCharacters } from "../../map/components/MapCharacters";
 import { MapParticles } from "../../map/components/MapParticles";
 import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
@@ -163,6 +165,11 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
   );
   const backdropParticles = usePreviewBackdropParticles();
   const backdropStructures = usePreviewBackdropStructures();
+  const {
+    layers: backdropLayers,
+    flags: backdropFlags,
+    setLayer: setBackdropLayer,
+  } = useBackdropFlags(backdropSource);
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
   const armature = usePreviewArmature();
@@ -305,7 +312,7 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
   );
   /* One open file answers both what the map plays and what it stands. */
   const mapFile = useMapMaterialsFile(backdropParticles || backdropStructures ? backdrop : null);
-  const mapParticles = useMapParticles(backdropParticles ? mapFile.document : null);
+  const mapParticles = useMapParticles(backdropParticles ? mapFile.document : null, backdropFlags);
   const bounds = useMemo(
     () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
     [mesh.data, skin.hidden, scale],
@@ -386,6 +393,7 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
           stage={ground}
           textured={midlane}
           backdrop={backdropSource}
+          backdropFlags={backdropFlags}
           camera={camera}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
@@ -400,7 +408,9 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
           <FitCamera bounds={bounds} ground={stood} token={fitToken} />
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={mapParticles} />
-          {backdropStructures && <MapCharacters document={mapFile.document} near={asset} />}
+          {backdropStructures && (
+            <MapCharacters document={mapFile.document} near={asset} flags={backdropFlags} />
+          )}
           <Placement
             enabled={move}
             mode={moveMode}
@@ -485,6 +495,13 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
           <BackdropToggle />
+          {backdrop !== null && (
+            <BackdropLayerMenu
+              layers={backdropLayers}
+              flags={backdropFlags}
+              onLayerChange={setBackdropLayer}
+            />
+          )}
           <PlacementToggle />
           <ViewToggle
             label={m.workshop_bin_preview_stage_label()}

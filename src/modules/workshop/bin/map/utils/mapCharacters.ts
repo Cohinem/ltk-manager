@@ -11,7 +11,7 @@ const DATA_PREFIX = "data/";
 const BIN_SUFFIX = ".bin";
 
 /**
- * The characters of `characters` a backdrop stands on `layer`: structures and level props.
+ * The characters of `characters` a backdrop stands under `flags`: structures and level props.
  *
  * A camp's monsters are left out, because the map places every one it could ever spawn,
  * seven dragons to a pit. So is whatever a visibility controller turns on, which is an
@@ -19,12 +19,11 @@ const BIN_SUFFIX = ".bin";
  */
 export function stoodCharacters(
   characters: readonly MapCharacter[],
-  layer: number,
+  flags: number,
 ): MapCharacter[] {
-  const bit = 1 << layer;
   return characters.filter(
     (character) =>
-      (character.visibility & bit) !== 0 &&
+      (character.visibility & flags) !== 0 &&
       character.controller === null &&
       character.team !== NEUTRAL_TEAM,
   );

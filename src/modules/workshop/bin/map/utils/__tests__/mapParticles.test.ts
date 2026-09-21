@@ -27,12 +27,19 @@ function particle(
 }
 
 describe("playedParticles", () => {
-  it("plays what stands on the layer, wherever on the map it stands", () => {
+  it("plays what stands under the flags, wherever on the map it stands", () => {
     const near = particle({ name: "Near", at: [7000, 50, 7000] });
     const far = particle({ name: "Far", at: [14000, 50, 900] });
     const mountain = particle({ name: "Mountain", at: [7000, 50, 7000], visibility: 4 });
 
-    expect(playedParticles([near, far, mountain], 0)).toEqual([near, far]);
+    expect(playedParticles([near, far, mountain], 0b0000_0001)).toEqual([near, far]);
+  });
+
+  it("plays another layer's particle once its flag is on", () => {
+    const near = particle({ name: "Near" });
+    const mountain = particle({ name: "Mountain", visibility: 4 });
+
+    expect(playedParticles([near, mountain], 0b0000_0101)).toEqual([near, mountain]);
   });
 
   it("leaves out what an event the backdrop is not in turns on", () => {
@@ -42,7 +49,7 @@ describe("playedParticles", () => {
       particle({ name: "Trophy", controller: "0x8f1ab207" }),
     ];
 
-    expect(playedParticles(events, 0)).toEqual([]);
+    expect(playedParticles(events, 0b0000_0001)).toEqual([]);
   });
 });
 

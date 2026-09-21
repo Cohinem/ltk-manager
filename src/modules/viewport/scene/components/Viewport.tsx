@@ -28,6 +28,8 @@ export interface ViewportProps {
    * nor its grid is drawn while one is up.
    */
   readonly backdrop?: BackdropSource | null;
+  /** The visibility flags the backdrop draws, as a mask, and the map's own opening ones absent. */
+  readonly backdropFlags?: number;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
@@ -79,6 +81,7 @@ export function Viewport({
   stage,
   textured,
   backdrop = null,
+  backdropFlags,
   camera,
   onCameraStand,
   onBackdropOrigin,
@@ -142,7 +145,12 @@ export function Viewport({
           {map.geometry !== null && (
             <>
               <Sky />
-              <Backdrop map={map.geometry} materials={map.materials} textures={map.textures} />
+              <Backdrop
+                map={map.geometry}
+                materials={map.materials}
+                textures={map.textures}
+                flags={backdropFlags ?? map.opening}
+              />
             </>
           )}
           <CameraPresetContext value={camera}>{children}</CameraPresetContext>

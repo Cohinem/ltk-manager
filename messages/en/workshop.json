@@ -458,6 +458,19 @@
   "workshop_bin_preview_loop_label": "Loop",
   "workshop_bin_preview_backdrop_empty_label": "No maps in this install",
   "workshop_bin_preview_backdrop_label": "Map backdrop",
+  "workshop_bin_preview_backdrop_layer_label": "Layer {number}",
+  "workshop_bin_preview_backdrop_layer_triangles_label": [
+    {
+      "declarations": ["input count", "input formatted", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{formatted} triangle",
+        "countPlural=other": "{formatted} triangles"
+      }
+    }
+  ],
+  "workshop_bin_preview_backdrop_layers_empty_label": "The map names no visibility layers",
+  "workshop_bin_preview_backdrop_layers_label": "Visibility layers",
   "workshop_bin_preview_backdrop_map11_label": "Summoner's Rift",
   "workshop_bin_preview_backdrop_map12_label": "Howling Abyss",
   "workshop_bin_preview_backdrop_menu_label": "Map backdrop options",

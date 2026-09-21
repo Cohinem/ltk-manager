@@ -31,7 +31,7 @@ describe("stoodCharacters", () => {
     const order = character({ name: "Order" });
     const chaos = character({ name: "Chaos", team: 200 });
 
-    expect(stoodCharacters([order, chaos], 0)).toEqual([order, chaos]);
+    expect(stoodCharacters([order, chaos], 0b0000_0001)).toEqual([order, chaos]);
   });
 
   it("leaves out a camp's monsters, another layer's and what a controller turns on", () => {
@@ -41,7 +41,13 @@ describe("stoodCharacters", () => {
       character({ name: "Banner", controller: "0x76c50391" }),
     ];
 
-    expect(stoodCharacters(left, 0)).toEqual([]);
+    expect(stoodCharacters(left, 0b0000_0001)).toEqual([]);
+  });
+
+  it("stands another layer's character once its flag is on", () => {
+    const mountain = character({ name: "Mountain", visibility: 4 });
+
+    expect(stoodCharacters([mountain], 0b0000_0100)).toEqual([mountain]);
   });
 });
 
