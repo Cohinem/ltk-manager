@@ -1,3 +1,5 @@
+import { Vector3 } from "three";
+
 import { drawnRanges, type MeshGeometry } from "../../assets/parsing/meshBuffer";
 import { AXIS_SIGN } from "../../scene/utils/world";
 import { CAMERA, openingLook } from "./cameraPresets";
@@ -85,6 +87,40 @@ export function framing(
   const vertical = (fov * Math.PI) / 180;
   const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * aspect);
   const distance = (radius / Math.sin(Math.min(vertical, horizontal) / 2)) * MARGIN;
+
+  return { target, position: along(target, direction, distance) };
+}
+
+/** A perspective frame fitted to projected box corners, with five percent breathing room. */
+export function boxFraming(
+  bounds: Bounds,
+  fov: number,
+  aspect: number,
+  direction: Point,
+  up: Point,
+): Framing {
+  const target = middle(bounds);
+  const look = new Vector3(...direction).normalize();
+  const right = new Vector3(...up).cross(look).normalize();
+  const vertical = look.clone().cross(right).normalize();
+  const tanVertical = Math.tan((fov * Math.PI) / 360);
+  const tanHorizontal = tanVertical * Math.max(aspect, 0.01);
+  let distance = CAMERA.near * 2;
+
+  for (const x of [bounds.min[0], bounds.max[0]]) {
+    for (const y of [bounds.min[1], bounds.max[1]]) {
+      for (const z of [bounds.min[2], bounds.max[2]]) {
+        const corner = new Vector3(x - target[0], y - target[1], z - target[2]);
+        const depth = corner.dot(look);
+        distance = Math.max(
+          distance,
+          depth + (Math.abs(corner.dot(right)) * 1.05) / tanHorizontal,
+          depth + (Math.abs(corner.dot(vertical)) * 1.05) / tanVertical,
+          depth + CAMERA.near * 2,
+        );
+      }
+    }
+  }
 
   return { target, position: along(target, direction, distance) };
 }

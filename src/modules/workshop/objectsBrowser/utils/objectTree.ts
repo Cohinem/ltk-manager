@@ -167,24 +167,33 @@ export function buildObjectTree(
     const listing = listings.get(path);
     if (!listing) return [{ type: "loading", id: `l:${path}` }];
 
-    const prefixes = listing.prefixes.map<ObjectPrefixNode>((prefix) => ({
-      type: "prefix",
-      id: prefix.path,
-      name: prefix.name,
-      unnamed: prefix.path === UNNAMED_PREFIX,
-      count: prefix.count,
-      children: isExpanded(prefix.path) ? build(prefix.path) : [],
-    }));
-
-    const objects = listing.objects.map((entry) => {
-      const below = isExpanded(entry.path) && entry.count > 0 ? build(entry.path) : [];
-      return objectNode(entry, layers, below);
-    });
-
-    return [...prefixes, ...objects];
+    return objectListingNodes(listing, layers, (path) => (isExpanded(path) ? build(path) : []));
   };
 
   return build("");
+}
+
+/** One object directory, independent of its tree or grid presentation. */
+export function objectListingNodes(
+  listing: ObjectDirListing,
+  layers: LayerDeclarations,
+  childrenOf: (path: string) => readonly ObjectTreeNode[] = () => [],
+): (ObjectPrefixNode | ObjectRowNode)[] {
+  const prefixes = listing.prefixes.map<ObjectPrefixNode>((prefix) => ({
+    type: "prefix",
+    id: prefix.path,
+    name: prefix.name,
+    unnamed: prefix.path === UNNAMED_PREFIX,
+    count: prefix.count,
+    children: childrenOf(prefix.path),
+  }));
+
+  const objects = listing.objects.map((entry) => {
+    const below = entry.count > 0 ? childrenOf(entry.path) : [];
+    return objectNode(entry, layers, below);
+  });
+
+  return [...prefixes, ...objects];
 }
 
 /** The row of `entry`, its declarations joined with the layers', over `below`. */

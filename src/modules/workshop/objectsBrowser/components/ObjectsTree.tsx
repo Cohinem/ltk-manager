@@ -8,7 +8,7 @@ import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
 import { useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
 import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
-import { keepScrollTop, keptScrollTop, type ObjectsReveal } from "../../state";
+import { keepScrollTop, keptScrollTop, type ObjectsReveal, useSelectObjectNode } from "../../state";
 import {
   activation,
   expandable,
@@ -52,6 +52,7 @@ export function ObjectsTree({
   onRevealed,
 }: ObjectsTreeProps) {
   const rows = useMemo(() => flattenObjectTree(nodes, isExpanded), [nodes, isExpanded]);
+  const selectNode = useSelectObjectNode();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [initialOffset] = useState(() => (scrollKey ? keptScrollTop(scrollKey) : 0));
@@ -107,6 +108,11 @@ export function ObjectsTree({
     virtualizer,
     scrollElementRef: scrollRef,
   });
+  const select = (index: number) => {
+    setFocusedIndex(index);
+    const row = rows[index];
+    if (row) selectNode(row.node);
+  };
 
   /* The row lands with its listing, at its first appearance in `rows`. A path no row
      carries settles with the last loading row. */
@@ -149,6 +155,14 @@ export function ObjectsTree({
         aria-label={ariaLabel}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
+        onFocusCapture={(event) => {
+          const element = (event.target as HTMLElement).closest<HTMLElement>(
+            "[data-treeitem-index]",
+          );
+          const index = Number(element?.dataset.treeitemIndex);
+          const row = rows[index];
+          if (row) selectNode(row.node);
+        }}
         onContextMenu={handleContextMenu}
         {...NO_OVERSCROLL}
       >
@@ -167,7 +181,7 @@ export function ObjectsTree({
                   isExpanded
                   isSelected={pin.index === focusedIndex}
                   onToggle={() => revealRow(pin.index)}
-                  onSelect={setFocusedIndex}
+                  onSelect={select}
                   onOpen={() => revealRow(pin.index)}
                   height={rowHeight}
                   rowIndex={pin.index}
@@ -202,7 +216,7 @@ export function ObjectsTree({
                     isExpanded={expanded}
                     isSelected={isSelected}
                     onToggle={onToggle}
-                    onSelect={setFocusedIndex}
+                    onSelect={select}
                     onOpen={onOpen}
                     height={rowHeight}
                     rowIndex={virtualRow.index}

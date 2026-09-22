@@ -37,6 +37,8 @@ const POSITION = new Vector3();
 const TARGET = new Vector3();
 
 export interface SceneCameraProps {
+  /** The orientation control is drawn over the scene. */
+  readonly gizmo?: boolean;
   readonly preset: CameraPreset;
   readonly colors: SceneColors;
   /** The reader stood the camera off its preset: on Orbit by a drag, on a gizmo head's. */
@@ -55,7 +57,7 @@ export interface SceneCameraProps {
  * A drag holds the projection it started in until it ends, so a drag off a flat preset
  * is one gesture rather than two, and the swap to Orbit lands on the release.
  */
-export function SceneCamera({ preset, colors, onStand }: SceneCameraProps) {
+export function SceneCamera({ preset, colors, onStand, gizmo = true }: SceneCameraProps) {
   const size = useThree((state) => state.size);
   const set = useThree((state) => state.set);
   const get = useThree((state) => state.get);
@@ -164,7 +166,7 @@ export function SceneCamera({ preset, colors, onStand }: SceneCameraProps) {
         }}
         onControlEnd={() => setDragging(null)}
       />
-      <OrientationGizmo colors={colors} onLook={onLook} />
+      {gizmo && <OrientationGizmo colors={colors} onLook={onLook} />}
     </>
   );
 }

@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { ancestorPrefixes, type ObjectTreeNode } from "../utils/objectTree";
+
 /** A row the objects browser is asked to expand to, focus and scroll to. */
 export interface ObjectsReveal {
   /** The object's path, which is its row's key. */
@@ -9,6 +11,12 @@ export interface ObjectsReveal {
 }
 
 interface ObjectsBrowserStore {
+  selected: { path: string; type: "object" | "prefix" } | null;
+  selectNode: (node: Pick<ObjectTreeNode, "id" | "type">) => void;
+  setView: (view: "tree" | "grid") => void;
+  display: { view: "tree" | "grid"; thumbnails: boolean; location: string; tileSize: number };
+  setDisplay: (display: Partial<ObjectsBrowserStore["display"]>) => void;
+  revealToken: number;
   /** Prefixes the user has opened in the objects tree, by path. */
   expandedPrefixes: ReadonlySet<string>;
   togglePrefix: (path: string) => void;
@@ -47,6 +55,41 @@ function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
  * objects tab browses one install.
  */
 export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
+  selected: null,
+  selectNode: (node) => {
+    if (node.type !== "object" && node.type !== "prefix") return;
+    const type = node.type;
+    set((state) =>
+      state.selected?.path === node.id && state.selected.type === type
+        ? state
+        : { selected: { path: node.id, type } },
+    );
+  },
+  setView: (view) =>
+    set((state) => {
+      const selected = state.selected;
+      if (view !== "grid" || state.display.view !== "tree" || selected === null) {
+        return { display: { ...state.display, view } };
+      }
+
+      if (selected.type === "prefix") {
+        return {
+          display: { ...state.display, view, location: selected.path },
+          searchPattern: "",
+          reveal: null,
+        };
+      }
+
+      const token = state.revealToken + 1;
+      return {
+        display: { ...state.display, view, location: ancestorPrefixes(selected.path).at(-1) ?? "" },
+        revealToken: token,
+        reveal: { path: selected.path, token },
+      };
+    }),
+  display: { view: "tree", thumbnails: true, location: "", tileSize: 128 },
+  setDisplay: (display) => set((state) => ({ display: { ...state.display, ...display } })),
+  revealToken: 0,
   expandedPrefixes: new Set(),
   togglePrefix: (path) =>
     set((state) => ({ expandedPrefixes: toggled(state.expandedPrefixes, path) })),
@@ -64,12 +107,19 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
     set((state) => ({ shutFindPrefixes: toggled(state.shutFindPrefixes, path) })),
   reveal: null,
   requestReveal: (path) =>
-    set((state) => ({ reveal: { path, token: (state.reveal?.token ?? 0) + 1 } })),
+    set((state) => ({
+      revealToken: state.revealToken + 1,
+      reveal: { path, token: state.revealToken + 1 },
+    })),
   settleReveal: (token) =>
     set((state) => (state.reveal?.token === token ? { reveal: null } : state)),
 }));
 
 export const useExpandedObjectPrefixes = () => useObjectsBrowserStore((s) => s.expandedPrefixes);
+export const useObjectsDisplay = () => useObjectsBrowserStore((s) => s.display);
+export const useSetObjectsDisplay = () => useObjectsBrowserStore((s) => s.setDisplay);
+export const useSelectObjectNode = () => useObjectsBrowserStore((s) => s.selectNode);
+export const useSetObjectsView = () => useObjectsBrowserStore((s) => s.setView);
 export const useToggleObjectPrefix = () => useObjectsBrowserStore((s) => s.togglePrefix);
 export const useExpandObjectPrefixes = () => useObjectsBrowserStore((s) => s.expandPrefixes);
 export const useObjectsSearchPattern = () => useObjectsBrowserStore((s) => s.searchPattern);

@@ -1,11 +1,52 @@
+import { PerspectiveCamera, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 
 import type { MeshGeometry } from "../../../assets/parsing/meshBuffer";
 import { CAMERA } from "../cameraPresets";
-import { framing, meshBounds, orthographicFraming, reachOfZoom, zoomOfReach } from "../framing";
+import {
+  boxFraming,
+  framing,
+  meshBounds,
+  orthographicFraming,
+  reachOfZoom,
+  zoomOfReach,
+} from "../framing";
 
 /** A box two units across and two tall, standing on the ground at the origin. */
 const BOX = { min: [-1, 0, -1], max: [1, 2, 1] } as const;
+
+describe("boxFraming", () => {
+  it.each([
+    { min: [-100, -20, -10], max: [100, 20, 10] },
+    { min: [-20, 0, -20], max: [20, 200, 20] },
+  ] as const)("fills the thumbnail without clipping wide or tall subjects", (bounds) => {
+    const aspect = 1 / 0.72;
+    const frame = boxFraming(bounds, 45, aspect, [1, 0.5, 2], [0, 1, 0]);
+    const camera = new PerspectiveCamera(45, aspect, CAMERA.near, CAMERA.far);
+    camera.position.set(...frame.position);
+    camera.lookAt(...frame.target);
+    camera.updateMatrixWorld();
+    const projected: Vector3[] = [];
+
+    for (const x of [bounds.min[0], bounds.max[0]]) {
+      for (const y of [bounds.min[1], bounds.max[1]]) {
+        for (const z of [bounds.min[2], bounds.max[2]]) {
+          projected.push(new Vector3(x, y, z).project(camera));
+        }
+      }
+    }
+
+    const extent = Math.max(
+      ...projected.flatMap((point) => [Math.abs(point.x), Math.abs(point.y)]),
+    );
+    expect(extent).toBeCloseTo(1 / 1.05);
+    expect(projected.every((point) => point.z > -1 && point.z < 1)).toBe(true);
+    const sphere = framing(bounds, 45, aspect, [1, 0.5, 2]);
+    expect(distance(frame.position, frame.target)).toBeLessThan(
+      distance(sphere.position, sphere.target),
+    );
+  });
+});
 
 function distance(a: readonly number[], b: readonly number[]): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);

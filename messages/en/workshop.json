@@ -1141,6 +1141,7 @@
   ],
   "workshop_objects_classes_label": "Classes",
   "workshop_objects_clear_search_action": "Clear the search",
+  "workshop_objects_children_action": "Browse {count} children",
   "workshop_objects_copy_class_hash_action": "Copy class hash",
   "workshop_objects_copy_hash_action": "Copy hash",
   "workshop_objects_copy_path_action": "Copy path",
@@ -1177,6 +1178,7 @@
       }
     }
   ],
+  "workshop_objects_items_label": "{count} items",
   "workshop_objects_keep_on_action": "Keep it on",
   "workshop_objects_loading_label": "Loading…",
   "workshop_objects_matches_capped_label": "first {shown} of {total} matches",
@@ -1198,6 +1200,8 @@
   "workshop_objects_open_action": "Open",
   "workshop_objects_open_beside_action": "Open beside",
   "workshop_objects_overrides_label": "overrides",
+  "workshop_objects_preview_failed_label": "Preview unavailable",
+  "workshop_objects_preview_retry_action": "Retry previews",
   "workshop_objects_project_label": "Objects · {project}",
   "workshop_objects_regex_action": "Use regular expression",
   "workshop_objects_retry_action": "Retry",
@@ -1205,8 +1209,11 @@
   "workshop_objects_search_placeholder": "Search the objects",
   "workshop_objects_search_regex_placeholder": "Search the objects by regex",
   "workshop_objects_show_in_file_action": "Show in file",
+  "workshop_objects_thumbnails_hint": "Small previews for skins and particles. Hover a particle to play it.",
   "workshop_objects_title": "Objects",
   "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings",
+  "workshop_objects_up_action": "Up",
+  "workshop_objects_view_label": "Object view",
   "workshop_pack_action": "Pack",
   "workshop_pack_created_title": "Package Created",
   "workshop_pack_error_count": [

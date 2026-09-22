@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useMemo, useRef } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { Button, EmptyState, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
@@ -8,17 +8,18 @@ import { useSearchObjects, useSetSearchObjects } from "@/stores";
 import { twMerge } from "@/utils";
 import { hasErrorCode } from "@/utils/errors";
 
-import { useProjectContentTree } from "../../content/api/useProjectContentTree";
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
 import {
   GameLoadingState,
   GameWadsErrorState,
 } from "../../gameBrowser/components/GameBrowserStates";
-import { useProjectContext } from "../../projects/state/ProjectContext";
 import { TreeSearchBox } from "../../shared/components/TreeSearchBox";
 import { focusRows } from "../../shared/utils/focusRows";
 import {
   useExpandedObjectPrefixes,
+  useObjectsDisplay,
+  useSetObjectsDisplay,
+  useSetObjectsView,
   useObjectsReveal,
   useObjectsSearchPattern,
   useObjectsSearchRegex,
@@ -32,13 +33,14 @@ import {
 import { useObjectDir, useObjectDirs } from "../api/useObjectDir";
 import { useObjectFind } from "../api/useObjectFind";
 import { useWarmOnAbsent } from "../api/useObjectIndex";
+import { useLayerDeclarations } from "../hooks/useLayerDeclarations";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
 import {
   buildFindTree,
+  ancestorPrefixes,
   buildObjectTree,
   holdsOnlyUnnamed,
-  type LayerDeclarations,
-  layerDeclarationsOf,
+  flattenObjectTree,
   type ObjectTreeNode,
 } from "../utils/objectTree";
 import {
@@ -46,15 +48,12 @@ import {
   ObjectIndexFailedState,
   ObjectIndexUnnamedHint,
 } from "./ObjectIndexStates";
+import { ObjectsGrid } from "./ObjectsGrid";
+import { ObjectsIndexGrid } from "./ObjectsIndexGrid";
 import { ObjectsTree } from "./ObjectsTree";
+import { ObjectsViewControls } from "./ObjectsViewControls";
 
-/**
- * The objects browser: every object of the install, folded into one tree over its paths.
- *
- * "Objects browser" in docs/ux/PROJECT_EDITOR.md. Empty, the toolbar's box browses
- * lazily, one prefix read as it opens. Typed into, the body swaps to the tree the
- * pattern leaves and back without losing where the browse had gotten to.
- */
+/** The object tree and grid, per "Objects browser" in docs/ux/PROJECT_EDITOR.md. */
 export function ObjectsDocument({
   document,
   active,
@@ -62,6 +61,22 @@ export function ObjectsDocument({
   const pattern = useObjectsSearchPattern();
   const bodyRef = useRef<HTMLDivElement>(null);
   const boxRef = useFindBox(document.id);
+  const { view, thumbnails, location, tileSize } = useObjectsDisplay();
+  const setDisplay = useSetObjectsDisplay();
+  const setView = useSetObjectsView();
+  const setPattern = useSetObjectsSearchPattern();
+  const reveal = useObjectsReveal();
+  const descend = (path: string) => {
+    setPattern("");
+    setDisplay({ location: path });
+  };
+  const up = () => setDisplay({ location: location.split("/").slice(0, -1).join("/") });
+
+  useEffect(() => {
+    if (reveal !== null && view === "grid") {
+      setDisplay({ location: ancestorPrefixes(reveal.path).at(-1) ?? "" });
+    }
+  }, [reveal, view, setDisplay]);
 
   const searching = pattern.length > 0;
 
@@ -73,15 +88,46 @@ export function ObjectsDocument({
     >
       <DocumentToolbar active={active}>
         <SearchField onCommit={() => focusRows(bodyRef.current)} boxRef={boxRef} />
-        <ObjectsStats />
+        {view === "tree" && <ObjectsStats />}
+        <ObjectsViewControls
+          view={view}
+          onViewChange={setView}
+          thumbnails={thumbnails}
+          onThumbnailsChange={(thumbnails) => setDisplay({ thumbnails })}
+          size={tileSize}
+          onSizeChange={(tileSize) => setDisplay({ tileSize })}
+        />
       </DocumentToolbar>
 
       {/* Hidden rather than unmounted. The browse tree's expanded prefixes survive a
           search and back. */}
-      <div hidden={searching} className="flex min-h-0 flex-1 flex-col">
-        <ObjectsIndexTree />
-      </div>
-      {searching && <FindResults />}
+      {view === "tree" && (
+        <div hidden={searching} className="flex min-h-0 flex-1 flex-col">
+          <ObjectsIndexTree />
+        </div>
+      )}
+      {view === "grid" && !searching && (
+        <>
+          <SwitchOffHint />
+          <ObjectsIndexGrid
+            prefix={location}
+            size={tileSize}
+            thumbnails={thumbnails && active}
+            onDescend={descend}
+            onUp={up}
+            canGoUp={location.length > 0}
+          />
+        </>
+      )}
+      {searching && (
+        <FindResults
+          grid={view === "grid"}
+          size={tileSize}
+          thumbnails={thumbnails && active}
+          onDescend={descend}
+          onUp={up}
+        />
+      )}
     </div>
   );
 }
@@ -148,13 +194,6 @@ function countText(result: ObjectFindResult): string {
   return m.workshop_objects_matches_label({ count: result.total });
 }
 
-/** The project's declarations by hash, for the layer marks on the rows. */
-function useLayerDeclarations(): LayerDeclarations {
-  const project = useProjectContext();
-  const { data: tree } = useProjectContentTree(project.path);
-  return useMemo(() => layerDeclarationsOf(tree, project), [tree, project]);
-}
-
 /** The index this view warmed goes at the end of the session. The band offers to keep it. */
 function SwitchOffHint() {
   const on = useSearchObjects();
@@ -177,7 +216,6 @@ function ObjectsIndexTree() {
   const layers = useLayerDeclarations();
 
   const root = useObjectDir("");
-  /* Opening the view warms the index whatever the Objects switch says. */
   const retry = useWarmOnAbsent(root.data?.status);
 
   const expandedPaths = useMemo(() => [...expanded].sort(), [expanded]);
@@ -240,12 +278,20 @@ function ObjectsIndexTree() {
   );
 }
 
-/**
- * The tree the pattern leaves: every matching object under its real prefixes.
- *
- * Everything starts expanded. The hits are what the pattern was typed to see.
- */
-function FindResults() {
+/** Matching objects as an expanded tree or a flat grid. */
+function FindResults({
+  grid = false,
+  size = 128,
+  thumbnails = false,
+  onDescend = () => {},
+  onUp = () => {},
+}: {
+  grid?: boolean;
+  size?: number;
+  thumbnails?: boolean;
+  onDescend?: (path: string) => void;
+  onUp?: () => void;
+}) {
   const pattern = useObjectsSearchPattern();
   const regex = useObjectsSearchRegex();
   const { data, error, isFetching } = useObjectFind(pattern, regex);
@@ -258,11 +304,20 @@ function FindResults() {
   const patternError = error && hasErrorCode(error, "VALIDATION_FAILED") ? error : null;
 
   const shut = useShutFindPrefixes();
+  const reveal = useObjectsReveal();
+  const settle = useSettleObjectsReveal();
   const toggleFindPrefix = useToggleFindPrefix();
   const tree = useMemo(() => {
     if (data?.status !== "ready") return [];
-    return buildFindTree(data.hits, data.total, layers, (path) => !shut.has(path));
-  }, [data, layers, shut]);
+    return buildFindTree(data.hits, data.total, layers, (path) => grid || !shut.has(path));
+  }, [data, layers, shut, grid]);
+  const tiles = useMemo(
+    () =>
+      flattenObjectTree(tree, () => true)
+        .map(({ node }) => node)
+        .filter((node) => node.type === "object"),
+    [tree],
+  );
   const isExpanded = useCallback((node: ObjectTreeNode) => !shut.has(node.id), [shut]);
   const handleToggle = useCallback(
     (node: ObjectTreeNode) => toggleFindPrefix(node.id),
@@ -299,16 +354,30 @@ function FindResults() {
             isFetching && "opacity-50",
           )}
         >
-          <ObjectsTree
-            nodes={tree}
-            ariaLabel={m.workshop_objects_title()}
-            isExpanded={isExpanded}
-            onToggle={handleToggle}
-            onOpen={open}
-            /* Per pattern. A fresh search opens at its first hit rather than where the
+          {grid && (
+            <ObjectsGrid
+              key={`grid:${regex}:${pattern}`}
+              reveal={reveal}
+              onRevealed={settle}
+              nodes={tiles}
+              size={size}
+              thumbnails={thumbnails}
+              onDescend={onDescend}
+              onUp={onUp}
+            />
+          )}
+          {!grid && (
+            <ObjectsTree
+              nodes={tree}
+              ariaLabel={m.workshop_objects_title()}
+              isExpanded={isExpanded}
+              onToggle={handleToggle}
+              onOpen={open}
+              /* Per pattern. A fresh search opens at its first hit rather than where the
                last one was read to. */
-            scrollKey={`objects-find:${regex ? "re" : "text"}:${pattern}`}
-          />
+              scrollKey={`objects-find:${regex ? "re" : "text"}:${pattern}`}
+            />
+          )}
         </div>
       )}
     </>

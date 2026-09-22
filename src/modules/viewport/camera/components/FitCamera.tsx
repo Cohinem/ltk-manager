@@ -7,13 +7,17 @@ import { useReducedMotion } from "@/hooks";
 
 import { useCameraPreset } from "../state/presetContext";
 import { CAMERA, CAMERA_STANDS } from "../utils/cameraPresets";
-import { type Bounds, framing, orthographicFraming } from "../utils/framing";
+import { type Bounds, boxFraming, framing, orthographicFraming } from "../utils/framing";
 import { lookAtShortest } from "../utils/lookAt";
 
 /** A point in the viewport's space. */
 type Point = readonly [number, number, number];
 
 export interface FitCameraProps {
+  /** Camera transitions animate unless the surface is capturing a still. */
+  readonly animate?: boolean;
+  /** Perspective frames fit a sphere by default, or the projected box for thumbnail artwork. */
+  readonly fit?: "sphere" | "box";
   /** What the camera holds, measured off `ground`, and null to leave it where it opened. */
   readonly bounds: Bounds | null;
   /** Where what it holds stands, which the match camera stands off instead. */
@@ -32,8 +36,14 @@ export interface FitCameraProps {
  * The pane's size is read at the moment of framing rather than followed, so a resize
  * keeps whatever orbit the reader left.
  */
-export function FitCamera({ bounds, ground, token }: FitCameraProps) {
-  const fit = useFitCamera();
+export function FitCamera({
+  bounds,
+  ground,
+  token,
+  animate = true,
+  fit: shape = "sphere",
+}: FitCameraProps) {
+  const fit = useFitCamera(animate, shape);
   const preset = useCameraPreset();
   const controls = useThree((state) => state.controls) as CameraControlsImpl | null;
   const stood = useRef(ground);
@@ -92,7 +102,10 @@ function placed(bounds: Bounds, ground: Point): Bounds {
  *
  * Answers whether it framed, which it cannot before the scene has its controls.
  */
-export function useFitCamera(): (bounds: Bounds | null, ground: Point) => boolean {
+export function useFitCamera(
+  animate = true,
+  shape: "sphere" | "box" = "sphere",
+): (bounds: Bounds | null, ground: Point) => boolean {
   const camera = useThree((state) => state.camera);
   const controls = useThree((state) => state.controls) as CameraControlsImpl | null;
   const get = useThree((state) => state.get);
@@ -103,7 +116,7 @@ export function useFitCamera(): (bounds: Bounds | null, ground: Point) => boolea
     (bounds: Bounds | null, ground: Point) => {
       if (bounds === null || controls === null) return false;
       const { width, height } = get().size;
-      const animated = !reduceMotion;
+      const animated = animate && !reduceMotion;
 
       const stand = CAMERA_STANDS[preset];
       if (stand.zoom !== null) {
@@ -128,12 +141,16 @@ export function useFitCamera(): (bounds: Bounds | null, ground: Point) => boolea
         lookAtShortest(controls, framed.position, framed.target, animated);
       } else {
         const fov = camera instanceof PerspectiveCamera ? camera.fov : CAMERA.fov;
-        const framed = framing(bounds, fov, height > 0 ? width / height : 1, look);
+        const aspect = height > 0 ? width / height : 1;
+        const framed =
+          shape === "box"
+            ? boxFraming(bounds, fov, aspect, look, [camera.up.x, camera.up.y, camera.up.z])
+            : framing(bounds, fov, aspect, look);
         lookAtShortest(controls, framed.position, framed.target, animated);
       }
       return true;
     },
-    [camera, controls, get, preset, reduceMotion],
+    [camera, controls, get, preset, reduceMotion, animate, shape],
   );
 }
 
