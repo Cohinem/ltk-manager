@@ -257,6 +257,13 @@ export const commands = {
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**
+	 *  Tangents saved into the viewed skin's project-layer mesh.
+	 *
+	 *  # Errors
+	 *  Fails when the skin or layer mesh is unavailable, baking fails, or the write fails.
+	 */
+	bakeSkinTangents: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AssetRef }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bake_skin_tangents", { document, entry }),
+	/**
 	 *  The materials a map's submeshes name, and its lighting and screen effects.
 	 * 
 	 *  `map` is `MapContainer.mapPath`, an entry path such as

@@ -403,6 +403,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c9934c2b68e46448d814db20e34a840ef9b4e7b3b7c8b1da91161481230f6350"
 
 [[package]]
+name = "bevy_mikktspace"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bff34eb29ff4b8a8688bc7299f14fb6b597461ca80fec03ed7d22939ab33e48f"
+
+[[package]]
 name = "binrw"
 version = "0.14.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3300,10 +3306,11 @@ dependencies = [
 
 [[package]]
 name = "ltk_mesh"
-version = "0.5.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7402b1352dc5f07a83ebf6606c2bd7e5c9f59a32fe099dbc4351b6f05c74404"
+checksum = "2824f9770472518566065fcbceaa87ffc51752d54ab36b24da02db7faa9510b5"
 dependencies = [
+ "bevy_mikktspace",
  "bitflags 2.13.1",
  "byteorder",
  "glam",
