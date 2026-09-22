@@ -1,0 +1,15 @@
+[package]
+name = "dxbc-spirv-sys"
+version = "0.1.0"
+description = "dxbc-spirv, DXVK's SM 5 compiler, behind one C function"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+links = "dxbc_spv"
+
+[lib]
+doctest = false
+
+[build-dependencies]
+cc = "1.2"

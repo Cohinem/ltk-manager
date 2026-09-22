@@ -1,0 +1,29 @@
+[package]
+name = "dxbc-glsl"
+version = "0.1.0"
+description = "The game's DXBC shader blobs as GLSL ES 3.00, with the reflection a renderer binds by"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[features]
+# Derive `ts_rs::TS` and `specta::Type` on the sidecar, which crosses IPC inside a
+# material program.
+ts = ["dep:ts-rs", "dep:specta"]
+
+[dependencies]
+dxbc-spirv-sys = { path = "../dxbc-spirv-sys" }
+ltk_shader = "0.3.8"
+regex = { workspace = true }
+serde = { workspace = true }
+specta = { workspace = true, optional = true }
+spirv-cross2 = { version = "0.7", default-features = false, features = ["glsl"] }
+thiserror = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+xxhash-rust = { version = "0.8", features = ["xxh64"] }
+
+[dev-dependencies]
+fs-err = { workspace = true }
+ltk_wad = { workspace = true }
+serde_json = { workspace = true }

@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "src-tauri",
+    "crates/dxbc-glsl",
+    "crates/dxbc-spirv-sys",
     "crates/ltk-declarations",
     "crates/ltk-manager-core",
     "crates/ltk-manager-game",
