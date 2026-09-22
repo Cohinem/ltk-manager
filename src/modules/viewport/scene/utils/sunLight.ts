@@ -97,6 +97,20 @@ export function sunLightOf(sun: MapSun): SunLight {
 }
 
 /** The sun's bearing off the engine's +Z and its elevation, in degrees. */
+/** The fields the sun control sets, which a custom sun carries from map to map. */
+export type SunOverride = Pick<
+  SunLight,
+  "direction" | "color" | "strength" | "sky" | "ground" | "ambient"
+>;
+
+/** `own` with the control's fields of `override`, the rest staying the map's own. */
+export function withSunOverride(own: SunLight, override: SunOverride | null): SunLight {
+  if (override === null) return own;
+
+  const { direction, color, strength, sky, ground, ambient } = override;
+  return { ...own, direction, color, strength, sky, ground, ambient };
+}
+
 export interface SunAngles {
   readonly azimuth: number;
   readonly elevation: number;

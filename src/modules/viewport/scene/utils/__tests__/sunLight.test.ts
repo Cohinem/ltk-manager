@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MapSun } from "@/lib/tauri";
 
-import { DEFAULT_SUN, sunAngles, sunDirection, sunLightOf } from "../sunLight";
+import { DEFAULT_SUN, sunAngles, sunDirection, sunLightOf, withSunOverride } from "../sunLight";
 
 /** Summoner's Rift, as `Base_SRX` states it on 16.18. */
 const RIFT: MapSun = {
@@ -86,5 +86,25 @@ describe("sunAngles", () => {
 
   it("reads straight along +Z as bearing zero on the horizon", () => {
     expect(sunAngles([0, 0, 1])).toEqual({ azimuth: 0, elevation: 0 });
+  });
+});
+
+describe("withSunOverride", () => {
+  it("keeps the map's own fog, light map scale and total under a custom sun", () => {
+    const own = sunLightOf(RIFT);
+    const carried = { ...DEFAULT_SUN, fog: null, lightMap: 1, total: 2, strength: 0.9 };
+
+    const light = withSunOverride(own, carried);
+
+    expect(light.strength).toBe(0.9);
+    expect(light.fog).toEqual(own.fog);
+    expect(light.lightMap).toBe(own.lightMap);
+    expect(light.total).toBe(own.total);
+  });
+
+  it("answers the map's own sun without an override", () => {
+    const own = sunLightOf(RIFT);
+
+    expect(withSunOverride(own, null)).toBe(own);
   });
 });

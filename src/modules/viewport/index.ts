@@ -109,6 +109,8 @@ export {
   type SunColor,
   sunDirection,
   type SunLight,
+  type SunOverride,
+  withSunOverride,
 } from "./scene/utils/sunLight";
 export {
   AXIS_SIGN,

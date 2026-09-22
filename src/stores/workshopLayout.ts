@@ -7,7 +7,7 @@ import type {
   CameraPreset,
   PlacementMode,
   PostEffects,
-  SunLight,
+  SunOverride,
 } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
@@ -41,8 +41,8 @@ interface PreviewDisplay {
   previewBackdropStructures: boolean;
   /** The backdrop draws the sky cube map behind its map. */
   previewBackdropSky: boolean;
-  /** The sun of every backdrop, and null for each map's own. */
-  previewSun: SunLight | null;
+  /** The sun control's fields over every backdrop's own sun, and null for each map's own. */
+  previewSun: SunOverride | null;
   /** The post effects of every backdrop, and null for each map's own. */
   previewPostEffects: PostEffects | null;
   /** The ambient occlusion of every backdrop, and null for each map's own. */

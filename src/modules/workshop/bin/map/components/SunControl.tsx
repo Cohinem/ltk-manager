@@ -7,8 +7,9 @@ import {
   DEFAULT_SUN,
   sunAngles,
   sunDirection,
-  type SunLight,
+  type SunOverride,
   useBackdropSun,
+  withSunOverride,
 } from "@/modules/viewport";
 import { usePreviewSun, useSetPreviewDisplay } from "@/stores";
 
@@ -43,9 +44,12 @@ export function SunControl({ source }: SunControlProps) {
   const own = useBackdropSun(source) ?? DEFAULT_SUN;
   const custom = usePreviewSun();
   const setDisplay = useSetPreviewDisplay();
-  const light = custom ?? own;
+  const light = withSunOverride(own, custom);
   const angles = sunAngles(light.direction);
-  const change = (next: Partial<SunLight>) => setDisplay({ previewSun: { ...light, ...next } });
+  const change = (next: Partial<SunOverride>) => {
+    const { direction, color, strength, sky, ground, ambient } = light;
+    setDisplay({ previewSun: { direction, color, strength, sky, ground, ambient, ...next } });
+  };
 
   return (
     <Popover.Root>

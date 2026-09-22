@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -23,7 +24,7 @@ import {
   NO_AMBIENT_OCCLUSION,
 } from "../utils/ambientOcclusion";
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
-import { DEFAULT_SUN, type SunLight } from "../utils/sunLight";
+import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { Backdrop } from "./Backdrop";
 import { PostEffectsPass } from "./PostEffectsPass";
@@ -53,8 +54,8 @@ export interface ViewportProps {
   readonly backdropFlags?: number;
   /** The sky cube map is drawn behind the backdrop, and the flat colour when off. */
   readonly backdropSky?: boolean;
-  /** The scene's sun and sky, and the backdrop's own or `DEFAULT_SUN` when absent. */
-  readonly sun?: SunLight | null;
+  /** The sun control's fields over the backdrop's own sun, or `DEFAULT_SUN` without one. */
+  readonly sun?: SunOverride | null;
   /** The scene's post effects, and the backdrop's own or none when absent. */
   readonly postEffects?: PostEffects | null;
   /** The scene's ambient occlusion, and the backdrop's own or none when absent. */
@@ -134,6 +135,7 @@ export function Viewport({
 }: ViewportProps) {
   const colors = useSceneColors();
   const map = useMapBackdrop(backdrop);
+  const light = useMemo(() => withSunOverride(map.sun ?? DEFAULT_SUN, sun), [map.sun, sun]);
   const visible = useContentVisible();
   const [sized, setSized] = useState(false);
   const [started, setStarted] = useState(false);
@@ -194,7 +196,7 @@ export function Viewport({
         >
           <color attach="background" args={[colors.backdrop]} />
           <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} gizmo={gizmo} />
-          <Sun light={sun ?? map.sun ?? DEFAULT_SUN} />
+          <Sun light={light} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (
             <>
@@ -206,7 +208,7 @@ export function Viewport({
                 programs={map.programs}
                 programTextures={map.programTextures}
                 lightmaps={map.lightmaps}
-                light={sun ?? map.sun ?? DEFAULT_SUN}
+                light={light}
                 flags={backdropFlags ?? map.opening}
               />
             </>
