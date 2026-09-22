@@ -23,7 +23,7 @@ import { SkinPreview } from "../../skin/components/SkinPreview";
 import { SpellsPane } from "../../spells/components/SpellsPane";
 import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
 import { PreviewPane, RunKeys, TimelinePane, VfxRunProvider } from "../../vfx";
-import { EmitterFields, InspectorDefaults } from "../../vfx/inspector/components/EmitterInspector";
+import { EmitterFields } from "../../vfx/inspector/components/EmitterInspector";
 import { EmitterModes, Emitters } from "../../vfx/inspector/components/VfxSections";
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
 import type { PlacedSection } from "../utils/classLayouts";
@@ -324,12 +324,7 @@ export function VfxShell({ placed, pages, view, system, drawable, preview }: She
       },
       inspector: {
         body: <InspectorPane placed={others} pages={pages} view={view} />,
-        actions: (
-          <>
-            <ChanceReadout />
-            <InspectorDefaults />
-          </>
-        ),
+        actions: <ChanceReadout />,
       },
       preview: { body: preview },
       timeline: { body: <TimelinePane drawable={drawable} /> },

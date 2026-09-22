@@ -10,24 +10,25 @@ import {
   useRef,
   useState,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
-import { AlertBox, Button, Code, Switch } from "@/components";
+import { AlertBox, Button, Code } from "@/components";
 import { m, Marked } from "@/i18n";
-import type { BinRow, DeclaredKind } from "@/lib/tauri";
-import { useInspectorDefaults, useSetPreviewDisplay } from "@/stores";
+import type { BinRow } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
+import { TreeSearchBox } from "../../../../shared/components/TreeSearchBox";
 import { AlsoCheck, FieldRow } from "../../../classes/components/ClassCells";
-import { FieldCard } from "../../../classes/components/FieldCard";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
+import { FieldLabelsContext } from "../../../classes/state/fieldLabels";
 import { CurveChainContext } from "../../../curves/state/curveTarget";
 import { type RailMark, railMark } from "../../../curves/utils/rollRail";
 import { useLinkOpen } from "../../../links/hooks/useLinkTargets";
-import { nameColumn } from "../../../shared/utils/textCut";
 import { RowDocumentContext, type RowFold, RowFoldContext } from "../../../tree/state/rowFold";
 import { fieldHash, rowKey } from "../../../tree/utils/binRows";
 import { ValueMarksContext } from "../../../values/hooks/useValueMarks";
-import { shapeTag } from "../../../values/utils/kindTag";
+import { FORCE_COLLECTION } from "../../forces/forceModel";
+import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
+import { useForces } from "../../forces/useForces";
 import { useEmitters } from "../state/emitterChoice";
 import { emitterChain, emitterRows } from "../utils/emitterCards";
 import {
@@ -37,23 +38,29 @@ import {
   type GroupedRows,
   type InspectorGroup,
   inspectorGroups,
+  inspectorProperties,
   unauthoredFields,
 } from "../utils/emitterGroups";
+import { emitterLabel, filterEmitterGroups } from "../utils/emitterLabels";
 import {
   type ChildChoice,
   type EmitterCardData,
   SECTION_FOLDED,
   SECTION_SHOWN,
 } from "../utils/emitterTypes";
+import { rowHasDefault } from "../utils/propertyDefaults";
+import { DefaultProperty } from "./DefaultProperty";
 
-/** The name column, fitted to the longest name the inspector draws through `--name-width`. */
+/** The shared label column of the inspector's property tables. */
 const NAME_COLUMN = "w-(--name-width)";
-
-/** The share of a row past which the name column cuts its names. */
-const NAME_CAP = "40%";
-
-/** What the column holds beside a name, in pixels. */
-const NAME_EXTRA = 8;
+const COLUMN_STYLE = {
+  "--name-width": "clamp(7rem, 32%, 12rem)",
+  "--readout-height": "1.25rem",
+  "--readout-padding-x": "0.25rem",
+  "--readout-step-width": "0.75rem",
+  "--bin-scalar-width": "5rem",
+  "--bin-component-width": "4rem",
+} as CSSProperties;
 
 /**
  * The inspector in a box of its own, which is what a stack draws under the strip.
@@ -69,7 +76,6 @@ export function EmitterPanel({ className }: { className?: string }) {
         "overflow-hidden rounded-md border border-surface-700/50 bg-surface-900",
         className,
       )}
-      actions={<InspectorDefaults />}
     />
   );
 }
@@ -91,30 +97,35 @@ interface EmitterFieldsProps {
  */
 export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const { card, child, open, target, jumpRequest, openRows, toggleRow } = useEmitters();
-  const on = useInspectorDefaults();
   const owner = cardClass(card);
-  const { data } = useClassSchema(on ? owner : null);
+  const { data } = useClassSchema(owner);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const forces = useForces();
 
   const groups = useMemo(() => {
-    const held = target === "system" ? NO_GROUPED : (card?.groups ?? NO_GROUPED);
-    if (!on || data == null) return inspectorGroups(held, NO_DEFAULTS);
+    const source = target === "system" ? NO_GROUPED : (card?.groups ?? NO_GROUPED);
+    const held = forces.visible
+      ? source.map((group) => ({
+          ...group,
+          rows: group.rows.filter((row) => fieldHash(row.path) !== FORCE_COLLECTION),
+        }))
+      : source;
+    if (data == null) {
+      return inspectorGroups(held, NO_DEFAULTS);
+    }
+
     const authored = new Set(held.flatMap((each) => each.rows).map((row) => fieldHash(row.path)));
+    if (forces.visible) {
+      authored.add(FORCE_COLLECTION);
+    }
+
     return inspectorGroups(held, unauthoredFields(data.fields, authored));
-  }, [target, card, on, data]);
-  const column = useMemo(
-    () =>
-      ({
-        "--name-width": nameColumn(
-          groups.flatMap((each) => [
-            ...each.rows.map((row) => row.name),
-            ...each.defaults.map((field) => field.name),
-          ]),
-          NAME_EXTRA,
-          NAME_CAP,
-        ),
-      }) as CSSProperties,
-    [groups],
-  );
+  }, [target, card, data, forces.visible]);
+  const filtered = filterEmitterGroups(groups, search);
+  const hasMatches =
+    filtered.some((group) => group.rows.length > 0 || group.defaults.length > 0) ||
+    (forces.visible && forces.forces.some((force) => forceMatches(force, search)));
   /* Held by the path under the emitter, so a shape opened on one emitter is open on the next. */
   const fold = useMemo<RowFold | null>(() => {
     if (card === undefined) return null;
@@ -140,26 +151,55 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     <div data-ui="EmitterPanel" className={twMerge("flex min-h-0 flex-col", className)}>
       {child !== null && <ChildBanner child={child} />}
       <PanelHeader actions={actions} />
+      <div
+        data-ui="EmitterFields:search"
+        className="flex shrink-0 items-center gap-2 border-b border-surface-700/40 px-2 py-1.5"
+      >
+        <TreeSearchBox
+          value={search}
+          onChange={setSearch}
+          inputRef={searchRef}
+          label={m.workshop_bin_inspector_search_label()}
+          clearLabel={m.workshop_bin_inspector_clear_action()}
+          onCommit={() =>
+            scroller.current
+              ?.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled)")
+              ?.focus()
+          }
+        />
+      </div>
       {/* DS-SCROLLBAR. The left padding is the roll rail's gutter, outside every row. */}
       <div
         ref={scroller}
         data-ui="EmitterPanel:body"
-        className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-1.5 pr-1.5 pl-3.5 scrollbar-md"
-        style={column}
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto py-0.5 pr-1.5 pl-3.5 scrollbar-md"
+        style={COLUMN_STYLE}
       >
         <ChildChecks>
           <CurveChainContext value={card === undefined ? "" : emitterChain(card)}>
-            <RowFoldContext value={fold}>
-              {groups.map((each) => (
-                <GroupSection
-                  key={each.group}
-                  held={each}
-                  owner={owner}
-                  scroller={scroller}
-                  register={register}
-                />
-              ))}
-            </RowFoldContext>
+            <FieldLabelsContext value={emitterLabel}>
+              <RowFoldContext value={fold}>
+                {filtered.map((each) => (
+                  <GroupSection
+                    key={each.group}
+                    held={each}
+                    defaultExpanded={each.rows.some(
+                      (row) => !rowHasDefault(row, data?.fields, forces.emitterNode),
+                    )}
+                    owner={owner}
+                    scroller={scroller}
+                    register={register}
+                    searching={search.trim() !== ""}
+                  />
+                ))}
+                <ForcesSection search={search} />
+                {search.trim() !== "" && !hasMatches && (
+                  <p role="status" className="px-2 py-4 text-meta text-surface-400">
+                    {m.workshop_bin_inspector_matches_empty()}
+                  </p>
+                )}
+              </RowFoldContext>
+            </FieldLabelsContext>
           </CurveChainContext>
         </ChildChecks>
       </div>
@@ -251,17 +291,42 @@ function cardClass(card: EmitterCardData | undefined): string | null {
 
 interface GroupSectionProps {
   held: InspectorGroup;
+  defaultExpanded: boolean;
+  searching: boolean;
   owner: string | null;
   scroller: RefObject<HTMLDivElement | null>;
   register: (group: EmitterGroup, element: HTMLElement | null) => void;
 }
 
 /** One group as a section that folds, reading its curves while it is on screen. */
-function GroupSection({ held, owner, scroller, register }: GroupSectionProps) {
-  const { report } = useEmitters();
-  const [open, setOpen] = useState(true);
+function GroupSection({
+  held,
+  defaultExpanded,
+  owner,
+  scroller,
+  register,
+  searching,
+}: GroupSectionProps) {
+  const { report, card, open: aimed, jumpRequest } = useEmitters();
+  const { data: schema } = useClassSchema(owner);
+  const [fold, setFold] = useState<boolean | null>(null);
+  const [navigation, setNavigation] = useState({ key: card?.key, request: jumpRequest });
   const root = useRef<HTMLElement | null>(null);
   const { group } = held;
+  const title = GROUP_TITLE[group]();
+  const properties = inspectorProperties(held);
+  const visible = properties.length > 0;
+  const requested =
+    navigation.key === card?.key && navigation.request !== jumpRequest && aimed?.group === group;
+  if (navigation.key !== card?.key || navigation.request !== jumpRequest) {
+    setNavigation({ key: card?.key, request: jumpRequest });
+    if (requested) {
+      setFold(true);
+    }
+  }
+
+  const expanded = requested || (fold ?? defaultExpanded);
+  const open = visible && (searching || expanded);
 
   useEffect(() => {
     if (!open) {
@@ -286,7 +351,17 @@ function GroupSection({ held, owner, scroller, register }: GroupSectionProps) {
   /* Every row's mark at once, so a segment knows whether the row under it carries the same
      one and can close the gap the rows are laid out with. */
   const marks = use(ValueMarksContext);
-  const rails = held.rows.map((row) => railMark(row, marks.get(rowKey(row))));
+  const rails = properties.map((property) => {
+    if ("field" in property) {
+      return null;
+    }
+
+    return railMark(property.row, marks.get(rowKey(property.row)));
+  });
+
+  if (!visible) {
+    return null;
+  }
 
   return (
     <section
@@ -295,37 +370,79 @@ function GroupSection({ held, owner, scroller, register }: GroupSectionProps) {
         root.current = element;
         register(group, element);
       }}
-      className="flex scroll-mt-1 flex-col gap-0.5"
+      className="flex scroll-mt-1 flex-col border-t border-surface-700/40 first:border-t-0"
     >
       <button
         type="button"
         aria-expanded={open}
+        disabled={searching}
         /* DS-GROUND: opaque, since the rows scroll under it rather than past it. */
-        className="sticky top-0 z-10 -ml-2 flex cursor-pointer items-center gap-1 bg-surface-900 py-1 pr-1 pl-3 text-left font-sans text-xs font-medium tracking-wide text-surface-400 uppercase hover:text-surface-200"
-        onClick={() => setOpen((shown) => !shown)}
+        className="sticky top-0 z-10 -ml-2 flex min-h-6 cursor-pointer items-center gap-1 bg-surface-900 pr-1 pl-3 text-left font-sans text-xs font-medium tracking-wide text-surface-400 uppercase hover:text-surface-200"
+        onClick={() => setFold(!expanded)}
       >
         <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
-        {GROUP_TITLE[group]()}
+        {title}
       </button>
       {open &&
-        held.rows.map((row, at) => (
-          <FieldRow
-            key={rowKey(row)}
-            row={row}
-            width={NAME_COLUMN}
-            owner={owner}
-            rail={
-              <RollRail
-                mark={rails[at] ?? null}
-                joins={rails[at] !== null && rails[at + 1] === rails[at]}
-              />
+        properties.map((property, at) => {
+          const key = `${card?.key ?? owner}:${property.hash}`;
+          if ("field" in property) {
+            if (card === undefined) {
+              return null;
             }
-          />
-        ))}
-      {open &&
-        held.defaults.map((field) => (
-          <DefaultRow key={field.hash} field={field} width={NAME_COLUMN} owner={owner} />
-        ))}
+
+            return (
+              <DefaultProperty
+                key={key}
+                field={property.field}
+                holder={card.row}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          const { row } = property;
+          const rail = (
+            <RollRail
+              mark={rails[at] ?? null}
+              joins={rails[at] !== null && rails[at + 1] === rails[at]}
+            />
+          );
+          const definition = schema?.fields.find((field) => field.hash === property.hash);
+          if (
+            row.value.type === "optional" &&
+            row.value.itemKind === "f32" &&
+            definition?.declared?.kind === "option" &&
+            definition.declared.value === "f32" &&
+            !row.declared?.mismatch &&
+            card !== undefined
+          ) {
+            return (
+              <DefaultProperty
+                key={key}
+                field={{ ...definition, name: definition.name ?? row.name }}
+                holder={card.row}
+                authored={row}
+                rail={rail}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          return (
+            <FieldRow
+              key={key}
+              row={row}
+              label={emitterLabel(fieldHash(row.path), row.name)}
+              tableLayout
+              width={NAME_COLUMN}
+              owner={owner}
+              rail={rail}
+            />
+          );
+        })}
     </section>
   );
 }
@@ -355,63 +472,5 @@ function RollRail({ mark, joins }: { mark: RailMark | null; joins: boolean }) {
         mark === "flicker" ? "bg-warning/60" : "bg-accent-500/50",
       )}
     />
-  );
-}
-
-/**
- * A field the class declares and the emitter leaves alone, dimmed and without a value.
- *
- * "Defaults" in docs/ux/BIN_EDITOR.md. The schema carries the type and no default, so
- * the row draws what the field would hold rather than what it is worth.
- */
-function DefaultRow({
-  field,
-  width,
-  owner,
-}: {
-  field: DefaultField;
-  width: string;
-  owner: string | null;
-}) {
-  const declared: DeclaredKind | null =
-    field.declared === null ? null : { shape: field.declared, mismatch: false };
-
-  return (
-    /* DS-VEIL, DS-RADIUS */
-    <div className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 opacity-60 hover:bg-surface-veil-soft">
-      <span className={twMerge("flex min-w-0 shrink-0", width)}>
-        <FieldCard
-          classHash={owner}
-          fieldHash={field.hash}
-          name={field.name}
-          unnamed={field.name === field.hash}
-          declared={declared}
-          triggerClassName="text-surface-500"
-          cut
-        />
-      </span>
-      {declared !== null && (
-        /* DS-CODE-CHIP */
-        <Code className="shrink-0 text-surface-500">{shapeTag(declared.shape)}</Code>
-      )}
-    </div>
-  );
-}
-
-/** Whether the inspector lists the fields the emitter leaves at their default. */
-export function InspectorDefaults() {
-  const on = useInspectorDefaults();
-  const setDisplay = useSetPreviewDisplay();
-  const label = m.workshop_bin_inspector_defaults_label();
-
-  return (
-    <span className="flex shrink-0 items-center gap-1.5 font-sans text-meta text-surface-400 select-none">
-      {label}
-      <Switch
-        aria-label={label}
-        checked={on}
-        onCheckedChange={(checked: boolean) => setDisplay({ inspectorDefaults: checked })}
-      />
-    </span>
   );
 }

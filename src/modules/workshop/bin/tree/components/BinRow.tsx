@@ -18,7 +18,15 @@ import {
   useState,
 } from "react";
 
-import { Checkbox, Code, Readout, Select, SeverityGlyph, Tooltip } from "@/components";
+import {
+  Checkbox,
+  Code,
+  Readout,
+  Select,
+  SeverityGlyph,
+  Tooltip,
+  InputDefaultContext,
+} from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue, RowNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -45,7 +53,8 @@ import {
   type ValueMark,
   type ValueRange,
 } from "../../values/utils/valueRows";
-import { type BinEdit, BinEditContext, useRowEdit } from "../hooks/useBinEdit";
+import { BinEditContext, useRowEdit } from "../hooks/useBinEdit";
+import { type LeafEdit, LeafEditContext } from "../hooks/useLeafEdit";
 import { useGuideLevels } from "../state/treeGuides";
 import { typedKey } from "../utils/addItem";
 import {
@@ -94,10 +103,10 @@ const AXES = ["x", "y", "z", "w"] as const;
 const CHANNELS = ["r", "g", "b", "a"] as const;
 
 /** The room a number on its own takes, so a column of rows lines its digits up. */
-const SCALAR_WIDTH = "w-32";
+const SCALAR_WIDTH = "w-[var(--bin-scalar-width,8rem)]";
 
 /** One component of a vector or a matrix, which holds a float. */
-const COMPONENT_WIDTH = "w-24";
+const COMPONENT_WIDTH = "w-[var(--bin-component-width,6rem)]";
 
 /** One channel of a colour, which holds a byte. */
 const CHANNEL_WIDTH = "w-14";
@@ -445,25 +454,29 @@ const TAG_CLASSES = "text-bin-kind-text";
  * The cell a row's value draws, which is what a class view places where its layout
  * names no widget of its own.
  */
-export function RowValue({ row }: { row: BinRow }) {
+export function RowValue({ row, field = ownField(row) }: { row: BinRow; field?: string | null }) {
   const objectName = use(ObjectNameContext);
   const key = rowKey(row);
-  const { edit, refusal } = useRowEdit(key);
-  const focused = edit !== null && edit.focusKey === key;
-  const field =
+  const { edit: treeEdit } = useRowEdit(key);
+  const leafEdit = use(LeafEditContext);
+  const edit = treeEdit ?? leafEdit;
+  const refusal = edit?.refused.get(key);
+  const focused = treeEdit !== null && treeEdit.focusKey === key;
+  const widget =
     edit === null
       ? null
       : leafField(row, edit, {
+          field,
           invalid: refusal !== undefined,
           object: objectName(row.entry),
           autoFocus: focused,
-          onEnter: () => edit.enter(key),
+          onEnter: () => treeEdit?.enter(key),
         });
 
-  if (field !== null) {
+  if (widget !== null) {
     return (
       <span data-row-value className="flex min-w-0 flex-1 items-center gap-2">
-        {field}
+        {widget}
         {refusal !== undefined && (
           <Tooltip content={errorSummary(refusal)}>
             <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />
@@ -479,7 +492,7 @@ export function RowValue({ row }: { row: BinRow }) {
         value={row.value}
         node={row.node}
         rowKey={rowKey(row)}
-        field={ownField(row)}
+        field={field}
         object={objectName(row.entry)}
       />
     </span>
@@ -487,6 +500,7 @@ export function RowValue({ row }: { row: BinRow }) {
 }
 
 interface LeafDrawing {
+  field: string | null;
   /** The last value the row sent was refused. */
   invalid: boolean;
   /** The path of the object the row sits in. */
@@ -503,9 +517,8 @@ interface LeafDrawing {
  * "Leaf editing" in docs/ux/BIN_EDITOR.md. A plain function rather than a component, so
  * the caller falls back to the read-only value on null.
  */
-function leafField(row: BinRow, edit: BinEdit, drawn: LeafDrawing): ReactNode | null {
-  const { invalid, object, autoFocus, onEnter } = drawn;
-  const field = ownField(row);
+function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode | null {
+  const { field, invalid, object, autoFocus, onEnter } = drawn;
   const { value } = row;
   switch (value.type) {
     case "bool":
@@ -532,6 +545,7 @@ function leafField(row: BinRow, edit: BinEdit, drawn: LeafDrawing): ReactNode | 
         <span className="flex min-w-0 items-center gap-1.5">
           <NumberValue
             text={value.text}
+            step="integer"
             field={field}
             invalid={invalid}
             autoFocus={autoFocus}
@@ -660,14 +674,17 @@ function TextEdit({
   onCommit,
   children,
 }: TextEditProps) {
+  const implicit = use(InputDefaultContext);
   const [editing, setEditing] = useState(autoFocus);
-  if (editing) {
+  if (editing || implicit) {
     return (
       <Readout
         value={text}
+        placeholder={text || m.workshop_bin_empty_label()}
+        aria-label={label}
         className="min-w-0 flex-1"
         invalid={invalid}
-        autoFocus
+        autoFocus={editing}
         onEnter={onEnter}
         onCommit={onCommit}
         onLeave={() => setEditing(false)}
@@ -705,6 +722,7 @@ interface EnumSelectProps {
 
 /** An enum as a select of the engine's words, the number the file holds beside it. */
 function EnumSelect({ held, text, onChange }: EnumSelectProps) {
+  const implicit = use(InputDefaultContext);
   const options = Object.values(held.names).map((value) => String(value));
   if (!options.includes(text)) options.unshift(text);
   const labelOf = (option: string) => enumText(held, Number(option)) ?? option;
@@ -712,15 +730,18 @@ function EnumSelect({ held, text, onChange }: EnumSelectProps) {
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <Select.Root
-        value={text}
-        onValueChange={(next) => next !== null && next !== text && onChange(next)}
+        value={implicit ? null : text}
+        onValueChange={(next) => next !== null && (implicit || next !== text) && onChange(next)}
       >
         <Select.Trigger
           /* DS-VEIL, DS-RADIUS */
-          className="h-auto w-auto min-w-0 gap-1 rounded-sm border-surface-veil bg-surface-veil-soft px-1.5 py-0.5 text-mono-row text-surface-200"
+          className={twMerge(
+            "h-auto w-auto min-w-0 gap-1 rounded-sm border-surface-veil bg-surface-veil-soft px-1.5 py-0.5 text-mono-row text-surface-200",
+            implicit && "border-dashed bg-transparent text-surface-400",
+          )}
           onClick={(event: ReactMouseEvent<HTMLButtonElement>) => event.stopPropagation()}
         >
-          <Select.Value>{(current: string) => labelOf(current)}</Select.Value>
+          <Select.Value>{(current: string | null) => labelOf(current ?? text)}</Select.Value>
           <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
         </Select.Trigger>
         <Select.Portal>
@@ -736,7 +757,11 @@ function EnumSelect({ held, text, onChange }: EnumSelectProps) {
         </Select.Portal>
       </Select.Root>
       {/* DS-CODE-CHIP */}
-      <Code className="shrink-0 select-text">{text}</Code>
+      <Code
+        className={twMerge("shrink-0 select-text", implicit && "bg-transparent text-surface-400")}
+      >
+        {text}
+      </Code>
     </span>
   );
 }
@@ -823,6 +848,7 @@ function IntegerValue({ text, field }: { text: string; field: string | null }) {
 }
 
 interface NumberValueProps {
+  step?: number | "integer";
   text: string;
   field: string | null;
   invalid?: boolean;
@@ -835,11 +861,20 @@ interface NumberValueProps {
 }
 
 /** A number in the box it is edited in, and the unit its field is measured in after it. */
-function NumberValue({ text, field, invalid, autoFocus, onEnter, onCommit }: NumberValueProps) {
+function NumberValue({
+  text,
+  field,
+  invalid,
+  autoFocus,
+  onEnter,
+  onCommit,
+  step = 1,
+}: NumberValueProps) {
   const unit = fieldUnit(field);
   const box = (
     <Readout
       value={text}
+      step={step}
       className={SCALAR_WIDTH}
       invalid={invalid}
       autoFocus={autoFocus}
@@ -1043,7 +1078,9 @@ function Components({
         <Readout
           key={labels[at] ?? at}
           value={String(component)}
+          step={labels === CHANNELS ? "integer" : 1}
           label={labels[at]}
+          labelClassName={AXIS_TINT[at]}
           className={width}
           invalid={invalid}
           autoFocus={autoFocus === true && at === 0}
@@ -1101,6 +1138,7 @@ function MatrixValue({ values, invalid, onCommit }: MatrixValueProps) {
           <Readout
             key={at}
             value={String(cell)}
+            step={0.1}
             className={COMPONENT_WIDTH}
             invalid={invalid}
             onCommit={onCommit && ((text) => onCommit(at, text))}

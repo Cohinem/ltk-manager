@@ -7,7 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { StepperField } from "@/components";
 
-function Speed({ onChange }: { onChange: (value: number) => void }) {
+function Speed({
+  onChange,
+  onCommit,
+}: {
+  onChange: (value: number) => void;
+  onCommit?: (value: number) => void;
+}) {
   const [value, setValue] = useState(1);
   return (
     <StepperField
@@ -24,6 +30,7 @@ function Speed({ onChange }: { onChange: (value: number) => void }) {
         setValue(next);
         onChange(next);
       }}
+      onValueCommitted={onCommit}
     />
   );
 }
@@ -60,6 +67,19 @@ describe("StepperField", () => {
     fireEvent.blur(field);
     expect(onChange).toHaveBeenLastCalledWith(0.125);
     expect(field).toHaveValue("0.125");
+  });
+
+  it("reports one committed value when a typed edit lands", async () => {
+    const onCommit = vi.fn();
+    render(<Speed onChange={vi.fn()} onCommit={onCommit} />);
+    const field = screen.getByRole("textbox", { name: "Speed" });
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "0.125");
+    fireEvent.blur(field);
+
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(0.125);
   });
 
   it("puts the held value back when a cleared field is left", async () => {

@@ -1,4 +1,4 @@
-import { use, useMemo, useState } from "react";
+import { type MouseEvent, use, useMemo } from "react";
 
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
@@ -15,10 +15,11 @@ import {
   type TimeSpan,
   timeSpan,
 } from "../../values/utils/valueRows";
+import { keysAt } from "../../vfx/engine/utils/sampleCurve";
 import { VfxRunContext } from "../../vfx/playback/state/run";
 import { axisText } from "../utils/curvePlot";
 import { drawsFlat, drawsSpread, type RandomDraw, stopsAt } from "../utils/randomDraw";
-import { KeyTable } from "./KeyTable";
+import type { CurveSelectionMode } from "./CurveGraph";
 import { DrawReadout, pinGesture } from "./RandomLanes";
 
 /** The chances an animated random colour's ramp is drawn at: the two ends of the roll. */
@@ -29,12 +30,13 @@ const RAMP_STOPS = 32;
 
 /** A colour offers no channel chips, so none is ever muted. */
 const NO_MUTED: ReadonlySet<number> = new Set();
+const NO_SELECTION: ReadonlySet<number> = new Set();
 
 interface StopsProps {
   stops: readonly ColorStop[];
   span: TimeSpan;
-  /** The stop the readout and the rail are on, an index into `stops`. */
-  selected: number;
+  /** The stops the readout and the rail have selected, as indices into `stops`. */
+  selected: ReadonlySet<number>;
 }
 
 /**
@@ -51,15 +53,31 @@ interface StopsProps {
 export function GradientPlot({
   keys,
   draw = null,
+  selected = NO_SELECTION,
+  editable = false,
+  onSelect,
+  onAdd,
 }: {
   keys: readonly CurveKey[];
   draw?: RandomDraw | null;
+  selected?: ReadonlySet<number>;
+  editable?: boolean;
+  onSelect?: (at: number, mode: CurveSelectionMode) => void;
+  onAdd?: (key: CurveKey) => void;
 }) {
   const stops = useMemo(() => colorStops(keys), [keys]);
-  const [picked, setPicked] = useState(0);
   const pinned = use(VfxRunContext)?.pinned ?? null;
   const span = timeSpan(stops.map((stop) => stop.time));
   const rolled = drawsSpread(draw);
+
+  function addStop(event: MouseEvent<HTMLSpanElement>) {
+    if (!editable || onAdd === undefined) return;
+
+    const box = event.currentTarget.getBoundingClientRect();
+    const share = Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1);
+    const time = span.first + share * (span.last - span.first);
+    onAdd({ time, values: keysAt(keys, time) });
+  }
 
   if (rolled && drawsFlat(draw)) {
     const levels = draw.channels.map((each) => each.base);
@@ -77,16 +95,18 @@ export function GradientPlot({
     <div data-ui="GradientPlot" className="flex min-h-0 flex-1 flex-col gap-1">
       {/* The rail hangs off the band, so the two are one object with no gap between them. */}
       <div className="flex shrink-0 flex-col gap-px">
-        {!rolled && <Band stops={stops} />}
+        {!rolled && <Band stops={stops} editable={editable} onDoubleClick={addStop} />}
         {rolled &&
           chances.map((chance, at) => (
             <Band
               key={at}
               stops={stopsAt(stops, draw, chance)}
               label={m.workshop_bin_random_at_chance_label({ chance: chance.toFixed(2) })}
+              editable={editable}
+              onDoubleClick={addStop}
             />
           ))}
-        <StopRail stops={stops} span={span} selected={picked} onSelect={setPicked} />
+        <StopRail stops={stops} span={span} selected={selected} onSelect={onSelect} />
       </div>
       {stops.length > 0 && (
         <span className="flex shrink-0 justify-between text-meta text-surface-500">
@@ -95,7 +115,11 @@ export function GradientPlot({
         </span>
       )}
       {rolled && <DrawReadout draw={draw} unit={null} muted={NO_MUTED} levels={[]} />}
-      <KeyTable keys={keys} family="color" selected={picked} onSelect={setPicked} />
+      {editable && stops.length > 0 && (
+        <span className="text-meta leading-none text-surface-500 select-none">
+          {m.workshop_bin_curve_edit_hint()}
+        </span>
+      )}
     </div>
   );
 }
@@ -149,7 +173,17 @@ function ChanceRamp({ base, draw }: { base: ColorStop["rgba"]; draw: RandomDraw 
  * height, so the room belongs to whatever the reader opens the dock taller for. A labelled
  * bar is one ramp of several and draws thinner.
  */
-function Band({ stops, label }: { stops: readonly ColorStop[]; label?: string }) {
+function Band({
+  stops,
+  label,
+  editable,
+  onDoubleClick,
+}: {
+  stops: readonly ColorStop[];
+  label?: string;
+  editable: boolean;
+  onDoubleClick: (event: MouseEvent<HTMLSpanElement>) => void;
+}) {
   return (
     <span
       role="img"
@@ -158,7 +192,9 @@ function Band({ stops, label }: { stops: readonly ColorStop[]; label?: string })
       className={twMerge(
         `relative block h-6 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:8px_8px]`,
         label !== undefined && "h-4",
+        editable && "cursor-crosshair",
       )}
+      onDoubleClick={onDoubleClick}
     >
       <span className="block h-full w-full" style={{ background: gradientCss(stops) }} />
       {label !== undefined && (
@@ -186,7 +222,7 @@ function StopRail({
   span,
   selected,
   onSelect,
-}: StopsProps & { onSelect: (at: number) => void }) {
+}: StopsProps & { onSelect: ((at: number, mode: CurveSelectionMode) => void) | undefined }) {
   return (
     <span data-ui="StopRail" className="relative h-4 min-w-0">
       {stops.map((stop, at) => (
@@ -197,18 +233,26 @@ function StopRail({
             time: stop.time.toFixed(3),
             color: colorHex(stop.rgba),
           })}
-          aria-pressed={at === selected}
+          aria-pressed={selected.has(at)}
           className="group/stop absolute top-0 flex -translate-x-1/2 cursor-pointer flex-col items-center"
           style={{ left: `${(placeTime(stop.time, span) * 100).toFixed(2)}%` }}
-          onClick={() => onSelect(at)}
+          onClick={(event) => {
+            if (event.shiftKey) {
+              onSelect?.(at, "range");
+            } else if (event.ctrlKey || event.metaKey) {
+              onSelect?.(at, "toggle");
+            } else {
+              onSelect?.(at, "replace");
+            }
+          }}
         >
-          <Tip selected={at === selected} />
+          <Tip selected={selected.has(at)} />
           {/* DS-HOVER */}
           <Swatch
             rgba={stop.rgba}
             className={twMerge(
               "h-3 w-3",
-              at === selected ? "border-accent-500" : "group-hover/stop:border-accent-hover",
+              selected.has(at) ? "border-accent-500" : "group-hover/stop:border-accent-hover",
             )}
           />
         </button>

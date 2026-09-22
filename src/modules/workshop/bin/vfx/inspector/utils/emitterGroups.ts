@@ -8,6 +8,8 @@ import { fieldHash } from "../../../tree/utils/binRows";
 export type EmitterGroup =
   | "emission"
   | "birth"
+  | "initialMotion"
+  | "motion"
   | "position"
   | "scale"
   | "colour"
@@ -47,15 +49,7 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
   birth: [
     "birthColor",
     "birthScale0",
-    "birthVelocity",
-    "flexBirthVelocity",
-    "birthAcceleration",
-    "birthOrbitalVelocity",
-    "birthDrag",
     "birthRotation0",
-    "birthRotationalVelocity0",
-    "flexBirthRotationalVelocity0",
-    "birthRotationalAcceleration",
     "birthFrameRate",
     "birthUVOffset",
     "flexBirthUVOffset",
@@ -64,6 +58,17 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "flexBirthUVScrollRate",
     "flexScaleBirthScale",
   ],
+  initialMotion: [
+    "birthVelocity",
+    "flexBirthVelocity",
+    "birthAcceleration",
+    "birthOrbitalVelocity",
+    "birthDrag",
+    "birthRotationalVelocity0",
+    "flexBirthRotationalVelocity0",
+    "birthRotationalAcceleration",
+  ],
+  motion: ["velocity", "acceleration", "worldAcceleration", "drag"],
   position: [
     "EmitterPosition",
     "SpawnShape",
@@ -74,10 +79,6 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "isGroundLayer",
     "useNavmeshMask",
     "bindWeight",
-    "velocity",
-    "acceleration",
-    "worldAcceleration",
-    "drag",
     "directionVelocityScale",
     "directionVelocityMinScale",
     "translationOverride",
@@ -178,6 +179,8 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
 export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
   emission: m.workshop_bin_emitter_group_emission_label,
   birth: m.workshop_bin_emitter_group_birth_label,
+  initialMotion: m.workshop_bin_emitter_group_initial_motion_label,
+  motion: m.workshop_bin_emitter_group_motion_label,
   position: m.workshop_bin_emitter_group_position_label,
   scale: m.workshop_bin_emitter_group_scale_label,
   colour: m.workshop_bin_emitter_group_colour_label,
@@ -192,6 +195,8 @@ export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
 export const GROUP_ORDER: readonly EmitterGroup[] = [
   "emission",
   "birth",
+  "initialMotion",
+  "motion",
   "position",
   "scale",
   "colour",
@@ -214,6 +219,12 @@ const BY_FIELD: ReadonlyMap<string, EmitterGroup> = new Map(
   Object.entries(GROUP_FIELDS).flatMap(([group, fields]) =>
     fields.map((field) => [nameHash(field), group as EmitterGroup] as const),
   ),
+);
+
+const FIELD_ORDER: ReadonlyMap<string, number> = new Map(
+  Object.values(GROUP_FIELDS)
+    .flat()
+    .map((field, index) => [nameHash(field), index]),
 );
 
 /** One group with the emitter's rows in it, in the order the class declared them. */
@@ -248,13 +259,35 @@ export interface DefaultField {
   readonly name: string;
   /** The type at the install's build, and null where no revision covers it. */
   readonly declared: KindShape | null;
+  readonly classHash?: string | null;
+  readonly defaultValue?: string | null;
 }
 
-/** One section of the inspector: what the emitter authored, and what Defaults adds under it. */
+/** One inspector section's authored properties and implicit defaults. */
 export interface InspectorGroup {
   readonly group: EmitterGroup;
   readonly rows: readonly BinRow[];
   readonly defaults: readonly DefaultField[];
+}
+
+/** A property slot identified independently of whether it has an authored value. */
+export type InspectorProperty =
+  | { readonly hash: string; readonly row: BinRow }
+  | { readonly hash: string; readonly field: DefaultField };
+
+/** Authored values and defaults in authoring order, with unclassified fields ordered by hash. */
+export function inspectorProperties({ rows, defaults }: InspectorGroup): InspectorProperty[] {
+  const properties: InspectorProperty[] = rows.map((row) => ({ hash: fieldHash(row.path), row }));
+  for (const field of defaults) {
+    properties.push({ hash: field.hash, field });
+  }
+
+  return properties.sort((left, right) => {
+    const leftOrder = FIELD_ORDER.get(left.hash) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = FIELD_ORDER.get(right.hash) ?? Number.MAX_SAFE_INTEGER;
+
+    return leftOrder - rightOrder || left.hash.localeCompare(right.hash);
+  });
 }
 
 /**
@@ -274,6 +307,8 @@ export function unauthoredFields(
       hash: field.hash,
       name: field.name ?? field.hash,
       declared: field.declared,
+      classHash: field.classHash,
+      defaultValue: field.defaultValue,
     }));
 }
 

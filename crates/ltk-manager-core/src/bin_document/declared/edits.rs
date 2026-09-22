@@ -132,6 +132,29 @@ impl BinDocument {
                 split_item(path).ok_or_else(|| undeclarable(entry, path))?.0
             }
         };
+        let declared = self.declared.as_ref().ok_or_else(not_declared)?;
+        let ancestor = declared
+            .marks
+            .iter()
+            .filter(|mark| {
+                mark.sign == DeclaredSign::Set
+                    && mark.entry == hex(entry)
+                    && !mark.path.is_empty()
+                    && scope
+                        .strip_prefix(&mark.path)
+                        .is_some_and(|tail| tail.starts_with(['.', '[', '{']))
+            })
+            .min_by_key(|mark| mark.path.len());
+        if let Some(ancestor) = ancestor {
+            // An enclosing set would overwrite a separately declared descendant.
+            return self.plans(
+                entry,
+                &Change::Value {
+                    path: &ancestor.path,
+                },
+            );
+        }
+
         let nameless = || BinDocumentError::EditRejected {
             address: format!("{}:{scope}", hex(entry)),
             rejection: EditRejection::NamelessPath,
@@ -307,6 +330,7 @@ fn same_value(applied: &PropertyValueEnum, edited: &PropertyValueEnum) -> bool {
 fn change_of(inverse: &Edit) -> Result<(BinHash, Change<'_>), BinDocumentError> {
     Ok(match inverse {
         Edit::Leaf { entry, path, .. }
+        | Edit::ReplaceProperty { entry, path, .. }
         | Edit::SetPointer { entry, path, .. }
         | Edit::RemoveProperty { entry, path } => (*entry, Change::Value { path }),
         Edit::RemoveItem { entry, path } => (*entry, Change::Inserted { path }),

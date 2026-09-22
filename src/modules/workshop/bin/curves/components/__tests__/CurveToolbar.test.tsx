@@ -42,6 +42,11 @@ function toolbar(over: Partial<Parameters<typeof CurveToolbar>[0]> = {}) {
       tab="graph"
       tabled
       onTab={() => {}}
+      keyCount={2}
+      selectedCount={1}
+      editable
+      onAdd={() => {}}
+      onRemove={() => {}}
       {...over}
     />
   );
@@ -73,6 +78,19 @@ describe("CurveToolbar", () => {
     rerender(toolbar({ tabled: false }));
 
     expect(screen.queryByRole("button", { name: "Table" })).toBeNull();
+  });
+
+  it("offers key insertion and removal from the graph toolbar", async () => {
+    const onAdd = vi.fn();
+    const onRemove = vi.fn();
+    render(toolbar({ onAdd, onRemove }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Add key" }));
+    await user.click(screen.getByRole("button", { name: "Delete key" }));
+
+    expect(onAdd).toHaveBeenCalledOnce();
+    expect(onRemove).toHaveBeenCalledOnce();
   });
 
   it("names the tables where the value has them", () => {

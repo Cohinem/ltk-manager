@@ -24,6 +24,11 @@ import type { SystemModel } from "../../engine/model/model";
 import { FIRST_RIG, flightTime, type RigChoice, runLength } from "../../engine/model/rig";
 import { lingerTail, systemSpan } from "../../engine/model/systemModel";
 import { createDriver, type Driver } from "../../engine/simulation/driver";
+import {
+  ForcePreviewProvider,
+  forceTopology,
+  useForcePreviewState,
+} from "../../forces/forcePreview";
 import { useVfxSystem } from "../../hooks/useVfxSystem";
 
 /** The seed a run opens on, so two readers of one effect see the same run. */
@@ -167,12 +172,25 @@ export interface VfxRunProviderProps {
  * the one thing that builds a new one, because the seed is the run.
  */
 export function VfxRunProvider({ document, entry, children }: VfxRunProviderProps) {
-  const { system, error, pending } = useVfxSystem(document, entry);
+  const { system: authoredSystem, error, pending } = useVfxSystem(document, entry);
+  const forces = useForcePreviewState();
+  const { project: projectForces, clear: clearForces } = forces;
+  const system = useMemo(
+    () => (authoredSystem === null ? null : projectForces(authoredSystem)),
+    [authoredSystem, projectForces],
+  );
+  const topology = forceTopology(authoredSystem);
+  useEffect(() => {
+    clearForces();
+  }, [topology, clearForces]);
   const visible = useContentVisible();
   const key = vfxRunKey(document, entry);
   const [kept] = useState(() => rememberedVfxRun(key));
 
   const [playing, setPlaying] = useState(true);
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+
   const [seed, setSeed] = useState(kept?.seed ?? FIRST_SEED);
   const [speed, setSpeed] = useState(kept?.speed ?? FIRST_SPEED);
   const [rig, setRig] = useState<RigChoice>(kept?.rig ?? FIRST_RIG);
@@ -206,11 +224,21 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
     };
   }, []);
 
+  const previousForceProjection = useRef(forces.project);
   useEffect(() => {
-    if (system === null) return;
+    if (system === null) {
+      return;
+    }
+
+    const time = driver.phase;
     driver.swap(system);
+    if (!playingRef.current || previousForceProjection.current !== forces.project) {
+      driver.seek(time);
+    }
+    previousForceProjection.current = forces.project;
+
     notify();
-  }, [driver, system, notify]);
+  }, [driver, system, notify, forces.project]);
 
   useEffect(() => {
     driver.steer(rig.rig);
@@ -346,7 +374,11 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
     ],
   );
 
-  return <VfxRunContext value={run}>{children}</VfxRunContext>;
+  return (
+    <ForcePreviewProvider value={forces}>
+      <VfxRunContext value={run}>{children}</VfxRunContext>
+    </ForcePreviewProvider>
+  );
 }
 
 /** `range` held inside the run's span, and null for one with nothing left between its ends. */

@@ -1,8 +1,10 @@
 import { Checkbox as BaseCheckbox } from "@base-ui/react/checkbox";
 import { CheckIcon, MinusIcon } from "@phosphor-icons/react";
-import { forwardRef, type ReactNode } from "react";
+import { forwardRef, type ReactNode, use } from "react";
 
 import { twMerge } from "@/utils";
+
+import { InputDefaultContext } from "./InputDefaultContext";
 
 export type CheckboxSize = "sm" | "md" | "lg";
 
@@ -57,6 +59,7 @@ function CheckboxIcon({ size }: { size: CheckboxSize }) {
 
 export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
   ({ size = "md", label, description, className, disabled, ...props }, ref) => {
+    const implicit = use(InputDefaultContext);
     const checkbox = (
       <BaseCheckbox.Root
         ref={ref}
@@ -71,13 +74,20 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
           "data-[checked]:hover:border-accent-400 data-[checked]:hover:bg-accent-400",
           "data-[indeterminate]:border-accent-500 data-[indeterminate]:bg-accent-500",
           "disabled:cursor-not-allowed disabled:opacity-50",
+          implicit &&
+            "border-dashed bg-transparent data-[checked]:border-surface-400 data-[checked]:bg-transparent data-[checked]:hover:border-accent-hover data-[checked]:hover:bg-surface-veil",
           !label && className,
         )}
         {...props}
       >
         {/* The mark inverts with the theme on purpose, as the switch knob does:
             DS-INVARIANT. */}
-        <BaseCheckbox.Indicator className="flex items-center justify-center text-surface-900">
+        <BaseCheckbox.Indicator
+          className={twMerge(
+            "flex items-center justify-center text-surface-900",
+            implicit && "text-surface-400",
+          )}
+        >
           <CheckboxIcon size={size} />
         </BaseCheckbox.Indicator>
       </BaseCheckbox.Root>

@@ -1,12 +1,20 @@
 import {
   CaretRightIcon,
   DiceFiveIcon,
+  MinusIcon,
   WarningCircleIcon,
   WaveSineIcon,
 } from "@phosphor-icons/react";
 import { type ReactNode, use, useMemo } from "react";
 
-import { DataTable, DataTableCells, DataTableHeaders, type DataTableColumn } from "@/components";
+import {
+  DataTable,
+  DataTableCells,
+  DataTableHeaders,
+  type DataTableColumn,
+  InputDefaultContext,
+  Tooltip,
+} from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow, BinRows } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -14,10 +22,15 @@ import { twMerge } from "@/utils";
 import { fileKindFromPath } from "../../../gameBrowser/utils/fileKind";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { useOpenDocumentAs } from "../../../state";
-import { Sparkline } from "../../curves/components/Sparkline";
 import { useCurveChain, useCurveDock } from "../../curves/state/curveTarget";
+import {
+  CURVE_DYNAMICS,
+  curveActivationEdits,
+  curveDynamicsClass,
+} from "../../curves/utils/curveEdits";
 import { drawSummary, randomDraw, rerollsEveryFrame } from "../../curves/utils/randomDraw";
 import { summaryText } from "../../curves/utils/randomText";
+import { DeclaredRowState } from "../../documents/components/DeclaredLayer";
 import { useBinRead } from "../../documents/hooks/useBinRead";
 import { TextureSwatch } from "../../links/components/TextureSwatch";
 import {
@@ -33,11 +46,13 @@ import { chunkPath, decideFileLink } from "../../links/utils/linkDecision";
 import { CutText } from "../../shared/components/CutText";
 import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../tree/components/BinRow";
 import { BinTree } from "../../tree/components/BinTree";
+import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, useRowFold } from "../../tree/state/rowFold";
 import { useHeldRows } from "../../tree/state/rowRegistry";
 import { canExpand, childCount, fieldHash, rowKey } from "../../tree/utils/binRows";
 import { useValueMark, useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
-import { markRanges, sparkKeys, valueFamily, type ValueMark } from "../../values/utils/valueRows";
+import { markRanges, valueFamily, type ValueMark } from "../../values/utils/valueRows";
+import { FieldLabelsContext } from "../state/fieldLabels";
 import type { LayoutFrame, PlacedSection } from "../utils/classLayouts";
 import { ClassCard } from "./ClassCard";
 import { FieldCard } from "./FieldCard";
@@ -270,6 +285,10 @@ export function FieldRows({
 
 interface FieldRowProps {
   row: BinRow;
+  label?: string;
+  /** Multi-component and value-family fields place their labels above the controls. */
+  verticalValues?: boolean;
+  tableLayout?: boolean;
   width?: string;
   /** How many structs the row sits inside, which indents its name within the column. */
   depth?: number;
@@ -277,6 +296,8 @@ interface FieldRowProps {
   owner?: string | null;
   /** The roll rail's segment, which only a layout with a roll to draw gives it. */
   rail?: ReactNode;
+  valueSlot?: ReactNode;
+  valueAction?: ReactNode;
 }
 
 /**
@@ -288,20 +309,48 @@ interface FieldRowProps {
  */
 export function FieldRow({
   row,
+  label,
   width = NAME_COLUMN,
   depth = 0,
   owner = null,
   rail,
+  verticalValues = false,
+  tableLayout = false,
+  valueSlot,
+  valueAction,
 }: FieldRowProps) {
+  const labels = use(FieldLabelsContext);
+  const displayLabel = label ?? labels?.(ownField(row) ?? "", row.name);
   const family = valueFamily(row.value);
   const axes = row.value.type === "vector" ? row.value.values : null;
+  const vertical =
+    verticalValues &&
+    (family !== null || axes !== null || row.value.type === "color" || row.value.type === "matrix");
+  const editable = use(LeafEditContext) !== null;
   const document = use(RowDocumentContext);
   const folds = document !== null && family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
   const caret = folds ? <FoldCaret open={open} onToggle={toggle} /> : <FoldGutter />;
-  const name = <FieldName row={row} width={width} depth={depth} owner={owner} caret={caret} />;
+  const nameWidth = vertical ? "w-full" : width;
+  const name = (
+    <FieldName
+      row={row}
+      label={displayLabel}
+      width={nameWidth}
+      depth={depth}
+      owner={owner}
+      caret={caret}
+    />
+  );
   const nested = folds && open && (
-    <NestedRows document={document} row={row} width={width} depth={depth + 1} />
+    <NestedRows
+      document={document}
+      row={row}
+      width={width}
+      depth={depth + 1}
+      verticalValues={verticalValues}
+      tableLayout={tableLayout}
+    />
   );
 
   return (
@@ -311,6 +360,9 @@ export function FieldRow({
       <div
         className={twMerge(
           "relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
+          family !== null && "items-start",
+          vertical && "flex-col items-stretch gap-0.5 py-1",
+          tableLayout && "gap-0 rounded-none",
           folds && "cursor-pointer",
         )}
         data-row-key={rowKey(row)}
@@ -319,12 +371,32 @@ export function FieldRow({
       >
         {rail}
         {name}
-        {family !== null && <ValueCell row={row} shaped railed={rail !== undefined} />}
-        {family === null && axes !== null && <AxisCells values={axes} />}
-        {family === null && axes === null && row.node === "element" && (
-          <ElementClass value={row.value} />
-        )}
-        {family === null && axes === null && <RowValue row={row} />}
+        <div
+          data-ui="FieldRow:value"
+          className={twMerge(
+            "flex min-w-0 flex-1 items-center gap-2",
+            vertical && "w-full pl-4",
+            tableLayout && "min-h-6 border-l border-surface-700/40 pl-2",
+          )}
+        >
+          {valueSlot}
+          {valueSlot === undefined && family !== null && (
+            <ValueCell row={row} shaped railed={rail !== undefined} />
+          )}
+          {valueSlot === undefined && family === null && axes !== null && !editable && (
+            <AxisCells values={axes} />
+          )}
+          {valueSlot === undefined && family === null && axes !== null && editable && (
+            <RowValue row={row} />
+          )}
+          {valueSlot === undefined &&
+            family === null &&
+            axes === null &&
+            row.node === "element" && <ElementClass value={row.value} />}
+          {valueSlot === undefined && family === null && axes === null && <RowValue row={row} />}
+          {valueAction}
+          <DeclaredRowState rowKey={rowKey(row)} />
+        </div>
       </div>
       {nested}
     </>
@@ -383,11 +455,15 @@ function NestedRows({
   row,
   width,
   depth,
+  verticalValues,
+  tableLayout,
 }: {
   document: BinDocumentId;
   row: BinRow;
   width: string;
   depth: number;
+  verticalValues: boolean;
+  tableLayout: boolean;
 }) {
   const key = rowKey(row);
   const rows = useMemo(() => [{ key, rows: childCount(row) }], [key, row]);
@@ -408,7 +484,15 @@ function NestedRows({
       <AlsoCheck document={document} group={group}>
         <div data-ui="FieldRow:nested" className="flex flex-col gap-0.5">
           {children.map((child) => (
-            <FieldRow key={rowKey(child)} row={child} width={width} depth={depth} owner={owner} />
+            <FieldRow
+              key={rowKey(child)}
+              row={child}
+              width={width}
+              depth={depth}
+              owner={owner}
+              verticalValues={verticalValues}
+              tableLayout={tableLayout}
+            />
           ))}
         </div>
       </AlsoCheck>
@@ -418,6 +502,7 @@ function NestedRows({
 
 interface FieldNameProps {
   row: BinRow;
+  label?: string;
   width: string;
   depth: number;
   owner: string | null;
@@ -426,7 +511,8 @@ interface FieldNameProps {
 }
 
 /** The row's name, raw, which is what the field card hangs off. */
-function FieldName({ row, width, depth, owner, caret }: FieldNameProps) {
+function FieldName({ row, label, width, depth, owner, caret }: FieldNameProps) {
+  const implicit = use(InputDefaultContext);
   const field = ownField(row);
   const indent = depth > 0 && (
     <span aria-hidden className="shrink-0" style={{ width: `calc(${INDENT} * ${depth})` }} />
@@ -449,9 +535,14 @@ function FieldName({ row, width, depth, owner, caret }: FieldNameProps) {
         classHash={owner}
         fieldHash={field}
         name={row.name}
+        label={label}
         unnamed={row.unnamed}
         declared={row.declared}
-        triggerClassName="text-surface-200"
+        triggerClassName={twMerge(
+          "text-surface-200",
+          label && "font-sans font-medium",
+          implicit && "font-normal text-surface-400",
+        )}
         cut
       />
     </span>
@@ -476,38 +567,108 @@ export function ValueCell({
   railed?: boolean;
 }) {
   const mark = useValueMark(rowKey(row));
-  const keys = sparkKeys(mark);
-  const { aim } = useCurveDock();
+  const { aim, clear, target } = useCurveDock();
   const chain = useCurveChain(row.name);
+  const edit = use(LeafEditContext);
+  const editable = edit !== null;
+  const constant = editable ? mark?.constantRow : undefined;
+  const valueClass = row.value.type === "struct" ? row.value.classHash : null;
+  const dynamicsClass = curveDynamicsClass(valueClass);
+  const curve = mark?.curve === true;
+  const canActivate = edit?.editProperty !== undefined && dynamicsClass !== null;
 
-  /* Both of Riot's editors put the constant inline and the triggers after it, so a reader
-     tuning a value sees what it is worth and reaches the rest of it from the same row. The
-     probability tables live inside the dynamics, so the chip only ever sits beside a curve. */
+  async function activateCurve() {
+    if (edit?.editProperty === undefined || valueClass === null) return;
+
+    const edits = curveActivationEdits(valueClass, mark?.constant ?? null, "dynamics");
+    if (edits === null) return;
+
+    const activated = await edit.editProperty(row, CURVE_DYNAMICS, edits);
+    if (!activated || row.value.type !== "struct") return;
+
+    aim({ row: { ...row, value: { ...row.value, len: row.value.len + 1 } }, chain, tab: "graph" });
+  }
+
+  async function deactivateCurve() {
+    if (edit?.setPointer === undefined) return;
+
+    const cleared = await edit.setPointer(row, CURVE_DYNAMICS, null);
+    if (cleared && target !== null && rowKey(target.row) === rowKey(row)) clear();
+  }
+
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2">
-      <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
-      {mark?.curve === true && (
-        <span className="flex shrink-0 items-center gap-0.5">
-          <Trigger label={m.workshop_bin_show_curve_action()} onClick={() => aim({ row, chain })}>
-            {keys.length > 0 && (
-              <Sparkline
-                keys={keys}
-                label={m.workshop_bin_curve_keys_label({ count: keys.length })}
-                wide={shaped}
-              />
-            )}
-            {keys.length === 0 && (
-              <WaveSineIcon
-                weight="bold"
-                role="img"
-                aria-label={m.workshop_bin_value_curve_label()}
-                className="h-3.5 w-3.5 shrink-0"
-              />
-            )}
-          </Trigger>
-          <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />
-        </span>
+    <span
+      className={twMerge(
+        "flex min-w-0 flex-1 items-center gap-2",
+        shaped && "flex-wrap gap-y-1 py-0.5",
       )}
+    >
+      {constant !== undefined && <RowValue row={constant} field={ownField(row)} />}
+      {constant === undefined && (
+        <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
+      )}
+      {mark?.constantRow !== undefined && <DeclaredRowState rowKey={rowKey(mark.constantRow)} />}
+      {(curve || canActivate) && (
+        <CurveToggle
+          active={curve}
+          onCurve={curve ? () => aim({ row, chain, tab: "graph" }) : () => void activateCurve()}
+          onConstant={edit?.setPointer === undefined ? undefined : () => void deactivateCurve()}
+        />
+      )}
+      {curve && <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />}
+    </span>
+  );
+}
+
+/** The compact row action that creates or opens a value's dynamics. */
+export function CurveToggle({
+  active = false,
+  onCurve,
+  onConstant,
+}: {
+  active?: boolean;
+  onCurve: () => void;
+  onConstant?: () => void;
+}) {
+  const curveLabel = active
+    ? m.workshop_bin_force_curve_action()
+    : m.workshop_bin_enable_curve_action();
+
+  return (
+    <span
+      role="group"
+      aria-label={m.workshop_bin_value_mode_label()}
+      className="inline-flex h-5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong"
+    >
+      <Tooltip content={m.workshop_bin_use_constant_action()}>
+        <button
+          type="button"
+          aria-label={m.workshop_bin_use_constant_action()}
+          aria-pressed={!active}
+          disabled={onConstant === undefined}
+          className={twMerge(
+            "flex h-full w-5 cursor-pointer items-center justify-center border-r border-surface-veil-strong text-surface-500 transition-colors hover:bg-surface-veil hover:text-surface-200 disabled:cursor-not-allowed disabled:opacity-50",
+            !active && "bg-surface-veil-strong text-surface-200",
+          )}
+          onClick={onConstant}
+        >
+          <MinusIcon weight="bold" className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
+      <Tooltip content={curveLabel}>
+        <button
+          type="button"
+          aria-label={curveLabel}
+          aria-pressed={active}
+          className={twMerge(
+            "flex h-full w-5 cursor-pointer items-center justify-center text-surface-500 transition-colors hover:bg-surface-veil hover:text-surface-200",
+            active && "bg-surface-veil-strong text-accent-400",
+          )}
+          onClick={onCurve}
+        >
+          <WaveSineIcon weight="bold" className="h-3.5 w-3.5" />
+        </button>
+      </Tooltip>
     </span>
   );
 }
@@ -534,7 +695,7 @@ function RandomChip({
   const { aim } = useCurveDock();
   const draw = randomDraw(mark);
   const summary = draw === null ? null : drawSummary(draw);
-  if (mark === undefined || (mark.slots !== undefined && summary === null)) return null;
+  if (mark === undefined || summary === null) return null;
 
   /* A rail already says a per-frame table where the layout draws one, per "The row's two
      triggers" in docs/ux/BIN_EDITOR.md, so the chip reads the shape rather than saying it twice. */

@@ -1,4 +1,12 @@
-import { type PointerEvent, use, useMemo, useState } from "react";
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+  use,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
@@ -9,7 +17,7 @@ import type { CurveKey, ValueFamily } from "../../values/utils/valueRows";
 import { placeTime } from "../../values/utils/valueRows";
 import { keysAt } from "../../vfx/engine/utils/sampleCurve";
 import { VfxRunContext } from "../../vfx/playback/state/run";
-import { STROKE } from "../utils/curveChannels";
+import { channelName, STROKE } from "../utils/curveChannels";
 import {
   axisText,
   bandOf,
@@ -20,6 +28,7 @@ import {
   ticksWithin,
   timeTicks,
 } from "../utils/curvePlot";
+import { CURVE_TIME_STEP, curveValueStep, snapCurveValue } from "../utils/curveSnapping";
 import {
   type ChannelDraw,
   drawsFlat,
@@ -49,6 +58,9 @@ const EDGE_BINS = 48;
 const PEAK = 0.9;
 
 const NO_MUTED: ReadonlySet<number> = new Set();
+const NO_SELECTION: ReadonlySet<number> = new Set();
+
+export type CurveSelectionMode = "add" | "range" | "replace" | "toggle";
 
 interface CurveGraphProps {
   keys: readonly CurveKey[];
@@ -60,6 +72,14 @@ interface CurveGraphProps {
   muted?: ReadonlySet<number>;
   /** Where the run stands in the curve's own time, null where no playhead reaches it. */
   playhead?: number | null;
+  /** The keys picked by the graph, table and exact-value editor. */
+  selected?: ReadonlySet<number>;
+  /** Whether point dragging and double-click insertion are available. */
+  editable?: boolean;
+  onSelect?: (at: number, mode: CurveSelectionMode) => void;
+  onSelectMany?: (at: readonly number[], mode: "add" | "replace") => void;
+  onChange?: (at: number, key: CurveKey) => boolean | Promise<boolean>;
+  onAdd?: (key: CurveKey) => void;
 }
 
 /**
@@ -76,8 +96,25 @@ export function CurveGraph({
   unit = null,
   muted = NO_MUTED,
   playhead = null,
+  selected = NO_SELECTION,
+  editable = false,
+  onSelect,
+  onSelectMany,
+  onChange,
+  onAdd,
 }: CurveGraphProps) {
-  if (family === "color") return <GradientPlot keys={keys} draw={draw} />;
+  if (family === "color") {
+    return (
+      <GradientPlot
+        keys={keys}
+        draw={draw}
+        selected={selected}
+        editable={editable}
+        onSelect={onSelect}
+        onAdd={onAdd}
+      />
+    );
+  }
   if (drawsSpread(draw) && drawsFlat(draw)) {
     return <RandomLanes draw={draw} unit={unit} muted={muted} />;
   }
@@ -88,6 +125,13 @@ export function CurveGraph({
       unit={unit}
       muted={muted}
       playhead={playhead}
+      family={family}
+      selected={selected}
+      editable={editable}
+      onSelect={onSelect}
+      onSelectMany={onSelectMany}
+      onChange={onChange}
+      onAdd={onAdd}
     />
   );
 }
@@ -99,6 +143,31 @@ interface ChannelPlotProps {
   unit: FieldUnit | null;
   muted: ReadonlySet<number>;
   playhead: number | null;
+  family: ValueFamily;
+  selected: ReadonlySet<number>;
+  editable: boolean;
+  onSelect: ((at: number, mode: CurveSelectionMode) => void) | undefined;
+  onSelectMany: ((at: readonly number[], mode: "add" | "replace") => void) | undefined;
+  onChange: ((at: number, key: CurveKey) => boolean | Promise<boolean>) | undefined;
+  onAdd: ((key: CurveKey) => void) | undefined;
+}
+
+interface KeyDrag {
+  readonly at: number;
+  readonly key: CurveKey;
+  readonly committed: boolean;
+}
+
+interface Marquee {
+  readonly pointerId: number;
+  readonly start: Point;
+  readonly current: Point;
+  readonly additive: boolean;
+}
+
+interface Point {
+  readonly x: number;
+  readonly y: number;
 }
 
 /**
@@ -108,12 +177,27 @@ interface ChannelPlotProps {
  * most, and the edge on the right draws how the births fall at one time: the cursor's,
  * else the playhead's, else the start of the curve.
  */
-function ChannelPlot({ keys, draw, unit, muted, playhead }: ChannelPlotProps) {
+function ChannelPlot({
+  keys,
+  draw,
+  unit,
+  muted,
+  playhead,
+  family,
+  selected,
+  editable,
+  onSelect,
+  onSelectMany,
+  onChange,
+  onAdd,
+}: ChannelPlotProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const measure = useResizeObserver<HTMLDivElement>((element) =>
     setSize({ width: element.clientWidth, height: element.clientHeight }),
   );
   const [hover, setHover] = useState<number | null>(null);
+  const [drag, setDrag] = useState<KeyDrag | null>(null);
+  const [marquee, setMarquee] = useState<Marquee | null>(null);
   const pinned = use(VfxRunContext)?.pinned ?? null;
 
   const banded = useMemo(
@@ -126,17 +210,134 @@ function ChannelPlot({ keys, draw, unit, muted, playhead }: ChannelPlotProps) {
     [draw],
   );
   const fit = useMemo(() => bandEdges(keys, banded), [keys, banded]);
-  const plot = plotOf(keys, { width: size.width, height: size.height, margin: MARGIN }, fit);
+  const frame = plotOf(keys, { width: size.width, height: size.height, margin: MARGIN }, fit);
+  const shownKeys = useMemo(() => {
+    if (drag === null) return keys;
+
+    return keys.map((key, at) => (at === drag.at ? drag.key : key));
+  }, [drag, keys]);
+
+  useEffect(() => {
+    setDrag((held) => {
+      if (held?.committed !== true) return held;
+
+      return sameCurveKey(keys[held.at], held.key) ? null : held;
+    });
+  }, [keys]);
+  const plot =
+    drag === null || frame === null
+      ? frame
+      : plotOf(shownKeys, { width: size.width, height: size.height, margin: 0 }, [
+          ...fit,
+          frame.low,
+          frame.high,
+        ]);
   const drawn = plot === null ? [] : plot.lines.map((_, at) => at).filter((at) => !muted.has(at));
   const axis = plot !== null && drawn.length > 0;
   const time = hover ?? playhead ?? 0;
-  const levels = keysAt(keys, time);
+  const levels = keysAt(shownKeys, time);
 
   function follow(event: PointerEvent<HTMLDivElement>) {
-    if (plot === null || draw === null) return;
+    if (plot === null) return;
+
+    if (marquee?.pointerId === event.pointerId) {
+      setMarquee({ ...marquee, current: canvasPoint(event) });
+    }
+
+    if (draw === null) return;
+
     const box = event.currentTarget.getBoundingClientRect();
     const share = Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1);
     setHover(plot.first + share * (plot.last - plot.first));
+  }
+
+  function startMarquee(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || plot === null || onSelectMany === undefined) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const start = canvasPoint(event);
+    setMarquee({
+      pointerId: event.pointerId,
+      start,
+      current: start,
+      additive: event.ctrlKey || event.metaKey,
+    });
+  }
+
+  function finishMarquee(event: PointerEvent<HTMLDivElement>) {
+    if (marquee?.pointerId !== event.pointerId || plot === null) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    const bounds = marqueeBounds(marquee);
+    const hits = bounds.width < 3 && bounds.height < 3 ? [] : keysInside(plot, drawn, bounds);
+    if (hits.length > 0 || !marquee.additive) {
+      onSelectMany?.(hits, marquee.additive ? "add" : "replace");
+    }
+
+    setMarquee(null);
+  }
+
+  function dragPoint(event: PointerEvent<SVGCircleElement>, at: number, channel: number) {
+    if (!editable || frame === null || onChange === undefined) return;
+
+    const box = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
+    const key = shownKeys[at];
+    if (box === undefined || key === undefined) return;
+
+    const x = unitShare((event.clientX - box.left) / box.width);
+    const y = unitShare((event.clientY - box.top) / box.height);
+    const before = keys[at - 1]?.time ?? frame.first;
+    const after = keys[at + 1]?.time ?? frame.last;
+    const draggedTime = frame.first + x * (frame.last - frame.first);
+    const nextTime = Math.min(
+      Math.max(snapCurveValue(draggedTime, CURVE_TIME_STEP), before),
+      after,
+    );
+    const guide = curveValueStep(keys, channel, family === "color");
+    const values = [...key.values];
+    values[channel] = snapCurveValue(frame.high - y * (frame.high - frame.low), guide);
+    setDrag({ at, key: { time: nextTime, values }, committed: false });
+  }
+
+  async function finishDrag(event: PointerEvent<SVGCircleElement>) {
+    if (drag === null) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const pending = { ...drag, committed: true };
+    setDrag(pending);
+
+    const saved = await onChange?.(pending.at, pending.key);
+    if (saved !== false) return;
+
+    setDrag((held) => (held === pending ? null : held));
+  }
+
+  function selectPoint(event: KeyboardEvent<SVGCircleElement>, at: number) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+
+    event.preventDefault();
+    onSelect?.(at, "replace");
+  }
+
+  function addPoint(event: MouseEvent<HTMLDivElement>) {
+    if (!editable || onAdd === undefined || frame === null) return;
+
+    const box = event.currentTarget.getBoundingClientRect();
+    const share = unitShare((event.clientX - box.left) / box.width);
+    const addedAt = snapCurveValue(
+      frame.first + share * (frame.last - frame.first),
+      CURVE_TIME_STEP,
+    );
+    const values = keysAt(keys, addedAt).map((value, channel) =>
+      snapCurveValue(value, curveValueStep(keys, channel, family === "color")),
+    );
+
+    onAdd({ time: addedAt, values });
   }
 
   return (
@@ -147,9 +348,17 @@ function ChannelPlot({ keys, draw, unit, muted, playhead }: ChannelPlotProps) {
         </div>
         <div
           ref={measure}
-          className="relative min-h-0 min-w-0 flex-1"
+          data-ui="ChannelPlot:canvas"
+          className={twMerge(
+            "relative min-h-0 min-w-0 flex-1",
+            editable && "cursor-crosshair touch-none",
+          )}
+          onPointerDown={startMarquee}
           onPointerMove={follow}
+          onPointerUp={finishMarquee}
+          onPointerCancel={() => setMarquee(null)}
           onPointerLeave={() => setHover(null)}
+          onDoubleClick={addPoint}
         >
           {plot !== null && (
             <svg
@@ -163,7 +372,7 @@ function ChannelPlot({ keys, draw, unit, muted, playhead }: ChannelPlotProps) {
               {drawn.map((channel) => (
                 <g key={channel} className={STROKE[channel] ?? STROKE[0]}>
                   <Spread
-                    keys={keys}
+                    keys={shownKeys}
                     plot={plot}
                     size={size}
                     channel={banded.get(channel)}
@@ -177,7 +386,63 @@ function ChannelPlot({ keys, draw, unit, muted, playhead }: ChannelPlotProps) {
                     strokeLinejoin="round"
                   />
                   {(plot.points[channel] ?? []).map((point, at) => (
-                    <circle key={at} cx={point.x} cy={point.y} r={2.5} fill="currentColor" />
+                    <g key={at}>
+                      {selected.has(at) && (
+                        <circle
+                          aria-hidden
+                          cx={point.x}
+                          cy={point.y}
+                          r={5}
+                          className="fill-surface-900 stroke-current"
+                          strokeWidth={1.5}
+                        />
+                      )}
+                      <circle aria-hidden cx={point.x} cy={point.y} r={2.5} fill="currentColor" />
+                      {(onSelect !== undefined || editable) && (
+                        <circle
+                          role="button"
+                          tabIndex={0}
+                          aria-pressed={selected.has(at)}
+                          aria-label={m.workshop_bin_curve_key_point_label({
+                            channel: channelName(family, channel),
+                            key: at + 1,
+                            time: (shownKeys[at]?.time ?? 0).toFixed(3),
+                          })}
+                          cx={point.x}
+                          cy={point.y}
+                          r={8}
+                          fill="transparent"
+                          className={twMerge(
+                            "outline-none focus-visible:stroke-accent-400",
+                            editable && "cursor-grab active:cursor-grabbing",
+                          )}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onSelect?.(at, selectionMode(event));
+                          }}
+                          onDoubleClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => selectPoint(event, at)}
+                          onPointerDown={(event) => {
+                            event.stopPropagation();
+                            if (!event.ctrlKey && !event.metaKey && !event.shiftKey) {
+                              onSelect?.(at, "replace");
+                            }
+                            if (!editable || onChange === undefined) return;
+                            if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            dragPoint(event, at, channel);
+                          }}
+                          onPointerMove={(event) => {
+                            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                              dragPoint(event, at, channel);
+                            }
+                          }}
+                          onPointerUp={finishDrag}
+                          onPointerCancel={finishDrag}
+                        />
+                      )}
+                    </g>
                   ))}
                 </g>
               ))}
@@ -194,6 +459,7 @@ function ChannelPlot({ keys, draw, unit, muted, playhead }: ChannelPlotProps) {
               )}
             </svg>
           )}
+          {marquee !== null && <SelectionBox marquee={marquee} />}
         </div>
         {draw !== null && plot !== null && (
           <DensityEdge
@@ -219,12 +485,98 @@ function ChannelPlot({ keys, draw, unit, muted, playhead }: ChannelPlotProps) {
         )}
       </div>
       {draw !== null && <DrawReadout draw={draw} unit={unit} muted={muted} levels={levels} />}
+      {editable && plot !== null && (
+        <span className="text-meta leading-none text-surface-500 select-none">
+          {m.workshop_bin_curve_graph_edit_hint()}
+        </span>
+      )}
     </div>
   );
 }
 
+function SelectionBox({ marquee }: { marquee: Marquee }) {
+  const bounds = marqueeBounds(marquee);
+
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute rounded-sm border border-accent-400 bg-accent-500/10"
+      style={{
+        left: bounds.left,
+        top: bounds.top,
+        width: bounds.width,
+        height: bounds.height,
+      }}
+    />
+  );
+}
+
+interface MarqueeBounds {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function marqueeBounds(marquee: Marquee): MarqueeBounds {
+  return {
+    left: Math.min(marquee.start.x, marquee.current.x),
+    top: Math.min(marquee.start.y, marquee.current.y),
+    width: Math.abs(marquee.current.x - marquee.start.x),
+    height: Math.abs(marquee.current.y - marquee.start.y),
+  };
+}
+
+function canvasPoint(event: PointerEvent<HTMLDivElement>): Point {
+  const box = event.currentTarget.getBoundingClientRect();
+
+  return {
+    x: Math.min(Math.max(event.clientX - box.left, 0), box.width),
+    y: Math.min(Math.max(event.clientY - box.top, 0), box.height),
+  };
+}
+
+function keysInside(plot: Plot, channels: readonly number[], bounds: MarqueeBounds): number[] {
+  const selected = new Set<number>();
+
+  for (const channel of channels) {
+    for (const [at, point] of (plot.points[channel] ?? []).entries()) {
+      const insideX = point.x >= bounds.left && point.x <= bounds.left + bounds.width;
+      const insideY = point.y >= bounds.top && point.y <= bounds.top + bounds.height;
+
+      if (insideX && insideY) selected.add(at);
+    }
+  }
+
+  return [...selected].sort((left, right) => left - right);
+}
+
+function selectionMode(event: Pick<MouseEvent, "ctrlKey" | "metaKey" | "shiftKey">) {
+  if (event.shiftKey) return "range" as const;
+  if (event.ctrlKey || event.metaKey) return "toggle" as const;
+
+  return "replace" as const;
+}
+
+function unitShare(value: number): number {
+  return Math.min(Math.max(value, 0), 1);
+}
+
 function timeX(plot: Plot, width: number, time: number): number {
   return placeTime(time, { first: plot.first, last: plot.last }) * width;
+}
+
+function sameCurveKey(authored: CurveKey | undefined, pending: CurveKey): boolean {
+  if (authored === undefined || !close(authored.time, pending.time)) return false;
+  if (authored.values.length !== pending.values.length) return false;
+
+  return authored.values.every((value, channel) => close(value, pending.values[channel]));
+}
+
+function close(left: number, right: number | undefined): boolean {
+  if (right === undefined) return false;
+
+  return Math.abs(left - right) <= Math.max(0.000001, Math.abs(right) * 0.000001);
 }
 
 /** Faint lines at the value ticks and the quarters, a firmer one at 0, dashes at each key. */

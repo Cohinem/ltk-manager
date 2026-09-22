@@ -5,6 +5,7 @@ import { m } from "@/i18n";
 import type { BinDocumentId, BinRow } from "@/lib/tauri";
 
 import { ownField } from "../../tree/components/BinRow";
+import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
 import { useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
 import { fieldUnit } from "../../values/utils/fieldUnits";
@@ -13,8 +14,16 @@ import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
 import { emitterChain, emitterRows, fieldChain } from "../../vfx/inspector/utils/emitterCards";
 import { useCurvePlayhead } from "../hooks/curvePlayhead";
 import { type CurveTab, useCurveDock } from "../state/curveTarget";
+import {
+  commitCurveKey,
+  insertionIndex,
+  insertCurveKey,
+  removeCurveKeys,
+  suggestedCurveKey,
+} from "../utils/curveEdits";
 import { randomDraw } from "../utils/randomDraw";
-import { CurveGraph } from "./CurveGraph";
+import { CurveGraph, type CurveSelectionMode } from "./CurveGraph";
+import { CurveKeyEditor } from "./CurveKeyEditor";
 import { CurveToolbar } from "./CurveToolbar";
 import { KeyTable } from "./KeyTable";
 
@@ -52,7 +61,10 @@ export function CurveSurface({
   const drawn = target !== null && (mark === undefined || mark.curve);
 
   return (
-    <section data-ui="CurveSurface" className="flex min-h-0 flex-1 flex-col gap-1 text-row">
+    <section
+      data-ui="CurveSurface"
+      className="@container flex min-h-0 flex-1 flex-col gap-1 text-row"
+    >
       {!drawn && named && <PaneLabel />}
       {!drawn && <Untargeted />}
       {drawn && target !== null && (
@@ -95,15 +107,29 @@ interface CurveReadingProps {
  */
 function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps) {
   const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set());
+  const [selected, setSelected] = useState<readonly number[]>([]);
+  const edit = use(LeafEditContext);
   const playhead = useCurvePlayhead(row);
   const keys = mark?.keys ?? NO_KEYS;
   const family = mark?.family ?? "scalar";
   const draw = randomDraw(mark);
   const field = ownField(row);
+  const unit = fieldUnit(field);
+  const editable = edit?.editProperty !== undefined && mark !== undefined;
+  const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const primary = selected.at(-1) ?? 0;
 
-  /* A colour's graph draws the keys under its ramp, and a value with no keys has no rows. */
-  const tabled = family !== "color" && keys.length > 0;
+  const tabled = keys.length > 0;
   const shown: CurveTab = tabled ? tab : "graph";
+
+  useEffect(() => {
+    setSelected((held) => {
+      const valid = held.filter((at) => at >= 0 && at < keys.length);
+      if (valid.length > 0 || keys.length === 0) return valid;
+
+      return [0];
+    });
+  }, [keys.length]);
 
   function toggle(channel: number) {
     setMuted((held) => {
@@ -111,6 +137,56 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
       if (!next.delete(channel)) next.add(channel);
       return next;
     });
+  }
+
+  function select(at: number, mode: CurveSelectionMode) {
+    setSelected((held) => {
+      if (mode === "replace") return [at];
+      if (mode === "add") return held.includes(at) ? held : [...held, at];
+      if (mode === "toggle") {
+        return held.includes(at) ? held.filter((each) => each !== at) : [...held, at];
+      }
+
+      const anchor = held.at(-1) ?? at;
+      const first = Math.min(anchor, at);
+      const last = Math.max(anchor, at);
+
+      return Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
+    });
+  }
+
+  function selectMany(at: readonly number[], mode: "add" | "replace") {
+    setSelected((held) => {
+      if (mode === "replace") return [...at];
+
+      return [...new Set([...held, ...at])];
+    });
+  }
+
+  async function add(key = suggestedCurveKey(keys, mark?.constant ?? null, family, primary)) {
+    if (edit === null) return;
+
+    const at = insertionIndex(keys, key.time);
+    if (await insertCurveKey(edit, row, family, at, key)) setSelected([at]);
+  }
+
+  async function remove() {
+    if (edit === null) return;
+
+    const removing = selected.filter((at) => keys[at] !== undefined);
+    if (removing.length === 0) return;
+
+    if (!(await removeCurveKeys(edit, row, removing))) return;
+
+    const remaining = keys.length - removing.length;
+    const next = Math.min(Math.min(...removing), remaining - 1);
+    setSelected(next >= 0 ? [next] : []);
+  }
+
+  async function commit(at: number, key: CurveKey): Promise<boolean> {
+    if (edit === null) return false;
+
+    return commitCurveKey(edit, row, family, at, key);
   }
 
   return (
@@ -132,18 +208,49 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
         tab={shown}
         tabled={tabled}
         onTab={onTab}
+        keyCount={keys.length}
+        selectedCount={selected.length}
+        editable={editable}
+        onAdd={() => void add()}
+        onRemove={() => void remove()}
       />
-      {shown === "graph" && (
-        <CurveGraph
+      <div className="flex min-h-0 flex-1 flex-col border-t border-surface-700/40 @min-[34rem]:flex-row">
+        {shown === "graph" && (
+          <div className="flex min-h-48 min-w-0 flex-1 bg-surface-950/20 p-2 @min-[34rem]:min-h-0">
+            <CurveGraph
+              keys={keys}
+              family={family}
+              draw={draw}
+              unit={unit}
+              muted={muted}
+              playhead={playhead}
+              selected={selectedSet}
+              editable={editable}
+              onSelect={select}
+              onSelectMany={selectMany}
+              onChange={commit}
+              onAdd={(key) => void add(key)}
+            />
+          </div>
+        )}
+        {shown === "table" && (
+          <KeyTable
+            keys={keys}
+            family={family}
+            selected={primary}
+            onSelect={(at) => select(at, "replace")}
+          />
+        )}
+        <CurveKeyEditor
           keys={keys}
           family={family}
-          draw={draw}
-          unit={fieldUnit(field)}
-          muted={muted}
-          playhead={playhead}
+          selected={selected}
+          unit={unit}
+          editable={editable}
+          onSelect={(at) => select(at, "replace")}
+          onCommit={(key) => commit(primary, key)}
         />
-      )}
-      {shown === "table" && <KeyTable keys={keys} family={family} />}
+      </div>
     </>
   );
 }

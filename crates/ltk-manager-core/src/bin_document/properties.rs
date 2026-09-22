@@ -307,7 +307,7 @@ fn split_field(path: &str) -> Option<(&str, BinHash)> {
 
 /// Run `edit` on the properties of the holder `steps` reach under `object`, or `None`
 /// where the steps reach no holder.
-fn with_holder<R>(
+pub(super) fn with_holder<R>(
     object: &mut BinObject,
     steps: &[Step],
     edit: impl FnOnce(&mut IndexMap<BinHash, PropertyValueEnum>) -> R,

@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useId } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Group, Panel, Separator } from "react-resizable-panels";
 
@@ -39,6 +39,9 @@ export function SplitLayout({
   maximizedLeafId,
   onRestore,
 }: SplitLayoutProps) {
+  /* react-resizable-panels registers group ids application-wide, while retained
+     documents and topology remounts can draw copies of the same saved tree. */
+  const instanceId = useId();
   const maximized = maximizedLeafId ? findLeaf(node, maximizedLeafId) : null;
 
   /* A dialog or a menu over the tree owns Escape while it is open, where the key means
@@ -52,22 +55,39 @@ export function SplitLayout({
   if (node.kind === "leaf") return renderLeaf(node);
 
   const orientation = node.dir === "row" ? "horizontal" : "vertical";
+  const topology = node.children.map((child) => child.id).join();
+  const resizeScope = `${instanceId}-${topology}`;
+  const resizeId = (nodeId: string) => `${resizeScope}-${nodeId}`;
+  const defaultLayout = node.layout
+    ? Object.fromEntries(
+        Object.entries(node.layout).map(([nodeId, size]) => [resizeId(nodeId), size]),
+      )
+    : undefined;
 
   return (
     <Group
-      key={node.children.map((child) => child.id).join("+")}
-      id={node.id}
+      key={topology}
+      id={resizeId(node.id)}
       orientation={orientation}
-      defaultLayout={node.layout}
+      defaultLayout={defaultLayout}
       onLayoutChanged={(layout, meta) => {
-        if (meta.isUserInteraction) onLayoutChanged(node.id, layout);
+        if (!meta.isUserInteraction) return;
+
+        const treeLayout = Object.fromEntries(
+          node.children.flatMap((child) => {
+            const size = layout[resizeId(child.id)];
+            return size === undefined ? [] : [[child.id, size]];
+          }),
+        );
+
+        onLayoutChanged(node.id, treeLayout);
       }}
       className="min-h-0 min-w-0 flex-1"
     >
       {node.children.map((child, index) => (
         <Fragment key={child.id}>
           {index > 0 && <Seam orientation={orientation} variant={seamVariant} />}
-          <Panel id={child.id} minSize={120} className="flex h-full w-full flex-col">
+          <Panel id={resizeId(child.id)} minSize={120} className="flex h-full w-full flex-col">
             {child.kind === "leaf" && renderLeaf(child)}
             {child.kind === "split" && (
               <SplitLayout

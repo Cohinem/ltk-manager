@@ -74,6 +74,8 @@ export interface ValueMark {
   readonly family: ValueFamily;
   /** The row's `constantValue`. Null until the first level answers. */
   readonly constant: BinValue | null;
+  /** The authored constant's exact address and type, when the read holds it. */
+  readonly constantRow?: BinRow;
   /** The curve's keys, in its own order. Empty until the read asks for them. */
   readonly keys: readonly CurveKey[];
   /** The curve's probability tables, which only a curve read asks for. */
@@ -198,9 +200,12 @@ export function valueMarks(
     const curvePage =
       curve === null ? undefined : pages.dynamics.get(`${curve.entry}:${curve.path}`);
     const slots = tableSlots(curvePage, pages);
+    const constant = under(page, CONSTANT);
+
     marks.set(key, {
       family,
-      constant: under(page, CONSTANT)?.value ?? null,
+      constant: constant?.value ?? null,
+      ...(constant === null ? {} : { constantRow: constant }),
       keys: curveKeys(curvePage, pages.stops),
       tables: probabilityTables(curvePage, pages),
       curve: curve?.value.type === "struct",

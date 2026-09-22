@@ -1,5 +1,10 @@
-import { FrameCornersIcon, XIcon } from "@phosphor-icons/react";
-import { useEffect, useMemo, useRef } from "react";
+import {
+  ArrowsOutCardinalIcon,
+  ArrowClockwiseIcon,
+  FrameCornersIcon,
+  XIcon,
+} from "@phosphor-icons/react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 
 import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -14,8 +19,13 @@ import {
   useSetPreviewDisplay,
 } from "@/stores";
 
+import { nameHash } from "../../../shared/utils/binHash";
+import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import type { SystemModel } from "../../engine/model/model";
 import type { RigModel } from "../../engine/model/rig";
+import { ForceGizmo } from "../../forces/ForceGizmo";
+import { useForcePreview } from "../../forces/forcePreview";
+import { useForces } from "../../forces/useForces";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import { RigControl } from "../../playback/components/RigControl";
 import { RunTransport } from "../../playback/components/RunTransport";
@@ -32,6 +42,7 @@ import { fades } from "../../rendering/utils/softParticle";
 import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds";
 import { chosenEmitter } from "../../timeline/utils/selection";
 import { CameraMenu } from "./CameraMenu";
+import { EmitterTransform, type TransformMode } from "./EmitterTransform";
 import { Notice } from "./Notice";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
@@ -78,7 +89,21 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const wireframe = usePreviewWireframe();
   const setDisplay = useSetPreviewDisplay();
 
-  const { root } = useEmitters();
+  const { root, child } = useEmitters();
+  const edit = use(LeafEditContext);
+  const forces = useForces();
+  const forcePreview = useForcePreview();
+  const selectedForce = forces.hosted
+    ? forces.forces.find((force) => force.key === forcePreview.selected && force.supported)
+    : undefined;
+  const forceActive =
+    selectedForce !== undefined &&
+    !forcePreview.muted.has(selectedForce.key) &&
+    (forcePreview.solo === null || forcePreview.solo === selectedForce.key);
+  const [transformMode, setTransformMode] = useState<TransformMode | null>(null);
+  const translationRow = root?.fields(nameHash("translationOverride"));
+  const rotationRow = root?.fields(nameHash("rotationOverride"));
+  const transformRow = transformMode === "translate" ? translationRow : rotationRow;
   const selected = chosenEmitter(system, root);
   const feed = useMemo(createStatsFeed, []);
 
@@ -137,6 +162,31 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           {gizmo && opened !== null && (
             <EmitterGizmo system={system} driver={driver} emitter={opened} />
           )}
+          {edit !== null &&
+            selectedForce === undefined &&
+            child === null &&
+            opened !== null &&
+            transformMode !== null &&
+            transformRow?.value.type === "vector" && (
+              <EmitterTransform
+                key={`${root?.key}:${transformMode}`}
+                system={system}
+                emitter={opened}
+                row={transformRow}
+                mode={transformMode}
+                edit={edit}
+              />
+            )}
+          {selectedForce !== undefined && opened !== null && (
+            <ForceGizmo
+              key={`${root?.key}:${selectedForce.key}`}
+              system={system}
+              emitter={opened}
+              force={selectedForce}
+              handle={forcePreview.handle}
+              edit={forceActive ? edit : null}
+            />
+          )}
           {stats && <StatsProbe driver={driver} drawn={drawn} feed={feed} />}
         </Viewport>
 
@@ -148,6 +198,54 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           <ShowMenu />
           <WireframeMenu />
           <CameraMenu />
+          {edit !== null && child === null && opened !== null && (
+            <>
+              <Tooltip
+                content={
+                  translationRow === undefined
+                    ? m.workshop_bin_transform_missing_hint()
+                    : m.workshop_bin_transform_move_action()
+                }
+              >
+                <IconButton
+                  variant="ghost"
+                  size="xs"
+                  compact
+                  disabled={translationRow?.value.type !== "vector"}
+                  aria-label={m.workshop_bin_transform_move_action()}
+                  aria-pressed={transformMode === "translate"}
+                  className="aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
+                  icon={<ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />}
+                  onClick={() => {
+                    forcePreview.select(null);
+                    setTransformMode(transformMode === "translate" ? null : "translate");
+                  }}
+                />
+              </Tooltip>
+              <Tooltip
+                content={
+                  rotationRow === undefined
+                    ? m.workshop_bin_transform_missing_hint()
+                    : m.workshop_bin_transform_rotate_action()
+                }
+              >
+                <IconButton
+                  variant="ghost"
+                  size="xs"
+                  compact
+                  disabled={rotationRow?.value.type !== "vector"}
+                  aria-label={m.workshop_bin_transform_rotate_action()}
+                  aria-pressed={transformMode === "rotate"}
+                  className="aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
+                  icon={<ArrowClockwiseIcon weight="bold" className="h-4 w-4" />}
+                  onClick={() => {
+                    forcePreview.select(null);
+                    setTransformMode(transformMode === "rotate" ? null : "rotate");
+                  }}
+                />
+              </Tooltip>
+            </>
+          )}
           <Tooltip content={m.workshop_bin_preview_fit_action()}>
             <IconButton
               variant="ghost"
@@ -230,10 +328,12 @@ function Fit({ token, system, drawn, rig }: FitProps) {
   const fit = useFitCamera();
   const bounds = useMemo(() => definitionBounds(system, drawn, rig), [system, drawn, rig]);
   const ground = useMemo(() => rigGround(system, rig), [system, rig]);
+  const framing = useRef({ bounds, ground });
+  framing.current = { bounds, ground };
 
   useEffect(() => {
-    fit(bounds, ground);
-  }, [bounds, fit, ground, token]);
+    fit(framing.current.bounds, framing.current.ground);
+  }, [fit, rig, system.entry, token]);
 
   return null;
 }

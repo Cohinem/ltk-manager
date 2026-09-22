@@ -7,6 +7,8 @@ export interface StepperFieldProps {
   value: number;
   /** Fires with every value the field parses, and never while it is empty. */
   onValueChange: (value: number) => void;
+  /** Fires once an edit is committed, and never while the field is empty. */
+  onValueCommitted?: (value: number) => void;
   min?: number;
   max?: number;
   /** What an arrow, or the Up and Down keys, move the value by. */
@@ -17,6 +19,7 @@ export interface StepperFieldProps {
   largeStep?: number;
   /** The digits always drawn after the point. */
   decimals?: number;
+  disabled?: boolean;
   /** The locale the value is read and drawn in, which decides the decimal separator. */
   locale?: Intl.LocalesArgument;
   /** The arrows' own names, since base-ui's defaults are English. */
@@ -31,12 +34,14 @@ export interface StepperFieldProps {
 export function StepperField({
   value,
   onValueChange,
+  onValueCommitted,
   min,
   max,
   step,
   smallStep,
   largeStep,
   decimals,
+  disabled,
   locale,
   increaseLabel,
   decreaseLabel,
@@ -54,6 +59,9 @@ export function StepperField({
       onValueChange={(next) => {
         if (next !== null) onValueChange(next);
       }}
+      onValueCommitted={(next) => {
+        if (next !== null) onValueCommitted?.(next);
+      }}
       min={min}
       max={max}
       step={step}
@@ -61,6 +69,7 @@ export function StepperField({
       largeStep={largeStep}
       format={format}
       locale={locale}
+      disabled={disabled}
     >
       <BaseNumberField.Group
         data-ui="StepperField"
@@ -68,6 +77,7 @@ export function StepperField({
           /* DS-VEIL, DS-HOVER, DS-RADIUS */
           "inline-flex items-stretch overflow-hidden rounded-sm border border-surface-veil transition-colors",
           "focus-within:border-accent-500 hover:border-accent-hover",
+          disabled && "cursor-not-allowed opacity-50",
           className,
         )}
       >

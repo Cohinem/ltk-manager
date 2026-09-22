@@ -25,6 +25,7 @@ mod edit;
 mod find;
 mod items;
 mod properties;
+mod property_edit;
 mod records;
 pub(crate) mod resolve;
 
@@ -36,6 +37,7 @@ pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
 pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
+pub use property_edit::ValueEdit;
 pub use records::TARGET_PATH;
 
 pub use resolve::{

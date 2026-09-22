@@ -67,6 +67,8 @@ const SCHEMA: ClassSchema = {
     {
       hash: "0x0000000a",
       name: "championSkinName",
+      classHash: null,
+      defaultValue: null,
       declared: { kind: "string", key: null, value: null },
       revisions: [
         {
@@ -84,6 +86,8 @@ const SCHEMA: ClassSchema = {
     {
       hash: "0x0000000b",
       name: "iconCircle",
+      classHash: null,
+      defaultValue: null,
       declared: { kind: "option", key: null, value: "file" },
       revisions: [
         {
