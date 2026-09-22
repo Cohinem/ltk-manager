@@ -1,5 +1,5 @@
 /**
- * Hand the keyboard to the first row of the visible tree inside `body`.
+ * Hand the keyboard to the visible browser's first row or focused tile.
  *
  * A browser can keep a second tree mounted under `hidden` - the browse tree
  * during a search - so the visible one is the tree whose rows take focus. The
@@ -8,12 +8,14 @@
 export function focusRows(body: HTMLElement | null) {
   if (!body) return;
 
-  const rows = body.querySelectorAll<HTMLElement>('[data-tree-rows] [data-treeitem-index="0"]');
+  const rows = body.querySelectorAll<HTMLElement>(
+    '[data-tree-rows] [data-treeitem-index="0"], [role="grid"] [tabindex="0"]',
+  );
   const first = [...rows].find((row) => row.offsetParent !== null);
   if (first) {
     first.focus();
     return;
   }
-  const trees = body.querySelectorAll<HTMLElement>('[role="tree"]');
+  const trees = body.querySelectorAll<HTMLElement>('[role="tree"], [role="grid"]');
   [...trees].find((tree) => tree.offsetParent !== null)?.focus();
 }

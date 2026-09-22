@@ -32,6 +32,12 @@ import { Stage } from "./Stage";
 import { Sun } from "./Sun";
 
 export interface ViewportProps {
+  /** Whether this surface spends frames, including while its canvas remains mounted. */
+  readonly active?: boolean;
+  /** A fixed pixel ratio for small preview surfaces. */
+  readonly dpr?: number;
+  /** The orientation control is drawn over the scene. */
+  readonly gizmo?: boolean;
   /** The ground and its grid are drawn. */
   readonly stage: boolean;
   /** The ground wears the midlane's texture rather than the flat token fill. */
@@ -108,6 +114,9 @@ function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRende
  * loop, which `Passes` does.
  */
 export function Viewport({
+  active = true,
+  dpr,
+  gizmo = true,
   stage,
   textured,
   backdrop = null,
@@ -128,7 +137,7 @@ export function Viewport({
   const measure = useResizeObserver<HTMLDivElement>((element) => {
     setSized(element.clientWidth > 0 && element.clientHeight > 0);
   });
-  const running = visible && sized;
+  const running = active && visible && sized;
   const root = useRef<RootState | null>(null);
   const runningNow = useRef(running);
   // Canvas skips configuration at zero size, so hidden panes stop the root directly.
@@ -162,6 +171,7 @@ export function Viewport({
     >
       {(started || running) && (
         <Canvas
+          dpr={dpr}
           resize={MEASURE}
           frameloop={running ? "always" : "never"}
           camera={{
@@ -180,7 +190,7 @@ export function Viewport({
           }}
         >
           <color attach="background" args={[colors.backdrop]} />
-          <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} />
+          <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} gizmo={gizmo} />
           <Sun light={sun ?? map.sun ?? DEFAULT_SUN} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (

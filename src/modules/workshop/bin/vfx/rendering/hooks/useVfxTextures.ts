@@ -70,6 +70,7 @@ export function samplersOf(textures: VfxTextures, definition: DrawnEmitter): Emi
 export function useVfxTextures(
   drawn: readonly DrawnEmitter[],
   report?: (load: AssetLoad) => void,
+  minWidth?: number,
 ): VfxTextures {
   const [textures, setTextures] = useState<VfxTextures>(EMPTY);
 
@@ -115,31 +116,51 @@ export function useVfxTextures(
       setTextures(new Map(bundles));
     };
 
-    for (const { key, slot, named } of requests) {
+    let next = 0;
+    let running = 0;
+    const concurrency = minWidth === undefined ? Infinity : 2;
+    const done = (failed = false) => {
+      running -= 1;
+      batch.done(failed);
+      queueMicrotask(pump);
+    };
+
+    const load = ({ key, slot, named }: (typeof requests)[number]) => {
       const asset = named?.asset;
       if (asset == null) {
-        batch.done(true);
-        continue;
+        done(true);
+        return;
       }
       if (slot !== "reflection") {
         loader.load(
-          previewUrl(asset),
+          previewUrl(asset, minWidth),
           (texture) => {
             take(key, slot, texture);
-            batch.done();
+            done();
           },
           undefined,
-          () => batch.done(true),
+          () => done(true),
         );
       } else {
         void loadCubeTexture(previewCubeUrl(asset))
           .then((texture) => {
             if (texture !== null) take(key, slot, texture);
-            batch.done(texture === null);
+            done(texture === null);
           })
-          .catch(() => batch.done(true));
+          .catch(() => done(true));
+      }
+    };
+
+    function pump() {
+      while (live && running < concurrency && next < requests.length) {
+        const request = requests[next]!;
+        next += 1;
+        running += 1;
+        load(request);
       }
     }
+
+    pump();
 
     return () => {
       live = false;
@@ -151,7 +172,7 @@ export function useVfxTextures(
       }
       setTextures(EMPTY);
     };
-  }, [drawn, report]);
+  }, [drawn, report, minWidth]);
 
   return textures;
 }

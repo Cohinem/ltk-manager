@@ -90,3 +90,25 @@ it("creates one renderer on first visibility and pauses it across hidden or zero
   unmount();
   expect(disposed).toHaveBeenCalledTimes(1);
 });
+
+it("retains an idle preview renderer without spending frames between jobs", () => {
+  const client = createTestQueryClient();
+  const view = (active: boolean) => (
+    <QueryClientProvider client={client}>
+      <Viewport active={active} dpr={1} gizmo={false} stage={false} textured={false} camera="orbit">
+        {null}
+      </Viewport>
+    </QueryClientProvider>
+  );
+  const { rerender } = render(view(false));
+  act(() => measure({ clientWidth: 192, clientHeight: 192 }));
+  expect(mounted).not.toHaveBeenCalled();
+
+  rerender(view(true));
+  expect(screen.getByTestId("canvas")).toHaveTextContent("always");
+  rerender(view(false));
+  expect(screen.getByTestId("canvas")).toHaveTextContent("never");
+  rerender(view(true));
+  expect(mounted).toHaveBeenCalledTimes(1);
+  expect(disposed).not.toHaveBeenCalled();
+});

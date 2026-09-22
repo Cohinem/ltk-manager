@@ -3436,6 +3436,43 @@ read as hex. With no table naming a single object, the hint the game browser dra
 state draws here. The tree uses the same row height, the same virtualizer and the same keys as
 the source tree.
 
+### Object grid
+
+Tree and Grid show the same object directory. A grid folder opens its prefix. Breadcrumbs
+link every path segment, including folded prefixes, and Up opens the parent path. An object
+with children has a separate folder-and-count action inside its footer. Tiles default to
+128 pixels wide. The view options popover holds tile size and the thumbnail switch. Search
+shows matching objects as tiles. Reveal
+in Objects keeps the selected view. In Grid it opens the parent and scrolls to the focused
+tile. In Tree it expands the ancestors and focuses the row. View preferences survive editor
+layout remounts.
+
+Switching from Tree to Grid carries the selected folder into its own directory. A selected
+object opens its parent grid and receives focus. A selected search hit stays in the search
+results. With no selection, the grid keeps its last location.
+
+Thumbnails are on by default. Supported particles and skins get small stills, rendered as tiles
+enter view. A particle loops in a large anchored preview popover after a short hover or keyboard
+focus. The popover stays open across the pointer's move from tile to preview, and closes on
+leaving or Escape. The tile keeps its still. Reduced motion
+keeps the still. Opening a tile uses the same first declaration
+as the tree. Skin stills show the textured bind pose. Thumbnail cameras frame the projected
+box with five percent padding, using the same aspect ratio as the tile artwork.
+
+Skin captures wait two rendered frames after assets arrive, without a camera animation.
+Particle warm-up advances up to 0.8 seconds while assets load, stopping at the first visible
+burst, in batches capped at eight steps or two milliseconds per renderer per frame. A drained
+preview restarts after a quarter-second pause once every emitter's start time has passed.
+Texture requests fetch a single
+128-pixel mip rather than a chain for each still.
+
+Two retained canvases load and render previews in parallel. Only visible rows and one overscan row
+request work, and a hovered particle takes priority. The grid keeps at most 128 stills,
+requests 128-pixel texture mips with two texture loads per preview at a time, and uses a 4,096-particle
+root pool without seek checkpoints. Full geometry is still required. Failed previews
+keep their kind glyph with a failure indicator and a retry action. A loading indicator marks
+active jobs. Hidden documents and background windows stop preview work.
+
 ### A node with several declarations
 
 A node's children belong to the path and not to any one file. A node one file declares carries

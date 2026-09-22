@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createPreviewPlayback } from "../../../../../objectsBrowser/utils/previewPlayback";
 import {
   BLEND_MODE,
   COLOR_LOOKUP,
@@ -908,6 +909,38 @@ describe("the rig", () => {
     for (let at = 0; at < PAST_ONE_RUN.frames; at += 1) driver.advance(1 / 60);
 
     expect(driver.pool.count).toBeGreaterThan(0);
+  });
+
+  it("restarts a drained object preview repeatedly instead of waiting through an empty span", () => {
+    const driver = driverFor(system(brief), 3);
+    driver.steer({ motion: { kind: "still" }, life: "once", height: 0 });
+    const advance = createPreviewPlayback(driver, 60, 0);
+    let restarts = 0;
+    let time = 0;
+    let emittingRuns = 0;
+    let seen = false;
+
+    for (let frame = 0; frame < 600; frame += 1) {
+      advance(1 / 60);
+      if (driver.time < time) {
+        restarts += 1;
+        if (seen) emittingRuns += 1;
+        seen = false;
+      }
+      seen ||= driver.pool.count > 0;
+      time = driver.time;
+    }
+
+    expect(restarts).toBeGreaterThan(5);
+    expect(emittingRuns).toBe(restarts);
+  });
+
+  it("keeps a preview alive until its delayed emitters have had time to start", () => {
+    const driver = driverFor(system(brief), 3);
+    driver.steer({ motion: { kind: "still" }, life: "once", height: 0 });
+    const advance = createPreviewPlayback(driver, 60, 4);
+    for (let frame = 0; frame < 180; frame += 1) advance(1 / 60);
+    expect(driver.time).toBeCloseTo(3);
   });
 
   it("replays a loop the same way a seek reaches it", () => {

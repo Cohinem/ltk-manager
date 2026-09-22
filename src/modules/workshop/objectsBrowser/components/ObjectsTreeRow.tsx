@@ -195,7 +195,7 @@ function ObjectRow({
       )}
       <span className="ml-auto min-w-0 shrink-10 pl-2 text-[0.625rem] text-surface-400">
         <span className="block max-w-32 truncate">
-          <Source node={node} />
+          <ObjectSource node={node} />
         </span>
       </span>
       {node.layers.map((layer) => (
@@ -214,7 +214,7 @@ function classLabel(cls: string, classHash: string): string | null {
 }
 
 /** The declaring file's name, or a chip listing the files where several declare the node. */
-function Source({ node }: { node: ObjectRowNode }) {
+export function ObjectSource({ node }: { node: ObjectRowNode }) {
   const first = node.declarations[0];
   if (!first) return null;
   if (node.declarations.length > 1) return <FilesChip node={node} />;
