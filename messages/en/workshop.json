@@ -531,6 +531,8 @@
   "workshop_bin_preview_backdrop_none_label": "None",
   "workshop_bin_preview_backdrop_particles_label": "Particles",
   "workshop_bin_preview_backdrop_structures_label": "Structures and props",
+  "workshop_bin_preview_hide_ui_action": "Hide viewport UI",
+  "workshop_bin_preview_hide_ui_hint": "Hide viewport UI. Press Esc to show it again.",
   "workshop_bin_preview_midlane_label": "Midlane",
   "workshop_bin_preview_move_label": "Move",
   "workshop_bin_preview_move_menu_label": "Move options",
