@@ -99,6 +99,7 @@ import {
   systemModel,
   textureAssets,
 } from "../utils/skinScene";
+import { BakeTangentsButton } from "./BakeTangentsButton";
 import { ClipEffect } from "./ClipEffect";
 import { IdleEffect } from "./IdleEffect";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
@@ -139,12 +140,13 @@ export default function SkinViewport({ document, asset, entry }: SkinViewportPro
   return (
     <>
       {opener}
-      <SkinScene skin={read.data} document={document} asset={asset} source={source} />
+      <SkinScene skin={read.data} document={document} asset={asset} source={source} entry={entry} />
     </>
   );
 }
 
 interface SkinSceneProps {
+  readonly entry: string;
   readonly skin: SkinModel;
   /** The skin's own document, which declares the systems its idle effects name. */
   readonly document: BinDocumentId;
@@ -154,7 +156,7 @@ interface SkinSceneProps {
   readonly source: GraphSource;
 }
 
-function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
+function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const own = useSkinChoice();
   const { clock, picked, setPicked, playing, setPlaying, speed, setSpeed } =
     use(SkinChoiceContext) ?? own;
@@ -565,6 +567,12 @@ function SkinScene({ skin, document, asset, source }: SkinSceneProps) {
                 />
               )}
               <ArmatureMenu />
+              <BakeTangentsButton
+                document={document}
+                entry={entry}
+                asset={asset}
+                mesh={skin.mesh?.asset ?? null}
+              />
               <SubmeshMenu
                 submeshes={submeshes}
                 hidden={hidden}

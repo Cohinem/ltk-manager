@@ -5,15 +5,47 @@ use super::document_assets::{parse_entry, read_resolved, with_resolution};
 use super::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
-use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
+use ltk_manager_core::bin_document::{BinDocument, BinDocumentError, BinDocumentId, BinDocuments};
+use ltk_manager_core::error::AppError;
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::{clip_header, AssetRef, ClipHeader};
 use ltk_manager_core::skin::{
-    graph_at, resolve_skin, search_linked, search_linked_materials, search_linked_systems,
-    AnimationGraph, GraphRead, SkinModel,
+    bake_mesh_tangents, graph_at, resolve_skin, search_linked, search_linked_materials,
+    search_linked_systems, AnimationGraph, GraphRead, SkinModel,
 };
 use tauri::{AppHandle, Manager};
+
+/// Tangents saved into the viewed skin's project-layer mesh.
+///
+/// # Errors
+/// Fails when the skin or layer mesh is unavailable, baking fails, or the write fails.
+#[tauri::command]
+#[specta::specta]
+pub async fn bake_skin_tangents(
+    document: BinDocumentId,
+    entry: String,
+    app_handle: AppHandle,
+) -> IpcResult<AssetRef> {
+    off_thread(move || {
+        let entry = parse_entry(&entry)?;
+        let skin = app_handle
+            .state::<BinDocuments>()
+            .asset_of(document)
+            .ok_or(BinDocumentError::NotOpen(document))?;
+        let mesh = read_resolved(&app_handle, document, |open, names, assets| {
+            let model = resolve_skin(open, entry, names, assets, None)?;
+            model.mesh.and_then(|mesh| mesh.asset).ok_or_else(|| {
+                AppError::ValidationFailed("The skin has no resolved mesh".to_owned())
+            })
+        })?;
+
+        bake_mesh_tangents(&skin, &mesh)?;
+
+        Ok(mesh)
+    })
+    .await
+}
 
 /// One skin of an open document, as a viewport draws it.
 ///

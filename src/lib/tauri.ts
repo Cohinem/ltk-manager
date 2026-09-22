@@ -564,6 +564,8 @@ export const api = {
       commands.readVfxSystem(document, entry).then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>
       commands.readSkin(document, entry).then(toResult),
+    bakeSkinTangents: (document: BinDocumentId, entry: string) =>
+      commands.bakeSkinTangents(document, entry).then(toResult),
     readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>
       commands.readMap(document, map, materials).then(toResult),
     readMapParticles: (document: BinDocumentId) =>

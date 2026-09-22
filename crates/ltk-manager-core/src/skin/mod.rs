@@ -6,6 +6,10 @@
 //! handful of named fields rather than walking its subtree, because the resolver it links
 //! maps every system its file declares and a walk would inline all of them.
 
+mod tangents;
+
+pub use tangents::bake_mesh_tangents;
+
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use ltk_hash::BinHash;

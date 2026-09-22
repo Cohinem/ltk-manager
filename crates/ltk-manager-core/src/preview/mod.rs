@@ -133,6 +133,10 @@ pub enum PreviewError {
     #[error("Not a readable mesh: {0}")]
     MeshRead(#[from] ltk_mesh::error::ParseError),
 
+    /// Tangents could not be generated for the mesh's geometry.
+    #[error("Could not bake mesh tangents: {0}")]
+    TangentBake(#[from] ltk_mesh::error::BakeTangentsError),
+
     /// A face names a vertex the mesh does not hold.
     #[error("The mesh's faces reach past its vertices")]
     MeshOutOfBounds,
