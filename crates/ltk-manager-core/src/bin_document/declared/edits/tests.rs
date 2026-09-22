@@ -82,6 +82,13 @@ fn game_bin() -> Vec<u8> {
         )
         .property(h("maybe"), values::Optional::empty(Kind::F32).unwrap())
         .property(h("pointer"), values::Struct::default())
+        .property(
+            h("heldPointer"),
+            values::Struct {
+                class_hash: h("VfxEmitterDefinitionData"),
+                properties: Default::default(),
+            },
+        )
         .build();
     let mut bytes = std::io::Cursor::new(Vec::new());
     Bin::builder()
@@ -110,6 +117,7 @@ fn declared_naming(dir: &std::path::Path, more: &[&'static str]) -> BinDocument 
         "VfxEmitterDefinitionData",
         "maybe",
         "pointer",
+        "heldPointer",
         "Teemo_Q",
         "Teemo_R",
         "Teemo_E",
@@ -355,6 +363,37 @@ fn a_raw_property_batch_retains_atomic_undo_and_redo() {
             .is_err()
     );
     assert_eq!(document.value_at(h(SKIN), &scope), Some(&first));
+}
+
+#[test]
+fn a_nested_property_batch_removes_an_item_atomically() {
+    let mut document = BinDocument::parse(game_bin()).unwrap();
+    let holder = format!("{}[0]", field("complexEmitterDefinitionData"));
+    let list = field("fieldAccelerationDefinitions");
+    let mut edits = force_edits();
+    edits.extend(force_edits());
+    edits.push(ValueEdit::RemoveItem {
+        path: format!("{list}[0]"),
+    });
+
+    document
+        .edit_property(
+            h(SKIN),
+            &holder,
+            &field("fieldCollectionDefinition"),
+            edits,
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+
+    let scope = format!("{holder}.{}.{}", field("fieldCollectionDefinition"), list);
+    let Some(PropertyValueEnum::Container(forces)) = document.value_at(h(SKIN), &scope) else {
+        panic!("the force list is a container");
+    };
+    assert_eq!(forces.len(), 1);
+
+    assert!(document.undo().unwrap());
+    assert!(document.value_at(h(SKIN), &scope).is_none());
 }
 
 /// The body the manifest holds under `entry`, one line per key.
@@ -603,6 +642,18 @@ fn a_pointer_given_a_class_is_a_struct_pin() {
         body(dir.path(), SKIN),
         ["pointer:", "pointer:", "class: VfxEmitterDefinitionData"]
     );
+}
+
+#[test]
+fn a_populated_pointer_cleared_is_a_null_pin() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(dir.path());
+
+    document
+        .set_pointer(h(SKIN), &field("heldPointer"), None)
+        .unwrap();
+
+    assert_eq!(body(dir.path(), SKIN), ["heldPointer: null"]);
 }
 
 #[test]

@@ -221,6 +221,12 @@ const BY_FIELD: ReadonlyMap<string, EmitterGroup> = new Map(
   ),
 );
 
+const FIELD_ORDER: ReadonlyMap<string, number> = new Map(
+  Object.values(GROUP_FIELDS)
+    .flat()
+    .map((field, index) => [nameHash(field), index]),
+);
+
 /** One group with the emitter's rows in it, in the order the class declared them. */
 export interface GroupedRows {
   readonly group: EmitterGroup;
@@ -257,11 +263,31 @@ export interface DefaultField {
   readonly defaultValue?: string | null;
 }
 
-/** One section of the inspector: what the emitter authored, and what Defaults adds under it. */
+/** One inspector section's authored properties and implicit defaults. */
 export interface InspectorGroup {
   readonly group: EmitterGroup;
   readonly rows: readonly BinRow[];
   readonly defaults: readonly DefaultField[];
+}
+
+/** A property slot identified independently of whether it has an authored value. */
+export type InspectorProperty =
+  | { readonly hash: string; readonly row: BinRow }
+  | { readonly hash: string; readonly field: DefaultField };
+
+/** Authored values and defaults in authoring order, with unclassified fields ordered by hash. */
+export function inspectorProperties({ rows, defaults }: InspectorGroup): InspectorProperty[] {
+  const properties: InspectorProperty[] = rows.map((row) => ({ hash: fieldHash(row.path), row }));
+  for (const field of defaults) {
+    properties.push({ hash: field.hash, field });
+  }
+
+  return properties.sort((left, right) => {
+    const leftOrder = FIELD_ORDER.get(left.hash) ?? Number.MAX_SAFE_INTEGER;
+    const rightOrder = FIELD_ORDER.get(right.hash) ?? Number.MAX_SAFE_INTEGER;
+
+    return leftOrder - rightOrder || left.hash.localeCompare(right.hash);
+  });
 }
 
 /**

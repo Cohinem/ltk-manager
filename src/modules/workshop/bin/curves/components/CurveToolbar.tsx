@@ -1,8 +1,8 @@
-import { WarningCircleIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
+import { PlusIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react";
 
-import { Code, SegmentedControl, Tooltip } from "@/components";
+import { Button, Code, SegmentedControl, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import type { ValueFamily } from "../../values/utils/valueRows";
 import type { CurveTab } from "../state/curveTarget";
@@ -27,6 +27,11 @@ interface CurveToolbarProps {
   /** The value has keys for a Table to list. */
   tabled: boolean;
   onTab: (tab: CurveTab) => void;
+  keyCount: number;
+  selectedCount: number;
+  editable: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
 }
 
 /** Every control of the dock in one row: chips, the tables and their faults, the pin, the tabs. */
@@ -40,6 +45,11 @@ export function CurveToolbar({
   tab,
   tabled,
   onTab,
+  keyCount,
+  selectedCount,
+  editable,
+  onAdd,
+  onRemove,
 }: CurveToolbarProps) {
   const names = CHANNELS[family];
   const chips =
@@ -97,7 +107,40 @@ export function CurveToolbar({
           hint={m.workshop_bin_random_broken_hint()}
         />
       )}
-      <span className="ml-auto flex items-center gap-3">
+      <span className="ml-auto flex items-center gap-1">
+        <span className="mr-1 text-meta text-surface-500">
+          {m.workshop_bin_curve_keys_label({ count: keyCount })}
+          {selectedCount > 0 && (
+            <span className="text-surface-400">
+              {" · "}
+              {m.workshop_bin_curve_selected_count_label({ count: selectedCount })}
+            </span>
+          )}
+        </span>
+        <Tooltip content={m.workshop_bin_curve_add_key_action()}>
+          <Button
+            variant="ghost"
+            size="xs"
+            compact
+            aria-label={m.workshop_bin_curve_add_key_action()}
+            disabled={!editable}
+            onClick={onAdd}
+            left={<PlusIcon weight="bold" />}
+          />
+        </Tooltip>
+        <Tooltip content={m.workshop_bin_curve_delete_key_action()}>
+          <Button
+            variant="ghost"
+            size="xs"
+            compact
+            aria-label={m.workshop_bin_curve_delete_key_action()}
+            disabled={!editable || selectedCount === 0}
+            onClick={onRemove}
+            left={<TrashIcon weight="bold" />}
+          />
+        </Tooltip>
+      </span>
+      <span className="flex items-center gap-3">
         {spread && <ChancePin />}
         <SegmentedControl
           size="xs"

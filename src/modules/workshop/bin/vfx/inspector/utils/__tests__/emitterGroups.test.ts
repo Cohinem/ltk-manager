@@ -8,6 +8,7 @@ import {
   GROUP_ORDER,
   groupRows,
   inspectorGroups,
+  inspectorProperties,
   unauthoredFields,
 } from "../emitterGroups";
 
@@ -127,5 +128,38 @@ describe("inspectorGroups", () => {
     );
 
     expect(groups.map((each) => each.group)).toEqual(["scale", "render", "other"]);
+  });
+});
+
+describe("inspectorProperties", () => {
+  it("keeps each property in the same slot when a default is authored or restored", () => {
+    const schema = [declared("emitterLinger"), declared("period"), declared("lifetime")];
+    const slots = (rows: BinRow[]) => {
+      const authored = new Set(rows.map((row) => nameHash(row.name)));
+      const [group] = inspectorGroups(groupRows(rows), unauthoredFields(schema, authored));
+
+      return inspectorProperties(group).map((property) => property.hash);
+    };
+    const original = slots([field("lifetime")]);
+    const edited = slots([field("lifetime"), field("emitterLinger")]);
+    const restored = slots([field("lifetime")]);
+
+    expect(original).toEqual(["period", "lifetime", "emitterLinger"].map(nameHash));
+    expect(edited).toEqual(original);
+    expect(restored).toEqual(original);
+  });
+
+  it("keeps unclassified properties stable when their authored state changes", () => {
+    const first = field("unclassifiedFirst");
+    const second = field("unclassifiedSecond");
+    const before = inspectorProperties({
+      group: "other",
+      rows: [second],
+      defaults: unauthoredFields([declared(first.name)], new Set()),
+    });
+    const after = inspectorProperties({ group: "other", rows: [second, first], defaults: [] });
+
+    expect(after.map((property) => property.hash)).toEqual(before.map((property) => property.hash));
+    expect(after.every((property) => "row" in property)).toBe(true);
   });
 });

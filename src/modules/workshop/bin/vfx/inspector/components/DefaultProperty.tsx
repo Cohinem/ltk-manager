@@ -4,8 +4,10 @@ import { InputDefaultContext } from "@/components";
 import { m } from "@/i18n";
 import type { BinRow, ValueEdit } from "@/lib/tauri";
 
-import { FieldRow } from "../../../classes/components/ClassCells";
+import { CurveToggle, FieldRow } from "../../../classes/components/ClassCells";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
+import { useCurveChain, useCurveDock } from "../../../curves/state/curveTarget";
+import { curveActivationEdits, curveDynamicsClass } from "../../../curves/utils/curveEdits";
 import { useBinRead } from "../../../documents/hooks/useBinRead";
 import { nameHash } from "../../../shared/utils/binHash";
 import { BinEditContext } from "../../../tree/hooks/useBinEdit";
@@ -37,6 +39,8 @@ export function DefaultProperty({
 }) {
   const edit = use(LeafEditContext);
   const document = use(RowDocumentContext);
+  const { aim } = useCurveDock();
+  const chain = useCurveChain(field.name);
   const raw = parseDefault(field.defaultValue);
   const optional = field.declared?.kind === "option";
   const present = authored?.value.type === "optional" && authored.value.present;
@@ -119,6 +123,33 @@ export function DefaultProperty({
       (field.declared === null ? null : { shape: field.declared, mismatch: false }),
     value: value ?? { type: "undrawn" },
   };
+  const dynamicsClass = curveDynamicsClass(field.classHash);
+
+  async function activateCurve() {
+    if (edit?.editProperty === undefined || dynamicsClass === null || field.classHash == null)
+      return;
+
+    const edits = curveActivationEdits(field.classHash, value, "value");
+    if (edits === null) return;
+
+    const activated = await edit.editProperty(holder, field.hash, edits);
+    if (!activated) return;
+
+    aim({
+      row: {
+        ...row,
+        kind: field.declared?.kind ?? null,
+        value: {
+          type: "struct",
+          classHash: field.classHash,
+          class: schema?.name ?? null,
+          len: 1,
+        },
+      },
+      chain,
+      tab: "graph",
+    });
+  }
 
   const implicit = authored === undefined || insert;
   let placeholder: string | undefined;
@@ -159,6 +190,11 @@ export function DefaultProperty({
                 owner={owner}
                 rail={rail}
                 valueSlot={valueSlot}
+                valueAction={
+                  dynamicsClass === null || edit?.editProperty === undefined ? undefined : (
+                    <CurveToggle onConstant={() => {}} onCurve={() => void activateCurve()} />
+                  )
+                }
               />
             </LeafEditContext>
           </BinEditContext>

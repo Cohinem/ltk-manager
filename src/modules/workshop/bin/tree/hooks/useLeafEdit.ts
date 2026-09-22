@@ -19,6 +19,11 @@ export interface LeafEdit {
   readonly refused: ReadonlyMap<string, AppError>;
   readonly editProperty?: (holder: BinRow, field: string, edits: ValueEdit[]) => Promise<boolean>;
   readonly removeItem?: (row: BinRow) => Promise<boolean>;
+  readonly setPointer?: (
+    holder: BinRow,
+    field: string,
+    className: string | null,
+  ) => Promise<boolean>;
 }
 
 /** Leaf edits for layouts without tree navigation or structural actions. */
@@ -103,5 +108,21 @@ export function useLeafEdit(document: BinDocumentId, asset: AssetRef, invalidate
     [document, key, landed, mark],
   );
 
-  return { commit, refused, mark, landed, editProperty, removeItem };
+  const setPointer = useCallback(
+    async (holder: BinRow, field: string, className: string | null) => {
+      const path = [holder.path, field.slice(2)].filter(Boolean).join(".");
+      const result = await api.bin.setPointer(document, holder.entry, path, className);
+      mark(`${holder.entry}:${path}`, result.ok ? null : result.error);
+      if (!result.ok) {
+        noteRefused(key);
+        return false;
+      }
+
+      landed();
+      return true;
+    },
+    [document, key, landed, mark],
+  );
+
+  return { commit, refused, mark, landed, editProperty, removeItem, setPointer };
 }

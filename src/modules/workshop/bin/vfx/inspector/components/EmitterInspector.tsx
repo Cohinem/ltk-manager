@@ -38,6 +38,7 @@ import {
   type GroupedRows,
   type InspectorGroup,
   inspectorGroups,
+  inspectorProperties,
   unauthoredFields,
 } from "../utils/emitterGroups";
 import { emitterLabel, filterEmitterGroups } from "../utils/emitterLabels";
@@ -313,8 +314,8 @@ function GroupSection({
   const root = useRef<HTMLElement | null>(null);
   const { group } = held;
   const title = GROUP_TITLE[group]();
-  const { rows, defaults } = held;
-  const visible = rows.length > 0 || defaults.length > 0;
+  const properties = inspectorProperties(held);
+  const visible = properties.length > 0;
   const requested =
     navigation.key === card?.key && navigation.request !== jumpRequest && aimed?.group === group;
   if (navigation.key !== card?.key || navigation.request !== jumpRequest) {
@@ -350,7 +351,13 @@ function GroupSection({
   /* Every row's mark at once, so a segment knows whether the row under it carries the same
      one and can close the gap the rows are laid out with. */
   const marks = use(ValueMarksContext);
-  const rails = rows.map((row) => railMark(row, marks.get(rowKey(row))));
+  const rails = properties.map((property) => {
+    if ("field" in property) {
+      return null;
+    }
+
+    return railMark(property.row, marks.get(rowKey(property.row)));
+  });
 
   if (!visible) {
     return null;
@@ -377,14 +384,32 @@ function GroupSection({
         {title}
       </button>
       {open &&
-        rows.map((row, at) => {
+        properties.map((property, at) => {
+          const key = `${card?.key ?? owner}:${property.hash}`;
+          if ("field" in property) {
+            if (card === undefined) {
+              return null;
+            }
+
+            return (
+              <DefaultProperty
+                key={key}
+                field={property.field}
+                holder={card.row}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          const { row } = property;
           const rail = (
             <RollRail
               mark={rails[at] ?? null}
               joins={rails[at] !== null && rails[at + 1] === rails[at]}
             />
           );
-          const definition = schema?.fields.find((field) => field.hash === fieldHash(row.path));
+          const definition = schema?.fields.find((field) => field.hash === property.hash);
           if (
             row.value.type === "optional" &&
             row.value.itemKind === "f32" &&
@@ -395,7 +420,7 @@ function GroupSection({
           ) {
             return (
               <DefaultProperty
-                key={rowKey(row)}
+                key={key}
                 field={{ ...definition, name: definition.name ?? row.name }}
                 holder={card.row}
                 authored={row}
@@ -408,7 +433,7 @@ function GroupSection({
 
           return (
             <FieldRow
-              key={rowKey(row)}
+              key={key}
               row={row}
               label={emitterLabel(fieldHash(row.path), row.name)}
               tableLayout
@@ -418,17 +443,6 @@ function GroupSection({
             />
           );
         })}
-      {open &&
-        card !== undefined &&
-        defaults.map((field) => (
-          <DefaultProperty
-            key={field.hash}
-            field={field}
-            holder={card.row}
-            width={NAME_COLUMN}
-            owner={owner}
-          />
-        ))}
     </section>
   );
 }

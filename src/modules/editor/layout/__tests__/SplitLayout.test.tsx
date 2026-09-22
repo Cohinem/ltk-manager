@@ -17,8 +17,6 @@ const TREE: LayoutNode = {
   ],
 };
 
-/* The library labels its own `Panel` with the leaf's id, which a testid of the
-   same name matches as well as the body drawn inside it. */
 function renderLeaf(leaf: LeafNode) {
   return <div key={leaf.id} data-testid={`body-${leaf.id}`} />;
 }
@@ -41,6 +39,36 @@ describe("SplitLayout", () => {
 
     expect(screen.getByTestId("body-leaf-1")).toBeInTheDocument();
     expect(screen.getByTestId("body-leaf-2")).toBeInTheDocument();
+  });
+
+  it("gives separately mounted trees distinct resize group identities", () => {
+    draw(null);
+    draw(null);
+
+    const ids = [...document.querySelectorAll<HTMLElement>("[data-group]")].map(
+      (group) => group.id,
+    );
+
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("replaces the resize group identity when pane topology changes", () => {
+    const { container, rerender } = render(
+      <SplitLayout node={TREE} onLayoutChanged={() => {}} renderLeaf={renderLeaf} />,
+    );
+    const firstId = container.querySelector<HTMLElement>("[data-group]")?.id;
+
+    const changed: LayoutNode = {
+      ...TREE,
+      children: [
+        TREE.children[0]!,
+        { kind: "leaf", id: "leaf-3", tabs: ["outline"], activeTab: "outline" },
+      ],
+    };
+    rerender(<SplitLayout node={changed} onLayoutChanged={() => {}} renderLeaf={renderLeaf} />);
+
+    expect(container.querySelector<HTMLElement>("[data-group]")?.id).not.toBe(firstId);
   });
 
   it("draws a maximized leaf alone", () => {

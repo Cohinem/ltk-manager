@@ -732,6 +732,14 @@ describe("ClassView over a particle system", () => {
             fields: [
               ...SCHEMA.fields,
               {
+                hash: nameHash("period"),
+                name: "period",
+                declared: { kind: "f32", key: null, value: null },
+                classHash: null,
+                defaultValue: "0",
+                revisions: [],
+              },
+              {
                 hash: nameHash("emitterLinger"),
                 name: "emitterLinger",
                 declared: { kind: "option", key: null, value: "f32" },
@@ -778,6 +786,14 @@ describe("ClassView over a particle system", () => {
     });
     renderSystem(vi.fn(), true);
     const input = within(await fieldRow("emitterLinger")).getByPlaceholderText("0");
+    const period = within(await fieldRow("period")).getByPlaceholderText("0");
+    const emission = section("Emission").closest("section")!;
+    const rowOrder = () =>
+      Array.from(
+        emission.querySelectorAll<HTMLElement>("[data-row-key]"),
+        (row) => row.dataset.rowKey,
+      );
+    const orderBeforeEdit = rowOrder();
     expect(input).toHaveValue("");
     expect(mockInvoke.mock.calls.some(([command]) => command === "bin_edit_property")).toBe(false);
 
@@ -790,23 +806,84 @@ describe("ClassView over a particle system", () => {
       edits: [{ type: "setLeaf", path: "[0]", value: { type: "float", value: 2.5 } }],
     });
     expect(await screen.findByDisplayValue("2.5")).not.toHaveAttribute("placeholder");
+    expect(rowOrder()).toEqual(orderBeforeEdit);
+    expect(within(await fieldRow("period")).getByPlaceholderText("0")).toBe(period);
+    expect(section("Emission")).toHaveAttribute("aria-expanded", "true");
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("bin_save", { document: 9 }), {
       timeout: 2000,
     });
   });
 
-  it("gives inspector curves a separate row below the editable constant", async () => {
+  it("keeps a stable value mode control beside the editable constant", async () => {
     renderSystem(vi.fn(), true);
     const line = within(await fieldRow("rate"));
     const constant = await line.findByDisplayValue("3");
-    const curve = await line.findByRole("button", { name: "Show curve" });
-    const curves = curve.parentElement!;
+    const mode = await line.findByRole("group", { name: "Value mode" });
 
-    expect(curves).toHaveClass("basis-full", "flex-wrap");
-    expect(curves.parentElement).toHaveClass("flex-wrap");
-    expect(curves).not.toContainElement(constant);
-    expect(curves.parentElement).toContainElement(constant);
-    expect(within(curves).getByRole("button", { name: "Show what is random" })).toBeInTheDocument();
+    expect(within(mode).getByRole("button", { name: "Edit curve" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(within(mode).getByRole("button", { name: "Use constant value" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(mode.parentElement).toContainElement(constant);
+  });
+
+  it("offers curve activation beside an authored constant value", async () => {
+    renderSystem(vi.fn(), true);
+
+    const velocity = within(await fieldRow("velocity"));
+    expect(await velocity.findByRole("button", { name: "Animate value" })).toBeInTheDocument();
+  });
+
+  it("switches an animated property back to its authored constant", async () => {
+    const read = mockInvoke.getMockImplementation()!;
+    let constant = false;
+
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "bin_set_pointer") {
+        constant = true;
+        return Promise.resolve({ ok: true, value: null });
+      }
+
+      if (command === "bin_read" && constant) {
+        const paths = (args?.paths ?? []) as string[];
+        const constantRate = page([
+          row(`${RATE}.${at("constantValue")}`, "constantValue", { type: "float", value: 3 }),
+          row(RATE_CURVE, "dynamics", { type: "null" }),
+        ]);
+
+        return Promise.resolve({
+          ok: true,
+          value: paths.map((path) => (path === RATE ? constantRate : (PAGES[path] ?? page([])))),
+        });
+      }
+
+      return read(command, args);
+    });
+
+    renderSystem(vi.fn(), true);
+    const rate = within(await fieldRow("rate"));
+
+    await userEvent.click(await rate.findByRole("button", { name: "Use constant value" }));
+
+    expect(mockInvoke).toHaveBeenCalledWith("bin_set_pointer", {
+      document: 9,
+      entry: ENTRY,
+      path: RATE_CURVE,
+      className: null,
+    });
+    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_remove_property")).toBe(
+      false,
+    );
+    await waitFor(() =>
+      expect(rate.getByRole("button", { name: "Use constant value" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      ),
+    );
   });
 
   it("aligns scalar and vector properties in label and value columns", async () => {
@@ -1043,10 +1120,14 @@ describe("ClassView over a particle system", () => {
     expect(screen.queryByText("ValueFloat")).not.toBeInTheDocument();
   });
 
-  it("draws a sparkline of the curve a panel row's dynamics points at", async () => {
+  it("marks the curve mode of a panel row whose dynamics points at one", async () => {
     renderSystem();
+    const rate = within(await fieldRow("rate"));
 
-    expect(await screen.findByLabelText("2 curve keys")).toBeInTheDocument();
+    expect(await rate.findByRole("button", { name: "Edit curve" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("marks a value whose curve the panel has not read", async () => {
@@ -1056,7 +1137,11 @@ describe("ClassView over a particle system", () => {
     const [birth] = await screen.findAllByRole("button", { name: "Birth" });
     await user.click(birth as HTMLElement);
 
-    expect(await screen.findByRole("img", { name: "Animated" })).toBeInTheDocument();
+    const color = within(await fieldRow("birthColor"));
+    expect(await color.findByRole("button", { name: "Edit curve" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("scrolls to the group a card's chip chooses", async () => {
@@ -1276,7 +1361,7 @@ describe("The shell frame", () => {
     const user = userEvent.setup();
     const line = within(await fieldRow("rate"));
 
-    await user.click(await line.findByRole("button", { name: "Show curve" }));
+    await user.click(await line.findByRole("button", { name: "Edit curve" }));
 
     expect(await screen.findByText("Glow [0] . rate")).toBeInTheDocument();
     expect(screen.getByText(RATE)).toBeInTheDocument();
@@ -1286,7 +1371,7 @@ describe("The shell frame", () => {
   it("lists the emitter's animated fields while nothing targets the pane, and aims from one", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await within(await fieldRow("rate")).findByRole("button", { name: "Show curve" });
+    await within(await fieldRow("rate")).findByRole("button", { name: "Edit curve" });
     const pane = within(document.querySelector<HTMLElement>("[data-ui='CurveSurface']")!);
 
     expect(pane.getByText("Glow [0] animates")).toBeInTheDocument();
@@ -1300,7 +1385,7 @@ describe("The shell frame", () => {
     const user = userEvent.setup();
     await showCards(user);
     const line = within(await fieldRow("rate"));
-    await user.click(await line.findByRole("button", { name: "Show curve" }));
+    await user.click(await line.findByRole("button", { name: "Edit curve" }));
     await screen.findByText("Glow [0] . rate");
 
     const [sparks] = await screen.findAllByRole("button", { name: /Sparks/ });
@@ -1352,7 +1437,7 @@ describe("The shell frame", () => {
     const user = userEvent.setup();
     await showCards(user);
     const line = within(await fieldRow("rate"));
-    await user.click(await line.findByRole("button", { name: "Show curve" }));
+    await user.click(await line.findByRole("button", { name: "Edit curve" }));
     await screen.findByText("Glow [0] . rate");
 
     await user.click(crumb().getByRole("button", { name: "Emission" }));
@@ -1367,9 +1452,11 @@ describe("The shell frame", () => {
     const animated = within(await fieldRow("rate"));
     const flat = within(await fieldRow("lifetime"));
 
-    expect(await animated.findByRole("button", { name: "Show curve" })).toBeInTheDocument();
-    expect(animated.getByRole("button", { name: "Show what is random" })).toBeInTheDocument();
-    expect(flat.queryByRole("button", { name: "Show curve" })).toBeNull();
+    expect(await animated.findByRole("button", { name: "Edit curve" })).toBeInTheDocument();
+    expect(
+      await animated.findByRole("button", { name: "Show what is random" }),
+    ).toBeInTheDocument();
+    expect(flat.queryByRole("button", { name: "Edit curve" })).toBeNull();
   });
 
   it("opens the dock on the graph, the spread under it, from the second trigger", async () => {
@@ -1584,7 +1671,7 @@ describe("A child lane", () => {
     renderSystem();
     const user = userEvent.setup();
     const line = within(await fieldRow("rate"));
-    await user.click(await line.findByRole("button", { name: "Show curve" }));
+    await user.click(await line.findByRole("button", { name: "Edit curve" }));
     await screen.findByText("Glow [0] . rate");
 
     await selectEmber(user);

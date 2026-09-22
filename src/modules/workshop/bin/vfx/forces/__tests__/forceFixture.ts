@@ -36,6 +36,7 @@ export function vector(...values: number[]): VfxValue {
 
 export function forceSystem() {
   const system = readVfxSystem({
+    materials: [],
     entry: "0x12345678",
     name: null,
     class: "VfxSystemDefinitionData",

@@ -47,6 +47,7 @@ vi.mock("../../../playback/state/run", () => ({
 const emitter = emitterOf(0);
 const system = {
   ...readVfxSystem({
+    materials: [],
     entry: "0x1",
     name: null,
     classHash: "0x1",

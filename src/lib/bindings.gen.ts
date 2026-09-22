@@ -53,9 +53,9 @@ export const commands = {
 	binPatch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) => __TAURI_INVOKE<({ ok: true; value: LeafValue }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_patch", { document, entry, path, value }),
 	/**
 	 *  Edit one property's subtree as one undoable declaration or binary change.
-	 * 
+	 *
 	 *  # Errors
-	 * 
+	 *
 	 *  Refuses closed or read-only documents, invalid edits, and failed declaration writes.
 	 */
 	binEditProperty: (document: BinDocumentId, entry: string, holder: string, field: string, edits: ValueEdit[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit_property", { document, entry, holder, field, edits }),
@@ -2947,13 +2947,15 @@ export type UiError = {
 };
 
 /**  One staged edit, addressed relative to its enclosing property. */
-export type ValueEdit = 
+export type ValueEdit =
 /**  Add a missing schema field at its published default. */
-{ type: "ensureProperty"; path: string; field: string } | 
+{ type: "ensureProperty"; path: string; field: string } |
 /**  Give a null pointer its class. A non-null pointer retains its fields. */
-{ type: "ensurePointer"; path: string; class: string } | 
+{ type: "ensurePointer"; path: string; class: string } |
 /**  Insert an item into a list, map or option. */
-{ type: "insertItem"; path: string; item: NewItem } | 
+{ type: "insertItem"; path: string; item: NewItem } |
+/**  Remove an item from a list, map or option. */
+{ type: "removeItem"; path: string } |
 /**  Set an existing leaf, including one created by an earlier staged edit. */
 { type: "setLeaf"; path: string; value: LeafValue };
 
@@ -3130,4 +3132,3 @@ export type WorkshopError =
 
 /**  A sampler's address mode, `addressU` and `addressV` on the wire. */
 export type Wrap = "repeat" | "clamp" | "mirror" | "border";
-

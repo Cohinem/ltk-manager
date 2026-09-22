@@ -5,7 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { BinRow } from "@/lib/tauri";
+import type { BinRow, ValueEdit } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -116,6 +116,42 @@ describe("implicit emitter defaults", () => {
         value: { type: "vector", values: [1, 2, 1] },
       },
     ]);
+  });
+
+  it("creates dynamics from an implicit value-family row", async () => {
+    const field = {
+      hash: nameHash("birthScale0"),
+      name: "birthScale0",
+      classHash: nameHash("ValueVector3"),
+      declared: { kind: "embed" as const, key: null, value: null },
+      defaultValue: '{"constantValue":[1,1,1],"dynamics":null}',
+    };
+    const { editProperty } = mount(field);
+
+    await userEvent.click(screen.getByRole("button", { name: "Animate value" }));
+
+    expect(editProperty).toHaveBeenCalledWith(holder, field.hash, expect.any(Array));
+
+    const edits = (editProperty.mock.calls[0]?.[2] ?? []) as ValueEdit[];
+    expect(edits.slice(0, 4)).toEqual([
+      { type: "ensureProperty", path: "", field: nameHash("dynamics") },
+      {
+        type: "ensurePointer",
+        path: nameHash("dynamics").slice(2),
+        class: "VfxAnimatedVector3f",
+      },
+      {
+        type: "ensureProperty",
+        path: nameHash("dynamics").slice(2),
+        field: nameHash("times"),
+      },
+      {
+        type: "ensureProperty",
+        path: nameHash("dynamics").slice(2),
+        field: nameHash("values"),
+      },
+    ]);
+    expect(edits.filter((edit) => edit.type === "setLeaf")).toHaveLength(4);
   });
 
   it("does not invent a zero when the schema has no default", () => {

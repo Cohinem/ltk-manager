@@ -35,6 +35,8 @@ pub enum ValueEdit {
     EnsurePointer { path: String, class: String },
     /// Insert an item into a list, map or option.
     InsertItem { path: String, item: NewItem },
+    /// Remove an item from a list, map or option.
+    RemoveItem { path: String },
     /// Set an existing leaf, including one created by an earlier staged edit.
     SetLeaf { path: String, value: LeafValue },
 }
@@ -117,6 +119,9 @@ impl BinDocument {
                 }
                 ValueEdit::InsertItem { path, item } => {
                     staged.insert_item(entry, &relative_path(&scope, &path), item, schema)?;
+                }
+                ValueEdit::RemoveItem { path } => {
+                    staged.remove_item(entry, &relative_path(&scope, &path))?;
                 }
                 ValueEdit::SetLeaf { path, value } => {
                     staged.set_leaf(entry, &relative_path(&scope, &path), value)?;

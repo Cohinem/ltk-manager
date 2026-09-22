@@ -1929,25 +1929,26 @@ and the property path in the tree. The path is what a bug report needs. One tool
 carries every control: the channel chips, the `probabilityTables` chip, the chance slider and the
 tabs.
 
-A mark and a sparkline both aim the dock, and so does Show curve on the row menu of a value that
-has dynamics. A value without one is offered neither.
+A value mode control aims the dock from its Curve segment, and so does Show curve on the row menu
+of a value that has dynamics. In an editable inspector, choosing Curve on a constant value creates
+a flat two-key curve from its current value. Choosing Constant nulls `dynamics` and keeps
+`constantValue`.
 
-### The row's two triggers
+### The row's value mode and random trigger
 
-A value-family row in a layout draws its constant inline and then two triggers, the shape both of
-Riot's editors use: the constant is what a modder is tuning, and the rest of the value is one
-target away on the same line rather than behind a mode.
+A value-family row in an editable layout draws its constant inline, a joined Constant and Curve
+mode control, then the random trigger where the value has a meaningful probability table. The
+mode control keeps the same width and position in both states.
 
 ```
-birthScale0     [X 10 .. 20] [Y 10 .. 20] [Z 10 .. 20]   [~] [dice linked]
-birthRotation0  [X 0 .. 360] [Y 0] [Z 0]                 [~] [dice uniform]
+birthScale0     [X 10 .. 20] [Y 10 .. 20] [Z 10 .. 20]   [-|~] [dice linked]
+birthRotation0  [X 0 .. 360] [Y 0] [Z 0]                 [-|~] [dice uniform]
 ```
 
-**Riot's triggers add data and ours open a reading**, because nothing in the editor writes a bin
-yet. The first aims the dock's Graph and carries the sparkline where the read answered the keys.
-The second is the random chip, which aims the same Graph, where
-[the random spread](#the-random-spread) draws. An aim naming a reading switches the dock to it, so
-a trigger lands on what it names rather than on whichever tab the dock was left on.
+The Constant segment nulls the `dynamics` pointer. The Curve segment creates a flat curve when
+none exists, and otherwise aims the dock's Graph. The separate random chip aims the same Graph,
+where [the random spread](#the-random-spread) draws. An aim naming a reading switches the dock to
+it, so a trigger lands on what it names rather than on whichever tab the dock was left on.
 
 The chip says what is random in the fewest words the row leaves it. Where the value column already
 draws the range, as the inspector's does, the chip names the shape: `uniform`, `split`, `custom`,
@@ -1956,11 +1957,10 @@ Anywhere else it carries the range itself, `XYZ 10 .. 20`. A table on a per-fram
 `random every frame` in the warning tone, which the inspector leaves to its roll rail, and a set
 the game cannot read reads `broken` in the danger tone.
 
-Both are drawn only where the row has dynamics, which is one condition rather than two: the
-probability tables are a field inside the dynamics, so a value with no curve has no tables either.
-A row with no dynamics draws neither, per [what has no curve](#what-has-no-curve). The chip is a
-bare die until the tables are read, and is gone once they read as filler, because a set of tables
-that each multiply by 1 draws nothing a reader needs to open.
+The mode control is drawn for every supported editable value family. A read-only row gets its
+Curve segment only where dynamics exist. The random chip appears only after the tables read as a
+meaningful spread. It is absent while they are unread and once they read as filler, because a set
+of tables that each multiply by 1 draws nothing a reader needs to open.
 
 ### The tabs
 
@@ -1968,6 +1968,11 @@ that each multiply by 1 draws nothing a reader needs to open.
 line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one. The
 value axis takes three to five round ticks over faint grid lines, a stronger line at 0 and the
 unit by the top tick. The time axis ticks at quarters.
+
+A click selects one key. Shift-click selects the range from the last key, and Ctrl-click or
+Command-click toggles one key in the selection. Dragging empty graph space draws a selection box
+over every channel. Delete removes the selected keys from the parallel time and value lists as one
+edit. Exact fields are shown for one selected key, while a multiple selection shows its count.
 
 A colour draws as a gradient editor instead: a bar of the stops, a marker per stop hanging off it
 at the stop's own time, and the keys themselves under them.

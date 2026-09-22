@@ -22,11 +22,11 @@ declared: KindShape | null,
 /**
  * The declared class of an embed, pointer, or container item.
  */
-classHash: string | null, 
+classHash: string | null,
 /**
  * The constructor default as lossless JSON, absent when the schema has none.
  */
-defaultValue: string | null, 
+defaultValue: string | null,
 /**
  * Oldest first.
  */
