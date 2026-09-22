@@ -4,14 +4,47 @@ This file provides guidance to coding agents working in this repository.
 
 This file is the primary guidance document for the ltk-manager codebase.
 
-Guidance is scoped so backend work does not carry the frontend's:
+Guidance is scoped by directory:
 
 - `src-tauri/AGENTS.md` - workspace crates, the patcher and the Tauri states. Loads under
   `src-tauri/`, and `crates/ltk-manager-core/AGENTS.md` points to it.
 - `src/AGENTS.md` - React/TypeScript conventions, loads when working under `src/`.
 - `src/styles/AGENTS.md` - how to author the design tokens, loads only in that directory.
 - The `design-system` skill - which token to reach for in a component. Loaded on demand, so it
-  costs nothing while you are in `src-tauri/`.
+  is not needed for backend work.
+
+## Writing
+
+Use direct, literal language in replies, documentation, comments, UI copy, issues and PRs.
+Mannered prose uses metaphor, decorative phrasing or rhetorical contrast where a direct statement
+would explain the same thing. Remove it before sending a reply or saving prose.
+
+Name the action, fact or condition. Use familiar words and short paragraphs. Keep technical terms
+when they are precise. Delete phrases that add emphasis without information. For example, write
+"adjust the setting" instead of "turn the dial", and "remains relevant" instead of "earns its keep".
+
+## Task execution
+
+- Complete requested changes and required checks before ending the turn. An assessment request ends
+  with findings. Continue authorized, reversible work without another approval.
+- Resolve routine ambiguity from repository conventions. Ask when the answer changes the scope
+  or safety of the work, and finish independent work while waiting.
+- Batch independent reads and searches. Sequence dependent calls and mutations. Prefer targeted
+  patches, and report unrelated findings separately.
+- Keep tests proportional to changed behavior and local conventions. Run required checks, then
+  repeat only when edits, failures or unresolved concerns justify it.
+- Give brief progress updates. Close with the outcome, verification and remaining blockers in
+  plain language.
+- In handoffs or compaction summaries, retain the request, constraints, decisions, rejected
+  approaches, changed files, check results and next unfinished step. Preserve exact identifiers
+  needed to resume.
+
+Load scoped guidance before editing its files. Read referenced material when its task applies,
+and reuse current findings already in context. Repository rules remain authoritative for local
+checks and commit permissions.
+
+When changing agent instructions or evaluating agent efficiency, read
+[Agent evaluation](docs/agents/agent-evaluation.md).
 
 ## Commands
 
@@ -56,7 +89,7 @@ prose is what is wrong.
 
 **No redundant comments.** Do not add inline comments that restate what the code already expresses. If the code is descriptive enough (clear variable names, well-known patterns like temp-file-then-rename, obvious API calls), leave it uncommented. This applies to AI-generated code and suggestions too - strip narration comments before committing. The same goes for what a symbol's own doc expresses: a call site that restates the constant or type it is using is writing that doc twice. Needing the explanation there usually means the code is in the wrong place - move it beside what it explains, and the comment stops being needed.
 
-Let the code speak through its quality: clear names, small named components and functions, and named constants, rather than comments that explain it.
+Use clear names, small components and functions, and named constants to make the code understandable without explanatory comments.
 
 - **One rich doc per unit** - document the exported component, hook or function with a single structured doc comment: what it is, its parts, non-obvious behaviour, accessibility, gotchas. Reference, not a story.
 - **Inline comments are the exception** - only for what the code cannot say: a hidden constraint, a workaround and its cause, a magic value. One or two lines.
@@ -71,8 +104,8 @@ skill. Add a code there before citing a new one.
 The same holds for a `docs/ux/` spec: name the section and the file and stop - a comment reading
 `per "What an empty box lists" in docs/ux/WORKSHOP.md` and nothing more. A citation sits at a file
 header or a module's exported entry point, never on a statement, and only where prose was removed.
-It is the receipt for what is no longer written there. Never a relative path, because the code
-moves and the doc does not.
+It identifies the source of the removed prose. Use a repository-root path so moving the code
+does not change the reference.
 
 **A doc's first line names the thing, it does not narrate it.** One line, a noun phrase or a single
 declarative sentence, saying what the symbol _is_ - the same shape a commit subject takes, on the
@@ -129,7 +162,7 @@ Good  fix(mods): key game content cache on build
 ### The same shape everywhere, on different vocabulary
 
 A title is a terse noun phrase wherever one is written, and what changes between them is only which
-words are common ground with the reader. Terseness is not a concession to `git log`.
+words the reader knows.
 
 | What                | Common ground with the reader                |
 | ------------------- | -------------------------------------------- |
