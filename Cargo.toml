@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "src-tauri",
-    "crates/dxbc-glsl",
+    "crates/hexshade",
     "crates/dxbc-spirv-sys",
     "crates/ltk-declarations",
     "crates/ltk-manager-core",
@@ -36,6 +36,7 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
+hexshade = { path = "crates/hexshade" }
 ltk-declarations = { path = "crates/ltk-declarations" }
 ltk-manager-core = { path = "crates/ltk-manager-core" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
@@ -90,6 +91,7 @@ strum = { version = "0.27", features = ["derive"] }
 tar = "0.4"
 tempfile = "3"
 thiserror = "2"
+xxhash-rust = { version = "0.8", features = ["xxh64"] }
 tracing = "0.1"
 ts-rs = "12"
 uuid = { version = "1", features = ["v4"] }

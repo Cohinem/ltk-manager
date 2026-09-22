@@ -51,6 +51,8 @@ export interface ViewportProps {
   readonly backdrop?: BackdropSource | null;
   /** The visibility flags the backdrop draws, as a mask, and the map's own opening ones absent. */
   readonly backdropFlags?: number;
+  /** The sky cube map is drawn behind the backdrop, and the flat colour when off. */
+  readonly backdropSky?: boolean;
   /** The scene's sun and sky, and the backdrop's own or `DEFAULT_SUN` when absent. */
   readonly sun?: SunLight | null;
   /** The scene's post effects, and the backdrop's own or none when absent. */
@@ -121,6 +123,7 @@ export function Viewport({
   textured,
   backdrop = null,
   backdropFlags,
+  backdropSky = true,
   sun = null,
   postEffects = null,
   ambientOcclusion = null,
@@ -195,11 +198,15 @@ export function Viewport({
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (
             <>
-              <Sky />
+              {backdropSky && <Sky />}
               <Backdrop
                 map={map.geometry}
                 materials={map.materials}
                 textures={map.textures}
+                programs={map.programs}
+                programTextures={map.programTextures}
+                lightmaps={map.lightmaps}
+                light={sun ?? map.sun ?? DEFAULT_SUN}
                 flags={backdropFlags ?? map.opening}
               />
             </>

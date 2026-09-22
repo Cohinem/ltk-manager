@@ -14,7 +14,7 @@
 //!
 //! ```text
 //! magic         u32   0x4D4B544C, `LTKM`
-//! version       u32   1
+//! version       u32   2
 //! flags         u32   bit 0 uv1 present
 //! vertexCount   u32
 //! indexCount    u32
@@ -30,19 +30,27 @@
 //!                             flags: bit 0 backface culling disabled
 //!                                    bit 1 placed through a map region
 //! submeshes     submeshCount * { startIndex u32, indexCount u32, material u32 }
+//! lights        meshCount * { baked u32, bakedScale 2f32, bakedBias 2f32,
+//!                             stationary u32, stationaryScale 2f32, stationaryBias 2f32 }
 //! strings       count u32, then count * { length u32, utf8[length] }
+//! lightmaps     count u32, then count * { length u32, utf8[length] }
 //! ```
 //!
 //! A submesh's `material` indexes the string table, which holds each material once. A
 //! mesh's `visibility` is the layer mask the viewport filters on, and its `quality` is
 //! carried unread. Its bounds are computed from the baked vertices rather than taken from
 //! the file, which states them in a region's space for a region-anchored mesh.
+//!
+//! A mesh's `lights` record names its baked and stationary light maps in the lightmaps
+//! table, `0xFFFFFFFF` for a channel the mesh carries none of, each with the scale and
+//! bias its `uv1` is read through. The Rift carries none, and Map12 and Map30 carry one
+//! per mesh.
 
 use std::io::Cursor;
 
 use glam::{Mat3, Vec2, Vec3};
 use indexmap::IndexSet;
-use ltk_mapgeo::{EnvironmentAsset, EnvironmentMesh};
+use ltk_mapgeo::{EnvironmentAsset, EnvironmentAssetChannel, EnvironmentMesh};
 use ltk_mesh::mem::VertexBuffer;
 use ltk_mesh::mem::vertex::ElementName;
 
@@ -52,7 +60,7 @@ use super::{PreviewError, count_of};
 const MAGIC: u32 = 0x4D4B_544C;
 
 /// The layout this module writes.
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 /// The `flags` bit under which a `uv1` block follows the `uv0` block.
 ///
@@ -84,6 +92,12 @@ const MESH_RECORD: usize = 36;
 /// Bytes one submesh record occupies.
 const SUBMESH_RECORD: usize = 12;
 
+/// Bytes one mesh's light record occupies.
+const LIGHT_RECORD: usize = 40;
+
+/// The lightmap index of a channel the mesh carries no texture for.
+const NO_TEXTURE: u32 = u32::MAX;
+
 /// Read a map into the buffer a viewport uploads.
 ///
 /// # Errors
@@ -113,8 +127,26 @@ struct Map {
     meshes: Vec<Mesh>,
     /// Ordered by mesh, which is what lets a mesh name a run of them.
     submeshes: Vec<Submesh>,
+    /// One per mesh, in mesh order.
+    lights: Vec<Light>,
     /// Each material once, in the order the submeshes first name them.
     materials: IndexSet<String>,
+    /// Each light map once, in the order the meshes first name them.
+    lightmaps: IndexSet<String>,
+}
+
+/// The light maps one mesh is lit by.
+struct Light {
+    baked: Channel,
+    stationary: Channel,
+}
+
+/// One texture channel of a mesh, and the transform its `uv1` is read through.
+struct Channel {
+    /// Into the lightmaps table, or [`NO_TEXTURE`].
+    texture: u32,
+    scale: Vec2,
+    bias: Vec2,
 }
 
 /// One drawable object of a map, and the fields a viewport filters it by.
@@ -163,7 +195,9 @@ impl Map {
             indices: Vec::new(),
             meshes: Vec::with_capacity(asset.mesh_count()),
             submeshes: Vec::new(),
+            lights: Vec::with_capacity(asset.mesh_count()),
             materials: IndexSet::new(),
+            lightmaps: IndexSet::new(),
         };
 
         for mesh in asset.meshes() {
@@ -273,7 +307,24 @@ impl Map {
             first_submesh,
             submesh_count: count_of(self.submeshes.len())? - first_submesh,
         });
+        let baked = self.channel(mesh.baked_light())?;
+        let stationary = self.channel(mesh.stationary_light())?;
+        self.lights.push(Light { baked, stationary });
         Ok(())
+    }
+
+    /// `channel` with its texture in the lightmaps table, or none for an empty path.
+    fn channel(&mut self, channel: &EnvironmentAssetChannel) -> Result<Channel, PreviewError> {
+        let texture = if channel.texture().is_empty() {
+            NO_TEXTURE
+        } else {
+            count_of(self.lightmaps.insert_full(channel.texture().to_owned()).0)?
+        };
+        Ok(Channel {
+            texture,
+            scale: channel.scale(),
+            bias: channel.offset(),
+        })
     }
 
     /// The map as the buffer this module documents.
@@ -295,15 +346,17 @@ impl Map {
         ];
 
         let floats: usize = blocks.iter().flatten().map(|block| block.len()).sum();
-        let strings: usize = 4 + self
+        let strings: usize = 8 + self
             .materials
             .iter()
-            .map(|material| 4 + material.len())
+            .chain(&self.lightmaps)
+            .map(|text| 4 + text.len())
             .sum::<usize>();
         let mut buffer = Vec::with_capacity(
             4 * (header.len() + floats + self.indices.len())
                 + MESH_RECORD * self.meshes.len()
                 + SUBMESH_RECORD * self.submeshes.len()
+                + LIGHT_RECORD * self.lights.len()
                 + strings,
         );
 
@@ -331,10 +384,25 @@ impl Map {
             buffer.extend(submesh.index_count.to_le_bytes());
             buffer.extend(submesh.material.to_le_bytes());
         }
-        buffer.extend(count_of(self.materials.len())?.to_le_bytes());
-        for material in &self.materials {
-            buffer.extend(count_of(material.len())?.to_le_bytes());
-            buffer.extend(material.as_bytes());
+        for light in &self.lights {
+            for channel in [&light.baked, &light.stationary] {
+                buffer.extend(channel.texture.to_le_bytes());
+                for value in channel
+                    .scale
+                    .to_array()
+                    .into_iter()
+                    .chain(channel.bias.to_array())
+                {
+                    buffer.extend(value.to_le_bytes());
+                }
+            }
+        }
+        for table in [&self.materials, &self.lightmaps] {
+            buffer.extend(count_of(table.len())?.to_le_bytes());
+            for text in table {
+                buffer.extend(count_of(text.len())?.to_le_bytes());
+                buffer.extend(text.as_bytes());
+            }
         }
 
         Ok(buffer)

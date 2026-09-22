@@ -1,6 +1,6 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
-import type { Texture } from "three";
+import { NoColorSpace, type Texture } from "three";
 
 import {
   api,
@@ -9,6 +9,7 @@ import {
   type MapModel,
   type MapPath,
   type MaterialPreview,
+  type MaterialProgram,
 } from "@/lib/tauri";
 
 import { BACKDROP_ROOT } from "../../assets/api/placements";
@@ -20,6 +21,7 @@ import {
   mapOrigin,
   openingFlags,
 } from "../../assets/parsing/mapBuffer";
+import { programTextureAssets } from "../../hexshade/programTextures";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
 import { type AmbientOcclusion, ambientOcclusionOf } from "../utils/ambientOcclusion";
 import { type PostEffects, postEffectsOf } from "../utils/postEffects";
@@ -74,6 +76,8 @@ export interface BackdropSource {
    * ships. Absent, the install's is looked up.
    */
   readonly geometry?: AssetRef;
+  /** The map's materials draw with the game's own shaders, translated. */
+  readonly shaders?: boolean;
 }
 
 /** One map the install can draw a backdrop from. */
@@ -184,6 +188,46 @@ export const backdropQueries = {
       staleTime: Infinity,
       retry: false,
     }),
+
+  /* The materials bin is read for the call rather than opened as a document, since a
+     backdrop stands outside any project's documents. */
+  programs: (
+    materials: AssetRef | null,
+    document: BinDocumentId | null,
+    paths: readonly string[] | null,
+  ) =>
+    queryOptions<(MaterialProgram | null)[]>({
+      queryKey: [...BACKDROP_ROOT, "programs", materials, document, paths],
+      queryFn: async () => {
+        if (materials === null || paths === null) return [];
+        const answer = await api.bin.readMaterialPrograms(
+          { kind: "file", asset: materials, document },
+          paths,
+          { lowQuality: false },
+        );
+        if (!answer.ok) throw answer.error;
+        return answer.value;
+      },
+      enabled: materials !== null && paths !== null,
+      staleTime: Infinity,
+      retry: false,
+    }),
+
+  /* Located beside the geometry, so a project's copy of a light map wins over the
+     install's as its geometry does. */
+  lightmaps: (near: AssetRef | null, paths: readonly string[] | null) =>
+    queryOptions<ReadonlyMap<string, AssetRef>>({
+      queryKey: [...BACKDROP_ROOT, "lightmaps", near, paths],
+      queryFn: async () => {
+        if (near === null || paths === null || paths.length === 0) return new Map();
+        const answer = await api.bin.locateFilesNear(near, paths);
+        if (!answer.ok) throw answer.error;
+        return new Map(Object.entries(answer.value));
+      },
+      enabled: near !== null && paths !== null,
+      staleTime: Infinity,
+      retry: false,
+    }),
 };
 
 /** A map backdrop's geometry and materials, and what it is doing while there is none. */
@@ -197,6 +241,12 @@ export interface Backdrop {
   readonly materials: readonly (MaterialPreview | null)[];
   /** Each material's base texture, under the material's own entry path. */
   readonly textures: ReadonlyMap<string, Texture>;
+  /** One per entry of `materials` while the shaders are on, and none otherwise. */
+  readonly programs: readonly (MaterialProgram | null)[];
+  /** The textures the programs sample, keyed as `programWith` reads them. */
+  readonly programTextures: ReadonlyMap<string, Texture>;
+  /** The light maps the meshes name, by path, once the shaders are on. */
+  readonly lightmaps: ReadonlyMap<string, Texture>;
   /** The light the map states, and null until it lands or where it states none. */
   readonly sun: SunLight | null;
   /** The post effects the map states, and null until they land or where it states none. */
@@ -210,8 +260,27 @@ export interface Backdrop {
 }
 
 const NO_MATERIALS: readonly (MaterialPreview | null)[] = [];
+const NO_PROGRAMS: readonly (MaterialProgram | null)[] = [];
 const NO_LAYERS: readonly MapLayer[] = [];
 const NO_TEXTURES: ReadonlyMap<string, Texture> = new Map();
+const NO_ASSETS: ReadonlyMap<string, AssetRef> = new Map();
+
+/** What has no program: a map with the shaders off. */
+const EMPTY: Backdrop = {
+  geometry: null,
+  opening: 0,
+  origin: null,
+  materials: NO_MATERIALS,
+  textures: NO_TEXTURES,
+  programs: NO_PROGRAMS,
+  programTextures: NO_TEXTURES,
+  lightmaps: NO_TEXTURES,
+  sun: null,
+  postEffects: null,
+  ambientOcclusion: null,
+  loading: false,
+  failure: null,
+};
 
 /** Every map this install can draw a backdrop from, in map order. */
 export function useBackdropMaps() {
@@ -267,6 +336,35 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     concurrency: CONCURRENT,
     mips: true,
   });
+  const shaders = source?.shaders === true;
+  const materialsFile = useQuery(
+    backdropQueries.chunk(shaders ? (source?.map ?? null) : null, MATERIALS_SUFFIX),
+  );
+  const programsRead = useQuery(
+    backdropQueries.programs(
+      shaders ? (materialsFile.data ?? null) : null,
+      source?.document ?? null,
+      geometry.data?.materials ?? null,
+    ),
+  );
+  const programs = programsRead.data ?? NO_PROGRAMS;
+  const lightmapAssets = useQuery(
+    backdropQueries.lightmaps(shaders ? asset : null, geometry.data?.lightmaps ?? null),
+  ).data;
+  const lightmaps = useAssetTextures(lightmapAssets ?? NO_ASSETS, {
+    fullWidth: FULL_WIDTH,
+    concurrency: CONCURRENT,
+    mips: true,
+    colorSpace: NoColorSpace,
+  });
+  const programAssets = useMemo(() => programTextureAssets(programs), [programs]);
+  const programTextures = useAssetTextures(programAssets, {
+    previewWidth: PREVIEW_WIDTH,
+    fullWidth: FULL_WIDTH,
+    concurrency: CONCURRENT,
+    mips: true,
+    colorSpace: NoColorSpace,
+  });
   const opening = useMemo(
     () => (geometry.data === undefined ? 0 : openingFlags(geometry.data)),
     [geometry.data],
@@ -278,61 +376,15 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     [geometry.data, opening],
   );
 
-  if (source === null) {
-    return {
-      geometry: null,
-      opening: 0,
-      origin: null,
-      materials: NO_MATERIALS,
-      textures: NO_TEXTURES,
-      sun: null,
-      postEffects: null,
-      ambientOcclusion: null,
-      loading: false,
-      failure: null,
-    };
-  }
+  if (source === null) return EMPTY;
   if ((given === undefined && located.isPending) || (asset !== null && geometry.isPending)) {
-    return {
-      geometry: null,
-      opening: 0,
-      origin: null,
-      materials: NO_MATERIALS,
-      textures: NO_TEXTURES,
-      sun: null,
-      postEffects: null,
-      ambientOcclusion: null,
-      loading: true,
-      failure: null,
-    };
+    return { ...EMPTY, loading: true };
   }
   if (asset === null) {
-    return {
-      geometry: null,
-      opening: 0,
-      origin: null,
-      materials: NO_MATERIALS,
-      textures: NO_TEXTURES,
-      sun: null,
-      postEffects: null,
-      ambientOcclusion: null,
-      loading: false,
-      failure: "This install has no geometry for that map",
-    };
+    return { ...EMPTY, failure: "This install has no geometry for that map" };
   }
   if (geometry.error !== null) {
-    return {
-      geometry: null,
-      opening: 0,
-      origin: null,
-      materials: NO_MATERIALS,
-      textures: NO_TEXTURES,
-      sun: null,
-      postEffects: null,
-      ambientOcclusion: null,
-      loading: false,
-      failure: geometry.error.message,
-    };
+    return { ...EMPTY, failure: geometry.error.message };
   }
   return {
     geometry: geometry.data ?? null,
@@ -340,6 +392,9 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     origin,
     materials: materials ?? NO_MATERIALS,
     textures,
+    programs,
+    programTextures,
+    lightmaps,
     sun,
     postEffects,
     ambientOcclusion,

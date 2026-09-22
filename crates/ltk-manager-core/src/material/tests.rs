@@ -8,31 +8,34 @@ use ltk_meta::{Bin, BinObject};
 use super::*;
 use crate::preview::AssetRef;
 
-fn h(text: &str) -> BinHash {
+pub(super) fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }
 
-const MATERIAL: &str = "Characters/Ahri/Skins/Skin3/Materials/Body";
-const SHADER_PATH: &str = "Shaders/SkinnedMesh/Diffuse_Bloom";
-const DIFFUSE: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Ahri_Skin03_TX_CM.tex";
-const MASK: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Ahri_Skin03_Mask.tex";
-const BLACK: &str = "ASSETS/Shared/Materials/black.tex";
-const WHITE: &str = "assets/shared/materials/white.tex";
+pub(super) const MATERIAL: &str = "Characters/Ahri/Skins/Skin3/Materials/Body";
+pub(super) const SHADER_PATH: &str = "Shaders/SkinnedMesh/Diffuse_Bloom";
+pub(super) const DIFFUSE: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Ahri_Skin03_TX_CM.tex";
+pub(super) const MASK: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Ahri_Skin03_Mask.tex";
+pub(super) const BLACK: &str = "ASSETS/Shared/Materials/black.tex";
+pub(super) const WHITE: &str = "assets/shared/materials/white.tex";
 /// The chunks the tables name, which is every path a test writes as a `File`.
-const NAMED: [&str; 4] = [DIFFUSE, MASK, BLACK, WHITE];
+pub(super) const NAMED: [&str; 4] = [DIFFUSE, MASK, BLACK, WHITE];
 
-fn embedded(class: &str, properties: Vec<(BinHash, PropertyValueEnum)>) -> values::Embedded {
+pub(super) fn embedded(
+    class: &str,
+    properties: Vec<(BinHash, PropertyValueEnum)>,
+) -> values::Embedded {
     values::Embedded(values::Struct {
         class_hash: h(class),
         properties: properties.into_iter().collect(),
     })
 }
 
-fn list(items: Vec<values::Embedded>) -> PropertyValueEnum {
+pub(super) fn list(items: Vec<values::Embedded>) -> PropertyValueEnum {
     values::Container::from(items).into()
 }
 
-fn string_map(entries: &[(&str, &str)]) -> PropertyValueEnum {
+pub(super) fn string_map(entries: &[(&str, &str)]) -> PropertyValueEnum {
     values::Map::new(
         Kind::String,
         Kind::String,
@@ -50,7 +53,11 @@ fn string_map(entries: &[(&str, &str)]) -> PropertyValueEnum {
     .into()
 }
 
-fn sampler(name: &str, path: PropertyValueEnum, address: Option<(u32, u32)>) -> values::Embedded {
+pub(super) fn sampler(
+    name: &str,
+    path: PropertyValueEnum,
+    address: Option<(u32, u32)>,
+) -> values::Embedded {
     let mut fields = vec![
         (TEXTURE_NAME, values::String::from(name).into()),
         (TEXTURE_PATH, path),
@@ -63,11 +70,11 @@ fn sampler(name: &str, path: PropertyValueEnum, address: Option<(u32, u32)>) -> 
 }
 
 /// A path as the exporter writes it since 16.17, a `File` hash the tables name.
-fn file(path: &str) -> PropertyValueEnum {
+pub(super) fn file(path: &str) -> PropertyValueEnum {
     values::WadChunkLink::new(WadHash::hash_str(path).0).into()
 }
 
-fn param(name: &str, value: Option<[f32; 4]>) -> values::Embedded {
+pub(super) fn param(name: &str, value: Option<[f32; 4]>) -> values::Embedded {
     let mut fields = vec![(NAME, values::String::from(name).into())];
     if let Some([x, y, z, w]) = value {
         fields.push((VALUE, values::Vector4::new(vec4(x, y, z, w)).into()));
@@ -75,7 +82,7 @@ fn param(name: &str, value: Option<[f32; 4]>) -> values::Embedded {
     embedded("StaticMaterialShaderParamDef", fields)
 }
 
-fn switch(name: &str, on: Option<bool>) -> values::Embedded {
+pub(super) fn switch(name: &str, on: Option<bool>) -> values::Embedded {
     let mut fields = vec![(NAME, values::String::from(name).into())];
     if let Some(on) = on {
         fields.push((ON, values::Bool::new(on).into()));
@@ -83,13 +90,13 @@ fn switch(name: &str, on: Option<bool>) -> values::Embedded {
     embedded("StaticMaterialSwitchDef", fields)
 }
 
-fn pass(shader: &str, fields: Vec<(BinHash, PropertyValueEnum)>) -> values::Embedded {
+pub(super) fn pass(shader: &str, fields: Vec<(BinHash, PropertyValueEnum)>) -> values::Embedded {
     let mut all = vec![(SHADER, values::ObjectLink::new(h(shader)).into())];
     all.extend(fields);
     embedded("StaticMaterialPassDef", all)
 }
 
-fn technique(name: &str, passes: Vec<values::Embedded>) -> values::Embedded {
+pub(super) fn technique(name: &str, passes: Vec<values::Embedded>) -> values::Embedded {
     embedded(
         "StaticMaterialTechniqueDef",
         vec![
@@ -100,39 +107,39 @@ fn technique(name: &str, passes: Vec<values::Embedded>) -> values::Embedded {
 }
 
 /// A material builder in the shape the exporter writes: only what differs from the default.
-struct Material {
+pub(super) struct Material {
     properties: Vec<(BinHash, PropertyValueEnum)>,
 }
 
 impl Material {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             properties: Vec::new(),
         }
     }
 
-    fn with(mut self, field: BinHash, value: PropertyValueEnum) -> Self {
+    pub(super) fn with(mut self, field: BinHash, value: PropertyValueEnum) -> Self {
         self.properties.push((field, value));
         self
     }
 
-    fn samplers(self, samplers: Vec<values::Embedded>) -> Self {
+    pub(super) fn samplers(self, samplers: Vec<values::Embedded>) -> Self {
         self.with(SAMPLER_VALUES, list(samplers))
     }
 
-    fn params(self, params: Vec<values::Embedded>) -> Self {
+    pub(super) fn params(self, params: Vec<values::Embedded>) -> Self {
         self.with(PARAM_VALUES, list(params))
     }
 
-    fn switches(self, switches: Vec<values::Embedded>) -> Self {
+    pub(super) fn switches(self, switches: Vec<values::Embedded>) -> Self {
         self.with(SWITCHES, list(switches))
     }
 
-    fn passes(self, passes: Vec<values::Embedded>) -> Self {
+    pub(super) fn passes(self, passes: Vec<values::Embedded>) -> Self {
         self.with(TECHNIQUES, list(vec![technique("normal", passes)]))
     }
 
-    fn build(self) -> BinObject {
+    pub(super) fn build(self) -> BinObject {
         let mut object = BinObject::builder(h(MATERIAL), h("StaticMaterialDef"));
         for (field, value) in self.properties {
             object = object.property(field, value);
@@ -142,7 +149,7 @@ impl Material {
 }
 
 /// The body material most champions ship: a diffuse, a mask, a tint and an alpha blend.
-fn body() -> Material {
+pub(super) fn body() -> Material {
     Material::new()
         .samplers(vec![
             sampler("Diffuse_Texture", file(DIFFUSE), Some((1, 0))),
@@ -161,7 +168,7 @@ fn body() -> Material {
         )])
 }
 
-fn shader_texture(name: &str, default: Option<&str>) -> values::Embedded {
+pub(super) fn shader_texture(name: &str, default: Option<&str>) -> values::Embedded {
     let mut fields = vec![(NAME, values::String::from(name).into())];
     if let Some(default) = default {
         fields.push((DEFAULT_TEXTURE_PATH, file(default)));
@@ -169,7 +176,7 @@ fn shader_texture(name: &str, default: Option<&str>) -> values::Embedded {
     embedded("ShaderTexture", fields)
 }
 
-fn shader_param(name: &str, data: [f32; 4]) -> values::Embedded {
+pub(super) fn shader_param(name: &str, data: [f32; 4]) -> values::Embedded {
     embedded(
         "ShaderPhysicalParameter",
         vec![
@@ -182,14 +189,17 @@ fn shader_param(name: &str, data: [f32; 4]) -> values::Embedded {
                 LOGICAL_PARAMETERS,
                 list(vec![embedded(
                     "ShaderLogicalParameter",
-                    vec![(NAME, values::String::from(name).into())],
+                    vec![
+                        (NAME, values::String::from(name).into()),
+                        (FIELDS, values::U32::new(15).into()),
+                    ],
                 )]),
             ),
         ],
     )
 }
 
-fn shader_switch(name: &str, on_by_default: bool) -> values::Embedded {
+pub(super) fn shader_switch(name: &str, on_by_default: bool) -> values::Embedded {
     embedded(
         "ShaderStaticSwitch",
         vec![
@@ -200,7 +210,7 @@ fn shader_switch(name: &str, on_by_default: bool) -> values::Embedded {
 }
 
 /// The defs of two shaders: the body's, and the one whose switch decides its base.
-fn shaders() -> BinDocument {
+pub(super) fn shaders() -> BinDocument {
     let diffuse_bloom = BinObject::builder(h(SHADER_PATH), h("CustomShaderDef"))
         .property(OBJECT_PATH, values::String::from(SHADER_PATH))
         .property(
@@ -238,7 +248,7 @@ fn shaders() -> BinDocument {
     document_of(vec![diffuse_bloom, switched])
 }
 
-fn document_of(objects: Vec<BinObject>) -> BinDocument {
+pub(super) fn document_of(objects: Vec<BinObject>) -> BinDocument {
     let mut bin = Bin::builder();
     for object in objects {
         bin = bin.object(object);
@@ -249,7 +259,7 @@ fn document_of(objects: Vec<BinObject>) -> BinDocument {
 }
 
 /// Tables that name the material, the shaders and one chunk.
-struct Tables;
+pub(super) struct Tables;
 
 impl RowNames for Tables {
     fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
@@ -280,7 +290,7 @@ impl RowNames for Tables {
 }
 
 /// A lookup that places every path but the mask.
-struct Placed;
+pub(super) struct Placed;
 
 impl AssetLookup for Placed {
     fn locate(&self, path: &str) -> Option<AssetRef> {
@@ -290,7 +300,7 @@ impl AssetLookup for Placed {
     }
 }
 
-fn placed(path: &str) -> NamedAsset {
+pub(super) fn placed(path: &str) -> NamedAsset {
     NamedAsset {
         path: path.to_owned(),
         asset: Some(AssetRef::File {
@@ -299,7 +309,7 @@ fn placed(path: &str) -> NamedAsset {
     }
 }
 
-fn read(material: Material, shaders: Option<&BinDocument>) -> MaterialPreview {
+pub(super) fn read(material: Material, shaders: Option<&BinDocument>) -> MaterialPreview {
     let document = document_of(vec![material.build()]);
     resolve_material(&document, h(MATERIAL), &Tables, &Placed, shaders).unwrap()
 }
@@ -936,6 +946,11 @@ fn every_field_hash_is_its_name() {
         (TEXTURE_PATH, "texturePath"),
         (ADDRESS_U, "addressU"),
         (ADDRESS_V, "addressV"),
+        (ADDRESS_W, "addressW"),
+        (FILTER_MIN, "filterMin"),
+        (FILTER_MAG, "filterMag"),
+        (FIELDS, "fields"),
+        (SAMPLER_NAME, "samplerName"),
         (NAME, "name"),
         (VALUE, "value"),
         (ON, "on"),

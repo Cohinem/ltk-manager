@@ -84,7 +84,12 @@ import type {
   Revision,
   UiError,
 } from "@/lib/bindings.gen";
-import { type BinDocumentId, commands } from "@/lib/bindings.gen";
+import {
+  type BinDocumentId,
+  commands,
+  type MaterialSource,
+  type ProgramOptions,
+} from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
@@ -166,6 +171,36 @@ export type {
 } from "@/lib/bindings.gen";
 // The ignore rules' type, per ADR-0029.
 export type { IgnoreRules } from "@/lib/bindings.gen";
+// The shader pipeline's types, per ADR-0029.
+export type {
+  Attribute,
+  BlendFactor,
+  BlockMember,
+  Define,
+  DefineSource,
+  MaterialKind,
+  MaterialProgram,
+  MaterialSource,
+  MemberScalar,
+  ParamSource,
+  PassParam,
+  PassProgram,
+  PassState,
+  PassTexture,
+  ProgramOptions,
+  ProgramRead,
+  ResolvedPass,
+  RuntimeSwitch,
+  SamplerBinding,
+  SamplerState,
+  Sidecar,
+  StageProgram,
+  TextureBinding,
+  TextureDimension,
+  TextureSource,
+  UniformBlock,
+  Winding,
+} from "@/lib/bindings.gen";
 export type { ProjectText, ProjectTextFile, Revision } from "@/lib/bindings.gen";
 // The particle renderer's types, per ADR-0029.
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
@@ -564,6 +599,11 @@ export const api = {
       commands.readVfxSystem(document, entry).then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>
       commands.readSkin(document, entry).then(toResult),
+    readMaterialPrograms: (
+      source: MaterialSource,
+      entries: readonly string[],
+      options: ProgramOptions,
+    ) => commands.readMaterialPrograms(source, [...entries], options).then(toResult),
     bakeSkinTangents: (document: BinDocumentId, entry: string) =>
       commands.bakeSkinTangents(document, entry).then(toResult),
     readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>

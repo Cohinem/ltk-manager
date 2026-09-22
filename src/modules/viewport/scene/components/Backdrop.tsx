@@ -1,20 +1,37 @@
+import { useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
   Color,
   DoubleSide,
+  type Material,
+  type Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  type RawShaderMaterial,
   type Texture,
 } from "three";
 
-import type { MaterialPreview } from "@/lib/tauri";
+import type { MaterialPreview, MaterialProgram } from "@/lib/tauri";
 
-import { drawnMeshes, type MapGeometry, MESH_FLAG } from "../../assets/parsing/mapBuffer";
+import {
+  drawnMeshes,
+  type MapChannel,
+  type MapGeometry,
+  MESH_FLAG,
+} from "../../assets/parsing/mapBuffer";
 import { applyBinding, lit } from "../../character/utils/submeshBinding";
+import {
+  EngineEnvironment,
+  type MeshLight,
+  type MeshLights,
+} from "../../hexshade/engineEnvironment";
+import { bindProgramTextures, createProgramMaterial } from "../../hexshade/programMaterial";
+import { programWith } from "../../hexshade/programTextures";
 import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/renderState";
 import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
+import type { SunLight } from "../utils/sunLight";
 
 /** A flat neutral the map's own shape reads against, where no material reaches it. */
 const STONE = 0x9a958c;
@@ -27,12 +44,16 @@ const STONE = 0x9a958c;
  */
 const INDICATOR_SHADER = /indicator/i;
 
+const NO_TEXTURES: ReadonlyMap<string, Texture> = new Map();
+
 /** One material of the array, and what it has to be rebound to when its texture lands. */
 interface Bound {
-  readonly material: SubmeshMaterial;
+  readonly material: SubmeshMaterial | RawShaderMaterial;
   /** The material's own entry path, which its texture is held under. */
   readonly path: string;
   readonly slots: MaterialPreview | null;
+  /** The translated program the material draws under, and null for a stock one. */
+  readonly program: MaterialProgram | null;
   /** The mesh's own `disable_backface_culling`, which outranks the material's state. */
   readonly doubleSided: boolean;
 }
@@ -48,6 +69,8 @@ interface DrawGroup {
 interface Drawn {
   readonly bound: readonly Bound[];
   readonly groups: readonly DrawGroup[];
+  /** The mesh each group draws, by the group's first index. */
+  readonly meshOf: ReadonlyMap<number, number>;
 }
 
 /** Whether a submesh drawing `slots` covers anything at all. */
@@ -61,20 +84,35 @@ function covers(slots: MaterialPreview | null | undefined): boolean {
  *
  * One `BufferGeometry` for the whole map and one group per submesh, per ADR-0044. A
  * group points at the material its submesh names, doubled where a mesh disables backface
- * culling, since a material is shared between flagged and unflagged meshes.
+ * culling, since a material is shared between flagged and unflagged meshes. A material
+ * with a translated program draws under it, the stock one standing in where none did.
  */
 export function Backdrop({
   map,
   materials: slots,
   textures,
+  programs = [],
+  programTextures = NO_TEXTURES,
+  lightmaps = NO_TEXTURES,
+  light,
   flags,
 }: {
   readonly map: MapGeometry;
   readonly materials: readonly (MaterialPreview | null)[];
   readonly textures: ReadonlyMap<string, Texture>;
+  /** One per entry of `materials`, and none while the shaders are off. */
+  readonly programs?: readonly (MaterialProgram | null)[];
+  /** The textures the programs sample, keyed as `programWith` reads them. */
+  readonly programTextures?: ReadonlyMap<string, Texture>;
+  /** The light maps the meshes name, by path. */
+  readonly lightmaps?: ReadonlyMap<string, Texture>;
+  /** The sun the programs light by. */
+  readonly light: SunLight;
   /** The visibility flags drawn, as a mask. */
   readonly flags: number;
 }) {
+  const clock = useThree((state) => state.clock);
+  const held = useRef<Mesh>(null);
   const geometry = useMemo(() => {
     const held = new BufferGeometry();
     held.setAttribute("position", new BufferAttribute(map.positions, 3));
@@ -82,12 +120,21 @@ export function Backdrop({
     held.setAttribute("uv", new BufferAttribute(map.uv0, 2));
     if (map.uv1 !== null) held.setAttribute("uv1", new BufferAttribute(map.uv1, 2));
     held.setIndex(new BufferAttribute(map.indices, 1));
+    for (const [name, of] of PROGRAM_ATTRIBUTES) {
+      const attribute = held.getAttribute(of);
+      if (attribute !== undefined) held.setAttribute(name, attribute);
+    }
     /* Over 2.04 million vertices, so it is computed with the geometry and never again. */
     held.computeBoundingSphere();
     return held;
   }, [map]);
 
   const colors = useMemo(() => ({ untextured: new Color(STONE), errored: new Color(STONE) }), []);
+  const environment = useMemo(() => new EngineEnvironment(), []);
+  useEffect(() => {
+    environment.light = light;
+  }, [environment, light]);
+  useEffect(() => () => environment.dispose(), [environment]);
 
   /* Built without the textures, which arrive over seconds. A material's class and a
      group's material index are fixed by the map, so a texture landing rebinds one
@@ -95,6 +142,7 @@ export function Backdrop({
   const drawn = useMemo<Drawn>(() => {
     const bound: Bound[] = [];
     const groups: DrawGroup[] = [];
+    const meshOf = new Map<number, number>();
     const byKey = new Map<string, number>();
 
     const indexOf = (material: number, doubleSided: boolean): number => {
@@ -103,13 +151,18 @@ export function Backdrop({
       if (held !== undefined) return held;
 
       const named = slots[material] ?? null;
-      const drawnWith: SubmeshMaterial = lit({ material: named, base: null, texture: null })
-        ? new MeshLambertMaterial()
-        : new MeshBasicMaterial();
+      const program = programWith(programs[material] ?? null, NO_TEXTURES);
+      const drawnWith: Bound["material"] =
+        program !== null
+          ? createProgramMaterial(program, environment)
+          : lit({ material: named, base: null, texture: null })
+            ? new MeshLambertMaterial()
+            : new MeshBasicMaterial();
       bound.push({
         material: drawnWith,
         path: map.materials[material] ?? "",
         slots: named,
+        program: program === null ? null : (programs[material] ?? null),
         doubleSided,
       });
       byKey.set(key, bound.length - 1);
@@ -127,13 +180,36 @@ export function Backdrop({
           indexCount: submesh.indexCount,
           material: indexOf(submesh.material, doubleSided),
         });
+        meshOf.set(submesh.startIndex, map.meshes.indexOf(mesh));
       }
     }
-    return { bound, groups };
-  }, [map, slots, flags]);
+    return { bound, groups, meshOf };
+  }, [map, slots, programs, environment, flags]);
+
+  /* The light maps of each mesh, looked up per draw by the group's first index. */
+  const lightsOf = useMemo(() => {
+    const lightOf = (channel: MapChannel | null): MeshLight | null =>
+      channel === null
+        ? null
+        : {
+            texture: lightmaps.get(channel.texture) ?? null,
+            scale: channel.scale,
+            bias: channel.bias,
+          };
+    const lights = new Map<number, MeshLights>();
+    for (const [start, at] of drawn.meshOf) {
+      const mesh = map.meshes[at];
+      if (mesh === undefined) continue;
+      lights.set(start, {
+        baked: lightOf(mesh.bakedLight),
+        stationary: lightOf(mesh.stationaryLight),
+      });
+    }
+    return lights;
+  }, [drawn, map, lightmaps]);
 
   const bound = drawn.bound;
-  const materials = useMemo(() => bound.map((entry) => entry.material), [bound]);
+  const materials = useMemo<Material[]>(() => bound.map((entry) => entry.material), [bound]);
 
   /* Written here rather than beside the array they index, because a render the fibre
      throws away would leave the geometry pointing into an array the mesh never took, and
@@ -157,6 +233,7 @@ export function Backdrop({
      remap favours, so it is written back over what the binding put there. */
   useEffect(() => {
     for (const [at, entry] of bound.entries()) {
+      if (isProgram(entry.material)) continue;
       const base = textures.get(entry.path) ?? null;
       if (applied.current[at] === base) continue;
       applied.current[at] = base;
@@ -167,6 +244,16 @@ export function Backdrop({
       }
     }
   }, [bound, textures, colors]);
+
+  /* A program's textures are few, so every one is rebound on each wave. */
+  useEffect(() => {
+    for (const entry of bound) {
+      if (!isProgram(entry.material)) continue;
+      const program = programWith(entry.program, programTextures);
+      if (program !== null) bindProgramTextures(entry.material, program);
+      if (entry.doubleSided) entry.material.side = DoubleSide;
+    }
+  }, [bound, programTextures]);
 
   useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => () => materials.forEach((material) => material.dispose()), [materials]);
@@ -180,7 +267,28 @@ export function Backdrop({
         material={materials}
         renderOrder={STAGE_ORDER}
         frustumCulled={false}
+        onBeforeRender={(renderer, _scene, camera, _geometry, material, group) => {
+          if (held.current !== null) {
+            environment.write(renderer, camera, held.current, clock.elapsedTime);
+          }
+          /* Typed as an object, and at run time the geometry group of the draw. */
+          const { start } = group as unknown as { start: number };
+          environment.draw(material, lightsOf.get(start) ?? null);
+        }}
+        ref={held}
       />
     </group>
   );
+}
+
+/** Each input a translated vertex shader declares, and the stock attribute it is. */
+const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
+  ["a_POSITION", "position"],
+  ["a_NORMAL", "normal"],
+  ["a_TEXCOORD", "uv"],
+  ["a_TEXCOORD7", "uv1"],
+];
+
+function isProgram(material: Bound["material"]): material is RawShaderMaterial {
+  return (material as RawShaderMaterial).isRawShaderMaterial === true;
 }

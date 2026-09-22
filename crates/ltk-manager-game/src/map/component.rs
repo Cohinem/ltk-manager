@@ -56,6 +56,13 @@ pub(super) fn f32_of(fields: &Fields, field: BinHash) -> Option<f32> {
     }
 }
 
+pub(super) fn vec2_of(fields: &Fields, field: BinHash) -> Option<[f32; 2]> {
+    match leaf(fields.get(&field))? {
+        Leaf::Vector2(value) => Some(value.to_array()),
+        _ => None,
+    }
+}
+
 pub(super) fn vec3_of(fields: &Fields, field: BinHash) -> Option<[f32; 3]> {
     match leaf(fields.get(&field))? {
         Leaf::Vector3(value) => Some(value.to_array()),

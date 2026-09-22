@@ -19,6 +19,29 @@ export interface SunLight {
   /** What the ambient lights a surface facing down with. */
   readonly ground: SunColor;
   readonly ambient: number;
+  /**
+   * What the shares are shares of: the sun's intensity plus the sky's scale as the map
+   * states them, which the game's own shaders light by unnormalized. Absent on a light
+   * saved before it was carried, which reads as the Rift's two.
+   */
+  readonly total?: number;
+  /** What the ambient lights a surface facing sideways with. Absent reads as the sky. */
+  readonly horizon?: SunColor;
+  /** The map's height fog, and null for a map that states none. Absent reads as none. */
+  readonly fog?: SunFog | null;
+  /** `lightMapColorScale`, what a baked light map is scaled by. Absent reads as one. */
+  readonly lightMap?: number;
+}
+
+/** A map's height fog, `fogStartAndEnd` and its two colours, for the game's own shaders. */
+export interface SunFog {
+  readonly color: SunColor;
+  readonly alternate: SunColor;
+  /** The height the fog starts at, above `end`. */
+  readonly start: number;
+  /** The height the fog is whole at. */
+  readonly end: number;
+  readonly emissiveRemap: number;
 }
 
 /**
@@ -34,6 +57,10 @@ export const DEFAULT_SUN: SunLight = {
   sky: [1, 1, 1],
   ground: [1, 1, 1],
   ambient: 0.6,
+  total: 2,
+  horizon: [1, 1, 1],
+  fog: null,
+  lightMap: 1,
 };
 
 /**
@@ -54,6 +81,18 @@ export function sunLightOf(sun: MapSun): SunLight {
     sky: rgb(sun.skyColor),
     ground: rgb(sun.groundColor),
     ambient: total > 0 ? ambient / total : 0.5,
+    total,
+    horizon: rgb(sun.horizonColor),
+    fog: sun.fogEnabled
+      ? {
+          color: rgb(sun.fogColor),
+          alternate: rgb(sun.fogAlternateColor),
+          start: sun.fogStartEnd[0] ?? 0,
+          end: sun.fogStartEnd[1] ?? 0,
+          emissiveRemap: sun.fogEmissiveRemap ?? 0,
+        }
+      : null,
+    lightMap: sun.lightMapColorScale ?? 1,
   };
 }
 

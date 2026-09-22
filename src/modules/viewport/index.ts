@@ -67,6 +67,13 @@ export {
   useCharacterSkin,
 } from "./character/state/characterSkin";
 export { type FallbackColors, type SubmeshBinding } from "./character/utils/submeshBinding";
+export { EngineEnvironment } from "./hexshade/engineEnvironment";
+export {
+  createProgramMaterial,
+  type ReadyProgram,
+  type SubmeshProgram,
+} from "./hexshade/programMaterial";
+export { programTextureAssets, programTextureKey, programWith } from "./hexshade/programTextures";
 export { Backdrop } from "./scene/components/Backdrop";
 export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";
 export { Stage } from "./scene/components/Stage";

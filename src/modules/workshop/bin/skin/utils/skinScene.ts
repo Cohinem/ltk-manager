@@ -5,10 +5,17 @@ import type {
   IdleEffect,
   KeyRef,
   MaterialPreview,
+  MaterialProgram,
   SkinModel,
   VfxSystem,
 } from "@/lib/tauri";
-import { jointAnchor, type Pose, type SubmeshBinding } from "@/modules/viewport";
+import {
+  jointAnchor,
+  type Pose,
+  programWith,
+  type SubmeshBinding,
+  type SubmeshProgram,
+} from "@/modules/viewport";
 
 import { nameHash } from "../../shared/utils/binHash";
 import type { SystemModel } from "../../vfx/engine/model/model";
@@ -158,6 +165,35 @@ export function bindingOf<T>(
     base: material === null ? null : (textures.get(materialKey(material)) ?? null),
     texture,
   };
+}
+
+/** Every material the skin draws with, each once, as the program read is asked for them. */
+export function materialHashes(skin: SkinModel): string[] {
+  const materials = [skin.material, ...skin.overrides.map((override) => override.material)];
+  return [
+    ...new Set(
+      materials.flatMap((material) =>
+        material === null || material.missing ? [] : [material.hash],
+      ),
+    ),
+  ];
+}
+
+/**
+ * The translated program `submesh` draws under, its material's first pass that
+ * translated, and null for a submesh whose material has none.
+ */
+export function programOf<T>(
+  skin: SkinModel,
+  programs: readonly (MaterialProgram | null)[],
+  textures: ReadonlyMap<string, T>,
+  submesh: string,
+): SubmeshProgram<T> | null {
+  const key = submesh.toLowerCase();
+  const override = skin.overrides.find((each) => each.submesh.toLowerCase() === key) ?? null;
+  const material = override === null ? skin.material : override.material;
+  if (material === null) return null;
+  return programWith(programs.find((each) => each?.hash === material.hash) ?? null, textures);
 }
 
 /**

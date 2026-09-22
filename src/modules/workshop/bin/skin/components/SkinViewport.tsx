@@ -8,12 +8,14 @@ import {
   GridFourIcon,
   MapTrifoldIcon,
   MountainsIcon,
+  PaintBrushIcon,
   SparkleIcon,
   StackIcon,
 } from "@phosphor-icons/react";
 import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NoColorSpace } from "three";
 
 import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -28,6 +30,7 @@ import {
   Placement,
   type PlacementMode,
   type Pose,
+  programTextureAssets,
   type SceneClock,
   sequencePose,
   snappedPose,
@@ -44,6 +47,7 @@ import {
   usePreviewCamera,
   usePreviewBackdrop,
   usePreviewBackdropParticles,
+  usePreviewBackdropSky,
   usePreviewBackdropStructures,
   usePreviewGround,
   usePreviewFacing,
@@ -55,6 +59,7 @@ import {
   usePreviewPlacement,
   usePreviewAmbientOcclusion,
   usePreviewPostEffects,
+  usePreviewShaders,
   usePreviewSun,
   useSetPreviewDisplay,
 } from "@/stores";
@@ -91,11 +96,13 @@ import {
   BIND_POSE,
   bindingOf,
   jointSlot,
+  materialHashes,
   nearestValue,
   openingClip,
   parameterValues,
   playableClips,
   playlistOf,
+  programOf,
   systemModel,
   textureAssets,
 } from "../utils/skinScene";
@@ -167,12 +174,14 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const backdrop = usePreviewBackdrop();
   /* The skin's own document stands for its project, whose layer answers before the
      install for a map the creator has replaced. */
+  const shaders = usePreviewShaders();
   const backdropSource = useMemo(
-    () => (backdrop === null ? null : { map: backdrop, document }),
-    [backdrop, document],
+    () => (backdrop === null ? null : { map: backdrop, document, shaders }),
+    [backdrop, document, shaders],
   );
   const backdropParticles = usePreviewBackdropParticles();
   const backdropStructures = usePreviewBackdropStructures();
+  const backdropSky = usePreviewBackdropSky();
   const {
     layers: backdropLayers,
     flags: backdropFlags,
@@ -323,6 +332,15 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     (submesh: string) => bindingOf(skin, textures, submesh),
     [skin, textures],
   );
+  const materials = useMemo(() => materialHashes(skin), [skin]);
+  const programs = useQuery(skinQueries.programs(document, shaders ? materials : NO_MATERIALS));
+  const programAssets = useMemo(() => programTextureAssets(programs.data ?? []), [programs.data]);
+  const programTextures = useAssetTextures(programAssets, RAW_TEXTURES);
+  const programFor = useCallback(
+    (submesh: string) =>
+      shaders ? programOf(skin, programs.data ?? [], programTextures, submesh) : null,
+    [shaders, skin, programs.data, programTextures],
+  );
   const colors = useSceneColors();
   const scale = skin.scale ?? 1;
   /* Where the subject stands: what the creator dragged it to on this backdrop, else the
@@ -418,6 +436,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           textured={midlane}
           backdrop={backdropSource}
           backdropFlags={backdropFlags}
+          backdropSky={backdropSky}
           sun={backdrop === null ? null : sun}
           postEffects={backdrop === null ? null : postEffects}
           ambientOcclusion={backdrop === null ? null : ambientOcclusion}
@@ -456,6 +475,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               pose={pose}
               clock={clock}
               bindingOf={bindingFor}
+              programOf={programFor}
               colors={colors}
               hidden={hidden}
               scale={scale}
@@ -567,6 +587,12 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 />
               )}
               <ArmatureMenu />
+              <ViewToggle
+                label={m.workshop_bin_preview_shaders_label()}
+                active={shaders}
+                icon={<PaintBrushIcon weight="bold" className="h-4 w-4" />}
+                onClick={() => setDisplay({ previewShaders: !shaders })}
+              />
               <BakeTangentsButton
                 document={document}
                 entry={entry}
@@ -672,6 +698,7 @@ function BackdropToggle() {
   const backdrop = usePreviewBackdrop();
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
+  const sky = usePreviewBackdropSky();
   const setDisplay = useSetPreviewDisplay();
   const maps = useBackdropMaps();
   /* Turning the backdrop off drops which map it drew, so the switch hands the same map
@@ -733,6 +760,12 @@ function BackdropToggle() {
                 onCheckedChange={(checked) => setDisplay({ previewBackdropStructures: checked })}
               >
                 {m.workshop_bin_preview_backdrop_structures_label()}
+              </Menu.CheckboxItem>
+              <Menu.CheckboxItem
+                checked={sky}
+                onCheckedChange={(checked) => setDisplay({ previewBackdropSky: checked })}
+              >
+                {m.workshop_bin_preview_backdrop_sky_label()}
               </Menu.CheckboxItem>
             </Menu.Popup>
           </Menu.Positioner>
@@ -859,6 +892,12 @@ function MapSkinSubmenu({ group, chosen, onPick }: MapSkinSubmenuProps) {
     </Menu.SubmenuRoot>
   );
 }
+
+/** A program's textures are sampled raw, since the game's shader decodes them itself. */
+const RAW_TEXTURES = { colorSpace: NoColorSpace } as const;
+
+/** What the program read is asked for while the shaders are off, which asks nothing. */
+const NO_MATERIALS: readonly string[] = [];
 
 /** The armature switch and its drawing options as one split control. */
 function ArmatureMenu() {

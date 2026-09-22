@@ -1477,14 +1477,6 @@
       ]
     },
     {
-      "name": "dxbc-glsl",
-      "version": "0.1.0",
-      "url": "https://github.com/LeagueToolkit/ltk-manager",
-      "licenses": [
-        60
-      ]
-    },
-    {
       "name": "dxbc-spirv-sys",
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
@@ -1827,6 +1819,14 @@
       "url": "https://github.com/withoutboats/heck",
       "licenses": [
         29
+      ]
+    },
+    {
+      "name": "hexshade",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        60
       ]
     },
     {

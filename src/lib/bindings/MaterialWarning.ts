@@ -3,4 +3,4 @@
 /**
  * Something the engine does silently that a preview says out loud.
  */
-export type MaterialWarning = { "kind": "noShaderDefs" } | { "kind": "noPass" } | { "kind": "unresolvedShader", hash: string, } | { "kind": "secondPass" } | { "kind": "undeclaredSampler", name: string, } | { "kind": "undeclaredParam", name: string, } | { "kind": "undeclaredSwitch", name: string, } | { "kind": "stringTexturePath", name: string, path: string, } | { "kind": "textureNotFound", name: string, path: string, };
+export type MaterialWarning = { "kind": "noShaderDefs" } | { "kind": "noPass" } | { "kind": "unresolvedShader", hash: string, } | { "kind": "secondPass" } | { "kind": "undeclaredSampler", name: string, } | { "kind": "undeclaredParam", name: string, } | { "kind": "undeclaredSwitch", name: string, } | { "kind": "stringTexturePath", name: string, path: string, } | { "kind": "textureNotFound", name: string, path: string, } | { "kind": "noTexturePath", name: string, };

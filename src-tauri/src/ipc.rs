@@ -75,6 +75,7 @@ migrated![
     read_vfx_system,
     // Skin preview
     read_skin,
+    read_material_programs,
     bake_skin_tangents,
     read_map,
     read_map_particles,

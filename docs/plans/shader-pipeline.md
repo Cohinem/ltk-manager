@@ -92,7 +92,8 @@ fallback material keeps its sRGB decode, because a stock material expects it.
 ### T1: translation crate
 
 Two crates. `crates/dxbc-spirv-sys` holds the submodule, a `build.rs` over its 41 SM 5 and
-SPIR-V sources, and one shim function. `crates/dxbc-glsl` is the pipeline:
+SPIR-V sources, and one shim function. `crates/hexshade` is the pipeline, named Hexshade, and
+takes no bin, asset or app error type:
 
 ```text
 crates/dxbc-spirv-sys/
@@ -100,14 +101,18 @@ crates/dxbc-spirv-sys/
 |-- shim.cpp                     dxbc_spv_lol_compile: DXBC in, SPIR-V words out
 |-- src/lib.rs                   the safe wrapper
 |-- vendor/dxbc-spirv            submodule at bf14419, with spirv_headers
-crates/dxbc-glsl/src/
-|-- lib.rs                       translate(dxbc, stage) -> Translated { glsl, reflection }
+crates/hexshade/src/
+|-- lib.rs                       Stage, PIPELINE_VERSION, the re-exports
+|-- translate.rs                 translate(dxbc, stage) -> Translated { glsl, sidecar, applied }
 |-- dxbc.rs                      the container, RDEF, ISGN, OSGN
 |-- spirv.rs                     the word patches
 |-- glsl.rs                      the text patches
 |-- reflection.rs                the sidecar: cbuffers with member offsets, textures, samplers,
 |                                attributes, and the GLSL name of each
 |-- bundle.rs                    chunk paths, the permutation key, the record trim
+|-- defines.rs                   Defines, the define list a permutation is picked by
+|-- cache.rs                     TranslationCache, the translations on disk
+|-- program.rs                   ShaderSource, ShaderCache::program -> Program, ProgramError
 ```
 
 Verification: the `sweep` example translates every record of a shader's two TOCs out of the
@@ -129,6 +134,24 @@ every physical parameter after the logical scatter with an absent value as zeros
 render state with the class defaults. Warnings for every drop and miss. The `Reader` it extends
 already holds the shader def and the sampler and switch tables.
 
+Built 2026-09-22 as `resolve_passes`, one `ResolvedMaterial` with every pass of the `normal`
+technique as a `ResolvedPass`: the define list sorted by name with the stage that set each
+entry, the runtime switches, every texture with its source and sampler state, every physical
+parameter with the step that last wrote it, and the render state field by field. The `Reader`
+gained the shader's physical parameters with their logical masks, the texture sampler names and
+the runtime flag. A logical `fields` mask reads as the class default, zero, where absent, which
+writes nothing, so a def written by hand has to state it. Stencil and depth bias stay out until a
+shipped pass is seen to use them.
+
+Verification: the `dump_passes` example resolves every `StaticMaterialDef` of a bin inside a
+WAD against the installed `shaders.bin`. On 2026-09-22 it read 374 materials of six champions'
+skins and the 183 of Summoner's Rift with no warning but the texture lookup the example does
+not do, every skin material one alpha-blended pass and every map material `StaticMesh`, with
+`addressW` set on 162 map textures and `CharacterWrap` as the shared sampler of 42 skins'
+second diffuse. The four shaders carrying the runtime flag are `UI_Splash_Foil`,
+`DefaultParticleQuadUnlit`, `VFX_Uber_StaticMesh_Unlit` and `Mantis_Env_Baked_PBR`, none of
+which the sample uses, so the runtime switch path is unit tested only.
+
 ### T3: the command
 
 `read_material_program` in `src-tauri/src/commands/material.rs`: the resolved pass plus the
@@ -137,18 +160,100 @@ cache wins over the game's, the translation through the disk cache, and one `Mat
 record across IPC. A TOC miss answers an error the frontend draws as the error material, never a
 guess.
 
+Built 2026-09-22 as `read_material_programs` over `ltk_manager_game::program::read_programs`,
+which resolves the passes and asks Hexshade's `ShaderCache` for each program. The game crate
+implements `ShaderSource` over `AssetLookup`, and one `ShaderCache` per read parses each TOC,
+bundle and stage once.
+The command takes a `MaterialSource`, an open document or a bin read for the call such as a
+map's `.materials.bin`, a list of entries as hashes or paths, and `ProgramOptions`, and answers
+one `MaterialProgram` per entry, null where the bin declares no object. Each pass carries its
+`ResolvedPass` and a `ProgramRead`: `ready` with the define list used, the two shader ids, the
+GLSL and the sidecar, or `failed` with the reason. The studio defines are `DISABLE_FOW=1`,
+`DISABLE_SHADOWS=1`, `NUM_BLEND_WEIGHTS=4` on a skinned material and `LOW_QUALITY_MODE=1` on
+request, the pass winning on a name. A shader cache chunk is located by its hash first, since
+the bundle chunks have no name any table carries, and by its path second. Translations live
+under `<app data>/shaders/v<PIPELINE_VERSION>/<xxh64 of the blob>.<vs|ps>.json`, written
+through a temporary file.
+
+Verification: the `dump_programs` example of the game crate runs the read over a bin with only
+the shader cache located. On 2026-09-22 all 557 passes of the six champions' skins and of
+Summoner's Rift read as `ready`, 83 distinct blobs translated once, and a second run of a skin
+answered from the cache in 1.5 ms against 24 ms cold. The command itself has not been called
+from the app yet, which T4 does.
+
 ### T4: the frontend material
 
-`src/modules/viewport/shared/materials/programMaterial.ts` builds a `RawShaderMaterial`
+`src/modules/viewport/hexshade/programMaterial.ts` builds a `RawShaderMaterial`
 (`glslVersion: GLSL3`) from the record: one `UniformsGroup` per cbuffer, `$Globals` filled from
 the params and switches at the sidecar offsets, textures bound by name, render state from the
-pass. `src/modules/viewport/shared/materials/engineEnvironment.ts` fills the five engine buffers
+pass. `src/modules/viewport/hexshade/engineEnvironment.ts` fills the five engine buffers
 once per frame from the camera, the sun, the bones and the world matrix, and binds
 `PIXEL_COLOR_REMAP_RAMP` as 1x1 transparent black. The skinned geometry gains the attribute
 names the sidecar asks for, and `BLENDINDICES` is an integer attribute.
 
 `Character` swaps the program material in per submesh where one resolved, and keeps the
 fallback where none did. The map backdrop follows on the same seam.
+
+Built 2026-09-22 behind the "Game shaders" switch of the skin viewport, off by default until
+judged on screen. `engineEnvironment.ts` holds one `UniformsGroup` per block name for the
+character, each one `Float32Array` of the block's bytes that three uploads whole, and writes
+the five engine buffers in the skinned mesh's `onBeforeRender`: `mProj` as the rows of the
+camera's clip transform with its depth row halved into D3D's range, which the translated
+shader's `2z - w` undoes, `BONES` as the rows of the skeleton's world matrices so `mWorld` is
+the identity, a lit-from-above ambient cube in `LIGHTGRID_COLORS`, `LIGHTGRID_SCALE` one,
+`kGrassFade.w` one, a fixed sun and camera. `programMaterial.ts` builds the `RawShaderMaterial`
+with the `#version` line stripped, packs `$Globals` from the pass's parameters and runtime
+switches at the sidecar's offsets, binds each combined sampler to its texture with the pass's
+sampler state, a mid-grey texel for a texture nothing holds and transparent black for a
+`_SharedTexture`, and sets the blend factors, cull, depth function and write masks from the
+pass state. The geometry carries the stock buffers under `a_POSITION`, `a_NORMAL`,
+`a_TEXCOORD`, `a_BLENDWEIGHT` and `a_COLOR`, and the joints again as `a_BLENDINDICES` typed
+integer. The textures load raw through a `colorSpace` option of `useAssetTextures`. The
+sidecar's attributes needed the T1 rename list to keep both an input and an output of one
+semantic, which bumped `PIPELINE_VERSION` to 2.
+
+The map backdrop follows the same seam under the same switch: `BackdropSource.shaders` has
+`useMapBackdrop` ask `read_material_programs` over the map's `.materials.bin` as a file source
+with the geometry's own entry paths, and `Backdrop` draws a material with a translated first
+pass under it, the stock one standing in where none did. A static mesh's shader multiplies by
+a `WORLD_MATRIX` the material packs into `$Globals` as the identity, since a map's vertices
+are stored in the world, so the environment folds the object's transform into the clip
+transform and states the camera in the object's space, and lights `PerFramePixelCB` from the
+map's sun with `SHADOW_COLOR` as the sky's ambient share and its complement summing to one. A
+sampler of another shape than a picture, an array, a cube or an integer buffer, takes a
+neutral texel of its own shape.
+
+Two facts of three shape how the buffers reach the GPU. It keeps one UBO binding point per
+`UniformsGroup` for the group's life against a limit of a few dozen, and it uploads a group
+at most once per frame, whatever its typed array holds at later draws. The engine blocks are
+one group per block name per environment, written before the frame's first draw. `$Globals`
+is no group at all: `globalsAsUniform` rewrites the translated block into a plain `vec4`
+array uniform of the block's GLSL name, as long as the array the stage declares, that each
+material owns and three uploads whenever `uniformsNeedUpdate` is set. What changes per draw
+goes there.
+
+A map's light maps ride the same seam. The map buffer (version 2) carries each mesh's baked
+and stationary channel, the atlas path with the scale and bias its `TEXCOORD7` is read
+through, and `Backdrop` looks them up per draw by the geometry group's first index, writes
+the scale and bias into `BAKED_LIGHT_SCALE_AND_BIAS` and binds the atlas to
+`BAKED_LIGHT__TX`, a white texel for a mesh with none. The shader lights a texel by
+`NdotL * min(BAKED.a, 1) * SUN_LIGHT_COLOR + BAKED.rgb * LIGHT_MAP_COLOR_SCALE_AND_INTENSITY.x`,
+so the alpha is the sun's shadow mask and the colour the baked ambient. A top-down software
+render of ArenaB through `uv7 * scale + bias` lands every mesh on its own chart. A vertex
+input the geometry lacks, `COLOR0` under `VertexDeform`, reads (0, 0, 0, 1) in GL, so the
+material defaults `a_COLOR` white and the spare coordinates zero.
+
+The sun of `PerFramePixelCB` is inferred from the shipped pixel shaders and what reads right
+on screen, not traced: `SUN_LIGHT_COLOR` is the sun colour at its intensity, `SHADOW_COLOR`
+the sky colour at its scale, `SHADOW_COLOR_COMPLEMENT` the sun's light over the shadow's
+clamped at zero, `LIGHT_MAP_COLOR_SCALE_AND_INTENSITY.x` the map's `lightMapColorScale`, and
+the fog members the map's own or a start one unit above an end far below any map when it
+has none, since a start equal to the end divides by zero.
+
+Open on screen: the matrix row convention and the depth halving, the ambient cube's values,
+the sun reading above, `SV_Target1` on a single-attachment target, a highlighted submesh not
+dimming under a program, the shared-sampler name heuristics, and the per-mesh texture
+override list with its `baked_paint` channel, which two meshes install-wide carry.
 
 ### T5: LIT_UBER
 
@@ -168,6 +273,6 @@ array face mapping, the bit polyfills, the derivative rewrite and the engine mat
 
 - `dynamicMaterial` drivers (11,754 materials). The preview shows static values and badges the
   material as animated. Issue #677 covers the VFX side.
-- Child techniques (transition, death), lightmaps and `TEXCOORD7`, the second render target of
-  the 95 static-mesh shaders (dropped in the fix-up), Mantis lighting, fog of war, shadows.
+- Child techniques (transition, death), the second render target of the 95 static-mesh
+  shaders (dropped in the fix-up), Mantis lighting, fog of war, shadows.
 - WebGPU. Viable as a second target but Three.js has no raw-WGSL material.

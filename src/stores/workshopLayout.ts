@@ -39,6 +39,8 @@ interface PreviewDisplay {
   previewBackdropParticles: boolean;
   /** The backdrop stands the structures and the level props its map places. */
   previewBackdropStructures: boolean;
+  /** The backdrop draws the sky cube map behind its map. */
+  previewBackdropSky: boolean;
   /** The sun of every backdrop, and null for each map's own. */
   previewSun: SunLight | null;
   /** The post effects of every backdrop, and null for each map's own. */
@@ -51,6 +53,8 @@ interface PreviewDisplay {
   previewStats: boolean;
   /** A character's skeleton is drawn over it, a dot per joint and a line to its parent. */
   previewArmature: boolean;
+  /** A character's materials draw with the game's own shaders, translated. */
+  previewShaders: boolean;
   /** Each joint's name is written beside its dot. */
   previewJointNames: boolean;
   /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
@@ -206,12 +210,14 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewBackdrop: null,
   previewBackdropParticles: true,
   previewBackdropStructures: true,
+  previewBackdropSky: true,
   previewSun: null,
   previewPostEffects: null,
   previewAmbientOcclusion: null,
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
+  previewShaders: false,
   previewJointNames: false,
   previewCamera: "game",
   previewWireframe: "off",
@@ -380,6 +386,7 @@ export const usePreviewBackdropParticles = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropParticles);
 export const usePreviewBackdropStructures = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropStructures);
+export const usePreviewBackdropSky = () => useWorkshopLayoutStore((s) => s.previewBackdropSky);
 export const usePreviewSun = () => useWorkshopLayoutStore((s) => s.previewSun);
 export const usePreviewPostEffects = () => useWorkshopLayoutStore((s) => s.previewPostEffects);
 export const usePreviewAmbientOcclusion = () =>
@@ -387,6 +394,7 @@ export const usePreviewAmbientOcclusion = () =>
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
+export const usePreviewShaders = () => useWorkshopLayoutStore((s) => s.previewShaders);
 export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
 export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.previewWireframe);

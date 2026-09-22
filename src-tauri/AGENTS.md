@@ -5,16 +5,21 @@ governs `crates/ltk-manager-core/`, whose `AGENTS.md` points here.
 
 ## Workspace Crates
 
-| Crate                     | Knows about                       | Depends on   | License            |
-| ------------------------- | --------------------------------- | ------------ | ------------------ |
-| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient` | `GPL-3.0-or-later` |
-| `crates/ltk-manager-game` | What League's own classes mean    | core         | `GPL-3.0-or-later` |
-| `src-tauri`               | Tauri commands, IPC, events       | core, game   | `GPL-3.0-or-later` |
+| Crate                     | Knows about                       | Depends on             | License            |
+| ------------------------- | --------------------------------- | ---------------------- | ------------------ |
+| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient`           | `GPL-3.0-or-later` |
+| `crates/ltk-manager-game` | What League's own classes mean    | core, hexshade         | `GPL-3.0-or-later` |
+| `crates/hexshade`         | The game's shaders as GLSL        | `dxbc-spirv-sys`       | `GPL-3.0-or-later` |
+| `src-tauri`               | Tauri commands, IPC, events       | core, game, hexshade   | `GPL-3.0-or-later` |
 
 `ritoclient` is an external dependency rather than a workspace member, pinned to a git rev in the
 root `Cargo.toml` until it ships on crates.io. It is **Apache-2.0**, where this workspace is
 GPL-3.0-or-later - not an oversight to tidy. Re-run `pnpm generate:licenses` after any dependency
 is added or relicensed.
+
+`hexshade` knows no bin, no asset and no `AppError`. It reaches the shader cache through its own
+`ShaderSource` trait, which the game crate implements over `AssetLookup`, and `dxbc-spirv-sys`
+is its FFI crate, named for the library it binds.
 
 `ltk-manager-game` sits above core. Core owns the open document, the names and where an asset
 lives, and the game crate owns the classes read out of them: a map today, and the material, skin,

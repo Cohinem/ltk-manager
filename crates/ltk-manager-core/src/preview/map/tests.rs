@@ -22,7 +22,17 @@ struct Decoded {
     indices: Vec<u32>,
     meshes: Vec<DecodedMesh>,
     submeshes: Vec<(u32, u32, u32)>,
+    lights: Vec<[DecodedChannel; 2]>,
     materials: Vec<String>,
+    lightmaps: Vec<String>,
+}
+
+/// One light channel as the decoder reads it back.
+#[derive(Debug, PartialEq)]
+struct DecodedChannel {
+    texture: u32,
+    scale: [f32; 2],
+    bias: [f32; 2],
 }
 
 /// One mesh record as the decoder reads it back, apart from the encoder's own type.
@@ -126,8 +136,25 @@ fn decode(buffer: &[u8]) -> (Decoded, Vec<usize>) {
         .collect();
 
     offsets.push(reader.at);
+    let lights = (0..mesh_count)
+        .map(|_| {
+            let mut channel = || DecodedChannel {
+                texture: reader.word(),
+                scale: [reader.float(), reader.float()],
+                bias: [reader.float(), reader.float()],
+            };
+            [channel(), channel()]
+        })
+        .collect();
+
+    offsets.push(reader.at);
     let count = reader.word() as usize;
     let materials = (0..count).map(|_| reader.text()).collect();
+
+    /* Past the material strings, which end wherever their lengths do: the tables are
+    last so that nothing typed follows them. */
+    let count = reader.word() as usize;
+    let lightmaps = (0..count).map(|_| reader.text()).collect();
 
     assert_eq!(
         reader.at,
@@ -145,7 +172,9 @@ fn decode(buffer: &[u8]) -> (Decoded, Vec<usize>) {
             indices,
             meshes,
             submeshes,
+            lights,
             materials,
+            lightmaps,
         },
         offsets,
     )
@@ -161,7 +190,9 @@ fn one_mesh(vertices: usize, materials: &[&str]) -> Map {
         indices: (0..vertices as u32).collect(),
         meshes: Vec::new(),
         submeshes: Vec::new(),
+        lights: Vec::new(),
         materials: IndexSet::new(),
+        lightmaps: IndexSet::new(),
     };
     for (at, material) in materials.iter().enumerate() {
         map.submeshes.push(Submesh {
@@ -179,7 +210,47 @@ fn one_mesh(vertices: usize, materials: &[&str]) -> Map {
         first_submesh: 0,
         submesh_count: materials.len() as u32,
     });
+    map.lights.push(Light {
+        baked: Channel {
+            texture: map
+                .lightmaps
+                .insert_full("ASSETS/Maps/Lightmaps/Maps/MapGeometry/Map12/Base/0.tex".to_owned())
+                .0 as u32,
+            scale: Vec2::new(0.5, 0.25),
+            bias: Vec2::new(0.125, 0.0),
+        },
+        stationary: Channel {
+            texture: NO_TEXTURE,
+            scale: Vec2::ONE,
+            bias: Vec2::ZERO,
+        },
+    });
     map
+}
+
+#[test]
+fn a_light_record_names_the_mesh_light_maps_with_their_scale_and_bias() {
+    let (decoded, _) = decode(&one_mesh(3, &["a"]).encode().unwrap());
+
+    assert_eq!(
+        decoded.lights,
+        vec![[
+            DecodedChannel {
+                texture: 0,
+                scale: [0.5, 0.25],
+                bias: [0.125, 0.0],
+            },
+            DecodedChannel {
+                texture: NO_TEXTURE,
+                scale: [1.0, 1.0],
+                bias: [0.0, 0.0],
+            },
+        ]]
+    );
+    assert_eq!(
+        decoded.lightmaps,
+        vec!["ASSETS/Maps/Lightmaps/Maps/MapGeometry/Map12/Base/0.tex".to_owned()]
+    );
 }
 
 #[test]
@@ -291,7 +362,9 @@ fn a_map_of_no_meshes_still_writes_a_header_and_an_empty_string_table() {
         indices: Vec::new(),
         meshes: Vec::new(),
         submeshes: Vec::new(),
+        lights: Vec::new(),
         materials: IndexSet::new(),
+        lightmaps: IndexSet::new(),
     };
 
     let (decoded, _) = decode(&map.encode().unwrap());

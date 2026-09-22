@@ -11,7 +11,14 @@ const RIFT: MapSun = {
   intensity: 1,
   skyColor: [1, 1, 1, 1],
   groundColor: [1, 1, 1, 1],
+  horizonColor: [1, 1, 1, 1],
   skyScale: 1,
+  lightMapColorScale: 0.6,
+  fogEnabled: true,
+  fogColor: [0.447, 0.737, 0.78, 1],
+  fogAlternateColor: [0.1, 0.1, 0.2, 1],
+  fogStartEnd: [0, -19000],
+  fogEmissiveRemap: 1.9,
 };
 
 describe("sunLightOf", () => {
@@ -48,6 +55,22 @@ describe("sunLightOf", () => {
 
   it("points the rift's sun the same way as the default", () => {
     expect(sunLightOf(RIFT).direction).toEqual(DEFAULT_SUN.direction);
+  });
+
+  it("carries the map's total, horizon and fog for the game's own shaders", () => {
+    const light = sunLightOf({ ...RIFT, horizonColor: [0.5, 0.6, 0.7, 1] });
+
+    expect(light.total).toBe(2);
+    expect(light.horizon).toEqual([0.5, 0.6, 0.7]);
+    expect(light.fog).toEqual({
+      color: [0.447, 0.737, 0.78],
+      alternate: [0.1, 0.1, 0.2],
+      start: 0,
+      end: -19000,
+      emissiveRemap: 1.9,
+    });
+    expect(sunLightOf({ ...RIFT, fogEnabled: false }).fog).toBeNull();
+    expect(light.lightMap).toBe(0.6);
   });
 });
 
