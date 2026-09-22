@@ -14,6 +14,92 @@ fn context() -> InstallContext<'static> {
     }
 }
 
+fn fantome_with_hashtable(path: &Path, content: &[u8]) {
+    crate::mods::test_support::make_missing_hashtable_fantome_zip(path);
+
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .unwrap();
+    let mut zip = zip::ZipWriter::new_append(file).unwrap();
+    zip.start_file(
+        "meta/HASHES/GAME.hashes.txt",
+        zip::write::SimpleFileOptions::default(),
+    )
+    .unwrap();
+    zip.write_all(content).unwrap();
+    zip.finish().unwrap();
+}
+
+#[test]
+fn bom_prefixed_hashtables_keep_their_names_when_installed_and_unpacked() {
+    for newline in ["\n", "\r\n"] {
+        let storage = tempfile::tempdir().unwrap();
+        let (library, config) = make_test_library(storage.path());
+        let source = tempfile::tempdir().unwrap();
+        let archive = source.path().join("bom.fantome");
+        let table = format!("\u{feff}data/skin0.bin{newline}assets/custom/second.tex{newline}");
+        fantome_with_hashtable(&archive, table.as_bytes());
+        let original = fs::read(&archive).unwrap();
+
+        let installed = library
+            .install_mod_from_package(&config, archive.to_str().unwrap())
+            .unwrap();
+        library
+            .set_mod_storage(&config, &installed.id, ModStorage::Project)
+            .unwrap();
+
+        let mod_dir = PathBuf::from(&installed.mod_dir);
+        let project = load_mod_project(&mod_dir).unwrap();
+        let table = ltk_hashtable::Hashtable::from_reader(
+            fs::File::open(mod_dir.join(&project.hashtables[0].path)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            table.names().collect::<Vec<_>>(),
+            ["data/skin0.bin", "assets/custom/second.tex"]
+        );
+        assert_eq!(
+            fs::read(mod_dir.join("content/base/Ashe.wad.client/data/skin0.bin")).unwrap(),
+            b"PROP"
+        );
+        assert_eq!(fs::read(&archive).unwrap(), original);
+    }
+}
+
+#[test]
+fn a_hashtable_containing_only_a_bom_installs_as_an_empty_table() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("empty-table.fantome");
+    fantome_with_hashtable(&archive, b"\xef\xbb\xbf");
+
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
+
+    let mut reader =
+        ltk_fantome::FantomeReader::new(fs::File::open(staged.staged_archive).unwrap()).unwrap();
+    let tables = reader.read_hashtables().unwrap();
+    assert_eq!(tables.len(), 1);
+    assert_eq!(tables[0].1.names().count(), 0);
+}
+
+#[test]
+fn stripping_a_bom_does_not_hide_invalid_hashtable_content() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("invalid-table.fantome");
+    fantome_with_hashtable(&archive, b"\xef\xbb\xbfdata/skin0.bin\ninvalid\x00name\n");
+
+    let result = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context());
+
+    assert!(result.is_err());
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        0
+    );
+}
+
 fn install(storage: &Path, archive: &Path) -> AppResult<LibraryModEntry> {
     let mut index = LibraryIndex::default();
     let staged = stage_mod_package(storage, archive.to_str().unwrap(), &context())?;
