@@ -8,6 +8,7 @@ import type {
   PlacementMode,
   PostEffects,
   SunOverride,
+  ViewMode,
 } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
@@ -18,9 +19,6 @@ type WadSort = "name" | "size";
 
 /** Which view the rail has the primary side panel showing, ADR-0038. */
 type SidebarViewId = "explorer" | "search" | "problems" | "objects" | "game" | "source";
-
-/** How a preview draws the run: shaded, as its triangle edges alone, or edges over shading. */
-type PreviewWireframe = "off" | "only" | "overlay";
 
 /**
  * What a viewport draws around the run, and how the inspector lists a class.
@@ -59,7 +57,8 @@ interface PreviewDisplay {
   previewJointNames: boolean;
   /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
   previewCamera: CameraPreset;
-  previewWireframe: PreviewWireframe;
+  /** How a viewport draws its meshes: lit, unlit, as triangle edges, or edges over lit. */
+  previewViewMode: ViewMode;
   /** The subject carries a gizmo that moves it around the scene. */
   previewMove: boolean;
   /** Which drag the gizmo does. */
@@ -201,6 +200,13 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setPreviewDisplay: (display: Partial<PreviewDisplay>) => void;
 }
 
+/** The view mode each value of the wireframe setting it replaced draws the same as. */
+const WIREFRAME_VIEW_MODE = {
+  off: "lit",
+  only: "wireframe",
+  overlay: "overlay",
+} as const satisfies Record<string, ViewMode>;
+
 /** The map the backdrop was fixed to, as the game index spells its entry path. */
 const SUMMONERS_RIFT = "maps/mapgeometry/map11/base_srx";
 
@@ -220,7 +226,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewShaders: false,
   previewJointNames: false,
   previewCamera: "game",
-  previewWireframe: "off",
+  previewViewMode: "lit",
   previewMove: false,
   previewMoveMode: "translate",
   previewPlacement: null,
@@ -290,11 +296,15 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 6,
+      version: 7,
       migrate: (persisted) => {
         const state = {
           ...keepUnversioned<
-            WorkshopLayoutStore & { explorerSort?: ExplorerSort; tabOpenMode?: string }
+            WorkshopLayoutStore & {
+              explorerSort?: ExplorerSort;
+              tabOpenMode?: string;
+              previewWireframe?: keyof typeof WIREFRAME_VIEW_MODE;
+            }
           >(persisted),
         };
         delete state.explorerSort;
@@ -311,6 +321,10 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
         if (state.previewPlacement != null) {
           state.previewPlacement = null;
           state.previewPlacedOn = null;
+        }
+        if (state.previewWireframe !== undefined) {
+          state.previewViewMode = WIREFRAME_VIEW_MODE[state.previewWireframe] ?? "lit";
+          delete state.previewWireframe;
         }
         return state;
       },
@@ -334,7 +348,6 @@ export type {
   ExplorerView,
   LayerPanelSide,
   PreviewDisplay,
-  PreviewWireframe,
   ProjectEditorKey,
   SidebarViewId,
   WadSort,
@@ -397,7 +410,7 @@ export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewA
 export const usePreviewShaders = () => useWorkshopLayoutStore((s) => s.previewShaders);
 export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
-export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.previewWireframe);
+export const usePreviewViewMode = () => useWorkshopLayoutStore((s) => s.previewViewMode);
 export const usePreviewMove = () => useWorkshopLayoutStore((s) => s.previewMove);
 export const usePreviewMoveMode = () => useWorkshopLayoutStore((s) => s.previewMoveMode);
 export const usePreviewPlacement = () => useWorkshopLayoutStore((s) => s.previewPlacement);

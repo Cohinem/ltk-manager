@@ -113,6 +113,13 @@ export {
   withSunOverride,
 } from "./scene/utils/sunLight";
 export {
+  drawsEdges,
+  drawsSolids,
+  EDGE_OVERLAY_OPACITY,
+  VIEW_MODES,
+  type ViewMode,
+} from "./scene/utils/viewMode";
+export {
   AXIS_SIGN,
   CHAMPION_HEIGHT,
   FORWARD,

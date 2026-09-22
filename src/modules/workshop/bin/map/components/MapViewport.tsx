@@ -27,11 +27,13 @@ import {
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
+  usePreviewViewMode,
   useSetPreviewDisplay,
 } from "@/stores";
 
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
 import { Notice } from "../../vfx/preview/components/Notice";
+import { ViewModeMenu } from "../../vfx/preview/components/ViewModeMenu";
 import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { distorts } from "../../vfx/rendering/utils/drawKind";
@@ -102,6 +104,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   );
 
   const camera = usePreviewCamera();
+  const viewMode = usePreviewViewMode();
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
   const sky = usePreviewBackdropSky();
@@ -132,6 +135,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           postEffects={postEffects}
           ambientOcclusion={ambientOcclusion}
           camera={camera}
+          viewMode={viewMode}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
         >
@@ -182,6 +186,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />
           <SunControl source={source} />
           <PostEffectsControl source={source} />
+          <ViewModeMenu />
           <CameraMenu />
           <Tooltip content={m.workshop_bin_mesh_preview_fit_action()}>
             <IconButton

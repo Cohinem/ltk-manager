@@ -2,20 +2,19 @@ import { CaretDownIcon, CheckIcon, CubeTransparentIcon } from "@phosphor-icons/r
 
 import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
-import { type PreviewWireframe, usePreviewWireframe, useSetPreviewDisplay } from "@/stores";
+import { VIEW_MODES, type ViewMode } from "@/modules/viewport";
+import { usePreviewViewMode, useSetPreviewDisplay } from "@/stores";
 
-const MODE_LABEL: Record<PreviewWireframe, () => string> = {
-  off: m.workshop_bin_preview_wireframe_off_label,
-  only: m.workshop_bin_preview_wireframe_only_label,
-  overlay: m.workshop_bin_preview_wireframe_overlay_label,
+const MODE_LABEL: Record<ViewMode, () => string> = {
+  lit: m.workshop_bin_preview_view_lit_label,
+  unshaded: m.workshop_bin_preview_view_unshaded_label,
+  wireframe: m.workshop_bin_preview_view_wireframe_label,
+  overlay: m.workshop_bin_preview_view_overlay_label,
 };
 
-/** The modes in the order the menu lists them. */
-const MODES: readonly PreviewWireframe[] = ["off", "only", "overlay"];
-
-/** Whether the preview draws the run shaded, as its edges, or its edges over the shading. */
-export function WireframeMenu() {
-  const mode = usePreviewWireframe();
+/** How the preview draws its meshes: lit, unshaded, as their edges, or edges over lit. */
+export function ViewModeMenu() {
+  const mode = usePreviewViewMode();
   const setDisplay = useSetPreviewDisplay();
 
   return (
@@ -26,7 +25,7 @@ export function WireframeMenu() {
             variant="ghost"
             size="xs"
             compact
-            aria-label={m.workshop_bin_preview_wireframe_label()}
+            aria-label={m.workshop_bin_preview_view_label()}
             left={<CubeTransparentIcon weight="bold" className="h-4 w-4" />}
             right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
           >
@@ -36,12 +35,12 @@ export function WireframeMenu() {
       />
       <Menu.Portal>
         <Menu.Positioner align="end">
-          <Menu.Popup data-ui="WireframeMenu" className="w-48">
-            {MODES.map((each) => (
+          <Menu.Popup data-ui="ViewModeMenu" className="w-48">
+            {VIEW_MODES.map((each) => (
               <Menu.Item
                 key={each}
                 icon={each === mode && <CheckIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => setDisplay({ previewWireframe: each })}
+                onClick={() => setDisplay({ previewViewMode: each })}
               >
                 {MODE_LABEL[each]()}
               </Menu.Item>

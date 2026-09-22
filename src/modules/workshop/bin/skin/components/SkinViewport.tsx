@@ -61,6 +61,7 @@ import {
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
+  usePreviewViewMode,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -74,6 +75,7 @@ import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapPart
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
 import { Notice } from "../../vfx/preview/components/Notice";
+import { ViewModeMenu } from "../../vfx/preview/components/ViewModeMenu";
 import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { distorts } from "../../vfx/rendering/utils/drawKind";
@@ -189,6 +191,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   } = useBackdropFlags(backdropSource);
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
+  const viewMode = usePreviewViewMode();
   const armature = usePreviewArmature();
   const jointNames = usePreviewJointNames();
   const move = usePreviewMove();
@@ -441,6 +444,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           postEffects={backdrop === null ? null : postEffects}
           ambientOcclusion={backdrop === null ? null : ambientOcclusion}
           camera={camera}
+          viewMode={viewMode}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
         >
@@ -609,6 +613,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
             </div>
             <ViewportControlDivider />
             <div className="flex shrink-0 items-center gap-0.5">
+              <ViewModeMenu />
               <CameraMenu />
               <Tooltip content={m.workshop_bin_mesh_preview_fit_action()}>
                 <IconButton

@@ -32,6 +32,13 @@ import { programWith } from "../../hexshade/programTextures";
 import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/renderState";
 import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
 import type { SunLight } from "../utils/sunLight";
+import {
+  createEdgeMaterial,
+  drawsEdges,
+  drawsSolids,
+  drawsUnlit,
+  type ViewMode,
+} from "../utils/viewMode";
 
 /** A flat neutral the map's own shape reads against, where no material reaches it. */
 const STONE = 0x9a958c;
@@ -86,6 +93,7 @@ function covers(slots: MaterialPreview | null | undefined): boolean {
  * group points at the material its submesh names, doubled where a mesh disables backface
  * culling, since a material is shared between flagged and unflagged meshes. A material
  * with a translated program draws under it, the stock one standing in where none did.
+ * The edges of a wireframe mode are a second mesh over the same groups.
  */
 export function Backdrop({
   map,
@@ -96,6 +104,8 @@ export function Backdrop({
   lightmaps = NO_TEXTURES,
   light,
   flags,
+  viewMode = "lit",
+  edgeColour,
 }: {
   readonly map: MapGeometry;
   readonly materials: readonly (MaterialPreview | null)[];
@@ -110,6 +120,9 @@ export function Backdrop({
   readonly light: SunLight;
   /** The visibility flags drawn, as a mask. */
   readonly flags: number;
+  readonly viewMode?: ViewMode;
+  /** What the triangle edges draw in, under a mode that draws them. */
+  readonly edgeColour: Color;
 }) {
   const clock = useThree((state) => state.clock);
   const held = useRef<Mesh>(null);
@@ -136,6 +149,8 @@ export function Backdrop({
   }, [environment, light]);
   useEffect(() => () => environment.dispose(), [environment]);
 
+  const unlit = drawsUnlit(viewMode);
+
   /* Built without the textures, which arrive over seconds. A material's class and a
      group's material index are fixed by the map, so a texture landing rebinds one
      material rather than rebuilding the array and re-walking 600 groups. */
@@ -151,18 +166,19 @@ export function Backdrop({
       if (held !== undefined) return held;
 
       const named = slots[material] ?? null;
-      const program = programWith(programs[material] ?? null, NO_TEXTURES);
+      const translated = unlit ? null : (programs[material] ?? null);
+      const program = programWith(translated, NO_TEXTURES);
       const drawnWith: Bound["material"] =
         program !== null
           ? createProgramMaterial(program, environment)
-          : lit({ material: named, base: null, texture: null })
+          : !unlit && lit({ material: named, base: null, texture: null })
             ? new MeshLambertMaterial()
             : new MeshBasicMaterial();
       bound.push({
         material: drawnWith,
         path: map.materials[material] ?? "",
         slots: named,
-        program: program === null ? null : (programs[material] ?? null),
+        program: program === null ? null : translated,
         doubleSided,
       });
       byKey.set(key, bound.length - 1);
@@ -184,7 +200,7 @@ export function Backdrop({
       }
     }
     return { bound, groups, meshOf };
-  }, [map, slots, programs, environment, flags]);
+  }, [map, slots, programs, environment, flags, unlit]);
 
   /* The light maps of each mesh, looked up per draw by the group's first index. */
   const lightsOf = useMemo(() => {
@@ -210,6 +226,17 @@ export function Backdrop({
 
   const bound = drawn.bound;
   const materials = useMemo<Material[]>(() => bound.map((entry) => entry.material), [bound]);
+
+  const edges = useMemo(
+    () => (drawsEdges(viewMode) ? createEdgeMaterial(edgeColour, viewMode) : null),
+    [viewMode, edgeColour],
+  );
+  /* One entry per material, so the edges draw the same groups the surfaces do. */
+  const edgeMaterials = useMemo(
+    () => (edges === null ? null : bound.map(() => edges)),
+    [edges, bound],
+  );
+  useEffect(() => () => edges?.dispose(), [edges]);
 
   /* Written here rather than beside the array they index, because a render the fibre
      throws away would leave the geometry pointing into an array the mesh never took, and
@@ -265,6 +292,7 @@ export function Backdrop({
       <mesh
         geometry={geometry}
         material={materials}
+        visible={drawsSolids(viewMode)}
         renderOrder={STAGE_ORDER}
         frustumCulled={false}
         onBeforeRender={(renderer, _scene, camera, _geometry, material, group) => {
@@ -277,6 +305,14 @@ export function Backdrop({
         }}
         ref={held}
       />
+      {edgeMaterials !== null && (
+        <mesh
+          geometry={geometry}
+          material={edgeMaterials}
+          renderOrder={STAGE_ORDER}
+          frustumCulled={false}
+        />
+      )}
     </group>
   );
 }

@@ -25,6 +25,12 @@ describe("workshopLayout", () => {
     expect(migrated).toEqual({ previewPlacement: null, previewPlacedOn: null, previewFacing: 1.5 });
   });
 
+  it("carries the wireframe setting over as the view mode", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.({ previewWireframe: "only" }, 6);
+    expect(migrated).toEqual({ previewViewMode: "wireframe" });
+  });
+
   beforeEach(() => {
     useWorkshopLayoutStore.setState({ previewOnClick: true });
     localStorage.clear();

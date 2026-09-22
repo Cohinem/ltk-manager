@@ -623,10 +623,11 @@
       }
     }
   ],
-  "workshop_bin_preview_wireframe_label": "Wireframe",
-  "workshop_bin_preview_wireframe_off_label": "Shaded",
-  "workshop_bin_preview_wireframe_only_label": "Wireframe",
-  "workshop_bin_preview_wireframe_overlay_label": "Wireframe over shaded",
+  "workshop_bin_preview_view_label": "View mode",
+  "workshop_bin_preview_view_lit_label": "Lit",
+  "workshop_bin_preview_view_overlay_label": "Wireframe over lit",
+  "workshop_bin_preview_view_unshaded_label": "Unshaded",
+  "workshop_bin_preview_view_wireframe_label": "Wireframe",
   "workshop_bin_random_always_label": "×{factor} always",
   "workshop_bin_random_at_chance_label": "chance {chance}",
   "workshop_bin_random_births_label": "births",
