@@ -8,7 +8,7 @@ import { use, useEffect, useMemo, useRef, useState } from "react";
 
 import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import { useFitCamera, Viewport } from "@/modules/viewport";
+import { edgesOf, useFitCamera, Viewport } from "@/modules/viewport";
 import {
   usePreviewCamera,
   usePreviewGizmo,
@@ -16,6 +16,7 @@ import {
   usePreviewMidlane,
   usePreviewStats,
   usePreviewViewMode,
+  usePreviewWireOverlay,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -87,6 +88,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const stats = usePreviewStats();
   const camera = usePreviewCamera();
   const viewMode = usePreviewViewMode();
+  const wireOverlay = usePreviewWireOverlay();
   const setDisplay = useSetPreviewDisplay();
 
   const { root, child } = useEmitters();
@@ -146,6 +148,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           textured={midlane}
           camera={camera}
           viewMode={viewMode}
+          wireOverlay={wireOverlay}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >
           <Passes warps={warps} softens={softens} />
@@ -156,7 +159,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
               textures={textures}
               meshes={meshes}
               hiddenOf={hiddenOf}
-              viewMode={viewMode}
+              edges={edgesOf(viewMode, wireOverlay)}
             />
           </VfxHost>
           <Fit token={fitRequest} system={system} drawn={drawn} rig={rig.rig} />

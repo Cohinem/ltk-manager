@@ -62,6 +62,7 @@ import {
   usePreviewShaders,
   usePreviewSun,
   usePreviewViewMode,
+  usePreviewWireOverlay,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -192,6 +193,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
   const viewMode = usePreviewViewMode();
+  const wireOverlay = usePreviewWireOverlay();
   const armature = usePreviewArmature();
   const jointNames = usePreviewJointNames();
   const move = usePreviewMove();
@@ -445,6 +447,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           ambientOcclusion={backdrop === null ? null : ambientOcclusion}
           camera={camera}
           viewMode={viewMode}
+          wireOverlay={wireOverlay}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
         >

@@ -26,7 +26,7 @@ import {
 } from "../utils/ambientOcclusion";
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
 import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
-import type { ViewMode } from "../utils/viewMode";
+import { edgesOf, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { Backdrop } from "./Backdrop";
 import { PostEffectsPass } from "./PostEffectsPass";
@@ -66,6 +66,8 @@ export interface ViewportProps {
   readonly camera: CameraPreset;
   /** How the backdrop and every character draw their meshes. */
   readonly viewMode?: ViewMode;
+  /** The triangle edges draw over a lit or untextured scene. */
+  readonly wireOverlay?: boolean;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
   readonly onCameraStand?: (preset: CameraPreset) => void;
   /**
@@ -134,6 +136,7 @@ export function Viewport({
   ambientOcclusion = null,
   camera,
   viewMode = "lit",
+  wireOverlay = false,
   onCameraStand,
   onBackdropOrigin,
   children,
@@ -141,7 +144,11 @@ export function Viewport({
   const colors = useSceneColors();
   const map = useMapBackdrop(backdrop);
   const light = useMemo(() => withSunOverride(map.sun ?? DEFAULT_SUN, sun), [map.sun, sun]);
-  const view = useMemo(() => ({ mode: viewMode, edgeColour: colors.wire }), [viewMode, colors]);
+  const edges = edgesOf(viewMode, wireOverlay);
+  const view = useMemo(
+    () => ({ mode: viewMode, edges, edgeColour: colors.wire }),
+    [viewMode, edges, colors],
+  );
   const visible = useContentVisible();
   const [sized, setSized] = useState(false);
   const [started, setStarted] = useState(false);
@@ -217,6 +224,7 @@ export function Viewport({
                 light={light}
                 flags={backdropFlags ?? map.opening}
                 viewMode={viewMode}
+                edges={edges}
                 edgeColour={colors.wire}
               />
             </>

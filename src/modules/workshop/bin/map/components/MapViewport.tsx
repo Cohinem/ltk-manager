@@ -28,6 +28,7 @@ import {
   usePreviewShaders,
   usePreviewSun,
   usePreviewViewMode,
+  usePreviewWireOverlay,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -105,6 +106,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
 
   const camera = usePreviewCamera();
   const viewMode = usePreviewViewMode();
+  const wireOverlay = usePreviewWireOverlay();
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
   const sky = usePreviewBackdropSky();
@@ -136,6 +138,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           ambientOcclusion={ambientOcclusion}
           camera={camera}
           viewMode={viewMode}
+          wireOverlay={wireOverlay}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
         >

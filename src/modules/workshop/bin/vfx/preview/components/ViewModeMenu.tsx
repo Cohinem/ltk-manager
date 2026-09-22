@@ -1,20 +1,21 @@
-import { CaretDownIcon, CheckIcon, CubeTransparentIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CubeTransparentIcon } from "@phosphor-icons/react";
 
 import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
-import { VIEW_MODES, type ViewMode } from "@/modules/viewport";
-import { usePreviewViewMode, useSetPreviewDisplay } from "@/stores";
+import { takesWireOverlay, VIEW_MODES, type ViewMode } from "@/modules/viewport";
+import { usePreviewViewMode, usePreviewWireOverlay, useSetPreviewDisplay } from "@/stores";
 
 const MODE_LABEL: Record<ViewMode, () => string> = {
   lit: m.workshop_bin_preview_view_lit_label,
   unshaded: m.workshop_bin_preview_view_unshaded_label,
+  untextured: m.workshop_bin_preview_view_untextured_label,
   wireframe: m.workshop_bin_preview_view_wireframe_label,
-  overlay: m.workshop_bin_preview_view_overlay_label,
 };
 
-/** How the preview draws its meshes: lit, unshaded, as their edges, or edges over lit. */
+/** The preview's view mode, and the wireframe overlay a lit or untextured mode takes. */
 export function ViewModeMenu() {
   const mode = usePreviewViewMode();
+  const overlay = usePreviewWireOverlay();
   const setDisplay = useSetPreviewDisplay();
 
   return (
@@ -36,15 +37,24 @@ export function ViewModeMenu() {
       <Menu.Portal>
         <Menu.Positioner align="end">
           <Menu.Popup data-ui="ViewModeMenu" className="w-48">
-            {VIEW_MODES.map((each) => (
-              <Menu.Item
-                key={each}
-                icon={each === mode && <CheckIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => setDisplay({ previewViewMode: each })}
-              >
-                {MODE_LABEL[each]()}
-              </Menu.Item>
-            ))}
+            <Menu.RadioGroup
+              value={mode}
+              onValueChange={(each) => setDisplay({ previewViewMode: each as ViewMode })}
+            >
+              {VIEW_MODES.map((each) => (
+                <Menu.RadioItem key={each} value={each}>
+                  {MODE_LABEL[each]()}
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+            <Menu.Separator />
+            <Menu.CheckboxItem
+              checked={overlay && takesWireOverlay(mode)}
+              disabled={!takesWireOverlay(mode)}
+              onCheckedChange={(checked) => setDisplay({ previewWireOverlay: checked })}
+            >
+              {m.workshop_bin_preview_view_wire_overlay_label()}
+            </Menu.CheckboxItem>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

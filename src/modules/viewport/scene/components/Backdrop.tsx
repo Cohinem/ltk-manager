@@ -34,9 +34,9 @@ import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
 import type { SunLight } from "../utils/sunLight";
 import {
   createEdgeMaterial,
-  drawsEdges,
+  type Edges,
   drawsSolids,
-  drawsUnlit,
+  surfaceOf,
   type ViewMode,
 } from "../utils/viewMode";
 
@@ -105,6 +105,7 @@ export function Backdrop({
   light,
   flags,
   viewMode = "lit",
+  edges = "none",
   edgeColour,
 }: {
   readonly map: MapGeometry;
@@ -121,7 +122,8 @@ export function Backdrop({
   /** The visibility flags drawn, as a mask. */
   readonly flags: number;
   readonly viewMode?: ViewMode;
-  /** What the triangle edges draw in, under a mode that draws them. */
+  readonly edges?: Edges;
+  /** What the triangle edges draw in, where any draw. */
   readonly edgeColour: Color;
 }) {
   const clock = useThree((state) => state.clock);
@@ -149,7 +151,7 @@ export function Backdrop({
   }, [environment, light]);
   useEffect(() => () => environment.dispose(), [environment]);
 
-  const unlit = drawsUnlit(viewMode);
+  const surface = surfaceOf(viewMode);
 
   /* Built without the textures, which arrive over seconds. A material's class and a
      group's material index are fixed by the map, so a texture landing rebinds one
@@ -165,13 +167,13 @@ export function Backdrop({
       const held = byKey.get(key);
       if (held !== undefined) return held;
 
-      const named = slots[material] ?? null;
-      const translated = unlit ? null : (programs[material] ?? null);
+      const named = surface === "untextured" ? null : (slots[material] ?? null);
+      const translated = surface === "material" ? (programs[material] ?? null) : null;
       const program = programWith(translated, NO_TEXTURES);
       const drawnWith: Bound["material"] =
         program !== null
           ? createProgramMaterial(program, environment)
-          : !unlit && lit({ material: named, base: null, texture: null })
+          : surface !== "unlit" && lit({ material: named, base: null, texture: null })
             ? new MeshLambertMaterial()
             : new MeshBasicMaterial();
       bound.push({
@@ -200,7 +202,7 @@ export function Backdrop({
       }
     }
     return { bound, groups, meshOf };
-  }, [map, slots, programs, environment, flags, unlit]);
+  }, [map, slots, programs, environment, flags, surface]);
 
   /* The light maps of each mesh, looked up per draw by the group's first index. */
   const lightsOf = useMemo(() => {
@@ -227,16 +229,16 @@ export function Backdrop({
   const bound = drawn.bound;
   const materials = useMemo<Material[]>(() => bound.map((entry) => entry.material), [bound]);
 
-  const edges = useMemo(
-    () => (drawsEdges(viewMode) ? createEdgeMaterial(edgeColour, viewMode) : null),
-    [viewMode, edgeColour],
+  const edgeMaterial = useMemo(
+    () => (edges === "none" ? null : createEdgeMaterial(edgeColour, edges)),
+    [edges, edgeColour],
   );
   /* One entry per material, so the edges draw the same groups the surfaces do. */
   const edgeMaterials = useMemo(
-    () => (edges === null ? null : bound.map(() => edges)),
-    [edges, bound],
+    () => (edgeMaterial === null ? null : bound.map(() => edgeMaterial)),
+    [edgeMaterial, bound],
   );
-  useEffect(() => () => edges?.dispose(), [edges]);
+  useEffect(() => () => edgeMaterial?.dispose(), [edgeMaterial]);
 
   /* Written here rather than beside the array they index, because a render the fibre
      throws away would leave the geometry pointing into an array the mesh never took, and

@@ -1,13 +1,13 @@
 import { createContext, use, useEffect, useMemo } from "react";
 import { Color, type ShaderMaterial } from "three";
 
-import { drawsEdges, drawsSolids, EDGE_OVERLAY_OPACITY, type ViewMode } from "@/modules/viewport";
+import { EDGE_OVERLAY_OPACITY, type Edges } from "@/modules/viewport";
 
 import { wireMaterial } from "../utils/materials";
 
-/** How the run draws, and the colour its edges take. */
+/** Which edges the run draws, and the colour they take. */
 export interface Wireframe {
-  readonly mode: ViewMode;
+  readonly edges: Edges;
   readonly colour: Color;
 }
 
@@ -15,7 +15,7 @@ export interface Wireframe {
 export const WIRE_ORDER = 1_000_000;
 
 /** What the system's primitives draw their edges under, which a system outside the shell leaves off. */
-export const WireframeContext = createContext<Wireframe>({ mode: "lit", colour: new Color() });
+export const WireframeContext = createContext<Wireframe>({ edges: "none", colour: new Color() });
 
 /** The edge twin `solid` draws beside, and whether the solid itself still draws. */
 export interface Wire {
@@ -28,15 +28,15 @@ export function useWireTwin(): {
   readonly twinOf: (solid: ShaderMaterial) => ShaderMaterial | null;
   readonly shaded: boolean;
 } {
-  const { mode, colour } = use(WireframeContext);
+  const { edges, colour } = use(WireframeContext);
   const twinOf = useMemo(
     () => (solid: ShaderMaterial) => {
-      if (!drawsEdges(mode)) return null;
-      return wireMaterial(solid, colour, mode === "overlay" ? EDGE_OVERLAY_OPACITY : 1);
+      if (edges === "none") return null;
+      return wireMaterial(solid, colour, edges === "over" ? EDGE_OVERLAY_OPACITY : 1);
     },
-    [mode, colour],
+    [edges, colour],
   );
-  return { twinOf, shaded: drawsSolids(mode) };
+  return { twinOf, shaded: edges !== "alone" };
 }
 
 /** The edge twin the run's wireframe mode asks of `solid`, "The viewer" in docs/ux/BIN_EDITOR.md. */

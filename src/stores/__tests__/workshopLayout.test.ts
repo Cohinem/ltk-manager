@@ -28,7 +28,13 @@ describe("workshopLayout", () => {
   it("carries the wireframe setting over as the view mode", async () => {
     const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
     const migrated = await migrate?.({ previewWireframe: "only" }, 6);
-    expect(migrated).toEqual({ previewViewMode: "wireframe" });
+    expect(migrated).toEqual({ previewViewMode: "wireframe", previewWireOverlay: false });
+  });
+
+  it("turns the overlay view mode into the lit mode with the wireframe overlay on", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.({ previewViewMode: "overlay" }, 7);
+    expect(migrated).toEqual({ previewViewMode: "lit", previewWireOverlay: true });
   });
 
   beforeEach(() => {

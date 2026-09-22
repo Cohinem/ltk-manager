@@ -4,7 +4,6 @@ import {
   Bone,
   BufferAttribute,
   BufferGeometry,
-  type Color,
   DoubleSide,
   IntType,
   type Material,
@@ -31,14 +30,9 @@ import {
   type SubmeshProgram,
 } from "../../hexshade/programMaterial";
 import { useViewMode } from "../../scene/state/viewModeContext";
-import {
-  createEdgeMaterial,
-  drawsEdges,
-  drawsSolids,
-  drawsUnlit,
-  type ViewMode,
-} from "../../scene/utils/viewMode";
+import { drawsSolids, type Surface, surfaceOf } from "../../scene/utils/viewMode";
 import { AXIS_SIGN } from "../../scene/utils/world";
+import { useEdgeTwin } from "../hooks/useEdgeTwin";
 import { type CharacterSkin, CharacterSkinContext } from "../state/characterSkin";
 import { tintFloats, vertexTints } from "../utils/jointTint";
 import {
@@ -80,6 +74,9 @@ export interface CharacterProps {
 
 /** How much of its colour a submesh keeps while another one is highlighted. */
 const DIMMED = 0.3;
+
+/** What a submesh binds to without its textures: the flat untextured colour, lit. */
+const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null };
 
 /** How far a press may travel, in pixels, and still read as a click rather than a camera drag. */
 const CLICK_SLOP = 4;
@@ -132,7 +129,7 @@ export function Character({
   );
   const environment = useMemo(() => new EngineEnvironment(), []);
   const view = useViewMode();
-  const unlit = drawsUnlit(view.mode);
+  const surface = surfaceOf(view.mode);
   const skinned = useMemo(() => {
     const bound: Material[] = shaded.map((models) => models.lit);
     const held = new SkinnedMesh(drawn.geometry, bound);
@@ -168,7 +165,7 @@ export function Character({
       colors,
       hidden,
       highlighted,
-      unlit,
+      surface,
     });
   }, [
     skinned,
@@ -181,12 +178,19 @@ export function Character({
     colors,
     hidden,
     highlighted,
-    unlit,
+    surface,
   ]);
   useLayoutEffect(() => {
     skinned.visible = drawsSolids(view.mode);
   }, [skinned, view.mode]);
-  const edges = useEdgeTwin(skinned, rig, drawn.ranges, hidden, view.mode, view.edgeColour);
+  const edges = useEdgeTwin(
+    skinned,
+    rig.skeleton,
+    drawn.ranges,
+    hidden,
+    view.edges,
+    view.edgeColour,
+  );
   useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
 
   useLayoutEffect(() => {
@@ -295,8 +299,8 @@ interface Bind {
   readonly colors: FallbackColors;
   readonly hidden: readonly string[];
   readonly highlighted: string | null;
-  /** Every submesh draws stock and without light, its program bypassed. */
-  readonly unlit: boolean;
+  /** What every submesh draws with, and a program only under `material`. */
+  readonly surface: Surface;
 }
 
 /** One material per shading model a submesh may draw under, kept for its lifetime. */
@@ -324,7 +328,7 @@ function bind(
   skinned: SkinnedMesh,
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { bindingOf, programOf, programs, environment, colors, hidden, highlighted, unlit }: Bind,
+  { bindingOf, programOf, programs, environment, colors, hidden, highlighted, surface }: Bind,
 ): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
@@ -332,7 +336,7 @@ function bind(
   const bound = skinned.material as Material[];
   const used = new Set<SubmeshProgram["program"]>();
   ranges.forEach((range, at) => {
-    const program = unlit ? null : (programOf?.(range.name) ?? null);
+    const program = surface === "material" ? (programOf?.(range.name) ?? null) : null;
     if (program !== null) {
       let material = programs.get(program.program);
       if (material === undefined) {
@@ -346,8 +350,9 @@ function bind(
       material.visible = !skip.has(range.name.toLowerCase());
       return;
     }
-    const binding = bindingOf(range.name);
-    const material: SubmeshMaterial = !unlit && lit(binding) ? shaded[at].lit : shaded[at].unlit;
+    const binding = surface === "untextured" ? UNTEXTURED : bindingOf(range.name);
+    const material: SubmeshMaterial =
+      surface !== "unlit" && lit(binding) ? shaded[at].lit : shaded[at].unlit;
     bound[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());
     const scroll = applyBinding(material, binding, colors);
@@ -362,49 +367,6 @@ function bind(
     programs.delete(program);
   }
   return scrolling;
-}
-
-/**
- * The skin's triangle edges under a mode that draws them, and null under one that does not.
- *
- * A second mesh on the same geometry and skeleton, so the edges follow the pose. The skin
- * hides rather than unmounts, because it parents the bones.
- */
-function useEdgeTwin(
-  skinned: SkinnedMesh,
-  rig: Rig,
-  ranges: readonly MeshRange[],
-  hidden: readonly string[],
-  mode: ViewMode,
-  colour: Color,
-): SkinnedMesh | null {
-  const edges = useMemo(() => {
-    if (!drawsEdges(mode)) return null;
-    const shown = createEdgeMaterial(colour, mode);
-    const held: SkinnedMesh = new SkinnedMesh(skinned.geometry, shown);
-    held.frustumCulled = false;
-    held.bind(rig.skeleton, new Matrix4());
-    return { mesh: held, shown, skipped: shown.clone() };
-  }, [skinned, rig, mode, colour]);
-
-  useLayoutEffect(() => {
-    if (edges === null) return;
-    const skip = new Set(hidden.map((name) => name.toLowerCase()));
-    edges.skipped.visible = false;
-    edges.mesh.material = ranges.map((range) =>
-      skip.has(range.name.toLowerCase()) ? edges.skipped : edges.shown,
-    );
-  }, [edges, ranges, hidden]);
-
-  useEffect(
-    () => () => {
-      edges?.shown.dispose();
-      edges?.skipped.dispose();
-    },
-    [edges],
-  );
-
-  return edges?.mesh ?? null;
 }
 
 /**

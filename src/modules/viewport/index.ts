@@ -113,9 +113,11 @@ export {
   withSunOverride,
 } from "./scene/utils/sunLight";
 export {
-  drawsEdges,
   drawsSolids,
   EDGE_OVERLAY_OPACITY,
+  type Edges,
+  edgesOf,
+  takesWireOverlay,
   VIEW_MODES,
   type ViewMode,
 } from "./scene/utils/viewMode";
