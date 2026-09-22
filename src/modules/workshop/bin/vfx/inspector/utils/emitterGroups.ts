@@ -8,6 +8,8 @@ import { fieldHash } from "../../../tree/utils/binRows";
 export type EmitterGroup =
   | "emission"
   | "birth"
+  | "initialMotion"
+  | "motion"
   | "position"
   | "scale"
   | "colour"
@@ -47,15 +49,7 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
   birth: [
     "birthColor",
     "birthScale0",
-    "birthVelocity",
-    "flexBirthVelocity",
-    "birthAcceleration",
-    "birthOrbitalVelocity",
-    "birthDrag",
     "birthRotation0",
-    "birthRotationalVelocity0",
-    "flexBirthRotationalVelocity0",
-    "birthRotationalAcceleration",
     "birthFrameRate",
     "birthUVOffset",
     "flexBirthUVOffset",
@@ -64,6 +58,17 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "flexBirthUVScrollRate",
     "flexScaleBirthScale",
   ],
+  initialMotion: [
+    "birthVelocity",
+    "flexBirthVelocity",
+    "birthAcceleration",
+    "birthOrbitalVelocity",
+    "birthDrag",
+    "birthRotationalVelocity0",
+    "flexBirthRotationalVelocity0",
+    "birthRotationalAcceleration",
+  ],
+  motion: ["velocity", "acceleration", "worldAcceleration", "drag"],
   position: [
     "EmitterPosition",
     "SpawnShape",
@@ -74,10 +79,6 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "isGroundLayer",
     "useNavmeshMask",
     "bindWeight",
-    "velocity",
-    "acceleration",
-    "worldAcceleration",
-    "drag",
     "directionVelocityScale",
     "directionVelocityMinScale",
     "translationOverride",
@@ -178,6 +179,8 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
 export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
   emission: m.workshop_bin_emitter_group_emission_label,
   birth: m.workshop_bin_emitter_group_birth_label,
+  initialMotion: m.workshop_bin_emitter_group_initial_motion_label,
+  motion: m.workshop_bin_emitter_group_motion_label,
   position: m.workshop_bin_emitter_group_position_label,
   scale: m.workshop_bin_emitter_group_scale_label,
   colour: m.workshop_bin_emitter_group_colour_label,
@@ -192,6 +195,8 @@ export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
 export const GROUP_ORDER: readonly EmitterGroup[] = [
   "emission",
   "birth",
+  "initialMotion",
+  "motion",
   "position",
   "scale",
   "colour",
@@ -248,6 +253,8 @@ export interface DefaultField {
   readonly name: string;
   /** The type at the install's build, and null where no revision covers it. */
   readonly declared: KindShape | null;
+  readonly classHash?: string | null;
+  readonly defaultValue?: string | null;
 }
 
 /** One section of the inspector: what the emitter authored, and what Defaults adds under it. */
@@ -274,6 +281,8 @@ export function unauthoredFields(
       hash: field.hash,
       name: field.name ?? field.hash,
       declared: field.declared,
+      classHash: field.classHash,
+      defaultValue: field.defaultValue,
     }));
 }
 

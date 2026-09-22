@@ -1,7 +1,9 @@
 import { Switch as BaseSwitch } from "@base-ui/react/switch";
-import { forwardRef } from "react";
+import { forwardRef, use } from "react";
 
 import { twMerge } from "@/utils";
+
+import { InputDefaultContext } from "./InputDefaultContext";
 
 export interface SwitchProps extends Omit<BaseSwitch.Root.Props, "className"> {
   className?: string;
@@ -11,6 +13,8 @@ const trackClass = "h-5 w-9";
 const thumbClass = "top-1 left-1 h-3 w-3 data-[checked]:translate-x-4";
 
 export const Switch = forwardRef<HTMLSpanElement, SwitchProps>(({ className, ...props }, ref) => {
+  const implicit = use(InputDefaultContext);
+
   return (
     <BaseSwitch.Root
       ref={ref}
@@ -20,6 +24,8 @@ export const Switch = forwardRef<HTMLSpanElement, SwitchProps>(({ className, ...
         "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
         "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
         trackClass,
+        implicit &&
+          "border border-dashed border-surface-veil bg-transparent hover:border-accent-hover data-[checked]:bg-transparent",
         className,
       )}
       {...props}
@@ -31,6 +37,7 @@ export const Switch = forwardRef<HTMLSpanElement, SwitchProps>(({ className, ...
           "absolute rounded-md transition",
           "bg-surface-400 data-[checked]:scale-110 data-[checked]:bg-surface-900",
           thumbClass,
+          implicit && "data-[checked]:bg-surface-400",
         )}
       />
     </BaseSwitch.Root>

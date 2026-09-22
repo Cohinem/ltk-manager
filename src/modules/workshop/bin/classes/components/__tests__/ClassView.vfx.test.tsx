@@ -12,6 +12,7 @@ import type {
   BinRow,
   BinRows,
   BinValue,
+  DeclaredState,
   VfxSystem,
   VfxValue,
   WorkshopProject,
@@ -20,11 +21,14 @@ import { useWorkshopLayoutStore } from "@/stores";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
+import { assetKey } from "../../../../preview/utils/assetRef";
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
 import { useWorkshopEditorStore } from "../../../../shell/state/workshopEditor";
+import { forgetBinSave } from "../../../../state";
 import { CurveDockContext, type CurveTarget } from "../../../curves/state/curveTarget";
 import { READ_ROW_CAP } from "../../../documents/hooks/useBinRead";
 import { nameHash } from "../../../shared/utils/binHash";
+import { emitterLabel } from "../../../vfx/inspector/utils/emitterLabels";
 import { vfxLayout } from "../../utils/classLayouts";
 import { ClassView } from "../ClassView";
 
@@ -422,11 +426,12 @@ function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-function renderSystem(onShowInProperties = vi.fn()) {
+function renderSystem(onShowInProperties = vi.fn(), editable = false) {
   render(
     <ClassView
       document={9}
       asset={ASSET}
+      editable={editable}
       roots={ROOTS}
       classHash={SYSTEM}
       layout={vfxLayout}
@@ -436,6 +441,8 @@ function renderSystem(onShowInProperties = vi.fn()) {
     />,
     { wrapper: Providers },
   );
+  onTestFinished(() => forgetBinSave(assetKey(ASSET)));
+
   return onShowInProperties;
 }
 
@@ -482,7 +489,7 @@ async function fromPanesMenu(user: UserEvent, name: string) {
 
 /** The lanes stand in for the strip in the shell, so a card case opens the Emitters pane first. */
 async function showCards(user: UserEvent) {
-  await screen.findByText("lifetime");
+  await screen.findByText("Emitter Lifetime");
   await fromPanesMenu(user, "Emitters");
   await screen.findAllByRole("button", { name: /Sparks/ });
 }
@@ -529,7 +536,7 @@ function cardChip(group: string): HTMLElement {
  */
 async function fieldRow(name: string): Promise<HTMLElement> {
   return await waitFor(() => {
-    const cells = screen.getAllByText(name);
+    const cells = screen.getAllByText(emitterLabel(nameHash(name)) ?? name);
     const line = cells.map((cell) => cell.closest<HTMLElement>("[data-row-key]")).find(Boolean);
     if (line == null) throw new Error(name);
     return line;
@@ -537,6 +544,334 @@ async function fieldRow(name: string): Promise<HTMLElement> {
 }
 
 describe("ClassView over a particle system", () => {
+  it("searches creator labels, raw names and hashes without writing game data", async () => {
+    renderSystem(vi.fn(), true);
+    await fieldRow("rate");
+    const search = screen.getByRole("textbox", { name: "Search emitter properties" });
+
+    for (const query of ["emission rate", "birthColor", nameHash("rate")]) {
+      fireEvent.change(search, { target: { value: query } });
+      const name = query === "birthColor" ? "Initial Color" : "Emission Rate";
+
+      expect(await screen.findByText(name)).toBeInTheDocument();
+      expect(screen.queryByText("Blend Mode")).not.toBeInTheDocument();
+    }
+
+    const constant = await screen.findByDisplayValue("3");
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(constant).toHaveFocus();
+
+    fireEvent.change(search, { target: { value: "missing-property" } });
+    expect(screen.getByRole("status")).toHaveTextContent("No matching properties");
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear property search" }));
+    expect(await screen.findByText("Blend Mode")).toBeInTheDocument();
+    expect(search).toHaveFocus();
+    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_patch")).toBe(false);
+  });
+
+  it("restores folded sections after a property search", async () => {
+    renderSystem();
+    await fieldRow("rate");
+    const heading = screen.getByRole("button", { name: "Emission", expanded: true });
+    await userEvent.click(heading);
+    expect(heading).toHaveAttribute("aria-expanded", "false");
+
+    const search = screen.getByRole("textbox", { name: "Search emitter properties" });
+    fireEvent.change(search, { target: { value: "emission rate" } });
+    expect(await screen.findByText("Emission Rate")).toBeInTheDocument();
+
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(screen.getByRole("button", { name: "Emission", expanded: false })).toBeInTheDocument();
+  });
+
+  it("marks an inspector constant after its declaration is accepted", async () => {
+    let declared: DeclaredState = { layer: "base", layers: ["base"], marks: [], diagnostics: [] };
+    const read = mockInvoke.getMockImplementation()!;
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "bin_declared") {
+        return Promise.resolve({ ok: true, value: declared });
+      }
+
+      if (command === "bin_patch") {
+        declared = {
+          ...declared,
+          marks: [
+            {
+              entry: ENTRY,
+              path: `${RATE}.${at("constantValue")}`,
+              sign: "set",
+              whole: false,
+              reference: null,
+              game: "3",
+            },
+          ],
+        };
+        return Promise.resolve({ ok: true, value: null });
+      }
+
+      return read(command, args);
+    });
+    renderSystem(vi.fn(), true);
+    const field = await screen.findByDisplayValue("3");
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "6{Enter}");
+
+    const line = within(await fieldRow("rate"));
+    expect(await line.findByRole("img", { name: "Declared in base" })).toBeInTheDocument();
+  });
+
+  it("shows declaration diagnostics and reference actions in the inspector", async () => {
+    const read = mockInvoke.getMockImplementation()!;
+    const declared: DeclaredState = {
+      layer: "base",
+      layers: ["base"],
+      marks: [],
+      diagnostics: [
+        {
+          entry: ENTRY,
+          path: `${GLOW}.${at("lifetime")}`,
+          layer: "base",
+          key: "complexEmitterDefinitionData[0].lifetime",
+          kind: "propertyEditSkipped",
+          reason: "kindMismatch",
+          detail: null,
+        },
+      ],
+    };
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "bin_declared") {
+        return Promise.resolve({ ok: true, value: declared });
+      }
+
+      return read(command, args);
+    });
+    renderSystem(vi.fn(), true);
+    const line = await fieldRow("lifetime");
+
+    expect(
+      await within(line).findByRole("img", { name: "1 apply diagnostic" }),
+    ).toBeInTheDocument();
+    await userEvent.pointer({
+      keys: "[MouseRight]",
+      target: within(line).getByText("Emitter Lifetime"),
+    });
+
+    expect(await screen.findByRole("menuitem", { name: "Paste reference" })).toBeInTheDocument();
+  });
+
+  it("keeps an uneditable inspector's values read-only", async () => {
+    renderSystem();
+    const line = within(await fieldRow("lifetime"));
+
+    expect(line.getByDisplayValue("2")).toHaveAttribute("readonly");
+    expect(await screen.findByDisplayValue("3")).toHaveAttribute("readonly");
+  });
+
+  it("patches an inspector leaf, refreshes its reads and queues the document save", async () => {
+    const read = mockInvoke.getMockImplementation()!;
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "bin_patch" || command === "bin_save") {
+        return Promise.resolve({ ok: true, value: null });
+      }
+
+      return read(command, args);
+    });
+    renderSystem(vi.fn(), true);
+    const field = within(await fieldRow("lifetime")).getByDisplayValue("2");
+    const readsBefore = asked().length;
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "4{Enter}");
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
+        document: 9,
+        entry: ENTRY,
+        path: `${GLOW}.${at("lifetime")}`,
+        value: { type: "float", value: 4 },
+      }),
+    );
+    await waitFor(() => expect(asked().length).toBeGreaterThan(readsBefore));
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("bin_save", { document: 9 }), {
+      timeout: 2000,
+    });
+  });
+
+  it("edits a value family's authored constant at its nested address", async () => {
+    renderSystem(vi.fn(), true);
+    const search = await screen.findByRole("textbox", { name: "Search emitter properties" });
+    fireEvent.change(search, { target: { value: "emission rate" } });
+    const field = await screen.findByDisplayValue("3");
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "6{Enter}");
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
+        document: 9,
+        entry: ENTRY,
+        path: `${RATE}.${at("constantValue")}`,
+        value: { type: "float", value: 6 },
+      }),
+    );
+  });
+
+  it("authors emitter linger from its placeholder, reloads the value and queues a save", async () => {
+    const linger = `${GLOW}.${at("emitterLinger")}`;
+    const read = mockInvoke.getMockImplementation()!;
+    let saved = false;
+
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "class_schema") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            ...SCHEMA,
+            fields: [
+              ...SCHEMA.fields,
+              {
+                hash: nameHash("emitterLinger"),
+                name: "emitterLinger",
+                declared: { kind: "option", key: null, value: "f32" },
+                classHash: null,
+                defaultValue: "0",
+                revisions: [],
+              },
+            ],
+          },
+        });
+      }
+
+      if (command === "bin_edit_property") {
+        saved = true;
+        return Promise.resolve({ ok: true, value: null });
+      }
+
+      if (command === "bin_save") {
+        return Promise.resolve({ ok: true, value: null });
+      }
+
+      if (command === "bin_read" && saved) {
+        const paths = args?.paths as string[];
+        return Promise.resolve({
+          ok: true,
+          value: paths.map((path) => {
+            if (path === GLOW) {
+              return page([
+                ...PAGES[GLOW].rows,
+                row(linger, "emitterLinger", { type: "optional", itemKind: "f32", present: true }),
+              ]);
+            }
+
+            if (path === linger) {
+              return page([row(`${linger}[0]`, "[0]", { type: "float", value: 2.5 }, "element")]);
+            }
+
+            return PAGES[path] ?? page([]);
+          }),
+        });
+      }
+
+      return read(command, args);
+    });
+    renderSystem(vi.fn(), true);
+    const input = within(await fieldRow("emitterLinger")).getByPlaceholderText("0");
+    expect(input).toHaveValue("");
+    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_edit_property")).toBe(false);
+
+    await userEvent.type(input, "2.5{Enter}");
+    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
+      document: 9,
+      entry: ENTRY,
+      holder: GLOW,
+      field: nameHash("emitterLinger"),
+      edits: [{ type: "setLeaf", path: "[0]", value: { type: "float", value: 2.5 } }],
+    });
+    expect(await screen.findByDisplayValue("2.5")).not.toHaveAttribute("placeholder");
+    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("bin_save", { document: 9 }), {
+      timeout: 2000,
+    });
+  });
+
+  it("gives inspector curves a separate row below the editable constant", async () => {
+    renderSystem(vi.fn(), true);
+    const line = within(await fieldRow("rate"));
+    const constant = await line.findByDisplayValue("3");
+    const curve = await line.findByRole("button", { name: "Show curve" });
+    const curves = curve.parentElement!;
+
+    expect(curves).toHaveClass("basis-full", "flex-wrap");
+    expect(curves.parentElement).toHaveClass("flex-wrap");
+    expect(curves).not.toContainElement(constant);
+    expect(curves.parentElement).toContainElement(constant);
+    expect(within(curves).getByRole("button", { name: "Show what is random" })).toBeInTheDocument();
+  });
+
+  it("aligns scalar and vector properties in label and value columns", async () => {
+    renderSystem(vi.fn(), true);
+    const rate = await fieldRow("rate");
+    const colour = await fieldRow("birthColor");
+    const lifetime = await fieldRow("lifetime");
+
+    expect(rate).not.toHaveClass("flex-col");
+    expect(colour).not.toHaveClass("flex-col");
+    expect(lifetime).not.toHaveClass("flex-col");
+    expect(within(rate).getByText("Emission Rate")).toBeInTheDocument();
+    expect(await within(rate).findByDisplayValue("3")).toBeInTheDocument();
+  });
+
+  it("uses compact numeric fields and one separator per inspector group", async () => {
+    renderSystem(vi.fn(), true);
+    const rate = await fieldRow("rate");
+    const colour = await fieldRow("birthColor");
+    const group = rate.closest("section")!;
+    const density = rate.closest<HTMLElement>("[style]")!;
+
+    expect(group).toHaveClass("border-t");
+    expect(group).not.toHaveClass("gap-1", "py-1");
+    expect(rate).not.toHaveClass("border-b", "py-0.5");
+    expect(density.style.getPropertyValue("--readout-height")).toBe("1.25rem");
+    expect(density.style.getPropertyValue("--bin-scalar-width")).toBe("5rem");
+    expect(density.style.getPropertyValue("--bin-component-width")).toBe("4rem");
+    expect(await within(rate).findByDisplayValue("3")).toHaveClass(
+      "w-[var(--bin-scalar-width,8rem)]",
+    );
+    expect(await within(colour).findByRole("textbox", { name: "x" })).toHaveClass(
+      "w-[var(--bin-component-width,6rem)]",
+    );
+  });
+
+  it("edits a colour constant without changing its other channels", async () => {
+    renderSystem(vi.fn(), true);
+    const line = within(await fieldRow("birthColor"));
+    const field = await line.findByRole("textbox", { name: "x" });
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "0.5{Enter}");
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
+        document: 9,
+        entry: ENTRY,
+        path: `${BIRTH_COLOR}.${at("constantValue")}`,
+        value: { type: "vector", values: [0.5, 0, 0, 1] },
+      }),
+    );
+  });
+
+  it("rejects invalid numeric text without writing to the document", async () => {
+    renderSystem(vi.fn(), true);
+    const field = within(await fieldRow("lifetime")).getByDisplayValue("2");
+
+    await userEvent.clear(field);
+    await userEvent.type(field, "NaN{Enter}");
+
+    await waitFor(() => expect(field).toHaveAttribute("aria-invalid", "true"));
+    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_patch")).toBe(false);
+  });
+
   it("draws every section of the layout, in its order", () => {
     renderSystem();
 
@@ -623,58 +958,58 @@ describe("ClassView over a particle system", () => {
     expect(screen.getByText("[1]")).toBeInTheDocument();
   });
 
-  it("lists the groups an emitter sets, and no others", async () => {
+  it("lists authored groups and groups supplied by schema defaults", async () => {
     renderSystem();
 
     await screen.findAllByText("Glow");
     for (const group of ["Emission", "Birth", "Position", "Texture", "Render", "Material"]) {
       expect(screen.getAllByText(group).length).toBeGreaterThan(0);
     }
-    expect(screen.queryByText("Scale")).not.toBeInTheDocument();
+    expect(await screen.findByText("Scale")).toBeInTheDocument();
     expect(screen.queryByText("Effects")).not.toBeInTheDocument();
   });
 
   it("opens on the first emitter's first group", async () => {
     renderSystem();
 
-    expect(await screen.findByText("lifetime")).toBeInTheDocument();
+    expect(await screen.findByText("Emitter Lifetime")).toBeInTheDocument();
   });
 
   it("leaves every group drawn when a chip picks one, because picking scrolls rather than filters", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(cardChip("Position"));
 
-    expect(await screen.findByText("SpawnShape")).toBeInTheDocument();
-    expect(screen.getByText("lifetime")).toBeInTheDocument();
-    expect(screen.getByText("blendMode")).toBeInTheDocument();
+    expect(await screen.findByText("Spawn Shape")).toBeInTheDocument();
+    expect(screen.getByText("Emitter Lifetime")).toBeInTheDocument();
+    expect(screen.getByText("Blend Mode")).toBeInTheDocument();
   });
 
   it("draws every group the emitter sets at once, each a section of its own", async () => {
     renderSystem();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
-    expect(screen.getByText("SpawnShape")).toBeInTheDocument();
-    expect(screen.getByText("blendMode")).toBeInTheDocument();
+    expect(screen.getByText("Spawn Shape")).toBeInTheDocument();
+    expect(screen.getByText("Blend Mode")).toBeInTheDocument();
   });
 
   it("folds a section from its own header", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(section("Emission"));
 
-    expect(screen.queryByText("lifetime")).toBeNull();
-    expect(screen.getByText("blendMode")).toBeInTheDocument();
+    expect(screen.queryByText("Emitter Lifetime")).toBeNull();
+    expect(screen.getByText("Blend Mode")).toBeInTheDocument();
   });
 
   it("reads no row of a folded section, and reads them once it opens", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(section("Emission"));
     await user.click(await screen.findByRole("button", { name: /Sparks/ }));
@@ -733,7 +1068,7 @@ describe("ClassView over a particle system", () => {
     });
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("SpawnShape");
+    await screen.findByText("Spawn Shape");
     scrolled.mockClear();
 
     await user.click(cardChip("Position"));
@@ -790,9 +1125,10 @@ describe("The emitter table", () => {
     renderSystem();
     await showTable(userEvent.setup());
 
-    expect(screen.getByText("emitterName")).toBeInTheDocument();
-    expect(screen.getByText("birthColor")).toBeInTheDocument();
-    expect(screen.getByText("SpawnShape")).toBeInTheDocument();
+    expect(screen.getByText("Emitter Name")).toBeInTheDocument();
+    expect(screen.getByText("Initial Color")).toBeInTheDocument();
+    expect(screen.getByTitle("birthColor")).toHaveTextContent("Initial Color");
+    expect(screen.getByText("Spawn Shape")).toBeInTheDocument();
   });
 
   it("draws the class of a pointer field, which is what the row draws", async () => {
@@ -827,7 +1163,7 @@ describe("The shell frame", () => {
 
   it("names the system, the open emitter and its group", async () => {
     renderSystem();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     expect(crumb().getByRole("button", { name: "Smolder_Base_Idle" })).toBeInTheDocument();
     expect(crumb().getByRole("button", { name: /Glow/ })).toBeInTheDocument();
@@ -837,7 +1173,7 @@ describe("The shell frame", () => {
   it("draws the system's own sections from the crumb's first segment", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
     expect(screen.queryByRole("button", { name: "Identity" })).not.toBeInTheDocument();
 
     await user.click(crumb().getByRole("button", { name: "Smolder_Base_Idle" }));
@@ -850,19 +1186,19 @@ describe("The shell frame", () => {
   it("draws every group the emitter sets from the crumb's second segment", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(crumb().getByRole("button", { name: /Glow/ }));
 
-    expect(await screen.findByText("lifetime")).toBeInTheDocument();
-    expect(screen.getByText("SpawnShape")).toBeInTheDocument();
-    expect(screen.getByText("texture")).toBeInTheDocument();
+    expect(await screen.findByText("Emitter Lifetime")).toBeInTheDocument();
+    expect(screen.getByText("Spawn Shape")).toBeInTheDocument();
+    expect(await fieldRow("texture")).toBeInTheDocument();
   });
 
   it("opens a menu of that emitter's groups on the crumb's last segment", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(crumb().getByRole("button", { name: "Emission" }));
 
@@ -879,7 +1215,7 @@ describe("The shell frame", () => {
     });
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
     scrolled.mockClear();
 
     await user.click(crumb().getByRole("button", { name: "Emission" }));
@@ -890,7 +1226,7 @@ describe("The shell frame", () => {
 
   it("holds the crumb's group segment still while the pane scrolls", async () => {
     renderSystem();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
     const sections = ["Emission", "Birth", "Position"].map(
       (title) => section(title).closest("section") as HTMLElement,
     );
@@ -924,12 +1260,12 @@ describe("The shell frame", () => {
     await user.click(card as HTMLElement);
 
     expect(crumb().getByRole("button", { name: /Sparks/ })).toBeInTheDocument();
-    expect(await screen.findByText("blendMode")).toBeInTheDocument();
+    expect(await screen.findByText("Blend Mode")).toBeInTheDocument();
   });
 
   it("holds a place for the curve before a mark targets it", async () => {
     renderSystem();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     expect(screen.getByRole("tab", { name: "Curve" })).toBeInTheDocument();
     expect(screen.getByText("No value targeted")).toBeInTheDocument();
@@ -986,13 +1322,13 @@ describe("The shell frame", () => {
     const shape = within(await fieldRow("SpawnShape"));
 
     await user.click(shape.getByRole("button", { name: "Show fields", expanded: false }));
-    expect(await screen.findByText("radius")).toBeInTheDocument();
+    expect(await screen.findByText("Radius")).toBeInTheDocument();
 
     const [sparks] = await screen.findAllByRole("button", { name: /Sparks/ });
     await user.click(sparks as HTMLElement);
 
-    expect(await screen.findByText("size")).toBeInTheDocument();
-    expect(screen.queryByText("radius")).not.toBeInTheDocument();
+    expect(await screen.findByText("Size")).toBeInTheDocument();
+    expect(screen.queryByText("Radius")).not.toBeInTheDocument();
   });
 
   it("aims the menu at a row under an opened struct, and checks the links it holds", async () => {
@@ -1001,7 +1337,7 @@ describe("The shell frame", () => {
     await showCards(user);
     const shape = within(await fieldRow("SpawnShape"));
     await user.click(shape.getByRole("button", { name: "Show fields", expanded: false }));
-    const radius = await screen.findByText("radius");
+    const radius = await screen.findByText("Radius");
 
     await waitFor(() => expect(declaredAsked()).toContain(NESTED_LINK));
 
@@ -1048,26 +1384,81 @@ describe("The shell frame", () => {
     expect(await screen.findByText("uniform")).toBeInTheDocument();
   });
 
-  it("appends the fields the emitter does not author while Defaults is on", async () => {
+  it("keeps unauthored fields in collapsed sections without requiring a Defaults switch", async () => {
     renderSystem();
-    const user = userEvent.setup();
-    await screen.findByText("lifetime");
-    expect(screen.queryByText("scale0")).toBeNull();
+    await screen.findByText("Emitter Lifetime");
+    expect(section("Scale", false)).toBeInTheDocument();
+    expect(screen.queryByText("Scale over Lifetime")).not.toBeInTheDocument();
+    await userEvent.click(section("Scale", false));
+    expect(await screen.findByText("Scale over Lifetime")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Defaults" })).toBeNull();
+  });
 
-    await user.click(screen.getByRole("switch", { name: "Defaults" }));
+  it("collapses authored constructor values while leaving changed and unknown sections open", async () => {
+    const read = mockInvoke.getMockImplementation()!;
+    mockInvoke.mockImplementation((command, args) => {
+      if (command === "class_schema") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            ...SCHEMA,
+            fields: [
+              ...SCHEMA.fields,
+              {
+                hash: nameHash("blendMode"),
+                name: "blendMode",
+                declared: { kind: "u8", key: null, value: null },
+                classHash: null,
+                defaultValue: "1",
+                revisions: [],
+              },
+            ],
+          },
+        });
+      }
 
-    expect(await screen.findByText("scale0")).toBeInTheDocument();
+      return read(command, args);
+    });
+    renderSystem();
+    await screen.findByText("Emitter Lifetime");
+
+    await waitFor(() => expect(section("Render", false)).toBeInTheDocument());
+    expect(section("Emission")).toBeInTheDocument();
+    expect(section("Position")).toBeInTheDocument();
+    expect(screen.queryByText("Blend Mode")).not.toBeInTheDocument();
+
+    await userEvent.click(section("Render", false));
+    expect(await screen.findByText("Blend Mode")).toBeInTheDocument();
+    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_patch")).toBe(false);
+  });
+
+  it("reveals default-only sections during search and preserves an explicit expansion", async () => {
+    renderSystem();
+    await screen.findByText("Emitter Lifetime");
+    const search = screen.getByRole("textbox", { name: "Search emitter properties" });
+    expect(section("Scale", false)).toBeInTheDocument();
+
+    fireEvent.change(search, { target: { value: "scale0" } });
+    expect(await screen.findByText("Scale over Lifetime")).toBeInTheDocument();
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(section("Scale", false)).toBeInTheDocument();
+
+    await userEvent.click(section("Scale", false));
+    fireEvent.change(search, { target: { value: "birthColor" } });
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(section("Scale")).toBeInTheDocument();
+    expect(screen.getByText("Scale over Lifetime")).toBeInTheDocument();
   });
 
   it("offers Show curve on a row with dynamics and on no row without", async () => {
     renderSystem();
     const user = userEvent.setup();
 
-    await user.pointer({ keys: "[MouseRight]", target: await screen.findByText("rate") });
+    await user.pointer({ keys: "[MouseRight]", target: await screen.findByText("Emission Rate") });
     expect(await screen.findByRole("menuitem", { name: "Show curve" })).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
-    await user.pointer({ keys: "[MouseRight]", target: screen.getByText("lifetime") });
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByText("Emitter Lifetime") });
 
     expect(screen.queryByRole("menuitem", { name: "Show curve" })).not.toBeInTheDocument();
   });
@@ -1075,7 +1466,7 @@ describe("The shell frame", () => {
   it("sends a cell of the inspector its own key, for the tree to reveal", async () => {
     const onShowInProperties = renderSystem();
     const user = userEvent.setup();
-    const cell = await screen.findByText("lifetime");
+    const cell = await screen.findByText("Emitter Lifetime");
 
     await user.pointer({ keys: "[MouseRight]", target: cell });
     await user.click(await screen.findByRole("menuitem", { name: "Show in properties" }));
@@ -1097,11 +1488,11 @@ describe("The shell frame", () => {
     paneWidth = NARROW;
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(screen.getByRole("button", { name: "Emitters" }));
 
-    expect(screen.queryByText("lifetime")).not.toBeInTheDocument();
+    expect(screen.queryByText("Emitter Lifetime")).not.toBeInTheDocument();
   });
 
   it("keeps the open emitter and its group when the pane narrows to the stack", async () => {
@@ -1137,25 +1528,25 @@ describe("A child lane", () => {
   async function selectEmber(user: UserEvent) {
     await user.click(await screen.findByRole("button", { name: "Child systems" }));
     await user.click(await screen.findByRole("button", { name: /Ember/, pressed: false }));
-    await screen.findByText("particleLinger");
+    await screen.findByText("Particle Linger");
   }
 
   it("draws its emitter's fields under a banner naming the child system", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
 
     await selectEmber(user);
 
     expect(screen.getByText(CHILD_NAME)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open system" })).toBeEnabled();
-    expect(screen.queryByText("CustomMaterial")).not.toBeInTheDocument();
+    expect(screen.queryByText("Custom Material")).not.toBeInTheDocument();
   });
 
   it("opens the parent's card on the crumb, whichever card was open", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
     await user.click(await screen.findByRole("button", { name: /Sparks/, pressed: false }));
     expect(crumb().getByRole("button", { name: /Sparks/ })).toBeInTheDocument();
 
@@ -1169,12 +1560,12 @@ describe("A child lane", () => {
   it("leaves the child for its parent from the parent's crumb segment", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
     await selectEmber(user);
 
     await user.click(crumb().getByRole("button", { name: /Glow/ }));
 
-    expect(await screen.findByText("CustomMaterial")).toBeInTheDocument();
+    expect(await screen.findByText("Custom Material")).toBeInTheDocument();
     expect(screen.queryByText("particleLinger")).not.toBeInTheDocument();
     expect(crumb().queryByRole("button", { name: /Ember/ })).not.toBeInTheDocument();
   });
@@ -1182,7 +1573,7 @@ describe("A child lane", () => {
   it("lists the child emitter's animated fields on the curve pane", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
 
     await selectEmber(user);
 
@@ -1204,7 +1595,7 @@ describe("A child lane", () => {
   it("shows the parent's card open while its child is selected", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
     await selectEmber(user);
 
     await fromPanesMenu(user, "Emitters");
@@ -1215,7 +1606,7 @@ describe("A child lane", () => {
   it("names no parent on the crumb once the filter hides it", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
     await selectEmber(user);
 
     await user.type(screen.getByRole("textbox", { name: "Filter emitters by name" }), "Spark");
@@ -1228,7 +1619,7 @@ describe("A child lane", () => {
   it("offers a child row's own menu, without revealing it in this object's Properties", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
     await selectEmber(user);
 
     await user.pointer({ keys: "[MouseRight]", target: await fieldRow("rate") });
@@ -1240,7 +1631,7 @@ describe("A child lane", () => {
   it("checks the child's own paths, as the system's rows are checked", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("CustomMaterial");
+    await screen.findByText("Custom Material");
 
     await selectEmber(user);
 
@@ -1262,7 +1653,7 @@ describe("The shell's panes", () => {
 
   it("draws the preview, the inspector, the timeline and the curve, each in a panel of its own", async () => {
     renderSystem();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     for (const pane of ["Preview", "Inspector", "Timeline", "Curve"]) {
       expect(paneTab(pane)).toBeInTheDocument();
@@ -1282,7 +1673,7 @@ describe("The shell's panes", () => {
   it("closes a pane from its own tab", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(screen.getByRole("button", { name: "Close Curve" }));
 
@@ -1292,7 +1683,7 @@ describe("The shell's panes", () => {
   it("reopens the preview from the Panes menu", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
     await fromPanesMenu(user, "Preview");
     expect(paneTab("Preview")).not.toBeInTheDocument();
 
@@ -1304,7 +1695,7 @@ describe("The shell's panes", () => {
   it("puts every pane back from Reset layout", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
     await fromPanesMenu(user, "Preview");
     await fromPanesMenu(user, "Curve");
 
@@ -1318,7 +1709,7 @@ describe("The shell's panes", () => {
   it("keeps the inspector aimed where the crumb left it", async () => {
     renderSystem();
     const user = userEvent.setup();
-    await screen.findByText("lifetime");
+    await screen.findByText("Emitter Lifetime");
 
     await user.click(
       within(screen.getByRole("navigation", { name: "What the inspector draws" })).getByRole(
@@ -1398,7 +1789,7 @@ describe("ClassView over sixty emitters", () => {
 it("keeps the shell mounted while a hidden document reports zero width", async () => {
   paneWidth = WIDE;
   renderSystem();
-  await screen.findByText("lifetime");
+  await screen.findByText("Emitter Lifetime");
   const shell = document.querySelector('[data-ui="ClassView:shell"]');
   expect(shell).not.toBeNull();
   await resizeTo(0);

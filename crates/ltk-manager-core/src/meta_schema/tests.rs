@@ -131,6 +131,39 @@ fn field<'a>(card: &'a ClassSchema, name: &str) -> &'a FieldSchema {
 }
 
 #[test]
+fn class_cards_include_inherited_constructor_fields() {
+    let schema = derived_schema();
+    let card = schema.class_schema(DERIVED, Some(AFTER_RETYPE)).unwrap();
+
+    assert_eq!(
+        field(&card, "mOffset").declared,
+        Some(KindShape::bare(PropertyKind::Vector2))
+    );
+}
+
+#[test]
+fn constructor_defaults_distinguish_null_from_missing() {
+    let null: PublishedRevision = serde_json::from_str(r#"{"from":1,"default":null}"#).unwrap();
+    let missing: PublishedRevision = serde_json::from_str(r#"{"from":1}"#).unwrap();
+
+    assert_eq!(null.default, Some(serde_json::Value::Null));
+    assert_eq!(missing.default, None);
+}
+
+#[test]
+fn emitter_scale_keeps_its_property_specific_constructor_default() {
+    let schema = MetaSchema::shipped();
+    let card = schema.class_schema(BinHash(0x09cd_e442), None).unwrap();
+    let scale = field(&card, "birthScale0");
+    let value: serde_json::Value =
+        serde_json::from_str(scale.default_value.as_ref().unwrap()).unwrap();
+
+    assert_eq!(scale.class_hash.as_deref(), Some("0x68dc32b6"));
+    assert_eq!(value["constantValue"], serde_json::json!([1.0, 1.0, 1.0]));
+    assert_eq!(value["dynamics"], serde_json::Value::Null);
+}
+
+#[test]
 fn a_class_answers_its_fields_named_first_with_their_types_at_a_build() {
     let card = schema()
         .class_schema(FLOAT_TEXT_ICON_DATA, Some(AFTER_RETYPE))

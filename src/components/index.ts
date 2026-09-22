@@ -25,6 +25,7 @@ export * from "./FormField";
 export * from "./HintIcon";
 export * from "./HoverCard";
 export * from "./icons";
+export * from "./InputDefaultContext";
 export * from "./Kbd";
 export * from "./ListEditor";
 export * from "./MarkdownView";

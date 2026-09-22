@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { createContext, use, useCallback, useMemo, useRef, useState } from "react";
+import { createContext, use, useCallback, useMemo, useRef } from "react";
 
 import {
   type AppError,
@@ -11,8 +11,6 @@ import {
 } from "@/lib/tauri";
 import type { Result } from "@/utils/result";
 
-import { assetKey } from "../../../preview/utils/assetRef";
-import { queueForSave, noteRefused } from "../../../state";
 import { type AddSuggestion, fieldWire, propertyOf, shapeOf } from "../utils/addProperty";
 import {
   type AddLine,
@@ -32,6 +30,7 @@ import {
 } from "../utils/binRows";
 import type { TypedLeaf } from "../utils/leafText";
 import type { RowEdit } from "../utils/rowEdits";
+import { useLeafEdit } from "./useLeafEdit";
 
 /** The kinds whose new row takes focus in a field, where a value is typed straight after the add. */
 const FOCUSED_KINDS: ReadonlySet<string> = new Set([
@@ -68,8 +67,6 @@ const DOCUMENT_READS = [
   ["skin-graph"],
   ["spell"],
 ] as const;
-
-const NO_REFUSALS: ReadonlyMap<string, AppError> = new Map();
 
 /** How the rows of an editable tree take an edit. "Editing" in docs/ux/BIN_EDITOR.md. */
 export interface BinEdit {
@@ -153,25 +150,9 @@ export function useBinEditor(
   focus: TreeFocus,
 ): BinEdit | null {
   const invalidate = useInvalidateBinReads();
-  const [refused, setRefused] = useState(NO_REFUSALS);
+  const { commit, refused, mark, landed } = useLeafEdit(document, asset, invalidate);
   /* The value added last and the line it came from, which Enter on the value returns to. */
   const returns = useRef<{ from: string; to: string } | null>(null);
-  const key = assetKey(asset);
-
-  const mark = useCallback((at: string, error: AppError | null) => {
-    setRefused((previous) => {
-      if (error === null && !previous.has(at)) return previous;
-      const next = new Map(previous);
-      if (error === null) next.delete(at);
-      else next.set(at, error);
-      return next;
-    });
-  }, []);
-
-  const landed = useCallback(() => {
-    queueForSave(key, document);
-    invalidate();
-  }, [document, invalidate, key]);
 
   /* Focus the value added under `added`, and let Enter on it return to `line`. */
   const focusAdded = useCallback(
@@ -184,26 +165,6 @@ export function useBinEditor(
       returns.current = line === null ? null : { from: added, to: line };
     },
     [focus],
-  );
-
-  const commit = useCallback(
-    (row: BinRow, typed: TypedLeaf) => {
-      const at = rowKey(row);
-      if (!typed.ok) {
-        mark(at, { code: "BIN_EDIT_REJECTED", address: at, rejection: typed.rejection });
-        noteRefused(key);
-        return;
-      }
-      void api.bin.patch(document, row.entry, row.path, typed.leaf).then((result) => {
-        mark(at, result.ok ? null : result.error);
-        if (!result.ok) {
-          noteRefused(key);
-          return;
-        }
-        landed();
-      });
-    },
-    [document, key, landed, mark],
   );
 
   const add = useCallback(

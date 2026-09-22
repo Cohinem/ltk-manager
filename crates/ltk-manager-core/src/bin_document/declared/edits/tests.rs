@@ -5,7 +5,7 @@ use ltk_meta::{Bin, BinObject};
 use super::super::tests::{Game, SKIN, h, manifest, project};
 use super::super::{DeclareContext, DeclaredSign};
 use super::*;
-use crate::bin_document::{LeafValue, NewItem};
+use crate::bin_document::{LeafValue, NewItem, ValueEdit};
 use crate::meta_schema::{self, PatchSchema};
 use crate::problems::GameBuild;
 
@@ -133,6 +133,228 @@ fn field(name: &str) -> String {
 
 fn schema() -> std::sync::Arc<crate::meta_schema::MetaSchema> {
     meta_schema::shared(Some(BUILD))
+}
+
+fn force_edits() -> Vec<ValueEdit> {
+    vec![
+        ValueEdit::EnsurePointer {
+            path: String::new(),
+            class: "VfxFieldCollectionDefinitionData".to_owned(),
+        },
+        ValueEdit::EnsureProperty {
+            path: String::new(),
+            field: field("fieldAccelerationDefinitions"),
+        },
+        ValueEdit::InsertItem {
+            path: field("fieldAccelerationDefinitions"),
+            item: NewItem {
+                index: None,
+                key: None,
+                class: Some("VfxFieldAccelerationDefinitionData".to_owned()),
+            },
+        },
+    ]
+}
+
+const FORCE_NAMES: &[&str] = &[
+    "fieldCollectionDefinition",
+    "VfxFieldCollectionDefinitionData",
+    "fieldAccelerationDefinitions",
+    "VfxFieldAccelerationDefinitionData",
+    "acceleration",
+    "ValueVector3",
+    "constantValue",
+];
+
+#[test]
+fn a_nested_property_batch_is_one_undoable_declaration() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared_naming(dir.path(), FORCE_NAMES);
+    let holder = format!("{}[0]", field("complexEmitterDefinitionData"));
+
+    document
+        .edit_property(
+            h(SKIN),
+            &holder,
+            &field("fieldCollectionDefinition"),
+            force_edits(),
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+    let first = manifest(dir.path(), "base");
+    assert!(first.contains("fieldCollectionDefinition"), "{first}");
+    assert!(
+        first.contains("VfxFieldAccelerationDefinitionData"),
+        "{first}"
+    );
+
+    assert!(document.undo().unwrap());
+    assert!(!dir.path().join("content/base/game_data.yaml").exists());
+    assert!(!document.undo().unwrap());
+    assert!(document.redo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), first);
+
+    document
+        .edit_property(
+            h(SKIN),
+            &holder,
+            &field("fieldCollectionDefinition"),
+            force_edits(),
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+    let second = manifest(dir.path(), "base");
+    assert_eq!(
+        second.matches("VfxFieldAccelerationDefinitionData").count(),
+        2
+    );
+    assert!(document.undo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), first);
+}
+
+#[test]
+fn an_invalid_nested_batch_leaves_no_property_or_declaration() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared_naming(dir.path(), FORCE_NAMES);
+    let holder = format!("{}[0]", field("complexEmitterDefinitionData"));
+    let mut edits = force_edits();
+    edits.push(ValueEdit::SetLeaf {
+        path: String::new(),
+        value: LeafValue::Bool { value: true },
+    });
+
+    assert!(
+        document
+            .edit_property(
+                h(SKIN),
+                &holder,
+                &field("fieldCollectionDefinition"),
+                edits,
+                schema().at(Some(BUILD))
+            )
+            .is_err()
+    );
+    assert!(!dir.path().join("content/base/game_data.yaml").exists());
+    assert!(!document.undo().unwrap());
+    assert!(
+        document
+            .value_at(
+                h(SKIN),
+                &format!("{holder}.{}", field("fieldCollectionDefinition"))
+            )
+            .is_none()
+    );
+}
+
+#[test]
+fn a_missing_nested_constant_is_created_without_replacing_its_force() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared_naming(dir.path(), FORCE_NAMES);
+    let holder = format!("{}[0]", field("complexEmitterDefinitionData"));
+    document
+        .edit_property(
+            h(SKIN),
+            &holder,
+            &field("fieldCollectionDefinition"),
+            force_edits(),
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+    let first = manifest(dir.path(), "base");
+    let force = format!(
+        "{holder}.{}.{}[0]",
+        field("fieldCollectionDefinition"),
+        field("fieldAccelerationDefinitions")
+    );
+
+    document
+        .edit_property(
+            h(SKIN),
+            &force,
+            &field("acceleration"),
+            vec![
+                ValueEdit::EnsureProperty {
+                    path: String::new(),
+                    field: field("constantValue"),
+                },
+                ValueEdit::SetLeaf {
+                    path: field("constantValue"),
+                    value: LeafValue::Vector {
+                        values: vec![1.0, 2.0, 3.0],
+                    },
+                },
+            ],
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+
+    let saved = manifest(dir.path(), "base");
+    assert!(saved.contains("constantValue: [1.0, 2.0, 3.0]"), "{saved}");
+    document
+        .set_leaf(
+            h(SKIN),
+            &format!(
+                "{force}.{}.{}",
+                field("acceleration"),
+                field("constantValue")
+            ),
+            LeafValue::Vector {
+                values: vec![4.0, 5.0, 6.0],
+            },
+        )
+        .unwrap();
+    assert!(manifest(dir.path(), "base").contains("constantValue: [4.0, 5.0, 6.0]"));
+    assert!(document.undo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), saved);
+
+    document.remove_item(h(SKIN), &force).unwrap();
+    assert!(!manifest(dir.path(), "base").contains("VfxFieldAccelerationDefinitionData"));
+    assert!(document.undo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), saved);
+
+    assert!(document.undo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), first);
+}
+
+#[test]
+fn a_raw_property_batch_retains_atomic_undo_and_redo() {
+    let mut document = BinDocument::parse(game_bin()).unwrap();
+    let holder = format!("{}[0]", field("complexEmitterDefinitionData"));
+    let scope = format!("{holder}.{}", field("fieldCollectionDefinition"));
+    document
+        .edit_property(
+            h(SKIN),
+            &holder,
+            &field("fieldCollectionDefinition"),
+            force_edits(),
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+    let first = document.value_at(h(SKIN), &scope).cloned().unwrap();
+
+    assert!(document.undo().unwrap());
+    assert!(document.value_at(h(SKIN), &scope).is_none());
+    assert!(!document.undo().unwrap());
+    assert!(document.redo().unwrap());
+    assert_eq!(document.value_at(h(SKIN), &scope), Some(&first));
+
+    let mut edits = force_edits();
+    edits.push(ValueEdit::SetLeaf {
+        path: String::new(),
+        value: LeafValue::Bool { value: true },
+    });
+    assert!(
+        document
+            .edit_property(
+                h(SKIN),
+                &holder,
+                &field("fieldCollectionDefinition"),
+                edits,
+                schema().at(Some(BUILD))
+            )
+            .is_err()
+    );
+    assert_eq!(document.value_at(h(SKIN), &scope), Some(&first));
 }
 
 /// The body the manifest holds under `entry`, one line per key.

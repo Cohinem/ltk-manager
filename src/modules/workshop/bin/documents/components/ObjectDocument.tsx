@@ -262,6 +262,7 @@ function OpenObject({
                   <ClassView
                     document={handle.document}
                     asset={asset}
+                    editable={layout.shell === "vfx" && handle.readOnly === null}
                     roots={roots}
                     classHash={object.classHash}
                     layout={layout}

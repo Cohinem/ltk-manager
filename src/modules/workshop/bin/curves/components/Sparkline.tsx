@@ -38,7 +38,9 @@ export function Sparkline({
          than on it. */
       className={twMerge(
         "shrink-0 text-surface-400",
-        wide ? "h-5 w-48 rounded-sm border border-surface-veil bg-surface-950/40" : "h-3.5 w-10",
+        wide
+          ? "h-5 w-48 max-w-full rounded-sm border border-surface-veil bg-surface-950/40"
+          : "h-3.5 w-10",
       )}
     >
       {plot.lines.map((points, at) => (

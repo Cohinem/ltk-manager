@@ -38,6 +38,7 @@ migrated![
     bin_read,
     bin_find,
     bin_patch,
+    bin_edit_property,
     bin_save,
     bin_reload,
     bin_undo,

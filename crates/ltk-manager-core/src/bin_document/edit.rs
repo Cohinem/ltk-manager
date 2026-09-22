@@ -26,6 +26,12 @@ pub const UNDO_DEPTH: usize = 200;
 /// One edit as an undo stack holds it. Applying one answers the edit that reverts it.
 #[derive(Debug, Clone, PartialEq)]
 pub(super) enum Edit {
+    /// Replace an existing property's complete value.
+    ReplaceProperty {
+        entry: BinHash,
+        path: String,
+        value: PropertyValueEnum,
+    },
     /// Set the leaf at `path` to `value`.
     Leaf {
         entry: BinHash,
@@ -343,6 +349,7 @@ impl BinDocument {
     /// stacks are left alone.
     fn apply(&mut self, edit: Edit) -> Result<Edit, BinDocumentError> {
         match edit {
+            Edit::ReplaceProperty { entry, path, value } => self.swap_property(entry, &path, value),
             Edit::Leaf { entry, path, value } => {
                 let held = self.apply_leaf(entry, &path, value)?;
                 Ok(Edit::Leaf {

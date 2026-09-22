@@ -21,6 +21,7 @@ import { RowValue } from "../../../tree/components/BinRow";
 import { rowKey } from "../../../tree/utils/binRows";
 import { useValueMarks, ValueMarksContext } from "../../../values/hooks/useValueMarks";
 import { useEmitters } from "../state/emitterChoice";
+import { emitterLabel } from "../utils/emitterLabels";
 
 /** One column of the emitter table: the field it draws, how wide, and in what cell. */
 interface Column {
@@ -33,12 +34,7 @@ interface Column {
 /** The link under the custom material, which is the object that column draws. */
 const MATERIAL = nameHash("Material");
 
-/**
- * What each emitter draws, in the order a reader scans them.
- *
- * The header carries the field's own name rather than a word of its own, because a
- * column is one property of the emitter and the tree names it the same way.
- */
+/** Emitter columns in authoring order. */
 const COLUMNS: readonly Column[] = [
   {
     field: "emitterName",
@@ -113,7 +109,12 @@ export function EmitterTable({ section, pages, view }: WidgetProps) {
             columns={ADDRESSED.map((column) => ({
               id: column.field,
               header: () => (
-                <span className={twMerge("shrink-0 truncate", column.width)}>{column.field}</span>
+                <span
+                  title={column.field}
+                  className={twMerge("shrink-0 truncate font-sans", column.width)}
+                >
+                  {emitterLabel(column.hash, column.field)}
+                </span>
               ),
               cell: ({ row }) => {
                 const fields = fieldsOf(pages.get(row.id));

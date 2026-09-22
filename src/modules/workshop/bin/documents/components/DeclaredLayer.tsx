@@ -8,7 +8,7 @@ import { layerTitle } from "../../../documents/utils/contentDocument";
 import { LayerGlyph } from "../../../layers/components/LayerGlyph";
 import { useProjectContext } from "../../../projects/state/ProjectContext";
 import { useSelectedLayerName, useSelectLayer } from "../../../state";
-import { useDeclareInto } from "../hooks/useDeclared";
+import { useDeclareInto, useDeclaredMark, useRowDiagnostics } from "../hooks/useDeclared";
 import { diagnosticSeverity, diagnosticText } from "../utils/declaredDiagnostics";
 
 interface DeclaredLayerChipProps {
@@ -119,6 +119,19 @@ interface DeclaredRowMarkProps {
   mark: DeclaredMark;
   /** The layer the mark's declaration is in. */
   layer: string;
+}
+
+/** A field's declaration marker and apply diagnostics. */
+export function DeclaredRowState({ rowKey }: { rowKey: string }) {
+  const declared = useDeclaredMark(rowKey);
+  const diagnostics = useRowDiagnostics(rowKey);
+
+  return (
+    <>
+      {declared !== null && <DeclaredRowMark mark={declared.mark} layer={declared.layer} />}
+      <DeclaredDiagnosticsMark diagnostics={diagnostics} />
+    </>
+  );
 }
 
 /** The mark on a row a declaration of the chosen layer touches, with the game's value on hover. */

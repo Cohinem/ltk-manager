@@ -6,6 +6,7 @@ import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 import { HostedContent, PortalSlot, usePortalHosts } from "@/modules/editor";
 
 import { useCurveFollow } from "../../curves/utils/curveFollow";
+import { DeclaredRowsContext, useDeclaredRows } from "../../documents/hooks/useDeclared";
 import {
   LinkAssetContext,
   LinkOpenContext,
@@ -21,6 +22,8 @@ import { nameHash } from "../../shared/utils/binHash";
 import { preloadSkinViewport } from "../../skin/components/SkinPreview";
 import { SkinChoiceContext, useSkinChoice } from "../../skin/state/skinChoice";
 import { BinContextMenu } from "../../tree/components/BinContextMenu";
+import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
+import { LeafEditContext, useLeafEdit } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
 import { createRowRegistry, RowRegistryContext } from "../../tree/state/rowRegistry";
 import { rowKey, type RowLine } from "../../tree/utils/binRows";
@@ -62,6 +65,7 @@ interface ClassViewProps {
   document: BinDocumentId;
   /** What the document was read from, which the layer side of a `file` link looks in. */
   asset: AssetRef;
+  editable?: boolean;
   /** The object's properties at depth zero, which the open already answered. */
   roots: readonly BinRow[];
   /** The class the roots are properties of, which the layout was keyed on. */
@@ -87,6 +91,7 @@ interface ClassViewProps {
 export function ClassView({
   document,
   asset,
+  editable = false,
   roots,
   classHash,
   layout,
@@ -95,6 +100,9 @@ export function ClassView({
   onShowInProperties,
   onFrame,
 }: ClassViewProps) {
+  const invalidate = useInvalidateBinReads();
+  const edits = useLeafEdit(document, asset, invalidate);
+  const declared = useDeclaredRows(document);
   const placed = useMemo(() => placeRows(roots, layout), [roots, layout]);
   const pages = useLayoutRead(document, placed);
 
@@ -200,91 +208,97 @@ export function ClassView({
   }
 
   return (
-    <LinkAssetContext value={asset}>
-      <ObjectNameContext value={objectName}>
-        <LinkTargetsContext value={linkTargets}>
-          <LinkOpenContext value={linkOpen}>
-            <ValueMarksContext value={marks}>
-              <RowDocumentContext value={document}>
-                <RowRegistryContext value={nested.registry}>
-                  <EmitterChoiceContext value={emitters}>
-                    <SkinChoiceContext value={skinChoice}>
-                      <RunHost drawable={drawable} document={document} entry={entry}>
-                        <MapSceneHost enabled={map} near={asset} source={mapSource}>
-                          <ContextMenu.Root>
-                            <ContextMenu.Trigger
-                              ref={measure}
-                              data-ui="ClassView"
-                              className="flex min-h-0 flex-1 flex-col select-none"
-                              onContextMenu={handleContextMenu}
-                            >
-                              {frame === "stack" && (
-                                <Stack
-                                  placed={placed}
-                                  pages={pages}
-                                  view={view}
-                                  hero={layout.shell !== undefined && <Hero>{previewSlot}</Hero>}
-                                />
-                              )}
-                              {frame === "shell" && layout.shell === "vfx" && (
-                                <VfxShell
-                                  placed={placed}
-                                  pages={pages}
-                                  view={view}
-                                  system={system}
-                                  drawable={drawable}
-                                  preview={previewSlot}
-                                />
-                              )}
-                              {frame === "shell" && map && (
-                                <MapShell
-                                  placed={placed}
-                                  pages={pages}
-                                  view={view}
-                                  entry={roots[0]?.entry ?? null}
-                                  preview={previewSlot}
-                                />
-                              )}
-                              {frame === "shell" && skin && (
-                                <SkinShell
-                                  placed={placed}
-                                  pages={pages}
-                                  view={view}
-                                  entry={roots[0]?.entry ?? null}
-                                  preview={previewSlot}
-                                />
-                              )}
-                              {layout.shell !== undefined && (
-                                <HostedContent host={previewHost}>
-                                  <FramePreview
-                                    kind={layout.shell}
-                                    view={view}
-                                    entry={roots[0]?.entry ?? null}
-                                    drawable={drawable}
-                                  />
-                                </HostedContent>
-                              )}
-                            </ContextMenu.Trigger>
+    <DeclaredRowsContext value={declared}>
+      <LeafEditContext value={editable ? edits : null}>
+        <LinkAssetContext value={asset}>
+          <ObjectNameContext value={objectName}>
+            <LinkTargetsContext value={linkTargets}>
+              <LinkOpenContext value={linkOpen}>
+                <ValueMarksContext value={marks}>
+                  <RowDocumentContext value={document}>
+                    <RowRegistryContext value={nested.registry}>
+                      <EmitterChoiceContext value={emitters}>
+                        <SkinChoiceContext value={skinChoice}>
+                          <RunHost drawable={drawable} document={document} entry={entry}>
+                            <MapSceneHost enabled={map} near={asset} source={mapSource}>
+                              <ContextMenu.Root>
+                                <ContextMenu.Trigger
+                                  ref={measure}
+                                  data-ui="ClassView"
+                                  className="flex min-h-0 flex-1 flex-col select-none"
+                                  onContextMenu={handleContextMenu}
+                                >
+                                  {frame === "stack" && (
+                                    <Stack
+                                      placed={placed}
+                                      pages={pages}
+                                      view={view}
+                                      hero={
+                                        layout.shell !== undefined && <Hero>{previewSlot}</Hero>
+                                      }
+                                    />
+                                  )}
+                                  {frame === "shell" && layout.shell === "vfx" && (
+                                    <VfxShell
+                                      placed={placed}
+                                      pages={pages}
+                                      view={view}
+                                      system={system}
+                                      drawable={drawable}
+                                      preview={previewSlot}
+                                    />
+                                  )}
+                                  {frame === "shell" && map && (
+                                    <MapShell
+                                      placed={placed}
+                                      pages={pages}
+                                      view={view}
+                                      entry={roots[0]?.entry ?? null}
+                                      preview={previewSlot}
+                                    />
+                                  )}
+                                  {frame === "shell" && skin && (
+                                    <SkinShell
+                                      placed={placed}
+                                      pages={pages}
+                                      view={view}
+                                      entry={roots[0]?.entry ?? null}
+                                      preview={previewSlot}
+                                    />
+                                  )}
+                                  {layout.shell !== undefined && (
+                                    <HostedContent host={previewHost}>
+                                      <FramePreview
+                                        kind={layout.shell}
+                                        view={view}
+                                        entry={roots[0]?.entry ?? null}
+                                        drawable={drawable}
+                                      />
+                                    </HostedContent>
+                                  )}
+                                </ContextMenu.Trigger>
 
-                            {/* Properties is this object's tree, which holds no child system's row. */}
-                            <BinContextMenu
-                              line={menuLine}
-                              objectName={objectName}
-                              onShowInProperties={
-                                menuLine?.row.entry === entry ? onShowInProperties : undefined
-                              }
-                            />
-                          </ContextMenu.Root>
-                        </MapSceneHost>
-                      </RunHost>
-                    </SkinChoiceContext>
-                  </EmitterChoiceContext>
-                </RowRegistryContext>
-              </RowDocumentContext>
-            </ValueMarksContext>
-          </LinkOpenContext>
-        </LinkTargetsContext>
-      </ObjectNameContext>
-    </LinkAssetContext>
+                                {/* Properties is this object's tree, which holds no child system's row. */}
+                                <BinContextMenu
+                                  line={menuLine}
+                                  objectName={objectName}
+                                  onShowInProperties={
+                                    menuLine?.row.entry === entry ? onShowInProperties : undefined
+                                  }
+                                />
+                              </ContextMenu.Root>
+                            </MapSceneHost>
+                          </RunHost>
+                        </SkinChoiceContext>
+                      </EmitterChoiceContext>
+                    </RowRegistryContext>
+                  </RowDocumentContext>
+                </ValueMarksContext>
+              </LinkOpenContext>
+            </LinkTargetsContext>
+          </ObjectNameContext>
+        </LinkAssetContext>
+      </LeafEditContext>
+    </DeclaredRowsContext>
   );
 }

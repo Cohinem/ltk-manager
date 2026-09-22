@@ -15,7 +15,7 @@ use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{
     AddableFields, BinDocumentHandle, BinDocumentId, BinDocuments, BinFindResult, BinRow, BinRows,
     ClassChoice, DeclareContext, DeclaredState, GameCopy, LeafValue, NewItem, NewProperty,
-    ProjectNames, RowDeclaration, RowNames,
+    ProjectNames, RowDeclaration, RowNames, ValueEdit,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
@@ -218,6 +218,36 @@ pub async fn bin_patch(
         Ok(app_handle
             .state::<BinDocuments>()
             .patch(document, entry, &path, value)?)
+    })
+    .await
+}
+
+/// Edit one property's subtree as one undoable declaration or binary change.
+///
+/// # Errors
+///
+/// Refuses closed or read-only documents, invalid edits, and failed declaration writes.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_edit_property(
+    document: BinDocumentId,
+    entry: String,
+    holder: String,
+    field: String,
+    edits: Vec<ValueEdit>,
+    app_handle: AppHandle,
+) -> IpcResult<()> {
+    off_thread(move || {
+        let entry = parse_entry(&entry)?;
+        let (schema, build) = installed_schema(&app_handle);
+        Ok(app_handle.state::<BinDocuments>().edit_property(
+            document,
+            entry,
+            &holder,
+            &field,
+            edits,
+            schema.at(build),
+        )?)
     })
     .await
 }

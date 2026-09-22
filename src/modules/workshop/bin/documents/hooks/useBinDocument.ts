@@ -44,22 +44,27 @@ export function useBinDocument(
   asset: AssetRef,
   entry: string | null = null,
 ): { state: BinOpenState; reopen: () => void } {
-  const key = `${assetKey(asset)}:${entry ?? ""}`;
   /* A game chunk opened inside a project declares into it (ADR-0042). */
   const project = useOptionalProjectContext()?.path;
   const opened =
     asset.kind === "gameChunk" && project !== undefined ? { ...asset, project } : asset;
+  const declarationProject = opened.kind === "gameChunk" ? opened.project : undefined;
+  const key = `${declarationProject ?? ""}:${assetKey(asset)}:${entry ?? ""}`;
+
   const latest = useRef({ asset: opened, entry });
   latest.current = { asset: opened, entry };
 
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
+  const heldKey = useRef(key);
 
   /* Keyed by what the reference names. A new object for the same asset is not a reopen. */
   useEffect(() => {
     let live = true;
     let opened: BinDocumentId | null = null;
-    setState((previous) => (previous.status === "open" ? previous : { status: "opening" }));
+    const same = heldKey.current === key;
+    heldKey.current = key;
+    setState((previous) => (same && previous.status === "open" ? previous : { status: "opening" }));
 
     void api.bin.open(latest.current.asset, latest.current.entry).then((result) => {
       if (!live) {

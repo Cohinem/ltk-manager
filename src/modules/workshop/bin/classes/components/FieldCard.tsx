@@ -14,6 +14,8 @@ interface FieldCardProps {
   fieldHash: string;
   /** The field as the tables name it, or its hash where no table does. */
   name: string;
+  /** Creator-facing trigger text. Hover details retain the raw name and hash. */
+  label?: string;
   /** No table names the field, and `name` is its hash. */
   unnamed: boolean;
   declared: DeclaredKind | null;
@@ -46,6 +48,7 @@ export function FieldCard({
   classHash,
   fieldHash,
   name,
+  label = name,
   unnamed,
   declared,
   defaultValue = null,
@@ -55,7 +58,7 @@ export function FieldCard({
 }: FieldCardProps) {
   return (
     <HoverCard
-      label={name}
+      label={label}
       className="w-72"
       content={
         <FieldCardBody
@@ -76,8 +79,8 @@ export function FieldCard({
           triggerClassName,
         )}
       >
-        {cut && <CutText text={name} />}
-        {!cut && name}
+        {cut && <CutText text={label} />}
+        {!cut && label}
       </span>
     </HoverCard>
   );

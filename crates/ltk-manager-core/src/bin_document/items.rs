@@ -479,6 +479,7 @@ fn landing(edit: &Edit) -> &str {
         | Edit::SetKey { path, .. }
         | Edit::SetPointer { path, .. }
         | Edit::Leaf { path, .. }
+        | Edit::ReplaceProperty { path, .. }
         | Edit::RemoveProperty { path, .. } => path,
         Edit::InsertItem { holder, .. } | Edit::InsertProperty { holder, .. } => holder,
     }

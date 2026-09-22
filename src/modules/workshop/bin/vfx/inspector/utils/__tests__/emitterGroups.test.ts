@@ -85,6 +85,8 @@ function declared(name: string): FieldSchema {
     hash: nameHash(name),
     name,
     declared: { kind: "f32", key: null, value: null },
+    classHash: null,
+    defaultValue: "0",
     revisions: [],
   };
 }

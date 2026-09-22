@@ -78,6 +78,7 @@ import type {
   LeafValue,
   NewItem,
   NewProperty,
+  ValueEdit,
   ProjectTextFile,
   ReferenceQuery,
   Revision,
@@ -133,6 +134,7 @@ export type {
   RowDeclaration,
   RowNode,
   SkipReason,
+  ValueEdit,
 } from "@/lib/bindings.gen";
 // The object index's types, per ADR-0029.
 export type {
@@ -514,6 +516,13 @@ export const api = {
       commands.binFind(document, entry, query).then(toResult),
     patch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) =>
       commands.binPatch(document, entry, path, value).then(toResult),
+    editProperty: (
+      document: BinDocumentId,
+      entry: string,
+      holder: string,
+      field: string,
+      edits: ValueEdit[],
+    ) => commands.binEditProperty(document, entry, holder, field, edits).then(toResult),
     save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
     reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
     undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),

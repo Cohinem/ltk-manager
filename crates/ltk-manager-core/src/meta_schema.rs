@@ -96,10 +96,15 @@ struct PublishedRevision {
     /// [`Shape`] reads.
     #[serde(default)]
     r#type: Vec<String>,
-    /// The value the game constructs the field with. Absent, and `null`, both read as
-    /// none.
-    #[serde(default)]
+    /// The constructor value, including an explicitly null default.
+    #[serde(default, deserialize_with = "present_default")]
     default: Option<serde_json::Value>,
+}
+
+fn present_default<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<serde_json::Value>, D::Error> {
+    serde_json::Value::deserialize(deserializer).map(Some)
 }
 
 /// The database this build ships, so a check works offline and before a sync.
@@ -357,6 +362,10 @@ pub struct FieldSchema {
     /// The type at the card's build. Absent where no revision covers the build, and
     /// where the revision names a type this build cannot map.
     pub declared: Option<KindShape>,
+    /// The declared class of an embed, pointer, or container item.
+    pub class_hash: Option<String>,
+    /// The constructor default as lossless JSON, absent when the schema has none.
+    pub default_value: Option<String>,
     /// Oldest first.
     pub revisions: Vec<FieldRevision>,
 }
@@ -671,9 +680,37 @@ impl MetaSchema {
                     .at(build)
                     .and_then(|revision| revision.shape)
                     .map(KindShape::from),
+                class_hash: property
+                    .at(build)
+                    .and_then(|revision| revision.class)
+                    .map(hex),
+                default_value: property
+                    .at(build)
+                    .and_then(|revision| revision.default.as_ref())
+                    .map(ToString::to_string),
                 revisions: property.revisions.iter().map(FieldRevision::from).collect(),
             })
             .collect();
+
+        for inherited in self.declared_fields(class, described) {
+            if fields
+                .iter()
+                .any(|field| field.hash == hex(inherited.field))
+            {
+                continue;
+            }
+
+            let property = &self.classes[&inherited.owner].properties[&inherited.field];
+            fields.push(FieldSchema {
+                hash: hex(inherited.field),
+                name: inherited.name.map(str::to_owned),
+                declared: Some(inherited.shape.into()),
+                class_hash: inherited.class.map(hex),
+                default_value: inherited.default.map(ToString::to_string),
+                revisions: property.revisions.iter().map(FieldRevision::from).collect(),
+            });
+        }
+
         fields.sort_by_cached_key(|field| {
             (
                 field.name.is_none(),

@@ -24,6 +24,9 @@
       }
     }
   ],
+  "common_number_decrease_action": "Decrease value",
+  "common_number_increase_action": "Increase value",
+  "common_number_step_hint": "Up/Down to step. Ctrl/Cmd for fine steps, Shift for coarse steps. Enter to apply, Escape to cancel.",
   "common_path_open_action": "Open in file manager",
   "common_retry_action": "Retry",
   "common_save_action": "Save",
