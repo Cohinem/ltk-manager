@@ -7,6 +7,7 @@ import type {
   CameraPreset,
   PlacementMode,
   PostEffects,
+  PreviewShape,
   SunOverride,
   ViewMode,
 } from "@/modules/viewport";
@@ -76,6 +77,12 @@ interface PreviewDisplay {
   previewPlacedOn: MapPath | null;
   /** The subject's yaw in radians. */
   previewFacing: number;
+  /** The shape a material view draws its material on. */
+  previewMaterialShape: PreviewShape;
+  /** A material view turns its shape about the up axis. */
+  previewTurntable: boolean;
+  /** A material view draws a shape in place of the character of its own file. */
+  previewMaterialOnShape: boolean;
   /** The timeline's lanes draw each emitter's live particles per step over its bar. */
   timelineHistogram: boolean;
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
@@ -235,6 +242,9 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewPlacement: null,
   previewPlacedOn: null,
   previewFacing: 0,
+  previewMaterialShape: "sphere",
+  previewTurntable: false,
+  previewMaterialOnShape: false,
   timelineHistogram: false,
   inspectorDefaults: false,
 };
@@ -427,6 +437,10 @@ export const usePreviewMoveMode = () => useWorkshopLayoutStore((s) => s.previewM
 export const usePreviewPlacement = () => useWorkshopLayoutStore((s) => s.previewPlacement);
 export const usePreviewPlacedOn = () => useWorkshopLayoutStore((s) => s.previewPlacedOn);
 export const usePreviewFacing = () => useWorkshopLayoutStore((s) => s.previewFacing);
+export const usePreviewMaterialShape = () => useWorkshopLayoutStore((s) => s.previewMaterialShape);
+export const usePreviewTurntable = () => useWorkshopLayoutStore((s) => s.previewTurntable);
+export const usePreviewMaterialOnShape = () =>
+  useWorkshopLayoutStore((s) => s.previewMaterialOnShape);
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);

@@ -101,6 +101,7 @@ function ready(textures: readonly (readonly [string, AssetRef | null])[]): PassP
         depthCompareFunc: 3,
         writeMask: 31,
       },
+      schema: null,
     },
     program: { kind: "ready", defines: [], vertex: STAGE, pixel: STAGE },
   };

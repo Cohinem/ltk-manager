@@ -24,11 +24,8 @@ import type { SceneClock } from "../../animation/state/clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "../../assets/parsing/meshBuffer";
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
-import {
-  bindProgramTextures,
-  createProgramMaterial,
-  type SubmeshProgram,
-} from "../../hexshade/programMaterial";
+import type { SubmeshProgram } from "../../hexshade/programMaterial";
+import { type HeldValue, ProgramMaterials } from "../../hexshade/programMaterials";
 import { useViewMode } from "../../scene/state/viewModeContext";
 import { drawsSolids, type Surface, surfaceOf } from "../../scene/utils/viewMode";
 import { AXIS_SIGN } from "../../scene/utils/world";
@@ -56,6 +53,8 @@ export interface CharacterProps {
    * the stock material `bindingOf` names.
    */
   readonly programOf?: (submesh: string) => SubmeshProgram | null;
+  /** A value a material's control holds, drawn in place of its program's own until let go. */
+  readonly held?: HeldValue | null;
   /** What a submesh no texture or no material reaches is drawn in. */
   readonly colors: FallbackColors;
   /** The submeshes the character is drawn without, matched without regard to case. */
@@ -77,6 +76,9 @@ const DIMMED = 0.3;
 
 /** What a submesh binds to without its textures: the flat untextured colour, lit. */
 const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null };
+
+/** What a hidden submesh drawn by a translated program binds to, which draws nothing. */
+const HIDDEN = new MeshBasicMaterial({ visible: false });
 
 /** How far a press may travel, in pixels, and still read as a click rather than a camera drag. */
 const CLICK_SLOP = 4;
@@ -104,6 +106,7 @@ export function Character({
   clock,
   bindingOf,
   programOf,
+  held = null,
   colors,
   hidden,
   scale,
@@ -132,17 +135,17 @@ export function Character({
   const surface = surfaceOf(view.mode);
   const skinned = useMemo(() => {
     const bound: Material[] = shaded.map((models) => models.lit);
-    const held = new SkinnedMesh(drawn.geometry, bound);
+    const made = new SkinnedMesh(drawn.geometry, bound);
     /* The bounds are the bind pose's, which an animated pose leaves. */
-    held.frustumCulled = false;
+    made.frustumCulled = false;
     /* An identity bind keeps the inverse bind matrices the skeleton carries, where no
        matrix at all would have three compute its own from the pose it stands in. */
-    held.bind(rig.skeleton, new Matrix4());
-    held.onBeforeRender = (renderer, _scene, camera, _geometry, material) => {
-      environment.write(renderer, camera, held, clock.time);
+    made.bind(rig.skeleton, new Matrix4());
+    made.onBeforeRender = (renderer, _scene, camera, _geometry, material) => {
+      environment.write(renderer, camera, made, clock.time);
       environment.draw(material);
     };
-    return held;
+    return made;
   }, [drawn, shaded, rig, environment, clock]);
 
   /* The bones move onto the mesh here rather than in its memo, because a memo React runs
@@ -155,13 +158,13 @@ export function Character({
   }, [skinned, rig]);
 
   const scrolling = useRef<readonly Scrolling[]>([]);
-  const programs = useMemo(() => new Map<SubmeshProgram["program"], RawShaderMaterial>(), []);
+  const programs = useMemo(() => new ProgramMaterials(environment), [environment]);
+  useLayoutEffect(() => programs.hold(held), [programs, held]);
   useLayoutEffect(() => {
     scrolling.current = bind(skinned, shaded, drawn.ranges, {
       bindingOf,
       programOf,
       programs,
-      environment,
       colors,
       hidden,
       highlighted,
@@ -174,7 +177,6 @@ export function Character({
     bindingOf,
     programOf,
     programs,
-    environment,
     colors,
     hidden,
     highlighted,
@@ -218,8 +220,7 @@ export function Character({
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
   useEffect(
     () => () => {
-      for (const material of programs.values()) material.dispose();
-      programs.clear();
+      programs.dispose();
       environment.dispose();
     },
     [programs, environment],
@@ -293,9 +294,8 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
 interface Bind {
   readonly bindingOf: (submesh: string) => SubmeshBinding;
   readonly programOf: ((submesh: string) => SubmeshProgram | null) | undefined;
-  /** The program materials made so far, one per translated program, kept for its life. */
-  readonly programs: Map<SubmeshProgram["program"], RawShaderMaterial>;
-  readonly environment: EngineEnvironment;
+  /** The program materials made so far, one per material and permutation. */
+  readonly programs: ProgramMaterials;
   readonly colors: FallbackColors;
   readonly hidden: readonly string[];
   readonly highlighted: string | null;
@@ -328,26 +328,21 @@ function bind(
   skinned: SkinnedMesh,
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { bindingOf, programOf, programs, environment, colors, hidden, highlighted, surface }: Bind,
+  { bindingOf, programOf, programs, colors, hidden, highlighted, surface }: Bind,
 ): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
   const bound = skinned.material as Material[];
-  const used = new Set<SubmeshProgram["program"]>();
+  const used = new Set<RawShaderMaterial>();
   ranges.forEach((range, at) => {
     const program = surface === "material" ? (programOf?.(range.name) ?? null) : null;
     if (program !== null) {
-      let material = programs.get(program.program);
-      if (material === undefined) {
-        material = createProgramMaterial(program, environment);
-        programs.set(program.program, material);
-      } else {
-        bindProgramTextures(material, program);
-      }
-      used.add(program.program);
-      bound[at] = material;
-      material.visible = !skip.has(range.name.toLowerCase());
+      const material = programs.acquire(program);
+      used.add(material);
+      /* Every submesh of one material shares its program material, so a hidden one swaps
+         in a material of its own rather than hiding the rest. */
+      bound[at] = skip.has(range.name.toLowerCase()) ? HIDDEN : material;
       return;
     }
     const binding = surface === "untextured" ? UNTEXTURED : bindingOf(range.name);
@@ -361,11 +356,7 @@ function bind(
       material.color.multiplyScalar(DIMMED);
     }
   });
-  for (const [program, material] of programs) {
-    if (used.has(program)) continue;
-    material.dispose();
-    programs.delete(program);
-  }
+  programs.retain(used);
   return scrolling;
 }
 

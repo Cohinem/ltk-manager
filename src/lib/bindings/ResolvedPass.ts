@@ -4,6 +4,7 @@ import type { PassParam } from "./PassParam";
 import type { PassState } from "./PassState";
 import type { PassTexture } from "./PassTexture";
 import type { RuntimeSwitch } from "./RuntimeSwitch";
+import type { ShaderSchema } from "./ShaderSchema";
 
 /**
  * One `StaticMaterialPassDef` with its shader's inputs filled in.
@@ -30,4 +31,8 @@ textures: Array<PassTexture>,
 /**
  * Every physical parameter in declaration order, each a `$Globals` member.
  */
-params: Array<PassParam>, state: PassState, };
+params: Array<PassParam>, state: PassState, 
+/**
+ * What the pass shader declares, and none where the defs were not opened.
+ */
+schema: ShaderSchema | null, };

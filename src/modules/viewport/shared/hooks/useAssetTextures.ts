@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { type ColorSpace, Texture, TextureLoader } from "three";
+import { type ColorSpace, RepeatWrapping, Texture, TextureLoader, type Wrapping } from "three";
 
 import { previewMipsUrl, previewUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
@@ -56,6 +56,11 @@ export interface TextureLoad {
    * A program of the game's own shader decodes its texels itself, so it takes them raw.
    */
   readonly colorSpace?: ColorSpace;
+  /**
+   * The address mode a texture starts with, the engine's wrap unless said otherwise. A
+   * material sampler narrows it where it names another.
+   */
+  readonly wrap?: Wrapping;
   readonly report?: (load: { pending: number; failed: number }) => void;
 }
 
@@ -74,6 +79,7 @@ export function useAssetTextures(
     concurrency = CONCURRENT,
     mips = false,
     colorSpace = TEXTURE_COLOR_SPACE,
+    wrap = RepeatWrapping,
     report,
   }: TextureLoad = {},
 ): ReadonlyMap<string, Texture> {
@@ -105,6 +111,8 @@ export function useAssetTextures(
 
     const take = (key: string, texture: Texture) => {
       texture.colorSpace = colorSpace;
+      texture.wrapS = wrap;
+      texture.wrapT = wrap;
       /* The first row is `v = 0`, as DirectX samples it and the game unwraps. */
       texture.flipY = false;
       /* Kept rather than let go here: a material draws the one it was bound to until the
@@ -226,7 +234,7 @@ export function useAssetTextures(
       for (const texture of superseded) texture.dispose();
       setTextures(NONE);
     };
-  }, [assets, previewWidth, fullWidth, concurrency, mips, colorSpace, report]);
+  }, [assets, previewWidth, fullWidth, concurrency, mips, colorSpace, wrap, report]);
 
   return textures;
 }

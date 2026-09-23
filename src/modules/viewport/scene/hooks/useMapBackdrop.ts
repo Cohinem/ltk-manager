@@ -1,6 +1,6 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
-import { NoColorSpace, type Texture } from "three";
+import { ClampToEdgeWrapping, NoColorSpace, type Texture } from "three";
 
 import {
   api,
@@ -356,6 +356,8 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     concurrency: CONCURRENT,
     mips: true,
     colorSpace: NoColorSpace,
+    /* An atlas, whose edges must not bleed into one another. */
+    wrap: ClampToEdgeWrapping,
   });
   const programAssets = useMemo(() => programTextureAssets(programs), [programs]);
   const programTextures = useAssetTextures(programAssets, {

@@ -4,12 +4,12 @@
 use super::document_assets::{parse_entry, read_resolved, with_assets_near, with_resolution};
 use std::collections::HashMap;
 
+use super::material::shader_defs;
 use super::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_game::map::{
     map_characters, map_outline, map_particles, map_variants, resolve_map, unresolved_map,
@@ -50,18 +50,14 @@ pub async fn read_map(
             let bin = read(&source)?;
             /* The shader defs only decide which slot a texture came from, so a map draws
             without them. */
-            let shaders = assets.locate(SHADER_DEFS_PATH).and_then(|asset| {
-                read(&asset)
-                    .inspect_err(|e| tracing::debug!(?asset, "Passed over the shader defs: {e}"))
-                    .ok()
-            });
+            let shaders = shader_defs(&app_handle, assets);
             Ok(resolve_map(
                 &bin,
                 &map,
                 &materials,
                 names,
                 assets,
-                shaders.as_ref(),
+                shaders.as_deref(),
             ))
         })
     })

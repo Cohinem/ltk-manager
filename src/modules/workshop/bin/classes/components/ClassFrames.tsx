@@ -9,6 +9,8 @@ import { ChanceReadout } from "../../curves/components/ChancePin";
 import { CurveSurface } from "../../curves/components/CurveSurface";
 import { MapOutliner } from "../../map/components/MapOutliner";
 import { MapPreview } from "../../map/components/MapPreview";
+import { MaterialPane } from "../../material/components/MaterialPane";
+import { MaterialPreview } from "../../material/components/MaterialPreview";
 import { ShellCrumb } from "../../shell/components/ShellCrumb";
 import {
   PanesMenu,
@@ -104,7 +106,7 @@ export function Hero({ children }: { children: ReactNode }) {
 interface FramePreviewProps {
   kind: ShellKind;
   view: ViewContext;
-  /** The object the skin or map preview draws. */
+  /** The object the skin, map or material preview draws. */
   entry: string | null;
   /** The object's class is one the renderer draws. */
   drawable: boolean;
@@ -116,6 +118,9 @@ interface FramePreviewProps {
  */
 export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps) {
   if (kind === "map") return <MapPreview document={view.document} />;
+  if (kind === "material") {
+    return <MaterialPreview document={view.document} asset={view.asset} entry={entry} />;
+  }
   if (kind === "skin") {
     return <SkinPreview document={view.document} asset={view.asset} entry={entry} />;
   }
@@ -208,6 +213,10 @@ export function SkinShell({ placed, pages, view, entry, preview }: SkinShellProp
           </>
         ),
       },
+      material: {
+        onFocus: () => setPreviewOwner("skin"),
+        body: <MaterialPane view={view} entry={entry} />,
+      },
       inspector: {
         onFocus: () => setPreviewOwner("skin"),
         body: <SectionColumn placed={others} pages={pages} view={view} />,
@@ -254,6 +263,35 @@ export function MapShell({ placed, pages, view, entry, preview }: MapShellProps)
         crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
       />
       <ShellPaneTree kind="map" content={content} />
+    </div>
+  );
+}
+
+interface MaterialShellProps extends ShellFrameProps {
+  /** The `StaticMaterialDef` object the header names. */
+  entry: string | null;
+}
+
+/**
+ * The panes of a material: the material drawn on its character or a preview shape, and the
+ * sections of the object (ADR-0047).
+ */
+export function MaterialShell({ placed, pages, view, entry, preview }: MaterialShellProps) {
+  const content = useMemo<ShellPaneContent<"material">>(
+    () => ({
+      preview: { body: preview },
+      inspector: { body: <SectionColumn placed={placed} pages={pages} view={view} /> },
+    }),
+    [placed, pages, view, preview],
+  );
+
+  return (
+    <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2">
+      <ShellHeader
+        kind="material"
+        crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
+      />
+      <ShellPaneTree kind="material" content={content} />
     </div>
   );
 }

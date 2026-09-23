@@ -6,6 +6,12 @@ import type { BinRow } from "@/lib/tauri";
 import { useSectionOpen, useToggleSection } from "@/stores";
 import { twMerge } from "@/utils";
 
+import {
+  MaterialMacros,
+  MaterialParams,
+  MaterialSamplers,
+  MaterialSwitches,
+} from "../../material/components/MaterialTables";
 import { nameHash } from "../../shared/utils/binHash";
 import { nameColumn } from "../../shared/utils/textCut";
 import { ClipsSection } from "../../skin/components/ClipsSection";
@@ -143,6 +149,10 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
   mesh: MeshCard,
   "override-rows": OverrideRows,
   "effect-table": EffectTable,
+  "material-params": MaterialParams,
+  "material-samplers": MaterialSamplers,
+  "material-switches": MaterialSwitches,
+  "material-macros": MaterialMacros,
   emitters: Emitters,
   clips: ClipsSection,
 };

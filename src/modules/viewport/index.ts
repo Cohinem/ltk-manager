@@ -67,12 +67,21 @@ export {
   useCharacterSkin,
 } from "./character/state/characterSkin";
 export { type FallbackColors, type SubmeshBinding } from "./character/utils/submeshBinding";
+export { MaterialSubject, type MaterialSubjectProps } from "./hexshade/components/MaterialSubject";
 export { EngineEnvironment } from "./hexshade/engineEnvironment";
+export {
+  PREVIEW_BOUNDS,
+  PREVIEW_SHAPES,
+  previewGeometry,
+  type PreviewShape,
+  previewSkeleton,
+} from "./hexshade/previewMeshes";
 export {
   createProgramMaterial,
   type ReadyProgram,
   type SubmeshProgram,
 } from "./hexshade/programMaterial";
+export { type HeldValue, scatter } from "./hexshade/programMaterials";
 export { programTextureAssets, programTextureKey, programWith } from "./hexshade/programTextures";
 export { Backdrop } from "./scene/components/Backdrop";
 export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";

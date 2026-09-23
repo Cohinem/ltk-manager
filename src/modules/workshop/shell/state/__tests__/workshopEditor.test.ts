@@ -1475,7 +1475,12 @@ describe("workshopEditor store", () => {
 
     it("starts every project on the arrangement the shell ships", () => {
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
-      expect(panesOf(A, "skin")).toEqual([["preview"], ["clips", "spells"], ["inspector"]]);
+      expect(panesOf(A, "skin")).toEqual([
+        ["preview"],
+        ["clips", "spells"],
+        ["material"],
+        ["inspector"],
+      ]);
     });
 
     it("closes a pane and gives its room to the panel beside it", () => {
@@ -1550,6 +1555,7 @@ describe("workshopEditor store", () => {
       expect(panesOf(A, "skin")).toEqual([
         ["preview", "inspector"],
         ["clips", "spells"],
+        ["material"],
       ]);
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
     });
@@ -1560,7 +1566,12 @@ describe("workshopEditor store", () => {
 
       store().resetShellLayout(A, "skin");
 
-      expect(panesOf(A, "skin")).toEqual([["preview"], ["clips", "spells"], ["inspector"]]);
+      expect(panesOf(A, "skin")).toEqual([
+        ["preview"],
+        ["clips", "spells"],
+        ["material"],
+        ["inspector"],
+      ]);
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"]]);
     });
   });

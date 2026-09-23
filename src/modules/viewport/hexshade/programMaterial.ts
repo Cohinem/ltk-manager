@@ -63,6 +63,8 @@ export type ReadyProgram = Extract<ProgramRead, { kind: "ready" }>;
 
 /** What one submesh draws with under the game's own shader. */
 export interface SubmeshProgram<T = Texture> {
+  /** The material's path hash, which a value held in its inspector is addressed by. */
+  readonly material: string;
   readonly pass: ResolvedPass;
   readonly program: ReadyProgram;
   /** The textures the pass names that this machine holds, by the shader texture's name. */
@@ -171,7 +173,7 @@ export function createProgramMaterial(
      means. */
   material.defaultAttributeValues = { ...material.defaultAttributeValues, ...ABSENT_ATTRIBUTES };
 
-  const members = new Map<string, GlobalsMember>();
+  const members = new Map<string, GlobalsMember[]>();
   const samplers = new Map<string, string[]>();
   const uniforms: Record<string, IUniform> = material.uniforms;
   const stages: readonly (readonly [Sidecar, number])[] = [
@@ -192,7 +194,9 @@ export function createProgramMaterial(
       data.set(globalsData(block, pass).subarray(0, data.length));
       uniforms[block.glslName] = { value: data };
       for (const member of block.members) {
-        members.set(member.name, { block: block.glslName, offset: member.offset / FLOAT_BYTES });
+        const held = members.get(member.name) ?? [];
+        held.push({ block: block.glslName, offset: member.offset / FLOAT_BYTES });
+        members.set(member.name, held);
       }
       return [];
     });
@@ -205,8 +209,8 @@ export function createProgramMaterial(
 
 /** Where a draw can write over what a program material packed into `$Globals`. */
 export interface ProgramGlobals {
-  /** Each member of either stage's block, by the engine's name for it. */
-  readonly members: ReadonlyMap<string, GlobalsMember>;
+  /** Where each member sits in each stage's block that declares it, by the engine's name. */
+  readonly members: ReadonlyMap<string, readonly GlobalsMember[]>;
   /** The combined samplers of each texture, by the bytecode's texture name. */
   readonly samplers: ReadonlyMap<string, readonly string[]>;
 }
@@ -319,6 +323,28 @@ export function globalsData(block: UniformBlock, pass: ResolvedPass): Float32Arr
     }
   }
   return data;
+}
+
+/**
+ * `material`'s `$Globals` packed again from `pass`, which lands a committed or a held value
+ * without building the material again. The environment writes its own members over this
+ * before the next draw.
+ */
+export function writeProgramGlobals(
+  material: RawShaderMaterial,
+  program: SubmeshProgram,
+  pass: ResolvedPass,
+): void {
+  const uniforms: Record<string, IUniform> = material.uniforms;
+  for (const stage of [program.program.vertex, program.program.pixel]) {
+    for (const block of stage.sidecar.blocks) {
+      if (block.name !== GLOBALS) continue;
+      const data = uniforms[block.glslName]?.value;
+      if (!(data instanceof Float32Array)) continue;
+      data.set(globalsData(block, pass).subarray(0, data.length));
+    }
+  }
+  material.uniformsNeedUpdate = true;
 }
 
 /** The rows of the identity a `float4x4` or `float4x3` member holds, `floats` of them. */

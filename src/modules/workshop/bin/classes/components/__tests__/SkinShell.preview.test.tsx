@@ -34,6 +34,7 @@ vi.mock("../../../skin/components/ClipsSection", () => ({
   ClipsHost: () => <button>Choose idle clip</button>,
 }));
 vi.mock("../../../skin/components/ClipTable", () => ({ ClipTabs: () => null }));
+vi.mock("../../../material/components/MaterialPane", () => ({ MaterialPane: () => null }));
 vi.mock("../ClassSections", () => ({ Sections: () => <button>Inspect character</button> }));
 vi.mock("../../../spells/components/SpellsPane", () => ({
   SpellsPane: ({
@@ -80,6 +81,7 @@ const VIEW: ViewContext = {
   document: 1,
   asset: { kind: "file", path: "skin.bin" },
   classHash: "0x1",
+  entry: "0x2",
   frame: "shell",
   objectName: () => "Characters/Galio/Skins/Skin0",
   onNotOpen: () => {},

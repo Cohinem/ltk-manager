@@ -8,7 +8,7 @@ import { m } from "@/i18n";
 import { useMeasuredWidth } from "../../explorer/components/ExplorerSurface";
 import type { ObjectsReveal } from "../../state";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
-import { objectPreviewKey, objectPreviewKind } from "../utils/objectPreview";
+import { objectPreviewKey, objectPreviewKind, playsOnHover } from "../utils/objectPreview";
 import type { ObjectRowNode, ObjectTreeNode } from "../utils/objectTree";
 import { ObjectPreviewSlot } from "./ObjectPreviewSlot";
 import { ObjectsContextMenu } from "./ObjectsContextMenu";
@@ -126,7 +126,7 @@ export function ObjectsGrid({
     hovered !== null &&
     candidates.some((node) => objectPreviewKey(node) === objectPreviewKey(hovered));
   const live =
-    hoveredVisible && !reducedMotion && objectPreviewKind(hovered!) === "vfx" ? hovered : null;
+    hoveredVisible && !reducedMotion && playsOnHover(objectPreviewKind(hovered!)) ? hovered : null;
   const enabled = thumbnails && visible && foreground;
   const pending = candidates.filter((node) => !stills.has(objectPreviewKey(node)) && node !== live);
   const wanted = enabled ? [...(live ? [live] : []), ...pending].slice(0, PREVIEW_CONCURRENCY) : [];

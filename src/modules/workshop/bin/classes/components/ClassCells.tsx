@@ -68,6 +68,8 @@ export interface ViewContext {
   readonly asset: AssetRef;
   /** The class the roots are properties of, which the layout was keyed on. */
   readonly classHash: string;
+  /** The object the view draws, which a widget adding a field it lacks writes under. */
+  readonly entry: string;
   /** The name of the object an entry hash addresses, for the path a cell copies. */
   readonly objectName: (entry: string) => string;
   /** The backend holds no document with this id. The caller reopens it. */
@@ -225,15 +227,44 @@ export const NAME_COLUMN = "w-[var(--name-width,10rem)]";
 /** How far one level of nesting indents a name inside its column. */
 const INDENT = "0.75rem";
 
+const ROW_CLASS = "flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft";
+
+/** What draws one table row around its cells. */
+export type TableRowFrame = (props: {
+  element: BinRow;
+  className: string;
+  children: React.ReactNode;
+}) => React.ReactNode;
+
+/** A table row with nothing of its own. */
+function PlainRow({
+  element,
+  className,
+  children,
+}: {
+  element: BinRow;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div data-row-key={rowKey(element)} className={className}>
+      {children}
+    </div>
+  );
+}
+
 /** One row per element of the containers a section placed, drawn by the widget. */
 export function TableRows({
   rows,
   columns,
   showHeader = false,
+  Row = PlainRow,
 }: {
   rows: readonly BinRow[];
   columns: DataTableColumn<BinRow>[];
   showHeader?: boolean;
+  /** What wraps each row, for a widget whose rows answer the pointer. */
+  Row?: TableRowFrame;
 }) {
   return (
     <DataTable
@@ -249,13 +280,10 @@ export function TableRows({
           )}
           {rows.length === 0 && <None />}
           {table.getRowModel().rows.map((row) => (
-            <div
-              key={row.id}
-              data-row-key={row.id}
-              className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
-            >
+            /* DS-VEIL, DS-RADIUS */
+            <Row key={row.id} element={row.original} className={ROW_CLASS}>
               <DataTableCells row={row} customCells />
-            </div>
+            </Row>
           ))}
         </div>
       )}

@@ -1,11 +1,11 @@
 import { ArrowRightIcon } from "@phosphor-icons/react";
-import { createContext, use, useEffect, useRef, useState } from "react";
+import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 
 import type { DataTableColumn } from "@/components";
+import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { ClassCard } from "../../classes/components/ClassCard";
 import {
   AlsoCheck,
   Cell,
@@ -100,9 +100,90 @@ function structClass(row: BinRow | undefined): string | null {
   return row?.value.type === "struct" ? row.value.classHash : null;
 }
 
+/** The fields of one material override the table draws. The rest fold under its row. */
+const OVERRIDE = {
+  submesh: MESH.submesh,
+  material: nameHash("material"),
+} as const;
+
+const COLUMN_FIELDS: ReadonlySet<string> = new Set(Object.values(OVERRIDE));
+
 const NO_ROWS: readonly BinRow[] = [];
 
-/** One group per material override the mesh carries, each titled by the submesh it dresses. */
+const OverridePages = createContext<LayoutPages | null>(null);
+
+/** The fold of the override row a cell sits in. Null where the row has nothing to fold. */
+const OverrideFold = createContext<{ open: boolean; toggle: () => void } | null>(null);
+
+/** The field `field` of an override, as the read answered it. */
+function useOverrideField(element: BinRow, field: string): BinRow | undefined {
+  return fieldsOf(use(OverridePages)?.get(rowKey(element)))(field);
+}
+
+const SUBMESH_WIDTH = "w-40 shrink-0";
+const VALUE_WIDTH = "flex min-w-0 flex-1 items-center";
+
+function SubmeshCell({ element }: { element: BinRow }) {
+  const fold = use(OverrideFold);
+  return (
+    <span className={twMerge(SUBMESH_WIDTH, "flex min-w-0 items-center gap-1")}>
+      {fold !== null && <FoldCaret open={fold.open} onToggle={fold.toggle} />}
+      {fold === null && <span aria-hidden className="w-4 shrink-0" />}
+      <TextCell
+        row={useOverrideField(element, OVERRIDE.submesh)}
+        className="min-w-0 font-medium text-surface-100"
+      />
+    </span>
+  );
+}
+
+/** The editable value of `field`, or an empty cell where the override leaves it unwritten. */
+function OverrideValue({ element, field }: { element: BinRow; field: string }) {
+  const row = useOverrideField(element, field);
+  if (row === undefined) return <span className={VALUE_WIDTH} />;
+  return (
+    <Cell row={row} className={VALUE_WIDTH}>
+      <RowValue row={row} />
+    </Cell>
+  );
+}
+
+/** The override's material as a chip reading its name, which opens the material. */
+function MaterialCell({ element }: { element: BinRow }) {
+  const row = useOverrideField(element, OVERRIDE.material);
+  if (row?.value.type !== "objectLink") {
+    return <OverrideValue element={element} field={OVERRIDE.material} />;
+  }
+  return (
+    <Cell row={row} className={VALUE_WIDTH}>
+      <ObjectChip hash={row.value.hash} name={row.value.name} kind="link" reading="name" />
+    </Cell>
+  );
+}
+
+const OVERRIDE_COLUMNS: DataTableColumn<BinRow>[] = [
+  {
+    id: "submesh",
+    header: () => (
+      /* The caret's gutter and gap, so the heading lines up with the submesh under it. */
+      <span className={twMerge(SUBMESH_WIDTH, "pl-5 select-none")}>
+        {m.workshop_bin_override_submesh_label()}
+      </span>
+    ),
+    cell: ({ row }) => <SubmeshCell element={row.original} />,
+  },
+  {
+    id: "material",
+    header: () => (
+      <span className={twMerge(VALUE_WIDTH, "select-none")}>
+        {m.workshop_bin_override_material_label()}
+      </span>
+    ),
+    cell: ({ row }) => <MaterialCell element={row.original} />,
+  },
+];
+
+/** The mesh's material overrides as a table of submesh and material, each row folding open. */
 export function OverrideRows({ section, pages }: WidgetProps) {
   const lists = section.rows
     .map((row) => childOf(pages, row, MESH.override))
@@ -111,30 +192,37 @@ export function OverrideRows({ section, pages }: WidgetProps) {
 
   if (overrides.length === 0) return <None />;
   return (
-    <div className="flex flex-col gap-0.5">
-      {overrides.map((element) => (
-        <Override
-          key={rowKey(element)}
-          element={element}
-          fields={pages.get(rowKey(element))?.rows ?? NO_ROWS}
-        />
-      ))}
-    </div>
+    <OverridePages value={pages}>
+      <TableRows rows={overrides} columns={OVERRIDE_COLUMNS} showHeader Row={OverrideRow} />
+    </OverridePages>
   );
 }
 
 /**
- * One override: its index and submesh over its own field rows.
+ * One override's row, which folds open to its other fields, textures among them, and
+ * points the character at its submesh under the pointer.
  *
- * The group and the character's submesh point at each other through the skin choice,
+ * The row and the character's submesh point at each other through the skin choice,
  * per "The skin's preview" in docs/ux/BIN_EDITOR.md.
  */
-function Override({ element, fields }: { element: BinRow; fields: readonly BinRow[] }) {
+function OverrideRow({
+  element,
+  className,
+  children,
+}: {
+  element: BinRow;
+  className: string;
+  children: ReactNode;
+}) {
   const choice = use(SkinChoiceContext);
-  const [open, setOpen] = useState(true);
-  const submesh = textOf(fieldsIn(fields)(MESH.submesh)) ?? null;
+  const submesh = textOf(useOverrideField(element, OVERRIDE.submesh)) ?? null;
   const pointed = sameSubmesh(choice?.submesh ?? null, submesh);
   const root = useRef<HTMLDivElement>(null);
+
+  const [open, setOpen] = useState(false);
+  const fields = use(OverridePages)?.get(rowKey(element))?.rows ?? NO_ROWS;
+  const rest = fields.filter((row) => !COLUMN_FIELDS.has(fieldHash(row.path)));
+  const fold = rest.length === 0 ? null : { open, toggle: () => setOpen((shown) => !shown) };
 
   const picks = choice?.picks ?? 0;
   const seen = useRef(picks);
@@ -149,29 +237,16 @@ function Override({ element, fields }: { element: BinRow; fields: readonly BinRo
       ref={root}
       data-ui="OverrideRows:override"
       /* DS-RADIUS */
-      className={twMerge("flex flex-col gap-0.5 rounded-sm", pointed && "bg-accent-500/10")}
+      className={twMerge("flex flex-col rounded-sm", pointed && "bg-accent-500/10")}
       onPointerEnter={() => submesh !== null && choice?.setSubmesh(submesh)}
       onPointerLeave={() => pointed && choice?.setSubmesh(null)}
     >
-      {/* DS-VEIL, DS-RADIUS */}
-      <div
-        data-row-key={rowKey(element)}
-        className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
-      >
-        <span className="flex min-w-0 items-center gap-1.5">
-          <FoldCaret open={open} onToggle={() => setOpen((shown) => !shown)} />
-          <span className="shrink-0 text-surface-400">{element.name}</span>
-          {submesh !== null && (
-            <span className="min-w-0 truncate font-medium text-surface-100 select-text">
-              {submesh}
-            </span>
-          )}
-          {submesh === null && element.value.type === "struct" && (
-            <ClassCard classHash={element.value.classHash} name={element.value.class} />
-          )}
-        </span>
-      </div>
-      {open && <FieldRows rows={fields} owner={structClass(element)} depth={1} />}
+      <OverrideFold value={fold}>
+        <div data-row-key={rowKey(element)} className={className}>
+          {children}
+        </div>
+      </OverrideFold>
+      {fold?.open && <FieldRows rows={rest} owner={structClass(element)} depth={1} />}
     </div>
   );
 }

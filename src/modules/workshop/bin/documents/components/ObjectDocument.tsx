@@ -56,11 +56,15 @@ import {
   ShellHeaderSlot,
   useShellHeaderSlots,
 } from "../../shell/state/shellHeader";
+import type { ShellKind } from "../../shell/utils/shellPanes";
 import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
 import { useBinDocument, useObjectRoots } from "../hooks/useBinDocument";
 import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
 import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
+
+/** The shells whose layout takes edits in place. The map's is a reader's view alone. */
+const EDITABLE_SHELLS: ReadonlySet<ShellKind> = new Set(["vfx", "skin", "material"]);
 
 /**
  * One declaration of an object as a document of its own (ADR-0028).
@@ -262,7 +266,11 @@ function OpenObject({
                   <ClassView
                     document={handle.document}
                     asset={asset}
-                    editable={layout.shell === "vfx" && handle.readOnly === null}
+                    editable={
+                      layout.shell !== undefined &&
+                      EDITABLE_SHELLS.has(layout.shell) &&
+                      handle.readOnly === null
+                    }
                     roots={roots}
                     classHash={object.classHash}
                     layout={layout}

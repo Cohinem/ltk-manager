@@ -2,13 +2,13 @@
 //! graph with its maps, and one clip's header.
 
 use super::document_assets::{parse_entry, read_resolved, with_resolution};
+use super::material::shader_defs;
 use super::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentError, BinDocumentId, BinDocuments};
 use ltk_manager_core::error::AppError;
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::{clip_header, AssetRef, ClipHeader};
 use ltk_manager_core::skin::{
     bake_mesh_tangents, graph_at, resolve_skin, search_linked, search_linked_materials,
@@ -76,10 +76,8 @@ pub async fn read_skin(
                     None
                 }
             };
-            let shaders = assets
-                .locate(SHADER_DEFS_PATH)
-                .and_then(|asset| read(&asset));
-            let mut model = resolve_skin(open, entry, names, assets, shaders.as_ref())?;
+            let shaders = shader_defs(&app_handle, assets);
+            let mut model = resolve_skin(open, entry, names, assets, shaders.as_deref())?;
             let linked: Vec<AssetRef> = open
                 .dependencies()
                 .iter()
@@ -90,7 +88,7 @@ pub async fn read_skin(
                 linked.clone(),
                 names,
                 assets,
-                shaders.as_ref(),
+                shaders.as_deref(),
                 &mut read,
             );
             search_linked_systems(&mut model, open, entry, linked, assets, &mut read);

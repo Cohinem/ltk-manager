@@ -1,20 +1,26 @@
 import { useFrame } from "@react-three/fiber";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { NoColorSpace } from "three";
 
-import type { BinDocumentId, SkinModel } from "@/lib/tauri";
+import type { BinDocumentId, MaterialProgram, SkinModel } from "@/lib/tauri";
 import {
   Character,
   createPose,
   createSceneClock,
   FitCamera,
+  MaterialSubject,
   meshBounds,
+  PREVIEW_BOUNDS,
+  programTextureAssets,
+  programWith,
   useAssetTextures,
   useSceneColors,
   viewportQueries,
 } from "@/modules/viewport";
 
 import { useBinDocument } from "../../bin/documents/hooks/useBinDocument";
+import { materialQueries } from "../../bin/material/api/materialQueries";
 import { skinQueries } from "../../bin/skin/api/skinQueries";
 import { bindingOf, textureAssets } from "../../bin/skin/utils/skinScene";
 import type { SystemModel } from "../../bin/vfx/engine/model/model";
@@ -61,6 +67,12 @@ export default function ObjectPreviewScene({ node, onImage }: SceneProps) {
   if (kind === "vfx") {
     return (
       <ParticleRead document={state.handle.document} entry={node.objectHash} onImage={onImage} />
+    );
+  }
+
+  if (kind === "material") {
+    return (
+      <MaterialRead document={state.handle.document} entry={node.objectHash} onImage={onImage} />
     );
   }
 
@@ -235,6 +247,65 @@ function SkinScene({
     </>
   );
 }
+
+function MaterialRead({ document, entry, onImage }: ReadProps) {
+  const { data, isError } = useQuery({ ...materialQueries.program(document, entry), gcTime: 0 });
+  if (isError || data === null) {
+    return <PreviewFailure onImage={onImage} />;
+  }
+  if (data === undefined) {
+    return null;
+  }
+
+  return <MaterialScene program={data} onImage={onImage} />;
+}
+
+/**
+ * The material on a turning sphere, its first translated pass drawn with the game's shader.
+ *
+ * A material with no pass that translated has nothing a thumbnail can say, so it fails.
+ */
+function MaterialScene({
+  program,
+  onImage,
+}: {
+  program: MaterialProgram;
+  onImage: (image: string | null) => void;
+}) {
+  const programs = useMemo(() => [program], [program]);
+  const assets = useMemo(() => programTextureAssets(programs), [programs]);
+  const [load, report] = useState<{ pending: number; failed: number } | null>(null);
+  const textures = useAssetTextures(assets, {
+    colorSpace: NoColorSpace,
+    fullWidth: MIP_WIDTH,
+    concurrency: 2,
+    report,
+  });
+  const drawn = useMemo(() => programWith(program, textures), [program, textures]);
+
+  if (programWith(program, EMPTY_TEXTURES) === null) {
+    return <PreviewFailure onImage={onImage} />;
+  }
+
+  return (
+    <>
+      <Passes warps={false} softens={false} />
+      <FitCamera bounds={PREVIEW_BOUNDS} ground={ORIGIN} token={0} animate={false} fit="box" />
+      <MaterialSubject
+        program={drawn}
+        skinned={program.kind === "skinnedMesh"}
+        shape="sphere"
+        turntable
+      />
+      <Capture
+        ready={load?.pending === 0 && textures.size >= assets.size - load.failed}
+        onImage={onImage}
+      />
+    </>
+  );
+}
+
+const EMPTY_TEXTURES: ReadonlyMap<string, unknown> = new Map<string, unknown>();
 
 /** A still after assets and camera have settled, copied immediately after the colour pass. */
 function Capture({

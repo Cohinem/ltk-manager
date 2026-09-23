@@ -5,10 +5,13 @@ use super::document_assets::{read_resolved, with_resolution};
 use super::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::state::{get_app_data_dir, SettingsState};
+use std::sync::Arc;
+
 use hexshade::TranslationCache;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, BinDocumentId, RowNames};
 use ltk_manager_core::game_wads::WadCache;
+use ltk_manager_core::material::defs::ShaderDefsCache;
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
@@ -68,17 +71,12 @@ pub async fn read_material_programs(
             let config = app_handle.state::<SettingsState>().config();
             let wads = app_handle.state::<WadCache>();
             let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
-            let shaders = assets.locate(SHADER_DEFS_PATH).and_then(|asset| {
-                read(&asset)
-                    .and_then(|bytes| Ok(BinDocument::parse(bytes)?))
-                    .inspect_err(|e| tracing::debug!(?asset, "Passed over the shader defs: {e}"))
-                    .ok()
-            });
+            let shaders = shader_defs(&app_handle, assets);
             let resolution = Resolution {
                 document: bin,
                 names,
                 assets,
-                shaders: shaders.as_ref(),
+                shaders: shaders.as_deref(),
             };
             Ok(read_programs(
                 resolution,
@@ -102,4 +100,21 @@ pub async fn read_material_programs(
         }
     })
     .await
+}
+
+/// The shader defs `assets` locates, parsed once per version of the file, or none where
+/// the resolution has no copy or its bytes are not a bin.
+pub(super) fn shader_defs(
+    app_handle: &AppHandle,
+    assets: &dyn AssetLookup,
+) -> Option<Arc<BinDocument>> {
+    let asset = assets.locate(SHADER_DEFS_PATH)?;
+    let config = app_handle.state::<SettingsState>().config();
+    let wads = app_handle.state::<WadCache>();
+
+    asset
+        .read(&config, &wads)
+        .and_then(|bytes| Ok(app_handle.state::<ShaderDefsCache>().defs(&asset, bytes)?))
+        .inspect_err(|e| tracing::debug!(?asset, "Passed over the shader defs: {e}"))
+        .ok()
 }

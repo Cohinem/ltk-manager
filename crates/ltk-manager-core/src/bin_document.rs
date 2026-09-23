@@ -717,6 +717,11 @@ impl BinDocument {
         })
     }
 
+    /// The bytes the document parsed from, before any patch.
+    pub(crate) fn base(&self) -> &[u8] {
+        &self.base
+    }
+
     /// The facts the header row draws. `names` names the objects a `PTCH` deletes.
     #[must_use]
     pub fn header(&self, names: &dyn RowNames) -> BinHeader {

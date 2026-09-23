@@ -47,7 +47,7 @@ export function programWith<T = Texture>(
       const loaded = textures.get(programTextureKey(program.hash, texture.name));
       if (loaded !== undefined) held.set(texture.name, loaded);
     }
-    return { pass: pass.pass, program: pass.program, textures: held };
+    return { material: program.hash, pass: pass.pass, program: pass.program, textures: held };
   }
   return null;
 }
