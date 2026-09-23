@@ -22,7 +22,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "check": "pnpm generate:messages && pnpm run --parallel \"/^(typecheck:tsgo|lint|lint:cycles|format:check)$/\" && pnpm run test",
-    "prepare": "husky",
+    "prepare": "husky && git submodule update --init --recursive",
     "dev:logged": "node scripts/dev-logged.mjs",
     "generate:messages": "paraglide-js compile --project ./project.inlang",
     "generate:types": "cargo test --workspace export_bindings --no-fail-fast",
