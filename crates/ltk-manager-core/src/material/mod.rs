@@ -10,6 +10,8 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+pub mod pass;
+
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_meta::PropertyValueEnum;
@@ -45,6 +47,12 @@ const TEXTURE_PATH: BinHash = BinHash(0xf0a3_63e3);
 const ADDRESS_U: BinHash = BinHash(0x111e_c6d2);
 /// `StaticMaterialShaderSamplerDef.addressV`.
 const ADDRESS_V: BinHash = BinHash(0x101e_c53f);
+/// `StaticMaterialShaderSamplerDef.addressW`.
+const ADDRESS_W: BinHash = BinHash(0x0f1e_c3ac);
+/// `StaticMaterialShaderSamplerDef.filterMin`.
+const FILTER_MIN: BinHash = BinHash(0x1931_0df1);
+/// `StaticMaterialShaderSamplerDef.filterMag`.
+const FILTER_MAG: BinHash = BinHash(0x4044_d30e);
 /// `name`, on a param, a switch, a technique, a shader texture, parameter and switch.
 const NAME: BinHash = BinHash(0x8d39_bde6);
 /// `StaticMaterialShaderParamDef.value`.
@@ -87,6 +95,13 @@ const DATA: BinHash = BinHash(0xd872_e2a5);
 const LOGICAL_PARAMETERS: BinHash = BinHash(0x7467_2198);
 /// `ShaderStaticSwitch.onByDefault`.
 const ON_BY_DEFAULT: BinHash = BinHash(0xaae9_9956);
+/// The unnamed flag of `ShaderStaticSwitch`, set on the 23 switches a `$Globals` float
+/// carries at run time rather than a define at compile time.
+const RUNTIME_SWITCH: BinHash = BinHash(0x066e_669c);
+/// `ShaderLogicalParameter.fields`, the component mask a value scatters through.
+const FIELDS: BinHash = BinHash(0x0640_657c);
+/// `samplerName`, on a shader texture and on a material's sampler entry.
+const SAMPLER_NAME: BinHash = BinHash(0x02e7_fb4c);
 
 /// The technique a preview draws. Every shipped material has exactly this one.
 const NORMAL_TECHNIQUE: &str = "normal";
@@ -442,6 +457,9 @@ pub enum MaterialWarning {
     StringTexturePath { name: String, path: String },
     /// The base texture names a path nothing on this machine holds.
     TextureNotFound { name: String, path: String },
+    /// A shader texture neither the material nor the def gives a path, so the engine's
+    /// fallback texture is what draws.
+    NoTexturePath { name: String },
 }
 
 /// The material object at `entry`, as a preview draws it.
@@ -498,21 +516,54 @@ pub(crate) fn linked_material(
 /// leaves out.
 struct Sampler {
     texture: Option<NamedAsset>,
+    /// Which step supplied `texture`.
+    source: pass::TextureSource,
     wrap: [Wrap; 2],
+    /// `addressW`, which only a volume texture reads.
+    wrap_w: Wrap,
+    /// `filterMin` and `filterMag` as the engine reads them, absent being on.
+    filter: [bool; 2],
 }
 
 /// The pass shader's declarations, as far as the read reached them.
 #[derive(Default)]
 struct ShaderDef {
     path: Option<String>,
-    /// Every texture name, with its default path where the def names one.
-    textures: IndexMap<String, Option<NamedAsset>>,
+    /// Every texture by name, in declaration order.
+    textures: IndexMap<String, TextureDecl>,
     /// Every parameter name, physical and logical alike, with the physical default.
     parameters: HashMap<String, [f32; 4]>,
-    switches: HashMap<String, bool>,
+    /// Every physical parameter, in declaration order.
+    physical: Vec<PhysicalDecl>,
+    switches: IndexMap<String, SwitchDecl>,
     feature_defines: HashMap<String, String>,
     /// The defs were opened, so an undeclared name is a warning rather than unknown.
     declared: bool,
+}
+
+/// One `ShaderTexture`.
+struct TextureDecl {
+    /// `defaultTexturePath`, where the def names one.
+    default: Option<NamedAsset>,
+    /// `samplerName`, the shared sampler the texture reads through instead of its own.
+    sampler_name: Option<String>,
+}
+
+/// One `ShaderPhysicalParameter`, the `$Globals` member its logical names write into.
+struct PhysicalDecl {
+    name: String,
+    /// `data`, the default, zeros where absent.
+    data: [f32; 4],
+    /// Each `logicalParameters[]` name with its `fields` mask.
+    logical: Vec<(String, u32)>,
+}
+
+/// One `ShaderStaticSwitch`.
+#[derive(Clone, Copy)]
+struct SwitchDecl {
+    on_by_default: bool,
+    /// The switch is a `$Globals` float at run time rather than a define.
+    runtime: bool,
 }
 
 /// One material's read, stage by stage, in the order section 11 of the note lays out.
@@ -637,14 +688,9 @@ impl<'a> Reader<'a> {
 
     /// The first pass of the `normal` technique, or of the first technique.
     fn first_pass(&mut self) -> Option<&'a Fields> {
-        let material = self.material;
-        let techniques = items(material.get(&TECHNIQUES));
-        let technique = techniques
-            .iter()
-            .filter_map(|item| fields_of(Some(item)))
-            .find(|fields| text(fields.get(&NAME)) == Some(NORMAL_TECHNIQUE))
-            .or_else(|| techniques.first().and_then(|item| fields_of(Some(item))));
-        let passes = technique.map_or(&[][..], |fields| items(fields.get(&PASSES)));
+        let passes = self
+            .technique()
+            .map_or(&[][..], |fields| items(fields.get(&PASSES)));
         let first = passes.first().and_then(|item| fields_of(Some(item)));
         if first.is_none() {
             self.warnings.push(MaterialWarning::NoPass);
@@ -652,6 +698,16 @@ impl<'a> Reader<'a> {
             self.warnings.push(MaterialWarning::SecondPass);
         }
         first
+    }
+
+    /// The `normal` technique, or the first where none is named so.
+    fn technique(&self) -> Option<&'a Fields> {
+        let techniques = items(self.material.get(&TECHNIQUES));
+        techniques
+            .iter()
+            .filter_map(|item| fields_of(Some(item)))
+            .find(|fields| text(fields.get(&NAME)) == Some(NORMAL_TECHNIQUE))
+            .or_else(|| techniques.first().and_then(|item| fields_of(Some(item))))
     }
 
     /// What the pass shader declares, out of the defs where they were opened.
@@ -682,15 +738,24 @@ impl<'a> Reader<'a> {
 
         let def = &object.properties;
         let mut parameters = HashMap::new();
+        let mut physical = Vec::new();
         for fields in structs(def.get(&PARAMETERS)) {
             let data = vector4(fields.get(&DATA));
-            for logical in structs(fields.get(&LOGICAL_PARAMETERS)) {
-                if let Some(name) = text(logical.get(&NAME)) {
+            let mut logical = Vec::new();
+            for entry in structs(fields.get(&LOGICAL_PARAMETERS)) {
+                if let Some(name) = text(entry.get(&NAME)) {
                     parameters.insert(name.to_owned(), data);
+                    let mask = integer(entry.get(&FIELDS)).unwrap_or(0);
+                    logical.push((name.to_owned(), u32::try_from(mask).unwrap_or(0)));
                 }
             }
             if let Some(name) = text(fields.get(&NAME)) {
                 parameters.insert(name.to_owned(), data);
+                physical.push(PhysicalDecl {
+                    name: name.to_owned(),
+                    data,
+                    logical,
+                });
             }
         }
         ShaderDef {
@@ -700,14 +765,25 @@ impl<'a> Reader<'a> {
             textures: structs(def.get(&TEXTURES))
                 .filter_map(|fields| {
                     let name = text(fields.get(&NAME))?.to_owned();
-                    Some((name, self.locator.asset(fields.get(&DEFAULT_TEXTURE_PATH))))
+                    let decl = TextureDecl {
+                        default: self.locator.asset(fields.get(&DEFAULT_TEXTURE_PATH)),
+                        sampler_name: text(fields.get(&SAMPLER_NAME))
+                            .filter(|name| !name.is_empty())
+                            .map(str::to_owned),
+                    };
+                    Some((name, decl))
                 })
                 .collect(),
             parameters,
+            physical,
             switches: structs(def.get(&STATIC_SWITCHES))
                 .filter_map(|fields| {
                     let name = text(fields.get(&NAME))?.to_owned();
-                    Some((name, boolean(fields.get(&ON_BY_DEFAULT)).unwrap_or(false)))
+                    let decl = SwitchDecl {
+                        on_by_default: boolean(fields.get(&ON_BY_DEFAULT)).unwrap_or(false),
+                        runtime: boolean(fields.get(&RUNTIME_SWITCH)).unwrap_or(false),
+                    };
+                    Some((name, decl))
                 })
                 .collect(),
             feature_defines: string_map(def.get(&FEATURE_DEFINES)),
@@ -738,31 +814,57 @@ impl<'a> Reader<'a> {
                 });
             }
             let path = fields.get(&TEXTURE_PATH);
-            let texture = match leaf(path) {
+            let default = || {
+                shader
+                    .textures
+                    .get(name)
+                    .and_then(|decl| decl.default.clone())
+            };
+            let authored = match leaf(path) {
                 Some(Leaf::String(written)) if !written.is_empty() => {
                     self.warnings.push(MaterialWarning::StringTexturePath {
                         name: name.to_owned(),
                         path: written.to_owned(),
                     });
-                    shader.textures.get(name).cloned().flatten()
+                    None
                 }
                 _ => self.locator.asset(path),
+            };
+            let (texture, source) = match authored {
+                Some(texture) => (Some(texture), pass::TextureSource::Material),
+                None => match default() {
+                    Some(texture) => (Some(texture), pass::TextureSource::ShaderDefault),
+                    None => (None, pass::TextureSource::Fallback),
+                },
             };
             samplers.insert(
                 name.to_owned(),
                 Sampler {
                     texture,
+                    source,
                     wrap: [
                         Wrap::of(fields.get(&ADDRESS_U)),
                         Wrap::of(fields.get(&ADDRESS_V)),
                     ],
+                    wrap_w: Wrap::of(fields.get(&ADDRESS_W)),
+                    filter: [
+                        integer(fields.get(&FILTER_MIN)).unwrap_or(1) == 1,
+                        integer(fields.get(&FILTER_MAG)).unwrap_or(1) == 1,
+                    ],
                 },
             );
         }
-        for (name, texture) in &shader.textures {
+        for (name, decl) in &shader.textures {
             samplers.entry(name.clone()).or_insert_with(|| Sampler {
-                texture: texture.clone(),
+                texture: decl.default.clone(),
+                source: if decl.default.is_some() {
+                    pass::TextureSource::ShaderDefault
+                } else {
+                    pass::TextureSource::Fallback
+                },
                 wrap: [Wrap::Repeat; 2],
+                wrap_w: Wrap::Repeat,
+                filter: [true; 2],
             });
         }
         samplers
@@ -771,7 +873,11 @@ impl<'a> Reader<'a> {
     /// Every static switch by name: the material's, absent `on` being true, over the
     /// shader's `onByDefault`.
     fn switches(&mut self, shader: &ShaderDef) -> HashMap<String, bool> {
-        let mut switches = shader.switches.clone();
+        let mut switches: HashMap<String, bool> = shader
+            .switches
+            .iter()
+            .map(|(name, decl)| (name.clone(), decl.on_by_default))
+            .collect();
         for fields in structs(self.material.get(&SWITCHES)) {
             let Some(name) = text(fields.get(&NAME)) else {
                 continue;

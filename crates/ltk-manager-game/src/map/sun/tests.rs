@@ -1,4 +1,4 @@
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec4};
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::values;
 
@@ -14,6 +14,62 @@ fn sun(properties: Vec<(BinHash, PropertyValueEnum)>) -> PropertyValueEnum {
 #[test]
 fn the_sun_properties_class_hash_is_its_name() {
     assert_eq!(h("MapSunProperties"), SUN_PROPERTIES);
+}
+
+#[test]
+fn every_field_hash_is_its_name() {
+    for (hash, name) in [
+        (SUN_DIRECTION, "sunDirection"),
+        (SUN_COLOR, "sunColor"),
+        (SUN_INTENSITY, "SunIntensityScale"),
+        (SKY_COLOR, "skyLightColor"),
+        (GROUND_COLOR, "groundColor"),
+        (HORIZON_COLOR, "horizonColor"),
+        (SKY_SCALE, "skyLightScale"),
+        (LIGHT_MAP_COLOR_SCALE, "lightMapColorScale"),
+        (FOG_ENABLED, "fogEnabled"),
+        (FOG_COLOR, "fogColor"),
+        (FOG_ALTERNATE_COLOR, "fogAlternateColor"),
+        (FOG_START_AND_END, "fogStartAndEnd"),
+        (FOG_EMISSIVE_REMAP, "fogEmissiveRemap"),
+    ] {
+        assert_eq!(hash, h(name), "{name}");
+    }
+}
+
+#[test]
+fn the_fog_and_the_horizon_read_off_the_component_with_the_class_defaults() {
+    let document = document_of(vec![container(
+        BASE_SRX,
+        vec![sun(vec![
+            (
+                HORIZON_COLOR,
+                values::Vector4::new(Vec4::new(0.9, 0.8, 0.7, 1.0)).into(),
+            ),
+            (
+                FOG_START_AND_END,
+                values::Vector2::new(Vec2::new(0.0, -19000.0)).into(),
+            ),
+            (
+                FOG_COLOR,
+                values::Vector4::new(Vec4::new(0.447, 0.737, 0.78, 1.0)).into(),
+            ),
+            (FOG_ENABLED, values::Bool::new(false).into()),
+        ])],
+    )]);
+
+    let sun = map_sun(&document, &MapPath::from(BASE_SRX)).expect("a sun");
+
+    assert_eq!(sun.horizon_color, [0.9, 0.8, 0.7, 1.0]);
+    assert_eq!(sun.fog_start_end, [0.0, -19000.0]);
+    assert_eq!(sun.fog_color, [0.447, 0.737, 0.78, 1.0]);
+    assert!(!sun.fog_enabled);
+    assert_eq!(
+        sun.fog_alternate_color,
+        MapSun::default().fog_alternate_color
+    );
+    assert_eq!(sun.fog_emissive_remap, 1.9);
+    assert_eq!(sun.light_map_color_scale, 1.0);
 }
 
 #[test]

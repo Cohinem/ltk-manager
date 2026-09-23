@@ -7,6 +7,7 @@ import {
   type AssetRef,
   type BinDocumentId,
   type ClipHeader,
+  type MaterialProgram,
   type SkinModel,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
@@ -18,6 +19,25 @@ export const skinQueries = {
     queryOptions<SkinModel, AppError>({
       queryKey: ["skin", document, entry],
       queryFn: async () => unwrapForQuery(await api.bin.readSkin(document, entry)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /**
+   * The materials `entries` name with the game's own shaders translated, one for one,
+   * and nothing where the skin names no material.
+   */
+  programs: (document: BinDocumentId, entries: readonly string[]) =>
+    queryOptions<(MaterialProgram | null)[], AppError>({
+      queryKey: ["skin-programs", document, entries],
+      queryFn:
+        entries.length === 0
+          ? skipToken
+          : async () =>
+              unwrapForQuery(
+                await api.bin.readMaterialPrograms({ kind: "document", document }, entries, {
+                  lowQuality: false,
+                }),
+              ),
       staleTime: Infinity,
       retry: false,
     }),

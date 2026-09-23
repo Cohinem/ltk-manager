@@ -7,6 +7,7 @@ import svgr from "vite-plugin-svgr";
 import { defineConfig } from "vitest/config";
 
 import { releaseNotes } from "./scripts/vite-release-notes";
+import { phosphorIconImports } from "./scripts/vitest-phosphor-imports";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,6 +17,7 @@ export default defineConfig({
     react({ compiler: true }),
     svgr(),
     releaseNotes(__dirname),
+    phosphorIconImports(__dirname),
   ],
   resolve: {
     alias: {

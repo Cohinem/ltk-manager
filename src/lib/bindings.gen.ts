@@ -53,9 +53,9 @@ export const commands = {
 	binPatch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) => __TAURI_INVOKE<({ ok: true; value: LeafValue }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_patch", { document, entry, path, value }),
 	/**
 	 *  Edit one property's subtree as one undoable declaration or binary change.
-	 *
+	 * 
 	 *  # Errors
-	 *
+	 * 
 	 *  Refuses closed or read-only documents, invalid edits, and failed declaration writes.
 	 */
 	binEditProperty: (document: BinDocumentId, entry: string, holder: string, field: string, edits: ValueEdit[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit_property", { document, entry, holder, field, edits }),
@@ -257,8 +257,22 @@ export const commands = {
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**
+	 *  The materials `entries` name, each with a translated program per pass.
+	 * 
+	 *  An entry is an object hash as `0x` and eight hex digits, or an object path, which is
+	 *  hashed. The answer is one for one and in order, null where the bin declares no object
+	 *  under the entry. The shader defs are read beside the bin, the project's copy first,
+	 *  and a read they refuse leaves every pass without a shader and says so. Translations
+	 *  are kept under the app's data directory by the blob's hash.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the source bin cannot be read or parsed.
+	 */
+	readMaterialPrograms: (source: MaterialSource, entries: string[], options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: (MaterialProgram | null)[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_material_programs", { source, entries, options }),
+	/**
 	 *  Tangents saved into the viewed skin's project-layer mesh.
-	 *
+	 * 
 	 *  # Errors
 	 *  Fails when the skin or layer mesh is unavailable, baking fails, or the write fails.
 	 */
@@ -606,6 +620,17 @@ project?: string | null } |
  */
 { kind: "file"; path: string };
 
+/**  One vertex attribute the vertex shader reads. */
+export type Attribute = {
+	/**  The semantic without its index: `POSITION`, `BLENDINDICES`. */
+	semantic: string,
+	index: number,
+	/**  The GLSL attribute name. */
+	glslName: string,
+	/**  Which of `xyzw` the shader reads, as a four-bit mask. */
+	mask: number,
+};
+
 /**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
 export type BaseRule = 
 /**  A static switch of the one shader that has such a switch names it. */
@@ -815,6 +840,28 @@ export type Blending = "opaque" |
 "normal" | "additive" | 
 /**  The target darkened by the source's own colour, which 17 shipped map materials do. */
 "modulate";
+
+/**  One member of a uniform block. */
+export type BlockMember = {
+	name: string,
+	/**  The byte offset in the buffer. */
+	offset: number,
+	size: number,
+	/**
+	 *  Whether this permutation reads it. An unread member is compiled out and is no
+	 *  warning when a material writes it.
+	 */
+	used: boolean,
+	scalar: MemberScalar,
+	/**  Rows for a matrix, one otherwise. */
+	rows: number,
+	/**  Columns for a matrix or vector, one for a scalar. */
+	columns: number,
+	/**  Array length, or zero for no array. */
+	elements: number,
+	/**  Whether a matrix is stored a row per `vec4`, which is how D3D packs a `float4x4`. */
+	rowMajor: boolean,
+};
 
 /**  Coarse grouping for the UI. */
 export type Category = 
@@ -1134,6 +1181,28 @@ export type DecodedIncident = {
 	failure: string | null,
 	overlayDetail: string | null,
 };
+
+/**  One `NAME=VALUE` of the define list. */
+export type Define = {
+	name: string,
+	value: string,
+	/**  The last of the four stages that set it. */
+	source: DefineSource,
+};
+
+/**
+ *  The stages the define list is built from, in the order the engine runs them, later
+ *  winning.
+ */
+export type DefineSource = 
+/**  `StaticMaterialDef.shaderMacros`. */
+"material" | 
+/**  `CustomShaderDef.featureDefines`, all of them. */
+"feature" | 
+/**  A compile-time static switch, `1` on and `0` off. */
+"switch" | 
+/**  `StaticMaterialPassDef.shaderMacros`. */
+"pass";
 
 /**  Full diagnostic report returned by `run_diagnostics`. */
 export type DiagnosticReport = DiagnosticReport_Serialize | DiagnosticReport_Deserialize;
@@ -1995,7 +2064,7 @@ export type MapSsao = {
 };
 
 /**
- *  A map's sun and sky, as its `MapSunProperties` states them.
+ *  A map's sun, sky and fog, as its `MapSunProperties` states them.
  * 
  *  Colours are RGBA with each channel 0 to 1, as the bin writes them. A field the map
  *  leaves out reads as the class default, which [`MapSun::default`] returns.
@@ -2007,12 +2076,26 @@ export type MapSun = {
 	color: [(number | null), (number | null), (number | null), (number | null)],
 	/**  `SunIntensityScale`. */
 	intensity: number | null,
-	/**  `skyLightColor`. */
+	/**  `skyLightColor`, what lights a surface facing up. */
 	skyColor: [(number | null), (number | null), (number | null), (number | null)],
-	/**  `groundColor`. */
+	/**  `groundColor`, what lights a surface facing down. */
 	groundColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `horizonColor`, what lights a surface facing sideways. */
+	horizonColor: [(number | null), (number | null), (number | null), (number | null)],
 	/**  `skyLightScale`. */
 	skyScale: number | null,
+	/**  `lightMapColorScale`, which scales a baked light map. */
+	lightMapColorScale: number | null,
+	/**  `fogEnabled`. */
+	fogEnabled: boolean,
+	/**  `fogColor`. */
+	fogColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `fogAlternateColor`. */
+	fogAlternateColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `fogStartAndEnd`, the heights the fog runs between, the start above the end. */
+	fogStartEnd: [(number | null), (number | null)],
+	/**  `fogEmissiveRemap`. */
+	fogEmissiveRemap: number | null,
 };
 
 /**  One map an object draws, and the skin that names it. */
@@ -2033,6 +2116,13 @@ export type Mask = {
 	/**  `mWeightList`, one weight per joint of the skeleton in the skeleton's order. */
 	weights: (number | null)[],
 };
+
+/**  `StaticMaterialDef.type`, the family a material's shader belongs to. */
+export type MaterialKind = "staticMesh" | 
+/**  The class default, which is why no skinned material writes the field. */
+"skinnedMesh" | "particles" | "ui" | "postProcess" | 
+/**  A value this build does not name, such as the parallax family TFT sets use. */
+"unknown";
 
 /**
  *  One `StaticMaterialDef` as a preview draws it, cut down to the slots one stock
@@ -2074,6 +2164,34 @@ export type MaterialPreview = {
 	warnings: MaterialWarning[],
 };
 
+/**  One material with a program per pass, as the viewport binds it. */
+export type MaterialProgram = {
+	/**  The material's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The material's path, where a table names it. */
+	name: string | null,
+	/**
+	 *  `dynamicMaterial` is set, so the passes hold the static values of an animated
+	 *  material.
+	 */
+	animated: boolean,
+	kind: MaterialKind,
+	/**  The passes of the `normal` technique, in draw order. */
+	passes: PassProgram[],
+	/**  Every drop, miss and fallback the read made, in the order it made them. */
+	warnings: MaterialWarning[],
+};
+
+/**  Where the materials a program read names are declared. */
+export type MaterialSource = 
+/**  An open document, such as a skin's bin. */
+{ kind: "document"; document: BinDocumentId } | 
+/**
+ *  A bin read for the call, such as a map's `.materials.bin`, resolved against the
+ *  project of `document` where one is open and against the install alone otherwise.
+ */
+{ kind: "file"; asset: AssetRef; document: BinDocumentId | null };
+
 /**  Something the engine does silently that a preview says out loud. */
 export type MaterialWarning = 
 /**  The shader defs were not opened, so no default texture, parameter or switch is known. */
@@ -2093,7 +2211,15 @@ export type MaterialWarning =
 /**  A `texturePath` written as a string, which the client drops for the default. */
 { kind: "stringTexturePath"; name: string; path: string } | 
 /**  The base texture names a path nothing on this machine holds. */
-{ kind: "textureNotFound"; name: string; path: string };
+{ kind: "textureNotFound"; name: string; path: string } | 
+/**
+ *  A shader texture neither the material nor the def gives a path, so the engine's
+ *  fallback texture is what draws.
+ */
+{ kind: "noTexturePath"; name: string };
+
+/**  Which typed view writes a member. */
+export type MemberScalar = "float" | "int" | "uint" | "bool";
 
 /**  An explicit replacement decision for existing context menus. */
 export type MenuConflictPolicy = 
@@ -2415,6 +2541,59 @@ export type OverlayOutcome =
 /**  The DLL never attached, or said nothing. */
 "none";
 
+/**  Which step of section 11.6 last wrote a parameter. */
+export type ParamSource = 
+/**  `ShaderPhysicalParameter.data`. */
+"shaderDefault" | 
+/**  `StaticMaterialDef.paramValues`. */
+"material" | 
+/**  `StaticMaterialPassDef.paramValues`. */
+"pass";
+
+/**  One `ShaderPhysicalParameter` after the material's and the pass's values wrote into it. */
+export type PassParam = {
+	/**  The physical name, which the `$Globals` member carries. */
+	name: string,
+	value: [(number | null), (number | null), (number | null), (number | null)],
+	/**  The last step that wrote a component. */
+	source: ParamSource,
+};
+
+/**  One pass with its shader, or with why it has none. */
+export type PassProgram = {
+	pass: ResolvedPass,
+	program: ProgramRead,
+};
+
+/**  The pass's render state, field by field, with the class defaults filled in. */
+export type PassState = {
+	blendEnable: boolean,
+	srcColor: BlendFactor,
+	dstColor: BlendFactor,
+	srcAlpha: BlendFactor,
+	dstAlpha: BlendFactor,
+	cullEnable: boolean,
+	windingToCull: Winding,
+	depthEnable: boolean,
+	/**  `depthCompareFunc` as written, 3 being less or equal, the default. */
+	depthCompareFunc: number,
+	/**  `writeMask` as written: bits 1, 2, 4 and 8 the colour channels, 16 depth. */
+	writeMask: number,
+};
+
+/**  One `ShaderTexture` with the path and the sampler the pass binds it with. */
+export type PassTexture = {
+	/**  The shader texture's name, which the material's sampler entry is keyed by. */
+	name: string,
+	/**
+	 *  The texture, and none where no step names a path, which the engine's fallback
+	 *  texture draws.
+	 */
+	texture: NamedAsset | null,
+	source: TextureSource,
+	sampler: SamplerState,
+};
+
 /**  Patcher identities */
 export type PatcherBinaries = PatcherBinaries_Serialize | PatcherBinaries_Deserialize;
 
@@ -2468,6 +2647,25 @@ export type PendingUpdate = {
 	/**  The release notes, in markdown. */
 	body: string | null,
 };
+
+/**  What the studio adds to a pass's define list. */
+export type ProgramOptions = {
+	/**  `LOW_QUALITY_MODE`, the game's own low setting. */
+	lowQuality: boolean,
+};
+
+/**  A pass's two stages translated, or the reason the viewport draws it as an error. */
+export type ProgramRead = { kind: "ready"; 
+/**
+ *  The define list the permutation was picked by, `NAME=VALUE` sorted by name,
+ *  with the studio's own entries added.
+ */
+defines: string[]; vertex: StageProgram; pixel: StageProgram } | 
+/**
+ *  The TOC is not on this machine, the define list names no permutation of it, or a
+ *  blob did not translate. Never a guess.
+ */
+{ kind: "failed"; reason: string };
 
 /**  One of a project's root text files, as the editor reads it. */
 export type ProjectText = {
@@ -2600,6 +2798,27 @@ export type RenderState = {
 	depthTest: boolean,
 };
 
+/**  One `StaticMaterialPassDef` with its shader's inputs filled in. */
+export type ResolvedPass = {
+	/**
+	 *  The pass shader's `objectPath`, which its TOCs are named after, and none where the
+	 *  link resolves to nothing.
+	 */
+	shader: string | null,
+	/**  The define list that picks the permutation, by name. */
+	defines: Define[],
+	/**
+	 *  The switches the shader reads at run time, each the `$Globals` float
+	 *  `switch_<name>`.
+	 */
+	runtimeSwitches: RuntimeSwitch[],
+	/**  Every shader texture in declaration order, each bound as `<name>__TX`. */
+	textures: PassTexture[],
+	/**  Every physical parameter in declaration order, each a `$Globals` member. */
+	params: PassParam[],
+	state: PassState,
+};
+
 /**
  *  What a file was when it was read, so a save can tell it has not moved.
  * 
@@ -2644,6 +2863,36 @@ export type RowNode =
 "target" | 
 /**  One patch record of a `PTCH`. */
 "record";
+
+/**  A static switch the shader reads as a `$Globals` float rather than a define. */
+export type RuntimeSwitch = {
+	/**  The switch's name, without the `switch_` the member carries. */
+	name: string,
+	on: boolean,
+};
+
+/**  One combined sampler in the GLSL. */
+export type SamplerBinding = {
+	/**  The `RDEF` sampler name, or null for a texture read by `Load` alone. */
+	sampler: string | null,
+	/**  The GLSL uniform to bind the texture unit to. */
+	glslName: string,
+};
+
+/**  How a texture is sampled: a shared sampler by name, or the entry's own modes. */
+export type SamplerState = {
+	/**
+	 *  `ShaderTexture.samplerName`, the `X3DSharedSamplerDef` the shader reads through
+	 *  as `<name>_SharedSampler`, which wins over the modes below.
+	 */
+	shared: string | null,
+	/**  `addressU`, `addressV` and `addressW`. */
+	wrap: [Wrap, Wrap, Wrap],
+	/**  `filterMin` is 1, linear. */
+	filterMin: boolean,
+	/**  `filterMag` is 1, linear. */
+	filterMag: boolean,
+};
 
 /**  Which scan the DLL ran, as it decided from the flags and the command line. */
 export type ScanMode = "eager" | "lazy";
@@ -2726,6 +2975,14 @@ export type Severity =
 "warn" | 
 /**  Known to break the patcher, should be fixed. */
 "bad";
+
+/**  What a translated stage binds. */
+export type Sidecar = {
+	blocks: UniformBlock[],
+	textures: TextureBinding[],
+	/**  Empty for a pixel shader. */
+	attributes: Attribute[],
+};
 
 /**
  *  A skin, as a viewport draws it.
@@ -2834,6 +3091,16 @@ export type SpellPreview = {
 	issues: SpellIssue[],
 };
 
+/**  One translated stage of a program. */
+export type StageProgram = {
+	/**  The shader id the TOC lists the permutation under. */
+	id: number,
+	glsl: string,
+	sidecar: Sidecar,
+	/**  The translation came off the disk cache rather than being made now. */
+	cached: boolean,
+};
+
 /**
  *  A verdict as a file holds it, which is every field the kind does not decide.
  * 
@@ -2915,6 +3182,31 @@ export type SyncGroup = {
 	kind: number,
 };
 
+/**  One texture the shader samples, and the GLSL samplers that sample it. */
+export type TextureBinding = {
+	/**  The `RDEF` name, suffix and all: `Diffuse_Texture__TX`, `PIXEL_COLOR_REMAP_RAMP_SharedTexture`. */
+	name: string,
+	dimension: TextureDimension,
+	/**  A texture sampled by two samplers is two GLSL uniforms and costs two units. */
+	samplers: SamplerBinding[],
+};
+
+/**  What a texture uniform is declared as. */
+export type TextureDimension = "texture2d" | "texture2dArray" | "texture3d" | "cube" | 
+/**  Six layers per cube in a 2D array, after the fix-up. */
+"cubeArray" | 
+/**  An `R32UI` data texture, after the fix-up. */
+"buffer" | "other";
+
+/**  Which step of section 11.5 supplied a texture's path. */
+export type TextureSource = 
+/**  The material's own `samplerValues` entry. */
+"material" | 
+/**  `ShaderTexture.defaultTexturePath`. */
+"shaderDefault" | 
+/**  Neither, so the engine's fallback texture. */
+"fallback";
+
 /**  A supported external tool. */
 export type Tool = 
 /**  WAD extraction and hashtable tools. */
@@ -2953,16 +3245,27 @@ export type UiError = {
 	handled: boolean,
 };
 
+/**  One uniform block, as the blob's `RDEF` laid it out. */
+export type UniformBlock = {
+	/**  The `RDEF` name: `$Globals`, `PerFrameVertexCB`. */
+	name: string,
+	/**  The block name in the GLSL, which carries the stage suffix. */
+	glslName: string,
+	/**  The buffer's size in bytes, a multiple of 16. */
+	size: number,
+	members: BlockMember[],
+};
+
 /**  One staged edit, addressed relative to its enclosing property. */
-export type ValueEdit =
+export type ValueEdit = 
 /**  Add a missing schema field at its published default. */
-{ type: "ensureProperty"; path: string; field: string } |
+{ type: "ensureProperty"; path: string; field: string } | 
 /**  Give a null pointer its class. A non-null pointer retains its fields. */
-{ type: "ensurePointer"; path: string; class: string } |
+{ type: "ensurePointer"; path: string; class: string } | 
 /**  Insert an item into a list, map or option. */
-{ type: "insertItem"; path: string; item: NewItem } |
+{ type: "insertItem"; path: string; item: NewItem } | 
 /**  Remove an item from a list, map or option. */
-{ type: "removeItem"; path: string } |
+{ type: "removeItem"; path: string } | 
 /**  Set an existing leaf, including one created by an earlier staged edit. */
 { type: "setLeaf"; path: string; value: LeafValue };
 
@@ -3105,6 +3408,13 @@ object: VfxObject | null } |
 /**  A leaf this build has no reading for. */
 { type: "undrawn" };
 
+/**  The winding a pass culls, `windingToCull` on the wire. */
+export type Winding = 
+/**  Clockwise, `0`, which 436 shipped passes cull for an inverted hull. */
+"cw" | 
+/**  Counter-clockwise, `1`, the class default. */
+"ccw";
+
 /**
  *  Domain errors specific to workshop operations.
  * 
@@ -3139,3 +3449,4 @@ export type WorkshopError =
 
 /**  A sampler's address mode, `addressU` and `addressV` on the wire. */
 export type Wrap = "repeat" | "clamp" | "mirror" | "border";
+

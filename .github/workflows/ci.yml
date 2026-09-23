@@ -30,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - uses: pnpm/action-setup@v4
@@ -44,6 +46,8 @@ jobs:
       CARGO_PROFILE_TEST_DEBUG: line-tables-only
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -66,6 +70,8 @@ jobs:
       CARGO_PROFILE_TEST_DEBUG: line-tables-only
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -86,6 +92,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with: { components: rustfmt }
       - run: cargo fmt --all -- --check
@@ -95,6 +103,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - uses: taiki-e/install-action@v2
         with: { tool: cargo-about@0.9.1 }
@@ -121,6 +131,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
       - uses: pnpm/action-setup@v4

@@ -1715,16 +1715,24 @@ the mini transport, and its Emitters section keeps the strip.
 ### The viewer
 
 The preview pane draws the run on the particle renderer of `docs/plans/vfx-particle-renderer.md`.
-Its controls sit at its top right: the Show menu, the wireframe menu, the camera menu, Fit and the
+Its controls sit at its top right: the Show menu, the view mode menu, the camera menu, Fit and the
 rig.
 
 **The Show menu** ticks Ground, Midlane, Gizmo and Stats, and stays open while they are set. Its
 trigger counts the ones on. Midlane draws on the ground alone, so it is off while Ground is.
 
-**The wireframe menu** draws the run shaded, as its triangle edges alone, or as its edges over the
-shading. The edges are the particles' own geometry in one flat accent, drawn after every emitter,
-and a distorting emitter's edges draw with the rest. Over the shading the edges are part
-transparent, and the particle reads through them. A character's attached mesh stays shaded.
+**The view mode menu** draws the scene Lit, Unshaded, Untextured, or as its triangle edges alone
+(Wireframe). Below the modes, the Wireframe overlay tick draws the edges over a Lit or Untextured
+scene, and is disabled under the other two. The skin and map previews carry the same menu, and one
+choice holds for every preview.
+
+Unshaded draws each material's base texture without light and without the game's shaders.
+Untextured draws every surface in one flat neutral under the scene's light, opaque and double sided,
+without the game's shaders. A particle is unlit already, so it draws the same in Lit and Unshaded.
+
+The edges are each mesh's own geometry in one flat accent. A particle's edges draw after every
+emitter, and a distorting emitter's edges draw with the rest. Under the overlay the edges are part
+transparent, and the surface reads through them. A character's attached mesh stays shaded.
 
 **The camera menu** holds Game, Orbit, Top, Front and Side, and a system opens on Game. Game is the
 in-match camera at the game's own distance: a 56 degree pitch and a 40 degree vertical field of
@@ -1759,7 +1767,7 @@ loop, the stop, and the seed with its reroll.
 bottom right corner, on a plate that reads over any ground. The count is of simulated particles,
 a muted emitter's included.
 
-**What persists.** Ground, Midlane, Gizmo, Stats, the wireframe mode, the camera preset, the
+**What persists.** Ground, Midlane, Gizmo, Stats, the view mode and its overlay, the camera preset, the
 timeline's Histogram switch and the inspector's Defaults switch are display preferences, app-wide
 and persisted. The rig, the seed, the speed, mute and
 solo, the loop range and the playhead belong to the run, kept per system for the session, per

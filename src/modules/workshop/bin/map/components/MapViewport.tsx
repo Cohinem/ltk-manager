@@ -1,7 +1,9 @@
 import {
   CaretDownIcon,
   CastleTurretIcon,
+  CloudSunIcon,
   FrameCornersIcon,
+  PaintBrushIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
@@ -18,16 +20,21 @@ import {
 } from "@/modules/viewport";
 import {
   usePreviewBackdropParticles,
+  usePreviewBackdropSky,
   usePreviewBackdropStructures,
   usePreviewCamera,
   usePreviewAmbientOcclusion,
   usePreviewPostEffects,
+  usePreviewShaders,
   usePreviewSun,
+  usePreviewViewMode,
+  usePreviewWireOverlay,
   useSetPreviewDisplay,
 } from "@/stores";
 
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
 import { Notice } from "../../vfx/preview/components/Notice";
+import { ViewModeMenu } from "../../vfx/preview/components/ViewModeMenu";
 import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { distorts } from "../../vfx/rendering/utils/drawKind";
@@ -91,14 +98,18 @@ interface MapSceneProps {
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { near, pick, materials, hidden, focus } = useMapScene();
   const colors = useSceneColors();
+  const shaders = usePreviewShaders();
   const source = useMemo(
-    () => ({ map: chosen.map, document, geometry }),
-    [chosen.map, document, geometry],
+    () => ({ map: chosen.map, document, geometry, shaders }),
+    [chosen.map, document, geometry, shaders],
   );
 
   const camera = usePreviewCamera();
+  const viewMode = usePreviewViewMode();
+  const wireOverlay = usePreviewWireOverlay();
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
+  const sky = usePreviewBackdropSky();
   const sun = usePreviewSun();
   const postEffects = usePreviewPostEffects();
   const ambientOcclusion = usePreviewAmbientOcclusion();
@@ -121,10 +132,13 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           textured={false}
           backdrop={source}
           backdropFlags={flags}
+          backdropSky={sky}
           sun={sun}
           postEffects={postEffects}
           ambientOcclusion={ambientOcclusion}
           camera={camera}
+          viewMode={viewMode}
+          wireOverlay={wireOverlay}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
         >
@@ -160,9 +174,22 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
             icon={<CastleTurretIcon weight="bold" className="h-4 w-4" />}
             onClick={() => setDisplay({ previewBackdropStructures: !structures })}
           />
+          <ViewToggle
+            label={m.workshop_bin_preview_backdrop_sky_label()}
+            active={sky}
+            icon={<CloudSunIcon weight="bold" className="h-4 w-4" />}
+            onClick={() => setDisplay({ previewBackdropSky: !sky })}
+          />
+          <ViewToggle
+            label={m.workshop_bin_preview_shaders_label()}
+            active={shaders}
+            icon={<PaintBrushIcon weight="bold" className="h-4 w-4" />}
+            onClick={() => setDisplay({ previewShaders: !shaders })}
+          />
           <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />
           <SunControl source={source} />
           <PostEffectsControl source={source} />
+          <ViewModeMenu />
           <CameraMenu />
           <Tooltip content={m.workshop_bin_mesh_preview_fit_action()}>
             <IconButton

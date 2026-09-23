@@ -7,7 +7,8 @@ import type {
   CameraPreset,
   PlacementMode,
   PostEffects,
-  SunLight,
+  SunOverride,
+  ViewMode,
 } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
@@ -18,9 +19,6 @@ type WadSort = "name" | "size";
 
 /** Which view the rail has the primary side panel showing, ADR-0038. */
 type SidebarViewId = "explorer" | "search" | "problems" | "objects" | "game" | "source";
-
-/** How a preview draws the run: shaded, as its triangle edges alone, or edges over shading. */
-type PreviewWireframe = "off" | "only" | "overlay";
 
 /**
  * What a viewport draws around the run, and how the inspector lists a class.
@@ -39,8 +37,10 @@ interface PreviewDisplay {
   previewBackdropParticles: boolean;
   /** The backdrop stands the structures and the level props its map places. */
   previewBackdropStructures: boolean;
-  /** The sun of every backdrop, and null for each map's own. */
-  previewSun: SunLight | null;
+  /** The backdrop draws the sky cube map behind its map. */
+  previewBackdropSky: boolean;
+  /** The sun control's fields over every backdrop's own sun, and null for each map's own. */
+  previewSun: SunOverride | null;
   /** The post effects of every backdrop, and null for each map's own. */
   previewPostEffects: PostEffects | null;
   /** The ambient occlusion of every backdrop, and null for each map's own. */
@@ -51,11 +51,16 @@ interface PreviewDisplay {
   previewStats: boolean;
   /** A character's skeleton is drawn over it, a dot per joint and a line to its parent. */
   previewArmature: boolean;
+  /** A character's materials draw with the game's own shaders, translated. */
+  previewShaders: boolean;
   /** Each joint's name is written beside its dot. */
   previewJointNames: boolean;
   /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
   previewCamera: CameraPreset;
-  previewWireframe: PreviewWireframe;
+  /** How a viewport draws its meshes, "The view mode menu" in docs/ux/BIN_EDITOR.md. */
+  previewViewMode: ViewMode;
+  /** The triangle edges draw over a lit or untextured scene. */
+  previewWireOverlay: boolean;
   /** The subject carries a gizmo that moves it around the scene. */
   previewMove: boolean;
   /** Which drag the gizmo does. */
@@ -197,6 +202,13 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setPreviewDisplay: (display: Partial<PreviewDisplay>) => void;
 }
 
+/** The view mode and overlay each value of the wireframe setting they replaced draws as. */
+const WIREFRAME_VIEW = {
+  off: ["lit", false],
+  only: ["wireframe", false],
+  overlay: ["lit", true],
+} as const satisfies Record<string, readonly [ViewMode, boolean]>;
+
 /** The map the backdrop was fixed to, as the game index spells its entry path. */
 const SUMMONERS_RIFT = "maps/mapgeometry/map11/base_srx";
 
@@ -206,15 +218,18 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewBackdrop: null,
   previewBackdropParticles: true,
   previewBackdropStructures: true,
+  previewBackdropSky: true,
   previewSun: null,
   previewPostEffects: null,
   previewAmbientOcclusion: null,
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
+  previewShaders: false,
   previewJointNames: false,
   previewCamera: "game",
-  previewWireframe: "off",
+  previewViewMode: "lit",
+  previewWireOverlay: false,
   previewMove: false,
   previewMoveMode: "translate",
   previewPlacement: null,
@@ -284,11 +299,15 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 6,
+      version: 8,
       migrate: (persisted) => {
         const state = {
           ...keepUnversioned<
-            WorkshopLayoutStore & { explorerSort?: ExplorerSort; tabOpenMode?: string }
+            WorkshopLayoutStore & {
+              explorerSort?: ExplorerSort;
+              tabOpenMode?: string;
+              previewWireframe?: keyof typeof WIREFRAME_VIEW;
+            }
           >(persisted),
         };
         delete state.explorerSort;
@@ -305,6 +324,17 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
         if (state.previewPlacement != null) {
           state.previewPlacement = null;
           state.previewPlacedOn = null;
+        }
+        if (state.previewWireframe !== undefined) {
+          const [mode, overlay] = WIREFRAME_VIEW[state.previewWireframe] ?? WIREFRAME_VIEW.off;
+          state.previewViewMode = mode;
+          state.previewWireOverlay = overlay;
+          delete state.previewWireframe;
+        }
+        /* The overlay was a view mode of its own before it drew over untextured too. */
+        if ((state.previewViewMode as string | undefined) === "overlay") {
+          state.previewViewMode = "lit";
+          state.previewWireOverlay = true;
         }
         return state;
       },
@@ -328,7 +358,6 @@ export type {
   ExplorerView,
   LayerPanelSide,
   PreviewDisplay,
-  PreviewWireframe,
   ProjectEditorKey,
   SidebarViewId,
   WadSort,
@@ -380,6 +409,7 @@ export const usePreviewBackdropParticles = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropParticles);
 export const usePreviewBackdropStructures = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropStructures);
+export const usePreviewBackdropSky = () => useWorkshopLayoutStore((s) => s.previewBackdropSky);
 export const usePreviewSun = () => useWorkshopLayoutStore((s) => s.previewSun);
 export const usePreviewPostEffects = () => useWorkshopLayoutStore((s) => s.previewPostEffects);
 export const usePreviewAmbientOcclusion = () =>
@@ -387,9 +417,11 @@ export const usePreviewAmbientOcclusion = () =>
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
+export const usePreviewShaders = () => useWorkshopLayoutStore((s) => s.previewShaders);
 export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
-export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.previewWireframe);
+export const usePreviewViewMode = () => useWorkshopLayoutStore((s) => s.previewViewMode);
+export const usePreviewWireOverlay = () => useWorkshopLayoutStore((s) => s.previewWireOverlay);
 export const usePreviewMove = () => useWorkshopLayoutStore((s) => s.previewMove);
 export const usePreviewMoveMode = () => useWorkshopLayoutStore((s) => s.previewMoveMode);
 export const usePreviewPlacement = () => useWorkshopLayoutStore((s) => s.previewPlacement);

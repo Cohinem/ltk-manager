@@ -4,3 +4,4 @@
 //! and owns the classes, so core never learns what a `MapContainer` is.
 
 pub mod map;
+pub mod program;

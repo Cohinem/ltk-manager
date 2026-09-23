@@ -314,3 +314,18 @@ concerns.
 **Announcement** — a post in the Announcements category of the repository's Discussions, read
 from the category's Atom feed and listed as news on Home. A title, a date and a link, and nothing
 the app translates: feed text is drawn as data.
+
+## The viewport
+
+**Hexshade** — the system that draws a mesh with the game's own shaders: `crates/hexshade` in the
+backend and `src/modules/viewport/hexshade/` in the frontend, per `docs/plans/shader-pipeline.md`.
+It translates, it does not port: a shipped DXBC blob becomes GLSL ES 3.00 and a **sidecar** of
+the names a renderer binds it by. Reading a material's passes is not part of it. That stays with
+the material read in core and the game crate.
+
+**Program** — one shader's vertex and pixel stage for one **define list**, the permutation the
+game's shader cache holds for it. A pass without one is drawn as the error material, never as a
+guess.
+
+**Translation cache** — `<app data>/shaders/v<PIPELINE_VERSION>/`, each translated blob keyed by
+its hash, so a permutation costs its translation once per machine.

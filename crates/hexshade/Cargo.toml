@@ -1,0 +1,31 @@
+[package]
+name = "hexshade"
+version = "0.1.0"
+description = "Hexshade, the game's DXBC shaders as GLSL ES 3.00 programs a WebGL renderer binds"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[features]
+# Derive `ts_rs::TS` and `specta::Type` on the stage program and its sidecar, which
+# cross IPC inside a material program.
+ts = ["dep:ts-rs", "dep:specta"]
+
+[dependencies]
+dxbc-spirv-sys = { path = "../dxbc-spirv-sys" }
+fs-err = { workspace = true }
+ltk_shader = "0.3.8"
+regex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, optional = true }
+spirv-cross2 = { version = "0.7", default-features = false, features = ["glsl"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+xxhash-rust = { workspace = true }
+
+[dev-dependencies]
+ltk_wad = { workspace = true }
+tempfile = { workspace = true }

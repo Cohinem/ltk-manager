@@ -5,10 +5,12 @@ import {
   BufferAttribute,
   BufferGeometry,
   DoubleSide,
+  IntType,
   type Material,
   Matrix4,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  type RawShaderMaterial,
   Raycaster,
   Skeleton,
   SkinnedMesh,
@@ -21,7 +23,16 @@ import { LOCAL_FLOATS, type Pose } from "../../animation/evaluation/pose";
 import type { SceneClock } from "../../animation/state/clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "../../assets/parsing/meshBuffer";
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
+import { EngineEnvironment } from "../../hexshade/engineEnvironment";
+import {
+  bindProgramTextures,
+  createProgramMaterial,
+  type SubmeshProgram,
+} from "../../hexshade/programMaterial";
+import { useViewMode } from "../../scene/state/viewModeContext";
+import { drawsSolids, type Surface, surfaceOf } from "../../scene/utils/viewMode";
 import { AXIS_SIGN } from "../../scene/utils/world";
+import { useEdgeTwin } from "../hooks/useEdgeTwin";
 import { type CharacterSkin, CharacterSkinContext } from "../state/characterSkin";
 import { tintFloats, vertexTints } from "../utils/jointTint";
 import {
@@ -40,6 +51,11 @@ export interface CharacterProps {
   readonly clock: SceneClock;
   /** What a submesh draws with, by its name. */
   readonly bindingOf: (submesh: string) => SubmeshBinding;
+  /**
+   * The game's own shader a submesh draws with, by its name, and null to draw it with
+   * the stock material `bindingOf` names.
+   */
+  readonly programOf?: (submesh: string) => SubmeshProgram | null;
   /** What a submesh no texture or no material reaches is drawn in. */
   readonly colors: FallbackColors;
   /** The submeshes the character is drawn without, matched without regard to case. */
@@ -59,8 +75,20 @@ export interface CharacterProps {
 /** How much of its colour a submesh keeps while another one is highlighted. */
 const DIMMED = 0.3;
 
+/** What a submesh binds to without its textures: the flat untextured colour, lit. */
+const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null };
+
 /** How far a press may travel, in pixels, and still read as a click rather than a camera drag. */
 const CLICK_SLOP = 4;
+
+/** Each input a translated vertex shader declares, and the stock attribute it is. */
+const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
+  ["a_POSITION", "position"],
+  ["a_NORMAL", "normal"],
+  ["a_TEXCOORD", "uv"],
+  ["a_BLENDWEIGHT", "skinWeight"],
+  ["a_COLOR", "color"],
+];
 
 /**
  * One skinned mesh on its skeleton, posed at the clock's time.
@@ -75,6 +103,7 @@ export function Character({
   pose,
   clock,
   bindingOf,
+  programOf,
   colors,
   hidden,
   scale,
@@ -98,6 +127,9 @@ export function Character({
       })),
     [drawn],
   );
+  const environment = useMemo(() => new EngineEnvironment(), []);
+  const view = useViewMode();
+  const surface = surfaceOf(view.mode);
   const skinned = useMemo(() => {
     const bound: Material[] = shaded.map((models) => models.lit);
     const held = new SkinnedMesh(drawn.geometry, bound);
@@ -106,8 +138,12 @@ export function Character({
     /* An identity bind keeps the inverse bind matrices the skeleton carries, where no
        matrix at all would have three compute its own from the pose it stands in. */
     held.bind(rig.skeleton, new Matrix4());
+    held.onBeforeRender = (renderer, _scene, camera, _geometry, material) => {
+      environment.write(renderer, camera, held, clock.time);
+      environment.draw(material);
+    };
     return held;
-  }, [drawn, shaded, rig]);
+  }, [drawn, shaded, rig, environment, clock]);
 
   /* The bones move onto the mesh here rather than in its memo, because a memo React runs
      twice would move them onto the copy it throws away. */
@@ -119,14 +155,42 @@ export function Character({
   }, [skinned, rig]);
 
   const scrolling = useRef<readonly Scrolling[]>([]);
+  const programs = useMemo(() => new Map<SubmeshProgram["program"], RawShaderMaterial>(), []);
   useLayoutEffect(() => {
     scrolling.current = bind(skinned, shaded, drawn.ranges, {
       bindingOf,
+      programOf,
+      programs,
+      environment,
       colors,
       hidden,
       highlighted,
+      surface,
     });
-  }, [skinned, shaded, drawn, bindingOf, colors, hidden, highlighted]);
+  }, [
+    skinned,
+    shaded,
+    drawn,
+    bindingOf,
+    programOf,
+    programs,
+    environment,
+    colors,
+    hidden,
+    highlighted,
+    surface,
+  ]);
+  useLayoutEffect(() => {
+    skinned.visible = drawsSolids(view.mode);
+  }, [skinned, view.mode]);
+  const edges = useEdgeTwin(
+    skinned,
+    rig.skeleton,
+    drawn.ranges,
+    hidden,
+    view.edges,
+    view.edgeColour,
+  );
   useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
 
   useLayoutEffect(() => {
@@ -152,6 +216,14 @@ export function Character({
     [shaded],
   );
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
+  useEffect(
+    () => () => {
+      for (const material of programs.values()) material.dispose();
+      programs.clear();
+      environment.dispose();
+    },
+    [programs, environment],
+  );
 
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
   useFrame(() => {
@@ -175,6 +247,12 @@ export function Character({
         object={skinned}
         scale={[AXIS_SIGN[0] * scale, AXIS_SIGN[1] * scale, AXIS_SIGN[2] * scale]}
       />
+      {edges !== null && (
+        <primitive
+          object={edges}
+          scale={[AXIS_SIGN[0] * scale, AXIS_SIGN[1] * scale, AXIS_SIGN[2] * scale]}
+        />
+      )}
       <CharacterSkinContext value={skin}>{children}</CharacterSkinContext>
     </>
   );
@@ -214,9 +292,15 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
 /** What a submesh's material is bound from. */
 interface Bind {
   readonly bindingOf: (submesh: string) => SubmeshBinding;
+  readonly programOf: ((submesh: string) => SubmeshProgram | null) | undefined;
+  /** The program materials made so far, one per translated program, kept for its life. */
+  readonly programs: Map<SubmeshProgram["program"], RawShaderMaterial>;
+  readonly environment: EngineEnvironment;
   readonly colors: FallbackColors;
   readonly hidden: readonly string[];
   readonly highlighted: string | null;
+  /** What every submesh draws with, and a program only under `material`. */
+  readonly surface: Surface;
 }
 
 /** One material per shading model a submesh may draw under, kept for its lifetime. */
@@ -235,20 +319,40 @@ interface Scrolling {
  * Each submesh bound to its material under the shading model the binding calls for, and
  * to none where the skin hides it. Every submesh but a highlighted one dims. Answers the
  * maps that scroll.
+ *
+ * A submesh with a translated program draws under it instead, one material per program
+ * for the program's life, with whatever textures have arrived bound on every pass here.
+ * A program material neither dims nor scrolls, since the shader owns its colour.
  */
 function bind(
   skinned: SkinnedMesh,
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { bindingOf, colors, hidden, highlighted }: Bind,
+  { bindingOf, programOf, programs, environment, colors, hidden, highlighted, surface }: Bind,
 ): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
   const bound = skinned.material as Material[];
+  const used = new Set<SubmeshProgram["program"]>();
   ranges.forEach((range, at) => {
-    const binding = bindingOf(range.name);
-    const material: SubmeshMaterial = lit(binding) ? shaded[at].lit : shaded[at].unlit;
+    const program = surface === "material" ? (programOf?.(range.name) ?? null) : null;
+    if (program !== null) {
+      let material = programs.get(program.program);
+      if (material === undefined) {
+        material = createProgramMaterial(program, environment);
+        programs.set(program.program, material);
+      } else {
+        bindProgramTextures(material, program);
+      }
+      used.add(program.program);
+      bound[at] = material;
+      material.visible = !skip.has(range.name.toLowerCase());
+      return;
+    }
+    const binding = surface === "untextured" ? UNTEXTURED : bindingOf(range.name);
+    const material: SubmeshMaterial =
+      surface !== "unlit" && lit(binding) ? shaded[at].lit : shaded[at].unlit;
     bound[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());
     const scroll = applyBinding(material, binding, colors);
@@ -257,6 +361,11 @@ function bind(
       material.color.multiplyScalar(DIMMED);
     }
   });
+  for (const [program, material] of programs) {
+    if (used.has(program)) continue;
+    material.dispose();
+    programs.delete(program);
+  }
   return scrolling;
 }
 
@@ -332,7 +441,8 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
   if (mesh.normals !== null) geometry.setAttribute("normal", new BufferAttribute(mesh.normals, 3));
   /* A lit material with no normals draws black, so a mesh without them gets flat ones. */
   else geometry.computeVertexNormals();
-  geometry.setAttribute("skinIndex", new Uint16BufferAttribute(skinIndices(mesh, rig), 4));
+  const joints = skinIndices(mesh, rig);
+  geometry.setAttribute("skinIndex", new Uint16BufferAttribute(joints, 4));
   geometry.setAttribute(
     "skinWeight",
     new BufferAttribute(mesh.skinWeights ?? boundToFirst(vertices), 4),
@@ -343,11 +453,30 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
     "color",
     new BufferAttribute(new Float32Array(tintFloats(vertices)).fill(1), 3),
   );
+  nameForPrograms(geometry, joints);
 
   const ranges = drawnRanges(mesh, []);
   ranges.forEach((range, at) => geometry.addGroup(range.startIndex, range.indexCount, at));
 
   return { geometry, ranges };
+}
+
+/**
+ * The same buffers under the names a translated vertex shader declares its inputs by,
+ * `a_` and the D3D semantic, so a program material binds them without a copy.
+ *
+ * `BLENDINDICES` is a `uvec4` input, which three feeds through an integer pointer only
+ * from an attribute typed so, and the stock skinning reads the same joints as floats,
+ * so the joints alone are a second attribute over the same array.
+ */
+function nameForPrograms(geometry: BufferGeometry, joints: Uint16Array): void {
+  for (const [name, of] of PROGRAM_ATTRIBUTES) {
+    const attribute = geometry.getAttribute(of);
+    if (attribute !== undefined) geometry.setAttribute(name, attribute);
+  }
+  const indices = new Uint16BufferAttribute(joints, 4);
+  indices.gpuType = IntType;
+  geometry.setAttribute("a_BLENDINDICES", indices);
 }
 
 /**

@@ -18,6 +18,14 @@ interface Written {
   flags?: number;
   firstSubmesh: number;
   submeshCount: number;
+  bakedLight?: WrittenChannel;
+  stationaryLight?: WrittenChannel;
+}
+
+interface WrittenChannel {
+  texture: number;
+  scale: [number, number];
+  bias: [number, number];
 }
 
 /**
@@ -31,23 +39,28 @@ function write({
   meshes = [],
   submeshes = [],
   materials = [],
+  lightmaps = [],
 }: {
   vertices?: number;
   uv1?: boolean;
   meshes?: Written[];
   submeshes?: { startIndex: number; indexCount: number; material: number }[];
   materials?: string[];
+  lightmaps?: string[];
 } = {}): ArrayBuffer {
   const indices = vertices;
   const names = materials.map((name) => new TextEncoder().encode(name));
+  const lightNames = lightmaps.map((name) => new TextEncoder().encode(name));
   const size =
     28 +
     vertices * (3 + 3 + 2 + (uv1 ? 2 : 0)) * 4 +
     indices * 4 +
     meshes.length * 36 +
     submeshes.length * 12 +
-    4 +
-    names.reduce((n, name) => n + 4 + name.length, 0);
+    meshes.length * 40 +
+    8 +
+    names.reduce((n, name) => n + 4 + name.length, 0) +
+    lightNames.reduce((n, name) => n + 4 + name.length, 0);
 
   const bytes = new ArrayBuffer(size);
   const view = new DataView(bytes);
@@ -62,7 +75,7 @@ function write({
   };
 
   u32(0x4d4b544c);
-  u32(1);
+  u32(2);
   u32(uv1 ? 1 : 0);
   u32(vertices);
   u32(indices);
@@ -91,11 +104,22 @@ function write({
     u32(submesh.indexCount);
     u32(submesh.material);
   }
-  u32(names.length);
-  for (const name of names) {
-    u32(name.length);
-    new Uint8Array(bytes, at, name.length).set(name);
-    at += name.length;
+  for (const mesh of meshes) {
+    for (const channel of [mesh.bakedLight, mesh.stationaryLight]) {
+      u32(channel?.texture ?? 0xffffffff);
+      f32(channel?.scale[0] ?? 1);
+      f32(channel?.scale[1] ?? 1);
+      f32(channel?.bias[0] ?? 0);
+      f32(channel?.bias[1] ?? 0);
+    }
+  }
+  for (const table of [names, lightNames]) {
+    u32(table.length);
+    for (const name of table) {
+      u32(name.length);
+      new Uint8Array(bytes, at, name.length).set(name);
+      at += name.length;
+    }
   }
   return bytes;
 }
@@ -122,7 +146,7 @@ describe("readMapBuffer", () => {
 
   it("refuses a version this build does not read", () => {
     const bytes = write();
-    new DataView(bytes).setUint32(4, 2, true);
+    new DataView(bytes).setUint32(4, 3, true);
 
     expect(() => readMapBuffer(bytes)).toThrow(BufferError);
   });
@@ -336,9 +360,12 @@ describe("mapOrigin", () => {
           flags: 0,
           firstSubmesh: 0,
           submeshCount: 1,
+          bakedLight: null,
+          stationaryLight: null,
         },
       ],
       submeshes: [{ startIndex: 0, indexCount: count, material: 0 }],
+      lightmaps: [],
       materials: ["one"],
     };
   }
@@ -357,5 +384,33 @@ describe("mapOrigin", () => {
 
   it("stands nowhere on flags that draw nothing", () => {
     expect(mapOrigin(written(), 0b0000_1000)).toBeNull();
+  });
+});
+
+describe("light maps", () => {
+  it("names each mesh channel by the lightmaps table with its scale and bias", () => {
+    const map = readMapBuffer(
+      write({
+        meshes: [
+          {
+            visibility: 1,
+            firstSubmesh: 0,
+            submeshCount: 1,
+            bakedLight: { texture: 1, scale: [0.5, 0.25], bias: [0.125, 0] },
+          },
+        ],
+        submeshes: [{ startIndex: 0, indexCount: 3, material: 0 }],
+        materials: ["Characters/Test/Material"],
+        lightmaps: ["ASSETS/Maps/Lightmaps/0.tex", "ASSETS/Maps/Lightmaps/1.tex"],
+      }),
+    );
+
+    expect(map.lightmaps).toEqual(["ASSETS/Maps/Lightmaps/0.tex", "ASSETS/Maps/Lightmaps/1.tex"]);
+    expect(map.meshes[0]?.bakedLight).toEqual({
+      texture: "ASSETS/Maps/Lightmaps/1.tex",
+      scale: [0.5, 0.25],
+      bias: [0.125, 0],
+    });
+    expect(map.meshes[0]?.stationaryLight).toBeNull();
   });
 });

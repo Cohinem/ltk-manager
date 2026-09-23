@@ -4,6 +4,7 @@ import {
   type ReactNode,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -17,13 +18,15 @@ import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
 import { AXIS_SIGN } from "../../shared/utils/space";
 import { useSceneColors } from "../hooks/sceneColors";
 import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
+import { ViewModeContext } from "../state/viewModeContext";
 import {
   type AmbientOcclusion,
   drawsAmbientOcclusion,
   NO_AMBIENT_OCCLUSION,
 } from "../utils/ambientOcclusion";
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
-import { DEFAULT_SUN, type SunLight } from "../utils/sunLight";
+import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
+import { edgesOf, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { Backdrop } from "./Backdrop";
 import { PostEffectsPass } from "./PostEffectsPass";
@@ -51,14 +54,20 @@ export interface ViewportProps {
   readonly backdrop?: BackdropSource | null;
   /** The visibility flags the backdrop draws, as a mask, and the map's own opening ones absent. */
   readonly backdropFlags?: number;
-  /** The scene's sun and sky, and the backdrop's own or `DEFAULT_SUN` when absent. */
-  readonly sun?: SunLight | null;
+  /** The sky cube map is drawn behind the backdrop, and the flat colour when off. */
+  readonly backdropSky?: boolean;
+  /** The sun control's fields over the backdrop's own sun, or `DEFAULT_SUN` without one. */
+  readonly sun?: SunOverride | null;
   /** The scene's post effects, and the backdrop's own or none when absent. */
   readonly postEffects?: PostEffects | null;
   /** The scene's ambient occlusion, and the backdrop's own or none when absent. */
   readonly ambientOcclusion?: AmbientOcclusion | null;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
+  /** How the backdrop and every character draw their meshes. */
+  readonly viewMode?: ViewMode;
+  /** The triangle edges draw over a lit or untextured scene. */
+  readonly wireOverlay?: boolean;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
   readonly onCameraStand?: (preset: CameraPreset) => void;
   /**
@@ -121,16 +130,25 @@ export function Viewport({
   textured,
   backdrop = null,
   backdropFlags,
+  backdropSky = true,
   sun = null,
   postEffects = null,
   ambientOcclusion = null,
   camera,
+  viewMode = "lit",
+  wireOverlay = false,
   onCameraStand,
   onBackdropOrigin,
   children,
 }: ViewportProps) {
   const colors = useSceneColors();
   const map = useMapBackdrop(backdrop);
+  const light = useMemo(() => withSunOverride(map.sun ?? DEFAULT_SUN, sun), [map.sun, sun]);
+  const edges = edgesOf(viewMode, wireOverlay);
+  const view = useMemo(
+    () => ({ mode: viewMode, edges, edgeColour: colors.wire }),
+    [viewMode, edges, colors],
+  );
   const visible = useContentVisible();
   const [sized, setSized] = useState(false);
   const [started, setStarted] = useState(false);
@@ -191,20 +209,29 @@ export function Viewport({
         >
           <color attach="background" args={[colors.backdrop]} />
           <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} gizmo={gizmo} />
-          <Sun light={sun ?? map.sun ?? DEFAULT_SUN} />
+          <Sun light={light} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (
             <>
-              <Sky />
+              {backdropSky && <Sky />}
               <Backdrop
                 map={map.geometry}
                 materials={map.materials}
                 textures={map.textures}
+                programs={map.programs}
+                programTextures={map.programTextures}
+                lightmaps={map.lightmaps}
+                light={light}
                 flags={backdropFlags ?? map.opening}
+                viewMode={viewMode}
+                edges={edges}
+                edgeColour={colors.wire}
               />
             </>
           )}
-          <CameraPresetContext value={camera}>{children}</CameraPresetContext>
+          <CameraPresetContext value={camera}>
+            <ViewModeContext value={view}>{children}</ViewModeContext>
+          </CameraPresetContext>
           {(drawsPostEffects(effects) || drawsAmbientOcclusion(occlusion)) && (
             <PostEffectsPass effects={effects} occlusion={occlusion} />
           )}

@@ -485,6 +485,7 @@
   "workshop_bin_path_label": "path",
   "workshop_bin_present_label": "present",
   "workshop_bin_preview_armature_label": "Armature",
+  "workshop_bin_preview_shaders_label": "Game shaders",
   "workshop_bin_preview_armature_menu_label": "Armature options",
   "workshop_bin_preview_attachment_hint": [
     {
@@ -530,6 +531,7 @@
   "workshop_bin_preview_backdrop_menu_label": "Map backdrop options",
   "workshop_bin_preview_backdrop_none_label": "None",
   "workshop_bin_preview_backdrop_particles_label": "Particles",
+  "workshop_bin_preview_backdrop_sky_label": "Sky",
   "workshop_bin_preview_backdrop_structures_label": "Structures and props",
   "workshop_bin_preview_hide_ui_action": "Hide viewport UI",
   "workshop_bin_preview_hide_ui_hint": "Hide viewport UI. Press Esc to show it again.",
@@ -621,10 +623,12 @@
       }
     }
   ],
-  "workshop_bin_preview_wireframe_label": "Wireframe",
-  "workshop_bin_preview_wireframe_off_label": "Shaded",
-  "workshop_bin_preview_wireframe_only_label": "Wireframe",
-  "workshop_bin_preview_wireframe_overlay_label": "Wireframe over shaded",
+  "workshop_bin_preview_view_label": "View mode",
+  "workshop_bin_preview_view_lit_label": "Lit",
+  "workshop_bin_preview_view_unshaded_label": "Unshaded",
+  "workshop_bin_preview_view_untextured_label": "Untextured",
+  "workshop_bin_preview_view_wire_overlay_label": "Wireframe overlay",
+  "workshop_bin_preview_view_wireframe_label": "Wireframe",
   "workshop_bin_random_always_label": "×{factor} always",
   "workshop_bin_random_at_chance_label": "chance {chance}",
   "workshop_bin_random_births_label": "births",

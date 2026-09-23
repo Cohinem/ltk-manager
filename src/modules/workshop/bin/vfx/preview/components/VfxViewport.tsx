@@ -8,14 +8,15 @@ import { use, useEffect, useMemo, useRef, useState } from "react";
 
 import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import { useFitCamera, Viewport } from "@/modules/viewport";
+import { edgesOf, useFitCamera, Viewport } from "@/modules/viewport";
 import {
   usePreviewCamera,
   usePreviewGizmo,
   usePreviewGround,
   usePreviewMidlane,
   usePreviewStats,
-  usePreviewWireframe,
+  usePreviewViewMode,
+  usePreviewWireOverlay,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -47,7 +48,7 @@ import { Notice } from "./Notice";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
 import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
-import { WireframeMenu } from "./WireframeMenu";
+import { ViewModeMenu } from "./ViewModeMenu";
 
 export interface VfxViewportProps {
   transport: PreviewTransport;
@@ -86,7 +87,8 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const gizmo = usePreviewGizmo();
   const stats = usePreviewStats();
   const camera = usePreviewCamera();
-  const wireframe = usePreviewWireframe();
+  const viewMode = usePreviewViewMode();
+  const wireOverlay = usePreviewWireOverlay();
   const setDisplay = useSetPreviewDisplay();
 
   const { root, child } = useEmitters();
@@ -145,6 +147,8 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           stage={ground}
           textured={midlane}
           camera={camera}
+          viewMode={viewMode}
+          wireOverlay={wireOverlay}
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >
           <Passes warps={warps} softens={softens} />
@@ -155,7 +159,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
               textures={textures}
               meshes={meshes}
               hiddenOf={hiddenOf}
-              wireframe={wireframe}
+              edges={edgesOf(viewMode, wireOverlay)}
             />
           </VfxHost>
           <Fit token={fitRequest} system={system} drawn={drawn} rig={rig.rig} />
@@ -196,7 +200,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
           <ShowMenu />
-          <WireframeMenu />
+          <ViewModeMenu />
           <CameraMenu />
           {edit !== null && child === null && opened !== null && (
             <>

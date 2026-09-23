@@ -13,7 +13,10 @@ import { BufferReader } from "../utils/bufferReader";
 const MAGIC = 0x4d4b544c;
 
 /** The layouts this build reads. */
-const VERSIONS: readonly number[] = [1];
+const VERSIONS: readonly number[] = [2];
+
+/** The lightmap index of a channel a mesh carries no texture for. */
+const NO_TEXTURE = 0xffffffff;
 
 /** What the flags word says the buffer carries past its `uv0` block. */
 const FLAG = { uv1: 1 } as const;
@@ -44,6 +47,18 @@ export interface MapMesh {
   readonly flags: number;
   readonly firstSubmesh: number;
   readonly submeshCount: number;
+  /** The baked light map the mesh is lit by, and null for a mesh carrying none. */
+  readonly bakedLight: MapChannel | null;
+  /** The stationary light map the mesh is lit by, and null for a mesh carrying none. */
+  readonly stationaryLight: MapChannel | null;
+}
+
+/** One texture channel of a mesh, read through `uv1` scaled and offset. */
+export interface MapChannel {
+  /** The texture's path, as the file spells it. */
+  readonly texture: string;
+  readonly scale: readonly [number, number];
+  readonly bias: readonly [number, number];
 }
 
 /** One run of the index block, drawn with one material. */
@@ -69,6 +84,8 @@ export interface MapGeometry {
   readonly meshes: readonly MapMesh[];
   /** Ordered by mesh, so a mesh names a run of them. */
   readonly submeshes: readonly MapSubmesh[];
+  /** Each light map once, as the path a mesh channel names it by. */
+  readonly lightmaps: readonly string[];
   /** Each material once, as the entry path of a `StaticMaterialDef`. */
   readonly materials: readonly string[];
 }
@@ -235,14 +252,14 @@ export function readMapBuffer(bytes: ArrayBuffer): MapGeometry {
   const uv1 = (flags & FLAG.uv1) !== 0 ? reader.floatView(vertexCount * 2) : null;
   const indices = reader.wordView(indexCount);
 
-  const meshes: MapMesh[] = [];
+  const records: Omit<MapMesh, "bakedLight" | "stationaryLight">[] = [];
   for (let at = 0; at < meshCount; at += 1) {
     const min = [reader.f32(), reader.f32(), reader.f32()] as const;
     const max = [reader.f32(), reader.f32(), reader.f32()] as const;
     /* One word rather than four byte reads: the encoder writes visibility, quality,
        flags and a zero pad in that order, which little-endian packs low byte first. */
     const packed = reader.u32();
-    meshes.push({
+    records.push({
       min,
       max,
       visibility: packed & 0xff,
@@ -262,9 +279,36 @@ export function readMapBuffer(bytes: ArrayBuffer): MapGeometry {
     });
   }
 
+  /* Read as indices here and named once the lightmaps table has arrived after them. */
+  const lights: [number, number, number, number, number][][] = [];
+  for (let at = 0; at < meshCount; at += 1) {
+    const channel = (): [number, number, number, number, number] => [
+      reader.u32(),
+      reader.f32(),
+      reader.f32(),
+      reader.f32(),
+      reader.f32(),
+    ];
+    lights.push([channel(), channel()]);
+  }
+
   const materialCount = reader.u32();
   const materials: string[] = [];
   for (let at = 0; at < materialCount; at += 1) materials.push(reader.text());
+  const lightmapCount = reader.u32();
+  const lightmaps: string[] = [];
+  for (let at = 0; at < lightmapCount; at += 1) lightmaps.push(reader.text());
 
-  return { positions, normals, uv0, uv1, indices, meshes, submeshes, materials };
+  const channelOf = ([index, sx, sy, bx, by]: (typeof lights)[number][number]) => {
+    const texture = index === NO_TEXTURE ? undefined : lightmaps[index];
+    if (texture === undefined) return null;
+    return { texture, scale: [sx, sy] as const, bias: [bx, by] as const };
+  };
+  const meshes: MapMesh[] = records.map((record, at) => ({
+    ...record,
+    bakedLight: channelOf(lights[at]?.[0] ?? [NO_TEXTURE, 1, 1, 0, 0]),
+    stationaryLight: channelOf(lights[at]?.[1] ?? [NO_TEXTURE, 1, 1, 0, 0]),
+  }));
+
+  return { positions, normals, uv0, uv1, indices, meshes, submeshes, lightmaps, materials };
 }

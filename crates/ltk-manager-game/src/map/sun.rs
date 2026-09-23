@@ -4,7 +4,7 @@ use ltk_hash::BinHash;
 use serde::Serialize;
 
 use super::MapPath;
-use super::component::{f32_of, map_component, vec3_of, vec4_of};
+use super::component::{bool_of, f32_of, map_component, vec2_of, vec3_of, vec4_of};
 use ltk_manager_core::bin_document::{BinDocument, Fields};
 
 /// `MapSunProperties`, the `MapComponent` that lights the map.
@@ -19,10 +19,24 @@ const SUN_INTENSITY: BinHash = BinHash(0x4620_fe14);
 const SKY_COLOR: BinHash = BinHash(0x0a65_794d);
 /// `MapSunProperties.groundColor`.
 const GROUND_COLOR: BinHash = BinHash(0x583b_efe1);
+/// `MapSunProperties.horizonColor`.
+const HORIZON_COLOR: BinHash = BinHash(0xfd3d_43af);
 /// `MapSunProperties.skyLightScale`.
 const SKY_SCALE: BinHash = BinHash(0xb39b_0430);
+/// `MapSunProperties.lightMapColorScale`.
+const LIGHT_MAP_COLOR_SCALE: BinHash = BinHash(0x986a_4d5c);
+/// `MapSunProperties.fogEnabled`.
+const FOG_ENABLED: BinHash = BinHash(0x0084_9744);
+/// `MapSunProperties.fogColor`.
+const FOG_COLOR: BinHash = BinHash(0x023b_1fce);
+/// `MapSunProperties.fogAlternateColor`.
+const FOG_ALTERNATE_COLOR: BinHash = BinHash(0x4896_f2da);
+/// `MapSunProperties.fogStartAndEnd`.
+const FOG_START_AND_END: BinHash = BinHash(0x72a7_2173);
+/// `MapSunProperties.fogEmissiveRemap`.
+const FOG_EMISSIVE_REMAP: BinHash = BinHash(0x27bd_d641);
 
-/// A map's sun and sky, as its `MapSunProperties` states them.
+/// A map's sun, sky and fog, as its `MapSunProperties` states them.
 ///
 /// Colours are RGBA with each channel 0 to 1, as the bin writes them. A field the map
 /// leaves out reads as the class default, which [`MapSun::default`] returns.
@@ -38,12 +52,26 @@ pub struct MapSun {
     pub color: [f32; 4],
     /// `SunIntensityScale`.
     pub intensity: f32,
-    /// `skyLightColor`.
+    /// `skyLightColor`, what lights a surface facing up.
     pub sky_color: [f32; 4],
-    /// `groundColor`.
+    /// `groundColor`, what lights a surface facing down.
     pub ground_color: [f32; 4],
+    /// `horizonColor`, what lights a surface facing sideways.
+    pub horizon_color: [f32; 4],
     /// `skyLightScale`.
     pub sky_scale: f32,
+    /// `lightMapColorScale`, which scales a baked light map.
+    pub light_map_color_scale: f32,
+    /// `fogEnabled`.
+    pub fog_enabled: bool,
+    /// `fogColor`.
+    pub fog_color: [f32; 4],
+    /// `fogAlternateColor`.
+    pub fog_alternate_color: [f32; 4],
+    /// `fogStartAndEnd`, the heights the fog runs between, the start above the end.
+    pub fog_start_end: [f32; 2],
+    /// `fogEmissiveRemap`.
+    pub fog_emissive_remap: f32,
 }
 
 impl Default for MapSun {
@@ -55,7 +83,14 @@ impl Default for MapSun {
             intensity: 1.0,
             sky_color: [0.705, 0.88, 1.0, 1.0],
             ground_color: [0.1, 0.1, 0.1, 1.0],
+            horizon_color: [0.4, 0.4, 0.4, 1.0],
             sky_scale: 0.2,
+            light_map_color_scale: 1.0,
+            fog_enabled: true,
+            fog_color: [0.2, 0.2, 0.4, 1.0],
+            fog_alternate_color: [0.1, 0.1, 0.2, 1.0],
+            fog_start_end: [0.0, -2000.0],
+            fog_emissive_remap: 1.9,
         }
     }
 }
@@ -76,7 +111,16 @@ fn sun_of(fields: &Fields) -> MapSun {
         intensity: f32_of(fields, SUN_INTENSITY).unwrap_or(stated.intensity),
         sky_color: vec4_of(fields, SKY_COLOR).unwrap_or(stated.sky_color),
         ground_color: vec4_of(fields, GROUND_COLOR).unwrap_or(stated.ground_color),
+        horizon_color: vec4_of(fields, HORIZON_COLOR).unwrap_or(stated.horizon_color),
         sky_scale: f32_of(fields, SKY_SCALE).unwrap_or(stated.sky_scale),
+        light_map_color_scale: f32_of(fields, LIGHT_MAP_COLOR_SCALE)
+            .unwrap_or(stated.light_map_color_scale),
+        fog_enabled: bool_of(fields, FOG_ENABLED).unwrap_or(stated.fog_enabled),
+        fog_color: vec4_of(fields, FOG_COLOR).unwrap_or(stated.fog_color),
+        fog_alternate_color: vec4_of(fields, FOG_ALTERNATE_COLOR)
+            .unwrap_or(stated.fog_alternate_color),
+        fog_start_end: vec2_of(fields, FOG_START_AND_END).unwrap_or(stated.fog_start_end),
+        fog_emissive_remap: f32_of(fields, FOG_EMISSIVE_REMAP).unwrap_or(stated.fog_emissive_remap),
     }
 }
 

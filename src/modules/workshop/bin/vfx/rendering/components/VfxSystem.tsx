@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from "react";
 
-import { jointAnchor, useSceneColors } from "@/modules/viewport";
-import type { PreviewWireframe } from "@/stores";
+import { type Edges, jointAnchor, useSceneColors } from "@/modules/viewport";
 
 import type { Joints } from "../../engine/model/rig";
 import type { Driver } from "../../engine/simulation/driver";
@@ -33,8 +32,8 @@ export interface VfxSystemProps {
   readonly meshes: EmitterMeshes;
   /** An emitter the draw leaves out, such as every one but the emitter soloed. */
   readonly hiddenOf?: (definition: DrawnEmitter) => boolean;
-  /** Whether the emitters draw shaded, as their edges, or their edges over the shading. */
-  readonly wireframe?: PreviewWireframe;
+  /** Which triangle edges the emitters draw. */
+  readonly edges?: Edges;
   /** How many particles one quad emitter's buffers hold, and the kit's own where unset. */
   readonly room?: number;
 }
@@ -51,7 +50,7 @@ export function VfxSystem({
   textures,
   meshes,
   hiddenOf = noneHidden,
-  wireframe = "off",
+  edges = "none",
   room,
 }: VfxSystemProps) {
   useEmissionSurfaces(drawn, driver);
@@ -78,7 +77,7 @@ export function VfxSystem({
   const sourcesOf = (definition: DrawnEmitter): readonly Source[] =>
     definition.path === "" ? rootSources : driver.sources(definition.path);
   const { wire: colour } = useSceneColors();
-  const wire = useMemo(() => ({ mode: wireframe, colour }), [wireframe, colour]);
+  const wire = useMemo(() => ({ edges, colour }), [edges, colour]);
 
   return (
     <WireframeContext value={wire}>

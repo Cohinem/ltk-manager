@@ -28,6 +28,7 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
 
+hexshade = { workspace = true }
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
 ltk-manager-game = { path = "../crates/ltk-manager-game", features = ["ts"] }
 ltk-telemetry = { workspace = true }
