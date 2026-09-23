@@ -744,12 +744,9 @@ version: 1
 modules:
   - entries:
       Characters/Teemo/Skins/Skin0:
-        skinMeshProperties:
-          embed:
-            class: SkinMeshDataProperties
-            set:
-              texture: assets/x.tex
-              brushAlphaOverride: [0.5, 1]
+        skinMeshProperties: !embed(SkinMeshDataProperties)
+          texture: assets/x.tex
+          brushAlphaOverride: [0.5, 1]
         championSkinName: \"true\"
 ",
     );

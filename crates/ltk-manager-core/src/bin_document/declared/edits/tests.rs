@@ -640,7 +640,7 @@ fn a_pointer_given_a_class_is_a_struct_pin() {
 
     assert_eq!(
         body(dir.path(), SKIN),
-        ["pointer:", "pointer:", "class: VfxEmitterDefinitionData"]
+        ["pointer: !pointer(VfxEmitterDefinitionData) {}"]
     );
 }
 

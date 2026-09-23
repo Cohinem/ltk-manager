@@ -180,7 +180,7 @@ fn an_object_copies_as_its_entry_with_every_named_field() {
 }
 
 #[test]
-fn a_list_whose_items_hold_a_nameless_field_copies_a_key_per_item() {
+fn a_list_whose_items_hold_a_nameless_field_copies_whole_in_hash_form() {
     let emitter = |name: &str, unnamed: bool| -> PropertyValueEnum {
         let mut properties: IndexMap<BinHash, PropertyValueEnum> = [(
             h("emitterName"),
@@ -220,11 +220,12 @@ fn a_list_whose_items_hold_a_nameless_field_copies_a_key_per_item() {
     assert_eq!(
         copied.declaration.as_deref(),
         Some(
-            "- entries:\n    Characters/Teemo/Skins/Skin0:\n      emitters[0]:\n        \
-             emitterName: one\n      emitters[1]:\n        emitterName: two"
+            "- entries:\n    Characters/Teemo/Skins/Skin0:\n      emitters:\n        \
+             - !embed(0x09cde442)\n          emitterName: one\n        \
+             - !embed(0x09cde442)\n          emitterName: two\n          \"0x0badf00d\": 1"
         )
     );
-    assert_eq!(copied.skipped, 1);
+    assert_eq!(copied.skipped, 0);
 }
 
 #[test]

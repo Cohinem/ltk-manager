@@ -213,7 +213,7 @@ impl Spelling<'_> {
     /// Put `value`, which `at` addresses, under `key` in `block`.
     ///
     /// A struct is a block of its own fields. Any other value is the literal it renders as. A
-    /// list, map or option that renders as none, because an item holds a field no table names,
+    /// list, map or option that renders as none, because it holds a map key with no spelling,
     /// is a key per item, subscripted as `at` is.
     fn place(
         &mut self,
