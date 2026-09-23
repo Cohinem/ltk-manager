@@ -2,12 +2,17 @@ use std::io::Cursor;
 use std::num::NonZeroU32;
 
 use image::codecs::png::{CompressionType, FilterType, PngEncoder};
-use image::{ExtendedColorType, ImageEncoder};
+use image::{ExtendedColorType, ImageEncoder, RgbaImage};
+use image_dds::ddsfile::Dds;
+use image_dds::error::SurfaceError;
 use ltk_texture::tex::{DecodeErr, Format};
-use ltk_texture::{DecompressError, Surface, Texture};
+use ltk_texture::{DecompressError, ReadError, Surface, Texture, ToImageError};
 use serde::Serialize;
 
 use super::{PreviewError, PreviewImage};
+
+/// The faces a cube map holds.
+const CUBE_FACES: u32 = 6;
 
 /// What a texture file declares about itself.
 #[derive(Debug, Clone, Serialize)]
@@ -54,7 +59,40 @@ pub fn render(bytes: &[u8], min_width: Option<NonZeroU32>) -> Result<PreviewImag
 
     let level = level_for(texture.width(), texture.mip_count(), min_width);
     let image = decode_mipmap(&texture, level)?.into_rgba_image()?;
+    png_of(&image)
+}
 
+/// Decode a cube map's full-resolution faces into one PNG, stacked top to bottom.
+///
+/// The faces keep the order a DDS stores them in, `+X`, `-X`, `+Y`, `-Y`, `+Z` then `-Z`,
+/// which is the order a WebGL cube map takes them in.
+///
+/// # Errors
+///
+/// Fails when `bytes` is not a DDS, with [`PreviewError::NotCube`] for one holding other
+/// than six faces, and when the pixel data does not decode.
+pub fn render_cube(bytes: &[u8]) -> Result<PreviewImage, PreviewError> {
+    let dds = Dds::read(Cursor::new(bytes)).map_err(ReadError::from)?;
+    let surface = image_dds::Surface::from_dds(&dds).map_err(undecoded)?;
+    if surface.layers != CUBE_FACES {
+        return Err(PreviewError::NotCube);
+    }
+
+    let faces = surface
+        .decode_layers_mipmaps_rgba8(0..CUBE_FACES, 0..1)
+        .map_err(undecoded)?
+        .into_image()
+        .map_err(ToImageError::from)?;
+    png_of(&faces)
+}
+
+/// A DDS surface that would not decode, as the error a flat DDS reports it with.
+fn undecoded(error: SurfaceError) -> PreviewError {
+    DecompressError::from(ltk_texture::dds::DecodeErr::from(error)).into()
+}
+
+/// `image` as the PNG a preview answers with.
+pub(super) fn png_of(image: &RgbaImage) -> Result<PreviewImage, PreviewError> {
     /* Fast and unfiltered rather than compressed: this is a response to one
     `<img>` on the same machine, and nothing stores it. */
     let mut png = Vec::new();
@@ -106,7 +144,7 @@ pub fn info(bytes: &[u8]) -> Result<TextureInfo, PreviewError> {
 /// Mip dimensions halve per level with a floor of 1, in both containers. A
 /// `mip_count` past what the width halves into is the header's claim and the
 /// decoder's to report.
-fn level_for(width: u32, mip_count: u32, min_width: Option<NonZeroU32>) -> u32 {
+pub(super) fn level_for(width: u32, mip_count: u32, min_width: Option<NonZeroU32>) -> u32 {
     let Some(min_width) = min_width else {
         return 0;
     };
@@ -122,7 +160,7 @@ fn level_for(width: u32, mip_count: u32, min_width: Option<NonZeroU32>) -> u32 {
 ///
 /// A mip that runs past the data the file holds is a truncated file, which is
 /// the user's rather than a bug in this program.
-fn decode_mipmap(texture: &Texture, level: u32) -> Result<Surface<'_>, PreviewError> {
+pub(super) fn decode_mipmap(texture: &Texture, level: u32) -> Result<Surface<'_>, PreviewError> {
     match texture.decode_mipmap(level) {
         Ok(surface) => Ok(surface),
         Err(DecompressError::Tex(DecodeErr::MipOutOfBounds { .. })) => Err(PreviewError::Truncated),

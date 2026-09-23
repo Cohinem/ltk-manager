@@ -78,6 +78,12 @@
   --color-doc-game-text: var(--ltk-doc-game-text);
   --color-doc-problems: var(--ltk-doc-problems);
   --color-doc-problems-text: var(--ltk-doc-problems-text);
+  --color-doc-ignore: var(--ltk-doc-ignore);
+  --color-doc-ignore-text: var(--ltk-doc-ignore-text);
+  --color-doc-readme: var(--ltk-doc-readme);
+  --color-doc-readme-text: var(--ltk-doc-readme-text);
+  --color-doc-license: var(--ltk-doc-license);
+  --color-doc-license-text: var(--ltk-doc-license-text);
   --color-channel-1: var(--ltk-channel-1);
   --color-channel-1-text: var(--ltk-channel-1-text);
   --color-channel-2: var(--ltk-channel-2);
@@ -131,6 +137,8 @@
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
   --shadow-glass: var(--shadow-glass);
+  --shadow-concave: var(--shadow-concave);
+  --shadow-pressed: var(--shadow-pressed);
 
   /* Z-index */
   --z-index-dropdown: var(--z-dropdown);
@@ -144,6 +152,9 @@
   --text-meta: var(--type-meta);
   --text-meta--line-height: var(--type-meta-leading);
   --text-meta--letter-spacing: var(--type-meta-tracking);
+  --text-fine: var(--type-fine);
+  --text-fine--line-height: var(--type-fine-leading);
+  --text-fine--letter-spacing: var(--type-fine-tracking);
   --text-code: var(--type-code);
   --text-mono-row: var(--type-mono-row);
   --text-mono-row--line-height: var(--type-mono-row-leading);

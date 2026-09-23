@@ -1,1 +1,0 @@
-@../../src-tauri/CLAUDE.md

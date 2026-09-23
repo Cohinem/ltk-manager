@@ -41,7 +41,9 @@ Three bounds, so this does not become a licence:
   format admits no such edit, which is a fact about the format rather than a judgement about effort.
 - **The smallest change that fixes it.** For the texture that means resampling down to the nearest
   valid size rather than padding up, so the repair never manufactures content, and re-encoding to
-  the format the texture already had rather than one that is easier to write.
+  the format the texture already had rather than one that is easier to write. A dimension smaller
+  than one block has no valid size below it. It grows to one block by repeating its texels, which
+  adds no colour the author did not paint.
 - **Refuse rather than approximate.** Where the change cannot be made without altering what the
   content means — a two-channel normal map re-encoded as colour, say — the rule reports and offers
   no fix. A crash traded for broken lighting is not a repair.

@@ -1,3 +1,5 @@
+import { m } from "@/i18n";
+
 import type { SettingKey } from "./settingKey";
 import { DEFAULT_SETTINGS_TAB, isSettingsTab, type SettingsTab } from "./tabs";
 
@@ -60,17 +62,39 @@ const INDEX = [
     key: "autoCategorizationEnabled",
     title: "Automatically categorize mods",
   },
+  {
+    id: "library.promoteEnabledMods",
+    key: "promoteEnabledMods",
+    title: m.settings_library_promotion_title(),
+  },
   { id: "library.watcherEnabled", key: "watcherEnabled", title: "Watch for external changes" },
   { id: "library.trustedDomains", key: "trustedDomains", title: "Trusted mod providers" },
 
   { id: "workshop.workshopPath", key: "workshopPath", title: "Workshop directory" },
-  { id: "workshop.tabOpenMode", key: "layout.tabOpenMode", title: "Opening a file" },
+  {
+    id: "workshop.previewOnClick",
+    key: "layout.previewOnClick",
+    title: "Preview on a single click",
+  },
   { id: "workshop.searchGame", key: "layout.searchGame", title: "Search the game" },
   { id: "workshop.searchObjects", key: "layout.searchObjects", title: "Search bin objects" },
   {
     id: "workshop.forwardLookingMeta",
     key: "layout.forwardLookingMeta",
     title: "Lints for the coming patch",
+  },
+
+  {
+    id: "builtins.defaultWardSkins",
+    key: "builtinMods.defaultWardSkins",
+    title: m.settings_builtins_ward_skins_title(),
+    aliases: ["patching.defaultWardSkins"],
+  },
+  {
+    id: "builtins.baseSkins",
+    key: "builtinMods.baseSkins",
+    title: m.settings_builtins_base_skins_title(),
+    aliases: ["patching.baseSkins"],
   },
 
   { id: "patching.patchTft", key: "patchTft", title: "Patch TFT files" },

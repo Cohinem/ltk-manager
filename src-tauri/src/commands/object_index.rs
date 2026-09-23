@@ -3,22 +3,30 @@
 use super::game_index::{built_game_index, find_query};
 use super::off_thread;
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
+use crate::events::TauriEventSink;
 use crate::state::SettingsState;
+use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::{BackendEvent, EventSink as _};
+use ltk_manager_core::game_wads::GameArchives;
 use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
 use ltk_manager_core::object_index::{
-    self, parse_hash, BuildTicket, CacheNames, DeclaredObject, ObjectDirListing,
-    ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
+    self, layer_bins, parse_hash, BuildTicket, CacheNames, DeclaredObject, FileTarget,
+    ObjectDirListing, ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
     ObjectReferenceGeneration, ObjectSearchGeneration, ObjectSearchResult, ReferenceResult,
+    SpellCatalog, WalkRequest, WalkTarget,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
+use ltk_manager_core::problems::Budget;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
 
@@ -26,7 +34,7 @@ use ts_rs::TS;
 pub type ObjectIndexState = object_index::ObjectIndexState<AppErrorResponse>;
 
 /// What a search answers, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectSearch {
@@ -46,6 +54,7 @@ pub enum ObjectSearch {
 /// fed by it. The call returns once the build lands, and a build that fails
 /// leaves the failure in the state for a search to report.
 #[tauri::command]
+#[specta::specta]
 pub async fn warm_object_index(app_handle: AppHandle) -> IpcResult<()> {
     let config = app_handle.state::<SettingsState>().config();
 
@@ -89,6 +98,7 @@ fn build(
 
 /// Drop the object index, and the result of any build still running.
 #[tauri::command]
+#[specta::specta]
 pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
     app_handle.state::<ObjectIndexState>().clear();
     IpcResult::ok(())
@@ -101,6 +111,7 @@ pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
 /// generation of its own, apart from the game scan's, so a keystroke gives up
 /// only the object scan it overtakes.
 #[tauri::command]
+#[specta::specta]
 pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcResult<ObjectSearch> {
     let ticket = app_handle.state::<ObjectSearchGeneration>().claim();
     let overtaken = {
@@ -134,7 +145,7 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
 }
 
 /// What one prefix of the object tree holds, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectDir {
@@ -148,12 +159,47 @@ pub enum ObjectDir {
     Ready(ObjectDirListing),
 }
 
+/// The character spell catalog and the index state supplying it.
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
+#[ts(export)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum CharacterSpells {
+    /// Nothing has warmed the index.
+    Absent,
+    /// The catalog is waiting for an index build.
+    Building,
+    /// The last index build failed.
+    Failed { error: AppErrorResponse },
+    /// Every named spell for the requested character.
+    Ready(SpellCatalog),
+}
+
+/// The install's spells below `Characters/{character}/Spells`.
+#[tauri::command]
+#[specta::specta]
+pub async fn character_spells(
+    character: String,
+    app_handle: AppHandle,
+) -> IpcResult<CharacterSpells> {
+    off_thread(move || {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
+            ObjectIndexSnapshot::Absent => return Ok(CharacterSpells::Absent),
+            ObjectIndexSnapshot::Building => return Ok(CharacterSpells::Building),
+            ObjectIndexSnapshot::Failed(error) => return Ok(CharacterSpells::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => index,
+        };
+        Ok(CharacterSpells::Ready(index.character_spells(&character)))
+    })
+    .await
+}
+
 /// What one prefix of the object tree holds.
 ///
 /// `prefix` is `""` for the root, `?` for the objects no table names, and otherwise a
 /// path a listing gave. A prefix no object path runs through reports `INVALID_PATH`.
 /// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
 #[tauri::command]
+#[specta::specta]
 pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<ObjectDir> {
     off_thread(move || {
         let index = match app_handle.state::<ObjectIndexState>().snapshot() {
@@ -171,7 +217,7 @@ pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<Obje
 }
 
 /// What a full search of the objects found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectFind {
@@ -189,7 +235,7 @@ pub enum ObjectFind {
 ///
 /// The full-results twin of [`search_object_index`], the way [`find_in_game_index`]
 /// is the game search's. `regex` reads the pattern as a regular expression, and
-/// either way the match is case-insensitive. `class` is the `class:` term's value,
+/// either way the match is case-insensitive. `class_term` is the `class:` term's value,
 /// a name prefix or a hash, which narrows the objects to the classes it opens.
 ///
 /// An empty pattern with no class matches nothing. A pattern that does not parse
@@ -197,10 +243,11 @@ pub enum ObjectFind {
 ///
 /// [`find_in_game_index`]: super::game_index::find_in_game_index
 #[tauri::command]
+#[specta::specta]
 pub async fn find_objects(
     pattern: String,
     regex: bool,
-    class: Option<String>,
+    class_term: Option<String>,
     app_handle: AppHandle,
 ) -> IpcResult<ObjectFind> {
     let query = match find_query(&pattern, regex) {
@@ -222,11 +269,11 @@ pub async fn find_objects(
             ObjectIndexSnapshot::Ready(index) => index,
         };
 
-        let result = index.find(query.as_ref(), class.as_deref(), overtaken);
+        let result = index.find(query.as_ref(), class_term.as_deref(), overtaken);
         tracing::debug!(
             pattern = %pattern,
             regex,
-            class = class.as_deref().unwrap_or(""),
+            class = class_term.as_deref().unwrap_or(""),
             hits = result.hits.len(),
             total = result.total,
             superseded = result.superseded,
@@ -237,35 +284,83 @@ pub async fn find_objects(
     .await
 }
 
-/// What a reference query asks the index for.
-#[derive(Debug, Clone, Deserialize, TS)]
+/// What a reference query asks for.
+#[derive(Debug, Clone, Deserialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ReferenceQuery {
-    /// Every object of one class.
+    /// Every object of one class, from the index.
     #[serde(rename_all = "camelCase")]
     Class {
         /// The class hash, `0x` and eight hex digits.
         class_hash: String,
     },
-    /// Every declaration of one object.
+    /// Every `pointer` or `embed` value of one class, from the walk.
+    #[serde(rename_all = "camelCase")]
+    Embedded {
+        /// The class hash, `0x` and eight hex digits.
+        class_hash: String,
+    },
+    /// Every `link` or `hash` value naming one object, from the walk.
     #[serde(rename_all = "camelCase")]
     Object {
         /// The object's path hash, `0x` and eight hex digits.
         object_hash: String,
     },
+    /// Every `hash`, `file` or `string` value naming one file, from the walk.
+    #[serde(rename_all = "camelCase")]
+    File {
+        /// The chunk path, as the tables spell it.
+        path: String,
+    },
+    /// Every `file` value naming one chunk no table names, from the walk.
+    #[serde(rename_all = "camelCase")]
+    Chunk {
+        /// The chunk's path hash, sixteen hex digits.
+        path_hash: String,
+    },
+}
+
+/// A reference query resolved to its lookup: a class in the index, or a walk.
+#[derive(Debug)]
+enum ReferenceLookup {
+    Class(BinHash),
+    Walk(WalkTarget),
 }
 
 impl ReferenceQuery {
-    /// The hash the query names, whichever it names.
-    fn hash_text(&self) -> &str {
-        let (Self::Class { class_hash: text } | Self::Object { object_hash: text }) = self;
-        text
+    /// The lookup the query resolves to.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the hash the query names does not parse.
+    fn resolve(&self) -> AppResult<ReferenceLookup> {
+        let object_hash = |text: &str| {
+            parse_hash(text).ok_or_else(|| {
+                AppError::ValidationFailed(format!("Not an object index hash: {text}"))
+            })
+        };
+        Ok(match self {
+            Self::Class { class_hash } => ReferenceLookup::Class(object_hash(class_hash)?),
+            Self::Embedded { class_hash } => {
+                ReferenceLookup::Walk(WalkTarget::Embedded(object_hash(class_hash)?))
+            }
+            Self::Object { object_hash: text } => {
+                ReferenceLookup::Walk(WalkTarget::Linked(object_hash(text)?))
+            }
+            Self::File { path } => ReferenceLookup::Walk(WalkTarget::File(FileTarget::named(path))),
+            Self::Chunk { path_hash } => {
+                let chunk = path_hash.parse().map_err(|_| {
+                    AppError::ValidationFailed(format!("Not a chunk path hash: {path_hash}"))
+                })?;
+                ReferenceLookup::Walk(WalkTarget::File(FileTarget::unnamed(chunk)))
+            }
+        })
     }
 }
 
 /// What a reference query found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectReferences {
@@ -275,26 +370,38 @@ pub enum ObjectReferences {
     Building,
     /// The last build failed, and the next warm retries it.
     Failed { error: AppErrorResponse },
-    /// The index answered.
+    /// The index or the walk answered.
     Ready(ReferenceResult),
 }
 
-/// What `query` names, grouped by the file that declares it.
+/// The walk in flight, whose budget a cancel calls off.
 ///
-/// A class answers with every object the install declares as it, and an object with
-/// every file declaring that object. The scan carries a generation of its own, so a
-/// re-run gives up only the reference scan it overtakes.
+/// One at a time, because the References document asks one question. A newer query
+/// overtakes the walk through its generation, and a cancel reaches only this one.
+#[derive(Debug, Default)]
+pub struct ReferenceWalkState(Mutex<Option<Budget>>);
+
+/// How often a walk reports how far it has read.
+const WALK_PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
+
+/// What `query` names, grouped by the file that holds it.
+///
+/// A class answers from the index with every object the install declares as it. An
+/// embedded class, an object and a file answer from a walk of `project`'s layers and
+/// the install, reporting `reference-walk-progress` as it reads. The scan carries a
+/// generation of its own, so a re-run gives up only the reference scan it overtakes.
 ///
 /// "The References document" in `docs/ux/PROJECT_EDITOR.md`.
 #[tauri::command]
+#[specta::specta]
 pub async fn find_references(
     query: ReferenceQuery,
+    project: Option<String>,
     app_handle: AppHandle,
 ) -> IpcResult<ObjectReferences> {
-    let asked = query.hash_text().to_owned();
-    let Some(hash) = parse_hash(&asked) else {
-        let e = AppError::ValidationFailed(format!("Not an object index hash: {asked}"));
-        return IpcResult::from(Err::<ObjectReferences, _>(e));
+    let lookup = match query.resolve() {
+        Ok(lookup) => lookup,
+        Err(e) => return IpcResult::from(Err::<ObjectReferences, _>(e)),
     };
 
     let ticket = app_handle.state::<ObjectReferenceGeneration>().claim();
@@ -315,24 +422,106 @@ pub async fn find_references(
             ObjectIndexSnapshot::Ready(index) => index,
         };
 
-        let result = match query {
-            ReferenceQuery::Class { .. } => index.class_references(hash, overtaken),
-            ReferenceQuery::Object { .. } => index.object_references(hash),
+        let result = match lookup {
+            ReferenceLookup::Class(class) => index.class_references(class, overtaken),
+            ReferenceLookup::Walk(target) => {
+                walk(&app_handle, &index, target, project.as_deref(), overtaken)?
+            }
         };
         tracing::debug!(
-            hash = %asked,
+            query = ?query,
             groups = result.groups.len(),
             total = result.total,
             superseded = result.superseded,
-            "Answered a reference query from the bin object index"
+            cancelled = result.cancelled,
+            "Answered a reference query"
         );
         Ok(ObjectReferences::Ready(result))
     })
     .await
 }
 
+/// Walk `project`'s layers and the install for `target`, as the one walk in flight.
+///
+/// A project whose layers cannot be listed is walked without them, and logged.
+fn walk(
+    app: &AppHandle,
+    index: &ObjectIndex,
+    target: WalkTarget,
+    project: Option<&str>,
+    overtaken: impl Fn() -> bool + Sync,
+) -> AppResult<ReferenceResult> {
+    let config = app.state::<SettingsState>().config();
+    let archives = GameArchives::resolve(&config)?;
+    let layers = match project.map(layer_bins).transpose() {
+        Ok(layers) => layers.unwrap_or_default(),
+        Err(e) => {
+            tracing::warn!("Walking the install without the project's layers: {e}");
+            Vec::new()
+        }
+    };
+
+    let budget = Budget::sweep();
+    let walks = app.state::<ReferenceWalkState>();
+    *walks.0.lock() = Some(budget.clone());
+
+    let bin = app.state::<BinHashTablesState>().get();
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
+    let names = CacheNames::new(&bin, &wad);
+    let (schema, build) = super::bin::installed_schema(app);
+
+    let events = TauriEventSink::new(app.clone());
+    let last_report = Mutex::new(None::<Instant>);
+    let request = WalkRequest {
+        target,
+        layers: &layers,
+        archives: &archives,
+        budget: &budget,
+        workers: files_at_once(),
+    };
+    let result = index.walk(
+        &request,
+        &names,
+        Some(schema.at(build)),
+        overtaken,
+        |progress| {
+            let now = Instant::now();
+            let mut last = last_report.lock();
+            let due = last.is_none_or(|at| now.duration_since(at) >= WALK_PROGRESS_INTERVAL);
+            if !due && progress.walked < progress.total {
+                return;
+            }
+            *last = Some(now);
+            drop(last);
+            events.emit(BackendEvent::ReferenceWalkProgress(progress));
+        },
+    );
+
+    let mut in_flight = walks.0.lock();
+    if in_flight.as_ref().is_some_and(|held| held.is(&budget)) {
+        *in_flight = None;
+    }
+    Ok(result)
+}
+
+/// Call off the walk in flight, if there is one.
+///
+/// Answers `false` when nothing was walking, which is what a Cancel pressed as the
+/// walk finished looks like. The walk answers with what it found.
+#[tauri::command]
+#[specta::specta]
+pub fn cancel_reference_walk(app_handle: AppHandle) -> IpcResult<bool> {
+    let walks = app_handle.state::<ReferenceWalkState>();
+    let in_flight = walks.0.lock();
+    let Some(budget) = in_flight.as_ref() else {
+        return IpcResult::ok(false);
+    };
+    budget.cancel();
+    IpcResult::ok(true)
+}
+
 /// The slot the index is in, as an answer reports it.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectIndexStatus {
@@ -347,7 +536,7 @@ pub enum ObjectIndexStatus {
 }
 
 /// What declares each of a set of object hashes, beside the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS)]
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct DeclaredObjects {
@@ -364,6 +553,7 @@ pub struct DeclaredObjects {
 /// is ordered as a link resolves it (ADR-0028): this file, then a file the bin
 /// depends on, then archive order.
 #[tauri::command]
+#[specta::specta]
 pub async fn declared_objects(
     object_hashes: Vec<String>,
     document: Option<BinDocumentId>,
@@ -413,12 +603,15 @@ fn fold_own_declarations(
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
     let file = own_file_name(&asset, &wad);
+    let (schema, build) = super::bin::installed_schema(app);
 
     let (dependencies, own) = store.read(document, |open| {
         let own: Vec<(&str, BinObjectHeader)> = object_hashes
             .iter()
             .filter_map(|text| {
-                let header = open.object(parse_hash(text)?, &names).ok()?;
+                let header = open
+                    .object(parse_hash(text)?, &names, Some(schema.at(build)))
+                    .ok()?;
                 Some((text.as_str(), header))
             })
             .collect();
@@ -436,7 +629,7 @@ fn fold_own_declarations(
         if !declared
             .declarations
             .iter()
-            .any(|known| known.asset == asset)
+            .any(|known| known.asset.same_file(&asset))
         {
             declared.declarations.push(declaration);
         }

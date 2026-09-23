@@ -1,11 +1,17 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
-import { ConfirmDialog } from "@/components";
+import { RetainedContent } from "@/components";
+import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
+import { useLeafCloses } from "../state/leafCloses";
+import { NO_SHARED_TITLES } from "../tabTitles";
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
+import { useCloseQueue } from "../useCloseQueue";
+import { useEditorKeys } from "../useEditorKeys";
 import { DocumentToolbarSlotContext } from "./DocumentToolbar";
 import { EditorTabs } from "./EditorTabs";
+import { UnsavedCloseDialog } from "./UnsavedCloseDialog";
 
 export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   /** The leaf this surface draws, which the strip scopes its drag ids by. */
@@ -15,16 +21,32 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   registry: EditorRegistry<D>;
   /** Documents whose editor has reported unsaved edits. */
   dirtyIds: ReadonlySet<string>;
+  /** Documents a user pinned. They lead the strip, and a batch close passes them over. */
+  pinnedIds: readonly string[];
   /** The ephemeral tab, which draws in italic. Null when the strip holds none. */
   previewId?: string | null;
+  /** Titles more than one open document carries, whose tabs name their layer. */
+  sharedTitles?: ReadonlySet<string>;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   /** The keyboard route to a split, offered from a tab's context menu. */
   onSplit?: (id: string, edge: "right" | "bottom") => void;
   /** A double click on a tab, which keeps an ephemeral one. */
   onPromote?: (id: string) => void;
+  /** Absent leaves the strip without a pin, for a host whose tabs are all alike. */
+  onTogglePin?: (id: string, pinned: boolean) => void;
+  /** This group takes a document only from a gesture that names it. */
+  locked?: boolean;
+  /** Absent leaves the strip without a lock, for a host whose groups all take an open. */
+  onToggleLock?: (locked: boolean) => void;
+  /** A double click on a kept tab, which fills the grid with this surface. */
+  onMaximize?: () => void;
   /** A pointer landing anywhere in the surface, tab strip or document body. */
   onFocus?: () => void;
+  /** Where a find goes for an active document with no search box of its own. */
+  onFindElsewhere?: () => void;
+  /** Puts the newest closed tab back, which `Ctrl+Shift+T` asks the focused group for. */
+  onReopenClosed?: () => void;
   /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
   focused?: boolean;
   /** Shown while nothing is open. */
@@ -39,6 +61,9 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
  * scroll position and half-typed edits survive a trip to another tab.
  * Closing one with unsaved edits asks first.
  *
+ * The focused group answers the editor's keys, per "The editor's keys" in
+ * `docs/ux/PROJECT_EDITOR.md`.
+ *
  * The row under the strip is a slot the active document fills through
  * {@link DocumentToolbar}, rather than chrome this surface is handed.
  */
@@ -48,19 +73,24 @@ export function EditorSurface<D extends EditorDocumentBase>({
   activeId,
   registry,
   dirtyIds,
+  pinnedIds,
   previewId,
+  sharedTitles = NO_SHARED_TITLES,
   onActivate,
   onClose,
   onSplit,
   onPromote,
+  onTogglePin,
+  locked,
+  onToggleLock,
+  onMaximize,
   onFocus,
+  onFindElsewhere,
+  onReopenClosed,
   focused,
   empty,
   className,
 }: EditorSurfaceProps<D>) {
-  /* A queue rather than one document: Close Others can meet several unsaved
-     editors at once, and each of them is its own question. */
-  const [pendingCloses, setPendingCloses] = useState<readonly D[]>([]);
   const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
@@ -82,75 +112,53 @@ export function EditorSurface<D extends EditorDocumentBase>({
         const definition = definitionFor(document);
         if (!definition) return [];
 
+        const { title, context, layer, path } = definition.label(document);
         return [
           {
             id: document.id,
-            ...definition.label(document),
+            title,
+            context: context ?? (sharedTitles.has(title) ? layer : undefined),
+            path,
             icon: definition.icon(document),
             dirty: dirtyIds.has(document.id),
             preview: document.id === previewId,
+            pinned: pinnedIds.includes(document.id),
             menu: definition.tabMenu?.(document),
           },
         ];
       }),
-    [documents, definitionFor, dirtyIds, previewId],
+    [documents, definitionFor, dirtyIds, pinnedIds, previewId, sharedTitles],
   );
 
-  /** Close what can go now, and queue whatever would lose edits. */
-  const requestClose = useCallback(
-    (ids: readonly string[]) => {
-      const pending: D[] = [];
-      for (const id of ids) {
-        const document = documents.find((candidate) => candidate.id === id);
-        if (document && dirtyIds.has(id)) pending.push(document);
-        else onClose(id);
-      }
-      setPendingCloses(pending);
-    },
-    [documents, dirtyIds, onClose],
-  );
+  const close = useCloseQueue({
+    documents,
+    dirtyIds,
+    pinnedIds,
+    titleOf: (document) => definitionFor(document)?.label(document).title,
+    onClose,
+    onActivate,
+  });
 
-  const closeOne = useCallback((id: string) => requestClose([id]), [requestClose]);
+  useLeafCloses(leafId, close);
 
-  const closeOthers = useCallback(
-    (id: string) =>
-      requestClose(documents.filter((document) => document.id !== id).map((it) => it.id)),
-    [documents, requestClose],
-  );
+  const documentIds = useMemo(() => documents.map((document) => document.id), [documents]);
 
-  const closeToRight = useCallback(
-    (id: string) => {
-      const from = documents.findIndex((document) => document.id === id);
-      if (from < 0) return;
-      requestClose(documents.slice(from + 1).map((document) => document.id));
-    },
-    [documents, requestClose],
-  );
-
-  const closeAll = useCallback(
-    () => requestClose(documents.map((document) => document.id)),
-    [documents, requestClose],
-  );
-
-  function discardPending() {
-    const [head, ...rest] = pendingCloses;
-    if (!head) return;
-    onClose(head.id);
-    setPendingCloses(rest);
-  }
-
-  function pendingTitle(): string | undefined {
-    const document = pendingCloses[0];
-    if (!document) return undefined;
-    return definitionFor(document)?.label(document).title;
-  }
+  useEditorKeys({
+    enabled: focused === true,
+    documentIds,
+    activeId,
+    onActivate,
+    onClose: close.closeOne,
+    onFindElsewhere,
+    onReopenClosed,
+  });
 
   return (
     <div
       data-ui={`EditorSurface:${leafId}`}
       onPointerDownCapture={onFocus}
       className={twMerge(
-        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-950",
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-900",
         className,
       )}
     >
@@ -159,12 +167,16 @@ export function EditorSurface<D extends EditorDocumentBase>({
         tabs={tabs}
         activeId={activeId}
         onActivate={onActivate}
-        onClose={closeOne}
-        onCloseOthers={closeOthers}
-        onCloseToRight={closeToRight}
-        onCloseAll={closeAll}
+        onClose={close.closeOne}
+        onCloseOthers={close.closeOthers}
+        onCloseToRight={close.closeToRight}
+        onCloseAll={close.closeAll}
         onSplit={onSplit}
         onPromote={onPromote}
+        onTogglePin={onTogglePin}
+        locked={locked}
+        onToggleLock={onToggleLock}
+        onMaximize={onMaximize}
         focused={focused}
       />
 
@@ -188,46 +200,28 @@ export function EditorSurface<D extends EditorDocumentBase>({
             const active = document.id === activeId;
 
             return (
-              <div
+              <RetainedContent
                 key={document.id}
                 data-ui={`EditorSurface:document:${document.kind}`}
-                hidden={!active}
+                active={active}
                 className="absolute inset-0 flex flex-col"
               >
                 <Editor document={document} active={active} />
-              </div>
+              </RetainedContent>
             );
           })}
         </DocumentToolbarSlotContext>
       </div>
 
       <UnsavedCloseDialog
-        title={pendingTitle()}
-        onCancel={() => setPendingCloses([])}
-        onDiscard={discardPending}
+        open={close.question !== null}
+        title={m.editor_unsaved_close_title()}
+        description={m.editor_unsaved_close_hint({ title: close.question?.title ?? "" })}
+        saveLabel={close.question?.saves === true ? m.editor_unsaved_save_action() : undefined}
+        discardLabel={m.editor_unsaved_discard_action()}
+        saving={close.saving}
+        onAnswer={close.answer}
       />
     </div>
-  );
-}
-
-interface UnsavedCloseDialogProps {
-  /** The document being closed. Absent means the queue is empty. */
-  title: string | undefined;
-  /** Drops the whole queue, since one refusal answers for the batch. */
-  onCancel: () => void;
-  onDiscard: () => void;
-}
-
-function UnsavedCloseDialog({ title, onCancel, onDiscard }: UnsavedCloseDialogProps) {
-  return (
-    <ConfirmDialog
-      open={title !== undefined}
-      onClose={onCancel}
-      title="Close without saving?"
-      description={<>{title} has unsaved changes. Closing it now throws them away.</>}
-      confirmLabel="Discard changes"
-      onConfirm={onDiscard}
-      size="sm"
-    />
   );
 }

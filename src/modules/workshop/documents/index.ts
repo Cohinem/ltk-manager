@@ -1,3 +1,8 @@
+export { FilesDocument } from "../content/components/FilesDocument";
+export { DetailsDocument } from "../projects/details/components/DetailsDocument";
+export { useProjectDetails, validateVersion } from "../projects/details/hooks/useProjectDetails";
+export { StringsDocument } from "../string-overrides/components/StringsDocument";
+export { contentEditors, documentDefinition, useContentEditors } from "./state/registry";
 export {
   type ContentDocument,
   type ContentDocumentOf,
@@ -11,6 +16,8 @@ export {
   gameDocument,
   gameWadDocument,
   gameWadsDocument,
+  IGNORE_RULES_DOCUMENT_ID,
+  ignoreRulesDocument,
   layerTitle,
   objectDocument,
   objectDocumentId,
@@ -21,12 +28,9 @@ export {
   previewDocumentId,
   PROBLEMS_DOCUMENT_ID,
   problemsDocument,
+  projectTextDocument,
+  README_DOCUMENT_ID,
   REFERENCES_DOCUMENT_ID,
   referencesDocument,
   stringsDocument,
-} from "./contentDocument";
-export { DetailsDocument } from "./DetailsDocument";
-export { FilesDocument } from "./FilesDocument";
-export { contentEditors, useContentEditors } from "./registry";
-export { StringsDocument } from "./StringsDocument";
-export { useProjectDetails, validateVersion } from "./useProjectDetails";
+} from "./utils/contentDocument";

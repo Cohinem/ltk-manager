@@ -124,6 +124,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_core::game_index::SearchGeneration::default());
     app.manage(ltk_manager_core::game_index::FindGeneration::default());
     app.manage(ltk_manager_core::game_wads::WadCache::default());
+    app.manage(ltk_manager_core::material::defs::ShaderDefsCache::default());
     app.manage(crate::commands::ObjectIndexState::default());
     app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
     app.manage(ltk_manager_core::object_index::ObjectFindGeneration::default());
@@ -132,6 +133,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_core::bin_document::BinDocuments::default());
     app.manage(ltk_manager_core::hashtables::BinHashTablesState::default());
     app.manage(crate::commands::ExtractState::default());
+    app.manage(crate::commands::ReferenceWalkState::default());
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(hotkey_manager);
@@ -147,7 +149,17 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     crate::telemetry::refresh_from_document(&app_handle);
 
+    app.manage(crate::updater::UpdaterState::default());
     crate::tray::setup(app)?;
+
+    if let Some(window) = app_handle.get_webview_window("main") {
+        let app = app_handle.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                crate::updater::install_on_quit(&app);
+            }
+        });
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -190,7 +202,7 @@ pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
     if let tauri::RunEvent::Exit = event {
         crate::patcher::shutdown_resources(app_handle);
 
-        let telemetry: tauri::State<'_, Arc<crate::telemetry::TelemetryState>> = app_handle.state();
+        let telemetry = crate::telemetry::state(app_handle);
         telemetry.handle().flush();
 
         // The session watcher ends on its own, but the window hider polls for

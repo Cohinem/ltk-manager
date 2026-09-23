@@ -1,6 +1,6 @@
 # Phase 1 Contracts — Tauri Commands
 
-Two new IPC commands. Both follow the standard `IpcResult<T>` pattern (`src-tauri/src/error.rs`) and the 7-step "Adding a New Tauri Command" checklist in `CLAUDE.md`.
+Two new IPC commands. Both follow the standard `IpcResult<T>` pattern (`src-tauri/src/error.rs`) and the 7-step "Adding a New Tauri Command" checklist in `AGENTS.md`.
 
 ## `get_mod_wad_report`
 

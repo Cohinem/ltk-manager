@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use specta::datatype::{DataType, Enum, Field, Variant};
 use ts_rs::TS;
 
-use ltk_manager_core::bin_document::BinDocumentError;
+use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
 pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
@@ -32,6 +32,10 @@ use crate::github::{GitHubError, GitHubErrorKind};
     rename_all_fields = "camelCase"
 )]
 pub enum AppErrorResponse {
+    /// An external tool installation failed.
+    Integration {
+        error: ltk_manager_core::integrations::IntegrationError,
+    },
     /// File system I/O failed.
     Io { detail: String },
     /// JSON could not be read or written.
@@ -93,6 +97,21 @@ pub enum AppErrorResponse {
     BinNodeNotFound { address: String },
     /// A projected read asked for more rows than one call answers.
     BinReadTooWide { rows: usize, cap: usize },
+    /// A resolved read reached more values than one call answers.
+    BinReadTooLarge,
+    /// A resolved read nested deeper than one call answers.
+    BinReadTooDeep,
+    /// The open bin takes no edit, behind the gate named.
+    BinReadOnly { gate: ReadOnly },
+    /// An edit's value does not fit the leaf it addresses.
+    BinEditRejected {
+        address: String,
+        rejection: EditRejection,
+    },
+    /// The bin's file holds other bytes than the document opened.
+    BinChangedOnDisk,
+    /// The edited bin does not encode.
+    BinUnwritable { detail: String },
     /// An overlay build or analysis failed.
     ///
     /// One code with a category, not one per category: `ltk_overlay::Error`
@@ -332,6 +351,17 @@ impl From<AppError> for AppErrorResponse {
             AppError::BinDocument(BinDocumentError::ReadTooWide { rows, cap }) => {
                 Self::BinReadTooWide { rows, cap }
             }
+            AppError::BinDocument(BinDocumentError::ReadTooLarge) => Self::BinReadTooLarge,
+            AppError::BinDocument(BinDocumentError::ReadTooDeep) => Self::BinReadTooDeep,
+            AppError::BinDocument(BinDocumentError::ReadOnly(gate)) => Self::BinReadOnly { gate },
+            AppError::BinDocument(BinDocumentError::EditRejected { address, rejection }) => {
+                Self::BinEditRejected { address, rejection }
+            }
+            AppError::BinDocument(BinDocumentError::Declaring(inner)) => Self::from(*inner),
+            AppError::BinDocument(BinDocumentError::ChangedOnDisk) => Self::BinChangedOnDisk,
+            AppError::BinDocument(BinDocumentError::Unwritable(e)) => Self::BinUnwritable {
+                detail: e.to_string(),
+            },
             AppError::Overlay(e) => Self::Overlay {
                 category: OverlayErrorCategory::from(&e),
                 detail: e.to_string(),

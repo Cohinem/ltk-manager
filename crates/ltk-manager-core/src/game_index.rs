@@ -50,6 +50,7 @@ pub struct GameDirEntry {
 /// One file of the folded index, in the shape a single archive reads back.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFileEntry {
@@ -580,6 +581,22 @@ impl GameIndex {
             .iter()
             .find(|file| file.name == name)?;
         Some(file.entry(dir, self.wad_name(file)))
+    }
+
+    /// The chunk no hash table names at `path_hash`, or `None` where the index holds
+    /// none under it.
+    ///
+    /// A bin names a file by the path's hash whether or not a table names it, so this
+    /// is where a path the tree lacks is looked for next.
+    #[must_use]
+    pub fn unnamed_at(&self, path_hash: u64) -> Option<GameFileEntry> {
+        let name = hex_name(WadHash(path_hash));
+        let at = self
+            .unknown
+            .binary_search_by(|file| file.name.as_str().cmp(&name))
+            .ok()?;
+        let file = &self.unknown[at];
+        Some(file.unnamed_entry(self.wad_name(file)))
     }
 
     /// The wire shape of every chunk no hash table names.

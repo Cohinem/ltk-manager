@@ -7,6 +7,7 @@
 
 mod artifacts;
 mod build;
+pub(crate) mod builtin_mods;
 mod resolve;
 
 pub(crate) use artifacts::OverlayStorageExt;
@@ -16,7 +17,10 @@ pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 use crate::config::Config;
 use crate::error::{AppResult, Utf8PathExt};
 use crate::events::BackendEvent;
+use crate::meta_schema::{self, PatchSchema};
 use crate::mods::ModLibrary;
+use crate::problems::GameBuild;
+use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -39,12 +43,19 @@ impl ModLibrary {
     /// UI events as a side effect of asking for one.
     ///
     /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
-    /// to the enabled mod list so they take highest priority.
+    /// to the enabled mod list, and the built-in mods `config` turns on go above them.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::Overlay`](crate::error::AppError::Overlay) holding
+    /// [`ltk_overlay::Error::CalledOff`] where `called_off` answers `true`, and the
+    /// resolve and build failures otherwise.
     pub fn ensure_overlay(
         &self,
         config: &Config,
         workshop_project_paths: &[PathBuf],
         force_rebuild: bool,
+        called_off: impl Fn() -> bool + Send + Sync + 'static,
     ) -> AppResult<OverlayBuild> {
         let storage_dir = self.storage_dir(config)?;
 
@@ -69,6 +80,14 @@ impl ModLibrary {
         tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
         let mods = self.collect_overlay_mods(workshop_project_paths, enabled_mods)?;
+        let tables = self.wad_resolver();
+        let mods = builtin_mods::inject(
+            &storage_dir,
+            &config.builtin_mods,
+            &game_dir,
+            &*tables,
+            mods,
+        )?;
 
         let utf8_state_dir = profile_dir.try_into_utf8("profile directory")?;
         artifacts::clean_corrupt_overlay_state(&utf8_state_dir);
@@ -86,19 +105,36 @@ impl ModLibrary {
         tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
         tracing::info!("Overlay: string_override_mode={:?}", string_override_mode);
 
+        let build = GameBuild::read(game_dir.path());
+        let schema = meta_schema::shared(build);
+        tracing::info!(
+            "Overlay: game_build={:?} meta_schema={}",
+            build.map(|build| build.to_string()),
+            schema.at(build).build().is_some()
+        );
+
         let inputs = OverlayBuildInputs {
             game_dir: game_dir.into_path().try_into_utf8("game directory")?,
             overlay_root: overlay_root.clone().try_into_utf8("overlay root")?,
             state_dir: utf8_state_dir,
             blocked_wads,
             string_override_mode,
+            game_data_schema: Box::new(PatchSchema::new(schema, build)),
             mods,
         };
 
         let progress_events = Arc::clone(self.events());
-        let outcome = build_overlay(inputs, move |progress| {
-            progress_events.emit(BackendEvent::OverlayProgress(progress));
-        })?;
+        let outcome = build_overlay(
+            inputs,
+            move |progress| {
+                progress_events.emit(BackendEvent::OverlayProgress(progress));
+            },
+            called_off,
+        )?;
+
+        for diagnostic in &outcome.game_data_diagnostics {
+            log_game_data_diagnostic(diagnostic);
+        }
 
         Ok(OverlayBuild {
             overlay_root,
@@ -106,7 +142,7 @@ impl ModLibrary {
         })
     }
 
-    /// Prepend workshop projects to the enabled mods so they take highest priority.
+    /// The overlay's mods below the built-in ones, highest priority first: workshop projects, then enabled mods.
     fn collect_overlay_mods(
         &self,
         workshop_project_paths: &[PathBuf],
@@ -181,8 +217,29 @@ impl ModLibrary {
     /// Records the build, since refreshing the stale badge caches is half of what
     /// the user is asking for when they reach for this.
     pub fn rebuild_overlay(&self, config: &Config) -> AppResult<PathBuf> {
-        let build = self.ensure_overlay(config, &[], true)?;
+        let build = self.ensure_overlay(config, &[], true, || false)?;
         self.record_overlay_build(build.outcome);
         Ok(build.overlay_root)
     }
 }
+
+/// Log one game-data diagnostic, the informational kinds at `info` and the rest at `warn`.
+fn log_game_data_diagnostic(diagnostic: &GameDataDiagnostic) {
+    let GameDataDiagnostic {
+        kind,
+        mod_id,
+        layer,
+        target,
+        message,
+        ..
+    } = diagnostic;
+    match kind {
+        GameDataDiagnosticKind::EntryFanOut | GameDataDiagnosticKind::SchemaFallback => {
+            tracing::info!(?kind, mod_id, layer, target_name = ?target, "Game data: {message}");
+        }
+        _ => tracing::warn!(?kind, mod_id, layer, target_name = ?target, "Game data: {message}"),
+    }
+}
+
+#[cfg(test)]
+mod tests;

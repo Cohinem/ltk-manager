@@ -1,6 +1,7 @@
 import { BooksIcon } from "@phosphor-icons/react";
 
 import { PathField, SectionCard, Switch } from "@/components";
+import { m } from "@/i18n";
 import type { Settings } from "@/lib/tauri";
 
 import { ExperimentalChip } from "./ExperimentalChip";
@@ -16,34 +17,34 @@ interface LibrarySectionProps {
 export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
   return (
     <SectionCard
-      title="Library"
+      title={m.settings_library_title()}
       icon={<BooksIcon className="h-5 w-5" />}
-      description="Options for your mod library"
+      description={m.settings_library_description()}
     >
-      <SettingGroup id="library.storage" title="Storage">
+      <SettingGroup id="library.storage" title={m.settings_library_storage_title()}>
         <SettingRow
           kind="action"
           layout="stacked"
           setting="modStoragePath"
-          description="Leave empty for the app data directory."
+          description={m.settings_library_storage_description()}
           control={
             <PathField
               pick="directory"
-              aria-label="Storage location"
+              aria-label={m.settings_library_storage_label()}
               value={settings.modStoragePath}
               onSelect={(path) => onSave({ ...settings, modStoragePath: path })}
-              placeholder="Default (app data directory)"
-              dialogTitle="Select Mod Storage Location"
+              placeholder={m.settings_library_storage_placeholder()}
+              dialogTitle={m.settings_library_storage_dialog_title()}
             />
           }
         />
       </SettingGroup>
 
-      <SettingGroup id="library.cataloguing" title="Cataloguing">
+      <SettingGroup id="library.cataloguing" title={m.settings_library_cataloguing_title()}>
         <SettingRow
           setting="autoCategorizationEnabled"
-          description="Champions, maps and tags get read from each mod's files."
-          hint="They are offered as suggested categories and as library filters. Turn this off to rely only on the categories you set yourself."
+          description={m.settings_library_categorization_description()}
+          hint={m.settings_library_categorization_hint()}
           control={
             <Switch
               checked={settings.autoCategorizationEnabled}
@@ -57,8 +58,8 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         <SettingRow
           setting="watcherEnabled"
           badge={<ExperimentalChip />}
-          description="Mods added or removed outside the app show up in the library."
-          hint="Filesystem notifications vary across platforms and antivirus software, so watching can miss an update or fire falsely. Requires a restart to take effect."
+          description={m.settings_library_watcher_description()}
+          hint={m.settings_library_watcher_hint()}
           control={
             <Switch
               checked={settings.watcherEnabled}
@@ -68,12 +69,26 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
       </SettingGroup>
 
-      <SettingGroup id="library.installing" title="Installing">
+      <SettingGroup id="library.priority" title={m.settings_library_priority_title()}>
+        <SettingRow
+          setting="promoteEnabledMods"
+          description={m.settings_library_promotion_description()}
+          control={
+            <Switch
+              aria-label={m.settings_library_promotion_title()}
+              checked={settings.promoteEnabledMods}
+              onCheckedChange={(checked) => onSave({ ...settings, promoteEnabledMods: checked })}
+            />
+          }
+        />
+      </SettingGroup>
+
+      <SettingGroup id="library.installing" title={m.settings_library_installing_title()}>
         <SettingRow
           kind="action"
           layout="stacked"
           setting="trustedDomains"
-          description="One-click links only install from these domains. Remove all of them to allow any source."
+          description={m.settings_library_trusted_domains_description()}
           control={<TrustedDomainsEditor settings={settings} onSave={onSave} />}
         />
       </SettingGroup>

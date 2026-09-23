@@ -4,6 +4,14 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
+	/**  Local executable and Explorer state for each tool. */
+	integrationStatus: () => __TAURI_INVOKE<({ ok: true; value: IntegrationStatus[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("integration_status"),
+	/**  Latest stable release available for a tool. */
+	integrationRelease: (tool: Tool) => __TAURI_INVOKE<({ ok: true; value: IntegrationRelease }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("integration_release", { tool }),
+	/**  Apply an explicit installation or context-menu change. */
+	changeIntegration: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("change_integration", { tool, action, conflicts }),
+	/**  Cancel a matching download before registration begins. */
+	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
 	/**
 	 *  Hold `asset` open as a bin, answering the header and the rows at depth zero.
 	 * 
@@ -28,6 +36,119 @@ export const commands = {
 	 *  row cap is refused so the caller batches.
 	 */
 	binRead: (document: BinDocumentId, entry: string, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: BinRows[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_read", { document, entry, paths }),
+	/**
+	 *  Every row of an open document whose name or value holds `query`, in tree order.
+	 * 
+	 *  `entry`, `0x` and eight hex digits, narrows the search to one object, which is what
+	 *  an object tab draws. The project bar's `@` scope asks this of the active tab.
+	 */
+	binFind: (document: BinDocumentId, entry: string | null, query: string) => __TAURI_INVOKE<({ ok: true; value: BinFindResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_find", { document, entry, query }),
+	/**
+	 *  Set one leaf of an open document, answering the value it held.
+	 * 
+	 *  `entry` is the object's hash as `0x` and eight hex digits, and `path` the wire form of
+	 *  the leaf's property path. Every id over the asset reads the edit. Nothing reaches the
+	 *  disk before [`bin_save`].
+	 */
+	binPatch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) => __TAURI_INVOKE<({ ok: true; value: LeafValue }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_patch", { document, entry, path, value }),
+	/**
+	 *  Edit one property's subtree as one undoable declaration or binary change.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Refuses closed or read-only documents, invalid edits, and failed declaration writes.
+	 */
+	binEditProperty: (document: BinDocumentId, entry: string, holder: string, field: string, edits: ValueEdit[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit_property", { document, entry, holder, field, edits }),
+	/**
+	 *  Write an open document's edits to its layer file, as a delta over the bytes it opened.
+	 * 
+	 *  A document no patch touched writes nothing. ADR-0040.
+	 */
+	binSave: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_save", { document }),
+	/**
+	 *  Read an open document's file again, dropping the edits its tree held.
+	 * 
+	 *  Every id over the asset reads the file as it is on disk.
+	 */
+	binReload: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_reload", { document }),
+	/**
+	 *  Revert the latest edit of an open document's tree, answering whether one was held.
+	 * 
+	 *  The file tab and the object tabs over one asset share the tree and its stack.
+	 */
+	binUndo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_undo", { document }),
+	/**
+	 *  Apply the latest undone edit of an open document's tree again, answering whether one
+	 *  was held.
+	 */
+	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
+	/**
+	 *  What the document says beside its rows: the layer it declares into, the project's
+	 *  layers, and the rows a declaration of that layer touches. `None` for a document that
+	 *  declares nothing. ADR-0042.
+	 */
+	binDeclared: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: DeclaredState | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declared", { document }),
+	/**  Write the edits that follow on a declared document to `layer`. ADR-0042. */
+	binDeclareInto: (document: BinDocumentId, layer: string) => __TAURI_INVOKE<({ ok: true; value: DeclaredState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_into", { document, layer }),
+	/**
+	 *  The row at `path` under `entry` as the declaration and the game-copy reference an author
+	 *  would write for it, from any open bin. ADR-0042.
+	 */
+	binRowDeclaration: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: RowDeclaration }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_row_declaration", { document, entry, path }),
+	/**
+	 *  Declare the row at `path` under `entry` of a declared document as `reference`, a game-copy
+	 *  reference, or with `merge` add it to the row's list or map. ADR-0042.
+	 */
+	binDeclareReference: (document: BinDocumentId, entry: string, path: string, reference: string, merge: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_reference", { document, entry, path, reference, merge }),
+	/**
+	 *  The fields the holder at `path` of an open document can take, out of the meta schema.
+	 * 
+	 *  `path` is empty for the object itself. The fields are the ones the holder's class and
+	 *  its bases declare at the install's build, less the ones the holder writes.
+	 */
+	binAddableFields: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: AddableFields }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_addable_fields", { document, entry, path }),
+	/**
+	 *  Add a property to the end of the holder at `path` of an open document.
+	 * 
+	 *  A declared field starts at the schema's published default, and a custom one at its
+	 *  kind's zero value. Nothing reaches the disk before [`bin_save`].
+	 */
+	binAddProperty: (document: BinDocumentId, entry: string, path: string, property: NewProperty) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_add_property", { document, entry, path, property }),
+	/**
+	 *  Take the property at `path` of an open document out of its holder.
+	 * 
+	 *  The game reads the field's default in its place. Nothing reaches the disk before
+	 *  [`bin_save`].
+	 */
+	binRemoveProperty: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_remove_property", { document, entry, path }),
+	/**
+	 *  The classes an item of the list, map or option at `path` can hold, or the pointer at it.
+	 * 
+	 *  The classes its items hold come first, then the class the meta schema declares for the
+	 *  field at the install's build, then the classes deriving from that one.
+	 */
+	binItemClasses: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: ClassChoice[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_item_classes", { document, entry, path }),
+	/**
+	 *  Put an item into the list, map or option at `path` of an open document, answering the
+	 *  new item's path.
+	 * 
+	 *  An embed naming no class takes the class the holder holds or the meta schema declares.
+	 *  Nothing reaches the disk before [`bin_save`].
+	 */
+	binInsertItem: (document: BinDocumentId, entry: string, path: string, item: NewItem) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_insert_item", { document, entry, path, item }),
+	/**  Take the item at `path` of an open document out of its list, map or option. */
+	binRemoveItem: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_remove_item", { document, entry, path }),
+	/**  Move the item at `path` of an open document to `to` in its list, answering its new path. */
+	binMoveItem: (document: BinDocumentId, entry: string, path: string, to: number) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_move_item", { document, entry, path, to }),
+	/**  Set the key of the map entry at `path` of an open document, answering its new path. */
+	binSetKey: (document: BinDocumentId, entry: string, path: string, key: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_key", { document, entry, path, key }),
+	/**
+	 *  Give the null pointer at `path` of an open document a class, or set a pointer to null
+	 *  where `class_name` is absent.
+	 */
+	binSetPointer: (document: BinDocumentId, entry: string, path: string, className: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_pointer", { document, entry, path, className }),
+	/**  The rows at depth zero of an open file, one per object, read again after an edit. */
+	binRoots: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: BinRow[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_roots", { document }),
 	/**  Drop one id. Its asset leaves the store with its last id. */
 	binClose: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_close", { document }),
 	/**
@@ -37,6 +158,186 @@ export const commands = {
 	 *  `class_hash` is `0x` and eight hex digits.
 	 */
 	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
+	/**
+	 *  The install's copy of each of `paths`, by path. A path the install does not ship is
+	 *  absent.
+	 * 
+	 *  For the `file` links of a page of bin rows, checked in one call. Lowercased and then
+	 *  looked for by hash, which is what `DocumentAssets::locate` does: a chunk no table
+	 *  names is reached by its path's hash, and the two lookups must not disagree about
+	 *  whether the install holds a file.
+	 */
+	locateGameFiles: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: GameFileEntry } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_game_files", { paths }),
+	/**
+	 *  Build the object index, unless one is built or building.
+	 * 
+	 *  The game index is built first when it is not, because the object build is
+	 *  fed by it. The call returns once the build lands, and a build that fails
+	 *  leaves the failure in the state for a search to report.
+	 */
+	warmObjectIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("warm_object_index"),
+	/**  Drop the object index, and the result of any build still running. */
+	dropObjectIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("drop_object_index"),
+	/**
+	 *  Rank every bin object of the install against `query`, best first.
+	 * 
+	 *  Answers for the slot the index is in, so a query that arrives while the
+	 *  build runs reads as building rather than as nothing. The scan carries a
+	 *  generation of its own, apart from the game scan's, so a keystroke gives up
+	 *  only the object scan it overtakes.
+	 */
+	searchObjectIndex: (query: string) => __TAURI_INVOKE<({ ok: true; value: ObjectSearch }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_object_index", { query }),
+	/**
+	 *  Every declaration of each of `object_hashes`, by hash.
+	 * 
+	 *  The install's declarations come from the index, in the slot it is in. With
+	 *  `document` open, the document's own declarations join them and every list
+	 *  is ordered as a link resolves it (ADR-0028): this file, then a file the bin
+	 *  depends on, then archive order.
+	 */
+	declaredObjects: (objectHashes: string[], document: number | null) => __TAURI_INVOKE<({ ok: true; value: DeclaredObjects }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declared_objects", { objectHashes, document }),
+	/**
+	 *  What one prefix of the object tree holds.
+	 * 
+	 *  `prefix` is `""` for the root, `?` for the objects no table names, and otherwise a
+	 *  path a listing gave. A prefix no object path runs through reports `INVALID_PATH`.
+	 *  "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
+	 */
+	objectDir: (prefix: string) => __TAURI_INVOKE<({ ok: true; value: ObjectDir }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("object_dir", { prefix }),
+	/**  The install's spells below `Characters/{character}/Spells`. */
+	characterSpells: (character: string) => __TAURI_INVOKE<({ ok: true; value: CharacterSpells }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("character_spells", { character }),
+	/**  The missile inputs written on one spell in an open document. */
+	readSpell: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SpellPreview }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_spell", { document, entry }),
+	/**
+	 *  Every object of the install matching `pattern`, in path order.
+	 * 
+	 *  The full-results twin of [`search_object_index`], the way [`find_in_game_index`]
+	 *  is the game search's. `regex` reads the pattern as a regular expression, and
+	 *  either way the match is case-insensitive. `class_term` is the `class:` term's value,
+	 *  a name prefix or a hash, which narrows the objects to the classes it opens.
+	 * 
+	 *  An empty pattern with no class matches nothing. A pattern that does not parse
+	 *  reports `VALIDATION_FAILED` with the parser's own message.
+	 * 
+	 *  [`find_in_game_index`]: super::game_index::find_in_game_index
+	 */
+	findObjects: (pattern: string, regex: boolean, classTerm: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectFind }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_objects", { pattern, regex, classTerm }),
+	/**
+	 *  What `query` names, grouped by the file that holds it.
+	 * 
+	 *  A class answers from the index with every object the install declares as it. An
+	 *  embedded class, an object and a file answer from a walk of `project`'s layers and
+	 *  the install, reporting `reference-walk-progress` as it reads. The scan carries a
+	 *  generation of its own, so a re-run gives up only the reference scan it overtakes.
+	 * 
+	 *  "The References document" in `docs/ux/PROJECT_EDITOR.md`.
+	 */
+	findReferences: (query: ReferenceQuery, project: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectReferences }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_references", { query, project }),
+	/**
+	 *  Call off the walk in flight, if there is one.
+	 * 
+	 *  Answers `false` when nothing was walking, which is what a Cancel pressed as the
+	 *  walk finished looks like. The walk answers with what it found.
+	 */
+	cancelReferenceWalk: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_reference_walk"),
+	/**
+	 *  One particle system of an open document, with every reference resolved.
+	 * 
+	 *  `entry` is the object's hash as `0x` and eight hex digits.
+	 */
+	readVfxSystem: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: VfxSystem }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_vfx_system", { document, entry }),
+	/**
+	 *  One skin of an open document, as a viewport draws it.
+	 * 
+	 *  `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
+	 *  digits. The shader defs are read beside the skin, the project's copy first, and a
+	 *  read they refuse leaves every material on its own fields. A material or an effect
+	 *  system the document does not declare is looked for through the files it links, as a
+	 *  graph is.
+	 */
+	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
+	/**
+	 *  The materials `entries` name, each with a translated program per pass.
+	 * 
+	 *  An entry is an object hash as `0x` and eight hex digits, or an object path, which is
+	 *  hashed. The answer is one for one and in order, null where the bin declares no object
+	 *  under the entry. The shader defs are read beside the bin, the project's copy first,
+	 *  and a read they refuse leaves every pass without a shader and says so. Translations
+	 *  are kept under the app's data directory by the blob's hash.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the source bin cannot be read or parsed.
+	 */
+	readMaterialPrograms: (source: MaterialSource, entries: string[], options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: (MaterialProgram | null)[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_material_programs", { source, entries, options }),
+	/**
+	 *  Tangents saved into the viewed skin's project-layer mesh.
+	 * 
+	 *  # Errors
+	 *  Fails when the skin or layer mesh is unavailable, baking fails, or the write fails.
+	 */
+	bakeSkinTangents: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AssetRef }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bake_skin_tangents", { document, entry }),
+	/**
+	 *  The materials a map's submeshes name, and its lighting and screen effects.
+	 * 
+	 *  `map` is `MapContainer.mapPath`, an entry path such as
+	 *  `Maps/MapGeometry/Map11/Base_SRX`, and `materials` are the entry paths the map's own
+	 *  `LTKM` buffer carries, answered one for one and in that order. `document` names any
+	 *  open document of the project whose layer answers first, and none resolves against the
+	 *  install alone.
+	 * 
+	 *  A map nothing holds a `.materials.bin` for leaves every material unresolved rather
+	 *  than failing the read, which draws the map flat. One whose file is there but will not
+	 *  read is reported, because the caller keeps this answer for the app's life and a flat
+	 *  map cached over a momentary failure is a map that never draws again.
+	 */
+	readMap: (document: number | null, map: MapPath, materials: string[]) => __TAURI_INVOKE<({ ok: true; value: MapModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map", { document, map, materials }),
+	/**
+	 *  Every particle the open `.materials.bin` under `document` stands in its map.
+	 * 
+	 *  The systems they link are objects of the same document, so `read_vfx_system` answers
+	 *  each against the handle this was asked with.
+	 */
+	readMapParticles: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapParticle[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_particles", { document }),
+	/**
+	 *  Every character the open `.materials.bin` under `document` stands in its map.
+	 * 
+	 *  Each names its skin by entry path, which lives in the character's own skin bin rather
+	 *  than in this document.
+	 */
+	readMapCharacters: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapCharacter[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_characters", { document }),
+	/**
+	 *  The maps the `Map`, `MapSkin` or `MapContainer` at `entry` draws.
+	 * 
+	 *  Empty for a skin that links no container and for an object of any other class.
+	 */
+	readMapVariants: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: MapVariant[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_variants", { document, entry }),
+	/**  Every chunk the open `.materials.bin` under `document` declares, and what each holds. */
+	readMapOutline: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapChunk[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_outline", { document }),
+	/**
+	 *  Where the two files of `map` live, the project `near` sits in answering before the install.
+	 * 
+	 *  So a mod that ships its own geometry draws it, and one that ships only materials draws
+	 *  the install's geometry under them.
+	 */
+	locateMapFiles: (near: AssetRef, map: MapPath) => __TAURI_INVOKE<({ ok: true; value: MapFiles }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_map_files", { near, map }),
+	/**
+	 *  Where each of `paths` lives, the project `near` sits in answering before the install.
+	 * 
+	 *  One call for every file a scene is about to open, since finding a project's files
+	 *  walks its layers. A path nothing holds is absent.
+	 */
+	locateFilesNear: (near: AssetRef, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: AssetRef } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_files_near", { near, paths }),
+	/**
+	 *  One animation graph: its clips with their files placed, and the maps they key into.
+	 * 
+	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
+	 *  graph the open document does not declare is looked for through the files it links,
+	 *  and a linked file that cannot be read is passed over.
+	 */
+	readAnimationGraph: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AnimationGraph }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_animation_graph", { document, entry }),
+	/**  The rate and the length of one `.anm`, which the clip table's rate column reads. */
+	readClipHeader: (asset: AssetRef) => __TAURI_INVOKE<({ ok: true; value: ClipHeader }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_clip_header", { asset }),
 	runDiagnostics: () => __TAURI_INVOKE<({ ok: true; value: DiagnosticReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("run_diagnostics"),
 	/**
 	 *  Launch an elevated PowerShell window so the user can run a fix command.
@@ -95,6 +396,21 @@ export const commands = {
 	 *  rejection all come here and are queued on the one egress path.
 	 */
 	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
+	/**  Read the `.modignore` at project-relative `at`, or the root file for none. */
+	getProjectIgnoreRules: (projectPath: string, at: string | null) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath, at }),
+	/**  The starter rules, for the empty state that draws them before writing them. */
+	recommendedIgnoreRules: () => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("recommended_ignore_rules"),
+	/**  Write the `.modignore` at project-relative `at`, or the root file for none. */
+	saveProjectIgnoreRules: (projectPath: string, at: string | null, text: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_ignore_rules", { projectPath, at, text }),
+	addRecommendedIgnoreRules: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_recommended_ignore_rules", { projectPath }),
+	/**  Read one of the project's root text files, the readme or the license. */
+	getProjectText: (projectPath: string, file: ProjectTextFile) => __TAURI_INVOKE<({ ok: true; value: ProjectText }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_text", { projectPath, file }),
+	/**  Write one of the project's root text files, guarded by `expected`. */
+	saveProjectText: (projectPath: string, file: ProjectTextFile, text: string, expected: {
+	/**  Milliseconds since the Unix epoch, or 0 where the platform has no time. */
+	modifiedMs: number,
+	size: number,
+} | null) => __TAURI_INVOKE<({ ok: true; value: ProjectText }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_text", { projectPath, file, text, expected }),
 	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
@@ -113,9 +429,61 @@ export const commands = {
 	 *  next start.
 	 */
 	switchLeagueInstall: (installRoot: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_league_install", { installRoot }),
+	/**  A release newer than the running build, or `None` when this build is the latest. */
+	checkUpdate: () => __TAURI_INVOKE<({ ok: true; value: PendingUpdate | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_update"),
+	/**  Download the offered release's installer ahead of the install. */
+	downloadUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("download_update"),
+	/**  Install the downloaded release and relaunch into it. */
+	installUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_update"),
+	/**  Drop the downloaded installer, so quitting installs nothing. */
+	discardUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("discard_update"),
 };
 
 /* Types */
+/**  One field Add property offers for a holder. */
+export type AddableField = {
+	/**  `0x` and eight hex digits. */
+	hash: string,
+	name: string | null,
+	shape: KindShape,
+	/**  What an embed or a pointer holds, or what a list's items hold, as `0x` and hex. */
+	classHash: string | null,
+	class: string | null,
+	/**  The class declaring the field, where it is a base of the holder's class. */
+	inheritedFrom: string | null,
+};
+
+/**  What Add property offers for one holder. */
+export type AddableFields = {
+	/**  The holder's class, `0x` and eight hex digits. */
+	classHash: string,
+	class: string | null,
+	/**
+	 *  The fields the class and its bases declare that the holder does not write. Empty
+	 *  for a class the schema does not describe.
+	 */
+	fields: AddableField[],
+};
+
+/**
+ *  An animation graph, as a clip table and a viewport read it.
+ * 
+ *  "The model" in docs/plans/animation-graph-table.md. Every list keeps the order its
+ *  map holds, and every key is named by the tables or written as its hex.
+ */
+export type AnimationGraph = {
+	/**  The linked file declaring the graph, and none where the open document does. */
+	source: AssetRef | null,
+	/**  `mClipDataMap`. */
+	clips: GraphClip[],
+	/**  `mTrackDataMap`. */
+	tracks: Track[],
+	/**  `mMaskDataMap`. */
+	masks: Mask[],
+	/**  `mSyncGroupDataMap`. */
+	syncGroups: SyncGroup[],
+};
+
 /**
  *  What went wrong, as the fields the frontend translates over.
  * 
@@ -124,6 +492,8 @@ export const commands = {
  *  crate error, which the frontend draws as data under a title of its own.
  */
 export type AppErrorResponse = 
+/**  An external tool installation failed. */
+{ code: "INTEGRATION"; error: IntegrationError } | 
 /**  File system I/O failed. */
 { code: "IO"; detail: string } | 
 /**  JSON could not be read or written. */
@@ -186,6 +556,18 @@ export type AppErrorResponse =
 { code: "BIN_NODE_NOT_FOUND"; address: string } | 
 /**  A projected read asked for more rows than one call answers. */
 { code: "BIN_READ_TOO_WIDE"; rows: number; cap: number } | 
+/**  A resolved read reached more values than one call answers. */
+{ code: "BIN_READ_TOO_LARGE" } | 
+/**  A resolved read nested deeper than one call answers. */
+{ code: "BIN_READ_TOO_DEEP" } | 
+/**  The open bin takes no edit, behind the gate named. */
+{ code: "BIN_READ_ONLY"; gate: ReadOnly } | 
+/**  An edit's value does not fit the leaf it addresses. */
+{ code: "BIN_EDIT_REJECTED"; address: string; rejection: EditRejection } | 
+/**  The bin's file holds other bytes than the document opened. */
+{ code: "BIN_CHANGED_ON_DISK" } | 
+/**  The edited bin does not encode. */
+{ code: "BIN_UNWRITABLE"; detail: string } | 
 /**
  *  An overlay build or analysis failed.
  * 
@@ -223,7 +605,12 @@ path: string } |
 /**  A `DATA/FINAL`-relative archive name. */
 wad: string; 
 /**  The chunk's path hash as 16 lowercase hex digits. */
-pathHash: string } | 
+pathHash: string; 
+/**
+ *  The project directory whose game tree the chunk was opened from, which makes a
+ *  bin of it a declared document (ADR-0042). Absent for a chunk opened anywhere else.
+ */
+project?: string | null } | 
 /**
  *  Any file on disk, for a preview that belongs to no project.
  * 
@@ -232,6 +619,45 @@ pathHash: string } |
  *  the whole filesystem to the same webview, so this adds no reach.
  */
 { kind: "file"; path: string };
+
+/**  One vertex attribute the vertex shader reads. */
+export type Attribute = {
+	/**  The semantic without its index: `POSITION`, `BLENDINDICES`. */
+	semantic: string,
+	index: number,
+	/**  The GLSL attribute name. */
+	glslName: string,
+	/**  Which of `xyzw` the shader reads, as a four-bit mask. */
+	mask: number,
+};
+
+/**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
+export type BaseRule = 
+/**  A static switch of the one shader that has such a switch names it. */
+"switchOverride" | 
+/**  Its name is one that means the albedo. */
+"exact" | 
+/**  Every albedo name held a placeholder, and another texture's path is a colour map. */
+"colorMapOverPlaceholder" | 
+/**  Every albedo name held a placeholder, which the engine samples too. */
+"exactPlaceholder" | 
+/**  Its name reads as an albedo and as nothing else. */
+"nameLike" | 
+/**  Its path is a colour map's, and its name is not something else. */
+"colorMapPath" | 
+/**  Its path is a colour map's, whatever its name. */
+"colorMapPathAnyName";
+
+/**  The texture a preview draws a material's main layer with. */
+export type BaseTexture = {
+	/**  The shader texture's name, which the sampler entry is keyed by. */
+	name: string,
+	texture: NamedAsset,
+	/**  Which rule picked it, from surest to a last resort. */
+	rule: BaseRule,
+	/**  The sampler's address modes, across and down. */
+	wrap: [Wrap, Wrap],
+};
 
 /**  Why a suspect is one, as the line under its name. */
 export type Because = "holds-the-path" | "redirected" | "rejected" | "did-not-verify" | "skipped" | "could-not-mount" | 
@@ -250,6 +676,10 @@ export type BinDocumentHandle = {
 	rows: BinRow[],
 	/**  The object the open is over. Absent for a file open. */
 	object: BinObjectHeader | null,
+	/**  The gate a read-only document stands behind. Absent where it takes edits. */
+	readOnly: ReadOnly | null,
+	/**  What a declared document says beside its rows. Absent for every other document. */
+	declared: DeclaredState | null,
 };
 
 /**
@@ -267,6 +697,32 @@ export type BinFileKind =
 /**  A `PTCH`: a layer over another bin. */
 "patch";
 
+/**  One row a search matched, with the path a reveal opens down to. */
+export type BinFindHit = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The row's property path on the wire. Empty for an object row. */
+	path: string,
+	/**  The same path for a person. Empty for an object row. */
+	label: string,
+	/**  The object's path, or its hash where no table names it. */
+	object: string,
+	/**  What the row is called: the object's path, the property's name, `[i]` or the key. */
+	name: string,
+	/**  Byte offsets into `name` the query matched. Empty where the value matched alone. */
+	ranges: ([number, number])[],
+	/**  The row's value as one line of text, where it reads as one. */
+	value: string | null,
+};
+
+/**  What one search of an open document found. */
+export type BinFindResult = {
+	/**  The matching rows in tree order, at most `FIND_ROWS`. */
+	hits: BinFindHit[],
+	/**  How many rows matched in all, counted on past the cap. */
+	total: number,
+};
+
 /**  What the header row says about an open bin. */
 export type BinHeader = {
 	kind: BinFileKind,
@@ -275,10 +731,10 @@ export type BinHeader = {
 	/**  The objects the file declares. For a `PTCH`, the objects it adds. */
 	objects: number,
 	dependencies: string[],
-	/**  The patch records of a `PTCH`. Nothing draws them. */
+	/**  The patch records of a `PTCH`. */
 	patches: number,
-	/**  The objects a `PTCH` deletes. */
-	deleted: number,
+	/**  The objects a `PTCH` deletes, in file order. */
+	deleted: ObjectName[],
 };
 
 /**  The facts an object tab's header draws. "The object tab" in docs/ux/BIN_EDITOR.md. */
@@ -301,16 +757,22 @@ export type BinObjectHeader = {
 export type BinRow = {
 	/**  The object's path hash, `0x` and eight hex digits. */
 	entry: string,
-	/**  The property path on the wire, every field a hash. Empty for the object itself. */
+	/**
+	 *  The property path on the wire, every field a hash. Empty for the object itself,
+	 *  and `#` then the record's position under a patch target (ADR-0041).
+	 */
 	path: string,
-	/**  The same path for a person. Empty for the object itself. */
+	/**
+	 *  The same path for a person. Empty for the object itself, and the record's own path
+	 *  first under a patch record.
+	 */
 	label: string,
 	node: RowNode,
 	/**  What the row is called: the object's path, the property's name, `[i]` or the key. */
 	name: string,
 	/**  The name is a hash no table names. */
 	unnamed: boolean,
-	/**  The value's kind. An object row has none. */
+	/**  The value's kind. An object row and a target row have none. */
 	kind: PropertyKind | null,
 	value: BinValue,
 	/**
@@ -358,13 +820,47 @@ export type BinValue = { type: "none" } |
 /**  The entries, and the kinds the map declares for its keys and its values. */
 { type: "map"; len: number; keyKind: PropertyKind; valueKind: PropertyKind } | 
 /**  A leaf this build has no widget for. */
-{ type: "undrawn" };
+{ type: "undrawn" } | 
+/**  The patch records a `PTCH` writes to one object. */
+{ type: "records"; len: number };
 
 /**  Patcher binary identity */
 export type BinaryId = {
 	/**  16 hex sha-256 */
 	hash: string,
 	built: number | null,
+};
+
+/**  One side of the pair a pass blends by, a `StaticMaterialPassDef::BlendFactor`. */
+export type BlendFactor = "zero" | "one" | "srcColor" | "oneMinusSrcColor" | "dstColor" | "oneMinusDstColor" | "srcAlpha" | "oneMinusSrcAlpha";
+
+/**  The blends a preview tells apart. */
+export type Blending = "opaque" | 
+/**  Source alpha over one minus source alpha, which most character materials are. */
+"normal" | "additive" | 
+/**  The target darkened by the source's own colour, which 17 shipped map materials do. */
+"modulate";
+
+/**  One member of a uniform block. */
+export type BlockMember = {
+	name: string,
+	/**  The byte offset in the buffer. */
+	offset: number,
+	size: number,
+	/**
+	 *  Whether this permutation reads it. An unread member is compiled out and is no
+	 *  warning when a material writes it.
+	 */
+	used: boolean,
+	scalar: MemberScalar,
+	/**  Rows for a matrix, one otherwise. */
+	rows: number,
+	/**  Columns for a matrix or vector, one for a scalar. */
+	columns: number,
+	/**  Array length, or zero for no array. */
+	elements: number,
+	/**  Whether a matrix is stored a row per `vec4`, which is how D3D packs a `float4x4`. */
+	rowMajor: boolean,
 };
 
 /**  Coarse grouping for the UI. */
@@ -381,6 +877,33 @@ export type Category =
 "storage" | 
 /**  Mod library state checks (index integrity). */
 "library";
+
+/**  One named spell and every file declaring its object. */
+export type CharacterSpell = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The resolved object path. */
+	path: string,
+	/**  The path below `Characters/{character}/Spells`. */
+	name: string,
+	/**  The first nested segment, which suggests a group without implying cast order. */
+	group: string | null,
+	/**  Every declaration, including conflicting classes, in archive order. */
+	declarations: ObjectDeclaration[],
+};
+
+/**  The character spell catalog and the index state supplying it. */
+export type CharacterSpells = 
+/**  Nothing has warmed the index. */
+({ status: "absent" }) & { error?: never } | 
+/**  The catalog is waiting for an index build. */
+({ status: "building" }) & { error?: never } | 
+/**  The last index build failed. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  Every named spell for the requested character. */
+{
+	status: "ready",
+} & SpellCatalog;
 
 /**  Result of a single diagnostic check. */
 export type Check = Check_Serialize | Check_Deserialize;
@@ -433,6 +956,17 @@ export type Check_Serialize = {
 	fixCommand?: string | null,
 };
 
+/**  One class a class line offers. */
+export type ClassChoice = {
+	/**  `0x` and eight hex digits. */
+	hash: string,
+	name: string | null,
+	/**  An item of the holder holds the class already. */
+	held: boolean,
+	/**  The class the schema declares for the holder, where this one derives from it. */
+	derivesFrom: string | null,
+};
+
 /**  One class as the class card draws it: its name, and its fields typed at one build. */
 export type ClassSchema = {
 	/**  The class as the database names it. */
@@ -451,6 +985,30 @@ export type ClassSchema = {
 	patch: string | null,
 	/**  The named fields first, by name, and the unnamed after them by hash. */
 	fields: FieldSchema[],
+};
+
+/**  One entry of `mEventDataMap`, of any kind of `BaseEventData`. */
+export type ClipEvent = {
+	/**  The event's key as the tables name it, and its hash where none does. */
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  The event's class as the tables name it, and its hash where none does. */
+	class: string,
+	/**  `mStartFrame`, the frame of the clip the event fires on. */
+	startFrame: number | null,
+	/**  `mEndFrame`, and none for an event that ends on its own, which the meta writes as -1. */
+	endFrame: number | null,
+	/**  What the event does, for the kinds a viewport plays. */
+	kind: EventKind,
+};
+
+/**  What one `.anm` says about itself: its rate and its length. */
+export type ClipHeader = {
+	/**  Frames per second the clip was authored at. */
+	fps: number | null,
+	/**  Seconds one pass of the clip lasts. */
+	duration: number | null,
 };
 
 /**
@@ -473,6 +1031,34 @@ export type Consequence =
 /**  The game did not survive. */
 "game-stopped";
 
+/**  One diagnostic of the last apply, on the row it names. */
+export type DeclaredDiagnostic = {
+	/**
+	 *  The object's path hash, `0x` and eight hex digits. Empty where the diagnostic names no
+	 *  object of the chunk.
+	 */
+	entry: string,
+	/**
+	 *  The row's path on the wire. Empty where the key reaches no row, which lists the
+	 *  diagnostic under its object.
+	 */
+	path: string,
+	/**  The layer whose declaration raised it. */
+	layer: string,
+	/**  The signed key, the link path or the override path the diagnostic is about. */
+	key: string,
+	kind: DeclaredDiagnosticKind,
+	/**  Why a property edit was skipped. Absent for every other kind. */
+	reason: SkipReason | null,
+	/**  What a lower layer said, where it said something the codes do not carry. */
+	detail: string | null,
+};
+
+/**  The category of a [`DeclaredDiagnostic`], as `ltk_game_data` names it. */
+export type DeclaredDiagnosticKind = "overrideUnreadable" | "overrideInvalid" | "overrideRecordSkipped" | "linkRemovalUnmatched" | "propertyEditSkipped" | 
+/**  A property typed from the game's copy, the schema saying nothing. Information. */
+"schemaFallback" | "referenceUnreadable" | "unknown";
+
 /**  What the schema declares for a field, beside whether the file's kind is that. */
 export type DeclaredKind = {
 	shape: KindShape,
@@ -481,6 +1067,55 @@ export type DeclaredKind = {
 	 *  type reads the two.
 	 */
 	mismatch: boolean,
+};
+
+/**  One row a declaration of the chosen layer touches. */
+export type DeclaredMark = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The row's path on the wire. Empty where the declared path reaches no row. */
+	path: string,
+	sign: DeclaredSign,
+	/**  The declaration sets a whole list or map, which no later change of the game's reaches. */
+	whole: boolean,
+	/**  The game-copy reference the declaration's value is, `<entry>:<property path>`. */
+	reference: string | null,
+	/**
+	 *  The game's value as a declaration spells it. Absent where the game holds none, and
+	 *  for a value that does not render.
+	 */
+	game: string | null,
+};
+
+/**  Every declaration of one object, with the path they share. */
+export type DeclaredObject = {
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  In archive order, and in the game index's tree order within one archive. */
+	declarations: ObjectDeclaration[],
+};
+
+/**  What declares each of a set of object hashes, beside the slot the index is in. */
+export type DeclaredObjects = {
+	/**  Off `Ready`, only the open document's own objects are in `objects`. */
+	index: ObjectIndexStatus,
+	/**  By the object's hash, `0x` and eight hex digits. A hash nothing declares is absent. */
+	objects: { [key in string]: DeclaredObject },
+};
+
+/**  The sign of a declared key. */
+export type DeclaredSign = "set" | "add" | "remove";
+
+/**  What a declared document says beside its rows. */
+export type DeclaredState = {
+	/**  The layer an edit writes to. */
+	layer: string,
+	/**  The project's layers in build order. */
+	layers: string[],
+	/**  The rows a declaration of `layer` touches. */
+	marks: DeclaredMark[],
+	/**  What the last apply reported, over every layer. */
+	diagnostics: DeclaredDiagnostic[],
 };
 
 /**
@@ -547,6 +1182,28 @@ export type DecodedIncident = {
 	overlayDetail: string | null,
 };
 
+/**  One `NAME=VALUE` of the define list. */
+export type Define = {
+	name: string,
+	value: string,
+	/**  The last of the four stages that set it. */
+	source: DefineSource,
+};
+
+/**
+ *  The stages the define list is built from, in the order the engine runs them, later
+ *  winning.
+ */
+export type DefineSource = 
+/**  `StaticMaterialDef.shaderMacros`. */
+"material" | 
+/**  `CustomShaderDef.featureDefines`, all of them. */
+"feature" | 
+/**  A compile-time static switch, `1` on and `0` off. */
+"switch" | 
+/**  `StaticMaterialPassDef.shaderMacros`. */
+"pass";
+
 /**  Full diagnostic report returned by `run_diagnostics`. */
 export type DiagnosticReport = DiagnosticReport_Serialize | DiagnosticReport_Deserialize;
 
@@ -568,6 +1225,64 @@ export type DiagnosticReport_Serialize = {
 	appVersion: string,
 	/**  All checks in display order. */
 	checks: Check_Serialize[],
+};
+
+/**  Why a leaf edit's value does not fit the node it addresses. */
+export type EditRejection = 
+/**  The node holds no value an edit sets: a container, a struct or an absent optional. */
+{ reason: "notALeaf" } | 
+/**  The value is of another kind than the leaf. */
+{ reason: "wrongKind"; kind: PropertyKind } | 
+/**  An integer the leaf's kind does not hold. */
+{ reason: "outOfRange"; kind: PropertyKind } | 
+/**  A float that is NaN or an infinity. */
+{ reason: "notFinite" } | 
+/**  A vector or a matrix of another number of components than the leaf holds. */
+{ reason: "wrongLength"; expected: number } | 
+/**  A hash text that is empty, or hex of another width. */
+{ reason: "malformedHash" } | 
+/**  The node holds no properties: a leaf, a container, or a null pointer. */
+{ reason: "notAHolder" } | 
+/**  The path ends in no property of a holder. */
+{ reason: "notAProperty" } | 
+/**  The holder writes the field already. */
+{ reason: "propertyExists" } | 
+/**  The schema declares no such field on the holder's class or its bases. */
+{ reason: "undeclaredField" } | 
+/**  An embed names no class. */
+{ reason: "missingClass" } | 
+/**  The kinds build no value: a container of nothing, or a kind a container cannot hold. */
+{ reason: "invalidShape" } | 
+/**  The node holds no items: it is no list, map or option. */
+{ reason: "notAList" } | 
+/**  The path ends in no item of a list, a map or an option. */
+{ reason: "notAnItem" } | 
+/**  The node is no pointer. */
+{ reason: "notAPointer" } | 
+/**  Another entry of the map holds the key. */
+{ reason: "keyExists" } | 
+/**  A map entry names no key. */
+{ reason: "missingKey" } | 
+/**  The option or the pointer holds a value already. */
+{ reason: "valueHeld" } | 
+/**  The list holds no such position. */
+{ reason: "noSuchIndex" } | 
+/**
+ *  The path runs through a field no table names, or a key a map holds twice, which no
+ *  declaration spells. ADR-0042.
+ */
+{ reason: "namelessPath" } | 
+/**  No declaration expresses the edit. ADR-0042. */
+{ reason: "undeclarable" };
+
+/**  One key of the skin's resolver, and the system it stands for. */
+export type EffectSystem = {
+	/**  The key, `0x` and eight hex digits. */
+	key: string,
+	/**  The `VfxSystemDefinitionData` object, `0x` and eight hex digits. */
+	system: string,
+	/**  The linked file declaring the system, and none where the skin's own document does. */
+	source: AssetRef | null,
 };
 
 /**  How the game ended, as far as anything said. */
@@ -594,6 +1309,55 @@ export type Ending = {
  *  a CLI could map the same names to exit codes.
  */
 export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN";
+
+/**  What a clip event does, for the kinds a viewport plays, and nothing for the rest. */
+export type EventKind = 
+/**  `SubmeshVisibilityEventData`: submeshes shown and hidden from the start frame on. */
+{ kind: "submeshVisibility"; 
+/**  `mShowSubmeshList`. */
+show: HashRef[]; 
+/**  `mHideSubmeshList`. */
+hide: HashRef[] } | 
+/**  `ParticleEventData`: a system spawned on a joint at the start frame. */
+{ kind: "particle"; 
+/**  `mEffectKey`, `0x` and eight hex digits, which the skin's resolver maps. */
+effectKey: string; 
+/**  `mEffectName`, what the author called it. */
+effectName: string; 
+/**  `mParticleEventDataPairList`, one spawn per pair. */
+spawns: EventSpawn[]; 
+/**  `mIsLoop`. */
+isLoop: boolean; 
+/**  `mIsKillEvent`, which stops the effect of the key rather than spawning one. */
+isKill: boolean; 
+/**  `scale`, which the meta defaults to one. */
+scale: number | null } | 
+/**  `JointSnapEventData`: one joint stands where another does, from the start frame on. */
+{ kind: "jointSnap"; 
+/**  `mJointNameToOverride`, the joint moved, and none for an event naming no joint. */
+joint: HashRef | null; 
+/**  `mJointNameToSnapTo`, the joint it stands on, and none for an event naming no joint. */
+snapTo: HashRef | null; 
+/**  `offset`, in the frame of the joint stood on. */
+offset: [(number | null), (number | null), (number | null)] } | 
+/**  `ConformToPathEventData`: the joints a mask weighs follow the unit's path over the span. */
+{ kind: "conformToPath"; 
+/**  `mMaskDataName`, the joints that conform, and none for an event naming no mask. */
+mask: KeyRef | null; 
+/**  `mBlendInTime`, seconds the conforming eases in over. */
+blendIn: number | null; 
+/**  `mBlendOutTime`, seconds it eases out over. */
+blendOut: number | null } | 
+/**  Any other kind, which the viewport draws nothing for. */
+{ kind: "other" };
+
+/**  One pair of a particle event: the joint the system rides, and the joint it aims at. */
+export type EventSpawn = {
+	/**  `mBoneName`, and none for a pair riding the skeleton's own origin. */
+	bone: HashRef | null,
+	/**  `mTargetBoneName`, and none for a pair aiming at nothing. */
+	targetBone: HashRef | null,
+};
 
 /**  One line the verdict rests on. */
 export type Evidence = {
@@ -652,8 +1416,29 @@ export type FieldSchema = {
 	 *  where the revision names a type this build cannot map.
 	 */
 	declared: KindShape | null,
+	/**  The declared class of an embed, pointer, or container item. */
+	classHash: string | null,
+	/**  The constructor default as lossless JSON, absent when the schema has none. */
+	defaultValue: string | null,
 	/**  Oldest first. */
 	revisions: FieldRevision[],
+};
+
+/**  One file of the folded index, in the shape a single archive reads back. */
+export type GameFileEntry = {
+	/**  Chunk path hash as 16 lowercase hex digits. */
+	pathHash: string,
+	/**  Resolved chunk path, or `None` when no hash table names it. */
+	path: string | null,
+	/**  Uncompressed chunk size. */
+	sizeBytes: number,
+	/**
+	 *  The `DATA/FINAL`-relative archive the chunk was read from.
+	 * 
+	 *  The fold drops every copy of a chunk after the first, so this names the
+	 *  archive that copy came from and not every archive that carries it.
+	 */
+	wad: string,
 };
 
 /**  The facts the game log gives about the game itself. */
@@ -688,6 +1473,52 @@ export type GitHubErrorKind =
 /**  Which of the things GitHub publishes a read was after. */
 export type GitHubFeed = "RELEASES" | "ANNOUNCEMENTS" | "NOTICES";
 
+/**  One entry of `mClipDataMap`, of any kind of `ClipBaseData`. */
+export type GraphClip = {
+	/**  The clip's key as the tables name it, and its hash where none does. */
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  The clip's class as the tables name it, and its hash where none does. */
+	class: string,
+	/**  `mAnimationResourceData.mAnimationFilePath`, which an atomic clip alone names. */
+	animation: NamedAsset | null,
+	/**  `mTrackDataName`. */
+	track: KeyRef | null,
+	/**  `mMaskDataName`. */
+	mask: KeyRef | null,
+	/**  `mSyncGroupDataName`. */
+	syncGroup: KeyRef | null,
+	/**  `mTickDuration`, seconds per tick, which an atomic clip alone sets. */
+	tickDuration: number | null,
+	/**  `mEventDataMap`, in map order. */
+	events: ClipEvent[],
+	/**  The clips this one plays, in its kind's field order. */
+	children: KeyRef[],
+	/**
+	 *  `mValue` of each pair of a parametric clip, one per child in the same order, and
+	 *  empty for every other kind.
+	 */
+	parameters: (number | null)[],
+	/**  `mAnimationInterruptionGroupNames`. */
+	interruptionGroups: string[],
+	/**  `mFlags`. */
+	flags: number,
+};
+
+/**
+ *  A hash a bin names something outside the graph by, such as a submesh or a joint.
+ * 
+ *  The tables name a few of them. A viewport matches the hash against the names the `.skn`
+ *  or the `.skl` spells, which is how the engine reaches them too.
+ */
+export type HashRef = {
+	/**  The hash as the tables name it, and its hex where none does. */
+	name: string,
+	/**  The hash, `0x` and eight hex digits. */
+	hash: string,
+};
+
 /**
  *  A setting or an action the evidence points at, under the verdict.
  * 
@@ -700,6 +1531,34 @@ export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "che
  *  replaces raises the odds of an allocation failing.
  */
 "large-textures";
+
+/**  One effect a skin wears for as long as the character stands. */
+export type IdleEffect = {
+	/**  `effectKey`, `0x` and eight hex digits. */
+	effectKey: string,
+	/**  The system the skin's resolver maps the key to, where this document declares it. */
+	system: string | null,
+	/**  `boneName`, the joint the effect rides. */
+	bone: string,
+	/**  `targetBoneName`, the joint it aims at, and empty for one that aims at none. */
+	targetBone: string,
+	/**  `Position`, the effect's offset from its joint. */
+	position: [(number | null), (number | null), (number | null)],
+};
+
+/**  One `.modignore` of a project, as the editor reads it. */
+export type IgnoreRules = {
+	/**  Absolute path of the file, whether or not one exists. */
+	path: string,
+	/**  The file's text, null when the file does not exist. */
+	text: string | null,
+	/**
+	 *  Recommended patterns the file lacks, in the order the default lists them.
+	 * 
+	 *  Empty for anything but the root file, whose anchor the default assumes.
+	 */
+	missingRecommended: string[],
+};
 
 /**  The record the manager keeps for one game that went wrong. */
 export type Incident = Incident_Serialize | Incident_Deserialize;
@@ -816,6 +1675,121 @@ export type InstallMismatch = {
 	sessionPath: string,
 };
 
+/**  The requested installation change. */
+export type IntegrationAction = 
+/**  Install or update to a verified stable release. */
+"install" | 
+/**  Install the executable without adding context menus. */
+"installOnly" | 
+/**  Restore the installed release's files. */
+"repair" | 
+/**  Remove owned registrations and executable files. */
+"uninstall" | 
+/**  Register classic context menus. */
+"enableMenu" | 
+/**  Restore the registrations replaced by Manager. */
+"disableMenu";
+
+/**  A retryable integration failure. */
+export type IntegrationError = 
+/**  No supported Windows architecture is available. */
+{ kind: "unsupported" } | 
+/**  Another mutation holds the installation lock. */
+{ kind: "busy" } | 
+/**  Explorer registrations changed outside Manager. */
+{ kind: "conflict" } | 
+/**  No managed installation is available. */
+{ kind: "notInstalled" } | 
+/**  A receipt is invalid or newer than this reader. */
+{ kind: "invalidReceipt" } | 
+/**  A release cannot be used by this adapter. */
+{ kind: "release"; detail: string } | 
+/**  Downloaded bytes do not match the release digest. */
+{ kind: "integrity" } | 
+/**  The user cancelled before registration. */
+{ kind: "cancelled" } | 
+/**  An operating system or transport operation failed. */
+{ kind: "operation"; detail: string };
+
+/**  The operation snapshot retained when the settings panel unmounts. */
+export type IntegrationOperation = {
+	/**  Unique operation identity. */
+	id: string,
+	/**  The tool being changed. */
+	tool: Tool,
+	/**  Current lifecycle stage. */
+	stage: IntegrationStage,
+	/**  Bytes received during the current download. */
+	downloaded: number,
+	/**  Expected bytes for the current download. */
+	total: number | null,
+	/**  The terminal failure, if any. */
+	error: IntegrationError | null,
+};
+
+/**  A stable release available for installation. */
+export type IntegrationRelease = {
+	/**  Release tag from the tool repository. */
+	tag: string,
+	/**  Human-readable release page. */
+	url: string,
+};
+
+/**  A stage of an installation operation. */
+export type IntegrationStage = 
+/**  Resolving release metadata. */
+"checking" | 
+/**  Downloading and verifying release files. */
+"downloading" | 
+/**  Applying the executable installation. */
+"installing" | 
+/**  Changing Explorer registrations. */
+"registering" | 
+/**  Removing owned files. */
+"removing" | 
+/**  The requested operation completed. */
+"complete" | 
+/**  The operation failed and can be inspected. */
+"failed" | 
+/**  The download was cancelled before registration. */
+"cancelled";
+
+/**  Local files and Explorer registrations observed independently of release availability. */
+export type IntegrationStatus = {
+	/**  The external tool. */
+	tool: Tool,
+	/**  Whether mutations are supported on this machine. */
+	supported: boolean,
+	/**  Installed release from the ownership receipt. */
+	version: string | null,
+	/**  The managed executable directory. */
+	directory: string | null,
+	/**  Managed files are missing or an operation was interrupted. */
+	needsRepair: boolean,
+	/**  Old executable files could not yet be removed. */
+	pendingCleanup: boolean,
+	/**  Classic context-menu health. */
+	menu: MenuStatus,
+	/**  Whether the managed installation requests classic menus. */
+	menuRequested: boolean,
+	/**  Unmanaged executable candidates, never run during discovery. */
+	externalPaths: string[],
+	/**  The registered machine-wide texture handler path, if present. */
+	handlerPath: string | null,
+	/**  Last operation observed in this application process. */
+	operation: IntegrationOperation | null,
+};
+
+/**  A key one clip names into a map of the graph. */
+export type KeyRef = {
+	/**  The key as the tables name it, and its hash where none does. */
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  The map holds an entry under the key. */
+	declared: boolean,
+};
+
 /**
  *  A type as the tag composes it: the kind, a `Map`'s key, and what a container holds.
  * 
@@ -882,6 +1856,652 @@ export type LauncherError =
  */
 { kind: "OTHER"; message: string };
 
+/**
+ *  The value a leaf edit sets, in the shape its widget holds.
+ * 
+ *  A hash, a link and a file carry the text the reader typed: a name, or the hex the row
+ *  draws.
+ */
+export type LeafValue = 
+/**  A `Bool` or a `BitBool`. */
+{ type: "bool"; value: boolean } | 
+/**  Any integer kind, as text. A `U64` does not fit a JSON number. */
+{ type: "integer"; text: string } | { type: "float"; value: number | null } | 
+/**  Two, three or four components. */
+{ type: "vector"; values: (number | null)[] } | 
+/**  Sixteen cells, row-major. */
+{ type: "matrix"; values: (number | null)[] } | { type: "color"; r: number; g: number; b: number; a: number } | { type: "string"; value: string } | 
+/**  A name, or `0x` and eight hex digits. */
+{ type: "hash"; text: string } | 
+/**  A chunk path, or sixteen hex digits. */
+{ type: "wadChunkLink"; text: string } | 
+/**  An object path, or `0x` and eight hex digits. */
+{ type: "objectLink"; text: string };
+
+/**  One character a map stands in its scene. */
+export type MapCharacter = {
+	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
+	chunk: string,
+	/**  The key it sits under in that chunk, as `0x` and eight digits. */
+	key: string,
+	/**  The placeable's own name, which is unique within a map. */
+	name: string,
+	/**  The entry path of the skin it wears, such as `Characters/Turret/Skins/Skin0`. */
+	skin: string,
+	/**  Where it stands in the map's space, column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer, as a map mesh carries one. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+	/**  The team it stands for, where it states one. 300 is the neutral team a camp is on. */
+	team: number | null,
+	/**
+	 *  The clip a `GDSMapObjectAnimationInfo` names for it, by the name its graph keys it
+	 *  under. None plays whatever the graph idles on.
+	 */
+	animation: string | null,
+};
+
+/**  One chunk of a map and everything it holds, in file order. */
+export type MapChunk = {
+	/**  The `MapPlaceableContainer` object, as `0x` and eight digits. */
+	entry: string,
+	/**  The object's path, else the key a `MapContainer` lists it under, else none. */
+	name: string | null,
+	items: MapChunkItem[],
+};
+
+/**  One placeable of a chunk. */
+export type MapChunkItem = {
+	/**  The key it sits under in its chunk, as `0x` and eight digits. */
+	key: string,
+	/**  The placeable's own name, and the hash itself where nothing names one. */
+	name: string,
+	/**  Its class by name, and by hash where no table names it. */
+	class: string,
+	kind: MapItemKind,
+	/**  Where it stands in the map's space. */
+	position: [(number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+};
+
+/**  The depth of field of [`MapPostEffects`]. */
+export type MapDepthOfField = {
+	/**  The blur is drawn. */
+	enabled: boolean,
+	/**  The distance from the camera that is sharpest. */
+	focalDistance: number | null,
+	/**  How deep the sharp band around `focal_distance` is. */
+	inFocusWidth: number | null,
+	/**  `Coc`, the circle of confusion the blur widens to. */
+	coc: number | null,
+};
+
+/**  Where the two files of one map live, each none where nothing holds it. */
+export type MapFiles = {
+	/**  The `.mapgeo`, which the scheme answers as one buffer. */
+	geometry: AssetRef | null,
+	/**  The `.materials.bin`, which declares the materials and the chunks. */
+	materials: AssetRef | null,
+};
+
+/**  One fog of [`MapPostEffects`], ramping from nothing at `start` to its most at `end`. */
+export type MapFog = {
+	/**  The fog is drawn. */
+	enabled: boolean,
+	/**  RGBA with each channel 0 to 1, as the bin writes it. */
+	color: [(number | null), (number | null), (number | null), (number | null)],
+	/**  Where the fog begins, a distance or a height in world units. */
+	start: number | null,
+	/**  Where the fog reaches `max_intensity`. */
+	end: number | null,
+	/**  The most the fog covers, 0 to 1. */
+	maxIntensity: number | null,
+};
+
+/**  What a placeable is to a scene, which is what an outliner marks its row with. */
+export type MapItemKind = 
+/**  A `MapParticle`, which plays a system. */
+"particle" | 
+/**  A structure or a level prop, which draws a character. */
+"character" | 
+/**  A `MapLocator` or a `MapScriptLocator`, a named point. */
+"locator" | 
+/**  A `MapGroup`, a named transform. */
+"group" | 
+/**  A `MapAudio`. */
+"audio" | 
+/**  Any other class. */
+"other";
+
+/**  One map's materials, one per path asked for and in that order, and its lighting and screen effects. */
+export type MapModel = {
+	/**
+	 *  Null where the map's own bin declares no object at that path, which a backdrop
+	 *  draws flat rather than not at all.
+	 */
+	materials: (MaterialPreview | null)[],
+	/**  Null where the map's container states no sun, which a backdrop lights with a default. */
+	sun: MapSun | null,
+	/**  Null where the map's container states no post effects, which no shipped map does. */
+	postEffects: MapPostEffects | null,
+	/**  Null where the map's container states no ambient occlusion, as all but one shipped map. */
+	ssao: MapSsao | null,
+};
+
+/**  One particle system a map stands in its scene. */
+export type MapParticle = {
+	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
+	chunk: string,
+	/**  The key it sits under in that chunk, as `0x` and eight digits. */
+	key: string,
+	/**  The placeable's own name, which is unique within a map. */
+	name: string,
+	/**  The system it plays, an object of the same document, as `0x` and eight digits. */
+	system: string,
+	/**  Where it stands in the map's space, column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer, as a map mesh carries one. */
+	visibility: number,
+	/**  The controller that shows and hides it, which no layer mask expresses. */
+	controller: string | null,
+	/**  The game plays it once as the map changes rather than for as long as it stands. */
+	transitional: boolean,
+	/**  The game leaves it off until a script turns it on. */
+	startDisabled: boolean,
+};
+
+/**
+ *  Where a map lives, as `MapContainer.mapPath` states it.
+ * 
+ *  An entry path rather than a file path, such as `Maps/MapGeometry/Map11/Base_SRX`. It
+ *  names no file of its own: each of a map's files is this path lowercased under the
+ *  data prefix with that file's suffix, which is the one spelling a resolved WAD path
+ *  has.
+ */
+export type MapPath = string;
+
+/**
+ *  A map's post effects, as its `PostEffectOptions` states them.
+ * 
+ *  A field the map leaves out reads as the class default, which [`MapPostEffects::default`]
+ *  returns and which switches every effect off.
+ */
+export type MapPostEffects = {
+	/**  `DepthFog` and its fields, which fog by distance from the camera. */
+	depthFog: MapFog,
+	/**  `HeightFog` and its fields, which fog by height in the world. */
+	heightFog: MapFog,
+	/**  `Dof` and its fields. */
+	depthOfField: MapDepthOfField,
+};
+
+/**
+ *  A map's screen-space ambient occlusion, as its `MapSSAOSettings` states it.
+ * 
+ *  A field the map leaves out reads as the class default, which [`MapSsao::default`]
+ *  returns.
+ */
+export type MapSsao = {
+	/**  `SampleQuality`, 0 for four samples a pixel and 1 for eight. */
+	sampleQuality: number,
+	/**  `SampleRadius`, how far from a pixel its samples reach, in world units. */
+	sampleRadius: number | null,
+	/**  `Bias`, how far in front of a sample the scene must be to occlude it, in world units. */
+	bias: number | null,
+	/**  `power`, the exponent the unoccluded share of a pixel is raised to. */
+	power: number | null,
+	/**  `intensity`, how much of the occlusion reaches the frame, 0 to 1. */
+	intensity: number | null,
+	/**  `BufferScale`, the occlusion's resolution as a share of the frame's. */
+	bufferScale: number | null,
+	/**  `EdgeAwareBlur`, the blur keeps a nearer surface's occlusion off the one behind it. */
+	edgeAwareBlur: boolean,
+};
+
+/**
+ *  A map's sun, sky and fog, as its `MapSunProperties` states them.
+ * 
+ *  Colours are RGBA with each channel 0 to 1, as the bin writes them. A field the map
+ *  leaves out reads as the class default, which [`MapSun::default`] returns.
+ */
+export type MapSun = {
+	/**  `sunDirection`, which points at the sun in the engine's space. */
+	direction: [(number | null), (number | null), (number | null)],
+	/**  `sunColor`. */
+	color: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `SunIntensityScale`. */
+	intensity: number | null,
+	/**  `skyLightColor`, what lights a surface facing up. */
+	skyColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `groundColor`, what lights a surface facing down. */
+	groundColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `horizonColor`, what lights a surface facing sideways. */
+	horizonColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `skyLightScale`. */
+	skyScale: number | null,
+	/**  `lightMapColorScale`, which scales a baked light map. */
+	lightMapColorScale: number | null,
+	/**  `fogEnabled`. */
+	fogEnabled: boolean,
+	/**  `fogColor`. */
+	fogColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `fogAlternateColor`. */
+	fogAlternateColor: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `fogStartAndEnd`, the heights the fog runs between, the start above the end. */
+	fogStartEnd: [(number | null), (number | null)],
+	/**  `fogEmissiveRemap`. */
+	fogEmissiveRemap: number | null,
+};
+
+/**  One map an object draws, and the skin that names it. */
+export type MapVariant = {
+	/**  The `MapSkin`'s own name, and none for a map a container states itself. */
+	skin: string | null,
+	/**  The map that skin draws. */
+	map: MapPath,
+};
+
+/**  One entry of `mMaskDataMap`. */
+export type Mask = {
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  `mId`. */
+	id: number,
+	/**  `mWeightList`, one weight per joint of the skeleton in the skeleton's order. */
+	weights: (number | null)[],
+};
+
+/**  `StaticMaterialDef.type`, the family a material's shader belongs to. */
+export type MaterialKind = "staticMesh" | 
+/**  The class default, which is why no skinned material writes the field. */
+"skinnedMesh" | "particles" | "ui" | "postProcess" | 
+/**  A value this build does not name, such as the parallax family TFT sets use. */
+"unknown";
+
+/**
+ *  One `StaticMaterialDef` as a preview draws it, cut down to the slots one stock
+ *  material takes.
+ */
+export type MaterialPreview = {
+	/**  The material's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The material's path, where a table names it. */
+	name: string | null,
+	/**
+	 *  The document declares no object under the link, so every slot is empty and the
+	 *  submesh draws as an error rather than as a guess.
+	 */
+	missing: boolean,
+	/**
+	 *  `dynamicMaterial` is set, so the slots are the static values of an animated
+	 *  material.
+	 */
+	animated: boolean,
+	/**  The pass shader's `objectPath`, and none where the link resolves to nothing. */
+	shader: string | null,
+	/**
+	 *  The texture the material's main layer samples, and none for a material with no
+	 *  texture at all.
+	 */
+	base: BaseTexture | null,
+	/**  A colour the base is multiplied by, in the shader's own units. */
+	tint: [(number | null), (number | null), (number | null)] | null,
+	opacity: number | null,
+	/**  The alpha a fragment is discarded below. */
+	alphaTest: number | null,
+	/**  How many times the base tiles across the mesh. */
+	uvRepeat: [(number | null), (number | null)] | null,
+	/**  How far the base moves per second, in tiles. */
+	uvScroll: [(number | null), (number | null)] | null,
+	renderState: RenderState,
+	/**  Every drop, miss and fallback the read made, in the order it made them. */
+	warnings: MaterialWarning[],
+};
+
+/**  One material with a program per pass, as the viewport binds it. */
+export type MaterialProgram = {
+	/**  The material's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The material's path, where a table names it. */
+	name: string | null,
+	/**
+	 *  `dynamicMaterial` is set, so the passes hold the static values of an animated
+	 *  material.
+	 */
+	animated: boolean,
+	kind: MaterialKind,
+	/**  The passes of the `normal` technique, in draw order. */
+	passes: PassProgram[],
+	/**  Every drop, miss and fallback the read made, in the order it made them. */
+	warnings: MaterialWarning[],
+};
+
+/**  Where the materials a program read names are declared. */
+export type MaterialSource = 
+/**  An open document, such as a skin's bin. */
+{ kind: "document"; document: BinDocumentId } | 
+/**
+ *  A bin read for the call, such as a map's `.materials.bin`, resolved against the
+ *  project of `document` where one is open and against the install alone otherwise.
+ */
+{ kind: "file"; asset: AssetRef; document: BinDocumentId | null };
+
+/**  Something the engine does silently that a preview says out loud. */
+export type MaterialWarning = 
+/**  The shader defs were not opened, so no default texture, parameter or switch is known. */
+{ kind: "noShaderDefs" } | 
+/**  The material has no technique with a pass, so it draws with the defaults alone. */
+{ kind: "noPass" } | 
+/**  The pass links a shader the defs do not declare, `0x` and eight hex digits. */
+{ kind: "unresolvedShader"; hash: string } | 
+/**  A second pass the preview does not draw. */
+{ kind: "secondPass" } | 
+/**  A sampler entry the shader does not declare, which the engine ignores. */
+{ kind: "undeclaredSampler"; name: string } | 
+/**  A parameter the shader does not declare, which the engine ignores. */
+{ kind: "undeclaredParam"; name: string } | 
+/**  A switch the shader does not declare, which the engine ignores. */
+{ kind: "undeclaredSwitch"; name: string } | 
+/**  A `texturePath` written as a string, which the client drops for the default. */
+{ kind: "stringTexturePath"; name: string; path: string } | 
+/**  The base texture names a path nothing on this machine holds. */
+{ kind: "textureNotFound"; name: string; path: string } | 
+/**
+ *  A shader texture neither the material nor the def gives a path, so the engine's
+ *  fallback texture is what draws.
+ */
+{ kind: "noTexturePath"; name: string };
+
+/**  Which typed view writes a member. */
+export type MemberScalar = "float" | "int" | "uint" | "bool";
+
+/**  An explicit replacement decision for existing context menus. */
+export type MenuConflictPolicy = 
+/**  Preserve another installation's registrations. */
+"preserve" | 
+/**  Replace observed registrations, keeping their backup. */
+"replace";
+
+/**  An observed classic context-menu state. */
+export type MenuStatus = 
+/**  No menus are registered. */
+"absent" | 
+/**  All menus match the Manager receipt. */
+"enabled" | 
+/**  Existing menus are not owned by this installation. */
+"external" | 
+/**  Registrations changed or an operation was interrupted. */
+"changed";
+
+/**  The movement class and its written speed or duration. */
+export type MissileMovement = 
+/**  Constant speed in engine units per second. */
+{ kind: "fixedSpeed"; speed: number | null } | 
+/**  A fixed travel duration in seconds. */
+{ kind: "fixedTime"; duration: number | null } | 
+/**  A class whose trajectory is not implemented. */
+{ kind: "unsupported"; class_hash: string } | 
+/**  No movement component was written. */
+{ kind: "missing" };
+
+/**  A missile's written placement inputs, with omitted values kept absent. */
+export type MissileSpec = {
+	/**  The movement component. */
+	movement: MissileMovement,
+	/**  The written launch delay, without the spell's cast timing added. */
+	startDelay: number | null,
+	/**  The requested launch bone, which an isolated preview replaces with a point. */
+	startBone: string | null,
+	/**  The requested target bone, which an isolated preview replaces with a point. */
+	targetBone: string | null,
+	/**  The target's height adjustment. */
+	targetHeight: number | null,
+	/**  The initial target-height offset. */
+	initialTargetHeight: number | null,
+};
+
+/**  A path a bin names, and where its bytes live. */
+export type NamedAsset = {
+	/**
+	 *  The path as the bin spells it, or a chunk's sixteen hex digits where no table
+	 *  names it.
+	 */
+	path: string,
+	/**  Absent for a path nothing on this machine holds, which is not an error. */
+	asset: AssetRef | null,
+};
+
+/**  An item Add item writes into a list, a map or an option. */
+export type NewItem = {
+	/**  Where the item lands in a list or a map, or `None` for the end. */
+	index: number | null,
+	/**
+	 *  A map entry's key as a person types one: digits, the text of a `string`, or a name
+	 *  or `0x` and eight hex digits for a `hash`.
+	 */
+	key: string | null,
+	/**
+	 *  The class an embed or a pointer item holds, as a name or `0x` and eight hex digits.
+	 *  A pointer item without one starts null.
+	 */
+	class: string | null,
+};
+
+/**  A property Add property writes: a field the schema declares, or one the reader shapes. */
+export type NewProperty = 
+/**  A field the holder's class or one of its bases declares, at its published default. */
+{ kind: "declared"; 
+/**  `0x` and eight hex digits. */
+field: string } | 
+/**  Any field, at its kind's zero value. */
+{ kind: "custom"; 
+/**  A field name, or `0x` and eight hex digits. */
+field: string; shape: KindShape; 
+/**  The class an embed holds, as a name or `0x` and eight hex digits. */
+class: string | null };
+
+/**  One class an ambiguous `class:` term matched, offered as a completion. */
+export type ObjectClassHit = {
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class's name, or its hash when no table names it. */
+	class: string,
+	/**  How many declarations carry the class. */
+	rows: number,
+};
+
+/**  One declaration of an object: the file that declares it and the class it carries. */
+export type ObjectDeclaration = {
+	/**  The declaring file, as an open reads it. */
+	asset: AssetRef,
+	/**  The declaring file's path, or its hash when no table names it. */
+	file: string,
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class's name, or its hash when no table names it. */
+	class: string,
+};
+
+/**  What one prefix of the object tree holds, given the slot the index is in. */
+export type ObjectDir = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running. The listing follows it. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{
+	status: "ready",
+} & ObjectDirListing;
+
+/**
+ *  What one prefix of the object tree holds.
+ * 
+ *  "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
+ */
+export type ObjectDirListing = {
+	/**  The prefixes no object bears, in natural name order, the unnamed group last at the root. */
+	prefixes: ObjectPrefixEntry[],
+	/**  The objects at the prefix, in natural name order. */
+	objects: ObjectNodeEntry[],
+};
+
+/**  What a full search of the objects found, given the slot the index is in. */
+export type ObjectFind = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running. The hits follow it. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{
+	status: "ready",
+} & ObjectFindResult;
+
+/**  One object the full search matched, with the runs its path marks. */
+export type ObjectFindHit = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  Byte offsets into `path`. Empty where a class term alone matched. */
+	ranges: ([number, number])[],
+	/**  Every declaration of the object, in archive order. */
+	declarations: ObjectDeclaration[],
+};
+
+/**  What one full search of the object index found. */
+export type ObjectFindResult = {
+	/**  Every matching object in path order, capped at `FIND_LIMIT`, the unnamed last. */
+	hits: ObjectFindHit[],
+	/**  How many objects matched in all, counted on past the cap. */
+	total: number,
+	/**  A newer search overtook this one. The hits are a part of the answer. */
+	superseded: boolean,
+	/**  No table named a single object. Only a hash can match. */
+	unnamed: boolean,
+};
+
+/**  The slot the index is in, as an answer reports it. */
+export type ObjectIndexStatus = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+{ status: "absent" } | 
+/**  A build is running. The answer follows it. */
+{ status: "building" } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{ status: "ready" };
+
+/**  One object by hash, and by path where a table names it. */
+export type ObjectName = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The object's path. Absent where no table names it. */
+	name: string | null,
+};
+
+/**  One object at a listed prefix, with what sits below it. */
+export type ObjectNodeEntry = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  The last segment of the path, or the hash. */
+	name: string,
+	/**  Every declaration of the object, in archive order. */
+	declarations: ObjectDeclaration[],
+	/**  Objects below the node, 0 for a leaf. */
+	count: number,
+};
+
+/**
+ *  One prefix under a listed one, folded through any run of single-child prefixes.
+ * 
+ *  A node an object bears is an [`ObjectNodeEntry`] and not one of these.
+ */
+export type ObjectPrefixEntry = {
+	/**  What `ObjectIndex::object_dir` takes to open this row: the folded node's path. */
+	path: string,
+	/**  What the row reads: the folded run of segments joined by `/`. */
+	name: string,
+	/**  Objects below the prefix. */
+	count: number,
+};
+
+/**  What a reference query found, given the slot the index is in. */
+export type ObjectReferences = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running. The groups follow it. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index or the walk answered. */
+{
+	status: "ready",
+} & ReferenceResult;
+
+/**  What a search answers, given the slot the index is in. */
+export type ObjectSearch = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+({ status: "absent" }) & { error?: never } | 
+/**  A build is running, so the rows are on their way. */
+({ status: "building" }) & { error?: never } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{
+	status: "ready",
+} & ObjectSearchResult;
+
+/**
+ *  One row a search matched, with the runs its path marks.
+ * 
+ *  The object's whole path is the row's title, so `ranges` are byte offsets
+ *  into `path`. An object or a class no table names reads as its hex.
+ */
+export type ObjectSearchHit = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	ranges: ([number, number])[],
+	/**  The class the object declares, or its hash when no table names it. */
+	class: string,
+	/**  The declaring chunk's path hash as 16 lowercase hex digits. */
+	fileHash: string,
+	/**  The declaring chunk's path. */
+	file: string,
+	/**  The `DATA/FINAL`-relative archive the declaring chunk was read from. */
+	wad: string,
+	/**  0 is a name the query opens, 1 a name holding it, 2 a match reaching the path. */
+	band: number,
+	score: number | null,
+};
+
+/**  What one search of the object index found. */
+export type ObjectSearchResult = {
+	/**  The best rows, best first, capped at `SEARCH_LIMIT`. */
+	hits: ObjectSearchHit[],
+	/**  How many rows matched in all, which the cap trimmed. */
+	total: number,
+	/**  A newer search started before this one finished, so it gave up early. */
+	superseded: boolean,
+	/**  No table named a single object, so only a hash can match. */
+	unnamed: boolean,
+	/**  The classes an ambiguous `class:` term matched, in place of rows. */
+	classes: ObjectClassHit[],
+};
+
 /**  What the session was started for, without the paths a workshop one carries. */
 export type OriginKind = "library" | "workshop";
 
@@ -920,6 +2540,59 @@ export type OverlayOutcome =
 "hook-failed" | 
 /**  The DLL never attached, or said nothing. */
 "none";
+
+/**  Which step of section 11.6 last wrote a parameter. */
+export type ParamSource = 
+/**  `ShaderPhysicalParameter.data`. */
+"shaderDefault" | 
+/**  `StaticMaterialDef.paramValues`. */
+"material" | 
+/**  `StaticMaterialPassDef.paramValues`. */
+"pass";
+
+/**  One `ShaderPhysicalParameter` after the material's and the pass's values wrote into it. */
+export type PassParam = {
+	/**  The physical name, which the `$Globals` member carries. */
+	name: string,
+	value: [(number | null), (number | null), (number | null), (number | null)],
+	/**  The last step that wrote a component. */
+	source: ParamSource,
+};
+
+/**  One pass with its shader, or with why it has none. */
+export type PassProgram = {
+	pass: ResolvedPass,
+	program: ProgramRead,
+};
+
+/**  The pass's render state, field by field, with the class defaults filled in. */
+export type PassState = {
+	blendEnable: boolean,
+	srcColor: BlendFactor,
+	dstColor: BlendFactor,
+	srcAlpha: BlendFactor,
+	dstAlpha: BlendFactor,
+	cullEnable: boolean,
+	windingToCull: Winding,
+	depthEnable: boolean,
+	/**  `depthCompareFunc` as written, 3 being less or equal, the default. */
+	depthCompareFunc: number,
+	/**  `writeMask` as written: bits 1, 2, 4 and 8 the colour channels, 16 depth. */
+	writeMask: number,
+};
+
+/**  One `ShaderTexture` with the path and the sampler the pass binds it with. */
+export type PassTexture = {
+	/**  The shader texture's name, which the material's sampler entry is keyed by. */
+	name: string,
+	/**
+	 *  The texture, and none where no step names a path, which the engine's fallback
+	 *  texture draws.
+	 */
+	texture: NamedAsset | null,
+	source: TextureSource,
+	sampler: SamplerState,
+};
 
 /**  Patcher identities */
 export type PatcherBinaries = PatcherBinaries_Serialize | PatcherBinaries_Deserialize;
@@ -965,6 +2638,59 @@ export type PatcherError =
  */
 { kind: "INJECTION_FAILED"; stage: InjectionStage; message: string };
 
+/**  A release newer than the running build. */
+export type PendingUpdate = {
+	/**  The release on offer. */
+	version: string,
+	/**  The build that is running. */
+	currentVersion: string,
+	/**  The release notes, in markdown. */
+	body: string | null,
+};
+
+/**  What the studio adds to a pass's define list. */
+export type ProgramOptions = {
+	/**  `LOW_QUALITY_MODE`, the game's own low setting. */
+	lowQuality: boolean,
+};
+
+/**  A pass's two stages translated, or the reason the viewport draws it as an error. */
+export type ProgramRead = { kind: "ready"; 
+/**
+ *  The define list the permutation was picked by, `NAME=VALUE` sorted by name,
+ *  with the studio's own entries added.
+ */
+defines: string[]; vertex: StageProgram; pixel: StageProgram } | 
+/**
+ *  The TOC is not on this machine, the define list names no permutation of it, or a
+ *  blob did not translate. Never a guess.
+ */
+{ kind: "failed"; reason: string };
+
+/**  One of a project's root text files, as the editor reads it. */
+export type ProjectText = {
+	/**  Absolute path of the file, whether or not one exists. */
+	path: string,
+	/**  The file's text, null where no file exists or its bytes are not UTF-8. */
+	text: string | null,
+	/**  Whether a file that exists decoded. A file that did not is read-only. */
+	readable: boolean,
+	/**  What the file was when it was read, null where no file exists. */
+	revision: Revision | null,
+};
+
+/**
+ *  A text file a project keeps at its root, beside `content/`.
+ * 
+ *  Naming the files rather than taking a path is what keeps a command that
+ *  writes into a project from being addressable at an arbitrary one.
+ */
+export type ProjectTextFile = 
+/**  The long description a package carries, in Markdown. */
+"readme" | 
+/**  The terms the mod is shared under, which both pack formats ship. */
+"license";
+
 /**
  *  The 27 kinds `ltk_meta` reads, as they cross IPC.
  * 
@@ -973,6 +2699,157 @@ export type PatcherError =
  *  compile error here.
  */
 export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vec2" | "vec3" | "vec4" | "mtx44" | "rgba" | "string" | "hash" | "file" | "list" | "list2" | "pointer" | "embed" | "link" | "option" | "map" | "flag";
+
+/**  Why a document takes no edit. "Where editing is allowed" in docs/ux/BIN_EDITOR.md. */
+export type ReadOnly = 
+/**  A chunk of the installed game. */
+"install" | 
+/**  A file outside every project. */
+"loose" | 
+/**  A `PTCH` layer. No edit writes a patch record. */
+"patch";
+
+/**  The objects one file declares, as a reference query groups them. */
+export type ReferenceGroup = {
+	/**  The declaring file, as an open reads it. */
+	asset: AssetRef,
+	/**  The declaring file's path, or its hash when no table names it. */
+	file: string,
+	/**  The objects in natural path order, the ones no table names last. */
+	objects: ReferenceHit[],
+};
+
+/**  One object a reference query found, in the file that declares it. */
+export type ReferenceHit = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class's name, or its hash when no table names it. */
+	class: string,
+	/**  Where in the object the walk found the reference. Absent for an answer of the index. */
+	property: ReferenceProperty | null,
+};
+
+/**  The row inside an object that holds a reference, in the two forms a row carries. */
+export type ReferenceProperty = {
+	/**  The property path on the wire, every field a hash (ADR-0027). */
+	path: string,
+	/**  The same path for a person, every hash a table names spelled. */
+	label: string,
+};
+
+/**  What a reference query asks for. */
+export type ReferenceQuery = 
+/**  Every object of one class, from the index. */
+{ kind: "class"; 
+/**  The class hash, `0x` and eight hex digits. */
+classHash: string } | 
+/**  Every `pointer` or `embed` value of one class, from the walk. */
+{ kind: "embedded"; 
+/**  The class hash, `0x` and eight hex digits. */
+classHash: string } | 
+/**  Every `link` or `hash` value naming one object, from the walk. */
+{ kind: "object"; 
+/**  The object's path hash, `0x` and eight hex digits. */
+objectHash: string } | 
+/**  Every `hash`, `file` or `string` value naming one file, from the walk. */
+{ kind: "file"; 
+/**  The chunk path, as the tables spell it. */
+path: string } | 
+/**  Every `file` value naming one chunk no table names, from the walk. */
+{ kind: "chunk"; 
+/**  The chunk's path hash, sixteen hex digits. */
+pathHash: string };
+
+/**  What one reference query found. */
+export type ReferenceResult = {
+	/**  The declaring files in archive order, holding at most `FIND_LIMIT` objects in all. */
+	groups: ReferenceGroup[],
+	/**  How many objects matched in all, counted on past the cap. */
+	total: number,
+	/**  A newer query overtook this one. The groups are a part of the answer. */
+	superseded: boolean,
+	/**  The walk was cancelled before it read every bin. The groups are what it found. */
+	cancelled: boolean,
+};
+
+/**  How a pass's fragments reach the target, from the first pass's own fields. */
+export type RenderState = {
+	blending: Blending,
+	/**  `StaticMaterialPassDef.srcColorBlendFactor`, defaulting to [`BlendFactor::One`]. */
+	srcFactor: BlendFactor,
+	/**  `StaticMaterialPassDef.dstColorBlendFactor`, defaulting to [`BlendFactor::Zero`]. */
+	dstFactor: BlendFactor,
+	/**  The pass multiplies its colour by its own alpha before blending. */
+	premultiplied: boolean,
+	/**
+	 *  The pass clips on a threshold it states itself and writes depth, so the depth buffer
+	 *  resolves its body and only the fringe its filtering leaves blends.
+	 */
+	cutout: boolean,
+	/**  `cullEnable` is off, so both faces draw. */
+	doubleSided: boolean,
+	/**  The pass culls the winding the engine keeps by default, which an inverted hull does. */
+	inverted: boolean,
+	depthWrite: boolean,
+	depthTest: boolean,
+};
+
+/**  One `StaticMaterialPassDef` with its shader's inputs filled in. */
+export type ResolvedPass = {
+	/**
+	 *  The pass shader's `objectPath`, which its TOCs are named after, and none where the
+	 *  link resolves to nothing.
+	 */
+	shader: string | null,
+	/**  The define list that picks the permutation, by name. */
+	defines: Define[],
+	/**
+	 *  The switches the shader reads at run time, each the `$Globals` float
+	 *  `switch_<name>`.
+	 */
+	runtimeSwitches: RuntimeSwitch[],
+	/**  Every shader texture in declaration order, each bound as `<name>__TX`. */
+	textures: PassTexture[],
+	/**  Every physical parameter in declaration order, each a `$Globals` member. */
+	params: PassParam[],
+	state: PassState,
+	/**  What the pass shader declares, and none where the defs were not opened. */
+	schema: ShaderSchema | null,
+};
+
+/**
+ *  What a file was when it was read, so a save can tell it has not moved.
+ * 
+ *  Modification time and size rather than a hash of the bytes: one `stat`
+ *  answers it, and prose a person typed does not change back into the same
+ *  length within the same millisecond.
+ */
+export type Revision = {
+	/**  Milliseconds since the Unix epoch, or 0 where the platform has no time. */
+	modifiedMs: number,
+	size: number,
+};
+
+/**
+ *  What a row copies as. Each half is absent where the row has no spelling for it: a path
+ *  through a field no table names, a value nothing under which is named, and the reference of
+ *  an object, which names no path.
+ */
+export type RowDeclaration = {
+	/**  An `entries` module setting the row to its value, as it stands under `modules`. */
+	declaration: string | null,
+	/**  The row as a game-copy reference, `<entry>:<property path>`. */
+	reference: string | null,
+	/**
+	 *  How many fields and items the declaration leaves out because it cannot spell them. An
+	 *  apply leaves each as the game has it.
+	 */
+	skipped: number,
+};
 
 /**  Where a row sits in the tree. */
 export type RowNode = 
@@ -983,7 +2860,41 @@ export type RowNode =
 /**  One element of a container, or the value of a present optional. */
 "element" | 
 /**  One entry of a map. */
-"entry";
+"entry" | 
+/**  An object the patch records of a `PTCH` target, holding those records (ADR-0041). */
+"target" | 
+/**  One patch record of a `PTCH`. */
+"record";
+
+/**  A static switch the shader reads as a `$Globals` float rather than a define. */
+export type RuntimeSwitch = {
+	/**  The switch's name, without the `switch_` the member carries. */
+	name: string,
+	on: boolean,
+};
+
+/**  One combined sampler in the GLSL. */
+export type SamplerBinding = {
+	/**  The `RDEF` sampler name, or null for a texture read by `Load` alone. */
+	sampler: string | null,
+	/**  The GLSL uniform to bind the texture unit to. */
+	glslName: string,
+};
+
+/**  How a texture is sampled: a shared sampler by name, or the entry's own modes. */
+export type SamplerState = {
+	/**
+	 *  `ShaderTexture.samplerName`, the `X3DSharedSamplerDef` the shader reads through
+	 *  as `<name>_SharedSampler`, which wins over the modes below.
+	 */
+	shared: string | null,
+	/**  `addressU`, `addressV` and `addressW`. */
+	wrap: [Wrap, Wrap, Wrap],
+	/**  `filterMin` is 1, linear. */
+	filterMin: boolean,
+	/**  `filterMag` is 1, linear. */
+	filterMag: boolean,
+};
 
 /**  Which scan the DLL ran, as it decided from the flags and the command line. */
 export type ScanMode = "eager" | "lazy";
@@ -1016,6 +2927,41 @@ export type ScanStatus =
 "base-wad" | 
 /**  A status this build does not know. */
 "unknown";
+
+/**  One name a `paramValues` entry may carry, with the value the shader holds for it. */
+export type SchemaParam = {
+	/**  The logical name, or the physical one where the parameter declares no logical names. */
+	name: string,
+	/**  The physical parameter it writes into, which the `$Globals` member carries. */
+	physical: string,
+	/**
+	 *  `ShaderLogicalParameter.fields`, the components of the physical parameter the entry's
+	 *  value writes, in order. 15 for a physical parameter written whole.
+	 */
+	fields: number,
+	/**
+	 *  The components `fields` selects out of the physical default, packed from the first,
+	 *  which is the value an entry would hold to change nothing.
+	 */
+	default: [(number | null), (number | null), (number | null), (number | null)],
+};
+
+/**  One `ShaderStaticSwitch` a `switches` entry may name. */
+export type SchemaSwitch = {
+	name: string,
+	onByDefault: boolean,
+	/**  Read as a `$Globals` float at run time, so a toggle recompiles nothing. */
+	runtime: boolean,
+};
+
+/**  One `ShaderTexture` a `samplerValues` entry may name. */
+export type SchemaTexture = {
+	name: string,
+	/**  `defaultTexturePath`, drawn where the material names no texture. */
+	default: string | null,
+	/**  `samplerName`, the shared sampler that overrides a material's address modes. */
+	sharedSampler: string | null,
+};
 
 /**  A session that failed before any game ran. */
 export type SessionFailure = 
@@ -1067,10 +3013,144 @@ export type Severity =
 /**  Known to break the patcher, should be fixed. */
 "bad";
 
+/**
+ *  The parameters, textures and switches a `CustomShaderDef` declares, with its defaults.
+ * 
+ *  A material's `paramValues`, `samplerValues` and `switches` override these by name, so
+ *  an editor lists every declared row and the material's value where it writes one.
+ */
+export type ShaderSchema = {
+	/**  Every logical parameter, in declaration order. */
+	params: SchemaParam[],
+	/**  Every texture, in declaration order. */
+	textures: SchemaTexture[],
+	/**  Every static switch, in declaration order. */
+	switches: SchemaSwitch[],
+};
+
+/**  What a translated stage binds. */
+export type Sidecar = {
+	blocks: UniformBlock[],
+	textures: TextureBinding[],
+	/**  Empty for a pixel shader. */
+	attributes: Attribute[],
+};
+
+/**
+ *  A skin, as a viewport draws it.
+ * 
+ *  A submesh picks what it draws with in the engine's order: its override's `Material`,
+ *  else its override's `texture`, else the skin's `Material`, else the skin's `texture`.
+ *  Section 1.3 of docs/research/static-material-studio-rendering.md.
+ */
+export type SkinModel = {
+	/**  The `.skn`, `skinMeshProperties.simpleSkin`. */
+	mesh: NamedAsset | null,
+	/**  The `.skl`, `skinMeshProperties.skeleton`. */
+	skeleton: NamedAsset | null,
+	/**  The texture a submesh draws with where no override names its own. */
+	texture: NamedAsset | null,
+	/**  The `Material` a submesh draws with where no override names its own. */
+	material: MaterialPreview | null,
+	/**  The submeshes a `materialOverride` gives a texture or a material of their own. */
+	overrides: SubmeshOverride[],
+	/**  The submeshes `initialSubmeshToHide` names, which the character starts without. */
+	hidden: string[],
+	/**  `skinScale`, which the character is drawn at. */
+	scale: number | null,
+	/**  `skinAnimationProperties.animationGraphData`, `0x` and eight hex digits. */
+	animationGraph: string | null,
+	/**  `idleParticlesEffects`, in the order the skin lists them. */
+	idleEffects: IdleEffect[],
+	/**
+	 *  Every effect key `mResourceResolver` maps to a system some file within reach declares.
+	 * 
+	 *  A particle event of the graph names a key of this map, and the graph is read from
+	 *  another file, so the map crosses with the skin for the viewport to look the key up.
+	 *  [`resolve_skin`] lists the systems the document itself declares, and
+	 *  [`search_linked_systems`] adds those its linked files declare.
+	 */
+	effectSystems: EffectSystem[],
+};
+
+/**  Why a property edit does not apply, as `ltk_game_data` names it. */
+export type SkipReason = "missingObject" | "missingProperty" | "nullPointer" | "cannotDescend" | "notIndexable" | "indexOutOfRange" | "invalidKey" | "keyNotFound" | "typeMismatch" | "invalidPath" | "untypable" | "unknownClass" | "pinMismatch" | "signOnScalar" | "containerAbsent" | "removalUnmatched" | "kindMismatch" | "outOfRange" | "precisionLoss" | "arityMismatch" | "referenceMissingEntry" | "referenceUnresolved" | "unknown";
+
 /**  An archive the lazy scan skipped, with the DLL's reason. */
 export type SkippedArchive = {
 	wad: string,
 	why: string,
+};
+
+/**  The install's named spells for one character, without a search result cap. */
+export type SpellCatalog = {
+	/**  Spells in natural path order. */
+	spells: CharacterSpell[],
+	/**  Unnamed spell objects across the install, whose character cannot be established. */
+	unnamed: number,
+};
+
+/**  A field the isolated preview cannot evaluate. */
+export type SpellIssue = {
+	/**  The named property path within the spell object. */
+	path: string,
+	/**  Whether the field is malformed or needs an unimplemented behavior. */
+	kind: SpellIssueKind,
+};
+
+/**  Why a missile field could not be used. */
+export type SpellIssueKind = 
+/**  A written value has the wrong type or is not finite. */
+"invalid" | 
+/**  The isolated preview does not evaluate this field. */
+"unsupported";
+
+/**  The spell's missile and flight-effect references before skin resolution. */
+export type SpellPreview = {
+	/**  The written `spellCastTime`, in seconds. */
+	spellCastTime: number | null,
+	/**  The written `mCastTime`, kept separate from `spellCastTime`. */
+	castTime: number | null,
+	/**  Whether the spell explicitly enables its hit effect. */
+	haveHitEffect: boolean | null,
+	/**  The hit effect's skin resolver key. */
+	hitEffectKey: string | null,
+	/**  The hit effect's written fallback name. */
+	hitEffectName: string | null,
+	/**  The seven written display ranges, including rank zero. */
+	castRangeDisplay: (number | null)[] | null,
+	/**  The seven legacy cast ranges, including rank zero. */
+	castRange: (number | null)[] | null,
+	/**  The seven ranges in `castRangeValues.values`. */
+	castRangeValues: (number | null)[] | null,
+	/**  The seven primary area radii. */
+	castRadius: (number | null)[] | null,
+	/**  The seven secondary area radii. */
+	castRadiusSecondary: (number | null)[] | null,
+	/**  The written cone angle in degrees. */
+	castConeAngle: number | null,
+	/**  The written cone distance in engine units. */
+	castConeDistance: number | null,
+	/**  The written animation-graph clip name, absent when the spell omits it. */
+	animationName: string | null,
+	/**  The missile specification, absent for spells without one. */
+	missile: MissileSpec | null,
+	/**  A resource key, never a system-object identity. */
+	effectKey: string | null,
+	/**  The written fallback effect name, retained for inspection. */
+	effectName: string | null,
+	/**  Fields requiring correction or an explicit preview approximation. */
+	issues: SpellIssue[],
+};
+
+/**  One translated stage of a program. */
+export type StageProgram = {
+	/**  The shader id the TOC lists the permutation under. */
+	id: number,
+	glsl: string,
+	sidecar: Sidecar,
+	/**  The translation came off the disk cache rather than being made now. */
+	cached: boolean,
 };
 
 /**
@@ -1112,6 +3192,16 @@ export type StoredVerdict_Serialize = {
 	hints: Hint[],
 };
 
+/**  One submesh a material override gives its own texture or material. */
+export type SubmeshOverride = {
+	/**  The submesh's name as the `.skn` spells it. */
+	submesh: string,
+	/**  The override's `texture`, which the submesh draws with in place of the skin's own. */
+	texture: NamedAsset | null,
+	/**  The override's `Material`, which wins over every texture. */
+	material: MaterialPreview | null,
+};
+
 /**  A mod, or a workshop project, that the evidence implicates. */
 export type Suspect = {
 	modId: string | null,
@@ -1135,6 +3225,60 @@ export type Suspect = {
 	reason?: Because,
 };
 
+/**  One entry of `mSyncGroupDataMap`. */
+export type SyncGroup = {
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  `mType`. */
+	kind: number,
+};
+
+/**  One texture the shader samples, and the GLSL samplers that sample it. */
+export type TextureBinding = {
+	/**  The `RDEF` name, suffix and all: `Diffuse_Texture__TX`, `PIXEL_COLOR_REMAP_RAMP_SharedTexture`. */
+	name: string,
+	dimension: TextureDimension,
+	/**  A texture sampled by two samplers is two GLSL uniforms and costs two units. */
+	samplers: SamplerBinding[],
+};
+
+/**  What a texture uniform is declared as. */
+export type TextureDimension = "texture2d" | "texture2dArray" | "texture3d" | "cube" | 
+/**  Six layers per cube in a 2D array, after the fix-up. */
+"cubeArray" | 
+/**  An `R32UI` data texture, after the fix-up. */
+"buffer" | "other";
+
+/**  Which step of section 11.5 supplied a texture's path. */
+export type TextureSource = 
+/**  The material's own `samplerValues` entry. */
+"material" | 
+/**  `ShaderTexture.defaultTexturePath`. */
+"shaderDefault" | 
+/**  Neither, so the engine's fallback texture. */
+"fallback";
+
+/**  A supported external tool. */
+export type Tool = 
+/**  WAD extraction and hashtable tools. */
+"wadtools" | 
+/**  Texture conversion and Explorer tools. */
+"tex-toolz";
+
+/**  One entry of `mTrackDataMap`. */
+export type Track = {
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  `mPriority`. */
+	priority: number,
+	/**  `mBlendMode`. */
+	blendMode: number,
+	/**  `mBlendWeight`. */
+	blendWeight: number | null,
+};
+
 /**
  *  What a frontend crash reports, as the boundary and the two window handlers
  *  hand it over.
@@ -1152,6 +3296,30 @@ export type UiError = {
 	/**  Whether anything caught it, which the vendor draws on an issue. */
 	handled: boolean,
 };
+
+/**  One uniform block, as the blob's `RDEF` laid it out. */
+export type UniformBlock = {
+	/**  The `RDEF` name: `$Globals`, `PerFrameVertexCB`. */
+	name: string,
+	/**  The block name in the GLSL, which carries the stage suffix. */
+	glslName: string,
+	/**  The buffer's size in bytes, a multiple of 16. */
+	size: number,
+	members: BlockMember[],
+};
+
+/**  One staged edit, addressed relative to its enclosing property. */
+export type ValueEdit = 
+/**  Add a missing schema field at its published default. */
+{ type: "ensureProperty"; path: string; field: string } | 
+/**  Give a null pointer its class. A non-null pointer retains its fields. */
+{ type: "ensurePointer"; path: string; class: string } | 
+/**  Insert an item into a list, map or option. */
+{ type: "insertItem"; path: string; item: NewItem } | 
+/**  Remove an item from a list, map or option. */
+{ type: "removeItem"; path: string } | 
+/**  Set an existing leaf, including one created by an earlier staged edit. */
+{ type: "setLeaf"; path: string; value: LeafValue };
 
 /**  What the manager concluded from one game. */
 export type Verdict = Verdict_Serialize | Verdict_Deserialize;
@@ -1206,6 +3374,99 @@ export type Verdict_Serialize = {
 	hints: Hint[],
 };
 
+/**  One property of a resolved struct. */
+export type VfxField = {
+	/**  `0x` and eight hex digits. */
+	hash: string,
+	/**  The property as the tables name it. Absent where no table does. */
+	name: string | null,
+	/**  What the property holds, resolved. */
+	value: VfxValue,
+};
+
+/**  One entry of a resolved map. */
+export type VfxMapEntry = {
+	/**
+	 *  A named hash key by its name, an unnamed one as hex, and every other kind as the
+	 *  wire form writes it.
+	 */
+	key: string,
+	/**  What the entry holds, resolved. */
+	value: VfxValue,
+};
+
+/**  The object a resolved struct holds the properties of, where a walk reached one. */
+export type VfxObject = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The object's path. Absent where no table names it. */
+	name: string | null,
+};
+
+/**  One particle system, as the renderer reads it. */
+export type VfxSystem = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The object's path. Absent where no table names it. */
+	name: string | null,
+	/**  `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class as the tables name it. Absent where no table does. */
+	class: string | null,
+	/**  The object's own properties, resolved. Always a [`VfxValue::Struct`]. */
+	root: VfxValue,
+	/**  Static previews of custom materials referenced by this system and its children. */
+	materials: MaterialPreview[],
+};
+
+/**  A value of a resolved system's tree. */
+export type VfxValue = 
+/**  A `Bool` or a `BitBool`. */
+{ type: "bool"; value: boolean } | 
+/**
+ *  Every integer kind and every float, as one number, because the consumer does
+ *  arithmetic on them.
+ */
+{ type: "number"; value: number | null } | 
+/**  Two, three or four components. A `Color` is four channels as fractions. */
+{ type: "vector"; values: (number | null)[] } | 
+/**  Sixteen cells, row-major. */
+{ type: "matrix"; values: (number | null)[] } | 
+/**  A `String`, held as the file spells it. */
+{ type: "string"; value: string } | 
+/**  `0x` and eight hex digits, and the string behind it where a table names one. */
+{ type: "hash"; hash: string; name: string | null } | 
+/**
+ *  A name field resolved to where its bytes live.
+ * 
+ *  `path` keeps the spelling the bin holds. `asset` is absent for a path nothing on
+ *  this machine holds, which is not an error.
+ */
+{ type: "asset"; path: string; asset: AssetRef | null } | 
+/**  A `Link` whose target is not an object of this document. */
+{ type: "link"; hash: string; name: string | null } | 
+/**  A `Struct` with a class, an `Embedded`, or the object a `Link` reached. */
+{ type: "struct"; classHash: string; class: string | null; fields: VfxField[]; 
+/**  The object whose properties these are, absent for an embedded struct. */
+object: VfxObject | null } | 
+/**  A `Container` or an `UnorderedContainer`. */
+{ type: "container"; items: VfxValue[] } | 
+/**  A `Map`, its entries in the order the file holds them. */
+{ type: "map"; entries: VfxMapEntry[] } | 
+/**  A `Struct` with a class hash of zero. */
+{ type: "null" } | 
+/**  A `None` leaf, or an optional holding nothing. */
+{ type: "none" } | 
+/**  A leaf this build has no reading for. */
+{ type: "undrawn" };
+
+/**  The winding a pass culls, `windingToCull` on the wire. */
+export type Winding = 
+/**  Clockwise, `0`, which 436 shipped passes cull for an inverted hull. */
+"cw" | 
+/**  Counter-clockwise, `1`, the class default. */
+"ccw";
+
 /**
  *  Domain errors specific to workshop operations.
  * 
@@ -1214,5 +3475,30 @@ export type Verdict_Serialize = {
  */
 export type WorkshopError = 
 /**  One or more files already exist in the target layer directory. */
-{ kind: "LAYER_FILE_CONFLICT"; conflicts: string[] };
+{ kind: "LAYER_FILE_CONFLICT"; conflicts: string[] } | 
+/**  A `.modignore` line the matcher cannot compile, which held its save back. */
+{ kind: "IGNORE_RULE_PATTERN"; line: number; message: string } | 
+/**
+ *  A `.modignore` line the matcher cannot compile, which failed a pack.
+ * 
+ *  Names its file, because a pack reads the nested files as well as the
+ *  root one and only the line and the file together place the pattern.
+ */
+{ kind: "PACK_IGNORE_PATTERN"; path: string; line: number; message: string } | 
+/**  A root text file that changed on disk under the buffer being saved. */
+{ kind: "TEXT_FILE_CHANGED"; path: string } | 
+/**  A layer's declarations manifest that changed on disk since it was read. */
+{ kind: "DECLARATIONS_CHANGED_ON_DISK"; path: string } | 
+/**
+ *  A layer whose declarations manifest is JSON or TOML. The editor writes
+ *  `game_data.yaml` only.
+ */
+{ kind: "DECLARATIONS_NOT_YAML"; path: string } | 
+/**  A layer's declarations manifest that does not load. */
+{ kind: "DECLARATIONS_INVALID"; path: string; message: string } | 
+/**  An edit the text of a declarations manifest cannot take. */
+{ kind: "DECLARATIONS_UNEDITABLE"; path: string; reason: string };
+
+/**  A sampler's address mode, `addressU` and `addressV` on the wire. */
+export type Wrap = "repeat" | "clamp" | "mirror" | "border";
 

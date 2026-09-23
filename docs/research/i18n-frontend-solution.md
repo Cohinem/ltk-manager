@@ -171,7 +171,7 @@ dependency of the shell only, used in `error.rs` and its tests).
 `ltk_modpkg`, `ltk_wad`, `zip`, `ltk_overlay::Error` (`#[non_exhaustive]`, mapped to
 `OverlayErrorCategory`), `HashtableError` (not `Serialize`, so "the message is where the detail
 rides") and `PreviewError` all arrive as `to_string()`. That text is data in the sense of
-`src/CLAUDE.md`'s Text Selection rule: it is what a user pastes into a bug report.
+`src/AGENTS.md`'s Text Selection rule: it is what a user pastes into a bug report.
 
 **Health rules own their copy.** `Rule::title() -> &'static str`, `description()` and
 `unfixable_description()` (`problems/mod.rs`) are English, in five rules: `Meta property type
@@ -270,11 +270,12 @@ or `docs/plans/`, and no language setting (the `locale` in `Settings` is the gam
   channel, is "preinstalled onto all Windows 11 devices" and was installed to eligible Windows 10
   devices.
 - **Tauri's CSP allows bundled modules.** `tauri.conf.json` sets
-  `default-src 'self' ipc: http://ipc.localhost` with no `connect-src`, so a dynamic `import()`
-  of a chunk and a `fetch()` of a bundled file are both same-origin and allowed. Tauri's own docs
-  example sets a `connect-src` without `'self'`, under which `fetch()` of a bundled JSON would be
-  blocked, so a runtime-loading library depends on this line staying as it is. Route components are
-  already code-split (`autoCodeSplitting: true`), so chunk loading under this CSP is proven.
+  `default-src 'self' ipc: http://ipc.localhost` and a `connect-src` that starts with `'self'`, so a
+  dynamic `import()` of a chunk and a `fetch()` of a bundled file are both same-origin and allowed.
+  Tauri's own docs example sets a `connect-src` without `'self'`, under which `fetch()` of a bundled
+  JSON would be blocked, so a runtime-loading library depends on `'self'` staying in that
+  directive. Route components are already code-split (`autoCodeSplitting: true`), so chunk loading
+  under this CSP is proven.
 - **ESLint 9.39 flat config** via `tseslint.config`, plugins `react`, `react-hooks`,
   `simple-import-sort`, ignoring `src-tauri/`, `gen/`, `dist/`. `lint-staged` runs `eslint --fix`
   and Prettier on staged `.ts`/`.tsx` and `cargo fmt` on staged `.rs`. CI's `frontend-check` runs
@@ -519,7 +520,7 @@ it, which moves the storage nowhere until a second language exists. A key-based 
 today. Two repository facts reinforce that:
 
 - **Copy is specified outside code already.** `docs/ux/*.md` quote UI copy in tables (SETTINGS.md,
-  MOD_HEALTH.md, PROJECT_EDITOR.md), and `src/CLAUDE.md`'s "UI Copy" rules govern its shape. A
+  MOD_HEALTH.md, PROJECT_EDITOR.md), and `src/AGENTS.md`'s "UI Copy" rules govern its shape. A
   catalog file per module is the artefact a reviewer diffs against those documents.
 - **The domain has stable ids to key on.** `RuleId` ("a stable public name", ADR-0010, "frozen
   forever", ADR-0016), `Check.id` ("Survives label changes"), `VerdictKind` and `ErrorCode` are
@@ -1047,7 +1048,7 @@ Three consequences a reviewer applies with it:
   and the deferral comment is for when neither fits.
 - A new message goes into the catalog of the module that owns the screen, not into `common.json`,
   unless two modules already say the same words.
-- Copy is reviewed against `docs/ux/` and `src/CLAUDE.md`'s UI Copy rules in the JSON diff, where
+- Copy is reviewed against `docs/ux/` and `src/AGENTS.md`'s UI Copy rules in the JSON diff, where
   the sentences sit together, rather than in the component diff, where they no longer are.
 
 ### 13.11 Order of migration

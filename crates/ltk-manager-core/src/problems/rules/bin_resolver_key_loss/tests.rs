@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use fs_err as fs;
 use ltk_hash::Hash as _;
-use ltk_meta::property::{Kind, NoMeta, values};
+use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
@@ -41,7 +41,7 @@ fn bin_resolving(keys: usize) -> Vec<u8> {
     let map = values::Map::new(Kind::Hash, Kind::ObjectLink, entries).unwrap();
 
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(RESOLVER, RESOURCE_RESOLVER)
+        [BinObject::builder(RESOLVER, RESOURCE_RESOLVER)
             .property(RESOURCE_MAP, PropertyValueEnum::Map(map))
             .build()],
         std::iter::empty::<&str>(),

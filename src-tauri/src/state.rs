@@ -182,8 +182,8 @@ fn default_trusted_domains() -> Vec<String> {
 }
 
 /// Application settings: UI/shell preferences plus the flattened core
-/// [`Config`]. The flatten keeps `settings.json` a single flat document, so
-/// the split is invisible to both the file on disk and the frontend.
+/// [`Config`]. The flatten keeps `settings.json` a single document, so the
+/// split is invisible to both the file on disk and the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]

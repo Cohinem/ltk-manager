@@ -3,7 +3,7 @@
 
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::property::{NoMeta, values};
+use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
@@ -23,9 +23,8 @@ const WAD: &str = "Aatrox.wad.client";
 
 /// The id the shipped game carries at `BANK_IN_WAD`.
 ///
-/// From the worked example in the reversing notes: `sett_base_sfx_audio.bnk`
-/// ships at `0xE9B70B40`, which is `FNV-1` of its own name. This is the number
-/// the repair has to arrive at from the file name alone.
+/// `sett_base_sfx_audio.bnk` ships at `0xE9B70B40`, which is `FNV-1` of its own
+/// name. This is the number the repair has to arrive at from the file name alone.
 const SETT_BANK_ID: u32 = 0xE9B7_0B40;
 
 /// The version the measured specimens carry, which the rule says nothing about.
@@ -313,11 +312,10 @@ fn bin_naming(paths: &[&str]) -> Vec<u8> {
         )]
         .into_iter()
         .collect(),
-        meta: NoMeta,
     };
 
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(BIN_ENTRY, SKIN_AUDIO)
+        [BinObject::builder(BIN_ENTRY, SKIN_AUDIO)
             .property(
                 BANK_UNITS,
                 PropertyValueEnum::Container(vec![values::Embedded(unit)].into()),

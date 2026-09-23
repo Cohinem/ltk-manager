@@ -102,6 +102,9 @@ pub struct Config {
     /// the user sets themselves are used. Default: true.
     #[serde(default = "default_true")]
     pub auto_categorization_enabled: bool,
+    /// Enabling a mod moves it to the front of its folder. Off by default.
+    #[serde(default)]
+    pub promote_enabled_mods: bool,
     /// Whether to enforce the anti-skinhack scan while patching. When on
     /// (default), a champion WAD that fails the scan aborts patching. When off,
     /// the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
@@ -164,6 +167,34 @@ pub struct Config {
     /// of the same age. Default: 50.
     #[serde(default = "default_keep_incidents")]
     pub keep_incidents: u32,
+    /// Which built-in mods the overlay injects above every other mod.
+    #[serde(default)]
+    pub builtin_mods: BuiltinModSettings,
+}
+
+/// The built-in mods a user turned on, every one off by default.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase", default)]
+pub struct BuiltinModSettings {
+    /// Every ward shows its own base skin.
+    pub default_ward_skins: bool,
+    /// Which champions show their base skin on every skin.
+    pub base_skins: BaseSkinsScope,
+}
+
+/// Which champions show their base skin on every skin, a mod's where one replaces it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub enum BaseSkinsScope {
+    /// Every champion keeps its skins.
+    #[default]
+    Off,
+    /// Each champion an enabled mod gives a new base skin.
+    ModdedChampions,
+    /// Every champion.
+    AllChampions,
 }
 
 impl Default for Config {
@@ -178,6 +209,7 @@ impl Default for Config {
             wad_blocklist: default_wad_blocklist(),
             elevate_injector: false,
             auto_categorization_enabled: true,
+            promote_enabled_mods: false,
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
@@ -186,6 +218,7 @@ impl Default for Config {
             hide_riot_client_on_launch: true,
             read_game_log: true,
             keep_incidents: default_keep_incidents(),
+            builtin_mods: BuiltinModSettings::default(),
         }
     }
 }
@@ -206,6 +239,7 @@ mod tests {
         assert!(config.wad_blocklist.is_empty());
         assert!(!config.elevate_injector);
         assert!(config.auto_categorization_enabled);
+        assert!(!config.promote_enabled_mods);
         assert!(config.enforce_skinhack_scan);
         assert!(!config.apply_string_overrides_to_all_locales);
         assert!(!config.verbose_patcher_logging);
@@ -214,6 +248,23 @@ mod tests {
         assert!(config.hide_riot_client_on_launch);
         assert!(config.read_game_log);
         assert_eq!(config.keep_incidents, 50);
+        assert_eq!(config.builtin_mods, BuiltinModSettings::default());
+    }
+
+    /// A built-in mod reads from its group, and an empty group reads as off.
+    #[test]
+    fn a_built_in_mod_reads_from_its_group() {
+        let config: Config =
+            serde_json::from_str(r#"{ "builtinMods": { "defaultWardSkins": true } }"#).unwrap();
+        assert!(config.builtin_mods.default_ward_skins);
+
+        let config: Config = serde_json::from_str(r#"{ "builtinMods": {} }"#).unwrap();
+        assert!(!config.builtin_mods.default_ward_skins);
+        assert_eq!(config.builtin_mods.base_skins, BaseSkinsScope::Off);
+
+        let config: Config =
+            serde_json::from_str(r#"{ "builtinMods": { "baseSkins": "allChampions" } }"#).unwrap();
+        assert_eq!(config.builtin_mods.base_skins, BaseSkinsScope::AllChampions);
     }
 
     /// A config written before the retention setting was removed still carries

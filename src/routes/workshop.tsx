@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { twMerge } from "tailwind-merge";
 
 import { Toolbar } from "@/components";
 import { useSettings } from "@/modules/settings";
@@ -15,6 +14,7 @@ import {
   WorkshopDialogs,
   WorkshopHeader,
 } from "@/modules/workshop";
+import { twMerge } from "@/utils";
 
 export const Route = createFileRoute("/workshop")({
   component: WorkshopLayout,
@@ -54,19 +54,18 @@ function WorkshopShell() {
         data-ui="WorkshopShell"
         className={twMerge(
           "flex h-full flex-col",
-          project
-            ? "rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900"
-            : "mx-2 rounded-xl border border-surface-700 bg-surface-900/40",
+          projectName !== undefined
+            ? "border border-b-0 border-surface-700/50 bg-surface-900"
+            : "bg-surface-900 shadow-pressed",
         )}
       >
-        <Toolbar className="bg-surface-900">
+        <Toolbar
+          className={twMerge("bg-surface-900", projectName === undefined && "bg-transparent pt-2")}
+        >
           <WorkshopHeader />
           {!project && <WorkshopActiveFilterChips />}
         </Toolbar>
 
-        {/* Either route draws the fold as a panel over the ground, DS-GROUND. An
-            editor and its sidebar share the frame and round into the bar below
-            them, where the grid is an island framed as the library frames its own. */}
         <div data-ui="WorkshopShell:fold" className={twMerge("min-h-0 flex-1 overflow-hidden")}>
           <Outlet />
         </div>

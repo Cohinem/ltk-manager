@@ -1,0 +1,1693 @@
+// @vitest-environment happy-dom
+
+import type { BinRow } from "@/lib/tauri";
+import { findLeaf, leafHolding, leaves, neighbourLeaf, singleLeaf } from "@/modules/editor";
+import {
+  detailsDocument,
+  filesDocument,
+  gameDocument,
+  migrateFromV1,
+  previewDocument,
+  readLegacyEditorSeed,
+  stringsDocument,
+} from "@/modules/workshop";
+import {
+  defaultShellArrangements,
+  type ShellKind,
+} from "@/modules/workshop/bin/shell/utils/shellPanes";
+import {
+  EMPTY_EDITOR,
+  type HistoryEntry,
+  useWorkshopEditorStore,
+} from "@/modules/workshop/shell/state/workshopEditor";
+
+const A = "C:/mods/project-a";
+const B = "C:/mods/project-b";
+
+const ROOT_LEAF = EMPTY_EDITOR.layout.id;
+
+function store() {
+  return useWorkshopEditorStore.getState();
+}
+
+function editorOf(projectPath: string) {
+  return store().byProject[projectPath] ?? EMPTY_EDITOR;
+}
+
+function tabsOf(projectPath: string, leafId: string): readonly string[] {
+  return findLeaf(editorOf(projectPath).layout, leafId)?.tabs ?? [];
+}
+
+/** One group's ephemeral tab, which is the tab that group's next open replaces. */
+function previewOf(projectPath: string, leafId: string): string | null {
+  return editorOf(projectPath).previewIds[leafId] ?? null;
+}
+
+function activeTabOf(projectPath: string, leafId: string): string | null {
+  return findLeaf(editorOf(projectPath).layout, leafId)?.activeTab ?? null;
+}
+
+/** Every open id in reading order, which is what `useOpenDocuments` resolves. */
+function openIds(projectPath: string): string[] {
+  return leaves(editorOf(projectPath).layout).flatMap((leaf) => leaf.tabs);
+}
+
+/** What `useRevealRequest` reads, without a React render to get at it. */
+function revealFor(projectPath: string, layerName: string) {
+  const request = editorOf(projectPath).reveal;
+  if (!request || request.layerName !== layerName) return null;
+  return request;
+}
+
+/** A two-leaf tree: details left in the root leaf, files right in a fresh one. */
+function splitApart(projectPath: string): string {
+  store().openDocument(projectPath, detailsDocument());
+  store().openDocument(projectPath, filesDocument("base"));
+  store().splitWithDocument(projectPath, "files:base", ROOT_LEAF, "right");
+  return editorOf(projectPath).activeLeafId;
+}
+
+const CURVE_ROW: BinRow = {
+  entry: "0x2a1f3c7d",
+  path: "0aaaaaaa",
+  label: "birthColor",
+  node: "property",
+  name: "birthColor",
+  unnamed: false,
+  kind: "embed",
+  value: { type: "struct", classHash: "0x074f91dd", class: "ValueColor", len: 2 },
+  declared: null,
+};
+
+describe("workshopEditor store", () => {
+  beforeEach(() => {
+    useWorkshopEditorStore.setState({ byProject: {}, history: [], historyIndex: -1, closed: [] });
+  });
+
+  describe("aimCurve", () => {
+    it("carries the row and its chain to the object tab that was named", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "Glow [0] . birthColor");
+
+      expect(editorOf(A).aimCurve).toEqual({
+        documentId: "object:skin0",
+        row: CURVE_ROW,
+        chain: "Glow [0] . birthColor",
+        token: 1,
+      });
+    });
+
+    it("bumps the token, so aiming twice at one row is two aims", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+
+      expect(editorOf(A).aimCurve?.token).toBe(2);
+    });
+
+    it("settles the request the tab answered, and leaves one it did not standing", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+
+      store().settleCurveAim(A, 99);
+      expect(editorOf(A).aimCurve?.token).toBe(1);
+
+      store().settleCurveAim(A, 1);
+      expect(editorOf(A).aimCurve).toBeNull();
+    });
+
+    it("aims one project's editor and no other's", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+
+      expect(editorOf(B).aimCurve).toBeNull();
+    });
+  });
+
+  describe("aimStringKey", () => {
+    it("carries the key and its in-game line to the strings document that was named", () => {
+      store().aimStringKey(A, "strings:base:default", "hud_Chat_Party", "Party");
+
+      expect(editorOf(A).aimStringKey).toEqual({
+        documentId: "strings:base:default",
+        key: "hud_Chat_Party",
+        line: "Party",
+        token: 1,
+      });
+      expect(editorOf(B).aimStringKey).toBeNull();
+    });
+
+    it("settles the request the document answered, and leaves one it did not standing", () => {
+      store().aimStringKey(A, "strings:base:default", "hud_Chat_Party", "Party");
+      store().aimStringKey(A, "strings:base:default", "hud_Chat_Party", "Party");
+
+      store().settleStringKeyAim(A, 1);
+      expect(editorOf(A).aimStringKey?.token).toBe(2);
+
+      store().settleStringKeyAim(A, 2);
+      expect(editorOf(A).aimStringKey).toBeNull();
+    });
+  });
+
+  describe("setDocumentDirty", () => {
+    /* Every project has a document called "details", so one flat dirty set
+       marked the tab dirty in each of them at once. */
+    it("keeps the same document id dirty in one project only", () => {
+      store().setDocumentDirty(A, "details", true);
+
+      expect(editorOf(A).dirty.has("details")).toBe(true);
+      expect(editorOf(B).dirty.has("details")).toBe(false);
+    });
+
+    it("returns the same state when the flag does not change", () => {
+      store().setDocumentDirty(A, "details", true);
+      const before = store().byProject;
+      store().setDocumentDirty(A, "details", true);
+
+      expect(store().byProject).toBe(before);
+    });
+  });
+
+  describe("openDocument", () => {
+    it("lands in the focused leaf by default", () => {
+      const rightLeaf = splitApart(A);
+
+      store().openDocument(A, filesDocument("test"));
+
+      expect(tabsOf(A, rightLeaf)).toEqual(["files:base", "files:test"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("files:test");
+    });
+
+    it("activates a reopened document where it is and keeps the stored one", () => {
+      const first = detailsDocument();
+      store().openDocument(A, first);
+      store().openDocument(A, filesDocument("base"));
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "right");
+
+      store().openDocument(A, detailsDocument());
+
+      expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+      expect(editorOf(A).documents.details).toBe(first);
+      expect(openIds(A)).toEqual(["details", "files:base"]);
+    });
+
+    it("falls back to the first leaf when the asked-for leaf is gone", () => {
+      store().openDocument(A, detailsDocument(), "leaf-99");
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details"]);
+      expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+    });
+  });
+
+  describe("openPreview", () => {
+    /** A layer file, which is what a click in the file tree opens. */
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    /* The root leaf is empty, so there is nothing to sit beside and splitting
+       would leave one of the two groups showing nothing. */
+    it("opens as the ephemeral tab and records it", () => {
+      const document = preview("icon.tex");
+
+      store().openPreview(A, document);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBe(document.id);
+    });
+
+    /* Removing and re-inserting would send the tab to the end of the strip and
+       move it under a pointer that is about to click again. */
+    it("replaces the previous preview where it sits", () => {
+      store().openDocument(A, detailsDocument());
+      store().openPreview(A, preview("first.tex"));
+      const previews = editorOf(A).activeLeafId;
+      store().openDocument(A, filesDocument("base"));
+      const second = preview("second.tex");
+
+      store().openPreview(A, second);
+
+      expect(tabsOf(A, previews)).toEqual([second.id, "files:base"]);
+      expect(previewOf(A, previews)).toBe(second.id);
+      expect(editorOf(A).documents["preview:layer:base:first.tex"]).toBeUndefined();
+    });
+
+    it("activates a document that is already open and leaves its role alone", () => {
+      store().openDocument(A, detailsDocument());
+      const document = preview("icon.tex");
+      store().openPreview(A, document);
+      const previews = editorOf(A).activeLeafId;
+      store().activateDocument(A, ROOT_LEAF, "details");
+
+      store().openPreview(A, document);
+
+      expect(tabsOf(A, previews)).toEqual([document.id]);
+      expect(activeTabOf(A, previews)).toBe(document.id);
+      expect(previewOf(A, previews)).toBe(document.id);
+    });
+
+    /* One ephemeral tab per group, so a walk through a tree in one group
+       leaves the tab another group is showing standing. */
+    it("keeps the ephemeral tab another group holds", () => {
+      const first = preview("first.tex");
+      store().openPreview(A, first);
+      const held = editorOf(A).activeLeafId;
+      const other = splitApart(A);
+      const second = preview("second.tex");
+
+      store().openPreview(A, second, other);
+
+      expect(openIds(A)).toContain(first.id);
+      expect(previewOf(A, held)).toBe(first.id);
+      expect(previewOf(A, other)).toBe(second.id);
+    });
+
+    /* The group the open lands in is the group that gives up a tab. */
+    it("replaces the ephemeral tab of the group it opens into", () => {
+      const other = splitApart(A);
+      const first = preview("first.tex");
+      store().openPreview(A, first, other);
+      const second = preview("second.tex");
+
+      store().openPreview(A, second, other);
+
+      expect(openIds(A)).not.toContain(first.id);
+      expect(previewOf(A, other)).toBe(second.id);
+      expect(editorOf(A).documents[first.id]).toBeUndefined();
+    });
+  });
+
+  describe("where a preview opens", () => {
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    /* A browser keeps its own group, so a walk through its tree never pushes
+       the tree itself off screen. */
+    it("splits a group off the one that asked, rather than joining it", () => {
+      store().openDocument(A, detailsDocument());
+      const document = preview("icon.tex");
+
+      store().openDocument(A, document);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details"]);
+      const previews = editorOf(A).activeLeafId;
+      expect(previews).not.toBe(ROOT_LEAF);
+      expect(tabsOf(A, previews)).toEqual([document.id]);
+    });
+
+    it("joins the group a preview already sits in", () => {
+      store().openDocument(A, detailsDocument());
+      const first = preview("first.tex");
+      store().openDocument(A, first);
+      const previews = editorOf(A).activeLeafId;
+      const second = preview("second.tex");
+
+      store().openDocument(A, second);
+
+      expect(leaves(editorOf(A).layout)).toHaveLength(2);
+      expect(tabsOf(A, previews)).toEqual([first.id, second.id]);
+    });
+
+    /* The group beside the browser that asked, rather than whichever group of
+       the grid happens to hold a preview. */
+    it("lands beside the group that asked, not in a far preview group", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, preview("first.tex"));
+      const previews = editorOf(A).activeLeafId;
+      store().openDocument(A, filesDocument("base"), ROOT_LEAF);
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "bottom");
+      const browser = editorOf(A).activeLeafId;
+
+      const second = preview("second.tex");
+      store().openDocument(A, second);
+
+      expect(tabsOf(A, previews)).toEqual(["preview:layer:base:first.tex"]);
+      expect(tabsOf(A, browser)).toEqual(["files:base"]);
+      expect(leafHolding(editorOf(A).layout, second.id)?.id).toBe(
+        neighbourLeaf(editorOf(A).layout, browser)?.id,
+      );
+    });
+
+    /* Everything else opens where the focus is, so the sidebar's own documents
+       do not scatter across the grid. */
+    it("leaves a document that is not a preview in the focused group", () => {
+      store().openDocument(A, detailsDocument());
+
+      store().openDocument(A, filesDocument("base"));
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "files:base"]);
+    });
+
+    it("honours a group the caller named", () => {
+      const other = splitApart(A);
+
+      store().openDocument(A, preview("icon.tex"), other);
+
+      expect(leaves(editorOf(A).layout)).toHaveLength(2);
+      expect(tabsOf(A, other)).toContain("preview:layer:base:icon.tex");
+    });
+  });
+
+  describe("promoteDocument", () => {
+    it("gives up the ephemeral role and keeps the tab", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+
+      store().promoteDocument(A, document.id);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBeNull();
+    });
+
+    it("returns the same state for a document that is not the preview", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().promoteDocument(A, "details");
+
+      expect(store().byProject).toBe(before);
+    });
+
+    /* What a context menu's open does: one gesture rather than a click and a
+       double click on the tab it just opened. */
+    it("is what a permanent open of the current preview does", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+
+      store().openDocument(A, document);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBeNull();
+    });
+  });
+
+  describe("closeDocument", () => {
+    it("clears the closed document's dirty flag in its own project", () => {
+      store().openDocument(A, detailsDocument());
+      store().setDocumentDirty(A, "details", true);
+      store().setDocumentDirty(B, "details", true);
+
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      expect(editorOf(A).dirty.has("details")).toBe(false);
+      expect(editorOf(B).dirty.has("details")).toBe(true);
+    });
+
+    it("hands the active tab to a neighbour and drops the document", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("details");
+      expect("files:base" in editorOf(A).documents).toBe(false);
+    });
+
+    it("re-points focus when the pruned tree loses the focused leaf", () => {
+      const rightLeaf = splitApart(A);
+
+      store().closeDocument(A, rightLeaf, "files:base");
+
+      expect(leaves(editorOf(A).layout).map((leaf) => leaf.id)).toEqual([ROOT_LEAF]);
+      expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+      expect("files:base" in editorOf(A).documents).toBe(false);
+    });
+  });
+
+  describe("closeLayerDocuments", () => {
+    /** A file of one layer, which is what a click in that layer's tree opens. */
+    function preview(layer: string, path: string) {
+      return previewDocument({ kind: "layer", project: A, layer, path });
+    }
+
+    it("closes every document of the layer across both groups", () => {
+      const rightLeaf = splitApart(A);
+      store().openDocument(A, stringsDocument("base", "en_us"), ROOT_LEAF);
+      store().openDocument(A, preview("base", "assets/icon.tex"), rightLeaf);
+      store().openDocument(A, filesDocument("skins"), ROOT_LEAF);
+      store().setDocumentDirty(A, "strings:base:en_us", true);
+
+      store().closeLayerDocuments(A, "base");
+
+      expect(openIds(A)).toEqual(["details", "files:skins"]);
+      expect(Object.keys(editorOf(A).documents).sort()).toEqual(["details", "files:skins"]);
+      expect(editorOf(A).dirty.has("strings:base:en_us")).toBe(false);
+    });
+
+    it("leaves an editor whose documents belong to other layers alone", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("skins"));
+      const before = editorOf(A);
+
+      store().closeLayerDocuments(A, "base");
+
+      expect(editorOf(A)).toBe(before);
+    });
+  });
+
+  describe("reopenClosedDocument", () => {
+    it("brings three closed tabs back, newest first", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().closeDocument(A, ROOT_LEAF, "details");
+      store().closeDocument(A, ROOT_LEAF, "game");
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(store().reopenClosedDocument(A)?.id).toBe("files:base");
+      expect(store().reopenClosedDocument(A)?.id).toBe("game");
+      expect(store().reopenClosedDocument(A)?.id).toBe("details");
+      expect(openIds(A).sort()).toEqual(["details", "files:base", "game"]);
+    });
+
+    it("lands in the group the tab was closed from", () => {
+      const rightLeaf = splitApart(A);
+      store().openDocument(A, gameDocument(), rightLeaf);
+      store().closeDocument(A, rightLeaf, "game");
+
+      store().reopenClosedDocument(A);
+
+      expect(tabsOf(A, rightLeaf)).toEqual(["files:base", "game"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("game");
+      expect(editorOf(A).activeLeafId).toBe(rightLeaf);
+    });
+
+    /* Closing a leaf's last tab prunes it, so the group the tab names is gone
+       by the time the reopen runs. */
+    it("lands in the focused group when the group it left is gone", () => {
+      const rightLeaf = splitApart(A);
+      store().closeDocument(A, rightLeaf, "files:base");
+
+      store().reopenClosedDocument(A);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "files:base"]);
+    });
+
+    it("gives a pinned tab its pin back", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().setDocumentPinned(A, "game", true);
+      store().closeDocument(A, ROOT_LEAF, "game");
+
+      store().reopenClosedDocument(A);
+
+      expect(editorOf(A).pinned).toEqual(["game"]);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "details"]);
+    });
+
+    /* Permanent whatever role it held, the way a drag into another group
+       leaves a tab permanent. */
+    it("reopens an ephemeral tab as a permanent one", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+      store().closeDocument(A, ROOT_LEAF, document.id);
+
+      store().reopenClosedDocument(A);
+
+      expect(editorOf(A).previewIds).toEqual({});
+      expect(openIds(A)).toEqual([document.id]);
+    });
+
+    it("keeps one project's closed tabs out of another's", () => {
+      store().openDocument(A, detailsDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+      store().openDocument(B, gameDocument());
+
+      expect(store().reopenClosedDocument(B)).toBeNull();
+      expect(store().reopenClosedDocument(A)?.id).toBe("details");
+      expect(openIds(B)).toEqual(["game"]);
+    });
+
+    it("returns null while the project has closed nothing", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      expect(store().reopenClosedDocument(A)).toBeNull();
+      expect(store().byProject).toBe(before);
+    });
+
+    /* A walk through a tree replaces a preview per row, and a reopen list of
+       those is a list of rows the user never asked to keep. */
+    it("holds no tab a preview replaced", () => {
+      store().openPreview(A, previewDocument({ kind: "file", path: "C:/loose/first.tex" }));
+      store().openPreview(A, previewDocument({ kind: "file", path: "C:/loose/second.tex" }));
+
+      expect(store().reopenClosedDocument(A)).toBeNull();
+    });
+
+    /* The layer is gone, so its file tree, its locales and every preview of its
+       files have nothing left to read. */
+    it("holds no tab a layer delete took", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(A, stringsDocument("base", "en_us"));
+
+      store().closeLayerDocuments(A, "base");
+
+      expect(store().reopenClosedDocument(A)).toBeNull();
+    });
+
+    /* One project's closes cannot push another project's tabs off the list. */
+    it("keeps a project's closed tabs through a run of closes in another", () => {
+      store().openDocument(A, detailsDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      for (let at = 0; at < 25; at += 1) {
+        const document = previewDocument({ kind: "file", path: `C:/loose/icon${at}.tex` });
+        store().openDocument(B, document);
+        const holder = leafHolding(editorOf(B).layout, document.id);
+        if (holder) store().closeDocument(B, holder.id, document.id);
+      }
+
+      expect(store().reopenClosedDocument(A)?.id).toBe("details");
+    });
+
+    it("drops the closed tabs of a project the shell forgot", () => {
+      store().openDocument(A, detailsDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      store().forgetProject(A);
+
+      expect(store().closed).toEqual([]);
+    });
+
+    it("carries the closed tabs of a project a rename moved", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().closeDocument(A, ROOT_LEAF, "details");
+
+      store().moveProject(A, B);
+
+      expect(store().reopenClosedDocument(B)?.id).toBe("details");
+    });
+  });
+
+  describe("moveDocument", () => {
+    it("carries the tab to the target leaf and focuses it", () => {
+      const rightLeaf = splitApart(A);
+      store().openDocument(A, filesDocument("test"), ROOT_LEAF);
+
+      store().moveDocument(A, "details", rightLeaf);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["files:test"]);
+      expect(tabsOf(A, rightLeaf)).toEqual(["files:base", "details"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("details");
+      expect(editorOf(A).activeLeafId).toBe(rightLeaf);
+    });
+
+    /* A drag into another group is a deliberate placement, so the next open
+       cannot take the tab away again. */
+    it("promotes an ephemeral tab dragged into another group", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/first.tex" });
+      store().openPreview(A, document);
+      const rightLeaf = splitApart(A);
+
+      store().moveDocument(A, document.id, rightLeaf);
+
+      expect(previewOf(A, ROOT_LEAF)).toBeNull();
+      expect(previewOf(A, rightLeaf)).toBeNull();
+      expect(tabsOf(A, rightLeaf)).toContain(document.id);
+
+      store().openPreview(A, previewDocument({ kind: "file", path: "C:/loose/second.tex" }));
+
+      expect(openIds(A)).toContain(document.id);
+    });
+  });
+
+  describe("splitWithDocument", () => {
+    it("moves the document into a fresh leaf and focuses it", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "right");
+
+      const newLeaf = editorOf(A).activeLeafId;
+      expect(newLeaf).not.toBe(ROOT_LEAF);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details"]);
+      expect(tabsOf(A, newLeaf)).toEqual(["files:base"]);
+    });
+
+    it("returns the same state for a leaf that would split into itself", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().splitWithDocument(A, "details", ROOT_LEAF, "right");
+
+      expect(store().byProject).toBe(before);
+    });
+
+    /* A split places the tab in a group of its own, which says the same thing
+       a move into another group says. */
+    it("promotes the ephemeral tab it splits with", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+      store().openDocument(A, detailsDocument());
+
+      store().splitWithDocument(A, document.id, ROOT_LEAF, "right");
+
+      expect(editorOf(A).previewIds).toEqual({});
+      expect(tabsOf(A, editorOf(A).activeLeafId)).toEqual([document.id]);
+    });
+  });
+
+  describe("resetLayout", () => {
+    it("merges every strip into the focused leaf in reading order", () => {
+      const rightLeaf = splitApart(A);
+
+      store().resetLayout(A);
+
+      const layout = editorOf(A).layout;
+      expect(layout.kind).toBe("leaf");
+      expect(layout.id).toBe(rightLeaf);
+      expect(openIds(A)).toEqual(["details", "files:base"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("files:base");
+      expect(editorOf(A).activeLeafId).toBe(rightLeaf);
+    });
+  });
+
+  describe("setDocumentPinned", () => {
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    /** Details, files and the game index in one strip, with files active. */
+    function threeTabs() {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().activateDocument(A, ROOT_LEAF, "files:base");
+    }
+
+    it("sends the tab to the front of the strip", () => {
+      threeTabs();
+
+      store().setDocumentPinned(A, "game", true);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "details", "files:base"]);
+      expect(editorOf(A).pinned).toEqual(["game"]);
+    });
+
+    it("gathers a second pin behind the first", () => {
+      threeTabs();
+
+      store().setDocumentPinned(A, "game", true);
+      store().setDocumentPinned(A, "files:base", true);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "files:base", "details"]);
+    });
+
+    /* Pinning a tab is a claim about the strip rather than about what to read,
+       so it leaves the reader on the document they were already in. */
+    it("leaves the active tab where it was", () => {
+      threeTabs();
+
+      store().setDocumentPinned(A, "details", true);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("files:base");
+    });
+
+    it("returns an unpinned tab to the first slot after the run", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+      store().setDocumentPinned(A, "details", true);
+
+      store().setDocumentPinned(A, "game", false);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "game", "files:base"]);
+      expect(editorOf(A).pinned).toEqual(["details"]);
+    });
+
+    it("makes an ephemeral tab permanent", () => {
+      const document = preview("icon.tex");
+      store().openPreview(A, document);
+      const leafId = editorOf(A).activeLeafId;
+
+      store().setDocumentPinned(A, document.id, true);
+
+      expect(previewOf(A, leafId)).toBeNull();
+      expect(tabsOf(A, leafId)).toEqual([document.id]);
+    });
+
+    it("gives up the pin when the document closes", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+
+      store().closeDocument(A, ROOT_LEAF, "game");
+
+      expect(editorOf(A).pinned).toEqual([]);
+    });
+
+    it("carries the pin into the group a tab is dragged to", () => {
+      const right = splitApart(A);
+      store().setDocumentPinned(A, "details", true);
+
+      store().moveDocument(A, "details", right, 1);
+
+      expect(tabsOf(A, right)).toEqual(["details", "files:base"]);
+      expect(editorOf(A).pinned).toEqual(["details"]);
+    });
+
+    it("settles an unpinned tab against the divider rather than through it", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+
+      store().moveDocument(A, "files:base", ROOT_LEAF, 0);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "files:base", "details"]);
+    });
+
+    it("keeps a reorder from interleaving the two runs", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+
+      store().reorderDocuments(A, ROOT_LEAF, ["details", "game", "files:base"]);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "details", "files:base"]);
+    });
+
+    it("leads the merged strip after a reset", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "right");
+      store().setDocumentPinned(A, "files:base", true);
+
+      store().resetLayout(A);
+
+      expect(openIds(A)).toEqual(["files:base", "details"]);
+    });
+
+    it("returns the same state for a document that already reads that way", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().setDocumentPinned(A, "details", false);
+
+      expect(store().byProject).toBe(before);
+    });
+  });
+
+  describe("setLeafLocked", () => {
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    it("passes a locked group by for the next one in reading order", () => {
+      const right = splitApart(A);
+      store().setLeafLocked(A, right, true);
+
+      store().openDocument(A, gameDocument());
+
+      expect(tabsOf(A, right)).toEqual(["files:base"]);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "game"]);
+    });
+
+    it("opens a group of its own when every group is locked", () => {
+      const right = splitApart(A);
+      store().setLeafLocked(A, ROOT_LEAF, true);
+      store().setLeafLocked(A, right, true);
+
+      store().openDocument(A, gameDocument());
+
+      const opened = editorOf(A).activeLeafId;
+      expect(leaves(editorOf(A).layout)).toHaveLength(3);
+      expect(tabsOf(A, opened)).toEqual(["game"]);
+    });
+
+    /* A gesture naming the group has consented to it, which is what a drop and
+       an open into one group are. */
+    it("takes a document the caller aimed at the locked group", () => {
+      const right = splitApart(A);
+      store().setLeafLocked(A, right, true);
+
+      store().openDocument(A, gameDocument(), right);
+      store().moveDocument(A, "details", right);
+
+      expect(tabsOf(A, right)).toEqual(["files:base", "game", "details"]);
+    });
+
+    /* The lock holds the group against an open it did not ask for, so the next
+       preview goes to the group beside it rather than taking its tab. */
+    it("keeps the preview tab of a locked group and opens the next one beside it", () => {
+      store().openDocument(A, detailsDocument());
+      const first = preview("first.tex");
+      store().openPreview(A, first);
+      const previews = editorOf(A).activeLeafId;
+      store().setLeafLocked(A, previews, true);
+
+      const second = preview("second.tex");
+      store().openPreview(A, second);
+
+      expect(tabsOf(A, previews)).toEqual([first.id]);
+      expect(previewOf(A, previews)).toBe(first.id);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", second.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBe(second.id);
+      expect(leaves(editorOf(A).layout)).toHaveLength(2);
+    });
+
+    it("returns the same state for a leaf that already reads that way", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().setLeafLocked(A, ROOT_LEAF, false);
+
+      expect(store().byProject).toBe(before);
+    });
+  });
+
+  describe("reveal", () => {
+    /* Every open document stays mounted, so an unaddressed request scrolled the
+       tree of every open layer rather than the one that was asked for. */
+    it("addresses a request to one project and layer", () => {
+      store().reveal(A, "base", "Smolder.wad.client/assets/x.dds");
+
+      expect(revealFor(A, "base")?.path).toBe("Smolder.wad.client/assets/x.dds");
+      expect(revealFor(A, "test")).toBeNull();
+      expect(revealFor(B, "base")).toBeNull();
+    });
+
+    it("bumps the token so the same entry can be asked for twice", () => {
+      store().reveal(A, "base", "same.dds");
+      const first = revealFor(A, "base")?.token;
+
+      store().reveal(A, "base", "same.dds");
+
+      expect(first).toBeDefined();
+      expect(revealFor(A, "base")?.token).toBe((first ?? 0) + 1);
+    });
+
+    it("counts a token per project rather than across all of them", () => {
+      store().reveal(A, "base", "one.dds");
+      store().reveal(B, "base", "two.dds");
+
+      expect(revealFor(A, "base")?.token).toBe(1);
+      expect(revealFor(B, "base")?.token).toBe(1);
+    });
+  });
+
+  describe("toggleCollapsed", () => {
+    it("shuts and reopens a directory for one layer only", () => {
+      store().toggleCollapsed(A, "base", "assets");
+
+      expect(editorOf(A).collapsed.base?.has("assets")).toBe(true);
+      expect(editorOf(A).collapsed.test?.has("assets") ?? false).toBe(false);
+
+      store().toggleCollapsed(A, "base", "assets");
+      expect(editorOf(A).collapsed.base?.has("assets")).toBe(false);
+    });
+  });
+
+  describe("openDirs", () => {
+    it("opens the directories a reveal has to pass through", () => {
+      store().toggleCollapsed(A, "base", "assets");
+      store().toggleCollapsed(A, "base", "assets/characters");
+
+      store().openDirs(A, "base", ["assets", "assets/characters"]);
+
+      expect(editorOf(A).collapsed.base).toEqual(new Set());
+    });
+
+    it("leaves the directories the reveal does not pass through shut", () => {
+      store().toggleCollapsed(A, "base", "assets");
+      store().toggleCollapsed(A, "base", "data");
+
+      store().openDirs(A, "base", ["assets"]);
+
+      expect(editorOf(A).collapsed.base).toEqual(new Set(["data"]));
+    });
+
+    it("keeps the layer's set when every directory is open already", () => {
+      store().toggleCollapsed(A, "base", "data");
+      const before = editorOf(A).collapsed.base;
+
+      store().openDirs(A, "base", ["assets", "assets/characters"]);
+
+      expect(editorOf(A).collapsed.base).toBe(before);
+    });
+  });
+
+  describe("selectLayer", () => {
+    it("holds the layer independently of the strip", () => {
+      store().selectLayer(A, "test");
+      store().openDocument(A, detailsDocument());
+
+      expect(editorOf(A).selectedLayer).toBe("test");
+    });
+  });
+
+  describe("reorderDocuments", () => {
+    it("rewrites the strip order", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().reorderDocuments(A, ROOT_LEAF, ["files:base", "details"]);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["files:base", "details"]);
+    });
+
+    it("keeps the strip when the incoming list is stale", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().reorderDocuments(A, ROOT_LEAF, ["files:base"]);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "files:base"]);
+    });
+
+    /* A reorder inside one strip leaves the role alone: the tab did not go
+       anywhere, so nothing was placed. */
+    it("leaves an ephemeral tab ephemeral", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+      store().openDocument(A, detailsDocument());
+
+      store().reorderDocuments(A, ROOT_LEAF, ["details", document.id]);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", document.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBe(document.id);
+    });
+  });
+
+  describe("moveProject", () => {
+    it("carries the whole editor to the path a rename gave it", () => {
+      store().openDocument(A, detailsDocument());
+      store().setDocumentDirty(A, "details", true);
+      store().selectLayer(A, "test");
+
+      store().moveProject(A, B);
+
+      expect(editorOf(B).dirty.has("details")).toBe(true);
+      expect(editorOf(B).selectedLayer).toBe("test");
+      expect(A in store().byProject).toBe(false);
+    });
+  });
+
+  describe("migrateFromV1", () => {
+    it("converts a v1 strip into a single leaf carrying its ids", () => {
+      const migrated = migrateFromV1({
+        byProject: {
+          [A]: {
+            open: [detailsDocument(), filesDocument("base")],
+            activeId: "files:base",
+            selectedLayer: "base",
+          },
+        },
+      }).byProject[A];
+
+      expect(Object.keys(migrated?.documents ?? {}).sort()).toEqual(["details", "files:base"]);
+      expect(migrated?.layout.kind).toBe("leaf");
+      expect(findLeaf(migrated!.layout, migrated!.activeLeafId)?.tabs).toEqual([
+        "details",
+        "files:base",
+      ]);
+      expect(findLeaf(migrated!.layout, migrated!.activeLeafId)?.activeTab).toBe("files:base");
+      expect(migrated?.selectedLayer).toBe("base");
+    });
+
+    it("completes an entry written before the store held a selected layer", () => {
+      const migrated = migrateFromV1({
+        byProject: { [A]: { open: [detailsDocument()], activeId: "details" } },
+      }).byProject[A];
+
+      expect(migrated?.selectedLayer).toBeNull();
+      expect(findLeaf(migrated!.layout, migrated!.activeLeafId)?.activeTab).toBe("details");
+    });
+
+    it("hydrates into the store as a whole editor", () => {
+      const migrated = migrateFromV1({
+        byProject: {
+          [A]: { open: [detailsDocument(), filesDocument("base")], activeId: "details" },
+        },
+      }).byProject[A];
+
+      store().hydrateProject(A, migrated);
+
+      const editor = editorOf(A);
+      expect(editor.documents.details?.id).toBe("details");
+      expect(findLeaf(editor.layout, editor.activeLeafId)?.tabs).toEqual(["details", "files:base"]);
+      expect(editor.dirty.size).toBe(0);
+      expect(editor.collapsed).toEqual({});
+      expect(editor.reveal).toBeNull();
+    });
+  });
+
+  describe("hydrateProject", () => {
+    it("installs the persisted slice and fills the memory-only fields", () => {
+      const layout = singleLeaf(["details"], "details");
+
+      store().hydrateProject(A, {
+        documents: { details: detailsDocument() },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: "base",
+        previewIds: {},
+        pinned: ["details"],
+        shells: defaultShellArrangements(),
+      });
+
+      const editor = editorOf(A);
+      expect(findLeaf(editor.layout, editor.activeLeafId)?.tabs).toEqual(["details"]);
+      expect(editor.selectedLayer).toBe("base");
+      expect(editor.pinned).toEqual(["details"]);
+      expect(editor.dirty.size).toBe(0);
+      expect(editor.collapsed).toEqual({});
+      expect(editor.reveal).toBeNull();
+    });
+
+    it("replaces whatever the project already held", () => {
+      store().openDocument(A, detailsDocument());
+      store().setDocumentDirty(A, "details", true);
+
+      store().hydrateProject(A, EMPTY_EDITOR);
+
+      expect(openIds(A)).toEqual([]);
+      expect(editorOf(A).dirty.size).toBe(0);
+    });
+
+    it("hydrates one project without touching its neighbour", () => {
+      store().openDocument(B, detailsDocument());
+
+      store().hydrateProject(A, EMPTY_EDITOR);
+
+      expect(openIds(B)).toEqual(["details"]);
+    });
+  });
+
+  describe("readLegacyEditorSeed", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("reads this project's entry out of a v2 envelope", () => {
+      const layout = singleLeaf(["details"], "details");
+      localStorage.setItem(
+        "ltk-workshop-documents",
+        JSON.stringify({
+          state: {
+            byProject: {
+              [A]: {
+                documents: { details: detailsDocument() },
+                layout,
+                activeLeafId: layout.id,
+                selectedLayer: "base",
+              },
+            },
+          },
+          version: 2,
+        }),
+      );
+
+      const seed = readLegacyEditorSeed(A);
+
+      expect(seed?.selectedLayer).toBe("base");
+      expect(findLeaf(seed!.layout, seed!.activeLeafId)?.tabs).toEqual(["details"]);
+      expect(readLegacyEditorSeed(B)).toBeNull();
+    });
+
+    it("carries a v1 envelope through migrateFromV1", () => {
+      localStorage.setItem(
+        "ltk-workshop-documents",
+        JSON.stringify({
+          state: {
+            byProject: {
+              [A]: {
+                open: [detailsDocument(), filesDocument("base")],
+                activeId: "files:base",
+                selectedLayer: "base",
+              },
+            },
+          },
+          version: 1,
+        }),
+      );
+
+      const seed = readLegacyEditorSeed(A);
+
+      const leaf = findLeaf(seed!.layout, seed!.activeLeafId);
+      expect(leaf?.tabs).toEqual(["details", "files:base"]);
+      expect(leaf?.activeTab).toBe("files:base");
+      expect(seed?.selectedLayer).toBe("base");
+    });
+
+    it("reads nothing from an empty or unparseable storage", () => {
+      expect(readLegacyEditorSeed(A)).toBeNull();
+
+      localStorage.setItem("ltk-workshop-documents", "not json");
+      expect(readLegacyEditorSeed(A)).toBeNull();
+    });
+  });
+
+  describe("forgetProject", () => {
+    it("drops a deleted project's editor", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, detailsDocument());
+
+      store().forgetProject(A);
+
+      expect(A in store().byProject).toBe(false);
+      expect(B in store().byProject).toBe(true);
+    });
+
+    it("returns the same state for a project it does not hold", () => {
+      const before = store().byProject;
+      store().forgetProject(A);
+
+      expect(store().byProject).toBe(before);
+    });
+  });
+  describe("the navigation history", () => {
+    /** Every stop, oldest first, and where the arrows stand. */
+    function historyOf() {
+      return { stops: store().history.map(stopName), at: store().historyIndex };
+    }
+
+    /** A stop as one string, so a project's own stops read apart from the grid's. */
+    function stopName(entry: HistoryEntry): string {
+      if (entry.kind === "list") return "list";
+      const at = entry.location === undefined ? "" : `@${entry.location.path || "/"}`;
+      return `${entry.project}/${entry.documentId}${at}`;
+    }
+
+    describe("an explorer's location", () => {
+      const GAME = "game";
+
+      function record(path: string) {
+        store().recordLocationVisit(A, "game", { explorerId: GAME, path });
+      }
+
+      /** What `goTo` does: name the directory left, then the one arrived at. */
+      function move(from: string, to: string) {
+        record(from);
+        record(to);
+      }
+
+      it("completes the stop the tab's own open recorded", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+
+        expect(historyOf()).toEqual({ stops: [`${A}/game@/`], at: 0 });
+      });
+
+      it("records each directory as a stop of its own", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        record("assets/characters");
+
+        expect(historyOf()).toEqual({
+          stops: [`${A}/game@/`, `${A}/game@assets`, `${A}/game@assets/characters`],
+          at: 2,
+        });
+      });
+
+      it("records nothing for the directory it already stands on", () => {
+        store().openDocument(A, gameDocument());
+        record("assets");
+        record("assets");
+
+        expect(historyOf().stops).toHaveLength(1);
+      });
+
+      it("walks back through the directories, and hands each one back", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        record("assets/characters");
+
+        expect(store().navigateHistory(-1)).toMatchObject({
+          location: { explorerId: GAME, path: "assets" },
+        });
+        expect(store().historyIndex).toBe(1);
+
+        expect(store().navigateHistory(-1)).toMatchObject({
+          location: { explorerId: GAME, path: "" },
+        });
+        expect(store().historyIndex).toBe(0);
+      });
+
+      it("walks forward again to where the back came from", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        store().navigateHistory(-1);
+
+        expect(store().navigateHistory(1)).toMatchObject({
+          location: { explorerId: GAME, path: "assets" },
+        });
+      });
+
+      it("drops the forward part once a move follows a back", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        record("assets/characters");
+        store().navigateHistory(-1);
+        store().navigateHistory(-1);
+        record("loadouts");
+
+        expect(historyOf()).toEqual({ stops: [`${A}/game@/`, `${A}/game@loadouts`], at: 1 });
+      });
+
+      it("keeps two explorers' directories apart in one stack", () => {
+        store().openDocument(A, gameDocument());
+        record("assets");
+        store().recordLocationVisit(A, "game", { explorerId: "game-wad:X", path: "assets" });
+
+        expect(historyOf().stops).toHaveLength(2);
+      });
+
+      it("keeps the tab's own directory on the stack when a move is the first record", () => {
+        /* The reported bug: a tab activated after its explorer mounted leaves a
+           stop naming no directory on top, and a move that completed that stop
+           instead of pushing left the tab with one stop. A back then walked
+           past the tab entirely. */
+        store().recordListVisit();
+        store().openDocument(A, gameDocument());
+        move("", "assets");
+
+        expect(historyOf()).toEqual({
+          stops: ["list", `${A}/game@/`, `${A}/game@assets`],
+          at: 2,
+        });
+      });
+
+      it("goes back to the directory it came from, not out of the tab", () => {
+        store().recordListVisit();
+        store().openDocument(A, gameDocument());
+        move("", "assets");
+
+        expect(store().navigateHistory(-1)).toMatchObject({
+          kind: "document",
+          location: { explorerId: GAME, path: "" },
+        });
+      });
+
+      it("records one stop for a move that follows the explorer's own report", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        move("", "assets");
+
+        expect(historyOf()).toEqual({
+          stops: [`${A}/game@/`, `${A}/game@assets`],
+          at: 1,
+        });
+      });
+
+      it("forgets a closed tab's directories with the tab", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        store().closeDocument(A, ROOT_LEAF, "game");
+
+        expect(historyOf().stops).toEqual([]);
+      });
+    });
+
+    it("records each document a route lands on", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/files:base`], at: 1 });
+    });
+
+    it("records nothing when a route lands where it already stands", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, detailsDocument());
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`], at: 0 });
+    });
+
+    it("keeps one stack across the projects, so a back walks out of one", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, filesDocument("base"));
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${B}/files:base`], at: 1 });
+    });
+
+    it("records the grid, which is what a back out of a project lands on", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+
+      expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 1 });
+    });
+
+    it("records the grid once, however often the route reports it", () => {
+      store().recordListVisit();
+      store().recordListVisit();
+
+      expect(historyOf()).toEqual({ stops: ["list"], at: 0 });
+    });
+
+    it("keeps the forward stop when the grid a back reached reports itself", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+      store().navigateHistory(-1);
+
+      store().recordListVisit();
+
+      expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 0 });
+    });
+
+    it("activates what a back lands on, without recording it", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().navigateHistory(-1);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("details");
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/files:base`], at: 0 });
+    });
+
+    it("hands back the stop it reached, which is what the router follows", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, filesDocument("base"));
+
+      expect(store().navigateHistory(-1)).toEqual({
+        kind: "document",
+        project: A,
+        documentId: "details",
+      });
+    });
+
+    it("hands back the grid, which routes rather than activating a tab", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+
+      expect(store().navigateHistory(-1)).toEqual({ kind: "list" });
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("details");
+    });
+
+    it("activates a stop in the project it belongs to, not the one on screen", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(B, gameDocument());
+
+      store().navigateHistory(-1);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("files:base");
+      expect(activeTabOf(B, ROOT_LEAF)).toBe("game");
+    });
+
+    it("walks forward again after a back", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().navigateHistory(-1);
+
+      store().navigateHistory(1);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("files:base");
+      expect(historyOf().at).toBe(1);
+    });
+
+    it("does nothing at either end of the stack", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      expect(store().navigateHistory(-1)).toBeNull();
+      expect(store().navigateHistory(1)).toBeNull();
+      expect(store().byProject).toBe(before);
+    });
+
+    it("drops the forward part on a move after a back", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().navigateHistory(-1);
+
+      store().openDocument(A, gameDocument());
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/game`], at: 1 });
+    });
+
+    it("drops a closed document's stops, so a back never lands on a gone tab", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(A, gameDocument());
+
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/game`], at: 1 });
+    });
+
+    it("keeps another project's same-named stop when a close prunes one", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, detailsDocument());
+
+      store().closeDocument(B, ROOT_LEAF, "details");
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`], at: 0 });
+    });
+
+    it("keeps the arrows inside the stack once every stop behind them is gone", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().closeDocument(A, ROOT_LEAF, "details");
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(historyOf()).toEqual({ stops: [], at: -1 });
+    });
+
+    it("records the document a focus of another group lands on", () => {
+      const right = splitApart(A);
+      store().focusLeaf(A, ROOT_LEAF);
+
+      expect(historyOf().stops).toEqual([`${A}/details`, `${A}/files:base`, `${A}/details`]);
+      expect(right).not.toBe(ROOT_LEAF);
+    });
+
+    it("drops a deleted project's stops and leaves the rest standing", () => {
+      store().recordListVisit();
+      store().openDocument(A, detailsDocument());
+      store().openDocument(B, filesDocument("base"));
+
+      store().forgetProject(A);
+
+      expect(historyOf()).toEqual({ stops: ["list", `${B}/files:base`], at: 1 });
+    });
+
+    it("follows a renamed project, so the stops it left still reach it", () => {
+      store().openDocument(A, detailsDocument());
+
+      store().moveProject(A, B);
+
+      expect(historyOf()).toEqual({ stops: [`${B}/details`], at: 0 });
+    });
+  });
+
+  describe("shell panes", () => {
+    const panesOf = (projectPath: string, kind: ShellKind = "vfx") =>
+      leaves(editorOf(projectPath).shells[kind].layout).map((leaf) => leaf.tabs);
+
+    it("starts every project on the arrangement the shell ships", () => {
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+      expect(panesOf(A, "skin")).toEqual([
+        ["preview"],
+        ["clips", "spells"],
+        ["material"],
+        ["inspector"],
+      ]);
+    });
+
+    it("closes a pane and gives its room to the panel beside it", () => {
+      store().closeShellPane(A, "vfx", "leaf-4", "inspector");
+
+      expect(panesOf(A)).toEqual([["preview"], ["timeline"], ["curve"]]);
+      expect(editorOf(A).shells.vfx.leafId).toBe("leaf-3");
+    });
+
+    it("reopens a pane into the panel the reader last touched", () => {
+      store().closeShellPane(A, "vfx", "leaf-7", "timeline");
+      store().activateShellPane(A, "vfx", "leaf-4", "inspector");
+
+      store().openShellPane(A, "vfx", "timeline");
+
+      expect(editorOf(A).shells.vfx.leafId).toBe("leaf-4");
+      expect(panesOf(A)).toEqual([["preview"], ["inspector", "timeline"], ["curve"]]);
+    });
+
+    it("leaves an open pane where it is", () => {
+      const before = editorOf(A).shells.vfx.layout;
+
+      store().openShellPane(A, "vfx", "curve");
+
+      expect(editorOf(A).shells.vfx.layout).toBe(before);
+    });
+
+    it("stacks one pane onto another's strip", () => {
+      store().applyShellDrop(A, "vfx", {
+        kind: "move",
+        documentId: "curve",
+        toLeafId: "leaf-4",
+      });
+
+      expect(panesOf(A)).toEqual([["preview"], ["inspector", "curve"], ["timeline"]]);
+      expect(leafHolding(editorOf(A).shells.vfx.layout, "curve")?.activeTab).toBe("curve");
+    });
+
+    it("splits a panel when a pane lands on its edge", () => {
+      store().applyShellDrop(A, "vfx", {
+        kind: "split",
+        documentId: "curve",
+        targetLeafId: "leaf-4",
+        edge: "bottom",
+      });
+
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["curve"], ["timeline"]]);
+    });
+
+    it("puts every pane back where it started", () => {
+      store().closeShellPane(A, "vfx", "leaf-5", "curve");
+      store().closeShellPane(A, "vfx", "leaf-7", "timeline");
+
+      store().resetShellLayout(A, "vfx");
+
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+    });
+
+    it("keeps one project's arrangement out of another's", () => {
+      store().closeShellPane(A, "vfx", "leaf-5", "curve");
+
+      expect(panesOf(B)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+    });
+
+    it("keeps the skin's arrangement apart from the particle system's", () => {
+      store().applyShellDrop(A, "skin", {
+        kind: "move",
+        documentId: "inspector",
+        toLeafId: "leaf-2",
+      });
+
+      expect(panesOf(A, "skin")).toEqual([
+        ["preview", "inspector"],
+        ["clips", "spells"],
+        ["material"],
+      ]);
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+    });
+
+    it("resets one shell without touching the other", () => {
+      store().closeShellPane(A, "vfx", "leaf-5", "curve");
+      store().closeShellPane(A, "skin", "leaf-3", "inspector");
+
+      store().resetShellLayout(A, "skin");
+
+      expect(panesOf(A, "skin")).toEqual([
+        ["preview"],
+        ["clips", "spells"],
+        ["material"],
+        ["inspector"],
+      ]);
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"]]);
+    });
+  });
+
+  describe("maximizing a panel", () => {
+    it("fills the grid with one panel, and writes nothing to the tree", () => {
+      const right = splitApart(A);
+      const tree = editorOf(A).layout;
+
+      store().toggleMaximizedLeaf(A, right);
+
+      expect(editorOf(A).maximizedLeafId).toBe(right);
+      expect(editorOf(A).layout).toBe(tree);
+    });
+
+    it("gives the tree back on a second toggle", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().toggleMaximizedLeaf(A, right);
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    it("gives the tree back on a restore", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().restoreMaximizedLeaf(A);
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    it("leaves the grid alone for a leaf the tree does not hold", () => {
+      store().openDocument(A, detailsDocument());
+      const before = editorOf(A);
+
+      store().toggleMaximizedLeaf(A, "leaf-99");
+
+      expect(editorOf(A)).toBe(before);
+    });
+
+    it("gives the tree back when the layout resets", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().resetLayout(A);
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    it("drops a maximized panel the close pruned", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().closeDocument(A, right, "files:base");
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    /* The panel a pane sits in rather than an id off the shipped tree. A
+       rearrangement of what the shell ships leaves these cases standing. */
+    const paneLeafOf = (pane: string) =>
+      leafHolding(editorOf(A).shells.vfx.layout, pane)?.id ?? pane;
+
+    it("fills one shell with one pane, and leaves its arrangement alone", () => {
+      const leafId = paneLeafOf("curve");
+      const tree = editorOf(A).shells.vfx.layout;
+
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBe(leafId);
+      expect(editorOf(A).maximizedShellLeaf.skin).toBeUndefined();
+      expect(editorOf(A).shells.vfx.layout).toBe(tree);
+    });
+
+    it("gives one shell's panes back on a second toggle", () => {
+      const leafId = paneLeafOf("curve");
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
+    });
+
+    it("gives one shell's panes back on a restore", () => {
+      store().toggleMaximizedShellLeaf(A, "vfx", paneLeafOf("curve"));
+
+      store().restoreMaximizedShellLeaf(A, "vfx");
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
+    });
+
+    it("leaves a shell alone for a leaf its tree does not hold", () => {
+      const before = editorOf(A);
+
+      store().toggleMaximizedShellLeaf(A, "vfx", "leaf-99");
+
+      expect(editorOf(A)).toBe(before);
+    });
+
+    it("gives one shell's panes back when it resets", () => {
+      store().toggleMaximizedShellLeaf(A, "vfx", paneLeafOf("curve"));
+
+      store().resetShellLayout(A, "vfx");
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
+    });
+
+    it("drops a maximized pane the close pruned", () => {
+      const leafId = paneLeafOf("curve");
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      store().closeShellPane(A, "vfx", leafId, "curve");
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
+    });
+  });
+});

@@ -1,5 +1,7 @@
 //! What the schema answers, and what it declines to answer.
 
+use ltk_game_data::Schema as _;
+
 use super::*;
 
 /// The build `FloatTextIconData.mIconFileName` was a `String` at.
@@ -26,6 +28,10 @@ fn published() -> String {
           "formatVersion": 1,
           "hashSource": { "fetchedAt": "2026-08-24T03:56:00Z" },
           "latest": 8104348,
+          "versions": [
+            { "patch": "16.16", "build": 8049184 },
+            { "patch": "16.17", "build": 8104348 }
+          ],
           "classes": {
             "0x16d88f43": {
               "name": "FloatTextIconData",
@@ -85,12 +91,76 @@ fn schema() -> MetaSchema {
     MetaSchema::parse(published().as_bytes()).expect("the fixture is the published shape")
 }
 
+/// A class deriving from `FloatTextIconData` from `from` on, and declaring nothing.
+const DERIVED: BinHash = BinHash(0x0000_0abc);
+
+/// The fixture with `classes`, a comma-separated run of class entries, ahead of its own.
+fn schema_with(classes: &str) -> MetaSchema {
+    let json = published().replace(r#""classes": {"#, &format!(r#""classes": {{ {classes},"#));
+    MetaSchema::parse(json.as_bytes()).expect("the fixture is the published shape")
+}
+
+/// A class entry at `hash` deriving from `bases` over the builds `from` to `to`.
+fn class_entry(hash: &str, from: u32, to: Option<u32>, bases: &[&str], properties: &str) -> String {
+    let to = to.map_or_else(String::new, |to| format!(r#", "to": {to}"#));
+    let bases = bases
+        .iter()
+        .map(|base| format!("\"{base}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        r#""{hash}": {{
+          "name": "Class{hash}",
+          "revisions": [{{ "from": {from}{to}, "bases": [{bases}], "interface": false, "value": false }}],
+          "properties": {{ {properties} }}
+        }}"#
+    )
+}
+
+/// The fixture with [`DERIVED`] deriving from `FloatTextIconData` at every build.
+fn derived_schema() -> MetaSchema {
+    schema_with(&class_entry("0x00000abc", 1, None, &["0x16d88f43"], ""))
+}
+
 /// The field of `card` called `name`.
 fn field<'a>(card: &'a ClassSchema, name: &str) -> &'a FieldSchema {
     card.fields
         .iter()
         .find(|field| field.name.as_deref() == Some(name))
         .unwrap_or_else(|| panic!("the class has a field named {name}"))
+}
+
+#[test]
+fn class_cards_include_inherited_constructor_fields() {
+    let schema = derived_schema();
+    let card = schema.class_schema(DERIVED, Some(AFTER_RETYPE)).unwrap();
+
+    assert_eq!(
+        field(&card, "mOffset").declared,
+        Some(KindShape::bare(PropertyKind::Vector2))
+    );
+}
+
+#[test]
+fn constructor_defaults_distinguish_null_from_missing() {
+    let null: PublishedRevision = serde_json::from_str(r#"{"from":1,"default":null}"#).unwrap();
+    let missing: PublishedRevision = serde_json::from_str(r#"{"from":1}"#).unwrap();
+
+    assert_eq!(null.default, Some(serde_json::Value::Null));
+    assert_eq!(missing.default, None);
+}
+
+#[test]
+fn emitter_scale_keeps_its_property_specific_constructor_default() {
+    let schema = MetaSchema::shipped();
+    let card = schema.class_schema(BinHash(0x09cd_e442), None).unwrap();
+    let scale = field(&card, "birthScale0");
+    let value: serde_json::Value =
+        serde_json::from_str(scale.default_value.as_ref().unwrap()).unwrap();
+
+    assert_eq!(scale.class_hash.as_deref(), Some("0x68dc32b6"));
+    assert_eq!(value["constantValue"], serde_json::json!([1.0, 1.0, 1.0]));
+    assert_eq!(value["dynamics"], serde_json::Value::Null);
 }
 
 #[test]
@@ -232,6 +302,174 @@ fn the_schema_at_a_build_declares_types_only_where_it_describes_the_build() {
         Some(Shape::bare(Kind::WadChunkLink))
     );
     assert!(at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0x1)).is_none());
+}
+
+#[test]
+fn a_patch_schema_types_an_edit_by_the_revision_at_its_build() {
+    let schema = Arc::new(schema());
+    let before = PatchSchema::new(Arc::clone(&schema), Some(BEFORE_RETYPE));
+    let after = PatchSchema::new(schema, Some(AFTER_RETYPE));
+
+    assert_eq!(
+        before.expected(FLOAT_TEXT_ICON_DATA, ICON_CIRCLE),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Optional,
+            key: None,
+            item: Some(Kind::String),
+        })
+    );
+    assert_eq!(
+        after.expected(FLOAT_TEXT_ICON_DATA, ICON_CIRCLE),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Optional,
+            key: None,
+            item: Some(Kind::WadChunkLink),
+        })
+    );
+    assert_eq!(
+        after.expected(FLOAT_TEXT_ICON_DATA, UNCENSORED_ICON_CIRCLES),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Map,
+            key: Some(Kind::Hash),
+            item: Some(Kind::WadChunkLink),
+        })
+    );
+}
+
+/// Story: silence types the edit from the base bin. A game newer than the database
+/// is typed that way rather than by the newest revision it names.
+#[test]
+fn a_patch_schema_says_nothing_where_the_database_is_silent() {
+    let schema = Arc::new(schema());
+    let past = PatchSchema::new(Arc::clone(&schema), Some(GameBuild::new(17, 1, 9_000_000)));
+    let unbuilt = PatchSchema::new(Arc::clone(&schema), None);
+    let at = PatchSchema::new(schema, Some(AFTER_RETYPE));
+
+    assert_eq!(past.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET), None);
+    assert_eq!(unbuilt.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET), None);
+    assert_eq!(
+        at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0xdead_beef)),
+        None,
+        "a type this build cannot map"
+    );
+    assert_eq!(at.expected(FLOAT_TEXT_ICON_DATA, BinHash(0x1)), None);
+    assert_eq!(at.expected(BinHash(0x1), M_OFFSET), None);
+}
+
+/// Story: an edit names the class of the object it lands on, and most of that class's
+/// fields are its bases'.
+#[test]
+fn a_patch_schema_types_a_field_a_base_declares() {
+    let schema = Arc::new(derived_schema());
+    let at = PatchSchema::new(Arc::clone(&schema), Some(AFTER_RETYPE));
+    let past = PatchSchema::new(schema, Some(GameBuild::new(17, 1, 9_000_000)));
+
+    assert_eq!(
+        at.expected(DERIVED, ICON_CIRCLE),
+        Some(ltk_game_data::Shape {
+            kind: Kind::Optional,
+            key: None,
+            item: Some(Kind::WadChunkLink),
+        })
+    );
+    assert_eq!(past.expected(DERIVED, ICON_CIRCLE), None);
+}
+
+#[test]
+fn a_patch_schema_knows_every_class_the_database_holds_named_or_not() {
+    let unnamed = published().replace(r#""name": "FloatTextIconData","#, "");
+    let schema = MetaSchema::parse(unnamed.as_bytes()).unwrap();
+    assert_eq!(schema.class_name(FLOAT_TEXT_ICON_DATA), None);
+    let schema = PatchSchema::new(Arc::new(schema), Some(AFTER_RETYPE));
+
+    assert!(schema.has_class(FLOAT_TEXT_ICON_DATA));
+    assert!(!schema.has_class(BinHash(0x1)));
+}
+
+/// Story: a class new on patch day is one the database has not taken yet, and refusing
+/// a pin to it is a refusal the database has no ground for.
+#[test]
+fn a_patch_schema_knows_every_class_at_a_build_the_database_does_not_describe() {
+    let schema = Arc::new(schema());
+    let past = PatchSchema::new(Arc::clone(&schema), Some(GameBuild::new(17, 1, 9_000_000)));
+    let unbuilt = PatchSchema::new(schema, None);
+
+    assert!(past.has_class(BinHash(0x1)));
+    assert!(unbuilt.has_class(BinHash(0x1)));
+}
+
+/// Story: the database writes a field once, on the class that declares it. A derived
+/// class holds the field all the same, and the game reads it at the base's type.
+#[test]
+fn a_field_a_base_declares_answers_on_the_derived_class() {
+    let schema = derived_schema();
+
+    let found = schema
+        .expected(DERIVED, M_ICON_FILE_NAME, AFTER_RETYPE)
+        .expect("the base declares it");
+
+    assert_eq!(found.shape, Some(Shape::bare(Kind::WadChunkLink)));
+    assert_eq!(
+        found.class_name,
+        Some("Class0x00000abc"),
+        "the class asked about"
+    );
+    assert_eq!(found.field_name, Some("mIconFileName"));
+}
+
+#[test]
+fn a_nearer_class_hides_the_field_on_its_base() {
+    let schema = schema_with(&class_entry(
+        "0x00000abc",
+        1,
+        None,
+        &["0x16d88f43"],
+        r#""0x10537b0c": { "name": "mIconFileName", "revisions": [{ "from": 1, "type": ["String", "0x0", "0x0", "0x0"] }] }"#,
+    ));
+
+    assert_eq!(
+        schema
+            .expected(DERIVED, M_ICON_FILE_NAME, AFTER_RETYPE)
+            .unwrap()
+            .shape,
+        Some(Shape::bare(Kind::String))
+    );
+}
+
+#[test]
+fn a_base_the_class_takes_after_a_build_answers_nothing_at_it() {
+    let schema = schema_with(&class_entry(
+        "0x00000abc",
+        8_104_348,
+        None,
+        &["0x16d88f43"],
+        "",
+    ));
+
+    assert_eq!(schema.expected(DERIVED, M_OFFSET, BEFORE_RETYPE), None);
+    assert!(schema.expected(DERIVED, M_OFFSET, AFTER_RETYPE).is_some());
+}
+
+#[test]
+fn a_cycle_in_the_bases_ends_the_walk() {
+    let schema = schema_with(&format!(
+        "{}, {}",
+        class_entry("0x00000abc", 1, None, &["0x00000abd"], ""),
+        class_entry("0x00000abd", 1, None, &["0x00000abc"], ""),
+    ));
+
+    assert_eq!(schema.expected(DERIVED, M_OFFSET, AFTER_RETYPE), None);
+    assert_eq!(schema.field_name(DERIVED, M_OFFSET), None);
+}
+
+/// A name is the database's at every build, so a base the class took only once still
+/// names the field.
+#[test]
+fn a_field_a_base_declares_is_named_on_the_derived_class_at_any_build() {
+    let schema = schema_with(&class_entry("0x00000abc", 1, Some(2), &["0x16d88f43"], ""));
+
+    assert_eq!(schema.field_name(DERIVED, M_OFFSET), Some("mOffset"));
+    assert_eq!(schema.field_name(DERIVED, BinHash(0x1)), None);
 }
 
 #[test]
@@ -452,6 +690,73 @@ fn bytes_that_are_not_the_database_are_refused() {
 #[test]
 fn the_generation_is_the_publishers_own_stamp() {
     assert_eq!(schema().generation(), "2026-08-24T03:56:00Z");
+}
+
+/// Story: the Settings card says which database is held, and the reader knows
+/// the patch. The generation is the stamp on the hash tables behind it, which
+/// the publisher moves on a schedule of its own, so a database that has gained
+/// two patches can still carry the stamp it was first published under.
+#[test]
+fn the_version_names_the_patch_of_the_newest_build_described() {
+    let version = schema().version();
+
+    assert_eq!(version.patch.as_deref(), Some("16.17"));
+    assert_eq!(version.build, 8_104_348);
+    assert_eq!(version.generation, "2026-08-24T03:56:00Z");
+}
+
+/// Story: a stored verdict names the database it was a claim about. The wiki
+/// publishes a patch without rereading the hash tables behind it, so the stamp
+/// the database carries is the same one it was first published under, and a
+/// sweep comparing stamps would leave every verdict standing.
+#[test]
+fn a_database_that_gained_a_patch_under_one_stamp_is_another_database() {
+    let gained = published().replace(
+        r#"{ "patch": "16.17", "build": 8104348 }"#,
+        r#"{ "patch": "16.17", "build": 8104348 },
+            { "patch": "16.18", "build": 8200000 }"#,
+    );
+
+    let before = schema();
+    let after = MetaSchema::parse(gained.as_bytes()).expect("the published shape");
+
+    assert_eq!(
+        before.generation(),
+        after.generation(),
+        "the publisher's stamp did not move"
+    );
+    assert_ne!(before.digest(), after.digest());
+}
+
+#[test]
+fn a_patch_past_the_newest_build_does_not_name_the_database() {
+    let json = published().replace(
+        r#"{ "patch": "16.17", "build": 8104348 }"#,
+        r#"{ "patch": "16.17", "build": 8104348 },
+            { "patch": "16.18", "build": 8200000 }"#,
+    );
+
+    let version = MetaSchema::parse(json.as_bytes())
+        .expect("the published shape")
+        .version();
+
+    assert_eq!(
+        version.patch.as_deref(),
+        Some("16.17"),
+        "a patch no revision describes is not one the database reaches"
+    );
+}
+
+#[test]
+fn a_database_naming_no_patches_is_named_by_its_build() {
+    let json = published().replace(r#""versions""#, r#""unreadVersions""#);
+
+    let version = MetaSchema::parse(json.as_bytes())
+        .expect("the patches are not the schema")
+        .version();
+
+    assert_eq!(version.patch, None);
+    assert_eq!(version.build, 8_104_348);
 }
 
 /// The two vocabularies are exact inverses, which is what keeps a finding's

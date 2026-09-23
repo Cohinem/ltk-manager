@@ -10,6 +10,11 @@
     "stylesheet": "./src/styles/tailwind.css",
     "functions": ["clsx", "cn", "twMerge", "twJoin"]
   },
+  "sortImports": {
+    "groups": ["side_effect", "builtin", "external", "internal", ["parent", "sibling", "index"]],
+    "internalPattern": ["@/"],
+    "newlinesBetween": true
+  },
   "ignorePatterns": [
     "**/*.toml",
     "dist/",
@@ -24,6 +29,7 @@
     "LTK-PATCHER-LICENSE.md",
     ".github/",
     "src-tauri/",
+    "crates/dxbc-spirv-sys/vendor/",
     ".specify/",
     "project.inlang/*",
     "!project.inlang/settings.json",

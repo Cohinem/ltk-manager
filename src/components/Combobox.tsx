@@ -1,7 +1,8 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
 import { Check, ChevronDown, X } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 // Re-export the filter hook for consumers
 export const useComboboxFilter = BaseCombobox.useFilter;
@@ -136,7 +137,9 @@ export const ComboboxPopup = forwardRef<HTMLDivElement, ComboboxPopupProps>(
         ref={ref}
         className={twMerge(
           "max-h-60 overflow-y-auto",
-          "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl outline-none",
+          "rounded-lg border border-surface-600 py-1 shadow-xl outline-none",
+          /* DS-GLASS */
+          "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
           "animate-fade-in",
           "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
           className,

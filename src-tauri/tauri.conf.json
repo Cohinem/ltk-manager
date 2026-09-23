@@ -5,7 +5,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build:app",
     "frontendDist": "../dist"
   },
   "app": {
@@ -24,7 +24,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost ltk-asset: http://ltk-asset.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self' ipc: http://ipc.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost ltk-asset: http://ltk-asset.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost ltk-asset: http://ltk-asset.localhost https://ddragon.leagueoflegends.com https://raw.communitydragon.org; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "dangerousDisableAssetCspModification": ["style-src"],
       "assetProtocol": {
         "enable": true,
         "scope": ["**"]
@@ -33,7 +34,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
     "resources": {
       "resources/**/*": "./"
     },

@@ -1,36 +1,8 @@
-export { BinDocument } from "./BinDocument";
-export {
-  canExpand,
-  fieldHash,
-  flattenRows,
-  isUnder,
-  type LoadedChildren,
-  mergePages,
-  objectKey,
-  PAGE_SIZE,
-  type PageResult,
-  pagesWanted,
-  rowKey,
-  type RowLine,
-  splitKey,
-  toggled,
-  type VisibleRow,
-} from "./binRows";
-export { BinTree, type TreeReveal } from "./BinTree";
-export { ClassCard } from "./ClassCard";
-export { FieldCard } from "./FieldCard";
-export { rowShape, rowTag, shapeTag } from "./kindTag";
-export { FileChip, LinkChip, ObjectChip } from "./LinkChip";
-export {
-  decideFileLink,
-  decideHash,
-  decideLink,
-  decideObjectLink,
-  type LayerCopy,
-  type LinkDecision,
-} from "./linkDecision";
-export { ObjectDocument } from "./ObjectDocument";
-export { OtherDeclarations } from "./OtherDeclarations";
+export { ClassCard } from "./classes/components/ClassCard";
+export { FieldCard } from "./classes/components/FieldCard";
+export { classSchemaKeys, useClassSchema } from "./classes/hooks/useClassSchema";
+export { BinDocument } from "./documents/components/BinDocument";
+export { ObjectDocument } from "./documents/components/ObjectDocument";
 export {
   type BinChildren,
   binKeys,
@@ -38,8 +10,9 @@ export {
   type ChildrenRequest,
   useBinChildren,
   useBinDocument,
-} from "./useBinDocument";
-export { classSchemaKeys, useClassSchema } from "./useClassSchema";
+} from "./documents/hooks/useBinDocument";
+export { FileChip, LinkChip, ObjectChip } from "./links/components/LinkChip";
+export { OtherDeclarations } from "./links/components/OtherDeclarations";
 export {
   joinDeclarations,
   layerDeclarations,
@@ -58,5 +31,32 @@ export {
   useLayerCopy,
   useLinkOpen,
   useLinkTargets,
-} from "./useLinkTargets";
-export { useShowInFile } from "./useShowInFile";
+} from "./links/hooks/useLinkTargets";
+export { useShowInFile } from "./links/hooks/useShowInFile";
+export {
+  decideFileLink,
+  decideHash,
+  decideLink,
+  decideObjectLink,
+  type LayerCopy,
+  type LinkDecision,
+} from "./links/utils/linkDecision";
+export { BinTree, type TreeReveal } from "./tree/components/BinTree";
+export {
+  canExpand,
+  fieldHash,
+  flattenRows,
+  isUnder,
+  type LoadedChildren,
+  mergePages,
+  objectKey,
+  PAGE_SIZE,
+  type PageResult,
+  pagesWanted,
+  rowKey,
+  type RowLine,
+  splitKey,
+  toggled,
+  type VisibleRow,
+} from "./tree/utils/binRows";
+export { rowShape, rowTag, shapeTag } from "./values/utils/kindTag";

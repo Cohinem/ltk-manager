@@ -20,7 +20,7 @@ use crate::mods::index::{LibraryModEntry, ModStorage};
 use crate::problems::{self, Budget, Counts, GameBuild, Run};
 use fs_err as fs;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
 /// Where the library remembers its verdicts, beside `library.json`.
@@ -120,7 +120,11 @@ pub struct HealthCheckBasis {
     /// What the meta schema database held, absent where none was open.
     ///
     /// It decides `bin/property-type` outright, so a check taken against
-    /// another database was a claim about other types.
+    /// another database was a claim about other types. The database's own bytes
+    /// rather than the stamp it carries, because the publisher restamps the
+    /// hash tables behind it on a schedule of its own - a database that has
+    /// gained two patches can still carry the stamp it was first published
+    /// under.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub schema: Option<String>,
@@ -333,7 +337,7 @@ impl ModLibrary {
                 .and_then(|cache| cache.generation()),
             schema: Some(
                 crate::meta_schema::shared(GameBuild::installed(config))
-                    .generation()
+                    .digest()
                     .to_owned(),
             ),
         }
@@ -342,10 +346,23 @@ impl ModLibrary {
     /// Check each of `mod_ids`, and report how many verdicts were recorded.
     ///
     /// A mod that cannot be checked is logged and skipped, so one unreadable
-    /// mod does not cost the caller the rest.
+    /// mod does not cost the caller the rest. A mod with no unpacked form is
+    /// skipped without a log line. Its content has nothing for the rules to
+    /// read - ADR-0001.
     pub fn check_mods_health(&self, config: &Config, mod_ids: &[String]) -> usize {
+        let uncheckable: HashSet<String> = self
+            .with_index(config, |_storage_dir, index| {
+                Ok(index
+                    .mods
+                    .iter()
+                    .filter(|entry| !entry.is_checkable())
+                    .map(|entry| entry.id.clone())
+                    .collect())
+            })
+            .unwrap_or_default();
+
         let mut recorded = 0;
-        for id in mod_ids {
+        for id in mod_ids.iter().filter(|id| !uncheckable.contains(*id)) {
             match self.check_mod_health(config, id) {
                 Ok(_) => recorded += 1,
                 Err(e) => tracing::warn!("Could not check mod {id}: {e}"),

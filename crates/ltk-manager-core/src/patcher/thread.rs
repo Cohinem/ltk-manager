@@ -143,12 +143,19 @@ impl PatcherThread {
     /// Build the overlay and return its prefix path, or `None` on failure/early
     /// stop (state already reset).
     fn build_overlay(&self) -> Option<String> {
+        let stop_flag = Arc::clone(&self.stop_flag);
         let build = match self.library.ensure_overlay(
             &self.config,
             &self.workshop_paths,
             self.force_rebuild,
+            move || stop_flag.load(Ordering::SeqCst),
         ) {
             Ok(build) => build,
+            Err(AppError::Overlay(ltk_overlay::Error::CalledOff)) => {
+                tracing::info!("Stop requested during overlay build, exiting");
+                self.reset_to_idle();
+                return None;
+            }
             Err(e) => {
                 tracing::error!(error = ?e, "Overlay build failed");
                 self.observer.session_failed(SessionFailure::Build {

@@ -1,0 +1,20 @@
+[package]
+name = "ltk-declarations"
+version = "0.1.0"
+description = "In-place editor for league-mod game data declaration manifests"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[dependencies]
+fs-err = { workspace = true }
+ltk_game_data = { workspace = true }
+ltk_meta = { workspace = true }
+rowan = { workspace = true }
+thiserror = { workspace = true }
+yaml-edit = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+tempfile = { workspace = true }

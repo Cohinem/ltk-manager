@@ -1,0 +1,583 @@
+// @vitest-environment happy-dom
+
+import { QueryClientProvider } from "@tanstack/react-query";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { type ReactNode, useState } from "react";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ToastProvider } from "@/components";
+import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
+import { useWorkshopLayoutStore } from "@/stores";
+import { mockInvoke } from "@/test/mocks/tauri";
+import { createTestQueryClient } from "@/test/utils";
+
+import { ProjectProvider } from "../../../../projects/state/ProjectContext";
+import { useWorkshopEditorStore } from "../../../../shell/state/workshopEditor";
+import { nameHash } from "../../../shared/utils/binHash";
+import { skinLayout } from "../../utils/classLayouts";
+import { ClassView } from "../ClassView";
+
+const ENTRY = "0x2a1f3c7d";
+const SKIN = nameHash("SkinCharacterDataProperties");
+const RESOLVER = "0x11223344";
+const SYSTEM = "0x99887766";
+const EFFECT_KEY = "0xaabbccdd";
+const SYSTEM_PATH = "Particles/Smolder_Base_Idle";
+const GLOW_PATH = "Characters/Smolder/Skins/Skin0/Materials/Smolder_Body_Glow";
+
+const ASSET: AssetRef = {
+  kind: "gameChunk",
+  wad: "Champions/Smolder.wad.client",
+  pathHash: "00aa",
+};
+
+const AVATAR = "assets/characters/smolder/skins/base/smolder_avatar.dds";
+const LOADSCREEN = "assets/characters/smolder/skins/base/smolder_loadscreen.dds";
+const BODY = "assets/characters/smolder/skins/base/smolder_base_tx_cm.dds";
+const SIMPLE_SKIN = "ASSETS/Characters/Smolder/Skins/Base/Smolder.skn";
+
+function row(
+  entry: string,
+  path: string,
+  name: string,
+  value: BinValue,
+  node: BinRow["node"] = "property",
+  unnamed = false,
+): BinRow {
+  return {
+    entry,
+    path,
+    label: name,
+    node,
+    name,
+    unnamed,
+    kind: null,
+    value,
+    declared: null,
+  };
+}
+
+function field(name: string, value: BinValue): BinRow {
+  return row(ENTRY, nameHash(name).slice(2), name, value);
+}
+
+const page = (rows: BinRow[]): BinRows => ({ rows, total: rows.length });
+
+const list = (len: number): BinValue => ({
+  type: "container",
+  len,
+  itemKind: "embed",
+});
+const embed = (className: string, len: number): BinValue => ({
+  type: "struct",
+  classHash: nameHash(className),
+  class: className,
+  len,
+});
+const chunk = (path: string): BinValue => ({
+  type: "wadChunkLink",
+  hash: "00cc",
+  path,
+});
+const link = (hash: string, name: string | null): BinValue => ({
+  type: "objectLink",
+  hash,
+  name,
+});
+
+const ROOTS: BinRow[] = [
+  field("championSkinName", { type: "string", value: "Smolder" }),
+  field("iconAvatar", chunk(AVATAR)),
+  field("loadscreen", embed("CensoredImage", 1)),
+  field("skinMeshProperties", embed("SkinMeshDataProperties", 4)),
+  field("skinAnimationProperties", embed("SkinAnimationProperties", 1)),
+  field("idleParticlesEffects", list(2)),
+  field("mResourceResolver", link(RESOLVER, null)),
+  field("skinAudioProperties", embed("SkinAudioProperties", 1)),
+  field("healthBarData", embed("CharacterHealthBarDataRecord", 0)),
+  field("armorMaterial", { type: "string", value: "Stone" }),
+  field("emoteLoadout", list(0)),
+];
+
+const at = (name: string) => nameHash(name).slice(2);
+const MESH = at("skinMeshProperties");
+const OVERRIDES = `${MESH}.${at("materialOverride")}`;
+const OVERRIDE = `${OVERRIDES}[0]`;
+const EFFECTS = at("idleParticlesEffects");
+const EFFECT = `${EFFECTS}[0]`;
+const NAMED_EFFECT = `${EFFECTS}[1]`;
+const RESOURCE_MAP = at("resourceMap");
+
+/** Every page the projected read answers, by the entry and path it was asked under. */
+const PAGES: Record<string, BinRows> = {
+  [`${ENTRY}:${at("loadscreen")}`]: page([
+    row(ENTRY, `${at("loadscreen")}.${at("image")}`, "image", chunk(LOADSCREEN)),
+  ]),
+  [`${ENTRY}:${MESH}`]: page([
+    row(ENTRY, `${MESH}.${at("simpleSkin")}`, "simpleSkin", {
+      type: "string",
+      value: SIMPLE_SKIN,
+    }),
+    row(ENTRY, `${MESH}.${at("texture")}`, "texture", chunk(BODY)),
+    row(ENTRY, `${MESH}.${at("Material")}`, "Material", link("0x1234abcd", null)),
+    row(ENTRY, OVERRIDES, "materialOverride", list(1)),
+  ]),
+  [`${ENTRY}:${OVERRIDES}`]: page([
+    row(ENTRY, OVERRIDE, "[0]", embed("SkinMeshDataProperties_MaterialOverride", 3), "element"),
+  ]),
+  [`${ENTRY}:${OVERRIDE}`]: page([
+    row(ENTRY, `${OVERRIDE}.${at("submesh")}`, "submesh", {
+      type: "string",
+      value: "Body",
+    }),
+    row(ENTRY, `${OVERRIDE}.${at("material")}`, "material", link("0x0badf00d", GLOW_PATH)),
+    row(ENTRY, `${OVERRIDE}.${at("texture")}`, "texture", chunk(BODY)),
+  ]),
+  [`${ENTRY}:${at("skinAnimationProperties")}`]: page([
+    row(
+      ENTRY,
+      `${at("skinAnimationProperties")}.${at("animationGraphData")}`,
+      "animationGraphData",
+      link("0x5678ef01", null),
+    ),
+  ]),
+  [`${ENTRY}:${at("skinAudioProperties")}`]: page([
+    row(ENTRY, `${at("skinAudioProperties")}.${at("bankUnits")}`, "bankUnits", list(2)),
+  ]),
+  [`${ENTRY}:${EFFECTS}`]: page([
+    row(
+      ENTRY,
+      EFFECT,
+      "[0]",
+      embed("SkinCharacterDataProperties_CharacterIdleEffect", 3),
+      "element",
+    ),
+    row(
+      ENTRY,
+      NAMED_EFFECT,
+      "[1]",
+      embed("SkinCharacterDataProperties_CharacterIdleEffect", 2),
+      "element",
+    ),
+  ]),
+  [`${ENTRY}:${NAMED_EFFECT}`]: page([
+    row(ENTRY, `${NAMED_EFFECT}.${at("effectName")}`, "effectName", {
+      type: "string",
+      value: "NamedOnly",
+    }),
+    row(ENTRY, `${NAMED_EFFECT}.${at("boneName")}`, "boneName", {
+      type: "string",
+      value: "C_Buffbone_Glb_Center_Loc",
+    }),
+  ]),
+  [`${ENTRY}:${EFFECT}`]: page([
+    row(ENTRY, `${EFFECT}.${at("effectKey")}`, "effectKey", {
+      type: "hash",
+      hash: EFFECT_KEY,
+      name: null,
+    }),
+    row(ENTRY, `${EFFECT}.${at("effectName")}`, "effectName", {
+      type: "string",
+      value: "IdleGlow",
+    }),
+    row(ENTRY, `${EFFECT}.${at("boneName")}`, "boneName", {
+      type: "string",
+      value: "L_Wing",
+    }),
+    row(ENTRY, `${EFFECT}.${at("targetBoneName")}`, "targetBoneName", {
+      type: "string",
+      value: "R_Hand",
+    }),
+  ]),
+  [`${RESOLVER}:`]: page([
+    row(RESOLVER, RESOURCE_MAP, "resourceMap", {
+      type: "map",
+      len: 1,
+      keyKind: "hash",
+      valueKind: "link",
+    }),
+  ]),
+  [`${RESOLVER}:${RESOURCE_MAP}`]: page([
+    row(
+      RESOLVER,
+      `${RESOURCE_MAP}{${EFFECT_KEY}}`,
+      EFFECT_KEY,
+      link(SYSTEM, SYSTEM_PATH),
+      "entry",
+      true,
+    ),
+  ]),
+};
+
+const DECLARED: Record<string, unknown> = {
+  [SYSTEM]: {
+    path: SYSTEM_PATH,
+    declarations: [
+      {
+        asset: ASSET,
+        file: "Smolder.bin",
+        classHash: nameHash("VfxSystemDefinitionData"),
+        class: "VfxSystemDefinitionData",
+      },
+    ],
+  },
+  "0x0badf00d": {
+    path: GLOW_PATH,
+    declarations: [
+      {
+        asset: ASSET,
+        file: "Smolder.bin",
+        classHash: nameHash("StaticMaterialDef"),
+        class: "StaticMaterialDef",
+      },
+    ],
+  },
+};
+
+const PROJECT: WorkshopProject = {
+  path: "C:/mods/skin",
+  name: "skin",
+  displayName: "Skin",
+  version: "1.0.0",
+  description: "",
+  authors: [],
+  tags: [],
+  champions: [],
+  maps: [],
+  layers: [],
+  thumbnailPath: null,
+  lastModified: "2026-08-21T21:14:02Z",
+};
+
+function Providers({ children }: { children: ReactNode }) {
+  const [client] = useState(() => createTestQueryClient());
+  return (
+    <QueryClientProvider client={client}>
+      <ProjectProvider project={PROJECT}>
+        <ToastProvider>{children}</ToastProvider>
+      </ProjectProvider>
+    </QueryClientProvider>
+  );
+}
+
+function renderSkin() {
+  render(
+    <ClassView
+      document={7}
+      asset={ASSET}
+      roots={ROOTS}
+      classHash={SKIN}
+      layout={skinLayout}
+      objectName={() => "Characters/Smolder/Skins/Skin0"}
+      onNotOpen={() => {}}
+      onShowInProperties={vi.fn()}
+    />,
+    { wrapper: Providers },
+  );
+}
+
+beforeEach(() => {
+  useWorkshopLayoutStore.setState({ openSections: {} });
+  mockInvoke.mockReset();
+  mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+    if (command === "bin_read") {
+      const entry = args?.entry as string;
+      const paths = (args?.paths ?? []) as string[];
+      return Promise.resolve({
+        ok: true,
+        value: paths.map((path) => PAGES[`${entry}:${path}`] ?? page([])),
+      });
+    }
+    if (command === "locate_game_files") {
+      const paths = (args?.paths ?? []) as string[];
+      const found = paths.filter((path) => path === SIMPLE_SKIN.toLowerCase());
+      return Promise.resolve({
+        ok: true,
+        value: Object.fromEntries(
+          found.map((path) => [
+            path,
+            {
+              pathHash: "00dd00dd00dd00dd",
+              path,
+              sizeBytes: 1n,
+              wad: ASSET.wad,
+            },
+          ]),
+        ),
+      });
+    }
+    if (command === "declared_objects") {
+      const hashes = (args?.objectHashes ?? []) as string[];
+      const objects = Object.fromEntries(
+        hashes.filter((hash) => hash in DECLARED).map((hash) => [hash, DECLARED[hash]]),
+      );
+      return Promise.resolve({
+        ok: true,
+        value: { index: { status: "ready" }, objects },
+      });
+    }
+    return Promise.resolve({
+      ok: false,
+      error: { code: "UNKNOWN", detail: command },
+    });
+  });
+});
+
+/** The first material override's row, once the read has answered its fields. */
+async function overrideGroup(): Promise<HTMLElement> {
+  const submesh = await screen.findByText("Body", {
+    selector: "[data-ui='OverrideRows:override'] *",
+  });
+  const group = submesh.closest<HTMLElement>("[data-ui='OverrideRows:override']");
+  if (group === null) throw new Error("no override row drawn");
+  return group;
+}
+
+/** What the object pane measures, which happy-dom runs no layout to answer. */
+let paneWidth = 0;
+const measured = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => paneWidth,
+  });
+});
+
+afterAll(() => {
+  if (measured !== undefined) {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", measured);
+  }
+});
+
+describe("ClassView over a skin", () => {
+  it("draws every section of the layout, in its order", () => {
+    renderSkin();
+
+    for (const title of [
+      "Identity",
+      "Icons",
+      "Mesh",
+      "Material overrides",
+      "Clips",
+      "Animation",
+      "VFX",
+      "Audio",
+      "Health bar",
+      "Other",
+    ]) {
+      expect(screen.getByRole("button", { name: title, expanded: true })).toBeInTheDocument();
+    }
+  });
+
+  it("draws the identity fields in the cell their own rows draw", () => {
+    renderSkin();
+
+    expect(screen.getByText("Smolder")).toBeInTheDocument();
+    expect(screen.getByText("Stone")).toBeInTheDocument();
+  });
+
+  it("remembers a folded section for the next skin it opens", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Identity" }));
+    cleanup();
+    renderSkin();
+
+    expect(screen.getByRole("button", { name: "Identity" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByText("Smolder")).toBeNull();
+  });
+
+  it("names each icon under its own tile, the loadscreen's image included", async () => {
+    renderSkin();
+
+    expect(screen.getByText("iconAvatar")).toBeInTheDocument();
+    expect(await screen.findByText("loadscreen")).toBeInTheDocument();
+  });
+
+  it("draws the skin above the sections in a pane too narrow for the shell", () => {
+    renderSkin();
+
+    expect(screen.getByRole("group", { name: "Mesh preview" })).toBeInTheDocument();
+  });
+
+  it("draws the mesh's own fields and its textures", async () => {
+    renderSkin();
+
+    expect(await screen.findByText("simpleSkin")).toBeInTheDocument();
+    expect(screen.getAllByText("texture").length).toBeGreaterThan(0);
+  });
+
+  it("opens a string path the resolver holds as a chip", async () => {
+    renderSkin();
+
+    expect(
+      await screen.findByRole("button", { name: SIMPLE_SKIN.toLowerCase() }),
+    ).toBeInTheDocument();
+  });
+
+  it("draws each material override as a table row of submesh, material and texture", async () => {
+    renderSkin();
+
+    const override = await overrideGroup();
+
+    expect(screen.getByText("Submesh")).toBeInTheDocument();
+    expect(within(override).getAllByText("Body").length).toBeGreaterThan(0);
+    expect(within(override).queryByText("[0]")).toBeNull();
+    expect(within(override).getByText("Smolder_Body_Glow")).toBeInTheDocument();
+    expect(within(override).queryByText(/Materials\//)).toBeNull();
+    expect(within(override).queryByText("SkinMeshDataProperties_MaterialOverride")).toBeNull();
+  });
+
+  it("folds an override's other fields under its row, closed until opened", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+    const override = await overrideGroup();
+
+    expect(within(override).queryByText("texture")).toBeNull();
+    await user.click(within(override).getByRole("button", { name: "Show fields" }));
+
+    expect(within(override).getByText("texture")).toBeInTheDocument();
+  });
+
+  it("points the preview at an override's submesh while the pointer is on it", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+    const [title] = within(await overrideGroup()).getAllByText("Body");
+
+    await user.hover(title);
+    expect(title.closest("[data-ui='OverrideRows:override']")?.className).toContain(
+      "bg-accent-500/10",
+    );
+
+    await user.unhover(title);
+    expect(title.closest("[data-ui='OverrideRows:override']")?.className).not.toContain(
+      "bg-accent-500/10",
+    );
+  });
+
+  it("carries the system's chip on an effect row, joined through the resolver", async () => {
+    renderSkin();
+
+    const chip = await screen.findByRole("button", { name: SYSTEM_PATH });
+    expect(chip).toHaveTextContent(/^Smolder_Base_Idle$/);
+    expect(screen.getByText("L_Wing")).toBeInTheDocument();
+    expect(screen.getByText("R_Hand")).toBeInTheDocument();
+  });
+
+  it("names an effect that carries no key by its effectName", async () => {
+    renderSkin();
+
+    expect(await screen.findByText("NamedOnly")).toBeInTheDocument();
+    expect(screen.getByText("C_Buffbone_Glb_Center_Loc")).toBeInTheDocument();
+  });
+
+  it("counts the effects on the VFX header", async () => {
+    renderSkin();
+
+    const header = screen.getByRole("button", { name: "VFX" }).parentElement;
+    expect(header).toHaveTextContent("VFX2");
+  });
+
+  it("draws what no section names as field rows", () => {
+    renderSkin();
+
+    expect(screen.getByText("emoteLoadout")).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Other" })).toBeNull();
+  });
+
+  it("reads the resolver through the handle the file is already open on", async () => {
+    renderSkin();
+
+    await screen.findByRole("button", { name: SYSTEM_PATH });
+    const entries = mockInvoke.mock.calls
+      .filter(([command]) => command === "bin_read")
+      .map(([, args]) => (args as { entry: string }).entry);
+
+    expect(new Set(entries)).toEqual(new Set([ENTRY, RESOLVER]));
+    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_open")).toBe(false);
+  });
+});
+
+describe("ClassView over a skin in a pane wide enough for the shell", () => {
+  beforeEach(() => {
+    paneWidth = 1200;
+    useWorkshopEditorStore.setState({ byProject: {} });
+  });
+
+  afterEach(() => {
+    paneWidth = 0;
+  });
+
+  it("puts the preview, the clips and the inspector in panes of their own, and no other", async () => {
+    renderSkin();
+
+    expect(await screen.findByRole("tab", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Clips" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Inspector" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Emitters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Mesh preview" })).toBeInTheDocument();
+  });
+
+  it("leaves the Clips section out of the inspector column, where the pane draws it", async () => {
+    renderSkin();
+
+    await screen.findByRole("tab", { name: "Clips" });
+    expect(screen.queryByRole("button", { name: "Clips", expanded: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Animation", expanded: true })).toBeInTheDocument();
+  });
+
+  it("lists only the skin's panes in the Panes menu", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Panes" }));
+
+    expect(await screen.findByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Clips" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Inspector" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Curve" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the one preview mounted as the pane falls to the stack and back", async () => {
+    const observed = new Set<(entries: readonly unknown[]) => void>();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(private readonly callback: (entries: readonly unknown[]) => void) {}
+        observe() {
+          observed.add(this.callback);
+        }
+        unobserve() {}
+        disconnect() {
+          observed.delete(this.callback);
+        }
+      },
+    );
+    const resizeTo = (width: number) => {
+      paneWidth = width;
+      act(() => observed.forEach((callback) => callback([])));
+    };
+
+    try {
+      renderSkin();
+      await screen.findByRole("tab", { name: "Preview" });
+      const preview = screen.getByRole("group", { name: "Mesh preview" });
+
+      resizeTo(600);
+      expect(screen.queryByRole("tab", { name: "Preview" })).not.toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Mesh preview" })).toBe(preview);
+
+      resizeTo(1200);
+      expect(await screen.findByRole("tab", { name: "Preview" })).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Mesh preview" })).toBe(preview);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

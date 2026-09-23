@@ -85,6 +85,20 @@ describe("useModCardController storage", () => {
     expect(view.current.canChangeStorage).toBe(false);
   });
 
+  it("offers Check Health on a fantome", () => {
+    const view = mount(createMockInstalledMod({ format: "fantome" }));
+
+    expect(view.current.canCheckHealth).toBe(true);
+  });
+
+  /* ADR-0001: a modpkg has no unpacked form for the rules to read, and the
+     check refuses every press on one. */
+  it("offers no Check Health on a modpkg", () => {
+    const view = mount(createMockInstalledMod({ format: "modpkg", storage: "archive" }));
+
+    expect(view.current.canCheckHealth).toBe(false);
+  });
+
   /* An archive mod is its archive, so with the file gone there is nothing to
      unpack. */
   it("offers nothing on an archive mod whose file is gone", () => {
@@ -239,27 +253,5 @@ describe("useModCardController gestures", () => {
     act(() => view.current.onCardClick(click({ ctrlKey: true })));
 
     expect(selectionState.toggle).toHaveBeenCalledWith("a");
-  });
-});
-
-describe("useModCardController right click", () => {
-  it("collapses the pick onto a card outside the selection, and opens its own menu", () => {
-    selectionState.selectedIds = new Set(["b"]);
-    const view = mount(createMockInstalledMod({ id: "a" }));
-
-    act(() => view.current.onCardContextMenu());
-
-    expect(selectionState.selectOnly).toHaveBeenCalledWith("a");
-    expect(view.current.menuScope).toBe("card");
-  });
-
-  it("opens what the selection carries over a card inside it", () => {
-    selectionState.selectedIds = new Set(["a", "b"]);
-    const view = mount(createMockInstalledMod({ id: "a" }));
-
-    act(() => view.current.onCardContextMenu());
-
-    expect(selectionState.selectOnly).not.toHaveBeenCalled();
-    expect(view.current.menuScope).toBe("selection");
   });
 });

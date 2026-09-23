@@ -1,6 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { useMemo } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import { Combobox, useComboboxFilter } from "./Combobox";
 
@@ -108,7 +109,7 @@ export function MultiSelect({
         <Combobox.Positioner side="bottom" sideOffset={4} className="z-50">
           <Combobox.Popup
             className={twMerge(
-              "flex max-h-60 w-64 flex-col overflow-hidden rounded-lg border border-surface-600 bg-surface-800 shadow-xl",
+              "flex max-h-60 w-64 flex-col overflow-hidden rounded-lg border border-surface-600 shadow-xl",
               "animate-fade-in",
               "data-ending-style:opacity-0 data-starting-style:opacity-0",
             )}

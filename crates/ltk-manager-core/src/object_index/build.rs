@@ -22,15 +22,17 @@ use crate::game_wads::{GameArchives, chunk_head};
 use super::{Declarations, DeclaringFile, Names, ObjectIndex, ObjectIndexStats, Row};
 
 /// The magic a `PTCH` opens with, which the streaming reader refuses.
-const PATCH_MAGIC: [u8; 4] = *b"PTCH";
+pub(super) const PATCH_MAGIC: [u8; 4] = *b"PTCH";
 
 /// One archive's share of the build: its named `.bin` chunks, and the chunks
-/// no table names, to sniff.
+/// a bare name or no name leaves to sniff.
 #[derive(Debug)]
 struct ArchiveJob<'a> {
     ordinal: u32,
     name: &'a str,
     named: Vec<(WadHash, Box<str>)>,
+    /// Named chunks with no extension, which is how Riot ships a UI scene's bin.
+    bare: Vec<(WadHash, Box<str>)>,
     unnamed: Vec<WadHash>,
 }
 
@@ -42,6 +44,7 @@ struct ArchiveRead {
     skipped: u32,
     sniffed: u32,
     unnamed_bins: u32,
+    bare_bins: u32,
     bytes: u64,
 }
 
@@ -51,8 +54,8 @@ type MountedWad = Wad<BufReader<fs::File>>;
 impl ArchiveJob<'_> {
     /// Mount the archive and read every chunk of the job for its declarations.
     ///
-    /// The named chunks first, in the order given, then the unnamed ones that
-    /// sniff as a bin.
+    /// The named chunks first, in the order given, then the bare and the
+    /// unnamed ones that sniff as a bin.
     ///
     /// # Errors
     ///
@@ -73,6 +76,19 @@ impl ArchiveJob<'_> {
         }
 
         let mut decoder = ChunkDecoder::new();
+        for (path_hash, chunk_path) in &self.bare {
+            if !self.sniffs_as_bin(&mut wad, *path_hash, &mut decoder) {
+                continue;
+            }
+            read.bare_bins += 1;
+            read.files.push(DeclaringFile {
+                path_hash: *path_hash,
+                path: Some(chunk_path.clone()),
+                wad: self.ordinal,
+            });
+            self.read_chunk(&mut wad, *path_hash, chunk_path, &mut read);
+        }
+
         for path_hash in &self.unnamed {
             read.sniffed += 1;
             if !self.sniffs_as_bin(&mut wad, *path_hash, &mut decoder) {
@@ -253,14 +269,20 @@ fn is_bin(path: &str) -> bool {
             .is_some_and(|tail| tail.eq_ignore_ascii_case(".bin"))
 }
 
+/// Whether a chunk path's last segment carries no extension to judge it by.
+fn is_bare(path: &str) -> bool {
+    camino::Utf8Path::new(path).extension().is_none()
+}
+
 impl ObjectIndex {
     /// Read every bin chunk of the install for what it declares.
     ///
     /// One job per archive in the game index's order, each mounting its
     /// archive itself, on at most `workers` threads, with the rows landing in
-    /// that order. A named chunk is a bin by its extension. An unnamed one is
-    /// decoded far enough to read its magic, and read whole only when the
-    /// magic is a bin's. A chunk that will not read is skipped and counted.
+    /// that order. A named chunk is a bin by its extension. One with a bare
+    /// name, and one no table names, is decoded far enough to read its magic,
+    /// and read whole only when the magic is a bin's. A chunk that will not
+    /// read is skipped and counted.
     ///
     /// `called_off` is tested before each archive, so a build nobody wants
     /// stops at the next one rather than decompressing the rest.
@@ -282,9 +304,12 @@ impl ObjectIndex {
 
         let mut named: Vec<Vec<(WadHash, Box<str>)>> =
             (0..wads.len()).map(|_| Vec::new()).collect();
+        let mut bare: Vec<Vec<(WadHash, Box<str>)>> = (0..wads.len()).map(|_| Vec::new()).collect();
         game.for_each_named_file(|hash, path, wad| {
             if is_bin(path) {
                 named[wad as usize].push((WadHash(hash), path.into()));
+            } else if is_bare(path) {
+                bare[wad as usize].push((WadHash(hash), path.into()));
             }
         });
         let mut unnamed: Vec<Vec<WadHash>> = (0..wads.len()).map(|_| Vec::new()).collect();
@@ -292,13 +317,17 @@ impl ObjectIndex {
 
         let jobs: Vec<ArchiveJob<'_>> = named
             .into_iter()
+            .zip(bare)
             .zip(unnamed)
             .enumerate()
-            .filter(|(_, (named, unnamed))| !named.is_empty() || !unnamed.is_empty())
-            .map(|(ordinal, (named, unnamed))| ArchiveJob {
+            .filter(|(_, ((named, bare), unnamed))| {
+                !named.is_empty() || !bare.is_empty() || !unnamed.is_empty()
+            })
+            .map(|(ordinal, ((named, bare), unnamed))| ArchiveJob {
                 ordinal: ordinal as u32,
                 name: &wads[ordinal],
                 named,
+                bare,
                 unnamed,
             })
             .collect();
@@ -322,7 +351,7 @@ impl ObjectIndex {
             stats.files += job.named.len() as u32;
             match outcome {
                 Ok(read) => {
-                    stats.files += read.unnamed_bins;
+                    stats.files += read.bare_bins + read.unnamed_bins;
                     stats.sniffed += read.sniffed;
                     stats.unnamed_bins += read.unnamed_bins;
                     stats.rows += read.rows.len() as u32;

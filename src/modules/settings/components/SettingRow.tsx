@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { HintIcon } from "@/components";
+import { twMerge } from "@/utils";
 
 import { type IndexedSettingKey, settingEntry } from "../settingsIndex";
 import { useMarkRedirect, useSettingMark } from "./SettingFocus";
@@ -25,6 +25,8 @@ interface SettingRowBase {
   kind?: "toggle" | "action";
   /** `stacked` drops a full-width control under the label, for an editor the right slot cannot hold. */
   layout?: "inline" | "stacked";
+  /** Compact typography for rows inside a dense settings panel. */
+  size?: "sm" | "md";
   /** Indents, for a setting only the row above it reaches. */
   dependent?: boolean;
   /** A dependent row its parent has turned off. It stays mounted and draws nothing. */
@@ -53,6 +55,7 @@ export function SettingRow({
   controlClassName,
   kind = "toggle",
   layout = "inline",
+  size = "md",
   dependent = false,
   hidden = false,
 }: SettingRowProps) {
@@ -75,13 +78,24 @@ export function SettingRow({
   const body = (
     <>
       <div className="max-w-xl min-w-0">
-        <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
+        <span
+          className={twMerge(
+            "flex items-center gap-1.5 font-medium text-surface-200",
+            size === "sm" ? "text-row" : "text-sm",
+          )}
+        >
           {icon}
           {entry?.title ?? title}
           {hint && <HintIcon content={hint} />}
           {badge}
         </span>
-        {description && <span className="block text-sm text-surface-400">{description}</span>}
+        {description && (
+          <span
+            className={twMerge("block text-surface-400", size === "sm" ? "text-meta" : "text-sm")}
+          >
+            {description}
+          </span>
+        )}
       </div>
       <div className={twMerge(stacked ? "min-w-0" : "shrink-0", controlClassName)}>{control}</div>
     </>

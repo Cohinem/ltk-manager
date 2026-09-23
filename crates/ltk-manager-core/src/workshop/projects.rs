@@ -1,3 +1,4 @@
+use super::text_files::write_default_readme;
 use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
     SaveProjectConfigArgs, Workshop, WorkshopProject, is_valid_project_name,
@@ -110,13 +111,9 @@ impl Workshop {
         let config_content = serde_json::to_string_pretty(&mod_project)?;
         fs::write(&config_path, config_content)?;
 
-        let readme_content = format!(
-            "# {}\n\n{}\n",
-            mod_project.display_name, mod_project.description
-        );
-        fs::write(project_dir.join("README.md"), readme_content)?;
+        write_default_readme(&project_dir, &mod_project.display_name)?;
 
-        ProjectDir::open(project_dir)?.load()
+        start_project(project_dir)
     }
 
     /// Get a single workshop project by path.
@@ -291,7 +288,7 @@ impl Workshop {
 
         long_paths::verify_unpacked(project_dir, ImportRoot::Workshop)?;
 
-        ProjectDir::open(project_dir)?.load()
+        start_project(project_dir)
     }
 
     fn emit_fantome_progress(&self, progress: FantomeImportProgress) {
@@ -332,7 +329,7 @@ impl Workshop {
             return Err(modpkg_import_error(e));
         }
 
-        ProjectDir::open(project_dir)?.load()
+        start_project(project_dir)
     }
 
     /// Import a project from a GitHub repository by downloading and extracting its tarball.
@@ -437,6 +434,16 @@ impl Workshop {
                 message: message.map(String::from),
             }));
     }
+}
+
+/// Give a project this side just made its starter files, and read it back.
+///
+/// A git import does not come here. The repository carries whatever its author
+/// chose, including no ignore rules at all.
+fn start_project(project_dir: impl AsRef<Path>) -> AppResult<WorkshopProject> {
+    let dir = ProjectDir::open(project_dir.as_ref())?;
+    dir.write_default_ignore_rules()?;
+    dir.load()
 }
 
 /// Parse a GitHub URL and extract the owner and repo name.

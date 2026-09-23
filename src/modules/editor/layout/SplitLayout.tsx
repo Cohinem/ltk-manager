@@ -1,8 +1,10 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useId } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { twMerge } from "tailwind-merge";
 
-import type { LayoutNode, LeafNode } from "./tree";
+import { isOverlayOpen, twMerge } from "@/utils";
+
+import { findLeaf, type LayoutNode, type LeafNode } from "./tree";
 
 export interface SplitLayoutProps {
   node: LayoutNode;
@@ -10,6 +12,12 @@ export interface SplitLayoutProps {
   onLayoutChanged: (splitId: string, layout: Record<string, number>) => void;
   /** Draws one editor group, so this module never learns what a document is. */
   renderLeaf: (leaf: LeafNode) => ReactNode;
+  /** A gap between framed panes, or a divider between unframed panes. */
+  seamVariant?: SeamProps["variant"];
+  /** The one leaf drawn, per "Maximizing a panel" in `docs/ux/PROJECT_EDITOR.md`. */
+  maximizedLeafId?: string | null;
+  /** The restore Esc runs while a leaf is maximized. */
+  onRestore?: () => void;
 }
 
 /**
@@ -18,30 +26,76 @@ export interface SplitLayoutProps {
  * The `Group` is keyed by its children's ids because `defaultLayout` is read at
  * mount alone. A split gaining or losing a child remounts its group, which is
  * what hands the library the redistributed shares the tree computed.
+ *
+ * A maximized leaf draws alone and the rest of the tree waits behind it. The id
+ * is read against the tree rather than written into it, and an id the tree does
+ * not hold draws the whole tree.
  */
-export function SplitLayout({ node, onLayoutChanged, renderLeaf }: SplitLayoutProps) {
+export function SplitLayout({
+  node,
+  onLayoutChanged,
+  renderLeaf,
+  seamVariant = "divider",
+  maximizedLeafId,
+  onRestore,
+}: SplitLayoutProps) {
+  /* react-resizable-panels registers group ids application-wide, while retained
+     documents and topology remounts can draw copies of the same saved tree. */
+  const instanceId = useId();
+  const maximized = maximizedLeafId ? findLeaf(node, maximizedLeafId) : null;
+
+  /* A dialog or a menu over the tree owns Escape while it is open, where the key means
+     "close this". */
+  useHotkeys("escape", () => !isOverlayOpen() && onRestore?.(), {
+    enabled: onRestore !== undefined && Boolean(maximized),
+  });
+
+  if (maximized) return renderLeaf(maximized);
+
   if (node.kind === "leaf") return renderLeaf(node);
 
   const orientation = node.dir === "row" ? "horizontal" : "vertical";
+  const topology = node.children.map((child) => child.id).join();
+  const resizeScope = `${instanceId}-${topology}`;
+  const resizeId = (nodeId: string) => `${resizeScope}-${nodeId}`;
+  const defaultLayout = node.layout
+    ? Object.fromEntries(
+        Object.entries(node.layout).map(([nodeId, size]) => [resizeId(nodeId), size]),
+      )
+    : undefined;
 
   return (
     <Group
-      key={node.children.map((child) => child.id).join("+")}
-      id={node.id}
+      key={topology}
+      id={resizeId(node.id)}
       orientation={orientation}
-      defaultLayout={node.layout}
+      defaultLayout={defaultLayout}
       onLayoutChanged={(layout, meta) => {
-        if (meta.isUserInteraction) onLayoutChanged(node.id, layout);
+        if (!meta.isUserInteraction) return;
+
+        const treeLayout = Object.fromEntries(
+          node.children.flatMap((child) => {
+            const size = layout[resizeId(child.id)];
+            return size === undefined ? [] : [[child.id, size]];
+          }),
+        );
+
+        onLayoutChanged(node.id, treeLayout);
       }}
       className="min-h-0 min-w-0 flex-1"
     >
       {node.children.map((child, index) => (
         <Fragment key={child.id}>
-          {index > 0 && <Seam orientation={orientation} variant="divider" />}
-          <Panel id={child.id} minSize={120} className="flex h-full w-full flex-col">
+          {index > 0 && <Seam orientation={orientation} variant={seamVariant} />}
+          <Panel id={resizeId(child.id)} minSize={120} className="flex h-full w-full flex-col">
             {child.kind === "leaf" && renderLeaf(child)}
             {child.kind === "split" && (
-              <SplitLayout node={child} onLayoutChanged={onLayoutChanged} renderLeaf={renderLeaf} />
+              <SplitLayout
+                node={child}
+                onLayoutChanged={onLayoutChanged}
+                renderLeaf={renderLeaf}
+                seamVariant={seamVariant}
+              />
             )}
           </Panel>
         </Fragment>
@@ -79,7 +133,8 @@ export function Seam({ orientation, variant = "gap" }: SeamProps) {
         "group/seam relative flex shrink-0 items-center justify-center outline-none",
         horizontal ? "w-1.5" : "h-1.5",
         /* A rung over the panes it parts, not under them: DS-GROUND. */
-        divider && "bg-surface-900",
+        divider && "border-surface-800 bg-surface-900",
+        divider && (horizontal ? "border-x" : "border-y"),
       )}
     >
       {divider && (

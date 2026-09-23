@@ -91,17 +91,16 @@ Output is written to `src-tauri/target/release/bundle/`:
 | Platform | Path                                     | Format             |
 | -------- | ---------------------------------------- | ------------------ |
 | Windows  | `bundle/nsis/LTK Manager_*-setup.exe`    | NSIS installer     |
-| Windows  | `bundle/msi/LTK Manager_*.msi`           | MSI installer      |
 | macOS    | `bundle/dmg/LTK Manager_*.dmg`           | DMG disk image     |
 | macOS    | `bundle/macos/LTK Manager.app`           | Application bundle |
 | Linux    | `bundle/deb/ltk-manager_*.deb`           | Debian package     |
 | Linux    | `bundle/appimage/ltk-manager_*.AppImage` | AppImage           |
 
-To build a specific format:
+`bundle.targets` in `src-tauri/tauri.conf.json` names the NSIS installer alone, per ADR-0039.
+To build another format:
 
 ```bash
-pnpm tauri build --bundles nsis   # Windows NSIS only
-pnpm tauri build --bundles msi    # Windows MSI only
+pnpm tauri build --bundles msi    # Windows MSI, which no release ships
 pnpm tauri build --bundles dmg    # macOS DMG only
 pnpm tauri build --bundles deb    # Linux Debian only
 ```

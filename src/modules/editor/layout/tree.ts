@@ -8,6 +8,8 @@ export interface LeafNode {
   /** Document ids in strip order. Empty only while this leaf is the whole tree. */
   tabs: string[];
   activeTab: string | null;
+  /** A locked group takes a document only from a gesture that names it. Absent is unlocked. */
+  locked?: boolean;
 }
 
 export interface SplitNode {
@@ -55,10 +57,43 @@ export function leafHolding(tree: LayoutNode, documentId: string): LeafNode | nu
   return null;
 }
 
+/**
+ * This group takes a document that no gesture aimed at it.
+ *
+ * A lock is what a group holds against a stray open, and a group holding
+ * nothing has nothing to hold, so an empty one takes the document either way.
+ */
+export function acceptsOpen(leaf: LeafNode): boolean {
+  return leaf.locked !== true || leaf.tabs.length === 0;
+}
+
 /** Every leaf, depth first, which is reading order. */
 export function leaves(tree: LayoutNode): LeafNode[] {
   if (tree.kind === "leaf") return [tree];
   return tree.children.flatMap(leaves);
+}
+
+/**
+ * The leaf beside this one across its own seam, or null for a leaf standing alone.
+ *
+ * The one after it in its own split, falling back to the one before it at the
+ * end of a row or a column. A sibling that is itself a split answers with the
+ * first leaf a reader meets inside it, which is the one against the seam.
+ */
+export function neighbourLeaf(tree: LayoutNode, leafId: string): LeafNode | null {
+  if (tree.kind === "leaf") return null;
+
+  const index = tree.children.findIndex((child) => child.kind === "leaf" && child.id === leafId);
+  if (index >= 0) {
+    const sibling = tree.children[index + 1] ?? tree.children[index - 1];
+    return sibling ? (leaves(sibling)[0] ?? null) : null;
+  }
+
+  for (const child of tree.children) {
+    const found = neighbourLeaf(child, leafId);
+    if (found) return found;
+  }
+  return null;
 }
 
 /* Ids are `leaf-N` and `split-N` over one shared counter, read back off the
@@ -289,6 +324,23 @@ export function setActiveTab(tree: LayoutNode, leafId: string, documentId: strin
   });
 }
 
+/**
+ * Locks or unlocks one group.
+ *
+ * An unlocked leaf carries no field rather than `false`, so a tree nobody has
+ * locked reads back out of `.ltk/editor.json` as the tree that went in.
+ */
+export function setLeafLocked(tree: LayoutNode, leafId: string, locked: boolean): LayoutNode {
+  return updateLeaf(tree, leafId, (leaf) => {
+    if ((leaf.locked === true) === locked) return leaf;
+    if (locked) return { ...leaf, locked: true };
+
+    const unlocked = { ...leaf };
+    delete unlocked.locked;
+    return unlocked;
+  });
+}
+
 /** Writes what `onLayoutChanged` reported for one split. The numbers stay opaque (D4). */
 export function setSplitLayout(
   tree: LayoutNode,
@@ -313,7 +365,8 @@ export function setSplitLayout(
  * Merge every strip into one leaf, in depth-first reading order (D8).
  *
  * The merged leaf keeps the focused leaf's id and its active tab, so the
- * caller's focus survives the reset.
+ * caller's focus survives the reset. It carries no lock, because one group has
+ * nothing to hold itself against.
  */
 export function mergeToSingleLeaf(tree: LayoutNode, focusedLeafId: string): LayoutNode {
   if (tree.kind === "leaf") return tree;

@@ -36,6 +36,11 @@ pub enum AssetRef {
         wad: String,
         /// The chunk's path hash as 16 lowercase hex digits.
         path_hash: String,
+        /// The project directory whose game tree the chunk was opened from, which makes a
+        /// bin of it a declared document (ADR-0042). Absent for a chunk opened anywhere else.
+        #[cfg_attr(feature = "ts", ts(optional = nullable))]
+        #[cfg_attr(feature = "ts", specta(optional))]
+        project: Option<String>,
     },
     /// Any file on disk, for a preview that belongs to no project.
     ///
@@ -59,26 +64,57 @@ impl AssetRef {
     /// with I/O or WAD errors when the store itself cannot be read.
     pub fn read(&self, config: &Config, wads: &WadCache) -> AppResult<Vec<u8>> {
         match self {
-            Self::Layer {
-                project,
-                layer,
-                path,
-            } => {
-                /* Under `content` rather than under the layer, so one check
-                covers the layer name as well as the path inside it. */
-                let root = Path::new(project).join("content");
-                Ok(fs::read(resolve_within(
-                    &root,
-                    &format!("{layer}/{path}"),
-                )?)?)
+            Self::Layer { .. } => {
+                let path = self
+                    .layer_file()
+                    .expect("a layer asset names a layer file")?;
+                Ok(fs::read(path)?)
             }
-            Self::GameChunk { wad, path_hash } => {
+            Self::GameChunk { wad, path_hash, .. } => {
                 let path_hash = path_hash.parse().map_err(|_| {
                     AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}"))
                 })?;
                 wads.read_chunk(&GameArchives::resolve(config)?, wad, path_hash)
             }
             Self::File { path } => Ok(fs::read(path)?),
+        }
+    }
+
+    /// The file a layer asset names on disk, or `None` for an asset of another source.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::InvalidPath`] when the path escapes its layer, and with
+    /// [`AppError::Io`] when the file does not exist.
+    pub fn layer_file(&self) -> Option<AppResult<PathBuf>> {
+        let Self::Layer {
+            project,
+            layer,
+            path,
+        } = self
+        else {
+            return None;
+        };
+        /* Under `content` rather than under the layer, so one check covers the layer
+        name as well as the path inside it. */
+        let root = Path::new(project).join("content");
+        Some(resolve_within(&root, &format!("{layer}/{path}")))
+    }
+
+    /// Whether both name the same bytes. The project a game chunk was opened from is no
+    /// part of that.
+    #[must_use]
+    pub fn same_file(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::GameChunk { wad, path_hash, .. },
+                Self::GameChunk {
+                    wad: other_wad,
+                    path_hash: other_hash,
+                    ..
+                },
+            ) => wad == other_wad && path_hash == other_hash,
+            _ => self == other,
         }
     }
 
@@ -128,7 +164,7 @@ impl AssetRef {
                 resolve_within(&root, &format!("{layer}/{path}"))
             }
             Self::File { path } => Ok(PathBuf::from(path)),
-            Self::GameChunk { wad, path_hash } => {
+            Self::GameChunk { wad, path_hash, .. } => {
                 let bytes = self.read(config, wads)?;
                 let path = chunk_copy_path(wad, path_hash, name);
 
@@ -298,6 +334,7 @@ mod tests {
         let err = AssetRef::GameChunk {
             wad: "Champions/Aatrox.wad.client".to_owned(),
             path_hash: "not a hash".to_owned(),
+            project: None,
         }
         .read(&Config::default(), &WadCache::default())
         .unwrap_err();
@@ -367,6 +404,7 @@ mod tests {
             AssetRef::GameChunk {
                 wad: "UI.wad.client".to_owned(),
                 path_hash: "0123456789abcdef".to_owned(),
+                project: None,
             }
             .name(),
             "0123456789abcdef"

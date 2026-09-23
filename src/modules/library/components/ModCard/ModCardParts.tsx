@@ -1,21 +1,19 @@
 import {
   ArchiveIcon,
+  BookOpenTextIcon,
   CopyIcon,
   DotsThreeVerticalIcon,
   FolderIcon,
   FolderMinusIcon,
   FolderOpenIcon,
-  HardDrivesIcon,
   HeartbeatIcon,
   InfoIcon,
   PackageIcon,
-  PencilSimpleIcon,
   ShieldWarningIcon,
   SpinnerGapIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
 import { cloneElement, type ReactElement, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import {
   AutoPill,
@@ -29,17 +27,20 @@ import {
   Tooltip,
   useToast,
 } from "@/components";
+import { m } from "@/i18n";
 import type { InstalledMod, ModStorage } from "@/lib/tauri";
 import {
   useCheckModHealth,
   useHealthCheckReadiness,
   useModEffectiveCategories,
 } from "@/modules/library/api";
+import { useLibrarySidebarStore } from "@/modules/library/state";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
+import { twMerge } from "@/utils";
 
-import { SelectionMenuItems } from "../SelectionMenuItems";
+import { ModCardUpdateItem } from "./ModCardUpdateItem";
 import type { ModCardView } from "./useModCardController";
 
 type CardVariant = "grid" | "list";
@@ -122,13 +123,16 @@ export function ModCardThumbnail({
 /** The list row's toggle. A grid card has none, since the card itself is the control. */
 export function ModCardToggle({ view }: { view: ModCardView }) {
   const { mod } = view;
+  const label = mod.enabled
+    ? m.library_mod_disable_label({ name: mod.displayName })
+    : m.library_mod_enable_label({ name: mod.displayName });
 
   return (
     <Switch
       disabled={view.disabled}
       checked={mod.enabled}
       onCheckedChange={(checked) => view.onToggle(mod.id, checked)}
-      aria-label={`${mod.enabled ? "Disable" : "Enable"} ${mod.displayName}`}
+      aria-label={label}
     />
   );
 }
@@ -146,7 +150,7 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
         icon={<PackageIcon className="h-4 w-4" weight="bold" />}
         disabled={view.storageChangePending}
       >
-        Storage
+        {m.library_mod_storage_label()}
       </Menu.SubmenuTrigger>
       <Menu.Portal>
         <Menu.SubmenuPositioner>
@@ -160,14 +164,14 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
                 icon={<FolderIcon className="h-4 w-4" weight="bold" />}
                 closeOnClick
               >
-                Project
+                {m.library_mod_storage_project_label()}
               </Menu.RadioItem>
               <Menu.RadioItem
                 value="archive"
                 icon={<ArchiveIcon className="h-4 w-4" weight="bold" />}
                 closeOnClick
               >
-                Archive
+                {m.library_mod_storage_archive_label()}
               </Menu.RadioItem>
             </Menu.RadioGroup>
           </Menu.Popup>
@@ -198,7 +202,7 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
             variant="ghost"
             size="sm"
             compact
-            aria-label={`More options for ${view.mod.displayName}`}
+            aria-label={m.library_mod_options_label({ name: view.mod.displayName })}
             disabled={menuDisabled}
             className={className}
           />
@@ -218,9 +222,8 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
 /**
  * The card's menu on its right click, over the whole card rather than a target.
  *
- * A press inside the selection opens what the selection carries, and a press
- * outside it collapses the pick onto this card and opens the card's own. Per
- * "What a right click opens" in `docs/ux/LIBRARY.md`.
+ * The same commands the kebab opens, whatever is picked. Per "What a right
+ * click opens" in `docs/ux/LIBRARY.md`.
  *
  * Renders the card itself through `render`, so the trigger is the card and the
  * grid keeps the child it was sizing.
@@ -242,8 +245,7 @@ export function ModCardContextMenu({
       <ContextMenu.Portal>
         <ContextMenu.Positioner>
           <ContextMenu.Popup>
-            {view.menuScope === "selection" && <SelectionMenuItems />}
-            {view.menuScope === "card" && <ModCardMenuItems view={view} />}
+            <ModCardMenuItems view={view} />
           </ContextMenu.Popup>
         </ContextMenu.Positioner>
       </ContextMenu.Portal>
@@ -259,7 +261,7 @@ export function ModCardContextMenu({
  * different commands.
  */
 function ModCardMenuItems({ view }: { view: ModCardView }) {
-  const { mod, isFlagged, isInUserFolder, canChangeStorage } = view;
+  const { mod, isFlagged, isInUserFolder, canChangeStorage, canCheckHealth } = view;
 
   return (
     <>
@@ -268,48 +270,29 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
           icon={<ShieldWarningIcon className="h-4 w-4" weight="bold" />}
           onClick={() => view.setSkinhackInfoOpen(true)}
         >
-          What is a skinhack?
+          {m.library_mod_skinhack_action()}
         </Menu.Item>
       )}
-      {!isFlagged && (
-        <Menu.Item
-          icon={<InfoIcon className="h-4 w-4" weight="bold" />}
-          onClick={() => view.onViewDetails?.(mod)}
-        >
-          View Details
-        </Menu.Item>
-      )}
-      {!isFlagged && (
-        <Menu.Item
-          icon={<PencilSimpleIcon className="h-4 w-4" weight="bold" />}
-          onClick={() => view.onEditMetadata?.(mod)}
-        >
-          Edit Metadata
-        </Menu.Item>
-      )}
+      {!isFlagged && <ModCardDetailsItem modId={mod.id} />}
+      <ModCardReadmeItem modId={mod.id} />
       <Menu.Item
         icon={<FolderOpenIcon className="h-4 w-4" weight="bold" />}
         onClick={view.onOpenLocation}
       >
-        Open Location
+        {m.library_mod_open_location_action()}
       </Menu.Item>
       {canChangeStorage && <ModCardStorageSubmenu view={view} />}
-      <Menu.Item
-        icon={<HardDrivesIcon className="h-4 w-4" weight="bold" />}
-        onClick={() => view.setWadFootprintOpen(true)}
-      >
-        WAD Footprint
-      </Menu.Item>
-      <ModCardHealthItem modId={mod.id} />
+      {canCheckHealth && <ModCardHealthItem modId={mod.id} />}
+      <ModCardUpdateItem modId={mod.id} />
       <Menu.Item icon={<CopyIcon className="h-4 w-4" weight="bold" />} onClick={view.onCopyId}>
-        Copy ID
+        {m.library_mod_copy_id_action()}
       </Menu.Item>
       {isInUserFolder && (
         <Menu.Item
           icon={<FolderMinusIcon className="h-4 w-4" weight="bold" />}
           onClick={view.onRemoveFromFolder}
         >
-          Remove from folder
+          {m.library_mod_remove_from_folder_action()}
         </Menu.Item>
       )}
       <Menu.Separator />
@@ -318,9 +301,49 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
         variant="danger"
         onClick={view.onUninstall}
       >
-        Uninstall
+        {m.library_mod_uninstall_action()}
       </Menu.Item>
     </>
+  );
+}
+
+/**
+ * Open this mod into the documents panel, on what it is.
+ *
+ * One item where there were three. The facts, the metadata form and the WAD
+ * footprint are sections of one tab, and a menu that listed them separately was
+ * offering three routes to the same panel.
+ */
+function ModCardDetailsItem({ modId }: { modId: string }) {
+  const showDetails = useLibrarySidebarStore((s) => s.showDetails);
+
+  return (
+    <Menu.Item
+      icon={<InfoIcon className="h-4 w-4" weight="bold" />}
+      onClick={() => showDetails(modId)}
+    >
+      {m.library_mod_details_action()}
+    </Menu.Item>
+  );
+}
+
+/**
+ * Open this mod into the documents panel, on its readme.
+ *
+ * Always offered. Whether a mod has a readme is unknown until its archive
+ * opens, so an item that hid without one would cost either a persisted flag
+ * with a backfill or an archive open per card.
+ */
+function ModCardReadmeItem({ modId }: { modId: string }) {
+  const showReadme = useLibrarySidebarStore((s) => s.showReadme);
+
+  return (
+    <Menu.Item
+      icon={<BookOpenTextIcon className="h-4 w-4" weight="bold" />}
+      onClick={() => showReadme(modId)}
+    >
+      {m.library_mod_readme_action()}
+    </Menu.Item>
   );
 }
 
@@ -338,7 +361,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
   if (readiness === "syncing") {
     return (
       <Menu.Item icon={<SpinnerGapIcon className="h-4 w-4 animate-spin" weight="bold" />} disabled>
-        Syncing hashtables…
+        {m.library_mod_hashtables_syncing_label()}
       </Menu.Item>
     );
   }
@@ -346,7 +369,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
   if (readiness === "unsynced") {
     return (
       <Menu.Item icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />} disabled>
-        Hashtables not synced
+        {m.library_mod_hashtables_unsynced_label()}
       </Menu.Item>
     );
   }
@@ -366,7 +389,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
            panel is where a finding is read, so the press opens it there. */
         if (verdict.health === "healthy") {
           if (total === 0) {
-            toast.success("No problems found");
+            toast.success(m.library_mod_health_clean_title());
             return;
           }
           showMod(modId);
@@ -389,7 +412,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
       disabled={checkModHealth.isPending}
       onClick={handleCheckHealth}
     >
-      Check Health
+      {m.library_mod_health_action()}
     </Menu.Item>
   );
 }
@@ -474,7 +497,7 @@ export function ModPills({
     tone: "champion" as const,
     key,
     icon: <ChampionIcon className="h-3 w-3 shrink-0" />,
-    ariaLabel: `${champion} skin`,
+    ariaLabel: m.library_mod_champion_skin_label({ champion }),
   });
 
   // The folded pill leads: it names the mod's subject, where a tag only sorts it.
@@ -525,7 +548,7 @@ export function ModPills({
         </span>
       ))}
       {autoVisible.length > 0 && (
-        <Tooltip content="Auto-detected from this mod's contents">
+        <Tooltip content={m.library_mod_auto_categories_hint()}>
           <span className="inline-flex flex-wrap items-center gap-1">
             {autoVisible.map((pill) => (
               <AutoPill
@@ -539,7 +562,11 @@ export function ModPills({
           </span>
         </Tooltip>
       )}
-      {overflow > 0 && <span className="text-[0.625rem] text-surface-500">+{overflow}</span>}
+      {overflow > 0 && (
+        <span className="text-[0.625rem] text-surface-500">
+          {m.library_mod_overflow_label({ count: overflow })}
+        </span>
+      )}
     </div>
   );
 }
@@ -555,20 +582,18 @@ export function SkinhackInfoDialog({
     <Dialog.Shell
       open={open}
       onClose={() => onOpenChange(false)}
-      title="What is a skinhack?"
+      title={m.library_mod_skinhack_title()}
       size="sm"
     >
       <Dialog.Body>
         <p className="text-sm leading-relaxed text-surface-300">
-          A skinhack is a mod that grants access to paid League of Legends skins.
+          {m.library_mod_skinhack_description()}
         </p>
         <p className="mt-3 text-sm leading-relaxed text-surface-300">
-          Using skinhacks violates the distribution policy and can put your account at risk. LTK
-          Manager blocks these mods to protect both users and the modding community.
+          {m.library_mod_skinhack_policy_hint()}
         </p>
         <p className="mt-3 text-sm leading-relaxed text-surface-400">
-          If you believe this mod was flagged incorrectly, open an issue on the GitHub repository
-          page with the relevant info and we will investigate.
+          {m.library_mod_skinhack_report_hint()}
         </p>
       </Dialog.Body>
     </Dialog.Shell>

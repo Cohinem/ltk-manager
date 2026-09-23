@@ -1,9 +1,10 @@
 import { ShieldWarningIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import { SuspectBadge } from "@/modules/diagnostics";
+import { twMerge } from "@/utils";
 
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
@@ -15,7 +16,6 @@ import {
   ModPills,
   SkinhackInfoDialog,
 } from "./ModCardParts";
-import { ModWadFootprintDialog } from "./ModWadFootprintDialog";
 import type { ModCardView } from "./useModCardController";
 
 export function ModCardGrid({ view }: { view: ModCardView }) {
@@ -35,7 +35,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     setSkinhackInfoOpen,
     onCardClick,
     onCardKeyDown,
-    onCardContextMenu,
     onSelectionToggle,
   } = view;
 
@@ -87,13 +86,12 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     <div
       onClick={onCardClick}
       onKeyDown={onCardKeyDown}
-      onContextMenu={onCardContextMenu}
       role="button"
       tabIndex={isInteractive ? 0 : -1}
       aria-pressed={mod.enabled}
       aria-label={mod.displayName}
       className={twMerge(
-        "group relative flex h-full flex-col overflow-hidden rounded-xl border-2 transition-[translate,box-shadow,background-color,border-color,opacity,filter,--edge-lit-fill] duration-150 ease-out select-none",
+        "sculpted-card group relative flex h-full flex-col overflow-hidden rounded-xl border-2 shadow-concave transition-[translate,box-shadow,background-color,border-color,opacity,filter,--edge-lit-fill] duration-150 ease-out select-none",
         "focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none",
         "hover:opacity-100 hover:saturate-100",
         dimClass,
@@ -117,7 +115,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
             size="md"
             checked={isSelected}
             onCheckedChange={onSelectionToggle}
-            aria-label={`Select ${mod.displayName}`}
+            aria-label={m.library_card_select_label({ name: mod.displayName })}
             className="shadow-lg backdrop-blur-sm"
           />
         </span>
@@ -174,7 +172,12 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
       {/* Name, then what the name is, then what is wrong with it. Spacing is
           the column's gap, so the badge row costs nothing but that when it has
           nothing in it: DS-GAP. */}
-      <div className="flex flex-1 flex-col gap-1 p-2.5">
+      <div className="sculpted-card-details flex flex-1 flex-col gap-1 p-2.5">
+        {thumbnailUrl && (
+          <span aria-hidden="true" className="sculpted-card-art">
+            <img src={thumbnailUrl} alt="" loading="lazy" decoding="async" />
+          </span>
+        )}
         <div className="flex items-center gap-1">
           <h3 className="min-w-0 truncate text-sm font-medium text-surface-100 select-text">
             {mod.displayName}
@@ -186,7 +189,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           <span>v{mod.version}</span>
           <span className="mx-1">•</span>
           <span className="flex-1 truncate">
-            {mod.authors.length > 0 ? mod.authors[0] : "Unknown"}
+            {mod.authors.length > 0 ? mod.authors[0] : m.library_details_unknown_author_label()}
           </span>
         </div>
 
@@ -201,11 +204,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
         </div>
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-      <ModWadFootprintDialog
-        view={view}
-        open={view.wadFootprintOpen}
-        onOpenChange={view.setWadFootprintOpen}
-      />
     </ModCardContextMenu>
   );
 }

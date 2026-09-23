@@ -9,6 +9,7 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::mods::ModLibrary;
+use crate::mods::archive::documents::{ModDocument, entry_of, read_license, read_readme};
 use crate::mods::archive::metadata::{
     extract_fantome_thumbnail, extract_modpkg_thumbnail, load_mod_project, read_installed_mod,
 };
@@ -134,7 +135,11 @@ impl ModLibrary {
             if !profile.enabled_mods.iter().any(|id| id == mod_id) {
                 profile.enabled_mods.push(mod_id.to_string());
             }
-            index.promote_mod_to_folder_front(mod_id);
+            if config.promote_enabled_mods {
+                index.promote_mod_to_folder_front(mod_id);
+            } else {
+                index.sync_profile_orders();
+            }
 
             Ok(())
         })
@@ -194,7 +199,11 @@ impl ModLibrary {
                 .layer_states
                 .insert(mod_id.to_string(), layer_states);
 
-            index.promote_mod_to_folder_front(mod_id);
+            if config.promote_enabled_mods {
+                index.promote_mod_to_folder_front(mod_id);
+            } else {
+                index.sync_profile_orders();
+            }
 
             Ok(())
         })
@@ -355,6 +364,31 @@ impl ModLibrary {
             Ok(paths)
         })
     }
+
+    /// One installed mod's readme, whichever format it was installed from.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the index cannot be read, or when no mod carries `mod_id`.
+    /// An archive that will not open is [`ModDocument::Unreadable`] rather than
+    /// an error.
+    pub fn get_mod_readme(&self, config: &Config, mod_id: &str) -> AppResult<ModDocument> {
+        self.with_index(config, |storage_dir, index| {
+            Ok(read_readme(storage_dir, entry_of(index, mod_id)?))
+        })
+    }
+
+    /// One installed mod's license text, read out of its archive and not kept.
+    ///
+    /// # Errors
+    ///
+    /// Fails on the same two counts [`get_mod_readme`](Self::get_mod_readme)
+    /// does.
+    pub fn get_mod_license_text(&self, config: &Config, mod_id: &str) -> AppResult<ModDocument> {
+        self.with_index(config, |storage_dir, index| {
+            Ok(read_license(storage_dir, entry_of(index, mod_id)?))
+        })
+    }
 }
 
 /// One mod's cached thumbnail, extracted from its archive if it is not there yet.
@@ -385,3 +419,6 @@ fn thumbnail_path(storage_dir: &Path, entry: &LibraryModEntry) -> AppResult<Opti
 
     Ok(cached_path.map(|p| p.display().to_string()))
 }
+
+#[cfg(test)]
+mod tests;

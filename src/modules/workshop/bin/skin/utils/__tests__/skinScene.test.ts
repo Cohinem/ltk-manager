@@ -1,0 +1,337 @@
+import { describe, expect, it } from "vitest";
+
+import type { AssetRef, GraphClip, IdleEffect, MaterialPreview, SkinModel } from "@/lib/tauri";
+import { createPose, jointAnchor, type JointModel, type SkeletonModel } from "@/modules/viewport";
+
+import {
+  BIND_POSE,
+  bindingOf,
+  idleRig,
+  nearestValue,
+  openingClip,
+  parameterValues,
+  playableClips,
+  playlistOf,
+  textureAssets,
+} from "../skinScene";
+
+function chunk(pathHash: string): AssetRef {
+  return { kind: "gameChunk", wad: "Champions/Ahri.wad.client", pathHash };
+}
+
+function skin(over: Partial<SkinModel> = {}): SkinModel {
+  return {
+    mesh: null,
+    skeleton: null,
+    texture: null,
+    material: null,
+    overrides: [],
+    hidden: [],
+    scale: null,
+    animationGraph: null,
+    idleEffects: [],
+    effectSystems: [],
+    ...over,
+  };
+}
+
+function material(hash: string, base: AssetRef | null): MaterialPreview {
+  return {
+    hash,
+    name: null,
+    missing: false,
+    animated: false,
+    shader: null,
+    base:
+      base === null
+        ? null
+        : {
+            name: "Diffuse_Texture",
+            texture: { path: "base.tex", asset: base },
+            rule: "exact",
+            wrap: ["repeat", "repeat"],
+          },
+    tint: null,
+    opacity: null,
+    alphaTest: null,
+    uvRepeat: null,
+    uvScroll: null,
+    renderState: {
+      blending: "normal",
+      srcFactor: "srcAlpha",
+      dstFactor: "oneMinusSrcAlpha",
+      premultiplied: false,
+      cutout: false,
+      doubleSided: false,
+      inverted: false,
+      depthWrite: true,
+      depthTest: true,
+    },
+    warnings: [],
+  };
+}
+
+function clip(name: string, hash: string, atomic = true): GraphClip {
+  return {
+    name,
+    hash,
+    class: atomic ? "AtomicClipData" : "SelectorClipData",
+    animation: atomic ? { path: `${name}.anm`, asset: null } : null,
+    track: null,
+    mask: null,
+    syncGroup: null,
+    tickDuration: null,
+    events: [],
+    children: [],
+    parameters: [],
+    interruptionGroups: [],
+    flags: 0,
+  };
+}
+
+/** A composite clip of `className` naming `children`, each declared unless it is not listed. */
+function composite(name: string, hash: string, className: string, children: string[]): GraphClip {
+  return {
+    ...clip(name, hash, false),
+    class: className,
+    children: children.map((child) => ({ name: child, hash: child, declared: true })),
+  };
+}
+
+function joint(name: string, parent: number, translation: [number, number, number]): JointModel {
+  return {
+    name,
+    hash: 0,
+    parent,
+    translation,
+    rotation: [0, 0, 0, 1],
+    scale: [1, 1, 1],
+    inverseBind: new Float32Array(16),
+  };
+}
+
+const SKELETON: SkeletonModel = {
+  joints: [joint("Root", -1, [0, 0, 0]), joint("R_Hand", 0, [10, 20, 30])],
+  influences: Uint32Array.of(0, 1),
+};
+
+function effect(over: Partial<IdleEffect> = {}): IdleEffect {
+  return {
+    effectKey: "0x00000001",
+    system: "0x00000002",
+    bone: "r_hand",
+    targetBone: "",
+    position: [0, 5, 0],
+    ...over,
+  };
+}
+
+describe("openingClip", () => {
+  it("opens on the first idle clip, without regard to case", () => {
+    const clips = [clip("Run", "0x1"), clip("IDLE_Base", "0x2"), clip("idle2", "0x3")];
+
+    expect(openingClip(clips)?.hash).toBe("0x2");
+  });
+
+  it("opens on none where the graph holds no idle clip", () => {
+    expect(openingClip([clip("Run", "0x1")])).toBeNull();
+  });
+
+  it("keeps the bind pose apart from every clip hash", () => {
+    expect(BIND_POSE.startsWith("0x")).toBe(false);
+  });
+});
+
+describe("playableClips and playlistOf", () => {
+  const run = clip("Run", "0x1");
+  const idle = clip("Idle1", "0x3");
+  const selector = composite("Run_Selector", "0x2", "SelectorClipData", ["0x9", "0x1", "0x3"]);
+  const sequence = composite("Combo", "0x4", "SequencerClipData", ["0x3", "0x2", "0x3", "0x9"]);
+  const empty = composite("Gone", "0x5", "SelectorClipData", ["0x9"]);
+  const clips = [run, selector, idle, sequence, empty];
+
+  it("keeps every clip whose playlist reaches a file, whatever its kind", () => {
+    expect(playableClips(clips).map((each) => each.hash)).toEqual(["0x1", "0x2", "0x3", "0x4"]);
+  });
+
+  it("plays an atomic clip as itself", () => {
+    expect(playlistOf(run, clips)).toEqual([run]);
+  });
+
+  it("plays a selector's first child that reaches a file", () => {
+    expect(playlistOf(selector, clips)).toEqual([run]);
+  });
+
+  it("plays a sequencer's children one after another, a child listed twice twice", () => {
+    expect(playlistOf(sequence, clips).map((each) => each.hash)).toEqual(["0x3", "0x1", "0x3"]);
+  });
+
+  it("plays nothing for a clip reaching no file", () => {
+    expect(playlistOf(empty, clips)).toEqual([]);
+  });
+
+  it("passes over a child that is its own ancestor", () => {
+    const a = composite("A", "0xa", "SequencerClipData", ["0xb", "0x1"]);
+    const b = composite("B", "0xb", "SequencerClipData", ["0xa"]);
+
+    expect(playlistOf(a, [a, b, run])).toEqual([run]);
+  });
+
+  describe("a parametric clip", () => {
+    const turn: GraphClip = {
+      ...composite("Turn", "0x6", "ParametricClipData", ["0x1", "0x9", "0x3"]),
+      parameters: [-90, 0, 90],
+    };
+
+    it("plays the child nearest the parameter that reaches a file", () => {
+      expect(playlistOf(turn, [...clips, turn], 80)).toEqual([idle]);
+      expect(playlistOf(turn, [...clips, turn], -10)).toEqual([run]);
+      expect(playlistOf(turn, [...clips, turn], 10)).toEqual([idle]);
+    });
+
+    it("plays its first child with no parameter set", () => {
+      expect(playlistOf(turn, [...clips, turn])).toEqual([run]);
+    });
+
+    it("lists its values once each in order, and nothing for one value", () => {
+      expect(parameterValues({ ...turn, parameters: [90, -90, 0, 90] })).toEqual([-90, 0, 90]);
+      expect(parameterValues({ ...turn, parameters: [5, null] })).toBeNull();
+      expect(parameterValues({ ...turn, parameters: [5, 5] })).toBeNull();
+      expect(parameterValues(run)).toBeNull();
+    });
+
+    it("snaps to the nearest value, the earlier of two at one distance", () => {
+      expect(nearestValue([-90, 0, 90], 80)).toBe(90);
+      expect(nearestValue([-90, 0, 90], -45)).toBe(-90);
+      expect(nearestValue([-90, 0, 90], 400)).toBe(90);
+    });
+  });
+});
+
+describe("textureAssets and bindingOf", () => {
+  const textured = skin({
+    texture: { path: "base.tex", asset: chunk("01") },
+    overrides: [
+      { submesh: "Wings", texture: { path: "wings.tex", asset: chunk("02") }, material: null },
+      { submesh: "Tail", texture: { path: "tail.tex", asset: null }, material: null },
+    ],
+  });
+
+  it("keys the skin's texture and each override's, leaving out one nothing holds", () => {
+    const assets = textureAssets(textured);
+
+    expect(assets.size).toBe(2);
+    expect(bindingOf(textured, assets, "WINGS").texture).toEqual(chunk("02"));
+    expect(bindingOf(textured, assets, "Body").texture).toEqual(chunk("01"));
+    expect(bindingOf(textured, assets, "Tail").texture).toEqual(chunk("01"));
+  });
+
+  it("draws a submesh with nothing where the skin names no texture", () => {
+    const bare = skin();
+
+    expect(bindingOf(bare, textureAssets(bare), "Body")).toEqual({
+      material: null,
+      base: null,
+      texture: null,
+    });
+  });
+
+  it("keys a material's base once per material, and binds its submeshes to it", () => {
+    const body = material("0x1", chunk("10"));
+    const wings = material("0x2", chunk("20"));
+    const bound = skin({
+      texture: { path: "base.tex", asset: chunk("01") },
+      material: body,
+      overrides: [
+        { submesh: "Wings", texture: null, material: wings },
+        { submesh: "Cape", texture: { path: "cape.tex", asset: chunk("02") }, material: null },
+      ],
+    });
+    const assets = textureAssets(bound);
+
+    expect(assets.size).toBe(4);
+    expect(bindingOf(bound, assets, "Body")).toEqual({
+      material: body,
+      base: chunk("10"),
+      texture: chunk("01"),
+    });
+    expect(bindingOf(bound, assets, "wings")).toEqual({
+      material: wings,
+      base: chunk("20"),
+      texture: chunk("01"),
+    });
+  });
+
+  it("draws an override without a material with its texture alone, not the skin's material", () => {
+    const bound = skin({
+      material: material("0x1", chunk("10")),
+      overrides: [
+        { submesh: "Cape", texture: { path: "cape.tex", asset: chunk("02") }, material: null },
+      ],
+    });
+
+    expect(bindingOf(bound, textureAssets(bound), "Cape")).toEqual({
+      material: null,
+      base: null,
+      texture: chunk("02"),
+    });
+  });
+
+  it("binds a material whose base nothing holds with no base", () => {
+    const bound = skin({ material: material("0x1", null) });
+
+    expect(bindingOf(bound, textureAssets(bound), "Body").base).toBeNull();
+  });
+});
+
+describe("idleRig", () => {
+  const pose = createPose(SKELETON, null);
+
+  it("rides the joint its bone names, offset and scaled, once and on the ground", () => {
+    const rig = idleRig(pose, effect(), 2);
+    if (rig.motion.kind !== "bone") throw new Error("an idle effect rides a bone");
+
+    expect(rig.life).toBe("once");
+    expect(rig.height).toBe(0);
+    expect(rig.motion.anchor.originAt(0)).toEqual(jointAnchor(pose, 1, [0, 5, 0], 2).originAt(0));
+    expect(rig.motion.target).toBeNull();
+  });
+
+  it("aims at the joint its target bone names", () => {
+    const rig = idleRig(pose, effect({ targetBone: "Root" }), 1);
+    if (rig.motion.kind !== "bone") throw new Error("an idle effect rides a bone");
+
+    expect(rig.motion.target?.originAt(0)).toEqual(jointAnchor(pose, 0).originAt(0));
+  });
+
+  it("aims nowhere at a target bone the skeleton lacks", () => {
+    const rig = idleRig(pose, effect({ targetBone: "Weapon" }), 1);
+    if (rig.motion.kind !== "bone") throw new Error("an idle effect rides a bone");
+
+    expect(rig.motion.target).toBeNull();
+  });
+
+  it("stands at the skeleton's origin for a bone the skeleton lacks", () => {
+    const rig = idleRig(pose, effect({ bone: "Weapon", position: [1, 2, 3] }), 1);
+    if (rig.motion.kind !== "bone") throw new Error("an idle effect rides a bone");
+
+    expect(rig.motion.anchor.originAt(0)).toEqual([1, 2, 3]);
+  });
+
+  it("resolves its joints by name without regard to case", () => {
+    const rig = idleRig(pose, effect(), 2);
+
+    expect(rig.joints?.("r_hand")?.originAt(0)).toEqual(
+      jointAnchor(pose, 1, [0, 0, 0], 2).originAt(0),
+    );
+    expect(rig.joints?.("R_HAND")?.originAt(0)).toEqual(
+      jointAnchor(pose, 1, [0, 0, 0], 2).originAt(0),
+    );
+  });
+
+  it("answers null for a joint the skeleton lacks", () => {
+    const rig = idleRig(pose, effect(), 1);
+
+    expect(rig.joints?.("Weapon")).toBeNull();
+  });
+});

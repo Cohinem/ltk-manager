@@ -1,0 +1,65 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "editor_find_close_action": "Close find",
+  "editor_find_count_label": "{index} of {count}",
+  "editor_find_empty_label": "No results",
+  "editor_find_label": "Find",
+  "editor_find_next_action": "Next match",
+  "editor_find_previous_action": "Previous match",
+  "editor_group_lock_action": "Lock Group",
+  "editor_group_unlock_action": "Unlock Group",
+  "editor_quit_save_all_action": "Save all",
+  "editor_quit_save_failed_hint": "Couldn't save everything: {reason}",
+  "editor_quit_save_missing_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} document has to be saved from its own tab.",
+        "countPlural=other": "{count} documents have to be saved from their own tabs."
+      }
+    }
+  ],
+  "editor_quit_unsaved_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} document has unsaved changes. Quitting now throws them away.",
+        "countPlural=other": "{count} documents have unsaved changes. Quitting now throws them away."
+      }
+    }
+  ],
+  "editor_quit_unsaved_title": "Quit without saving?",
+  "editor_save_failed_hint": "Couldn't save",
+  "editor_save_retry_action": "Retry",
+  "editor_tab_close_action": "Close",
+  "editor_tab_close_all_action": "Close All",
+  "editor_tab_close_label": "Close {title}",
+  "editor_tab_close_others_action": "Close Others",
+  "editor_tab_close_right_action": "Close to the Right",
+  "editor_tab_copy_name_action": "Copy Name",
+  "editor_tab_copy_path_action": "Copy Path",
+  "editor_tab_drag_label": "Draggable tab",
+  "editor_tab_pin_action": "Pin",
+  "editor_tab_split_down_action": "Split Down",
+  "editor_tab_split_right_action": "Split Right",
+  "editor_tab_unpin_action": "Unpin",
+  "editor_tab_unpin_label": "Unpin {title}",
+  "editor_tabs_overflow_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} tab off screen",
+        "countPlural=other": "{count} tabs off screen"
+      }
+    }
+  ],
+  "editor_unsaved_cancel_action": "Cancel",
+  "editor_unsaved_close_hint": "{title} has unsaved changes. Closing it now throws them away.",
+  "editor_unsaved_close_title": "Close without saving?",
+  "editor_unsaved_discard_action": "Discard changes",
+  "editor_unsaved_save_action": "Save",
+  "editor_unsaved_save_failed_hint": "Couldn't save {title}: {reason}"
+}

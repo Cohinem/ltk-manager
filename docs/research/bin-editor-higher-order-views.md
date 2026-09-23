@@ -700,6 +700,9 @@ the three asked for, and listed because the frames are its specification.
 
 Frontend over 6.3, a projection of three paths per clip.
 
+Shipped as "The clips pane" in docs/ux/BIN_EDITOR.md, over a typed read rather than over 6.3,
+per docs/plans/animation-graph-table.md.
+
 ### 6.9 The particle viewer
 
 A follow-up and not a view. What it needs, and only the third exists:

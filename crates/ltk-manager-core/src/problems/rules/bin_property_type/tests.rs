@@ -3,7 +3,8 @@
 use super::*;
 use crate::config::Config;
 use fs_err as fs;
-use ltk_meta::{Bin, BinFile, BinObject};
+use indexmap::IndexMap;
+use ltk_meta::{Bin, BinFile};
 
 /// `SkinCharacterDataProperties`, which 225 of 232 real project bins declare.
 const SKIN: BinHash = BinHash(0x9b67_e9f6);
@@ -30,7 +31,7 @@ fn bytes_of(bin: &Bin) -> Vec<u8> {
 
 fn bin_with(field: BinHash, value: impl Into<PropertyValueEnum>) -> Bin {
     Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        [BinObject::builder(ENTRY, SKIN)
             .property(field, value)
             .build()],
         std::iter::empty::<&str>(),
@@ -79,7 +80,7 @@ fn every_shape() -> Bin {
     let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
     map.push(values::Hash::new(BinHash(1)).into(), text(ICON).into())
         .unwrap();
-    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+    let object = BinObject::builder(ENTRY, SKIN)
         .property(ICON_AVATAR, text(ICON))
         .property(
             ALTERNATE_ICONS_CIRCLE,
@@ -172,9 +173,11 @@ fn a_property_that_matches_from_raises_one_problem() {
 fn the_check_reads_a_stream_as_it_reads_the_tree() {
     let bytes = bytes_of(&every_shape());
     let nothing = BinNames::none();
+    let schema = meta_schema::shared(None);
     let lens = Lens {
         tables: table::tables(),
-        schema: None,
+        schema: &schema,
+        judged: None,
         names: &nothing,
     };
 
@@ -184,7 +187,7 @@ fn the_check_reads_a_stream_as_it_reads_the_tree() {
         .map(|(entry, hit)| (entry, hit.address.into_hashes(), hit.migration.field))
         .collect();
 
-    let mut stream = ltk_meta::BinStream::<_, NoMeta>::mount(std::io::Cursor::new(&bytes)).unwrap();
+    let mut stream = ltk_meta::BinStream::<_>::mount(std::io::Cursor::new(&bytes)).unwrap();
     let mut check = Check::new(lens);
     stream.walk::<ltk_meta::Error, _>(&mut check).unwrap();
     let viewed: Vec<(BinHash, String, BinHash)> = check
@@ -227,7 +230,7 @@ fn a_property_the_object_does_not_declare_raises_nothing() {
 #[test]
 fn a_class_the_table_does_not_name_raises_nothing() {
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, BinHash(0x0bad_0bad))
+        [BinObject::builder(ENTRY, BinHash(0x0bad_0bad))
             .property(ICON_AVATAR, text(ICON))
             .build()],
         std::iter::empty::<&str>(),
@@ -712,7 +715,6 @@ fn none_moves_no_bytes_and_only_changes_the_tag() {
     let embed = values::Embedded(values::Struct {
         class_hash: BinHash(0x73b4_a2eb),
         properties: IndexMap::new(),
-        meta: NoMeta,
     });
     let migration = table::tables()
         .iter()
@@ -788,7 +790,7 @@ fn a_half_named_map_prints_only_what_is_missing() {
 // ---- the fix, end to end ---------------------------------------------
 
 /// A hit under an index and under a map key: the address the check records
-/// is the address the repair's own trail matches on.
+/// is the address the mutable walk's trail matches on.
 #[test]
 fn a_fix_reaches_a_property_under_an_index_and_a_key() {
     const NESTED: BinHash = BinHash(0x0000_1111);
@@ -797,14 +799,13 @@ fn a_fix_reaches_a_property_under_an_index_and_a_key() {
     let skin = || values::Struct {
         class_hash: SKIN,
         properties: IndexMap::from([(ICON_AVATAR, text(ICON).into())]),
-        meta: NoMeta,
     };
     let list = values::Container::new(Kind::Struct, vec![skin().into()])
         .expect("a struct is a kind a container holds");
     let mut map = values::Map::empty(Kind::String, Kind::Struct).expect("kinds a map can hold");
     map.push(text("k").into(), skin().into()).unwrap();
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, SKIN)
+        [BinObject::builder(ENTRY, SKIN)
             .property(NESTED, list)
             .property(KEYED, map)
             .build()],
@@ -827,9 +828,11 @@ fn a_fix_reaches_a_property_under_an_index_and_a_key() {
         }
     );
     let nothing = BinNames::none();
+    let schema = meta_schema::shared(None);
     let lens = Lens {
         tables: table::tables(),
-        schema: None,
+        schema: &schema,
+        judged: None,
         names: &nothing,
     };
     assert!(check_bin(&repaired, lens).is_empty());
@@ -843,11 +846,30 @@ fn fix_all(bin: &Bin) -> (Applied, BinFile) {
 
 /// [`fix_all`], beside a game install on `installed`.
 fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
+    let (applied, written) = fix_bytes_on(&bytes_of(bin), installed);
+    let parsed = read_bin_bytes(&written).unwrap();
+    (applied, parsed)
+}
+
+/// [`fix_all`] over a file's own bytes, handing back the bytes that landed.
+fn fix_bytes(bytes: &[u8]) -> (Applied, Vec<u8>) {
+    fix_bytes_on(bytes, None)
+}
+
+fn fix_bytes_on(bytes: &[u8], installed: Option<GameBuild>) -> (Applied, Vec<u8>) {
+    let (applied, written) = try_fix_bytes_on(bytes, installed);
+    (applied.unwrap(), written)
+}
+
+fn try_fix_bytes_on(
+    bytes: &[u8],
+    installed: Option<GameBuild>,
+) -> (Result<Applied, FixError>, Vec<u8>) {
     let tmp = tempfile::tempdir().unwrap();
     let dir = tmp.path().join("content").join("base").join("data");
     fs::create_dir_all(&dir).unwrap();
     let file = dir.join("skin0.bin");
-    fs::write(&file, bytes_of(bin)).unwrap();
+    fs::write(&file, bytes).unwrap();
 
     let config = config_beside(tmp.path(), installed);
     let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
@@ -862,11 +884,110 @@ fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
         config,
         None,
     );
-    let applied = rule.fix(&borrowed, &mut run).unwrap();
+    let applied = rule.fix(&borrowed, &mut run);
     run.finish().unwrap();
 
-    let written = read_bin(&file).unwrap();
-    (applied, written)
+    (applied, fs::read(&file).unwrap())
+}
+
+/// Every object's bytes, by path hash, in file order.
+fn object_bytes(bytes: &[u8]) -> Vec<(BinHash, Vec<u8>)> {
+    let mut stream = BinStream::<_>::mount(Cursor::new(bytes)).unwrap();
+    stream
+        .toc()
+        .unwrap()
+        .entries()
+        .iter()
+        .map(|entry| {
+            let range = entry.byte_range();
+            let range = usize::try_from(range.start).unwrap()..usize::try_from(range.end).unwrap();
+            (entry.path_hash, bytes[range].to_vec())
+        })
+        .collect()
+}
+
+#[test]
+fn a_fix_writes_version_three_and_keeps_every_untouched_object() {
+    const OTHER: BinHash = BinHash(0x8765_4321);
+    let bin = Bin::new(
+        [
+            BinObject::builder(ENTRY, SKIN)
+                .property(ICON_AVATAR, text(ICON))
+                .build(),
+            BinObject::builder(OTHER, BinHash(0x0bad_c1a5))
+                .property(BinHash(0xdead_beef), text("untouched.dds"))
+                .build(),
+        ],
+        ["common.bin"],
+    );
+    let mut bytes = bytes_of(&bin);
+    bytes[4..8].copy_from_slice(&2u32.to_le_bytes());
+
+    let (applied, written) = fix_bytes(&bytes);
+    assert_eq!(applied.applied, 1);
+
+    assert_eq!(
+        written[4..8],
+        3u32.to_le_bytes(),
+        "repairs use the latest format"
+    );
+    let before = object_bytes(&bytes);
+    let after = object_bytes(&written);
+    assert_eq!(after[1], before[1], "the other object keeps its bytes");
+    assert_ne!(after[0], before[0], "the converted object is re-encoded");
+
+    let written = read_bin_bytes(&written).unwrap();
+    let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
+    assert!(
+        matches!(value, PropertyValueEnum::WadChunkLink(_)),
+        "{value:?}"
+    );
+}
+
+/// A delta writes `PROP` bins only, so a patch bin is repaired whole.
+#[test]
+fn a_fix_repairs_a_patch_bin() {
+    let mut patch = ltk_meta::BinOverride::new();
+    patch.objects.insert(
+        ENTRY,
+        BinObject::builder(ENTRY, SKIN)
+            .property(ICON_AVATAR, text(ICON))
+            .build(),
+    );
+    let mut bytes = Cursor::new(Vec::new());
+    patch.to_writer(&mut bytes).unwrap();
+
+    let (applied, written) = fix_bytes(&bytes.into_inner());
+    assert_eq!(applied.applied, 1);
+
+    let written = read_bin_bytes(&written).unwrap();
+    assert!(matches!(written, BinFile::Override(_)));
+    let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
+    assert!(
+        matches!(value, PropertyValueEnum::WadChunkLink(_)),
+        "{value:?}"
+    );
+}
+
+#[test]
+fn a_fix_refuses_legacy_numbering_and_keeps_the_file() {
+    let object = BinObject::builder(ENTRY, SKIN)
+        .property(ICON_AVATAR, text(ICON))
+        .property(BinHash(0x0000_3333), values::Struct::default())
+        .build();
+    let mut bytes = bytes_of(&Bin::new([object], std::iter::empty::<&str>()));
+    /* `Struct` is 19 in the legacy numbering. The null pointer is the last
+    property, and only zeros follow its kind byte. */
+    let modern = u8::from(Kind::Struct);
+    let at = bytes.iter().rposition(|&byte| byte == modern).unwrap();
+    bytes[at] = 19;
+    let mut stream = BinStream::<_>::mount(Cursor::new(&bytes)).unwrap();
+    stream.object(ENTRY).unwrap().unwrap().read().unwrap();
+    assert!(stream.numbering().is_legacy(), "the fixture latches");
+
+    let (applied, written) = try_fix_bytes_on(&bytes, None);
+    assert!(matches!(applied, Err(FixError::File { .. })));
+    assert_eq!(written, bytes);
 }
 
 #[test]
@@ -900,7 +1021,7 @@ fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
     let vfx = BinHash::hash_str("VfxAssetRemap");
     let old_asset = BinHash::hash_str("oldAsset");
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, vfx)
+        [BinObject::builder(ENTRY, vfx)
             .property(old_asset, values::Hash::new(BinHash::hash_str(PATH)))
             .build()],
         std::iter::empty::<&str>(),
@@ -949,7 +1070,7 @@ fn a_fix_leaves_an_unnamed_hash_alone_and_counts_it_skipped() {
     let vfx = BinHash::hash_str("VfxAssetRemap");
     let old_asset = BinHash::hash_str("oldAsset");
     let bin = Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, vfx)
+        [BinObject::builder(ENTRY, vfx)
             .property(old_asset, values::Hash::new(BinHash(0x1111_2222)))
             .build()],
         std::iter::empty::<&str>(),
@@ -976,7 +1097,7 @@ fn a_fix_repairs_every_shape_the_class_carries() {
 
 #[test]
 fn a_fix_leaves_a_property_the_rule_raised_nothing_for_alone() {
-    let object = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+    let object = BinObject::builder(ENTRY, SKIN)
         .property(ICON_AVATAR, text(ICON))
         .property(BinHash(0xdead_beef), text("untouched.dds"))
         .build();
@@ -1067,7 +1188,7 @@ const AFTER_GOLD_RETYPE: GameBuild = GameBuild::new(13, 21, 5_876_777);
 
 fn object_bin(class: BinHash, field: BinHash, value: impl Into<PropertyValueEnum>) -> Bin {
     Bin::new(
-        [BinObject::<NoMeta>::builder(ENTRY, class)
+        [BinObject::builder(ENTRY, class)
             .property(field, value)
             .build()],
         std::iter::empty::<&str>(),
@@ -1187,6 +1308,61 @@ fn without_an_install_the_schema_is_asked_nothing() {
     let (_tmp, files) = project(&bin);
 
     assert!(check_with(&files).is_empty());
+}
+
+/// `CharacterRecord`, which declares `areaIndicatorTextureName`.
+const CHARACTER_RECORD: BinHash = BinHash(0x23ea_1915);
+/// `TFTCharacterRecord`, which derives from `CharacterRecord` and declares none of its fields.
+const TFT_CHARACTER_RECORD: BinHash = BinHash(0x3044_96f1);
+/// `areaIndicatorTextureName`, which Riot retyped `String` to `File` in 16.17.
+const AREA_INDICATOR_TEXTURE_NAME: BinHash = BinHash(0xa6c2_a1c7);
+
+/// Story: the database writes a field on the class that declares it, and most of a
+/// class's fields are its bases'. A derived object holding the old type is the same
+/// defect as the base holding it.
+#[test]
+fn a_field_a_base_declares_is_reported_on_a_derived_object() {
+    let bin = object_bin(
+        TFT_CHARACTER_RECORD,
+        AREA_INDICATOR_TEXTURE_NAME,
+        text(ICON_TEX),
+    );
+    let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].severity, Severity::Fatal);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "file");
+    assert_eq!(mismatch.found, "string");
+    assert!(problems[0].fix.is_some(), "the path is in the file");
+}
+
+/// Story: a table row names the class that declares a field, and the object in a mod's
+/// file is as often one deriving from it.
+#[test]
+fn a_table_row_on_a_base_reaches_a_derived_object() {
+    let names = |class| {
+        table::tables().iter().any(|table| {
+            table
+                .migration(class, AREA_INDICATOR_TEXTURE_NAME)
+                .is_some()
+        })
+    };
+    assert!(names(CHARACTER_RECORD) && !names(TFT_CHARACTER_RECORD));
+    let bin = object_bin(
+        TFT_CHARACTER_RECORD,
+        AREA_INDICATOR_TEXTURE_NAME,
+        text(ICON_TEX),
+    );
+
+    let problems = found(&bin);
+
+    assert_eq!(problems.len(), 1, "no install, so the table alone answers");
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "file");
+    assert_eq!(mismatch.found, "string");
 }
 
 /// Story: Riot ships property bins under a bare name, and a mod that replaces
@@ -1320,10 +1496,10 @@ const DRIVER: BinHash = BinHash(0x2222_3333);
 fn a_none_where_the_schema_says_pointer_is_repaired_as_a_null_pointer() {
     let nones = values::Container::new(Kind::None, vec![Kind::None.default_value(); 2])
         .expect("a list of none");
-    let skin = BinObject::<NoMeta>::builder(ENTRY, SKIN)
+    let skin = BinObject::builder(ENTRY, SKIN)
         .property(SECONDARY_RESOURCE_HUD, Kind::None.default_value())
         .build();
-    let driver = BinObject::<NoMeta>::builder(DRIVER, MAX_MATERIAL_DRIVER)
+    let driver = BinObject::builder(DRIVER, MAX_MATERIAL_DRIVER)
         .property(M_DRIVERS, nones)
         .build();
     let bin = Bin::new([skin, driver], std::iter::empty::<&str>());
@@ -1587,7 +1763,6 @@ fn an_embed_the_game_reads_as_a_pointer_is_retagged() {
     let embed = values::Embedded(values::Struct {
         class_hash: PLAYER_TEMPLATE_CLASS,
         properties: IndexMap::new(),
-        meta: NoMeta,
     });
     let bin = object_bin(TFT_SCOREBOARD, PLAYER_SELF_TEMPLATE, embed);
     let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
@@ -1618,7 +1793,6 @@ fn a_pointer_the_game_reads_as_an_embed_is_retagged() {
     let pointer = values::Struct {
         class_hash: LIFETIME_CLASS,
         properties: IndexMap::new(),
-        meta: NoMeta,
     };
     let bin = object_bin(VFX_EMITTER, PARTICLE_LIFETIME, pointer);
     let (_tmp, files) = project_on(&bin, Some(AFTER_RETYPE));
@@ -1707,7 +1881,6 @@ fn a_list2_the_game_reads_as_a_list_is_retagged() {
                 values::Struct {
                     class_hash: MAX_MATERIAL_DRIVER,
                     properties: IndexMap::new(),
-                    meta: NoMeta,
                 }
                 .into(),
             ],
@@ -1818,9 +1991,11 @@ fn the_check_over_a_stream_matches_the_check_over_the_owned_tree() {
     streamed.sort();
 
     let nothing = BinNames::none();
+    let schema = meta_schema::shared(None);
     let lens = Lens {
         tables: table::tables(),
-        schema: None,
+        schema: &schema,
+        judged: None,
         names: &nothing,
     };
     let mut owned: Vec<String> = check_bin(&BinFile::Prop(bin), lens)
@@ -1831,4 +2006,163 @@ fn the_check_over_a_stream_matches_the_check_over_the_owned_tree() {
 
     assert!(!owned.is_empty());
     assert_eq!(streamed, owned);
+}
+
+// ---- the two roads that cross on both halves -------------------------
+
+/// Patch 16.18, which retyped `EvolutionDescription:mIconNames` and
+/// `UiElementParticleSystemData:TextureOverrides` on both halves at once.
+const AFTER_16_18: GameBuild = GameBuild::new(16, 18, 8_159_717);
+
+/// The row the database's answer at `build` amounts to, for a value of this
+/// shape. What [`derived`] builds when a check hits one.
+fn schema_migration(
+    class: &str,
+    field: &str,
+    build: GameBuild,
+    value: &PropertyValueEnum,
+) -> Migration {
+    let class = BinHash::hash_str(class);
+    let field = BinHash::hash_str(field);
+    let schema = meta_schema::MetaSchema::shipped();
+    let expected = schema
+        .expected(class, field, build)
+        .unwrap_or_else(|| panic!("the shipped database names {class:#010x}:{field:#010x}"));
+    derived(class, field, expected, value).unwrap()
+}
+
+/// Story: a mod holds its icons as a `List2` of paths and 16.18 reads a `List`
+/// of `File`. The ordering tag and the item type are independent - the vector
+/// is the same bytes either way - so one road takes both.
+#[test]
+fn a_list2_of_paths_the_game_reads_as_a_list_of_files_crosses_on_both() {
+    const PATH: &str = "assets/fixture/evolution_icon.dds";
+    let mut value: PropertyValueEnum =
+        values::UnorderedContainer(values::Container::from(vec![text(PATH)])).into();
+    let migration = schema_migration("EvolutionDescription", "mIconNames", AFTER_16_18, &value);
+
+    assert_eq!(migration.from.label(), "list2[string]");
+    assert_eq!(migration.to.label(), "list[file]");
+    assert_eq!(migration.conversion, Conversion::RetagHashValue);
+    assert!(preview(&migration, &value, &BinNames::none()).is_some());
+
+    assert!(convert(&mut value, &migration, &BinNames::none()));
+
+    let PropertyValueEnum::Container(items) = &value else {
+        panic!("expected a List");
+    };
+    assert_eq!(items.item_kind(), Kind::WadChunkLink);
+    assert_eq!(
+        items.items()[0]
+            .get::<values::WadChunkLink>()
+            .unwrap()
+            .value,
+        WadHash::hash_str(PATH)
+    );
+}
+
+/// Story: 16.18 moved `TextureOverrides` to `File` on both sides of the map.
+/// The keys go the way a rehash does, through the path behind each one, and
+/// the values go the way every other path does.
+#[test]
+fn a_map_that_moves_its_keys_and_its_values_is_rekeyed_and_rehashed() {
+    const KEY: &str = "assets/fixture/override_key.dds";
+    const HELD: &str = "assets/fixture/override_value.dds";
+    let (_tmp, names) = names_of(&[KEY]);
+
+    let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
+    map.push(
+        values::Hash::new(BinHash::hash_str(KEY)).into(),
+        text(HELD).into(),
+    )
+    .unwrap();
+    let mut value: PropertyValueEnum = map.into();
+    let migration = schema_migration(
+        "UiElementParticleSystemData",
+        "TextureOverrides",
+        AFTER_16_18,
+        &value,
+    );
+
+    assert_eq!(migration.from.label(), "map[hash,string]");
+    assert_eq!(migration.to.label(), "map[file,file]");
+    assert_eq!(migration.conversion, Conversion::HashKeyValue);
+    assert!(preview(&migration, &value, &names).is_some());
+
+    assert!(convert(&mut value, &migration, &names));
+
+    let PropertyValueEnum::Map(map) = &value else {
+        panic!("expected a Map");
+    };
+    assert_eq!(map.key_kind(), Kind::WadChunkLink);
+    assert_eq!(map.value_kind(), Kind::WadChunkLink);
+    let (key, held) = &map.entries()[0];
+    assert_eq!(
+        key.get::<values::WadChunkLink>().unwrap().value,
+        WadHash::hash_str(KEY)
+    );
+    assert_eq!(
+        held.get::<values::WadChunkLink>().unwrap().value,
+        WadHash::hash_str(HELD)
+    );
+}
+
+/// The keys are the half that can fail. A key no table names back to its path
+/// has no road to `File`, and the values crossing anyway would leave the map
+/// read under two hash functions.
+#[test]
+fn a_map_with_an_unnamed_key_crosses_neither_half() {
+    const HELD: &str = "assets/fixture/override_value.dds";
+    let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
+    map.push(
+        values::Hash::new(BinHash(0x1111_2222)).into(),
+        text(HELD).into(),
+    )
+    .unwrap();
+    let mut value: PropertyValueEnum = map.into();
+    let migration = schema_migration(
+        "UiElementParticleSystemData",
+        "TextureOverrides",
+        AFTER_16_18,
+        &value,
+    );
+    let before = value.clone();
+
+    assert_eq!(migration.conversion, Conversion::HashKeyValue);
+    assert!(preview(&migration, &value, &BinNames::none()).is_none());
+    assert!(!convert(&mut value, &migration, &BinNames::none()));
+    assert_eq!(value, before, "not even the values moved");
+
+    let message = note(
+        &migration,
+        &value,
+        &BinNames::none(),
+        Some(AFTER_16_18),
+        AFTER_16_18,
+    )
+    .expect("a note naming the key it is missing");
+    assert!(message.contains("0x11112222"), "{message}");
+}
+
+/// The whole point of the two roads: a 16.18 install is offered a repair where
+/// it used to be told to rebuild the mod.
+#[test]
+fn the_16_18_both_halves_retypes_are_reported_repairable() {
+    const PATH: &str = "assets/fixture/evolution_icon.dds";
+    let icons = values::UnorderedContainer(values::Container::from(vec![text(PATH)]));
+    let bin = object_bin(
+        BinHash::hash_str("EvolutionDescription"),
+        BinHash::hash_str("mIconNames"),
+        icons,
+    );
+    let (_tmp, files) = project_on(&bin, Some(AFTER_16_18));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "list[file]");
+    assert_eq!(mismatch.found, "list2[string]");
+    assert!(problems[0].fix.is_some());
+    assert_eq!(problems[0].message, None, "no rebuild-the-mod sentence");
 }

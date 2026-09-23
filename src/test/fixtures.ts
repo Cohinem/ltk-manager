@@ -38,6 +38,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     hasSeenDiagnosticsNotice: true,
     elevateInjector: false,
     autoCategorizationEnabled: true,
+    promoteEnabledMods: false,
     showModTags: true,
     enforceSkinhackScan: true,
     applyStringOverridesToAllLocales: false,
@@ -47,6 +48,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     hideRiotClientOnLaunch: true,
     readGameLog: true,
     keepIncidents: 50,
+    builtinMods: { defaultWardSkins: false, baseSkins: "off" },
     ...overrides,
   };
 }

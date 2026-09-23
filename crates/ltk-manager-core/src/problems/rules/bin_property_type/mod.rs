@@ -45,8 +45,13 @@
 //! the other: `Embed` and `Pointer`, `List` and `List2`, `Bool` and `Flag`. The
 //! first is exact only for the class the field itself names, because a
 //! `Pointer` also holds a class derived from it and an `Embed` does not, and
-//! the schema names no class to check against. A list crosses only where both
-//! sides hold the same item type, since the tag is all that moves.
+//! the schema names no class to check against.
+//!
+//! A type has halves that move independently, and Riot moves both at once. A
+//! list's ordering tag and its item type are one such pair, and a map's keys
+//! and its values are another, so two roads take both halves in turn. Either
+//! the whole property crosses or none of it does: a value left between the two
+//! types declares neither, which is worse than the type it had.
 //!
 //! The check is a visitor over `ltk_meta::walk`, riding the pass's one walk of
 //! each bin. Every node carries a class hash of its own, and two rows of the
@@ -59,18 +64,18 @@ pub mod table;
 use fs_err as fs;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
+use std::io::Cursor;
 use std::sync::Arc;
 
-use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::PropertyValueEnum;
-use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
-use ltk_meta::walk::{Node, TreeValue as _, Visit, Visitor};
+use ltk_meta::property::{Kind, ValueMut, values};
+use ltk_meta::walk::{Node, PropertyRefMut, Visit, Visitor, VisitorMut};
+use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyValueEnum};
 
-use crate::bin_document::PropertyKind;
+use crate::bin_document::{PropertyKind, hex, owned};
 use crate::meta_schema::{self, MetaSchema};
-use crate::problems::names::{self, BinNames};
-use crate::problems::walk::{self, Address, Declared, FieldNames};
+use crate::problems::names::BinNames;
+use crate::problems::walk::{Address, Declared, FieldNames};
 use crate::problems::{
     Applied, BinVisitor, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress,
     Pass, Preserved, PreservedNames, Problem, ProjectFiles, Rule, RuleId, Severity, Sink,
@@ -149,7 +154,7 @@ impl Rule for BinPropertyType {
         let project = pass.project();
         let tables = table::tables();
         let judge = Judge::opened(project.build());
-        if tables.is_empty() && judge.lens().is_none() {
+        if tables.is_empty() && judge.judged().is_none() {
             return;
         }
         pass.bins().visit(TypeCheck {
@@ -172,23 +177,14 @@ impl Rule for BinPropertyType {
         let judge = Judge::opened(GameBuild::installed(run.config()));
         let lens = Lens {
             tables,
-            schema: judge.lens(),
+            schema: &judge.schema,
+            judged: judge.judged(),
             names: &names,
         };
         let mut applied = Applied::default();
 
         for ((layer, path), wanted) in group_by_file(problems) {
             let bytes = run.read(&layer, &path)?;
-            let mut bin = match read_bin_bytes(&bytes) {
-                Ok(bin) => bin,
-                Err(message) => {
-                    return Err(FixError::Parse {
-                        layer,
-                        path,
-                        message,
-                    });
-                }
-            };
 
             let mut addressed: HashMap<BinHash, HashSet<&str>> = HashMap::new();
             for address in &wanted {
@@ -198,102 +194,177 @@ impl Rule for BinPropertyType {
                     .insert(address.path.as_str());
             }
 
-            let file_applied = fix_bin(&mut bin, &addressed, lens, run.kept_names());
-
-            // The mod as it now is, read off the tree in memory. A genuine
-            // check rather than arithmetic over what the fix claimed, and it
-            // costs a walk rather than a second parse.
-            for (entry, hit) in check_bin(&bin, lens) {
-                if addressed
-                    .get(&entry)
-                    .is_some_and(|paths| paths.contains(hit.address.hashes()))
-                {
-                    run.left(ID, &layer, &path, entry, hit.address.into_hashes());
+            let repaired = match repair_file(&bytes, &addressed, lens, run.kept_names()) {
+                Ok(repaired) => repaired,
+                Err(Unrepaired::Parse(message)) => {
+                    return Err(FixError::Parse {
+                        layer,
+                        path,
+                        message,
+                    });
                 }
+                Err(Unrepaired::Write(source)) => {
+                    return Err(FixError::File {
+                        layer,
+                        path,
+                        source,
+                    });
+                }
+            };
+
+            for (entry, node) in repaired.left {
+                run.left(ID, &layer, &path, entry, node);
             }
 
-            let file_skipped = wanted.len() as u32 - file_applied;
-            applied.applied += file_applied;
+            let file_skipped = wanted.len() as u32 - repaired.applied;
+            applied.applied += repaired.applied;
             applied.skipped += file_skipped;
 
-            if file_applied == 0 {
-                run.skipped(&layer, &path, file_skipped);
-                continue;
+            match repaired.bytes {
+                Some(out) => run.write(&layer, &path, &out, repaired.applied, file_skipped)?,
+                None => run.skipped(&layer, &path, file_skipped),
             }
-
-            let mut out = std::io::Cursor::new(Vec::with_capacity(bytes.len()));
-            bin.to_writer(&mut out).map_err(|e| FixError::File {
-                layer: layer.clone(),
-                path: path.clone(),
-                source: e,
-            })?;
-            run.write(&layer, &path, &out.into_inner(), file_applied, file_skipped)?;
         }
 
         Ok(applied)
     }
 }
 
-/// One step of the repair's path to a node, kept as what it is rather than as
-/// text.
-///
-/// The check's trail is the walk's own. The repair walks mutably and keeps this
-/// one, rendered through the same [`Address`] as the check's, which is what
-/// keeps the two addressing the same node.
-#[derive(Clone)]
-enum Step {
-    /// A property of the node.
-    Field(BinHash),
-    /// One element of a container, or a present optional.
-    Index(usize),
-    /// One entry of a map, subscripted by a copy of its key.
-    ///
-    /// Copied on the way down rather than borrowed, because a repair holds the
-    /// map through a `&mut`.
-    Key(PropertyValueEnum),
+/// One bin's repair, before the run records it.
+#[derive(Debug, Default)]
+struct Repaired {
+    /// How many addressed properties converted.
+    applied: u32,
+    /// Every addressed property the check still objects to, by object and hash form.
+    left: Vec<(BinHash, String)>,
+    /// The bin as repaired, where any property converted.
+    bytes: Option<Vec<u8>>,
 }
 
-/// The path to the node a repair is standing on, pushed and popped as it goes.
-#[derive(Clone, Default)]
-struct Trail(Vec<Step>);
+/// Why one bin's repair wrote nothing.
+#[derive(Debug)]
+enum Unrepaired {
+    /// The file does not read as a bin.
+    Parse(String),
+    /// The repaired bin does not encode.
+    Write(std::io::Error),
+}
 
-impl Trail {
-    /// Step into a property.
-    fn field(&mut self, field: BinHash) {
-        self.0.push(Step::Field(field));
+/// Repair the addressed properties of one bin's bytes.
+///
+/// A `PROP` bin is written back through a delta, so only the addressed objects
+/// decode into owned values. Every base object is validated before output.
+/// A `PTCH` bin is transcoded whole.
+fn repair_file(
+    bytes: &[u8],
+    addressed: &HashMap<BinHash, HashSet<&str>>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> Result<Repaired, Unrepaired> {
+    if BinKind::identify_from_bytes(bytes) == Some(BinKind::Prop) {
+        return repair_prop(bytes, addressed, lens, kept);
+    }
+    repair_whole(bytes, addressed, lens, kept)
+}
+
+/// [`repair_file`] over a `PROP` bin, through `BinStream::write_patched`.
+fn repair_prop(
+    bytes: &[u8],
+    addressed: &HashMap<BinHash, HashSet<&str>>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> Result<Repaired, Unrepaired> {
+    let parse = |error: ltk_meta::Error| Unrepaired::Parse(error.to_string());
+    let mut stream = BinStream::<_>::mount(Cursor::new(bytes)).map_err(parse)?;
+
+    let mut objects = Vec::with_capacity(addressed.len());
+    let mut batch = stream.objects_batch(addressed.keys().copied());
+    while let Some(mut object) = batch.next().map_err(parse)? {
+        objects.push(object.read().map_err(parse)?);
     }
 
-    /// Step into one element of a container or a present optional.
-    fn index(&mut self, index: usize) {
-        self.0.push(Step::Index(index));
-    }
-
-    /// Step into one entry of a map, subscripted by its key.
-    fn key(&mut self, key: &PropertyValueEnum) {
-        self.0.push(Step::Key(key.clone()));
-    }
-
-    fn back(&mut self) {
-        self.0.pop();
-    }
-
-    /// The hash form, for a repair matching against what a check recorded.
-    ///
-    /// A repair addresses a node by the hash form, which no table can move, so
-    /// nothing is named.
-    fn hashes(&self) -> String {
-        let mut address = Address::default();
-        for step in &self.0 {
-            match step {
-                /* Nothing is named, so no class is asked with. 0 is the unknown
-                class (W15). */
-                Step::Field(field) => address.push_field(*field, BinHash(0), &()),
-                Step::Index(index) => address.push_index(*index),
-                Step::Key(key) => address.push_key(key, &()),
-            }
+    let mut repaired = Repaired::default();
+    let mut delta = BinDelta::new();
+    for mut object in objects {
+        let paths = &addressed[&object.path_hash];
+        let applied = repair_object(&mut object, paths, lens, kept);
+        repaired.left.extend(left_in(&object, paths, lens));
+        if applied > 0 {
+            repaired.applied += applied;
+            delta.replace(object);
         }
-        address.into_hashes()
     }
+
+    if !delta.is_empty() {
+        let mut out = Vec::with_capacity(bytes.len());
+        stream
+            .write_patched(&delta, &mut out)
+            .map_err(|error| Unrepaired::Write(std::io::Error::other(error)))?;
+        repaired.bytes = Some(out);
+    }
+    Ok(repaired)
+}
+
+/// [`repair_file`] over the whole parsed tree, transcoded back.
+fn repair_whole(
+    bytes: &[u8],
+    addressed: &HashMap<BinHash, HashSet<&str>>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> Result<Repaired, Unrepaired> {
+    let mut bin = read_bin_bytes(bytes).map_err(Unrepaired::Parse)?;
+
+    let mut repaired = Repaired::default();
+    for (entry, object) in bin.objects_mut() {
+        let Some(paths) = addressed.get(entry) else {
+            continue;
+        };
+        repaired.applied += repair_object(object, paths, lens, kept);
+        repaired.left.extend(left_in(object, paths, lens));
+    }
+
+    if repaired.applied > 0 {
+        let mut out = Cursor::new(Vec::with_capacity(bytes.len()));
+        bin.to_writer(&mut out).map_err(Unrepaired::Write)?;
+        repaired.bytes = Some(out.into_inner());
+    }
+    Ok(repaired)
+}
+
+/// Convert every addressed property of one object, and count them.
+fn repair_object(
+    object: &mut BinObject,
+    addressed: &HashSet<&str>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> u32 {
+    let mut repair = Repair {
+        lens,
+        addressed,
+        kept,
+        applied: 0,
+    };
+    owned(object.walk_mut(&mut repair));
+    repair.applied
+}
+
+/// The addressed properties of one repaired object the check still objects to.
+///
+/// A check over the tree in memory rather than arithmetic over what the repair
+/// claimed, at the cost of a walk rather than a second parse.
+fn left_in(
+    object: &BinObject,
+    addressed: &HashSet<&str>,
+    lens: Lens<'_>,
+) -> Vec<(BinHash, String)> {
+    let mut check = Check::new(lens);
+    owned(object.walk(&mut check));
+    check
+        .found
+        .into_iter()
+        .filter(|(_, hit)| addressed.contains(hit.address.hashes()))
+        .map(|(entry, hit)| (entry, hit.address.into_hashes()))
+        .collect()
 }
 
 /// The check as the pass runs it: what every bin is read with.
@@ -309,7 +380,8 @@ impl BinVisitor for TypeCheck<'_> {
         Box::new(Reporting {
             check: Check::new(Lens {
                 tables: self.tables,
-                schema: self.judge.lens(),
+                schema: &self.judge.schema,
+                judged: self.judge.judged(),
                 names: self.names,
             }),
             build: self.build,
@@ -374,8 +446,10 @@ impl<'f> Walk<'f> for Reporting<'_, 'f> {
 #[derive(Clone, Copy)]
 struct Lens<'a> {
     tables: &'static [MigrationTable],
-    /// Absent without an install to judge against.
-    schema: Option<(&'a MetaSchema, GameBuild)>,
+    /// The database, whose hierarchy leads a derived class to the row naming its base.
+    schema: &'a MetaSchema,
+    /// The build the database judges at. Absent without an install to judge against.
+    judged: Option<GameBuild>,
     names: &'a BinNames,
 }
 
@@ -427,14 +501,14 @@ impl Lens<'_> {
         value: impl Declared<'a>,
     ) -> Result<Option<Objection>, ltk_meta::Error> {
         let mut answered = None;
-        if let Some((schema, build)) = self.schema
-            && let Some(expected) = schema.expected(class, field, build)
+        if let Some(build) = self.judged
+            && let Some(expected) = self.schema.expected(class, field, build)
             && let Some(shape) = expected.shape
         {
             answered = Some(build);
             if !TypeSpec::from(shape).matches(value)? {
                 return Ok(Some(Objection {
-                    migration: Cow::Owned(derived(class, field, expected, value)),
+                    migration: Cow::Owned(derived(class, field, expected, value)?),
                     build,
                 }));
             }
@@ -446,7 +520,7 @@ impl Lens<'_> {
             if answered.is_some_and(|installed| table.build() <= installed) {
                 continue;
             }
-            let Some(migration) = table.migration(class, field) else {
+            let Some(migration) = self.migration(table, class, field) else {
                 continue;
             };
             if migration.from.matches(value)? {
@@ -461,8 +535,9 @@ impl Lens<'_> {
 
     /// The field's name, from whichever of the rule's own sources holds one.
     fn field_name(&self, class: BinHash, field: BinHash) -> Option<&str> {
-        if let Some((schema, build)) = self.schema
-            && let Some(name) = schema
+        if let Some(build) = self.judged
+            && let Some(name) = self
+                .schema
                 .expected(class, field, build)
                 .and_then(|expected| expected.field_name)
         {
@@ -470,7 +545,21 @@ impl Lens<'_> {
         }
         self.tables
             .iter()
-            .find_map(|table| table.migration(class, field)?.field_name.as_deref())
+            .find_map(|table| self.migration(table, class, field)?.field_name.as_deref())
+    }
+
+    /// The row of `table` naming `field` on `class` or a base of it, the classes read at the
+    /// table's build.
+    fn migration(
+        &self,
+        table: &'static MigrationTable,
+        class: BinHash,
+        field: BinHash,
+    ) -> Option<&'static Migration> {
+        self.schema
+            .find_in_hierarchy(class, Some(table.build()), |owner| {
+                table.migration(owner, field)
+            })
     }
 }
 
@@ -507,16 +596,13 @@ impl Judge {
         }
     }
 
-    /// The schema to judge by, and the build to judge at.
+    /// The build to judge at.
     ///
     /// `None` without an install, since a revision is keyed on a build, and
     /// `None` past what the database reaches, which would judge against a
     /// change it has not taken yet.
-    fn lens(&self) -> Option<(&MetaSchema, GameBuild)> {
-        let build = self.build?;
-        self.schema
-            .describes(build)
-            .then_some((self.schema.as_ref(), build))
+    fn judged(&self) -> Option<GameBuild> {
+        self.build.filter(|build| self.schema.describes(*build))
     }
 }
 
@@ -529,18 +615,18 @@ fn derived<'a>(
     field: BinHash,
     expected: meta_schema::Expected<'_>,
     value: impl Declared<'a>,
-) -> Migration {
+) -> Result<Migration, ltk_meta::Error> {
     let to = TypeSpec::from(
         expected
             .shape
             .expect("a mismatch needs a type to disagree with"),
     );
-    let from = TypeSpec::of(value);
+    let from = TypeSpec::of(value)?;
     let conversion = match Conversion::between(&from, &to) {
-        Conversion::Unknown if retags_an_empty_option(&to, value) => Conversion::EmptyOption,
+        Conversion::Unknown if retags_an_empty_option(&to, value)? => Conversion::EmptyOption,
         crossed => crossed,
     };
-    Migration {
+    Ok(Migration {
         class,
         field,
         class_name: expected.class_name.map(str::to_owned),
@@ -548,7 +634,7 @@ fn derived<'a>(
         conversion,
         from,
         to,
-    }
+    })
 }
 
 /// Whether the whole of this repair is the item type an empty option declares.
@@ -557,17 +643,18 @@ fn derived<'a>(
 /// here rather than in [`Conversion::between`]: two item types with no road
 /// between them still cross when there is no value under them to carry. The new
 /// item type has to be named for there to be anything to write.
-fn retags_an_empty_option<'a>(to: &TypeSpec, value: impl Declared<'a>) -> bool {
-    to.kind == Kind::Optional && to.value.is_some() && value.is_empty_option()
+fn retags_an_empty_option<'a>(
+    to: &TypeSpec,
+    value: impl Declared<'a>,
+) -> Result<bool, ltk_meta::Error> {
+    Ok(to.kind == Kind::Optional && to.value.is_some() && value.is_empty_option()?)
 }
 
 /// Every property of one bin a table objects to.
-///
-/// The check and the repair's own verification are the same call, so a bin
-/// repaired and then re-read is a tree walk rather than a second parse.
+#[cfg(test)]
 fn check_bin(bin: &ltk_meta::BinFile, lens: Lens<'_>) -> Vec<(BinHash, Hit)> {
     let mut check = Check::new(lens);
-    walk::owned(walk::bin(bin, &mut check));
+    owned(crate::problems::walk::bin(bin, &mut check));
     check.found
 }
 
@@ -613,73 +700,48 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Check<'_> {
     }
 }
 
-/// Convert every addressed property of one bin, and count them.
+/// The repair as a mutable visitor: every addressed property of one object,
+/// converted in place.
 ///
 /// Re-derives each change from the value in front of it rather than from what
 /// the check recorded, so a property that no longer matches `from` is left
-/// alone and counted as skipped.
-///
-/// It walks with the same [`Trail`] the check used - only the hash form is
-/// compared, and building it through one shared step is what keeps the two
-/// passes addressing the same node.
-fn fix_bin(
-    bin: &mut ltk_meta::BinFile,
-    addressed: &HashMap<BinHash, HashSet<&str>>,
-    lens: Lens<'_>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
-    for (entry, object) in bin.objects_mut() {
-        let Some(addressed) = addressed.get(entry) else {
-            continue;
-        };
-        applied += repair(
-            object.class_hash,
-            &mut object.properties,
-            &mut Trail::default(),
-            lens,
-            addressed,
-            kept,
-        );
-    }
-    applied
+/// alone and counted as skipped. The trail is the walk's own, which renders
+/// the hash form the check recorded.
+struct Repair<'l, 'k, 'p> {
+    lens: Lens<'l>,
+    addressed: &'l HashSet<&'l str>,
+    kept: &'k mut PreservedNames<'p>,
+    applied: u32,
 }
 
-fn repair(
-    class: BinHash,
-    properties: &mut IndexMap<BinHash, PropertyValueEnum>,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
+impl VisitorMut for Repair<'_, '_, '_> {
+    type Error = ltk_meta::Error;
 
-    for (field, value) in properties.iter_mut() {
-        let objection = walk::owned(lens.objection(class, *field, &*value));
-        let holds_node = walk::owned((&*value).holds_node());
-        if objection.is_none() && !holds_node {
-            continue;
-        }
+    fn enter_property(
+        &mut self,
+        property: &mut PropertyRefMut<'_>,
+    ) -> Result<Visit, ltk_meta::Error> {
+        let class = property.node_class_hash();
+        let field = property.field();
+        let Some(objection) = self.lens.objection(class, field, property.value())? else {
+            return Ok(Visit::Continue);
+        };
 
-        trail.field(*field);
-
-        if let Some(objection) = objection
-            && addressed.contains(trail.hashes().as_str())
-            && keep_names(value, &objection.migration, lens.names, kept)
-            && convert(value, &objection.migration, lens.names)
+        /* Nothing is named, since only the hash form is compared. */
+        let address = Address::of(property.trail(), field, class, &());
+        if self.addressed.contains(address.hashes())
+            && keep_names(
+                property.value(),
+                &objection.migration,
+                self.lens.names,
+                self.kept,
+            )
+            && convert(property.value_mut(), &objection.migration, self.lens.names)
         {
-            applied += 1;
+            self.applied += 1;
         }
-
-        if holds_node {
-            applied += repair_into(value.as_mut(), trail, lens, addressed, kept);
-        }
-
-        trail.back();
+        Ok(Visit::Continue)
     }
-
-    applied
 }
 
 /// Keep every path this conversion is about to hash away. Reports whether the
@@ -696,13 +758,18 @@ fn keep_names(
     kept: &mut PreservedNames<'_>,
 ) -> bool {
     match migration.conversion {
-        Conversion::HashValue => strings(value)
-            .into_iter()
-            .all(|path| kept.keep(path) == Preserved::Kept),
+        Conversion::HashValue | Conversion::RetagHashValue => keeps(strings(value), kept),
         /* The paths a rehash writes from came out of a table, and keeping them
         under the new hash is what lets a reader name the `File` it left. */
         Conversion::Rehash | Conversion::HashKey => resolved_paths(value, migration, names)
-            .is_some_and(|paths| paths.iter().all(|path| kept.keep(path) == Preserved::Kept)),
+            .is_some_and(|paths| keeps(paths.iter().map(String::as_str), kept)),
+        /* Both halves of the map, since a key or a value losing its path leaves
+        the mod holding a hash it can no longer name. */
+        Conversion::HashKeyValue => {
+            resolved_paths(value, migration, names)
+                .is_some_and(|paths| keeps(paths.iter().map(String::as_str), kept))
+                && keeps(strings(value), kept)
+        }
         Conversion::None
         | Conversion::NullPointer
         | Conversion::Widen
@@ -712,93 +779,11 @@ fn keep_names(
     }
 }
 
-/// Walk `repair` into whatever object-like nodes `value` holds.
-///
-/// Takes the borrow that cannot change a value's kind, because a container, an
-/// option and a map each declare their item kind once and hand out no other.
-/// A repair only ever edits properties further down, so that is all it needs.
-fn repair_into(
-    value: ValueMut<'_>,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    match value {
-        ValueMut::Struct(inner) => repair(
-            inner.class_hash,
-            &mut inner.properties,
-            trail,
-            lens,
-            addressed,
-            kept,
-        ),
-        ValueMut::Embedded(inner) => repair(
-            inner.0.class_hash,
-            &mut inner.0.properties,
-            trail,
-            lens,
-            addressed,
-            kept,
-        ),
-        ValueMut::Container(items) => repair_container(items, trail, lens, addressed, kept),
-        ValueMut::UnorderedContainer(items) => {
-            repair_container(&mut items.0, trail, lens, addressed, kept)
-        }
-        ValueMut::Optional(inner) => match inner.slot() {
-            Some(mut slot) => {
-                trail.index(0);
-                let applied = repair_into(slot.as_mut(), trail, lens, addressed, kept);
-                trail.back();
-                applied
-            }
-            None => 0,
-        },
-        ValueMut::Map(map) => repair_map(map, trail, lens, addressed, kept),
-        _ => 0,
-    }
-}
-
-/// Walk `repair` into a map's values.
-///
-/// The key is written into the trail before the slot is taken, because a map
-/// lends its keys and its values apart and never both at once.
-fn repair_map(
-    map: &mut values::Map,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
-    for index in 0..map.entries().len() {
-        trail.key(&map.entries()[index].0);
-        if let Some(mut slot) = map.slot(index) {
-            applied += repair_into(slot.as_mut(), trail, lens, addressed, kept);
-        }
-        trail.back();
-    }
-    applied
-}
-
-/// Walk `repair` into the object-like items a container holds.
-fn repair_container(
-    items: &mut values::Container,
-    trail: &mut Trail,
-    lens: Lens<'_>,
-    addressed: &HashSet<&str>,
-    kept: &mut PreservedNames<'_>,
-) -> u32 {
-    let mut applied = 0;
-    for index in 0..items.len() {
-        let Some(mut slot) = items.slot(index) else {
-            continue;
-        };
-        trail.index(index);
-        applied += repair_into(slot.as_mut(), trail, lens, addressed, kept);
-        trail.back();
-    }
-    applied
+/// Keep every one of `paths`. Reports whether all of them survived.
+fn keeps<'p>(paths: impl IntoIterator<Item = &'p str>, kept: &mut PreservedNames<'_>) -> bool {
+    paths
+        .into_iter()
+        .all(|path| kept.keep(path) == Preserved::Kept)
 }
 
 /// Rewrite one property under its new type. Reports whether it changed.
@@ -816,9 +801,34 @@ fn convert(value: &mut PropertyValueEnum, migration: &Migration, names: &BinName
         Conversion::NullPointer => null_pointers(value),
         Conversion::Widen => widen(value, &migration.to),
         Conversion::EmptyOption => retag_option(value, migration.to.value),
+        Conversion::RetagHashValue => {
+            crossing(value, |held| hash_value(held) && retag(held, migration))
+        }
+        Conversion::HashKeyValue => {
+            crossing(value, |held| rehash_keys(held, names) && hash_value(held))
+        }
         /* No road from what it holds to what it should be. */
         Conversion::Unknown => false,
     }
+}
+
+/// Take a road of two steps, or leave the value as it was. Reports whether it
+/// changed.
+///
+/// Both steps or neither: a property left halfway across declares a type that
+/// is neither the one it had nor the one the game reads, which is worse than
+/// the one it had. The copy is what makes that cheap to abandon, and a repair
+/// pays it only for a property it is already rewriting.
+fn crossing(
+    value: &mut PropertyValueEnum,
+    steps: impl FnOnce(&mut PropertyValueEnum) -> bool,
+) -> bool {
+    let mut held = value.clone();
+    if !steps(&mut held) {
+        return false;
+    }
+    *value = held;
+    true
 }
 
 /// Rewrite a `Hash` as the `File` of the path behind it. Reports whether it
@@ -1073,16 +1083,12 @@ fn retagged(
             Kind::Container,
             PropertyValueEnum::UnorderedContainer(items),
         ) => Ok(items.0.into()),
-        (Kind::Bool, Kind::BitBool, PropertyValueEnum::Bool(flag)) => Ok(values::BitBool {
-            value: flag.value,
-            meta: flag.meta,
+        (Kind::Bool, Kind::BitBool, PropertyValueEnum::Bool(flag)) => {
+            Ok(values::BitBool::new(flag.value).into())
         }
-        .into()),
-        (Kind::BitBool, Kind::Bool, PropertyValueEnum::BitBool(flag)) => Ok(values::Bool {
-            value: flag.value,
-            meta: flag.meta,
+        (Kind::BitBool, Kind::Bool, PropertyValueEnum::BitBool(flag)) => {
+            Ok(values::Bool::new(flag.value).into())
         }
-        .into()),
         (_, _, other) => Err(other),
     }
 }
@@ -1270,7 +1276,7 @@ fn reclass(value: &mut PropertyValueEnum, class: BinHash) -> bool {
 }
 
 /// The `File` of a path, which is XXH64 of it lowercased.
-fn link(path: &str) -> values::WadChunkLink<NoMeta> {
+fn link(path: &str) -> values::WadChunkLink {
     values::WadChunkLink::new(WadHash::hash_str(path))
 }
 
@@ -1278,7 +1284,7 @@ fn link(path: &str) -> values::WadChunkLink<NoMeta> {
 fn subscript(key: &PropertyValueEnum) -> String {
     match key {
         PropertyValueEnum::String(text) => text.value.clone(),
-        PropertyValueEnum::Hash(hash) => names::hex(hash.value),
+        PropertyValueEnum::Hash(hash) => hex(hash.value),
         PropertyValueEnum::WadChunkLink(hash) => format!("0x{:016x}", hash.value.0),
         PropertyValueEnum::U8(v) => v.value.to_string(),
         PropertyValueEnum::U32(v) => v.value.to_string(),
@@ -1334,7 +1340,9 @@ fn note(
                 unresolved(value, names)
             ));
         }
-        Conversion::HashKey if resolved_paths(value, migration, names).is_none() => {
+        Conversion::HashKey | Conversion::HashKeyValue
+            if resolved_paths(value, migration, names).is_none() =>
+        {
             parts.push(format!(
                 "Neither the Mimir hashtables nor the mod's own resolve {} back to its path, and only those paths cross to File keys, the 64-bit xxHash. Adding the paths to the mod's hashtables makes this repairable.",
                 unresolved(value, names)
@@ -1349,7 +1357,9 @@ fn note(
         }
         Conversion::Rehash
         | Conversion::HashKey
+        | Conversion::HashKeyValue
         | Conversion::HashValue
+        | Conversion::RetagHashValue
         | Conversion::None
         | Conversion::NullPointer
         | Conversion::Widen
@@ -1369,7 +1379,7 @@ fn note(
 /// a map names the first unresolved one and says how many more went unnamed.
 fn unresolved(value: &PropertyValueEnum, names: &BinNames) -> String {
     match value {
-        PropertyValueEnum::Hash(hash) => names::hex(hash.value),
+        PropertyValueEnum::Hash(hash) => hex(hash.value),
         PropertyValueEnum::Map(map) => {
             let missing: Vec<&PropertyValueEnum> = map
                 .entries()
@@ -1410,7 +1420,7 @@ fn resolved_paths(
         (Conversion::Rehash, PropertyValueEnum::Hash(hash)) => {
             Some(vec![names.path_value(hash.value)?])
         }
-        (Conversion::HashKey, PropertyValueEnum::Map(map)) => map
+        (Conversion::HashKey | Conversion::HashKeyValue, PropertyValueEnum::Map(map)) => map
             .entries()
             .iter()
             .map(|(key, _)| key_path(key, names))
@@ -1435,7 +1445,9 @@ fn preview(
     names: &BinNames,
 ) -> Option<FixPreview> {
     match migration.conversion {
-        Conversion::Rehash | Conversion::HashKey => {
+        /* The keys are the half a `HashKeyValue` can fail on, so they are the
+        half worth drawing. */
+        Conversion::Rehash | Conversion::HashKey | Conversion::HashKeyValue => {
             let paths = resolved_paths(value, migration, names)?;
             Some(match paths.as_slice() {
                 [] => FixPreview::default(),
@@ -1451,7 +1463,7 @@ fn preview(
         | Conversion::NullPointer
         | Conversion::Widen
         | Conversion::EmptyOption => Some(FixPreview::default()),
-        Conversion::HashValue => Some(value_preview(value)),
+        Conversion::HashValue | Conversion::RetagHashValue => Some(value_preview(value)),
         /* No repair, so nothing to preview. */
         Conversion::Unknown => None,
     }

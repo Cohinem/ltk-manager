@@ -48,7 +48,7 @@ import {
 } from "@/modules/settings";
 import { DevConsoleLazy, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
 import { UpdateNotificationLazy, useUpdateCheck } from "@/modules/updater";
-import { useDisplayStore, useSearchObjects, useUpdaterUpdate } from "@/stores";
+import { useDisplayStore, useSearchObjects, useUpdaterFoundAtLaunch } from "@/stores";
 
 /* Workshop is the largest module and the root mounts one lifecycle of it, so
    the import is dynamic and the bin editor stays off the boot path. */
@@ -74,7 +74,7 @@ function settled(promise: Promise<unknown>): Promise<void> {
 
 function RootLayout() {
   const { data: appInfo } = useAppInfo();
-  useUpdateCheck({ checkOnMount: true, delayMs: 3000 });
+  useUpdateCheck();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -113,14 +113,14 @@ function RootLayout() {
     if (searchObjects) setTracksObjectIndex(true);
   }, [searchObjects]);
 
-  const update = useUpdaterUpdate();
+  const updateAtLaunch = useUpdaterFoundAtLaunch();
   const { data: settings } = useSettings();
 
   useEffect(() => {
-    if (update && settings?.startInTrayUnlessUpdate) {
+    if (updateAtLaunch && settings?.startInTrayUnlessUpdate) {
       void getCurrentWindow().show();
     }
-  }, [update, settings?.startInTrayUnlessUpdate]);
+  }, [updateAtLaunch, settings?.startInTrayUnlessUpdate]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--zoom-scale", String(zoomLevel / 100));

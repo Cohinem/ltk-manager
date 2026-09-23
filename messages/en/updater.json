@@ -1,16 +1,25 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "updater_changelog_title": "What's New",
+  "updater_check_action": "Check for Updates",
+  "updater_check_current_label": "LTK Manager is up to date",
+  "updater_check_failed_label": "Couldn't check for updates",
+  "updater_check_found_label": "Version {version} is available",
+  "updater_check_running_label": "Checking for updates…",
   "updater_history_end_label": "No older releases",
   "updater_history_error_title": "Couldn't load older releases",
   "updater_install_action": "Update Now",
   "updater_install_failed_title": "Update failed",
+  "updater_install_on_quit_hint": "Downloaded. It installs when you quit LTK Manager.",
   "updater_install_progress_label": "Installing update",
   "updater_install_restart_hint": "The app restarts once the install finishes.",
   "updater_install_retry_action": "Retry Update",
+  "updater_league_running_hint": "League is running. Update once the game closes.",
   "updater_release_installed_label": "Installed",
   "updater_release_pending_label": "New",
   "updater_release_prerelease_label": "Pre-release",
+  "updater_restart_action": "Restart to Update",
   "updater_skip_version_label": "Skip this version",
-  "updater_version_upgrade_label": "v{from} → v{to}"
+  "updater_version_upgrade_label": "v{from} → v{to}",
+  "updater_view_action": "View Update"
 }

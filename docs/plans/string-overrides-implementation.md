@@ -192,7 +192,7 @@ let mode = if settings.apply_string_overrides_to_all_locales {
 
 - Remove the "String overrides are not applied yet" `AlertBox` (lines 176–195) and the issue-#123 link.
 - Replace with a short info note documenting semantics: `default` applies to all locales; a locale-specific entry beats `default`; `{hex}` keys target raw hashes.
-- Optional (small): new command `get_league_locale` (follow the 7-step CLAUDE.md command checklist) so the editor can show "Detected game locale: en_US" and pre-select that locale tab.
+- Optional (small): new command `get_league_locale` (follow the 7-step AGENTS.md command checklist) so the editor can show "Detected game locale: en_US" and pre-select that locale tab.
 
 ### 5.6 Verification pass (no expected code changes)
 

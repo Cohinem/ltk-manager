@@ -6,13 +6,12 @@
 //! `league-toolkit/docs/design/value-walk.md` section 2. This module uses them
 //! and defines none of its own.
 
-use std::borrow::Cow;
 use std::fmt::Write as _;
 
 use ltk_hash::BinHash;
+pub use ltk_meta::path::FieldNames;
 use ltk_meta::property::Kind;
-use ltk_meta::stream::ValueView;
-use ltk_meta::walk::{Leaf, Trail, TrailStep, TreeValue, Visitor, WalkOutcome};
+use ltk_meta::walk::{Leaf, Trail, TrailSegment, TreeValue, Visitor, WalkOutcome};
 use ltk_meta::{BinFile, PropertyValueEnum};
 
 /// Walk a bin of either kind: a `PROP`'s objects, or the objects a `PTCH` carries.
@@ -32,146 +31,71 @@ where
     }
 }
 
-/// A tree read over the owned tree, which never fails.
-///
-/// # Panics
-///
-/// On a read the owned tree refused, which is a bug in the tree.
-pub fn owned<T>(read: Result<T, ltk_meta::Error>) -> T {
-    read.expect("the owned tree never fails")
-}
-
 /// The kinds a container, an optional or a map declares in its header.
 ///
-/// `TreeValue` answers the walk's questions and no other. A rule about a
-/// property's declared type asks these, and the answer is read off the header
-/// over either tree.
+/// Each answer is one field of the value's `ltk_meta::walk::Declaration`, read off the
+/// header over either tree.
 pub trait Declared<'a>: TreeValue<'a> {
     /// The item kind of a container or an optional, and the value kind of a map.
-    fn item_kind(&self) -> Option<Kind>;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn item_kind(&self) -> Result<Option<Kind>, ltk_meta::Error>;
 
     /// The key kind of a map.
-    fn key_kind(&self) -> Option<Kind>;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn key_kind(&self) -> Result<Option<Kind>, ltk_meta::Error>;
 
     /// The class a `Struct` or `Embedded` carries, which is 0 for a null pointer.
-    fn class_hash(&self) -> Option<BinHash>;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn class_hash(&self) -> Result<Option<BinHash>, ltk_meta::Error>;
 
     /// Whether this is an option whose header says it holds nothing.
     ///
     /// An option writes its item kind and its count apart, so an empty one
     /// still declares the type it would hold. False for every other kind.
-    fn is_empty_option(&self) -> bool;
+    ///
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn is_empty_option(&self) -> Result<bool, ltk_meta::Error>;
 
     /// How many items a container or a map declares, and 1 or 0 for an
     /// optional. `None` for a leaf and for a node.
-    fn item_count(&self) -> Option<usize>;
-}
-
-impl<'a, M> Declared<'a> for &'a PropertyValueEnum<M> {
-    fn item_kind(&self) -> Option<Kind> {
-        match self {
-            PropertyValueEnum::Container(items) => Some(items.item_kind()),
-            PropertyValueEnum::UnorderedContainer(items) => Some(items.0.item_kind()),
-            PropertyValueEnum::Optional(optional) => Some(optional.item_kind()),
-            PropertyValueEnum::Map(map) => Some(map.value_kind()),
-            _ => None,
-        }
-    }
-
-    fn key_kind(&self) -> Option<Kind> {
-        match self {
-            PropertyValueEnum::Map(map) => Some(map.key_kind()),
-            _ => None,
-        }
-    }
-
-    fn class_hash(&self) -> Option<BinHash> {
-        match self {
-            PropertyValueEnum::Struct(object) => Some(object.class_hash),
-            PropertyValueEnum::Embedded(object) => Some(object.0.class_hash),
-            _ => None,
-        }
-    }
-
-    fn is_empty_option(&self) -> bool {
-        matches!(self, PropertyValueEnum::Optional(optional) if optional.is_none())
-    }
-
-    fn item_count(&self) -> Option<usize> {
-        match self {
-            PropertyValueEnum::Container(items) => Some(items.len()),
-            PropertyValueEnum::UnorderedContainer(items) => Some(items.0.len()),
-            PropertyValueEnum::Optional(optional) => Some(usize::from(optional.is_some())),
-            PropertyValueEnum::Map(map) => Some(map.entries().len()),
-            _ => None,
-        }
-    }
-}
-
-impl<'a, M: Default> Declared<'a> for ValueView<'a, M> {
-    fn item_kind(&self) -> Option<Kind> {
-        match self {
-            ValueView::Container(items) | ValueView::UnorderedContainer(items) => {
-                Some(items.item_kind())
-            }
-            ValueView::Optional(optional) => Some(optional.item_kind()),
-            ValueView::Map(map) => Some(map.value_kind()),
-            _ => None,
-        }
-    }
-
-    fn key_kind(&self) -> Option<Kind> {
-        match self {
-            ValueView::Map(map) => Some(map.key_kind()),
-            _ => None,
-        }
-    }
-
-    fn class_hash(&self) -> Option<BinHash> {
-        match self {
-            ValueView::Struct(object) | ValueView::Embedded(object) => Some(object.class_hash()),
-            _ => None,
-        }
-    }
-
-    fn is_empty_option(&self) -> bool {
-        matches!(self, ValueView::Optional(optional) if optional.is_none())
-    }
-
-    fn item_count(&self) -> Option<usize> {
-        match self {
-            ValueView::Container(items) | ValueView::UnorderedContainer(items) => {
-                Some(items.len() as usize)
-            }
-            ValueView::Optional(optional) => Some(usize::from(!optional.is_none())),
-            ValueView::Map(map) => Some(map.len() as usize),
-            _ => None,
-        }
-    }
-}
-
-/// Plaintext for the hashes an address carries.
-///
-/// The shape `ltk_meta::path::FieldNames` takes (league-toolkit #219). An
-/// implementation moves over unchanged.
-pub trait FieldNames {
-    /// The plaintext of `field`, given the class of the node it was read on.
     ///
-    /// A table keyed by field alone ignores `class`. A table keyed by class
-    /// answers nothing for `None`.
-    fn field(&self, field: BinHash, class: Option<BinHash>) -> Option<Cow<'_, str>>;
-
-    /// The plaintext behind a `Hash`-kind map key. Read for the named form only.
-    fn hash(&self, hash: BinHash) -> Option<Cow<'_, str>> {
-        let _ = hash;
-        None
-    }
+    /// # Errors
+    ///
+    /// A requested header that does not decode.
+    fn item_count(&self) -> Result<Option<usize>, ltk_meta::Error>;
 }
 
-/// Names nothing: every hash renders as hex.
-impl FieldNames for () {
-    fn field(&self, _field: BinHash, _class: Option<BinHash>) -> Option<Cow<'_, str>> {
-        None
+impl<'a, V: TreeValue<'a>> Declared<'a> for V {
+    fn item_kind(&self) -> Result<Option<Kind>, ltk_meta::Error> {
+        Ok(self.declaration()?.item_kind)
+    }
+
+    fn key_kind(&self) -> Result<Option<Kind>, ltk_meta::Error> {
+        Ok(self.declaration()?.key_kind)
+    }
+
+    fn class_hash(&self) -> Result<Option<BinHash>, ltk_meta::Error> {
+        Ok(self.declaration()?.class)
+    }
+
+    fn is_empty_option(&self) -> Result<bool, ltk_meta::Error> {
+        let declaration = self.declaration()?;
+        Ok(declaration.kind == Kind::Optional && declaration.count == Some(0))
+    }
+
+    fn item_count(&self) -> Result<Option<usize>, ltk_meta::Error> {
+        Ok(self.declaration()?.count)
     }
 }
 
@@ -225,16 +149,16 @@ impl Address {
     ) -> Self {
         let mut address = Self::default();
         let mut classes = trail.classes().iter();
-        for step in trail.steps() {
+        for step in trail.segments() {
             match step {
-                TrailStep::Field(field) => {
+                TrailSegment::Field(field) => {
                     let class = classes
                         .next()
                         .expect("a trail records one class per field step");
                     address.push_field(*field, *class, names);
                 }
-                TrailStep::Index(index) => address.push_index(*index),
-                TrailStep::Key(key) => address.push_key(*key, names),
+                TrailSegment::Index(index) => address.push_index(*index),
+                TrailSegment::Key(key) => address.push_key(*key, names),
             }
         }
         address.push_field(field, class, names);
@@ -269,7 +193,7 @@ impl Address {
     ///
     /// A key that is not a leaf, or does not decode, is written as `{?}`.
     pub fn push_key<'a>(&mut self, key: impl TreeValue<'a>, names: &dyn FieldNames) {
-        let leaf = key.leaf().ok().flatten();
+        let leaf = key.as_leaf().ok().flatten();
         self.hashes.push('{');
         self.named.push('{');
         match leaf {

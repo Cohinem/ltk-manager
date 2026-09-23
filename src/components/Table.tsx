@@ -1,7 +1,8 @@
-import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
+import { CaretDownIcon, CaretUpDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 import { type ComponentPropsWithoutRef, forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
+
+import { twMerge } from "@/utils";
 
 // Root
 export const TableRoot = forwardRef<HTMLTableElement, ComponentPropsWithoutRef<"table">>(
@@ -74,16 +75,16 @@ export interface TableSortButtonProps extends ComponentPropsWithoutRef<"button">
 export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProps>(
   ({ direction, className, children, ...props }, ref) => {
     const Icon = match(direction)
-      .with("asc", () => ChevronUp)
-      .with("desc", () => ChevronDown)
-      .otherwise(() => ChevronsUpDown);
+      .with("asc", () => CaretUpIcon)
+      .with("desc", () => CaretDownIcon)
+      .otherwise(() => CaretUpDownIcon);
 
     return (
       <button
         ref={ref}
         type="button"
         className={twMerge(
-          "inline-flex items-center gap-1 rounded transition-colors hover:text-surface-200",
+          "inline-flex items-center gap-1 rounded-sm transition-colors hover:text-surface-200",
           "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
           direction && "text-surface-200",
           className,
@@ -92,6 +93,7 @@ export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProp
       >
         {children}
         <Icon
+          weight="bold"
           className={twMerge("h-3.5 w-3.5", direction ? "text-accent-400" : "text-surface-500")}
         />
       </button>

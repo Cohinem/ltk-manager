@@ -22,6 +22,7 @@ mod setup;
 mod state;
 mod telemetry;
 mod tray;
+mod updater;
 mod workshop;
 
 fn main() {
@@ -65,7 +66,7 @@ fn main() {
             let app = ctx.app_handle().clone();
             // A decode is tens of milliseconds, and this handler is the main thread.
             tauri::async_runtime::spawn_blocking(move || {
-                responder.respond(protocol::serve(&app, &request));
+                responder.respond(protocol::answer(&app, &request));
             });
         })
         .manage(logging_guards)
@@ -75,7 +76,6 @@ fn main() {
             commands::get_app_info,
             commands::get_platform_support,
             commands::show_main_window,
-            commands::prepare_for_update,
             // Settings
             commands::get_settings,
             commands::save_settings,
@@ -88,6 +88,7 @@ fn main() {
             // Mods
             commands::get_installed_mods,
             commands::install_mod,
+            commands::update_mod,
             commands::install_mods,
             commands::uninstall_mod,
             commands::toggle_mod,
@@ -109,6 +110,8 @@ fn main() {
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
             commands::get_mod_thumbnails,
+            commands::get_mod_readme,
+            commands::get_mod_license_text,
             commands::get_storage_directory,
             commands::reorder_mods,
             commands::get_mod_wad_report,
@@ -207,14 +210,6 @@ fn main() {
             commands::refresh_game_index,
             commands::search_game_index,
             commands::find_in_game_index,
-            commands::locate_game_files,
-            commands::warm_object_index,
-            commands::drop_object_index,
-            commands::search_object_index,
-            commands::declared_objects,
-            commands::object_dir,
-            commands::find_objects,
-            commands::find_references,
             // Extract to disk
             commands::plan_game_extract,
             commands::extract_game_files,

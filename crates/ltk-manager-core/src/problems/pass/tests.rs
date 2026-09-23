@@ -10,7 +10,7 @@ use std::sync::Arc;
 use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_meta::property::{Kind, NoMeta, values};
+use ltk_meta::property::{Kind, values};
 use ltk_meta::walk::{Node, TreeValue, Visit, Visitor};
 use ltk_meta::{Bin, BinObject, BinOverride};
 use parking_lot::Mutex;
@@ -34,7 +34,6 @@ fn inner() -> values::Struct {
     values::Struct {
         class_hash: INNER,
         properties: IndexMap::from([(LEAF, values::U32::new(1).into())]),
-        meta: NoMeta,
     }
 }
 
@@ -42,7 +41,7 @@ fn inner() -> values::Struct {
 fn nested(entry: BinHash) -> BinObject {
     let list = values::Container::new(Kind::Struct, vec![inner().into(), inner().into()])
         .expect("structs are a kind a container holds");
-    BinObject::<NoMeta>::builder(entry, OUTER)
+    BinObject::builder(entry, OUTER)
         .property(LIST, list)
         .build()
 }
@@ -53,7 +52,7 @@ fn bank_unit(paths: &[&str]) -> BinObject {
         .iter()
         .map(|path| values::String::new((*path).to_owned()))
         .collect();
-    BinObject::<NoMeta>::builder(ENTRY, BANK_UNIT)
+    BinObject::builder(ENTRY, BANK_UNIT)
         .property(BANK_PATH, values::Container::from(paths))
         .build()
 }

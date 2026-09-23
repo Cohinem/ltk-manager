@@ -1,11 +1,13 @@
 //! Unit tests for the address a trail renders to.
 
+use std::borrow::Cow;
+
 use super::*;
 use indexmap::IndexMap;
 use ltk_hash::WadHash;
 use ltk_meta::path::PropertyPath;
+use ltk_meta::property::Kind;
 use ltk_meta::property::values;
-use ltk_meta::property::{Kind, NoMeta};
 use ltk_meta::walk::{Node, Visit};
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
 
@@ -32,7 +34,6 @@ fn inner() -> values::Struct {
     values::Struct {
         class_hash: INNER,
         properties: IndexMap::from([(LEAF, values::U32::new(1).into())]),
-        meta: NoMeta,
     }
 }
 
@@ -55,7 +56,7 @@ fn object() -> BinObject {
     let slot = values::Optional::new(Kind::Struct, Some(inner().into()))
         .expect("a struct is a kind an optional holds");
 
-    BinObject::<NoMeta>::builder(ENTRY, OUTER)
+    BinObject::builder(ENTRY, OUTER)
         .property(LIST, list)
         .property(SLOT, slot)
         .property(
@@ -257,4 +258,65 @@ fn a_bin_of_either_kind_walks_its_objects() {
 
     assert_eq!(from_prop.0.len(), 21);
     assert_eq!(from_patch.0, from_prop.0, "a patch record is not walked");
+}
+
+#[test]
+fn header_queries_skip_an_invalid_leaf_but_requesting_it_fails() {
+    use ltk_meta::BinStream;
+    use std::io::Cursor;
+
+    struct Headers;
+    impl<'a, V: Declared<'a>> Visitor<'a, V> for Headers {
+        type Error = ltk_meta::Error;
+
+        fn enter_property(
+            &mut self,
+            _: BinHash,
+            value: V,
+            _: &Node<'_, 'a, V>,
+        ) -> Result<Visit, Self::Error> {
+            assert_eq!(value.kind(), Kind::String);
+            assert_eq!(value.item_kind()?, None);
+            assert_eq!(value.key_kind()?, None);
+            assert_eq!(value.class_hash()?, None);
+            assert_eq!(value.item_count()?, None);
+            assert!(!value.is_empty_option()?);
+            Ok(Visit::Skip)
+        }
+    }
+
+    struct ReadLeaf;
+    impl<'a, V: TreeValue<'a>> Visitor<'a, V> for ReadLeaf {
+        type Error = ltk_meta::Error;
+
+        fn enter_property(
+            &mut self,
+            _: BinHash,
+            value: V,
+            _: &Node<'_, 'a, V>,
+        ) -> Result<Visit, Self::Error> {
+            value.as_leaf()?;
+            Ok(Visit::Continue)
+        }
+    }
+
+    let bin = Bin::new(
+        [BinObject::builder(ENTRY, OUTER)
+            .property(LEAF, values::String::new("payload".to_owned()))
+            .build()],
+        std::iter::empty::<&str>(),
+    );
+    bin.walk(&mut Headers).unwrap();
+    let mut out = Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    let mut bytes = out.into_inner();
+    let at = bytes
+        .windows(7)
+        .position(|part| part == b"payload")
+        .unwrap();
+    bytes[at] = 0xff;
+
+    let mut stream = BinStream::<_>::mount(Cursor::new(&bytes)).unwrap();
+    assert_eq!(stream.walk(&mut Headers).unwrap(), WalkOutcome::Completed);
+    assert!(stream.walk(&mut ReadLeaf).is_err());
 }

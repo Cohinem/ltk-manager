@@ -5,9 +5,12 @@ use super::*;
 use crate::meta_schema::MetaSchema;
 use crate::problems::GameBuild;
 use ltk_meta::path::PropertyPath;
-use ltk_meta::property::NoMeta;
 use ltk_meta::{Bin, BinOverride, PropertyPatch};
 use std::collections::HashMap;
+
+mod find;
+mod records;
+mod repeats;
 
 fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
@@ -25,7 +28,6 @@ fn embedded(class: &str, properties: Vec<(BinHash, PropertyValueEnum)>) -> value
     values::Embedded(values::Struct {
         class_hash: h(class),
         properties: properties.into_iter().collect(),
-        meta: NoMeta,
     })
 }
 
@@ -85,10 +87,7 @@ fn skin() -> BinObject {
         h("maybe"),
         values::Optional::from(Some(values::F32::new(1.5))),
     )
-    .property(
-        h("never"),
-        values::Optional::<NoMeta>::empty(Kind::I32).unwrap(),
-    )
+    .property(h("never"), values::Optional::empty(Kind::I32).unwrap())
     .property(
         h("iconSquare"),
         values::Optional::from(Some(values::WadChunkLink::new(WadHash::hash_str(
@@ -102,7 +101,6 @@ fn skin() -> BinObject {
             properties: [(h("name"), values::String::from("b0").into())]
                 .into_iter()
                 .collect(),
-            meta: NoMeta,
         }))),
     )
     .property(h("pointer"), values::Struct::default())
@@ -124,7 +122,6 @@ fn skin() -> BinObject {
             properties: [(h("name"), values::String::from("s0").into())]
                 .into_iter()
                 .collect(),
-            meta: NoMeta,
         },
     )
     .property(UNNAMED_FIELD, values::Bool::new(false))
@@ -132,7 +129,7 @@ fn skin() -> BinObject {
 }
 
 fn prop_bytes() -> Vec<u8> {
-    let bin = Bin::<NoMeta>::builder()
+    let bin = Bin::builder()
         .dependency("common.bin")
         .object(skin())
         .object(BinObject::new(h("Characters/Aatrox"), h("CharacterRecord")))
@@ -144,7 +141,7 @@ fn prop_bytes() -> Vec<u8> {
 }
 
 fn document() -> BinDocument {
-    BinDocument::parse(&prop_bytes()).unwrap()
+    BinDocument::parse(prop_bytes()).unwrap()
 }
 
 /// Tables that name what the fixture writes with a name, and nothing else.
@@ -260,7 +257,7 @@ fn row<'a>(rows: &'a [BinRow], name: &str) -> &'a BinRow {
 
 #[test]
 fn roots_name_every_object_and_count_its_properties() {
-    let rows = document().roots(&named());
+    let rows = document().roots(&named(), None);
 
     let names: Vec<_> = rows.iter().map(|row| row.name.as_str()).collect();
     assert_eq!(
@@ -759,10 +756,10 @@ fn a_projected_read_past_the_row_cap_is_refused_and_names_it() {
         .property(list("d").0, list("d").1)
         .property(list("e").0, list("e").1)
         .build();
-    let bin = Bin::<NoMeta>::builder().object(object).build();
+    let bin = Bin::builder().object(object).build();
     let mut out = Cursor::new(Vec::new());
     bin.to_writer(&mut out).unwrap();
-    let document = BinDocument::parse(&out.into_inner()).unwrap();
+    let document = BinDocument::parse(out.into_inner()).unwrap();
 
     let paths: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|f| wire(f)).collect();
     let error = document
@@ -789,15 +786,22 @@ fn a_projected_read_past_the_row_cap_is_refused_and_names_it() {
 fn a_wire_path_parses_into_its_steps() {
     assert_eq!(parse_steps(""), Some(Vec::new()));
     assert_eq!(
-        parse_steps("9c4e1b02[3].1a2b3c4d{\"we}ird\"}{7}"),
+        parse_steps("9c4e1b02[3].1a2b3c4d{\"we}ird\"}{7}#2"),
         Some(vec![
             Step::Field(BinHash(0x9c4e_1b02)),
             Step::Index(3),
             Step::Field(BinHash(0x1a2b_3c4d)),
-            Step::Key("\"we}ird\"".to_owned()),
-            Step::Key("7".to_owned()),
+            Step::Key(EntryKey {
+                text: "\"we}ird\"".to_owned(),
+                occurrence: 0,
+            }),
+            Step::Key(EntryKey {
+                text: "7".to_owned(),
+                occurrence: 2,
+            }),
         ])
     );
+    assert_eq!(parse_steps("9c4e1b02{7}#"), None);
     assert_eq!(parse_steps("9c4e1b0"), None);
     assert_eq!(parse_steps("9c4e1b02.zzzzzzzz"), None);
     assert_eq!(parse_steps("9c4e1b02[x]"), None);
@@ -805,8 +809,8 @@ fn a_wire_path_parses_into_its_steps() {
 }
 
 #[test]
-fn a_patch_bin_opens_to_its_added_objects_and_counts_what_it_does_not_draw() {
-    let mut patch = BinOverride::<NoMeta>::new();
+fn a_patch_bin_opens_to_its_added_objects_and_the_target_of_its_records() {
+    let mut patch = BinOverride::new();
     patch.deleted.push(h("Characters/Gone"));
     let added = BinObject::new(h("Characters/Aatrox"), h("CharacterRecord"));
     patch.objects.insert(added.path_hash, added);
@@ -820,34 +824,46 @@ fn a_patch_bin_opens_to_its_added_objects_and_counts_what_it_does_not_draw() {
     let mut out = Cursor::new(Vec::new());
     patch.to_writer(&mut out).unwrap();
 
-    let document = BinDocument::parse(&out.into_inner()).unwrap();
+    let document = BinDocument::parse(out.into_inner()).unwrap();
     assert_eq!(
-        document.header(),
+        document.header(&named()),
         BinHeader {
             kind: BinFileKind::Patch,
             version: None,
             objects: 1,
             dependencies: Vec::new(),
             patches: 2,
-            deleted: 1,
+            deleted: vec![ObjectName {
+                hash: hex(h("Characters/Gone")),
+                name: None,
+            }],
         }
     );
-    let rows = document.roots(&named());
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].name, "Characters/Aatrox");
+    let rows = document.roots(&named(), None);
+    let drawn: Vec<_> = rows
+        .iter()
+        .map(|row| (row.node, row.name.as_str()))
+        .collect();
+    assert_eq!(
+        drawn,
+        [
+            (RowNode::Object, "Characters/Aatrox"),
+            (RowNode::Target, "Characters/Aatrox"),
+        ]
+    );
 }
 
 #[test]
 fn a_prop_header_carries_its_version_and_dependencies() {
     assert_eq!(
-        document().header(),
+        document().header(&named()),
         BinHeader {
             kind: BinFileKind::Prop,
             version: Some(3),
             objects: 3,
             dependencies: vec!["common.bin".to_owned()],
             patches: 0,
-            deleted: 0,
+            deleted: Vec::new(),
         }
     );
 }
@@ -1046,11 +1062,15 @@ fn schema() -> MetaSchema {
             "{mesh}": {{
               "name": "SkinMeshDataProperties",
               "properties": {{ {material} }}
-            }}
+            }},
+            "{part}": {{ "name": "Part", "properties": {{}} }},
+            "{record}": {{ "name": "CharacterRecord", "properties": {{}} }}
           }}
         }}"#,
         skin = key("SkinCharacterDataProperties"),
         mesh = key("SkinMeshDataProperties"),
+        part = key("Part"),
+        record = key("CharacterRecord"),
         champion_skin_name = line("championSkinName", r#""String", "0x0", "0x0", "0x0""#),
         skin_classification = line("skinClassification", r#""File", "0x0", "0x0", "0x0""#),
         armor_material = line("armorMaterial", r#""List", "0x0", "I32", "0x0""#),
@@ -1147,6 +1167,33 @@ fn a_field_no_table_names_takes_the_schemas_name() {
     );
 }
 
+#[test]
+fn a_class_no_table_names_takes_the_schemas_name() {
+    let schema = schema();
+    let mut tables = named();
+    tables.classes.remove(&h("Part"));
+
+    let classed = judged_under(&schema, &tables, "");
+    let without = document()
+        .children(
+            h("Characters/Aatrox/Skins/Skin0/Resources"),
+            "",
+            0,
+            usize::MAX,
+            &tables,
+            None,
+        )
+        .unwrap()
+        .rows;
+
+    let class = |rows: &[BinRow]| match &row(rows, "classed").value {
+        BinValue::Struct { class, .. } => class.clone(),
+        other => panic!("classed is a struct, not {other:?}"),
+    };
+    assert_eq!(class(&classed).as_deref(), Some("Part"));
+    assert_eq!(class(&without), None);
+}
+
 /// A name is the database's at every build. A declared kind is a revision's.
 #[test]
 fn without_a_build_the_schema_names_a_field_and_declares_nothing() {
@@ -1209,7 +1256,7 @@ fn an_entry_open_answers_the_objects_header_facts() {
     let document = document();
     let entry = h("Characters/Aatrox/Skins/Skin0/Resources");
 
-    let header = document.object(entry, &named()).unwrap();
+    let header = document.object(entry, &named(), None).unwrap();
     assert_eq!(header.entry, hex(entry));
     assert_eq!(header.name, "Characters/Aatrox/Skins/Skin0/Resources");
     assert!(!header.unnamed);
@@ -1218,7 +1265,7 @@ fn an_entry_open_answers_the_objects_header_facts() {
     assert_eq!(header.properties, under("").len());
 
     let unnamed = document
-        .object(BinHash::from(UNNAMED_OBJECT), &named())
+        .object(BinHash::from(UNNAMED_OBJECT), &named(), None)
         .unwrap();
     assert_eq!(unnamed.name, "0x12345678");
     assert!(unnamed.unnamed);
@@ -1226,8 +1273,32 @@ fn an_entry_open_answers_the_objects_header_facts() {
     assert_eq!(unnamed.class_hash, "0xabcdef01");
     assert_eq!(unnamed.properties, 0);
 
-    let error = document.object(h("Characters/Ahri"), &named()).unwrap_err();
+    let error = document
+        .object(h("Characters/Ahri"), &named(), None)
+        .unwrap_err();
     assert!(matches!(error, BinDocumentError::NodeNotFound { .. }));
+}
+
+#[test]
+fn a_header_and_a_root_take_the_schemas_class_name_where_the_tables_have_none() {
+    let schema = schema();
+    let document = document();
+    let mut tables = named();
+    tables.classes.remove(&h("CharacterRecord"));
+
+    let header = document
+        .object(h("Characters/Aatrox"), &tables, Some(at(&schema)))
+        .unwrap();
+    assert_eq!(header.class.as_deref(), Some("CharacterRecord"));
+
+    let roots = document.roots(&tables, Some(at(&schema)));
+    let root = roots
+        .iter()
+        .find(|row| row.name == "Characters/Aatrox")
+        .expect("the record is a root");
+    assert!(
+        matches!(&root.value, BinValue::Struct { class: Some(name), .. } if name == "CharacterRecord")
+    );
 }
 
 #[test]
@@ -1237,7 +1308,7 @@ fn an_objects_own_declaration_names_its_asset_and_file() {
     let tables = named();
 
     let declaration = document
-        .object(h("Characters/Aatrox"), &tables)
+        .object(h("Characters/Aatrox"), &tables, None)
         .unwrap()
         .declared_in(&asset, "data/skin0.bin");
     assert_eq!(declaration.asset, asset);
@@ -1246,7 +1317,7 @@ fn an_objects_own_declaration_names_its_asset_and_file() {
     assert_eq!(declaration.class_hash, hex(h("CharacterRecord")));
 
     let unnamed = document
-        .object(BinHash::from(UNNAMED_OBJECT), &tables)
+        .object(BinHash::from(UNNAMED_OBJECT), &tables, None)
         .unwrap()
         .declared_in(&asset, "data/skin0.bin");
     assert_eq!(
@@ -1262,11 +1333,11 @@ fn the_headers_dependencies_hash_as_wad_paths() {
         [WadHash::hash_str("common.bin")]
     );
 
-    let mut patch = BinOverride::<NoMeta>::new();
+    let mut patch = BinOverride::new();
     let added = BinObject::new(h("Characters/Aatrox"), h("CharacterRecord"));
     patch.objects.insert(added.path_hash, added);
     let mut out = Cursor::new(Vec::new());
     patch.to_writer(&mut out).unwrap();
-    let patch = BinDocument::parse(&out.into_inner()).unwrap();
+    let patch = BinDocument::parse(out.into_inner()).unwrap();
     assert!(patch.dependency_hashes().is_empty());
 }

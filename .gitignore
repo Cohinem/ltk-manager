@@ -40,7 +40,9 @@ src-tauri/src/lib/bindings/
 src/paraglide/
 
 # AI local settings
+.agents/
 .claude/
+.codex/
 .mcp.json
 .scratch/
 

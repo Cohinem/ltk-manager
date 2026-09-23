@@ -3,7 +3,7 @@ import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 import { api, type AppError, type WorkshopProject } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
-import { workshopKeys } from "../../api/keys";
+import { workshopKeys } from "../../shared/api/keys";
 
 export interface CreateLayerVariables {
   projectPath: string;

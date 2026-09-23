@@ -25,9 +25,12 @@ use crate::mods::types::{BulkInstallError, BulkInstallResult, InstalledMod, ROOT
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_wad::PathResolver;
+use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
+
+mod update;
 
 /// Prefix an in-flight install's directory and archive copy share under `mods/`.
 ///
@@ -300,6 +303,8 @@ fn stage_into(
         // `Unknown` never reaches here — it is what a discovered directory
         // records, and nothing installs one.
         ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
+            let normalized = strip_hashtable_boms(file_path, staging_dir)?;
+            let file_path = normalized.as_ref().map_or(file_path, |file| file.path());
             let source = file_path.to_path_buf().try_into_utf8("archive path")?;
             let dest = staged_archive
                 .to_path_buf()
@@ -364,6 +369,65 @@ fn remove_entry(index: &mut LibraryIndex, entry: &LibraryModEntry) {
         profile.enabled_mods.retain(|mid| mid != id);
         profile.layer_states.remove(id);
     }
+}
+
+/// An import copy with UTF-8 byte order marks removed from declared hashtables.
+fn strip_hashtable_boms(
+    source: &Path,
+    staging_dir: &Path,
+) -> AppResult<Option<tempfile::NamedTempFile>> {
+    let mut reader = ltk_fantome::FantomeReader::new(BufReader::new(fs::File::open(source)?))
+        .map_err(|e| AppError::Fantome(e.to_string()))?;
+    let info = reader
+        .read_info()
+        .map_err(|e| AppError::Fantome(e.to_string()))?;
+    drop(reader);
+
+    if info.hashtables.is_empty() {
+        return Ok(None);
+    }
+
+    let mut archive = zip::ZipArchive::new(BufReader::new(fs::File::open(source)?))?;
+    let mut replacements = std::collections::HashMap::new();
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index)?;
+        if !info.hashtables.iter().any(|table| {
+            table.to_entry().is_some() && entry.name().eq_ignore_ascii_case(&table.path)
+        }) {
+            continue;
+        }
+
+        let mut prefix = Vec::with_capacity(3);
+        entry.by_ref().take(3).read_to_end(&mut prefix)?;
+        if prefix != b"\xef\xbb\xbf" {
+            continue;
+        }
+
+        let mut content = Vec::new();
+        entry.read_to_end(&mut content)?;
+        replacements.insert(index, content);
+    }
+
+    if replacements.is_empty() {
+        return Ok(None);
+    }
+
+    let mut normalized = tempfile::NamedTempFile::new_in(staging_dir)?;
+    let mut writer = zip::ZipWriter::new(normalized.as_file_mut());
+    writer.set_raw_comment(archive.comment().into());
+
+    for index in 0..archive.len() {
+        let entry = archive.by_index(index)?;
+        if let Some(content) = replacements.get(&index) {
+            writer.start_file(entry.name(), entry.options())?;
+            writer.write_all(content)?;
+        } else {
+            writer.raw_copy_file(entry)?;
+        }
+    }
+
+    writer.finish()?;
+    Ok(Some(normalized))
 }
 
 /// Assign a slug, move the staged files into place, and record the mod.

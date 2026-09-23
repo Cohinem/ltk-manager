@@ -8,6 +8,7 @@ import type {
   PatcherError,
   WorkshopError,
 } from "@/lib/bindings";
+import type { EditRejection, ReadOnly, IntegrationError } from "@/lib/bindings.gen";
 import { m } from "@/paraglide/messages";
 import { isAppError } from "@/utils/errors";
 
@@ -22,6 +23,7 @@ export interface ErrorCopy {
 /** The copy for a backend error, exhaustive over its `code` so a new variant fails `tsc`. */
 export function describeError(error: AppError): ErrorCopy {
   return match(error)
+    .with({ code: "INTEGRATION" }, (e) => integrationError(e.error))
     .with({ code: "IO" }, (e) => withDetail(m["error.IO.title"](), e.detail))
     .with({ code: "SERIALIZATION" }, (e) => withDetail(m["error.SERIALIZATION.title"](), e.detail))
     .with({ code: "MODPKG" }, (e) => withDetail(m["error.MODPKG.title"](), e.detail))
@@ -75,6 +77,29 @@ export function describeError(error: AppError): ErrorCopy {
       title: m["error.BIN_READ_TOO_WIDE.title"](),
       description: m["error.BIN_READ_TOO_WIDE.description"]({ rows, cap }),
     }))
+    .with({ code: "BIN_READ_TOO_LARGE" }, () => ({
+      title: m["error.BIN_READ_TOO_LARGE.title"](),
+      description: m["error.BIN_READ_TOO_LARGE.description"](),
+    }))
+    .with({ code: "BIN_READ_TOO_DEEP" }, () => ({
+      title: m["error.BIN_READ_TOO_DEEP.title"](),
+      description: m["error.BIN_READ_TOO_DEEP.description"](),
+    }))
+    .with({ code: "BIN_READ_ONLY" }, ({ gate }) => ({
+      title: m["error.BIN_READ_ONLY.title"](),
+      description: readOnlyDescription(gate),
+    }))
+    .with({ code: "BIN_EDIT_REJECTED" }, ({ rejection }) => ({
+      title: m["error.BIN_EDIT_REJECTED.title"](),
+      description: editRejection(rejection),
+    }))
+    .with({ code: "BIN_CHANGED_ON_DISK" }, () => ({
+      title: m["error.BIN_CHANGED_ON_DISK.title"](),
+      description: m["error.BIN_CHANGED_ON_DISK.description"](),
+    }))
+    .with({ code: "BIN_UNWRITABLE" }, (e) =>
+      withDetail(m["error.BIN_UNWRITABLE.title"](), e.detail),
+    )
     .with({ code: "OVERLAY" }, ({ category, detail }) => withDetail(overlayTitle(category), detail))
     .with({ code: "UNTRUSTED_DOMAIN" }, ({ domain }) => ({
       title: m["error.UNTRUSTED_DOMAIN.title"]({ domain }),
@@ -92,6 +117,54 @@ export function errorSummary(error: AppError): string {
 
 function withDetail(title: string, detail: string): ErrorCopy {
   return { title, detail };
+}
+
+/** Why a bin takes no edit, as the gate it stands behind. */
+export function readOnlyDescription(gate: ReadOnly): string {
+  return match(gate)
+    .with("install", () => m["error.BIN_READ_ONLY.install.description"]())
+    .with("loose", () => m["error.BIN_READ_ONLY.loose.description"]())
+    .with("patch", () => m["error.BIN_READ_ONLY.patch.description"]())
+    .exhaustive();
+}
+
+/** What is wrong with a value a leaf turned down, in one line under the field. */
+export function editRejection(rejection: EditRejection): string {
+  return match(rejection)
+    .with({ reason: "notALeaf" }, () => m["error.BIN_EDIT_REJECTED.notALeaf.description"]())
+    .with({ reason: "wrongKind" }, ({ kind }) =>
+      m["error.BIN_EDIT_REJECTED.wrongKind.description"]({ kind }),
+    )
+    .with({ reason: "outOfRange" }, ({ kind }) =>
+      m["error.BIN_EDIT_REJECTED.outOfRange.description"]({ kind }),
+    )
+    .with({ reason: "notFinite" }, () => m["error.BIN_EDIT_REJECTED.notFinite.description"]())
+    .with({ reason: "wrongLength" }, ({ expected }) =>
+      m["error.BIN_EDIT_REJECTED.wrongLength.description"]({ expected }),
+    )
+    .with({ reason: "malformedHash" }, () =>
+      m["error.BIN_EDIT_REJECTED.malformedHash.description"](),
+    )
+    .with({ reason: "notAHolder" }, () => m["error.BIN_EDIT_REJECTED.notAHolder.description"]())
+    .with({ reason: "notAProperty" }, () => m["error.BIN_EDIT_REJECTED.notAProperty.description"]())
+    .with({ reason: "propertyExists" }, () =>
+      m["error.BIN_EDIT_REJECTED.propertyExists.description"](),
+    )
+    .with({ reason: "undeclaredField" }, () =>
+      m["error.BIN_EDIT_REJECTED.undeclaredField.description"](),
+    )
+    .with({ reason: "missingClass" }, () => m["error.BIN_EDIT_REJECTED.missingClass.description"]())
+    .with({ reason: "invalidShape" }, () => m["error.BIN_EDIT_REJECTED.invalidShape.description"]())
+    .with({ reason: "notAList" }, () => m["error.BIN_EDIT_REJECTED.notAList.description"]())
+    .with({ reason: "notAnItem" }, () => m["error.BIN_EDIT_REJECTED.notAnItem.description"]())
+    .with({ reason: "notAPointer" }, () => m["error.BIN_EDIT_REJECTED.notAPointer.description"]())
+    .with({ reason: "keyExists" }, () => m["error.BIN_EDIT_REJECTED.keyExists.description"]())
+    .with({ reason: "missingKey" }, () => m["error.BIN_EDIT_REJECTED.missingKey.description"]())
+    .with({ reason: "valueHeld" }, () => m["error.BIN_EDIT_REJECTED.valueHeld.description"]())
+    .with({ reason: "namelessPath" }, () => m["error.BIN_EDIT_REJECTED.namelessPath.description"]())
+    .with({ reason: "undeclarable" }, () => m["error.BIN_EDIT_REJECTED.undeclarable.description"]())
+    .with({ reason: "noSuchIndex" }, () => m["error.BIN_EDIT_REJECTED.noSuchIndex.description"]())
+    .exhaustive();
 }
 
 /** The category's own title, so a wrong game dir does not read as a broken mod. */
@@ -201,6 +274,34 @@ export function describeWorkshopError(error: WorkshopError): ErrorCopy {
       title: m["workshop.LAYER_FILE_CONFLICT.title"](),
       ...(conflicts.length > 0 && { description: conflictSentence(conflicts) }),
     }))
+    .with({ kind: "IGNORE_RULE_PATTERN" }, ({ line, message }) => ({
+      title: m["workshop.IGNORE_RULE_PATTERN.title"](),
+      description: m["workshop.IGNORE_RULE_PATTERN.description"]({ line, message }),
+    }))
+    .with({ kind: "PACK_IGNORE_PATTERN" }, ({ path, line, message }) => ({
+      title: m["workshop.PACK_IGNORE_PATTERN.title"](),
+      description: m["workshop.PACK_IGNORE_PATTERN.description"]({ path, line, message }),
+    }))
+    .with({ kind: "TEXT_FILE_CHANGED" }, ({ path }) => ({
+      title: m["workshop.TEXT_FILE_CHANGED.title"](),
+      description: m["workshop.TEXT_FILE_CHANGED.description"]({ path }),
+    }))
+    .with({ kind: "DECLARATIONS_CHANGED_ON_DISK" }, ({ path }) => ({
+      title: m["workshop.DECLARATIONS_CHANGED_ON_DISK.title"](),
+      description: m["workshop.DECLARATIONS_CHANGED_ON_DISK.description"]({ path }),
+    }))
+    .with({ kind: "DECLARATIONS_NOT_YAML" }, ({ path }) => ({
+      title: m["workshop.DECLARATIONS_NOT_YAML.title"](),
+      description: m["workshop.DECLARATIONS_NOT_YAML.description"]({ path }),
+    }))
+    .with({ kind: "DECLARATIONS_INVALID" }, ({ path, message }) => ({
+      title: m["workshop.DECLARATIONS_INVALID.title"](),
+      description: m["workshop.DECLARATIONS_INVALID.description"]({ path, message }),
+    }))
+    .with({ kind: "DECLARATIONS_UNEDITABLE" }, ({ path, reason }) => ({
+      title: m["workshop.DECLARATIONS_UNEDITABLE.title"](),
+      description: m["workshop.DECLARATIONS_UNEDITABLE.description"]({ path, reason }),
+    }))
     .exhaustive();
 }
 
@@ -219,4 +320,35 @@ export function errorMessage(error: unknown): string {
   if (isAppError(error)) return errorSummary(error);
   if (error instanceof Error) return error.message;
   return m.common_unknown_error_label();
+}
+
+function integrationError(error: IntegrationError): ErrorCopy {
+  return match(error)
+    .with({ kind: "unsupported" }, () => ({
+      title: m.settings_integrations_error_unsupported_title(),
+    }))
+    .with({ kind: "busy" }, () => ({ title: m.settings_integrations_error_busy_title() }))
+    .with({ kind: "conflict" }, () => ({
+      title: m.settings_integrations_error_conflict_title(),
+      description: m.settings_integrations_error_conflict_description(),
+    }))
+    .with({ kind: "notInstalled" }, () => ({
+      title: m.settings_integrations_error_not_installed_title(),
+    }))
+    .with({ kind: "invalidReceipt" }, () => ({
+      title: m.settings_integrations_error_receipt_title(),
+      description: m.settings_integrations_error_receipt_description(),
+    }))
+    .with({ kind: "release" }, (e) =>
+      withDetail(m.settings_integrations_error_release_title(), e.detail),
+    )
+    .with({ kind: "integrity" }, () => ({
+      title: m.settings_integrations_error_integrity_title(),
+      description: m.settings_integrations_error_integrity_description(),
+    }))
+    .with({ kind: "cancelled" }, () => ({ title: m.settings_integrations_error_cancelled_title() }))
+    .with({ kind: "operation" }, (e) =>
+      withDetail(m.settings_integrations_error_operation_title(), e.detail),
+    )
+    .exhaustive();
 }

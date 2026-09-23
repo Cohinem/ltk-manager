@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { libraryKeys } from "./keys";
+import { refreshMods } from "./modMutations";
 import { profileMutations } from "./profileMutations";
 
 /** Switch to a different profile, and land the reader back on the library. */
@@ -16,7 +17,7 @@ export function useSwitchProfile() {
     onSuccess: () => {
       navigate({ to: "/mods" });
       queryClient.invalidateQueries({ queryKey: libraryKeys.activeProfile() });
-      queryClient.invalidateQueries({ queryKey: libraryKeys.mods() });
+      refreshMods(queryClient);
     },
   });
 }

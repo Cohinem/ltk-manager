@@ -14,6 +14,92 @@ fn context() -> InstallContext<'static> {
     }
 }
 
+fn fantome_with_hashtable(path: &Path, content: &[u8]) {
+    crate::mods::test_support::make_missing_hashtable_fantome_zip(path);
+
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .unwrap();
+    let mut zip = zip::ZipWriter::new_append(file).unwrap();
+    zip.start_file(
+        "meta/HASHES/GAME.hashes.txt",
+        zip::write::SimpleFileOptions::default(),
+    )
+    .unwrap();
+    zip.write_all(content).unwrap();
+    zip.finish().unwrap();
+}
+
+#[test]
+fn bom_prefixed_hashtables_keep_their_names_when_installed_and_unpacked() {
+    for newline in ["\n", "\r\n"] {
+        let storage = tempfile::tempdir().unwrap();
+        let (library, config) = make_test_library(storage.path());
+        let source = tempfile::tempdir().unwrap();
+        let archive = source.path().join("bom.fantome");
+        let table = format!("\u{feff}data/skin0.bin{newline}assets/custom/second.tex{newline}");
+        fantome_with_hashtable(&archive, table.as_bytes());
+        let original = fs::read(&archive).unwrap();
+
+        let installed = library
+            .install_mod_from_package(&config, archive.to_str().unwrap())
+            .unwrap();
+        library
+            .set_mod_storage(&config, &installed.id, ModStorage::Project)
+            .unwrap();
+
+        let mod_dir = PathBuf::from(&installed.mod_dir);
+        let project = load_mod_project(&mod_dir).unwrap();
+        let table = ltk_hashtable::Hashtable::from_reader(
+            fs::File::open(mod_dir.join(&project.hashtables[0].path)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            table.names().collect::<Vec<_>>(),
+            ["data/skin0.bin", "assets/custom/second.tex"]
+        );
+        assert_eq!(
+            fs::read(mod_dir.join("content/base/Ashe.wad.client/data/skin0.bin")).unwrap(),
+            b"PROP"
+        );
+        assert_eq!(fs::read(&archive).unwrap(), original);
+    }
+}
+
+#[test]
+fn a_hashtable_containing_only_a_bom_installs_as_an_empty_table() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("empty-table.fantome");
+    fantome_with_hashtable(&archive, b"\xef\xbb\xbf");
+
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
+
+    let mut reader =
+        ltk_fantome::FantomeReader::new(fs::File::open(staged.staged_archive).unwrap()).unwrap();
+    let tables = reader.read_hashtables().unwrap();
+    assert_eq!(tables.len(), 1);
+    assert_eq!(tables[0].1.names().count(), 0);
+}
+
+#[test]
+fn stripping_a_bom_does_not_hide_invalid_hashtable_content() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("invalid-table.fantome");
+    fantome_with_hashtable(&archive, b"\xef\xbb\xbfdata/skin0.bin\ninvalid\x00name\n");
+
+    let result = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context());
+
+    assert!(result.is_err());
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        0
+    );
+}
+
 fn install(storage: &Path, archive: &Path) -> AppResult<LibraryModEntry> {
     let mut index = LibraryIndex::default();
     let staged = stage_mod_package(storage, archive.to_str().unwrap(), &context())?;
@@ -613,5 +699,218 @@ fn a_fantome_keeps_the_layers_its_metadata_declares() {
     assert_eq!(
         high_res.string_overrides["en_us"]["game_character_displayname_Ashe"],
         "Frost Archer"
+    );
+}
+
+#[test]
+fn an_update_keeps_identity_folders_and_every_profiles_choices() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("original.fantome");
+    make_named_fantome_zip(&archive, "Original");
+    let (library, config) = make_test_library(storage.path());
+    let original = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+    let before = library
+        .mutate_index(&config, |_, index| {
+            index.profiles[0].enabled_mods.clear();
+            index.profiles[0].layer_states.insert(
+                original.id.clone(),
+                std::collections::HashMap::from([
+                    ("base".to_owned(), false),
+                    ("removed".to_owned(), true),
+                ]),
+            );
+            index.profiles.push(make_test_profile(
+                "other",
+                "Other",
+                vec![&original.id],
+                vec![&original.id],
+            ));
+            index.folders[0].mod_ids.clear();
+            index.folders.push(LibraryFolder {
+                id: "custom".to_owned(),
+                name: "Custom".to_owned(),
+                mod_ids: vec![original.id.clone()],
+            });
+            Ok(index.clone())
+        })
+        .unwrap();
+    let replacement = source.path().join("replacement.fantome");
+    make_named_fantome_zip(&replacement, "Replacement");
+
+    let updated = library
+        .update_mod_from_package(&config, &original.id, replacement.to_str().unwrap())
+        .unwrap();
+
+    assert_eq!(updated.id, original.id);
+    assert_eq!(updated.mod_dir, original.mod_dir);
+    assert_eq!(updated.display_name, "Replacement");
+    assert_eq!(updated.folder_id.as_deref(), Some("custom"));
+    assert!(!updated.enabled);
+    library
+        .with_index(&config, |_, index| {
+            assert_eq!(index.mods.len(), 1);
+            assert_eq!(index.mods[0].installed_at, before.mods[0].installed_at);
+            assert_eq!(
+                serde_json::to_value(&index.folders).unwrap(),
+                serde_json::to_value(&before.folders).unwrap()
+            );
+            for (after, before) in index.profiles.iter().zip(&before.profiles) {
+                assert_eq!(after.mod_order, before.mod_order);
+                assert_eq!(after.enabled_mods, before.enabled_mods);
+            }
+            let states = &index.profiles[0].layer_states[&original.id];
+            assert_eq!(states.get("base"), Some(&false));
+            assert!(!states.contains_key("removed"));
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        2
+    );
+}
+
+#[test]
+fn a_failed_index_save_restores_the_old_archive_and_metadata() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("original.fantome");
+    make_named_fantome_zip(&archive, "Original");
+    let (library, config) = make_test_library(storage.path());
+    let original = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+    let old_archive = storage.path().join("mods/original.fantome");
+    let old_bytes = fs::read(&old_archive).unwrap();
+    let old_index = fs::read(storage.path().join("library.json")).unwrap();
+    make_named_fantome_zip(&archive, "Replacement");
+    fs::create_dir(storage.path().join("library.json.tmp")).unwrap();
+
+    assert!(
+        library
+            .update_mod_from_package(&config, &original.id, archive.to_str().unwrap())
+            .is_err()
+    );
+
+    assert_eq!(fs::read(old_archive).unwrap(), old_bytes);
+    assert_eq!(
+        fs::read(storage.path().join("library.json")).unwrap(),
+        old_index
+    );
+    assert_eq!(
+        load_mod_project(Path::new(&original.mod_dir))
+            .unwrap()
+            .display_name,
+        "Original"
+    );
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        2
+    );
+}
+
+#[test]
+fn an_invalid_update_leaves_the_old_mod_usable() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("original.fantome");
+    make_named_fantome_zip(&archive, "Original");
+    let (library, config) = make_test_library(storage.path());
+    let original = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+    fs::write(&archive, b"invalid archive").unwrap();
+
+    assert!(
+        library
+            .update_mod_from_package(&config, &original.id, archive.to_str().unwrap())
+            .is_err()
+    );
+    assert_eq!(
+        library.get_installed_mods(&config).unwrap()[0].display_name,
+        "Original"
+    );
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        2
+    );
+}
+
+#[test]
+fn updating_an_unknown_id_discards_staging_without_installing_a_mod() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("replacement.fantome");
+    make_named_fantome_zip(&archive, "Replacement");
+    let (library, config) = make_test_library(storage.path());
+
+    assert!(matches!(
+        library.update_mod_from_package(&config, "missing", archive.to_str().unwrap()),
+        Err(AppError::ModNotFound(_))
+    ));
+    assert!(library.get_installed_mods(&config).unwrap().is_empty());
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        0
+    );
+}
+
+#[test]
+fn an_update_can_change_archive_format_without_leaving_the_old_archive() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("original.fantome");
+    make_named_fantome_zip(&archive, "Original");
+    let (library, config) = make_test_library(storage.path());
+    let original = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+    let replacement = source.path().join("replacement.modpkg");
+    crate::mods::test_support::make_modpkg(&replacement, "Replacement");
+
+    let updated = library
+        .update_mod_from_package(&config, &original.id, replacement.to_str().unwrap())
+        .unwrap();
+
+    assert_eq!(updated.id, original.id);
+    assert_eq!(updated.format, ModArchiveFormat::Modpkg);
+    assert!(!storage.path().join("mods/original.fantome").exists());
+    assert!(storage.path().join("mods/original.modpkg").is_file());
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        2
+    );
+}
+
+#[test]
+fn an_update_replaces_an_unpacked_mod_with_the_new_archive() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("original.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+    let (library, config) = make_test_library(storage.path());
+    let original = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+    library
+        .set_mod_storage(&config, &original.id, ModStorage::Project)
+        .unwrap();
+    assert!(Path::new(&original.mod_dir).join("content").is_dir());
+    make_named_fantome_zip(&archive, "Replacement");
+
+    let updated = library
+        .update_mod_from_package(&config, &original.id, archive.to_str().unwrap())
+        .unwrap();
+
+    assert_eq!(updated.id, original.id);
+    assert_eq!(updated.storage, ModStorage::Archive);
+    assert!(!Path::new(&updated.mod_dir).join("content").exists());
+    assert_eq!(updated.display_name, "Replacement");
+    assert_eq!(
+        fs::read_dir(storage.path().join("mods")).unwrap().count(),
+        2
     );
 }

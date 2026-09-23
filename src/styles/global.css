@@ -50,12 +50,18 @@
   --ltk-doc-strings: #34d399;
   --ltk-doc-game: #fb7185;
   --ltk-doc-problems: #f97316;
+  --ltk-doc-ignore: #94a3b8;
+  --ltk-doc-readme: #e879f9;
+  --ltk-doc-license: #a3e635;
   --ltk-doc-details-text: var(--ltk-doc-details);
   --ltk-doc-base-text: var(--ltk-doc-base);
   --ltk-doc-layer-text: var(--ltk-doc-layer);
   --ltk-doc-strings-text: var(--ltk-doc-strings);
   --ltk-doc-game-text: var(--ltk-doc-game);
   --ltk-doc-problems-text: var(--ltk-doc-problems);
+  --ltk-doc-ignore-text: var(--ltk-doc-ignore);
+  --ltk-doc-readme-text: var(--ltk-doc-readme);
+  --ltk-doc-license-text: var(--ltk-doc-license);
 
   /* The folder of a tree row. */
   --ltk-folder: #dcb67a;
@@ -96,6 +102,9 @@
   --ltk-doc-strings-text: color-mix(in srgb, var(--ltk-doc-strings) 50%, black);
   --ltk-doc-game-text: color-mix(in srgb, var(--ltk-doc-game) 50%, black);
   --ltk-doc-problems-text: color-mix(in srgb, var(--ltk-doc-problems) 50%, black);
+  --ltk-doc-ignore-text: color-mix(in srgb, var(--ltk-doc-ignore) 50%, black);
+  --ltk-doc-readme-text: color-mix(in srgb, var(--ltk-doc-readme) 50%, black);
+  --ltk-doc-license-text: color-mix(in srgb, var(--ltk-doc-license) 50%, black);
   --ltk-folder-text: color-mix(in srgb, var(--ltk-folder) 60%, black);
   --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
   --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);
@@ -315,12 +324,15 @@
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  /* Dense row type: the tier a row names itself in, and the tier around it. */
+  /* Dense row type: the tier a row names itself in, and the tiers around it. */
   --type-row: 0.75rem;
   --type-row-leading: 1rem;
   --type-meta: 0.6875rem;
   --type-meta-leading: 0.875rem;
   --type-meta-tracking: 0.01em;
+  --type-fine: 0.625rem;
+  --type-fine-leading: 0.8125rem;
+  --type-fine-tracking: 0.01em;
 
   /* The tier a row set entirely in mono names itself in. */
   --type-mono-row: 0.8125rem;
@@ -564,7 +576,13 @@ samp {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent-500) 30%, transparent);
+  background: color-mix(in oklab, var(--accent-500) 62%, transparent);
+  color: var(--surface-50);
+}
+
+/* Inherited, so every field and editable surface takes it from here. */
+html {
+  caret-color: var(--accent-400);
 }
 
 /* ============================================
@@ -592,6 +610,7 @@ samp {
 [data-reduce-motion="true"] *::after,
 [data-reduce-motion="true"] ::-webkit-scrollbar-thumb {
   animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
   animation-delay: 0ms !important;
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
@@ -622,6 +641,76 @@ samp {
   background: linear-gradient(to top, var(--surface-950), transparent);
   pointer-events: none;
   z-index: 1;
+}
+
+/* ============================================
+   Sculpted Surfaces
+   ============================================ */
+
+:root {
+  --surface-edge-light: color-mix(in srgb, var(--ltk-on-brand) 4%, transparent);
+  --surface-depth-shade: color-mix(in srgb, var(--ltk-glass-scrim-fill) 70%, transparent);
+  --surface-face-shade: color-mix(in srgb, var(--surface-depth-shade) 70%, transparent);
+  --shadow-concave: 0 -3px 8px -2px var(--surface-depth-shade);
+  --shadow-pressed:
+    inset 0 5px 12px -2px var(--surface-depth-shade),
+    inset 2px 0 6px -3px var(--surface-depth-shade),
+    inset -2px 0 6px -3px var(--surface-depth-shade), inset 0 -1px 0 var(--surface-edge-light);
+}
+
+[data-theme="light"] {
+  --surface-edge-light: color-mix(in srgb, var(--ltk-on-brand) 35%, transparent);
+  --surface-depth-shade: color-mix(in srgb, var(--ltk-glass-scrim-fill) 32%, transparent);
+}
+
+@layer components {
+  .sculpted-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: linear-gradient(to top, var(--surface-face-shade), transparent 75%);
+  }
+
+  .sculpted-card-details {
+    position: relative;
+    isolation: isolate;
+    z-index: 1;
+  }
+
+  .sculpted-card-details:has(.sculpted-card-art)::before {
+    content: "";
+    position: absolute;
+    top: 1px;
+    inset-inline: 0.625rem;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--surface-edge-light) 20% 80%,
+      transparent
+    );
+  }
+
+  .sculpted-card-art {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    opacity: 0.3;
+    mask-image: linear-gradient(to bottom, var(--ltk-on-brand), transparent);
+  }
+
+  .sculpted-card-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(22px) saturate(1.35);
+    transform: scale(1.3);
+  }
 }
 
 /* ============================================

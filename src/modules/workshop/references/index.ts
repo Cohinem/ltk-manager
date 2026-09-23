@@ -1,5 +1,13 @@
-export { ReferencesDocument } from "./ReferencesDocument";
-export { ReferencesTree } from "./ReferencesTree";
+export {
+  chunkReferences,
+  classReferences,
+  fileReferences,
+  objectReferences,
+  useFindReferences,
+} from "./api/useFindReferences";
+export { referenceKeys, useReferences } from "./api/useReferences";
+export { ReferencesDocument } from "./components/ReferencesDocument";
+export { ReferencesTree } from "./components/ReferencesTree";
 export {
   buildReferenceTree,
   countReferences,
@@ -8,6 +16,4 @@ export {
   type ReferenceNode,
   type ReferenceObjectNode,
   type ReferenceRow,
-} from "./referenceTree";
-export { classReferences, objectReferences, useFindReferences } from "./useFindReferences";
-export { referenceKeys, useReferences } from "./useReferences";
+} from "./utils/referenceTree";

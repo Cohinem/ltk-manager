@@ -4,6 +4,7 @@ import { useToast } from "@/components";
 import { errorMessage, m } from "@/i18n";
 import { api, type PatcherConfig } from "@/lib/tauri";
 import { useStartPatcher } from "@/modules/patcher";
+import { hasBuiltinMods, useSettings } from "@/modules/settings";
 
 import { checkModForSkinhack } from "../utils/skinhackCheck";
 import { useInstalledMods } from "./queries";
@@ -21,6 +22,7 @@ import { useInstalledMods } from "./queries";
 export function useGuardedStartPatcher() {
   const startPatcher = useStartPatcher();
   const { data: mods = [] } = useInstalledMods();
+  const { data: settings } = useSettings();
   const toast = useToast();
 
   const start = useCallback(
@@ -38,7 +40,7 @@ export function useGuardedStartPatcher() {
       }
 
       // Nothing safe left to apply once every enabled mod was a flagged skinhack.
-      if (flaggedMods.length >= enabledMods.length) {
+      if (flaggedMods.length >= enabledMods.length && !hasBuiltinMods(settings)) {
         return;
       }
 
@@ -49,7 +51,7 @@ export function useGuardedStartPatcher() {
         console.error("Failed to start patcher:", error);
       }
     },
-    [mods, startPatcher, toast],
+    [mods, settings, startPatcher, toast],
   );
 
   return { start };

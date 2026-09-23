@@ -1,0 +1,33 @@
+[package]
+name = "ltk-manager-game"
+version = "0.1.0"
+description = "What League's own classes mean to LTK Manager, read out of an open bin"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[features]
+# Derive `ts_rs::TS` and `specta::Type` on what crosses IPC, which takes core's own.
+ts = ["dep:ts-rs", "dep:specta", "ltk-manager-core/ts", "hexshade/ts"]
+
+[dependencies]
+hexshade = { workspace = true }
+ltk-manager-core = { workspace = true }
+
+fs-err = { workspace = true }
+glam = { workspace = true }
+ltk_hash = { workspace = true }
+ltk_meta = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, optional = true }
+tracing = { workspace = true }
+ts-rs = { workspace = true, optional = true }
+xxhash-rust = { workspace = true }
+
+[dev-dependencies]
+ltk_modpkg = { workspace = true }
+ltk_wad = { workspace = true }
+tempfile = { workspace = true }

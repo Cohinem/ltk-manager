@@ -1,8 +1,13 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "common_action_failed_title": "Something went wrong",
+  "common_breadcrumb_overflow_action": "Show the places above",
   "common_cancel_action": "Cancel",
   "common_close_action": "Close",
+  "common_color_picker_hex_field_label": "{label} hex",
+  "common_color_picker_hex_label": "Hex",
+  "common_color_picker_hue_label": "Hue",
+  "common_color_picker_shade_label": "Saturation {saturation}%, brightness {brightness}%",
   "common_crash_description": "This screen stopped working. Reloading usually fixes it, and nothing you have installed is affected.",
   "common_crash_reload_action": "Reload",
   "common_crash_report_action": "Report a bug",
@@ -19,6 +24,10 @@
       }
     }
   ],
+  "common_number_decrease_action": "Decrease value",
+  "common_number_increase_action": "Increase value",
+  "common_number_step_hint": "Up/Down to step. Ctrl/Cmd for fine steps, Shift for coarse steps. Enter to apply, Escape to cancel.",
+  "common_path_open_action": "Open in file manager",
   "common_retry_action": "Retry",
   "common_save_action": "Save",
   "common_unknown_error_label": "Unknown error"

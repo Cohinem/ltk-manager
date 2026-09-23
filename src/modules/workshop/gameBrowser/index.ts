@@ -1,29 +1,37 @@
-export { ExtractDialog } from "./ExtractDialog";
-export { ExtractMenuItems } from "./ExtractMenuItems";
-export { ExtractRunner } from "./ExtractRunner";
-export { archiveTarget, chunkTarget } from "./extractTargets";
-export { fileKindFromPath } from "./fileKind";
-export { GameWadsErrorState } from "./GameBrowserStates";
-export { GameDocument } from "./GameDocument";
-export { GameWadDocument } from "./GameWadDocument";
-export { GameWadsDocument } from "./GameWadsDocument";
-export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./keys";
-export { ObjectIndexLifecycle } from "./ObjectIndexLifecycle";
-export { gameQueries, objectIndexQueries } from "./queries";
-export * from "./sourceIndex";
-export { SourceTree } from "./SourceTree";
-export { type ExtractHow, useExtractActions } from "./useExtractActions";
-export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./useGameIndex";
-export { useGameSearch } from "./useGameSearch";
-export { useRevealGameSearch } from "./useGameSearchReveal";
-export { useGameWadEntries } from "./useGameWadEntries";
-export { useGameWads } from "./useGameWads";
 export {
   useDeclaredObjects,
   useDropObjectIndex,
   useObjectDeclarations,
   useWarmObjectIndex,
-} from "./useObjectIndex";
-export { useObjectSearch } from "./useObjectSearch";
-export { type OpenSourceFile, useSourcePreview } from "./useSourcePreview";
-export { useSourceTreeNav } from "./useSourceTreeNav";
+} from "../objectsBrowser/api/useObjectIndex";
+export { useObjectSearch } from "../objectsBrowser/api/useObjectSearch";
+export { ObjectIndexLifecycle } from "../objectsBrowser/components/ObjectIndexLifecycle";
+export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./api/keys";
+export { gameQueries, objectIndexQueries } from "./api/queries";
+export { useGameFind } from "./api/useGameFind";
+export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./api/useGameIndex";
+export { useGameSearch } from "./api/useGameSearch";
+export { useGameWadEntries } from "./api/useGameWadEntries";
+export { useGameWads } from "./api/useGameWads";
+export { GameWadsErrorState } from "./components/GameBrowserStates";
+export {
+  EXPLORER_ID as GAME_EXPLORER_ID,
+  GameDocument,
+  GameIndexTree,
+  MatchCount,
+} from "./components/GameDocument";
+export { GameFindResults } from "./components/GameFindResults";
+export { GameWadDocument } from "./components/GameWadDocument";
+export { GameWadsDocument } from "./components/GameWadsDocument";
+export { SourceTree } from "./components/SourceTree";
+export { ExtractDialog } from "./extraction/components/ExtractDialog";
+export { ExtractMenuItems } from "./extraction/components/ExtractMenuItems";
+export { ExtractRunner } from "./extraction/components/ExtractRunner";
+export { type ExtractHow, useExtractActions } from "./extraction/hooks/useExtractActions";
+export { archiveTarget, chunkPath, chunkTarget } from "./extraction/utils/extractTargets";
+export { useGameSearchRevealTarget, useRevealGameSearch } from "./hooks/useGameSearchReveal";
+export { useRevealInGameFiles } from "./hooks/useRevealInGameFiles";
+export { type OpenSourceFile, useSourcePreview } from "./hooks/useSourcePreview";
+export { useSourceTreeNav } from "./hooks/useSourceTreeNav";
+export { fileKindFromPath } from "./utils/fileKind";
+export * from "./utils/sourceIndex";

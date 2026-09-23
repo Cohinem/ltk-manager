@@ -18,8 +18,14 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::bin_document::PropertyKind;
+use crate::bin_document::hex;
 use crate::problems::GameBuild;
-use crate::problems::names::hex;
+
+mod fields;
+mod game_data;
+
+pub use fields::DeclaredField;
+pub use game_data::PatchSchema;
 
 #[cfg(test)]
 mod tests;
@@ -33,6 +39,9 @@ struct Published {
     hash_source: HashSource,
     /// The newest build any revision names.
     latest: u32,
+    /// The patches it describes, oldest first.
+    #[serde(default)]
+    versions: Vec<PublishedVersion>,
     classes: HashMap<String, PublishedClass>,
 }
 
@@ -44,10 +53,30 @@ struct HashSource {
 }
 
 #[derive(Debug, Deserialize)]
+struct PublishedVersion {
+    /// The patch a player names, as `<major>.<minor>`.
+    patch: String,
+    /// The content build that patch shipped.
+    build: u32,
+}
+
+#[derive(Debug, Deserialize)]
 struct PublishedClass {
     name: Option<String>,
+    /// The classes it derives from, over spans of builds.
+    #[serde(default)]
+    revisions: Vec<PublishedClassRevision>,
     #[serde(default)]
     properties: HashMap<String, PublishedProperty>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PublishedClassRevision {
+    from: u32,
+    to: Option<u32>,
+    /// The classes this one derives from, as hashes.
+    #[serde(default)]
+    bases: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +96,15 @@ struct PublishedRevision {
     /// [`Shape`] reads.
     #[serde(default)]
     r#type: Vec<String>,
+    /// The constructor value, including an explicitly null default.
+    #[serde(default, deserialize_with = "present_default")]
+    default: Option<serde_json::Value>,
+}
+
+fn present_default<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<serde_json::Value>, D::Error> {
+    serde_json::Value::deserialize(deserializer).map(Some)
 }
 
 /// The database this build ships, so a check works offline and before a sync.
@@ -84,14 +122,50 @@ const FORMAT_VERSION: u32 = 1;
 #[derive(Debug)]
 pub struct MetaSchema {
     generation: String,
+    digest: String,
     latest: u32,
+    patch: Option<String>,
     classes: HashMap<BinHash, ParsedClass>,
+}
+
+/// What one meta schema database is, as the cache card names it.
+///
+/// The patch rather than the generation: the publisher restamps the hash tables
+/// on their own schedule, so a database gains patches between two stamps.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct MetaSchemaVersion {
+    /// The patch naming the newest build it describes, absent where it names none.
+    pub patch: Option<String>,
+    /// That build, which is as far as the database reaches.
+    pub build: u32,
+    /// When the upstream hash tables behind it were read.
+    pub generation: String,
 }
 
 #[derive(Debug)]
 struct ParsedClass {
     name: Option<String>,
+    /// Oldest first.
+    bases: Vec<ClassRevision>,
     properties: HashMap<BinHash, ParsedProperty>,
+}
+
+/// The classes one class derives from over one span of builds.
+#[derive(Debug)]
+struct ClassRevision {
+    from: u32,
+    to: Option<u32>,
+    bases: Vec<BinHash>,
+}
+
+impl ClassRevision {
+    /// Whether this revision is the one describing `build`. `to` is inclusive.
+    fn covers(&self, build: u32) -> bool {
+        build >= self.from && self.to.is_none_or(|last| build <= last)
+    }
 }
 
 #[derive(Debug)]
@@ -111,13 +185,17 @@ impl ParsedProperty {
 }
 
 /// One property's type over one span of builds.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct Revision {
     from: u32,
     to: Option<u32>,
     /// `None` for a type name this build does not map, which is a revision the
     /// lookup declines to answer rather than one it answers wrongly.
     shape: Option<Shape>,
+    /// The class slot of the type: what an `Embed`, a `Pointer` or a list's items hold.
+    class: Option<BinHash>,
+    /// The value the game constructs the field with.
+    default: Option<serde_json::Value>,
 }
 
 impl Revision {
@@ -132,6 +210,21 @@ impl Revision {
 
 /// What the database writes in a slot the type leaves empty.
 const EMPTY_SLOT: &str = "0x0";
+
+/// How many bases deep a walk up a class goes.
+///
+/// The bound ends a cycle a database writes by mistake, and sits above the
+/// deepest published hierarchy, which is nine classes.
+const BASE_DEPTH: usize = 16;
+
+/// Which revisions of a class's bases a walk up it follows.
+#[derive(Debug, Clone, Copy)]
+enum BasesAt {
+    /// The revision covering this content build.
+    Build(u32),
+    /// Every revision.
+    Any,
+}
 
 /// The type of one property, as the database writes it.
 ///
@@ -189,7 +282,7 @@ impl Shape {
 ///
 /// The wire form of [`Shape`]. A row's tag and a card's field draw it as `list[embed]`
 /// or `map[hash,string]`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -210,6 +303,16 @@ impl KindShape {
             kind,
             key: None,
             value: None,
+        }
+    }
+}
+
+impl From<KindShape> for Shape {
+    fn from(shape: KindShape) -> Self {
+        Self {
+            kind: shape.kind.into(),
+            key: shape.key.map(Kind::from),
+            value: shape.value.map(Kind::from),
         }
     }
 }
@@ -259,6 +362,10 @@ pub struct FieldSchema {
     /// The type at the card's build. Absent where no revision covers the build, and
     /// where the revision names a type this build cannot map.
     pub declared: Option<KindShape>,
+    /// The declared class of an embed, pointer, or container item.
+    pub class_hash: Option<String>,
+    /// The constructor default as lossless JSON, absent when the schema has none.
+    pub default_value: Option<String>,
     /// Oldest first.
     pub revisions: Vec<FieldRevision>,
 }
@@ -314,10 +421,16 @@ impl<'a> SchemaAt<'a> {
         self.schema.expected(class, field, self.build?)
     }
 
-    /// The field as the database names it, at any build.
+    /// The field as the database names it on `class` or a base of it, at any build.
     #[must_use]
     pub fn field_name(self, class: BinHash, field: BinHash) -> Option<&'a str> {
         self.schema.field_name(class, field)
+    }
+
+    /// The class as the database names it, at any build.
+    #[must_use]
+    pub fn class_name(self, class: BinHash) -> Option<&'a str> {
+        self.schema.class_name(class)
     }
 }
 
@@ -392,24 +505,51 @@ impl MetaSchema {
                         Some((parse_hash(&field)?, ParsedProperty::from(property)))
                     })
                     .collect();
+                let bases = class
+                    .revisions
+                    .into_iter()
+                    .map(|revision| ClassRevision {
+                        from: revision.from,
+                        to: revision.to,
+                        bases: revision
+                            .bases
+                            .iter()
+                            .filter_map(|base| parse_hash(base))
+                            .collect(),
+                    })
+                    .collect();
                 Some((
                     hash,
                     ParsedClass {
                         name: class.name,
+                        bases,
                         properties,
                     },
                 ))
             })
             .collect();
 
+        let latest = published.latest;
+        let patch = published
+            .versions
+            .into_iter()
+            .filter(|version| version.build <= latest)
+            .max_by_key(|version| version.build)
+            .map(|version| version.patch);
+
         Ok(Self {
             generation: published.hash_source.fetched_at,
-            latest: published.latest,
+            digest: crate::diagnostics::binary_id::content_hash(json),
+            latest,
+            patch,
             classes,
         })
     }
 
     /// What the game expects `field` of `class` to hold at `build`.
+    ///
+    /// The type is the one `class` or a base of it declares. See
+    /// [`MetaSchema::find_in_hierarchy`] for the order the classes answer in.
     ///
     /// `None` for a class, property or build it does not describe - silence
     /// rather than a mismatch, since a schema that says nothing is not evidence.
@@ -420,15 +560,64 @@ impl MetaSchema {
         field: BinHash,
         build: GameBuild,
     ) -> Option<Expected<'_>> {
-        let parsed = self.classes.get(&class)?;
-        let property = parsed.properties.get(&field)?;
-        let revision = property.at(build.content())?;
+        let content = build.content();
+        let (property, revision) = self.walk_hierarchy(
+            class,
+            BasesAt::Build(content),
+            &mut |owner| {
+                let property = self.classes.get(&owner)?.properties.get(&field)?;
+                Some((property, property.at(content)?))
+            },
+            0,
+        )?;
 
         Some(Expected {
             shape: revision.shape,
-            class_name: parsed.name.as_deref(),
+            class_name: self.class_name(class),
             field_name: property.name.as_deref(),
         })
+    }
+
+    /// The first answer `find` gives for `class` or a base of it.
+    ///
+    /// `class` answers first, then its bases, depth first in the order a
+    /// revision lists them. The bases are read at `build` where the database
+    /// describes it, and at the newest build it names otherwise.
+    #[must_use]
+    pub fn find_in_hierarchy<T>(
+        &self,
+        class: BinHash,
+        build: Option<GameBuild>,
+        mut find: impl FnMut(BinHash) -> Option<T>,
+    ) -> Option<T> {
+        let bases = BasesAt::Build(self.content_build(build));
+        self.walk_hierarchy(class, bases, &mut find, 0)
+    }
+
+    /// [`MetaSchema::find_in_hierarchy`] from `depth` bases up.
+    fn walk_hierarchy<T>(
+        &self,
+        class: BinHash,
+        bases: BasesAt,
+        find: &mut impl FnMut(BinHash) -> Option<T>,
+        depth: usize,
+    ) -> Option<T> {
+        if let Some(found) = find(class) {
+            return Some(found);
+        }
+        if depth == BASE_DEPTH {
+            return None;
+        }
+        self.classes
+            .get(&class)?
+            .bases
+            .iter()
+            .filter(|revision| match bases {
+                BasesAt::Build(build) => revision.covers(build),
+                BasesAt::Any => true,
+            })
+            .flat_map(|revision| &revision.bases)
+            .find_map(|base| self.walk_hierarchy(*base, bases, find, depth + 1))
     }
 
     /// This database read at `build`, where it describes one.
@@ -440,15 +629,34 @@ impl MetaSchema {
         }
     }
 
-    /// The field as the database names it, at any build.
+    /// The field as the database names it on `class` or a base of it, at any build.
     #[must_use]
     pub fn field_name(&self, class: BinHash, field: BinHash) -> Option<&str> {
-        self.classes
-            .get(&class)?
-            .properties
-            .get(&field)?
-            .name
-            .as_deref()
+        self.walk_hierarchy(
+            class,
+            BasesAt::Any,
+            &mut |owner| {
+                self.classes
+                    .get(&owner)?
+                    .properties
+                    .get(&field)?
+                    .name
+                    .as_deref()
+            },
+            0,
+        )
+    }
+
+    /// The class as the database names it, at any build.
+    #[must_use]
+    pub fn class_name(&self, class: BinHash) -> Option<&str> {
+        self.classes.get(&class)?.name.as_deref()
+    }
+
+    /// Whether the database holds `class` at any build, named or not.
+    #[must_use]
+    pub fn has_class(&self, class: BinHash) -> bool {
+        self.classes.contains_key(&class)
     }
 
     /// One class as the class card draws it, or `None` for a class it does not describe.
@@ -472,9 +680,37 @@ impl MetaSchema {
                     .at(build)
                     .and_then(|revision| revision.shape)
                     .map(KindShape::from),
+                class_hash: property
+                    .at(build)
+                    .and_then(|revision| revision.class)
+                    .map(hex),
+                default_value: property
+                    .at(build)
+                    .and_then(|revision| revision.default.as_ref())
+                    .map(ToString::to_string),
                 revisions: property.revisions.iter().map(FieldRevision::from).collect(),
             })
             .collect();
+
+        for inherited in self.declared_fields(class, described) {
+            if fields
+                .iter()
+                .any(|field| field.hash == hex(inherited.field))
+            {
+                continue;
+            }
+
+            let property = &self.classes[&inherited.owner].properties[&inherited.field];
+            fields.push(FieldSchema {
+                hash: hex(inherited.field),
+                name: inherited.name.map(str::to_owned),
+                declared: Some(inherited.shape.into()),
+                class_hash: inherited.class.map(hex),
+                default_value: inherited.default.map(ToString::to_string),
+                revisions: property.revisions.iter().map(FieldRevision::from).collect(),
+            });
+        }
+
         fields.sort_by_cached_key(|field| {
             (
                 field.name.is_none(),
@@ -512,6 +748,26 @@ impl MetaSchema {
         &self.generation
     }
 
+    /// This database's own bytes, as the hex digits a stored basis compares.
+    ///
+    /// What makes one database another: the generation is a stamp on the hash
+    /// tables behind it, and the publisher moves the two on schedules of their
+    /// own.
+    #[must_use]
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    /// What this database is, as the cache card names it.
+    #[must_use]
+    pub fn version(&self) -> MetaSchemaVersion {
+        MetaSchemaVersion {
+            patch: self.patch.clone(),
+            build: self.latest,
+            generation: self.generation.clone(),
+        }
+    }
+
     /// How many classes it describes.
     #[must_use]
     pub fn class_count(&self) -> usize {
@@ -530,6 +786,12 @@ impl From<PublishedProperty> for ParsedProperty {
                     from: revision.from,
                     to: revision.to,
                     shape: Shape::written(&revision.r#type),
+                    class: revision
+                        .r#type
+                        .get(3)
+                        .filter(|written| *written != EMPTY_SLOT)
+                        .and_then(|written| parse_hash(written)),
+                    default: revision.default,
                 })
                 .collect(),
         }

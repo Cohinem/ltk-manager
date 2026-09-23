@@ -1,6 +1,16 @@
-export { type BarMode, barMode, barPlaceholder } from "./barMode";
-export { buildCandidate, buildCommandCandidate } from "./candidate";
-export { completeClassTerm } from "./classTerm";
+export { NavigationArrows } from "./components/NavigationArrows";
+export { projectRow, useOpenProject, useProjectRows } from "./components/projectRows";
+export { WorkshopBar } from "./components/WorkshopBar";
+export { useGlobalCommands } from "./hooks/useGlobalCommands";
+export { type PaletteSearchParams, usePaletteSearch } from "./hooks/usePaletteSearch";
+export { useProjectCandidates } from "./hooks/useProjectCandidates";
+export { useProjectCommands } from "./hooks/useProjectCommands";
+export { useRevealRowSearch } from "./hooks/useRevealRowSearch";
+export { useSettingRows } from "./hooks/useSettingRows";
+export { useRevealPalette } from "./state/paletteReveal";
+export { type BarMode, barMode, barPlaceholder } from "./utils/barMode";
+export { buildCandidate, buildCommandCandidate } from "./utils/candidate";
+export { completeClassTerm } from "./utils/classTerm";
 export {
   compileQuery,
   letterMask,
@@ -10,10 +20,8 @@ export {
   type MatchRange,
   type Query,
   startsQuery,
-} from "./matcher";
-export { NavigationArrows } from "./NavigationArrows";
-export { projectRow, useOpenProject, useProjectRows } from "./projectRows";
-export { compareRows, rankCandidate, rankCandidates, type RankContext } from "./rank";
+} from "./utils/matcher";
+export { compareRows, rankCandidate, rankCandidates, type RankContext } from "./utils/rank";
 export {
   HELP_PREFIX,
   PALETTE_SOURCES,
@@ -26,7 +34,7 @@ export {
   sourceCap,
   type SourceKey,
   WORKSHOP_SOURCES,
-} from "./sources";
+} from "./utils/sources";
 export type {
   BackendRankedGroups,
   OpenIntent,
@@ -37,10 +45,4 @@ export type {
   PaletteTarget,
   ProjectCommand,
   RankedRow,
-} from "./types";
-export { useGlobalCommands } from "./useGlobalCommands";
-export { type PaletteSearchParams, usePaletteSearch } from "./usePaletteSearch";
-export { useProjectCandidates } from "./useProjectCandidates";
-export { useProjectCommands } from "./useProjectCommands";
-export { useSettingRows } from "./useSettingRows";
-export { WorkshopBar } from "./WorkshopBar";
+} from "./utils/types";

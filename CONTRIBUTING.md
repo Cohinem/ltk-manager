@@ -40,7 +40,7 @@ builds, the generated files, and the layout of the repository.
 ## Commits and pull requests
 
 A commit is one conventional-commit subject line, in the codebase's own vocabulary, with no
-body. A pull request takes that same subject as its title. `CLAUDE.md` holds the rules in full,
+body. A pull request takes that same subject as its title. `AGENTS.md` holds the rules in full,
 with examples.
 
 Before opening a pull request:

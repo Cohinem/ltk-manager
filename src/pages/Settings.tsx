@@ -5,20 +5,25 @@ import {
   InfoIcon,
   KeyboardIcon,
   PaletteIcon,
+  PlugsConnectedIcon,
+  PuzzlePieceIcon,
   SpinnerGapIcon,
 } from "@phosphor-icons/react";
 import { getRouteApi } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
 import { LootIcon, PatcherIcon, Tabs } from "@/components";
+import { m } from "@/i18n";
 import { MigrationPanel } from "@/modules/migration";
 import {
   AboutSection,
   AppearanceSection,
+  BuiltinModsSection,
   CacheSection,
   DEFAULT_SETTINGS_TAB,
   GeneralSection,
   HotkeySection,
+  IntegrationsSection,
   LibrarySection,
   PatchingSection,
   SettingFocusProvider,
@@ -39,6 +44,8 @@ const TABS: { value: SettingsTab; icon: ReactNode }[] = [
   { value: "general", icon: <GearIcon className="h-5 w-5 shrink-0" /> },
   { value: "library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
   { value: "workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
+  { value: "builtins", icon: <PuzzlePieceIcon className="h-5 w-5 shrink-0" /> },
+  { value: "integrations", icon: <PlugsConnectedIcon className="h-5 w-5 shrink-0" /> },
   { value: "patching", icon: <PatcherIcon className="h-5 w-5 shrink-0" /> },
   { value: "cache", icon: <DatabaseIcon className="h-5 w-5 shrink-0" /> },
   { value: "hotkeys", icon: <KeyboardIcon className="h-5 w-5 shrink-0" /> },
@@ -97,10 +104,9 @@ export function Settings() {
                 <div className="flex items-start gap-3 rounded-xl border border-accent-500/30 bg-accent-500/10 p-5">
                   <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" />
                   <div>
-                    <h3 className="font-medium text-accent-300">Welcome to LTK Manager!</h3>
+                    <h3 className="font-medium text-accent-300">{m.settings_welcome_title()}</h3>
                     <p className="mt-1 text-sm text-surface-400">
-                      To get started, please configure your League of Legends installation path
-                      below. You can use auto-detection or browse to the folder manually.
+                      {m.settings_welcome_description()}
                     </p>
                   </div>
                 </div>
@@ -118,6 +124,14 @@ export function Settings() {
 
             <Tabs.Panel value="workshop" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
               <WorkshopSection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="builtins" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <BuiltinModsSection settings={settings} onSave={saveSettings} />
+            </Tabs.Panel>
+
+            <Tabs.Panel value="integrations" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+              <IntegrationsSection />
             </Tabs.Panel>
 
             <Tabs.Panel value="patching" className="mx-auto max-w-5xl px-6 pt-4 pb-6">

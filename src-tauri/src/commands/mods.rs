@@ -2,8 +2,8 @@ use super::off_thread;
 use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
     inspect_modpkg_file, with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope,
-    ExportShape, ExportSummary, InstalledMod, ModLibraryState, ModSource, ModStorage, ModWadReport,
-    ModpkgInfo, WadReportState,
+    ExportShape, ExportSummary, InstalledMod, ModDocument, ModLibraryState, ModSource, ModStorage,
+    ModWadReport, ModpkgInfo, WadReportState,
 };
 use crate::patcher::{PatcherError, PatcherState};
 use crate::state::SettingsState;
@@ -68,6 +68,33 @@ pub fn install_mods(
     result.into()
 }
 
+/// Replace a library mod from a new archive.
+#[tauri::command]
+pub async fn update_mod(
+    mod_id: String,
+    file_path: String,
+    app_handle: AppHandle,
+) -> IpcResult<InstalledMod> {
+    let setup: AppResult<_> = (|| {
+        let patcher = app_handle.state::<PatcherState>();
+        reject_if_patcher_running(&patcher)?;
+        let config = app_handle.state::<SettingsState>().config();
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        Ok((config, library))
+    })();
+    let (config, library) = match setup {
+        Ok(value) => value,
+        Err(error) => return IpcResult::from(Err::<InstalledMod, _>(error)),
+    };
+    off_thread(move || {
+        let updated = library.update_mod_from_package(&config, &mod_id, &file_path)?;
+        library.announce_change();
+        library.spawn_categorization(&config, vec![mod_id.clone()]);
+        library.spawn_health_check(&config, vec![mod_id]);
+        Ok(updated)
+    })
+    .await
+}
 /// Uninstall a mod by id.
 #[tauri::command]
 pub fn uninstall_mod(
@@ -255,6 +282,28 @@ pub async fn get_mod_thumbnails(
     let library = app_handle.state::<ModLibraryState>().0.clone();
 
     off_thread(move || library.get_mod_thumbnail_paths(&config, &mod_ids)).await
+}
+
+/// Get an installed mod's readme, extracting it from the archive on first access.
+///
+/// Off-thread, because a fantome's first ask mounts its archive.
+#[tauri::command]
+pub async fn get_mod_readme(mod_id: String, app_handle: AppHandle) -> IpcResult<ModDocument> {
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
+
+    off_thread(move || library.get_mod_readme(&config, &mod_id)).await
+}
+
+/// Get an installed mod's license text, which is never written to disk.
+///
+/// Off-thread, because every ask mounts the mod's archive.
+#[tauri::command]
+pub async fn get_mod_license_text(mod_id: String, app_handle: AppHandle) -> IpcResult<ModDocument> {
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
+
+    off_thread(move || library.get_mod_license_text(&config, &mod_id)).await
 }
 
 /// Get the mod storage directory path.

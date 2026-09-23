@@ -29,6 +29,14 @@ const MODULES = [
 
 const NOT_MODULE_SOURCE = ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED];
 
+/* The stock merger reads `text-*` against Tailwind's own sizes alone, so it
+   files a tier of ours under text colour and drops it when a colour stands
+   beside it. `@/utils` exports the one that knows them. */
+const TAILWIND_MERGE = {
+  group: ["tailwind-merge"],
+  message: "Merge classes with `twMerge` from `@/utils`.",
+};
+
 /* What every file under `src` is kept away from, whichever module it is in. */
 const RESTRICTED = [
   {
@@ -43,6 +51,7 @@ const RESTRICTED = [
     group: ["lucide-react"],
     message: "Icons are Phosphor duotone: DS-ICON-WEIGHT.",
   },
+  TAILWIND_MERGE,
 ];
 
 /**
@@ -94,7 +103,8 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-explicit-any": "warn",
       "react/prop-types": "off",
-      "simple-import-sort/imports": "error",
+      /* Import order is oxfmt's `sortImports`, so `pnpm format` fixes it and
+         `format:check` gates it. Two owners would fight over the same lines. */
       "simple-import-sort/exports": "error",
     },
   },
@@ -160,6 +170,8 @@ export default tseslint.config(
               "removeProperty",
               "querySelector",
               "getElementById",
+              // A prefix or suffix test compares against a key, never copy.
+              ".*\\.(startsWith|endsWith)",
             ],
           },
           "object-properties": {
@@ -179,7 +191,7 @@ export default tseslint.config(
     },
   },
   {
-    /* The structural rules src/CLAUDE.md states as prose. Warnings, because the
+    /* The structural rules src/AGENTS.md states as prose. Warnings, because the
        moves in docs/research/frontend-architecture-audit.md have not landed. */
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED],
@@ -197,9 +209,32 @@ export default tseslint.config(
     },
   })),
   {
-    /* The wrappers are what the rule points every other file at. */
+    /* The wrappers are what the rule points every other file at, so they reach
+       Base UI and each other freely. The merger is not one of those, and a
+       wrapper reaching the stock one loses the type tier like anything else. */
     files: ["src/components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["warn", { patterns: [TAILWIND_MERGE] }],
+    },
+  },
+  {
+    /* Where the configured merger is built. */
+    files: ["src/utils/twMerge.ts"],
     rules: { "no-restricted-imports": "off" },
+  },
+  {
+    /* React Three Fiber's reconciler draws ThreeJS objects rather than DOM nodes, so
+       every element and prop in this directory is one the DOM rule has never heard of. */
+    files: [
+      "src/modules/viewport/**/*.tsx",
+      "src/modules/workshop/bin/vfx/**/*.tsx",
+      "src/modules/workshop/bin/map/components/MapCharacters.tsx",
+      "src/modules/workshop/bin/map/components/MapFocus.tsx",
+      "src/modules/workshop/bin/spells/components/MissileViewport.tsx",
+      "src/modules/workshop/bin/spells/components/AbilityPreview.tsx",
+      "src/modules/workshop/bin/spells/components/AbilityScene.tsx",
+    ],
+    rules: { "react/no-unknown-property": "off" },
   },
   {
     files: ["scripts/**/*.mjs"],

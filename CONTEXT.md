@@ -1,7 +1,7 @@
 # Domain glossary
 
 The words this codebase uses for its own concepts, and the ones it deliberately does not. Coding
-conventions live in the per-directory `CLAUDE.md` files. Decisions live in `docs/adr/`.
+conventions live in the per-directory `AGENTS.md` files. Decisions live in `docs/adr/`.
 
 ## The library
 
@@ -219,6 +219,23 @@ and an object combines field by field. It happens while the overlay is built and
 into the mod, so it is not a **repair** and costs the mod nothing — see ADR-0012.
 _Avoid_: layer, patch, override
 
+**Declaration** — one property edit a layer's `game_data.yaml` carries: an entry, a property path
+and a value, applied over the game's copy of every chunk declaring the entry while the overlay is
+built. The mod names the key it changes and ships no copy of the chunk. A game bin opened inside a
+project writes its edits as declarations — see ADR-0042. Not a **merge**, which reads a whole chunk
+the mod ships.
+_Avoid_: patch, override
+
+**Game-copy reference** — a declaration's value spelled `!ref <entry>:<path>`, read from the game's
+copy of that entry at every build instead of copied into the mod. Not what Find references lists,
+which is the places a bin names an object, class or file.
+
+**Built-in mod** — a mod project the manager generates from the installed game and the other
+mods when a setting turns it on, under `<storage>/builtin/<slug>`. It is injected above workshop
+projects and every enabled mod, belongs to no profile, and never enters the library. Default ward
+skins and base skins are the two. See ADR-0043.
+_Avoid_: tweak, preset
+
 **Profile** — a named set of enabled mods, their order, and their per-mod layer states. The active
 profile is what the overlay is built from.
 
@@ -297,3 +314,18 @@ concerns.
 **Announcement** — a post in the Announcements category of the repository's Discussions, read
 from the category's Atom feed and listed as news on Home. A title, a date and a link, and nothing
 the app translates: feed text is drawn as data.
+
+## The viewport
+
+**Hexshade** — the system that draws a mesh with the game's own shaders: `crates/hexshade` in the
+backend and `src/modules/viewport/hexshade/` in the frontend, per `docs/plans/shader-pipeline.md`.
+It translates, it does not port: a shipped DXBC blob becomes GLSL ES 3.00 and a **sidecar** of
+the names a renderer binds it by. Reading a material's passes is not part of it. That stays with
+the material read in core and the game crate.
+
+**Program** — one shader's vertex and pixel stage for one **define list**, the permutation the
+game's shader cache holds for it. A pass without one is drawn as the error material, never as a
+guess.
+
+**Translation cache** — `<app data>/shaders/v<PIPELINE_VERSION>/`, each translated blob keyed by
+its hash, so a permutation costs its translation once per machine.

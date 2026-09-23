@@ -3,4 +3,4 @@
 /**
  * Where a row sits in the tree.
  */
-export type RowNode = "object" | "property" | "element" | "entry";
+export type RowNode = "object" | "property" | "element" | "entry" | "target" | "record";

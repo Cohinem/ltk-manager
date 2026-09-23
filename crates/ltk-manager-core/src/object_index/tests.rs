@@ -9,7 +9,6 @@ use fs_err as fs;
 use ltk_hash::Hash as _;
 use ltk_hashdb::LayeredHashDb;
 use ltk_meta::path::PropertyPath;
-use ltk_meta::property::NoMeta;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
 use ltk_wad::{WadBuilder, WadChunkBuilder};
@@ -24,7 +23,9 @@ mod declarations;
 mod names;
 mod references;
 mod search;
+mod spells;
 mod state;
+mod walk;
 
 /// One chunk of a synthetic archive: its path and its bytes.
 type Chunk<'a> = (&'a str, Vec<u8>);
@@ -34,7 +35,7 @@ fn path_hash(path: &str) -> u64 {
 }
 /// A `PROP` declaring `objects`, each as `(object path, class name)`.
 fn prop(objects: &[(&str, &str)]) -> Vec<u8> {
-    let bin = Bin::<NoMeta>::new(
+    let bin = Bin::new(
         objects
             .iter()
             .map(|(path, class)| BinObject::new(BinHash::hash_str(path), BinHash::hash_str(class))),
@@ -46,7 +47,7 @@ fn prop(objects: &[(&str, &str)]) -> Vec<u8> {
 }
 /// A `PTCH` adding `objects` and carrying one patch record on `patched`.
 fn patch(objects: &[(&str, &str)], patched: &str) -> Vec<u8> {
-    let mut bin = BinOverride::<NoMeta>::new();
+    let mut bin = BinOverride::new();
     for (path, class) in objects {
         let object = BinObject::new(BinHash::hash_str(path), BinHash::hash_str(class));
         bin.objects.insert(object.path_hash, object);

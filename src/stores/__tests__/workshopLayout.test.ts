@@ -3,21 +3,55 @@
 import { useWorkshopLayoutStore } from "../workshopLayout";
 
 describe("workshopLayout", () => {
+  it("drops the former global sort while retaining layout preferences", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.(
+      {
+        explorerSort: { field: "size", direction: "desc" },
+        explorerView: "details",
+        explorerColumns: { size: 100, kind: 160 },
+      },
+      1,
+    );
+    expect(migrated).toEqual({
+      explorerView: "details",
+      explorerColumns: { size: 100, kind: 160 },
+    });
+  });
+
+  it("drops a placement made before one belonged to a map", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.({ previewPlacement: [100, 0, 250], previewFacing: 1.5 }, 5);
+    expect(migrated).toEqual({ previewPlacement: null, previewPlacedOn: null, previewFacing: 1.5 });
+  });
+
+  it("carries the wireframe setting over as the view mode", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.({ previewWireframe: "only" }, 6);
+    expect(migrated).toEqual({ previewViewMode: "wireframe", previewWireOverlay: false });
+  });
+
+  it("turns the overlay view mode into the lit mode with the wireframe overlay on", async () => {
+    const migrate = useWorkshopLayoutStore.persist.getOptions().migrate;
+    const migrated = await migrate?.({ previewViewMode: "overlay" }, 7);
+    expect(migrated).toEqual({ previewViewMode: "lit", previewWireOverlay: true });
+  });
+
   beforeEach(() => {
-    useWorkshopLayoutStore.setState({ tabOpenMode: "append" });
+    useWorkshopLayoutStore.setState({ previewOnClick: true });
     localStorage.clear();
   });
 
-  describe("tabOpenMode", () => {
-    /* Every open gets its own tab unless the user asks otherwise, so a walk
-       through a directory leaves the files it opened behind. */
-    it("appends by default", () => {
-      expect(useWorkshopLayoutStore.getState().tabOpenMode).toBe("append");
+  describe("previewOnClick", () => {
+    /* A walk through a directory stays one tab wide unless the user asks for
+       a tab per file. */
+    it("previews on a single click out of the box", () => {
+      expect(useWorkshopLayoutStore.getInitialState().previewOnClick).toBe(true);
     });
 
-    it("switches to reusing one tab", () => {
-      useWorkshopLayoutStore.getState().setTabOpenMode("replace");
-      expect(useWorkshopLayoutStore.getState().tabOpenMode).toBe("replace");
+    it("switches to a click that only selects", () => {
+      useWorkshopLayoutStore.getState().setPreviewOnClick(false);
+      expect(useWorkshopLayoutStore.getState().previewOnClick).toBe(false);
     });
   });
 

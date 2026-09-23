@@ -1,12 +1,17 @@
 mod chunk_names;
 mod content;
+mod declarations;
+mod ignore_rules;
 pub mod layer;
 mod layers;
 mod packing;
 mod projects;
+mod text_files;
 
 pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
+pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
+pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
@@ -33,6 +38,42 @@ pub enum WorkshopError {
     /// One or more files already exist in the target layer directory.
     #[error("File(s) already exist in target layer: {conflicts:?}")]
     LayerFileConflict { conflicts: Vec<String> },
+
+    /// A `.modignore` line the matcher cannot compile, which held its save back.
+    #[error("Invalid ignore rule on line {line}: {message}")]
+    IgnoreRulePattern { line: u32, message: String },
+
+    /// A `.modignore` line the matcher cannot compile, which failed a pack.
+    ///
+    /// Names its file, because a pack reads the nested files as well as the
+    /// root one and only the line and the file together place the pattern.
+    #[error("Invalid ignore rule in {path} on line {line}: {message}")]
+    PackIgnorePattern {
+        path: String,
+        line: u32,
+        message: String,
+    },
+
+    /// A root text file that changed on disk under the buffer being saved.
+    #[error("{path} changed since it was read")]
+    TextFileChanged { path: String },
+
+    /// A layer's declarations manifest that changed on disk since it was read.
+    #[error("{path} changed since it was read")]
+    DeclarationsChangedOnDisk { path: String },
+
+    /// A layer whose declarations manifest is JSON or TOML. The editor writes
+    /// `game_data.yaml` only.
+    #[error("{path} is not YAML, and the editor writes game_data.yaml only")]
+    DeclarationsNotYaml { path: String },
+
+    /// A layer's declarations manifest that does not load.
+    #[error("{path} does not load: {message}")]
+    DeclarationsInvalid { path: String, message: String },
+
+    /// An edit the text of a declarations manifest cannot take.
+    #[error("{path} cannot take the edit: {reason}")]
+    DeclarationsUneditable { path: String, reason: String },
 }
 
 /// Managed struct that encapsulates workshop operations.
@@ -290,6 +331,20 @@ pub struct PackResult {
     pub output_path: String,
     pub file_name: String,
     pub format: String,
+    /// What the ignore rules left out, in the packer's traversal order.
+    pub ignored: Vec<IgnoredEntry>,
+}
+
+/// An entry the ignore rules kept out of a package.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct IgnoredEntry {
+    /// Path under `content/`, forward-slashed, where a rule's own path starts.
+    pub path: String,
+    /// A directory the walk cut, which stands for everything under it.
+    pub pruned: bool,
 }
 
 /// Result of adding files/folders to a layer.

@@ -1,9 +1,11 @@
 export { AboutSection } from "./AboutSection";
 export { AppearanceSection } from "./AppearanceSection";
+export { BuiltinModsSection } from "./BuiltinModsSection";
 export { CacheSection } from "./CacheSection";
 export { DiagnosticsNoticeDialog } from "./DiagnosticsNoticeDialog";
 export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
+export { IntegrationsSection } from "./IntegrationsSection";
 export { LibrarySection } from "./LibrarySection";
 export { PatchingSection } from "./PatchingSection";
 export { SettingFocusProvider } from "./SettingFocus";

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-15 | Pair Runeforge mods and guides above Recent changes                     |
 | 2026-09-06 | Open on gains Workshop, as a third choice and never a memory (#424)     |
 | 2026-09-04 | Move mod health off the status line, into the library tile's marker     |
 | 2026-09-04 | Move the status line under Play, hedge its words, rebuild the News card |
@@ -13,7 +14,6 @@
 | 2026-09-03 | Move Play to the head of the right rail, over the tiles it scrolls      |
 | 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats     |
 | 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast  |
-| 2026-09-03 | Ship v1 (#391): the page, both feeds, four tiles, Open on and the dot   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -49,7 +49,7 @@ Out of scope:
 - Mod updates. The manager has no registry to ask, so "your mods have updates" cannot be true yet
 - The wording of a verdict, a health finding or a launch failure. Each keeps the copy its own
   document decided
-- Anything for the modder. Workshop news and meta wiki links belong on the Workshop grid, per
+- Workshop news and meta wiki links. These belong on the Workshop grid, per
   [WORKSHOP.md](WORKSHOP.md)
 - Champion and map art on the page. #331 decides where that data comes from first
 
@@ -78,8 +78,8 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 ## Layout
 
 The default window is about 900 by 850. The page does not scroll. A notice takes a row of its own
-while there is one, and two columns fill the rest. The left column is one tall card, Recent
-changes, which scrolls inside itself as the changelog dialog does.
+while there is one, and two columns fill the rest. The left column starts with the paired Runeforge
+banners, followed by Recent changes, which fills the remaining height and scrolls inside itself.
 
 The right column is the rail. Play heads it, full width and a size up, the status line sits under
 the button while one holds, and under them a stack of tiles scrolls as a column when the stack is
@@ -349,6 +349,16 @@ join the Discord. Each row reads its own done state from the app, so the card em
 first-run redirect to Settings stays, since the folder is what everything else waits on, and the
 card is what the reader comes back to.
 
+## Runeforge
+
+Two banners share one frame above Recent changes. Runeforge connects players with community mods
+and gives creators a place to publish their work. Runeforge Wiki connects creators with guides
+and a place to share what they learn. Each banner is one link that opens in the system browser.
+
+Ignis artwork marks Browse mods, which opens runeforge.dev. The Anima backdrop marks Get started,
+which opens the Wiki's introduction to mod creation. Both stay in the left column so they do not
+shorten the launcher and library rail.
+
 ## Export
 
 A reader who wants their mods out of the manager should not have to find the mod storage in
@@ -400,7 +410,7 @@ any page.
 
 ## Copy
 
-New strings, in `messages/en/home.json`, keyed as `src/CLAUDE.md` shapes a key. A string a
+New strings, in `messages/en/home.json`, keyed as `src/AGENTS.md` shapes a key. A string a
 tile draws that another surface already decided stays that surface's string. The status line's
 own sentences are here too, since no other surface says them as one line.
 

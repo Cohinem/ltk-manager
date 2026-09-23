@@ -1,4 +1,4 @@
-//! The grouped view: every object of a class, and every declaration of an object.
+//! The grouped view: every object of a class, by the file that declares it.
 
 use super::*;
 
@@ -91,6 +91,7 @@ fn a_group_carries_the_class_and_the_asset_of_every_object_in_it() {
         AssetRef::GameChunk {
             wad: "Aatrox.wad.client".to_owned(),
             path_hash: hex_name(WadHash::hash_str("data/resources.bin")),
+            project: None,
         }
     );
     let object = &group.objects[0];
@@ -152,36 +153,4 @@ fn an_object_no_table_names_sorts_after_the_named_of_its_file() {
         grouped(&result),
         [("data/objects.bin", vec!["characters/zed", secret.as_str()])]
     );
-}
-
-#[test]
-fn object_references_give_one_group_for_each_declaring_file() {
-    let base: &[Chunk<'_>] = &[("data/base.bin", prop(&[("characters/shared", SKIN)]))];
-    let over: &[Chunk<'_>] = &[("data/over.bin", prop(&[("characters/shared", "Other")]))];
-    let wads: &[(&str, &[Chunk<'_>])] = &[("Base.wad.client", base), ("Over.wad.client", over)];
-    let (_tmp, index) = build(wads, 1);
-    let index = index.named(&TestNames::over(&["characters/shared"], &[SKIN, "Other"]));
-
-    let result = index.object_references(BinHash::hash_str("characters/shared"));
-    assert_eq!(
-        grouped(&result),
-        [
-            ("data/base.bin", vec!["characters/shared"]),
-            ("data/over.bin", vec!["characters/shared"]),
-        ]
-    );
-    assert_eq!(result.total, 2);
-    assert_eq!(
-        result.groups[1].objects[0].class, "Other",
-        "each group carries the class its own file declares"
-    );
-}
-
-#[test]
-fn an_object_nothing_declares_has_no_group() {
-    let (_tmp, index) = install();
-    let result = index.object_references(BinHash::hash_str("characters/nobody"));
-
-    assert!(result.groups.is_empty());
-    assert_eq!(result.total, 0);
 }

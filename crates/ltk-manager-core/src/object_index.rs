@@ -12,8 +12,8 @@ use std::sync::Arc;
 use ltk_hash::BinHash;
 use ltk_wad::{WadHash, hex_name};
 
+use crate::bin_document::hex;
 use crate::preview::AssetRef;
-use crate::problems::names::hex;
 
 mod browse;
 mod build;
@@ -21,19 +21,24 @@ mod find;
 mod names;
 mod references;
 mod search;
+mod spells;
 mod state;
+mod walk;
 mod wire;
 
 pub use build::{Declaration, for_each_declaration};
 pub use names::{CacheNames, ObjectNames};
+pub use spells::{CharacterSpell, SpellCatalog};
 pub use state::{
     BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
     ObjectReferenceGeneration, ObjectSearchGeneration,
 };
+pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
 pub use wire::{
     DeclaredObject, ObjectClassHit, ObjectDeclaration, ObjectDirListing, ObjectFindHit,
     ObjectFindResult, ObjectIndexStats, ObjectNodeEntry, ObjectPrefixEntry, ObjectSearchHit,
-    ObjectSearchResult, ReferenceGroup, ReferenceHit, ReferenceResult,
+    ObjectSearchResult, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult,
+    ReferenceWalkProgress,
 };
 
 /// How many rows a scan reads between two tests of the generation.
@@ -165,6 +170,7 @@ impl ObjectIndex {
             asset: AssetRef::GameChunk {
                 wad,
                 path_hash: hex_name(row.file),
+                project: None,
             },
             file,
             class_hash: hex(row.class),

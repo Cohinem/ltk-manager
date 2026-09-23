@@ -17,6 +17,7 @@ use crate::preview::AssetRef;
 /// into `path`. An object or a class no table names reads as its hex.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectSearchHit {
@@ -41,6 +42,7 @@ pub struct ObjectSearchHit {
 /// One class an ambiguous `class:` term matched, offered as a completion.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectClassHit {
@@ -55,6 +57,7 @@ pub struct ObjectClassHit {
 /// What one search of the object index found.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectSearchResult {
@@ -86,6 +89,7 @@ impl ObjectSearchResult {
 /// One declaration of an object: the file that declares it and the class it carries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectDeclaration {
@@ -102,6 +106,7 @@ pub struct ObjectDeclaration {
 /// Every declaration of one object, with the path they share.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct DeclaredObject {
@@ -115,7 +120,7 @@ impl ObjectDeclaration {
     /// Where the declaration sits in a link's resolution order: 0 in `this` file, 1 in a
     /// file among `dependencies`, 2 anywhere else.
     fn rank(&self, this: &AssetRef, dependencies: &[WadHash]) -> u8 {
-        if self.asset == *this {
+        if self.asset.same_file(this) {
             return 0;
         }
         let AssetRef::GameChunk { path_hash, .. } = &self.asset else {
@@ -142,6 +147,7 @@ impl DeclaredObject {
 /// A node an object bears is an [`ObjectNodeEntry`] and not one of these.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectPrefixEntry {
@@ -156,6 +162,7 @@ pub struct ObjectPrefixEntry {
 /// One object at a listed prefix, with what sits below it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectNodeEntry {
@@ -176,6 +183,7 @@ pub struct ObjectNodeEntry {
 /// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectDirListing {
@@ -188,6 +196,7 @@ pub struct ObjectDirListing {
 /// One object the full search matched, with the runs its path marks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFindHit {
@@ -204,6 +213,7 @@ pub struct ObjectFindHit {
 /// What one full search of the object index found.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFindResult {
@@ -232,6 +242,7 @@ impl ObjectFindResult {
 /// One object a reference query found, in the file that declares it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceHit {
@@ -243,11 +254,27 @@ pub struct ReferenceHit {
     pub class_hash: String,
     /// The class's name, or its hash when no table names it.
     pub class: String,
+    /// Where in the object the walk found the reference. Absent for an answer of the index.
+    pub property: Option<ReferenceProperty>,
+}
+
+/// The row inside an object that holds a reference, in the two forms a row carries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceProperty {
+    /// The property path on the wire, every field a hash (ADR-0027).
+    pub path: String,
+    /// The same path for a person, every hash a table names spelled.
+    pub label: String,
 }
 
 /// The objects one file declares, as a reference query groups them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceGroup {
@@ -262,6 +289,7 @@ pub struct ReferenceGroup {
 /// What one reference query found.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceResult {
@@ -271,6 +299,23 @@ pub struct ReferenceResult {
     pub total: u32,
     /// A newer query overtook this one. The groups are a part of the answer.
     pub superseded: bool,
+    /// The walk was cancelled before it read every bin. The groups are what it found.
+    pub cancelled: bool,
+}
+
+/// How far one walk has read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceWalkProgress {
+    /// Bins read, or passed over because they would not read.
+    pub walked: u32,
+    /// Bins the walk reads in all: the project's layers and the install's.
+    pub total: u32,
+    /// References found so far, past any cap.
+    pub hits: u32,
 }
 
 /// What a build measured.

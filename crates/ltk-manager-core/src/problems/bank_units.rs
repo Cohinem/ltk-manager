@@ -115,7 +115,7 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Asked<'_, '_> {
         if node.class_hash() != BANK_UNIT {
             return Ok(Visit::Continue);
         }
-        let Some(paths) = node.inner().property(BANK_PATH)? else {
+        let Some(paths) = node.inner().get(BANK_PATH)? else {
             return Ok(Visit::Continue);
         };
         if !matches!(paths.kind(), Kind::Container | Kind::UnorderedContainer) {
@@ -123,7 +123,7 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Asked<'_, '_> {
         }
         for item in paths.children()? {
             let (_, held) = item?;
-            if let Some(Leaf::String(path)) = held.leaf()? {
+            if let Some(Leaf::String(path)) = held.as_leaf()? {
                 self.found.push((WadHash::hash_str(path), path.to_owned()));
             }
         }

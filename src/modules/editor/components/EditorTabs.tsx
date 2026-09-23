@@ -3,7 +3,11 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLineRightIcon,
   CopyIcon,
+  LockSimpleIcon,
+  LockSimpleOpenIcon,
   PathIcon,
+  PushPinIcon,
+  PushPinSlashIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
   XCircleIcon,
@@ -19,14 +23,18 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { ContextMenu, IconButton, Tabs } from "@/components";
 import { useCopyToClipboard, useHorizontalWheel } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
+import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { tabDroppableId } from "../layout/dnd";
 import { useForeignCaretIndex } from "../layout/useForeignCaretIndex";
+import { anyClosable } from "../useCloseQueue";
+import { useTabOverflow } from "../useTabOverflow";
+import { TabOverflowList } from "./TabOverflowList";
 
 export interface EditorTab {
   id: string;
@@ -40,6 +48,8 @@ export interface EditorTab {
   dirty?: boolean;
   /** The ephemeral tab, which the next open from a tree replaces. */
   preview?: boolean;
+  /** Pinned: the tab leads the strip, and the closes of a batch pass it over. */
+  pinned?: boolean;
   /** What the document puts above the strip's own items in this tab's menu. */
   menu?: ReactNode;
 }
@@ -61,6 +71,14 @@ export interface EditorTabsProps {
   onSplit?: (id: string, edge: "right" | "bottom") => void;
   /** A double click on a tab, which keeps an ephemeral one. */
   onPromote?: (id: string) => void;
+  /** Absent leaves the strip without a pin, for a host whose tabs are all alike. */
+  onTogglePin?: (id: string, pinned: boolean) => void;
+  /** This group takes a document only from a gesture that names it. */
+  locked?: boolean;
+  /** Absent leaves the strip without a lock, for a host whose groups all take an open. */
+  onToggleLock?: (locked: boolean) => void;
+  /** A double click on a kept tab, which fills the grid with this leaf. */
+  onMaximize?: () => void;
   /** The strip belongs to the focused leaf, whose active tab carries the accent rail. */
   focused?: boolean;
   className?: string;
@@ -84,10 +102,16 @@ export function EditorTabs({
   onCloseAll,
   onSplit,
   onPromote,
+  onTogglePin,
+  locked,
+  onToggleLock,
+  onMaximize,
   focused,
   className,
 }: EditorTabsProps) {
   const sortableIds = tabs.map((tab) => tabDroppableId(leafId, tab.id));
+  const ids = tabs.map((tab) => tab.id);
+  const pinnedIds = tabs.filter((tab) => tab.pinned === true).map((tab) => tab.id);
   const caretIndex = useForeignCaretIndex(
     leafId,
     tabs.map((tab) => tab.id),
@@ -96,6 +120,7 @@ export function EditorTabs({
   const listRef = useRef<HTMLDivElement>(null);
   useHorizontalWheel(listRef);
   useActiveTabInView(listRef, activeId);
+  const offscreen = useTabOverflow(listRef, tabs.length);
 
   return (
     <Tabs.Root
@@ -103,7 +128,7 @@ export function EditorTabs({
       onValueChange={(value) => onActivate(String(value))}
       className={twMerge(
         /* DS-GROUND: the strip shares the editor's ground and separates with a hairline. */
-        "h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
+        "group/strip h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
         className,
       )}
     >
@@ -128,10 +153,19 @@ export function EditorTabs({
               focused={focused === true}
               caretBefore={caretIndex === index}
               splittable={onSplit !== undefined && tabs.length > 1}
-              alone={tabs.length === 1}
-              last={index === tabs.length - 1}
+              othersClosable={anyClosable(
+                ids.filter((other) => other !== tab.id),
+                pinnedIds,
+              )}
+              rightClosable={anyClosable(ids.slice(index + 1), pinnedIds)}
+              allClosable={anyClosable(ids, pinnedIds)}
+              dividerAfter={index === pinnedIds.length - 1 && pinnedIds.length < tabs.length}
+              locked={locked === true}
               onSplit={onSplit}
               onPromote={onPromote}
+              onTogglePin={onTogglePin}
+              onToggleLock={onToggleLock}
+              onMaximize={onMaximize}
               onClose={onClose}
               onCloseOthers={onCloseOthers}
               onCloseToRight={onCloseToRight}
@@ -141,8 +175,67 @@ export function EditorTabs({
         </SortableContext>
         {caretIndex === tabs.length && <DropCaret />}
       </Tabs.List>
+      {/* Outside the scroll lane, which a full strip leaves no room in. */}
+      <TabOverflowList
+        tabs={tabs}
+        activeId={activeId}
+        offscreen={offscreen}
+        onActivate={onActivate}
+        onClose={onClose}
+      />
+      {/* Only over a strip with tabs, where a lock has something to hold. */}
+      {onToggleLock && tabs.length > 0 && (
+        <LockToggle locked={locked === true} onToggle={onToggleLock} />
+      )}
     </Tabs.Root>
   );
+}
+
+interface LockToggleProps {
+  locked: boolean;
+  onToggle: (locked: boolean) => void;
+}
+
+/* Revealed on hover the way a tab's close is, and kept on while it is locked,
+   which is the only mark the strip carries for a state the tabs cannot show. */
+function LockToggle({ locked, onToggle }: LockToggleProps) {
+  const label = locked ? m.editor_group_unlock_action() : m.editor_group_lock_action();
+
+  return (
+    <IconButton
+      icon={<LockGlyph closed={locked} weight="bold" />}
+      variant="ghost"
+      size="xs"
+      compact
+      title={label}
+      aria-label={label}
+      aria-pressed={locked}
+      onClick={() => onToggle(!locked)}
+      className={twMerge(
+        "mr-2 h-6 w-6 shrink-0 opacity-0 transition-opacity",
+        "group-hover/strip:opacity-100 focus-visible:opacity-100",
+        locked && "text-accent-400 opacity-100",
+      )}
+    />
+  );
+}
+
+/* The gesture on offer rather than the state, the way the lock item is: a tab
+   that is not pinned shows the pin its item would give it. */
+function PinGlyph({ pinned }: { pinned: boolean }) {
+  if (pinned) return <PushPinSlashIcon className="h-4 w-4" />;
+  return <PushPinIcon className="h-4 w-4" />;
+}
+
+interface LockGlyphProps {
+  /** The shackle is down, which is the group holding rather than the gesture offered. */
+  closed: boolean;
+  weight?: "regular" | "bold";
+}
+
+function LockGlyph({ closed, weight = "regular" }: LockGlyphProps) {
+  if (closed) return <LockSimpleIcon weight={weight} className="h-4 w-4" />;
+  return <LockSimpleOpenIcon weight={weight} className="h-4 w-4" />;
 }
 
 /**
@@ -174,12 +267,20 @@ interface SortableTabProps {
   focused: boolean;
   caretBefore: boolean;
   splittable: boolean;
-  /** The strip holds this tab alone, so there is nothing else to close. */
-  alone: boolean;
-  /** Nothing sits after this tab, so there is nothing to its right to close. */
-  last: boolean;
+  /** Close Others would close something. */
+  othersClosable: boolean;
+  /** Close to the Right would close something. */
+  rightClosable: boolean;
+  /** Close All would close something. */
+  allClosable: boolean;
+  /** This tab ends the pinned run, so the divider between the two follows it. */
+  dividerAfter: boolean;
+  locked: boolean;
   onSplit?: (id: string, edge: "right" | "bottom") => void;
   onPromote?: (id: string) => void;
+  onTogglePin?: (id: string, pinned: boolean) => void;
+  onToggleLock?: (locked: boolean) => void;
+  onMaximize?: () => void;
   onClose: (id: string) => void;
   onCloseOthers?: (id: string) => void;
   onCloseToRight?: (id: string) => void;
@@ -193,19 +294,29 @@ const SortableTab = memo(function SortableTab({
   focused,
   caretBefore,
   splittable,
-  alone,
-  last,
+  othersClosable,
+  rightClosable,
+  allClosable,
+  dividerAfter,
+  locked,
   onSplit,
   onPromote,
+  onTogglePin,
+  onToggleLock,
+  onMaximize,
   onClose,
   onCloseOthers,
   onCloseToRight,
   onCloseAll,
 }: SortableTabProps) {
-  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: tabDroppableId(leafId, tab.id),
+    attributes: { roleDescription: m.editor_tab_drag_label() },
   });
   const copy = useCopyToClipboard();
+  const pinned = tab.pinned === true;
+  const lockLabel = locked ? m.editor_group_unlock_action() : m.editor_group_lock_action();
+  const pinLabel = pinned ? m.editor_tab_unpin_action() : m.editor_tab_pin_action();
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -214,10 +325,19 @@ const SortableTab = memo(function SortableTab({
     transition: [transition, "background-color 150ms, color 150ms"].filter(Boolean).join(", "),
   };
 
+  /* A pinned tab answers the middle click with nothing. The gesture is quick
+     and undoable nowhere, which is what the pin was asked to guard against. */
   function handleAuxClick(event: ReactMouseEvent<HTMLDivElement>) {
     if (event.button !== 1) return;
     event.preventDefault();
-    onClose(tab.id);
+    if (!pinned) onClose(tab.id);
+  }
+
+  /* A replaceable tab spends the double click on being kept, per "Preview tabs"
+     in `docs/ux/PROJECT_EDITOR.md`. */
+  function handleDoubleClick() {
+    if (tab.preview) onPromote?.(tab.id);
+    else onMaximize?.();
   }
 
   const body = (
@@ -225,6 +345,12 @@ const SortableTab = memo(function SortableTab({
       <Tabs.Tab
         variant="plain"
         value={tab.id}
+        /* The two announcing attributes rather than all of dnd-kit's: the rest
+           carry a role and a tab stop, and the strip's roving focus already
+           gives this element both. The listeners stay on the box around it, so
+           a key pressed here still reaches the drag sensor. */
+        aria-roledescription={attributes["aria-roledescription"]}
+        aria-describedby={attributes["aria-describedby"]}
         /* `shrink` beats the base tab's `shrink-0`, without which the strip's
            max width clips the label rather than eliding it. */
         className="min-w-0 shrink cursor-pointer gap-1.5 py-0.5 pr-1 pl-0.5 text-xs"
@@ -238,22 +364,7 @@ const SortableTab = memo(function SortableTab({
         )}
       </Tabs.Tab>
 
-      <IconButton
-        icon={<CloseGlyph dirty={tab.dirty} />}
-        variant="ghost"
-        size="xs"
-        compact
-        onClick={() => onClose(tab.id)}
-        aria-label={`Close ${tab.title}`}
-        className={twMerge(
-          /* Out of flow, so revealing it never resizes the strip. The fill
-             arrives with it, to mask the label it now covers. */
-          "absolute top-0 right-1 bottom-0.5 z-10 my-auto h-5 w-5 opacity-0 transition-opacity",
-          "group-hover/tab:bg-surface-800 group-hover/tab:opacity-100 hover:bg-surface-700",
-          "focus-visible:opacity-100",
-          tab.dirty && "opacity-100",
-        )}
-      />
+      <TrailingButton pinned={pinned} tab={tab} onClose={onClose} onTogglePin={onTogglePin} />
 
       {active && focused && (
         <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-accent-500" />
@@ -269,7 +380,7 @@ const SortableTab = memo(function SortableTab({
        attribute, because `data-ui` is a label for a reader and not a hook. */
     "data-tab-id": tab.id,
     onAuxClick: handleAuxClick,
-    onDoubleClick: () => onPromote?.(tab.id),
+    onDoubleClick: handleDoubleClick,
     ...listeners,
     className: twMerge(
       /* Hidden overflow clips the focus rail to the pill's rounded corners, so
@@ -305,32 +416,44 @@ const SortableTab = memo(function SortableTab({
                   <ContextMenu.Separator />
                 </>
               )}
+              {onTogglePin && (
+                <>
+                  <ContextMenu.Item
+                    icon={<PinGlyph pinned={pinned} />}
+                    onClick={() => onTogglePin(tab.id, !pinned)}
+                  >
+                    {pinLabel}
+                  </ContextMenu.Item>
+                  <ContextMenu.Separator />
+                </>
+              )}
+
               <ContextMenu.Item
                 icon={<XIcon className="h-4 w-4" />}
                 onClick={() => onClose(tab.id)}
               >
-                Close
+                {m.editor_tab_close_action()}
               </ContextMenu.Item>
               <ContextMenu.Item
                 icon={<XSquareIcon className="h-4 w-4" />}
-                disabled={alone || !onCloseOthers}
+                disabled={!othersClosable || !onCloseOthers}
                 onClick={() => onCloseOthers?.(tab.id)}
               >
-                Close Others
+                {m.editor_tab_close_others_action()}
               </ContextMenu.Item>
               <ContextMenu.Item
                 icon={<ArrowLineRightIcon className="h-4 w-4" />}
-                disabled={last || !onCloseToRight}
+                disabled={!rightClosable || !onCloseToRight}
                 onClick={() => onCloseToRight?.(tab.id)}
               >
-                Close to the Right
+                {m.editor_tab_close_right_action()}
               </ContextMenu.Item>
               <ContextMenu.Item
                 icon={<XCircleIcon className="h-4 w-4" />}
-                disabled={!onCloseAll}
+                disabled={!allClosable || !onCloseAll}
                 onClick={() => onCloseAll?.()}
               >
-                Close All
+                {m.editor_tab_close_all_action()}
               </ContextMenu.Item>
 
               <ContextMenu.Separator />
@@ -340,13 +463,13 @@ const SortableTab = memo(function SortableTab({
                 disabled={tab.path === undefined}
                 onClick={() => tab.path !== undefined && void copy(tab.path, "path")}
               >
-                Copy Path
+                {m.editor_tab_copy_path_action()}
               </ContextMenu.Item>
               <ContextMenu.Item
                 icon={<CopyIcon className="h-4 w-4" />}
                 onClick={() => void copy(tab.title, "name")}
               >
-                Copy Name
+                {m.editor_tab_copy_name_action()}
               </ContextMenu.Item>
 
               {onSplit && (
@@ -357,14 +480,28 @@ const SortableTab = memo(function SortableTab({
                     disabled={!splittable}
                     onClick={() => onSplit(tab.id, "right")}
                   >
-                    Split Right
+                    {m.editor_tab_split_right_action()}
                   </ContextMenu.Item>
                   <ContextMenu.Item
                     icon={<SquareSplitVerticalIcon className="h-4 w-4" />}
                     disabled={!splittable}
                     onClick={() => onSplit(tab.id, "bottom")}
                   >
-                    Split Down
+                    {m.editor_tab_split_down_action()}
+                  </ContextMenu.Item>
+                </>
+              )}
+
+              {onToggleLock && (
+                <>
+                  <ContextMenu.Separator />
+                  {/* The glyph is the gesture on offer rather than the state, so an
+                      unlocked group shows the shut padlock its item would give it. */}
+                  <ContextMenu.Item
+                    icon={<LockGlyph closed={!locked} />}
+                    onClick={() => onToggleLock(!locked)}
+                  >
+                    {lockLabel}
                   </ContextMenu.Item>
                 </>
               )}
@@ -372,9 +509,69 @@ const SortableTab = memo(function SortableTab({
           </ContextMenu.Positioner>
         </ContextMenu.Portal>
       </ContextMenu.Root>
+      {dividerAfter && <PinnedDivider />}
     </>
   );
 });
+
+/* The seam between the pinned run and the rest of the strip. Its own element
+   rather than a border on the tab, so the gap stays even on both sides of it
+   and a tab dragged past it never carries the rule along. */
+function PinnedDivider() {
+  return <span aria-hidden="true" className="h-5 w-px shrink-0 bg-surface-700" />;
+}
+
+interface TrailingButtonProps {
+  tab: EditorTab;
+  pinned: boolean;
+  onClose: (id: string) => void;
+  onTogglePin?: (id: string, pinned: boolean) => void;
+}
+
+/**
+ * The one control at the tab's right end: unpin while pinned, close otherwise.
+ *
+ * A pinned tab gives up its close the way Visual Studio Code's does, so the
+ * gesture that sits under the pointer is the one that gets the tab back rather
+ * than the one that loses it. Closing a pinned tab stays in the menu.
+ */
+function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonProps) {
+  /* Out of flow, so revealing it never resizes the strip. The fill arrives with
+     it, to mask the label it now covers. */
+  const className = twMerge(
+    "absolute top-0 right-1 bottom-0.5 z-10 my-auto h-5 w-5 opacity-0 transition-opacity",
+    "group-hover/tab:bg-surface-800 group-hover/tab:opacity-100 hover:bg-surface-700",
+    "focus-visible:opacity-100",
+    (tab.dirty === true || pinned) && "opacity-100",
+  );
+
+  if (pinned && onTogglePin) {
+    return (
+      <IconButton
+        icon={<PushPinIcon weight="fill" className="h-3 w-3" />}
+        variant="ghost"
+        size="xs"
+        compact
+        onClick={() => onTogglePin(tab.id, false)}
+        title={m.editor_tab_unpin_label({ title: tab.title })}
+        aria-label={m.editor_tab_unpin_label({ title: tab.title })}
+        className={className}
+      />
+    );
+  }
+
+  return (
+    <IconButton
+      icon={<CloseGlyph dirty={tab.dirty} />}
+      variant="ghost"
+      size="xs"
+      compact
+      onClick={() => onClose(tab.id)}
+      aria-label={m.editor_tab_close_label({ title: tab.title })}
+      className={className}
+    />
+  );
+}
 
 function CloseGlyph({ dirty }: { dirty?: boolean }) {
   if (!dirty) return <XIcon weight="bold" className="h-3 w-3" />;

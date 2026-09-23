@@ -1,13 +1,13 @@
 import { CaretDownIcon, MagnifyingGlassIcon, TranslateIcon, XIcon } from "@phosphor-icons/react";
 import { useRef } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Field, IconButton, Menu, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 
-import { useProjectContext } from "../../components/ProjectContext";
-import { stringsDocument } from "../../documents/contentDocument";
+import { stringsDocument } from "../../documents/utils/contentDocument";
+import { useProjectContext } from "../../projects/state/ProjectContext";
 import { useOpenDocument } from "../../state";
-import { LOCALES } from "../constants";
+import { LOCALES } from "../model/constants";
 
 interface StringOverridesToolbarProps {
   layerName: string;

@@ -11,6 +11,7 @@ import {
   type LayoutMigrationState,
   type LibraryFolder,
   type LinkedBinOffenderInfo,
+  type ModDocument,
   type ModHealthVerdict,
   type ModWadReport,
   type Profile,
@@ -46,7 +47,7 @@ export const modQueries = {
       queryKey: libraryKeys.thumbnail(modId),
       queryFn: async () => {
         const path = unwrapForQuery(await api.getModThumbnail(modId));
-        return path ? convertFileSrc(path) : "";
+        return path ? thumbnailUrl(path) : "";
       },
       staleTime: Infinity,
     }),
@@ -62,7 +63,7 @@ export const modQueries = {
         const paths = unwrapForQuery(await api.getModThumbnails([...modIds]));
         for (const id of modIds) {
           const path = paths[id];
-          seed.setQueryData(libraryKeys.thumbnail(id), path ? convertFileSrc(path) : "");
+          seed.setQueryData(libraryKeys.thumbnail(id), path ? thumbnailUrl(path) : "");
         }
         return paths;
       },
@@ -99,6 +100,26 @@ export const modQueries = {
       queryKey: libraryKeys.modHealthVerdicts(),
       queryFn: async () => unwrapForQuery(await api.getModHealthVerdicts()),
       staleTime: REPORT_STALE_MS,
+    }),
+
+  /* A mod's own text, which changes only when the mod is reinstalled, so the
+     answer stands for the session rather than being asked for again on focus. */
+
+  readme: (modId: string) =>
+    queryOptions<ModDocument, AppError>({
+      queryKey: libraryKeys.readme(modId),
+      queryFn: async () => unwrapForQuery(await api.getModReadme(modId)),
+      staleTime: Infinity,
+    }),
+
+  /* Reading one costs an archive mount, so the ask is the expand itself and the
+     answer outlives the fold closing again: once per session, never to disk. */
+  licenseText: (modId: string) =>
+    queryOptions<ModDocument, AppError>({
+      queryKey: libraryKeys.licenseText(modId),
+      queryFn: async () => unwrapForQuery(await api.getModLicenseText(modId)),
+      staleTime: Infinity,
+      gcTime: Infinity,
     }),
 } as const;
 
@@ -193,4 +214,9 @@ export function useFolders() {
 /** The order the folders sit in. */
 export function useFolderOrder() {
   return useQuery(folderQueries.order());
+}
+
+/** A refreshed asset URL after an archive replacement at the same path. */
+function thumbnailUrl(path: string): string {
+  return `${convertFileSrc(path)}?v=${Date.now()}`;
 }
