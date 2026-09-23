@@ -271,10 +271,8 @@ fn spirv_string(text: &str) -> Vec<u32> {
     while !bytes.len().is_multiple_of(4) {
         bytes.push(0);
     }
-    bytes
-        .chunks_exact(4)
-        .map(|chunk| u32::from_le_bytes(chunk.try_into().expect("four bytes were taken")))
-        .collect()
+    let (words, _) = bytes.as_chunks::<4>();
+    words.iter().map(|word| u32::from_le_bytes(*word)).collect()
 }
 
 #[cfg(test)]
