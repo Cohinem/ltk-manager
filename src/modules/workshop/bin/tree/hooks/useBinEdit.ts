@@ -65,6 +65,8 @@ const DOCUMENT_READS = [
   ["vfx-system"],
   ["skin"],
   ["skin-graph"],
+  ["skin-programs"],
+  ["material-program"],
   ["spell"],
 ] as const;
 

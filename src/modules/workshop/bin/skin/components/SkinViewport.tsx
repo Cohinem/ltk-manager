@@ -73,6 +73,7 @@ import { MapParticles } from "../../map/components/MapParticles";
 import { PostEffectsControl } from "../../map/components/PostEffectsControl";
 import { SunControl } from "../../map/components/SunControl";
 import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
+import { useHeldValue } from "../../material/state/heldValue";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
 import { Notice } from "../../vfx/preview/components/Notice";
@@ -346,6 +347,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
       shaders ? programOf(skin, programs.data ?? [], programTextures, submesh) : null,
     [shaders, skin, programs.data, programTextures],
   );
+  const heldValue = useHeldValue();
   const colors = useSceneColors();
   const scale = skin.scale ?? 1;
   /* Where the subject stands: what the creator dragged it to on this backdrop, else the
@@ -483,6 +485,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               clock={clock}
               bindingOf={bindingFor}
               programOf={programFor}
+              held={heldValue}
               colors={colors}
               hidden={hidden}
               scale={scale}

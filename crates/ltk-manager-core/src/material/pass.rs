@@ -114,6 +114,72 @@ pub struct ResolvedPass {
     /// Every physical parameter in declaration order, each a `$Globals` member.
     pub params: Vec<PassParam>,
     pub state: PassState,
+    /// What the pass shader declares, and none where the defs were not opened.
+    pub schema: Option<ShaderSchema>,
+}
+
+/// The parameters, textures and switches a `CustomShaderDef` declares, with its defaults.
+///
+/// A material's `paramValues`, `samplerValues` and `switches` override these by name, so
+/// an editor lists every declared row and the material's value where it writes one.
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct ShaderSchema {
+    /// Every logical parameter, in declaration order.
+    pub params: Vec<SchemaParam>,
+    /// Every texture, in declaration order.
+    pub textures: Vec<SchemaTexture>,
+    /// Every static switch, in declaration order.
+    pub switches: Vec<SchemaSwitch>,
+}
+
+/// One name a `paramValues` entry may carry, with the value the shader holds for it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct SchemaParam {
+    /// The logical name, or the physical one where the parameter declares no logical names.
+    pub name: String,
+    /// The physical parameter it writes into, which the `$Globals` member carries.
+    pub physical: String,
+    /// `ShaderLogicalParameter.fields`, the components of the physical parameter the entry's
+    /// value writes, in order. 15 for a physical parameter written whole.
+    pub fields: u32,
+    /// The components `fields` selects out of the physical default, packed from the first,
+    /// which is the value an entry would hold to change nothing.
+    pub default: [f32; 4],
+}
+
+/// One `ShaderTexture` a `samplerValues` entry may name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct SchemaTexture {
+    pub name: String,
+    /// `defaultTexturePath`, drawn where the material names no texture.
+    pub default: Option<String>,
+    /// `samplerName`, the shared sampler that overrides a material's address modes.
+    pub shared_sampler: Option<String>,
+}
+
+/// One `ShaderStaticSwitch` a `switches` entry may name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct SchemaSwitch {
+    pub name: String,
+    pub on_by_default: bool,
+    /// Read as a `$Globals` float at run time, so a toggle recompiles nothing.
+    pub runtime: bool,
 }
 
 /// One `NAME=VALUE` of the define list.
@@ -390,6 +456,8 @@ impl<'a> Reader<'a> {
         let textures = self.pass_textures(&shader);
         let params = self.pass_params(pass, &shader);
 
+        let schema = shader.declared.then(|| shader.schema());
+
         ResolvedPass {
             shader: shader.path,
             defines,
@@ -397,6 +465,7 @@ impl<'a> Reader<'a> {
             textures,
             params,
             state: pass_state(pass),
+            schema,
         }
     }
 
@@ -538,6 +607,56 @@ impl<'a> Reader<'a> {
 }
 
 impl ShaderDef {
+    /// The declarations as an editor lists them.
+    fn schema(&self) -> ShaderSchema {
+        let mut params = Vec::new();
+        for decl in &self.physical {
+            if decl.logical.is_empty() {
+                params.push(SchemaParam {
+                    name: decl.name.clone(),
+                    physical: decl.name.clone(),
+                    fields: 0b1111,
+                    default: decl.data,
+                });
+                continue;
+            }
+
+            for (name, fields) in &decl.logical {
+                params.push(SchemaParam {
+                    name: name.clone(),
+                    physical: decl.name.clone(),
+                    fields: *fields,
+                    default: gather(decl.data, *fields),
+                });
+            }
+        }
+
+        let textures = self
+            .textures
+            .iter()
+            .map(|(name, decl)| SchemaTexture {
+                name: name.clone(),
+                default: decl.default.as_ref().map(|texture| texture.path.clone()),
+                shared_sampler: decl.sampler_name.clone(),
+            })
+            .collect();
+        let switches = self
+            .switches
+            .iter()
+            .map(|(name, decl)| SchemaSwitch {
+                name: name.clone(),
+                on_by_default: decl.on_by_default,
+                runtime: decl.runtime,
+            })
+            .collect();
+
+        ShaderSchema {
+            params,
+            textures,
+            switches,
+        }
+    }
+
     /// The physical parameter `name` writes into and the mask it writes through: the
     /// first whose logical names hold it, else the one named so itself, whole.
     fn logical_target(&self, name: &str) -> Option<(usize, u32)> {
@@ -570,6 +689,20 @@ fn scatter(target: &mut [f32; 4], mask: u32, input: [f32; 4]) -> bool {
         }
     }
     next > 0
+}
+
+/// The components of `source` that `mask` selects, packed from the first, the inverse of
+/// `scatter`.
+fn gather(source: [f32; 4], mask: u32) -> [f32; 4] {
+    let mut packed = [0.0; 4];
+    let mut next = 0;
+    for (bit, value) in source.into_iter().enumerate() {
+        if mask & (1 << bit) != 0 {
+            packed[next] = value;
+            next += 1;
+        }
+    }
+    packed
 }
 
 /// The render state of section 11.7, off the pass with the class defaults.

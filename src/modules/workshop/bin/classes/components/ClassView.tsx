@@ -18,6 +18,7 @@ import {
 } from "../../links/hooks/useLinkTargets";
 import { preloadMapViewport } from "../../map/components/MapPreview";
 import { MapSceneHost, type MapSceneSource } from "../../map/state/mapScene";
+import { preloadMaterialViewport } from "../../material/components/MaterialPreview";
 import { nameHash } from "../../shared/utils/binHash";
 import { preloadSkinViewport } from "../../skin/components/SkinPreview";
 import { SkinChoiceContext, useSkinChoice } from "../../skin/state/skinChoice";
@@ -43,6 +44,7 @@ import {
   FramePreview,
   Hero,
   MapShell,
+  MaterialShell,
   RunHost,
   SkinShell,
   Stack,
@@ -136,6 +138,12 @@ export function ClassView({
   useEffect(() => {
     if (map) preloadMapViewport();
   }, [map]);
+  const material = layout.shell === "material";
+  useEffect(() => {
+    if (!material) return;
+    preloadMaterialViewport();
+    preloadSkinViewport();
+  }, [material]);
 
   /* The run is held above both frames (ADR-0037), so a change of frame mounts the preview
      in another place and loses neither the clock nor the seed. */
@@ -153,8 +161,8 @@ export function ClassView({
      what this carries is what the first drawn one will. */
   const shown: LayoutFrame = frame ?? "stack";
   const view = useMemo<ViewContext>(
-    () => ({ document, asset, classHash, objectName, onNotOpen, frame: shown }),
-    [document, asset, classHash, objectName, onNotOpen, shown],
+    () => ({ document, asset, classHash, entry, objectName, onNotOpen, frame: shown }),
+    [document, asset, classHash, entry, objectName, onNotOpen, shown],
   );
 
   /* One preview for both frames, which the hero or the shell's pane adopts, so crossing
@@ -259,6 +267,15 @@ export function ClassView({
                                   )}
                                   {frame === "shell" && skin && (
                                     <SkinShell
+                                      placed={placed}
+                                      pages={pages}
+                                      view={view}
+                                      entry={roots[0]?.entry ?? null}
+                                      preview={previewSlot}
+                                    />
+                                  )}
+                                  {frame === "shell" && material && (
+                                    <MaterialShell
                                       placed={placed}
                                       pages={pages}
                                       view={view}

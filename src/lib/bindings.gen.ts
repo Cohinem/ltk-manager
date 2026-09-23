@@ -2817,6 +2817,8 @@ export type ResolvedPass = {
 	/**  Every physical parameter in declaration order, each a `$Globals` member. */
 	params: PassParam[],
 	state: PassState,
+	/**  What the pass shader declares, and none where the defs were not opened. */
+	schema: ShaderSchema | null,
 };
 
 /**
@@ -2926,6 +2928,41 @@ export type ScanStatus =
 /**  A status this build does not know. */
 "unknown";
 
+/**  One name a `paramValues` entry may carry, with the value the shader holds for it. */
+export type SchemaParam = {
+	/**  The logical name, or the physical one where the parameter declares no logical names. */
+	name: string,
+	/**  The physical parameter it writes into, which the `$Globals` member carries. */
+	physical: string,
+	/**
+	 *  `ShaderLogicalParameter.fields`, the components of the physical parameter the entry's
+	 *  value writes, in order. 15 for a physical parameter written whole.
+	 */
+	fields: number,
+	/**
+	 *  The components `fields` selects out of the physical default, packed from the first,
+	 *  which is the value an entry would hold to change nothing.
+	 */
+	default: [(number | null), (number | null), (number | null), (number | null)],
+};
+
+/**  One `ShaderStaticSwitch` a `switches` entry may name. */
+export type SchemaSwitch = {
+	name: string,
+	onByDefault: boolean,
+	/**  Read as a `$Globals` float at run time, so a toggle recompiles nothing. */
+	runtime: boolean,
+};
+
+/**  One `ShaderTexture` a `samplerValues` entry may name. */
+export type SchemaTexture = {
+	name: string,
+	/**  `defaultTexturePath`, drawn where the material names no texture. */
+	default: string | null,
+	/**  `samplerName`, the shared sampler that overrides a material's address modes. */
+	sharedSampler: string | null,
+};
+
 /**  A session that failed before any game ran. */
 export type SessionFailure = 
 /**
@@ -2975,6 +3012,21 @@ export type Severity =
 "warn" | 
 /**  Known to break the patcher, should be fixed. */
 "bad";
+
+/**
+ *  The parameters, textures and switches a `CustomShaderDef` declares, with its defaults.
+ * 
+ *  A material's `paramValues`, `samplerValues` and `switches` override these by name, so
+ *  an editor lists every declared row and the material's value where it writes one.
+ */
+export type ShaderSchema = {
+	/**  Every logical parameter, in declaration order. */
+	params: SchemaParam[],
+	/**  Every texture, in declaration order. */
+	textures: SchemaTexture[],
+	/**  Every static switch, in declaration order. */
+	switches: SchemaSwitch[],
+};
 
 /**  What a translated stage binds. */
 export type Sidecar = {

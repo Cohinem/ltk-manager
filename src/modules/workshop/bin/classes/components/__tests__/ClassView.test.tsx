@@ -12,6 +12,7 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
+import { useHeldValueStore } from "../../../material/state/heldValue";
 import { nameHash } from "../../../shared/utils/binHash";
 import { materialLayout } from "../../utils/classLayouts";
 import { ClassView } from "../ClassView";
@@ -92,6 +93,12 @@ const ELEMENTS: Record<string, BinRows> = {
     row(PARAM_PATH, "[0]", embed("StaticMaterialShaderParamDef", 2), "element"),
   ]),
   [nameHash("switches").slice(2)]: page([]),
+  [nameHash("shaderMacros").slice(2)]: page([
+    row(`${nameHash("shaderMacros").slice(2)}{USE_RIM}`, "USE_RIM", {
+      type: "string",
+      value: "1",
+    }),
+  ]),
 };
 
 const FIELDS: Record<string, BinRows> = {
@@ -152,11 +159,12 @@ function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-function renderView(onShowInProperties = vi.fn()) {
+function renderView(onShowInProperties = vi.fn(), editable = false) {
   render(
     <ClassView
       document={7}
       asset={ASSET}
+      editable={editable}
       roots={ROOTS}
       classHash={MATERIAL}
       layout={materialLayout}
@@ -205,13 +213,13 @@ describe("ClassView", () => {
     expect(screen.getByRole("button", { name: "Other" })).toBeInTheDocument();
   });
 
-  it("draws what the layout does not name as field rows, and a nested section as a tree", () => {
+  it("draws what the layout does not name as field rows, and the macros as a table", async () => {
     renderView();
 
     expect(screen.getByText("dynamicMaterial")).toBeInTheDocument();
     expect(screen.queryByRole("tree", { name: "Other" })).toBeNull();
-    expect(screen.getByRole("tree", { name: "Macros" })).toBeInTheDocument();
-    expect(screen.queryByRole("tree", { name: "Techniques" })).toBeNull();
+    expect(screen.queryByRole("tree", { name: "Macros" })).toBeNull();
+    expect(await screen.findByText("USE_RIM")).toBeInTheDocument();
   });
 
   it("shows None under a section whose list is empty", () => {
@@ -227,23 +235,28 @@ describe("ClassView", () => {
     expect(screen.getByDisplayValue("1")).toBeInTheDocument();
   });
 
-  it("reads a section's elements through the projected read, one call for the level", async () => {
+  it("reads the tables through the projected read, one call per level", async () => {
     renderView();
 
     await waitFor(() => {
       const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
-      expect(reads).toHaveLength(1);
+      expect(reads).toHaveLength(2);
       const held = Object.keys(ELEMENTS).filter((path) => path !== nameHash("switches").slice(2));
       expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: held.sort() });
+      expect(reads[1]?.[1]).toMatchObject({
+        entry: ENTRY,
+        paths: [SAMPLER_PATH, PARAM_PATH].sort(),
+      });
     });
   });
 
-  it("draws a list section as a field row per element the read answered", async () => {
+  it("draws a list section as a table row per element, a column per field", async () => {
     renderView();
 
-    expect(await screen.findByText("StaticMaterialShaderSamplerDef")).toBeInTheDocument();
-    expect(screen.getByText("StaticMaterialShaderParamDef")).toBeInTheDocument();
-    expect(screen.queryByRole("tree", { name: "Samplers" })).toBeNull();
+    expect(await screen.findByText("Diffuse_Texture")).toBeInTheDocument();
+    expect(screen.getByText("Fresnel_Power")).toBeInTheDocument();
+    expect(screen.getAllByText("Texture").length).toBeGreaterThan(0);
+    expect(screen.queryByText("StaticMaterialShaderSamplerDef")).toBeNull();
   });
 
   it("sends a cell's Show in properties the cell's own key", async () => {
@@ -277,5 +290,163 @@ describe("ClassView", () => {
     expect(writeText).toHaveBeenCalledWith(
       "Characters/Ezreal/Skins/Base/Materials/Ezreal_Base_Mat:name",
     );
+  });
+});
+
+/** The program read, answering a pass whose shader declares two of each. */
+const SCHEMA = {
+  params: [
+    { name: "Fresnel_Power", physical: "Fresnel", fields: 1, default: [2, 0, 0, 0] },
+    { name: "Alpha", physical: "Alpha", fields: 1, default: [0.75, 0, 0, 0] },
+  ],
+  textures: [
+    { name: "Diffuse_Texture", default: null, sharedSampler: null },
+    { name: "Mask_Texture", default: "assets/shared/black.tex", sharedSampler: null },
+  ],
+  switches: [{ name: "USE_RIM", onByDefault: true, runtime: false }],
+};
+
+describe("ClassView over a material whose shader answers", () => {
+  beforeEach(() => {
+    const read = mockInvoke.getMockImplementation();
+    mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+      if (command === "read_material_programs") {
+        return Promise.resolve({
+          ok: true,
+          value: [
+            {
+              hash: ENTRY,
+              name: null,
+              animated: false,
+              kind: "skinnedMesh",
+              passes: [
+                {
+                  pass: { shader: "Shaders/Test", schema: SCHEMA },
+                  program: { kind: "failed", reason: "" },
+                },
+              ],
+              warnings: [
+                { kind: "noTexturePath", name: "Diffuse_Texture" },
+                { kind: "secondPass" },
+              ],
+            },
+          ],
+        });
+      }
+      if (command === "bin_edit_property" || command === "bin_remove_item") {
+        return Promise.resolve({ ok: true, value: null });
+      }
+      if (command === "bin_patch") {
+        return Promise.resolve({ ok: true, value: args?.value });
+      }
+      return read!(command, args);
+    });
+  });
+
+  it("lists a declaration the material leaves unset with the shader's default", async () => {
+    renderView();
+
+    expect(await screen.findByText("Alpha")).toBeInTheDocument();
+    expect(screen.getByText("0.75")).toBeInTheDocument();
+    expect(screen.getByText("Mask_Texture")).toBeInTheDocument();
+    expect(screen.getByText("assets/shared/black.tex")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "USE_RIM" })).toBeChecked();
+  });
+
+  it("marks a compile-time switch and a texture the read warns about on their rows", async () => {
+    renderView();
+
+    expect(await screen.findByLabelText("Changing this rebuilds the shader")).toBeInTheDocument();
+    expect(screen.getByLabelText("Diffuse_Texture names no texture")).toBeInTheDocument();
+  });
+
+  it("says over the preview why the material does not draw as written", async () => {
+    renderView();
+
+    expect(await screen.findByText("The shader did not build")).toBeInTheDocument();
+    expect(screen.getByText("Only the first pass draws")).toBeInTheDocument();
+  });
+
+  it("adds the material's own entry once the shader's default is edited", async () => {
+    renderView(vi.fn(), true);
+    const user = userEvent.setup();
+    await screen.findAllByRole("button", { name: "Reset to the shader default" });
+
+    const field = screen.getByRole("textbox", { name: "Alpha X" });
+    expect(field).toHaveValue("0.75");
+    await user.clear(field);
+    await user.type(field, "0.5{Enter}");
+
+    const paramValues = nameHash("paramValues");
+    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
+      document: 7,
+      entry: ENTRY,
+      holder: "",
+      field: paramValues,
+      edits: [
+        {
+          type: "insertItem",
+          path: "",
+          item: { index: null, key: null, class: "StaticMaterialShaderParamDef" },
+        },
+        { type: "ensureProperty", path: "[1]", field: nameHash("name") },
+        {
+          type: "setLeaf",
+          path: `[1].${nameHash("name").slice(2)}`,
+          value: { type: "string", value: "Alpha" },
+        },
+        { type: "ensureProperty", path: "[1]", field: nameHash("value") },
+        {
+          type: "setLeaf",
+          path: `[1].${nameHash("value").slice(2)}`,
+          value: { type: "vector", values: [0.5, 0, 0, 0] },
+        },
+      ],
+    });
+  });
+
+  it("holds a parameter's value while it is typed, then writes it and lets it go", async () => {
+    renderView(vi.fn(), true);
+    const user = userEvent.setup();
+    await screen.findAllByRole("button", { name: "Reset to the shader default" });
+    const field = screen.getByRole("textbox", { name: "Fresnel_Power X" });
+
+    await user.clear(field);
+    await user.type(field, "5");
+    expect(useHeldValueStore.getState().held).toEqual({
+      material: ENTRY,
+      physical: "Fresnel",
+      fields: 1,
+      value: [5, 0, 0, 0],
+    });
+
+    await user.keyboard("{Enter}");
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
+        document: 7,
+        entry: ENTRY,
+        path: `${PARAM_PATH}.${nameHash("value").slice(2)}`,
+        value: { type: "vector", values: [5, 0, 0, 0] },
+      }),
+    );
+    await waitFor(() => expect(useHeldValueStore.getState().held).toBeNull());
+  });
+
+  it("takes an entry out when its row is reset", async () => {
+    renderView(vi.fn(), true);
+    const user = userEvent.setup();
+    await screen.findByText("Fresnel_Power");
+
+    const resets = await screen.findAllByRole("button", { name: "Reset to the shader default" });
+    await user.click(resets.at(-1)!);
+
+    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
+      document: 7,
+      entry: ENTRY,
+      holder: "",
+      field: nameHash("paramValues"),
+      edits: [{ type: "removeItem", path: "[0]" }],
+    });
   });
 });

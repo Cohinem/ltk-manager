@@ -22,7 +22,11 @@ export type SectionWidget =
   | "override-rows"
   | "effect-table"
   | "emitters"
-  | "clips";
+  | "clips"
+  | "material-params"
+  | "material-samplers"
+  | "material-switches"
+  | "material-macros";
 
 /** Which of a level's answered rows the level under it reads, by field name. */
 export type Select = "all" | readonly string[];
@@ -75,18 +79,33 @@ export function shellHoldsCurve(layout: ClassLayout): boolean {
 /**
  * The material, which a texture modder opens for its samplers.
  *
- * The four fields the wiki groups as the shader's own inputs are lists, and a list
- * draws as the rows a reader opens further. The techniques take the tree, which folds a
- * technique to its passes and a pass to its shader without a read per technique.
+ * The four fields the wiki groups as the shader's own inputs draw as tables, a row per
+ * element and a column per field. The techniques take the tree, which folds a technique
+ * to its passes and a pass to its shader without a read per technique. It declares a
+ * shell, because the material drawn with its own program is what the fields are judged
+ * against (ADR-0047).
  */
 export const materialLayout: ClassLayout = {
   title: m.workshop_bin_layout_material_label,
+  shell: "material",
   sections: [
     { title: m.workshop_bin_section_identity_label, fields: ["name", "type"] },
-    { title: m.workshop_bin_section_samplers_label, fields: ["samplerValues"], as: "rows" },
-    { title: m.workshop_bin_section_params_label, fields: ["paramValues"], as: "rows" },
-    { title: m.workshop_bin_section_switches_label, fields: ["switches"], as: "rows" },
-    { title: m.workshop_bin_section_macros_label, fields: ["shaderMacros"], as: "tree" },
+    {
+      title: m.workshop_bin_section_samplers_label,
+      fields: ["samplerValues"],
+      as: "material-samplers",
+    },
+    { title: m.workshop_bin_section_params_label, fields: ["paramValues"], as: "material-params" },
+    {
+      title: m.workshop_bin_section_switches_label,
+      fields: ["switches"],
+      as: "material-switches",
+    },
+    {
+      title: m.workshop_bin_section_macros_label,
+      fields: ["shaderMacros"],
+      as: "material-macros",
+    },
     { title: m.workshop_bin_section_techniques_label, fields: ["techniques"], as: "tree" },
   ],
 };
@@ -350,7 +369,12 @@ export function sectionCount(
   switch (section.widget) {
     case "rows":
     case "emitters":
+    case "material-params":
+    case "material-samplers":
+    case "material-switches":
       return lists(section.rows);
+    case "material-macros":
+      return section.rows.reduce((sum, row) => sum + childCount(row), 0);
     case "effect-table":
       return lists(section.rows.filter((row) => fieldHash(row.path) !== EFFECT.resolver));
     case "override-rows":
@@ -392,6 +416,12 @@ const DESCENT: Record<SectionWidget, Descent> = {
   emitters: ["all", ["CustomMaterial"], "all"],
   /* The graph is read typed, through its own command, and not through the rows. */
   clips: [],
+  /* Each list's elements, then each element's fields, which are the table's columns. */
+  "material-params": ["all", "all"],
+  "material-samplers": ["all", "all"],
+  "material-switches": ["all", "all"],
+  /* A macro is a map entry, which holds its value itself. */
+  "material-macros": ["all"],
 };
 
 /** How far under its own fields a section's widget reads. Nothing, without one. */

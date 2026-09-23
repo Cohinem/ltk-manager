@@ -70,6 +70,7 @@ describe("EngineEnvironment.draw", () => {
     };
     const material = createProgramMaterial(
       {
+        material: "0x1",
         pass: {
           shader: "Shaders/StaticMesh/DefaultEnv_Flat",
           defines: [],
@@ -88,6 +89,7 @@ describe("EngineEnvironment.draw", () => {
             depthCompareFunc: 3,
             writeMask: 31,
           },
+          schema: null,
         },
         program: {
           kind: "ready",

@@ -24,6 +24,7 @@ const RESOLVER = "0x11223344";
 const SYSTEM = "0x99887766";
 const EFFECT_KEY = "0xaabbccdd";
 const SYSTEM_PATH = "Particles/Smolder_Base_Idle";
+const GLOW_PATH = "Characters/Smolder/Skins/Skin0/Materials/Smolder_Body_Glow";
 
 const ASSET: AssetRef = {
   kind: "gameChunk",
@@ -130,6 +131,7 @@ const PAGES: Record<string, BinRows> = {
       type: "string",
       value: "Body",
     }),
+    row(ENTRY, `${OVERRIDE}.${at("material")}`, "material", link("0x0badf00d", GLOW_PATH)),
     row(ENTRY, `${OVERRIDE}.${at("texture")}`, "texture", chunk(BODY)),
   ]),
   [`${ENTRY}:${at("skinAnimationProperties")}`]: page([
@@ -217,6 +219,17 @@ const DECLARED: Record<string, unknown> = {
         file: "Smolder.bin",
         classHash: nameHash("VfxSystemDefinitionData"),
         class: "VfxSystemDefinitionData",
+      },
+    ],
+  },
+  "0x0badf00d": {
+    path: GLOW_PATH,
+    declarations: [
+      {
+        asset: ASSET,
+        file: "Smolder.bin",
+        classHash: nameHash("StaticMaterialDef"),
+        class: "StaticMaterialDef",
       },
     ],
   },
@@ -311,11 +324,13 @@ beforeEach(() => {
   });
 });
 
-/** The first material override's group, once the read has answered its fields. */
+/** The first material override's row, once the read has answered its fields. */
 async function overrideGroup(): Promise<HTMLElement> {
-  await screen.findByText("submesh");
-  const group = document.querySelector<HTMLElement>("[data-ui='OverrideRows:override']");
-  if (group === null) throw new Error("no override group drawn");
+  const submesh = await screen.findByText("Body", {
+    selector: "[data-ui='OverrideRows:override'] *",
+  });
+  const group = submesh.closest<HTMLElement>("[data-ui='OverrideRows:override']");
+  if (group === null) throw new Error("no override row drawn");
   return group;
 }
 
@@ -406,15 +421,28 @@ describe("ClassView over a skin", () => {
     ).toBeInTheDocument();
   });
 
-  it("titles each material override by the submesh it dresses, over its own field rows", async () => {
+  it("draws each material override as a table row of submesh, material and texture", async () => {
     renderSkin();
 
     const override = await overrideGroup();
 
-    expect(within(override).getAllByText("Body")).toHaveLength(2);
-    expect(within(override).getByText("[0]")).toBeInTheDocument();
-    expect(within(override).getByText("submesh")).toBeInTheDocument();
+    expect(screen.getByText("Submesh")).toBeInTheDocument();
+    expect(within(override).getAllByText("Body").length).toBeGreaterThan(0);
+    expect(within(override).queryByText("[0]")).toBeNull();
+    expect(within(override).getByText("Smolder_Body_Glow")).toBeInTheDocument();
+    expect(within(override).queryByText(/Materials\//)).toBeNull();
     expect(within(override).queryByText("SkinMeshDataProperties_MaterialOverride")).toBeNull();
+  });
+
+  it("folds an override's other fields under its row, closed until opened", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+    const override = await overrideGroup();
+
+    expect(within(override).queryByText("texture")).toBeNull();
+    await user.click(within(override).getByRole("button", { name: "Show fields" }));
+
+    expect(within(override).getByText("texture")).toBeInTheDocument();
   });
 
   it("points the preview at an override's submesh while the pointer is on it", async () => {

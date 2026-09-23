@@ -284,6 +284,95 @@ fn a_logical_value_scatters_through_its_mask_and_an_absent_value_writes_zeros() 
 }
 
 #[test]
+fn the_schema_lists_every_declaration_with_its_default() {
+    let shader = BinObject::builder(h(SHADER_PATH), h("CustomShaderDef"))
+        .property(OBJECT_PATH, values::String::from(SHADER_PATH))
+        .property(
+            PARAMETERS,
+            list(vec![
+                shader_param_masked(
+                    "Wave",
+                    [1.0, 2.0, 3.0, 4.0],
+                    &[("WaveSpeed", 0b0011), ("WaveHeight", 0b1000)],
+                ),
+                shader_param_masked("Whole", [5.0, 6.0, 7.0, 8.0], &[]),
+            ]),
+        )
+        .property(
+            TEXTURES,
+            list(vec![
+                shader_texture("Diffuse_Texture", Some(BLACK)),
+                shader_texture_shared("Noise_Texture", "Linear_Wrap"),
+            ]),
+        )
+        .property(
+            STATIC_SWITCHES,
+            list(vec![
+                shader_switch("GLOW_ON", true),
+                shader_switch_runtime("HIT_FLASH", false),
+            ]),
+        )
+        .build();
+    let defs = document_of(vec![shader]);
+    let material = Material::new().passes(vec![pass(SHADER_PATH, vec![])]);
+
+    let resolved = resolve(material, Some(&defs));
+    let schema = only_pass(&resolved).schema.as_ref().unwrap();
+
+    let param = |name: &str, fields: u32, default: [f32; 4]| SchemaParam {
+        name: name.to_owned(),
+        physical: if name == "Whole" { "Whole" } else { "Wave" }.to_owned(),
+        fields,
+        default,
+    };
+    assert_eq!(
+        schema.params,
+        [
+            param("WaveSpeed", 0b0011, [1.0, 2.0, 0.0, 0.0]),
+            param("WaveHeight", 0b1000, [4.0, 0.0, 0.0, 0.0]),
+            param("Whole", 0b1111, [5.0, 6.0, 7.0, 8.0]),
+        ]
+    );
+    assert_eq!(
+        schema.textures,
+        [
+            SchemaTexture {
+                name: "Diffuse_Texture".to_owned(),
+                default: Some(BLACK.to_owned()),
+                shared_sampler: None,
+            },
+            SchemaTexture {
+                name: "Noise_Texture".to_owned(),
+                default: None,
+                shared_sampler: Some("Linear_Wrap".to_owned()),
+            },
+        ]
+    );
+    assert_eq!(
+        schema.switches,
+        [
+            SchemaSwitch {
+                name: "GLOW_ON".to_owned(),
+                on_by_default: true,
+                runtime: false,
+            },
+            SchemaSwitch {
+                name: "HIT_FLASH".to_owned(),
+                on_by_default: false,
+                runtime: true,
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_pass_without_the_defs_carries_no_schema() {
+    let resolved = resolve(body(), None);
+
+    assert_eq!(only_pass(&resolved).schema, None);
+}
+
+#[test]
 fn a_pass_value_writes_over_the_material_value() {
     let material = body().passes(vec![pass(
         SHADER_PATH,

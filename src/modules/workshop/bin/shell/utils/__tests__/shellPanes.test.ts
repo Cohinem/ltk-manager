@@ -40,15 +40,16 @@ describe("defaultShellLayout", () => {
     expect(firstShellLeafId(defaultShellLayout("vfx"))).toBe("leaf-3");
   });
 
-  it("puts the skin's preview first, wider than the clips over the inspector beside it", () => {
+  it("puts the skin's preview over its clips, wider than the material over the inspector", () => {
     const tree = defaultShellLayout("skin");
 
     expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
       ["preview"],
       ["clips", "spells"],
+      ["material"],
       ["inspector"],
     ]);
-    expect(tree.kind === "split" && tree.layout).toEqual({ "leaf-2": 3, "split-4": 2 });
+    expect(tree.kind === "split" && tree.layout).toEqual({ "split-6": 3, "split-4": 2 });
     const column = tree.kind === "split" ? tree.children[1] : tree;
     expect(column?.kind === "split" && column.dir).toBe("col");
     expect(firstShellLeafId(tree)).toBe("leaf-2");
@@ -61,6 +62,29 @@ describe("defaultShellArrangements", () => {
 
     expect(shells.vfx).toEqual({ layout: defaultShellLayout("vfx"), leafId: "leaf-3" });
     expect(shells.skin).toEqual({ layout: defaultShellLayout("skin"), leafId: "leaf-2" });
+    expect(shells.material).toEqual({ layout: defaultShellLayout("material"), leafId: "leaf-2" });
+  });
+
+  it("holds every pane of the material shell once, the preview beside the inspector", () => {
+    const tree = defaultShellLayout("material");
+
+    expect([...openShellPanes(tree)].sort()).toEqual([...shellPanesOf("material")].sort());
+    expect(leaves(tree).map((leaf) => leaf.tabs[0])).toEqual(["preview", "inspector"]);
+  });
+
+  it("drops a program pane a saved material tree still names", () => {
+    const tree = sanitizeShellLayout("material", {
+      kind: "split",
+      id: "split-1",
+      dir: "col",
+      layout: { "leaf-2": 3, "leaf-5": 1 },
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview", "inspector"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-5", tabs: ["program"], activeTab: "program" },
+      ],
+    });
+
+    expect(leaves(tree).flatMap((leaf) => leaf.tabs)).toEqual(["preview", "inspector"]);
   });
 });
 
@@ -106,7 +130,11 @@ describe("sanitizeShellLayout", () => {
       ],
     });
 
-    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([["preview"], ["clips"], ["inspector"]]);
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview"],
+      ["clips"],
+      ["inspector", "material"],
+    ]);
     expect(tree.kind === "split" && tree.layout).toEqual({ "leaf-2": 3, "leaf-3": 2 });
     const column = tree.kind === "split" ? tree.children[1] : tree;
     expect(column).toEqual({
@@ -115,9 +143,26 @@ describe("sanitizeShellLayout", () => {
       dir: "col",
       children: [
         { kind: "leaf", id: "leaf-4", tabs: ["clips"], activeTab: "clips" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector", "material"], activeTab: "inspector" },
+      ],
+    });
+  });
+
+  it("opens a skin tree saved before the material pane existed with it behind the inspector", () => {
+    const tree = sanitizeShellLayout("skin", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview", "clips"], activeTab: "preview" },
         { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
       ],
     });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview", "clips"],
+      ["inspector", "material"],
+    ]);
   });
 
   it("leaves a skin tree that closed the clips pane and holds no inspector as it is", () => {

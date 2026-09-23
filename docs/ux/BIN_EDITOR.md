@@ -1118,8 +1118,9 @@ row's hash at module load, checked by a test over known pairs.
 
 A section names one widget or none. `rows` is the elements of the containers the section placed,
 each a field row that opens in place, which is what a list takes. `override-rows` is the same over
-a list one level down, which is how the skin reaches the mesh's material overrides, and it titles
-each override by the submesh it dresses rather than by its class. `icons`, `mesh` and
+a list one level down, which is how the skin reaches the mesh's material overrides. It draws them
+as a table of submesh and material, the material a chip reading its name, and each row folds open
+to the override's other fields, its textures among them. `icons`, `mesh` and
 `effect-table` are the skin's own, and `emitters` the particle system's, each reading the fields
 of one class. `fields` draws the sub-fields a section names under the row it
 placed, which is what a one-field embed such as `skinAnimationProperties` takes. `tree` is the
@@ -1244,12 +1245,12 @@ through Properties.
 
 ### The layouts
 
-| Class                                               | Sections                                                                                                     |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other                |
-| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh, Material overrides, Clips, Animation, VFX, Audio, Health bar, Other, beside a preview |
-| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                                           |
-| `AnimationGraphData`                                | Clips as a table with Tracks, Masks and Sync groups as its tabs, Other                                       |
+| Class                                               | Sections                                                                                                                        |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other, beside a preview and its program |
+| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh, Material overrides, Clips, Animation, VFX, Audio, Health bar, Other, beside a preview                    |
+| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                                                              |
+| `AnimationGraphData`                                | Clips as a table with Tracks, Masks and Sync groups as its tabs, Other                                                          |
 
 The material, the skin, the particle system and the animation graph are the registered
 layouts, with the value rows beside them.
@@ -1556,6 +1557,98 @@ mini transport there.
 
 The strip and the lanes mark the squares' colours, and the inspector marks the rows it draws. No
 other value family is marked. An emitter carries far more of them than any surface draws at once.
+
+### The material shell
+
+`StaticMaterialDef` declares a shell of two panes, per ADR-0047: the preview and the inspector
+holding every section. The material drawn with its own translated shader is what its fields are
+judged against, and the stack showed only the rows.
+
+```
++----------------------------------------------------------------------------------+
+| StaticMaterialDef  Characters/Ahri/Skins/Skin0/Materials/Body   [Material|...]   |
++------------------------------------------------------+---------------------------+
+| PREVIEW   [Sphere v][Turntable][Ground] [Cam v][Fit] | INSPECTOR                 |
+| Only the first pass draws                            | v IDENTITY                |
+|                                                      | v SAMPLERS                |
+|                    (the shape)                       | v PARAMS                  |
+|                                                      | v SWITCHES                |
+|                                                      | v MACROS                  |
+| [Draw on a shape]                                    | v TECHNIQUES              |
++------------------------------------------------------+---------------------------+
+```
+
+**The preview draws the character, and a shape behind a toggle.** Where a skin of the same file
+draws with the material, the preview is that skin's, with its own transport and toolbar. A
+texture is painted for the mesh it wraps, so a skin material reads right only there. A toggle in
+the preview's corner, Draw on a shape, swaps in the shape. The toggle is a display preference. A
+material no skin of its file links draws on the shape, with no toggle.
+
+**The Objects grid draws a material as a thumbnail of its shape.** A sphere under the material's
+first translated pass, captured once its textures land, and drawing live while the pointer holds
+the tile, as a particle system's does. A material with no pass that translated keeps the class
+glyph and the failure mark.
+
+**A shape draws the first pass that translated.** A sphere by default, or a cube, a plane or a
+cylinder. The shape, the turntable and the ground are display preferences, so every material
+opens on the ones a reader last picked. A skinned material draws
+on a shape bound to one bone, since its shader takes the world transform from the bones. A
+material whose passes all failed draws its shape in the error colour and says so in the corner,
+and never falls back to the stock material, because a reader editing a shader needs to see that
+it failed.
+
+**The preview's corner says why it draws what it does.** A pass whose shader did not build, with
+the reason, and the warnings about the material as a whole: no shader defs, no pass, a pass shader
+that resolves to nothing, a second pass that does not draw, and an animated material whose preview
+holds its static values. A material that draws as written shows nothing there. The shader ids and
+the define list stay out of the view, since no reader edits them.
+
+The preview reads the open document, so an edit reaches it once it lands, before the file is
+saved.
+
+**A material's lists are tables.** Samplers, Params, Switches and Macros each draw a row per
+element and a column per field: a sampler's name, texture and three address modes, a
+parameter's name and value, a switch's name and whether it is on, a macro's define and value.
+Every cell is the leaf editor its row would draw, and a field the element leaves unwritten reads
+`default`.
+
+**The shader declares the rows.** Samplers, Params and Switches list every texture, logical
+parameter and static switch the pass shader declares, in its order, and not only the entries the
+material writes. A row the material leaves to the shader draws the shader's default in the same
+fields a written value takes, with a dashed edge, no fill and muted text. Editing a default
+parameter's field adds the material's own entry holding the new value. Pressing a default texture
+adds the entry holding it, and a switch's box adds the entry holding the value it was set to. A
+row with an entry of its own carries a reset, which takes the entry out so the default draws
+again. An entry that names nothing the shader declares follows the
+declared rows with a warning mark. Until the shader's defs answer, the tables list the entries
+alone. A switch entry that leaves `on` unwritten is on, as the engine reads it.
+
+**A row says what the game will do with it.** A texture whose path nothing on this machine holds,
+a path written as a string, and a texture that no path reaches each put a warning mark on the
+texture's row. A switch the shader compiles in carries a mark that changing it rebuilds the
+shader. The preview draws the old shader until the new one answers, so a toggle never blanks it.
+
+**Live values.** A parameter the material sets draws one field per component its mask writes,
+labelled X to W, or R to A for a colour. Dragging a label sideways scrubs the value, and every
+preview drawing the material, the shape and the character, draws each step before anything
+reaches the bin. Releasing the drag, leaving the field or pressing Enter writes the value once,
+which is one undo step. The preview keeps the held value until the reads the write invalidated
+answer, so it never draws the old value between. A parameter named `Color` or `Tint` with three
+or more components carries a swatch that opens a colour picker, held live the same way and written
+when the picker closes.
+
+The particle system's, the skin's and the material's layouts take edits in place, the skin's
+Material pane with them. The map's layout and a read-only document draw the same values as text,
+with no field to hover.
+
+### The material pane
+
+A skin's shell holds a Material pane, per ADR-0047, above the inspector. It draws one material
+the skin draws with as the tables above, beside the character that material dresses, so an edit
+is judged on the mesh its textures were painted for. Clicking a submesh on the character shows
+that submesh's material, and the pane's own list picks any other until the next click. The
+character shows an edit only under the game's shaders, so the pane offers to turn them on while
+they are off. A material another file declares says so in place of the tables.
 
 ### How the panes are arranged
 

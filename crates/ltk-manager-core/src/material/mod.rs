@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
+pub mod defs;
 pub mod pass;
 
 use indexmap::IndexMap;

@@ -13,7 +13,8 @@ export type ShellPaneId =
   | "timeline"
   | "clips"
   | "spells"
-  | "outliner";
+  | "outliner"
+  | "material";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -24,16 +25,18 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "clips",
   "spells",
   "outliner",
+  "material",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
-export type ShellKind = "vfx" | "skin" | "map";
+export type ShellKind = "vfx" | "skin" | "map" | "material";
 
 /** The panes each shell holds, in the order the Panes menu lists them. */
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters"],
-  skin: ["preview", "clips", "spells", "inspector"],
+  skin: ["preview", "clips", "spells", "material", "inspector"],
   map: ["preview", "outliner", "inspector"],
+  material: ["preview", "inspector"],
 } as const satisfies Record<ShellKind, readonly ShellPaneId[]>;
 
 /** The panes a `K` shell holds, which its content names one body for each of. */
@@ -54,6 +57,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   clips: m.workshop_bin_pane_clips_label,
   spells: m.workshop_bin_pane_spells_label,
   outliner: m.workshop_bin_pane_outliner_label,
+  material: m.workshop_bin_pane_material_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -76,9 +80,22 @@ export type ShellArrangements = Readonly<Record<ShellKind, ShellArrangement>>;
  * any window width. The preview takes the largest single share in each, because what is
  * drawn is what the reader edits the numbers against. The particle system's is the
  * arrangement of "The shell" in docs/ux/BIN_EDITOR.md (ADR-0037), and the skin's is
- * "The clips pane" there.
+ * "The clips pane" there, and the material's is "The material shell" there.
  */
 export function defaultShellLayout(kind: ShellKind): LayoutNode {
+  if (kind === "material") {
+    return {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      layout: { "leaf-2": 3, "leaf-3": 2 },
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    };
+  }
+
   if (kind === "map") {
     return {
       kind: "split",
@@ -105,15 +122,24 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
       kind: "split",
       id: "split-1",
       dir: "row",
-      layout: { "leaf-2": 3, "split-4": 2 },
+      layout: { "split-6": 3, "split-4": 2 },
       children: [
-        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        {
+          kind: "split",
+          id: "split-6",
+          dir: "col",
+          layout: { "leaf-2": 3, "leaf-5": 1 },
+          children: [
+            { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+            { kind: "leaf", id: "leaf-5", tabs: ["clips", "spells"], activeTab: "clips" },
+          ],
+        },
         {
           kind: "split",
           id: "split-4",
           dir: "col",
           children: [
-            { kind: "leaf", id: "leaf-5", tabs: ["clips", "spells"], activeTab: "clips" },
+            { kind: "leaf", id: "leaf-7", tabs: ["material"], activeTab: "material" },
             { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
           ],
         },
@@ -157,7 +183,12 @@ export function defaultShellArrangements(): ShellArrangements {
     const layout = defaultShellLayout(kind);
     return { layout, leafId: firstShellLeafId(layout) };
   };
-  return { vfx: arranged("vfx"), skin: arranged("skin"), map: arranged("map") };
+  return {
+    vfx: arranged("vfx"),
+    skin: arranged("skin"),
+    map: arranged("map"),
+    material: arranged("material"),
+  };
 }
 
 /** The leaf a reopened pane lands in when the one the reader focused is gone. */
@@ -176,13 +207,24 @@ export function openShellPanes(tree: LayoutNode): ReadonlySet<ShellPaneId> {
  * A pane the shell does not hold drops rather than crashing the first render, and a
  * value that is no tree at all falls back to a single empty leaf, which draws the Panes
  * menu and nothing else. A skin tree saved before the clips pane existed gains it over
- * the inspector, per "The clips pane" in docs/ux/BIN_EDITOR.md.
+ * the inspector, per "The clips pane" in docs/ux/BIN_EDITOR.md, and one saved before the
+ * material pane existed gains it as a tab behind the inspector.
  */
 export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode {
   const held = new Set<ShellPaneId>();
-  const tree = readNode(value, shellPanesOf(kind), held) ?? singleLeaf();
-  if (kind === "skin" && !held.has("clips")) return withClipsPane(tree);
+  let tree = readNode(value, shellPanesOf(kind), held) ?? singleLeaf();
+  if (kind !== "skin") return tree;
+
+  if (!held.has("clips")) tree = withClipsPane(tree);
+  if (!held.has("material")) tree = withTabBeside(tree, "inspector", "material");
   return tree;
+}
+
+/** `tree` with `pane` a tab behind `beside`'s, and `tree` as it is where no leaf holds `beside`. */
+function withTabBeside(tree: LayoutNode, beside: ShellPaneId, pane: ShellPaneId): LayoutNode {
+  const leaf = leafHolding(tree, beside);
+  if (leaf === null) return tree;
+  return replaceNode(tree, leaf.id, { ...leaf, tabs: [...leaf.tabs, pane] });
 }
 
 /**

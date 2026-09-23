@@ -65,6 +65,7 @@ fn pass_with(defines: &[(&str, &str)]) -> ResolvedPass {
         textures: Vec::new(),
         params: Vec::new(),
         state: PassState::default(),
+        schema: None,
     }
 }
 

@@ -78,9 +78,9 @@ export class EngineEnvironment {
     const uniforms: Record<string, IUniform> = program.uniforms;
     for (const [channel, member, texture] of LIGHT_CHANNELS) {
       const light = lights?.[channel] ?? null;
-      const at = globals.members.get(member);
-      const block = at === undefined ? undefined : uniforms[at.block]?.value;
-      if (at !== undefined && block instanceof Float32Array) {
+      for (const at of globals.members.get(member) ?? []) {
+        const block = uniforms[at.block]?.value;
+        if (!(block instanceof Float32Array)) continue;
         const scale = light?.scale ?? UNIT_SCALE;
         const bias = light?.bias ?? NO_BIAS;
         if (

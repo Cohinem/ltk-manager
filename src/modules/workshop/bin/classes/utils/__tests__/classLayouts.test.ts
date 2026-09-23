@@ -69,12 +69,13 @@ describe("classLayout", () => {
 
 describe("frameOf", () => {
   it("gives a layout that names no shell the stack", () => {
-    expect(frameOf(materialLayout)).toBe("stack");
+    expect(frameOf(animationGraphLayout)).toBe("stack");
   });
 
-  it("gives the particle system and the skin the shells they declare", () => {
+  it("gives the particle system, the skin and the material the shells they declare", () => {
     expect(frameOf(vfxLayout)).toBe("shell");
     expect(frameOf(skinLayout)).toBe("shell");
+    expect(frameOf(materialLayout)).toBe("shell");
   });
 });
 
@@ -96,6 +97,10 @@ describe("descentOf", () => {
     "override-rows",
     "effect-table",
     "emitters",
+    "material-params",
+    "material-samplers",
+    "material-switches",
+    "material-macros",
   ];
 
   it("keeps every widget inside the levels the view reads", () => {
@@ -163,10 +168,10 @@ describe("placeRows", () => {
 
     expect(placed.map((section) => section.widget)).toEqual([
       undefined,
-      "rows",
-      "rows",
-      "rows",
-      "tree",
+      "material-samplers",
+      "material-params",
+      "material-switches",
+      "material-macros",
       "tree",
       undefined,
     ]);
@@ -182,7 +187,7 @@ describe("placeRows", () => {
     const placed = placeRows(roots, materialLayout);
     const counts = placed.map((section) => sectionCount(section, new Map()));
 
-    expect(counts).toEqual([null, 2, 1, 0, null, null, 2]);
+    expect(counts).toEqual([null, 2, 1, 0, 3, null, 2]);
   });
 });
 
