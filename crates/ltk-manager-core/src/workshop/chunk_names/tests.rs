@@ -1,7 +1,16 @@
 use super::*;
 
-/// A project on disk: layer files under `content`, and declared tables under `hashes`.
+/// A project on disk: layer files under `content`, and declared `game` tables under `hashes`.
 fn project(files: &[&str], tables: &[(&str, &str)]) -> tempfile::TempDir {
+    let tables: Vec<_> = tables
+        .iter()
+        .map(|(name, body)| (*name, "game", *body))
+        .collect();
+    written(files, &tables, &[])
+}
+
+/// A project declaring `tables` under `hashes`, each as its file name, category and body.
+fn declaring(files: &[&str], tables: &[(&str, &str, &str)]) -> tempfile::TempDir {
     written(files, tables, &[])
 }
 
@@ -10,7 +19,11 @@ fn layered(files: &[&str], layers: &[(&str, i32)]) -> tempfile::TempDir {
     written(files, &[], layers)
 }
 
-fn written(files: &[&str], tables: &[(&str, &str)], layers: &[(&str, i32)]) -> tempfile::TempDir {
+fn written(
+    files: &[&str],
+    tables: &[(&str, &str, &str)],
+    layers: &[(&str, i32)],
+) -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("temp dir");
 
     for layer_path in files {
@@ -21,11 +34,18 @@ fn written(files: &[&str], tables: &[(&str, &str)], layers: &[(&str, i32)]) -> t
 
     let declared: Vec<String> = tables
         .iter()
-        .map(|(name, body)| {
+        .map(|(name, category, body)| {
             let full = dir.path().join("hashes").join(name);
             fs::create_dir_all(full.parent().expect("parent")).expect("dirs");
             fs::write(&full, body.as_bytes()).expect("write");
-            format!(r#"{{"path":"hashes/{name}","category":"game","algorithm":"xxh64","bits":64}}"#)
+
+            let (algorithm, bits) = match *category {
+                "game" => ("xxh64", 64),
+                _ => ("fnv1a_32", 32),
+            };
+            format!(
+                r#"{{"path":"hashes/{name}","category":"{category}","algorithm":"{algorithm}","bits":{bits}}}"#
+            )
         })
         .collect();
 
@@ -150,6 +170,71 @@ fn a_table_path_and_a_layer_path_differing_only_in_case_are_one_chunk() {
     let chunks = LayerChunks::scan(dir.path());
 
     assert_eq!(chunks.len(), 1, "one hash, whatever the casing");
+}
+
+#[test]
+fn a_declared_binentries_table_names_an_object_and_no_chunk() {
+    let path = "Mods/83f7e874bb9f/lux/vfx/Lux_Skin15_Z_RecallPlatform";
+    let dir = declaring(
+        &[],
+        &[("binentries.hashes.txt", "binentries", &format!("{path}\n"))],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(chunks.entry(BinHash::hash_str(path)), Some(path));
+    assert_eq!(chunks.get(WadHash::hash_str(path)), None);
+    assert!(chunks.is_empty(), "an object path is not a chunk path");
+}
+
+#[test]
+fn a_declared_binhashes_table_names_a_value() {
+    let text = "Frieren_Lux_Mat";
+    let dir = declaring(
+        &[],
+        &[("binhashes.hashes.txt", "binhashes", &format!("{text}\n"))],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(chunks.value(BinHash::hash_str(text)), Some(text));
+    assert_eq!(chunks.entry(BinHash::hash_str(text)), None);
+}
+
+/// An object path and a chunk path hash into different spaces, so one spelling is both.
+#[test]
+fn a_name_an_entry_table_and_a_layer_both_hold_is_named_in_both_spaces() {
+    let path = "assets/x.tex";
+    let dir = declaring(
+        &["base/W.wad.client/assets/x.tex"],
+        &[("binentries.hashes.txt", "binentries", "assets/x.tex\n")],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(chunks.get(WadHash::hash_str(path)), Some(path));
+    assert_eq!(chunks.entry(BinHash::hash_str(path)), Some(path));
+    assert_eq!(chunks.len(), 1);
+}
+
+#[test]
+fn a_table_of_an_unknown_category_is_skipped() {
+    let dir = declaring(
+        &[],
+        &[
+            ("game.hashes.txt", "game", "assets/x.tex\n"),
+            ("custom.hashes.txt", "custom", "assets/y.tex\n"),
+        ],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.get(WadHash::hash_str("assets/x.tex")),
+        Some("assets/x.tex")
+    );
+    assert_eq!(chunks.get(WadHash::hash_str("assets/y.tex")), None);
+    assert_eq!(chunks.entry(BinHash::hash_str("assets/y.tex")), None);
 }
 
 /// `Layer::priority`'s contract, against a name order that would answer the other way.

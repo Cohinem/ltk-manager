@@ -915,11 +915,14 @@ hashes and the paths its row group already sends, so neither shape costs a call 
 
 ### A project names its own chunks
 
-The shared tables are a crawl of the retail game, so a path a mod author invents is in none of
-them. A project's own content names those, and a bin opened out of a layer reads both: every
-file of every layer at its path inside its archive, and every table the project's manifest
-declares. The project answers first, and only a hash it does not name reaches the shared tables.
-A game bin opened in a project for declarations (ADR-0042) reads that project's names too.
+The shared tables are a crawl of the retail game, so a path or an object a mod author invents is
+in none of them. A project's own content names those, and a bin opened out of a layer reads
+both: every file of every layer at its path inside its archive, and every table the project's
+manifest declares, each under its category. A `game` table names chunk paths, a `binentries`
+table the objects the project's bins add, and a `binhashes` table the strings behind their
+`Hash` values. The project answers first, and only a hash it does not name reaches the shared
+tables. Classes and properties stay with the shared tables, and a table of a category the
+tooling does not know is skipped.
 
 The scan runs once with the parse and is held with the open document, so a file added while a
 document is open is named the next time it opens.
