@@ -109,13 +109,18 @@ export interface ViewportProps {
 }
 
 /**
- * How the fibre measures the canvas: on every change, and never on a scroll.
+ * How the fibre measures the canvas: on every change, never on a scroll, and by its layout box.
  *
  * The default waits 50ms for a resize to settle, which leaves a dragged seam drawing a
  * frame sized for the old box. Pointer events read offsets, so nothing reads where the
- * canvas stands on the page.
+ * canvas stands on the page. `offsetSize` reads the box before any CSS transform. A canvas
+ * inside a zoomed graph node draws at its own size, and the zoom only scales it on screen.
  */
-const MEASURE: ComponentProps<typeof Canvas>["resize"] = { scroll: false, debounce: 0 };
+const MEASURE: ComponentProps<typeof Canvas>["resize"] = {
+  scroll: false,
+  debounce: 0,
+  offsetSize: true,
+};
 
 /** What `opaqueRenderer` reads of the defaults the fibre hands a renderer factory. */
 interface CanvasDefaults {

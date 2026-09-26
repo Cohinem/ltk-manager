@@ -14,7 +14,8 @@ export type ShellPaneId =
   | "clips"
   | "spells"
   | "outliner"
-  | "material";
+  | "material"
+  | "graph";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -26,6 +27,7 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "spells",
   "outliner",
   "material",
+  "graph",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
@@ -33,7 +35,7 @@ export type ShellKind = "vfx" | "skin" | "map" | "material";
 
 /** The panes each shell holds, in the order the Panes menu lists them. */
 export const SHELL_PANES = {
-  vfx: ["preview", "timeline", "inspector", "curve", "emitters"],
+  vfx: ["preview", "timeline", "inspector", "curve", "emitters", "graph"],
   skin: ["preview", "clips", "spells", "material", "inspector"],
   map: ["preview", "outliner", "inspector"],
   material: ["preview", "inspector"],
@@ -58,6 +60,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   spells: m.workshop_bin_pane_spells_label,
   outliner: m.workshop_bin_pane_outliner_label,
   material: m.workshop_bin_pane_material_label,
+  graph: m.workshop_bin_pane_graph_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {

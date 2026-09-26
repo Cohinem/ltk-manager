@@ -897,3 +897,29 @@ fn the_shared_schema_reopens_for_another_build() {
         "a different install is a different choice of database"
     );
 }
+
+/// The hash tables lag the game, and a class or field they leave unnamed takes the
+/// database's name.
+#[test]
+fn schema_names_name_what_the_tables_leave_unnamed() {
+    use ltk_hash::Hash as _;
+
+    use crate::bin_document::RowNames as _;
+
+    let schema = MetaSchema::shipped();
+    let names = SchemaNames::new(&(), &schema);
+    let class = BinHash::hash_str("VfxFloatDynamicProperty");
+    let field = BinHash::hash_str("EmissionRate");
+    let mut named = Vec::new();
+
+    names.for_each_class(&[class], &mut |at, name| named.push((at, name.to_owned())));
+    names.for_each_field(&[field], &mut |at, name| named.push((at, name.to_owned())));
+
+    assert_eq!(
+        named,
+        [
+            (0, "VfxFloatDynamicProperty".to_owned()),
+            (0, "EmissionRate".to_owned()),
+        ]
+    );
+}

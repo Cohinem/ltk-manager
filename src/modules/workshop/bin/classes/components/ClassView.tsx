@@ -254,6 +254,8 @@ export function ClassView({
                                       system={system}
                                       drawable={drawable}
                                       preview={previewSlot}
+                                      previewHost={previewHost}
+                                      onShowInProperties={onShowInProperties}
                                     />
                                   )}
                                   {frame === "shell" && map && (

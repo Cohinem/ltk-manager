@@ -23,9 +23,11 @@ use crate::problems::GameBuild;
 
 mod fields;
 mod game_data;
+mod names;
 
 pub use fields::DeclaredField;
 pub use game_data::PatchSchema;
+pub use names::SchemaNames;
 
 #[cfg(test)]
 mod tests;
@@ -126,6 +128,10 @@ pub struct MetaSchema {
     latest: u32,
     patch: Option<String>,
     classes: HashMap<BinHash, ParsedClass>,
+    /// Every named field of every class, by its hash.
+    ///
+    /// A field hash is the hash of its name, so any class naming a hash names it the same.
+    field_names: HashMap<BinHash, String>,
 }
 
 /// What one meta schema database is, as the cache card names it.
@@ -527,6 +533,12 @@ impl MetaSchema {
                     },
                 ))
             })
+            .collect::<HashMap<BinHash, ParsedClass>>();
+
+        let field_names = classes
+            .values()
+            .flat_map(|class| &class.properties)
+            .filter_map(|(hash, property)| Some((*hash, property.name.clone()?)))
             .collect();
 
         let latest = published.latest;
@@ -543,6 +555,7 @@ impl MetaSchema {
             latest,
             patch,
             classes,
+            field_names,
         })
     }
 
@@ -680,6 +693,12 @@ impl MetaSchema {
     #[must_use]
     pub fn class_name(&self, class: BinHash) -> Option<&str> {
         self.classes.get(&class)?.name.as_deref()
+    }
+
+    /// The field as the database names it on any class, at any build.
+    #[must_use]
+    pub fn any_field_name(&self, field: BinHash) -> Option<&str> {
+        self.field_names.get(&field).map(String::as_str)
     }
 
     /// Whether the database holds `class` at any build, named or not.

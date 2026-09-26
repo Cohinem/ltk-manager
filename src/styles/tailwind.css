@@ -94,6 +94,14 @@
   --color-channel-3-text: var(--ltk-channel-3-text);
   --color-channel-4: var(--ltk-channel-4);
   --color-channel-4-text: var(--ltk-channel-4-text);
+  --color-socket-float: var(--ltk-socket-float);
+  --color-socket-float-text: var(--ltk-socket-float-text);
+  --color-socket-vec2: var(--ltk-socket-vec2);
+  --color-socket-vec2-text: var(--ltk-socket-vec2-text);
+  --color-socket-vec3: var(--ltk-socket-vec3);
+  --color-socket-vec3-text: var(--ltk-socket-vec3-text);
+  --color-socket-vec4: var(--ltk-socket-vec4);
+  --color-socket-vec4-text: var(--ltk-socket-vec4-text);
 
   /* Folder */
   --color-folder: var(--ltk-folder);
