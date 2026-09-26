@@ -22,6 +22,7 @@ import { twMerge } from "@/utils";
 import { fileKindFromPath } from "../../../gameBrowser/utils/fileKind";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { useOpenDocumentAs } from "../../../state";
+import { RandomFields, useRandomizer } from "../../curves/components/RandomFields";
 import { useCurveChain, useCurveDock } from "../../curves/state/curveTarget";
 import {
   CURVE_DYNAMICS,
@@ -29,6 +30,7 @@ import {
   curveDynamicsClass,
 } from "../../curves/utils/curveEdits";
 import { drawSummary, randomDraw, rerollsEveryFrame } from "../../curves/utils/randomDraw";
+import { valueMode } from "../../curves/utils/randomizer";
 import { summaryText } from "../../curves/utils/randomText";
 import { DeclaredRowState } from "../../documents/components/DeclaredLayer";
 import { useBinRead } from "../../documents/hooks/useBinRead";
@@ -394,6 +396,7 @@ export function FieldRow({
           folds && "cursor-pointer",
         )}
         data-row-key={rowKey(row)}
+        data-row-owner={owner ?? undefined}
         aria-expanded={folds ? open : undefined}
         onClick={folds ? toggle : undefined}
       >
@@ -409,7 +412,7 @@ export function FieldRow({
         >
           {valueSlot}
           {valueSlot === undefined && family !== null && (
-            <ValueCell row={row} shaped railed={rail !== undefined} />
+            <ValueCell row={row} shaped railed={rail !== undefined} randomFields />
           )}
           {valueSlot === undefined && family === null && axes !== null && !editable && (
             <AxisCells values={axes} />
@@ -588,11 +591,17 @@ export function ValueCell({
   row,
   shaped = false,
   railed = false,
+  controls = false,
+  randomFields = false,
 }: {
   row: BinRow;
   shaped?: boolean;
   /** The layout draws a roll rail, which already says when the table is re-rolled. */
   railed?: boolean;
+  /** The host draws the curve itself, so the cell draws only its toggle and random chip. */
+  controls?: boolean;
+  /** The row has the room for a random value's Min and Max, which a one-line host lacks. */
+  randomFields?: boolean;
 }) {
   const mark = useValueMark(rowKey(row));
   const { aim, clear, target } = useCurveDock();
@@ -604,6 +613,9 @@ export function ValueCell({
   const dynamicsClass = curveDynamicsClass(valueClass);
   const curve = mark?.curve === true;
   const canActivate = edit?.editProperty !== undefined && dynamicsClass !== null;
+  const mode = valueMode(mark);
+  const randomizer = useRandomizer(row, mark);
+  const ranged = mode === "random" && randomFields && !controls && mark !== undefined;
 
   async function activateCurve() {
     if (edit?.editProperty === undefined || valueClass === null) return;
@@ -615,6 +627,14 @@ export function ValueCell({
     if (!activated || row.value.type !== "struct") return;
 
     aim({ row: { ...row, value: { ...row.value, len: row.value.len + 1 } }, chain, tab: "graph" });
+  }
+
+  /* A random value leaves its draw behind for a curve, and a curve opens in the dock. */
+  async function toCurve() {
+    if (mode === "constant") return activateCurve();
+    if (mode === "random" && randomizer !== null && !(await randomizer.stop())) return;
+
+    aim({ row, chain, tab: "graph" });
   }
 
   async function deactivateCurve() {
@@ -631,19 +651,30 @@ export function ValueCell({
         shaped && "flex-wrap gap-y-1 py-0.5",
       )}
     >
-      {constant !== undefined && <RowValue row={constant} field={ownField(row)} />}
-      {constant === undefined && (
+      {ranged && <RandomFields row={row} mark={mark} />}
+      {!controls && !ranged && constant !== undefined && (
+        <RowValue row={constant} field={ownField(row)} />
+      )}
+      {!controls && !ranged && constant === undefined && (
         <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
       )}
-      {mark?.constantRow !== undefined && <DeclaredRowState rowKey={rowKey(mark.constantRow)} />}
+      {!controls && mark?.constantRow !== undefined && (
+        <DeclaredRowState rowKey={rowKey(mark.constantRow)} />
+      )}
       {(curve || canActivate) && (
         <CurveToggle
-          active={curve}
-          onCurve={curve ? () => aim({ row, chain, tab: "graph" }) : () => void activateCurve()}
+          active={mode === "curve"}
+          random={mode === "random"}
+          onCurve={() => void toCurve()}
           onConstant={edit?.setPointer === undefined ? undefined : () => void deactivateCurve()}
+          onRandom={
+            randomizer === null || mode === "random" ? undefined : () => void randomizer.start()
+          }
         />
       )}
-      {curve && <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />}
+      {curve && !ranged && (
+        <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />
+      )}
     </span>
   );
 }
@@ -651,12 +682,18 @@ export function ValueCell({
 /** The compact row action that creates or opens a value's dynamics. */
 export function CurveToggle({
   active = false,
+  random = false,
   onCurve,
   onConstant,
+  onRandom,
 }: {
   active?: boolean;
+  /** The value draws between two ends at birth. */
+  random?: boolean;
   onCurve: () => void;
   onConstant?: () => void;
+  /** Turn the value random. Absent where it already is, or the host offers no Random mode. */
+  onRandom?: () => void;
 }) {
   const curveLabel = active
     ? m.workshop_bin_force_curve_action()
@@ -672,17 +709,33 @@ export function CurveToggle({
         <button
           type="button"
           aria-label={m.workshop_bin_use_constant_action()}
-          aria-pressed={!active}
+          aria-pressed={!active && !random}
           disabled={onConstant === undefined}
           className={twMerge(
             "flex h-full w-5 cursor-pointer items-center justify-center border-r border-surface-veil-strong text-surface-500 transition-colors hover:bg-surface-veil hover:text-surface-200 disabled:cursor-not-allowed disabled:opacity-50",
-            !active && "bg-surface-veil-strong text-surface-200",
+            !active && !random && "bg-surface-veil-strong text-surface-200",
           )}
           onClick={onConstant}
         >
           <MinusIcon weight="bold" className="h-3.5 w-3.5" />
         </button>
       </Tooltip>
+      {(random || onRandom !== undefined) && (
+        <Tooltip content={m.workshop_bin_use_random_action()}>
+          <button
+            type="button"
+            aria-label={m.workshop_bin_use_random_action()}
+            aria-pressed={random}
+            className={twMerge(
+              "flex h-full w-5 cursor-pointer items-center justify-center border-r border-surface-veil-strong text-surface-500 transition-colors hover:bg-surface-veil hover:text-surface-200",
+              random && "bg-surface-veil-strong text-accent-400",
+            )}
+            onClick={onRandom}
+          >
+            <DiceFiveIcon weight="bold" className="h-3.5 w-3.5" />
+          </button>
+        </Tooltip>
+      )}
       <Tooltip content={curveLabel}>
         <button
           type="button"

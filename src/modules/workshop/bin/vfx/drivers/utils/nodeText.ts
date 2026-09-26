@@ -3,6 +3,7 @@ import { m } from "@/i18n";
 import { nameHash } from "../../../shared/utils/binHash";
 import type { DriverNode } from "../../engine/drivers/node";
 import { driverClass } from "../../engine/drivers/registry";
+import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import type { GraphItem, InputItem, ValueItem } from "./graphItems";
 
 const EMITTER_CLASS = "VfxShimmerEmitterDefinitionData";
@@ -11,6 +12,19 @@ const EMITTER_CLASS = "VfxShimmerEmitterDefinitionData";
 export interface ItemClass {
   readonly name: string | null;
   readonly hash: string;
+}
+
+/** A field's name as the inspector labels it: its alias, else its name spaced into words. */
+export function fieldAlias(name: string, hash: string | null = null): string {
+  return emitterLabel(hash ?? nameHash(name), name) ?? name;
+}
+
+/** A port's path with each field in it aliased, as `PortLabel` splits it. */
+export function pathAlias(path: string): string {
+  return path
+    .split(".")
+    .map((part) => fieldAlias(part))
+    .join(".");
 }
 
 /** The name a node's header leads with: an emitter's name, a field, a driver's role. */
@@ -22,9 +36,9 @@ export function itemTitle(item: GraphItem): string {
     case "master":
       return item.name;
     case "component":
-      return item.slot;
+      return fieldAlias(item.slot);
     case "struct":
-      return item.label;
+      return fieldAlias(item.label, item.field);
     case "file":
       return fileName(item.path);
     case "value":
@@ -105,6 +119,16 @@ function driverNodeClass(node: DriverNode): ItemClass | null {
       return { name: name === node.classHash ? null : name, hash: node.classHash };
     }
   }
+}
+
+/** What an input line shows of the driver feeding it: the value it holds, else its role. */
+export function driverSummary(node: DriverNode): { value: string | null; role: string } {
+  const role = driverTitle(node);
+  if (node.type === "constant") return { value: formatValues(node.value), role };
+  if (node.type === "curve" && node.curve.keys.length === 0) {
+    return { value: formatValues(node.curve.constant), role };
+  }
+  return { value: null, role };
 }
 
 function driverTitle(node: DriverNode): string {

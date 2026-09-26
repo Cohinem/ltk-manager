@@ -10,6 +10,8 @@ export interface GraphPort {
   readonly id: string;
   readonly label: string;
   readonly kind: DriverKind | null;
+  /** The driver drawn inside the socket rather than as a node of its own. */
+  readonly embed?: DriverItem;
 }
 
 /** A leaf a node body edits: the struct holding it, by wire path, and its field hash. */
@@ -45,7 +47,59 @@ export interface ComponentItem extends ItemBase {
   /** The component's class name, or its hash where nothing names it. */
   readonly className: string;
   readonly classHash: string;
+  /** The component's body, one line each, in the order the file writes its fields. */
+  readonly lines: readonly ComponentLine[];
 }
+
+/**
+ * One line of a component node's body: the heading of a struct it holds, a field it edits in
+ * place, or the input a dynamic property's driver graph feeds. `depth` counts the structs
+ * between the line and the component.
+ */
+export type ComponentLine =
+  | {
+      readonly type: "section";
+      readonly depth: number;
+      /** The field the struct sits in, and its place for a list item. */
+      readonly name: string;
+      readonly hash: string | null;
+      readonly index: number | null;
+      readonly className: string | null;
+    }
+  | {
+      readonly type: "field";
+      readonly depth: number;
+      /** The wire path of the struct holding the field, and how many fields it holds. */
+      readonly holder: string;
+      readonly holderRows: number;
+      readonly hash: string;
+      readonly name: string;
+    }
+  | {
+      readonly type: "input";
+      readonly depth: number;
+      readonly holder: string;
+      readonly holderRows: number;
+      /** The port the graph's edge lands on. */
+      readonly port: string;
+      readonly name: string;
+      readonly hash: string | null;
+      readonly kind: DriverKind;
+      /** The driver at the root of the graph, which the line summarizes. */
+      readonly driver: DriverNode;
+    }
+  | {
+      readonly type: "material";
+      readonly depth: number;
+      readonly holder: string;
+      readonly holderRows: number;
+      /** The port the material node's edge lands on. */
+      readonly port: string;
+      readonly name: string;
+      readonly hash: string;
+      /** The material's class, which the line names. */
+      readonly className: string | null;
+    };
 
 /** One driver node, and the diagnostics reported at its path. */
 export interface DriverItem extends ItemBase {
@@ -99,6 +153,16 @@ export interface StructRow {
   /** The field's name where the hash tables name it, else `key`. */
   readonly name: string;
   readonly input: InputItem | null;
+  /** The items of a list or map a material holds, drawn under the row, and null elsewhere. */
+  readonly entries: readonly ListEntry[] | null;
+}
+
+/** One item of a list or map a material holds, as one line of the material's node. */
+export interface ListEntry {
+  /** The item's name where it has one, else its place in the list. */
+  readonly key: string;
+  /** The item's first other values, written out. */
+  readonly text: string;
 }
 
 /** A struct, pointer, list or map an emitter holds, connected to its holder's input. */

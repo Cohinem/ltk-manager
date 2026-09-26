@@ -4,8 +4,8 @@ import { useMemo } from "react";
 
 import { RowValue } from "../../../tree/components/BinRow";
 import type { FileItem, FileKind } from "../utils/graphItems";
-import { itemSubtitle, itemTitle } from "../utils/nodeText";
-import { FieldBody, Line, NoteLine, useRowsAt } from "./FieldLines";
+import { fieldAlias, itemSubtitle, itemTitle } from "../utils/nodeText";
+import { FIELD_PAD, FieldBody, Line, NoteLine, useRowsAt } from "./FieldLines";
 import { type FileFlowNode, NodeHeader, Output } from "./GraphNodes";
 import { NodeFrame } from "./NodeFrame";
 import { FilePreview } from "./NodePreviews";
@@ -34,7 +34,9 @@ export function FileNodeView({ data, selected }: NodeProps<FileFlowNode>) {
         wire={item.wire}
       />
       <FilePreview item={item} />
-      <FileBody item={item} />
+      <div className={FIELD_PAD}>
+        <FileBody item={item} />
+      </div>
       <Output kind={null} />
     </NodeFrame>
   );
@@ -47,7 +49,7 @@ function FileBody({ item }: { item: FileItem }) {
 
   return (
     <FieldBody wire={item.wire} rows={shown}>
-      {row === undefined && <NoteLine label={item.label} />}
+      {row === undefined && <NoteLine label={fieldAlias(item.label)} />}
       {row !== undefined && (
         <Line className="px-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">

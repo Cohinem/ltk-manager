@@ -11,7 +11,7 @@ import {
   vector,
 } from "../../../engine/drivers/__tests__/driverFixture";
 import fixture from "../../../engine/drivers/__tests__/hallOfLegends.fixture.json";
-import { layoutGraph } from "../driverLayout";
+import { FRAME_HEADER_HEIGHT, FRAME_PADDING, isMaterial, layoutGraph } from "../driverLayout";
 import { systemGraph } from "../systemGraph";
 
 const GRAPHS = (fixture as unknown as { graphs: { graph: VfxValue }[] }).graphs;
@@ -85,6 +85,104 @@ describe("systemGraph", () => {
       ports: [{ label: "Modifiers[0].InitialScale", kind: "vec3" }],
     });
     expect(geometry?.tree.item).toMatchObject({ ports: [] });
+  });
+
+  it("draws a component's structs as sections, its fields in place and its graphs where they sit", () => {
+    const lifetime = struct("VfxLifetimeComponent", {
+      SpawnBehavior: struct("0x31beb841", { EmissionRate: RATE, Burst: bool(true) }),
+      Looping: bool(false),
+    });
+    const physics = struct("VfxModularPhysicsComponent", {
+      Modifiers: list(struct("0x710b2bc2", { InitialScale: SCALE })),
+    });
+    const shimmer = struct("VfxShimmerEmitterDefinitionData", {
+      VfxComponents: struct("VfxComponents", {
+        LifetimeComponent: lifetime,
+        PhysicsComponent: physics,
+      }),
+    });
+    const [first, second] = systemGraph(system(shimmer))?.inputs[0]?.tree.inputs ?? [];
+    const lines = (tree: typeof first) =>
+      tree?.tree.item.type === "component" ? tree.tree.item.lines : [];
+
+    expect(lines(first)).toMatchObject([
+      { type: "section", name: "SpawnBehavior", depth: 0, index: null },
+      {
+        type: "input",
+        name: "EmissionRate",
+        depth: 1,
+        kind: "float",
+        port: first?.tree.item.ports[0]?.id,
+      },
+      { type: "field", name: "Burst", depth: 1, holderRows: 2 },
+      { type: "field", name: "Looping", depth: 0, holderRows: 2 },
+    ]);
+    expect(lines(second)).toMatchObject([
+      { type: "section", name: "Modifiers", depth: 0, index: null },
+      { type: "section", name: "Modifiers", depth: 1, index: 0 },
+      { type: "input", name: "InitialScale", depth: 2, kind: "vec3" },
+    ]);
+  });
+
+  it("feeds a component's material from a material node of its own, which folds to its header", () => {
+    const def = struct("StaticMaterialDef", { name: { type: "string", value: "Glow" } });
+    if (def.type === "struct") def.class = "StaticMaterialDef";
+    const material = struct("VfxMaterialContainer", { Material: def });
+    const shimmer = struct("VfxShimmerEmitterDefinitionData", {
+      VfxComponents: struct("VfxComponents", {
+        RenderComponent: struct("VfxMaterialRenderComponent", { Material: material }),
+      }),
+    });
+    const tree = systemGraph(system(shimmer));
+    const render = tree?.inputs[0]?.tree.inputs[0]?.tree;
+    const node = render?.inputs[0]?.tree.item;
+    if (render?.item.type !== "component" || node?.type !== "struct") {
+      throw new Error("the render component holds no material node");
+    }
+
+    expect(render.item.lines).toMatchObject([
+      { type: "material", name: "Material", className: "StaticMaterialDef", port: node.id },
+    ]);
+    expect(isMaterial(node)).toBe(true);
+
+    const open = layoutGraph(tree!).items.find((each) => each.item.id === node.id);
+    const folded = layoutGraph(tree!, new Set([node.id])).items.find(
+      (each) => each.item.id === node.id,
+    );
+    expect(folded!.height).toBeLessThan(open!.height);
+  });
+
+  it("draws the items of a material's lists as lines of the material node", () => {
+    const param = (name: string) =>
+      struct("StaticMaterialShaderParamDef", {
+        name: { type: "string", value: name },
+        value: vector(1, 0.5, 0, 1),
+      });
+    const def = struct("StaticMaterialDef", {
+      paramValues: list(param("Color"), param("Tint")),
+      switches: list(struct("StaticMaterialSwitchDef", { name: { type: "string", value: "FOG" } })),
+    });
+    const shimmer = struct("VfxShimmerEmitterDefinitionData", {
+      VfxComponents: struct("VfxComponents", {
+        RenderComponent: struct("VfxMaterialRenderComponent", { Material: def }),
+      }),
+    });
+    const tree = systemGraph(system(shimmer));
+    const material = tree?.inputs[0]?.tree.inputs[0]?.tree.inputs[0]?.tree;
+    if (material?.item.type !== "struct") throw new Error("the component holds no material node");
+
+    expect(material.inputs).toEqual([]);
+    expect(material.item.rows).toMatchObject([
+      {
+        name: "paramValues",
+        input: null,
+        entries: [
+          { key: "Color", text: "(1, 0.5, 0, 1)" },
+          { key: "Tint", text: "(1, 0.5, 0, 1)" },
+        ],
+      },
+      { name: "switches", input: null, entries: [{ key: "FOG", text: "" }] },
+    ]);
   });
 
   it("feeds an operator with each params entry, and edits a clamp's bounds in place", () => {
@@ -174,6 +272,47 @@ describe("layoutGraph", () => {
         expect(apart, `${one.item.id} and ${other.item.id}`).toBe(true);
       }
     }
+  });
+
+  it("frames each emitter's block, holding its items clear of the frame's header", () => {
+    const names = Array.from({ length: 4 }, (_, at) => `Grid${at}`);
+    const tree = systemGraph(system(...names.map((name) => emitter(name, RATE, SCALE))));
+    if (tree === null) throw new Error("the system holds no graph");
+    const { items, frames } = layoutGraph(tree);
+
+    expect(frames.map((frame) => frame.root.id)).toEqual(
+      tree.inputs.map((each) => each.tree.item.id),
+    );
+    for (const frame of frames) {
+      const held = items.filter((each) => each.frame === frame.id);
+      expect(held).toHaveLength(frame.count);
+      for (const each of held) {
+        expect(each.x).toBeGreaterThanOrEqual(frame.x + FRAME_PADDING);
+        expect(each.y).toBeGreaterThanOrEqual(frame.y + FRAME_HEADER_HEIGHT);
+        expect(each.x + each.width).toBeLessThanOrEqual(frame.x + frame.width);
+        expect(each.y + each.height).toBeLessThanOrEqual(frame.y + frame.height);
+      }
+      for (const other of frames) {
+        if (other === frame) continue;
+        const apart =
+          frame.x + frame.width <= other.x ||
+          other.x + other.width <= frame.x ||
+          frame.y + frame.height <= other.y ||
+          other.y + other.height <= frame.y;
+        expect(apart, `${frame.id} and ${other.id}`).toBe(true);
+      }
+    }
+    expect(items.find((each) => each.item.type === "preview")?.frame).toBeUndefined();
+  });
+
+  it("leaves the preview and its edges off a board drawn without it", () => {
+    const tree = systemGraph(system(emitter("Grid", RATE, SCALE)));
+    if (tree === null) throw new Error("the system holds no graph");
+    const { items, edges } = layoutGraph(tree, undefined, false);
+
+    expect(items.some((each) => each.item.type === "preview")).toBe(false);
+    expect(edges.some((edge) => edge.target === tree.item.id)).toBe(false);
+    expect(items.some((each) => each.item.type === "emitter")).toBe(true);
   });
 
   it("lays out every Hall of Legends graph the same way on every read", () => {

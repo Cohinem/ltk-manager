@@ -1554,6 +1554,15 @@ describe("workshopEditor store", () => {
       expect(editorOf(A).shells.vfx.layout).toBe(before);
     });
 
+    it("brings an open pane behind another to the front of its panel", () => {
+      store().applyShellDrop(A, "vfx", { kind: "move", documentId: "curve", toLeafId: "leaf-4" });
+      store().activateShellPane(A, "vfx", "leaf-4", "inspector");
+
+      store().openShellPane(A, "vfx", "curve");
+
+      expect(leafHolding(editorOf(A).shells.vfx.layout, "curve")?.activeTab).toBe("curve");
+    });
+
     it("stacks one pane onto another's strip", () => {
       store().applyShellDrop(A, "vfx", {
         kind: "move",

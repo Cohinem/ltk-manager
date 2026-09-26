@@ -19,6 +19,7 @@ import {
 } from "react";
 
 import {
+  ChannelSash,
   Checkbox,
   Code,
   FieldDiscardContext,
@@ -1054,16 +1055,8 @@ function EnumValue({ reading, raw }: { reading: string; raw: string }) {
   );
 }
 
-/** The channel each axis is drawn in, X red, Y green and Z blue as Riot draws them. */
-const AXIS_TINT: readonly string[] = [
-  "text-channel-1-text",
-  "text-channel-2-text",
-  "text-channel-3-text",
-  "text-channel-4-text",
-];
-
 /**
- * A vector down columns of one width, each axis tinted its own channel.
+ * A vector down columns of one width, each axis headed by its channel's sash.
  *
  * "The inspector" in docs/ux/BIN_EDITOR.md. A component past the third wraps to a second
  * line of the same three columns, so one column holds one axis down the whole pane. An
@@ -1084,17 +1077,11 @@ export function AxisCells({
           /* DS-VEIL, DS-RADIUS */
           className="flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil"
         >
+          <ChannelSash channel={at} />
           <span
-            aria-hidden
-            /* DS-WEIGHT-TIER */
-            className={twMerge(
-              "flex items-center bg-surface-veil px-1.5 font-mono font-semibold select-none",
-              AXIS_TINT[at] ?? "text-surface-300",
-            )}
+            aria-label={AXES[at]}
+            className="min-w-0 flex-1 truncate bg-surface-veil-soft px-1.5 py-0.5 text-right font-mono text-surface-200 tabular-nums select-text"
           >
-            {AXES[at] ?? at}
-          </span>
-          <span className="min-w-0 flex-1 truncate bg-surface-veil-soft px-1.5 py-0.5 text-right font-mono text-surface-200 tabular-nums select-text">
             {axisText(component, ranges?.[at])}
           </span>
         </span>
@@ -1201,7 +1188,7 @@ function Components({
           value={String(component)}
           step={labels === CHANNELS ? "integer" : 1}
           label={labels[at]}
-          labelClassName={AXIS_TINT[at]}
+          channel={at}
           className={width}
           invalid={invalid}
           autoFocus={autoFocus === true && at === 0}

@@ -7,7 +7,7 @@ import { emitterOf, flat } from "../../engine/simulation/__tests__/emitterFixtur
 import type { DrawFrame } from "../../engine/simulation/particleRead";
 import { addForceEdits, commitForceValue, validForceValue } from "../forceEdits";
 import { forceDirectionFrame, forceHandle, forceHandleValue, forceOrigin } from "../forceGeometry";
-import { FORCE_DEFINITIONS, forceValue } from "../forceModel";
+import { FORCE_DEFINITIONS, forceValue, schemaForceDefault } from "../forceModel";
 import { previewForceValue, projectForces } from "../forcePreview";
 import { forceOf, forceSystem, struct, vector } from "./forceFixture";
 
@@ -165,5 +165,24 @@ describe("force handles", () => {
       forceHandleValue("radius", new Vector3(5, 20, 30), center, center, new Matrix4()),
     ).toEqual([0]);
     expect(forceHandle(forceOf("noise"), "axisFraction")).toBeNull();
+  });
+});
+
+describe("schemaForceDefault", () => {
+  const attraction = FORCE_DEFINITIONS.find(({ kind }) => kind === "attraction")!;
+  const property = (name: string) => attraction.properties.find((each) => each.name === name)!;
+
+  it("reads an animated property's constant off the schema's constructor", () => {
+    expect(
+      schemaForceDefault(property("Position"), '{"constantValue":[0,5,0],"dynamics":null}'),
+    ).toEqual([0, 5, 0]);
+    expect(schemaForceDefault(property("radius"), '{"constantValue":2,"dynamics":null}')).toEqual([
+      2,
+    ]);
+  });
+
+  it("answers null where the schema holds no default of the property's shape", () => {
+    expect(schemaForceDefault(property("radius"), null)).toBeNull();
+    expect(schemaForceDefault(property("Position"), '{"constantValue":1}')).toBeNull();
   });
 });

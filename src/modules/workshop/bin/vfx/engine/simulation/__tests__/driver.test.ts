@@ -805,7 +805,7 @@ describe("the rig", () => {
     expect(driver.origin[0]).toBeCloseTo((94 / 60 - 1.5) * 100, 2);
   });
 
-  it("flies a path rig on its Y, so a birth along Y flies with it and Z hangs down", () => {
+  it("flies a path rig on its Y, so a birth along Y flies with it and Z points up", () => {
     const driver = driverFor(system(emitter({ birthVelocity: constant(0, 100, 0) })), 3);
     driver.steer({
       motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
@@ -819,7 +819,7 @@ describe("the rig", () => {
     expect(driver.pool.velocity[1]).toBeCloseTo(0, 3);
     expect(driver.pool.velocity[2]).toBeCloseTo(0, 3);
 
-    const lifted = driverFor(system(emitter({ birthVelocity: constant(0, 0, -100) })), 3);
+    const lifted = driverFor(system(emitter({ birthVelocity: constant(0, 0, 100) })), 3);
     lifted.steer({
       motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
       life: "once",

@@ -25,7 +25,7 @@ class: string | null,
 /**
  * The object's own properties, resolved. Always a [`VfxValue::Struct`].
  */
-root: VfxValue,
+root: VfxValue, 
 /**
  * Static previews of custom materials referenced by this system and its children.
  */

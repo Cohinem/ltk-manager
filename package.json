@@ -137,5 +137,10 @@
     "vite-plugin-svgr": "^5.2.0",
     "vitest": "^4.1.5"
   },
-  "packageManager": "pnpm@9.14.2"
+  "packageManager": "pnpm@9.14.2",
+  "pnpm": {
+    "patchedDependencies": {
+      "@react-three/drei@10.7.8": "patches/@react-three__drei@10.7.8.patch"
+    }
+  }
 }

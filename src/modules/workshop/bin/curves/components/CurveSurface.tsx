@@ -14,14 +14,20 @@ import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
 import { emitterChain, emitterRows, fieldChain } from "../../vfx/inspector/utils/emitterCards";
 import { useCurvePlayhead } from "../hooks/curvePlayhead";
 import { type CurveTab, useCurveDock } from "../state/curveTarget";
+import { RandomEditContext, useRandomEditor } from "../state/randomEdit";
 import {
   commitCurveKey,
+  moveCurveKey,
+  movedKeys,
+  CURVE_DYNAMICS,
   insertionIndex,
   insertCurveKey,
   removeCurveKeys,
   suggestedCurveKey,
 } from "../utils/curveEdits";
-import { randomDraw } from "../utils/randomDraw";
+import { linkable, randomDraw } from "../utils/randomDraw";
+import { addRandomEdits } from "../utils/randomEdits";
+import { unrandomizeEdits } from "../utils/randomizer";
 import { CurveGraph, type CurveSelectionMode } from "./CurveGraph";
 import { CurveKeyEditor } from "./CurveKeyEditor";
 import { CurveToolbar } from "./CurveToolbar";
@@ -102,8 +108,8 @@ interface CurveReadingProps {
 /**
  * One target's caption, toolbar and reading, keyed on the row so its muted chips go with it.
  *
- * The caption is the chain with the wire path beside it, and the toolbar under it carries
- * every control, per "The dock" in docs/ux/BIN_EDITOR.md.
+ * The caption is the chain with the wire path beside it, leading the one toolbar row that
+ * carries every control, per "The dock" in docs/ux/BIN_EDITOR.md.
  */
 function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps) {
   const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set());
@@ -112,12 +118,21 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
   const playhead = useCurvePlayhead(row);
   const keys = mark?.keys ?? NO_KEYS;
   const family = mark?.family ?? "scalar";
-  const draw = randomDraw(mark);
+  const draw = useMemo(() => randomDraw(mark), [mark]);
+  const [linked, setLinked] = useState(true);
   const field = ownField(row);
   const unit = fieldUnit(field);
   const editable = edit?.editProperty !== undefined && mark !== undefined;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const primary = selected.at(-1) ?? 0;
+  const randomEditor = useRandomEditor(editable ? edit : null, row, draw, linked);
+  const width = Math.max(
+    keys[0]?.values.length ?? 0,
+    draw?.channels.length ?? 0,
+    family === "scalar" ? 1 : 0,
+  );
+  /* A curve writing no table list yet, once its read says so. */
+  const bare = editable && mark?.curve === true && mark.slots === 0 && width > 0;
 
   const tabled = keys.length > 0;
   const shown: CurveTab = tabled ? tab : "graph";
@@ -183,24 +198,48 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
     setSelected(next >= 0 ? [next] : []);
   }
 
+  async function addRandom() {
+    if (edit?.editProperty === undefined) return;
+
+    await edit.editProperty(row, CURVE_DYNAMICS, addRandomEdits(width));
+  }
+
+  async function removeRandom() {
+    if (edit?.editProperty === undefined || mark === undefined) return;
+
+    const edits = unrandomizeEdits(mark);
+    if (edits.length > 0) await edit.editProperty(row, CURVE_DYNAMICS, edits);
+  }
+
+  /* A key moved past a neighbour takes its place in the order, and the selection follows it. */
   async function commit(at: number, key: CurveKey): Promise<boolean> {
     if (edit === null) return false;
+    if (movedKeys(keys, at, key).to === at) return commitCurveKey(edit, row, family, at, key);
 
-    return commitCurveKey(edit, row, family, at, key);
+    const to = await moveCurveKey(edit, row, family, keys, at, key);
+    if (to === null) return false;
+
+    setSelected([to]);
+    return true;
   }
 
   return (
-    <>
-      <div className="flex min-w-0 shrink-0 items-baseline gap-2 px-1 leading-tight">
-        {named && <PaneLabel />}
-        <span className="min-w-0 shrink truncate text-surface-200">{chain}</span>
-        <span className="min-w-0 flex-1 truncate font-mono text-meta text-surface-500 select-text">
-          {row.path}
-        </span>
-      </div>
+    <RandomEditContext value={randomEditor}>
       <CurveToolbar
+        lead={
+          <>
+            {named && <PaneLabel />}
+            <span className="min-w-0 shrink truncate text-surface-200">{chain}</span>
+            <span
+              title={row.path}
+              className="min-w-0 flex-1 truncate font-mono text-meta text-surface-500 select-text"
+            >
+              {row.path}
+            </span>
+          </>
+        }
         family={family}
-        width={Math.max(keys[0]?.values.length ?? 0, draw?.channels.length ?? 0)}
+        width={width}
         muted={muted}
         onToggle={toggle}
         draw={draw}
@@ -213,10 +252,21 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
         editable={editable}
         onAdd={() => void add()}
         onRemove={() => void remove()}
+        onAddRandom={bare ? () => void addRandom() : null}
+        onRemoveRandom={
+          editable && draw !== null && (mark?.tables.length ?? 0) > 0
+            ? () => void removeRandom()
+            : null
+        }
+        linking={
+          randomEditor !== null && draw !== null && linkable(draw)
+            ? { linked, onToggle: () => setLinked((held) => !held) }
+            : null
+        }
       />
-      <div className="flex min-h-0 flex-1 flex-col border-t border-surface-700/40 @min-[34rem]:flex-row">
+      <div className="flex min-h-0 flex-1 flex-col border-t border-surface-700/40">
         {shown === "graph" && (
-          <div className="flex min-h-48 min-w-0 flex-1 bg-surface-950/20 p-2 @min-[34rem]:min-h-0">
+          <div className="flex min-h-24 min-w-0 flex-1 overflow-y-auto bg-surface-950/20 p-2 scrollbar-sm">
             <CurveGraph
               keys={keys}
               family={family}
@@ -247,11 +297,10 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
           selected={selected}
           unit={unit}
           editable={editable}
-          onSelect={(at) => select(at, "replace")}
           onCommit={(key) => commit(primary, key)}
         />
       </div>
-    </>
+    </RandomEditContext>
   );
 }
 

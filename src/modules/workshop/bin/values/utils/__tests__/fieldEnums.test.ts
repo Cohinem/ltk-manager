@@ -36,6 +36,7 @@ describe("enumReading", () => {
     expect(enumReading(hash("blendMode"), "0")).toBe("Add");
     expect(enumReading(hash("blendMode"), "4")).toBe("AlphaAdd");
     expect(enumReading(hash("stencilMode"), "2")).toBe("TestEqual");
+    expect(enumReading(hash("importance"), "4")).toBe("LowSpecOnly");
   });
 
   it("reads a flags field as every bit it sets", () => {

@@ -18,7 +18,7 @@ import type {
   WorkshopProject,
 } from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
-import { editCall, isEdit } from "@/test/binEdit";
+import { editCall, isEdit, landed } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -29,6 +29,7 @@ import { forgetBinSave } from "../../../../state";
 import { CurveDockContext, type CurveTarget } from "../../../curves/state/curveTarget";
 import { READ_ROW_CAP } from "../../../documents/hooks/useBinRead";
 import { nameHash } from "../../../shared/utils/binHash";
+import { useInspectorViewStore } from "../../../vfx/inspector/state/inspectorView";
 import { emitterLabel } from "../../../vfx/inspector/utils/emitterLabels";
 import { vfxLayout } from "../../utils/classLayouts";
 import { ClassView } from "../ClassView";
@@ -456,6 +457,7 @@ beforeEach(() => {
   useWorkshopEditorStore.setState({ byProject: {} });
   /* Defaults is app-wide and persisted, so a case that turns it on would turn it on for the next. */
   useWorkshopLayoutStore.setState({ inspectorDefaults: false, openSections: {} });
+  useInspectorViewStore.setState({ definedOnly: false });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_read") {
@@ -1577,6 +1579,62 @@ describe("The shell frame", () => {
     fireEvent.keyDown(search, { key: "Escape" });
     expect(section("Scale")).toBeInTheDocument();
     expect(screen.getByText("Scale over Lifetime")).toBeInTheDocument();
+  });
+
+  it("drops every field at its default while only defined properties are shown", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("Emitter Lifetime");
+    const toggle = screen.getByRole("button", { name: "Show only defined properties" });
+    expect(section("Scale", false)).toBeInTheDocument();
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Scale" })).not.toBeInTheDocument();
+    expect(screen.getByText("Emitter Lifetime")).toBeInTheDocument();
+  });
+
+  it("adds a field the emitter lacks from the action bar's add box", async () => {
+    const base = mockInvoke.getMockImplementation();
+    mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+      if (command === "bin_choices") {
+        const fields = [
+          {
+            hash: nameHash("scale0"),
+            name: "scale0",
+            shape: { kind: "embed", key: null, value: null },
+            classHash: nameHash("ValueVector3"),
+            class: "ValueVector3",
+            inheritedFrom: null,
+          },
+        ];
+        return Promise.resolve({ ok: true, value: { kind: "fields", fields: { fields } } });
+      }
+      if (isEdit(command, args, "addProperty")) return landed();
+      return base?.(command, args);
+    });
+    renderSystem(vi.fn(), true);
+    const user = userEvent.setup();
+    await screen.findByText("Emitter Lifetime");
+
+    await user.click(screen.getByRole("button", { name: "Add property" }));
+    const box = screen.getByRole("combobox", { name: "Add a property, or type name: kind" });
+    await user.type(box, "scale over");
+    await user.click(await screen.findByRole("option", { name: /Scale over Lifetime/ }));
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(9, {
+          kind: "addProperty",
+          entry: ENTRY,
+          path: GLOW,
+          property: { kind: "declared", field: nameHash("scale0") },
+        }),
+      ),
+    );
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("textbox", { name: "Search emitter properties" })).toBeInTheDocument();
   });
 
   it("offers Show curve on a row with dynamics and on no row without", async () => {

@@ -10,7 +10,15 @@ import {
   valueCurve,
   vector,
 } from "../../../engine/drivers/__tests__/driverFixture";
-import { fieldLines, layoutGraph } from "../driverLayout";
+import {
+  FIELD_PADDING,
+  fieldLines,
+  HEADER_HEIGHT,
+  isPrimitive,
+  layoutGraph,
+  LINE_HEIGHT,
+  PRIMITIVE_PREVIEW,
+} from "../driverLayout";
 import type { MasterItem, StructItem } from "../graphItems";
 import { systemGraph } from "../systemGraph";
 
@@ -86,6 +94,25 @@ describe("classicEmitters", () => {
     expect(overrides.rows[0]?.input).toMatchObject({ wire: `${overrides.wire}[0]`, field: null });
   });
 
+  it("draws a material's lists as lines of its node wherever the emitter holds it", () => {
+    const param = struct("StaticMaterialShaderParamDef", {
+      name: { type: "string", value: "Color" },
+    });
+    const material = struct("VfxMaterialContainer", {
+      Material: struct("StaticMaterialDef", { paramValues: list(param, param, param) }),
+    });
+    const emitter = struct("VfxEmitterDefinitionData", {
+      VfxComponents: struct("VfxComponents", {
+        RenderComponent: struct("VfxMaterialRenderComponent", { MaterialContainer: material }),
+      }),
+    });
+    const { tree } = master(system(emitter));
+    const count = (node: typeof tree): number =>
+      1 + node.inputs.reduce((sum, input) => sum + count(input.tree), 0);
+
+    expect(count(tree)).toBe(2);
+  });
+
   it("lists a picked field under its group until the file writes it", () => {
     const { item } = master(system(SPARK), new Map([["c0", [nameHash("drag")]]]));
 
@@ -102,5 +129,42 @@ describe("classicEmitters", () => {
 
     expect(fieldLines(item)).toBe(4 * 2 + 4 + 1);
     expect(placed?.height).toBeGreaterThan(fieldLines(item) * 26);
+  });
+
+  it("moves a spawn shape taller than its one input clear of the node above it", () => {
+    const keyed = valueCurve("ValueVector3", vector(0, 0, 0), [
+      [0, vector(0, 0, 0)],
+      [1, vector(1, 1, 1)],
+    ]);
+    const shape = struct("VfxShapeLegacy", { emitOffset: keyed });
+    if (shape.type === "struct") shape.class = "VfxShapeLegacy";
+    const emitter = struct("VfxEmitterDefinitionData", {
+      emitterName: { type: "string", value: "Shaped" },
+      birthScale0: keyed,
+      shape,
+    });
+    const { items } = layoutGraph(systemGraph(system(emitter))!);
+    const placed = items.find((each) => each.item.type === "struct");
+
+    expect(placed?.height).toBeGreaterThan(200);
+    for (const one of items) {
+      for (const other of items) {
+        if (one === other || one.x !== other.x) continue;
+        const apart = one.y + one.height <= other.y || other.y + other.height <= one.y;
+        expect(apart, `${one.item.id} and ${other.item.id}`).toBe(true);
+      }
+    }
+  });
+
+  it("leaves a primitive node room for its sketch over its rows", () => {
+    const { tree } = master(system(SPARK));
+    const primitive = tree.inputs[1]?.tree.item as StructItem;
+    const placed = layoutGraph(systemGraph(system(SPARK))!).items.find(
+      (each) => each.item.id === primitive.id,
+    );
+    const rows = fieldLines(primitive) * LINE_HEIGHT + 2 * FIELD_PADDING;
+
+    expect(isPrimitive(primitive)).toBe(true);
+    expect(placed?.height).toBe(HEADER_HEIGHT + 3 + PRIMITIVE_PREVIEW.height + 8 + rows);
   });
 });

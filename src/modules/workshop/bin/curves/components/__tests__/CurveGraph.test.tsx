@@ -179,6 +179,49 @@ describe("CurveGraph", () => {
     );
   });
 
+  it("drags a colour stop along the axis, and a click moves none", () => {
+    const keys: CurveKey[] = [
+      { time: 0, values: [1, 0, 0, 1] },
+      { time: 0.5, values: [0, 1, 0, 1] },
+      { time: 1, values: [0, 0, 1, 1] },
+    ];
+    const onChange = vi.fn(async () => true);
+    render(<CurveGraph keys={keys} family="color" editable onChange={onChange} />);
+    const middle = screen.getByRole("button", { name: "Colour stop at 0.500, #00FF00FF" });
+
+    fireEvent.pointerDown(middle, { pointerId: 1, button: 0, clientX: 100 });
+    fireEvent.pointerUp(middle, { pointerId: 1, clientX: 101 });
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(middle, { pointerId: 2, button: 0, clientX: 100 });
+    fireEvent.pointerMove(middle, { pointerId: 2, clientX: 125 });
+    fireEvent.pointerUp(middle, { pointerId: 2, clientX: 125 });
+    expect(onChange).toHaveBeenCalledWith(1, { time: 0.75, values: [0, 1, 0, 1] });
+
+    fireEvent.pointerDown(middle, { pointerId: 3, button: 0, clientX: 100 });
+    fireEvent.pointerMove(middle, { pointerId: 3, clientX: 1000 });
+    fireEvent.pointerUp(middle, { pointerId: 3, clientX: 1000 });
+    expect(onChange).toHaveBeenLastCalledWith(1, { time: 1, values: [0, 1, 0, 1] });
+  });
+
+  it("lets a dragged key pass its neighbour, drawing the line in time order", () => {
+    const keys: CurveKey[] = [
+      { time: 0, values: [0] },
+      { time: 0.5, values: [5] },
+      { time: 1, values: [10] },
+    ];
+    const onChange = vi.fn(async (_at: number, _key: CurveKey) => true);
+    render(<CurveGraph keys={keys} family="scalar" editable onChange={onChange} />);
+    const first = screen.getByRole("button", { name: /key 1 at 0\.000/ });
+
+    fireEvent.pointerDown(first, { pointerId: 1, button: 0, clientX: 0, clientY: 50 });
+    fireEvent.pointerMove(first, { pointerId: 1, clientX: 75, clientY: 50 });
+    fireEvent.pointerUp(first, { pointerId: 1, clientX: 75, clientY: 50 });
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange.mock.calls[0]?.[1]?.time).toBeGreaterThan(0.5);
+  });
+
   it("selects a graph point and adds an interpolated key on double click", async () => {
     const onSelect = vi.fn();
     const onAdd = vi.fn();
@@ -239,6 +282,22 @@ describe("CurveGraph", () => {
     expect(onChange).toHaveBeenCalledOnce();
     expect(dragged).not.toBe(before);
     expect(line).toHaveAttribute("points", dragged);
+  });
+
+  it("selects a key it is clicked on without moving it", () => {
+    const onChange = vi.fn(async () => true);
+    const onSelect = vi.fn();
+    render(
+      <CurveGraph keys={VECTOR} family="vector" editable onChange={onChange} onSelect={onSelect} />,
+    );
+    const point = screen.getByRole("button", { name: "X key 2 at 1.000" });
+
+    fireEvent.pointerDown(point, { pointerId: 1, clientX: 80, clientY: 20 });
+    fireEvent.pointerMove(point, { pointerId: 1, clientX: 81, clientY: 21 });
+    fireEvent.pointerUp(point, { pointerId: 1, clientX: 81, clientY: 21 });
+
+    expect(onSelect).toHaveBeenCalledWith(1, "replace");
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("offers neither handle nor readout for a family that is no colour", () => {

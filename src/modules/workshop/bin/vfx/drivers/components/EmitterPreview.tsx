@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { type Camera, type IUniform, Scene } from "three";
 
 import { type Bounds, OUTPUT_COLOR_SPACE, TONE_MAPPING, useSceneColors } from "@/modules/viewport";
+import { twMerge } from "@/utils";
 
 import { useVfxRun } from "../../playback/state/run";
 import { VfxSystem } from "../../rendering/components/VfxSystem";
@@ -13,6 +14,7 @@ import { drawnEmitters } from "../../rendering/utils/definitions";
 import { bindFrameTargets, grabDepth, PARTICLE_LAYER } from "../../rendering/utils/frame";
 import { definitionBounds } from "../../rendering/utils/systemBounds";
 import { EMITTER_PREVIEW_SIZE } from "../utils/driverLayout";
+import { type Framing, PreviewOrbit } from "./PreviewOrbit";
 
 /** The texture width a node's preview asks for, which the object grid's previews use too. */
 const PREVIEW_MIP_WIDTH = 128;
@@ -61,6 +63,7 @@ export function EmitterPreviewLayer() {
           gl.toneMapping = TONE_MAPPING;
         }}
       >
+        <FollowPlacement />
         <FramePrep />
         <View.Port />
       </Canvas>
@@ -84,6 +87,26 @@ function useHasSize(): [(element: HTMLDivElement | null) => void, boolean] {
 
   return [box, sized];
 }
+
+/**
+ * Keeps the canvas's place on the page current, which each view is placed against.
+ *
+ * R3F measures it only when the canvas resizes or the page scrolls, so a pane moved beside
+ * another without resizing would draw every preview where the canvas used to stand.
+ */
+function FollowPlacement() {
+  useFrame((state) => {
+    const { top, left } = state.gl.domElement.getBoundingClientRect();
+    const { size } = state;
+    if (top !== size.top || left !== size.left) {
+      state.setSize(size.width, size.height, top, left);
+    }
+  }, BEFORE_THE_PREP);
+  return null;
+}
+
+/* Before `FramePrep`, and so before every view. */
+const BEFORE_THE_PREP = 0.1;
 
 /* An empty scene, whose depth is what a soft fade in a preview measures its gap to. */
 const NOTHING = new Scene();
@@ -115,6 +138,8 @@ const BEFORE_THE_VIEWS = 0.5;
  */
 function ViewGuard() {
   useFrame((state) => {
+    /* Per frame, since the framing camera's `onUpdate` does not keep the layer it enables. */
+    state.camera.layers.enable(PARTICLE_LAYER);
     state.scene.visible = drawable(state.scene, state.camera);
   }, JUST_BEFORE_THE_VIEWS);
   return null;
@@ -141,6 +166,63 @@ function drawable(scene: Scene, camera: Camera): boolean {
   return clean;
 }
 
+/**
+ * One emitter's preview as a mini viewport of its own, for a host that draws no preview layer.
+ *
+ * A drag orbits the emitter, the wheel zooms toward the cursor, and a double click frames it
+ * again. A second `View.Port` would draw every node's view as well, since drei's views share
+ * one tunnel, so this canvas draws the scene itself.
+ */
+export function EmitterPreviewCanvas({
+  simple,
+  listIndex,
+  className,
+}: {
+  simple: boolean;
+  listIndex: number;
+  className?: string;
+}) {
+  const [box, sized] = useHasSize();
+
+  return (
+    <div
+      ref={box}
+      data-ui="EmitterPreviewCanvas"
+      /* DS-GROUND, DS-RADIUS */
+      className={twMerge(
+        "overflow-hidden rounded-md border border-surface-veil bg-surface-950",
+        className,
+      )}
+    >
+      <Canvas
+        gl={{ alpha: true, antialias: true }}
+        dpr={[1, 2]}
+        frameloop={sized ? "always" : "never"}
+        onCreated={({ gl }) => {
+          gl.outputColorSpace = OUTPUT_COLOR_SPACE;
+          gl.toneMapping = TONE_MAPPING;
+        }}
+      >
+        <FramePrep />
+        <EmitterScene simple={simple} listIndex={listIndex} orbit />
+        <DrawScene />
+      </Canvas>
+    </div>
+  );
+}
+
+/**
+ * Draws the canvas's own scene, which R3F stops doing once any frame callback runs above 0.
+ *
+ * At the priority drei's views draw at, after `ViewGuard` has said whether it can.
+ */
+function DrawScene() {
+  useFrame((state) => {
+    if (state.scene.visible) state.gl.render(state.scene, state.camera);
+  }, 1);
+  return null;
+}
+
 /** A preview of one emitter and the children it spawns, drawn by `EmitterPreviewLayer`. */
 export function EmitterPreview({ simple, listIndex }: { simple: boolean; listIndex: number }) {
   return (
@@ -149,12 +231,21 @@ export function EmitterPreview({ simple, listIndex }: { simple: boolean; listInd
       className="my-1 shrink-0 self-center rounded-md border border-surface-veil bg-surface-950"
       style={{ width: EMITTER_PREVIEW_SIZE, height: EMITTER_PREVIEW_SIZE }}
     >
-      <EmitterScene simple={simple} listIndex={listIndex} />
+      <EmitterScene simple={simple} listIndex={listIndex} orbit={false} />
     </View>
   );
 }
 
-function EmitterScene({ simple, listIndex }: { simple: boolean; listIndex: number }) {
+/** The emitter's scene, and `orbit` for a camera the reader turns rather than a fixed one. */
+function EmitterScene({
+  simple,
+  listIndex,
+  orbit,
+}: {
+  simple: boolean;
+  listIndex: number;
+  orbit: boolean;
+}) {
   const { system, driver, rig, document } = useVfxRun();
   const colors = useSceneColors();
   const drawn = useMemo(() => {
@@ -188,6 +279,7 @@ function EmitterScene({ simple, listIndex }: { simple: boolean; listIndex: numbe
           }}
         />
       )}
+      {orbit && framing !== null && <PreviewOrbit framing={framing} />}
       {drawn.length > 0 && (
         <VfxSystem
           drawn={drawn}
@@ -205,7 +297,7 @@ function EmitterScene({ simple, listIndex }: { simple: boolean; listIndex: numbe
 type Triple = [number, number, number];
 
 /** Where the camera stands to hold `bounds` whole, and null for a box with nothing in it. */
-function framingOf(bounds: Bounds): { position: Triple; target: Triple; distance: number } | null {
+function framingOf(bounds: Bounds): Framing | null {
   const target = [0, 1, 2].map((axis) => (bounds.min[axis]! + bounds.max[axis]!) / 2) as Triple;
   const radius = Math.hypot(...[0, 1, 2].map((axis) => bounds.max[axis]! - bounds.min[axis]!)) / 2;
   if (!Number.isFinite(radius)) return null;

@@ -6,11 +6,18 @@ import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import { readDriver } from "../../engine/drivers/readDriver";
 import { driverClass, graphRootKind, hashOf } from "../../engine/drivers/registry";
 import { field, flag, text } from "../../engine/parsing/readValue";
-import { classicEmitters, NO_PENDING, type PendingFields } from "./emitterGraph";
-import type { GraphItem, GraphTree, LeafTarget } from "./graphItems";
+import {
+  classicEmitters,
+  holdsMaterial,
+  materialTree,
+  NO_PENDING,
+  type PendingFields,
+} from "./emitterGraph";
+import type { ComponentLine, GraphItem, GraphTree, LeafTarget } from "./graphItems";
 
 export type {
   ComponentItem,
+  ComponentLine,
   DriverItem,
   EmitterItem,
   FileItem,
@@ -121,14 +128,8 @@ function componentsOf(held: VfxValue | null): { slot: string; wire: string; valu
 }
 
 function componentTree(component: VfxValue, id: string, wire: string, slot: string): GraphTree {
-  const inputs = graphsUnder(component, "", wire, 0).map((graph) => {
-    const port = `${id}/${graph.label}`;
-    const read = readDriver(graph.value, graph.kind, port);
-    const root = read.node;
-    const driver = root.type === "property" ? root.driver : root;
-    const driverWire = wireUnder(graph.wire, root.path, driver.path);
-    return { port, graph, tree: driverTree(driver, driverWire, read.diagnostics) };
-  });
+  const walk = new ComponentWalk(id);
+  walk.struct(component, "", wire, 0);
 
   return {
     item: {
@@ -138,47 +139,141 @@ function componentTree(component: VfxValue, id: string, wire: string, slot: stri
       slot,
       className: component.type === "struct" ? (component.class ?? component.classHash) : "",
       classHash: component.type === "struct" ? component.classHash : "",
-      ports: inputs.map(({ port, graph }) => ({ id: port, label: graph.label, kind: graph.kind })),
+      lines: walk.lines,
+      ports: walk.inputs.map(({ port, kind, label }) => ({ id: port, label, kind })),
     },
-    inputs: inputs.map(({ port, tree }) => ({ port, tree })),
+    inputs: walk.inputs.map(({ port, tree }) => ({ port, tree })),
   };
 }
 
-interface GraphRoot {
-  readonly label: string;
-  readonly wire: string;
-  readonly value: VfxValue;
-  readonly kind: DriverKind;
-}
+/**
+ * One component's body and the driver graphs that feed it, read in one pass.
+ *
+ * Every struct under the component heads a section of its own, a list item under its list,
+ * and a dynamic property or a `materialDrivers` entry is an input where it sits. A port is
+ * named by the field path from the component, which the edges key on.
+ */
+class ComponentWalk {
+  readonly lines: ComponentLine[] = [];
+  readonly inputs: {
+    port: string;
+    label: string;
+    kind: DriverKind | null;
+    tree: GraphTree;
+  }[] = [];
 
-/** The graph roots under `value`, each with its label and wire path. */
-function graphsUnder(value: VfxValue, label: string, wire: string, depth: number): GraphRoot[] {
-  if (depth > MAX_DEPTH) return [];
+  constructor(private readonly id: string) {}
 
-  if (value.type === "container") {
-    return value.items.flatMap((item, at) =>
-      graphsUnder(item, `${label}[${at}]`, `${wire}[${at}]`, depth + 1),
-    );
+  struct(value: VfxValue, label: string, wire: string, depth: number): void {
+    if (value.type !== "struct" || depth > MAX_DEPTH) return;
+
+    const holder = { holder: wire, holderRows: value.fields.length };
+    for (const { name, hash, value: held } of value.fields) {
+      const named = label === "" ? (name ?? hash) : `${label}.${name ?? hash}`;
+      const at = `${wire}.${hex(hash)}`;
+      const field = { depth, name: name ?? hash, hash };
+
+      if (hash === MATERIAL_DRIVERS && held.type === "map") {
+        this.section({ ...field, index: null, className: null });
+        for (const entry of held.entries) {
+          const graph = { value: entry.value, wire: `${at}{${entry.key}}`, kind: "vec4" as const };
+          this.input(`${named}.${entry.key}`, graph, {
+            ...holder,
+            depth: depth + 1,
+            name: entry.key,
+            hash: null,
+          });
+        }
+        continue;
+      }
+
+      const kind = held.type === "struct" ? graphRootKind(held.classHash) : null;
+      if (kind !== null) {
+        this.input(named, { value: held, wire: at, kind }, { ...holder, ...field });
+        continue;
+      }
+
+      if (holdsMaterial(held)) {
+        const port = `${this.id}/${named}`;
+        const tree = materialTree(held, { id: port, ...holder, field: hash }, name ?? hash);
+        if (tree !== null) {
+          const className = held.type === "struct" ? materialClass(held) : null;
+          this.lines.push({ type: "material", ...holder, ...field, port, className });
+          this.inputs.push({ port, label: named, kind: null, tree });
+          continue;
+        }
+      }
+
+      if (held.type === "struct") {
+        this.section({ ...field, index: null, className: held.class ?? held.classHash });
+        this.struct(held, named, at, depth + 1);
+        continue;
+      }
+
+      if (held.type === "container" && held.items.some((item) => item.type === "struct")) {
+        this.section({ ...field, index: null, className: null });
+        held.items.forEach((item, index) => this.item(item, named, at, index, depth + 1, field));
+        continue;
+      }
+
+      this.lines.push({ type: "field", ...holder, ...field });
+    }
   }
-  if (value.type !== "struct") return [];
 
-  return value.fields.flatMap(({ name, hash, value: held }) => {
-    const named = label === "" ? (name ?? hash) : `${label}.${name ?? hash}`;
-    const at = `${wire}.${hex(hash)}`;
+  private item(
+    value: VfxValue,
+    label: string,
+    wire: string,
+    index: number,
+    depth: number,
+    field: { name: string; hash: string },
+  ): void {
+    if (value.type !== "struct") return;
 
-    if (hash === MATERIAL_DRIVERS && held.type === "map") {
-      return held.entries.map((entry) => ({
-        label: `${named}.${entry.key}`,
-        wire: `${at}{${entry.key}}`,
-        value: entry.value,
-        kind: "vec4" as const,
-      }));
+    const named = `${label}[${index}]`;
+    const at = `${wire}[${index}]`;
+    const kind = graphRootKind(value.classHash);
+    if (kind !== null) {
+      this.input(
+        named,
+        { value, wire: at, kind },
+        {
+          holder: wire,
+          holderRows: 0,
+          depth,
+          name: `[${index}]`,
+          hash: null,
+        },
+      );
+      return;
     }
 
-    const kind = held.type === "struct" ? graphRootKind(held.classHash) : null;
-    if (kind !== null) return [{ label: named, wire: at, value: held, kind }];
-    return graphsUnder(held, named, at, depth + 1);
-  });
+    this.section({ ...field, depth, index, className: value.class ?? value.classHash });
+    this.struct(value, named, at, depth + 1);
+  }
+
+  private section(line: Omit<Extract<ComponentLine, { type: "section" }>, "type">): void {
+    this.lines.push({ type: "section", ...line });
+  }
+
+  private input(
+    label: string,
+    graph: { value: VfxValue; wire: string; kind: DriverKind },
+    line: { holder: string; holderRows: number; depth: number; name: string; hash: string | null },
+  ): void {
+    const port = `${this.id}/${label}`;
+    const read = readDriver(graph.value, graph.kind, port);
+    const root = read.node;
+    const driver = root.type === "property" ? root.driver : root;
+    const tree = driverTree(
+      driver,
+      wireUnder(graph.wire, root.path, driver.path),
+      read.diagnostics,
+    );
+
+    this.lines.push({ type: "input", ...line, port, kind: graph.kind, driver });
+    this.inputs.push({ port, label, kind: graph.kind, tree });
+  }
 }
 
 function driverTree(
@@ -264,6 +359,13 @@ function wireUnder(rootWire: string, rootPath: string, path: string): string {
       })
       .join("")
   );
+}
+
+/** The class a material line names: the material's own, where a container holds it. */
+function materialClass(value: Extract<VfxValue, { type: "struct" }>): string {
+  const inner = value.fields.find(({ value: held }) => held.type === "struct")?.value;
+  const held = inner?.type === "struct" && value.fields.length === 1 ? inner : value;
+  return held.class ?? held.classHash;
 }
 
 /** A `0x` hash as a wire segment writes it: its eight hex digits alone. */

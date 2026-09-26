@@ -287,6 +287,42 @@ impl DocumentText {
         Ok(text)
     }
 
+    /// The text without every signed key of `path` on `entry` in the `entries` module at
+    /// `index`.
+    pub(crate) fn drop_keys(
+        &self,
+        index: usize,
+        entry: BinHash,
+        path: &PropertyPath,
+    ) -> Result<Self, Refusal> {
+        let doc = self.parse()?;
+        let source = locate::entries_at(&doc, index)?;
+        let segments: Vec<Segment<'_>> = path.segments().collect();
+        let counts: Vec<(Sign, usize)> = SIGNS
+            .into_iter()
+            .map(|sign| {
+                let count = locate::keys_in_entries(&source, entry, sign, &segments).len();
+                (sign, count)
+            })
+            .filter(|(_, count)| *count > 0)
+            .collect();
+        if counts.is_empty() {
+            return Err(Refusal::NoKey);
+        }
+
+        /* Only the last drop can empty the module, so `index` names it for every earlier one. */
+        let mut text = self.clone();
+        for (sign, count) in counts {
+            let (dropped, _) = text.drop_each(index, index, count, |entries| {
+                locate::keys_in_entries(entries, entry, sign, &segments)
+                    .into_iter()
+                    .next()
+            })?;
+            text = dropped;
+        }
+        Ok(text)
+    }
+
     /// Drop `count` keys that `find` locates in the `entries` module at `index`, one at a
     /// time. Answers the text and the index `to` holds after the drops, one less where the
     /// module at `index`, ahead of it, went.

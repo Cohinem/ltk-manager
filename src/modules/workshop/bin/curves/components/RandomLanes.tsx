@@ -1,11 +1,12 @@
-import { Fragment, type KeyboardEvent, type PointerEvent, type ReactNode, use, useId } from "react";
-import { twMerge } from "tailwind-merge";
+import { Fragment, type KeyboardEvent, type PointerEvent, type ReactNode, use } from "react";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { type FieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
 import type { ValueFamily } from "../../values/utils/valueRows";
 import { VfxRunContext } from "../../vfx/playback/state/run";
+import { type RandomEdit, useRandomEdit } from "../state/randomEdit";
 import { channelName, CHIP, STROKE } from "../utils/curveChannels";
 import { roundDomain } from "../utils/curvePlot";
 import {
@@ -19,13 +20,16 @@ import {
   valueDensity,
 } from "../utils/randomDraw";
 import { drawnOver, readout, shapeText } from "../utils/randomText";
+import { LaneHandles } from "./LaneHandles";
+import { Density, Hatch, Ticks } from "./LaneMarks";
 import { KeysPopover } from "./RandomKeys";
+import { RangeLabel } from "./RandomRange";
 
 /** The even shares of a lane's scale its density is drawn in. */
 const BINS = 64;
 
-/** The share of its height a lane's fullest bin reaches, so the peak clears the edge. */
-const PEAK = 0.85;
+/** The room a lane leaves past an editable range's ends, as a share of its width, to drag into. */
+const DRAG_ROOM = 0.25;
 
 /** The chance one arrow key moves the pin by. */
 const PIN_STEP = 0.01;
@@ -52,6 +56,7 @@ interface ReadingProps {
 export function RandomLanes({ draw, unit, muted }: ReadingProps) {
   const run = use(VfxRunContext);
   const pinned = run?.pinned ?? null;
+  const editor = useRandomEdit();
 
   return (
     <div
@@ -65,13 +70,18 @@ export function RandomLanes({ draw, unit, muted }: ReadingProps) {
           const random = isRandom(channel.shape);
           return (
             <Fragment key={channel.channel}>
-              <DrawLabel
-                channel={channel}
-                family={draw.family}
-                unit={unit}
-                text={drawnOver(channel, level)}
-                stacked
-              />
+              {editor !== null && (
+                <RangeLabel channel={channel} family={draw.family} unit={unit} editor={editor} />
+              )}
+              {editor === null && (
+                <DrawLabel
+                  channel={channel}
+                  family={draw.family}
+                  unit={unit}
+                  text={drawnOver(channel, level)}
+                  stacked
+                />
+              )}
               {random && (
                 <Lane
                   channel={channel}
@@ -79,13 +89,16 @@ export function RandomLanes({ draw, unit, muted }: ReadingProps) {
                   level={level}
                   pinned={pinned}
                   setPinned={run?.setPinned ?? null}
+                  editor={editor}
                 />
               )}
               {!random && <StillLane channel={channel} />}
               <PinValue>
                 {random && pinned !== null && readout(level * factorAt(channel, pinned))}
               </PinValue>
-              <span>{random && <KeysPopover channel={channel} family={draw.family} />}</span>
+              <span>
+                {keyed(channel, editor) && <KeysPopover channel={channel} family={draw.family} />}
+              </span>
             </Fragment>
           );
         })}
@@ -106,6 +119,7 @@ export function DrawReadout({
   levels,
 }: ReadingProps & { levels: readonly (number | null)[] }) {
   const pinned = use(VfxRunContext)?.pinned ?? null;
+  const editor = useRandomEdit();
 
   return (
     <div
@@ -119,20 +133,33 @@ export function DrawReadout({
           const random = isRandom(channel.shape);
           return (
             <Fragment key={channel.channel}>
-              <DrawLabel
-                channel={channel}
-                family={draw.family}
-                unit={level === null ? null : unit}
-                text={drawnOver(channel, level)}
-              />
+              {editor !== null && (
+                <RangeLabel channel={channel} family={draw.family} unit={unit} editor={editor} />
+              )}
+              {editor === null && (
+                <DrawLabel
+                  channel={channel}
+                  family={draw.family}
+                  unit={level === null ? null : unit}
+                  text={drawnOver(channel, level)}
+                />
+              )}
               <span />
               <PinValue>{random && pinned !== null && pinText(channel, level, pinned)}</PinValue>
-              <span>{random && <KeysPopover channel={channel} family={draw.family} />}</span>
+              <span>
+                {keyed(channel, editor) && <KeysPopover channel={channel} family={draw.family} />}
+              </span>
             </Fragment>
           );
         })}
     </div>
   );
+}
+
+/** A channel whose keys the fields do not already say: a split or a custom table, or any while read-only. */
+function keyed(channel: ChannelDraw, editor: RandomEdit | null): boolean {
+  if (!isRandom(channel.shape)) return false;
+  return editor === null || channel.shape !== "uniform";
 }
 
 function pinText(channel: ChannelDraw, level: number | null, pinned: number): string {
@@ -212,15 +239,16 @@ interface LaneProps {
   pinned: number | null;
   /** Null outside a run, where there is no birth to pin. */
   setPinned: ((chance: number | null) => void) | null;
+  editor: RandomEdit | null;
 }
 
 /** One random channel on its own scale: how often each value is drawn, and where the pin lands. */
-function Lane({ channel, family, level, pinned, setPinned }: LaneProps) {
+function Lane({ channel, family, level, pinned, setPinned, editor }: LaneProps) {
   const ranges = channel.factors.map((range) => spread(level, range));
-  const { low, high, ticks } = roundDomain(
-    Math.min(...ranges.map((range) => range.least)),
-    Math.max(...ranges.map((range) => range.most)),
-  );
+  const least = Math.min(...ranges.map((range) => range.least));
+  const most = Math.max(...ranges.map((range) => range.most));
+  const room = editor === null ? 0 : (most - least || Math.abs(most) || 1) * DRAG_ROOM;
+  const { low, high, ticks } = roundDomain(least - room, most + room);
   const share = (value: number) => ((value - low) / (high - low)) * 100;
   const density = valueDensity(channel, level, { least: low, most: high }, BINS);
   const gap = drawGap(channel);
@@ -235,7 +263,7 @@ function Lane({ channel, family, level, pinned, setPinned }: LaneProps) {
         {...pinGesture(pinned, setPinned, (at) => chanceNear(channel, low + at * (high - low)))}
         /* DS-RADIUS, DS-VEIL */
         className={twMerge(
-          "relative h-6 touch-none overflow-hidden rounded-sm bg-surface-veil-soft outline-none focus-visible:ring-1 focus-visible:ring-accent-500",
+          "relative h-6 touch-none rounded-sm bg-surface-veil-soft outline-none focus-visible:ring-1 focus-visible:ring-accent-500",
           setPinned !== null && "cursor-ew-resize",
         )}
       >
@@ -260,6 +288,9 @@ function Lane({ channel, family, level, pinned, setPinned }: LaneProps) {
             className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-accent-400"
             style={{ left: `${pin}%` }}
           />
+        )}
+        {editor !== null && (
+          <LaneHandles channel={channel} family={family} low={low} high={high} editor={editor} />
         )}
       </div>
       <Ticks ticks={ticks} share={share} />
@@ -313,82 +344,6 @@ const NUDGE: Readonly<Record<string, number>> = {
   ArrowRight: 1,
   ArrowUp: 1,
 };
-
-/** A lane's bins as one filled step, its top edge drawn brighter. */
-function Density({ density, hue }: { density: readonly number[]; hue: string }) {
-  const steps = density.flatMap((each, bin) => {
-    const y = (1 - each * PEAK).toFixed(3);
-    return [`${bin},${y}`, `${bin + 1},${y}`];
-  });
-  const edge = steps.join(" ");
-
-  return (
-    <svg
-      role="img"
-      aria-label={m.workshop_bin_random_density_label()}
-      viewBox={`0 0 ${density.length} 1`}
-      preserveAspectRatio="none"
-      /* DS-KIND-HUE */
-      className={twMerge("absolute inset-0 h-full w-full", hue)}
-    >
-      <polygon points={`0,1 ${edge} ${density.length},1`} fill="currentColor" opacity={0.3} />
-      <polyline
-        points={edge}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-/** The values a split never draws, struck through. Its own pixels, so the stripes keep square. */
-function Hatch({ left, width }: { left: number; width: number }) {
-  const pattern = useId();
-  return (
-    <svg
-      aria-hidden
-      className="absolute inset-y-0 h-full text-surface-600"
-      style={{ left: `${left}%`, width: `${width}%` }}
-    >
-      <defs>
-        <pattern
-          id={pattern}
-          width={5}
-          height={5}
-          patternUnits="userSpaceOnUse"
-          patternTransform="rotate(45)"
-        >
-          <line x1={0} y1={0} x2={0} y2={5} stroke="currentColor" strokeWidth={1.5} />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill={`url(#${pattern})`} />
-    </svg>
-  );
-}
-
-/** A lane's scale, the outer two labels kept inside its ends. */
-function Ticks({ ticks, share }: { ticks: readonly number[]; share: (value: number) => number }) {
-  const last = ticks.length - 1;
-  return (
-    <div className="relative h-3 text-meta leading-none text-surface-500 tabular-nums select-none">
-      {ticks.map((tick, at) => (
-        <span
-          key={tick}
-          className={twMerge(
-            "absolute top-0",
-            at > 0 && at < last && "-translate-x-1/2",
-            at === last && at > 0 && "-translate-x-full",
-          )}
-          style={{ left: `${share(tick)}%` }}
-        >
-          {readout(tick)}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 /** A channel the roll leaves alone: a dim line, with a tick where the value sits. */
 function StillLane({ channel }: { channel: ChannelDraw }) {

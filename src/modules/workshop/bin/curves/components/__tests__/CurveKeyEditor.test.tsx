@@ -22,7 +22,6 @@ describe("CurveKeyEditor", () => {
         selected={[1]}
         unit={null}
         editable
-        onSelect={() => {}}
         onCommit={onCommit}
       />,
     );
@@ -53,7 +52,6 @@ describe("CurveKeyEditor", () => {
         selected={[1]}
         unit={null}
         editable
-        onSelect={() => {}}
         onCommit={onCommit}
       />,
     );
@@ -68,8 +66,7 @@ describe("CurveKeyEditor", () => {
     expect(input).toHaveValue("1.750");
   });
 
-  it("walks the key selection from the compact header", async () => {
-    const onSelect = vi.fn();
+  it("names the selected key and draws its fields on one strip", () => {
     render(
       <CurveKeyEditor
         keys={KEYS}
@@ -77,37 +74,15 @@ describe("CurveKeyEditor", () => {
         selected={[0]}
         unit={null}
         editable
-        onSelect={onSelect}
         onCommit={() => {}}
       />,
     );
 
     expect(screen.getByText("Key 1 of 2")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Select previous key" })).toBeDisabled();
-
-    await userEvent.setup().click(screen.getByRole("button", { name: "Select next key" }));
-    expect(onSelect).toHaveBeenCalledWith(1);
-  });
-
-  it("moves below the graph when its container is narrow", () => {
-    render(
-      <CurveKeyEditor
-        keys={KEYS}
-        family="vector"
-        selected={[0]}
-        unit={null}
-        editable
-        onSelect={() => {}}
-        onCommit={() => {}}
-      />,
-    );
-
-    expect(screen.getByRole("complementary")).toHaveClass(
-      "w-full",
-      "border-t",
-      "@min-[34rem]:w-52",
-      "@min-[34rem]:border-l",
-    );
+    expect(screen.queryByRole("button", { name: "Select next key" })).toBeNull();
+    expect(
+      screen.getByRole("textbox", { name: "Lifetime" }).closest('[data-ui="CurveKeyEditor"]'),
+    ).toHaveClass("flex-wrap", "border-t");
   });
 
   it("offers the colour picker beside normalized channel fields", () => {
@@ -118,7 +93,6 @@ describe("CurveKeyEditor", () => {
         selected={[0]}
         unit={null}
         editable
-        onSelect={() => {}}
         onCommit={() => {}}
       />,
     );
@@ -135,7 +109,6 @@ describe("CurveKeyEditor", () => {
         selected={[0, 1]}
         unit={null}
         editable
-        onSelect={() => {}}
         onCommit={() => {}}
       />,
     );

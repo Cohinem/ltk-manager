@@ -5,6 +5,7 @@ import {
   type Icon,
   ListBulletsIcon,
   SparkleIcon,
+  SphereIcon,
   WaveSineIcon,
 } from "@phosphor-icons/react";
 import { type NodeProps, Position } from "@xyflow/react";
@@ -12,10 +13,12 @@ import { Fragment, use, useMemo } from "react";
 
 import { m } from "@/i18n";
 import type { BinRow, FieldSchema } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { ValueCell } from "../../../classes/components/ClassCells";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { DefaultProperty } from "../../inspector/components/DefaultProperty";
+import type { HeldClass } from "../../inspector/components/PrimitivePicker";
 import {
   type DefaultField,
   defaultField,
@@ -24,9 +27,17 @@ import {
   unauthoredFields,
 } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
+import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { VfxRunContext } from "../../playback/state/run";
-import { stripShape } from "../utils/curveShape";
-import { LINE_HEIGHT, shapePreviewed, STRIP_LINES, structNameWidth } from "../utils/driverLayout";
+import { valueLines, valueShape } from "../utils/curveShape";
+import {
+  isMaterial,
+  isPrimitive,
+  LINE_HEIGHT,
+  shapePreviewed,
+  structNameWidth,
+  VALUE_HEADER_HEIGHT,
+} from "../utils/driverLayout";
 import { emitterOf } from "../utils/graphEmitter";
 import type {
   MasterField,
@@ -35,13 +46,15 @@ import type {
   StructRow,
   ValueItem,
 } from "../utils/graphItems";
-import { KIND_TONE } from "../utils/graphTones";
-import { itemSubtitle, itemTitle, valueSummary } from "../utils/nodeText";
+import { KIND_NAME, KIND_TONE } from "../utils/graphTones";
+import { fieldAlias, itemSubtitle, itemTitle, valueSummary } from "../utils/nodeText";
 import { EmitterPreview } from "./EmitterPreview";
 import { EmitterToggle } from "./EmitterToggle";
 import {
   AddFieldLine,
   ClassLine,
+  EntryLines,
+  FIELD_PAD,
   FieldBody,
   FieldLine,
   GroupLine,
@@ -49,6 +62,7 @@ import {
   Line,
   NAME_COLUMN,
   NoteLine,
+  PrimitiveLine,
   SectionLine,
   SocketLine,
   useRowsAt,
@@ -58,11 +72,13 @@ import {
   type MasterFlowNode,
   NodeHeader,
   Output,
+  RevealButton,
   type StructFlowNode,
   type ValueFlowNode,
 } from "./GraphNodes";
-import { NodeFrame } from "./NodeFrame";
-import { FilePreview, ShapePreview } from "./NodePreviews";
+import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
+import { FilePreview, PrimitiveSketch, ShapePreview } from "./NodePreviews";
+import { useCardFollowsPick, useCurveFollowsPick } from "./paneSync";
 import { MarkedCurve } from "./PlateFace";
 
 /**
@@ -71,8 +87,9 @@ import { MarkedCurve } from "./PlateFace";
  * 2.9 of docs/plans/shimmer-driver-graph.md.
  */
 export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
-  const { item, width, height } = data.placed;
+  const { item, width, height, frame } = data.placed;
   const folded = use(GraphActionsContext)?.collapsed.has(item.id) ?? false;
+  useCardFollowsPick(item);
 
   return (
     <NodeFrame
@@ -80,7 +97,7 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
       height={height}
       selected={selected}
       item={item}
-      plate="above"
+      plate={frame === undefined ? "above" : "none"}
       dim={item.disabled}
     >
       <NodeHeader
@@ -95,7 +112,11 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
         extra={<EmitterToggle wire={item.wire} disabled={item.disabled} />}
       />
       <EmitterPreview simple={item.simple} listIndex={item.listIndex} />
-      {!folded && <MasterBody item={item} />}
+      {!folded && (
+        <div className={FIELD_PAD}>
+          <MasterBody item={item} />
+        </div>
+      )}
       <Output kind={null} side={Position.Top} />
     </NodeFrame>
   );
@@ -163,6 +184,9 @@ function MasterLine({ field, row, holder, schema, owner }: MasterLineProps) {
   const label = emitterLabel(field.hash, name) ?? name;
 
   if (field.input !== null) return <SocketLine input={field.input} label={label} />;
+  if (field.pending && field.hash === PRIMITIVE_FIELD) {
+    return <PrimitiveLine label={label} holder={holder} held={null} />;
+  }
   if (field.pending && declared?.declared?.kind === "pointer") {
     return (
       <ClassLine
@@ -194,13 +218,18 @@ function MasterLine({ field, row, holder, schema, owner }: MasterLineProps) {
 
 /**
  * A struct, pointer, list or map an emitter writes: its class, and its fields or items. A
- * spawn shape draws itself in 3D over its fields, and a struct holding a file draws the file's
- * preview. A struct folded into it draws as a section under its own rows.
+ * spawn shape draws itself in 3D over its fields, a primitive draws the inspector's sketch, and
+ * a struct holding a file draws the file's preview. A struct folded into it draws as a section
+ * under its own rows. A material folds to its header, and draws each item of its lists as a
+ * line under the list's row.
  */
 export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
   const { item, width, height } = data.placed;
+  const material = isMaterial(item);
+  const folded = (use(GraphActionsContext)?.collapsed.has(item.id) ?? false) && material;
   const previewed = shapePreviewed(item);
-  const picture = previewed ? null : item.picture;
+  const primitive = isPrimitive(item);
+  const picture = previewed || primitive || folded ? null : item.picture;
 
   return (
     <NodeFrame
@@ -208,20 +237,27 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
       height={height}
       selected={selected}
       item={item}
-      plate={previewed || picture !== null ? "none" : "inside"}
+      plate={previewed || primitive || picture !== null ? "none" : "inside"}
     >
       <NodeHeader
-        icon={STRUCT_ICON[item.shape]}
+        icon={material ? SphereIcon : STRUCT_ICON[item.shape]}
         iconTone="text-bin-class-text"
         title={itemTitle(item)}
         subtitle={itemSubtitle(item)}
         id={item.id}
         wire={item.wire}
         inputs={item.ports.length}
+        folds={material || item.ports.length > 0}
+        divided={!folded}
       />
       {previewed && <SpawnShape id={item.id} />}
+      {primitive && <PrimitiveSketch id={item.id} held={heldOf(item)} />}
       {picture !== null && <FilePreview item={picture} />}
-      <StructBody item={item} nameWidth={structNameWidth(item)} />
+      {!folded && (
+        <div className={FIELD_PAD}>
+          <StructBody item={item} nameWidth={structNameWidth(item)} />
+        </div>
+      )}
       <Output kind={null} />
     </NodeFrame>
   );
@@ -232,6 +268,10 @@ function SpawnShape({ id }: { id: string }) {
   const system = use(VfxRunContext)?.system ?? null;
   const emitter = useMemo(() => emitterOf(system, id), [system, id]);
   return <ShapePreview emitter={emitter} />;
+}
+
+function heldOf(item: StructItem): HeldClass | null {
+  return item.classHash === null ? null : { classHash: item.classHash, class: item.className };
 }
 
 const STRUCT_ICON: Readonly<Record<StructItem["shape"], Icon>> = {
@@ -250,7 +290,10 @@ function StructBody({ item, nameWidth }: { item: StructItem; nameWidth: number }
   return (
     <>
       <FieldBody wire={item.wire} rows={shown} nameWidth={nameWidth}>
-        {item.shape === "struct" && (
+        {isPrimitive(item) && (
+          <PrimitiveLine label={m.workshop_bin_class_label()} holder={holder} held={heldOf(item)} />
+        )}
+        {item.shape === "struct" && !isPrimitive(item) && (
           <ClassLine
             label={m.workshop_bin_class_label()}
             holder={holder}
@@ -270,7 +313,7 @@ function StructBody({ item, nameWidth }: { item: StructItem; nameWidth: number }
       </FieldBody>
       {item.nested !== null && (
         <>
-          <SectionLine title={item.nested.label} />
+          <SectionLine title={fieldAlias(item.nested.label, item.nested.field)} />
           <StructBody item={item.nested} nameWidth={nameWidth} />
         </>
       )}
@@ -299,75 +342,101 @@ function StructLine({
   row: BinRow | undefined;
   owner: string | null;
 }) {
-  const label = row?.name ?? each.key;
+  const name = row?.name ?? each.name;
+  const label = fieldAlias(name, each.key.startsWith("0x") ? each.key : null);
 
   if (each.input !== null) return <SocketLine input={each.input} label={label} />;
+  if (each.entries !== null) return <EntryLines label={label} entries={each.entries} />;
   if (row === undefined) return <NoteLine label={label} />;
-  return <FieldLine row={row} owner={owner} />;
+  return <FieldLine row={row} label={label} owner={owner} />;
 }
 
-/** A keyed or randomised value: its row, which opens the curve panel, over its summary. */
+/**
+ * A keyed or randomised value: its kind and summary over its curve, or over its row where it
+ * has no curve to draw. The socket it feeds names the field, so the node names only its kind.
+ */
 export function ValueNodeView({ data, selected }: NodeProps<ValueFlowNode>) {
   const { item, width, height } = data.placed;
 
   return (
     <NodeFrame width={width} height={height} selected={selected} item={item}>
-      <NodeHeader
-        icon={item.curve.keys.length > 0 ? WaveSineIcon : DiceFiveIcon}
-        iconTone={item.kind === null ? "text-bin-class-text" : KIND_TONE[item.kind].text}
-        title={itemTitle(item)}
-        subtitle={itemSubtitle(item)}
-        kind={item.kind ?? undefined}
-        wire={item.wire}
-      />
-      <ValueBody item={item} />
+      <ValueHeader item={item} />
+      <div className={FIELD_PAD}>
+        <ValueBody item={item} />
+      </div>
       <Output kind={item.kind} />
     </NodeFrame>
   );
 }
 
-/**
- * A value node's editor over its shape and its summary. The socket it feeds names the field,
- * so the editor takes the node's whole width.
- */
+function ValueHeader({ item }: { item: ValueItem }) {
+  const actions = use(GraphActionsContext);
+  const Glyph = item.curve.keys.length > 0 ? WaveSineIcon : DiceFiveIcon;
+  const tone = item.kind === null ? "text-bin-class-text" : KIND_TONE[item.kind].text;
+  const shape = valueShape(item);
+
+  return (
+    <div
+      title={itemSubtitle(item)}
+      className={twMerge(
+        "flex shrink-0 items-center gap-1.5 rounded-t-[inherit] border-b border-surface-veil bg-linear-to-b from-(--node-wash) to-transparent px-2",
+        NEAR_ONLY,
+      )}
+      style={{ height: VALUE_HEADER_HEIGHT }}
+    >
+      <Glyph weight="duotone" className={twMerge("h-4 w-4 shrink-0", tone)} />
+      {item.kind !== null && (
+        <span className={twMerge("shrink-0 font-mono text-meta", tone)}>
+          {KIND_NAME[item.kind]}
+        </span>
+      )}
+      <span className="min-w-0 flex-1 truncate text-meta text-surface-400">
+        {valueSummary(item)}
+      </span>
+      {shape === "tables" && (
+        <span className={twMerge(CURVE_WELL, "h-5 w-28 shrink-0 px-1 py-0.5")}>
+          <MarkedCurve item={item} shape={shape} />
+        </span>
+      )}
+      {actions?.reveal && <RevealButton onReveal={() => actions.reveal?.(item.wire)} />}
+    </div>
+  );
+}
+
+/* DS-GROUND, DS-VEIL, DS-RADIUS */
+const CURVE_WELL = "rounded-sm border border-surface-veil bg-surface-950/40";
+
+/** A keyed value's curve beside its toggle, or any other value's editor. */
 function ValueBody({ item }: { item: ValueItem }) {
   const rows = useRowsAt(item.holder, item.holderRows);
   const row = rows?.get(item.wire);
   const shown = useMemo(() => (row === undefined ? [] : [row]), [row]);
-  const shape = stripShape(item);
+  useCurveFollowsPick(item.id, row);
+  const keyed = valueShape(item) === "keys";
 
   return (
     <FieldBody wire={item.wire} rows={shown} read="curves">
-      {row === undefined && <NoteLine label={item.label} />}
-      {row !== undefined && (
+      {row === undefined && <NoteLine label={fieldAlias(item.label)} />}
+      {row !== undefined && keyed && (
+        <div
+          className="flex shrink-0 items-center gap-2 px-2"
+          style={{ height: valueLines(item) * LINE_HEIGHT }}
+        >
+          <div className={twMerge(CURVE_WELL, "h-full min-w-0 flex-1 px-1.5 py-1")}>
+            <MarkedCurve item={item} shape="keys" />
+          </div>
+          <div className="flex shrink-0 items-center">
+            <ValueCell row={row} shaped controls />
+          </div>
+        </div>
+      )}
+      {row !== undefined && !keyed && (
         <Line className="px-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <ValueCell row={row} shaped />
           </div>
         </Line>
       )}
-      {shape !== null && <CurveStrip item={item} shape={shape} />}
-      {shape === null && (
-        <Line>
-          <span className="ml-2 truncate text-meta text-surface-400">{valueSummary(item)}</span>
-        </Line>
-      )}
     </FieldBody>
-  );
-}
-
-/** A value's curve or its random tables drawn under its editor, its key count in the corner. */
-function CurveStrip({ item, shape }: { item: ValueItem; shape: "keys" | "tables" }) {
-  return (
-    <div
-      /* DS-GROUND, DS-VEIL, DS-RADIUS */
-      className="relative mx-2 mt-1 shrink-0 rounded-md border border-surface-veil bg-surface-950/40 px-2 pt-4 pb-2"
-      style={{ height: STRIP_LINES * LINE_HEIGHT - 8 }}
-    >
-      <MarkedCurve item={item} shape={shape} />
-      <span className="absolute top-0.5 right-1.5 text-fine text-surface-400">
-        {valueSummary(item)}
-      </span>
-    </div>
   );
 }

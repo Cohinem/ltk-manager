@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Handle, Position } from "@xyflow/react";
 import { type CSSProperties, type ReactNode, use, useMemo, useState } from "react";
 
+import { InputDefaultContext } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId, BinRow, ClassChoice } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -15,11 +16,18 @@ import { type RowFold, RowFoldContext } from "../../../tree/state/rowFold";
 import { useValueMarks, ValueMarksContext } from "../../../values/hooks/useValueMarks";
 import type { CurveRead } from "../../../values/utils/valueRows";
 import { COLUMN_STYLE } from "../../inspector/components/EmitterInspector";
+import {
+  type HeldClass,
+  heldPrimitive,
+  PrimitivePicker,
+  usePrimitivePick,
+} from "../../inspector/components/PrimitivePicker";
 import type { DefaultField } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
+import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { LINE_HEIGHT } from "../utils/driverLayout";
 export { holderRow } from "../utils/holderRow";
-import type { InputItem } from "../utils/graphItems";
+import type { InputItem, ListEntry } from "../utils/graphItems";
 import { inputSummary } from "../utils/nodeText";
 import { GraphActionsContext } from "./graphActions";
 import { SOCKET, socketFill } from "./GraphNodes";
@@ -28,6 +36,9 @@ import { NEAR_ONLY } from "./NodeFrame";
 
 /** The name column every line of a master or struct node shares with `FieldRow`. */
 export const NAME_COLUMN = "w-(--name-width)";
+
+/** `FIELD_PADDING` above and below a node's rows. */
+export const FIELD_PAD = "py-1";
 
 const FIELD_STYLE = { ...COLUMN_STYLE, "--name-width": "9rem" } as CSSProperties;
 
@@ -143,6 +154,41 @@ export function NoteLine({ label }: { label: string }) {
   );
 }
 
+/** A list a material holds: its row with its count, and a line per item under it. */
+export function EntryLines({ label, entries }: { label: string; entries: readonly ListEntry[] }) {
+  return (
+    <>
+      <NoteLine label={`${label} [${entries.length}]`} />
+      {entries.map((entry, index) => (
+        <EntryLine key={index} entry={entry} />
+      ))}
+    </>
+  );
+}
+
+/** One item of a list a material holds: its name under the list's row, and its values. */
+function EntryLine({ entry }: { entry: ListEntry }) {
+  return (
+    <Line>
+      <span
+        className={twMerge(
+          NAME_COLUMN,
+          "ml-5.5 shrink-0 truncate pl-3 font-mono text-code text-surface-300",
+        )}
+        title={entry.key}
+      >
+        {entry.key}
+      </span>
+      <span
+        className="min-w-0 flex-1 truncate border-l border-surface-700/40 pl-2 font-mono text-meta text-surface-400"
+        title={entry.text}
+      >
+        {entry.text}
+      </span>
+    </Line>
+  );
+}
+
 /** A group heading of a master node, as the inspector's section header writes it. */
 export function GroupLine({ title }: { title: string }) {
   return (
@@ -237,6 +283,40 @@ export function ClassLine({ label, holder, field, path, current }: ClassLineProp
           onOpen={() => setAsked(true)}
           disabled={field === null || editProperty === undefined}
         />
+      </div>
+    </Line>
+  );
+}
+
+/** An emitter's primitive class, picked from the inspector's select of primitive classes. */
+export function PrimitiveLine({
+  label,
+  holder,
+  held,
+}: {
+  label: string;
+  /** The emitter holding the primitive. */
+  holder: BinRow;
+  /** The class the file holds, and null for an emitter that leaves the primitive out. */
+  held: HeldClass | null;
+}) {
+  const { known, text } = heldPrimitive(held);
+  const pick = usePrimitivePick(holder, PRIMITIVE_FIELD, held);
+
+  return (
+    <Line>
+      <span
+        className={twMerge(
+          NAME_COLUMN,
+          "ml-5.5 shrink-0 truncate font-mono text-code text-surface-400",
+        )}
+      >
+        {label}
+      </span>
+      <div className="min-w-0 flex-1 border-l border-surface-700/40 pl-1">
+        <InputDefaultContext value={held === null}>
+          <PrimitivePicker held={held} known={known} text={text} label={label} onPick={pick} />
+        </InputDefaultContext>
       </div>
     </Line>
   );

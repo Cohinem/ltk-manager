@@ -12,7 +12,8 @@ import { type PlateFace, plateFace } from "./PlateFace";
  *
  * Under `FAR_ZOOM` its rows are too small to read, so a plate covers the node with its curve,
  * colour or value, or else its title, at a fixed screen size. A node whose body is a picture,
- * `plate="above"`, keeps the picture and sets the title over its top edge instead.
+ * `plate="above"`, keeps the picture and sets the title over its top edge instead. An emitter
+ * in a frame draws no plate, since the frame's title names it.
  */
 export function NodeFrame({
   item,
@@ -125,7 +126,8 @@ function PlateText({ text, height, mono }: { text: string; height: number; mono:
   );
 }
 
-function AbovePlate({ title }: { title: string }) {
+/** A title over a box's top edge under `FAR_ZOOM`, at `size` screen pixels. */
+export function AbovePlate({ title, size = 15 }: { title: string; size?: number }) {
   return (
     <span
       aria-hidden
@@ -133,7 +135,10 @@ function AbovePlate({ title }: { title: string }) {
         "absolute bottom-full left-0 max-w-full truncate leading-tight font-semibold text-surface-100",
         FAR_ONLY,
       )}
-      style={{ fontSize: PLATE_TYPE, paddingBottom: "calc(6px / var(--graph-zoom, 1))" }}
+      style={{
+        fontSize: `calc(${size}px / var(--graph-zoom, 1))`,
+        paddingBottom: "calc(6px / var(--graph-zoom, 1))",
+      }}
     >
       {title}
     </span>

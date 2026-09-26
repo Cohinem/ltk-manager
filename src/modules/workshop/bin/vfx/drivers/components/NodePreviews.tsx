@@ -1,6 +1,6 @@
 import { PerspectiveCamera, View } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, use, useEffect, useMemo, useRef, useState } from "react";
 import { BufferAttribute, BufferGeometry, type Group, Sphere, Vector3 } from "three";
 
 import { m } from "@/i18n";
@@ -13,9 +13,13 @@ import { CHECKERBOARD } from "../../../../preview/components/ImagePreview";
 import { useImageSlot } from "../../../../preview/hooks/useImageSlot";
 import { assetArchive } from "../../../../preview/utils/assetRef";
 import type { EmitterModel, SpawnShape } from "../../engine/model/model";
+import { type HeldClass, heldPrimitive } from "../../inspector/components/PrimitivePicker";
+import { PrimitivePreview } from "../../inspector/components/PrimitivePreview";
+import { VfxRunContext } from "../../playback/state/run";
 import { useMeshGeometry } from "../../rendering/hooks/useMeshGeometry";
 import { SEGMENTS, wireframeInto } from "../../rendering/utils/emitterShape";
-import { NODE_PREVIEW_SIZE } from "../utils/driverLayout";
+import { NODE_PREVIEW_SIZE, PRIMITIVE_PREVIEW } from "../utils/driverLayout";
+import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem } from "../utils/graphItems";
 
 /** The texture width a node's picture asks for, twice its square for a sharp high-DPI draw. */
@@ -151,6 +155,24 @@ function ShapeScene({ emitter, zero }: { emitter: EmitterModel; zero: boolean })
         </lineSegments>
       )}
     </Turntable>
+  );
+}
+
+/** The inspector's sketch of a node's primitive, with the emitter's own mesh for a mesh. */
+export function PrimitiveSketch({ id, held }: { id: string; held: HeldClass | null }) {
+  const system = use(VfxRunContext)?.system ?? null;
+  const emitter = useMemo(() => emitterOf(system, id), [system, id]);
+  const { known, text } = heldPrimitive(held);
+
+  return (
+    <div className="nodrag my-1 flex shrink-0 self-center">
+      <PrimitivePreview
+        kind={known?.sketch ?? "none"}
+        name={text}
+        mesh={emitter?.mesh ?? null}
+        size={PRIMITIVE_PREVIEW}
+      />
+    </div>
   );
 }
 

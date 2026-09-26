@@ -1,6 +1,15 @@
-import { PlusIcon, TrashIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import {
+  DiceFiveIcon,
+  LinkBreakIcon,
+  LinkSimpleIcon,
+  PlusIcon,
+  TrashIcon,
+  WarningCircleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 
-import { Button, Code, SegmentedControl, Tooltip } from "@/components";
+import { Button, SegmentedControl, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -10,10 +19,9 @@ import { CHANNELS, CHIP } from "../utils/curveChannels";
 import { drawsSpread, isRandom, type RandomDraw, rerollsEveryFrame } from "../utils/randomDraw";
 import { ChancePin } from "./ChancePin";
 
-/** The field a value's tables sit under, which the chip names as the file does. */
-const TABLES_FIELD = "probabilityTables";
-
 interface CurveToolbarProps {
+  /** What the row leads with, the target's caption, which gives way first as the pane narrows. */
+  lead?: ReactNode;
   family: ValueFamily;
   /** How many channels the value holds. */
   width: number;
@@ -32,10 +40,17 @@ interface CurveToolbarProps {
   editable: boolean;
   onAdd: () => void;
   onRemove: () => void;
+  /** Give the curve a table per channel. Null where it has tables or cannot be written. */
+  onAddRandom: (() => void) | null;
+  /** Clear every table slot, so the curve draws one value again. Null where it has none to clear. */
+  onRemoveRandom?: (() => void) | null;
+  /** Whether channels drawing one table edit together. Null where none share one. */
+  linking: { linked: boolean; onToggle: () => void } | null;
 }
 
 /** Every control of the dock in one row: chips, the tables and their faults, the pin, the tabs. */
 export function CurveToolbar({
+  lead,
   family,
   width,
   muted,
@@ -50,6 +65,9 @@ export function CurveToolbar({
   editable,
   onAdd,
   onRemove,
+  onAddRandom,
+  onRemoveRandom = null,
+  linking,
 }: CurveToolbarProps) {
   const names = CHANNELS[family];
   const chips =
@@ -63,6 +81,11 @@ export function CurveToolbar({
       data-ui="CurveToolbar"
       className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 select-none"
     >
+      {lead !== undefined && (
+        <span className="flex min-w-0 flex-1 basis-32 items-baseline gap-2 leading-tight">
+          {lead}
+        </span>
+      )}
       {chips.length > 0 && (
         <span className="flex gap-0.5">
           {chips.map((channel) => (
@@ -86,11 +109,36 @@ export function CurveToolbar({
         <Tooltip content={m.workshop_bin_random_tables_hint()}>
           <span
             tabIndex={0}
-            /* DS-CODE-CHIP */
-            className="flex cursor-help rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
+            className="flex cursor-help items-center gap-1 rounded-sm text-meta text-surface-300 outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
           >
-            <Code>{TABLES_FIELD}</Code>
+            <DiceFiveIcon weight="bold" className="h-3.5 w-3.5" />
+            {m.workshop_bin_random_chip_label()}
           </span>
+        </Tooltip>
+      )}
+      {draw !== null && onRemoveRandom !== null && (
+        <Tooltip content={m.workshop_bin_random_remove_hint()}>
+          <Button
+            variant="ghost"
+            size="xs"
+            compact
+            aria-label={m.workshop_bin_random_remove_action()}
+            onClick={onRemoveRandom}
+            left={<XIcon weight="bold" />}
+          />
+        </Tooltip>
+      )}
+      {linking !== null && <LinkToggle {...linking} />}
+      {onAddRandom !== null && (
+        <Tooltip content={m.workshop_bin_random_add_hint()}>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={onAddRandom}
+            left={<DiceFiveIcon weight="bold" />}
+          >
+            {m.workshop_bin_random_add_action()}
+          </Button>
         </Tooltip>
       )}
       {flickers && (
@@ -156,6 +204,27 @@ export function CurveToolbar({
         />
       </span>
     </div>
+  );
+}
+
+/** Whether an edit of one channel also writes the channels drawing its table. */
+function LinkToggle({ linked, onToggle }: { linked: boolean; onToggle: () => void }) {
+  const label = linked
+    ? m.workshop_bin_random_unlink_action()
+    : m.workshop_bin_random_link_action();
+
+  return (
+    <Tooltip content={label}>
+      <Button
+        variant="ghost"
+        size="xs"
+        compact
+        aria-label={label}
+        aria-pressed={linked}
+        onClick={onToggle}
+        left={linked ? <LinkSimpleIcon weight="bold" /> : <LinkBreakIcon weight="bold" />}
+      />
+    </Tooltip>
   );
 }
 

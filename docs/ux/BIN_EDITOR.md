@@ -709,12 +709,31 @@ pixel was clicked never changes what it offers.
 | Copy value                       | A row whose value reads as one string     |
 | Copy value hash                  | A row whose value carries a hash          |
 | Show in properties               | A cell of a class view                    |
+| Reset to default                 | A property row of a class view            |
 
 Copy value takes the value as the row draws it: a string, a number, a `flag` as `true` or `false`,
 a colour as `#RRGGBBAA`, a vector or a matrix as its components joined by a comma, and a link as
 its path or its name. A container, a map, a struct and an optional read as no single string, so
 they carry no Copy value. Copy value hash is the hash behind such a link, whether or not a table
 names it.
+
+#### Reset to default
+
+Reset to default puts a property back to its class default. It is one undo step.
+
+- a bin that can drop a property removes it, and the class view then draws the field as the
+  schema's default, the value the game reads for a field the file leaves out
+- on a declared document, a row a declaration of the chosen layer sets drops that declaration,
+  every signed key of its path in its module. The row then reads the game's value, or the
+  class default where the game has none
+- a declared document cannot remove a property from a game bin, so on a row no declaration
+  sets it writes the default instead: the latest schema's default, or the kind's own zero where the schema has none. The
+  zero is 0, `false`, an empty string, a zero hash, an identity matrix, or opaque white for a
+  colour
+- a value class (`ValueFloat`, `ValueVector3`, `ValueColor` and the rest) resets its constant
+  the same way and drops its curve
+- in a declared document, a list, a map, an embed or a pointer has no single default to write,
+  so the item is disabled with the reason as its title
 
 ### Preview lifetime
 
@@ -1963,7 +1982,12 @@ both. A section reads its curves as it scrolls into view, and a folded section r
 is bounded by what is on screen, per [what a layout reads](#what-a-layout-reads).
 
 ```
-INSPECTOR  Orb [0] / Birth v          Chance 0.55   Defaults ( )
+INSPECTOR  Orb [0] / Birth v          Chance 0.55
+----------------------------------------------------------------
+ +------------------------------------------------------------+
+ |                 emitter preview, 160px                     |
+ +------------------------------------------------------------+
+ [F][+][P]  [ Search emitter properties                      ]
 ----------------------------------------------------------------
  v EMISSION
      rate                    [5          ] /s
@@ -1982,6 +2006,27 @@ INSPECTOR  Orb [0] / Birth v          Chance 0.55   Defaults ( )
 
 |  a field the birth roll reaches   !  a field that rerolls every frame
 ```
+
+**An action bar leads the search row.** Its first switch, Show only defined properties (`F`), draws
+only the properties the file defines and drops every field drawn at its schema default. The switch
+is remembered across emitters and sessions. With it on and nothing defined, the pane says so.
+
+Its second switch, Add property (`+`), puts an add box in place of the search. The box lists the
+fields the emitter's class declares and the emitter does not define, matched by label, name, hash
+or group as the search matches them, and takes `name: kind` for a field no table names. A pick adds
+the field at its schema default, unfolds its section and scrolls to it, and the box clears for the
+next one. `Escape` clears the box, and on an empty box returns to the search. This is the way to
+define a field while only defined properties are shown.
+
+Its third switch, Show emitter preview (`P`), draws the open emitter and the children it spawns
+over the properties in a square mini viewport, framed as a graph node's preview is and played on
+the run's own playhead. A drag orbits the emitter, the wheel zooms toward the cursor, and a double
+click frames it again. A metre grid lies on the ground, a heavier line every five metres, fading
+with the framing. An orientation gizmo in its corner draws the bin's axes rather than the
+viewport's, so each arm points the way that channel's field values move a particle and wears the
+colour of its X, Y or Z swatch. A click on an arm or a face turns the camera to look along it. The
+switch is on by default and remembered. A child lane's emitter draws no preview, because the run
+plays the opened system and not the child's.
 
 **The crumb holds still and the header moves.** The crumb's group segment names the group last
 picked, so the menu's own trigger never changes label under the pointer, and the sticky header
@@ -2166,9 +2211,12 @@ properties switches the mode.
 
 The caption is the label chain, with the wire path dimmed beside it. The chain is what the
 reader clicked, which the surface it was clicked on names: an emitter and its index in the panel,
-and the property path in the tree. The path is what a bug report needs. One toolbar row under it
-carries every control: the channel chips, the `probabilityTables` chip, the chance slider and the
-tabs.
+and the property path in the tree. The path is what a bug report needs. The caption leads the one
+toolbar row, which carries every control: the channel chips, the Random chip, the chance slider and
+the tabs. The caption truncates as the pane narrows.
+
+A shell holds the curve in its curve pane. Aiming a curve opens that pane where the reader closed
+it, and brings it to the front of its panel where another pane covers it.
 
 A value mode control aims the dock from its Curve segment, and so does Show curve on the row menu
 of a value that has dynamics. In an editable inspector, choosing Curve on a constant value creates
@@ -2213,10 +2261,15 @@ unit by the top tick. The time axis ticks at quarters.
 A click selects one key. Shift-click selects the range from the last key, and Ctrl-click or
 Command-click toggles one key in the selection. Dragging empty graph space draws a selection box
 over every channel. Delete removes the selected keys from the parallel time and value lists as one
-edit. Exact fields are shown for one selected key, while a multiple selection shows its count.
+edit. A key or a stop dragged past its neighbour swaps with it: the line draws in time order
+while the drag lasts, and the release rewrites every key between the old place and the new one as
+one edit, with the selection following the key. The graph and the Table select. One strip under them holds the selected key's exact fields,
+its number, its time and a field per channel, and a multiple selection shows its count there. The
+gestures sit behind the info mark at the strip's end.
 
 A colour draws as a gradient editor instead: a bar of the stops, a marker per stop hanging off it
-at the stop's own time, and the keys themselves under them.
+at the stop's own time, and the keys themselves under them. A marker drags along the axis once the
+pointer has travelled a few pixels, so a click only selects it.
 
 ```
 +-----------------------------------------------------------------+
@@ -2261,6 +2314,33 @@ and its `#RRGGBBAA` ahead of the four numbers, so a key is read as a colour ther
 same table a colour's graph draws under its ramp, which is why a colour is offered no tab of it.
 A value with no keys is offered no Table either, because it has no rows.
 
+### The randomizer
+
+A value row authors its value in one of three modes, switched on the row: **Constant**, one
+value; **Random**, a value drawn once at birth; and **Curve**, a value over time. Random hides the
+tables. The row shows a Min and a Max, one field per channel each, and a random sign per channel,
+and nothing about chance or factors.
+
+```
+Initial Velocity   [- * ~]
+  Min  X [-1200]  Y [100]  Z [0]
+  Max  X [ -510]  Y [400]  Z [0]
+       X [+-]     Y [+-]   Z [+-]
+```
+
+- a particle rolls one chance and lands on the line from Min to Max, so the channels move
+  together, and the hint on Min and Max says so. It is the engine's own draw, not a box
+- random sign draws the ends or their negatives, the side picked by the same roll. A colour has
+  no sign
+- the randomizer owns the base: each channel's base is the end farther from 0, and its table
+  multiplies it from Min over base to Max over base, so a channel whose base was 0 still draws
+- a value reads as Random where its curve holds one level and it carries tables. A curve that
+  animates reads as Curve, and the dock draws its spread
+- Random from Constant gives the value a curve at its own level and a table per channel, both
+  ends on that level. Curve from Random clears every table slot to null, the schema's default
+- a one-line host, such as a graph node or an emitter table cell, keeps the row's chip instead
+  of the fields
+
 ### The random spread
 
 `probabilityTables` is one nullable slot per channel, and a table is the chance against a factor:
@@ -2291,8 +2371,23 @@ Z  0  fixed                  |  -----------|-----------
 - after the lane, the value at the pin and a keys button
 - lanes scroll when the dock is short, and a muted chip hides its lane
 
-Under [where editing is allowed](#where-editing-is-allowed), a block end drags min or max and a
-fixed channel's tick drags open into a range.
+**Editing.** Under [where editing is allowed](#where-editing-is-allowed), every edit writes the
+table and is one undo step:
+
+- the label's two fields are the least and the most the channel draws, in the value's unit where
+  the base holds still and as `×` a factor where it moves. A split's fields are its two sizes,
+  behind `±`, which both halves share
+- each end of a lane's block drags, or steps with the arrow keys, and a split's outer ends move
+  together, as do its inner ones. The number follows the handle while it is held, and the lane
+  leaves a quarter of room past the ends to drag into
+- three icons under the label switch the shape, their names on hover: fixed, uniform and split.
+  A fixed channel opens a quarter either side of its factor, and a split takes the sizes of the
+  range it came from. A custom table keeps its keys and names itself beside them
+- channels drawing one table over one base are linked, marked with a link icon, and an edit of
+  one writes each, so a uniform scale stays uniform. The toolbar's link button edits each channel
+  alone
+- a set of fixed tables still draws its lanes, so every channel offers its shapes
+- a curve writing no tables gets **Add random** on the toolbar, a fixed table per channel
 
 **A value that animates keeps its time plot, with a density edge.** A random channel carries a band
 from the curve at its least factor to the curve at its most, and a split carries two. A column on
@@ -2318,7 +2413,8 @@ null beside a table reads `no table`, and lists of two lengths read as such, bot
 tone under a line saying the game crashes on the first and reads the second as 0.
 
 **The keys button opens a popover** of chance, factor and result, the factor range over it. A key
-outside 0 to 1 draws dim as `never rolled`.
+outside 0 to 1 draws dim as `never rolled`. It sits on a split or a custom channel, whose fields
+do not say every key, and its chance and factor are fields where the table can be written.
 
 **A colour with no keys draws one bar from chance 0 to 1,** every colour the roll gives, with the
 pin marked on it. A colour that animates draws its ramp at chance 0, at 1, and at the pin.

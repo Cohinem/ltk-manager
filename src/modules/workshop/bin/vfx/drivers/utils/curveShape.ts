@@ -15,8 +15,12 @@ export function curveShape(curve: ValueCurve, color: boolean): CurveShape {
   return null;
 }
 
-/** A value node's shape, which its strip draws. A colour's row draws its band already. */
-export function stripShape(item: ValueItem): "keys" | "tables" | null {
-  const shape = curveShape(item.curve, classFamily(item.classHash) === "color");
-  return shape === "band" ? null : shape;
+/** A value node's shape: its curve as its body, its tables beside its editor, or neither. */
+export function valueShape(item: ValueItem): CurveShape {
+  return curveShape(item.curve, classFamily(item.classHash) === "color");
+}
+
+/** The lines a value node's body takes: its curve over two, else its editor on one. */
+export function valueLines(item: ValueItem): number {
+  return valueShape(item) === "keys" ? 2 : 1;
 }

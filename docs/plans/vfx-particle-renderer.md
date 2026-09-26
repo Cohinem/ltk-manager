@@ -611,7 +611,7 @@ by a system whose look it fixes:
 | A mesh's fragment      | A mesh runs the quad's whole fragment pass: both uv layers, the palette, erosion, `LOCK_ALPHA` and the `falloff` uniform an untextured draw takes. The colour ramp stays a per-emitter uniform | `meshMaterial` and `fragmentTests` shared with the quad                |
 | A mesh's scale         | `isUniformScale` is read, and the first scale component serves all three axes                                                                                                                  | `SPREAD.setScalar(DRAWN.scale[0])` in `Meshes.tsx`                     |
 | A mesh's turn          | The one rotation channel is the first, about `X`, off `Ezreal_Base_R_mis` authoring `birthRotation0 (90, 0, 0)`                                                                                | `meshTurn` in `integrate.ts`                                           |
-| A path rig's frame     | A rig flies on its local `Y`: `X` right, `Y` along the flight, `Z` down, the one proper rotation. Shipped missiles author everything on `Y`                                                    | `flightInto` in `basis.ts`                                             |
+| A path rig's frame     | A rig flies on its local `Y`: `Y` along the flight, `Z` up and `X` left, the one proper rotation. Shipped missiles author everything on `Y`                                                    | `flightInto` in `basis.ts`                                             |
 | A path rig's run       | The system stops where it lands, so a run is the flight plus `lingerTail` and the scrub spans it                                                                                               | `landed` in `rig.ts`, and `scrubSpan` is gone                          |
 | An arbitrary quad's uv | The texture is sampled transposed, `u = 0.5 - corner.y` and `v = corner.x + 0.5`, read off three textures decoded from the WAD. A transpose mirrors, which no shipped texture could settle     | The arbitrary path of the quad vertex shader                           |
 | A mesh's handedness    | The viewport mirrors on `X`, so a mesh's vertices and normals mirror with it and every face rewinds, and the material culls unless `disableBackfaceCull` is written                            | `mirrorX` and `rewind` in `meshBuffer.ts`, `backfaceCull` on the model |
@@ -763,9 +763,12 @@ only evidence for it is what the shipped systems author against it.
   the art. Under the yaw the same quad stands 70 tall across the flight and reads as a sliver.
 - `leading_glow1` is the same kind and turns with it.
 
-So the frame goes back to `flightInto`: local `Y` along the flight, `X` to its right, `Z` down.
-The `90` degrees about `X` that separates it from a yaw is real, but it belongs to the object's
-frame rather than to an artist's `birthRotation0`, and an emitter that authors no rotation cannot
+So the frame goes back to `flightInto`: local `Y` along the flight, `Z` up and `X` to its left.
+`Xerath_Base_E_mis` settles the sign of `Z`: its `GroundGlow` is an unrotated arbitrary quad
+spawned by a point shape at `(0, 0, -100)`, which lies flat under the missile only when `-Z` is
+down, and floated above it while the frame put `Z` down.
+The turn that separates it from a yaw, a quarter about `X` and a half about `Y`, is real, but it
+belongs to the object's frame rather than to an artist's `birthRotation0`, and an emitter that authors no rotation cannot
 be supplying it.
 
 A census of `birthRotation0` over 243,307 mesh emitters closed it from the other side. Of the

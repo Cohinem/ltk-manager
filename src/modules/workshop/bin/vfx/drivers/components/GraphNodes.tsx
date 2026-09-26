@@ -2,7 +2,6 @@ import {
   BezierCurveIcon,
   CaretDownIcon,
   CaretRightIcon,
-  CubeIcon,
   DiceFiveIcon,
   FunctionIcon,
   type Icon,
@@ -32,7 +31,8 @@ import {
   PREVIEW_VIEWPORT,
 } from "../utils/driverLayout";
 import { KIND_NAME, KIND_TONE, LEVEL_TONE, NEUTRAL_SOCKET } from "../utils/graphTones";
-import { itemSubtitle, itemTitle } from "../utils/nodeText";
+import { itemSubtitle, itemTitle, pathAlias } from "../utils/nodeText";
+import { embeds } from "../utils/socketEmbed";
 import type {
   ComponentItem,
   DriverItem,
@@ -48,6 +48,7 @@ import { NodeBody } from "./DriverBody";
 import { EmitterToggle } from "./EmitterToggle";
 import { GraphActionsContext } from "./graphActions";
 import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
+import { EmbedBackButton, EmbeddedDriver } from "./SocketEmbed";
 
 type PlacedOf<T> = Omit<PlacedItem, "item"> & { readonly item: T };
 
@@ -86,7 +87,7 @@ export function PreviewNodeView({ data, selected }: NodeProps<PreviewFlowNode>) 
       <NodeHeader icon={MonitorPlayIcon} iconTone="text-accent-400" title={itemTitle(item)} />
       <div className="flex min-h-0 flex-1 gap-2 pr-2 pb-2">
         <div className="flex shrink-0 flex-col" style={{ width: PREVIEW_PORTS_WIDTH }}>
-          <Ports ports={item.ports} />
+          <Ports ports={item.ports} named />
         </div>
         <div
           /* React Flow's classes that keep a drag or a wheel inside the viewport from panning
@@ -108,10 +109,17 @@ export function PreviewNodeView({ data, selected }: NodeProps<PreviewFlowNode>) 
 
 /** One shimmer emitter, fed by each of its components. */
 export function EmitterNodeView({ data, selected }: NodeProps<EmitterFlowNode>) {
-  const { item, width, height } = data.placed;
+  const { item, width, height, frame } = data.placed;
 
   return (
-    <NodeFrame width={width} height={height} selected={selected} item={item} dim={item.disabled}>
+    <NodeFrame
+      width={width}
+      height={height}
+      selected={selected}
+      item={item}
+      dim={item.disabled}
+      plate={frame === undefined ? "inside" : "none"}
+    >
       <NodeHeader
         icon={SparkleIcon}
         iconTone="text-accent-400"
@@ -125,28 +133,6 @@ export function EmitterNodeView({ data, selected }: NodeProps<EmitterFlowNode>) 
       />
       <Ports ports={item.ports} />
       <Output kind={null} side={Position.Top} />
-    </NodeFrame>
-  );
-}
-
-/** One component, fed by the driver graph of each dynamic property it holds. */
-export function ComponentNodeView({ data, selected }: NodeProps<ComponentFlowNode>) {
-  const { item, width, height } = data.placed;
-
-  return (
-    <NodeFrame width={width} height={height} selected={selected} item={item}>
-      <NodeHeader
-        icon={CubeIcon}
-        iconTone="text-bin-class-text"
-        title={itemTitle(item)}
-        subtitle={itemSubtitle(item)}
-        id={item.id}
-        wire={item.wire}
-        inputs={item.ports.length}
-        divided={item.ports.length > 0}
-      />
-      <Ports ports={item.ports} />
-      <Output kind={null} />
     </NodeFrame>
   );
 }
@@ -168,6 +154,7 @@ export function DriverNodeView({ data, selected }: NodeProps<DriverFlowNode>) {
         level={worstLevel(diagnostics, node)}
         wire={item.wire}
         divided={item.ports.length + lines > 0}
+        extra={embeds(item) && <EmbedBackButton id={item.id} />}
       />
       <Ports ports={item.ports} />
       {lines > 0 && (
@@ -294,7 +281,8 @@ export function NodeHeader({
   );
 }
 
-function RevealButton({ onReveal }: { onReveal: () => void }) {
+/** The header button that shows a node's row in the properties panel. */
+export function RevealButton({ onReveal }: { onReveal: () => void }) {
   const label = m.workshop_bin_show_in_properties_action();
   return (
     <Tooltip content={label}>
@@ -319,8 +307,13 @@ function LevelMark({ label, hint, tone }: { label: string; hint: string; tone: s
   );
 }
 
-/** One row per input, each with the socket an edge lands on at the node's left edge. */
-function Ports({ ports }: { ports: readonly GraphPort[] }) {
+/**
+ * One row per input, each with the socket an edge lands on at the node's left edge.
+ *
+ * A port is a field path, aliased as the inspector labels it, unless it is `named` by the
+ * reader, as the preview's emitters are.
+ */
+function Ports({ ports, named = false }: { ports: readonly GraphPort[]; named?: boolean }) {
   return (
     <>
       {ports.map((port) => (
@@ -336,7 +329,8 @@ function Ports({ ports }: { ports: readonly GraphPort[] }) {
             isConnectable={false}
             className={twMerge(SOCKET, socketFill(port.kind))}
           />
-          <PortLabel label={port.label} />
+          <PortLabel label={named ? port.label : pathAlias(port.label)} />
+          {port.embed !== undefined && <EmbeddedDriver item={port.embed} />}
           {port.kind !== null && (
             <span className={twMerge("shrink-0 font-mono text-meta", KIND_TONE[port.kind].text)}>
               {KIND_NAME[port.kind]}

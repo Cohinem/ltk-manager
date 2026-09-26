@@ -11,10 +11,12 @@ import type {
   GraphPort,
   GraphTree,
   InputItem,
+  ListEntry,
   MasterField,
   MasterGroup,
   StructRow,
 } from "./graphItems";
+import { listEntries } from "./listEntries";
 
 /** The two lists of classic emitters, with the prefix of their master ids. */
 const LISTS = [
@@ -125,7 +127,7 @@ function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string
   };
 }
 
-interface InputPlace {
+export interface InputPlace {
   readonly id: string;
   /** The wire path of the struct or list holding the value. */
   readonly holder: string;
@@ -137,37 +139,65 @@ interface InputPlace {
   readonly segment?: string;
 }
 
+/** The classes a material node stands for: a material, and the container that holds one. */
+const MATERIAL_CLASSES: ReadonlySet<string> = new Set(
+  ["StaticMaterialDef", "VfxMaterialContainer"].map((name) => nameHash(name)),
+);
+
+/** A material, or a struct holding one, which draws as a material node of its own. */
+export function holdsMaterial(value: VfxValue): boolean {
+  if (value.type !== "struct") return false;
+  if (MATERIAL_CLASSES.has(value.classHash)) return true;
+  return value.fields.some(
+    ({ value: held }) => held.type === "struct" && MATERIAL_CLASSES.has(held.classHash),
+  );
+}
+
+/**
+ * A material's struct node, and null where it holds nothing to draw. A material another object
+ * holds is drawn too, since the material is what the holder is for.
+ */
+export function materialTree(value: VfxValue, at: InputPlace, label: string): GraphTree | null {
+  return inputOf(value, at, label, 0, true);
+}
+
 /**
  * The node a value feeds its holder through, and null for a leaf the holder edits in place.
  *
  * A keyed value is a curve node, and a struct, list or map the file writes is a struct node. A
  * struct the resolver inlined from another object stays a leaf, since its fields are not
- * the emitter's.
+ * the emitter's. Inside a `material`, or under any struct of `MATERIAL_CLASSES`, a linked struct
+ * is a node too, and a list or map draws as lines of its holder's node, so a material with many
+ * parameters stays one node.
  */
-function inputOf(value: VfxValue, at: InputPlace, label: string, depth: number): GraphTree | null {
+function inputOf(
+  value: VfxValue,
+  at: InputPlace,
+  label: string,
+  depth: number,
+  material = false,
+): GraphTree | null {
   if (depth > MAX_DEPTH) return null;
 
   const wire = at.holder + (at.segment ?? `.${hex(at.field ?? "")}`);
   if (value.type === "asset") return fileTree(value, { ...at, wire, label });
   if (value.type === "struct") {
-    if (value.object !== null) return null;
+    const inMaterial = material || MATERIAL_CLASSES.has(value.classHash);
+    if (value.object !== null && !inMaterial) return null;
 
     if (classFamily(value.classHash) !== null) return valueTree(value, { ...at, wire, label });
-    const rows = value.fields.map(({ hash, name, value: held }) => ({
-      key: hash,
-      name: name ?? hash,
-      tree: inputOf(
-        held,
-        {
-          id: `${at.id}/${name ?? hash}`,
-          holder: wire,
-          holderRows: value.fields.length,
-          field: hash,
-        },
-        name ?? hash,
-        depth + 1,
-      ),
-    }));
+    const rows = value.fields.map(({ hash, name, value: held }) => {
+      const entries = inMaterial ? listEntries(held) : null;
+      const place = {
+        id: `${at.id}/${name ?? hash}`,
+        holder: wire,
+        holderRows: value.fields.length,
+        field: hash,
+      };
+      const tree =
+        entries === null ? inputOf(held, place, name ?? hash, depth + 1, inMaterial) : null;
+      return { key: hash, name: name ?? hash, tree, entries };
+    });
     return structTree({ ...at, wire, label, shape: "struct", held: value }, rows);
   }
 
@@ -187,6 +217,7 @@ function inputOf(value: VfxValue, at: InputPlace, label: string, depth: number):
         `[${index}]`,
         depth + 1,
       ),
+      entries: null,
     }));
     return structTree({ ...at, wire, label, shape: "list", held: null }, rows);
   }
@@ -207,6 +238,7 @@ function inputOf(value: VfxValue, at: InputPlace, label: string, depth: number):
         entry.key,
         depth + 1,
       ),
+      entries: null,
     }));
     return structTree({ ...at, wire, label, shape: "map", held: null }, rows);
   }
@@ -278,6 +310,13 @@ interface StructPlace extends InputPlace {
   readonly held: Extract<VfxValue, { type: "struct" }> | null;
 }
 
+interface StructPlaceRow {
+  readonly key: string;
+  readonly name: string;
+  readonly tree: GraphTree | null;
+  readonly entries: ListEntry[] | null;
+}
+
 /**
  * A struct, list or map node over its rows.
  *
@@ -285,10 +324,7 @@ interface StructPlace extends InputPlace {
  * node, whose inputs it takes over, so a pointer chain reads as one node. A file under a
  * struct is drawn in place: its path on its row, and its picture on the node.
  */
-function structTree(
-  at: StructPlace,
-  rows: readonly { key: string; name: string; tree: GraphTree | null }[],
-): GraphTree {
+function structTree(at: StructPlace, rows: readonly StructPlaceRow[]): GraphTree {
   const lone = at.shape === "struct" && rows.length === 1 ? rows[0]?.tree : null;
   const section = lone?.item.type === "struct" && lone.item.shape === "struct" ? lone : null;
   const nested = section?.item.type === "struct" ? section.item : null;
@@ -299,10 +335,11 @@ function structTree(
     ...shown.flatMap(({ tree }) => (tree === null || tree.item.type === "file" ? [] : [tree])),
     ...(section?.inputs.map((input) => input.tree) ?? []),
   ];
-  const structRows: StructRow[] = shown.map(({ key, name, tree }) => ({
+  const structRows: StructRow[] = shown.map(({ key, name, tree, entries }) => ({
     key,
     name,
     input: tree?.item.type === "file" ? null : fedBy(tree),
+    entries,
   }));
 
   return {

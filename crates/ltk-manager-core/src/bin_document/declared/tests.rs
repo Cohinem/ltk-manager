@@ -739,3 +739,40 @@ fn a_key_moved_between_modules_keeps_the_view_and_undoes() {
     assert_eq!(manifest(dir.path(), "base"), text);
     assert_eq!(document.declared_state().unwrap().modules.len(), 2);
 }
+
+#[test]
+fn a_dropped_declaration_leaves_the_game_value_and_undoes() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    let text = two_modules(dir.path());
+    let mut document = declared(project);
+    assert!((glow(&document) - 0.5).abs() < f32::EPSILON);
+
+    let state = document
+        .declared_module_action(
+            "base",
+            &ModuleAction::DropKeys {
+                module: 0,
+                entry: SKIN.to_owned(),
+                path: "skinMeshProperties.selfIllumination".to_owned(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        manifest(dir.path(), "base"),
+        "version: 1
+modules:
+  - name: Later
+    entries:
+      Characters/Other:
+        q: 1
+"
+    );
+    assert!(glow(&document).abs() < f32::EPSILON);
+    assert!(state.marks.is_empty());
+
+    assert!(document.undo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), text);
+    assert!((glow(&document) - 0.5).abs() < f32::EPSILON);
+}

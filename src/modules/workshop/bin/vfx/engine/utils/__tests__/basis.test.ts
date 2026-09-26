@@ -115,20 +115,20 @@ describe("yawInto", () => {
 });
 
 describe("flightInto", () => {
-  it("sends local y along the flight, x to its right and z down", () => {
+  it("sends local y along the flight, z up and x to its left", () => {
     const basis = flightInto([1, 0, 0], new Float32Array(9));
     const out = new Float32Array(3);
 
     axisInto(basis, AXIS.y, out, 0);
     expect(rounded(out)).toEqual([1, 0, 0]);
     axisInto(basis, AXIS.x, out, 0);
-    expect(rounded(out)).toEqual([0, 0, -1]);
+    expect(rounded(out)).toEqual([0, 0, 1]);
     axisInto(basis, AXIS.z, out, 0);
-    expect(rounded(out)).toEqual([0, -1, 0]);
+    expect(rounded(out)).toEqual([0, 1, 0]);
   });
 
-  it("is the forward yaw turned a right angle about x, and flies forward with no reach", () => {
-    const forward = [1, 0, 0, 0, 0, -1, 0, 1, 0];
+  it("trades the forward yaw's y and z and turns x about, and flies forward with no reach", () => {
+    const forward = [-1, 0, 0, 0, 0, 1, 0, 1, 0];
     expect(rounded(flightInto([0, 0, 1], new Float32Array(9)))).toEqual(forward);
     expect(rounded(flightInto([0, 1, 0], new Float32Array(9)))).toEqual(forward);
   });

@@ -212,7 +212,7 @@ export function ClassView({
       key === undefined
         ? undefined
         : (held.menu.get(key) ?? childRows.get(key) ?? nested.find(key));
-    setMenuLine(row === undefined ? null : cellLine(row, classHash));
+    setMenuLine(row === undefined ? null : cellLine(row, cell?.dataset.rowOwner ?? classHash));
   }
 
   return (

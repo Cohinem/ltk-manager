@@ -1,7 +1,7 @@
 import type { MaterialPreview, VfxSystem, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { COLOR_LOOKUP, DRAG_MOTION, STENCIL_MODE } from "../model/enums";
+import { COLOR_LOOKUP, DRAG_MOTION, IMPORTANCE, STENCIL_MODE } from "../model/enums";
 import type {
   ChildSetModel,
   EmitterCull,
@@ -73,14 +73,6 @@ const ANALYTIC_DRAG_MOTION = 0x100;
 
 /** `importance`'s schema default. */
 const IMPORTANCE_DEFAULT = 1;
-
-/**
- * The importance Very High effects quality never instantiates, the low-spec substitute.
- *
- * The preview draws at Very High, where this is the only tier the cull mask removes
- * (`VfxEmitter_Evaluation.md` section 9.1).
- */
-const LOW_SPEC_IMPORTANCE = 4;
 
 /** `colorblindVisibility` for an emitter that exists only on the colourblind palette. */
 const COLORBLIND_ONLY = 2;
@@ -421,7 +413,8 @@ function readChild(
  */
 function cullOf(node: VfxValue & { type: "struct" }, simple: boolean): EmitterCull | null {
   const importance = number(field(node, FIELD.importance)) ?? IMPORTANCE_DEFAULT;
-  if (importance === LOW_SPEC_IMPORTANCE) return "importance";
+  /* The preview draws at Very High, which culls the low-spec tier alone. */
+  if (importance === IMPORTANCE.lowSpecOnly) return "importance";
 
   const palette = number(field(node, FIELD.colorblindVisibility)) ?? 0;
   if (!simple && palette === COLORBLIND_ONLY) return "colorblind";
