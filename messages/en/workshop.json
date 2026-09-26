@@ -402,6 +402,7 @@
   ],
   "workshop_bin_field_default_label": "Default",
   "workshop_bin_field_undeclared_label": "Not declared at this build",
+  "workshop_bin_flags_none_label": "None",
   "workshop_bin_force_acceleration_label": "Acceleration",
   "workshop_bin_force_add_action": "Add force",
   "workshop_bin_force_animated_hint": "The curve drives this value during playback. Click to edit it.",

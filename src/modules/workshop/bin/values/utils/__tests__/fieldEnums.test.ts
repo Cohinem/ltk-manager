@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { ENUM_FIELDS, enumReading, enumText, fieldEnum } from "../fieldEnums";
+import { ENUM_FIELDS, enumReading, enumText, fieldEnum, withFlag } from "../fieldEnums";
 
 const hash = (field: string) => nameHash(field);
 
@@ -65,5 +65,13 @@ describe("enumReading", () => {
 describe("enumText", () => {
   it("reads a choice the caller holds without a field to key it on", () => {
     expect(enumText({ names: { off: 0, on: 1 }, flags: false }, 1)).toBe("On");
+  });
+});
+
+describe("withFlag", () => {
+  it("sets and clears one bit and leaves every other bit as it was", () => {
+    expect(withFlag(0b100, 0b1, true)).toBe(0b101);
+    expect(withFlag(0b101, 0b1, false)).toBe(0b100);
+    expect(withFlag(0x80000001, 0x1, false)).toBe(0x80000000);
   });
 });

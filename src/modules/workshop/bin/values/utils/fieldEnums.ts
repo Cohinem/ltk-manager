@@ -88,6 +88,11 @@ export function enumText(held: FieldEnum, value: number): string | null {
   return names.length === 0 ? null : names.join(", ");
 }
 
+/** `value` with the bit `bit` set where `on`, else cleared, and every other bit as it was. */
+export function withFlag(value: number, bit: number, on: boolean): number {
+  return (on ? value | bit : value & ~bit) >>> 0;
+}
+
 /** What the integer `text` reads as under the field `hash`, and null where it reads as itself. */
 export function enumReading(hash: string | null, text: string): string | null {
   if (hash === null) return null;

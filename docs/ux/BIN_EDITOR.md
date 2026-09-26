@@ -2038,7 +2038,9 @@ doc for the field. The name column fits the longest name the inspector draws, ca
 pane, and past the cap a name is cut in its middle, as a lane's is.
 
 **A value reads as what it means.** An enum reads its name, and a flags field reads its named bits,
-off the tables `model.ts` holds. A number carries its unit - `s`, `deg`, `units`, `/s` - and a
+off the tables `model.ts` holds. An enum edits from a select of its names, and a flags field from a
+menu with a switch per named bit, which stays open for the next and keeps any bit no name covers.
+Both show the number the file holds beside them. A number carries its unit - `s`, `deg`, `units`, `/s` - and a
 random range reads `min .. max`. Which unit a field carries is a table written by hand, as the
 groups are. A vector's axes are tinted x, y and z, in columns of one width down the pane. A path
 reads its file name whole and its folder dimmed, cut inside the folder where the column runs out.

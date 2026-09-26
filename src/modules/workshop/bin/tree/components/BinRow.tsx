@@ -55,6 +55,7 @@ import { PathInput } from "../../paths/components/PathInput";
 import { type PathField, pathFieldOf } from "../../paths/utils/pathField";
 import { CutText } from "../../shared/components/CutText";
 import { ColorMark } from "../../values/components/ColorMark";
+import { FlagsSelect } from "../../values/components/FlagsSelect";
 import { useValueMark } from "../../values/hooks/useValueMarks";
 import { enumReading, enumText, type FieldEnum, fieldEnum } from "../../values/utils/fieldEnums";
 import { type FieldUnit, fieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
@@ -603,6 +604,15 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
               void edit.commit(row, integerLeaf(text, row.kind));
               onEnter();
             }}
+          />
+        );
+      }
+      if (held !== null) {
+        return (
+          <FlagsSelect
+            held={held}
+            text={value.text}
+            onChange={(text) => void edit.commit(row, integerLeaf(text, row.kind))}
           />
         );
       }
