@@ -199,8 +199,7 @@ impl BinDocument {
         let declared = self.declared.as_ref().ok_or_else(not_declared)?;
 
         let mut plans = None;
-        declared.context.game.with_names(&mut |names| {
-            let names = RenderNames(names);
+        declared.context.with_names(&mut |names| {
             plans = (|| {
                 let path = walked.to_property_path(&names).ok()?;
                 let edit = |operation| ManifestEdit {

@@ -193,20 +193,20 @@ describe("readDriver", () => {
 
   it("reads a class it does not know as unknown and reports it", () => {
     const graph = struct("VfxFloatDynamicProperty", {
-      Float: struct("VfxFloatSineDriver", { Remap: vector(0, 1) }),
+      Float: struct("VfxFloatTimeDriver", { Time: number(7) }),
     });
 
     const { node, diagnostics } = readDriver(graph, "float", "Rate");
 
     expect(node).toMatchObject({
       type: "property",
-      driver: { type: "unknown", kind: "float", classHash: nameHash("VfxFloatSineDriver") },
+      driver: { type: "unknown", kind: "float", classHash: nameHash("VfxFloatTimeDriver") },
     });
     expect(diagnostics).toEqual([
       {
         code: "unknownClass",
         level: "unsupported",
-        classHash: nameHash("VfxFloatSineDriver"),
+        classHash: nameHash("VfxFloatTimeDriver"),
         path: "Rate/Float",
       },
     ]);

@@ -27,7 +27,8 @@ function contextAt(time01: number): DriverContext {
     now: time01,
     emitterAge: time01,
     emitterPhase: time01,
-    particle: { row: 0, age01: time01 },
+    emitterRandoms: new Float32Array(0),
+    particle: { row: 0, age: time01, age01: time01, randoms: new Float32Array(0) },
   };
 }
 

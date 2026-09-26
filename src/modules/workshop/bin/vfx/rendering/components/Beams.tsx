@@ -26,7 +26,7 @@ import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts } from "../utils/drawKind";
-import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
+import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { RIBBON_DRAW } from "../utils/particleDraws";
@@ -155,7 +155,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
 
     CURSOR.vertex = 0;
     CURSOR.index = 0;
-    const stamp = state.gl.info.render.frame;
+    const stamp = renderStamp(state.gl);
     const layers = { base: emitter.uv, mult: emitter.multUv };
     const segmented = emitter.quadType === QUAD_TYPE.cameraSegmentBeam;
     let held = 0;

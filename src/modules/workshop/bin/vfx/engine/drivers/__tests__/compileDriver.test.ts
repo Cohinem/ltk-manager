@@ -17,7 +17,8 @@ function context(emitterPhase: number, age01: number | null): DriverContext {
     now: 0,
     emitterAge: 0,
     emitterPhase,
-    particle: age01 === null ? null : { row: 0, age01 },
+    emitterRandoms: new Float32Array(0),
+    particle: age01 === null ? null : { row: 0, age: 0, age01, randoms: new Float32Array(0) },
   };
 }
 
@@ -31,15 +32,21 @@ function evaluate(
   return Array.from(out);
 }
 
-/** A `VfxFloatDynamicProperty` over a curve leaf keyed 0 at the start and 10 at the end. */
-const RAMP = struct("VfxFloatDynamicProperty", {
-  Float: struct("0x1d04cfa7", {
-    Float: valueCurve("ValueFloat", number(5), [
-      [0, number(0)],
-      [1, number(10)],
-    ]),
-  }),
-});
+/**
+ * A `VfxFloatDynamicProperty` over a curve leaf keyed 0 at the start and 10 at the end, at
+ * `frequency`.
+ */
+function ramp(frequency: number) {
+  return struct("VfxFloatDynamicProperty", {
+    Float: struct("0x1d04cfa7", {
+      Float: valueCurve("ValueFloat", number(5), [
+        [0, number(0)],
+        [1, number(10)],
+      ]),
+      frequency: number(frequency),
+    }),
+  });
+}
 
 describe("compileDriver", () => {
   it("folds a constant graph and writes it at the offset given", () => {
@@ -68,8 +75,8 @@ describe("compileDriver", () => {
     expect(Array.from(compiled.constant ?? [])).toEqual([0.5, 0.25, 1, 1]);
   });
 
-  it("samples a keyed leaf at the particle's age in particle scope", () => {
-    const compiled = compile(RAMP, "float", "particle");
+  it("samples a keyed leaf of kPerParticle frequency at the particle's age", () => {
+    const compiled = compile(ramp(1), "float", "particle");
 
     expect(compiled.variability).toBe("particle");
     expect(compiled.constant).toBeNull();
@@ -77,11 +84,13 @@ describe("compileDriver", () => {
     expect(evaluate(compiled, context(0.9, null))).toEqual([0]);
   });
 
-  it("samples a keyed leaf at the emitter's phase in emitter scope", () => {
-    const compiled = compile(RAMP, "float", "emitter");
+  it("samples a keyed leaf of kPerEmitter frequency at the emitter's phase in any scope", () => {
+    for (const scope of ["emitter", "particle"] as const) {
+      const compiled = compile(ramp(0), "float", scope);
 
-    expect(compiled.variability).toBe("emitter");
-    expect(evaluate(compiled, context(0.75, 0.1))).toEqual([7.5]);
+      expect(compiled.variability).toBe("emitter");
+      expect(evaluate(compiled, context(0.75, 0.1))).toEqual([7.5]);
+    }
   });
 
   it("writes exactly its kind's width for a curve of fewer channels", () => {
@@ -96,7 +105,7 @@ describe("compileDriver", () => {
     );
 
     const out = new Float32Array([9, 9, 9, 9, 9, 9]);
-    compiled.evaluate(context(0, 0.5), out, 1);
+    compiled.evaluate(context(0.5, 0.5), out, 1);
     expect(Array.from(out)).toEqual([9, 2, 2, 2, 0, 9]);
   });
 

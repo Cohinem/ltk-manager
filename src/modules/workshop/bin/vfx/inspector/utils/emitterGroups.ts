@@ -224,6 +224,11 @@ const BY_FIELD: ReadonlyMap<string, EmitterGroup> = new Map(
   ),
 );
 
+/** The group a field of the emitter falls in, by its hash, and Other for an unlisted one. */
+export function fieldGroup(hash: string): EmitterGroup {
+  return BY_FIELD.get(hash) ?? "other";
+}
+
 const FIELD_ORDER: ReadonlyMap<string, number> = new Map(
   Object.values(GROUP_FIELDS)
     .flat()

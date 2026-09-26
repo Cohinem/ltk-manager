@@ -22,6 +22,9 @@ const DYNAMICS: ReadonlyMap<string, CurveDynamics> = new Map([
   [nameHash("ValueFloat"), { className: "VfxAnimatedFloat", family: "scalar" }],
   [nameHash("ValueVector2"), { className: "VfxAnimatedVector2f", family: "vector" }],
   [nameHash("ValueVector3"), { className: "VfxAnimatedVector3f", family: "vector" }],
+  [nameHash("IntegratedValueFloat"), { className: "VfxAnimatedFloat", family: "scalar" }],
+  [nameHash("IntegratedValueVector2"), { className: "VfxAnimatedVector2f", family: "vector" }],
+  [nameHash("IntegratedValueVector3"), { className: "VfxAnimatedVector3f", family: "vector" }],
 ]);
 
 /** The current animated dynamics class accepted by one value-family class. */

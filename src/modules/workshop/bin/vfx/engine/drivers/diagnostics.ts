@@ -9,12 +9,17 @@ import type { SupportLevel } from "./node";
  * - `kindMismatch`: the class outputs another kind than the slot holding it, and reads as zero
  * - `notADriver`: the slot holds something other than a struct, and reads as zero
  * - `emptyDriver`: the pointer holds nothing, and reads as zero
- * - `unreadFrequency`: a curve leaf's `frequency` is not the default `0`
+ * - `unreadFrequency`: a `frequency` other than `0` or `1`, which reads as per emitter
  * - `unreadLooping`: a curve leaf sets `looping`, which the sampler does not wrap
  * - `undrawnTables`: a curve leaf's probability tables, which the sampler does not draw
  * - `emptyParams`: an n-ary class with an empty `params` list, which reads as zero
  * - `inverseBounds`: a clamp whose `Low` exceeds its `High` in some component, which reads
  *   as zero
+ * - `unreadEasing`: an easing driver's `Easing` is not `0`, and nothing reads it
+ * - `unknownEasingFunction`: an `EasingFunction` past the last `EasingType` member, which
+ *   reads as linear
+ * - `nonPositiveDuration`: an easing driver's `duration` is zero or less, and it reads as
+ *   zero
  */
 export type DriverDiagnosticCode =
   | "inferred"
@@ -26,7 +31,10 @@ export type DriverDiagnosticCode =
   | "unreadLooping"
   | "undrawnTables"
   | "emptyParams"
-  | "inverseBounds";
+  | "inverseBounds"
+  | "unreadEasing"
+  | "unknownEasingFunction"
+  | "nonPositiveDuration";
 
 /** One guess or gap in a graph, where it sits and how far it is trusted. */
 export interface DriverDiagnostic {
@@ -49,4 +57,7 @@ export const DIAGNOSTIC_LEVEL: Readonly<Record<DriverDiagnosticCode, SupportLeve
   undrawnTables: "unsupported",
   emptyParams: "inferred",
   inverseBounds: "inferred",
+  unreadEasing: "unsupported",
+  unknownEasingFunction: "unsupported",
+  nonPositiveDuration: "inferred",
 };

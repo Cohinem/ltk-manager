@@ -44,6 +44,7 @@ import { RunTransport } from "../../playback/components/RunTransport";
 import { useVfxRun } from "../../playback/state/run";
 import { EmitterGizmo } from "../../rendering/components/EmitterGizmo";
 import { Passes } from "../../rendering/components/Passes";
+import { ShimmerMeshes } from "../../rendering/components/ShimmerMeshes";
 import { createStatsFeed, Stats, StatsProbe } from "../../rendering/components/Stats";
 import { VfxSystem } from "../../rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
@@ -156,6 +157,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >
           <Passes warps={warps} softens={softens} />
+          {system?.entry != null && <ShimmerMeshes document={document} entry={system.entry} />}
           {shown !== null && (
             <>
               <VfxHost host={host}>

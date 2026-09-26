@@ -61,7 +61,7 @@ export interface CurveNode extends NodeBase {
   readonly type: "curve";
   readonly classHash: string;
   readonly curve: ValueCurve;
-  /** `frequency`. Only `0`, the schema default, has a reading. */
+  /** `frequency`, read as `VfxMaterialDriverFrequency`: see `frequencyScope`. */
   readonly frequency: number;
   readonly looping: boolean;
   /** `ShareRandom`, which only the vector classes write. */
@@ -89,7 +89,8 @@ export type Operator =
   | "divide"
   | "compose"
   | "broadcast"
-  | "extend";
+  | "extend"
+  | "sine";
 
 /** One input of an operator node: the field that holds it, `params[n]` for a list entry. */
 export interface OperatorInput {
@@ -114,6 +115,37 @@ export interface OperatorNode extends NodeBase {
   readonly stored: readonly StoredValue[];
 }
 
+/** A random node: one unit draw from a random slot, mapped into `Range`. */
+export interface RandomNode extends NodeBase {
+  readonly type: "random";
+  readonly classHash: string;
+  readonly range: readonly number[];
+}
+
+/** `VfxFloatEasingDriver`: an eased blend from `Left` to `Right` over `duration` seconds. */
+export interface EasingNode extends NodeBase {
+  readonly type: "easing";
+  readonly classHash: string;
+  /** `Left` and `Right`, in that order. */
+  readonly inputs: readonly OperatorInput[];
+  /** `EasingFunction`, read as an `EasingType` value. */
+  readonly easingFunction: number;
+  readonly duration: number;
+  /** `frequency`, read as `VfxMaterialDriverFrequency`: see `frequencyScope`. */
+  readonly frequency: number;
+  readonly looping: boolean;
+}
+
+/**
+ * The time a `frequency` field samples at, read as `VfxMaterialDriverFrequency`:
+ * `kPerEmitter` (0) the emitter's, and `kPerParticle` (1) the particle's.
+ *
+ * Any other value reads as `kPerEmitter`, and `readDriver` reports it.
+ */
+export function frequencyScope(frequency: number): DriverScope {
+  return frequency === 1 ? "particle" : "emitter";
+}
+
 /** A driver of a class the registry has no reading for, kept whole for the editor to draw. */
 export interface UnknownNode extends NodeBase {
   readonly type: "unknown";
@@ -132,5 +164,7 @@ export type DriverNode =
   | ConstantNode
   | CurveNode
   | OperatorNode
+  | RandomNode
+  | EasingNode
   | UnknownNode
   | EmptyNode;

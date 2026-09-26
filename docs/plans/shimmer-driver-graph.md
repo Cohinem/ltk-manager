@@ -1,6 +1,6 @@
 # Shimmer Driver Graph — Implementation Plan
 
-> Status: **draft, D0, D1 and E0 built** (2026-09-26). Section 1 is evidence gathered the same day against
+> Status: **draft, D0, D1, D2 (inferred) and E0 built** (2026-09-26). Section 1 is evidence gathered the same day against
 > this repository at `318d102a`, the league_structs reversing notes (16.13 to 16.17 clients), the
 > LTK meta dataset of 2026-09-21 (16.19.8207193) and a census of the 16.19 live install. Section 2
 > is proposed and needs the maintainer's decision. Section 5 is reverse-engineering work that gates
@@ -192,21 +192,41 @@ Nested pointers read poorly as rows past two levels, and a node canvas shows the
 every input labelled. The canvas is `@xyflow/react` (React Flow 12, MIT). Its nodes are React
 components, so a node's fields reuse the inspector's controls and the design tokens.
 
-| Part      | Proposal                                                                                                                                                                                                                            |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Scope     | One canvas per system: every shimmer emitter, each fed by its components, each component fed by the driver graph of every dynamic property under it                                                                                 |
-| Host      | The Graph pane of the particle shell (ADR-0034), opened from the Panes menu beside the Preview pane                                                                                                                                 |
-| Sink      | The live preview is the rightmost node. The one viewport moves into it while the Graph pane is on screen, and the Preview pane says where it went                                                                                   |
-| Layout    | A tree layout computed on each read, inputs to the left of their node. A drag moves a node for the session only, since the bin stores no positions                                                                                  |
-| Folding   | An emitter or a component folds away everything feeding it, and Collapse all leaves the emitters alone                                                                                                                              |
-| Reveal    | A double click, or the node's Show in properties button, reveals the row the node stands for in Properties                                                                                                                          |
-| Ports     | One per input field, typed Float, Vec2, Vec3 or Vec4, each kind a colour of the `socket` token scale. A connection is valid only between matching kinds. A `params` list draws one port per entry and a spare port that appends one |
-| Node body | The node's leaf fields (a constant's value, a clamp's bounds, an enum) as inline controls. A curve leaf draws its curve small and opens it in the curve panel                                                                       |
-| Support   | Each node carries its registry level from decision 2.4. `inferred` and `unsupported` nodes are marked on the canvas, and an unknown class draws as a generic node with its class hash                                               |
-| Values    | Once the evaluator runs, a `constant` or `emitter` node shows its value at the preview's current time. A `particle` node shows none, since it has one value per particle                                                            |
-| Palette   | The families of section 3, each class under its readable name, with the class hash for an unnamed one                                                                                                                               |
+| Part      | Proposal                                                                                                                                                                                                                                                                                                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Scope     | One canvas per system: every shimmer emitter, each fed by its components, each component fed by the driver graph of every dynamic property under it                                                                                                                                                                                                                         |
+| Host      | The Graph pane of the particle shell (ADR-0034), opened from the Panes menu beside the Preview pane                                                                                                                                                                                                                                                                         |
+| Sink      | The live preview is the rightmost node. The one viewport moves into it while the Graph pane is on screen, and the Preview pane says where it went                                                                                                                                                                                                                           |
+| Layout    | Each emitter's tree is one block, inputs to the left of their node, and each block takes the lowest free spot on a board of the pane's shape. The preview stands right of the board's top, and an emitter's edge to it leaves the emitter's top edge. A drag moves a node for the session only, since the bin stores no positions                                           |
+| Folding   | An emitter or a component folds away everything feeding it. A complex or simple emitter opens folded to its header and preview                                                                                                                                                                                                                                              |
+| Zoom      | Under a zoom of 0.6 a node's rows are too small to read, so a plate in the node's hue covers it with its curve, colour band or value, or else its title at 15 screen pixels, shrunk only to fit the node. An emitter keeps its preview and sets its title over its top edge, and a file or spawn shape keeps its picture alone. Edges keep their screen width at every zoom |
+| Files     | A file an emitter names is a node that previews it by extension: a texture's picture, a mesh turning in 3D, or a note. A file under a struct draws on the struct's node instead. A spawn shape draws its wireframe in 3D                                                                                                                                                    |
+| Folding   | A struct whose one field holds another struct draws that struct as a section of its own node, so a pointer chain such as `primitive` over `mMesh` reads as one node                                                                                                                                                                                                         |
+| Reveal    | A double click, or the node's Show in properties button, reveals the row the node stands for in Properties                                                                                                                                                                                                                                                                  |
+| Ports     | One per input field, typed Float, Vec2, Vec3 or Vec4, each kind a colour of the `socket` token scale. A connection is valid only between matching kinds. A `params` list draws one port per entry and a spare port that appends one                                                                                                                                         |
+| Node body | The node's leaf fields (a constant's value, a clamp's bounds, an enum) as inline controls. A curve leaf draws its curve small and opens it in the curve panel                                                                                                                                                                                                               |
+| Support   | Each node carries its registry level from decision 2.4. `inferred` and `unsupported` nodes are marked on the canvas, and an unknown class draws as a generic node with its class hash                                                                                                                                                                                       |
+| Values    | Once the evaluator runs, a `constant` or `emitter` node shows its value at the preview's current time. A `particle` node shows none, since it has one value per particle                                                                                                                                                                                                    |
+| Palette   | The families of section 3, each class under its readable name, with the class hash for an unnamed one                                                                                                                                                                                                                                                                       |
 
 Recording the Graph pane is a maintainer decision: an amendment to ADR-0034, or an ADR of its own.
+
+### 2.9 Complex and simple emitters draw as one node each, with inputs for their structs
+
+A complex or simple emitter has leaf fields, and struct, pointer, list and map fields under
+them. The canvas draws one node per emitter for its leaf fields, and one node per struct field,
+connected to that field's input on the emitter node.
+
+| Part           | Decision                                                                                                                                                                                                                                                                     |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Emitter node   | The emitter's leaf fields under the inspector's group headings (`emitterGroups.ts`). Each is drawn by the inspector's `FieldRow`, so an edit is the same undo step                                                                                                           |
+| Field list     | The fields the file writes. Each group ends in an Add field picker listing the class's unwritten fields of that group. A picked field shows its default value until it is edited                                                                                             |
+| Value classes  | A `Value*` with no dynamics is a leaf and is edited on the emitter node. One with keys or probability tables is a curve node on the field's input, and opens in the curve panel                                                                                              |
+| Struct nodes   | Every struct, pointer, list and map the file writes is a node on its field's input. It lists its own leaf fields, and its own struct fields are nodes on its inputs                                                                                                          |
+| Class change   | A pointer node's first line picks its class from the classes the pointer can hold, as `ReplacePointer`, which keeps the fields both classes declare. An unset pointer added by Add field shows the same picker                                                               |
+| Linked objects | A struct the resolver read from another object is a leaf field, since its fields belong to that object                                                                                                                                                                       |
+| Preview        | Each emitter node draws that emitter and its children in a square under its header, from the run's one simulation. Every preview is a drei `View` of one canvas over the pane, so the nodes share one WebGL context, and the canvas stops drawing while the pane has no size |
+| Sizes          | Every line of an emitter or struct node is one row tall, and no row expands in place, since struct fields are separate nodes. The layout knows each node's height before it draws                                                                                            |
 
 ## 3. Reference: the node catalogue
 
@@ -241,10 +261,12 @@ Recording the Graph pane is a maintainer decision: an amendment to ADR-0034, or 
 **The curve-leaf reading.** `0x1d04cfa7` and its siblings wrap a legacy value class, so the
 proposal reuses the legacy sampler rather than inventing one. The legacy engine samples the same
 `ValueFloat` type at particle age or at emitter phase depending on the field that holds it
-(`CurveDriveParameter`, renderer plan section 3.4). D0 does the same: a leaf takes the normalized
-time of the scope its consumer evaluates at, and `frequency = 0` (every shipped leaf) gets that
-default. The 16.19 factor-curve classes read like the same leaf with an explicit time input, which
-supports the reading without proving it.
+(`CurveDriveParameter`, renderer plan section 3.4). The shimmer leaf moves that choice into the
+node: D2 reads `frequency` as the engine's `VfxMaterialDriverFrequency` enum (`kPerEmitter = 0`,
+`kPerParticle = 1`, from the league_structs enum dump), so a leaf samples the emitter's phase or
+the particle's age by its own field rather than by its consumer. Every shipped leaf is `0` and
+constant, so the reading changes no shipped value. The 16.19 factor-curve classes read like the
+same leaf with an explicit time input, which supports the reading without proving it.
 
 ## 4. Tiers
 
@@ -302,6 +324,24 @@ random scope of section 5.3.
 
 Exit: a seeded run reproduces the same values twice, and a hot swap that keeps the slot layout
 keeps each particle's draws.
+
+Built ahead of section 5, on the maintainer's call, with every class `inferred`:
+
+- `VfxFloatSineDriver` is an operator: `sin(2 pi Time / period)` remapped from `[-1, 1]` to
+  `Remap`, zero phase at time zero, and zero for a zero period
+- `VfxFloatEasingDriver` eases from `Left` to `Right` over `duration` seconds, held at `Right`
+  past the end or wrapped where it loops. `EasingFunction` reads as the engine's 34-member
+  `EasingType` from the league_structs enum dump, with the standard Penner curves, and
+  `frequency` as `VfxMaterialDriverFrequency`. `Easing`, a second `U8` with no known meaning,
+  is reported when set
+- The two random nodes map one unit draw into `Range`. Which draws per particle and which per
+  emitter is section 5.3's question, so both follow the consumer's scope. Compiling hands each
+  random node the next slot of its scope's block in walk order and reports the counts as
+  `randomSlots`. `DriverContext` carries the emitter's block and `ParticleSample` the
+  particle's, and `drawRandoms` fills a block from the system's seeded `Rng`
+- `VfxFloatTimeDriver` stays unread: the `Time` enum is not in the dump
+
+The curve leaves read `frequency` the same way, as section 3 describes.
 
 ### D3 — property reads
 
@@ -378,6 +418,20 @@ for Hexshade.
 Exit: a node's shown value equals the evaluator's result for the same context in a test, and
 scrubbing the playhead changes the value of a time node.
 
+### E3 — complex and simple emitters on the canvas
+
+Needs E0. Decision 2.9, beside the shimmer emitters in the same Graph pane.
+
+- `systemGraph` reads `complexEmitterDefinitionData` and `simpleEmitterDefinitionData` from the
+  resolved system into emitter, struct and curve items. An emitter node reads its own rows, the
+  same rows the inspector edits
+- A pointer node's class picker reads `itemClasses` and sends `ReplacePointer`. Add field lists
+  the class schema's unwritten fields of the group
+- The context menu copies the class of emitter and struct nodes
+
+Exit: every emitter of a system draws as an emitter node. A keyed value and a struct each draw
+as a node on their field's input. A class change and an added field are each one undo step.
+
 ### 4.6 The consumer: what the component runtime needs
 
 Not part of this plan, listed so the seam is designed for it:
@@ -399,6 +453,10 @@ Not part of this plan, listed so the seam is designed for it:
 
 The component semantics are as unverified as the drivers', so the runtime plan carries its own
 section 5.
+
+Until then the preview draws each shimmer emitter as its geometry component's mesh once at rest,
+textured, tinted and placed by its constant driver graphs (`ShimmerMeshes`). Nothing spawns,
+ages or moves.
 
 ## 5. Evidence that precedes it
 

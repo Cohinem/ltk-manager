@@ -22,6 +22,26 @@ interface Built {
 
 const BUILT = new WeakMap<Pool, Built>();
 
+/** The last frame each renderer drew and the stamp it was given, for `renderStamp`. */
+const STAMPS = new WeakMap<object, { frame: number; stamp: number }>();
+let nextStamp = 0;
+
+/**
+ * The stamp `bucketsOf` takes for the frame `renderer` is on.
+ *
+ * Unique across renderers, since the Graph pane's emitter previews draw the run's pool on a
+ * canvas of their own, and two renderers' frame counters can match.
+ */
+export function renderStamp(renderer: { info: { render: { frame: number } } }): number {
+  const { frame } = renderer.info.render;
+  const held = STAMPS.get(renderer);
+  if (held?.frame === frame) return held.stamp;
+
+  nextStamp += 1;
+  STAMPS.set(renderer, { frame, stamp: nextStamp });
+  return nextStamp;
+}
+
 /**
  * `pool`'s buckets for the frame `stamp` names, built by the first draw path that asks.
  *

@@ -6,6 +6,23 @@ import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import { readDriver } from "../../engine/drivers/readDriver";
 import { driverClass, graphRootKind, hashOf } from "../../engine/drivers/registry";
 import { field, flag, text } from "../../engine/parsing/readValue";
+import { classicEmitters, NO_PENDING, type PendingFields } from "./emitterGraph";
+import type { GraphItem, GraphTree, LeafTarget } from "./graphItems";
+
+export type {
+  ComponentItem,
+  DriverItem,
+  EmitterItem,
+  FileItem,
+  GraphItem,
+  GraphPort,
+  GraphTree,
+  LeafTarget,
+  MasterItem,
+  PreviewItem,
+  StructItem,
+  ValueItem,
+} from "./graphItems";
 
 /** `shimmerEmitterDefinitionData` of `VfxSystemDefinitionData`. */
 const SHIMMER_LIST = nameHash("shimmerEmitterDefinitionData");
@@ -28,94 +45,40 @@ const LIST_ENTRY = /^(.*)(\[\d+\])$/;
 /** The depth past which the walk for graphs under a component stops. */
 const MAX_DEPTH = 32;
 
-/** One input of a graph node: its handle id, what it is labelled, and the kind it takes. */
-export interface GraphPort {
-  readonly id: string;
-  readonly label: string;
-  readonly kind: DriverKind | null;
-}
-
-/** A leaf a node body edits: the struct holding it, by wire path, and its field hash. */
-export interface LeafTarget {
-  readonly holder: string;
-  readonly field: string;
-}
-
-interface ItemBase {
-  readonly id: string;
-  /** The wire path of the row the item stands for, under the system object. */
-  readonly wire: string;
-  readonly ports: readonly GraphPort[];
-}
-
-/** The node every emitter feeds: the system's live preview. */
-export interface PreviewItem extends ItemBase {
-  readonly type: "preview";
-}
-
-/** One shimmer emitter, fed by each of its components. */
-export interface EmitterItem extends ItemBase {
-  readonly type: "emitter";
-  readonly name: string;
-  readonly disabled: boolean;
-}
-
-/** One component of an emitter, fed by the driver graph of each dynamic property it holds. */
-export interface ComponentItem extends ItemBase {
-  readonly type: "component";
-  /** The `VfxComponents` field the component sits in, or `components[n]`. */
-  readonly slot: string;
-  /** The component's class name, or its hash where nothing names it. */
-  readonly className: string;
-}
-
-/** One driver node, and the diagnostics reported at its path. */
-export interface DriverItem extends ItemBase {
-  readonly type: "driver";
-  readonly node: DriverNode;
-  readonly diagnostics: readonly DriverDiagnostic[];
-  /**
-   * The leaves the node body edits: a constant's value, a flat curve leaf's constant, or an
-   * operator's stored values in the order of its `stored`.
-   */
-  readonly leaves: readonly LeafTarget[];
-}
-
-export type GraphItem = PreviewItem | EmitterItem | ComponentItem | DriverItem;
-
-/** One item and the items that feed its ports, in port order. */
-export interface GraphTree {
-  readonly item: GraphItem;
-  readonly inputs: readonly { readonly port: string; readonly tree: GraphTree }[];
-}
-
 /**
- * The shimmer emitters of a resolved `VfxSystemDefinitionData` as one tree into the preview.
+ * The emitters of a resolved `VfxSystemDefinitionData` as one tree into the preview.
  *
- * Each emitter feeds the preview, each component of `VfxComponents` feeds its emitter, and
- * each `Vfx*DynamicProperty` or `materialDrivers` entry under a component feeds that
- * component through its driver graph. Null for a system that holds no shimmer emitter.
+ * Complex and simple emitters come first, as master nodes (`classicEmitters`). Each shimmer
+ * emitter is fed by its components, and each `Vfx*DynamicProperty` or `materialDrivers` entry
+ * under a component feeds that component through its driver graph. `pending` holds the
+ * fields Add field picked, by master id. Null for a system that holds no emitter.
  */
-export function systemGraph(root: VfxValue): GraphTree | null {
-  const list = field(root, SHIMMER_LIST);
-  if (list?.type !== "container" || list.items.length === 0) return null;
+export function systemGraph(root: VfxValue, pending: PendingFields = NO_PENDING): GraphTree | null {
+  const emitters = [...classicEmitters(root, pending), ...shimmerEmitters(root)];
+  if (emitters.length === 0) return null;
 
-  const emitters = list.items.map((emitter, index) =>
-    emitterTree(emitter, `e${index}`, `${hex(SHIMMER_LIST)}[${index}]`, index),
-  );
   return {
     item: {
       type: "preview",
       id: "preview",
       wire: "",
-      ports: emitters.map(({ item }) => ({
-        id: item.id,
-        label: item.type === "emitter" ? item.name : item.id,
-        kind: null,
-      })),
+      ports: emitters.map(({ item }) => ({ id: item.id, label: emitterName(item), kind: null })),
     },
     inputs: emitters.map((tree) => ({ port: tree.item.id, tree })),
   };
+}
+
+function emitterName(item: GraphItem): string {
+  return item.type === "emitter" || item.type === "master" ? item.name : item.id;
+}
+
+function shimmerEmitters(root: VfxValue): GraphTree[] {
+  const list = field(root, SHIMMER_LIST);
+  if (list?.type !== "container") return [];
+
+  return list.items.map((emitter, index) =>
+    emitterTree(emitter, `e${index}`, `${hex(SHIMMER_LIST)}[${index}]`, index),
+  );
 }
 
 function emitterTree(emitter: VfxValue, id: string, wire: string, index: number): GraphTree {
@@ -174,6 +137,7 @@ function componentTree(component: VfxValue, id: string, wire: string, slot: stri
       wire,
       slot,
       className: component.type === "struct" ? (component.class ?? component.classHash) : "",
+      classHash: component.type === "struct" ? component.classHash : "",
       ports: inputs.map(({ port, graph }) => ({ id: port, label: graph.label, kind: graph.kind })),
     },
     inputs: inputs.map(({ port, tree }) => ({ port, tree })),
@@ -247,7 +211,9 @@ function driverTree(
 
 function childrenOf(node: DriverNode): DriverNode[] {
   if (node.type === "property") return [node.driver];
-  if (node.type === "operator") return node.inputs.map((input) => input.node);
+  if (node.type === "operator" || node.type === "easing") {
+    return node.inputs.map((input) => input.node);
+  }
   return [];
 }
 
@@ -256,6 +222,12 @@ function leavesOf(node: DriverNode, wire: string): LeafTarget[] {
   switch (node.type) {
     case "operator":
       return node.stored.map((each) => ({ holder: wire, field: hashOf(each.field) }));
+    case "random":
+    case "easing":
+      return (driverClass(node.classHash)?.leaves ?? []).map((each) => ({
+        holder: wire,
+        field: hashOf(each),
+      }));
     case "constant":
     case "curve": {
       const slot = driverClass(node.classHash)?.leaves[0];

@@ -26,7 +26,7 @@ import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts, trailFacesTheCamera } from "../utils/drawKind";
-import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
+import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { RIBBON_DRAW } from "../utils/particleDraws";
@@ -137,7 +137,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden, document = nu
     CURSOR.vertex = 0;
     CURSOR.index = 0;
     for (const source of sources) {
-      strandInto(source, emitter, state.gl.info.render.frame);
+      strandInto(source, emitter, renderStamp(state.gl));
       writeTrail(
         STRAND,
         {

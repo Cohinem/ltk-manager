@@ -345,6 +345,30 @@ fn an_edit_lands_in_the_chosen_layer() {
 }
 
 #[test]
+fn a_field_only_the_schema_names_is_spelled_by_its_schema_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let context = DeclareContext {
+        project: project(dir.path()),
+        schema: PatchSchema::new(meta_schema::shared(None), None),
+        game: Game::naming(&[SKIN]),
+    };
+    let mut document =
+        BinDocument::declare(game_bin(), ltk_game_data::path_hash(CHUNK), context).unwrap();
+
+    document
+        .set_leaf(
+            h(SKIN),
+            &format!("{:08x}", *h("championSkinName")),
+            LeafValue::String {
+                value: "Jade".to_owned(),
+            },
+        )
+        .unwrap();
+
+    assert!(manifest(dir.path(), "base").contains("championSkinName: Jade"));
+}
+
+#[test]
 fn a_path_through_a_nameless_field_is_refused_and_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared(project(dir.path()));

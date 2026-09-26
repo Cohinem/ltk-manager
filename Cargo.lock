@@ -3134,6 +3134,7 @@ dependencies = [
  "ltk_mod_project",
  "ltk_modpkg",
  "ltk_overlay",
+ "ltk_primitives",
  "ltk_rst",
  "ltk_texture",
  "ltk_wad",
@@ -3355,9 +3356,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mapgeo"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c766c0aed1df356ed6878972e18e726cbafd2361cc2e4f81d5c96bb5ac4644a"
+checksum = "e0f622ae070f10900c46fd38f4ab26448fbd756c376a8999ed8e8a8d42cfd038"
 dependencies = [
  "bitflags 2.13.1",
  "byteorder",
@@ -3370,9 +3371,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mesh"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2824f9770472518566065fcbceaa87ffc51752d54ab36b24da02db7faa9510b5"
+checksum = "0866f10a9c10cff75d236f6e6b7eda4f017a65263cd570d06cb5ae39c5cad2fe"
 dependencies = [
  "bevy_mikktspace",
  "bitflags 2.13.1",

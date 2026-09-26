@@ -2365,14 +2365,14 @@
     },
     {
       "name": "ltk_mapgeo",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_mesh",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "licenses": [
         44
       ]

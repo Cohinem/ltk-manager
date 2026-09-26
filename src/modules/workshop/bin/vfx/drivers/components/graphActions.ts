@@ -2,6 +2,8 @@ import { createContext, type ReactNode } from "react";
 
 import type { BinDocumentId } from "@/lib/tauri";
 
+import type { GraphItem } from "../utils/systemGraph";
+
 /** What the graph's nodes act through, which the pane holds. */
 export interface GraphActions {
   readonly document: BinDocumentId;
@@ -11,6 +13,10 @@ export interface GraphActions {
   readonly viewport: ReactNode;
   readonly collapsed: ReadonlySet<string>;
   readonly toggleCollapsed: (id: string) => void;
+  /** Show `field` on the master node `master` at its default, until an edit writes it. */
+  readonly addField: (master: string, field: string) => void;
+  /** Collapse every other item of `item`'s type that has inputs, and expand `item`. */
+  readonly collapseOthers: (item: GraphItem) => void;
   /** Show the row at a wire path in Properties. Null where the view offers no Properties. */
   readonly reveal: ((wire: string) => void) | null;
 }

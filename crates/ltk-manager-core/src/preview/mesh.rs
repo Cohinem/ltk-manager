@@ -1,8 +1,6 @@
 //! One mesh as the vertex buffer a viewport uploads.
 //!
-//! `.skn`, `.scb` and `.sco` read through `ltk_mesh`. `.tmesh` and `.gmesh` are named
-//! rather than read, so an emitter on one says what is missing instead of drawing
-//! nothing.
+//! `.skn`, `.scb`, `.sco`, `.gmesh` and `.tmesh` read through `ltk_mesh`.
 //!
 //! Positions keep the engine's own space and units. The axis mirror is the viewport's,
 //! in `src/modules/workshop/bin/vfx/world.ts`.
@@ -35,8 +33,9 @@ use std::io::Cursor;
 use glam::{Vec2, Vec3, Vec4};
 use indexmap::IndexMap;
 use ltk_file::LeagueFileKind;
+use ltk_mesh::error::ParseError;
 use ltk_mesh::mem::vertex::ElementName;
-use ltk_mesh::{SkinnedMesh, StaticMesh, StaticMeshFace};
+use ltk_mesh::{GMESH_MAGIC, RenderMesh, SkinnedMesh, StaticMesh, StaticMeshFace};
 
 use super::{PreviewError, count_of};
 
@@ -55,6 +54,11 @@ const HAS_UVS: u32 = 1 << 1;
 /// The `flags` bit under which the skin's index and weight blocks follow the UVs.
 const HAS_SKIN: u32 = 1 << 2;
 
+/// The magic this build takes for a `.tmesh`, which no shipped file has attested yet.
+///
+/// The game reads both formats with one parser and checks no magic.
+const TMESH_MAGIC: [u8; 4] = *b"TMSH";
+
 /// Read a mesh into the buffer a viewport uploads.
 ///
 /// The bytes name their own format, because a chunk read out of an archive has a path
@@ -62,11 +66,16 @@ const HAS_SKIN: u32 = 1 << 2;
 ///
 /// # Errors
 ///
-/// Fails with [`PreviewError::UnsupportedMesh`] for the two formats this build names but
-/// does not read, with [`PreviewError::Unsupported`] for bytes that are no mesh at all,
-/// with [`PreviewError::MeshRead`] where the file does not parse, and with
-/// [`PreviewError::MeshOutOfBounds`] where a face names a vertex the file does not hold.
+/// Fails with [`PreviewError::Unsupported`] for bytes that are no mesh at all, with
+/// [`PreviewError::MeshRead`] where the file does not parse, and with
+/// [`PreviewError::MeshOutOfBounds`] where a face or an index names a vertex the file does
+/// not hold.
 pub fn render(bytes: &[u8]) -> Result<Vec<u8>, PreviewError> {
+    if bytes.starts_with(&GMESH_MAGIC) || bytes.starts_with(&TMESH_MAGIC) {
+        let mesh = RenderMesh::from_reader(&mut Cursor::new(bytes))?;
+        return Geometry::of_render(&mesh)?.encode();
+    }
+
     let geometry = match LeagueFileKind::identify_from_bytes(bytes) {
         LeagueFileKind::SimpleSkin => {
             Geometry::of_skinned(&SkinnedMesh::from_reader(&mut Cursor::new(bytes))?)?
@@ -77,27 +86,10 @@ pub fn render(bytes: &[u8]) -> Result<Vec<u8>, PreviewError> {
         LeagueFileKind::StaticMeshAscii => {
             Geometry::of_static(&StaticMesh::from_ascii(&mut Cursor::new(bytes))?)?
         }
-        kind => {
-            return Err(match unread_format(bytes) {
-                Some(format) => PreviewError::UnsupportedMesh(format),
-                None => PreviewError::Unsupported(kind),
-            });
-        }
+        kind => return Err(PreviewError::Unsupported(kind)),
     };
 
     geometry.encode()
-}
-
-/// The format `bytes` opens with, of the two this build names but does not read.
-///
-/// `GMSH` is attested and `TMSH` is a guess. Guessing wrong costs the caller a vaguer
-/// message and nothing else.
-fn unread_format(bytes: &[u8]) -> Option<&'static str> {
-    match bytes.get(..4)? {
-        b"GMSH" => Some(".gmesh"),
-        b"TMSH" => Some(".tmesh"),
-        _ => None,
-    }
 }
 
 /// One mesh's geometry, in the blocks the buffer holds it in.
@@ -232,6 +224,69 @@ impl Geometry {
             normals: None,
             uvs: Some(uvs),
             skin: None,
+            submeshes,
+        })
+    }
+
+    /// A `.gmesh` or `.tmesh`: every stream read as one vertex list, and one submesh per
+    /// entry of its table.
+    ///
+    /// A shipped `.gmesh` keeps its normal and UVs as halves in a second stream, which the
+    /// accessors widen. The lightmap UV in `Texcoord7` and the tangent are left out.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`PreviewError::MeshRead`] for a mesh with no positions, and with
+    /// [`PreviewError::MeshOutOfBounds`] where an index names a vertex the streams do not
+    /// hold or a submesh runs past the indices.
+    fn of_render(mesh: &RenderMesh) -> Result<Self, PreviewError> {
+        let count = mesh.vertex_count();
+        let position = mesh
+            .accessor::<Vec3>(ElementName::Position)
+            .ok_or_else(|| {
+                PreviewError::MeshRead(ParseError::InvalidField(
+                    "vertex element",
+                    "no position stream".to_owned(),
+                ))
+            })?;
+        let normal = mesh.accessor::<Vec3>(ElementName::Normal);
+        let uv = mesh.accessor::<Vec2>(ElementName::Texcoord0);
+
+        let buffer = mesh.index_buffer();
+        let indices = (0..buffer.count())
+            .map(|at| {
+                let index = u32::from(buffer.get(at));
+                if index as usize >= count {
+                    return Err(PreviewError::MeshOutOfBounds);
+                }
+                Ok(index)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let submeshes = mesh
+            .submeshes()
+            .iter()
+            .map(|submesh| {
+                let end = submesh.start_index.checked_add(submesh.index_count);
+                if end.is_none_or(|end| end as usize > indices.len()) {
+                    return Err(PreviewError::MeshOutOfBounds);
+                }
+                Ok(Submesh {
+                    name: submesh.material.clone(),
+                    start_index: submesh.start_index,
+                    index_count: submesh.index_count,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self {
+            positions: (0..count)
+                .flat_map(|v| position.get(v).to_array())
+                .collect(),
+            normals: normal.map(|block| (0..count).flat_map(|v| block.get(v).to_array()).collect()),
+            uvs: uv.map(|block| (0..count).flat_map(|v| block.get(v).to_array()).collect()),
+            skin: None,
+            indices,
             submeshes,
         })
     }

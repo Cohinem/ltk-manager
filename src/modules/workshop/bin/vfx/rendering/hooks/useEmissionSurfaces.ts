@@ -34,7 +34,7 @@ const NO_SURFACES: EmissionSurfaces = new Map();
  * The samplers are cached by what each surface is built from, so an edit that moves no
  * surface hands the driver the samplers it already has and costs no replay.
  */
-export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driver): void {
+export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driver | null): void {
   const wanted = useMemo(() => surfaceRequests(drawn), [drawn]);
   const signature = wanted
     .map((request) => `${request.path}:${request.index}|${request.signature}`)
@@ -44,6 +44,8 @@ export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driv
   const cache = useRef(new Map<string, EmissionSampler>());
 
   useEffect(() => {
+    if (driver === null) return;
+
     const requests = latest.current;
     const abort = new AbortController();
     const samplers = cache.current;

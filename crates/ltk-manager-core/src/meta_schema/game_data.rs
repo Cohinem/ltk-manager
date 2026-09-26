@@ -28,6 +28,12 @@ impl PatchSchema {
         let build = build.filter(|build| schema.describes(*build));
         Self { schema, build }
     }
+
+    /// The database the schema reads, which also names what the hash tables leave.
+    #[must_use]
+    pub fn meta(&self) -> &MetaSchema {
+        &self.schema
+    }
 }
 
 impl ltk_game_data::Schema for PatchSchema {

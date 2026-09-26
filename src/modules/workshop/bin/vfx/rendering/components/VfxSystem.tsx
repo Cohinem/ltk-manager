@@ -42,6 +42,11 @@ export interface VfxSystemProps {
    * through, and the install alone where unset.
    */
   readonly document?: BinDocumentId | null;
+  /**
+   * Draws the pools and leaves the driver's mesh joints and emission surfaces to the view
+   * that owns the driver, for a second view of the same run.
+   */
+  readonly drawOnly?: boolean;
 }
 
 /**
@@ -59,8 +64,9 @@ export function VfxSystem({
   edges = "none",
   room,
   document = null,
+  drawOnly = false,
 }: VfxSystemProps) {
-  useEmissionSurfaces(drawn, driver);
+  useEmissionSurfaces(drawn, drawOnly ? null : driver);
   const joints = useMemo(() => {
     const lookups = new Map<string, Joints>();
     for (const [key, buffers] of meshes) {
@@ -72,8 +78,8 @@ export function VfxSystem({
   }, [meshes]);
 
   useEffect(() => {
-    driver.setMeshJoints(joints);
-  }, [driver, joints]);
+    if (!drawOnly) driver.setMeshJoints(joints);
+  }, [driver, joints, drawOnly]);
 
   const rootSources = useMemo(() => [driver], [driver]);
   const sourcesOf = (definition: DrawnEmitter): readonly Source[] =>

@@ -125,7 +125,9 @@ describe("layoutGraph", () => {
     const placed = new Map(items.map((each) => [each.item.id, each]));
 
     const preview = items.find((each) => each.item.type === "preview");
-    expect(preview && preview.x + preview.width).toBe(0);
+    expect(preview && preview.x + preview.width).toBe(
+      Math.max(...items.map((each) => each.x + each.width)),
+    );
     for (const edge of edges) {
       const source = placed.get(edge.source);
       const target = placed.get(edge.target);
@@ -134,6 +136,43 @@ describe("layoutGraph", () => {
         target?.item.ports.some((port) => port.id === edge.port),
         edge.id,
       ).toBe(true);
+    }
+  });
+
+  it("draws each column at one width, and a component with no graphs as its header", () => {
+    const tree = systemGraph(system(emitter("Grid", RATE, SCALE)));
+    if (tree === null) throw new Error("the system holds no graph");
+    const { items } = layoutGraph(tree);
+
+    const columns = new Map<number, Set<number>>();
+    for (const each of items) {
+      const right = each.x + each.width;
+      columns.set(right, (columns.get(right) ?? new Set()).add(each.width));
+    }
+    for (const widths of columns.values()) expect(widths.size).toBe(1);
+
+    const heights = new Map(items.map((each) => [each.item.id, each.height]));
+    expect(heights.get("e0/GeometryComponent")).toBeLessThan(heights.get("e0/LifetimeComponent")!);
+  });
+
+  it("packs many emitters into rows rather than one column, without overlap", () => {
+    const names = Array.from({ length: 9 }, (_, at) => `Grid${at}`);
+    const tree = systemGraph(system(...names.map((name) => emitter(name, RATE, SCALE))));
+    if (tree === null) throw new Error("the system holds no graph");
+    const emitters = layoutGraph(tree).items.filter((each) => each.item.type === "emitter");
+
+    expect(new Set(emitters.map((each) => each.y)).size).toBeGreaterThan(1);
+    expect(new Set(emitters.map((each) => each.x)).size).toBeGreaterThan(1);
+    for (const one of emitters) {
+      for (const other of emitters) {
+        if (one === other) continue;
+        const apart =
+          one.x + one.width <= other.x ||
+          other.x + other.width <= one.x ||
+          one.y + one.height <= other.y ||
+          other.y + other.height <= one.y;
+        expect(apart, `${one.item.id} and ${other.item.id}`).toBe(true);
+      }
     }
   });
 
@@ -147,7 +186,7 @@ describe("layoutGraph", () => {
 
   it("draws a class the registry does not read as a driver holding its fields", () => {
     const unknown = struct("VfxFloatDynamicProperty", {
-      Float: struct("VfxFloatSineDriver", { Remap: vector(0, 1) }),
+      Float: struct("VfxFloatTimeDriver", { Time: number(7) }),
     });
     const tree = systemGraph(system(emitter("Grid", unknown, SCALE)));
     if (tree === null) throw new Error("the system holds no graph");
@@ -156,7 +195,7 @@ describe("layoutGraph", () => {
     );
 
     expect(driver?.item).toMatchObject({
-      node: { value: { fields: [{ name: "Remap" }] } },
+      node: { value: { fields: [{ name: "Time" }] } },
       diagnostics: [{ code: "unknownClass", level: "unsupported" }],
     });
   });

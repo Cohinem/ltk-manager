@@ -57,7 +57,7 @@ import { PrimitiveProperty } from "./PrimitiveProperty";
 
 /** The shared label column of the inspector's property tables. */
 const NAME_COLUMN = "w-(--name-width)";
-const COLUMN_STYLE = {
+export const COLUMN_STYLE = {
   "--name-width": "clamp(7rem, 32%, 12rem)",
   "--readout-height": "1.25rem",
   "--readout-padding-x": "0.25rem",

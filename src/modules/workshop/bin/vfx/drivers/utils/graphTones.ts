@@ -10,17 +10,12 @@ export const KIND_NAME: Readonly<Record<DriverKind, string>> = {
 };
 
 /** The socket scale of each kind, as classes. DS-KIND-HUE. */
-export const KIND_TONE: Readonly<Record<DriverKind, { fill: string; text: string; edge: string }>> =
-  {
-    float: {
-      fill: "bg-socket-float!",
-      text: "text-socket-float-text",
-      edge: "border-t-socket-float",
-    },
-    vec2: { fill: "bg-socket-vec2!", text: "text-socket-vec2-text", edge: "border-t-socket-vec2" },
-    vec3: { fill: "bg-socket-vec3!", text: "text-socket-vec3-text", edge: "border-t-socket-vec3" },
-    vec4: { fill: "bg-socket-vec4!", text: "text-socket-vec4-text", edge: "border-t-socket-vec4" },
-  };
+export const KIND_TONE: Readonly<Record<DriverKind, { fill: string; text: string }>> = {
+  float: { fill: "bg-socket-float!", text: "text-socket-float-text" },
+  vec2: { fill: "bg-socket-vec2!", text: "text-socket-vec2-text" },
+  vec3: { fill: "bg-socket-vec3!", text: "text-socket-vec3-text" },
+  vec4: { fill: "bg-socket-vec4!", text: "text-socket-vec4-text" },
+};
 
 /** The fill of a socket that carries no value kind: an emitter's or a component's. */
 export const NEUTRAL_SOCKET = "bg-surface-400!";
@@ -50,20 +45,32 @@ export const CANVAS_TONE = {
   mask: "color-mix(in srgb, var(--color-surface-950) 60%, transparent)",
 } as const;
 
-/** The minimap colour of each role that carries no value kind. */
-const ROLE_STROKE = {
+/** The hue of each role that carries no value kind. */
+const ROLE_HUE = {
   emitter: "var(--color-accent-500)",
   component: "var(--color-bin-class)",
+  file: "var(--color-doc-layer)",
 } as const;
 
-/** The colour an item takes in the minimap: its role, or a driver's output kind. */
-export function minimapTone(item: GraphItem): string {
+/**
+ * The hue that names an item: its role, or the kind a driver or value outputs.
+ *
+ * A node draws it on its top edge, its header wash and its far plate, and the minimap fills
+ * the node with it.
+ */
+export function itemHue(item: GraphItem): string {
   switch (item.type) {
     case "preview":
     case "emitter":
-      return ROLE_STROKE.emitter;
+    case "master":
+      return ROLE_HUE.emitter;
     case "component":
-      return ROLE_STROKE.component;
+    case "struct":
+      return ROLE_HUE.component;
+    case "file":
+      return ROLE_HUE.file;
+    case "value":
+      return item.kind === null ? ROLE_HUE.component : KIND_STROKE[item.kind];
     case "driver":
       return KIND_STROKE[item.node.kind];
   }

@@ -1,7 +1,9 @@
 import {
+  BezierCurveIcon,
   CaretDownIcon,
   CaretRightIcon,
   CubeIcon,
+  DiceFiveIcon,
   FunctionIcon,
   type Icon,
   MathOperationsIcon,
@@ -21,8 +23,8 @@ import { twMerge } from "@/utils";
 
 import type { DriverDiagnostic } from "../../engine/drivers/diagnostics";
 import type { DriverKind, DriverNode, SupportLevel } from "../../engine/drivers/node";
-import { driverClass } from "../../engine/drivers/registry";
 import {
+  bodyLines,
   HEADER_HEIGHT,
   LINE_HEIGHT,
   type PlacedItem,
@@ -30,15 +32,22 @@ import {
   PREVIEW_VIEWPORT,
 } from "../utils/driverLayout";
 import { KIND_NAME, KIND_TONE, LEVEL_TONE, NEUTRAL_SOCKET } from "../utils/graphTones";
+import { itemSubtitle, itemTitle } from "../utils/nodeText";
 import type {
   ComponentItem,
   DriverItem,
   EmitterItem,
+  FileItem,
   GraphPort,
+  MasterItem,
   PreviewItem,
+  StructItem,
+  ValueItem,
 } from "../utils/systemGraph";
 import { NodeBody } from "./DriverBody";
+import { EmitterToggle } from "./EmitterToggle";
 import { GraphActionsContext } from "./graphActions";
+import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
 
 type PlacedOf<T> = Omit<PlacedItem, "item"> & { readonly item: T };
 
@@ -46,15 +55,25 @@ export type PreviewFlowNode = Node<{ placed: PlacedOf<PreviewItem> }, "preview">
 export type EmitterFlowNode = Node<{ placed: PlacedOf<EmitterItem> }, "emitter">;
 export type ComponentFlowNode = Node<{ placed: PlacedOf<ComponentItem> }, "component">;
 export type DriverFlowNode = Node<{ placed: PlacedOf<DriverItem> }, "driver">;
-export type GraphFlowNode = PreviewFlowNode | EmitterFlowNode | ComponentFlowNode | DriverFlowNode;
+export type MasterFlowNode = Node<{ placed: PlacedOf<MasterItem> }, "master">;
+export type StructFlowNode = Node<{ placed: PlacedOf<StructItem> }, "struct">;
+export type ValueFlowNode = Node<{ placed: PlacedOf<ValueItem> }, "value">;
+export type FileFlowNode = Node<{ placed: PlacedOf<FileItem> }, "file">;
+export type GraphFlowNode =
+  | PreviewFlowNode
+  | EmitterFlowNode
+  | ComponentFlowNode
+  | DriverFlowNode
+  | MasterFlowNode
+  | StructFlowNode
+  | ValueFlowNode
+  | FileFlowNode;
 
 /** The handle id every node but the preview outputs through. */
 export const OUTPUT_HANDLE = "out";
 
-const EMITTER_CLASS = "VfxShimmerEmitterDefinitionData";
-
 /* DS-VEIL: a socket is a dot with no surface of its own. */
-const SOCKET =
+export const SOCKET =
   "h-2.5! w-2.5! min-h-0! min-w-0! rounded-full! border-2! border-surface-800! transition-transform hover:scale-125";
 
 /** The system's live preview, fed by every shimmer emitter. */
@@ -63,21 +82,22 @@ export function PreviewNodeView({ data, selected }: NodeProps<PreviewFlowNode>) 
   const actions = use(GraphActionsContext);
 
   return (
-    <NodeFrame width={width} height={height} selected={selected} tone="border-t-accent-500">
-      <NodeHeader
-        icon={MonitorPlayIcon}
-        iconTone="text-accent-400"
-        title={m.workshop_bin_pane_preview_label()}
-      />
+    <NodeFrame width={width} height={height} selected={selected} item={item} plate="above">
+      <NodeHeader icon={MonitorPlayIcon} iconTone="text-accent-400" title={itemTitle(item)} />
       <div className="flex min-h-0 flex-1 gap-2 pr-2 pb-2">
         <div className="flex shrink-0 flex-col" style={{ width: PREVIEW_PORTS_WIDTH }}>
           <Ports ports={item.ports} />
         </div>
         <div
           /* React Flow's classes that keep a drag or a wheel inside the viewport from panning
-             or zooming the canvas. */
+             or zooming the canvas. A right drag orbits the camera, so its release opens no
+             menu. */
           className="nodrag nopan nowheel relative flex overflow-hidden rounded-md border border-surface-veil bg-surface-950"
           style={PREVIEW_VIEWPORT}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
         >
           {actions?.viewport}
         </div>
@@ -91,25 +111,20 @@ export function EmitterNodeView({ data, selected }: NodeProps<EmitterFlowNode>) 
   const { item, width, height } = data.placed;
 
   return (
-    <NodeFrame
-      width={width}
-      height={height}
-      selected={selected}
-      tone="border-t-accent-400"
-      dim={item.disabled}
-    >
+    <NodeFrame width={width} height={height} selected={selected} item={item} dim={item.disabled}>
       <NodeHeader
         icon={SparkleIcon}
         iconTone="text-accent-400"
-        title={item.name}
-        subtitle={EMITTER_CLASS}
-        badge={item.disabled ? m.workshop_bin_graph_disabled_label() : null}
+        title={itemTitle(item)}
+        subtitle={itemSubtitle(item)}
         id={item.id}
         wire={item.wire}
         inputs={item.ports.length}
+        divided={item.ports.length > 0}
+        extra={<EmitterToggle wire={item.wire} disabled={item.disabled} />}
       />
       <Ports ports={item.ports} />
-      <Output kind={null} />
+      <Output kind={null} side={Position.Top} />
     </NodeFrame>
   );
 }
@@ -119,15 +134,16 @@ export function ComponentNodeView({ data, selected }: NodeProps<ComponentFlowNod
   const { item, width, height } = data.placed;
 
   return (
-    <NodeFrame width={width} height={height} selected={selected} tone="border-t-bin-class">
+    <NodeFrame width={width} height={height} selected={selected} item={item}>
       <NodeHeader
         icon={CubeIcon}
         iconTone="text-bin-class-text"
-        title={item.slot}
-        subtitle={item.className}
+        title={itemTitle(item)}
+        subtitle={itemSubtitle(item)}
         id={item.id}
         wire={item.wire}
         inputs={item.ports.length}
+        divided={item.ports.length > 0}
       />
       <Ports ports={item.ports} />
       <Output kind={null} />
@@ -135,78 +151,56 @@ export function ComponentNodeView({ data, selected }: NodeProps<ComponentFlowNod
   );
 }
 
-/** One driver: its class, its kind, how far its reading is trusted, and its value. */
+/** One driver: its role and class, its kind, how far its reading is trusted, and its value. */
 export function DriverNodeView({ data, selected }: NodeProps<DriverFlowNode>) {
   const { item, width, height } = data.placed;
   const { node, diagnostics } = item;
+  const lines = bodyLines(node);
 
   return (
-    <NodeFrame width={width} height={height} selected={selected} tone={KIND_TONE[node.kind].edge}>
+    <NodeFrame width={width} height={height} selected={selected} item={item}>
       <NodeHeader
         icon={iconOf(node)}
         iconTone={KIND_TONE[node.kind].text}
-        title={titleOf(node)}
-        subtitle={KIND_NAME[node.kind]}
+        title={itemTitle(item)}
+        subtitle={itemSubtitle(item)}
+        kind={node.kind}
         level={worstLevel(diagnostics, node)}
         wire={item.wire}
+        divided={item.ports.length + lines > 0}
       />
       <Ports ports={item.ports} />
-      <div className="flex min-w-0 flex-col px-2">
-        <NodeBody node={node} leaves={item.leaves} />
-      </div>
+      {lines > 0 && (
+        <div className="flex min-w-0 flex-col px-2">
+          <NodeBody node={node} leaves={item.leaves} />
+        </div>
+      )}
       <Output kind={node.kind} />
     </NodeFrame>
   );
 }
 
-function NodeFrame({
-  width,
-  height,
-  selected,
-  tone,
-  dim = false,
-  children,
-}: {
-  width: number;
-  height: number;
-  selected: boolean;
-  /** The top edge's colour, which names the node's role or its output kind. */
-  tone: string;
-  dim?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <div
-      data-ui="SystemGraph:node"
-      style={{ width, height }}
-      /* DS-GROUND, DS-RADIUS, DS-HOVER */
-      className={twMerge(
-        "group/node flex flex-col rounded-lg border border-t-2 border-surface-veil-strong bg-surface-800 text-row shadow-md transition-[border-color,box-shadow] hover:border-accent-hover",
-        tone,
-        selected && "border-accent-500 ring-2 ring-accent-500/40 hover:border-accent-500",
-        dim && "opacity-80",
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-function NodeHeader({
+export function NodeHeader({
   icon: Glyph,
   iconTone,
   title,
-  subtitle,
+  subtitle = "",
+  kind,
   level = null,
   badge = null,
   id,
   wire,
   inputs = 0,
+  folds = inputs > 0,
+  divided = true,
+  extra,
 }: {
   icon: Icon;
   iconTone: string;
   title: string;
   subtitle?: string;
+  /** A driver's output kind, named at the end of the subtitle line. */
+  kind?: DriverKind;
   level?: SupportLevel | null;
   badge?: string | null;
   /** The item's id, which collapse keys on. Absent for a node that does not collapse. */
@@ -214,14 +208,24 @@ function NodeHeader({
   /** The row the node stands for, which Show in properties reveals. */
   wire?: string;
   inputs?: number;
+  /** The node folds away its body or its inputs, which a node with inputs does. */
+  folds?: boolean;
+  /** Whether rows follow the header. A header-only node's frame edge is its divider. */
+  divided?: boolean;
+  /** A control drawn before the reveal button, such as an emitter's toggle. */
+  extra?: ReactNode;
 }) {
   const actions = use(GraphActionsContext);
-  const collapsible = id !== undefined && inputs > 0;
+  const collapsible = id !== undefined && folds;
   const collapsed = collapsible && (actions?.collapsed.has(id) ?? false);
 
   return (
     <div
-      className="flex shrink-0 items-center gap-2 border-b border-surface-veil px-2"
+      className={twMerge(
+        "flex shrink-0 items-center gap-2 rounded-t-[inherit] bg-linear-to-b from-(--node-wash) to-transparent px-2",
+        divided && "border-b border-surface-veil",
+        NEAR_ONLY,
+      )}
       style={{ height: HEADER_HEIGHT }}
     >
       {collapsible && (
@@ -253,7 +257,7 @@ function NodeHeader({
               {badge}
             </span>
           )}
-          {collapsed && (
+          {collapsed && inputs > 0 && (
             <span className="shrink-0 rounded-sm bg-surface-veil px-1 text-meta text-surface-300">
               {m.workshop_bin_graph_hidden_label({ count: inputs })}
             </span>
@@ -273,10 +277,16 @@ function NodeHeader({
             />
           )}
         </span>
-        {subtitle !== undefined && subtitle !== "" && (
-          <span className="truncate font-mono text-meta text-surface-400">{subtitle}</span>
+        {(subtitle !== "" || kind !== undefined) && (
+          <span className="flex min-w-0 items-center gap-2 font-mono text-meta">
+            <span className="min-w-0 flex-1 truncate text-surface-400">{subtitle}</span>
+            {kind !== undefined && (
+              <span className={twMerge("shrink-0", KIND_TONE[kind].text)}>{KIND_NAME[kind]}</span>
+            )}
+          </span>
         )}
       </div>
+      {extra}
       {wire !== undefined && actions?.reveal && (
         <RevealButton onReveal={() => actions.reveal?.(wire)} />
       )}
@@ -326,9 +336,7 @@ function Ports({ ports }: { ports: readonly GraphPort[] }) {
             isConnectable={false}
             className={twMerge(SOCKET, socketFill(port.kind))}
           />
-          <span className="min-w-0 flex-1 truncate font-mono text-code text-surface-200">
-            {port.label}
-          </span>
+          <PortLabel label={port.label} />
           {port.kind !== null && (
             <span className={twMerge("shrink-0 font-mono text-meta", KIND_TONE[port.kind].text)}>
               {KIND_NAME[port.kind]}
@@ -340,11 +348,30 @@ function Ports({ ports }: { ports: readonly GraphPort[] }) {
   );
 }
 
-function Output({ kind }: { kind: DriverKind | null }) {
+/** A port's path, its holders dimmed so the field it ends in reads first. */
+export function PortLabel({ label }: { label: string }) {
+  const split = label.lastIndexOf(".") + 1;
+
+  return (
+    <span className="min-w-0 flex-1 truncate font-mono text-code">
+      <span className="text-surface-400">{label.slice(0, split)}</span>
+      <span className="text-surface-100">{label.slice(split)}</span>
+    </span>
+  );
+}
+
+/** A node's one output handle. An emitter's is on its top edge, facing the preview. */
+export function Output({
+  kind,
+  side = Position.Right,
+}: {
+  kind: DriverKind | null;
+  side?: Position;
+}) {
   return (
     <Handle
       type="source"
-      position={Position.Right}
+      position={side}
       id={OUTPUT_HANDLE}
       isConnectable={false}
       className={twMerge(SOCKET, socketFill(kind))}
@@ -352,7 +379,7 @@ function Output({ kind }: { kind: DriverKind | null }) {
   );
 }
 
-function socketFill(kind: DriverKind | null): string {
+export function socketFill(kind: DriverKind | null): string {
   return kind === null ? NEUTRAL_SOCKET : KIND_TONE[kind].fill;
 }
 
@@ -364,27 +391,15 @@ function iconOf(node: DriverNode): Icon {
       return WaveSineIcon;
     case "operator":
       return MathOperationsIcon;
+    case "random":
+      return DiceFiveIcon;
+    case "easing":
+      return BezierCurveIcon;
     case "unknown":
     case "empty":
       return QuestionIcon;
     case "property":
       return FunctionIcon;
-  }
-}
-
-/** The class name the registry or the tables give, and the class hash for an unnamed one. */
-function titleOf(node: DriverNode): string {
-  switch (node.type) {
-    case "unknown":
-      if (node.value.type === "struct") return node.value.class ?? node.value.classHash;
-      return m.workshop_bin_driver_unknown_label();
-    case "empty":
-      return m.workshop_bin_driver_empty_label();
-    case "constant":
-    case "curve":
-    case "operator":
-    case "property":
-      return driverClass(node.classHash)?.name ?? node.classHash;
   }
 }
 

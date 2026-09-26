@@ -248,7 +248,13 @@ const CASES: readonly Case[] = [
   },
 ];
 
-const AT: DriverContext = { now: 0, emitterAge: 0, emitterPhase: 0.5, particle: null };
+const AT: DriverContext = {
+  now: 0,
+  emitterAge: 0,
+  emitterPhase: 0.5,
+  emitterRandoms: new Float32Array(0),
+  particle: null,
+};
 
 function evaluate(graph: VfxValue, kind: DriverKind) {
   const compiled = compileDriver(readDriver(graph, kind, "field").node, { scope: "emitter" });
@@ -290,7 +296,7 @@ describe("operators", () => {
       scope: "particle",
     });
 
-    expect(compiled.variability).toBe("particle");
+    expect(compiled.variability).toBe("emitter");
     expect(compiled.constant).toBeNull();
   });
 

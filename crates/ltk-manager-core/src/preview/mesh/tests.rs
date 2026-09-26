@@ -1,6 +1,12 @@
 use glam::{Vec3, vec2, vec3};
-use ltk_mesh::mem::{IndexBuffer, VertexBuffer, VertexBufferDescription};
-use ltk_mesh::{SkinnedMesh, SkinnedMeshRange, SkinnedMeshVertexType, StaticMesh, StaticMeshFace};
+use ltk_mesh::mem::{
+    IndexBuffer, VertexBuffer, VertexBufferDescription, VertexBufferUsage, VertexElement,
+};
+use ltk_mesh::{
+    RenderMeshSubmesh, SkinnedMesh, SkinnedMeshRange, SkinnedMeshVertexType, StaticMesh,
+    StaticMeshFace,
+};
+use ltk_primitives::AABB;
 
 use super::*;
 
@@ -174,6 +180,71 @@ fn scb(vertices: Vec<Vec3>, faces: Vec<StaticMeshFace>) -> Vec<u8> {
     bytes
 }
 
+/// One render mesh over `count` vertices, the way a shipped `.gmesh` splits them: the
+/// positions in one stream, the normal and the uv in a second.
+///
+/// Vertex `i` sits at `(i, 2i, 3i)` with a normal of `(0, 1, 0)` and a uv of `(i, -i)`.
+fn gmesh(
+    count: u16,
+    indices: Vec<u16>,
+    submeshes: Vec<RenderMeshSubmesh>,
+    magic: [u8; 4],
+) -> Vec<u8> {
+    let floats =
+        |values: &[f32]| -> Vec<u8> { values.iter().flat_map(|f| f.to_le_bytes()).collect() };
+    let positions: Vec<u8> = (0..count)
+        .flat_map(|i| {
+            let i = f32::from(i);
+            floats(&[i, i * 2.0, i * 3.0])
+        })
+        .collect();
+    let shading: Vec<u8> = (0..count)
+        .flat_map(|i| {
+            let i = f32::from(i);
+            floats(&[0.0, 1.0, 0.0, i, -i])
+        })
+        .collect();
+    let stream = |elements: Vec<VertexElement>, bytes: Vec<u8>| {
+        VertexBuffer::new(
+            VertexBufferDescription::new(VertexBufferUsage::Static, elements),
+            bytes,
+        )
+    };
+
+    let mesh = RenderMesh::new(
+        AABB {
+            min: Vec3::ZERO,
+            max: Vec3::ONE,
+        },
+        vec![
+            stream(vec![VertexElement::POSITION], positions),
+            stream(
+                vec![VertexElement::NORMAL, VertexElement::TEXCOORD_0],
+                shading,
+            ),
+        ],
+        IndexBuffer::<u16>::new(indices.into_iter().flat_map(u16::to_le_bytes).collect()),
+        submeshes,
+    )
+    .unwrap()
+    .with_magic(magic);
+
+    let mut bytes = Vec::new();
+    mesh.to_writer(&mut bytes).unwrap();
+    bytes
+}
+
+/// A render submesh of `material` over `count` indices from `start`.
+fn submesh(material: &str, start: u32, count: u32) -> RenderMeshSubmesh {
+    RenderMeshSubmesh {
+        material: material.to_owned(),
+        start_index: start,
+        index_count: count,
+        min_vertex: 0,
+        max_vertex: 2,
+    }
+}
+
 /// A unit quad's four corners, which two faces index.
 fn quad() -> Vec<Vec3> {
     vec![
@@ -341,21 +412,52 @@ fn interleaved_materials_group_into_contiguous_submeshes() {
     );
 }
 
-/// The resolution chain reaches `.tmesh` and `.gmesh` wherever an artist authored one,
-/// and this build has a reader for neither.
 #[test]
-fn a_format_this_build_does_not_read_names_itself() {
-    for (magic, format) in [(b"GMSH", ".gmesh"), (b"TMSH", ".tmesh")] {
-        let mut bytes = magic.to_vec();
-        bytes.extend(1_u32.to_le_bytes());
+fn a_render_mesh_reads_every_stream_into_one_vertex_list() {
+    let bytes = gmesh(3, vec![0, 1, 2], vec![submesh("accent", 0, 3)], GMESH_MAGIC);
 
-        let err = render(&bytes).unwrap_err();
+    let decoded = decode(&render(&bytes).unwrap());
 
-        assert!(
-            matches!(err, PreviewError::UnsupportedMesh(named) if named == format),
-            "unexpected error for {format}: {err}"
-        );
-    }
+    assert_eq!(decoded.flags, HAS_NORMALS | HAS_UVS);
+    assert_eq!(
+        decoded.positions,
+        [0.0, 0.0, 0.0, 1.0, 2.0, 3.0, 2.0, 4.0, 6.0]
+    );
+    assert_eq!(decoded.normals, Some([0.0, 1.0, 0.0].repeat(3)));
+    assert_eq!(decoded.uvs, Some(vec![0.0, -0.0, 1.0, -1.0, 2.0, -2.0]));
+    assert_eq!(decoded.indices, [0, 1, 2]);
+    assert_eq!(decoded.submeshes, [("accent".to_owned(), 0, 3)]);
+}
+
+#[test]
+fn a_tmesh_reads_as_the_same_format() {
+    let bytes = gmesh(3, vec![2, 1, 0], vec![submesh("accent", 0, 3)], *b"TMSH");
+
+    assert_eq!(decode(&render(&bytes).unwrap()).indices, [2, 1, 0]);
+}
+
+#[test]
+fn a_render_mesh_index_past_its_vertices_is_an_error() {
+    let bytes = gmesh(3, vec![0, 1, 7], vec![submesh("accent", 0, 3)], GMESH_MAGIC);
+
+    let err = render(&bytes).unwrap_err();
+
+    assert!(
+        matches!(err, PreviewError::MeshOutOfBounds),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn a_render_submesh_past_its_indices_is_an_error() {
+    let bytes = gmesh(3, vec![0, 1, 2], vec![submesh("accent", 1, 3)], GMESH_MAGIC);
+
+    let err = render(&bytes).unwrap_err();
+
+    assert!(
+        matches!(err, PreviewError::MeshOutOfBounds),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]

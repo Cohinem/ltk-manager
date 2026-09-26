@@ -8,7 +8,8 @@ import type { BinDocumentId } from "@/lib/tauri";
 
 import { vfxQueries } from "../../hooks/useVfxSystem";
 import { layoutGraph } from "../utils/driverLayout";
-import { type GraphTree, systemGraph } from "../utils/systemGraph";
+import { NO_PENDING, type PendingFields } from "../utils/emitterGraph";
+import { type GraphItem, type GraphTree, systemGraph } from "../utils/systemGraph";
 import { type GraphActions, GraphActionsContext } from "./graphActions";
 import { GraphCanvas } from "./GraphCanvas";
 
@@ -41,11 +42,20 @@ export function GraphPane({
 }: GraphPaneProps) {
   const visible = useContentVisible();
   const query = useQuery({ ...vfxQueries.system(document, entry), enabled: entry !== "" });
+  const [pending, setPending] = useState<PendingFields>(NO_PENDING);
   const tree = useMemo(
-    () => (query.data === undefined ? null : systemGraph(query.data.root)),
-    [query.data],
+    () => (query.data === undefined ? null : systemGraph(query.data.root, pending)),
+    [query.data, pending],
   );
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(NONE);
+  /* A master folds to its header and preview until the reader opens it, and every other
+     node shows its inputs until the reader folds it. */
+  const [folded, setFolded] = useState<ReadonlySet<string>>(NONE);
+  const [opened, setOpened] = useState<ReadonlySet<string>>(NONE);
+  const masters = useMemo(() => (tree === null ? NONE : mastersOf(tree)), [tree]);
+  const collapsed = useMemo(
+    () => new Set([...folded, ...[...masters].filter((id) => !opened.has(id))]),
+    [folded, masters, opened],
+  );
   const layout = useMemo(
     () => (tree === null ? null : layoutGraph(tree, collapsed)),
     [tree, collapsed],
@@ -57,17 +67,44 @@ export function GraphPane({
   }, [holds, onPreviewShown]);
   useEffect(() => () => onPreviewShown(false), [onPreviewShown]);
 
-  const toggleCollapsed = useCallback((id: string) => {
-    setCollapsed((held) => {
-      const next = new Set(held);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  }, []);
+  const toggleCollapsed = useCallback(
+    (id: string) => {
+      const toggle = (held: ReadonlySet<string>) => {
+        const next = new Set(held);
+        if (!next.delete(id)) next.add(id);
+        return next;
+      };
+      if (masters.has(id)) setOpened(toggle);
+      else setFolded(toggle);
+    },
+    [masters],
+  );
   const collapseAll = useCallback(
-    (collapse: boolean) => setCollapsed(collapse && tree !== null ? collapsible(tree) : NONE),
+    (collapse: boolean) => {
+      setFolded(collapse && tree !== null ? collapsible(tree) : NONE);
+      setOpened(collapse ? NONE : masters);
+    },
+    [tree, masters],
+  );
+  const collapseOthers = useCallback(
+    (item: GraphItem) => {
+      if (tree === null) return;
+
+      if (item.type === "master") {
+        setOpened(new Set([item.id]));
+        return;
+      }
+      setFolded((held) => {
+        const next = new Set([...held, ...collapsible(tree, item.type)]);
+        next.delete(item.id);
+        return next;
+      });
+    },
     [tree],
   );
+  const addField = useCallback((master: string, field: string) => {
+    setPending((held) => new Map(held).set(master, [...(held.get(master) ?? []), field]));
+  }, []);
   const actions = useMemo<GraphActions>(
     () => ({
       document,
@@ -75,12 +112,23 @@ export function GraphPane({
       viewport,
       collapsed,
       toggleCollapsed,
+      collapseOthers,
+      addField,
       reveal:
         onShowInProperties === undefined
           ? null
           : (wire: string) => onShowInProperties(`${entry}:${wire}`),
     }),
-    [document, entry, viewport, collapsed, toggleCollapsed, onShowInProperties],
+    [
+      document,
+      entry,
+      viewport,
+      collapsed,
+      toggleCollapsed,
+      collapseOthers,
+      addField,
+      onShowInProperties,
+    ],
   );
 
   if (query.isPending && entry !== "") {
@@ -107,17 +155,33 @@ export function GraphPane({
 
   return (
     <GraphActionsContext value={actions}>
-      <GraphCanvas layout={layout} onCollapseAll={collapseAll} />
+      <GraphCanvas layout={layout} onCollapseAll={collapseAll} previews={visible} />
     </GraphActionsContext>
   );
 }
 
-/** Every emitter and component id with inputs, which Collapse all folds. */
-function collapsible(tree: GraphTree): Set<string> {
+/** Every master node's id, which folds by default. */
+function mastersOf(tree: GraphTree): Set<string> {
+  return new Set(
+    tree.inputs.flatMap(({ tree: input }) => (input.item.type === "master" ? [input.item.id] : [])),
+  );
+}
+
+/** The item types that collapse their inputs. */
+const FOLDING: ReadonlySet<GraphItem["type"]> = new Set([
+  "emitter",
+  "component",
+  "master",
+  "struct",
+]);
+
+/** Every item id of a type in `FOLDING` with inputs, or only those of `type`. */
+function collapsible(tree: GraphTree, type?: GraphItem["type"]): Set<string> {
   const out = new Set<string>();
   const visit = (node: GraphTree) => {
     const { item } = node;
-    if ((item.type === "emitter" || item.type === "component") && node.inputs.length > 0) {
+    const folds = FOLDING.has(item.type);
+    if (folds && node.inputs.length > 0 && (type === undefined || item.type === type)) {
       out.add(item.id);
     }
     node.inputs.forEach((input) => visit(input.tree));

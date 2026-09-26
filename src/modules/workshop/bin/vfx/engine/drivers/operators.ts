@@ -8,8 +8,9 @@ export type Apply = (out: Float32Array, at: number) => void;
  * evaluate into, and `stored`, the values its class stores.
  *
  * Every edge case section 5.3 of docs/plans/shimmer-driver-graph.md has not answered writes
- * the kind's zero: an empty `params` list, a clamp whose bounds cross, and a zero vector to
- * normalize. A zero divisor writes zero for the components it divides.
+ * the kind's zero: an empty `params` list, a clamp whose bounds cross, a zero vector to
+ * normalize and a sine of zero period. A zero divisor writes zero for the components it
+ * divides.
  */
 export function operation(
   operator: Operator,
@@ -67,7 +68,25 @@ export function operation(
     case "compose":
     case "extend":
       return concat([...args, ...stored.map((value) => Float32Array.from(value))], width);
+    case "sine":
+      return sine(first, second, fit(stored[0], 2));
   }
+}
+
+/**
+ * A sine of `Time` over `period`, remapped from `[-1, 1]` to `Remap`'s low and high.
+ *
+ * Read as a zero phase at time zero. A zero period writes zero.
+ */
+function sine(time: Float32Array, period: Float32Array, [low, high]: readonly number[]): Apply {
+  return (out, at) => {
+    if (period[0] === 0) {
+      out[at] = 0;
+      return;
+    }
+    const wave = Math.sin((2 * Math.PI * time[0]) / period[0]);
+    out[at] = low + ((wave + 1) / 2) * (high - low);
+  };
 }
 
 /** A component-wise reduction over `args`, and zero over none. */

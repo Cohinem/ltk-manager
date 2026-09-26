@@ -304,6 +304,7 @@
   "workshop_bin_dependency_undeclarable_hint": "A declaration adds and removes a game bin's dependencies, and does not reorder or rename one",
   "workshop_bin_doc_examples_label": "Examples",
   "workshop_bin_doc_notes_label": "Notes",
+  "workshop_bin_driver_constant_label": "Constant",
   "workshop_bin_driver_curve_flat_label": "Flat curve",
   "workshop_bin_driver_curve_keys_label": [
     {
@@ -315,6 +316,9 @@
       }
     }
   ],
+  "workshop_bin_driver_curve_label": "Curve",
+  "workshop_bin_driver_easing_label": "Easing",
+  "workshop_bin_driver_easing_unknown_label": "Easing {value}",
   "workshop_bin_driver_empty_label": "Empty",
   "workshop_bin_driver_fields_more_label": [
     {
@@ -326,8 +330,36 @@
       }
     }
   ],
+  "workshop_bin_driver_frequency_emitter_label": "Per emitter",
+  "workshop_bin_driver_frequency_particle_label": "Per particle",
   "workshop_bin_driver_inferred_hint": "Evaluated on a reading the game binary has not confirmed",
   "workshop_bin_driver_inferred_label": "Inferred",
+  "workshop_bin_driver_operator_label": [
+    {
+      "declarations": ["input operator"],
+      "selectors": ["operator"],
+      "match": {
+        "operator=add": "Add",
+        "operator=multiply": "Multiply",
+        "operator=min": "Min",
+        "operator=max": "Max",
+        "operator=abs": "Absolute",
+        "operator=normalize": "Normalize",
+        "operator=length": "Length",
+        "operator=clamp": "Clamp",
+        "operator=lerp": "Lerp",
+        "operator=scale": "Scale",
+        "operator=divide": "Divide",
+        "operator=compose": "Compose",
+        "operator=broadcast": "Broadcast",
+        "operator=extend": "Extend",
+        "operator=sine": "Sine",
+        "operator=*": "{operator}"
+      }
+    }
+  ],
+  "workshop_bin_driver_property_label": "Dynamic property",
+  "workshop_bin_driver_random_label": "Random",
   "workshop_bin_driver_unknown_label": "Not read",
   "workshop_bin_driver_unsupported_hint": "Not evaluated, and reads as zero",
   "workshop_bin_driver_unsupported_label": "Unsupported",
@@ -411,13 +443,21 @@
     }
   ],
   "workshop_bin_gradient_stop_label": "Colour stop at {time}, {color}",
+  "workshop_bin_graph_add_field_action": "Add field",
+  "workshop_bin_graph_choose_class_action": "Choose a class",
   "workshop_bin_graph_collapse_action": "Collapse inputs",
   "workshop_bin_graph_collapse_all_action": "Collapse all",
+  "workshop_bin_graph_collapse_others_action": "Collapse others",
+  "workshop_bin_graph_disable_action": "Disable emitter",
   "workshop_bin_graph_disabled_label": "Disabled",
   "workshop_bin_graph_empty": "No shimmer emitters in this system",
+  "workshop_bin_graph_enable_action": "Enable emitter",
   "workshop_bin_graph_expand_action": "Expand inputs",
   "workshop_bin_graph_expand_all_action": "Expand all",
+  "workshop_bin_graph_file_missing_label": "File not found",
+  "workshop_bin_graph_file_unpreviewed_label": "No preview for this file type",
   "workshop_bin_graph_fit_action": "Fit to view",
+  "workshop_bin_graph_frame_action": "Frame with inputs",
   "workshop_bin_graph_hidden_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -430,6 +470,8 @@
   ],
   "workshop_bin_graph_minimap_label": "Graph overview",
   "workshop_bin_graph_preview_moved": "Shown in the Graph pane",
+  "workshop_bin_graph_reset_layout_action": "Reset layout",
+  "workshop_bin_graph_shape_zero_label": "No size: spawns at its centre",
   "workshop_bin_graph_zoom_in_action": "Zoom in",
   "workshop_bin_graph_zoom_out_action": "Zoom out",
   "workshop_bin_hash_label": "hash",

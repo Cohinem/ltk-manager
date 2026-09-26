@@ -7,16 +7,19 @@ import { twMerge } from "@/utils";
 import { useBinRead } from "../../../documents/hooks/useBinRead";
 import { RowValue } from "../../../tree/components/BinRow";
 import { Swatch } from "../../../values/components/ColorMark";
-import type { DriverNode } from "../../engine/drivers/node";
+import { easingName } from "../../engine/drivers/easing";
+import { type DriverNode, type EasingNode, frequencyScope } from "../../engine/drivers/node";
 import { driverClass } from "../../engine/drivers/registry";
 import type { ValueCurve } from "../../engine/model/model";
 import { LINE_HEIGHT, UNKNOWN_FIELD_LINES } from "../utils/driverLayout";
+import { formatValues } from "../utils/nodeText";
 import type { LeafTarget } from "../utils/systemGraph";
 import { type GraphActions, GraphActionsContext } from "./graphActions";
 
 /**
- * What a driver node shows under its header: its value, an operator's stored values, or the
- * fields of an unread class.
+ * What a driver node shows under its header: its value, an operator's stored values, a
+ * random node's range, an easing driver's function and duration, or the fields of an
+ * unread class.
  */
 export function NodeBody({ node, leaves }: { node: DriverNode; leaves: readonly LeafTarget[] }) {
   const leaf = leaves[0] ?? null;
@@ -32,17 +35,17 @@ export function NodeBody({ node, leaves }: { node: DriverNode; leaves: readonly 
       return <CurveLine curve={node.curve} leaf={leaf} color={isColor(node.classHash)} />;
     case "operator":
       return node.stored.map((each, at) => (
-        <span key={each.field} className="flex min-w-0 items-center gap-2">
-          <span className="w-12 shrink-0 truncate font-mono text-code text-surface-400">
-            {each.field}
-          </span>
-          <span className="min-w-0 flex-1">
-            <LeafLine leaf={leaves[at] ?? null}>
-              <Values values={each.value} color={false} />
-            </LeafLine>
-          </span>
-        </span>
+        <LabeledLeaf
+          key={each.field}
+          label={each.field}
+          leaf={leaves[at] ?? null}
+          values={each.value}
+        />
       ));
+    case "random":
+      return <LabeledLeaf label={RANGE_LABEL} leaf={leaf} values={node.range} />;
+    case "easing":
+      return <EasingBody node={node} leaf={leaf} />;
     case "empty":
       return <Line className="text-surface-400">{m.workshop_bin_driver_empty_label()}</Line>;
     case "unknown":
@@ -50,6 +53,53 @@ export function NodeBody({ node, leaves }: { node: DriverNode; leaves: readonly 
     case "property":
       return null;
   }
+}
+
+/* Field names as the file writes them, drawn beside their values. */
+const RANGE_LABEL = "Range";
+const DURATION_LABEL = "duration";
+
+/** A stored value under its field name, edited in place where the file writes it. */
+function LabeledLeaf({
+  label,
+  leaf,
+  values,
+}: {
+  label: string;
+  leaf: LeafTarget | null;
+  values: readonly number[];
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="w-14 shrink-0 truncate font-mono text-code text-surface-400">{label}</span>
+      <span className="min-w-0 flex-1">
+        <LeafLine leaf={leaf}>
+          <Values values={values} color={false} />
+        </LeafLine>
+      </span>
+    </span>
+  );
+}
+
+/** An easing driver's function and the time it follows, over its duration. */
+function EasingBody({ node, leaf }: { node: EasingNode; leaf: LeafTarget | null }) {
+  const name =
+    easingName(node.easingFunction) ??
+    m.workshop_bin_driver_easing_unknown_label({ value: node.easingFunction });
+  const time =
+    frequencyScope(node.frequency) === "particle"
+      ? m.workshop_bin_driver_frequency_particle_label()
+      : m.workshop_bin_driver_frequency_emitter_label();
+
+  return (
+    <>
+      <Line>
+        <span className="min-w-0 flex-1 truncate font-mono text-code text-surface-100">{name}</span>
+        <span className="shrink-0 text-surface-400">{time}</span>
+      </Line>
+      <LabeledLeaf label={DURATION_LABEL} leaf={leaf} values={[node.duration]} />
+    </>
+  );
 }
 
 function Line({ className, children }: { className?: string; children: ReactNode }) {
@@ -114,7 +164,7 @@ function Values({ values, color }: { values: readonly number[]; color: boolean }
   );
 }
 
-/** A curve leaf's constant where it has no keys, and its key count where it has some. */
+/** A curve leaf's constant where it has no keys, which its title names, and its key count. */
 function CurveLine({
   curve,
   leaf,
@@ -133,16 +183,9 @@ function CurveLine({
   }
 
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <span className="shrink-0 text-meta text-surface-400">
-        {m.workshop_bin_driver_curve_flat_label()}
-      </span>
-      <span className="min-w-0 flex-1">
-        <LeafLine leaf={leaf}>
-          <Values values={curve.constant} color={color} />
-        </LeafLine>
-      </span>
-    </span>
+    <LeafLine leaf={leaf}>
+      <Values values={curve.constant} color={color} />
+    </LeafLine>
   );
 }
 
@@ -171,15 +214,6 @@ function UnknownFields({ value }: { value: VfxValue }) {
       )}
     </>
   );
-}
-
-function formatValues(values: readonly number[]): string {
-  const text = values.map(formatNumber);
-  return text.length === 1 ? text[0]! : `(${text.join(", ")})`;
-}
-
-function formatNumber(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(3).replace(/\.?0+$/, "");
 }
 
 /** A colour's four channels, an RGB colour taking a full alpha. */
