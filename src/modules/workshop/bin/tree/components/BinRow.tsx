@@ -64,6 +64,7 @@ import {
   channels,
   colorStops,
   markRanges,
+  markValue,
   type ValueMark,
   type ValueRange,
 } from "../../values/utils/valueRows";
@@ -1155,13 +1156,15 @@ export function ValueMarkCell({
   const ranges = markRanges(mark);
   const [range] = ranges ?? [];
   if (mark.family === "scalar" && range != null) return <RangeValue range={range} field={field} />;
-  if (mark.constant == null) return null;
-  if (mark.constant.type === "float") {
-    return <NumberValue text={String(mark.constant.value)} field={field} />;
+
+  const value = markValue(mark);
+  if (value == null) return null;
+  if (value.type === "float") {
+    return <NumberValue text={String(value.value)} field={field} />;
   }
-  if (mark.constant.type === "vector") {
-    if (axes) return <AxisCells values={mark.constant.values} ranges={ranges ?? undefined} />;
-    return <Components labels={AXES} values={mark.constant.values} width={COMPONENT_WIDTH} />;
+  if (value.type === "vector") {
+    if (axes) return <AxisCells values={value.values} ranges={ranges ?? undefined} />;
+    return <Components labels={AXES} values={value.values} width={COMPONENT_WIDTH} />;
   }
   return null;
 }

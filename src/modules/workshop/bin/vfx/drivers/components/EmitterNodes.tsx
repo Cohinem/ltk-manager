@@ -79,7 +79,7 @@ import {
 import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
 import { FilePreview, PrimitiveSketch, ShapePreview } from "./NodePreviews";
 import { useCardFollowsPick, useCurveFollowsPick } from "./paneSync";
-import { MarkedCurve } from "./PlateFace";
+import { CurvePicture, MarkedCurve } from "./PlateFace";
 
 /**
  * A complex or simple emitter: its written fields under the inspector's group headings, with
@@ -406,13 +406,15 @@ function ValueHeader({ item }: { item: ValueItem }) {
 /* DS-GROUND, DS-VEIL, DS-RADIUS */
 const CURVE_WELL = "rounded-sm border border-surface-veil bg-surface-950/40";
 
-/** A keyed value's curve beside its toggle, or any other value's editor. */
+/** A keyed value's curve or gradient beside its toggle, or any other value's editor. */
 function ValueBody({ item }: { item: ValueItem }) {
   const rows = useRowsAt(item.holder, item.holderRows);
   const row = rows?.get(item.wire);
   const shown = useMemo(() => (row === undefined ? [] : [row]), [row]);
   useCurveFollowsPick(item.id, row);
-  const keyed = valueShape(item) === "keys";
+  const shape = valueShape(item);
+  const gradient = shape === "band" && item.curve.keys.length > 0;
+  const keyed = shape === "keys" || gradient;
 
   return (
     <FieldBody wire={item.wire} rows={shown} read="curves">
@@ -423,7 +425,8 @@ function ValueBody({ item }: { item: ValueItem }) {
           style={{ height: valueLines(item) * LINE_HEIGHT }}
         >
           <div className={twMerge(CURVE_WELL, "h-full min-w-0 flex-1 px-1.5 py-1")}>
-            <MarkedCurve item={item} shape="keys" />
+            {gradient && <CurvePicture curve={item.curve} shape="band" />}
+            {!gradient && <MarkedCurve item={item} shape="keys" />}
           </div>
           <div className="flex shrink-0 items-center">
             <ValueCell row={row} shaped controls />
