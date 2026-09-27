@@ -617,6 +617,8 @@ export const api = {
       commands.binEdit(document, edit).then(toResult),
     choices: (document: BinDocumentId, query: ChoiceQuery) =>
       commands.binChoices(document, query).then(toResult),
+    copyValue: (document: BinDocumentId, entry: string, path: string) =>
+      commands.binCopyValue(document, entry, path).then(toResult),
     save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
     reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
     undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),
@@ -748,6 +750,12 @@ export const api = {
       commands.relocateProjectFolder(oldPath, newPath).then(toResult),
     convert: (args: ConvertFolderArgs) => commands.convertFolderToProject(args).then(toResult),
     addAll: (paths: readonly string[]) => commands.addProjectFolders([...paths]).then(toResult),
+  },
+
+  // Watches on an open project's layers, which announce `layer-files-changed`, on tauri-specta.
+  layerWatch: {
+    acquire: (projectPath: string) => commands.watchProjectLayers(projectPath).then(toResult),
+    release: (projectPath: string) => commands.unwatchProjectLayers(projectPath).then(toResult),
   },
 
   // A project's root text files, on tauri-specta.

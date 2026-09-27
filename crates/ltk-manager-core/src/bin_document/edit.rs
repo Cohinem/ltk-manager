@@ -304,6 +304,10 @@ pub enum EditRejection {
     Untypable,
     /// The chunk holds an object of that name.
     ObjectExists,
+    /// The text is no value a copy put on the clipboard.
+    NotACopy,
+    /// The holder takes no item of the copied value's class.
+    ForeignClass,
 }
 
 impl fmt::Display for EditRejection {
@@ -335,6 +339,8 @@ impl fmt::Display for EditRejection {
             Self::Undeclarable => f.write_str("no declaration expresses the edit"),
             Self::Untypable => f.write_str("the schema types no such property at this build"),
             Self::ObjectExists => f.write_str("the chunk holds an object of that name"),
+            Self::NotACopy => f.write_str("the text is no copied value"),
+            Self::ForeignClass => f.write_str("the holder takes no item of that class"),
         }
     }
 }

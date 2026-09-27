@@ -49,18 +49,21 @@ import { createStatsFeed, Stats, StatsProbe } from "../../rendering/components/S
 import { VfxSystem } from "../../rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
 import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
+import { createPickRegistry } from "../../rendering/state/pick";
 import type { AssetLoad } from "../../rendering/utils/assetLoad";
 import { type DrawnEmitter, drawnEmitters } from "../../rendering/utils/definitions";
 import { distorts, drawsTheAttachment, isUndrawn } from "../../rendering/utils/drawKind";
 import { fades } from "../../rendering/utils/softParticle";
 import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds";
 import { chosenEmitter } from "../../timeline/utils/selection";
+import { createGrabLatch } from "../utils/grabLatch";
 import { CameraMenu } from "./CameraMenu";
 import { EmitterTransform, type TransformMode } from "./EmitterTransform";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
 import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
 import { ViewModeMenu } from "./ViewModeMenu";
+import { ViewportPick } from "./ViewportPick";
 import { ViewToggle } from "./ViewToggle";
 
 export interface VfxViewportProps {
@@ -98,6 +101,8 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const meshes = useVfxMeshes(drawn, reportMeshes);
   const host = useVfxHost();
   const queries = useQueryClient();
+  const picks = useMemo(createPickRegistry, []);
+  const latch = useMemo(createGrabLatch, []);
 
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
@@ -169,8 +174,10 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                   hiddenOf={hiddenOf}
                   edges={edgesOf(viewMode, wireOverlay)}
                   document={document}
+                  picks={picks}
                 />
               </VfxHost>
+              <ViewportPick picks={picks} system={shown} latch={latch} />
               <Fit token={fitRequest} system={shown} drawn={drawn} rig={rig.rig} />
               {gizmo && opened !== null && (
                 <EmitterGizmo system={shown} driver={driver} emitter={opened} />
@@ -188,6 +195,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                     row={transformRow}
                     mode={transformMode}
                     edit={edit}
+                    onGrab={latch.grab}
                   />
                 )}
               {selectedForce !== undefined && opened !== null && (
@@ -198,6 +206,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                   force={selectedForce}
                   handle={forcePreview.handle}
                   edit={forceActive ? edit : null}
+                  onGrab={latch.grab}
                 />
               )}
               {stats && <StatsProbe driver={driver} drawn={drawn} feed={feed} />}

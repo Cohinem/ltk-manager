@@ -125,6 +125,8 @@ export type { LaunchRoute } from "./LaunchRoute";
 export type { LaunchStage } from "./LaunchStage";
 export type { LaunchTarget } from "./LaunchTarget";
 export type { LayerContent } from "./LayerContent";
+export type { LayerFile } from "./LayerFile";
+export type { LayerFilesChanged } from "./LayerFilesChanged";
 export type { LayerInfo } from "./LayerInfo";
 export type { LayoutMigrationProgress } from "./LayoutMigrationProgress";
 export type { LayoutMigrationReport } from "./LayoutMigrationReport";

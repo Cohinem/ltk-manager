@@ -175,6 +175,39 @@ const FORCE_NAMES: &[&str] = &[
 ];
 
 #[test]
+fn a_duplicated_emitter_declares_as_one_undoable_edit() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(dir.path());
+
+    document
+        .edit_property(
+            h(SKIN),
+            "",
+            &field("complexEmitterDefinitionData"),
+            vec![ValueEdit::CopyItem {
+                from: "[1]".to_owned(),
+                path: String::new(),
+                index: Some(2),
+                unique: Some(field("emitterName")),
+            }],
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+    let written = manifest(dir.path(), "base");
+    assert!(written.contains("two_copy"), "{written}");
+    let copied = document.value_at(
+        h(SKIN),
+        &format!("{}[2]", field("complexEmitterDefinitionData")),
+    );
+    assert_eq!(copied, Some(&emitter("two_copy")));
+
+    assert!(document.undo().unwrap());
+    assert!(!dir.path().join("content/base/game_data.yaml").exists());
+    assert!(document.redo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), written);
+}
+
+#[test]
 fn a_nested_property_batch_is_one_undoable_declaration() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared_naming(dir.path(), FORCE_NAMES);

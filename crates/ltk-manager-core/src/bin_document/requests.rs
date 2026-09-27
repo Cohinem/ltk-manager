@@ -451,7 +451,7 @@ impl BinDocuments {
 }
 
 /// An object hash as `0x` and eight hex digits, or the validation failure naming the text.
-fn parse_entry(text: &str) -> AppResult<BinHash> {
+pub(super) fn parse_entry(text: &str) -> AppResult<BinHash> {
     parse_hash(text)
         .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {text}")))
 }

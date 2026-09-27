@@ -760,7 +760,7 @@ fn item_start(kind: Kind, class: Option<BinHash>) -> Result<PropertyValueEnum, E
 }
 
 /// The classes the struct items of a list, a map or an option hold, in first-seen order.
-fn held_classes(value: &PropertyValueEnum) -> Vec<BinHash> {
+pub(super) fn held_classes(value: &PropertyValueEnum) -> Vec<BinHash> {
     let items: Box<dyn Iterator<Item = &PropertyValueEnum>> = match value {
         PropertyValueEnum::Container(items)
         | PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(items)) => {
@@ -786,7 +786,11 @@ fn held_classes(value: &PropertyValueEnum) -> Vec<BinHash> {
 
 /// The class the schema declares for the value `steps` reach: what the field its last field
 /// step names holds.
-fn declared_class(object: &BinObject, steps: &[Step], schema: SchemaAt<'_>) -> Option<BinHash> {
+pub(super) fn declared_class(
+    object: &BinObject,
+    steps: &[Step],
+    schema: SchemaAt<'_>,
+) -> Option<BinHash> {
     let at = steps
         .iter()
         .rposition(|step| matches!(step, Step::Field(_)))?;

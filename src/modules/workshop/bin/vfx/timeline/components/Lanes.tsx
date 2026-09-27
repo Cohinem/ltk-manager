@@ -16,6 +16,7 @@ import { nameColumn } from "../../../shared/utils/textCut";
 import type { EmitterModel } from "../../engine/model/model";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import { toggled, useVfxRun } from "../../playback/state/run";
+import { useLaneSelect } from "../hooks/useLaneSelect";
 import { useLaneView } from "../hooks/useLaneView";
 import { drawHistogram, writeCounts } from "../utils/histogram";
 import { childLanes, laneOrder, matchingLanes, timeAt, xOf } from "../utils/laneModel";
@@ -78,7 +79,7 @@ function standLine(
 export function Lanes() {
   const run = useVfxRun();
   const { system, driver, span, loop, seek, setLoop, subscribe, beginScrub, endScrub } = run;
-  const { cards, filter, setFilter, chooseCard, chooseChild } = useEmitters();
+  const { cards, filter, setFilter } = useEmitters();
   const histogram = useTimelineHistogram();
 
   const [width, setWidth] = useState(0);
@@ -124,22 +125,7 @@ export function Lanes() {
       cards.find((card) => card.simple === emitter.simple && card.index === emitter.listIndex),
     [cards],
   );
-  const select = useCallback(
-    (row: Row) => {
-      if (row.kind === "child") {
-        chooseChild({
-          path: row.lane.path,
-          parent: cardOf(row.parent)?.key ?? null,
-          system: row.lane.system,
-          emitter: row.lane.emitter,
-        });
-        return;
-      }
-      const card = cardOf(row.emitter);
-      if (card !== undefined) chooseCard(card.key);
-    },
-    [cardOf, chooseCard, chooseChild],
-  );
+  const select = useLaneSelect();
   const expand = useCallback((index: number) => setExpanded((held) => toggled(held, index)), []);
 
   /* The playhead and its flag follow every frame, and the counts and the histogram every

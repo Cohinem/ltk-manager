@@ -12,6 +12,7 @@ import {
   ExtractRunner,
   LoadingState,
   useEditorPersistence,
+  useLayerFileReload,
   useRequestedDocument,
   useWorkshopProjects,
   workshopKeys,
@@ -67,6 +68,7 @@ function HydratedContentBrowser({ project }: { project: WorkshopProject }) {
   const ready = useEditorPersistence(project.path);
   useRecordOpened(project.path);
   useRequestedDocument(project.path, ready);
+  useLayerFileReload(project.path);
 
   if (!ready) return <LoadingState />;
   return <ContentBrowser project={project} />;

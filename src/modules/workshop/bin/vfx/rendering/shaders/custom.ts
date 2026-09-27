@@ -1,8 +1,9 @@
-import { WIRE } from "./quad";
+import { PICK, WIRE } from "./quad";
 
 /** The shared material preview's base sampler, tint and opacity, without game shader graphs. */
 export const CUSTOM_FRAGMENT = /* glsl */ `
 ${WIRE}
+${PICK}
 uniform sampler2D map;
 uniform vec4 materialTint;
 uniform vec2 materialRepeat;
@@ -30,6 +31,11 @@ void main() {
   bool outsideV = materialAddress.y == 3.0 && (uv.y < 0.0 || uv.y > 1.0);
   texel = texture2D(map, vec2(addressed(uv.x, materialAddress.x), addressed(uv.y, materialAddress.y)));
   if (outsideU || outsideV) texel = vec4(0.0);
+#endif
+#ifdef PICK
+  if (texel.a < PICK_ALPHA) discard;
+  gl_FragColor = pickId;
+  return;
 #endif
   vec4 color = texel * vColor * materialTint;
   if (color.a < alphaRef) discard;

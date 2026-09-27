@@ -16,6 +16,7 @@ import { m } from "@/i18n";
 
 import { itemClass } from "../utils/nodeText";
 import type { GraphItem } from "../utils/systemGraph";
+import { EmitterMenuItems } from "./EmitterMenuItems";
 import { GraphActionsContext } from "./graphActions";
 
 interface GraphMenuProps {
@@ -32,8 +33,9 @@ interface GraphMenuProps {
 /**
  * The Graph pane's context menu: a node's own actions, or the canvas's.
  *
- * A node offers Show in properties, framing, collapse and its class. The canvas offers
- * fitting, collapse for every node, and the layout's reset.
+ * A node offers Show in properties, framing, collapse and its class, and a master node the
+ * emitter clipboard. The canvas offers fitting, collapse for every node, the layout's reset
+ * and Paste emitter.
  */
 export function GraphMenu(props: GraphMenuProps) {
   return (
@@ -66,6 +68,7 @@ function MenuItems({ item, onFit, onFrame, onCollapseAll, onResetLayout }: Graph
       <ContextMenu.Item icon={<ArrowCounterClockwiseIcon />} onClick={onResetLayout}>
         {m.workshop_bin_graph_reset_layout_action()}
       </ContextMenu.Item>
+      <EmitterMenuItems item={null} />
     </>
   );
 }
@@ -113,6 +116,7 @@ function ItemActions({ item, onFrame }: { item: GraphItem; onFrame: (id: string)
           </ContextMenu.Item>
         </>
       )}
+      {item.type === "master" && <EmitterMenuItems item={item} />}
       {held !== null && (
         <>
           <ContextMenu.Separator />

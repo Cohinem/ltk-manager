@@ -50,6 +50,7 @@ fn main() {
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -86,6 +87,9 @@ fn main() {
             }
             if let Some(documents) = webview.try_state::<BinDocuments>() {
                 documents.close_all();
+            }
+            if let Some(watches) = webview.try_state::<workshop::LayerWatches>() {
+                watches.release_all();
             }
         })
         .invoke_handler(ipc::invoke_handler(tauri::generate_handler![

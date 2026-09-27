@@ -25,6 +25,7 @@ import {
 } from "../../engine/simulation/particleRead";
 import { type SlotProgram, useAttachedPrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
+import { usePickTargets } from "../state/pick";
 import { useWireTwin, WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
@@ -143,6 +144,17 @@ export function AttachedMeshes({
     },
     [twins],
   );
+
+  const targets = useMemo(
+    () =>
+      slots.map((slot, at) => ({
+        solid: { current: slot.mesh },
+        twin: { current: twins[at] ?? null },
+        material: slot.material,
+      })),
+    [slots, twins],
+  );
+  usePickTargets(targets);
 
   const programs = useAttachedPrograms(
     emitter,

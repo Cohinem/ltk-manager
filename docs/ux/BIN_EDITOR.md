@@ -4,6 +4,7 @@
 
 | Date       | Change                                                          |
 | ---------- | --------------------------------------------------------------- |
+| 2026-09-27 | Select an emitter by a click on its particles in the viewer     |
 | 2026-09-26 | Walk the rows by key, and keep a refused edit's text            |
 | 2026-09-24 | Pick an emitter's primitive, and sketch what it draws           |
 | 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects       |
@@ -13,7 +14,6 @@
 | 2026-09-21 | Declare a game bin's container edits, and refuse what none says |
 | 2026-09-21 | Declare a game bin's leaf edit into a project layer             |
 | 2026-09-20 | Open a map's files on the map, and sort a file's objects        |
-| 2026-09-17 | Draw a patch bin's records under the objects they target        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1949,6 +1949,14 @@ load, for at most four seconds, so a short effect plays from its first frame on 
 **The orbit.** The left button orbits, the right pans, the middle and the wheel dolly toward the
 pointer. A flat preset's wheel zooms in place of the dolly.
 
+**A click on a particle selects its emitter.** A left press released within four pixels of where
+it began picks the particle drawn under the pointer, the front one where several overlap, and
+selects its emitter as a click on that emitter's lane head does. The inspector and the timeline
+follow. A child's particle selects its child lane, and a deeper child selects the child lane it
+descends from. A texel of a quad's texture with no alpha picks nothing, a hidden, muted or culled
+emitter picks nothing, and a click on empty space leaves the selection as it is. A drag orbits,
+and a press on a gizmo's handle is the gizmo's.
+
 **The axis gizmo** sits in the pane's top left corner and turns with the camera: the corner of a
 cube, three arms on the viewport's own axes with a lettered head each, and a square face between
 every two. An arm, its head and the face across it wear that axis's channel colour. A head or a
@@ -2827,6 +2835,40 @@ brings them back.
 Each of these is an edit, with the undo of every other. A removed item or entry comes back at its
 index, a move goes back, and a key edit restores the key. The rows a reader expanded under a list
 follow an insert, a remove, a move and a key edit, so an expanded item stays the one expanded.
+
+### Duplicating, pasting and deleting an emitter
+
+An emitter of a system's `complexEmitterDefinitionData` or `simpleEmitterDefinitionData` is
+duplicated, copied, pasted and deleted whole, with every hash, class, link and nested struct
+under it.
+
+| Where                                     | Duplicate emitter | Copy emitter | Paste emitter                  | Delete emitter |
+| ----------------------------------------- | ----------------- | ------------ | ------------------------------ | -------------- |
+| The Graph menu on a master node           | Yes               | Yes          | After the node                 | Yes            |
+| The Graph menu on the canvas              |                   |              | At the end of the complex list |                |
+| The inspector's actions, on the open card | Yes               | Yes          | After the card                 | Yes            |
+| The Graph pane, one master node selected  | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it             | `Delete`       |
+| The Graph pane, no master node selected   |                   |              | `Ctrl+V`, at the end           |                |
+
+**A duplicate lands right after its source**, and a paste after the emitter it was asked on, in
+that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo step, and a
+declared document declares the list as any other list edit.
+
+**A copy is JSON text on the clipboard.** It carries `"format": "ltk-manager/bin-value"`, the
+class, and the value as `ltk_meta` serializes it, so a paste reads it back exactly in another
+system or another open document. Copy works on a read-only document, such as a game file, and a
+paste needs a document that takes edits. Where the webview refuses to read the clipboard, a
+paste takes the last copy made in the session.
+
+**The name is unique within the system.** An `emitterName` another emitter of the system's lists
+holds gains `_copy`, then `_copy2` and on, after any copy suffix it already carries: duplicating
+`Spark` gives `Spark_copy`, and duplicating `Spark_copy` gives `Spark_copy2`. A pasted name no
+other emitter holds stays. A child particle set names a system rather than an emitter, so
+nothing else is renamed.
+
+**A paste refuses what is not an emitter.** Clipboard text that is no copy, or a copy of another
+class, leaves the list as it was, and a toast names the reason as for every refused structural
+edit.
 
 ### Validation
 

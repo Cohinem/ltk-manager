@@ -1,5 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 
+import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import type { AssetRef } from "@/lib/tauri";
 
 /** The URI scheme the backend serves a rendered preview on. */
@@ -31,6 +32,17 @@ export function previewUrl(asset: AssetRef, minWidth?: number): string {
   const url = convertFileSrc(encodeToken(asset), SCHEME);
   if (minWidth === undefined) return url;
   return `${url}?${WIDTH_PARAMETER}=${minWidth}`;
+}
+
+/**
+ * `previewUrl` for a component, a new URL each time the file changes on disk.
+ *
+ * The URL names the file's version, per "A layer file saved from outside" in
+ * docs/ux/PROJECT_EDITOR.md.
+ */
+export function usePreviewUrl(asset: AssetRef, minWidth?: number): string {
+  const version = useAssetVersion(asset);
+  return versionedUrl(previewUrl(asset, minWidth), version);
 }
 
 /** The URL the scheme answers `asset`'s buffer of `form` on. */

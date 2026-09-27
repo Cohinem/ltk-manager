@@ -25,6 +25,9 @@ export interface GraphActions {
 
 export const GraphActionsContext = createContext<GraphActions | null>(null);
 
+/** The node surfaces loop one particle's life rather than follow the run's at the cursor. */
+export const LoopedSurfacesContext = createContext(false);
+
 /**
  * The node selected alone on a canvas, which the canvas writes and each node reads.
  *

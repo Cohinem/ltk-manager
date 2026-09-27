@@ -10,7 +10,7 @@ import type { OpenIntent } from "../../../palette/utils/types";
 import { useAssetInfo } from "../../../preview/api/useAssetInfo";
 import { CHECKERBOARD } from "../../../preview/components/ImagePreview";
 import { useImageSlot } from "../../../preview/hooks/useImageSlot";
-import { assetArchive, previewUrl } from "../../../preview/utils/assetRef";
+import { assetArchive, usePreviewUrl } from "../../../preview/utils/assetRef";
 import { clickIntent } from "../../../state";
 import { KindBadge } from "../../values/components/KindBadge";
 
@@ -64,13 +64,14 @@ export function TextureSwatch({
   size = "row",
   onOpen,
 }: TextureSwatchProps) {
-  const [failed, setFailed] = useState(false);
-  const slot = useImageSlot(previewUrl(asset, SIZES[size].width), {
+  const url = usePreviewUrl(asset, SIZES[size].width);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const slot = useImageSlot(url, {
     lane: "tile",
     archive: assetArchive(asset),
   });
 
-  if (failed) return <KindBadge fileKind={fileKind} />;
+  if (failedUrl === url) return <KindBadge fileKind={fileKind} />;
 
   const button = (
     <button
@@ -95,7 +96,7 @@ export function TextureSwatch({
           onLoad={slot.onSettled}
           onError={() => {
             slot.onSettled();
-            setFailed(true);
+            setFailedUrl(url);
           }}
           className="h-full w-full object-cover"
         />
@@ -123,11 +124,13 @@ type TextureCardProps = Pick<TextureSwatchProps, "asset" | "path" | "layerTitle"
 function TextureCard({ asset, path, layerTitle }: TextureCardProps) {
   const info = useAssetInfo(asset);
   const checkered = usePreviewCheckered();
-  const slot = useImageSlot(previewUrl(asset, CARD_WIDTH), {
+  const url = usePreviewUrl(asset, CARD_WIDTH);
+  const slot = useImageSlot(url, {
     lane: "tile",
     archive: assetArchive(asset),
   });
-  const [loaded, setLoaded] = useState(false);
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
+  const loaded = loadedUrl === url;
   const texture = info.data?.kind === "texture" ? info.data : null;
 
   return (
@@ -146,7 +149,7 @@ function TextureCard({ asset, path, layerTitle }: TextureCardProps) {
             draggable={false}
             onLoad={() => {
               slot.onSettled();
-              setLoaded(true);
+              setLoadedUrl(url);
             }}
             onError={slot.onSettled}
             className={twMerge("max-h-full max-w-full object-contain", !loaded && "invisible")}

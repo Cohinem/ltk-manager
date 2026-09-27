@@ -290,6 +290,7 @@ export function distortionUniforms(distortion: DistortionModel | null, texture: 
     mapNormal: { value: texture },
     frame: { value: FRAME },
     viewport: { value: VIEWPORT },
+    viewportOrigin: { value: [0, 0] },
   };
 }
 

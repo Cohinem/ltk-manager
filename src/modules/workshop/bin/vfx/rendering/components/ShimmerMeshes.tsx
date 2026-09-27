@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Color, DoubleSide, MathUtils, MeshBasicMaterial, type Texture } from "three";
 
+import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import { previewUrl } from "@/lib/previewUrl";
 import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
@@ -71,7 +72,8 @@ function ShimmerMeshDraw({ mesh }: { mesh: ShimmerMesh }) {
 
 function useFlatTexture(mesh: ShimmerMesh): Texture | null {
   const [texture, setTexture] = useState<Texture | null>(null);
-  const url = mesh.texture === null ? null : previewUrl(mesh.texture);
+  const version = useAssetVersion(mesh.texture);
+  const url = mesh.texture === null ? null : versionedUrl(previewUrl(mesh.texture), version);
 
   useEffect(() => {
     if (url === null) return;

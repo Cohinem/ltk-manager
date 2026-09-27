@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DataTexture, type Texture } from "three";
 
+import {
+  assetVersion,
+  type AssetVersions,
+  useAssetVersions,
+  versionedUrl,
+} from "@/lib/assetVersions";
 import { previewCubeUrl } from "@/lib/previewUrl";
 
 import { previewUrl } from "../../../../preview/utils/assetRef";
@@ -64,9 +70,17 @@ export function samplersOf(textures: VfxTextures, definition: DrawnEmitter): Emi
 interface TextureRequest {
   /** The slot and its url together, the key a reference is reused under across edits. */
   readonly id: string;
+  /** The slot and its file at any version, which a reload of the file keeps. */
+  readonly lineage: string;
   readonly key: string;
   readonly slot: keyof EmitterSamplers;
   readonly url: string | null;
+}
+
+/** A reference the load acquired, and the lineage of the request that took it. */
+interface Acquired {
+  readonly ref: TextureRef;
+  readonly lineage: string;
 }
 
 /** Every slot the drawn emitters name, and the emitters that name no base texture. */
@@ -77,7 +91,11 @@ interface TextureRequests {
   readonly signature: string;
 }
 
-function textureRequests(drawn: readonly DrawnEmitter[], minWidth?: number): TextureRequests {
+function textureRequests(
+  drawn: readonly DrawnEmitter[],
+  versions: AssetVersions,
+  minWidth?: number,
+): TextureRequests {
   const requests: TextureRequest[] = [];
   const unnamed: string[] = [];
 
@@ -96,12 +114,16 @@ function textureRequests(drawn: readonly DrawnEmitter[], minWidth?: number): Tex
     for (const [slot, asset] of named) {
       if (asset === null) continue;
 
+      let file: string | null = null;
       let url: string | null = null;
       if (asset.asset != null) {
-        url =
+        file =
           slot === "reflection" ? previewCubeUrl(asset.asset) : previewUrl(asset.asset, minWidth);
+        url = versionedUrl(file, assetVersion(versions, asset.asset));
       }
-      requests.push({ id: `${key}|${slot}|${url ?? ""}`, key, slot, url });
+
+      const lineage = `${key}|${slot}|${file ?? ""}`;
+      requests.push({ id: `${key}|${slot}|${url ?? ""}`, lineage, key, slot, url });
     }
   }
 
@@ -119,6 +141,9 @@ function textureRequests(drawn: readonly DrawnEmitter[], minWidth?: number): Tex
  * The load follows the asset urls rather than the identity of `drawn`, so an edit that
  * moves no asset keeps every texture, and one that does reloads only what it moved. The
  * textures come from `textureCache.ts`, so emitters and viewports naming one url share it.
+ *
+ * A layer file saved on disk takes a new url, and its slot draws the old texture until the
+ * new one lands.
  */
 export function useVfxTextures(
   drawn: readonly DrawnEmitter[],
@@ -126,31 +151,41 @@ export function useVfxTextures(
   minWidth?: number,
 ): VfxTextures {
   const [textures, setTextures] = useState<VfxTextures>(EMPTY);
-  const wanted = useMemo(() => textureRequests(drawn, minWidth), [drawn, minWidth]);
+  const versions = useAssetVersions();
+  const wanted = useMemo(
+    () => textureRequests(drawn, versions, minWidth),
+    [drawn, versions, minWidth],
+  );
   const latest = useRef(wanted);
   latest.current = wanted;
 
   /* The references outlive one run of the load effect, so the next run reuses them before
      releasing the rest. The unmount effect below releases them all. */
-  const refs = useRef(new Map<string, TextureRef>());
+  const refs = useRef(new Map<string, Acquired>());
   const shown = useRef<VfxTextures>(EMPTY);
 
   useEffect(() => {
     const { requests, unnamed } = latest.current;
     const previous = refs.current;
-    const next = new Map<string, TextureRef>();
+    const next = new Map<string, Acquired>();
     const batch = assetLoad(requests.length, report);
     let live = true;
 
     const bundles = new Map<string, EmitterSamplers>();
     for (const key of unnamed) bundles.set(key, UNNAMED_SAMPLERS);
 
-    const place = (key: string, slot: keyof EmitterSamplers, texture: Texture) => {
+    const place = (key: string, slot: keyof EmitterSamplers, texture: Texture | null) => {
       const bundle = bundles.get(key) ?? NO_SAMPLERS;
       bundles.set(key, { ...bundle, [slot]: texture });
     };
 
-    const queue: { request: TextureRequest; ref: TextureRef }[] = [];
+    const earlier = new Map<string, TextureRef>();
+    for (const { ref, lineage } of previous.values()) earlier.set(lineage, ref);
+
+    /* The textures of a file's last version, each drawn until its reload lands. */
+    const stale = new Set<TextureRef>();
+
+    const queue: { request: TextureRequest; ref: TextureRef; superseded?: TextureRef }[] = [];
     for (const request of requests) {
       if (request.url === null) {
         batch.done(true);
@@ -158,11 +193,17 @@ export function useVfxTextures(
       }
 
       const ref =
-        previous.get(request.id) ??
+        previous.get(request.id)?.ref ??
         acquireTexture(request.url, request.slot === "reflection" ? "cube" : "flat");
-      next.set(request.id, ref);
+      next.set(request.id, { ref, lineage: request.lineage });
       if (ref.texture === null) {
-        queue.push({ request, ref });
+        const superseded = earlier.get(request.lineage);
+        if (superseded !== undefined && superseded !== ref && superseded.texture !== null) {
+          stale.add(superseded);
+          place(request.key, request.slot, superseded.texture);
+        }
+
+        queue.push({ request, ref, superseded });
         continue;
       }
 
@@ -170,8 +211,8 @@ export function useVfxTextures(
       batch.done();
     }
 
-    for (const [id, ref] of previous) {
-      if (!next.has(id)) ref.release();
+    for (const [id, { ref }] of previous) {
+      if (!next.has(id) && !stale.has(ref)) ref.release();
     }
     refs.current = next;
 
@@ -188,17 +229,20 @@ export function useVfxTextures(
 
     function pump() {
       while (live && running < concurrency && at < queue.length) {
-        const { request, ref } = queue[at]!;
+        const { request, ref, superseded } = queue[at]!;
         at += 1;
         running += 1;
         void ref.load().then((texture) => {
           running -= 1;
           if (!live) return;
 
-          if (texture !== null) {
+          const replaced = superseded !== undefined && stale.delete(superseded);
+          if (texture !== null || replaced) {
             place(request.key, request.slot, texture);
             publish();
           }
+          if (replaced) superseded.release();
+
           batch.done(texture === null);
           queueMicrotask(pump);
         });
@@ -210,13 +254,14 @@ export function useVfxTextures(
     return () => {
       live = false;
       batch.cancel();
+      for (const ref of stale) ref.release();
     };
   }, [wanted.signature, report, minWidth]);
 
   useEffect(() => {
     const acquired = refs;
     return () => {
-      for (const ref of acquired.current.values()) ref.release();
+      for (const { ref } of acquired.current.values()) ref.release();
       acquired.current = new Map();
       shown.current = EMPTY;
     };

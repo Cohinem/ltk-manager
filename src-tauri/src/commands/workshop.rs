@@ -3,7 +3,7 @@ use crate::state::SettingsState;
 use crate::workshop::{
     AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, CreateProjectArgs,
     DeclarationsLayer, FantomePeekResult, FolderInspection, IgnoreRules, ImportFantomeArgs,
-    ImportGitRepoArgs, OpenedProjectFolder, PackProjectArgs, PackResult, ProjectText,
+    ImportGitRepoArgs, LayerWatches, OpenedProjectFolder, PackProjectArgs, PackResult, ProjectText,
     ProjectTextFile, Revision, SaveProjectConfigArgs, ValidationResult, WorkshopLayerInfo,
     WorkshopProject, WorkshopState, RECOMMENDED_IGNORE_RULES,
 };
@@ -73,6 +73,21 @@ pub fn open_project_folder(
 #[specta::specta]
 pub fn record_project_opened(path: String, workshop: State<WorkshopState>) -> IpcResult<()> {
     workshop.0.record_opened(&path).into()
+}
+
+/// Watch the layers of `project_path` for files saved from outside the app.
+#[tauri::command]
+#[specta::specta]
+pub fn watch_project_layers(project_path: String, watches: State<LayerWatches>) -> IpcResult<()> {
+    watches.acquire(&project_path).into()
+}
+
+/// Release one watch on the layers of `project_path`.
+#[tauri::command]
+#[specta::specta]
+pub fn unwatch_project_layers(project_path: String, watches: State<LayerWatches>) -> IpcResult<()> {
+    watches.release(&project_path);
+    IpcResult::Ok { value: () }
 }
 
 #[tauri::command]

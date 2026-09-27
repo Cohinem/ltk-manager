@@ -66,6 +66,8 @@ export const commands = {
 	 *  build. ADR-0051.
 	 */
 	binChoices: (document: BinDocumentId, query: ChoiceQuery) => __TAURI_INVOKE<({ ok: true; value: Choices }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_choices", { document, query }),
+	/**  The value at `path` under the object `entry` of an open document, as clipboard text. */
+	binCopyValue: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_copy_value", { document, entry, path }),
 	/**
 	 *  One class's fields and their declared kinds at the install's build.
 	 * 
@@ -410,6 +412,10 @@ export const commands = {
 	relocateProjectFolder: (oldPath: string, newPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("relocate_project_folder", { oldPath, newPath }),
 	convertFolderToProject: (args: ConvertFolderArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("convert_folder_to_project", { args }),
 	addProjectFolders: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: AddFoldersReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_project_folders", { paths }),
+	/**  Watch the layers of `project_path` for files saved from outside the app. */
+	watchProjectLayers: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("watch_project_layers", { projectPath }),
+	/**  Release one watch on the layers of `project_path`. */
+	unwatchProjectLayers: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("unwatch_project_layers", { projectPath }),
 	/**  Read the `.modignore` at project-relative `at`, or the root file for none. */
 	getProjectIgnoreRules: (projectPath: string, at: string | null) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath, at }),
 	/**  The starter rules, for the empty state that draws them before writing them. */
@@ -1622,7 +1628,11 @@ export type EditRejection =
  */
 { reason: "untypable" } | 
 /**  The chunk holds an object of that name. */
-{ reason: "objectExists" };
+{ reason: "objectExists" } | 
+/**  The text is no value a copy put on the clipboard. */
+{ reason: "notACopy" } | 
+/**  The holder takes no item of the copied value's class. */
+{ reason: "foreignClass" };
 
 /**  One key of the skin's resolver, and the system it stands for. */
 export type EffectSystem = {
@@ -3996,6 +4006,17 @@ export type ValueEdit =
 { type: "replacePointer"; path: string; class: string | null } | 
 /**  Insert an item into a list, map or option. */
 { type: "insertItem"; path: string; item: NewItem } | 
+/**
+ *  Insert a copy of the item at `from` into the list at `path`, at `index` or the end.
+ *  `unique` names a string field whose text the copy makes unique among the object's
+ *  list items.
+ */
+{ type: "copyItem"; from: string; path: string; index: number | null; unique: string | null } | 
+/**
+ *  Insert the value clipboard `text` carries into the list at `path`, at `index` or the
+ *  end, with `unique` as for [`ValueEdit::CopyItem`].
+ */
+{ type: "pasteItem"; path: string; index: number | null; text: string; unique: string | null } | 
 /**  Remove an item from a list, map or option. */
 { type: "removeItem"; path: string } | 
 /**  Set an existing leaf, including one created by an earlier staged edit. */
