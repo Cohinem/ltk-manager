@@ -363,6 +363,51 @@ fn nothing_named_draws_every_hash_as_hex() {
     );
 }
 
+/// A project on disk declaring one `binentries` table that names `path`.
+fn project_naming(path: &str) -> tempfile::TempDir {
+    use fs_err as fs;
+
+    let dir = tempfile::tempdir().unwrap();
+    let manifest = ltk_mod_project::ModProject {
+        hashtables: vec![ltk_mod_project::ModProjectHashtable {
+            path: "hashes/binentries.hashes.txt".to_owned(),
+            category: ltk_hashtable::Category::BinEntries,
+            algorithm: ltk_hashtable::Algorithm::Fnv1a32,
+            bits: 32,
+        }],
+        ..crate::mods::test_support::mod_project_named("probe")
+    };
+
+    fs::write(
+        dir.path().join("mod.config.json"),
+        manifest
+            .to_config_string(ltk_mod_project::ConfigFormat::Json)
+            .unwrap(),
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("hashes")).unwrap();
+    fs::write(
+        dir.path().join("hashes/binentries.hashes.txt"),
+        format!("{path}\n"),
+    )
+    .unwrap();
+    dir
+}
+
+/// `ProjectNames` end to end: the project's table is asked before the shared ones.
+#[test]
+fn an_object_the_shared_tables_lack_is_spelled_from_the_project() {
+    let path = "Characters/Aatrox/Skins/Skin0/Resources";
+    let dir = project_naming(path);
+    let chunks = LayerChunks::scan(dir.path());
+
+    let rows = document().roots(&ProjectNames::new(&(), &chunks), None);
+
+    assert_eq!(rows[0].name, path);
+    assert!(!rows[0].unnamed);
+    assert_eq!(rows[1].name, hex(h("Characters/Aatrox")));
+}
+
 #[test]
 fn an_embedded_expands_through_its_class_and_names_what_its_leaves_point_at() {
     let rows = under("");

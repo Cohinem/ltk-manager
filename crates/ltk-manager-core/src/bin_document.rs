@@ -1737,26 +1737,60 @@ pub trait RowNames {
     fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str));
 }
 
-/// A project's own chunk names over another source's.
+/// A project's own names over another source's.
 ///
-/// The shared tables are a crawl of the retail game. A path a mod author invents is in
-/// none of them, and the project holding that path is what names it.
+/// The shared tables are a crawl of the retail game. A path, an object or a `Hash` string
+/// a mod author invents is in none of them, and the project holding it is what names it.
+/// Classes and properties are the game's own, so those stay with the tables.
 #[derive(Debug)]
 pub struct ProjectNames<'a, N> {
     inner: &'a N,
-    chunks: &'a crate::workshop::LayerChunks,
+    chunks: &'a LayerChunks,
 }
 
 impl<'a, N> ProjectNames<'a, N> {
-    /// `chunks` answers a chunk first, and `inner` answers the rest.
-    pub fn new(inner: &'a N, chunks: &'a crate::workshop::LayerChunks) -> Self {
+    /// `chunks` answers a chunk, an object or a `Hash` value first, and `inner` the rest.
+    pub fn new(inner: &'a N, chunks: &'a LayerChunks) -> Self {
         Self { inner, chunks }
+    }
+}
+
+impl<N: RowNames> ProjectNames<'_, N> {
+    /// The project answers first, and only what it does not name reaches `inner`.
+    ///
+    /// `own` is the project's table for the batch, and `rest` is `inner`'s, asked once for
+    /// the residue and answered under the caller's own indices.
+    fn project_first<H: Copy>(
+        &self,
+        hashes: &[H],
+        own: impl Fn(&LayerChunks, H) -> Option<&str>,
+        rest: impl FnOnce(&N, &[H], &mut dyn FnMut(usize, &str)),
+        visit: &mut dyn FnMut(usize, &str),
+    ) {
+        let mut residue = Vec::new();
+        let mut at_of = Vec::new();
+        for (at, hash) in hashes.iter().enumerate() {
+            match own(self.chunks, *hash) {
+                Some(name) => visit(at, name),
+                None => {
+                    residue.push(*hash);
+                    at_of.push(at);
+                }
+            }
+        }
+
+        if residue.is_empty() {
+            return;
+        }
+        rest(self.inner, &residue, &mut |at, name| {
+            visit(at_of[at], name);
+        });
     }
 }
 
 impl<N: RowNames> RowNames for ProjectNames<'_, N> {
     fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
-        self.inner.for_each_entry(hashes, visit);
+        self.project_first(hashes, LayerChunks::entry, N::for_each_entry, visit);
     }
 
     fn for_each_class(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
@@ -1768,28 +1802,11 @@ impl<N: RowNames> RowNames for ProjectNames<'_, N> {
     }
 
     fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
-        self.inner.for_each_value(hashes, visit);
+        self.project_first(hashes, LayerChunks::value, N::for_each_value, visit);
     }
 
-    /// The project answers first, and only what it does not name reaches the tables.
     fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str)) {
-        let mut residue = Vec::new();
-        let mut at_of = Vec::new();
-        for (at, hash) in hashes.iter().enumerate() {
-            match self.chunks.get(*hash) {
-                Some(path) => visit(at, path),
-                None => {
-                    residue.push(*hash);
-                    at_of.push(at);
-                }
-            }
-        }
-        if residue.is_empty() {
-            return;
-        }
-        self.inner.for_each_chunk(&residue, &mut |at, path| {
-            visit(at_of[at], path);
-        });
+        self.project_first(hashes, LayerChunks::get, N::for_each_chunk, visit);
     }
 }
 

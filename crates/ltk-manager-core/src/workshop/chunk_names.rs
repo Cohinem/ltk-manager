@@ -1,8 +1,9 @@
-//! The chunk paths a workshop project's own content names.
+//! The names a workshop project's own content holds.
 //!
-//! The shared mimir tables are a crawl of the retail game, so a path a mod author
-//! invents is in none of them. A project's layers hold those paths literally, and the
-//! tables its manifest declares list the ones its archives no longer carry.
+//! The shared mimir tables are a crawl of the retail game, so a path or an object a mod
+//! author invents is in none of them. A project's layers hold its chunk paths literally,
+//! and the tables its manifest declares list the chunk paths its archives no longer carry,
+//! the object paths of what its bins add, and the strings behind their `Hash` values.
 
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -10,8 +11,8 @@ use std::path::{Path, PathBuf};
 
 use camino::Utf8Path;
 use fs_err as fs;
-use ltk_hash::{Hash as _, WadHash};
-use ltk_hashtable::Hashtable;
+use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_hashtable::{Category, Hashtable};
 use ltk_mod_project::{CONTENT_DIR_NAME, ModProject};
 use ltk_wad::is_hex_chunk_path;
 use walkdir::WalkDir;
@@ -21,7 +22,8 @@ use crate::preview::AssetRef;
 use super::layer::{self, Layer};
 use crate::utils::natural_order::compare_names;
 
-/// The chunk paths one project names, by the hash a `file` value addresses them with.
+/// The names one project holds: chunk paths by the hash a `file` value addresses them
+/// with, object paths by their entry hash, and the strings behind `Hash` values.
 #[derive(Debug, Default)]
 pub struct LayerChunks {
     by_hash: HashMap<WadHash, String>,
@@ -32,6 +34,10 @@ pub struct LayerChunks {
     /// The layer file an unpack named by its chunk's hash, which no table had a path for.
     /// The hash is all such a file says of where the game reads it.
     by_chunk: HashMap<WadHash, AssetRef>,
+    /// The object paths a declared `binentries` table lists, by entry hash.
+    entries: HashMap<BinHash, String>,
+    /// The strings a declared `binhashes` table lists, by the hash a `Hash` value carries.
+    values: HashMap<BinHash, String>,
 }
 
 impl LayerChunks {
@@ -52,7 +58,7 @@ impl LayerChunks {
         }
     }
 
-    /// Every chunk path `project_dir`'s layers hold and its declared tables list.
+    /// Every chunk path `project_dir`'s layers hold and every name its declared tables list.
     ///
     /// Best-effort: a project that loads no manifest still has its layers walked, and
     /// an unreadable table is skipped rather than failing the scan.
@@ -70,6 +76,18 @@ impl LayerChunks {
     #[must_use]
     pub fn get(&self, hash: WadHash) -> Option<&str> {
         self.by_hash.get(&hash).map(String::as_str)
+    }
+
+    /// The object path `hash` names, or `None` for one no declared table lists.
+    #[must_use]
+    pub fn entry(&self, hash: BinHash) -> Option<&str> {
+        self.entries.get(&hash).map(String::as_str)
+    }
+
+    /// The string behind the `Hash` value `hash`, or `None` for one no declared table lists.
+    #[must_use]
+    pub fn value(&self, hash: BinHash) -> Option<&str> {
+        self.values.get(&hash).map(String::as_str)
     }
 
     /// The layer file holding `path`, or `None` for a path no layer of this project has.
@@ -94,13 +112,13 @@ impl LayerChunks {
             .or_else(|| self.by_path.get(&self.by_hash.get(&hash)?.to_lowercase()))
     }
 
-    /// How many paths the scan named.
+    /// How many chunk paths the scan named.
     #[must_use]
     pub fn len(&self) -> usize {
         self.by_hash.len()
     }
 
-    /// Whether the scan named nothing.
+    /// Whether the scan named no chunk path.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.by_hash.is_empty()
@@ -174,37 +192,75 @@ impl LayerChunks {
         }
     }
 
-    /// The tables the project's manifest declares, read where each one says it lives.
+    /// The tables the project's manifest declares, read where each one says it lives and
+    /// into the hash space its category names.
     ///
     /// A declaration reaches a path whose chunk the project's archives no longer hold,
-    /// which a layer walk cannot see.
+    /// which a layer walk cannot see, and the objects and `Hash` strings no walk names.
     fn read_declared_tables(&mut self, project_dir: &Path, project: Option<&ModProject>) {
         let Some(project) = project else {
             return;
         };
+
         for declared in &project.hashtables {
-            let path = project_dir.join(&declared.path);
-            let file = match fs::File::open(&path) {
-                Ok(file) => file,
-                Err(e) => {
-                    tracing::debug!("Project hash table unreadable: {e}");
+            let insert: fn(&mut Self, &str) = match &declared.category {
+                Category::Game => Self::insert_chunk,
+                Category::BinEntries => Self::insert_entry,
+                Category::BinHashes => Self::insert_value,
+                Category::Unknown(spelling) => {
+                    tracing::debug!(
+                        "Project hash table {} skipped: unknown category {spelling}",
+                        declared.path
+                    );
                     continue;
                 }
             };
-            match Hashtable::from_reader(file) {
-                Ok(table) => {
-                    for name in table.names() {
-                        self.insert(name.to_owned());
-                    }
-                }
-                Err(e) => tracing::debug!("Project hash table {} unreadable: {e}", declared.path),
+
+            let Some(table) = read_table(project_dir, &declared.path) else {
+                continue;
+            };
+            for name in table.names() {
+                insert(self, name);
             }
         }
     }
 
     /// Hashing is `ltk_hash`'s own, which is the function a `file` value was written by.
-    fn insert(&mut self, path: String) {
-        self.by_hash.entry(WadHash::hash_str(&path)).or_insert(path);
+    fn insert_chunk(&mut self, path: &str) {
+        self.by_hash
+            .entry(WadHash::hash_str(path))
+            .or_insert_with(|| path.to_owned());
+    }
+
+    fn insert_entry(&mut self, path: &str) {
+        self.entries
+            .entry(BinHash::hash_str(path))
+            .or_insert_with(|| path.to_owned());
+    }
+
+    fn insert_value(&mut self, text: &str) {
+        self.values
+            .entry(BinHash::hash_str(text))
+            .or_insert_with(|| text.to_owned());
+    }
+}
+
+/// The table at `path` under `project_dir`, or `None` for one that cannot be read.
+fn read_table(project_dir: &Path, path: &str) -> Option<Hashtable> {
+    let file = match fs::File::open(project_dir.join(path)) {
+        Ok(file) => file,
+        Err(e) => {
+            tracing::debug!("Project hash table unreadable: {e}");
+            return None;
+        }
+    };
+
+    match Hashtable::from_reader(file) {
+        Ok(table) => Some(table),
+        Err(e) => {
+            tracing::debug!("Project hash table {path} unreadable: {e}");
+            None
+        }
     }
 }
 
@@ -265,7 +321,6 @@ impl Layer for LayerDir {
     }
 }
 
-/// The last component of `path`, where it is one the platform spells in UTF-8.
 /// The chunk a file is named by, where an unpack wrote it as the hex of its hash.
 fn hex_chunk(path: &str) -> Option<WadHash> {
     let path = Utf8Path::new(path);
@@ -275,6 +330,7 @@ fn hex_chunk(path: &str) -> Option<WadHash> {
     u64::from_str_radix(path.file_stem()?, 16).ok().map(WadHash)
 }
 
+/// The last component of `path`, where it is one the platform spells in UTF-8.
 fn dir_name(path: &Path) -> Option<&str> {
     path.file_name().and_then(|name| name.to_str())
 }
