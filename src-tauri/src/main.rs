@@ -87,6 +87,9 @@ fn main() {
             if let Some(documents) = webview.try_state::<BinDocuments>() {
                 documents.close_all();
             }
+            if let Some(watches) = webview.try_state::<workshop::LayerWatches>() {
+                watches.release_all();
+            }
         })
         .invoke_handler(ipc::invoke_handler(tauri::generate_handler![
             // App

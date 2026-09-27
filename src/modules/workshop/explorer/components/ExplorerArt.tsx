@@ -9,7 +9,7 @@ import { twMerge } from "@/utils";
 import { fileKindFromPath } from "../../gameBrowser/utils/fileKind";
 import { CHECKERBOARD } from "../../preview/components/ImagePreview";
 import { useImageSlot } from "../../preview/hooks/useImageSlot";
-import { assetArchive, previewUrl } from "../../preview/utils/assetRef";
+import { assetArchive, usePreviewUrl } from "../../preview/utils/assetRef";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
 import type { ExplorerItem } from "../utils/items";
 
@@ -153,14 +153,15 @@ interface ThumbnailProps {
  * at least that wide. A texture the protocol cannot draw falls back to its kind.
  */
 function Thumbnail({ asset, kind, box, requestWidth, variant }: ThumbnailProps) {
-  const [failed, setFailed] = useState(false);
+  const url = usePreviewUrl(asset, requestWidth);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const checkered = usePreviewCheckered();
-  const slot = useImageSlot(previewUrl(asset, requestWidth), {
+  const slot = useImageSlot(url, {
     lane: "tile",
     archive: assetArchive(asset),
   });
 
-  if (failed) return <KindArt kind={kind} box={box} variant={variant} />;
+  if (failedUrl === url) return <KindArt kind={kind} box={box} variant={variant} />;
 
   const descriptor = describeFileKind(kind);
 
@@ -182,7 +183,7 @@ function Thumbnail({ asset, kind, box, requestWidth, variant }: ThumbnailProps) 
           onLoad={slot.onSettled}
           onError={() => {
             slot.onSettled();
-            setFailed(true);
+            setFailedUrl(url);
           }}
           className="h-full w-full object-contain"
         />

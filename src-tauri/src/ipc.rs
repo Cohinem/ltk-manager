@@ -110,6 +110,8 @@ migrated![
     relocate_project_folder,
     convert_folder_to_project,
     add_project_folders,
+    watch_project_layers,
+    unwatch_project_layers,
     // Workshop ignore rules
     get_project_ignore_rules,
     recommended_ignore_rules,

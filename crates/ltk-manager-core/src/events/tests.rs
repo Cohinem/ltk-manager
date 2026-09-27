@@ -170,3 +170,16 @@ fn null_sink_accepts_events() {
     let sink = NullEventSink;
     sink.emit(BackendEvent::LinkedBinsUpdated);
 }
+
+#[test]
+fn a_layer_file_change_names_its_event() {
+    let change = LayerFilesChanged {
+        project: "C:/projects/smolder".to_owned(),
+        files: Vec::new(),
+    };
+
+    assert_eq!(
+        BackendEvent::LayerFilesChanged(change).name(),
+        "layer-files-changed"
+    );
+}

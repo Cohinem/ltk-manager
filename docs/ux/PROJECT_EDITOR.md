@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-09-27 | Redraw every preview of a layer file saved from another program       |
 | 2026-09-25 | Make modules, and drag modules, entries and keys to organize them     |
 | 2026-09-25 | Read a manifest as one line per key, and act on its modules in place  |
 | 2026-09-24 | Read a layer's game data manifest as an outline                       |
@@ -13,7 +14,6 @@
 | 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
 | 2026-09-18 | Answer the editor's keys, and find text inside a text document        |
 | 2026-09-18 | Save from the close question, queue the rest, and guard a quit        |
-| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -2608,6 +2608,36 @@ index is the one signal the app gets that the install changed underneath it.
 
 The image preview decodes DDS and TEX through the `ltk_texture` crate. The `ltk-tex-utils`
 repository holds an integration to work from.
+
+### A layer file saved from outside
+
+A modder edits a texture of the open project in another program and saves it. Every preview of
+that file redraws without a reopen: the particle viewport, the skin and material viewports, the
+graph's file nodes, the explorer tiles, the texture swatches and the open preview tab.
+
+| Part           | Behaviour                                                                |
+| -------------- | ------------------------------------------------------------------------ |
+| The watch      | `content/` of each open project, recursive, from mount to unmount        |
+| The debounce   | A path counts after 300 ms without events, and a write in progress waits |
+| The event      | `layer-files-changed`, the project and each file as its layer and path   |
+| The version    | A count per file, which a preview URL carries as `v`                     |
+| A page reload  | Drops every watch, and the new page acquires new ones                    |
+| The app's save | Arrives the same way, and redraws the same previews                      |
+
+An editor's save is a burst: a temporary file, a remove and a rename over the file. The
+debounce reads the burst as one change. An event names a file the way a layer asset reference
+names it, and the frontend matches it without a lookup.
+
+Only a changed file takes a new URL, and every other URL is unchanged. The scheme answers
+`no-store` and the backend reads the file for each request. The URL is the only cache key.
+The asset info of a changed file refetches, and the status strip reads the new header.
+
+A particle slot draws the old texture until the new one lands. The run keeps its clock: the
+warm-up pause covers the first load of a viewport and no reload. The preview tab keeps its zoom
+and its pan across a save of the same file.
+
+A mesh, a skeleton and a clip do not reload. Their buffers come from queries keyed by the asset
+rather than by the URL.
 
 ### Panning and zooming a preview
 

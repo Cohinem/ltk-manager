@@ -4,7 +4,7 @@ import { type ReactNode, use, useEffect, useMemo, useRef, useState } from "react
 import { BufferAttribute, BufferGeometry, type Group, Sphere, Vector3 } from "three";
 
 import { m } from "@/i18n";
-import { previewUrl } from "@/lib/previewUrl";
+import { usePreviewUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 import { useSceneColors } from "@/modules/viewport";
 import { twMerge } from "@/utils";
@@ -54,12 +54,13 @@ function Note({ text }: { text: string }) {
 
 /** A texture fitted into the square over the checkerboard, so an alpha reads as one. */
 function TexturePicture({ asset }: { asset: AssetRef }) {
-  const [failed, setFailed] = useState(false);
-  const slot = useImageSlot(previewUrl(asset, PICTURE_WIDTH), {
+  const url = usePreviewUrl(asset, PICTURE_WIDTH);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const slot = useImageSlot(url, {
     lane: "tile",
     archive: assetArchive(asset),
   });
-  if (failed) return <Note text={m.workshop_bin_graph_file_unpreviewed_label()} />;
+  if (failedUrl === url) return <Note text={m.workshop_bin_graph_file_unpreviewed_label()} />;
 
   return (
     <div className={twMerge(BOX, CHECKERBOARD, "[background-size:16px_16px]")} style={BOX_STYLE}>
@@ -72,7 +73,7 @@ function TexturePicture({ asset }: { asset: AssetRef }) {
           onLoad={slot.onSettled}
           onError={() => {
             slot.onSettled();
-            setFailed(true);
+            setFailedUrl(url);
           }}
         />
       )}

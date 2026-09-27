@@ -752,6 +752,12 @@ export const api = {
     addAll: (paths: readonly string[]) => commands.addProjectFolders([...paths]).then(toResult),
   },
 
+  // Watches on an open project's layers, which announce `layer-files-changed`, on tauri-specta.
+  layerWatch: {
+    acquire: (projectPath: string) => commands.watchProjectLayers(projectPath).then(toResult),
+    release: (projectPath: string) => commands.unwatchProjectLayers(projectPath).then(toResult),
+  },
+
   // A project's root text files, on tauri-specta.
   projectText: {
     read: (projectPath: string, file: ProjectTextFile) =>

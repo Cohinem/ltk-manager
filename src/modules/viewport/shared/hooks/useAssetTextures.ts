@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { type ColorSpace, ImageLoader, RepeatWrapping, Texture, type Wrapping } from "three";
 
+import {
+  assetVersion,
+  type AssetVersions,
+  useAssetVersions,
+  versionedUrl,
+} from "@/lib/assetVersions";
 import { previewMipsUrl, previewUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
@@ -117,6 +123,9 @@ const TEXTURE_SETS = createRetainedCache<string, TextureSet>((set) => set.dispos
  * per arrival, so a caller rebuilding off this map pays for a frame rather than for a
  * texture. Callers asking for the same assets with the same options share one load and
  * one set of textures, which outlives the last of them by a grace period.
+ *
+ * A layer file saved on disk starts a new set, which decodes that file again and takes the
+ * rest from the pixels already decoded.
  */
 export function useAssetTextures(
   assets: ReadonlyMap<string, AssetRef>,
@@ -130,13 +139,26 @@ export function useAssetTextures(
     report,
   }: TextureLoad = {},
 ): ReadonlyMap<string, Texture> {
+  const versions = useAssetVersions();
   const key = useMemo(
     () =>
-      JSON.stringify([previewWidth, fullWidth, concurrency, mips, colorSpace, wrap, [...assets]]),
-    [assets, previewWidth, fullWidth, concurrency, mips, colorSpace, wrap],
+      JSON.stringify([
+        previewWidth,
+        fullWidth,
+        concurrency,
+        mips,
+        colorSpace,
+        wrap,
+        [...assets].map(([name, asset]) => [name, asset, assetVersion(versions, asset)]),
+      ]),
+    [assets, versions, previewWidth, fullWidth, concurrency, mips, colorSpace, wrap],
   );
   const set = useRetained(TEXTURE_SETS, key, () =>
-    createTextureSet(assets, { previewWidth, fullWidth, concurrency, mips, colorSpace, wrap }),
+    createTextureSet(
+      assets,
+      { previewWidth, fullWidth, concurrency, mips, colorSpace, wrap },
+      versions,
+    ),
   );
   const textures = useSyncExternalStore(set.subscribe, set.textures);
 
@@ -148,6 +170,7 @@ export function useAssetTextures(
 function createTextureSet(
   assets: ReadonlyMap<string, AssetRef>,
   { previewWidth, fullWidth, concurrency, mips, colorSpace, wrap }: TextureSettings,
+  versions: AssetVersions,
 ): TextureSet {
   let live = true;
   let started = false;
@@ -209,13 +232,14 @@ function createTextureSet(
     asked: number | undefined,
     done: (ok: boolean) => void,
   ) => {
+    const version = assetVersion(versions, asset);
     const preview = previewWidth !== undefined && asked === previewWidth;
-    const ready = preview && IMAGES.peek(imageKey(asset, fullWidth, mips))?.landed != null;
+    const ready = preview && IMAGES.peek(imageKey(asset, fullWidth, mips, version))?.landed != null;
     const width = ready ? fullWidth : asked;
     if (ready) whole.add(key);
 
-    const at = imageKey(asset, width, mips);
-    const image = IMAGES.get(at, () => readImage(asset, width, mips));
+    const at = imageKey(asset, width, mips, version);
+    const image = IMAGES.get(at, () => readImage(asset, width, mips, version));
     releases.push(IMAGES.hold(at));
 
     let settled = false;
@@ -227,7 +251,10 @@ function createTextureSet(
       done(ok);
     };
     const timer = setTimeout(() => {
-      console.error("Gave up on a texture that never answered:", previewUrl(asset, width));
+      console.error(
+        "Gave up on a texture that never answered:",
+        versionedUrl(previewUrl(asset, width), version),
+      );
       finish(false);
     }, REQUEST_TIMEOUT_MS);
     timers.add(timer);
@@ -343,18 +370,30 @@ function createTextureSet(
   };
 }
 
-/** What `IMAGES` holds under one file at one width. */
-function imageKey(asset: AssetRef, width: number | undefined, mips: boolean): string {
-  return JSON.stringify([asset, width ?? null, mips]);
+/** The `IMAGES` key of one version of one file at one width. */
+function imageKey(
+  asset: AssetRef,
+  width: number | undefined,
+  mips: boolean,
+  version: number,
+): string {
+  return JSON.stringify([asset, width ?? null, mips, version]);
 }
 
-function readImage(asset: AssetRef, width: number | undefined, mips: boolean): ImageLoad {
+function readImage(
+  asset: AssetRef,
+  width: number | undefined,
+  mips: boolean,
+  version: number,
+): ImageLoad {
   const image = async (): Promise<Pixels> => ({
     kind: "image",
-    image: await new ImageLoader().loadAsync(previewUrl(asset, width)),
+    image: await new ImageLoader().loadAsync(versionedUrl(previewUrl(asset, width), version)),
   });
   /* A PNG or a TGA has no chain to answer with, so it arrives as the image it is. */
-  const pixels = mips ? loadChain(previewMipsUrl(asset, width)).catch(image) : image();
+  const pixels = mips
+    ? loadChain(versionedUrl(previewMipsUrl(asset, width), version)).catch(image)
+    : image();
 
   const load: ImageLoad = { pixels, landed: null, closed: false };
   pixels.then(

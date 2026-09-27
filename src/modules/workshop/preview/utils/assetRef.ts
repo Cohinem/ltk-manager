@@ -1,6 +1,6 @@
 import type { AssetRef } from "@/lib/tauri";
 
-export { previewUrl } from "@/lib/previewUrl";
+export { previewUrl, usePreviewUrl } from "@/lib/previewUrl";
 
 /** The archive a chunk's bytes come from, and null for a file that mounts none. */
 export function assetArchive(asset: AssetRef): string | null {

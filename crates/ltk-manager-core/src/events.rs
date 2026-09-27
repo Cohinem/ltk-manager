@@ -29,6 +29,9 @@ pub use crate::mods::HealthSweepReport;
 /// As above, for how far a walk of the bins for references has read.
 pub use crate::object_index::ReferenceWalkProgress;
 
+/// As above, for the layer files a watch on a workshop project saw change.
+pub use crate::workshop::LayerFilesChanged;
+
 /// Receives notifications from domain operations.
 ///
 /// Implementations must not block: sinks are called from inside index locks and
@@ -421,6 +424,8 @@ declare_events! {
     ExtractProgress(ExtractProgress) => "extract-progress",
     /// A walk of the bins for references advanced. Throttled by its emitter.
     ReferenceWalkProgress(ReferenceWalkProgress) => "reference-walk-progress",
+    /// Files of an open workshop project's layers changed on disk.
+    LayerFilesChanged(LayerFilesChanged) => "layer-files-changed",
 }
 
 #[cfg(test)]

@@ -412,6 +412,10 @@ export const commands = {
 	relocateProjectFolder: (oldPath: string, newPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("relocate_project_folder", { oldPath, newPath }),
 	convertFolderToProject: (args: ConvertFolderArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("convert_folder_to_project", { args }),
 	addProjectFolders: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: AddFoldersReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_project_folders", { paths }),
+	/**  Watch the layers of `project_path` for files saved from outside the app. */
+	watchProjectLayers: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("watch_project_layers", { projectPath }),
+	/**  Let go of one watch on the layers of `project_path`. */
+	unwatchProjectLayers: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("unwatch_project_layers", { projectPath }),
 	/**  Read the `.modignore` at project-relative `at`, or the root file for none. */
 	getProjectIgnoreRules: (projectPath: string, at: string | null) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath, at }),
 	/**  The starter rules, for the empty state that draws them before writing them. */
