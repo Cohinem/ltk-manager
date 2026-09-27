@@ -1,4 +1,4 @@
-import { COLOR, ERODE, FETCH, GROUND, SOFT, WARP, WIRE } from "./quad";
+import { COLOR, ERODE, FETCH, GROUND, PICK, SOFT, WARP, WIRE } from "./quad";
 
 export const RIBBON_VERTEX = /* glsl */ `
 ${GROUND}
@@ -34,6 +34,7 @@ void main() {
 
 export const RIBBON_FRAGMENT = /* glsl */ `
 ${WIRE}
+${PICK}
 uniform sampler2D map;
 uniform float alphaRef;
 uniform int address;
@@ -68,6 +69,11 @@ void main() {
 #if LOCK_ALPHA == 1
   texel.a = fetch(map, vAlphaUv, vec4(0.0), vec2(1.0), address).a;
 #endif
+#endif
+#ifdef PICK
+  if (texel.a < PICK_ALPHA) discard;
+  gl_FragColor = pickId;
+  return;
 #endif
 #ifdef RAMP_AT_MULT
   texel = colored(texel, vMultCell + vMultUv * cellMult);

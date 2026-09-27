@@ -41,12 +41,14 @@ import { mirrorInto, standingInto } from "../../../engine/utils/basis";
 import { geometryOf } from "../../hooks/useVfxMeshes";
 import type { EmitterSamplers } from "../../hooks/useVfxTextures";
 import { CUSTOM_FRAGMENT } from "../../shaders/custom";
-import { ARBITRARY_UV } from "../../shaders/quad";
+import { ARBITRARY_UV, FRAGMENT } from "../../shaders/quad";
+import { RIBBON_FRAGMENT } from "../../shaders/ribbon";
 import { blendState, drawState, fragmentTests, premultiplyInto, sortsBackToFront } from "../blend";
 import { meshBuffers, MESHES_PER_EMITTER, quadBuffers } from "../buffers";
 import {
   attachedMaterial,
   meshMaterial,
+  pickMaterial,
   quadMaterial,
   type QuadOrientation,
   ribbonMaterial,
@@ -549,6 +551,46 @@ describe("wireMaterial", () => {
     const wire = wireMaterial(solid, new Color(1, 0, 0), 1);
 
     expect(wire.defines).toHaveProperty("SOFT");
+  });
+});
+
+describe("pickMaterial", () => {
+  it("draws the solid's shader and uniform objects under PICK, with a pickId uniform", () => {
+    const solid = quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING);
+    const pick = pickMaterial(solid);
+
+    expect(pick.vertexShader).toBe(solid.vertexShader);
+    expect(pick.fragmentShader).toBe(solid.fragmentShader);
+    expect(pick.uniforms.map).toBe(solid.uniforms.map);
+    expect(pick.defines).toHaveProperty("PICK");
+    expect(pick.defines).toHaveProperty("BILLBOARD");
+    expect(pick.uniforms).toHaveProperty("pickId");
+  });
+
+  it("writes its id unblended, the nearest texel winning by depth, whatever the solid blends", () => {
+    const solid = ribbonMaterial(BLEND_MODE.add, null, [0, 0], PLAIN_LAYERS, PASSING);
+    const pick = pickMaterial(solid);
+
+    expect(pick.blending).toBe(NoBlending);
+    expect(pick.depthTest).toBe(true);
+    expect(pick.depthWrite).toBe(true);
+    expect(pick.transparent).toBe(false);
+  });
+
+  it("leaves the solid it redraws as it was", () => {
+    const solid = meshMaterial(BLEND_MODE.add, null, [0, 0], PLAIN_LAYERS, PASSING, FrontSide);
+    const pick = pickMaterial(solid);
+
+    expect(pick.side).toBe(FrontSide);
+    expect(solid.uniforms).not.toHaveProperty("pickId");
+    expect(solid.defines).not.toHaveProperty("PICK");
+  });
+
+  it("finds the id in every fragment pass a particle draws with", () => {
+    for (const fragment of [FRAGMENT, RIBBON_FRAGMENT, CUSTOM_FRAGMENT]) {
+      expect(fragment).toContain("uniform vec4 pickId;");
+      expect(fragment).toContain("gl_FragColor = pickId;");
+    }
   });
 });
 

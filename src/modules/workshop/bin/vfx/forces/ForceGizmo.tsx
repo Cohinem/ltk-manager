@@ -28,10 +28,12 @@ interface Props {
   force: AuthoredForce;
   handle: string | null;
   edit: LeafEdit | null;
+  /** Told of each press on a handle, which a viewport pick yields to. */
+  onGrab?: () => void;
 }
 
 /** Force extents and direction, with a single undoable constant edit per drag. */
-export function ForceGizmo({ system, emitter, force, handle, edit }: Props) {
+export function ForceGizmo({ system, emitter, force, handle, edit, onGrab }: Props) {
   const { driver, playing, setPlaying } = useVfxRun();
   const controls = useThree((state) => state.controls);
   const colors = useSceneColors();
@@ -284,6 +286,7 @@ export function ForceGizmo({ system, emitter, force, handle, edit }: Props) {
           showY={property.name !== "radius"}
           showZ={property.name !== "radius"}
           onMouseDown={() => {
+            onGrab?.();
             if (
               drag.current !== null ||
               Math.abs(placement.current.direction.determinant()) < 1e-8

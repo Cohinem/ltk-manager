@@ -413,6 +413,17 @@ uniform vec4 wireColor;
 #endif
 `;
 
+/** The least base texel alpha a pick counts as drawn. A clear corner of a quad picks nothing. */
+export const PICK_ALPHA = 0.05;
+
+/** The id `pickMaterial` writes in place of a colour, declared only where it asks for one. */
+export const PICK = /* glsl */ `
+#ifdef PICK
+uniform vec4 pickId;
+const float PICK_ALPHA = ${PICK_ALPHA.toFixed(2)};
+#endif
+`;
+
 /**
  * One layer's coordinate, in cells: the 2x3 matrix.
  *
@@ -442,6 +453,7 @@ vec2 layerUv(vec2 uv, vec3 turn, vec4 shift, vec2 about, vec2 mirrored) {
  */
 export const FRAGMENT = /* glsl */ `
 ${WIRE}
+${PICK}
 uniform sampler2D map;
 uniform float alphaRef;
 uniform vec2 cell;
@@ -495,6 +507,11 @@ void main() {
 #endif
 #elif defined(FALLOFF)
   texel.a = 1.0 - smoothstep(0.0, 0.5, length(vUv - 0.5));
+#endif
+#ifdef PICK
+  if (texel.a < PICK_ALPHA) discard;
+  gl_FragColor = pickId;
+  return;
 #endif
   float share = eroding(vShift.zw + placed * cell);
 

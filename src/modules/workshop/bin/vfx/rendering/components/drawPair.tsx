@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect, useMemo, useRef } from "react";
 import {
   type BufferGeometry,
   InstancedMesh,
@@ -12,6 +12,7 @@ import {
 import { passTwin } from "@/modules/viewport";
 
 import type { ParticleProgram } from "../hooks/useParticlePrograms";
+import { usePickTargets } from "../state/pick";
 import { useWire, type Wire, WIRE_ORDER } from "../state/wire";
 import { useDrawLayer } from "../utils/frame";
 
@@ -22,7 +23,10 @@ export interface DrawPair<T extends Object3D> {
   readonly wire: Wire;
 }
 
-/** Own `material`'s lifetime and both objects' layers, "The viewer" in docs/ux/BIN_EDITOR.md. */
+/**
+ * Manage `material`'s lifetime, both objects' layers and their pick target, "The viewer" in
+ * docs/ux/BIN_EDITOR.md.
+ */
 export function useDrawPair<T extends Object3D>(
   material: ShaderMaterial,
   distorting: boolean,
@@ -33,6 +37,9 @@ export function useDrawPair<T extends Object3D>(
   useDrawLayer(distorting, solid);
   const wire = useWire(material);
   useDrawLayer(false, twin);
+
+  const targets = useMemo(() => [{ solid, twin, material }], [material]);
+  usePickTargets(targets);
   return { solid, twin, wire };
 }
 

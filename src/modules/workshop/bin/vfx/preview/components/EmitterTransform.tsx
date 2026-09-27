@@ -29,10 +29,12 @@ interface Props {
   row: BinRow;
   mode: TransformMode;
   edit: LeafEdit;
+  /** Told of each press on a handle, which a viewport pick yields to. */
+  onGrab?: () => void;
 }
 
 /** A selected emitter's authored override, previewed during a drag and committed on release. */
-export function EmitterTransform({ system, emitter, row, mode, edit }: Props) {
+export function EmitterTransform({ system, emitter, row, mode, edit, onGrab }: Props) {
   const { driver, playing, setPlaying } = useVfxRun();
   const controls = useThree((state) => state.controls);
   const object = useMemo(() => new Group(), []);
@@ -204,6 +206,7 @@ export function EmitterTransform({ system, emitter, row, mode, edit }: Props) {
         mode={mode}
         space="world"
         onMouseDown={() => {
+          onGrab?.();
           if (available.current) {
             drag.current = {
               time: driver.phase,

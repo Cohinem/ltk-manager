@@ -33,6 +33,7 @@ import { useCharacterLight } from "../../scene/state/characterLightContext";
 import { useViewMode } from "../../scene/state/viewModeContext";
 import { drawsSolids, type Surface, surfaceOf } from "../../scene/utils/viewMode";
 import { AXIS_SIGN } from "../../scene/utils/world";
+import { isClick } from "../../shared/utils/click";
 import { useEdgeTwin } from "../hooks/useEdgeTwin";
 import { type CharacterSkin, CharacterSkinContext } from "../state/characterSkin";
 import { tintFloats, vertexTints } from "../utils/jointTint";
@@ -88,9 +89,6 @@ const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null }
 const HIDDEN = new MeshBasicMaterial({ visible: false });
 
 const NO_PASSES: readonly SubmeshProgram[] = [];
-
-/** How far a press may travel, in pixels, and still read as a click rather than a camera drag. */
-const CLICK_SLOP = 4;
 
 /** Each input a translated vertex shader declares, and the stock attribute it is. */
 const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
@@ -448,9 +446,9 @@ function useSubmeshPick(
     };
     const release = (event: PointerEvent) => {
       if (pressed === null) return;
-      const moved = Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y);
+      const clicked = isClick(pressed, { x: event.clientX, y: event.clientY });
       pressed = null;
-      if (moved > CLICK_SLOP) return;
+      if (!clicked) return;
 
       const box = element.getBoundingClientRect();
       pointer.set(

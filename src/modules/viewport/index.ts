@@ -164,4 +164,5 @@ export {
   UNITS_PER_METRE,
 } from "./scene/utils/world";
 export { useAssetTextures } from "./shared/hooks/useAssetTextures";
+export { isClick, type ScreenPoint } from "./shared/utils/click";
 export { loadCubeTexture } from "./shared/utils/cubeTexture";

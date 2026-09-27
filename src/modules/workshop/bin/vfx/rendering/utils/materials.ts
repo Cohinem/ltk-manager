@@ -1,4 +1,12 @@
-import { type Color, DoubleSide, ShaderMaterial, type Side, type Texture, Vector4 } from "three";
+import {
+  type Color,
+  DoubleSide,
+  NoBlending,
+  ShaderMaterial,
+  type Side,
+  type Texture,
+  Vector4,
+} from "three";
 
 import {
   type BlendMode,
@@ -326,5 +334,24 @@ export function wireMaterial(
     depthTest: solid.depthTest,
     depthWrite: false,
     transparent: true,
+  });
+}
+
+/**
+ * `solid` drawn as one flat id in place of its colour, over its uniforms.
+ *
+ * The vertex program and the uniform objects are the solid's. A pick lands on the vertices the
+ * last frame drew. The nearest texel wins by depth, whatever the solid blends.
+ */
+export function pickMaterial(solid: ShaderMaterial): ShaderMaterial {
+  return new ShaderMaterial({
+    vertexShader: solid.vertexShader,
+    fragmentShader: solid.fragmentShader,
+    uniforms: { ...solid.uniforms, pickId: { value: new Vector4() } },
+    defines: { ...solid.defines, PICK: "" },
+    side: solid.side,
+    depthTest: true,
+    depthWrite: true,
+    blending: NoBlending,
   });
 }
