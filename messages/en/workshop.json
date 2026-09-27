@@ -487,6 +487,8 @@
   "workshop_bin_graph_shape_zero_label": "No size: spawns at its centre",
   "workshop_bin_graph_surface_base_label": "Texture alone",
   "workshop_bin_graph_surface_both_label": "Texture and secondary texture",
+  "workshop_bin_graph_surface_failed_label": "Preview stopped drawing: {error}",
+  "workshop_bin_graph_surface_idle_label": "No live particle at the cursor",
   "workshop_bin_graph_surface_loop_action": "Loop one particle's life in node previews",
   "workshop_bin_graph_surface_mult_label": "Secondary texture alone",
   "workshop_bin_graph_surface_tiles_action": "Show tiling",

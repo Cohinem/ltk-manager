@@ -1,7 +1,7 @@
 import { PerspectiveCamera, View } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useMemo, useState } from "react";
-import { type Camera, type IUniform, Scene } from "three";
+import { type Camera, Color, type IUniform, Scene } from "three";
 
 import { type Bounds, OUTPUT_COLOR_SPACE, TONE_MAPPING, useSceneColors } from "@/modules/viewport";
 import { twMerge } from "@/utils";
@@ -13,6 +13,7 @@ import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { drawnEmitters } from "../../rendering/utils/definitions";
 import { bindFrameTargets, grabDepth, PARTICLE_LAYER } from "../../rendering/utils/frame";
 import { definitionBounds } from "../../rendering/utils/systemBounds";
+import { guardFrames } from "../utils/frameGuard";
 import { type Framing, PreviewOrbit } from "./PreviewOrbit";
 
 /** The texture width a node's preview asks for, which the object grid's previews use too. */
@@ -61,13 +62,30 @@ export function EmitterPreviewLayer() {
           gl.toneMapping = TONE_MAPPING;
         }}
       >
+        <FrameGuard />
         <FollowPlacement />
-        <FramePrep />
+        <ClearFrame />
         <View.Port />
       </Canvas>
     </div>
   );
 }
+
+/**
+ * Keeps one throwing frame callback from ending the frame of every canvas.
+ *
+ * R3F runs every canvas's callbacks, the views' draws included, in one loop, and a throw
+ * skips everything after it, so a single view that cannot draw freezes every preview and the
+ * viewport. Each callback is wrapped once, before any other runs, and a throw hides the scene
+ * of the view it belongs to, as `guardFrames` states.
+ */
+function FrameGuard() {
+  useFrame((state) => guardFrames(state.internal.subscribers), BEFORE_ALL);
+  return null;
+}
+
+/* Below every other callback's priority, drei's views and R3F's default included. */
+const BEFORE_ALL = -1000;
 
 /** A box to measure, and whether it has an area, which a pane in a hidden tab does not. */
 function useHasSize(): [(element: HTMLDivElement | null) => void, boolean] {
@@ -87,24 +105,50 @@ function useHasSize(): [(element: HTMLDivElement | null) => void, boolean] {
 }
 
 /**
- * Keeps the canvas's place on the page current, which each view is placed against.
+ * Keeps the canvas's size and place on the page equal to the layer's, which each view is
+ * placed and culled against.
  *
- * R3F measures it only when the canvas resizes or the page scrolls, so a pane moved beside
- * another without resizing would draw every preview where the canvas used to stand.
+ * R3F measures only on its own resize and scroll events, so a pane moved beside another
+ * would draw every preview where the canvas used to stand, and a size left behind culls
+ * every view past it as off screen. The canvas takes its CSS size from that same size, so
+ * the layer box, which always fills the pane, is what is measured.
  */
 function FollowPlacement() {
   useFrame((state) => {
-    const { top, left } = state.gl.domElement.getBoundingClientRect();
+    const layer = state.gl.domElement.closest(LAYER) ?? state.gl.domElement;
+    const { top, left, width, height } = layer.getBoundingClientRect();
     const { size } = state;
-    if (top !== size.top || left !== size.left) {
-      state.setSize(size.width, size.height, top, left);
+    if (top !== size.top || left !== size.left || width !== size.width || height !== size.height) {
+      state.setSize(width, height, top, left);
     }
-  }, BEFORE_THE_PREP);
+  }, BEFORE_THE_DRAWS);
   return null;
 }
 
-/* Before `FramePrep`, and so before every view. */
-const BEFORE_THE_PREP = 0.1;
+const LAYER = '[data-ui="EmitterPreviewLayer"]';
+
+/* Before every view. */
+const BEFORE_THE_DRAWS = 0.1;
+
+/**
+ * Clears the whole canvas before the views draw.
+ *
+ * A view clears only its own box, so without it a view that moved or left the screen stays
+ * painted where it was, and a frame where no view draws leaves the last one on screen.
+ */
+function ClearFrame() {
+  useFrame(({ gl }) => {
+    gl.setScissorTest(false);
+    gl.setClearColor(CLEAR, 0);
+    gl.clear(true, true, false);
+  }, BEFORE_THE_VIEWS_CLEAR);
+  return null;
+}
+
+const CLEAR = new Color(0, 0, 0);
+
+/* After `FollowPlacement`, and before drei's views at a priority of 1. */
+const BEFORE_THE_VIEWS_CLEAR = 0.2;
 
 /* An empty scene, whose depth is what a soft fade in a preview measures its gap to. */
 const NOTHING = new Scene();
@@ -201,6 +245,7 @@ export function EmitterPreviewCanvas({
           gl.toneMapping = TONE_MAPPING;
         }}
       >
+        <FrameGuard />
         <FramePrep />
         <EmitterScene simple={simple} listIndex={listIndex} />
         <DrawScene />

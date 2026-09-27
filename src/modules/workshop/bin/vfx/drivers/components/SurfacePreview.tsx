@@ -3,11 +3,12 @@ import {
   NumberSquareOneIcon,
   NumberSquareTwoIcon,
   StackIcon,
+  WarningIcon,
 } from "@phosphor-icons/react";
 import { View } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, use, useEffect, useMemo, useRef, useState } from "react";
-import { type Mesh, type ShaderMaterial, Vector4, type WebGLRenderer } from "three";
+import { Color, type Mesh, type ShaderMaterial, Vector4, type WebGLRenderer } from "three";
 
 import { Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -24,6 +25,7 @@ import { drawnEmitters } from "../../rendering/utils/definitions";
 import { paletteScrollInto } from "../../rendering/utils/palette";
 import type { UvDraw } from "../../rendering/utils/uvTransform";
 import { EMITTER_PREVIEW_SIZE, NODE_PREVIEW_SIZE } from "../utils/driverLayout";
+import { watchFailure } from "../utils/frameGuard";
 import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem, StructItem } from "../utils/graphItems";
 import {
@@ -111,6 +113,7 @@ export function StructPicture({ item, picture }: { item: StructItem; picture: Fi
 function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size: number }) {
   const [tiled, setTiled] = useState(false);
   const [shown, setShown] = useState<Shown>("both");
+  const [failure, setFailure] = useState<string | null>(null);
   const looped = use(LoopedSurfacesContext);
   const fill = useRef<HTMLDivElement>(null);
   const linger = useRef<HTMLDivElement>(null);
@@ -118,17 +121,24 @@ function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size
 
   return (
     <div className={BOX} style={{ width: size, height: size }}>
-      <View className="min-h-0 w-full flex-1">
-        {emitter !== undefined && (
-          <SurfaceScene
-            emitter={emitter}
-            looped={looped}
-            tiled={tiled}
-            shown={shown}
-            bar={{ fill, linger }}
-          />
-        )}
-      </View>
+      <div className="relative min-h-0 flex-1">
+        {/* Under the view, which leaves its box clear while no particle lives. */}
+        <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-surface-500">
+          {m.workshop_bin_graph_surface_idle_label()}
+        </span>
+        <View className="absolute inset-0">
+          {emitter !== undefined && (
+            <SurfaceScene
+              emitter={emitter}
+              looped={looped}
+              tiled={tiled}
+              shown={shown}
+              bar={{ fill, linger }}
+              onFail={setFailure}
+            />
+          )}
+        </View>
+      </div>
       <div className="flex h-5 shrink-0 items-center gap-1 border-t border-surface-veil pr-0.5 pl-1.5">
         <div
           aria-hidden
@@ -141,6 +151,17 @@ function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size
             style={{ transform: "scaleX(0)" }}
           />
         </div>
+        {failure !== null && (
+          <Tooltip content={m.workshop_bin_graph_surface_failed_label({ error: failure })}>
+            <span
+              role="img"
+              aria-label={m.workshop_bin_graph_surface_failed_label({ error: failure })}
+              className="flex h-4 w-4 shrink-0 items-center justify-center text-warning-text"
+            >
+              <WarningIcon weight="bold" className="h-3 w-3" />
+            </span>
+          </Tooltip>
+        )}
         <StripButton
           label={m.workshop_bin_graph_surface_tiles_action()}
           pressed={tiled}
@@ -191,9 +212,11 @@ interface SceneProps {
   tiled: boolean;
   shown: Shown;
   bar: LifeBar;
+  /** Hears why the view stopped drawing, and null once it draws again. */
+  onFail: (failure: string | null) => void;
 }
 
-function SurfaceScene({ emitter, looped, tiled, shown, bar }: SceneProps) {
+function SurfaceScene({ emitter, looped, tiled, shown, bar, onFail }: SceneProps) {
   const run = use(VfxRunContext);
   const system = run?.system ?? null;
   const drawn = useMemo(
@@ -208,11 +231,23 @@ function SurfaceScene({ emitter, looped, tiled, shown, bar }: SceneProps) {
   const draw = useMemo(surfaceDraw, []);
   const followed = useMemo<Followed>(() => ({ serial: -1 }), []);
   const particle = useRef<Mesh>(null);
+  const grid = useRef<Mesh>(null);
   const colors = useSceneColors();
+  const ground = useMemo(() => new Color(colors.backdrop), [colors.backdrop]);
+  const scene = useThree((state) => state.scene);
 
   useEffect(() => () => material.dispose(), [material]);
   useEffect(() => () => outline.dispose(), [outline]);
   useEffect(() => () => backdrop.dispose(), [backdrop]);
+
+  /* A new material is a new chance to draw, so it shows the scene a failure hid. */
+  useEffect(() => {
+    scene.visible = true;
+    onFail(null);
+    return watchFailure(scene, (error) =>
+      onFail(error instanceof Error ? error.message : String(error)),
+    );
+  }, [scene, material, onFail]);
 
   useEffect(() => {
     const uniforms = material.uniforms;
@@ -222,12 +257,14 @@ function SurfaceScene({ emitter, looped, tiled, shown, bar }: SceneProps) {
   }, [material, samplers, shown, tiled]);
 
   useFrame(() => {
-    if (run === null) return;
-
-    const alive = looped
-      ? loopedParticle(run, emitter, draw, bar)
-      : followedParticle(run, emitter, followed, draw, bar);
+    const alive =
+      run !== null &&
+      (looped
+        ? loopedParticle(run, emitter, draw, bar)
+        : followedParticle(run, emitter, followed, draw, bar));
+    scene.background = alive ? ground : null;
     if (particle.current !== null) particle.current.visible = alive;
+    if (grid.current !== null) grid.current.visible = alive;
     if (!alive) return;
 
     premultiplyInto(emitter, draw.color);
@@ -249,9 +286,8 @@ function SurfaceScene({ emitter, looped, tiled, shown, bar }: SceneProps) {
 
   return (
     <>
-      <color attach="background" args={[colors.backdrop]} />
       {emitter.distortion !== null && (
-        <mesh frustumCulled={false} material={backdrop} renderOrder={0}>
+        <mesh ref={grid} frustumCulled={false} material={backdrop} renderOrder={0}>
           <planeGeometry args={[2, 2]} />
         </mesh>
       )}
