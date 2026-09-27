@@ -121,24 +121,18 @@ function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size
 
   return (
     <div className={BOX} style={{ width: size, height: size }}>
-      <div className="relative min-h-0 flex-1">
-        {/* Under the view, which leaves its box clear while no particle lives. */}
-        <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-surface-500">
-          {m.workshop_bin_graph_surface_idle_label()}
-        </span>
-        <PreviewView className="absolute inset-0">
-          {emitter !== undefined && (
-            <SurfaceScene
-              emitter={emitter}
-              looped={looped}
-              tiled={tiled}
-              shown={shown}
-              bar={{ fill, linger }}
-              onFail={setFailure}
-            />
-          )}
-        </PreviewView>
-      </div>
+      <PreviewView className="min-h-0 w-full flex-1">
+        {emitter !== undefined && (
+          <SurfaceScene
+            emitter={emitter}
+            looped={looped}
+            tiled={tiled}
+            shown={shown}
+            bar={{ fill, linger }}
+            onFail={setFailure}
+          />
+        )}
+      </PreviewView>
       <div className="flex h-5 shrink-0 items-center gap-1 border-t border-surface-veil pr-0.5 pl-1.5">
         <div
           aria-hidden

@@ -89,8 +89,8 @@ interface GraphCanvasProps {
  * no positions. A drag on empty canvas boxes nodes into the selection, Shift or Ctrl adds to it, Ctrl+A selects every node and Escape none, and a drag on a selected node moves
  * the group. Hovering or selecting a node lights every path through it, and one selected
  * node fades the nodes off those paths. A right click opens `GraphMenu` on the node under
- * the pointer or on the canvas. Ctrl+D, Ctrl+C and Ctrl+V duplicate, copy and paste the
- * emitter of the one master node selected. Decision 2.8 of docs/plans/shimmer-driver-graph.md.
+ * the pointer or on the canvas. Ctrl+D, Ctrl+C, Ctrl+V and Delete duplicate, copy, paste and
+ * delete the emitter of the one master node selected. Decision 2.8 of docs/plans/shimmer-driver-graph.md.
  */
 export function GraphCanvas(props: GraphCanvasProps) {
   const [views] = useState(() => new PreviewViewStore());

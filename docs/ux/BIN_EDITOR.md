@@ -2836,21 +2836,22 @@ Each of these is an edit, with the undo of every other. A removed item or entry 
 index, a move goes back, and a key edit restores the key. The rows a reader expanded under a list
 follow an insert, a remove, a move and a key edit, so an expanded item stays the one expanded.
 
-### Duplicating and pasting an emitter
+### Duplicating, pasting and deleting an emitter
 
 An emitter of a system's `complexEmitterDefinitionData` or `simpleEmitterDefinitionData` is
-duplicated, copied and pasted whole, with every hash, class, link and nested struct under it.
+duplicated, copied, pasted and deleted whole, with every hash, class, link and nested struct
+under it.
 
-| Where                                     | Duplicate emitter | Copy emitter | Paste emitter                  |
-| ----------------------------------------- | ----------------- | ------------ | ------------------------------ |
-| The Graph menu on a master node           | Yes               | Yes          | After the node                 |
-| The Graph menu on the canvas              |                   |              | At the end of the complex list |
-| The inspector's actions, on the open card | Yes               | Yes          | After the card                 |
-| The Graph pane, one master node selected  | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it             |
-| The Graph pane, no master node selected   |                   |              | `Ctrl+V`, at the end           |
+| Where                                     | Duplicate emitter | Copy emitter | Paste emitter                  | Delete emitter |
+| ----------------------------------------- | ----------------- | ------------ | ------------------------------ | -------------- |
+| The Graph menu on a master node           | Yes               | Yes          | After the node                 | Yes            |
+| The Graph menu on the canvas              |                   |              | At the end of the complex list |                |
+| The inspector's actions, on the open card | Yes               | Yes          | After the card                 | Yes            |
+| The Graph pane, one master node selected  | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it             | `Delete`       |
+| The Graph pane, no master node selected   |                   |              | `Ctrl+V`, at the end           |                |
 
 **A duplicate lands right after its source**, and a paste after the emitter it was asked on, in
-that emitter's list. Each is one `editProperty` edit of the list, so one undo step, and a
+that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo step, and a
 declared document declares the list as any other list edit.
 
 **A copy is JSON text on the clipboard.** It carries `"format": "ltk-manager/bin-value"`, the

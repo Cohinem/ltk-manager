@@ -9,6 +9,7 @@ import {
   emitterPlace,
   isEmitterCopy,
   pasteEdits,
+  removeEdits,
 } from "../emitterCopy";
 import { type EmitterClipboard, runEmitterKey } from "../emitterKeys";
 
@@ -53,6 +54,10 @@ describe("emitter edits", () => {
     ]);
     expect(pasteEdits("text", null)[0]).toMatchObject({ index: null });
   });
+
+  it("removes the emitter at its index", () => {
+    expect(removeEdits(4)).toEqual([{ type: "removeItem", path: "[4]" }]);
+  });
 });
 
 describe("emitter keys", () => {
@@ -68,6 +73,7 @@ describe("emitter keys", () => {
     copy: vi.fn(() => Promise.resolve()),
     duplicate: vi.fn(() => Promise.resolve()),
     paste: vi.fn(() => Promise.resolve()),
+    remove: vi.fn(() => Promise.resolve()),
   });
 
   it("duplicates, copies and pastes the picked emitter", () => {
@@ -94,8 +100,18 @@ describe("emitter keys", () => {
     expect(actions.duplicate).not.toHaveBeenCalled();
   });
 
+  it("deletes the picked emitter on a bare Delete, and nothing with none picked", () => {
+    const actions = clipboard();
+
+    expect(runEmitterKey(chord("Delete", false), actions, picked.entry, null)).toBe(false);
+    expect(runEmitterKey(chord("Delete"), actions, picked.entry, picked)).toBe(false);
+    expect(runEmitterKey(chord("Delete", false), actions, picked.entry, picked)).toBe(true);
+
+    expect(actions.remove).toHaveBeenCalledExactlyOnceWith(picked);
+  });
+
   it("offers copy alone on a document that takes no edit", () => {
-    const actions = { ...clipboard(), duplicate: null, paste: null };
+    const actions = { ...clipboard(), duplicate: null, paste: null, remove: null };
 
     expect(runEmitterKey(chord("d"), actions, picked.entry, picked)).toBe(false);
     expect(runEmitterKey(chord("v"), actions, picked.entry, picked)).toBe(false);

@@ -7,6 +7,8 @@ export interface EmitterClipboard {
   readonly duplicate: ((emitter: EmitterRef) => Promise<void>) | null;
   /** Land the clipboard's emitter in the system `entry`, after `after` or else last. */
   readonly paste: ((entry: string, after: EmitterRef | null) => Promise<void>) | null;
+  /** Null where the document takes no edit. */
+  readonly remove: ((emitter: EmitterRef) => Promise<void>) | null;
 }
 
 /** The keys of a chord, as a keyboard event carries them. */
@@ -19,9 +21,10 @@ interface Chord {
 }
 
 /**
- * Run what Ctrl+D, Ctrl+C or Ctrl+V asks of the emitter `picked`, answering whether one ran.
+ * Run what Ctrl+D, Ctrl+C, Ctrl+V or Delete asks of the emitter `picked`, answering whether
+ * one ran.
  *
- * Duplicate and copy need a picked emitter, and a paste lands after it or at the end.
+ * Duplicate, copy and delete need a picked emitter, and a paste lands after it or at the end.
  */
 export function runEmitterKey(
   chord: Chord,
@@ -30,9 +33,18 @@ export function runEmitterKey(
   picked: EmitterRef | null,
 ): boolean {
   if (clipboard === null || entry === "") return false;
+
+  const { copy, duplicate, paste, remove } = clipboard;
+  const bare = !(chord.ctrlKey || chord.metaKey || chord.shiftKey || chord.altKey);
+  if (bare && chord.key === "Delete") {
+    if (picked === null || remove === null) return false;
+
+    void remove(picked);
+    return true;
+  }
+
   if (!(chord.ctrlKey || chord.metaKey) || chord.shiftKey || chord.altKey) return false;
 
-  const { copy, duplicate, paste } = clipboard;
   switch (chord.key.toLowerCase()) {
     case "d":
       if (picked === null || duplicate === null) return false;

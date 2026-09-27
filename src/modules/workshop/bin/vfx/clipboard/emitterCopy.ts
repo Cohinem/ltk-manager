@@ -60,6 +60,11 @@ export function duplicateEdits(index: number): ValueEdit[] {
   ];
 }
 
+/** The edit that removes the emitter at `index` of its list. */
+export function removeEdits(index: number): ValueEdit[] {
+  return [{ type: "removeItem", path: `[${index}]` }];
+}
+
 /** The edit that lands a copied emitter's `text` at `index` of a list, or at its end. */
 export function pasteEdits(text: string, index: number | null): ValueEdit[] {
   return [{ type: "pasteItem", path: "", index, text, unique: EMITTER_NAME }];

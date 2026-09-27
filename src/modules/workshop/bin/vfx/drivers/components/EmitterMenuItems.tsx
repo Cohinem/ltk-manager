@@ -1,4 +1,4 @@
-import { ClipboardTextIcon, CopyIcon, CopySimpleIcon } from "@phosphor-icons/react";
+import { ClipboardTextIcon, CopyIcon, CopySimpleIcon, TrashIcon } from "@phosphor-icons/react";
 import { use } from "react";
 
 import { ContextMenu } from "@/components";
@@ -9,15 +9,15 @@ import type { MasterItem } from "../utils/systemGraph";
 import { GraphActionsContext } from "./graphActions";
 
 /**
- * The emitter clipboard's items of the Graph menu: Duplicate and Copy on a master node, and
- * Paste emitter on a master node or the canvas. A paste on a node lands after it.
+ * The emitter clipboard's items of the Graph menu: Duplicate, Copy and Delete on a master
+ * node, and Paste emitter on a master node or the canvas. A paste on a node lands after it.
  */
 export function EmitterMenuItems({ item }: { item: MasterItem | null }) {
   const actions = use(GraphActionsContext);
   const clipboard = useEmitterClipboard();
   if (actions === null || actions.entry === "" || clipboard === null) return null;
 
-  const { copy, duplicate, paste } = clipboard;
+  const { copy, duplicate, paste, remove } = clipboard;
   const emitter = item === null ? null : { entry: actions.entry, wire: item.wire, name: item.name };
   if (emitter === null && paste === null) return null;
 
@@ -45,6 +45,16 @@ export function EmitterMenuItems({ item }: { item: MasterItem | null }) {
           onClick={() => void paste(actions.entry, emitter)}
         >
           {m.workshop_bin_emitter_paste_action()}
+        </ContextMenu.Item>
+      )}
+      {emitter !== null && remove !== null && (
+        <ContextMenu.Item
+          icon={<TrashIcon />}
+          shortcut="Del"
+          variant="danger"
+          onClick={() => void remove(emitter)}
+        >
+          {m.workshop_bin_emitter_delete_action()}
         </ContextMenu.Item>
       )}
     </>
