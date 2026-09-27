@@ -75,6 +75,7 @@ import type {
 } from "@/lib/bindings";
 import type {
   BinEdit,
+  ChangeBaseline,
   ChoiceQuery,
   ConvertFolderArgs,
   Declaring,
@@ -115,6 +116,7 @@ export type {
 export type {
   AddableField,
   AddableFields,
+  BinChange,
   BinDocumentHandle,
   BinDocumentId,
   BinEdit,
@@ -126,6 +128,8 @@ export type {
   BinRow,
   BinRows,
   BinValue,
+  ChangeBaseline,
+  ChangeKind,
   ChoiceQuery,
   Choices,
   ClassChoice,
@@ -623,6 +627,10 @@ export const api = {
     reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
     undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),
     redo: (document: BinDocumentId) => commands.binRedo(document).then(toResult),
+    changes: (document: BinDocumentId, baseline: ChangeBaseline) =>
+      commands.binChanges(document, baseline).then(toResult),
+    revert: (document: BinDocumentId, entry: string, path: string, baseline: ChangeBaseline) =>
+      commands.binRevert(document, entry, path, baseline).then(toResult),
     declared: (document: BinDocumentId) => commands.binDeclared(document).then(toResult),
     declareInto: (document: BinDocumentId, layer: string, module: DeclaredModuleChoice) =>
       commands.binDeclareInto(document, layer, module).then(toResult),

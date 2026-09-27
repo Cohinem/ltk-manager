@@ -22,12 +22,13 @@ import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { FieldLabelsContext } from "../../../classes/state/fieldLabels";
 import { CurveChainContext } from "../../../curves/state/curveTarget";
 import { type RailMark, railMark } from "../../../curves/utils/rollRail";
+import { useChangedOnlyView } from "../../../documents/hooks/useChanges";
 import { useLinkOpen } from "../../../links/hooks/useLinkTargets";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, type RowFold, RowFoldContext } from "../../../tree/state/rowFold";
 import { fieldHash, rowKey } from "../../../tree/utils/binRows";
 import { ValueMarksContext } from "../../../values/hooks/useValueMarks";
-import { EmitterPreviewCanvas } from "../../drivers/components/EmitterPreview";
+import { EmitterPreviewBox } from "../../drivers/components/EmitterPreviewBox";
 import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
 import { useForces } from "../../forces/useForces";
@@ -113,6 +114,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const searchRef = useRef<HTMLInputElement>(null);
   const forces = useForces();
   const definedOnly = useDefinedOnly();
+  const changedOnly = useChangedOnlyView();
   const preview = useInspectorPreview();
   const running = (use(VfxRunContext)?.system ?? null) !== null;
   const addable = use(LeafEditContext)?.addProperty !== undefined;
@@ -126,6 +128,12 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
           rows: group.rows.filter((row) => fieldHash(row.path) !== FORCE_COLLECTION),
         }))
       : source;
+    if (changedOnly !== null) {
+      const changed = (row: BinRow) =>
+        changedOnly.rows.has(rowKey(row)) || changedOnly.within.has(rowKey(row));
+      const rows = held.map((group) => ({ ...group, rows: group.rows.filter(changed) }));
+      return inspectorGroups(rows, NO_DEFAULTS);
+    }
     if (data == null || definedOnly) {
       return inspectorGroups(held, NO_DEFAULTS);
     }
@@ -136,7 +144,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     }
 
     return inspectorGroups(held, unauthoredFields(data.fields, authored));
-  }, [target, card, data, forces.visible, definedOnly]);
+  }, [target, card, data, forces.visible, definedOnly, changedOnly]);
   const filtered = filterEmitterGroups(groups, search);
   const jumpTo = useAddedJump(groups);
   const holder = addable && target !== "system" ? card?.row : undefined;
@@ -169,10 +177,10 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
       {child !== null && <ChildBanner child={child} />}
       <PanelHeader actions={actions} />
       {preview && running && child === null && target !== "system" && card !== undefined && (
-        <EmitterPreviewCanvas
+        <EmitterPreviewBox
           simple={card.simple}
           listIndex={card.index}
-          className="mx-auto mt-1.5 aspect-square w-full max-w-72 shrink-0"
+          className="mx-auto mt-1.5 w-full max-w-72 shrink-0"
         />
       )}
       <div
@@ -232,6 +240,16 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
                   </p>
                 )}
                 {search.trim() === "" &&
+                  changedOnly !== null &&
+                  card !== undefined &&
+                  target !== "system" &&
+                  !hasMatches && (
+                    <p role="status" className="px-2 py-4 text-meta text-surface-400">
+                      {m.workshop_bin_inspector_changed_empty()}
+                    </p>
+                  )}
+                {search.trim() === "" &&
+                  changedOnly === null &&
                   definedOnly &&
                   card !== undefined &&
                   target !== "system" &&

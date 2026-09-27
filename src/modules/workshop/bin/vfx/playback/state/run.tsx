@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 
 import { useContentVisible } from "@/hooks";
@@ -133,60 +132,6 @@ export function useVfxRun(): VfxRun {
   const run = use(VfxRunContext);
   if (run === null) throw new Error("useVfxRun outside a VfxRunProvider");
   return run;
-}
-
-/** How often a readout of the clock catches up with it, in milliseconds. */
-const READOUT_MS = 100;
-
-/** The finest step a readout tells apart, which is what its two decimals show. */
-const READOUT_STEP = 0.01;
-
-/**
- * Where the run stands, in seconds of its phase, caught up with every `READOUT_MS`.
- *
- * The clock moves every frame and a readout is React state, so the two are kept apart:
- * a listener hears the clock at the readout's own rate, with one trailing call so a seek
- * that lands between two ticks still reaches it.
- */
-export function useRunClock(): number {
-  return useClockOf(useVfxRun()) ?? 0;
-}
-
-/** `useRunClock` for a caller that may sit outside a run, which hears nothing and reads null. */
-export function useClockOf(run: VfxRun | null): number | null {
-  const subscribe = run?.subscribe;
-  const driver = run?.driver;
-  const paced = useCallback(
-    (listener: () => void) => {
-      if (subscribe === undefined) return () => {};
-      let last = 0;
-      let trailing = 0;
-      const unsubscribe = subscribe(() => {
-        const now = performance.now();
-        const wait = READOUT_MS - (now - last);
-        if (wait <= 0) {
-          last = now;
-          listener();
-          return;
-        }
-        if (trailing === 0) {
-          trailing = window.setTimeout(() => {
-            trailing = 0;
-            last = performance.now();
-            listener();
-          }, wait);
-        }
-      });
-      return () => {
-        unsubscribe();
-        window.clearTimeout(trailing);
-      };
-    },
-    [subscribe],
-  );
-  return useSyncExternalStore(paced, () =>
-    driver === undefined ? null : Math.round(driver.phase / READOUT_STEP) * READOUT_STEP,
-  );
 }
 
 export interface VfxRunProviderProps {

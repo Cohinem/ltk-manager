@@ -19,7 +19,7 @@ import { placeTime } from "../../values/utils/valueRows";
 import { keysAt } from "../../vfx/engine/utils/sampleCurve";
 import { VfxRunContext } from "../../vfx/playback/state/run";
 import { useRandomEdit } from "../state/randomEdit";
-import { channelName, STROKE } from "../utils/curveChannels";
+import { channelName, strokeOf } from "../utils/curveChannels";
 import {
   axisText,
   bandOf,
@@ -399,7 +399,7 @@ function ChannelPlot({
             >
               <Grid plot={plot} size={size} />
               {drawn.map((channel) => (
-                <g key={channel} className={STROKE[channel] ?? STROKE[0]}>
+                <g key={channel} className={strokeOf(family, channel)}>
                   <Spread
                     keys={ordered}
                     plot={plot}
@@ -501,6 +501,7 @@ function ChannelPlot({
         </div>
         {draw !== null && plot !== null && (
           <DensityEdge
+            family={family}
             plot={plot}
             height={size.height}
             channels={[...banded.values()].filter((each) => !muted.has(each.channel))}
@@ -701,6 +702,7 @@ function TimeTicks({ plot }: { plot: Plot }) {
 
 interface DensityEdgeProps {
   plot: Plot;
+  family: ValueFamily;
   height: number;
   channels: readonly ChannelDraw[];
   /** Each channel's base at the time the edge reads. */
@@ -708,7 +710,7 @@ interface DensityEdgeProps {
 }
 
 /** How the births fall at one time, on the plot's own value axis, a filled step per channel. */
-function DensityEdge({ plot, height, channels, levels }: DensityEdgeProps) {
+function DensityEdge({ plot, family, height, channels, levels }: DensityEdgeProps) {
   const step = (plot.high - plot.low) / EDGE_BINS;
   const y = (value: number) => plotLevel(plot, height, value).toFixed(2);
 
@@ -733,7 +735,7 @@ function DensityEdge({ plot, height, channels, levels }: DensityEdgeProps) {
           return [`${x},${y(from)}`, `${x},${y(from + step)}`];
         });
         return (
-          <g key={channel.channel} className={STROKE[channel.channel] ?? STROKE[0]}>
+          <g key={channel.channel} className={strokeOf(family, channel.channel)}>
             <polygon
               points={`0,${y(plot.low)} ${edge.join(" ")} 0,${y(plot.high)}`}
               fill="currentColor"
@@ -769,12 +771,18 @@ function Spread({ keys, plot, size, channel, pinned }: SpreadProps) {
         const upper = reach.map((each, at) => ({ x: x(at), y: y(each.most) }));
         const lower = reach.map((each, at) => ({ x: x(at), y: y(each.least) }));
         return (
-          <polygon
-            key={band}
-            points={bandOf(upper, lower, size.width)}
-            fill="currentColor"
-            opacity={0.18}
-          />
+          <g key={band}>
+            <polygon points={bandOf(upper, lower, size.width)} fill="currentColor" opacity={0.3} />
+            {[upper, lower].map((edge, side) => (
+              <polyline
+                key={side}
+                points={lineOf(edge, size.width)}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              />
+            ))}
+          </g>
         );
       })}
       {pinned !== null && (

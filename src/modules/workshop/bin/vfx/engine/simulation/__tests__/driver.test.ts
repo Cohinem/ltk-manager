@@ -40,6 +40,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     particleLifetime: constant(1),
     lifetime: null,
     timeBeforeFirstEmission: 0,
+    period: null,
     singleParticle: false,
     sharedRandom: false,
     birthVelocity: constant(0, 100, 0),

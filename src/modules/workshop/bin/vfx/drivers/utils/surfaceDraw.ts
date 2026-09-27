@@ -6,6 +6,7 @@ import { age01, appearance, erosionDrive, scalar } from "../../engine/simulation
 import { createPool, NOT_LINGERING, type Pool, UV, uvAt } from "../../engine/simulation/pool";
 import { drawCurve, drawCurveInto, sampleCurve } from "../../engine/utils/sampleCurve";
 import { colorLookupInto } from "../../rendering/utils/colorLookup";
+import { drawsAsBeam, drawsAsTrail } from "../../rendering/utils/drawKind";
 import { type UvDraw, uvDraw, uvTransformInto } from "../../rendering/utils/uvTransform";
 
 /** One particle's layers, colour, size and lookup, as scratch a caller reuses from frame to frame. */
@@ -16,6 +17,17 @@ export interface SurfaceDraw {
   readonly scale: Float32Array;
   /** The ramp's lookup and the erosion's drive, the lanes of `lookup` in quad.ts. */
   readonly lookup: Float32Array;
+}
+
+/**
+ * The emitter draws what one particle's quad cannot stand for: a ribbon strung through every
+ * live particle, or a beam to its target, so its preview draws it live.
+ *
+ * A mesh is left out: its shape is the Render Primitive node's picture, and its surface is
+ * the texture the particle maps over it.
+ */
+export function drawnLive(emitter: EmitterModel): boolean {
+  return drawsAsTrail(emitter) || drawsAsBeam(emitter);
 }
 
 export function surfaceDraw(): SurfaceDraw {

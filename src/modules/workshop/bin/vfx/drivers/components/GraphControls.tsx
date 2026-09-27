@@ -14,6 +14,8 @@ import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { BackdropButton } from "./BackdropButton";
+
 interface GraphControlsProps {
   onFit: () => void;
   onCollapseAll: (collapsed: boolean) => void;
@@ -24,8 +26,8 @@ interface GraphControlsProps {
 }
 
 /**
- * Zoom, fit, collapse or expand every node, the preview node's switch and the node surfaces'
- * loop, in the canvas's top-right corner.
+ * Zoom, fit, collapse or expand every node, the preview node's switch, the node surfaces'
+ * loop and the previews' backdrop, in the canvas's top-right corner.
  */
 export function GraphControls({
   onFit,
@@ -87,6 +89,7 @@ export function GraphControls({
       >
         <RepeatIcon weight="bold" className="h-4 w-4" />
       </ControlButton>
+      <BackdropButton />
     </Panel>
   );
 }

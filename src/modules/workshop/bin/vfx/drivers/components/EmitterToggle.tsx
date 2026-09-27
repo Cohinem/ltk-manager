@@ -1,8 +1,9 @@
-import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
+import { PowerIcon } from "@phosphor-icons/react";
 import { use } from "react";
 
 import { Tooltip } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
@@ -35,11 +36,13 @@ export function EmitterToggle({ wire, disabled }: { wire: string; disabled: bool
         aria-label={label}
         aria-pressed={!disabled}
         /* DS-VEIL, DS-RADIUS */
-        className="nodrag flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-300 hover:bg-surface-veil hover:text-surface-100"
+        className={twMerge(
+          "nodrag flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-accent-300 hover:bg-surface-veil hover:text-accent-200",
+          disabled && "text-surface-500 hover:text-surface-200",
+        )}
         onClick={toggle}
       >
-        {disabled && <EyeSlashIcon weight="bold" className="h-3.5 w-3.5" />}
-        {!disabled && <EyeIcon weight="bold" className="h-3.5 w-3.5" />}
+        <PowerIcon weight="bold" className="h-3.5 w-3.5" />
       </button>
     </Tooltip>
   );

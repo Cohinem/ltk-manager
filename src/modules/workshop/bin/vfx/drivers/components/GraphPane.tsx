@@ -9,6 +9,7 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { vfxQueries } from "../../hooks/useVfxSystem";
 import { isMaterial, layoutGraph } from "../utils/driverLayout";
 import { NO_PENDING, type PendingFields } from "../utils/emitterGraph";
+import { listIds, openLists } from "../utils/entryLists";
 import { embedSockets } from "../utils/socketEmbed";
 import { type GraphItem, type GraphTree, systemGraph } from "../utils/systemGraph";
 import { type GraphActions, GraphActionsContext } from "./graphActions";
@@ -44,7 +45,7 @@ export function GraphPane({
   const visible = useContentVisible();
   const query = useQuery({ ...vfxQueries.system(document, entry), enabled: entry !== "" });
   const [pending, setPending] = useState<PendingFields>(NO_PENDING);
-  /* A driver `embeds` sits in its socket until the reader pops it out to a node. */
+  /* An item `embeds` sits in its socket until the reader pops it out to a node. */
   const [popped, setPopped] = useState<ReadonlySet<string>>(NONE);
   const graph = useMemo(
     () => (query.data === undefined ? null : systemGraph(query.data.root, pending)),
@@ -58,7 +59,12 @@ export function GraphPane({
      opens it, and every other node shows its inputs until the reader folds it. */
   const [folded, setFolded] = useState<ReadonlySet<string>>(NONE);
   const [opened, setOpened] = useState<ReadonlySet<string>>(NONE);
-  const firstFolded = useMemo(() => (tree === null ? NONE : foldedFirst(tree)), [tree]);
+  /* A material's lists open folded too, and Expand all leaves them so. */
+  const lists = useMemo(() => (tree === null ? NONE : listIds(tree)), [tree]);
+  const firstFolded = useMemo(
+    () => (tree === null ? NONE : new Set([...foldedFirst(tree), ...lists])),
+    [tree, lists],
+  );
   const collapsed = useMemo(
     () => new Set([...folded, ...[...firstFolded].filter((id) => !opened.has(id))]),
     [folded, firstFolded, opened],
@@ -66,7 +72,7 @@ export function GraphPane({
   /* The Preview pane holds the viewport until the reader asks for it on the graph. */
   const [previewed, setPreviewed] = useState(false);
   const layout = useMemo(
-    () => (tree === null ? null : layoutGraph(tree, collapsed, previewed)),
+    () => (tree === null ? null : layoutGraph(openLists(tree, collapsed), collapsed, previewed)),
     [tree, collapsed, previewed],
   );
 
@@ -98,9 +104,9 @@ export function GraphPane({
   const collapseAll = useCallback(
     (collapse: boolean) => {
       setFolded(collapse && tree !== null ? collapsible(tree) : NONE);
-      setOpened(collapse ? NONE : firstFolded);
+      setOpened(collapse ? NONE : new Set([...firstFolded].filter((id) => !lists.has(id))));
     },
-    [tree, firstFolded],
+    [tree, firstFolded, lists],
   );
   const collapseOthers = useCallback(
     (item: GraphItem) => {

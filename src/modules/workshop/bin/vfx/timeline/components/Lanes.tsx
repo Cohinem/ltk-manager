@@ -19,7 +19,7 @@ import { toggled, useVfxRun } from "../../playback/state/run";
 import { useLaneSelect } from "../hooks/useLaneSelect";
 import { useLaneView } from "../hooks/useLaneView";
 import { drawHistogram, writeCounts } from "../utils/histogram";
-import { childLanes, laneOrder, matchingLanes, timeAt, xOf } from "../utils/laneModel";
+import { childLanes, laneBar, laneOrder, matchingLanes, timeAt, xOf } from "../utils/laneModel";
 import { COUNT, laneLabel, LaneRow, type Row } from "./LaneRow";
 import { useLaneGestures, VisibilityHeader } from "./laneVisibility";
 import { PastRun, Ruler } from "./Ruler";
@@ -114,6 +114,16 @@ export function Lanes() {
     () => (system === null ? [] : laneOrder(system).map((emitter) => emitter.index)),
     [system],
   );
+  const edges = useMemo(
+    () =>
+      system === null
+        ? []
+        : system.emitters.flatMap((emitter) => {
+            const bar = laneBar(emitter);
+            return bar.end === null ? [bar.start] : [bar.start, bar.end];
+          }),
+    [system],
+  );
   const listed = useMemo(
     () => rows.flatMap((row) => (row.kind === "emitter" ? [row.emitter.index] : [])),
     [rows],
@@ -129,8 +139,9 @@ export function Lanes() {
   const expand = useCallback((index: number) => setExpanded((held) => toggled(held, index)), []);
 
   /* The playhead and its flag follow every frame, and the counts and the histogram every
-     `REDRAW_MS`. The paint colour is read once here rather than per redraw, since a computed
-     style forces the document's styles to settle first. */
+     `REDRAW_MS`. The paint colour is read once per canvas rather than per redraw, since a
+     computed style forces the document's styles to settle first, and the canvas mounts only
+     once the Histogram switch turns on, after the effect began. */
   const body = useRef<HTMLDivElement>(null);
   const playhead = useRef<HTMLDivElement>(null);
   const flag = useRef<HTMLDivElement>(null);
@@ -139,17 +150,22 @@ export function Lanes() {
   const drawn = useRef(0);
   const { view, refit } = useLaneView(span, body, width);
   useEffect(() => {
-    const colour =
-      canvas.current === null
-        ? ""
-        : getComputedStyle(canvas.current).getPropertyValue(HISTOGRAM_TOKEN).trim();
+    let painted: { canvas: HTMLCanvasElement; colour: string } | null = null;
+    const colourOf = (target: HTMLCanvasElement) => {
+      if (painted?.canvas !== target) {
+        const colour = getComputedStyle(target).getPropertyValue(HISTOGRAM_TOKEN).trim();
+        painted = { canvas: target, colour };
+      }
+      return painted.colour;
+    };
     const paint = () => {
       const x = xOf(view, width, driver.phase);
       standLine([playhead.current, flag.current], chip.current, x, width, driver.phase);
       const now = performance.now();
       if (now - drawn.current < REDRAW_MS) return;
       drawn.current = now;
-      drawHistogram(canvas.current, colour, driver.histogram, {
+      const target = canvas.current;
+      drawHistogram(target, target === null ? "" : colourOf(target), driver.histogram, {
         lanes: rows.map((row) => (row.kind === "emitter" ? row.emitter.index : null)),
         row: ROW,
         view,
@@ -299,6 +315,7 @@ export function Lanes() {
               onExpand={expand}
               onSelect={select}
               onSeek={seekAt}
+              edges={edges}
             />
           ))}
           <div

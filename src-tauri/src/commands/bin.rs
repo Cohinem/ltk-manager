@@ -13,9 +13,10 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{
-    BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow, BinRows,
-    ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice, DeclaredState, Declaring,
-    Dependency, EditOutcome, GameCopy, ProjectNames, ReadOnly, Reshape, RowDeclaration, RowNames,
+    BinChange, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow,
+    BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
+    DeclaredState, Declaring, Dependency, EditOutcome, GameCopy, ProjectNames, ReadOnly, Reshape,
+    RowDeclaration, RowNames,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
@@ -318,6 +319,46 @@ pub async fn bin_redo(
     app_handle: AppHandle,
 ) -> IpcResult<Option<Reshape>> {
     off_thread(move || Ok(app_handle.state::<BinDocuments>().redo(document)?)).await
+}
+
+/// Every property and object of an open document that differs from `baseline`: the file as
+/// it was opened, or the installed game's copy of each object.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_changes(
+    document: BinDocumentId,
+    baseline: ChangeBaseline,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<BinChange>> {
+    off_thread(move || {
+        let game = InstalledGame(app_handle.clone());
+        app_handle
+            .state::<BinDocuments>()
+            .changes(document, baseline, &game)
+    })
+    .await
+}
+
+/// Put the property at `path` under `entry` back to what `baseline` holds, as one undoable
+/// edit. `entry` is `0x` and eight hex digits.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_revert(
+    document: BinDocumentId,
+    entry: String,
+    path: String,
+    baseline: ChangeBaseline,
+    app_handle: AppHandle,
+) -> IpcResult<()> {
+    off_thread(move || {
+        let entry = parse_hash(&entry)
+            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
+        let game = InstalledGame(app_handle.clone());
+        app_handle
+            .state::<BinDocuments>()
+            .revert(document, entry, &path, baseline, &game)
+    })
+    .await
 }
 
 /// Read an open document's file again, dropping the edits its tree held.

@@ -25,10 +25,9 @@ export function edgeLanes(
   for (const edge of edges) {
     const placed = ends(edge);
     if (placed === null) continue;
-    byTarget.set(edge.target, [
-      ...(byTarget.get(edge.target) ?? []),
-      { id: edge.id, ends: placed },
-    ]);
+    const into = byTarget.get(edge.target);
+    if (into === undefined) byTarget.set(edge.target, [{ id: edge.id, ends: placed }]);
+    else into.push({ id: edge.id, ends: placed });
   }
 
   const lanes = new Map<string, number>();

@@ -15,9 +15,9 @@ import { twMerge } from "@/utils";
 
 import type { ValueFamily } from "../../values/utils/valueRows";
 import type { CurveTab } from "../state/curveTarget";
-import { CHANNELS, CHIP } from "../utils/curveChannels";
+import { CHANNELS, chipOf } from "../utils/curveChannels";
 import { drawsSpread, isRandom, type RandomDraw, rerollsEveryFrame } from "../utils/randomDraw";
-import { ChancePin } from "./ChancePin";
+import { ChanceButton } from "./ChancePin";
 
 interface CurveToolbarProps {
   /** What the row leads with, the target's caption, which gives way first as the pane narrows. */
@@ -96,7 +96,7 @@ export function CurveToolbar({
               /* DS-RADIUS, DS-VEIL, DS-TEXT */
               className={twMerge(
                 "cursor-pointer rounded-sm px-1.5 font-mono text-meta font-semibold hover:bg-surface-veil",
-                muted.has(channel) ? "text-surface-600" : (CHIP[channel] ?? CHIP[0]),
+                muted.has(channel) ? "text-surface-600" : chipOf(family, channel),
               )}
               onClick={() => onToggle(channel)}
             >
@@ -189,7 +189,7 @@ export function CurveToolbar({
         </Tooltip>
       </span>
       <span className="flex items-center gap-3">
-        {spread && <ChancePin />}
+        {spread && <ChanceButton />}
         <SegmentedControl
           size="xs"
           aria-label={m.workshop_bin_curve_tab_label()}

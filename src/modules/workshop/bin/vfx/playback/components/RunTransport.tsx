@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 
 import { Separator } from "@/components";
 
-import { ChancePin } from "../../../curves/components/ChancePin";
-import { useRunClock, useVfxRun } from "../state/run";
+import { ChanceButton } from "../../../curves/components/ChancePin";
+import { useVfxRun } from "../state/run";
+import { useRunClock } from "../state/runReadout";
 import { Playhead, Transport } from "./Transport";
 
 export interface RunTransportProps {
@@ -11,7 +12,7 @@ export interface RunTransportProps {
   variant?: "full" | "mini";
   /** The row carries a scrub, which a host drawing a ruler of its own leaves out. */
   scrub?: boolean;
-  /** What the host carries at the row's right end, before the chance pin. */
+  /** What the host carries at the row's right end, before the chance button. */
   children?: ReactNode;
   className?: string;
 }
@@ -45,7 +46,7 @@ export function RunTransport({ variant, scrub = true, children, className }: Run
       <span className="ml-auto flex min-w-0 shrink items-center gap-2">
         {children}
         <Separator orientation="vertical" className="mx-0 h-4" />
-        <ChancePin className="shrink" />
+        <ChanceButton />
       </span>
     </Transport>
   );

@@ -1,10 +1,14 @@
-import { type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode, use } from "react";
 
 import { twMerge } from "@/utils";
 
+import { ChangeMark } from "../../../documents/components/ChangeMark";
+import { useChangedOnlyView } from "../../../documents/hooks/useChanges";
+import { rowKey } from "../../../tree/utils/binRows";
 import type { GraphItem } from "../utils/graphItems";
 import { itemHue } from "../utils/graphTones";
 import { itemTitle } from "../utils/nodeText";
+import { GraphActionsContext } from "./graphActions";
 import { type PlateFace, plateFace } from "./PlateFace";
 
 /**
@@ -22,6 +26,7 @@ export function NodeFrame({
   selected,
   dim = false,
   plate = "inside",
+  dropTarget = false,
   children,
 }: {
   item: GraphItem;
@@ -34,29 +39,39 @@ export function NodeFrame({
    * picture a column leaves room above, or nothing for a picture that names itself.
    */
   plate?: "inside" | "above" | "none";
+  /** A texture or a mesh dragged from the content tree lands on the node. */
+  dropTarget?: boolean;
   children: ReactNode;
 }) {
   const hue = itemHue(item);
-  const style = {
-    width,
-    height,
-    borderTopColor: hue,
-    "--node-hue": hue,
-    "--node-wash": `color-mix(in srgb, ${hue} 16%, transparent)`,
-  } as CSSProperties;
+  const style = { width, height, borderTopColor: hue, ...hueStyle(item) } as CSSProperties;
+  const entry = use(GraphActionsContext)?.entry ?? "";
+  const changeKey = item.wire === "" || entry === "" ? null : rowKey({ entry, path: item.wire });
+  const only = useChangedOnlyView();
+  const unchanged =
+    only !== null && changeKey !== null && !only.rows.has(changeKey) && !only.within.has(changeKey);
 
   return (
     <div
       data-ui="SystemGraph:node"
+      data-asset-drop={dropTarget || undefined}
       style={style}
       /* DS-GROUND, DS-RADIUS, DS-HOVER */
       className={twMerge(
         "group/node relative flex flex-col rounded-lg border border-t-2 border-surface-veil-strong bg-surface-800 text-row shadow-md transition-[border-color,box-shadow] hover:border-accent-hover",
         selected && "border-accent-500 ring-2 ring-accent-500/40 hover:border-accent-500",
         dim && "opacity-80",
+        unchanged && "opacity-30",
+        "data-asset-over:border-accent-400 data-asset-over:ring-2 data-asset-over:ring-accent-500/50",
       )}
     >
       {children}
+      {changeKey !== null && (
+        <ChangeMark
+          rowKey={changeKey}
+          className="absolute -top-1 -right-1 z-10 h-2.5 w-2.5 ring-2 ring-surface-900"
+        />
+      )}
       {plate === "inside" && (
         <InsidePlate title={itemTitle(item)} face={plateFace(item)} hue={hue} height={height} />
       )}
@@ -65,13 +80,66 @@ export function NodeFrame({
   );
 }
 
-/** The zoom under which a node's rows give way to its plate. */
-export const FAR_ZOOM = 0.6;
+/** The hue a node of `item`'s type is drawn in, and its wash, as the variables its parts read. */
+export function hueStyle(item: GraphItem): CSSProperties {
+  const hue = itemHue(item);
+  return {
+    "--node-hue": hue,
+    "--node-wash": `color-mix(in srgb, ${hue} 16%, transparent)`,
+  } as CSSProperties;
+}
+
+/**
+ * An item drawn in its socket rather than as a node, in the hue its node would carry: an edge
+ * down its left and its wash fading across it, under `hueStyle`'s variables.
+ */
+export const EMBED_TONE =
+  "border-l-2 border-(color:--node-hue) bg-linear-to-r from-(--node-wash) to-transparent to-60%";
 
 /** Classes of a part that shows only above `FAR_ZOOM`, keyed off `data-detail` on the canvas. */
 export const NEAR_ONLY = "transition-opacity in-data-[detail=far]:opacity-0";
+
+/**
+ * `NEAR_ONLY` for a node body's rows one by one, so a row marked `data-far-face` stays to draw
+ * its own face under `FAR_ZOOM`, which a fade of the whole body would take with it.
+ */
+export const ROWS_NEAR_ONLY =
+  "[&>*]:transition-opacity in-data-[detail=far]:[&>*:not([data-far-face])]:opacity-0";
 const FAR_ONLY =
   "pointer-events-none opacity-0 transition-opacity in-data-[detail=far]:pointer-events-auto in-data-[detail=far]:opacity-100";
+
+/**
+ * An embedded item's face over its row under `FAR_ZOOM`: the plate face its own node would
+ * show, in its hue from `hueStyle`, drawn above the node's own plate.
+ */
+export function RowPlate({ item }: { item: GraphItem }) {
+  const face = plateFace(item);
+  const text = face.type === "value" ? face.text : itemTitle(item);
+
+  return (
+    <div
+      aria-hidden
+      className={twMerge(
+        "absolute inset-0 z-10 flex items-center justify-center overflow-hidden rounded-sm px-1.5 py-1",
+        FAR_ONLY,
+      )}
+      style={{ background: "color-mix(in srgb, var(--node-hue) 22%, var(--color-surface-800))" }}
+    >
+      {face.type === "picture" && <div className="h-full w-full">{face.picture}</div>}
+      {face.type !== "picture" && (
+        <span
+          className="truncate font-mono font-medium text-surface-50"
+          style={{ fontSize: `min(${PLATE_TYPE}, ${ROW_TYPE_MAX}px)` }}
+        >
+          {text}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** The largest a row plate's text grows, in canvas units, so it stays inside its row. */
+const ROW_TYPE_MAX = 20;
 
 /** A plate's text at 15 screen pixels, which `--graph-zoom` on the canvas turns to canvas units. */
 const PLATE_TYPE = "calc(15px / var(--graph-zoom, 1))";

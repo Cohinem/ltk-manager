@@ -17,6 +17,7 @@ import { FieldRow } from "../../../classes/components/ClassCells";
 import type { ComponentItem, ComponentLine, DriverItem } from "../utils/graphItems";
 import { KIND_NAME, KIND_TONE } from "../utils/graphTones";
 import { driverSummary, fieldAlias, itemSubtitle, itemTitle } from "../utils/nodeText";
+import { outputTop } from "../utils/outputSocket";
 import { FIELD_PAD, FieldBody, Line, NAME_COLUMN, useRowsAt } from "./FieldLines";
 import { type ComponentFlowNode, NodeHeader, Output, SOCKET, socketFill } from "./GraphNodes";
 import { NodeFrame } from "./NodeFrame";
@@ -62,7 +63,7 @@ export function ComponentNodeView({ data, selected }: NodeProps<ComponentFlowNod
           ))}
         </div>
       )}
-      <Output kind={null} />
+      <Output kind={null} top={outputTop(item)} />
     </NodeFrame>
   );
 }
@@ -73,7 +74,7 @@ type Embeds = ReadonlyMap<string, DriverItem>;
 function embedsOf(item: ComponentItem): Embeds {
   return new Map(
     item.ports.flatMap((port) =>
-      port.embed === undefined ? [] : [[port.id, port.embed] as const],
+      port.embed?.type === "driver" ? [[port.id, port.embed] as const] : [],
     ),
   );
 }
@@ -202,6 +203,8 @@ function MaterialLine({ line }: { line: Extract<ComponentLine, { type: "material
         position={Position.Left}
         id={line.port}
         isConnectable={false}
+        isConnectableStart={false}
+        isConnectableEnd={false}
         className={twMerge(SOCKET, socketFill(null))}
       />
       <span
@@ -248,7 +251,7 @@ function HeldField({
   }
 
   return (
-    <Line>
+    <Line menu={{ row, owner: null }}>
       <div className="min-w-0 flex-1 overflow-hidden">
         <FieldRow
           row={row}
@@ -284,6 +287,8 @@ function InputLine({
         position={Position.Left}
         id={line.port}
         isConnectable={false}
+        isConnectableStart={false}
+        isConnectableEnd={false}
         className={twMerge(SOCKET, socketFill(line.kind))}
       />
       <span

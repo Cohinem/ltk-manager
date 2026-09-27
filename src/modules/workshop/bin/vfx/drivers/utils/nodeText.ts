@@ -3,8 +3,11 @@ import { m } from "@/i18n";
 import { nameHash } from "../../../shared/utils/binHash";
 import type { DriverNode } from "../../engine/drivers/node";
 import { driverClass } from "../../engine/drivers/registry";
+import type { ValueCurve } from "../../engine/model/model";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
-import type { GraphItem, InputItem, ValueItem } from "./graphItems";
+import type { GraphItem, InputItem, RenderItem, ValueItem } from "./graphItems";
+import { renderTexture } from "./renderSection";
+import { drawsRandom, rangeAt } from "./valueRange";
 
 const EMITTER_CLASS = "VfxShimmerEmitterDefinitionData";
 
@@ -41,6 +44,8 @@ export function itemTitle(item: GraphItem): string {
       return fieldAlias(item.label, item.field);
     case "file":
       return fileName(item.path);
+    case "render":
+      return m.workshop_bin_emitter_group_texture_label();
     case "value":
       if (item.curve.keys.length > 0) return m.workshop_bin_driver_curve_label();
       return m.workshop_bin_driver_random_label();
@@ -62,6 +67,7 @@ export function itemSubtitle(item: GraphItem): string {
 export function inputSummary(input: InputItem): string {
   if (input.type === "value") return valueSummary(input);
   if (input.type === "file") return fileName(input.path);
+  if (input.type === "render") return renderSummary(input);
 
   switch (input.shape) {
     case "struct":
@@ -73,9 +79,17 @@ export function inputSummary(input: InputItem): string {
   }
 }
 
+/** What a Texture node's input row names: its texture's file. */
+function renderSummary(item: RenderItem): string {
+  const texture = renderTexture(item);
+  return texture === null ? "" : fileName(texture.path);
+}
+
 /** A keyed value's key count, and Random where it carries probability tables. */
 export function valueSummary(item: ValueItem): string {
   const { keys, tables } = item.curve;
+  if (keys.length <= 1 && drawsRandom(item.curve)) return rangeText(item.curve);
+
   const parts = [];
   if (keys.length > 0) parts.push(m.workshop_bin_driver_curve_keys_label({ count: keys.length }));
   if (tables.length > 0) parts.push(m.workshop_bin_driver_random_label());
@@ -87,6 +101,7 @@ export function itemClass(item: GraphItem): ItemClass | null {
   switch (item.type) {
     case "preview":
     case "file":
+    case "render":
       return null;
     case "emitter":
       return { name: EMITTER_CLASS, hash: nameHash(EMITTER_CLASS) };
@@ -167,4 +182,14 @@ function formatNumber(value: number): string {
 /** The last segment of a path, which names the file. */
 export function fileName(path: string): string {
   return path.split(/[\\/]/).at(-1) ?? path;
+}
+
+/** A random value's span as text: `least – most`, one per channel inside brackets for a vector. */
+export function rangeText(curve: ValueCurve): string {
+  const spans = rangeAt(curve, 0).map((range) =>
+    range.least === range.most
+      ? formatValues([range.least])
+      : `${formatValues([range.least])} – ${formatValues([range.most])}`,
+  );
+  return spans.length === 1 ? spans[0]! : `(${spans.join(", ")})`;
 }

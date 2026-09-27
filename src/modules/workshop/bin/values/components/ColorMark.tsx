@@ -74,7 +74,7 @@ function Strip({ stops, wide }: { stops: readonly ColorStop[]; wide: boolean }) 
 
   return (
     <Popover.Root>
-      <Popover.Trigger openOnHover delay={CARD_DELAY} render={trigger} />
+      <Popover.Trigger openOnHover delay={CARD_DELAY} nativeButton={false} render={trigger} />
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="start" sideOffset={6}>
           <Popover.Popup

@@ -2,6 +2,7 @@ export * from "../bin/documents/state/binSaves";
 export * from "../bin/documents/state/editorFile";
 export * from "../bin/documents/state/openBins";
 export * from "../bin/vfx/playback/state/vfxRunMemory";
+export * from "../content/state/assetDrag";
 export * from "../explorer/state/explorer";
 export * from "../gameBrowser/extraction/state/extractDialog";
 export * from "../gameBrowser/extraction/state/extractRun";

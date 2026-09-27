@@ -8,7 +8,7 @@ import type { RgbColor } from "@/utils";
 import { Swatch } from "../../values/components/ColorMark";
 import { type FieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
 import { colorHex, type CurveKey, type ValueFamily } from "../../values/utils/valueRows";
-import { CHANNELS, CHIP } from "../utils/curveChannels";
+import { CHANNELS, chipOf } from "../utils/curveChannels";
 import { CURVE_TIME_STEP, curveValueStep, snapCurveValue } from "../utils/curveSnapping";
 
 interface CurveKeyEditorProps {
@@ -78,6 +78,8 @@ export function CurveKeyEditor({
   const next = keys[selectedAt + 1];
   const names = CHANNELS[family];
   const suffix = unit === null ? null : UNIT_SUFFIX[unit]();
+  /* A vector's or a colour's channels are named by their sash, as the inspector's are. */
+  const sashed = family !== "scalar";
 
   function changeTime(value: number, commit: boolean) {
     if (draft === null) return;
@@ -147,28 +149,35 @@ export function CurveKeyEditor({
         const label = suffix === null ? name : `${name} ${suffix}`;
         const colorLimit = family === "color";
         const guide = curveValueStep(keys, channel, colorLimit);
+        const field = (
+          <StepperField
+            key={channel}
+            className="w-24 text-meta"
+            aria-label={label}
+            channel={sashed ? channel : undefined}
+            increaseLabel={m.common_number_increase_action()}
+            decreaseLabel={m.common_number_decrease_action()}
+            value={value}
+            min={colorLimit ? 0 : undefined}
+            max={colorLimit ? 1 : undefined}
+            step={guide.step}
+            smallStep={guide.smallStep}
+            largeStep={guide.largeStep}
+            decimals={guide.decimals}
+            disabled={!editable}
+            onValueChange={(nextValue) => changeChannel(channel, nextValue, false)}
+            onValueCommitted={(nextValue) => changeChannel(channel, nextValue, true)}
+          />
+        );
 
+        if (sashed) return field;
         return (
-          <KeyField key={channel} label={label} tone={CHIP[channel] ?? CHIP[0]}>
-            <StepperField
-              className="w-24 text-meta"
-              aria-label={label}
-              increaseLabel={m.common_number_increase_action()}
-              decreaseLabel={m.common_number_decrease_action()}
-              value={value}
-              min={colorLimit ? 0 : undefined}
-              max={colorLimit ? 1 : undefined}
-              step={guide.step}
-              smallStep={guide.smallStep}
-              largeStep={guide.largeStep}
-              decimals={guide.decimals}
-              disabled={!editable}
-              onValueChange={(nextValue) => changeChannel(channel, nextValue, false)}
-              onValueCommitted={(nextValue) => changeChannel(channel, nextValue, true)}
-            />
+          <KeyField key={channel} label={label} tone={chipOf(family, channel)}>
+            {field}
           </KeyField>
         );
       })}
+      {sashed && suffix !== null && <span className="-ml-2 text-surface-400">{suffix}</span>}
       {hint}
     </div>
   );

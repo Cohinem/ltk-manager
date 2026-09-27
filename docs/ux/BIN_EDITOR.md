@@ -635,6 +635,12 @@ alone, and one whose file writes no `constantValue` draws the strip alone: a col
 is its stops, and a row that waited for a constant the file never held drew nothing at all. The
 other three draw the constant in the field a scalar or a vector row draws.
 
+**A colour edits as a colour.** An editable colour constant, a float vector of three or four
+channels whose field name ends in `Color`, and a byte colour each draw a swatch with its hex and
+alpha. A click opens a picker with an alpha slider and each channel as an exact field, which keeps
+a channel past 1 or below 0 the picker cannot reach, and Save writes every channel at once. A byte
+colour keeps its channel boxes beside the swatch.
+
 ```
 |  birthColor    embed   ValueColor    [#] [=====gradient=====]   |
 |  rate          embed   ValueFloat    [ 1.00 ]                   |
@@ -709,7 +715,7 @@ pixel was clicked never changes what it offers.
 | Copy value                       | A row whose value reads as one string     |
 | Copy value hash                  | A row whose value carries a hash          |
 | Show in properties               | A cell of a class view                    |
-| Reset to default                 | A property row of a class view            |
+| Reset to default                 | A property row of a class view or a node  |
 
 Copy value takes the value as the row draws it: a string, a number, a `flag` as `true` or `false`,
 a colour as `#RRGGBBAA`, a vector or a matrix as its components joined by a comma, and a link as
@@ -719,7 +725,7 @@ names it.
 
 #### Reset to default
 
-Reset to default puts a property back to its class default. It is one undo step.
+Reset to default puts a property back to its class default. It is one undo step. The Graph pane offers it too, first in the menu of a right click on a field row inside a node.
 
 - a bin that can drop a property removes it, and the class view then draws the field as the
   schema's default, the value the game reads for a field the file leaves out
@@ -734,6 +740,36 @@ Reset to default puts a property back to its class default. It is one undo step.
   the same way and drops its curve
 - in a declared document, a list, a map, an embed or a pointer has no single default to write,
   so the item is disabled with the reason as its title
+
+#### What changed
+
+Every row and node that differs from a baseline carries a dot, and the row menu offers the
+baseline's value back. Changes in the inspector's toolbar holds the switches: Mark changes, on
+by default, Changed only, and the baseline, the file as it was opened or the game's copy.
+
+```
+Changes v                         Rate           [ 12.0 ] *     filled dot: changed
+  [x] Mark changes                Birth color    [#ff8800] *    green dot: added
+  [ ] Changed only                Shape          ( 3 )  o       ring: a change inside
+  (o) Compare with the file as opened
+  ( ) Compare with the game's copy
+```
+
+- the file as opened is the bytes the document was read from. A save leaves it as it is, since
+  every edit saves on its own, so it keeps what this session changed. A reload reads it again
+- the game's copy is each object as the first game archive that declares it holds it. An
+  object no archive declares is added
+- a struct, and a list or a map of structs of one class, is compared field by field, so an edit
+  inside an emitter marks that field. Any other value is compared whole
+- a dot is amber for a changed value, green for an added one and red for a removed one. A ring
+  marks a holder, a node or an emitter with a change inside it, and a node carries its dot on its
+  top right corner
+- Revert to opened, or Revert to game, writes the baseline's value back as one undo step. A
+  property the baseline lacks is removed, and one only the baseline holds is written back
+- Changed only lists the changed properties alone in the inspector and fades every node of the
+  Graph pane without a change
+- a declared document reports no changes here, since its declarations already mark what it
+  changes and Reset to default drops them
 
 ### Preview lifetime
 
@@ -1549,7 +1585,9 @@ hold. Primitive holds `primitive` alone, out of Render, because the class it nam
 every other group draws onto, per [the primitive](#the-primitive). Which fields each holds is a table written by hand, so a field the schema adds falls to
 Other and is on screen the day it appears rather than landing in a group by accident. Birth is
 the value a particle starts with and every other group is what it does over its life, which is
-the line that puts `birthScale0` under Birth and `scale0` under Scale.
+the line that puts `birthScale0` under Birth and `scale0` under Scale. Texture holds the effects
+that change how the texture draws, alpha erosion, distortion and reflection, and Effects holds
+the rest.
 
 A card and a table are two readings of one list, and a control on the section switches them. The
 strip says what one emitter is. The table compares a field down every emitter of the system,
@@ -1787,8 +1825,9 @@ v [*] Burst       [3] (o) S        [###]~~~               120
 lanes keep the row a separate transport row would take. Step back, play, step forward and restart
 come first, with play the one filled control. The time follows as `0.42 / 1.60 s`, the current time bright and the span muted. A
 hairline then sets off how the run plays: the Loop toggle and the speed. The view switches
-sit at the far end behind a second hairline: the Histogram toggle and the chance pin of
-[the random spread](#the-random-spread). Loop and Histogram are icon toggles lit while on, and
+sit at the far end behind a second hairline: the Histogram toggle and the dice button of
+[the random spread](#the-random-spread), which opens the chance pin in a popover and reads the
+pinned chance beside the dice, lit while one holds. Loop and Histogram are icon toggles lit while on, and
 their tooltips name them, with Loop's naming its key. Restart plays the run from zero.
 
 **Loop is on by default.** The Loop switch is the rig's loop, the same switch the rig's popover
@@ -1816,6 +1855,39 @@ tail runs on to the end of the linger. The live count stands at the lane's right
 `live` caption on the ruler's row. With the Histogram switch on, a histogram over the bar draws
 the emitter's live particles per step, filled in as the run plays. The switch is off by default,
 and the bar's own timing reads clear.
+
+**A bar edits by dragging.** On an emitter's own lane, a drag on the bar moves it whole and
+writes `timeBeforeFirstEmission`. Its left edge trims the first emission and keeps the end, so it
+writes the start and `lifetime` together, its right edge writes `lifetime`, and the end of the
+hatch writes `particleLinger`. Every lane has all three edges, a burst's and a very short bar's
+included, and the edge nearest the pointer wins, the end over the start on a tie. Handles show
+while the pointer is over the lane and the held one lights, the cursor says what a press takes,
+and the value reads beside the edge during the drag.
+
+- a dragged edge snaps to every emitter's bar edges, the playhead, 0 and the ruler's ticks, and a
+  line marks the snap. Between them it rounds to hundredths of a second, Ctrl rounds to
+  thousandths and Shift drags free
+- the preview plays the dragged timing as the drag goes, replayed to the playhead
+- the release writes the drag as one edit, one undo step, and Escape drops it
+- a press on the bar that never travels seeks, as the rest of the lane does
+- an endless bar's arrow drags too, which gives the emitter a `lifetime`
+- a child lane's bars stand for spawns and do not drag, and a simple emitter's linger is capped
+  to nothing, so its bar has no linger edge
+
+**A double click opens the exact times.** A double click on the bar opens a popover with the
+start delay, the lifetime, Emits until the system stops, the particle linger, Repeats in cycles
+with the period and its active part, and the single burst switch. Each field commits on its own.
+Emits until the system stops clears `lifetime`, which no drag can do.
+
+**Bursts and cycles are marked.** An `isSingleParticle` emitter's whole output is one burst,
+drawn as a diamond at its start, and its bar has no end edge. An emitter with a `period` draws a
+notch where each cycle opens and darkens the part of each cycle past `timeActiveDuringPeriod`,
+and the run emits in the lit parts alone.
+
+**An emitter node carries the lane's eye and solo.** Hide in the preview and Solo sit on each
+emitter node's header and read and write the lanes' own sets, so a node hidden, or left out by
+another's solo, fades on the canvas. The `disabled` flag, which writes the file, is the power
+button beside them.
 
 **Lanes run in draw order**: the ground layer first, then `pass`, the blend mode's rank,
 `miscRenderFlags` and the index, which is `compareDrawOrder`. A child system's emitters nest under
@@ -1967,7 +2039,22 @@ already stands there, it turns the camera to the axis's other end, on Orbit.
 loop, the stop, and the seed with its reroll. A system opens on Burst, which moves nothing and
 loops, and the popover's loop is the timeline's Loop switch.
 
-**The gizmo** draws the selected emitter's origin, its offset and its spawn shape as a wireframe.
+**The gizmo** draws the selected emitter's origin and its offset as lines, and its spawn shape as
+a body in faint faces under crisp edges. It is the one gizmo of the editor: the Spawn Shape node's
+Show shape switch opens its emitter and turns the gizmo on, pressed while the gizmo shows that
+emitter. Hovering any node of an emitter in the Graph pane draws that emitter's gizmo in a near
+white over the run, and choosing an emitter anywhere, a pick in the viewport included, selects
+its master node in the Graph pane and centers the view on it.
+
+**The handle menu** in the viewport's controls picks which of the open emitter's spatial values a
+drag edits: Offset (`translationOverride`), Turn (`rotationOverride`), Emitter position, the emit
+offset of a point or legacy shape, Shape size (a box's half-extents, a sphere's radius, a
+cylinder's radius and height), or Birth velocity. The velocity handle is the tip of a faint straight line, as far as the birth
+velocity alone carries a particle over its life. Beside it runs the path the engine flies one
+particle along, acceleration, drag and forces included, with a dot at each tenth of its life, so
+the spacing reads as its speed. A value animated over the emitter's life is listed disabled, since its
+curve edits it, as is a size or an offset the shape does not have. A drag previews through the
+run and pauses it, Escape cancels it, and the release writes the value as one edit.
 **Stats** draws the live particles, the live child systems and the frame's milliseconds in the
 bottom right corner, on a plate that reads over any ground. The count is of simulated particles,
 a muted emitter's included.
@@ -2029,13 +2116,9 @@ the field at its schema default, unfolds its section and scrolls to it, and the 
 next one. `Escape` clears the box, and on an empty box returns to the search. This is the way to
 define a field while only defined properties are shown.
 
-Its third switch, Show emitter preview (`P`), draws the open emitter and the children it spawns
-over the properties in a square mini viewport, framed as a graph node's preview is and played on
-the run's own playhead. A drag orbits the emitter, the wheel zooms toward the cursor, and a double
-click frames it again. A metre grid lies on the ground, a heavier line every five metres, fading
-with the framing. An orientation gizmo in its corner draws the bin's axes rather than the
-viewport's, so each arm points the way that channel's field values move a particle and wears the
-colour of its X, Y or Z swatch. A click on an arm or a face turns the camera to look along it. The
+Its third switch, Show emitter preview (`P`), draws the open emitter's graph node preview over
+the properties, as wide as the panel: the same particle surface, trail swatch or live draw, the
+same strip under it, played on the run's own playhead. The backdrop switch sits in its corner. The
 switch is on by default and remembered. A child lane's emitter draws no preview, because the run
 plays the opened system and not the child's.
 
@@ -2267,7 +2350,9 @@ of tables that each multiply by 1 draws nothing a reader needs to open.
 ### The tabs
 
 **Graph** plots the keys over [the window](#the-window-a-curve-is-drawn-over). A vector draws a
-line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one. The
+line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one. A
+scalar draws in the float socket's hue, which its value node carries in the Graph pane, and a
+random band has its least and most drawn as edges over a light fill, as the node's picture does. The
 value axis takes three to five round ticks over faint grid lines, a stronger line at 0 and the
 unit by the top tick. The time axis ticks at quarters.
 
@@ -2378,8 +2463,12 @@ Z  0  fixed                  |  -----------|-----------
 
 - one lane per channel, on its own scale with round ticks and 0 marked where it falls inside, so
   Y at 10 gets the width X at 55 does
-- a label column on the left, as wide as the widest label: channel, result range with unit, shape
-- density as a filled step area in the channel's hue, a split's gap hatched
+- one row per channel, read left to right: the channel, the range's least, the lane, the range's
+  most with the unit, and the shape switch. A pane too narrow to give the lane room takes each channel on
+  two lines, the fields and then the lane across the whole width, and drops a fixed channel's line
+- a uniform or split draw as its bar or bars, a light fill inside solid edges as the Graph pane's
+  value node draws one, and a custom table as density in a filled step area, both in the
+  channel's hue, a split's gap hatched
 - a fixed or filler channel as a thin dim lane with one tick at its value
 - after the lane, the value at the pin and a keys button
 - lanes scroll when the dock is short, and a muted chip hides its lane
@@ -2406,7 +2495,8 @@ table and is one undo step:
 from the curve at its least factor to the curve at its most, and a split carries two. A column on
 the plot's right edge shares the value axis and draws the density at one time: the cursor's, else
 the playhead's, drawn as a vertical line. A birth value samples at the emitter's life ratio, so
-its playhead is known. A per-particle curve has none and rests at 0. A readout row per channel
+its playhead is known. A per-particle curve samples at the life ratio of the particle the run
+follows, the one the emitter's surface shows, and rests at 0 while none lives. A readout row per channel
 under the plot reads that time: range, unit, shape, pin value and a keys button.
 
 ```
@@ -2432,9 +2522,9 @@ do not say every key, and its chance and factor are fields where the table can b
 **A colour with no keys draws one bar from chance 0 to 1,** every colour the roll gives, with the
 pin marked on it. A colour that animates draws its ramp at chance 0, at 1, and at the pin.
 
-**The chance can be pinned.** The toolbar's slider sets it, and so does a click or drag on any
-lane, which moves every lane's marker together, because one roll serves every channel. It pins
-every birth of the whole run, children included, and the viewport says so in its corner with a
+**The chance can be pinned.** Each birth draws its own chance until the Pin switch behind the dice button is
+on, and its slider then sets the chance. Nothing else sets it: a lane or a ramp only marks it,
+every lane together, because one roll serves every channel. It pins every birth of the whole run, children included, and the viewport says so in its corner with a
 cross that lets it go. The run keeps drawing its own rolls under a pin, so letting go returns the
 same run. The transport carries the same slider, per [the timeline](#the-timeline), because the
 pin belongs to the run rather than to any one reading of it, and
@@ -2869,6 +2959,55 @@ nothing else is renamed.
 **A paste refuses what is not an emitter.** Clipboard text that is no copy, or a copy of another
 class, leaves the list as it was, and a toast names the reason as for every refused structural
 edit.
+
+### Editing a node's structure in the Graph pane
+
+A node under an emitter stands for a value of the file, so the Graph pane edits the value's
+place as well as its fields. Each gesture is one edit, so one undo step.
+
+| Gesture                                              | Edit                                                      |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| Forces, in the Effects header's plus menu            | A force of the kind picked, at its game defaults          |
+| Add item, under a list node's items or in its menu   | An item of the last item's class, at the list's end       |
+| Duplicate, or `Ctrl+D` on one node selected          | A copy of a list item, right after it                     |
+| Remove item or Remove force, or `Delete` on one node | A list or map item leaves its list                        |
+| Reset to default, or `Delete` on one field's node    | The field leaves its holder, which then reads the default |
+
+**Add field is a plus on a header.** Each group heading of an emitter node lists the group's
+unwritten fields, and the emitter's own header lists those of the groups it writes nothing of,
+a submenu per group. A Texture node's header lists the texture and render fields, and the texture's
+effects, alpha erosion, distortion and reflection, which the node draws as sections of their own
+under its rows rather than as nodes. The Effects
+group always draws, so its menu offers the forces before the emitter holds any, and the fields
+leave out the force collection, which adding a force writes when it is missing.
+
+#### Adding from the keyboard
+
+**Tab opens the quick add.** With the Graph pane focused, Tab or Shift+A opens a search box at
+the pointer, and a double click on bare canvas opens one at the click. Over an emitter's node, or
+with one selected, it lists that emitter's unwritten fields under their groups, then the forces.
+It always lists New emitter, which appends a complex emitter named `Emitter1`, `Emitter2` and on.
+Typing narrows the list by an entry's name or its group, Enter adds the highlighted entry, and
+Escape or a press outside closes it. A field added this way shows at its default on its node,
+which unfolds, until an edit writes it.
+
+**An empty socket plugs in a node.** A value field that holds a constant has a hollow socket on
+its left edge. A drag out of it that ends on the canvas, or a click on it, opens the quick add
+with what plugs in: Curve, a flat curve at the constant's level, or Random range, both ends on
+the constant. The field then carries its curve and draws its value node.
+
+**A file drops from the content tree.** A file dragged out of the content tree onto a path field
+of a node writes its game path there, where the field takes that kind of file. Dropped on an
+emitter's node away from such a field, a texture writes the emitter's `texture`, and a mesh makes
+its primitive a `VfxPrimitiveMesh` holding it. Only a file under a `.wad.client` folder has a
+game path, so only such a file drags. The drag runs on pointer events rather than the webview's
+drag and drop, which the window's own file drop takes on Windows.
+
+**A keyed value reads at the playhead on the canvas.** A value node's curve or colour band carries
+a line at the run's time, with a dot per channel on a curve, and its header reads the value
+there, a colour as a swatch. A value drawn in its socket carries the line alone, so its row
+holds still. The time is the curve pane's: the emitter's life ratio for a birth value, and the life
+ratio of the particle the run follows for any other, with no line or reading while none lives.
 
 ### Validation
 

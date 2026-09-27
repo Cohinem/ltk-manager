@@ -124,9 +124,12 @@ describe("systemGraph", () => {
     ]);
   });
 
-  it("feeds a component's material from a material node of its own, which folds to its header", () => {
+  it("feeds a component's material from a material node of its own, which folds to its header and shape", () => {
     const def = struct("StaticMaterialDef", { name: { type: "string", value: "Glow" } });
-    if (def.type === "struct") def.class = "StaticMaterialDef";
+    if (def.type === "struct") {
+      def.class = "StaticMaterialDef";
+      def.object = { entry: "0x0000beef", name: null };
+    }
     const material = struct("VfxMaterialContainer", { Material: def });
     const shimmer = struct("VfxShimmerEmitterDefinitionData", {
       VfxComponents: struct("VfxComponents", {
@@ -144,6 +147,7 @@ describe("systemGraph", () => {
       { type: "material", name: "Material", className: "StaticMaterialDef", port: node.id },
     ]);
     expect(isMaterial(node)).toBe(true);
+    expect(node.material).toBe("0x0000beef");
 
     const open = layoutGraph(tree!).items.find((each) => each.item.id === node.id);
     const folded = layoutGraph(tree!, new Set([node.id])).items.find(

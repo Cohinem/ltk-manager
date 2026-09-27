@@ -3,22 +3,24 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useMemo, useState } from "react";
 import { type Camera, Color, type IUniform, Scene } from "three";
 
-import { type Bounds, OUTPUT_COLOR_SPACE, TONE_MAPPING, useSceneColors } from "@/modules/viewport";
-import { twMerge } from "@/utils";
+import { type Bounds, OUTPUT_COLOR_SPACE, TONE_MAPPING } from "@/modules/viewport";
 
+import type { EmitterModel } from "../../engine/model/model";
 import { useVfxRun } from "../../playback/state/run";
 import { VfxSystem } from "../../rendering/components/VfxSystem";
+import { HandDrawnContext } from "../../rendering/hooks/useParticlePrograms";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
 import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
-import { drawnEmitters } from "../../rendering/utils/definitions";
+import { type DrawnEmitter, drawnFor } from "../../rendering/utils/definitions";
 import { bindFrameTargets, grabDepth, PARTICLE_LAYER } from "../../rendering/utils/frame";
 import { definitionBounds } from "../../rendering/utils/systemBounds";
+import { useBackdropColor } from "../state/previewBackdrop";
 import { guardFrames } from "../utils/frameGuard";
-import { type Framing, PreviewOrbit } from "./PreviewOrbit";
+import { FollowFraming, type Framing } from "./FollowFraming";
 import { PreviewViews } from "./PreviewView";
 
 /** The texture width a node's preview asks for, which the object grid's previews use too. */
-const PREVIEW_MIP_WIDTH = 128;
+export const PREVIEW_MIP_WIDTH = 128;
 
 const FOV = 40;
 
@@ -66,7 +68,10 @@ export function EmitterPreviewLayer() {
         <FrameGuard />
         <FollowPlacement />
         <ClearFrame />
-        <PreviewViews />
+        <FramePrep />
+        <HandDrawnContext value>
+          <PreviewViews />
+        </HandDrawnContext>
       </Canvas>
     </div>
   );
@@ -179,7 +184,7 @@ const BEFORE_THE_VIEWS = 0.5;
  * upload, and R3F's one loop for every canvas then stops the whole frame, the main
  * viewport's included.
  */
-function ViewGuard() {
+export function ViewGuard() {
   useFrame((state) => {
     /* Per frame, since the framing camera's `onUpdate` does not keep the layer it enables. */
     state.camera.layers.enable(PARTICLE_LAYER);
@@ -197,9 +202,10 @@ function drawable(scene: Scene, camera: Camera): boolean {
 
   let clean = true;
   scene.traverse((object) => {
-    if (!clean) return;
-    const material = (object as { material?: { uniforms?: Record<string, IUniform> } }).material;
-    for (const uniform of Object.values(material?.uniforms ?? {})) {
+    const uniforms = (object as { material?: { uniforms?: Uniforms } }).material?.uniforms;
+    if (!clean || uniforms === undefined) return;
+
+    for (const uniform of uniformList(uniforms)) {
       const value: unknown = uniform.value;
       if (!ArrayBuffer.isView(value) && !Array.isArray(value)) continue;
       const first = (value as ArrayLike<unknown>)[0];
@@ -209,75 +215,38 @@ function drawable(scene: Scene, camera: Camera): boolean {
   return clean;
 }
 
-/**
- * One emitter's preview as a mini viewport of its own, for a host that draws no preview layer.
- *
- * A drag orbits the emitter, the wheel zooms toward the cursor, and a double click frames it
- * again. It draws the scene itself rather than through a `PreviewView`, which only a Graph
- * pane's layer draws.
- */
-export function EmitterPreviewCanvas({
-  simple,
-  listIndex,
-  className,
-}: {
-  simple: boolean;
-  listIndex: number;
-  className?: string;
-}) {
-  const [box, sized] = useHasSize();
+type Uniforms = Record<string, IUniform>;
 
-  return (
-    <div
-      ref={box}
-      data-ui="EmitterPreviewCanvas"
-      /* DS-GROUND, DS-RADIUS */
-      className={twMerge(
-        "overflow-hidden rounded-md border border-surface-veil bg-surface-950",
-        className,
-      )}
-    >
-      <Canvas
-        gl={{ alpha: true, antialias: true }}
-        dpr={[1, 2]}
-        frameloop={sized ? "always" : "never"}
-        onCreated={({ gl }) => {
-          gl.outputColorSpace = OUTPUT_COLOR_SPACE;
-          gl.toneMapping = TONE_MAPPING;
-        }}
-      >
-        <FrameGuard />
-        <FramePrep />
-        <EmitterScene simple={simple} listIndex={listIndex} />
-        <DrawScene />
-      </Canvas>
-    </div>
+/* The uniforms of each material's record, listed once rather than on every frame. */
+const UNIFORM_LISTS = new WeakMap<Uniforms, readonly IUniform[]>();
+
+function uniformList(uniforms: Uniforms): readonly IUniform[] {
+  let list = UNIFORM_LISTS.get(uniforms);
+  if (list === undefined) {
+    list = Object.values(uniforms);
+    UNIFORM_LISTS.set(uniforms, list);
+  }
+  return list;
+}
+
+/**
+ * One emitter drawn as the viewport draws it, alone and under a camera framing its bounds, for
+ * a node's preview box, which takes no pointer.
+ */
+export function EmitterLive({ emitter }: { emitter: EmitterModel }) {
+  const { system } = useVfxRun();
+  const drawn = useMemo(
+    () => (system === null ? [] : drawnFor(system, emitter)),
+    [system, emitter],
   );
+
+  return <LiveScene drawn={drawn} />;
 }
 
-/**
- * Draws the canvas's own scene, which R3F stops doing once any frame callback runs above 0.
- *
- * At a priority of 1, after `ViewGuard` has said whether it can.
- */
-function DrawScene() {
-  useFrame((state) => {
-    if (state.scene.visible) state.gl.render(state.scene, state.camera);
-  }, 1);
-  return null;
-}
-
-/** The emitter's scene under a camera the reader turns. */
-function EmitterScene({ simple, listIndex }: { simple: boolean; listIndex: number }) {
+/** `drawn` under a camera framing their bounds, which then follows their live particles. */
+function LiveScene({ drawn }: { drawn: readonly DrawnEmitter[] }) {
   const { system, driver, rig, document } = useVfxRun();
-  const colors = useSceneColors();
-  const drawn = useMemo(() => {
-    const own = system?.emitters.find(
-      (each) => each.simple === simple && each.listIndex === listIndex,
-    );
-    if (system === null || own === undefined) return [];
-    return drawnEmitters(system).filter((each) => each.root === own.index);
-  }, [system, simple, listIndex]);
+  const backdrop = useBackdropColor();
   const textures = useVfxTextures(drawn, undefined, PREVIEW_MIP_WIDTH);
   const meshes = useVfxMeshes(drawn);
   const framing = useMemo(
@@ -287,7 +256,7 @@ function EmitterScene({ simple, listIndex }: { simple: boolean; listIndex: numbe
 
   return (
     <>
-      <color attach="background" args={[colors.backdrop]} />
+      <color attach="background" args={[backdrop]} />
       <ViewGuard />
       {framing !== null && (
         <PerspectiveCamera
@@ -302,7 +271,7 @@ function EmitterScene({ simple, listIndex }: { simple: boolean; listIndex: numbe
           }}
         />
       )}
-      {framing !== null && <PreviewOrbit framing={framing} />}
+      {framing !== null && <FollowFraming drawn={drawn} meshes={meshes} framing={framing} />}
       {drawn.length > 0 && (
         <VfxSystem
           drawn={drawn}

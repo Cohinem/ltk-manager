@@ -87,6 +87,20 @@ export function vectorLeaf(
   return typed({ type: "vector", values: next });
 }
 
+/** The float vector `values` whole, as a colour picker sends every channel at once. */
+export function vectorValuesLeaf(values: readonly number[]): TypedLeaf {
+  if (!values.every(Number.isFinite)) return refused({ reason: "notFinite" });
+  return typed({ type: "vector", values: [...values] });
+}
+
+/** A byte colour from float channels, each 1 at full, as a colour picker sends them. */
+export function colorChannelsLeaf(channels: readonly number[]): TypedLeaf {
+  const [r = 0, g = 0, b = 0, a = 1] = channels.map((each) =>
+    Math.round(Math.min(Math.max(each, 0), 1) * 255),
+  );
+  return typed({ type: "color", r, g, b, a });
+}
+
 /** The matrix `values`, row-major, with the cell `at` replaced by `text`. */
 export function matrixLeaf(
   values: readonly (number | null)[],

@@ -50,7 +50,7 @@ describe("PostEffectsControl", () => {
     });
     const group = within(popup).getByRole("group", { name: "Height fog" });
     expect(within(group).getByRole("slider", { name: "Start" })).toBeInTheDocument();
-    expect(within(group).getByRole("button", { name: "Fog colour" })).toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "Fog color" })).toBeInTheDocument();
   });
 
   it("sets the occlusion as its own override, apart from the other effects", async () => {

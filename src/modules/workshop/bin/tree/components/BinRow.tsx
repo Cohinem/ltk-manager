@@ -38,6 +38,7 @@ import { ObjectGlyph } from "../../../shared/components/ObjectGlyph";
 import { clickIntent } from "../../../state";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { DeclaredLine, FieldCard } from "../../classes/components/FieldCard";
+import { ChangeMark } from "../../documents/components/ChangeMark";
 import {
   DeclaredDiagnosticsMark,
   DeclaredRowMark,
@@ -54,6 +55,7 @@ import { ObjectNameContext, useObjectOpen } from "../../links/hooks/useLinkTarge
 import { PathInput } from "../../paths/components/PathInput";
 import { type PathField, pathFieldOf } from "../../paths/utils/pathField";
 import { CutText } from "../../shared/components/CutText";
+import { ColorField, isColorVector } from "../../values/components/ColorField";
 import { ColorMark } from "../../values/components/ColorMark";
 import { FlagsSelect } from "../../values/components/FlagsSelect";
 import { useValueMark } from "../../values/hooks/useValueMarks";
@@ -92,9 +94,11 @@ import {
   floatLeaf,
   hashedLeaf,
   integerLeaf,
+  colorChannelsLeaf,
   matrixLeaf,
   stringLeaf,
   vectorLeaf,
+  vectorValuesLeaf,
 } from "../utils/leafText";
 import {
   EDIT_ICON,
@@ -471,6 +475,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
       )}
       {declared && <DeclaredRowMark mark={declared.mark} layer={declared.layer} />}
       {objectChange && <ObjectChangeMark change={objectChange.change} layer={objectChange.layer} />}
+      <ChangeMark rowKey={line.key} />
       <DeclaredDiagnosticsMark diagnostics={reported} />
       {held && <ClassCard classHash={held.classHash} name={held.class} />}
       {!object && !element && <KindTag row={row} />}
@@ -512,7 +517,16 @@ const TAG_CLASSES = "text-bin-kind-text";
  * The cell a row's value draws, which is what a class view places where its layout
  * names no widget of its own.
  */
-export function RowValue({ row, field = ownField(row) }: { row: BinRow; field?: string | null }) {
+export function RowValue({
+  row,
+  field = ownField(row),
+  color = false,
+}: {
+  row: BinRow;
+  field?: string | null;
+  /** The row is a colour whatever its name, such as a colour value's constant. */
+  color?: boolean;
+}) {
   const objectName = use(ObjectNameContext);
   const key = rowKey(row);
   const { edit: treeEdit } = useRowEdit(key);
@@ -529,6 +543,7 @@ export function RowValue({ row, field = ownField(row) }: { row: BinRow; field?: 
           object: objectName(row.entry),
           autoFocus: focused,
           onEnter: () => treeEdit?.enter(key),
+          color,
         });
 
   if (widget !== null) {
@@ -537,6 +552,14 @@ export function RowValue({ row, field = ownField(row) }: { row: BinRow; field?: 
       <span data-row-value className="group/row flex min-w-0 flex-1 items-center gap-2">
         <FieldDiscardContext value={() => edit?.dismiss?.(key)}>{widget}</FieldDiscardContext>
         {refusal !== undefined && <RefusalMark refusal={refusal} />}
+      </span>
+    );
+  }
+
+  if (row.value.type === "vector" && (color || isColorVector(row.name, row.value.values))) {
+    return (
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <ColorField values={row.value.values} label={m.workshop_bin_color_edit_action()} />
       </span>
     );
   }
@@ -574,6 +597,8 @@ interface LeafDrawing {
   autoFocus: boolean;
   /** A bare `Enter` left the field. */
   onEnter: () => void;
+  /** The row is a colour whatever its name. */
+  color: boolean;
 }
 
 /**
@@ -583,7 +608,7 @@ interface LeafDrawing {
  * the caller falls back to the read-only value on null.
  */
 function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode | null {
-  const { field, invalid, object, autoFocus, onEnter } = drawn;
+  const { field, invalid, object, autoFocus, onEnter, color } = drawn;
   const { value } = row;
   switch (value.type) {
     case "bool":
@@ -645,6 +670,15 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
         />
       );
     case "vector":
+      if (color || isColorVector(row.name, value.values)) {
+        return (
+          <ColorField
+            values={value.values}
+            label={m.workshop_bin_color_edit_action()}
+            onCommit={(next) => void edit.commit(row, vectorValuesLeaf(next))}
+          />
+        );
+      }
       return (
         <Components
           labels={AXES}
@@ -664,6 +698,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
           autoFocus={autoFocus}
           onEnter={onEnter}
           onCommit={(at, text) => edit.commit(row, colorLeaf(value, at, text))}
+          onPick={(next) => void edit.commit(row, colorChannelsLeaf(next))}
         />
       );
     case "matrix":
@@ -1277,17 +1312,19 @@ interface ColorValueProps {
   onEnter?: () => void;
   /** Take an edit to the channel at `at`, in `rgba` order. Absent, the boxes are read-only. */
   onCommit?: (at: number, text: string) => void;
+  /** Take every channel from the picker, each 1 at full. Absent, the swatch only reads. */
+  onPick?: (channels: number[]) => void;
 }
 
-function ColorValue({ value, invalid, autoFocus, onEnter, onCommit }: ColorValueProps) {
+function ColorValue({ value, invalid, autoFocus, onEnter, onCommit, onPick }: ColorValueProps) {
   const { r, g, b, a } = value;
   return (
     <span className="flex min-w-0 items-center gap-3">
-      {/* DS-TOKEN */}
-      <span
-        className="h-3.5 w-3.5 shrink-0 rounded-sm border border-surface-veil-strong"
-        style={{ backgroundColor: `rgba(${r}, ${g}, ${b}, ${a / 255})` }}
-        aria-hidden
+      <ColorField
+        className="max-w-32 flex-none"
+        values={[r / 255, g / 255, b / 255, a / 255]}
+        label={m.workshop_bin_color_edit_action()}
+        onCommit={onPick}
       />
       <Components
         labels={CHANNELS}

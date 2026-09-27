@@ -29,7 +29,7 @@ import { axisText } from "../utils/curvePlot";
 import { CURVE_TIME_STEP, snapCurveValue } from "../utils/curveSnapping";
 import { drawsFlat, type RandomDraw, stopsAt } from "../utils/randomDraw";
 import type { CurveSelectionMode } from "./CurveGraph";
-import { DrawReadout, pinGesture } from "./RandomLanes";
+import { DrawReadout } from "./RandomLanes";
 
 /** The chances an animated random colour's ramp is drawn at: the two ends of the roll. */
 const ENDS: readonly number[] = [0, 1];
@@ -199,13 +199,10 @@ function ChanceRamp({ base, draw }: { base: ColorStop["rgba"]; draw: RandomDraw 
   return (
     <div data-ui="GradientPlot:chance" className="flex shrink-0 flex-col gap-0.5">
       <div
+        role="img"
         aria-label={m.workshop_bin_random_ramp_label()}
-        {...pinGesture(pinned, run?.setPinned ?? null, (share) => share)}
         /* DS-TOKEN, DS-VEIL, DS-RADIUS */
-        className={twMerge(
-          `relative h-8 touch-none overflow-hidden rounded-sm border border-surface-veil-strong outline-none focus-visible:ring-1 focus-visible:ring-accent-500 ${CHECKERBOARD} [background-size:8px_8px]`,
-          run !== null && "cursor-ew-resize",
-        )}
+        className={`relative h-8 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:8px_8px]`}
       >
         <span className="block h-full w-full" style={{ background: gradientCss(ramp) }} />
         {pinned !== null && (

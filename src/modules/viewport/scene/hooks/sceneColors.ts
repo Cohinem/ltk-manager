@@ -100,3 +100,24 @@ export function useSceneColors(): SceneColors {
 
   return colors;
 }
+
+/**
+ * One colour token as a scene colour, for a stage colour a reader picks rather than one of
+ * `useSceneColors`, re-read whenever the theme or the accent moves it.
+ */
+export function useTokenColor(token: string): Color {
+  const [held, setHeld] = useState(() => ({ token, color: tokenColor(token) }));
+  if (held.token !== token) setHeld({ token, color: tokenColor(token) });
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => setHeld({ token, color: tokenColor(token) }));
+    observer.observe(document.documentElement, { attributeFilter: THEMED });
+    return () => observer.disconnect();
+  }, [token]);
+
+  return held.color;
+}
+
+function tokenColor(token: string): Color {
+  return painter()(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
+}

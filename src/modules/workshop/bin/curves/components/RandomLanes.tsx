@@ -1,4 +1,4 @@
-import { Fragment, type KeyboardEvent, type PointerEvent, type ReactNode, use } from "react";
+import { Fragment, type ReactNode, use } from "react";
 
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
@@ -7,10 +7,9 @@ import { type FieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
 import type { ValueFamily } from "../../values/utils/valueRows";
 import { VfxRunContext } from "../../vfx/playback/state/run";
 import { type RandomEdit, useRandomEdit } from "../state/randomEdit";
-import { channelName, CHIP, STROKE } from "../utils/curveChannels";
+import { channelName, chipOf, strokeOf } from "../utils/curveChannels";
 import { roundDomain } from "../utils/curvePlot";
 import {
-  chanceNear,
   type ChannelDraw,
   drawGap,
   factorAt,
@@ -21,9 +20,9 @@ import {
 } from "../utils/randomDraw";
 import { drawnOver, readout, shapeText } from "../utils/randomText";
 import { LaneHandles } from "./LaneHandles";
-import { Density, Hatch, Ticks } from "./LaneMarks";
+import { Density, Hatch, RangeBars, Ticks } from "./LaneMarks";
 import { KeysPopover } from "./RandomKeys";
-import { RangeLabel } from "./RandomRange";
+import { RangeEnd, RangeLabel, ShapeCell } from "./RandomRange";
 
 /** The even shares of a lane's scale its density is drawn in. */
 const BINS = 64;
@@ -31,13 +30,19 @@ const BINS = 64;
 /** The room a lane leaves past an editable range's ends, as a share of its width, to drag into. */
 const DRAG_ROOM = 0.25;
 
-/** The chance one arrow key moves the pin by. */
-const PIN_STEP = 0.01;
+/**
+ * Channel, least, lane, most, shape, pin value and keys, which every lane lines up on.
+ *
+ * Below the `@2xl` container width the fields leave a lane no room, so each channel takes two
+ * lines: its fields on the first, and its lane across the whole width under them.
+ */
+const LANE_COLUMNS =
+  "grid-cols-[max-content_max-content_max-content_minmax(0,1fr)_3.5rem_auto] @2xl:grid-cols-[max-content_max-content_minmax(0,1fr)_max-content_max-content_3.5rem_auto]";
 
-/** Where a pin moved by key starts while nothing is pinned, the middle of the chance. */
-const MIDDLE = 0.5;
+/** A lane's own place: the second line across every column, then its column in the row. */
+const LANE_CELL = "col-span-full row-start-2 @2xl:col-span-1 @2xl:row-start-auto";
 
-/** Label, lane, pin value and keys, which every row of both readings lines up on. */
+/** Label, lane, pin value and keys, which every row of a moving base's readout lines up on. */
 const COLUMNS = "grid-cols-[max-content_minmax(0,1fr)_3.5rem_auto]";
 
 interface ReadingProps {
@@ -48,61 +53,75 @@ interface ReadingProps {
 }
 
 /**
- * A value whose base holds still, as one lane per channel. "The random spread" in
+ * A value whose base holds still, as one row per channel. "The random spread" in
  * docs/ux/BIN_EDITOR.md.
  *
- * A lane carries its own scale, and a click or a drag on one pins the chance there.
+ * A row reads left to right: the channel, the range's least, its lane on a scale of its own,
+ * its most with the unit, and the shape. A lane marks the pinned chance and never sets it,
+ * which only the header's `ChancePin` does.
  */
 export function RandomLanes({ draw, unit, muted }: ReadingProps) {
-  const run = use(VfxRunContext);
-  const pinned = run?.pinned ?? null;
+  const pinned = use(VfxRunContext)?.pinned ?? null;
   const editor = useRandomEdit();
 
   return (
     <div
       data-ui="RandomLanes"
-      className={`grid min-h-0 flex-1 auto-rows-min ${COLUMNS} items-start gap-x-3 gap-y-1.5 overflow-y-auto pt-1`}
+      className={`grid min-h-0 flex-1 auto-rows-min ${LANE_COLUMNS} items-center gap-x-2 gap-y-2.5 overflow-y-auto pt-1 @2xl:gap-y-1.5`}
     >
       {draw.channels
         .filter((channel) => !muted.has(channel.channel))
         .map((channel) => {
           const level = channel.base ?? 1;
           const random = isRandom(channel.shape);
+          const ends = { channel, family: draw.family, unit, editor };
           return (
-            <Fragment key={channel.channel}>
-              {editor !== null && (
-                <RangeLabel channel={channel} family={draw.family} unit={unit} editor={editor} />
-              )}
-              {editor === null && (
-                <DrawLabel
-                  channel={channel}
-                  family={draw.family}
-                  unit={unit}
-                  text={drawnOver(channel, level)}
-                  stacked
-                />
-              )}
+            <div
+              key={channel.channel}
+              data-ui="RandomLanes:row"
+              className="col-span-full grid grid-cols-subgrid items-center gap-y-1"
+            >
+              <ChannelChip channel={channel} family={draw.family} />
+              <RangeEnd {...ends} end="least" />
               {random && (
                 <Lane
                   channel={channel}
                   family={draw.family}
                   level={level}
                   pinned={pinned}
-                  setPinned={run?.setPinned ?? null}
                   editor={editor}
                 />
               )}
-              {!random && <StillLane channel={channel} />}
+              {!random && <StillLane channel={channel} family={draw.family} />}
+              <RangeEnd {...ends} end="most" />
+              <ShapeCell channel={channel} family={draw.family} editor={editor} />
               <PinValue>
                 {random && pinned !== null && readout(level * factorAt(channel, pinned))}
               </PinValue>
               <span>
                 {keyed(channel, editor) && <KeysPopover channel={channel} family={draw.family} />}
               </span>
-            </Fragment>
+            </div>
           );
         })}
     </div>
+  );
+}
+
+/** A vector's or a colour's channel name, and nothing for a scalar, whose row needs none. */
+function ChannelChip({ channel, family }: { channel: ChannelDraw; family: ValueFamily }) {
+  if (family === "scalar") return <span />;
+
+  return (
+    <span
+      /* DS-KIND-HUE, DS-TEXT */
+      className={twMerge(
+        "w-3 shrink-0 font-mono text-meta font-semibold select-none",
+        chipOf(family, channel.channel),
+      )}
+    >
+      {channelName(family, channel.channel)}
+    </span>
   );
 }
 
@@ -196,7 +215,7 @@ function DrawLabel({ channel, family, unit, text, stacked = false }: DrawLabelPr
             /* DS-KIND-HUE, DS-TEXT */
             className={twMerge(
               "w-3 shrink-0 font-mono text-meta font-semibold",
-              CHIP[channel.channel] ?? CHIP[0],
+              chipOf(family, channel.channel),
             )}
           >
             {channelName(family, channel.channel)}
@@ -237,13 +256,11 @@ interface LaneProps {
   family: ValueFamily;
   level: number;
   pinned: number | null;
-  /** Null outside a run, where there is no birth to pin. */
-  setPinned: ((chance: number | null) => void) | null;
   editor: RandomEdit | null;
 }
 
-/** One random channel on its own scale: how often each value is drawn, and where the pin lands. */
-function Lane({ channel, family, level, pinned, setPinned, editor }: LaneProps) {
+/** One random channel on its own scale: what it draws, and where the pinned chance lands. */
+function Lane({ channel, family, level, pinned, editor }: LaneProps) {
   const ranges = channel.factors.map((range) => spread(level, range));
   const least = Math.min(...ranges.map((range) => range.least));
   const most = Math.max(...ranges.map((range) => range.most));
@@ -255,17 +272,14 @@ function Lane({ channel, family, level, pinned, setPinned, editor }: LaneProps) 
   const pin = pinned === null ? null : share(level * factorAt(channel, pinned));
 
   return (
-    <div data-ui="RandomLanes:lane" className="flex min-w-0 flex-col gap-0.5">
+    <div data-ui="RandomLanes:lane" className={twMerge("flex min-w-0 flex-col gap-0.5", LANE_CELL)}>
       <div
+        role="group"
         aria-label={m.workshop_bin_random_lane_label({
           channel: channelName(family, channel.channel),
         })}
-        {...pinGesture(pinned, setPinned, (at) => chanceNear(channel, low + at * (high - low)))}
         /* DS-RADIUS, DS-VEIL */
-        className={twMerge(
-          "relative h-6 touch-none rounded-sm bg-surface-veil-soft outline-none focus-visible:ring-1 focus-visible:ring-accent-500",
-          setPinned !== null && "cursor-ew-resize",
-        )}
+        className="relative h-6 touch-none rounded-sm bg-surface-veil-soft"
       >
         {ticks.map((tick) => (
           <span
@@ -281,7 +295,12 @@ function Lane({ channel, family, level, pinned, setPinned, editor }: LaneProps) 
         {gap !== null && (
           <Hatch left={share(gap.least)} width={share(gap.most) - share(gap.least)} />
         )}
-        <Density density={density} hue={STROKE[channel.channel] ?? STROKE[0]} />
+        {channel.shape === "custom" && (
+          <Density density={density} hue={strokeOf(family, channel.channel)} />
+        )}
+        {channel.shape !== "custom" && (
+          <RangeBars ranges={ranges} share={share} hue={strokeOf(family, channel.channel)} />
+        )}
         {pin !== null && (
           <span
             aria-hidden
@@ -298,64 +317,20 @@ function Lane({ channel, family, level, pinned, setPinned, editor }: LaneProps) 
   );
 }
 
-/**
- * The props that make an element a slider over the pinned chance.
- *
- * `chanceAt` turns a share of the element's width into a chance, which a lane solves off
- * its values and a ramp reads straight. Arrow keys move the pin by `PIN_STEP`.
- */
-export function pinGesture(
-  pinned: number | null,
-  setPinned: ((chance: number | null) => void) | null,
-  chanceAt: (share: number) => number,
-) {
-  const pinAt = (event: PointerEvent<HTMLElement>) => {
-    if (setPinned === null) return;
-    const box = event.currentTarget.getBoundingClientRect();
-    setPinned(chanceAt(Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1)));
-  };
-  return {
-    role: "slider",
-    "aria-valuemin": 0,
-    "aria-valuemax": 1,
-    "aria-valuenow": pinned ?? MIDDLE,
-    "aria-disabled": setPinned === null,
-    tabIndex: setPinned === null ? -1 : 0,
-    onPointerDown: (event: PointerEvent<HTMLElement>) => {
-      if (setPinned === null) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
-      pinAt(event);
-    },
-    onPointerMove: (event: PointerEvent<HTMLElement>) => {
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) pinAt(event);
-    },
-    onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
-      const by = NUDGE[event.key];
-      if (setPinned === null || by === undefined) return;
-      event.preventDefault();
-      setPinned(Math.min(Math.max((pinned ?? MIDDLE) + by * PIN_STEP, 0), 1));
-    },
-  } as const;
-}
-
-const NUDGE: Readonly<Record<string, number>> = {
-  ArrowLeft: -1,
-  ArrowDown: -1,
-  ArrowRight: 1,
-  ArrowUp: 1,
-};
-
 /** A channel the roll leaves alone: a dim line, with a tick where the value sits. */
-function StillLane({ channel }: { channel: ChannelDraw }) {
+function StillLane({ channel, family }: { channel: ChannelDraw; family: ValueFamily }) {
   return (
-    <div data-ui="RandomLanes:still" className="flex h-6 items-center">
+    <div
+      data-ui="RandomLanes:still"
+      className={twMerge("hidden h-6 items-center @2xl:flex", LANE_CELL)}
+    >
       <span className="relative h-px w-full bg-surface-700">
         {channel.shape !== "broken" && (
           <span
             /* DS-KIND-HUE */
             className={twMerge(
               "absolute top-1/2 left-1/2 h-3 w-0.5 -translate-1/2 bg-current opacity-60",
-              STROKE[channel.channel] ?? STROKE[0],
+              strokeOf(family, channel.channel),
             )}
           />
         )}

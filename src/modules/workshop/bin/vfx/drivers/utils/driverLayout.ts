@@ -1,10 +1,20 @@
-import { nameHash } from "../../../shared/utils/binHash";
 import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { valueLines } from "./curveShape";
-import type { GraphItem, GraphTree, MasterItem, StructItem, ValueItem } from "./graphItems";
+import { renderLines, socketLines, socketList, structLines } from "./entryLists";
+import type {
+  GraphItem,
+  GraphTree,
+  MasterItem,
+  RenderItem,
+  StructItem,
+  ValueItem,
+} from "./graphItems";
+import { MATERIAL_CLASSES } from "./materialNodes";
 import { fieldAlias, itemSubtitle, itemTitle, pathAlias } from "./nodeText";
 import { BLOCK_GAP, FRAME_HEADER_HEIGHT, FRAME_PADDING, frameSize, packBlocks } from "./packBlocks";
+import { renderTexture } from "./renderSection";
+import { rowValueWidth, VALUE_WIDTH } from "./rowWidth";
 
 /** An item placed on the canvas: its top-left corner and its size, in canvas units. */
 export interface PlacedItem {
@@ -54,14 +64,14 @@ export const PREVIEW_PORTS_WIDTH = 176;
 
 /** The node header, each port row and each body line, as the node components draw them. */
 export const HEADER_HEIGHT = 48;
-export const LINE_HEIGHT = 26;
-export const BODY_PADDING = 10;
+export const LINE_HEIGHT = 30;
+const BODY_PADDING = 10;
 
 /** A master node's live preview: a square, as wide as a folded node inside its 8px margins. */
 export const EMITTER_PREVIEW_SIZE = 300;
 
 /** The preview's line of a master node, with the preview's 4px margin above and below. */
-export const EMITTER_PREVIEW_HEIGHT = EMITTER_PREVIEW_SIZE + 8;
+const EMITTER_PREVIEW_HEIGHT = EMITTER_PREVIEW_SIZE + 8;
 
 /** A file node's or a spawn shape's preview square, and its line with 4px above and below. */
 export const NODE_PREVIEW_SIZE = 200;
@@ -75,7 +85,7 @@ const PRIMITIVE_PREVIEW_HEIGHT = PRIMITIVE_PREVIEW.height + 8;
 const FILE_NODE_WIDTH = 280;
 
 /** A struct node's own struct and every struct folded into it as a section, outermost first. */
-export function sectionsOf(item: StructItem): StructItem[] {
+function sectionsOf(item: StructItem): StructItem[] {
   return item.nested === null ? [item] : [item, ...sectionsOf(item.nested)];
 }
 
@@ -96,18 +106,19 @@ export function isPrimitive(item: StructItem): boolean {
 /** A struct node that is a material or holds one, which opens folded to its header. */
 export function isMaterial(item: StructItem): boolean {
   return (
-    MATERIAL_NODES.has(item.classHash ?? "") || MATERIAL_NODES.has(item.nested?.classHash ?? "")
+    MATERIAL_CLASSES.has(item.classHash ?? "") || MATERIAL_CLASSES.has(item.nested?.classHash ?? "")
   );
 }
 
-const MATERIAL_NODES: ReadonlySet<string> = new Set(
-  ["StaticMaterialDef", "VfxMaterialContainer"].map((name) => nameHash(name)),
-);
+/** The height of the picture a Texture node draws its texture in, and zero where it has none. */
+export function renderPreviewHeight(item: RenderItem): number {
+  return renderTexture(item) === null ? 0 : NODE_PREVIEW_HEIGHT;
+}
 
 /** The height of the preview a struct node draws over its rows, and zero where it draws none. */
 function structPreviewHeight(item: StructItem): number {
   if (isPrimitive(item)) return PRIMITIVE_PREVIEW_HEIGHT;
-  if (shapePreviewed(item) || item.picture !== null) return NODE_PREVIEW_HEIGHT;
+  if (shapePreviewed(item) || isMaterial(item) || item.picture !== null) return NODE_PREVIEW_HEIGHT;
   return 0;
 }
 
@@ -148,7 +159,6 @@ const EMBED_BUTTON_WIDTH = 24;
 const KIND_LABEL_WIDTH = 36;
 
 /** The field a value of 1 to 4 components edits in, the label beside a stored one, and padding. */
-const VALUE_WIDTH = [0, 120, 170, 230, 290] as const;
 const VALUE_LABEL_WIDTH = 64;
 const BODY_CHROME = 16;
 
@@ -248,13 +258,14 @@ function layoutTree(root: GraphTree, collapsed: ReadonlySet<string>): GraphLayou
   const depths: number[] = [];
   const edges: LayoutEdge[] = [];
   const inputsOf = (tree: GraphTree) => (collapsed.has(tree.item.id) ? [] : tree.inputs);
+  /* Measured once per item, since a struct's size measures every row. */
+  const sizes = new Map<GraphTree, ReturnType<typeof sizeOf>>();
+  const sized = (tree: GraphTree) =>
+    sizes.get(tree) ?? sizes.set(tree, sizeOf(tree.item, collapsed.has(tree.item.id))).get(tree)!;
 
   const widths: number[] = [];
   const measure = (tree: GraphTree, depth: number) => {
-    widths[depth] = Math.max(
-      widths[depth] ?? 0,
-      sizeOf(tree.item, collapsed.has(tree.item.id)).width,
-    );
+    widths[depth] = Math.max(widths[depth] ?? 0, sized(tree).width);
     inputsOf(tree).forEach((input) => measure(input.tree, depth + 1));
   };
   measure(root, 0);
@@ -283,7 +294,7 @@ function layoutTree(root: GraphTree, collapsed: ReadonlySet<string>): GraphLayou
   /** Place `tree` in the column at `depth`. Returns the item's vertical middle. */
   function place(tree: GraphTree, depth: number): number {
     const width = widths[depth]!;
-    const { height } = sizeOf(tree.item, collapsed.has(tree.item.id));
+    const { height } = sized(tree);
     const inputs = inputsOf(tree);
     const first = items.length;
 
@@ -337,7 +348,13 @@ function fieldNodeWidth(item: MasterItem | StructItem, folded: boolean): number 
   if (item.type === "master") return folded ? FOLDED_MASTER_WIDTH : FIELD_NODE_WIDTH.master;
 
   const className = Math.max(...sectionsOf(item).map(classLength)) * MONO_ADVANCE + CLASS_CHROME;
-  const value = Math.min(STRUCT_VALUE_WIDTH.max, Math.max(STRUCT_VALUE_WIDTH.min, className));
+  const rows = sectionsOf(item).flatMap((section) =>
+    section.rows.flatMap((row) => [row, ...(socketList(item, row.input)?.rows ?? [])]),
+  );
+  const value = Math.max(
+    Math.min(STRUCT_VALUE_WIDTH.max, Math.max(STRUCT_VALUE_WIDTH.min, className)),
+    ...rows.map(rowValueWidth),
+  );
   return Math.ceil(structNameWidth(item) + value + BODY_CHROME);
 }
 
@@ -384,6 +401,18 @@ export function sizeOf(item: GraphItem, folded = false): { width: number; height
     };
   }
 
+  if (item.type === "render") {
+    return {
+      width: FIELD_NODE_WIDTH.master,
+      height:
+        HEADER_HEIGHT +
+        FRAME_EDGES +
+        renderPreviewHeight(item) +
+        fieldLines(item) * LINE_HEIGHT +
+        2 * FIELD_PADDING,
+    };
+  }
+
   if (item.type === "component") {
     const body = item.lines.length === 0 ? 0 : item.lines.length * LINE_HEIGHT + 2 * FIELD_PADDING;
     return {
@@ -393,13 +422,14 @@ export function sizeOf(item: GraphItem, folded = false): { width: number; height
   }
 
   if (item.type === "struct" && folded && isMaterial(item)) {
-    return { width: fieldNodeWidth(item, folded), height: HEADER_HEIGHT + FRAME_EDGES };
+    return {
+      width: fieldNodeWidth(item, folded),
+      height: HEADER_HEIGHT + FRAME_EDGES + NODE_PREVIEW_HEIGHT,
+    };
   }
 
   if (item.type === "master" || item.type === "struct") {
-    const preview =
-      (item.type === "master" ? EMITTER_PREVIEW_HEIGHT : 0) +
-      (item.type === "struct" ? structPreviewHeight(item) : 0);
+    const preview = item.type === "master" ? EMITTER_PREVIEW_HEIGHT : structPreviewHeight(item);
     return {
       width: fieldNodeWidth(item, folded),
       height:
@@ -424,7 +454,7 @@ function naturalWidth(item: GraphItem): number {
     (port) =>
       PORT_CHROME +
       pathAlias(port.label).length * MONO_ADVANCE +
-      (port.embed === undefined ? 0 : bodyWidth(port.embed.node) + EMBED_BUTTON_WIDTH),
+      (port.embed?.type === "driver" ? bodyWidth(port.embed.node) + EMBED_BUTTON_WIDTH : 0),
   );
   const body = item.type === "driver" ? bodyWidth(item.node) : 0;
 
@@ -479,20 +509,27 @@ function valueWidth(value: readonly number[]): number {
 /**
  * The lines a master, struct or curve node draws, each one `LINE_HEIGHT` tall.
  *
- * A master draws each group's heading, fields and Add field line, then the Add field line of
- * the groups it has none of. A struct node draws its class line over its rows, and a value
- * node its curve or its editor, per `valueLines`.
+ * A master draws each group's heading and fields, whose Add sits on the heading. A struct node draws its class line
+ * over its rows and a list field its Add item line under them, and a value node its curve or
+ * its editor, per `valueLines`.
  */
-export function fieldLines(item: MasterItem | StructItem | ValueItem): number {
+export function fieldLines(item: MasterItem | StructItem | ValueItem | RenderItem): number {
   switch (item.type) {
     case "master":
-      return item.groups.reduce((sum, each) => sum + each.fields.length + 2, 1);
-    case "struct":
-      return (
-        item.rows.reduce((sum, row) => sum + 1 + (row.entries?.length ?? 0), 0) +
-        (item.shape === "struct" ? 1 : 0) +
-        (item.nested === null ? 0 : 1 + fieldLines(item.nested))
+      return item.groups.reduce(
+        (sum, each) =>
+          sum +
+          each.fields.reduce(
+            (rows, field) => rows + (field.forces?.length ?? 1) + socketLines(item, field.input),
+            0,
+          ) +
+          1,
+        0,
       );
+    case "render":
+      return renderLines(item);
+    case "struct":
+      return structLines(item);
     case "value":
       return valueLines(item);
   }

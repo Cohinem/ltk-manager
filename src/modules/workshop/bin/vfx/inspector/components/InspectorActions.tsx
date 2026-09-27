@@ -5,6 +5,7 @@ import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { ChangesMenu } from "../../../documents/components/ChangeMark";
 import {
   useDefinedOnly,
   useInspectorPreview,
@@ -61,6 +62,7 @@ export function InspectorActions({
       >
         <MonitorPlayIcon weight="bold" className="h-4 w-4" />
       </ActionToggle>
+      <ChangesMenu />
       <EmitterClipboardActions />
     </div>
   );

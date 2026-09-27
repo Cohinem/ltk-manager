@@ -950,18 +950,20 @@ describe("ClassView over a particle system", () => {
     expect(await within(rate).findByDisplayValue("3")).toHaveClass(
       "w-[var(--bin-scalar-width,8rem)]",
     );
-    expect(await within(colour).findByRole("textbox", { name: "x" })).toHaveClass(
-      "w-[var(--bin-component-width,6rem)]",
+    expect(await within(colour).findByRole("button", { name: "Pick a color" })).toHaveTextContent(
+      "100%",
     );
   });
 
   it("edits a colour constant without changing its other channels", async () => {
     renderSystem(vi.fn(), true);
     const line = within(await fieldRow("birthColor"));
-    const field = await line.findByRole("textbox", { name: "x" });
+    await userEvent.click(await line.findByRole("button", { name: "Pick a color" }));
+    const field = await screen.findByRole("textbox", { name: "Channel R" });
 
     await userEvent.clear(field);
-    await userEvent.type(field, "0.5{Enter}");
+    await userEvent.type(field, "0.5");
+    await userEvent.click(screen.getByRole("button", { name: "Save color" }));
 
     await waitFor(() =>
       expect(mockInvoke).toHaveBeenCalledWith(
@@ -1209,7 +1211,7 @@ describe("ClassView over a particle system", () => {
   it("draws the birth colour in the square of an emitter with no texture", async () => {
     renderSystem();
 
-    expect(await screen.findByRole("img", { name: "Birth colour" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "Birth color" })).toBeInTheDocument();
   });
 
   it("reads both containers in one call, and their elements in the next", async () => {
@@ -1225,7 +1227,7 @@ describe("ClassView over a particle system", () => {
   it("marks the squares and every row it draws, and reads the keys of what is on screen", async () => {
     renderSystem();
 
-    await screen.findByRole("img", { name: "Birth colour" });
+    await screen.findByRole("img", { name: "Birth color" });
     await waitFor(() => expect(asked()).toContain(RATE_TIMES));
 
     expect(asked()).toContain(SPARKS_COLOR);
@@ -1276,7 +1278,7 @@ describe("The emitter table", () => {
     renderSystem();
     await showTable(userEvent.setup());
 
-    expect(await screen.findByLabelText("2 colour stops")).toBeInTheDocument();
+    expect(await screen.findByLabelText("2 color stops")).toBeInTheDocument();
   });
 });
 

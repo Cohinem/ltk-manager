@@ -48,6 +48,19 @@ export function drawnEmitters(system: SystemModel, posed = false): DrawnEmitter[
   return out;
 }
 
+/* The unposed list of each system, which every node preview filters for its own emitter. */
+const DRAWN = new WeakMap<SystemModel, readonly DrawnEmitter[]>();
+
+/** The entries of `drawnEmitters(system)` that draw `emitter`. */
+export function drawnFor(system: SystemModel, emitter: EmitterModel): DrawnEmitter[] {
+  let drawn = DRAWN.get(system);
+  if (drawn === undefined) {
+    drawn = drawnEmitters(system);
+    DRAWN.set(system, drawn);
+  }
+  return drawn.filter((each) => each.emitter === emitter);
+}
+
 function collect(
   out: DrawnEmitter[],
   parent: EmitterModel,

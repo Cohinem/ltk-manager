@@ -625,7 +625,7 @@ describe("a value family's row", () => {
     });
 
     expect(screen.getByText("ValueColor")).toBeInTheDocument();
-    expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 color stops")).toBeInTheDocument();
   });
 
   it("draws the strip alone for a colour whose file writes no constant", () => {
@@ -640,7 +640,7 @@ describe("a value family's row", () => {
       curve: true,
     });
 
-    expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 color stops")).toBeInTheDocument();
   });
 
   it("draws no strip for a colour with no dynamics", () => {

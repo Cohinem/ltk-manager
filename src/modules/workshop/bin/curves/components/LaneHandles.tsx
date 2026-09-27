@@ -5,7 +5,7 @@ import { twMerge } from "@/utils";
 
 import type { ValueFamily } from "../../values/utils/valueRows";
 import type { RandomEdit } from "../state/randomEdit";
-import { channelName, STROKE } from "../utils/curveChannels";
+import { channelName, strokeOf } from "../utils/curveChannels";
 import { type ChannelDraw, drawSpan } from "../utils/randomDraw";
 import { fieldScale, splitReach, tableKeys, withReach, withSpan } from "../utils/randomEdits";
 import { readout } from "../utils/randomText";
@@ -71,7 +71,7 @@ export function LaneHandles({ channel, family, low, high, editor }: LaneHandlesP
         /* DS-KIND-HUE */
         className={twMerge(
           "group/end absolute inset-y-0 z-10 w-3 -translate-x-1/2 cursor-ew-resize touch-none outline-none",
-          STROKE[channel.channel] ?? STROKE[0],
+          strokeOf(family, channel.channel),
         )}
         style={{ left: `${share(value)}%` }}
         onPointerDown={(event) => {

@@ -7,7 +7,7 @@ import { twMerge } from "@/utils";
 
 import type { CurveKey, ValueFamily } from "../../values/utils/valueRows";
 import { type RandomEdit, useRandomEdit } from "../state/randomEdit";
-import { channelName, CHIP } from "../utils/curveChannels";
+import { channelName, chipOf } from "../utils/curveChannels";
 import { type ChannelDraw, neverRolled } from "../utils/randomDraw";
 import { tableKeys, withKey } from "../utils/randomEdits";
 import { factorText, readout } from "../utils/randomText";
@@ -30,7 +30,7 @@ export function KeysPopover({ channel, family }: { channel: ChannelDraw; family:
               {family !== "scalar" && (
                 <span
                   /* DS-KIND-HUE, DS-TEXT */
-                  className={twMerge("font-mono font-semibold", CHIP[channel.channel] ?? CHIP[0])}
+                  className={twMerge("font-mono font-semibold", chipOf(family, channel.channel))}
                 >
                   {channelName(family, channel.channel)}
                 </span>

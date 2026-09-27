@@ -5,7 +5,8 @@ import { classFamily } from "../../../values/utils/valueRows";
 import type { DriverKind } from "../../engine/drivers/node";
 import type { ValueCurve } from "../../engine/model/model";
 import { curve, field, flag, text } from "../../engine/parsing/readValue";
-import { type EmitterGroup, fieldGroup, GROUP_ORDER } from "../../inspector/utils/emitterGroups";
+import { FORCE_DEFINITIONS } from "../../forces/forceModel";
+import { type EmitterGroup, GROUP_ORDER } from "../../inspector/utils/emitterGroups";
 import type {
   FileKind,
   GraphPort,
@@ -13,10 +14,21 @@ import type {
   InputItem,
   ListEntry,
   MasterField,
+  RowDraw,
   MasterGroup,
+  StructItem,
   StructRow,
 } from "./graphItems";
 import { listEntries } from "./listEntries";
+import { holdsMaterial, MATERIAL_CLASSES, materialEntry } from "./materialNodes";
+import {
+  drawnInSection,
+  FORCE_FIELD,
+  FORCE_GROUP,
+  masterGroup,
+  RENDER_GROUP,
+  renderRank,
+} from "./renderSection";
 
 /** The two lists of classic emitters, with the prefix of their master ids. */
 const LISTS = [
@@ -72,11 +84,14 @@ interface MasterPlace {
 
 function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string[]): GraphTree {
   const fields = emitter.type === "struct" ? emitter.fields : [];
+  const classHash = emitter.type === "struct" ? emitter.classHash : "";
   const byGroup = new Map<EmitterGroup, MasterField[]>();
-  const inputs = new Map<string, GraphTree>();
+  const inputs = new Map<string, GraphTree | readonly GraphTree[]>();
   const put = (hash: string, each: MasterField) => {
-    const group = fieldGroup(hash);
-    byGroup.set(group, [...(byGroup.get(group) ?? []), each]);
+    const group = masterGroup(hash);
+    const held = byGroup.get(group);
+    if (held === undefined) byGroup.set(group, [each]);
+    else held.push(each);
   };
 
   for (const { hash, name, value } of fields) {
@@ -88,6 +103,13 @@ function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string
       holderRows: fields.length,
       field: hash,
     };
+    const forces = hash === FORCE_FIELD ? forceTrees(value, place) : [];
+    if (forces.length > 0) {
+      inputs.set(hash, forces);
+      put(hash, { hash, input: null, pending: false, forces: forces.map(forceOf) });
+      continue;
+    }
+
     const input = inputOf(value, place, name ?? hash, 0);
     if (input !== null) inputs.set(hash, input);
     put(hash, { hash, input: fedBy(input), pending: false });
@@ -97,16 +119,22 @@ function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string
     if (!authored.has(hash)) put(hash, { hash, input: null, pending: true });
   }
 
+  const rendered = byGroup.get(RENDER_GROUP);
+  const render =
+    rendered === undefined
+      ? null
+      : renderTree(rendered, inputs, { ...at, classHash, rowCount: fields.length });
+
+  /* The Texture group's fields are the render node's, so the group holds only its input. */
   const groups: MasterGroup[] = GROUP_ORDER.flatMap((group) => {
     const held = byGroup.get(group);
-    return held === undefined ? [] : [{ group, fields: held }];
+    if (held === undefined) return group === FORCE_GROUP ? [{ group, fields: [] }] : [];
+    return [{ group, fields: group === RENDER_GROUP ? [] : held }];
   });
-  const ordered = groups
-    .flatMap((each) => each.fields)
-    .flatMap((each) => {
-      const input = inputs.get(each.hash);
-      return input === undefined ? [] : [input];
-    });
+  const ordered = groups.flatMap((each) => {
+    if (each.group === RENDER_GROUP) return render === null ? [] : [render];
+    return each.fields.flatMap((field) => inputs.get(field.hash) ?? []);
+  });
 
   return {
     item: {
@@ -117,14 +145,76 @@ function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string
       disabled: flag(field(emitter, HEADER.disabled)),
       simple: at.simple,
       listIndex: at.index,
-      classHash: emitter.type === "struct" ? emitter.classHash : "",
+      classHash,
       className: emitter.type === "struct" ? emitter.class : null,
       groups,
       rowCount: fields.length,
+      render: render?.item.type === "render" ? render.item : null,
       ports: ordered.map(portOf),
     },
     inputs: ordered.map((tree) => ({ port: tree.item.id, tree })),
   };
+}
+
+/** The Texture node of an emitter's texture and render `fields`, which draws the texture itself. */
+function renderTree(
+  fields: readonly MasterField[],
+  inputs: ReadonlyMap<string, GraphTree | readonly GraphTree[]>,
+  at: MasterPlace & { classHash: string; rowCount: number },
+): GraphTree {
+  const ranked = [...fields].sort((a, b) => renderRank(a.hash) - renderRank(b.hash));
+  const fed = ranked.flatMap((each) => {
+    const input = inputs.get(each.hash);
+    if (input === undefined) return [];
+    if (!("item" in input)) return input;
+    if (drawnInSection(each.hash, each.input)) return input.inputs.map((held) => held.tree);
+    return [input];
+  });
+
+  return {
+    item: {
+      type: "render",
+      id: `${at.id}/render`,
+      wire: at.wire,
+      master: at.id,
+      classHash: at.classHash,
+      rowCount: at.rowCount,
+      fields: ranked,
+      ports: fed.map(portOf),
+    },
+    inputs: fed.map((tree) => ({ port: tree.item.id, tree })),
+  };
+}
+
+/**
+ * A node per force a `fieldCollectionDefinition` holds, titled by its kind and place, so each
+ * force connects to the emitter on its own rather than through the collection and its lists.
+ */
+function forceTrees(value: VfxValue, at: InputPlace): GraphTree[] {
+  if (value.type !== "struct") return [];
+
+  const collection = `${at.holder}.${hex(FORCE_FIELD)}`;
+  return FORCE_DEFINITIONS.flatMap((force) => {
+    const listHash = nameHash(force.list);
+    const list = field(value, listHash);
+    if (list?.type !== "container") return [];
+
+    return list.items.flatMap((item, index) => {
+      const place = {
+        id: `${at.id}/${force.list}[${index}]`,
+        holder: `${collection}.${hex(listHash)}`,
+        holderRows: list.items.length,
+        field: null,
+        segment: `[${index}]`,
+      };
+      const tree = inputOf(item, place, `${force.title()} [${index}]`, 1);
+      return tree?.item.type === "struct" ? [tree] : [];
+    });
+  });
+}
+
+function forceOf(tree: GraphTree): StructItem {
+  return tree.item as StructItem;
 }
 
 export interface InputPlace {
@@ -137,20 +227,6 @@ export interface InputPlace {
   readonly field: string | null;
   /** The wire segment after `holder`, which a field's own hash gives where this is empty. */
   readonly segment?: string;
-}
-
-/** The classes a material node stands for: a material, and the container that holds one. */
-const MATERIAL_CLASSES: ReadonlySet<string> = new Set(
-  ["StaticMaterialDef", "VfxMaterialContainer"].map((name) => nameHash(name)),
-);
-
-/** A material, or a struct holding one, which draws as a material node of its own. */
-export function holdsMaterial(value: VfxValue): boolean {
-  if (value.type !== "struct") return false;
-  if (MATERIAL_CLASSES.has(value.classHash)) return true;
-  return value.fields.some(
-    ({ value: held }) => held.type === "struct" && MATERIAL_CLASSES.has(held.classHash),
-  );
 }
 
 /**
@@ -196,7 +272,7 @@ function inputOf(
       };
       const tree =
         entries === null ? inputOf(held, place, name ?? hash, depth + 1, inMaterial) : null;
-      return { key: hash, name: name ?? hash, tree, entries };
+      return { key: hash, name: name ?? hash, tree, entries, draws: drawsOf(held) };
     });
     return structTree({ ...at, wire, label, shape: "struct", held: value }, rows);
   }
@@ -218,6 +294,7 @@ function inputOf(
         depth + 1,
       ),
       entries: null,
+      draws: drawsOf(item),
     }));
     return structTree({ ...at, wire, label, shape: "list", held: null }, rows);
   }
@@ -239,6 +316,7 @@ function inputOf(
         depth + 1,
       ),
       entries: null,
+      draws: drawsOf(entry.value),
     }));
     return structTree({ ...at, wire, label, shape: "map", held: null }, rows);
   }
@@ -315,6 +393,7 @@ interface StructPlaceRow {
   readonly name: string;
   readonly tree: GraphTree | null;
   readonly entries: ListEntry[] | null;
+  readonly draws: RowDraw;
 }
 
 /**
@@ -335,15 +414,18 @@ function structTree(at: StructPlace, rows: readonly StructPlaceRow[]): GraphTree
     ...shown.flatMap(({ tree }) => (tree === null || tree.item.type === "file" ? [] : [tree])),
     ...(section?.inputs.map((input) => input.tree) ?? []),
   ];
-  const structRows: StructRow[] = shown.map(({ key, name, tree, entries }) => ({
+  const structRows: StructRow[] = shown.map(({ key, name, tree, entries, draws }) => ({
     key,
     name,
     input: tree?.item.type === "file" ? null : fedBy(tree),
     entries,
+    draws,
   }));
 
+  const material = at.held !== null && holdsMaterial(at.held) ? materialEntry(at.held) : null;
   return {
     item: {
+      ...(material === null ? {} : { material }),
       type: "struct",
       id: at.id,
       wire: at.wire,
@@ -376,7 +458,16 @@ function fedBy(tree: GraphTree | null): InputItem | null {
   return item?.type === "struct" || item?.type === "value" || item?.type === "file" ? item : null;
 }
 
+/** How a row's `value` draws on its line. */
+function drawsOf(value: VfxValue): RowDraw {
+  if (value.type === "vector" && value.values.length >= 2 && value.values.length <= 4) {
+    return value.values.length as 2 | 3 | 4;
+  }
+  if (value.type === "struct" && classFamily(value.classHash) !== null) return "curve";
+  return "cell";
+}
+
 /** A `0x` hash as a wire segment writes it: its eight hex digits alone. */
-function hex(hash: string): string {
+export function hex(hash: string): string {
   return hash.slice(2);
 }

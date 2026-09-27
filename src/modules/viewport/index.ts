@@ -104,7 +104,7 @@ export { Backdrop } from "./scene/components/Backdrop";
 export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";
 export { Stage } from "./scene/components/Stage";
 export { Viewport, type ViewportProps } from "./scene/components/Viewport";
-export { type SceneColors, useSceneColors } from "./scene/hooks/sceneColors";
+export { type SceneColors, useSceneColors, useTokenColor } from "./scene/hooks/sceneColors";
 export {
   type BackdropChoice,
   type BackdropFlags,

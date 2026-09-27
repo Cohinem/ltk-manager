@@ -3,6 +3,8 @@ import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 
 import { twMerge } from "@/utils";
 
+import { ChannelSash } from "./ChannelSash";
+
 export interface StepperFieldProps {
   value: number;
   /** Fires with every value the field parses, and never while it is empty. */
@@ -26,6 +28,8 @@ export interface StepperFieldProps {
   increaseLabel: string;
   decreaseLabel: string;
   "aria-label"?: string;
+  /** The component's channel, whose `ChannelSash` heads the field as `Readout`'s does. */
+  channel?: number;
   /** The width and the type tier, which the input's mono is measured against. */
   className?: string;
 }
@@ -46,6 +50,7 @@ export function StepperField({
   increaseLabel,
   decreaseLabel,
   "aria-label": ariaLabel,
+  channel,
   className,
 }: StepperFieldProps) {
   const format =
@@ -81,6 +86,7 @@ export function StepperField({
           className,
         )}
       >
+        {channel !== undefined && <ChannelSash channel={channel} />}
         <BaseNumberField.Input
           aria-label={ariaLabel}
           className="w-full min-w-0 bg-surface-veil-soft px-1.5 py-0.5 text-right font-mono text-code text-surface-200 tabular-nums focus:outline-none"

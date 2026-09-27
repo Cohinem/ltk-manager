@@ -120,6 +120,114 @@ function RangeFields({ channel, family, unit, editor }: RangeLabelProps) {
   );
 }
 
+interface RangeEndProps {
+  channel: ChannelDraw;
+  family: ValueFamily;
+  unit: FieldUnit | null;
+  /** Null where the document takes no edit, and the end reads as text. */
+  editor: RandomEdit | null;
+  end: keyof ValueRange;
+}
+
+/**
+ * One end of a channel's range, as a lane's row places it: the least before the lane and the
+ * most after it with the unit. Each writes the table as the fields of `RangeLabel` do. A
+ * channel that draws no range reads its value after the lane, and nothing before it.
+ */
+export function RangeEnd({ channel, family, unit, editor, end }: RangeEndProps) {
+  const factorOnly = channel.results === null;
+  const suffix = end === "most" && !factorOnly && unit !== null ? UNIT_SUFFIX[unit]() : null;
+
+  if (!isRandom(channel.shape) || channel.table === null) {
+    if (end === "least") return <span />;
+    const still = drawnOver(channel, factorOnly ? null : channel.base);
+    return <EndText sign={null} text={still} suffix={still === "" ? null : suffix} />;
+  }
+
+  const split = channel.shape === "split";
+  const range = split ? splitReach(channel) : drawSpan(channel);
+  if (range === null) return <span />;
+
+  let sign: string | null = null;
+  if (end === "least" && split) sign = SPLIT_SIGN;
+  if (end === "least" && !split && factorOnly) sign = TIMES_SIGN;
+  if (editor === null) return <EndText sign={sign} text={readout(range[end])} suffix={suffix} />;
+
+  const name = family === "scalar" ? "" : channelName(family, channel.channel);
+  const label =
+    end === "least"
+      ? m.workshop_bin_random_least_label({ channel: name })
+      : m.workshop_bin_random_most_label({ channel: name });
+  const table = channel.table;
+  const commit = (text: string) => {
+    const value = Number(text);
+    if (text.trim() === "" || !Number.isFinite(value)) return;
+
+    const next = { ...range, [end]: value };
+    const to = { least: Math.min(next.least, next.most), most: Math.max(next.least, next.most) };
+    const keys = tableKeys(table);
+    const scale = fieldScale(channel);
+    editor.write(channel, split ? withReach(keys, scale, to) : withSpan(keys, scale, to));
+  };
+
+  return (
+    <span className="flex items-center gap-1 font-mono text-code">
+      {sign !== null && <span className="text-surface-400">{sign}</span>}
+      <Readout
+        value={readout(range[end])}
+        aria-label={label}
+        className="w-16 text-right"
+        onCommit={commit}
+      />
+      {suffix !== null && <span className="font-sans text-meta text-surface-400">{suffix}</span>}
+    </span>
+  );
+}
+
+function EndText({
+  sign,
+  text,
+  suffix,
+}: {
+  sign: string | null;
+  text: string;
+  suffix: string | null;
+}) {
+  return (
+    <span className="flex items-baseline gap-1 font-mono text-code text-surface-300 tabular-nums select-text">
+      {sign !== null && <span className="text-surface-400">{sign}</span>}
+      {text}
+      {suffix !== null && <span className="font-sans text-meta text-surface-400">{suffix}</span>}
+    </span>
+  );
+}
+
+/**
+ * A lane's shape: the switch between fixed, uniform and split with the channels an edit also
+ * writes, or the shape's word where the document takes no edit.
+ */
+export function ShapeCell({
+  channel,
+  family,
+  editor,
+}: {
+  channel: ChannelDraw;
+  family: ValueFamily;
+  editor: RandomEdit | null;
+}) {
+  if (editor === null) {
+    return <span className="text-meta text-surface-400 select-none">{shapeText(channel)}</span>;
+  }
+
+  const reach = editor.reach(channel);
+  return (
+    <span className="flex items-center gap-1.5">
+      <ShapePicker channel={channel} editor={editor} />
+      {reach.length > 1 && <LinkMark family={family} channels={reach} own={channel.channel} />}
+    </span>
+  );
+}
+
 /* Signs the fields sit behind: a split reads both signs, and a factor reads as a multiplier. */
 const SPLIT_SIGN = "±";
 const TIMES_SIGN = "×";

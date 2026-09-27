@@ -7,9 +7,11 @@ import type { IgnoreMatch } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
+import { entryChunkPath } from "../../bin/links/hooks/useLinkTargets";
 import { FolderGlyph } from "../../shared/components/TreeRowParts";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
 import { isSubtreeClick } from "../../shared/utils/treeGestures";
+import { beginAssetDrag } from "../state/assetDrag";
 import type { ContentTreeNode, DirNode, FileNode } from "../utils/contentTree";
 
 /** Shared row styling. Kept as string constants so the hover/selected variants
@@ -262,6 +264,10 @@ function FileRow({
         onPreview?.(node);
       }}
       onDoubleClick={() => onOpen?.(node)}
+      onPointerDown={(event) => {
+        const path = entryChunkPath(node.entry.relativePath);
+        if (path !== null) beginAssetDrag(event, path);
+      }}
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}

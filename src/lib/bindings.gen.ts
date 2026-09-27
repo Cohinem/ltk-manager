@@ -109,6 +109,16 @@ export const commands = {
 	 */
 	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Reshape | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
 	/**
+	 *  Every property and object of an open document that differs from `baseline`: the file as
+	 *  it was opened, or the installed game's copy of each object.
+	 */
+	binChanges: (document: BinDocumentId, baseline: ChangeBaseline) => __TAURI_INVOKE<({ ok: true; value: BinChange[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_changes", { document, baseline }),
+	/**
+	 *  Put the property at `path` under `entry` back to what `baseline` holds, as one undoable
+	 *  edit. `entry` is `0x` and eight hex digits.
+	 */
+	binRevert: (document: BinDocumentId, entry: string, path: string, baseline: ChangeBaseline) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_revert", { document, entry, path, baseline }),
+	/**
 	 *  What the document says beside its rows: the layer it declares into, the project's
 	 *  layers, and the rows a declaration of that layer touches. `None` for a document that
 	 *  declares nothing. ADR-0042.
@@ -692,6 +702,15 @@ export type Because = "holds-the-path" | "redirected" | "rejected" | "did-not-ve
 /**  What an incident stored before the reason was written down reads as. */
 "unknown";
 
+/**  One property or object that differs from the baseline. */
+export type BinChange = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The property's wire path under the object, and empty for the object itself. */
+	path: string,
+	kind: ChangeKind,
+};
+
 /**
  *  What an open answers: the id, the header, and the rows at depth zero.
  * 
@@ -957,6 +976,22 @@ export type Category =
 "storage" | 
 /**  Mod library state checks (index integrity). */
 "library";
+
+/**  What a document's rows are compared with. */
+export type ChangeBaseline = 
+/**  The file as the document read it, before any edit since. */
+"opened" | 
+/**  The installed game's copy of each object. */
+"game";
+
+/**  How an address differs from the baseline. */
+export type ChangeKind = 
+/**  The document holds it and the baseline does not. */
+"added" | 
+/**  The baseline holds it and the document does not. */
+"removed" | 
+/**  Both hold it, with different values. */
+"changed";
 
 /**  One named spell and every file declaring its object. */
 export type CharacterSpell = {
@@ -4019,7 +4054,10 @@ export type ValueEdit =
 { type: "pasteItem"; path: string; index: number | null; text: string; unique: string | null } | 
 /**  Remove an item from a list, map or option. */
 { type: "removeItem"; path: string } | 
-/**  Set an existing leaf, including one created by an earlier staged edit. */
+/**
+ *  Set an existing leaf, including one created by an earlier staged edit. An empty
+ *  option takes an item first, so the edit writes an optional field whatever it holds.
+ */
 { type: "setLeaf"; path: string; value: LeafValue };
 
 /**  What the manager concluded from one game. */

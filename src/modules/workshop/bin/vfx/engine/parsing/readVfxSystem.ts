@@ -9,7 +9,7 @@ import type {
   SystemModel,
   UvLayer,
 } from "../model/model";
-import { emptySystem } from "../model/systemModel";
+import { emissionPeriod, emptySystem } from "../model/systemModel";
 import { readEmissionSurface } from "./readEmissionSurface";
 import {
   readBeam,
@@ -93,6 +93,8 @@ const FIELD = {
   particleLifetime: nameHash("particleLifetime"),
   lifetime: nameHash("lifetime"),
   timeBeforeFirstEmission: nameHash("timeBeforeFirstEmission"),
+  period: nameHash("period"),
+  timeActiveDuringPeriod: nameHash("timeActiveDuringPeriod"),
   singleParticle: nameHash("isSingleParticle"),
   sharedRandom: nameHash("ParticlesShareRandomValue"),
   birthVelocity: nameHash("birthVelocity"),
@@ -271,6 +273,10 @@ function readEmitter(
     particleLifetime: curve(field(node, FIELD.particleLifetime), DEFAULT.particleLifetime),
     lifetime: number(field(node, FIELD.lifetime)),
     timeBeforeFirstEmission: number(field(node, FIELD.timeBeforeFirstEmission)) ?? 0,
+    period: emissionPeriod(
+      number(field(node, FIELD.period)),
+      number(field(node, FIELD.timeActiveDuringPeriod)),
+    ),
     singleParticle: flag(field(node, FIELD.singleParticle)),
     sharedRandom: flag(field(node, FIELD.sharedRandom)),
 

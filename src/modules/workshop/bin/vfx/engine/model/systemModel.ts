@@ -1,5 +1,5 @@
 import { DRAG_MOTION } from "./enums";
-import type { ChildSetModel, EmitterModel, SystemModel, ValueCurve } from "./model";
+import type { ChildSetModel, EmissionPeriod, EmitterModel, SystemModel, ValueCurve } from "./model";
 
 /** A system with nothing in it, which is what an unreadable object draws as. */
 export function emptySystem(entry: string | null): SystemModel {
@@ -243,3 +243,18 @@ export function peak(value: ValueCurve): number {
  * nothing else in the engine reads this constant.
  */
 export const ROTATION_RATE = 60;
+
+/** The cycle of `period` and `timeActiveDuringPeriod`, null where no cycle is set. */
+export function emissionPeriod(
+  length: number | null,
+  active: number | null,
+): EmissionPeriod | null {
+  if (length === null || !(length > 0)) return null;
+  return { length, active: Math.min(Math.max(active ?? length, 0), length) };
+}
+
+/** The emitter emits `seconds` past its first emission, inside the active part of its cycle. */
+export function periodActive(period: EmissionPeriod | null, seconds: number): boolean {
+  if (period === null || seconds < 0) return true;
+  return seconds % period.length <= period.active;
+}

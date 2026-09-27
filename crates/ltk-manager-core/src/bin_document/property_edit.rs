@@ -58,7 +58,8 @@ pub enum ValueEdit {
     },
     /// Remove an item from a list, map or option.
     RemoveItem { path: String },
-    /// Set an existing leaf, including one created by an earlier staged edit.
+    /// Set an existing leaf, including one created by an earlier staged edit. An empty
+    /// option takes an item first, so the edit writes an optional field whatever it holds.
     SetLeaf { path: String, value: LeafValue },
 }
 
@@ -111,6 +112,7 @@ impl BinDocument {
         let mut staged = Self {
             file: BinFile::Prop(Bin::new([object], std::iter::empty::<&str>())),
             base: Vec::new(),
+            opened: Vec::new(),
             touched: IndexSet::new(),
             dependencies_touched: false,
             undo: VecDeque::new(),
@@ -171,7 +173,12 @@ impl BinDocument {
                     staged.remove_item(entry, &relative_path(&scope, &path))?;
                 }
                 ValueEdit::SetLeaf { path, value } => {
-                    staged.set_leaf(entry, &relative_path(&scope, &path), value)?;
+                    let path = relative_path(&scope, &path);
+                    if staged.holds_empty_option(entry, &path) {
+                        staged.insert_item(entry, &path, NewItem::default(), schema)?;
+                    }
+
+                    staged.set_leaf(entry, &path, value)?;
                 }
             }
         }
@@ -206,6 +213,13 @@ impl BinDocument {
         }
 
         Ok(())
+    }
+
+    fn holds_empty_option(&self, entry: BinHash, path: &str) -> bool {
+        matches!(
+            self.property_value(entry, path),
+            Ok(PropertyValueEnum::Optional(optional)) if optional.is_none()
+        )
     }
 
     pub(super) fn property_value(

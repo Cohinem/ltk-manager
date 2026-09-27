@@ -32,6 +32,7 @@ import {
 import { drawSummary, randomDraw, rerollsEveryFrame } from "../../curves/utils/randomDraw";
 import { valueMode } from "../../curves/utils/randomizer";
 import { summaryText } from "../../curves/utils/randomText";
+import { ChangeMark } from "../../documents/components/ChangeMark";
 import { DeclaredRowState } from "../../documents/components/DeclaredLayer";
 import { useBinRead } from "../../documents/hooks/useBinRead";
 import { TextureSwatch } from "../../links/components/TextureSwatch";
@@ -426,6 +427,7 @@ export function FieldRow({
             row.node === "element" && <ElementClass value={row.value} />}
           {valueSlot === undefined && family === null && axes === null && <RowValue row={row} />}
           {valueAction}
+          <ChangeMark rowKey={rowKey(row)} />
           <DeclaredRowState rowKey={rowKey(row)} />
         </div>
       </div>
@@ -593,6 +595,7 @@ export function ValueCell({
   railed = false,
   controls = false,
   randomFields = false,
+  chip = true,
 }: {
   row: BinRow;
   shaped?: boolean;
@@ -602,6 +605,8 @@ export function ValueCell({
   controls?: boolean;
   /** The row has the room for a random value's Min and Max, which a one-line host lacks. */
   randomFields?: boolean;
+  /** Whether the cell draws its random chip, which a host aiming the dock itself leaves out. */
+  chip?: boolean;
 }) {
   const mark = useValueMark(rowKey(row));
   const { aim, clear, target } = useCurveDock();
@@ -653,7 +658,7 @@ export function ValueCell({
     >
       {ranged && <RandomFields row={row} mark={mark} />}
       {!controls && !ranged && constant !== undefined && (
-        <RowValue row={constant} field={ownField(row)} />
+        <RowValue row={constant} field={ownField(row)} color={mark?.family === "color"} />
       )}
       {!controls && !ranged && constant === undefined && (
         <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
@@ -672,7 +677,7 @@ export function ValueCell({
           }
         />
       )}
-      {curve && !ranged && (
+      {curve && !ranged && chip && (
         <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />
       )}
     </span>

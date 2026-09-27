@@ -1,23 +1,21 @@
 import { PerspectiveCamera } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { type ReactNode, use, useEffect, useMemo, useRef, useState } from "react";
-import { BufferAttribute, BufferGeometry, type Group, Sphere, Vector3 } from "three";
+import { type ReactNode, use, useMemo, useRef, useState } from "react";
+import { type Group, Sphere, Vector3 } from "three";
 
 import { m } from "@/i18n";
 import { usePreviewUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
-import { useSceneColors } from "@/modules/viewport";
 import { twMerge } from "@/utils";
 
 import { CHECKERBOARD } from "../../../../preview/components/ImagePreview";
 import { useImageSlot } from "../../../../preview/hooks/useImageSlot";
 import { assetArchive } from "../../../../preview/utils/assetRef";
-import type { EmitterModel, SpawnShape } from "../../engine/model/model";
 import { type HeldClass, heldPrimitive } from "../../inspector/components/PrimitivePicker";
 import { PrimitivePreview } from "../../inspector/components/PrimitivePreview";
 import { VfxRunContext } from "../../playback/state/run";
 import { useMeshGeometry } from "../../rendering/hooks/useMeshGeometry";
-import { SEGMENTS, wireframeInto } from "../../rendering/utils/emitterShape";
+import { useBackdropColor } from "../state/previewBackdrop";
 import { NODE_PREVIEW_SIZE, PRIMITIVE_PREVIEW } from "../utils/driverLayout";
 import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem } from "../utils/graphItems";
@@ -32,7 +30,7 @@ const FOV = 35;
 const SPIN = 0.4;
 
 /* DS-GROUND, DS-RADIUS */
-const BOX =
+export const NODE_BOX =
   "my-1 shrink-0 self-center overflow-hidden rounded-md border border-surface-veil bg-surface-950";
 const BOX_STYLE = { width: NODE_PREVIEW_SIZE, height: NODE_PREVIEW_SIZE } as const;
 
@@ -46,7 +44,7 @@ export function FilePreview({ item }: { item: FileItem }) {
 
 function Note({ text }: { text: string }) {
   return (
-    <div className={twMerge(BOX, "flex items-center justify-center p-4")} style={BOX_STYLE}>
+    <div className={twMerge(NODE_BOX, "flex items-center justify-center p-4")} style={BOX_STYLE}>
       <span className="text-center text-meta text-surface-400">{text}</span>
     </div>
   );
@@ -63,7 +61,10 @@ function TexturePicture({ asset }: { asset: AssetRef }) {
   if (failedUrl === url) return <Note text={m.workshop_bin_graph_file_unpreviewed_label()} />;
 
   return (
-    <div className={twMerge(BOX, CHECKERBOARD, "[background-size:16px_16px]")} style={BOX_STYLE}>
+    <div
+      className={twMerge(NODE_BOX, CHECKERBOARD, "[background-size:16px_16px]")}
+      style={BOX_STYLE}
+    >
       {slot.src !== undefined && (
         <img
           src={slot.src}
@@ -84,7 +85,7 @@ function TexturePicture({ asset }: { asset: AssetRef }) {
 /** A mesh file at rest, turning, drawn by the emitter previews' canvas. */
 function MeshPreview({ asset, path }: { asset: AssetRef; path: string }) {
   return (
-    <PreviewView className={BOX} style={BOX_STYLE}>
+    <PreviewView className={NODE_BOX} style={BOX_STYLE}>
       <MeshScene asset={asset} path={path} />
     </PreviewView>
   );
@@ -109,57 +110,6 @@ function MeshScene({ asset, path }: { asset: AssetRef; path: string }) {
   );
 }
 
-/**
- * The spawn shape of `emitter` as the viewport's gizmo draws it, turning, in the emitter's
- * own space at the start of its life.
- *
- * A shape of no size spawns every particle at one point, which draws as nothing, so it
- * draws as a faint outline of its kind with a caption saying so.
- */
-export function ShapePreview({ emitter }: { emitter: EmitterModel | undefined }) {
-  const zero = emitter !== undefined && zeroSized(emitter.shape);
-
-  return (
-    <div className="relative my-1 shrink-0 self-center" style={BOX_STYLE}>
-      <PreviewView className={twMerge(BOX, "my-0 h-full w-full")}>
-        {emitter !== undefined && <ShapeScene emitter={emitter} zero={zero} />}
-      </PreviewView>
-      {zero && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-1.5 text-center text-fine text-surface-400">
-          {m.workshop_bin_graph_shape_zero_label()}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function ShapeScene({ emitter, zero }: { emitter: EmitterModel; zero: boolean }) {
-  const colors = useSceneColors();
-  const geometry = useMemo(() => {
-    const drawn = zero
-      ? { ...emitter, shape: UNIT_SHAPE[emitter.shape.kind] ?? emitter.shape }
-      : emitter;
-    const positions = new Float32Array(SEGMENTS * 6);
-    const vertices = wireframeInto(drawn, new Float32Array(3), 0, positions);
-    const shape = new BufferGeometry();
-    shape.setAttribute("position", new BufferAttribute(positions.slice(0, vertices * 3), 3));
-    shape.computeBoundingSphere();
-    return shape;
-  }, [emitter, zero]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
-  const sphere = geometry.boundingSphere;
-
-  return (
-    <Turntable sphere={sphere}>
-      {sphere !== null && (
-        <lineSegments geometry={geometry} position={sphere.center.clone().negate()}>
-          <lineBasicMaterial color={colors.gizmo} transparent opacity={zero ? 0.3 : 1} />
-        </lineSegments>
-      )}
-    </Turntable>
-  );
-}
-
 /** The inspector's sketch of a node's primitive, with the emitter's own mesh for a mesh. */
 export function PrimitiveSketch({ id, held }: { id: string; held: HeldClass | null }) {
   const system = use(VfxRunContext)?.system ?? null;
@@ -178,30 +128,9 @@ export function PrimitiveSketch({ id, held }: { id: string; held: HeldClass | nu
   );
 }
 
-/** A shape whose volume or surface has no extent, which spawns at its centre. */
-function zeroSized(shape: SpawnShape): boolean {
-  switch (shape.kind) {
-    case "box":
-      return shape.size.every((extent) => extent === 0);
-    case "sphere":
-    case "cylinder":
-      return shape.radius === 0;
-    case "point":
-    case "legacy":
-      return false;
-  }
-}
-
-/** The outline a shape of no size stands in with: its kind at a size of one. */
-const UNIT_SHAPE: Partial<Record<SpawnShape["kind"], SpawnShape>> = {
-  box: { kind: "box", size: [1, 1, 1], volume: false },
-  sphere: { kind: "sphere", radius: 1, volume: false },
-  cylinder: { kind: "cylinder", radius: 1, height: 1, volume: false },
-};
-
 /** A camera framing `sphere` from above and in front, and its contents turning under it. */
-function Turntable({ sphere, children }: { sphere: Sphere | null; children: ReactNode }) {
-  const colors = useSceneColors();
+export function Turntable({ sphere, children }: { sphere: Sphere | null; children: ReactNode }) {
+  const backdrop = useBackdropColor();
   const turned = useRef<Group>(null);
   useFrame((_, delta) => {
     if (turned.current !== null) turned.current.rotation.y += delta * SPIN;
@@ -213,7 +142,7 @@ function Turntable({ sphere, children }: { sphere: Sphere | null; children: Reac
 
   return (
     <>
-      <color attach="background" args={[colors.backdrop]} />
+      <color attach="background" args={[backdrop]} />
       <PerspectiveCamera
         makeDefault
         fov={FOV}

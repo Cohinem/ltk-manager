@@ -134,7 +134,7 @@ export function SoloToggle({ lane, soloed, gestures }: ToggleProps & { soloed: b
       )}
       {...gestureHandlers("solo", lane, gestures)}
     >
-      S
+      {m.workshop_bin_preview_solo_glyph_label()}
     </button>
   );
 }
@@ -175,7 +175,7 @@ export function VisibilityHeader({
         )}
         onClick={() => setSoloed(() => new Set())}
       >
-        S
+        {m.workshop_bin_preview_solo_glyph_label()}
       </button>
     </div>
   );

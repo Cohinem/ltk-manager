@@ -197,6 +197,11 @@ export function driverClass(classHash: string): DriverClass | undefined {
   return REGISTRY.get(classHash);
 }
 
+/** Whether the class with `classHash` drives a colour. */
+export function isColorDriver(classHash: string): boolean {
+  return REGISTRY.get(classHash)?.color ?? false;
+}
+
 /** The four `Vfx*DynamicProperty` wrappers a component field holds a graph through. */
 const GRAPH_ROOTS: ReadonlySet<string> = new Set(
   [

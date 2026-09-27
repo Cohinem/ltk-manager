@@ -32,12 +32,14 @@ import {
 } from "../utils/driverLayout";
 import { KIND_NAME, KIND_TONE, LEVEL_TONE, NEUTRAL_SOCKET } from "../utils/graphTones";
 import { itemSubtitle, itemTitle, pathAlias } from "../utils/nodeText";
+import { outputTop } from "../utils/outputSocket";
 import { embeds } from "../utils/socketEmbed";
 import type {
   ComponentItem,
   DriverItem,
   EmitterItem,
   FileItem,
+  RenderItem,
   GraphPort,
   MasterItem,
   PreviewItem,
@@ -60,6 +62,7 @@ export type MasterFlowNode = Node<{ placed: PlacedOf<MasterItem> }, "master">;
 export type StructFlowNode = Node<{ placed: PlacedOf<StructItem> }, "struct">;
 export type ValueFlowNode = Node<{ placed: PlacedOf<ValueItem> }, "value">;
 export type FileFlowNode = Node<{ placed: PlacedOf<FileItem> }, "file">;
+export type RenderFlowNode = Node<{ placed: PlacedOf<RenderItem> }, "render">;
 export type GraphFlowNode =
   | PreviewFlowNode
   | EmitterFlowNode
@@ -68,7 +71,8 @@ export type GraphFlowNode =
   | MasterFlowNode
   | StructFlowNode
   | ValueFlowNode
-  | FileFlowNode;
+  | FileFlowNode
+  | RenderFlowNode;
 
 /** The handle id every node but the preview outputs through. */
 export const OUTPUT_HANDLE = "out";
@@ -162,7 +166,7 @@ export function DriverNodeView({ data, selected }: NodeProps<DriverFlowNode>) {
           <NodeBody node={node} leaves={item.leaves} />
         </div>
       )}
-      <Output kind={node.kind} />
+      <Output kind={node.kind} top={outputTop(item)} />
     </NodeFrame>
   );
 }
@@ -327,10 +331,12 @@ function Ports({ ports, named = false }: { ports: readonly GraphPort[]; named?: 
             position={Position.Left}
             id={port.id}
             isConnectable={false}
+            isConnectableStart={false}
+            isConnectableEnd={false}
             className={twMerge(SOCKET, socketFill(port.kind))}
           />
           <PortLabel label={named ? port.label : pathAlias(port.label)} />
-          {port.embed !== undefined && <EmbeddedDriver item={port.embed} />}
+          {port.embed?.type === "driver" && <EmbeddedDriver item={port.embed} />}
           {port.kind !== null && (
             <span className={twMerge("shrink-0 font-mono text-meta", KIND_TONE[port.kind].text)}>
               {KIND_NAME[port.kind]}
@@ -358,9 +364,12 @@ export function PortLabel({ label }: { label: string }) {
 export function Output({
   kind,
   side = Position.Right,
+  top,
 }: {
   kind: DriverKind | null;
   side?: Position;
+  /** The socket's depth below the node's top edge, from `outputTop`. Centred where absent. */
+  top?: number;
 }) {
   return (
     <Handle
@@ -368,7 +377,10 @@ export function Output({
       position={side}
       id={OUTPUT_HANDLE}
       isConnectable={false}
+      isConnectableStart={false}
+      isConnectableEnd={false}
       className={twMerge(SOCKET, socketFill(kind))}
+      style={top === undefined ? undefined : { top }}
     />
   );
 }

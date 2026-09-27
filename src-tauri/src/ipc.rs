@@ -52,6 +52,8 @@ migrated![
     bin_edit,
     bin_undo,
     bin_redo,
+    bin_changes,
+    bin_revert,
     // Bin editor: declarations
     bin_declared,
     bin_set_declaring,

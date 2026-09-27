@@ -75,7 +75,8 @@ function ViewPortal({ view }: { view: PreviewEntry }) {
 }
 
 /**
- * Draws the view's scene into its box, measured against the canvas on this frame.
+ * Draws the view's scene into its box, measured against the canvas on this frame. The canvas's
+ * place is the size `FollowPlacement` measured before the draws, which the portal mirrors.
  *
  * A box off the canvas draws nothing, and one back on it draws again on the next frame, as
  * nothing is kept between frames.
@@ -85,10 +86,7 @@ function ViewDraw({ box, children }: { box: RefObject<HTMLElement | null>; child
     const element = box.current;
     if (element === null) return;
 
-    const place = viewPlace(
-      element.getBoundingClientRect(),
-      state.gl.domElement.getBoundingClientRect(),
-    );
+    const place = viewPlace(element.getBoundingClientRect(), state.size);
     if (place !== null) drawView(state, place);
   }, DRAW_PRIORITY);
 

@@ -36,7 +36,8 @@ export function drawHistogram(
   histogram: Histogram,
   { lanes, row, view, width }: LaneLayout,
 ): void {
-  if (canvas === null || width <= 0) return;
+  /* An empty colour would leave the fill at the canvas default, black. */
+  if (canvas === null || width <= 0 || colour === "") return;
   const context = canvas.getContext("2d");
   if (context === null) return;
   const scale = globalThis.devicePixelRatio || 1;

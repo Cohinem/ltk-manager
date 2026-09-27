@@ -32,7 +32,9 @@ export function reach(
   for (const edge of edges) {
     const [near, far] =
       direction === "inputs" ? [edge.target, edge.source] : [edge.source, edge.target];
-    next.set(near, [...(next.get(near) ?? []), far]);
+    const held = next.get(near);
+    if (held === undefined) next.set(near, [far]);
+    else held.push(far);
   }
 
   const seen = new Set(from);

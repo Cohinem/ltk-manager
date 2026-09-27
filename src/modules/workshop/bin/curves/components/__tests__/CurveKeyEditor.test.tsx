@@ -85,6 +85,26 @@ describe("CurveKeyEditor", () => {
     ).toHaveClass("flex-wrap", "border-t");
   });
 
+  it("names a vector's channels by the sash in each field, and its unit once after them", () => {
+    render(
+      <CurveKeyEditor
+        keys={KEYS}
+        family="vector"
+        selected={[0]}
+        unit="degrees"
+        editable
+        onCommit={() => {}}
+      />,
+    );
+
+    const y = screen.getByRole("textbox", { name: "Y deg" });
+    expect(
+      y.closest('[data-ui="StepperField"]')?.querySelector('[data-ui="ChannelSash"]'),
+    ).not.toBeNull();
+    expect(screen.queryByText("Y deg")).toBeNull();
+    expect(screen.getByText("deg")).toBeInTheDocument();
+  });
+
   it("offers the colour picker beside normalized channel fields", () => {
     render(
       <CurveKeyEditor

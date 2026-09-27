@@ -115,7 +115,7 @@ function segmentInto(out: Float32Array, at: number, from: Place, to: Place): num
  * legacy shape draws the place its curves sample to, its spread being a draw made per
  * particle rather than a body.
  */
-function shapeInto(
+export function shapeInto(
   out: Float32Array,
   at: number,
   shape: SpawnShape,

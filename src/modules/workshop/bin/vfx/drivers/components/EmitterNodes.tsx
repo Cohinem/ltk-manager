@@ -1,12 +1,10 @@
 import {
   BracketsCurlyIcon,
   CubeIcon,
-  DiceFiveIcon,
   type Icon,
   ListBulletsIcon,
   SparkleIcon,
   SphereIcon,
-  WaveSineIcon,
 } from "@phosphor-icons/react";
 import { type NodeProps, Position } from "@xyflow/react";
 import { Fragment, use, useMemo } from "react";
@@ -15,42 +13,25 @@ import { m } from "@/i18n";
 import type { BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { ValueCell } from "../../../classes/components/ClassCells";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { DefaultProperty } from "../../inspector/components/DefaultProperty";
 import type { HeldClass } from "../../inspector/components/PrimitivePicker";
-import {
-  type DefaultField,
-  defaultField,
-  fieldGroup,
-  GROUP_TITLE,
-  unauthoredFields,
-} from "../../inspector/utils/emitterGroups";
+import { defaultField, GROUP_TITLE } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { VfxRunContext } from "../../playback/state/run";
-import { valueLines, valueShape } from "../utils/curveShape";
-import {
-  isMaterial,
-  isPrimitive,
-  LINE_HEIGHT,
-  shapePreviewed,
-  structNameWidth,
-  VALUE_HEADER_HEIGHT,
-} from "../utils/driverLayout";
+import { isMaterial, isPrimitive, shapePreviewed, structNameWidth } from "../utils/driverLayout";
+import { listId } from "../utils/entryLists";
 import { emitterOf } from "../utils/graphEmitter";
-import type {
-  MasterField,
-  MasterItem,
-  StructItem,
-  StructRow,
-  ValueItem,
-} from "../utils/graphItems";
-import { KIND_NAME, KIND_TONE } from "../utils/graphTones";
-import { fieldAlias, itemSubtitle, itemTitle, valueSummary } from "../utils/nodeText";
+import type { MasterField, MasterItem, StructItem, StructRow } from "../utils/graphItems";
+import { listAppend } from "../utils/nodeEdits";
+import { fieldAlias, inputSummary, itemSubtitle, itemTitle } from "../utils/nodeText";
+import { outputTop } from "../utils/outputSocket";
+import { drawnInSection, RENDER_GROUP } from "../utils/renderSection";
+import { embeddedLists, embeddedValues, embedsList } from "../utils/socketEmbed";
+import { EmitterRunToggles, useRunPresence } from "./EmitterRunToggles";
 import { EmitterToggle } from "./EmitterToggle";
 import {
-  AddFieldLine,
   ClassLine,
   EntryLines,
   FIELD_PAD,
@@ -67,19 +48,18 @@ import {
   useRowsAt,
 } from "./FieldLines";
 import { GraphActionsContext } from "./graphActions";
-import {
-  type MasterFlowNode,
-  NodeHeader,
-  Output,
-  RevealButton,
-  type StructFlowNode,
-  type ValueFlowNode,
-} from "./GraphNodes";
-import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
-import { PrimitiveSketch, ShapePreview } from "./NodePreviews";
-import { useCardFollowsPick, useCurveFollowsPick } from "./paneSync";
-import { CurvePicture, MarkedCurve } from "./PlateFace";
+import { type MasterFlowNode, NodeHeader, Output, type StructFlowNode } from "./GraphNodes";
+import { EmitterAdd, GroupAdd } from "./MasterAdd";
+import { MaterialShape } from "./MaterialShape";
+import { EMBED_TONE, hueStyle, NodeFrame } from "./NodeFrame";
+import { PrimitiveSketch } from "./NodePreviews";
+import { useCardFollowsPick } from "./paneSync";
+import { ShapeInViewButton } from "./ShapeOverlay";
+import { EmbedBackButton, PopOutButton } from "./SocketEmbed";
+import { ShapePreview } from "./SpawnPreview";
+import { AddItemLine } from "./StructureLines";
 import { EmitterSurface, StructPicture } from "./SurfacePreview";
+import { ValueLine } from "./ValueLine";
 
 /**
  * A complex or simple emitter: its written fields under the inspector's group headings, with
@@ -89,6 +69,7 @@ import { EmitterSurface, StructPicture } from "./SurfacePreview";
 export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
   const { item, width, height, frame } = data.placed;
   const folded = use(GraphActionsContext)?.collapsed.has(item.id) ?? false;
+  const presence = useRunPresence(item.simple, item.listIndex);
   useCardFollowsPick(item);
 
   return (
@@ -98,7 +79,8 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
       selected={selected}
       item={item}
       plate={frame === undefined ? "above" : "none"}
-      dim={item.disabled}
+      dim={item.disabled || presence?.hidden === true}
+      dropTarget
     >
       <NodeHeader
         icon={SparkleIcon}
@@ -109,7 +91,13 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
         wire={item.wire}
         inputs={item.ports.length}
         folds
-        extra={<EmitterToggle wire={item.wire} disabled={item.disabled} />}
+        extra={
+          <>
+            <EmitterAdd item={item} />
+            <EmitterRunToggles presence={presence} />
+            <EmitterToggle wire={item.wire} disabled={item.disabled} />
+          </>
+        }
       />
       <EmitterSurface simple={item.simple} listIndex={item.listIndex} />
       {!folded && (
@@ -128,23 +116,21 @@ function MasterBody({ item }: { item: MasterItem }) {
   const rows = useRowsAt(item.wire, item.rowCount);
   const { data: schema } = useClassSchema(item.classHash === "" ? null : item.classHash);
   const holder = useMemo(() => holderRow(entry, item.wire), [entry, item.wire]);
-  const listed = useMemo(
-    () => new Set(item.groups.flatMap((each) => each.fields.map((field) => field.hash))),
-    [item.groups],
-  );
-  const unwritten = useMemo(
-    () => (schema == null ? [] : unauthoredFields(schema.fields, listed)),
-    [schema, listed],
-  );
+  const embedded = useMemo(() => embeddedValues(item), [item]);
+  const lists = useMemo(() => embeddedLists(item), [item]);
   const shown = useMemo(() => (rows === null ? [] : [...rows.values()]), [rows]);
-  const present = new Set(item.groups.map((each) => each.group));
-  const add = (field: DefaultField) => actions?.addField(item.id, field.hash);
 
   return (
     <FieldBody wire={item.wire} rows={shown}>
       {item.groups.map((group) => (
         <Fragment key={group.group}>
-          <GroupLine title={GROUP_TITLE[group.group]()} />
+          <GroupLine
+            title={GROUP_TITLE[group.group]()}
+            add={group.group !== RENDER_GROUP && <GroupAdd item={item} group={group.group} />}
+          />
+          {group.group === RENDER_GROUP && item.render !== null && (
+            <SocketLine input={item.render} label={GROUP_TITLE[RENDER_GROUP]()} />
+          )}
           {group.fields.map((field) => (
             <MasterLine
               key={field.hash}
@@ -153,36 +139,55 @@ function MasterBody({ item }: { item: MasterItem }) {
               holder={holder}
               schema={schema?.fields}
               owner={item.classHash}
+              embedded={embedded}
+              lists={lists}
             />
           ))}
-          <AddFieldLine
-            fields={unwritten.filter((field) => fieldGroup(field.hash) === group.group)}
-            onPick={add}
-          />
         </Fragment>
       ))}
-      <AddFieldLine
-        fields={unwritten.filter((field) => !present.has(fieldGroup(field.hash)))}
-        onPick={add}
-      />
     </FieldBody>
   );
 }
 
-interface MasterLineProps {
+export interface MasterLineProps {
   field: MasterField;
   row: BinRow | undefined;
   holder: BinRow;
   schema: readonly FieldSchema[] | undefined;
   owner: string;
+  embedded: ReadonlySet<string>;
+  /** The lists embedded in the node's sockets, by port. */
+  lists?: ReadonlyMap<string, StructItem>;
 }
 
-/** One field of a master node: an input, an unwritten field at its default, or its row. */
-function MasterLine({ field, row, holder, schema, owner }: MasterLineProps) {
+/** One field of a master or Texture node: an input, an unwritten field at its default, or its row. */
+export function MasterLine({
+  field,
+  row,
+  holder,
+  schema,
+  owner,
+  embedded,
+  lists,
+}: MasterLineProps) {
   const declared = schema?.find((each) => each.hash === field.hash);
   const name = row?.name ?? declared?.name ?? field.hash;
   const label = emitterLabel(field.hash, name) ?? name;
 
+  if (field.forces !== undefined) {
+    return field.forces.map((force) => (
+      <SocketLine key={force.id} input={force} label={force.label} />
+    ));
+  }
+  if (field.input?.type === "value" && embedded.has(field.input.id)) {
+    return <ValueLine item={field.input} row={row} label={label} owner={owner} />;
+  }
+  if (field.input?.type === "file" && drawnInSection(field.hash, field.input)) {
+    if (row === undefined) return <NoteLine label={label} />;
+    return <FieldLine row={row} label={label} owner={owner} />;
+  }
+  const list = field.input === null ? undefined : lists?.get(field.input.id);
+  if (list !== undefined) return <EmbeddedList list={list} label={label} />;
   if (field.input !== null) return <SocketLine input={field.input} label={label} />;
   if (field.pending && field.hash === PRIMITIVE_FIELD) {
     return <PrimitiveLine label={label} holder={holder} held={null} />;
@@ -229,7 +234,7 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
   const folded = (use(GraphActionsContext)?.collapsed.has(item.id) ?? false) && material;
   const previewed = shapePreviewed(item);
   const primitive = isPrimitive(item);
-  const picture = previewed || primitive || folded ? null : item.picture;
+  const picture = previewed || primitive || material ? null : item.picture;
 
   return (
     <NodeFrame
@@ -237,7 +242,7 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
       height={height}
       selected={selected}
       item={item}
-      plate={previewed || primitive || picture !== null ? "none" : "inside"}
+      plate={previewed || primitive || material || picture !== null ? "none" : "inside"}
     >
       <NodeHeader
         icon={material ? SphereIcon : STRUCT_ICON[item.shape]}
@@ -248,17 +253,29 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
         wire={item.wire}
         inputs={item.ports.length}
         folds={material || item.ports.length > 0}
-        divided={!folded}
+        divided
+        extra={
+          <>
+            {previewed && <ShapeInViewButton id={item.id} />}
+            {embedsList(item) && <EmbedBackButton id={item.id} />}
+          </>
+        }
       />
       {previewed && <SpawnShape id={item.id} />}
       {primitive && <PrimitiveSketch id={item.id} held={heldOf(item)} />}
+      {material && <MaterialShape entry={item.material} />}
       {picture !== null && <StructPicture item={item} picture={picture} />}
       {!folded && (
         <div className={FIELD_PAD}>
-          <StructBody item={item} nameWidth={structNameWidth(item)} />
+          <StructBody
+            item={item}
+            nameWidth={structNameWidth(item)}
+            embedded={embeddedValues(item)}
+            lists={embeddedLists(item)}
+          />
         </div>
       )}
-      <Output kind={null} />
+      <Output kind={null} top={outputTop(item)} />
     </NodeFrame>
   );
 }
@@ -280,7 +297,20 @@ const STRUCT_ICON: Readonly<Record<StructItem["shape"], Icon>> = {
   map: BracketsCurlyIcon,
 };
 
-function StructBody({ item, nameWidth }: { item: StructItem; nameWidth: number }) {
+export function StructBody({
+  item,
+  nameWidth,
+  embedded,
+  lists = NO_LISTS,
+}: {
+  item: StructItem;
+  /** The name column in pixels, and the master's own where the struct draws inside one. */
+  nameWidth?: number;
+  /** The ports of the node's struct a keyed value is embedded in, its section's included. */
+  embedded: ReadonlySet<string>;
+  /** The lists embedded in the node's sockets, by port, its section's included. */
+  lists?: ReadonlyMap<string, StructItem>;
+}) {
   const actions = use(GraphActionsContext);
   const entry = actions?.entry ?? "";
   const rows = useRowsAt(item.wire, item.rows.length);
@@ -308,13 +338,18 @@ function StructBody({ item, nameWidth }: { item: StructItem; nameWidth: number }
             each={each}
             row={rowOf(item, each, index, shown, rows)}
             owner={item.classHash}
+            embedded={embedded}
+            lists={lists}
+            nameWidth={nameWidth}
+            list={listId(item, each)}
           />
         ))}
+        {listAppend(item) !== null && <AddItemLine item={item} />}
       </FieldBody>
       {item.nested !== null && (
         <>
           <SectionLine title={fieldAlias(item.nested.label, item.nested.field)} />
-          <StructBody item={item.nested} nameWidth={nameWidth} />
+          <StructBody item={item.nested} nameWidth={nameWidth} embedded={embedded} lists={lists} />
         </>
       )}
     </>
@@ -337,109 +372,72 @@ function StructLine({
   each,
   row,
   owner,
+  embedded,
+  lists,
+  nameWidth,
+  list,
 }: {
   each: StructRow;
   row: BinRow | undefined;
   owner: string | null;
+  embedded: ReadonlySet<string>;
+  lists: ReadonlyMap<string, StructItem>;
+  nameWidth?: number;
+  /** The id the row's entries fold under, where it has any. */
+  list: string;
 }) {
   const name = row?.name ?? each.name;
   const label = fieldAlias(name, each.key.startsWith("0x") ? each.key : null);
 
+  if (each.input?.type === "value" && embedded.has(each.input.id)) {
+    return <ValueLine item={each.input} row={row} label={label} owner={owner} />;
+  }
+  const embeddedList = each.input === null ? undefined : lists.get(each.input.id);
+  if (embeddedList !== undefined) {
+    return <EmbeddedList list={embeddedList} label={label} nameWidth={nameWidth} />;
+  }
   if (each.input !== null) return <SocketLine input={each.input} label={label} />;
-  if (each.entries !== null) return <EntryLines label={label} entries={each.entries} />;
+  if (each.entries !== null) {
+    return (
+      <EntryLines id={list} label={label} entries={each.entries} open={each.listOpen === true} />
+    );
+  }
   if (row === undefined) return <NoteLine label={label} />;
   return <FieldLine row={row} label={label} owner={owner} />;
 }
 
+const NO_LISTS: ReadonlyMap<string, StructItem> = new Map();
+
 /**
- * A keyed or randomised value: its kind and summary over its curve, or over its row where it
- * has no curve to draw. The socket it feeds names the field, so the node names only its kind.
+ * A short list drawn in the socket it feeds, in its node's hue: its name and count with the
+ * button that pops it out to a node, over its items' rows, each edited in place.
  */
-export function ValueNodeView({ data, selected }: NodeProps<ValueFlowNode>) {
-  const { item, width, height } = data.placed;
-
+function EmbeddedList({
+  list,
+  label,
+  nameWidth,
+}: {
+  list: StructItem;
+  label: string;
+  nameWidth?: number;
+}) {
   return (
-    <NodeFrame width={width} height={height} selected={selected} item={item}>
-      <ValueHeader item={item} />
-      <div className={FIELD_PAD}>
-        <ValueBody item={item} />
-      </div>
-      <Output kind={item.kind} />
-    </NodeFrame>
-  );
-}
-
-function ValueHeader({ item }: { item: ValueItem }) {
-  const actions = use(GraphActionsContext);
-  const Glyph = item.curve.keys.length > 0 ? WaveSineIcon : DiceFiveIcon;
-  const tone = item.kind === null ? "text-bin-class-text" : KIND_TONE[item.kind].text;
-  const shape = valueShape(item);
-
-  return (
-    <div
-      title={itemSubtitle(item)}
-      className={twMerge(
-        "flex shrink-0 items-center gap-1.5 rounded-t-[inherit] border-b border-surface-veil bg-linear-to-b from-(--node-wash) to-transparent px-2",
-        NEAR_ONLY,
-      )}
-      style={{ height: VALUE_HEADER_HEIGHT }}
-    >
-      <Glyph weight="duotone" className={twMerge("h-4 w-4 shrink-0", tone)} />
-      {item.kind !== null && (
-        <span className={twMerge("shrink-0 font-mono text-meta", tone)}>
-          {KIND_NAME[item.kind]}
-        </span>
-      )}
-      <span className="min-w-0 flex-1 truncate text-meta text-surface-400">
-        {valueSummary(item)}
-      </span>
-      {shape === "tables" && (
-        <span className={twMerge(CURVE_WELL, "h-5 w-28 shrink-0 px-1 py-0.5")}>
-          <MarkedCurve item={item} shape={shape} />
-        </span>
-      )}
-      {actions?.reveal && <RevealButton onReveal={() => actions.reveal?.(item.wire)} />}
-    </div>
-  );
-}
-
-/* DS-GROUND, DS-VEIL, DS-RADIUS */
-const CURVE_WELL = "rounded-sm border border-surface-veil bg-surface-950/40";
-
-/** A keyed value's curve or gradient beside its toggle, or any other value's editor. */
-function ValueBody({ item }: { item: ValueItem }) {
-  const rows = useRowsAt(item.holder, item.holderRows);
-  const row = rows?.get(item.wire);
-  const shown = useMemo(() => (row === undefined ? [] : [row]), [row]);
-  useCurveFollowsPick(item.id, row);
-  const shape = valueShape(item);
-  const gradient = shape === "band" && item.curve.keys.length > 0;
-  const keyed = shape === "keys" || gradient;
-
-  return (
-    <FieldBody wire={item.wire} rows={shown} read="curves">
-      {row === undefined && <NoteLine label={fieldAlias(item.label)} />}
-      {row !== undefined && keyed && (
-        <div
-          className="flex shrink-0 items-center gap-2 px-2"
-          style={{ height: valueLines(item) * LINE_HEIGHT }}
+    <div className={EMBED_TONE} style={hueStyle(list)}>
+      <Line>
+        <span
+          className={twMerge(
+            NAME_COLUMN,
+            "ml-5 shrink-0 truncate font-mono text-code text-surface-200",
+          )}
         >
-          <div className={twMerge(CURVE_WELL, "h-full min-w-0 flex-1 px-1.5 py-1")}>
-            {gradient && <CurvePicture curve={item.curve} shape="band" />}
-            {!gradient && <MarkedCurve item={item} shape="keys" />}
-          </div>
-          <div className="flex shrink-0 items-center">
-            <ValueCell row={row} shaped controls />
-          </div>
-        </div>
-      )}
-      {row !== undefined && !keyed && (
-        <Line className="px-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <ValueCell row={row} shaped />
-          </div>
-        </Line>
-      )}
-    </FieldBody>
+          {label}
+        </span>
+        <span className="min-w-0 flex-1 truncate pl-2 font-mono text-meta text-surface-400">
+          {inputSummary(list)}
+        </span>
+        <PopOutButton id={list.id} />
+      </Line>
+      <StructBody item={list} nameWidth={nameWidth} embedded={embeddedValues(list)} />
+    </div>
   );
 }

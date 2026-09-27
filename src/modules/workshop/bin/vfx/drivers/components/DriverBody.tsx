@@ -1,7 +1,7 @@
 import { type ReactNode, use, useMemo } from "react";
 
 import { m } from "@/i18n";
-import type { BinDocumentId, BinRow, VfxValue } from "@/lib/tauri";
+import type { BinRow, VfxValue } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { useBinRead } from "../../../documents/hooks/useBinRead";
@@ -9,12 +9,12 @@ import { RowValue } from "../../../tree/components/BinRow";
 import { Swatch } from "../../../values/components/ColorMark";
 import { easingName } from "../../engine/drivers/easing";
 import { type DriverNode, type EasingNode, frequencyScope } from "../../engine/drivers/node";
-import { driverClass } from "../../engine/drivers/registry";
+import { isColorDriver } from "../../engine/drivers/registry";
 import type { ValueCurve } from "../../engine/model/model";
 import { LINE_HEIGHT, UNKNOWN_FIELD_LINES } from "../utils/driverLayout";
 import { formatValues } from "../utils/nodeText";
 import type { LeafTarget } from "../utils/systemGraph";
-import { type GraphActions, GraphActionsContext } from "./graphActions";
+import { type GraphActions, GraphActionsContext, NO_DOCUMENT } from "./graphActions";
 
 /**
  * What a driver node shows under its header: its value, an operator's stored values, a
@@ -28,11 +28,11 @@ export function NodeBody({ node, leaves }: { node: DriverNode; leaves: readonly 
     case "constant":
       return (
         <LeafLine leaf={leaf}>
-          <Values values={node.value} color={isColor(node.classHash)} />
+          <Values values={node.value} color={isColorDriver(node.classHash)} />
         </LeafLine>
       );
     case "curve":
-      return <CurveLine curve={node.curve} leaf={leaf} color={isColor(node.classHash)} />;
+      return <CurveLine curve={node.curve} leaf={leaf} color={isColorDriver(node.classHash)} />;
     case "operator":
       return node.stored.map((each, at) => (
         <LabeledLeaf
@@ -147,12 +147,6 @@ function useLeafRow(actions: GraphActions | null, leaf: LeafTarget | null): BinR
 }
 
 /* Read with no request under it, so the id is never sent. */
-const NO_DOCUMENT = 0 as BinDocumentId;
-
-function isColor(classHash: string): boolean {
-  return driverClass(classHash)?.color ?? false;
-}
-
 function Values({ values, color }: { values: readonly number[]; color: boolean }) {
   return (
     <>

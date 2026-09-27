@@ -300,7 +300,7 @@ pub(super) fn field_path(holder: &str, field: BinHash) -> String {
 
 /// The holder's path and the field of a property's path, or `None` where the last step
 /// is no field.
-fn split_field(path: &str) -> Option<(&str, BinHash)> {
+pub(super) fn split_field(path: &str) -> Option<(&str, BinHash)> {
     let steps = super::parse_steps(path)?;
     let Some(Step::Field(field)) = steps.last() else {
         return None;

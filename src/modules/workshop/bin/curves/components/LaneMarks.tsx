@@ -3,6 +3,7 @@ import { useId } from "react";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import type { ValueRange } from "../../values/utils/valueRows";
 import { readout } from "../utils/randomText";
 
 /** The share of its height a lane's fullest bin reaches, so the peak clears the edge. */
@@ -35,6 +36,36 @@ export function Density({ density, hue }: { density: readonly number[]; hue: str
       />
     </svg>
   );
+}
+
+/**
+ * A lane's ranges drawn whole, for a draw even across each of them: a bar per range in the
+ * channel's hue, a light fill inside its edges, as the Graph pane's value node draws one.
+ */
+export function RangeBars({
+  ranges,
+  share,
+  hue,
+}: {
+  ranges: readonly ValueRange[];
+  /** Where a value lands across the lane, as a percentage. */
+  share: (value: number) => number;
+  hue: string;
+}) {
+  return ranges.map((range, at) => (
+    <span
+      key={at}
+      aria-hidden
+      /* DS-KIND-HUE, DS-RADIUS */
+      className={twMerge("absolute inset-y-1 rounded-xs border-2 border-current", hue)}
+      style={{
+        left: `${share(range.least)}%`,
+        width: `${Math.max(share(range.most) - share(range.least), 0)}%`,
+      }}
+    >
+      <span className="absolute inset-0 bg-current opacity-30" />
+    </span>
+  ));
 }
 
 /** The values a split never draws, struck through. Its own pixels, so the stripes keep square. */

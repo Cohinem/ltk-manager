@@ -6,14 +6,9 @@ import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import { readDriver } from "../../engine/drivers/readDriver";
 import { driverClass, graphRootKind, hashOf } from "../../engine/drivers/registry";
 import { field, flag, text } from "../../engine/parsing/readValue";
-import {
-  classicEmitters,
-  holdsMaterial,
-  materialTree,
-  NO_PENDING,
-  type PendingFields,
-} from "./emitterGraph";
+import { classicEmitters, hex, materialTree, NO_PENDING, type PendingFields } from "./emitterGraph";
 import type { ComponentLine, GraphItem, GraphTree, LeafTarget } from "./graphItems";
+import { holdsMaterial } from "./materialNodes";
 
 export type {
   ComponentItem,
@@ -27,6 +22,7 @@ export type {
   LeafTarget,
   MasterItem,
   PreviewItem,
+  RenderItem,
   StructItem,
   ValueItem,
 } from "./graphItems";
@@ -366,9 +362,4 @@ function materialClass(value: Extract<VfxValue, { type: "struct" }>): string {
   const inner = value.fields.find(({ value: held }) => held.type === "struct")?.value;
   const held = inner?.type === "struct" && value.fields.length === 1 ? inner : value;
   return held.class ?? held.classHash;
-}
-
-/** A `0x` hash as a wire segment writes it: its eight hex digits alone. */
-function hex(hash: string): string {
-  return hash.slice(2);
 }

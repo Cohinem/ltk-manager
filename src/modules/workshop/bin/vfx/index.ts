@@ -3,7 +3,8 @@ export { systemSpan } from "./engine/model/systemModel";
 export { readVfxSystem } from "./engine/parsing/readVfxSystem";
 export { useVfxSystem, vfxKeys, vfxQueries } from "./hooks/useVfxSystem";
 export { RunKeys } from "./playback/components/RunKeys";
-export { useRunClock, useVfxRun, type VfxRun, VfxRunProvider } from "./playback/state/run";
+export { useVfxRun, type VfxRun, VfxRunProvider } from "./playback/state/run";
+export { useRunClock } from "./playback/state/runReadout";
 export {
   preloadVfxViewport,
   PreviewPane,

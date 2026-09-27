@@ -10,8 +10,8 @@ export interface GraphPort {
   readonly id: string;
   readonly label: string;
   readonly kind: DriverKind | null;
-  /** The driver drawn inside the socket rather than as a node of its own. */
-  readonly embed?: DriverItem;
+  /** The driver, keyed value or short list drawn inside the socket rather than as a node. */
+  readonly embed?: DriverItem | ValueItem | StructItem;
 }
 
 /** A leaf a node body edits: the struct holding it, by wire path, and its field hash. */
@@ -122,6 +122,8 @@ export interface MasterField {
   readonly input: InputItem | null;
   /** A field the file does not write yet, drawn at its default until an edit authors it. */
   readonly pending: boolean;
+  /** The force nodes of a `fieldCollectionDefinition`, an input each, where it holds any. */
+  readonly forces?: readonly StructItem[];
 }
 
 /** One inspector group of a master node, and its fields in file order. */
@@ -144,6 +146,23 @@ export interface MasterItem extends ItemBase {
   readonly groups: readonly MasterGroup[];
   /** The number of fields the emitter writes, which its row read asks for. */
   readonly rowCount: number;
+  /** The node the Texture group's input connects, and null where the emitter writes none. */
+  readonly render: RenderItem | null;
+}
+
+/**
+ * An emitter's texture and render fields as one Texture node, the fields
+ * `VfxLegacyRenderComponent` gathers. Its wire is the emitter's, which holds each field.
+ */
+export interface RenderItem extends ItemBase {
+  readonly type: "render";
+  /** The id of the master node the fields belong to, which Add field keys its picks on. */
+  readonly master: string;
+  readonly classHash: string;
+  /** The number of fields the emitter writes, which its row read asks for. */
+  readonly rowCount: number;
+  /** The texture, then the rest in file order. */
+  readonly fields: readonly MasterField[];
 }
 
 /** One row of a struct node: a field or an item, and the node drawing it if it is not a leaf. */
@@ -155,7 +174,14 @@ export interface StructRow {
   readonly input: InputItem | null;
   /** The items of a list or map a material holds, drawn under the row, and null elsewhere. */
   readonly entries: readonly ListEntry[] | null;
+  /** The entries draw under the row, which `openLists` marks, and are folded otherwise. */
+  readonly listOpen?: boolean;
+  /** How the row's value draws, which sizes the node's value column. */
+  readonly draws: RowDraw;
 }
+
+/** A row's value as its line draws it: one cell, a vector's components, or a keyed value's curve. */
+export type RowDraw = "cell" | 2 | 3 | 4 | "curve";
 
 /** One item of a list or map a material holds, as one line of the material's node. */
 export interface ListEntry {
@@ -185,6 +211,8 @@ export interface StructItem extends ItemBase {
   readonly nested: StructItem | null;
   /** The first file among its rows or its section's, drawn as the node's preview. */
   readonly picture: FileItem | null;
+  /** The `StaticMaterialDef` a material node is or links, by entry hash, drawn on a shape. */
+  readonly material?: string;
 }
 
 /** A keyed or randomised `Value*` field, which the curve panel edits. */
@@ -220,7 +248,7 @@ export interface FileItem extends ItemBase {
 }
 
 /** A node that feeds a field of a master or struct node. */
-export type InputItem = StructItem | ValueItem | FileItem;
+export type InputItem = StructItem | ValueItem | FileItem | RenderItem;
 
 export type GraphItem =
   | PreviewItem
@@ -230,7 +258,8 @@ export type GraphItem =
   | MasterItem
   | StructItem
   | ValueItem
-  | FileItem;
+  | FileItem
+  | RenderItem;
 
 /** One item and the items that feed its ports, in port order. */
 export interface GraphTree {

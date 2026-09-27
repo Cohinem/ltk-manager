@@ -20,6 +20,7 @@ use parking_lot::{ArcRwLockReadGuard, Mutex, RawRwLock, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod changes;
 mod clipboard;
 mod declared;
 mod dependencies;
@@ -33,6 +34,7 @@ mod requests;
 pub(crate) mod resolve;
 mod typed_names;
 
+pub use changes::{BinChange, ChangeBaseline, ChangeKind, Originals};
 pub use clipboard::CLIPBOARD_FORMAT;
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
@@ -731,6 +733,53 @@ impl BinDocuments {
         self.edit(id, |document| document.step(HistoryStep::Redo))
     }
 
+    /// Every property and object of the document under `id` that differs from the
+    /// baseline, the file as it was opened or `game`'s copy of each object. A declared
+    /// document reports none, since its declarations mark what it changes (ADR-0042).
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, and with what
+    /// `game` raises for a chunk it could not read.
+    pub fn changes(
+        &self,
+        id: BinDocumentId,
+        baseline: ChangeBaseline,
+        game: &dyn GameCopy,
+    ) -> AppResult<Vec<BinChange>> {
+        let (_, held) = self.held(id)?;
+        let document = held.read();
+        if document.declares() {
+            return Ok(Vec::new());
+        }
+        let originals = document.originals(baseline, game, None)?;
+        Ok(document.changes_from(&originals))
+    }
+
+    /// Put the property at `path` under `entry` of the document under `id` back to the
+    /// baseline's, as one undoable edit.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::changes`], and with what [`BinDocument::revert_property`] raises.
+    pub fn revert(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+        path: &str,
+        baseline: ChangeBaseline,
+        game: &dyn GameCopy,
+    ) -> AppResult<()> {
+        let originals = self
+            .held(id)?
+            .1
+            .read()
+            .originals(baseline, game, Some(entry))?;
+        Ok(self.edit(id, |document| {
+            document.revert_property(entry, path, originals.get(&entry))
+        })?)
+    }
+
     /// Run `edit` on the document under `id`, behind its gate.
     fn edit<T>(
         &self,
@@ -873,6 +922,9 @@ pub struct BinDocument {
     file: BinFile,
     /// The bytes `file` parsed from, which a save writes the touched objects over.
     base: Vec<u8>,
+    /// The bytes the document was read from, which a save leaves as they are, for
+    /// [`BinDocument::changes_from`] against the file as it was opened.
+    opened: Vec<u8>,
     /// Every object a patch touched since the base was read.
     touched: IndexSet<BinHash>,
     /// A patch changed the header's dependency list since the base was read.
@@ -899,6 +951,7 @@ impl BinDocument {
         let base = bytes.into();
         Ok(Self {
             file: BinFile::from_reader(&mut Cursor::new(&base))?,
+            opened: base.clone(),
             base,
             touched: IndexSet::new(),
             dependencies_touched: false,

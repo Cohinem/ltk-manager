@@ -66,6 +66,7 @@ export function itemHue(item: GraphItem): string {
       return ROLE_HUE.emitter;
     case "component":
     case "struct":
+    case "render":
       return ROLE_HUE.component;
     case "file":
       return ROLE_HUE.file;

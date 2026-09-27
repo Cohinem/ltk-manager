@@ -676,3 +676,36 @@ fn an_item_edit_saves_through_the_delta() {
     assert_eq!(items(&reread, "weights"), floats(&[0.0, 0.5, 1.0]).items());
     assert_eq!(map_keys(&reread, "names"), [hash_key("Run")]);
 }
+
+#[test]
+fn a_staged_leaf_fills_an_empty_option_and_sets_a_held_one() {
+    let schema = schema();
+    let mut document = document();
+    let set = |field: &str, to: f32| {
+        let edits = vec![ValueEdit::SetLeaf {
+            path: String::new(),
+            value: LeafValue::Float { value: to },
+        }];
+        (wire(h(field)), edits)
+    };
+
+    for (field, to) in [("chance", 0.5), ("held", 3.0)] {
+        let (at, edits) = set(field, to);
+        document
+            .edit_property(entry(), "", &at, edits, schema.at(Some(BUILD)))
+            .unwrap();
+        assert_eq!(
+            value(&document, field),
+            &values::Optional::new(Kind::F32, Some(values::F32::new(to).into()))
+                .unwrap()
+                .into()
+        );
+    }
+
+    assert!(document.undo().unwrap());
+    assert!(document.undo().unwrap());
+    assert_eq!(
+        value(&document, "chance"),
+        &values::Optional::empty(Kind::F32).unwrap().into()
+    );
+}

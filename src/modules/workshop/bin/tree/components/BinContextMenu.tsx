@@ -28,6 +28,7 @@ import {
 import { useOpenDocumentAs } from "../../../state";
 import { ResetMenuItem } from "../../classes/components/ResetMenuItem";
 import { useCurveDock } from "../../curves/state/curveTarget";
+import { RevertMenuItem } from "../../documents/components/ChangeMark";
 import { DeclarationMenuItems } from "../../documents/components/DeclarationMenuItems";
 import { ObjectMenuItems } from "../../documents/components/ObjectMenuItems";
 import { useDeclaredObject, useDeclares } from "../../documents/hooks/useDeclared";
@@ -231,6 +232,7 @@ export function BinContextMenu({
             );
           })}
           {resets && <ResetMenuItem row={row} owner={line.owner} curve={mark?.curve === true} />}
+          <RevertMenuItem row={row} />
           {(edits.length > 0 || resets) && <ContextMenu.Separator />}
           <ObjectMenuItems row={row} />
           <DeclarationMenuItems row={row} />

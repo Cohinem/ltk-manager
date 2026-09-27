@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { RowValue } from "../../../tree/components/BinRow";
 import type { FileItem, FileKind } from "../utils/graphItems";
 import { fieldAlias, itemSubtitle, itemTitle } from "../utils/nodeText";
+import { outputTop } from "../utils/outputSocket";
 import { FIELD_PAD, FieldBody, Line, NoteLine, useRowsAt } from "./FieldLines";
 import { type FileFlowNode, NodeHeader, Output } from "./GraphNodes";
 import { NodeFrame } from "./NodeFrame";
@@ -37,7 +38,7 @@ export function FileNodeView({ data, selected }: NodeProps<FileFlowNode>) {
       <div className={FIELD_PAD}>
         <FileBody item={item} />
       </div>
-      <Output kind={null} />
+      <Output kind={null} top={outputTop(item)} />
     </NodeFrame>
   );
 }

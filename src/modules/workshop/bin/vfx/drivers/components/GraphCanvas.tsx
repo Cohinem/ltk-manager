@@ -11,16 +11,15 @@ import {
   SelectionMode,
   useNodesState,
   useReactFlow,
-  useStore,
   type XYPosition,
 } from "@xyflow/react";
 import {
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   use,
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,16 +35,20 @@ import { chainThrough, reach } from "../utils/graphChain";
 import { CANVAS_TONE, itemHue } from "../utils/graphTones";
 import { PreviewViewStore } from "../utils/previewViews";
 import type { GraphItem } from "../utils/systemGraph";
+import { CONNECTION_PROPS, useCanvasAdds } from "./canvasAdds";
 import { type CanvasNode, canvasPosition, layoutNodes, withMoves } from "./canvasNodes";
 import { ComponentNodeView } from "./ComponentNode";
 import { FrameNodeView } from "./EmitterFrame";
-import { MasterNodeView, StructNodeView, ValueNodeView } from "./EmitterNodes";
+import { MasterNodeView, StructNodeView } from "./EmitterNodes";
 import { EmitterPreviewLayer } from "./EmitterPreview";
 import { FileNodeView } from "./FileNode";
 import {
   type GraphActions,
   GraphActionsContext,
   LoopedSurfacesContext,
+  type MenuRow,
+  QuickAddContext,
+  RowMenuContext,
   SolePick,
   SolePickContext,
 } from "./graphActions";
@@ -53,8 +56,13 @@ import { GraphControls } from "./GraphControls";
 import { changesOverTime, fadeRule, keptEdges, useLanes } from "./graphEdges";
 import { GraphMenu } from "./GraphMenu";
 import { DriverNodeView, EmitterNodeView, PreviewNodeView } from "./GraphNodes";
-import { FAR_ZOOM } from "./NodeFrame";
+import { runNodeKey, useNodeStructure } from "./nodeStructure";
 import { PreviewViewsContext } from "./PreviewView";
+import { QuickAdd } from "./QuickAdd";
+import { RenderNodeView } from "./RenderNode";
+import { ValueNodeView } from "./ValueNode";
+import { useGraphFollowsChoice, useHoverReport } from "./viewportLink";
+import { ZoomDetail } from "./ZoomDetail";
 
 const NODE_TYPES: NodeTypes = {
   preview: PreviewNodeView,
@@ -65,6 +73,7 @@ const NODE_TYPES: NodeTypes = {
   struct: StructNodeView,
   value: ValueNodeView,
   file: FileNodeView,
+  render: RenderNodeView,
   frame: FrameNodeView,
 };
 
@@ -90,7 +99,8 @@ interface GraphCanvasProps {
  * the group. Hovering or selecting a node lights every path through it, and one selected
  * node fades the nodes off those paths. A right click opens `GraphMenu` on the node under
  * the pointer or on the canvas. Ctrl+D, Ctrl+C, Ctrl+V and Delete duplicate, copy, paste and
- * delete the emitter of the one master node selected. Decision 2.8 of docs/plans/shimmer-driver-graph.md.
+ * delete the emitter of the one master node selected, and Delete and Ctrl+D run
+ * `runNodeKey` on any other node selected alone. Decision 2.8 of docs/plans/shimmer-driver-graph.md.
  */
 export function GraphCanvas(props: GraphCanvasProps) {
   const [views] = useState(() => new PreviewViewStore());
@@ -155,14 +165,18 @@ function Canvas({
           },
     [actions],
   );
-  const onChange = (changes: NodeChange<CanvasNode>[]) => {
-    for (const change of changes) {
-      if (change.type === "position" && change.position !== undefined) {
-        moved.current.set(change.id, change.position);
+  /* Stable, since React Flow writes a new handler into its store and wakes every subscriber. */
+  const onChange = useCallback(
+    (changes: NodeChange<CanvasNode>[]) => {
+      for (const change of changes) {
+        if (change.type === "position" && change.position !== undefined) {
+          moved.current.set(change.id, change.position);
+        }
       }
-    }
-    onNodesChange(changes);
-  };
+      onNodesChange(changes);
+    },
+    [onNodesChange],
+  );
   const resetLayout = () => {
     moved.current.clear();
     setNodes(placedNodes);
@@ -170,15 +184,17 @@ function Canvas({
 
   const [hovered, setHovered] = useState<string | null>(null);
   const [menuItem, setMenuItem] = useState<GraphItem | null>(null);
+  const [menuRow, setMenuRow] = useState<MenuRow | null>(null);
   const selectedKey = nodes
     .filter((node) => node.selected)
     .map((node) => node.id)
     .join("\n");
+  const soleId = selectedKey === "" || selectedKey.includes("\n") ? null : selectedKey;
   const [sole] = useState(() => new SolePick());
   const [looped, setLooped] = useState(false);
   useEffect(() => {
-    sole.set(selectedKey === "" || selectedKey.includes("\n") ? null : selectedKey);
-  }, [sole, selectedKey]);
+    sole.set(soleId);
+  }, [sole, soleId]);
   const selectedChain = useMemo(
     () => (selectedKey === "" ? null : chainThrough(selectedKey.split("\n"), layout.edges)),
     [selectedKey, layout],
@@ -199,13 +215,22 @@ function Canvas({
   );
 
   const clipboard = useEmitterClipboard();
-  const picked = nodes.find((node) => node.id === selectedKey);
+  const structure = useNodeStructure();
+  const picked = soleId === null ? undefined : nodes.find((node) => node.id === soleId);
   const pickedItem =
     picked === undefined || picked.type === "frame" ? null : picked.data.placed.item;
   const pickedEmitter =
     pickedItem?.type === "master" && actions !== null
       ? { entry: actions.entry, wire: pickedItem.wire, name: pickedItem.name }
       : null;
+
+  const box = useRef<HTMLDivElement>(null);
+  const adds = useCanvasAdds({
+    box,
+    entry: actions?.entry ?? "",
+    layout,
+    picked: soleId,
+  });
 
   const selectAll = (selected: boolean) =>
     setNodes((each) => each.map((node) => (node.type === "frame" ? node : { ...node, selected })));
@@ -230,12 +255,24 @@ function Canvas({
     [layout, focusChain, lanes, dynamic],
   );
 
-  const onNodeMouseEnter = useCallback((_: unknown, node: CanvasNode) => {
-    if (node.type !== "frame") setHovered(node.id);
-  }, []);
-  const onNodeMouseLeave = useCallback(() => setHovered(null), []);
-  const onNodeDoubleClick = useCallback(
+  const reportHover = useHoverReport();
+  useGraphFollowsChoice(nodes, setNodes, flow);
+  const onNodeMouseEnter = useCallback(
     (_: unknown, node: CanvasNode) => {
+      if (node.type === "frame") return;
+
+      setHovered(node.id);
+      reportHover(node.id);
+    },
+    [reportHover],
+  );
+  const onNodeMouseLeave = useCallback(() => {
+    setHovered(null);
+    reportHover(null);
+  }, [reportHover]);
+  const onNodeDoubleClick = useCallback(
+    (event: ReactMouseEvent, node: CanvasNode) => {
+      if (inControl(event.target)) return;
       if (node.type === "frame") {
         void flow.fitView({ ...FIT_VIEW, nodes: [{ id: node.id }] });
         return;
@@ -257,97 +294,122 @@ function Canvas({
 
   return (
     <GraphActionsContext value={anchored}>
-      <SolePickContext value={sole}>
-        <LoopedSurfacesContext value={looped}>
-          <ContextMenu.Root>
-            <ContextMenu.Trigger
-              data-ui="GraphCanvas"
-              /* Focusable so a click on the canvas takes the keyboard, which Select all reads. */
-              tabIndex={-1}
-              className="min-h-0 flex-1 bg-surface-950/40 outline-none"
-              onContextMenuCapture={() => setMenuItem(null)}
-              onKeyDown={(event) => {
-                if (typing(event.target)) return;
+      <QuickAddContext value={adds.host}>
+        <RowMenuContext value={setMenuRow}>
+          <SolePickContext value={sole}>
+            <LoopedSurfacesContext value={looped}>
+              <ContextMenu.Root>
+                <ContextMenu.Trigger
+                  ref={box}
+                  data-ui="GraphCanvas"
+                  /* Focusable so a click on the canvas takes the keyboard, which Select all reads. */
+                  tabIndex={-1}
+                  className="relative min-h-0 flex-1 bg-surface-950/40 outline-none"
+                  onPointerMove={adds.onPointerMove}
+                  onDoubleClick={adds.onDoubleClick}
+                  onContextMenuCapture={() => {
+                    setMenuItem(null);
+                    setMenuRow(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (typing(event.target)) return;
 
-                if (runEmitterKey(event, clipboard, actions?.entry ?? "", pickedEmitter)) {
-                  /* Ctrl+D also opens Diagnostics app-wide, so a handled chord stops here. */
-                  event.preventDefault();
-                  event.stopPropagation();
-                  return;
-                }
+                    const entry = actions?.entry ?? "";
+                    if (
+                      runEmitterKey(event, clipboard, entry, pickedEmitter) ||
+                      runNodeKey(event, structure, pickedItem)
+                    ) {
+                      /* Ctrl+D also opens Diagnostics app-wide, so a handled chord stops here. */
+                      event.preventDefault();
+                      event.stopPropagation();
+                      return;
+                    }
 
-                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
-                  event.preventDefault();
-                  selectAll(true);
-                }
-                if (event.key === "Escape") selectAll(false);
-              }}
-            >
-              {fade !== null && <style>{fade}</style>}
-              <ReactFlow
-                id={scope}
-                style={SELECTION_STYLE}
-                selectionKeyCode={BOX_KEY}
-                selectionMode={SelectionMode.Partial}
-                panOnDrag={PAN_BUTTONS}
-                multiSelectionKeyCode={ADD_KEYS}
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={NODE_TYPES}
-                onNodesChange={onChange}
-                onNodeMouseEnter={onNodeMouseEnter}
-                onNodeMouseLeave={onNodeMouseLeave}
-                onNodeDoubleClick={onNodeDoubleClick}
-                onNodeContextMenu={onNodeContextMenu}
-                nodesConnectable={false}
-                deleteKeyCode={null}
-                zoomOnDoubleClick={false}
-                panOnScroll
-                zoomOnScroll={false}
-                fitView
-                fitViewOptions={FIT_VIEW}
-                minZoom={0.1}
-                maxZoom={2}
-                proOptions={PRO_OPTIONS}
-              >
-                <Background
-                  variant={BackgroundVariant.Dots}
-                  gap={20}
-                  size={1.5}
-                  color={CANVAS_TONE.dots}
-                />
-                <ZoomDetail />
-                {previews && <EmitterPreviewLayer />}
-                <GraphControls
+                    if (adds.onKeyDown(event)) {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      return;
+                    }
+
+                    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+                      event.preventDefault();
+                      selectAll(true);
+                    }
+                    if (event.key === "Escape") selectAll(false);
+                  }}
+                >
+                  {fade !== null && <style>{fade}</style>}
+                  <ReactFlow
+                    id={scope}
+                    style={SELECTION_STYLE}
+                    selectionKeyCode={BOX_KEY}
+                    selectionMode={SelectionMode.Partial}
+                    panOnDrag={PAN_BUTTONS}
+                    multiSelectionKeyCode={ADD_KEYS}
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={NODE_TYPES}
+                    onNodesChange={onChange}
+                    onNodeMouseEnter={onNodeMouseEnter}
+                    onNodeMouseLeave={onNodeMouseLeave}
+                    onNodeDoubleClick={onNodeDoubleClick}
+                    onNodeContextMenu={onNodeContextMenu}
+                    {...CONNECTION_PROPS}
+                    onConnectEnd={adds.onConnectEnd}
+                    deleteKeyCode={null}
+                    zoomOnDoubleClick={false}
+                    panOnScroll
+                    zoomOnScroll={false}
+                    fitView
+                    fitViewOptions={FIT_VIEW}
+                    minZoom={0.1}
+                    maxZoom={2}
+                    proOptions={PRO_OPTIONS}
+                  >
+                    <Background
+                      variant={BackgroundVariant.Dots}
+                      gap={20}
+                      size={1.5}
+                      color={CANVAS_TONE.dots}
+                    />
+                    <ZoomDetail />
+                    {previews && <EmitterPreviewLayer />}
+                    <GraphControls
+                      onFit={() => void flow.fitView(FIT_VIEW)}
+                      onCollapseAll={onCollapseAll}
+                      previewed={previewed}
+                      onPreviewedChange={onPreviewedChange}
+                      looped={looped}
+                      onLoopedChange={setLooped}
+                    />
+                    <MiniMap
+                      pannable
+                      zoomable
+                      ariaLabel={m.workshop_bin_graph_minimap_label()}
+                      nodeColor={minimapColor}
+                      nodeBorderRadius={4}
+                      bgColor={CANVAS_TONE.minimap}
+                      maskColor={CANVAS_TONE.mask}
+                      className="overflow-hidden rounded-lg border border-surface-veil-strong"
+                    />
+                  </ReactFlow>
+                  {adds.quick !== null && (
+                    <QuickAdd at={adds.quick} masters={adds.masters} onClose={adds.close} />
+                  )}
+                </ContextMenu.Trigger>
+                <GraphMenu
+                  item={menuItem}
+                  row={menuRow}
                   onFit={() => void flow.fitView(FIT_VIEW)}
+                  onFrame={frame}
                   onCollapseAll={onCollapseAll}
-                  previewed={previewed}
-                  onPreviewedChange={onPreviewedChange}
-                  looped={looped}
-                  onLoopedChange={setLooped}
+                  onResetLayout={resetLayout}
                 />
-                <MiniMap
-                  pannable
-                  zoomable
-                  ariaLabel={m.workshop_bin_graph_minimap_label()}
-                  nodeColor={minimapColor}
-                  nodeBorderRadius={4}
-                  bgColor={CANVAS_TONE.minimap}
-                  maskColor={CANVAS_TONE.mask}
-                  className="overflow-hidden rounded-lg border border-surface-veil-strong"
-                />
-              </ReactFlow>
-            </ContextMenu.Trigger>
-            <GraphMenu
-              item={menuItem}
-              onFit={() => void flow.fitView(FIT_VIEW)}
-              onFrame={frame}
-              onCollapseAll={onCollapseAll}
-              onResetLayout={resetLayout}
-            />
-          </ContextMenu.Root>
-        </LoopedSurfacesContext>
-      </SolePickContext>
+              </ContextMenu.Root>
+            </LoopedSurfacesContext>
+          </SolePickContext>
+        </RowMenuContext>
+      </QuickAddContext>
     </GraphActionsContext>
   );
 }
@@ -373,29 +435,20 @@ const SELECTION_STYLE = {
   "--xy-selection-border": "1px solid color-mix(in srgb, var(--color-accent-400) 70%, transparent)",
 } as CSSProperties;
 
+/**
+ * Whether a pointer lands in a node's fields or controls, where two quick presses nudge a
+ * value twice rather than reveal the node's row.
+ */
+function inControl(target: EventTarget): boolean {
+  return target instanceof Element && target.closest(CONTROLS) !== null;
+}
+
+const CONTROLS = ".nodrag, button, input, select, textarea, [role='spinbutton'], [role='slider']";
+
 /** Whether a key lands in a field of a node, whose own keys Select all must leave alone. */
 function typing(target: EventTarget): boolean {
   return (
     target instanceof HTMLElement &&
     (target.isContentEditable || target.closest("input, textarea, select") !== null)
   );
-}
-
-/**
- * Writes the zoom onto the canvas root as `--graph-zoom` and `data-detail`.
- *
- * The nodes read both from CSS, so crossing `FAR_ZOOM` or scaling a plate re-renders no node.
- */
-function ZoomDetail() {
-  const zoom = useStore((state) => state.transform[2]);
-  const root = useStore((state) => state.domNode);
-
-  useLayoutEffect(() => {
-    if (root === null) return;
-
-    root.style.setProperty("--graph-zoom", String(zoom));
-    root.dataset.detail = zoom < FAR_ZOOM ? "far" : "near";
-  }, [root, zoom]);
-
-  return null;
 }

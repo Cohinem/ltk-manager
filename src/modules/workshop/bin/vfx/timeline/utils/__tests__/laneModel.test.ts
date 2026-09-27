@@ -17,6 +17,7 @@ import {
   minorTicks,
   painted,
   panned,
+  periodCycles,
   shownAlone,
   soloAlone,
   ticks,
@@ -112,6 +113,8 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     disabled: false,
     lifetime: 1,
     timeBeforeFirstEmission: 0,
+    period: null,
+    singleParticle: false,
     particleLifetime: constant(0.5),
     particleLinger: 0,
     emitterLinger: 0,
@@ -280,5 +283,27 @@ describe("child lanes", () => {
     const [bar] = childBars([{ path: "1.0", emitter: 1, slot: 0, bornAt: 2, depth: 1 }], lane, 0);
 
     expect(bar.end).toBeGreaterThan(2);
+  });
+});
+
+describe("bar edges", () => {
+  const view = { from: 0, to: 10 };
+  const bar = {
+    start: 1,
+    end: 3,
+    tail: 1,
+    linger: 1,
+    period: null,
+    burst: false,
+  };
+
+  it("opens a cycle every period until the bar ends", () => {
+    const cycling = { ...bar, end: 7, period: { length: 2, active: 0.5 } };
+
+    expect(periodCycles(cycling, view)).toEqual([
+      { from: 1, active: 1.5 },
+      { from: 3, active: 3.5 },
+      { from: 5, active: 5.5 },
+    ]);
   });
 });

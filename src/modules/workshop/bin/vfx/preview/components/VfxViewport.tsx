@@ -1,14 +1,10 @@
-import {
-  ArrowsOutCardinalIcon,
-  ArrowClockwiseIcon,
-  FrameCornersIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+import { FrameCornersIcon, XIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, HexshadeIcon, IconButton, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
+import type { BinRow } from "@/lib/tauri";
 import {
   edgesOf,
   lastCameraPose,
@@ -32,7 +28,7 @@ import {
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
-import type { SystemModel } from "../../engine/model/model";
+import type { EmitterModel, SystemModel } from "../../engine/model/model";
 import type { RigModel } from "../../engine/model/rig";
 import { ForceGizmo } from "../../forces/ForceGizmo";
 import { useForcePreview } from "../../forces/forcePreview";
@@ -42,7 +38,6 @@ import { useEmitters } from "../../inspector/state/emitterChoice";
 import { RigControl } from "../../playback/components/RigControl";
 import { RunTransport } from "../../playback/components/RunTransport";
 import { useVfxRun } from "../../playback/state/run";
-import { EmitterGizmo } from "../../rendering/components/EmitterGizmo";
 import { Passes } from "../../rendering/components/Passes";
 import { ShimmerMeshes } from "../../rendering/components/ShimmerMeshes";
 import { createStatsFeed, Stats, StatsProbe } from "../../rendering/components/Stats";
@@ -57,10 +52,14 @@ import { fades } from "../../rendering/utils/softParticle";
 import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds";
 import { chosenEmitter } from "../../timeline/utils/selection";
 import { createGrabLatch } from "../utils/grabLatch";
+import { handleBlock, type HandleKind } from "../utils/spatialHandles";
 import { CameraMenu } from "./CameraMenu";
+import { EmitterMarks } from "./EmitterMarks";
 import { EmitterTransform, type TransformMode } from "./EmitterTransform";
+import { HandleMenu } from "./HandleMenu";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
+import { SpatialHandle } from "./SpatialHandle";
 import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
 import { ViewModeMenu } from "./ViewModeMenu";
 import { ViewportPick } from "./ViewportPick";
@@ -126,7 +125,10 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     selectedForce !== undefined &&
     !forcePreview.muted.has(selectedForce.key) &&
     (forcePreview.solo === null || forcePreview.solo === selectedForce.key);
-  const [transformMode, setTransformMode] = useState<TransformMode | null>(null);
+  const [handle, setHandle] = useState<HandleKind | null>(null);
+  const transformMode: TransformMode | null =
+    handle === "offset" ? "translate" : handle === "turn" ? "rotate" : null;
+  const spatial = handle === null || handle === "offset" || handle === "turn" ? null : handle;
   const translationRow = root?.fields(nameHash("translationOverride"));
   const rotationRow = root?.fields(nameHash("rotationOverride"));
   const transformRow = transformMode === "translate" ? translationRow : rotationRow;
@@ -179,9 +181,12 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
               </VfxHost>
               <ViewportPick picks={picks} system={shown} latch={latch} />
               <Fit token={fitRequest} system={shown} drawn={drawn} rig={rig.rig} />
-              {gizmo && opened !== null && (
-                <EmitterGizmo system={shown} driver={driver} emitter={opened} />
-              )}
+              <EmitterMarks
+                system={shown}
+                driver={driver}
+                opened={child === null ? opened : null}
+                gizmo={gizmo}
+              />
               {edit !== null &&
                 selectedForce === undefined &&
                 child === null &&
@@ -194,6 +199,23 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                     emitter={opened}
                     row={transformRow}
                     mode={transformMode}
+                    edit={edit}
+                    onGrab={latch.grab}
+                  />
+                )}
+              {edit !== null &&
+                selectedForce === undefined &&
+                child === null &&
+                opened !== null &&
+                root !== undefined &&
+                spatial !== null &&
+                handleBlock(spatial, opened) === null && (
+                  <SpatialHandle
+                    key={`${root.key}:${spatial}`}
+                    system={shown}
+                    emitter={opened}
+                    holder={root.row}
+                    kind={spatial}
                     edit={edit}
                     onGrab={latch.grab}
                   />
@@ -242,50 +264,14 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           <CameraMenu />
           {edit !== null && child === null && opened !== null && (
             <>
-              <Tooltip
-                content={
-                  translationRow === undefined
-                    ? m.workshop_bin_transform_missing_hint()
-                    : m.workshop_bin_transform_move_action()
-                }
-              >
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  compact
-                  disabled={translationRow?.value.type !== "vector"}
-                  aria-label={m.workshop_bin_transform_move_action()}
-                  aria-pressed={transformMode === "translate"}
-                  className="aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
-                  icon={<ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />}
-                  onClick={() => {
-                    forcePreview.select(null);
-                    setTransformMode(transformMode === "translate" ? null : "translate");
-                  }}
-                />
-              </Tooltip>
-              <Tooltip
-                content={
-                  rotationRow === undefined
-                    ? m.workshop_bin_transform_missing_hint()
-                    : m.workshop_bin_transform_rotate_action()
-                }
-              >
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  compact
-                  disabled={rotationRow?.value.type !== "vector"}
-                  aria-label={m.workshop_bin_transform_rotate_action()}
-                  aria-pressed={transformMode === "rotate"}
-                  className="aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
-                  icon={<ArrowClockwiseIcon weight="bold" className="h-4 w-4" />}
-                  onClick={() => {
-                    forcePreview.select(null);
-                    setTransformMode(transformMode === "rotate" ? null : "rotate");
-                  }}
-                />
-              </Tooltip>
+              <HandleMenu
+                value={handle}
+                blocked={(kind) => handleHint(kind, opened, translationRow, rotationRow)}
+                onChange={(kind) => {
+                  forcePreview.select(null);
+                  setHandle(kind);
+                }}
+              />
             </>
           )}
           <Tooltip content={m.workshop_bin_preview_fit_action()}>
@@ -509,4 +495,22 @@ function undrawnKinds(system: SystemModel | null): { count: number; kinds: strin
   }
 
   return { count, kinds: [...named].sort().join(", ") };
+}
+
+/** Why the handle picker lists `kind` disabled for `emitter`, and null where it can edit it. */
+function handleHint(
+  kind: HandleKind,
+  emitter: EmitterModel,
+  translationRow: BinRow | undefined,
+  rotationRow: BinRow | undefined,
+): string | null {
+  if (kind === "offset" || kind === "turn") {
+    const row = kind === "offset" ? translationRow : rotationRow;
+    return row?.value.type === "vector" ? null : m.workshop_bin_transform_missing_hint();
+  }
+
+  const block = handleBlock(kind, emitter);
+  if (block === "animated") return m.workshop_bin_handle_animated_hint();
+  if (block === "noShape") return m.workshop_bin_handle_no_shape_hint();
+  return null;
 }

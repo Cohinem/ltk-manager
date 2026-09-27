@@ -19,8 +19,10 @@ import {
   laneBar,
   type TimeWindow,
 } from "../utils/laneModel";
+import { BarEditor } from "./BarEditor";
 import { type LaneGestures, SoloToggle, VisibleToggle } from "./laneVisibility";
 import { Track } from "./Track";
+import { useBarEditing } from "./useBarEditing";
 
 /** The room the live count takes at a lane's right edge, in pixels. */
 export const COUNT = 40;
@@ -44,6 +46,8 @@ interface LaneRowProps {
   onExpand: (emitter: number) => void;
   onSelect: (row: Row) => void;
   onSeek: (x: number) => void;
+  /** Every emitter's bar edges, which a dragged edge snaps to. */
+  edges: readonly number[];
 }
 
 /**
@@ -64,6 +68,7 @@ export const LaneRow = memo(function LaneRow({
   onExpand,
   onSelect,
   onSeek,
+  edges,
 }: LaneRowProps) {
   const run = useVfxRun();
   const { open, child } = useEmitters();
@@ -82,6 +87,7 @@ export const LaneRow = memo(function LaneRow({
   const muted = row.kind === "emitter" && run.muted.has(emitter.index);
   const soloed = row.kind === "emitter" && run.soloed.has(emitter.index);
   const dimmed = emitter.disabled || muted || (run.soloed.size > 0 && !soloed);
+  const editing = useBarEditing(emitter, row.kind === "emitter" ? card : undefined);
 
   return (
     <div
@@ -158,7 +164,14 @@ export const LaneRow = memo(function LaneRow({
           onSeek={onSeek}
           onScrubStart={run.beginScrub}
           onScrubEnd={run.endScrub}
+          onBarEdit={editing.onBarEdit}
+          onBarPreview={editing.onBarPreview}
+          onBarOpen={editing.onBarOpen}
+          lingers={!emitter.simple}
+          snaps={edges}
+          playhead={() => run.driver.phase}
         />
+        {editing.editor !== null && <BarEditor emitter={emitter} {...editing.editor} />}
         {row.kind === "emitter" && (
           <span
             data-count={emitter.index}

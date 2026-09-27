@@ -36,6 +36,7 @@ import {
   nodeCovers,
   toggledDirTree,
 } from "../utils/contentTree";
+import { AssetDragGhost } from "./AssetDragGhost";
 import { ContentTreeContextMenu } from "./ContentTreeContextMenu";
 import { TreeRow } from "./ContentTreeRow";
 import { DeleteContentPopover, type DeleteContentTarget } from "./DeleteContentPopover";
@@ -237,6 +238,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
 
   return (
     <>
+      <AssetDragGhost />
       <ContextMenu.Root>
         <ContextMenu.Trigger
           data-ui="ContentTree"

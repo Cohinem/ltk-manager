@@ -1,17 +1,20 @@
 import {
+  CubeIcon,
   GridNineIcon,
+  MagnifyingGlassPlusIcon,
   NumberSquareOneIcon,
   NumberSquareTwoIcon,
   StackIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { type ReactNode, type RefObject, use, useEffect, useMemo, useRef, useState } from "react";
-import { Color, type Mesh, type ShaderMaterial, Vector4, type WebGLRenderer } from "three";
+import { type RefObject, use, useEffect, useMemo, useRef, useState } from "react";
+import { type Mesh, type ShaderMaterial, Vector4, type WebGLRenderer } from "three";
 
 import { Tooltip } from "@/components";
 import { m } from "@/i18n";
-import { useSceneColors, whiteTexel } from "@/modules/viewport";
+import { whiteTexel } from "@/modules/viewport";
+import { twMerge } from "@/utils";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import type { EmitterModel } from "../../engine/model/model";
@@ -20,14 +23,17 @@ import { NOT_LINGERING } from "../../engine/simulation/pool";
 import { type VfxRun, VfxRunContext } from "../../playback/state/run";
 import { NO_SAMPLERS, samplersOf, useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { premultiplyInto } from "../../rendering/utils/blend";
-import { drawnEmitters } from "../../rendering/utils/definitions";
+import { drawnFor } from "../../rendering/utils/definitions";
+import { drawsAsMesh, drawsAsTrail } from "../../rendering/utils/drawKind";
 import { paletteScrollInto } from "../../rendering/utils/palette";
 import type { UvDraw } from "../../rendering/utils/uvTransform";
+import { useBackdropColor, useBackdropCss } from "../state/previewBackdrop";
 import { EMITTER_PREVIEW_SIZE, NODE_PREVIEW_SIZE } from "../utils/driverLayout";
 import { watchFailure } from "../utils/frameGuard";
 import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem, StructItem } from "../utils/graphItems";
 import {
+  drawnLive,
   fitInto,
   type Followed,
   followedRow,
@@ -43,12 +49,37 @@ import {
   surfaceMaterial,
   TILES,
 } from "../utils/surfaceMaterial";
+import { EmitterLive } from "./EmitterPreview";
 import { LoopedSurfacesContext } from "./graphActions";
 import { FilePreview } from "./NodePreviews";
 import { PreviewView } from "./PreviewView";
+import { StripButton } from "./StripButton";
+import { TrailSwatch } from "./TrailSwatch";
 
-/** `textureMult`'s class, whose node previews the emitter's surface rather than its file. */
-const TEXTURE_MULT = nameHash("VfxTextureMultDefinitionData");
+/**
+ * The classes whose node previews the emitter's surface rather than its file: `textureMult`,
+ * whose layer the surface multiplies in, `alphaErosionDefinition`, whose dissolve the
+ * surface plays over the particle's life, and `distortionDefinition`, whose warp bends the
+ * grid behind it.
+ */
+const SURFACED: ReadonlySet<string> = new Set(
+  [
+    "VfxTextureMultDefinitionData",
+    "VfxAlphaErosionDefinitionData",
+    "VfxDistortionDefinitionData",
+  ].map((name) => nameHash(name)),
+);
+
+const DISTORTION_CLASS = nameHash("VfxDistortionDefinitionData");
+const MULT_CLASS = nameHash("VfxTextureMultDefinitionData");
+
+/**
+ * How many times stronger a magnified warp draws.
+ *
+ * The warp is in screen widths, and a particle filling a preview box covers far more of
+ * its screen than one in the game does, so the real strength moves the grid a pixel or two.
+ */
+const MAGNIFY = 8;
 
 /** The texture width a surface asks for, twice the larger square for a sharp high-DPI draw. */
 const TEXTURE_WIDTH = NODE_PREVIEW_SIZE * 2;
@@ -61,7 +92,7 @@ const BOX =
   "my-1 flex shrink-0 flex-col self-center overflow-hidden rounded-md border border-surface-veil bg-surface-950";
 
 /** The texture layers a surface shows: both multiplied, or one alone. */
-type Shown = "both" | "base" | "mult";
+export type Shown = "both" | "base" | "mult";
 
 const NEXT: Record<Shown, Shown> = { both: "base", base: "mult", mult: "both" };
 
@@ -80,7 +111,8 @@ interface LifeBar {
 }
 
 /**
- * An emitter's texture as one particle renders it, drawn by the emitter previews' canvas.
+ * An emitter's texture as one particle renders it, drawn by the emitter previews' canvas, or
+ * for a trail or a beam the emitter itself as the viewport draws it.
  *
  * The particle draws through the renderer's own fragment pass, so its layers, ramp,
  * palette, erosion, alpha lock, alpha test and blend are the viewport's, at the particle's
@@ -90,44 +122,106 @@ interface LifeBar {
  * reborn each life, lingering after it where the emitter lingers. A distorting emitter bends a
  * grid. The strip under it holds the particle's life as a bar, a toggle that tiles the
  * texture around the particle, and a switch between the texture layers.
+ *
+ * A trail's particles are the points its ribbon runs through, each alive for a moment, so
+ * following one would show a quad that jumps to the next every few frames. A trail draws as
+ * a flat `TrailSwatch` instead, and a beam through `EmitterLive`, framed on its bounds. A mesh
+ * draws its surface as a quad does, and through `EmitterLive` while the strip's mesh switch is
+ * on. The bar of either holds the emitter's own life.
  */
-export function EmitterSurface({ simple, listIndex }: { simple: boolean; listIndex: number }) {
+export function EmitterSurface({
+  simple,
+  listIndex,
+  fluid = false,
+}: {
+  simple: boolean;
+  listIndex: number;
+  /** The box fills its container's width and draws a square, rather than the node's fixed size. */
+  fluid?: boolean;
+}) {
   const system = use(VfxRunContext)?.system ?? null;
   const emitter = system?.emitters.find(
     (each) => each.simple === simple && each.listIndex === listIndex,
   );
-  return <SurfaceBox emitter={emitter} size={EMITTER_PREVIEW_SIZE} />;
+  return <SurfaceBox emitter={emitter} size={fluid ? null : EMITTER_PREVIEW_SIZE} />;
 }
 
-/** A struct node's picture: its file, or for a `textureMult` its emitter's surface. */
+/** A struct node's picture: its file, or for a class of `SURFACED` its emitter's surface. */
 export function StructPicture({ item, picture }: { item: StructItem; picture: FileItem }) {
   const system = use(VfxRunContext)?.system ?? null;
   const emitter = useMemo(() => emitterOf(system, item.id), [system, item.id]);
-  if (item.classHash !== TEXTURE_MULT || emitter === undefined) {
+  if (item.classHash === null || !SURFACED.has(item.classHash) || emitter === undefined) {
     return <FilePreview item={picture} />;
   }
 
-  return <SurfaceBox emitter={emitter} size={NODE_PREVIEW_SIZE} />;
+  return (
+    <SurfaceBox
+      emitter={emitter}
+      size={NODE_PREVIEW_SIZE}
+      magnify={item.classHash === DISTORTION_CLASS}
+      only={item.classHash === MULT_CLASS ? "mult" : undefined}
+    />
+  );
 }
 
-function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size: number }) {
+/** One texture layer of `emitter`'s surface alone, for the node that names that layer. */
+export function LayerSurface({ emitter, only }: { emitter: EmitterModel; only: "base" | "mult" }) {
+  return <SurfaceBox emitter={emitter} size={NODE_PREVIEW_SIZE} only={only} />;
+}
+
+function SurfaceBox({
+  emitter,
+  size,
+  magnify = false,
+  only,
+}: {
+  emitter: EmitterModel | undefined;
+  /** The box's side in pixels, and null for a box as wide as its container, drawing a square. */
+  size: number | null;
+  /** Whether the warp opens magnified, which the Distortion node's own preview does. */
+  magnify?: boolean;
+  /** The one layer shown, with no switch, for a node that names that layer. */
+  only?: "base" | "mult";
+}) {
   const [tiled, setTiled] = useState(false);
-  const [shown, setShown] = useState<Shown>("both");
+  const [magnified, setMagnified] = useState(magnify);
+  const [meshShown, setMeshShown] = useState(false);
+  const [picked, setShown] = useState<Shown>("both");
+  const shown = only ?? picked;
   const [failure, setFailure] = useState<string | null>(null);
   const looped = use(LoopedSurfacesContext);
   const fill = useRef<HTMLDivElement>(null);
   const linger = useRef<HTMLDivElement>(null);
   const ShownIcon = SHOWN_ICON[shown];
+  const mesh = emitter !== undefined && drawsAsMesh(emitter);
+  const live = emitter !== undefined && (drawnLive(emitter) || (mesh && meshShown));
+  const background = useBackdropCss();
 
   return (
-    <div className={BOX} style={{ width: size, height: size }}>
-      <PreviewView className="min-h-0 w-full flex-1">
-        {emitter !== undefined && (
+    <div
+      className={twMerge(BOX, size === null && "my-0 w-full")}
+      style={size === null ? { background } : { width: size, height: size, background }}
+    >
+      <PreviewView
+        className={twMerge("min-h-0 w-full", size === null ? "aspect-square" : "flex-1")}
+      >
+        {emitter !== undefined && live && (
+          <>
+            {drawsAsTrail(emitter) ? (
+              <TrailSwatch emitter={emitter} shown={shown} />
+            ) : (
+              <EmitterLive emitter={emitter} />
+            )}
+            <EmitterLife emitter={emitter} bar={{ fill, linger }} />
+          </>
+        )}
+        {emitter !== undefined && !live && (
           <SurfaceScene
             emitter={emitter}
             looped={looped}
             tiled={tiled}
             shown={shown}
+            magnified={magnified}
             bar={{ fill, linger }}
             onFail={setFailure}
           />
@@ -156,14 +250,34 @@ function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size
             </span>
           </Tooltip>
         )}
-        <StripButton
-          label={m.workshop_bin_graph_surface_tiles_action()}
-          pressed={tiled}
-          onClick={() => setTiled(!tiled)}
-        >
-          <GridNineIcon weight="bold" className="h-3 w-3" />
-        </StripButton>
-        {emitter?.multTexture != null && (
+        {!live && (
+          <StripButton
+            label={m.workshop_bin_graph_surface_tiles_action()}
+            pressed={tiled}
+            onClick={() => setTiled(!tiled)}
+          >
+            <GridNineIcon weight="bold" className="h-3 w-3" />
+          </StripButton>
+        )}
+        {mesh && (
+          <StripButton
+            label={m.workshop_bin_graph_surface_mesh_action()}
+            pressed={meshShown}
+            onClick={() => setMeshShown(!meshShown)}
+          >
+            <CubeIcon weight="bold" className="h-3 w-3" />
+          </StripButton>
+        )}
+        {!live && emitter?.distortion != null && (
+          <StripButton
+            label={m.workshop_bin_graph_surface_magnify_action({ factor: MAGNIFY })}
+            pressed={magnified}
+            onClick={() => setMagnified(!magnified)}
+          >
+            <MagnifyingGlassPlusIcon weight="bold" className="h-3 w-3" />
+          </StripButton>
+        )}
+        {!live && only === undefined && emitter?.multTexture != null && (
           <StripButton label={SHOWN_LABEL[shown]()} onClick={() => setShown(NEXT[shown])}>
             <ShownIcon weight="bold" className="h-3 w-3" />
           </StripButton>
@@ -173,48 +287,23 @@ function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size
   );
 }
 
-function StripButton({
-  label,
-  pressed,
-  onClick,
-  children,
-}: {
-  label: string;
-  pressed?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip content={label}>
-      <button
-        type="button"
-        aria-label={label}
-        aria-pressed={pressed}
-        /* DS-VEIL, DS-RADIUS */
-        className="nodrag flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-100 aria-pressed:text-accent-400"
-        onClick={onClick}
-      >
-        {children}
-      </button>
-    </Tooltip>
-  );
-}
-
 interface SceneProps {
   emitter: EmitterModel;
   looped: boolean;
   tiled: boolean;
   shown: Shown;
+  /** The warp draws `MAGNIFY` times stronger. */
+  magnified: boolean;
   bar: LifeBar;
   /** Hears why the view stopped drawing, and null once it draws again. */
   onFail: (failure: string | null) => void;
 }
 
-function SurfaceScene({ emitter, looped, tiled, shown, bar, onFail }: SceneProps) {
+function SurfaceScene({ emitter, looped, tiled, shown, magnified, bar, onFail }: SceneProps) {
   const run = use(VfxRunContext);
   const system = run?.system ?? null;
   const drawn = useMemo(
-    () => (system === null ? [] : drawnEmitters(system).filter((each) => each.emitter === emitter)),
+    () => (system === null ? [] : drawnFor(system, emitter)),
     [system, emitter],
   );
   const textures = useVfxTextures(drawn, undefined, TEXTURE_WIDTH);
@@ -226,8 +315,7 @@ function SurfaceScene({ emitter, looped, tiled, shown, bar, onFail }: SceneProps
   const followed = useMemo<Followed>(() => ({ serial: -1 }), []);
   const particle = useRef<Mesh>(null);
   const grid = useRef<Mesh>(null);
-  const colors = useSceneColors();
-  const ground = useMemo(() => new Color(colors.backdrop), [colors.backdrop]);
+  const ground = useBackdropColor();
   const scene = useThree((state) => state.scene);
 
   useEffect(() => () => material.dispose(), [material]);
@@ -248,7 +336,8 @@ function SurfaceScene({ emitter, looped, tiled, shown, bar, onFail }: SceneProps
     uniforms.map.value = shown === "mult" ? whiteTexel() : samplers.base;
     uniforms.mapMult.value = shown === "base" ? whiteTexel() : samplers.mult;
     uniforms.tiles.value = tiled ? TILES : 1;
-  }, [material, samplers, shown, tiled]);
+    uniforms.warp.value = (emitter.distortion?.strength ?? 0) * (magnified ? MAGNIFY : 1);
+  }, [material, samplers, shown, tiled, magnified, emitter]);
 
   useFrame(() => {
     const alive =
@@ -301,6 +390,15 @@ function SurfaceScene({ emitter, looped, tiled, shown, bar, onFail }: SceneProps
       </lineLoop>
     </>
   );
+}
+
+/** The emitter's own life on the strip's bar, at the run's phase, for a surface drawn live. */
+function EmitterLife({ emitter, bar }: { emitter: EmitterModel; bar: LifeBar }) {
+  const run = use(VfxRunContext);
+  useFrame(() => {
+    showLife(bar, run === null ? 0 : emitterPhase(emitter, run.driver.elapsed), 1);
+  });
+  return null;
 }
 
 /** The viewport's rectangle on the canvas, in device pixels, as the draw reads it. */

@@ -99,6 +99,17 @@ function nameKind(name: string): AssetKind | null | undefined {
   return found[1];
 }
 
+/** Whether a field that expects `extensions` takes `path`, any path where it expects none. */
+export function takesPath(extensions: readonly string[], path: string): boolean {
+  return extensions.length === 0 || extensions.includes(extensionOf(path));
+}
+
+/** The kind of file `path` names by its extension, texture or mesh, and null for another. */
+export function assetKindOf(path: string): "texture" | "mesh" | null {
+  const kind = kindOfExtension(extensionOf(path));
+  return kind === "texture" || kind === "mesh" ? kind : null;
+}
+
 function kindOfExtension(extension: string): AssetKind | undefined {
   return (Object.keys(KIND_EXTENSIONS) as AssetKind[]).find((kind) =>
     (KIND_EXTENSIONS[kind] as readonly string[]).includes(extension),

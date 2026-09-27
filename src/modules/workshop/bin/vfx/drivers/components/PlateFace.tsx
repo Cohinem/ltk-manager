@@ -5,20 +5,14 @@ import { twMerge } from "@/utils";
 import { CHECKERBOARD } from "../../../../preview/components/ImagePreview";
 import { plotOf } from "../../../curves/utils/curvePlot";
 import { classFamily, colorCss, colorStops, gradientCss } from "../../../values/utils/valueRows";
-import { driverClass } from "../../engine/drivers/registry";
+import { isColorDriver } from "../../engine/drivers/registry";
 import type { ValueCurve } from "../../engine/model/model";
 import { CURVE_BOX, type CurveShape, curveShape } from "../utils/curveShape";
 import type { GraphItem, ValueItem } from "../utils/graphItems";
 import { formatValues } from "../utils/nodeText";
-import { CurveMarker } from "./CurveMarker";
-
-/* A lone channel draws in the node's hue, and a vector's channels in the curve panel's colours. */
-const CHANNEL_STROKE = [
-  "stroke-channel-1",
-  "stroke-channel-2",
-  "stroke-channel-3",
-  "stroke-channel-4",
-] as const;
+import { drawsRandom } from "../utils/valueRange";
+import { CurveMarker, type MarkedFace, type MarkedShape } from "./CurveMarker";
+import { CHANNEL_STROKE, RangePicture } from "./RangePicture";
 
 /** What a far plate shows: a picture of the value, the value as text, or the title. */
 export type PlateFace =
@@ -29,27 +23,27 @@ export type PlateFace =
 const TITLE: PlateFace = { type: "title" };
 
 /**
- * The face of an item's far plate: a curve's lines, a random value's probability tables, a
- * colour's band, or a constant's value. Every other item keeps its title.
+ * The face of an item's far plate: a curve's lines, a random value's span, a colour's band,
+ * or a constant's value. Every other item keeps its title.
  */
 export function plateFace(item: GraphItem): PlateFace {
   if (item.type === "value") {
     const shape = curveShape(item.curve, classFamily(item.classHash) === "color");
     if (shape === "keys" || shape === "tables") {
-      return picture(<MarkedCurve item={item} shape={shape} />);
+      return picture(<MarkedCurve item={item} shape={shape} face="far" />);
     }
     return curveFace(item.curve, shape === "band");
   }
   if (item.type !== "driver") return TITLE;
 
   const { node } = item;
-  if (node.type === "curve") return curveFace(node.curve, isColor(node.classHash));
+  if (node.type === "curve") return curveFace(node.curve, isColorDriver(node.classHash));
   if (node.type !== "constant") return TITLE;
-  if (isColor(node.classHash)) return picture(<Band background={colorOf(node.value)} />);
+  if (isColorDriver(node.classHash)) return picture(<Band background={colorOf(node.value)} />);
   return { type: "value", text: formatValues(node.value) };
 }
 
-/** A colour's band, the lines of its keys or of its tables, or else its one value. */
+/** A colour's band, the lines of its keys or its random span, or else its one value. */
 function curveFace(curve: ValueCurve, color: boolean): PlateFace {
   const shape = curveShape(curve, color);
   if (shape === null) {
@@ -58,12 +52,26 @@ function curveFace(curve: ValueCurve, color: boolean): PlateFace {
   return picture(<CurvePicture curve={curve} shape={shape} />);
 }
 
-/** A value node's curve or tables with the run's marker over them. */
-export function MarkedCurve({ item, shape }: { item: ValueItem; shape: "keys" | "tables" }) {
+/**
+ * A value node's curve, span or band with the run's marker over them. A span whose base holds
+ * still has no time to mark, and a keyed span's marker is the line alone.
+ */
+export function MarkedCurve({
+  item,
+  shape,
+  face = "near",
+}: {
+  item: ValueItem;
+  shape: MarkedShape;
+  face?: MarkedFace;
+}) {
+  let marker: Exclude<MarkedShape, "tables"> | null = shape === "tables" ? null : shape;
+  if (shape === "keys" && drawsRandom(item.curve)) marker = "band";
+
   return (
     <div className="relative h-full w-full">
       <CurvePicture curve={item.curve} shape={shape} />
-      <CurveMarker item={item} shape={shape} />
+      {marker !== null && <CurveMarker item={item} shape={marker} face={face} />}
     </div>
   );
 }
@@ -85,29 +93,18 @@ export function CurvePicture({
       return <Band background={background} />;
     }
     case "keys": {
+      if (drawsRandom(curve)) return <RangePicture curve={curve} />;
       const plot = plotOf(curve.keys, CURVE_BOX);
       const lines = (plot?.lines ?? []).map((points, channel) => ({ points, channel }));
       return <Lines lines={lines} single={single} dashed={false} />;
     }
-    case "tables": {
-      /* Each table is plotted on its own range, since a table multiplies its channel. */
-      const lines = curve.tables
-        .filter((table) => table.keys.length > 1)
-        .map((table) => ({
-          points: plotOf(table.keys, CURVE_BOX)?.lines[0] ?? "",
-          channel: table.channel,
-        }));
-      return <Lines lines={lines} single={single} dashed />;
-    }
+    case "tables":
+      return <RangePicture curve={curve} />;
   }
 }
 
 function picture(node: ReactNode): PlateFace {
   return { type: "picture", picture: node };
-}
-
-function isColor(classHash: string): boolean {
-  return driverClass(classHash)?.color ?? false;
 }
 
 function colorOf(values: readonly number[]): string {

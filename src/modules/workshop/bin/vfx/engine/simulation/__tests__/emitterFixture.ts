@@ -27,6 +27,7 @@ export function emitterOf(index: number, over: Partial<EmitterModel> = {}): Emit
     particleLifetime: flat(100),
     lifetime: null,
     timeBeforeFirstEmission: 0,
+    period: null,
     singleParticle: false,
     sharedRandom: false,
     birthVelocity: flat(0, 0, 0),

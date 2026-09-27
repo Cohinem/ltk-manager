@@ -505,6 +505,12 @@ export interface OrbitalFieldModel {
  */
 export type EmitterCull = "importance" | "colorblind";
 
+/** An emission cycle: the seconds one cycle lasts, and the seconds of each it emits for. */
+export interface EmissionPeriod {
+  readonly length: number;
+  readonly active: number;
+}
+
 /** One emitter of a system, as the renderer reads it. */
 export interface EmitterModel {
   /** The shared static preview of `CustomMaterial`, and null for the particle shader. */
@@ -529,6 +535,8 @@ export interface EmitterModel {
   /** Seconds the emitter emits for, and null for one that never stops. */
   readonly lifetime: number | null;
   readonly timeBeforeFirstEmission: number;
+  /** `period` and `timeActiveDuringPeriod`, and null for an emitter that emits throughout. */
+  readonly period: EmissionPeriod | null;
   /** `isSingleParticle`: the emitter's whole output is one burst at its start. */
   readonly singleParticle: boolean;
   /**
