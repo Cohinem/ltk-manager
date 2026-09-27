@@ -39,6 +39,23 @@ pub enum ValueEdit {
     ReplacePointer { path: String, class: Option<String> },
     /// Insert an item into a list, map or option.
     InsertItem { path: String, item: NewItem },
+    /// Insert a copy of the item at `from` into the list at `path`, at `index` or the end.
+    /// `unique` names a string field whose text the copy makes unique among the object's
+    /// list items.
+    CopyItem {
+        from: String,
+        path: String,
+        index: Option<usize>,
+        unique: Option<String>,
+    },
+    /// Insert the value clipboard `text` carries into the list at `path`, at `index` or the
+    /// end, with `unique` as for [`ValueEdit::CopyItem`].
+    PasteItem {
+        path: String,
+        index: Option<usize>,
+        text: String,
+        unique: Option<String>,
+    },
     /// Remove an item from a list, map or option.
     RemoveItem { path: String },
     /// Set an existing leaf, including one created by an earlier staged edit.
@@ -130,6 +147,26 @@ impl BinDocument {
                 ValueEdit::InsertItem { path, item } => {
                     staged.insert_item(entry, &relative_path(&scope, &path), item, schema)?;
                 }
+                ValueEdit::CopyItem {
+                    from,
+                    path,
+                    index,
+                    unique,
+                } => {
+                    let path = relative_path(&scope, &path);
+                    let unique = unique_field(entry, &path, unique.as_deref())?;
+                    staged.copy_item(entry, &relative_path(&scope, &from), &path, index, unique)?;
+                }
+                ValueEdit::PasteItem {
+                    path,
+                    index,
+                    text,
+                    unique,
+                } => {
+                    let path = relative_path(&scope, &path);
+                    let unique = unique_field(entry, &path, unique.as_deref())?;
+                    staged.paste_item(entry, &path, index, &text, unique, schema)?;
+                }
                 ValueEdit::RemoveItem { path } => {
                     staged.remove_item(entry, &relative_path(&scope, &path))?;
                 }
@@ -171,7 +208,7 @@ impl BinDocument {
         Ok(())
     }
 
-    fn property_value(
+    pub(super) fn property_value(
         &self,
         entry: BinHash,
         path: &str,
@@ -214,6 +251,19 @@ impl BinDocument {
             value: previous,
         })
     }
+}
+
+/// The field `unique` names as `0x` and eight hex digits.
+fn unique_field(
+    entry: BinHash,
+    path: &str,
+    unique: Option<&str>,
+) -> Result<Option<BinHash>, BinDocumentError> {
+    unique
+        .map(|text| {
+            parse_hash(text).ok_or_else(|| refused(entry, path, EditRejection::MalformedHash))
+        })
+        .transpose()
 }
 
 fn relative_path(scope: &str, path: &str) -> String {

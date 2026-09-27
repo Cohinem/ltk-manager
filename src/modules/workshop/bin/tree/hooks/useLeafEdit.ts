@@ -12,7 +12,11 @@ import {
 
 import { assetKey } from "../../../preview/utils/assetRef";
 import { clearRefusedBy, markRefused, queueForSave } from "../../../state";
-import { type Reopen, useDocumentCall } from "../../documents/hooks/useDocumentCall";
+import {
+  type DocumentCall,
+  type Reopen,
+  useDocumentCall,
+} from "../../documents/hooks/useDocumentCall";
 import { rowKey } from "../utils/binRows";
 import type { TypedLeaf } from "../utils/leafText";
 
@@ -34,6 +38,10 @@ export interface LeafEdit {
     field: string,
     className: string | null,
   ) => Promise<boolean>;
+  /** Send one call on the document, once more on a fresh id where the store closed it. */
+  readonly send?: DocumentCall;
+  /** Queue the save of an edit that landed on `id`, and read the document again. */
+  readonly landed?: (id: BinDocumentId) => void;
 }
 
 /** Leaf edits for layouts without tree navigation or structural actions. */

@@ -397,14 +397,14 @@ author cannot check in game, so authoring waits until the plan knows which nodes
 Where 5.1 finds only some node types evaluate, the palette offers only those, and a file that
 holds another keeps drawing it marked.
 
-| Gesture                               | Edit                                                                                                 |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Change a leaf in a node body          | `SetLeaf`                                                                                            |
-| Swap a node's class (Add to Multiply) | `ReplacePointer`, which keeps the fields both classes declare                                        |
-| Fill an empty input from the palette  | `EnsurePointer`                                                                                      |
-| Append or remove a `params` entry     | `InsertItem`, `RemoveItem`                                                                           |
-| Delete a node and its inputs          | `ReplacePointer` with no class, which leaves the input empty                                         |
-| Wrap a node (Constant into Multiply)  | A new `ValueEdit` that moves a subtree into an input of a new node. No variant moves a subtree today |
+| Gesture                               | Edit                                                                                                                                                               |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Change a leaf in a node body          | `SetLeaf`                                                                                                                                                          |
+| Swap a node's class (Add to Multiply) | `ReplacePointer`, which keeps the fields both classes declare                                                                                                      |
+| Fill an empty input from the palette  | `EnsurePointer`                                                                                                                                                    |
+| Append or remove a `params` entry     | `InsertItem`, `RemoveItem`                                                                                                                                         |
+| Delete a node and its inputs          | `ReplacePointer` with no class, which leaves the input empty                                                                                                       |
+| Wrap a node (Constant into Multiply)  | A new `ValueEdit` that moves a subtree into an input of a new node. `CopyItem` and `PasteItem` copy a subtree into a list, and no variant moves one into a pointer |
 
 Each gesture is one `ValueEdit` batch and so one undo step. Every gesture is reachable from the
 keyboard as well as the pointer, and edits in place on the canvas without a dialog.

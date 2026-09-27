@@ -167,6 +167,8 @@ export function editRejection(rejection: EditRejection): string {
     .with({ reason: "untypable" }, () => m["error.BIN_EDIT_REJECTED.untypable.description"]())
     .with({ reason: "noSuchIndex" }, () => m["error.BIN_EDIT_REJECTED.noSuchIndex.description"]())
     .with({ reason: "objectExists" }, () => m["error.BIN_EDIT_REJECTED.objectExists.description"]())
+    .with({ reason: "notACopy" }, () => m["error.BIN_EDIT_REJECTED.notACopy.description"]())
+    .with({ reason: "foreignClass" }, () => m["error.BIN_EDIT_REJECTED.foreignClass.description"]())
     .with({ reason: "emptyPath" }, () => m["error.BIN_EDIT_REJECTED.emptyPath.description"]())
     .with({ reason: "malformedBrex" }, () =>
       m["error.BIN_EDIT_REJECTED.malformedBrex.description"](),

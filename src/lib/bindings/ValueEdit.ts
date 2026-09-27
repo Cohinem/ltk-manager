@@ -5,4 +5,4 @@ import type { NewItem } from "./NewItem";
 /**
  * One staged edit, addressed relative to its enclosing property.
  */
-export type ValueEdit = { "type": "ensureProperty", path: string, field: string, } | { "type": "ensurePointer", path: string, class: string, } | { "type": "replacePointer", path: string, class: string | null, } | { "type": "insertItem", path: string, item: NewItem, } | { "type": "removeItem", path: string, } | { "type": "setLeaf", path: string, value: LeafValue, };
+export type ValueEdit = { "type": "ensureProperty", path: string, field: string, } | { "type": "ensurePointer", path: string, class: string, } | { "type": "replacePointer", path: string, class: string | null, } | { "type": "insertItem", path: string, item: NewItem, } | { "type": "copyItem", from: string, path: string, index: number | null, unique: string | null, } | { "type": "pasteItem", path: string, index: number | null, text: string, unique: string | null, } | { "type": "removeItem", path: string, } | { "type": "setLeaf", path: string, value: LeafValue, };

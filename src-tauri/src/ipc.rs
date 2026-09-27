@@ -44,6 +44,7 @@ migrated![
     bin_find,
     bin_dependencies,
     bin_choices,
+    bin_copy_value,
     class_schema,
     class_docs,
     sync_meta_docs,

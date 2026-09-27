@@ -20,6 +20,7 @@ use parking_lot::{ArcRwLockReadGuard, Mutex, RawRwLock, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod clipboard;
 mod declared;
 mod dependencies;
 mod edit;
@@ -32,6 +33,7 @@ mod requests;
 pub(crate) mod resolve;
 mod typed_names;
 
+pub use clipboard::CLIPBOARD_FORMAT;
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
     DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredSign,

@@ -29,6 +29,8 @@ import {
 import { ContextMenu } from "@/components";
 import { m } from "@/i18n";
 
+import { runEmitterKey } from "../../clipboard/emitterKeys";
+import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
 import type { GraphLayout } from "../utils/driverLayout";
 import { chainThrough, reach } from "../utils/graphChain";
 import { CANVAS_TONE, itemHue } from "../utils/graphTones";
@@ -85,7 +87,8 @@ interface GraphCanvasProps {
  * no positions. A drag on empty canvas boxes nodes into the selection, Shift or Ctrl adds to it, Ctrl+A selects every node and Escape none, and a drag on a selected node moves
  * the group. Hovering or selecting a node lights every path through it, and one selected
  * node fades the nodes off those paths. A right click opens `GraphMenu` on the node under
- * the pointer or on the canvas. Decision 2.8 of docs/plans/shimmer-driver-graph.md.
+ * the pointer or on the canvas. Ctrl+D, Ctrl+C and Ctrl+V duplicate, copy and paste the
+ * emitter of the one master node selected. Decision 2.8 of docs/plans/shimmer-driver-graph.md.
  */
 export function GraphCanvas(props: GraphCanvasProps) {
   return (
@@ -189,6 +192,15 @@ function Canvas({
     [scope, fadedBy],
   );
 
+  const clipboard = useEmitterClipboard();
+  const picked = nodes.find((node) => node.id === selectedKey);
+  const pickedItem =
+    picked === undefined || picked.type === "frame" ? null : picked.data.placed.item;
+  const pickedEmitter =
+    pickedItem?.type === "master" && actions !== null
+      ? { entry: actions.entry, wire: pickedItem.wire, name: pickedItem.name }
+      : null;
+
   const selectAll = (selected: boolean) =>
     setNodes((each) => each.map((node) => (node.type === "frame" ? node : { ...node, selected })));
 
@@ -250,6 +262,13 @@ function Canvas({
               onContextMenuCapture={() => setMenuItem(null)}
               onKeyDown={(event) => {
                 if (typing(event.target)) return;
+
+                if (runEmitterKey(event, clipboard, actions?.entry ?? "", pickedEmitter)) {
+                  /* Ctrl+D also opens Diagnostics app-wide, so a handled chord stops here. */
+                  event.preventDefault();
+                  event.stopPropagation();
+                  return;
+                }
 
                 if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
                   event.preventDefault();

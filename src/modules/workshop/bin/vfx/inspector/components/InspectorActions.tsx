@@ -11,6 +11,7 @@ import {
   useToggleDefinedOnly,
   useToggleInspectorPreview,
 } from "../state/inspectorView";
+import { EmitterClipboardActions } from "./EmitterClipboardActions";
 
 /**
  * The inspector's actions, drawn before its property search.
@@ -60,6 +61,7 @@ export function InspectorActions({
       >
         <MonitorPlayIcon weight="bold" className="h-4 w-4" />
       </ActionToggle>
+      <EmitterClipboardActions />
     </div>
   );
 }

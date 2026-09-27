@@ -617,6 +617,8 @@ export const api = {
       commands.binEdit(document, edit).then(toResult),
     choices: (document: BinDocumentId, query: ChoiceQuery) =>
       commands.binChoices(document, query).then(toResult),
+    copyValue: (document: BinDocumentId, entry: string, path: string) =>
+      commands.binCopyValue(document, entry, path).then(toResult),
     save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
     reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
     undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),

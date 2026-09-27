@@ -236,6 +236,24 @@ pub async fn bin_choices(
     .await
 }
 
+/// The value at `path` under the object `entry` of an open document, as clipboard text.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_copy_value(
+    document: BinDocumentId,
+    entry: String,
+    path: String,
+    app_handle: AppHandle,
+) -> IpcResult<String> {
+    off_thread(move || {
+        let (schema, build) = installed_schema(&app_handle);
+        app_handle
+            .state::<BinDocuments>()
+            .copy_value(document, &entry, &path, schema.at(build))
+    })
+    .await
+}
+
 /// The header's dependencies of an open document, as its rows draw them.
 #[tauri::command]
 #[specta::specta]
