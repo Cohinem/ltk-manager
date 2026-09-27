@@ -1,25 +1,21 @@
 import { ArrowsOutCardinalIcon } from "@phosphor-icons/react";
 import { use, useRef, useState } from "react";
 
-import {
-  Button,
-  IconButton,
-  InputDefaultContext,
-  Readout,
-  Switch,
-  Table,
-  Tooltip,
-} from "@/components";
+import { IconButton, InputDefaultContext, Readout, Switch, Table, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import type { BinRow, BinValue } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { CurveToggle } from "../../classes/components/ClassCells";
 import { FieldCard, schemaDeclared } from "../../classes/components/FieldCard";
 import { useClassSchema } from "../../classes/hooks/useClassSchema";
 import { Sparkline } from "../../curves/components/Sparkline";
 import { CurveDockContext } from "../../curves/state/curveTarget";
+import { CURVE_DYNAMICS, curveActivationEdits } from "../../curves/utils/curveEdits";
 import { DeclaredRowState } from "../../documents/components/DeclaredLayer";
 import { nameHash } from "../../shared/utils/binHash";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
+import type { CurveKey } from "../../values/utils/valueRows";
 import { curve as readCurve, field } from "../engine/parsing/readValue";
 import { commitForceValue } from "./forceEdits";
 import {
@@ -28,11 +24,11 @@ import {
   type ForceProperty,
   type ForceValue,
   forceValue,
+  schemaForceDefault,
 } from "./forceModel";
 import { useForcePreview } from "./forcePreview";
 
 const AXES = ["X", "Y", "Z"];
-const TINTS = ["text-channel-1-text", "text-channel-2-text", "text-channel-3-text"];
 
 /** A force property in aligned label and value cells, with its animation below. */
 export function ForceControl({
@@ -48,12 +44,18 @@ export function ForceControl({
 }) {
   const edit = use(LeafEditContext);
   const preview = useForcePreview();
-  const dock = use(CurveDockContext);
   const classHash = nameHash(force.definition.className);
   const { data: schema } = useClassSchema(classHash);
-  const held = forceValue(force, property);
+  const read = forceValue(force, property);
+  const schemaDefault = schemaForceDefault(
+    property,
+    schema?.fields.find((each) => each.hash === nameHash(property.name))?.defaultValue,
+  );
+  /* An unauthored property shows the schema's default, and the pinned build's only where the
+     schema has none. */
+  const held = read.authored || schemaDefault === null ? read : { ...read, value: schemaDefault };
   const refusal = edit?.refused.get(`${force.row.entry}:${held.leaf?.path ?? force.row.path}`);
-  const known = held.authored || schema?.build === FORCE_DEFAULT_BUILD;
+  const known = held.authored || schemaDefault !== null || schema?.build === FORCE_DEFAULT_BUILD;
   const [invalid, setInvalid] = useState(false);
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
@@ -152,7 +154,7 @@ export function ForceControl({
                         key={index}
                         value={String(value)}
                         label={property.shape === "vector" ? AXES[index] : undefined}
-                        labelClassName={TINTS[index]}
+                        channel={property.shape === "vector" ? index : undefined}
                         aria-label={`${property.label()}${property.shape === "vector" ? ` ${AXES[index]}` : ""}`}
                         className={
                           property.shape === "vector"
@@ -167,6 +169,16 @@ export function ForceControl({
                   </div>
                 )}
               </div>
+              {property.animated && known && (
+                <ForceCurve
+                  force={force}
+                  property={property}
+                  held={held}
+                  keys={keys}
+                  curve={curve}
+                  editable={editable}
+                />
+              )}
               <span className="flex w-5 shrink-0 items-center">
                 {hosted && handle && editable && !curve && (
                   <Tooltip content={m.workshop_bin_force_handle_action()}>
@@ -185,24 +197,6 @@ export function ForceControl({
                 )}
               </span>
             </div>
-            {curve && held.row !== null && (
-              <div className="flex min-w-0 flex-col gap-1">
-                {keys.length > 0 && (
-                  <span className="text-meta text-surface-400">
-                    {m.workshop_bin_force_animated_hint()}
-                  </span>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="justify-start"
-                  onClick={() => dock?.aim({ row: held.row!, chain: force.definition.title() })}
-                >
-                  {m.workshop_bin_force_curve_action()}
-                  <Sparkline keys={keys} label={property.label()} wide />
-                </Button>
-              </div>
-            )}
             {(invalid || refusal !== undefined) && (
               <p role="alert" className="text-meta text-danger-text">
                 {m.workshop_bin_force_save_failed_hint()}
@@ -215,5 +209,85 @@ export function ForceControl({
         </Table.Cell>
       </Table.Row>
     </InputDefaultContext>
+  );
+}
+
+/**
+ * An animated force property's curve controls: the curve's chip, which opens it in the curve
+ * pane, and the Constant or Curve switch the inspector's value rows carry.
+ */
+function ForceCurve({
+  force,
+  property,
+  held,
+  keys,
+  curve,
+  editable,
+}: {
+  force: AuthoredForce;
+  property: ForceProperty;
+  held: ReturnType<typeof forceValue>;
+  keys: readonly CurveKey[];
+  curve: boolean;
+  editable: boolean;
+}) {
+  const edit = use(LeafEditContext);
+  const dock = use(CurveDockContext);
+  const chain = force.definition.title();
+  const valueClass = nameHash(property.shape === "scalar" ? "ValueFloat" : "ValueVector3");
+
+  function open(row: BinRow) {
+    dock?.aim({ row, chain, tab: "graph" });
+  }
+
+  async function toCurve() {
+    if (curve && held.row !== null) return open(held.row);
+    if (edit?.editProperty === undefined || typeof held.value === "boolean") return;
+
+    const constant: BinValue =
+      property.shape === "scalar"
+        ? { type: "float", value: held.value[0] ?? 0 }
+        : { type: "vector", values: [...held.value] };
+    const scope = held.row === null ? "value" : "dynamics";
+    const edits = curveActivationEdits(valueClass, constant, scope);
+    if (edits === null) return;
+
+    if (held.row === null) {
+      await edit.editProperty(force.row, nameHash(property.name), edits);
+      return;
+    }
+    if (await edit.editProperty(held.row, CURVE_DYNAMICS, edits)) {
+      open({ ...held.row, value: { type: "struct", classHash: valueClass, class: null, len: 2 } });
+    }
+  }
+
+  async function toConstant() {
+    if (edit?.setPointer === undefined || held.row === null) return;
+    await edit.setPointer(held.row, CURVE_DYNAMICS, null);
+  }
+
+  return (
+    <>
+      {curve && held.row !== null && (
+        <Tooltip content={m.workshop_bin_force_animated_hint()}>
+          <button
+            type="button"
+            aria-label={m.workshop_bin_force_curve_action()}
+            /* DS-RADIUS, DS-VEIL */
+            className="flex h-5 shrink-0 cursor-pointer items-center rounded-sm px-1 hover:bg-surface-veil"
+            onClick={() => held.row !== null && open(held.row)}
+          >
+            <Sparkline keys={keys} label={property.label()} />
+          </button>
+        </Tooltip>
+      )}
+      {editable && (
+        <CurveToggle
+          active={curve}
+          onCurve={() => void toCurve()}
+          onConstant={curve ? () => void toConstant() : undefined}
+        />
+      )}
+    </>
   );
 }

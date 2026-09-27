@@ -224,7 +224,8 @@ export const commands = {
 	/**
 	 *  One particle system of an open document, with every reference resolved.
 	 * 
-	 *  `entry` is the object's hash as `0x` and eight hex digits.
+	 *  `entry` is the object's hash as `0x` and eight hex digits. A class or field the hash
+	 *  tables leave unnamed takes the meta schema's name.
 	 */
 	readVfxSystem: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: VfxSystem }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_vfx_system", { document, entry }),
 	/**
@@ -2753,7 +2754,12 @@ export type ModuleAction =
  *  Move the keys of `entry`, a name or a `0x` hash, to the `entries` module at `to`:
  *  every signed key of the property path `path`, or the whole body where it is `None`.
  */
-{ kind: "moveKeys"; module: number; entry: string; path: string | null; to: number };
+{ kind: "moveKeys"; module: number; entry: string; path: string | null; to: number } | 
+/**
+ *  Drop every signed key of the property path `path` on `entry`, a name or a `0x` hash,
+ *  from the `entries` module at `module`.
+ */
+{ kind: "dropKeys"; module: number; entry: string; path: string };
 
 /**  Which selector a module holds. */
 export type ModuleSelector = 

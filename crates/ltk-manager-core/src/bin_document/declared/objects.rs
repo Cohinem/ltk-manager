@@ -221,8 +221,8 @@ impl BinDocument {
     fn spelled<T>(&self, spell: impl Fn(&RenderNames<'_>) -> T) -> Result<T, BinDocumentError> {
         let declared = self.declared.as_ref().ok_or_else(not_declared)?;
         let mut spelled = None;
-        declared.context.game.with_names(&mut |names| {
-            spelled = Some(spell(&RenderNames(names)));
+        declared.context.with_names(&mut |names| {
+            spelled = Some(spell(&names));
         });
         spelled.ok_or_else(not_declared)
     }

@@ -85,6 +85,16 @@
   --ltk-channel-3-text: var(--ltk-channel-3);
   --ltk-channel-4-text: var(--ltk-channel-4);
 
+  /* Colors for the value kinds a driver graph's sockets and edges carry. */
+  --ltk-socket-float: #2dd4bf;
+  --ltk-socket-vec2: #a3e635;
+  --ltk-socket-vec3: #a78bfa;
+  --ltk-socket-vec4: #fbbf24;
+  --ltk-socket-float-text: var(--ltk-socket-float);
+  --ltk-socket-vec2-text: var(--ltk-socket-vec2);
+  --ltk-socket-vec3-text: var(--ltk-socket-vec3);
+  --ltk-socket-vec4-text: var(--ltk-socket-vec4);
+
   /* Void hue for skinhack detection. */
   --ltk-void: #c084fc;
   --ltk-void-text: var(--ltk-void);
@@ -116,6 +126,10 @@
   --ltk-channel-2-text: color-mix(in srgb, var(--ltk-channel-2) 55%, black);
   --ltk-channel-3-text: color-mix(in srgb, var(--ltk-channel-3) 55%, black);
   --ltk-channel-4-text: color-mix(in srgb, var(--ltk-channel-4) 55%, black);
+  --ltk-socket-float-text: color-mix(in srgb, var(--ltk-socket-float) 55%, black);
+  --ltk-socket-vec2-text: color-mix(in srgb, var(--ltk-socket-vec2) 55%, black);
+  --ltk-socket-vec3-text: color-mix(in srgb, var(--ltk-socket-vec3) 55%, black);
+  --ltk-socket-vec4-text: color-mix(in srgb, var(--ltk-socket-vec4) 55%, black);
 }
 
 /* ============================================

@@ -461,3 +461,44 @@ fn a_named_module_a_move_empties_stays_with_no_entry() {
         manifest.text()
     );
 }
+
+#[test]
+fn a_dropped_key_leaves_its_block_and_the_module_keeps_the_rest() {
+    let (_dir, mut manifest) = manifest(MODULES);
+
+    manifest
+        .drop_keys(
+            0,
+            hash(SKIN0),
+            &PropertyPath::new("skinMeshProperties.selfIllumination").unwrap(),
+        )
+        .unwrap();
+
+    assert_eq!(
+        manifest.text(),
+        MODULES.replace(
+            "        skinMeshProperties:
+          selfIllumination: 0.5
+",
+            ""
+        )
+    );
+}
+
+#[test]
+fn dropping_a_key_the_module_lacks_is_refused() {
+    let (_dir, mut manifest) = manifest(MODULES);
+
+    let error = manifest
+        .drop_keys(1, hash(SKIN0), &PropertyPath::new("iconCircle").unwrap())
+        .unwrap_err();
+
+    assert_matches!(
+        error,
+        Error::Uneditable {
+            reason: Refusal::NoKey,
+            ..
+        }
+    );
+    assert_eq!(manifest.text(), MODULES);
+}

@@ -23,13 +23,17 @@ import { FieldLabelsContext } from "../../../classes/state/fieldLabels";
 import { CurveChainContext } from "../../../curves/state/curveTarget";
 import { type RailMark, railMark } from "../../../curves/utils/rollRail";
 import { useLinkOpen } from "../../../links/hooks/useLinkTargets";
+import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, type RowFold, RowFoldContext } from "../../../tree/state/rowFold";
 import { fieldHash, rowKey } from "../../../tree/utils/binRows";
 import { ValueMarksContext } from "../../../values/hooks/useValueMarks";
+import { EmitterPreviewCanvas } from "../../drivers/components/EmitterPreview";
 import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
 import { useForces } from "../../forces/useForces";
+import { VfxRunContext } from "../../playback/state/run";
 import { useEmitters } from "../state/emitterChoice";
+import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
 import { emitterChain, emitterRows } from "../utils/emitterCards";
 import {
   type DefaultField,
@@ -52,12 +56,14 @@ import {
 } from "../utils/emitterTypes";
 import { PRIMITIVE_FIELD } from "../utils/primitives";
 import { rowHasDefault } from "../utils/propertyDefaults";
+import { AddPropertyBox, useAddedJump } from "./AddPropertyBox";
 import { DefaultProperty } from "./DefaultProperty";
+import { InspectorActions } from "./InspectorActions";
 import { PrimitiveProperty } from "./PrimitiveProperty";
 
 /** The shared label column of the inspector's property tables. */
 const NAME_COLUMN = "w-(--name-width)";
-const COLUMN_STYLE = {
+export const COLUMN_STYLE = {
   "--name-width": "clamp(7rem, 32%, 12rem)",
   "--readout-height": "1.25rem",
   "--readout-padding-x": "0.25rem",
@@ -106,6 +112,11 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const forces = useForces();
+  const definedOnly = useDefinedOnly();
+  const preview = useInspectorPreview();
+  const running = (use(VfxRunContext)?.system ?? null) !== null;
+  const addable = use(LeafEditContext)?.addProperty !== undefined;
+  const [adding, setAdding] = useState(false);
 
   const groups = useMemo(() => {
     const source = target === "system" ? NO_GROUPED : (card?.groups ?? NO_GROUPED);
@@ -115,7 +126,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
           rows: group.rows.filter((row) => fieldHash(row.path) !== FORCE_COLLECTION),
         }))
       : source;
-    if (data == null) {
+    if (data == null || definedOnly) {
       return inspectorGroups(held, NO_DEFAULTS);
     }
 
@@ -125,8 +136,10 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     }
 
     return inspectorGroups(held, unauthoredFields(data.fields, authored));
-  }, [target, card, data, forces.visible]);
+  }, [target, card, data, forces.visible, definedOnly]);
   const filtered = filterEmitterGroups(groups, search);
+  const jumpTo = useAddedJump(groups);
+  const holder = addable && target !== "system" ? card?.row : undefined;
   const hasMatches =
     filtered.some((group) => group.rows.length > 0 || group.defaults.length > 0) ||
     (forces.visible && forces.forces.some((force) => forceMatches(force, search)));
@@ -155,22 +168,38 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     <div data-ui="EmitterPanel" className={twMerge("flex min-h-0 flex-col", className)}>
       {child !== null && <ChildBanner child={child} />}
       <PanelHeader actions={actions} />
+      {preview && running && child === null && target !== "system" && card !== undefined && (
+        <EmitterPreviewCanvas
+          simple={card.simple}
+          listIndex={card.index}
+          className="mx-auto mt-1.5 aspect-square w-full max-w-72 shrink-0"
+        />
+      )}
       <div
         data-ui="EmitterFields:search"
         className="flex shrink-0 items-center gap-2 border-b border-surface-700/40 px-2 py-1.5"
       >
-        <TreeSearchBox
-          value={search}
-          onChange={setSearch}
-          inputRef={searchRef}
-          label={m.workshop_bin_inspector_search_label()}
-          clearLabel={m.workshop_bin_inspector_clear_action()}
-          onCommit={() =>
-            scroller.current
-              ?.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled)")
-              ?.focus()
-          }
+        <InspectorActions
+          adding={holder === undefined ? null : adding}
+          onAddingChange={setAdding}
         />
+        {adding && holder !== undefined && (
+          <AddPropertyBox holder={holder} onAdded={jumpTo} onClose={() => setAdding(false)} />
+        )}
+        {(!adding || holder === undefined) && (
+          <TreeSearchBox
+            value={search}
+            onChange={setSearch}
+            inputRef={searchRef}
+            label={m.workshop_bin_inspector_search_label()}
+            clearLabel={m.workshop_bin_inspector_clear_action()}
+            onCommit={() =>
+              scroller.current
+                ?.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled)")
+                ?.focus()
+            }
+          />
+        )}
       </div>
       {/* DS-SCROLLBAR. The left padding is the roll rail's gutter, outside every row. */}
       <div
@@ -202,6 +231,15 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
                     {m.workshop_bin_inspector_matches_empty()}
                   </p>
                 )}
+                {search.trim() === "" &&
+                  definedOnly &&
+                  card !== undefined &&
+                  target !== "system" &&
+                  !hasMatches && (
+                    <p role="status" className="px-2 py-4 text-meta text-surface-400">
+                      {m.workshop_bin_inspector_defined_empty()}
+                    </p>
+                  )}
               </RowFoldContext>
             </FieldLabelsContext>
           </CurveChainContext>

@@ -35,7 +35,7 @@ import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { type MeshBuffers, MESHES_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts } from "../utils/drawKind";
-import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
+import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { meshMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { meshDraw } from "../utils/particleDraws";
@@ -161,7 +161,7 @@ export function Meshes({
     const lookups = lookup.array as Float32Array;
     const shifts = [buffers.uvShift, buffers.uvShiftMult];
 
-    const stamp = state.gl.info.render.frame;
+    const stamp = renderStamp(state.gl);
     let instance = 0;
     for (const source of sources) {
       const pool = source.pool;

@@ -101,6 +101,7 @@ export function followModuleAction(
     case "remove":
       return at(shiftAfterRemoval(index, action.module));
     case "moveKeys":
+    case "dropKeys":
       return removedSource ? at(shiftAfterRemoval(index, action.module)) : selected;
     case "move": {
       if (index === action.module) return at(action.to);

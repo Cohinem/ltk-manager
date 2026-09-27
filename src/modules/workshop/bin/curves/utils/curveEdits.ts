@@ -22,6 +22,9 @@ const DYNAMICS: ReadonlyMap<string, CurveDynamics> = new Map([
   [nameHash("ValueFloat"), { className: "VfxAnimatedFloat", family: "scalar" }],
   [nameHash("ValueVector2"), { className: "VfxAnimatedVector2f", family: "vector" }],
   [nameHash("ValueVector3"), { className: "VfxAnimatedVector3f", family: "vector" }],
+  [nameHash("IntegratedValueFloat"), { className: "VfxAnimatedFloat", family: "scalar" }],
+  [nameHash("IntegratedValueVector2"), { className: "VfxAnimatedVector2f", family: "vector" }],
+  [nameHash("IntegratedValueVector3"), { className: "VfxAnimatedVector3f", family: "vector" }],
 ]);
 
 /** The current animated dynamics class accepted by one value-family class. */
@@ -88,6 +91,53 @@ export async function commitCurveKey(
     { type: "setLeaf", path: `${TIMES}[${at}]`, value: { type: "float", value: key.time } },
     { type: "setLeaf", path: `${VALUES}[${at}]`, value },
   ]);
+}
+
+/**
+ * The keys once the key at `at` is `key`, in time order, and the index it lands at.
+ *
+ * A key moved past a neighbour swaps with it, so the lists stay sorted.
+ */
+export function movedKeys(
+  keys: readonly CurveKey[],
+  at: number,
+  key: CurveKey,
+): { keys: CurveKey[]; to: number } {
+  const rest = keys.filter((_, index) => index !== at);
+  const to = insertionIndex(rest, key.time);
+  return { keys: [...rest.slice(0, to), key, ...rest.slice(to)], to };
+}
+
+/**
+ * One key moved to `key`, rewriting every key between where it was and where it lands.
+ *
+ * One edit, so undo puts the whole reorder back. Answers the index the key lands at, or null
+ * where the edit was refused.
+ */
+export async function moveCurveKey(
+  edit: LeafEdit,
+  row: BinRow,
+  family: ValueFamily,
+  keys: readonly CurveKey[],
+  at: number,
+  key: CurveKey,
+): Promise<number | null> {
+  if (edit.editProperty === undefined || !validTime(key.time)) return null;
+
+  const moved = movedKeys(keys, at, key);
+  const edits: ValueEdit[] = [];
+  for (let index = Math.min(at, moved.to); index <= Math.max(at, moved.to); index += 1) {
+    const each = moved.keys[index];
+    const value = each === undefined ? null : curveLeaf(family, each.values);
+    if (each === undefined || value === null) return null;
+
+    edits.push(
+      { type: "setLeaf", path: `${TIMES}[${index}]`, value: { type: "float", value: each.time } },
+      { type: "setLeaf", path: `${VALUES}[${index}]`, value },
+    );
+  }
+
+  return (await edit.editProperty(row, CURVE_DYNAMICS, edits)) ? moved.to : null;
 }
 
 /** Insert one curve key while keeping the parallel time and value lists in step. */
@@ -171,7 +221,8 @@ export function suggestedCurveKey(
   return { time, values: keysAt(keys, time) };
 }
 
-function curveLeaf(family: ValueFamily, values: readonly number[]): LeafValue | null {
+/** A key's values as the leaf the family writes, and null for values no float holds. */
+export function curveLeaf(family: ValueFamily, values: readonly number[]): LeafValue | null {
   if (!values.every(validFloat)) return null;
   if (family === "scalar") {
     const [value] = values;
@@ -182,7 +233,8 @@ function curveLeaf(family: ValueFamily, values: readonly number[]): LeafValue | 
   return validWidth && values.length > 1 ? { type: "vector", values: [...values] } : null;
 }
 
-function constantValues(constant: BinValue | null, family: ValueFamily): number[] {
+/** A constant's numbers, one per channel, and the family's zero where it holds none. */
+export function constantValues(constant: BinValue | null, family: ValueFamily): number[] {
   if (constant?.type === "float" && constant.value !== null) return [constant.value];
   if (constant?.type === "vector") {
     const values = constant.values.filter((value): value is number => value !== null);

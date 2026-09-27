@@ -138,8 +138,7 @@ impl BinDocument {
         let declared = self.declared.as_ref().ok_or_else(not_declared)?;
 
         let mut edit = None;
-        declared.context.game.with_names(&mut |names| {
-            let names = RenderNames(names);
+        declared.context.with_names(&mut |names| {
             edit = spelled_path(&steps, &trace, &names).map(|property| ManifestEdit {
                 chunk_hash: declared.chunk_hash,
                 entry: entry_name(entry, &names),

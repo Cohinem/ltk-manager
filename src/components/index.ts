@@ -4,6 +4,7 @@ export * from "./AutoPill";
 export * from "./Breadcrumb";
 export * from "./Button";
 export * from "./ButtonGroup";
+export * from "./ChannelSash";
 export * from "./Checkbox";
 export * from "./Code";
 export * from "./ColorPicker";

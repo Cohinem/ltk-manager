@@ -75,8 +75,8 @@ fn a_construction_declares_an_object_of_the_class_holding_no_property() {
         Some(&BinObject::new(h(COPY), class))
     );
     assert!(
-        manifest(dir.path(), "base").contains(&format!("        class: '{}'\n", hex(class))),
-        "a class no table names is spelled by its hash"
+        manifest(dir.path(), "base").contains("        class: SkinCharacterDataProperties\n"),
+        "a class only the schema names is spelled by the schema's name"
     );
 }
 

@@ -1,4 +1,10 @@
-import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { useReducedMotion } from "@/hooks";
 import { m } from "@/i18n";
@@ -53,11 +59,14 @@ export function PrimitivePreview({
   kind,
   name,
   mesh: model,
+  size,
 }: {
   kind: SketchKind;
   name: string;
   /** The mesh the emitter names, which only a mesh kind reads. */
   mesh: MeshModel | null;
+  /** The canvas's size in pixels, where it differs from the inspector's. */
+  size?: CSSProperties;
 }) {
   const reduced = useReducedMotion();
   const mesh = useSketchMesh(kind === "mesh" || kind === "attachedMesh" ? model : null);
@@ -111,6 +120,7 @@ export function PrimitivePreview({
         aria-label={m.workshop_bin_vfx_primitive_sketch_label({ primitive: name })}
         /* DS-GROUND, DS-VEIL, DS-RADIUS */
         className="h-24 w-44 cursor-grab touch-none rounded-sm border border-surface-veil bg-surface-950/40 active:cursor-grabbing"
+        style={size}
         onPointerDown={(event: ReactPointerEvent<HTMLCanvasElement>) => {
           event.currentTarget.setPointerCapture(event.pointerId);
           drag.current = { x: event.clientX, yaw: yaw.current };

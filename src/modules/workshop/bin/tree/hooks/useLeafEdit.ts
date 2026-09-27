@@ -6,6 +6,7 @@ import {
   type AssetRef,
   type BinDocumentId,
   type BinRow,
+  type NewProperty,
   type ValueEdit,
 } from "@/lib/tauri";
 
@@ -24,6 +25,10 @@ export interface LeafEdit {
   readonly mark?: (at: string, error: AppError | null) => void;
   readonly editProperty?: (holder: BinRow, field: string, edits: ValueEdit[]) => Promise<boolean>;
   readonly removeItem?: (row: BinRow) => Promise<boolean>;
+  /** Drop the property `row` from its holder, which then reads its class default. */
+  readonly removeProperty?: (row: BinRow) => Promise<boolean>;
+  /** Add `property` to the struct `holder` at its default, marking a refusal on the holder. */
+  readonly addProperty?: (holder: BinRow, property: NewProperty) => Promise<boolean>;
   readonly setPointer?: (
     holder: BinRow,
     field: string,
@@ -153,6 +158,38 @@ export function useLeafEdit(
     [landed, mark, send],
   );
 
+  const removeProperty = useCallback(
+    async (row: BinRow) => {
+      const { result, id } = await send((id) =>
+        api.bin.edit(id, { kind: "removeProperty", entry: row.entry, path: row.path }),
+      );
+      mark(rowKey(row), result.ok ? null : result.error, false);
+      if (!result.ok) {
+        return false;
+      }
+
+      landed(id);
+      return true;
+    },
+    [landed, mark, send],
+  );
+
+  const addProperty = useCallback(
+    async (holder: BinRow, property: NewProperty) => {
+      const { result, id } = await send((id) =>
+        api.bin.edit(id, { kind: "addProperty", entry: holder.entry, path: holder.path, property }),
+      );
+      mark(rowKey(holder), result.ok ? null : result.error, false);
+      if (!result.ok) {
+        return false;
+      }
+
+      landed(id);
+      return true;
+    },
+    [landed, mark, send],
+  );
+
   const setPointer = useCallback(
     async (holder: BinRow, field: string, className: string | null) => {
       const path = [holder.path, field.slice(2)].filter(Boolean).join(".");
@@ -179,6 +216,8 @@ export function useLeafEdit(
     send,
     editProperty,
     removeItem,
+    removeProperty,
+    addProperty,
     setPointer,
   };
 }

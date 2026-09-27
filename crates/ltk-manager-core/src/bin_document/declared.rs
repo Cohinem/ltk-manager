@@ -30,7 +30,7 @@ pub use self::objects::{DeclaredObjectMark, NewObject, ObjectChange};
 use super::edit::UNDO_DEPTH;
 use super::{BinDocument, BinDocumentError, EditRejection, EntryKey, RowNames, Trace, hex};
 use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
-use crate::meta_schema::PatchSchema;
+use crate::meta_schema::{PatchSchema, SchemaNames};
 
 use crate::workshop::{ModuleAction, ProjectDir};
 
@@ -56,6 +56,17 @@ pub struct DeclareContext {
     pub project: ProjectDir,
     pub schema: PatchSchema,
     pub game: Arc<dyn GameCopy>,
+}
+
+impl DeclareContext {
+    /// The names a declaration spells a path with: the game's tables, then the meta schema's
+    /// names for the classes and fields they leave, as the document's rows draw them.
+    fn with_names(&self, read: &mut dyn FnMut(RenderNames<'_>)) {
+        self.game.with_names(&mut |names| {
+            let named = SchemaNames::new(names, self.schema.meta());
+            read(RenderNames(&named));
+        });
+    }
 }
 
 /// Whether a declared document takes edits, the project's "Use game data declarations".
@@ -564,8 +575,7 @@ impl Declared {
 
         let mut marks = Vec::new();
         let mut objects = Vec::new();
-        self.context.game.with_names(&mut |names| {
-            let names = RenderNames(names);
+        self.context.with_names(&mut |names| {
             for module in &declarations.modules {
                 for edit in edits_on(module, self.chunk_hash, &held) {
                     let sets = edit
@@ -884,6 +894,7 @@ fn entry_name(entry: BinHash, names: &RenderNames<'_>) -> EntryName {
 }
 
 /// The manager's tables as a declaration's names.
+#[derive(Clone, Copy)]
 struct RenderNames<'a>(&'a dyn RowNames);
 
 impl RenderNames<'_> {

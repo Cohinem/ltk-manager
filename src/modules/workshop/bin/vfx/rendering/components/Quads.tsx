@@ -27,7 +27,7 @@ import { fragmentTests, premultiplyInto, sortsBackToFront } from "../utils/blend
 import { quadBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts, drawsAsQuad } from "../utils/drawKind";
-import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
+import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { quadMaterial, quadOrientation } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { quadDraw } from "../utils/particleDraws";
@@ -152,7 +152,7 @@ export function Quads({
       return;
     }
 
-    const stamp = state.gl.info.render.frame;
+    const stamp = renderStamp(state.gl);
     const frames = sources.map((source) => frameOf(source, emitter));
     const scroll = material.uniforms.paletteScroll.value as number[];
     sourcesScrollInto(emitter, sources, scroll);

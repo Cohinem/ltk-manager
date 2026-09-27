@@ -40,6 +40,7 @@ export {
   useFitCamera,
   useSeesBounds,
 } from "./camera/components/FitCamera";
+export { type Look, OrientationGizmo } from "./camera/components/OrientationGizmo";
 export { SceneCamera, type SceneCameraProps } from "./camera/components/SceneCamera";
 export { type CameraPose, lastCameraPose } from "./camera/state/cameraMemory";
 export { CameraPresetContext, useCameraPreset } from "./camera/state/presetContext";

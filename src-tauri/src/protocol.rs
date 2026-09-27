@@ -154,9 +154,9 @@ fn parameter<'a>(query: Option<&'a str>, key: &str) -> Option<&'a str> {
 /// The status that tells a caller what went wrong.
 fn status_for(error: &AppError) -> StatusCode {
     match error {
-        AppError::Preview(
-            PreviewError::Unsupported(_) | PreviewError::UnsupportedMesh(_) | PreviewError::NotCube,
-        ) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        AppError::Preview(PreviewError::Unsupported(_) | PreviewError::NotCube) => {
+            StatusCode::UNSUPPORTED_MEDIA_TYPE
+        }
         AppError::InvalidPath(_) | AppError::LeagueNotFound => StatusCode::NOT_FOUND,
         AppError::Io(e) if e.kind() == io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -345,9 +345,6 @@ mod tests {
             ltk_manager_core::preview::LeagueFileKind::PropertyBin,
         ));
         assert_eq!(status_for(&error), StatusCode::UNSUPPORTED_MEDIA_TYPE);
-
-        let mesh = AppError::Preview(PreviewError::UnsupportedMesh(".tmesh"));
-        assert_eq!(status_for(&mesh), StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }
 
     #[test]

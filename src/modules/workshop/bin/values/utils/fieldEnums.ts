@@ -4,6 +4,7 @@ import {
   BLEND_MODE,
   COLOR_LOOKUP,
   FIXED_ORBIT,
+  IMPORTANCE,
   LINGER_TYPE,
   MISC_RENDER_FLAG,
   SIMPLE_ORIENTATION,
@@ -47,6 +48,7 @@ export const ENUM_FIELDS: Readonly<Record<string, FieldEnum>> = {
   colorLookUpTypeX: choice(COLOR_LOOKUP),
   colorLookUpTypeY: choice(COLOR_LOOKUP),
   particleLingerType: choice(LINGER_TYPE),
+  importance: choice(IMPORTANCE),
   orientation: choice(SIMPLE_ORIENTATION),
   fixedOrbitType: choice(FIXED_ORBIT),
   mTrailMode: choice(TRAIL_MODE),
@@ -84,6 +86,11 @@ export function enumText(held: FieldEnum, value: number): string | null {
   }
   if (rest !== 0) names.push(`0x${(rest >>> 0).toString(16)}`);
   return names.length === 0 ? null : names.join(", ");
+}
+
+/** `value` with the bit `bit` set where `on`, else cleared, and every other bit as it was. */
+export function withFlag(value: number, bit: number, on: boolean): number {
+  return (on ? value | bit : value & ~bit) >>> 0;
 }
 
 /** What the integer `text` reads as under the field `hash`, and null where it reads as itself. */

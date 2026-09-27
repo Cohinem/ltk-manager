@@ -345,6 +345,30 @@ fn an_edit_lands_in_the_chosen_layer() {
 }
 
 #[test]
+fn a_field_only_the_schema_names_is_spelled_by_its_schema_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let context = DeclareContext {
+        project: project(dir.path()),
+        schema: PatchSchema::new(meta_schema::shared(None), None),
+        game: Game::naming(&[SKIN]),
+    };
+    let mut document =
+        BinDocument::declare(game_bin(), ltk_game_data::path_hash(CHUNK), context).unwrap();
+
+    document
+        .set_leaf(
+            h(SKIN),
+            &format!("{:08x}", *h("championSkinName")),
+            LeafValue::String {
+                value: "Jade".to_owned(),
+            },
+        )
+        .unwrap();
+
+    assert!(manifest(dir.path(), "base").contains("championSkinName: Jade"));
+}
+
+#[test]
 fn a_path_through_a_nameless_field_is_refused_and_writes_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared(project(dir.path()));
@@ -714,4 +738,41 @@ fn a_key_moved_between_modules_keeps_the_view_and_undoes() {
     assert!(document.undo().unwrap());
     assert_eq!(manifest(dir.path(), "base"), text);
     assert_eq!(document.declared_state().unwrap().modules.len(), 2);
+}
+
+#[test]
+fn a_dropped_declaration_leaves_the_game_value_and_undoes() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    let text = two_modules(dir.path());
+    let mut document = declared(project);
+    assert!((glow(&document) - 0.5).abs() < f32::EPSILON);
+
+    let state = document
+        .declared_module_action(
+            "base",
+            &ModuleAction::DropKeys {
+                module: 0,
+                entry: SKIN.to_owned(),
+                path: "skinMeshProperties.selfIllumination".to_owned(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        manifest(dir.path(), "base"),
+        "version: 1
+modules:
+  - name: Later
+    entries:
+      Characters/Other:
+        q: 1
+"
+    );
+    assert!(glow(&document).abs() < f32::EPSILON);
+    assert!(state.marks.is_empty());
+
+    assert!(document.undo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), text);
+    assert!((glow(&document) - 0.5).abs() < f32::EPSILON);
 }

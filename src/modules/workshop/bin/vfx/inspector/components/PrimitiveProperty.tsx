@@ -1,7 +1,6 @@
-import { CaretDownIcon } from "@phosphor-icons/react";
-import { type MouseEvent as ReactMouseEvent, use, useMemo } from "react";
+import { use, useMemo } from "react";
 
-import { InputDefaultContext, Select } from "@/components";
+import { InputDefaultContext } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId, BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -11,7 +10,6 @@ import { AlsoCheck, FieldRow } from "../../../classes/components/ClassCells";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { useBinRead } from "../../../documents/hooks/useBinRead";
 import type { RowGroup } from "../../../links/hooks/useLinkTargets";
-import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../../tree/state/rowFold";
 import { useHeldRows } from "../../../tree/state/rowRegistry";
 import { childCount, fieldHash, rowKey } from "../../../tree/utils/binRows";
@@ -22,26 +20,16 @@ import { VfxRunContext } from "../../playback/state/run";
 import { useEmitters } from "../state/emitterChoice";
 import { type DefaultField, defaultField } from "../utils/emitterGroups";
 import { emitterLabel } from "../utils/emitterLabels";
-import {
-  DEFAULT_PRIMITIVE,
-  type Primitive,
-  PRIMITIVE_FAMILIES,
-  PRIMITIVES,
-  primitiveOf,
-} from "../utils/primitives";
 import { DefaultProperty } from "./DefaultProperty";
+import {
+  type HeldClass,
+  heldPrimitive,
+  PrimitivePicker,
+  usePrimitivePick,
+} from "./PrimitivePicker";
 import { PrimitivePreview } from "./PrimitivePreview";
 
-/** The picker's value for an emitter that names no primitive. */
-const UNSET = "";
-
 const NO_ROWS: readonly BinRow[] = [];
-
-interface HeldClass {
-  /** `0x` and eight hex digits. */
-  readonly classHash: string;
-  readonly class: string | null;
-}
 
 /**
  * The emitter's primitive, as a picker over the primitive classes and the fields of the held one.
@@ -64,12 +52,11 @@ export function PrimitiveProperty({
   width: string;
   owner: string | null;
 }) {
-  const edit = use(LeafEditContext);
   const document = use(RowDocumentContext);
   const emitter = useEmitterModel();
   const held: HeldClass | null = authored?.value.type === "struct" ? authored.value : null;
-  const known = held === null ? DEFAULT_PRIMITIVE : primitiveOf(held.classHash);
-  const text = known?.label() ?? held?.class ?? held?.classHash ?? "";
+  const { known, text } = heldPrimitive(held);
+  const pick = usePrimitivePick(holder, field.hash, held);
   const implicit = authored === undefined;
   const label = emitterLabel(field.hash, field.name);
   const row: BinRow = authored ?? {
@@ -83,20 +70,6 @@ export function PrimitiveProperty({
     declared: field.declared === null ? null : { shape: field.declared, mismatch: false },
     value: { type: "null" },
   };
-
-  const editProperty = edit?.editProperty;
-  const pick =
-    editProperty === undefined
-      ? null
-      : (classHash: string | null) => {
-          if (classHash === (held?.classHash ?? null)) {
-            return;
-          }
-
-          void editProperty(holder, field.hash, [
-            { type: "replacePointer", path: "", class: classHash },
-          ]);
-        };
 
   return (
     <>
@@ -155,88 +128,6 @@ function useEmitterModel(): EmitterModel | undefined {
 
   return run?.system?.emitters.find(
     (emitter) => emitter.simple === card?.simple && emitter.listIndex === card?.index,
-  );
-}
-
-interface PrimitivePickerProps {
-  held: HeldClass | null;
-  /** The picker's reading of the held class, undefined for a class it does not list. */
-  known: Primitive | undefined;
-  /** What the trigger reads. */
-  text: string;
-  label: string | undefined;
-  /** Null where the document takes no edit. */
-  onPick: ((classHash: string | null) => void) | null;
-}
-
-/** A select of the primitive classes by family, and the held class's card beside it. */
-function PrimitivePicker({ held, known, text, label, onPick }: PrimitivePickerProps) {
-  const implicit = use(InputDefaultContext);
-  const card = held !== null && <ClassCard classHash={held.classHash} name={held.class} />;
-
-  if (onPick === null) {
-    return (
-      <span className="flex min-w-0 items-center gap-2">
-        <span className={twMerge("text-surface-200", implicit && "text-surface-400")}>{text}</span>
-        {card}
-      </span>
-    );
-  }
-
-  return (
-    <span className="flex min-w-0 items-center gap-2">
-      <Select.Root
-        value={held?.classHash ?? UNSET}
-        onValueChange={(next) => next !== null && onPick(next === UNSET ? null : next)}
-      >
-        <Select.Trigger
-          aria-label={label}
-          /* DS-VEIL, DS-RADIUS */
-          className={twMerge(
-            "h-auto w-auto min-w-0 gap-1 rounded-sm border-surface-veil bg-surface-veil-soft px-1.5 py-0.5 font-sans text-meta text-surface-200",
-            implicit && "border-dashed bg-transparent text-surface-400",
-          )}
-          onClick={(event: ReactMouseEvent<HTMLButtonElement>) => event.stopPropagation()}
-        >
-          <Select.Value>{() => text}</Select.Value>
-          <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
-        </Select.Trigger>
-        <Select.Portal>
-          <Select.Positioner>
-            <Select.Popup className="max-h-96 min-w-64">
-              <Select.Item
-                value={UNSET}
-                label={m.workshop_bin_vfx_primitive_unset_label()}
-                description={m.workshop_bin_vfx_primitive_unset_description()}
-              >
-                {m.workshop_bin_vfx_primitive_unset_label()}
-              </Select.Item>
-              {held !== null && known === undefined && (
-                <Select.Item value={held.classHash} label={text}>
-                  {text}
-                </Select.Item>
-              )}
-              {PRIMITIVE_FAMILIES.map(({ family, label: heading }) => (
-                <Select.Group key={family}>
-                  <Select.GroupLabel>{heading()}</Select.GroupLabel>
-                  {PRIMITIVES.filter((each) => each.family === family).map((each) => (
-                    <Select.Item
-                      key={each.hash}
-                      value={each.hash}
-                      label={each.label()}
-                      description={each.description()}
-                    >
-                      {each.label()}
-                    </Select.Item>
-                  ))}
-                </Select.Group>
-              ))}
-            </Select.Popup>
-          </Select.Positioner>
-        </Select.Portal>
-      </Select.Root>
-      {card}
-    </span>
   );
 }
 

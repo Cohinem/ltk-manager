@@ -99,3 +99,4 @@ windows-sys = { workspace = true, features = [
 
 [dev-dependencies]
 assert_matches = { workspace = true }
+ltk_primitives = "0.3.6"

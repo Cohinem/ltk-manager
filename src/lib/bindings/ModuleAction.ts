@@ -4,4 +4,4 @@
  * One module action on a layer's manifest, each module named by its index in `modules`.
  * ADR-0048, ADR-0054.
  */
-export type ModuleAction = { "kind": "create", name: string | null, } | { "kind": "rename", module: number, name: string | null, } | { "kind": "remove", module: number, } | { "kind": "move", module: number, to: number, } | { "kind": "moveKeys", module: number, entry: string, path: string | null, to: number, };
+export type ModuleAction = { "kind": "create", name: string | null, } | { "kind": "rename", module: number, name: string | null, } | { "kind": "remove", module: number, } | { "kind": "move", module: number, to: number, } | { "kind": "moveKeys", module: number, entry: string, path: string | null, to: number, } | { "kind": "dropKeys", module: number, entry: string, path: string, };

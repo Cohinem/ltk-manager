@@ -128,10 +128,6 @@ pub enum PreviewError {
     #[error("Not a readable image: {0}")]
     Image(image::ImageError),
 
-    /// A mesh in a format this build names but has no reader for.
-    #[error("No geometry from a {0} file")]
-    UnsupportedMesh(&'static str),
-
     /// The bytes are not a mesh `ltk_mesh` reads.
     #[error("Not a readable mesh: {0}")]
     MeshRead(#[from] ltk_mesh::error::ParseError),

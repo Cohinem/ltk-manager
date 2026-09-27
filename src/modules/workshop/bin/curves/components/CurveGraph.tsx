@@ -5,6 +5,7 @@ import {
   use,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -17,6 +18,7 @@ import type { CurveKey, ValueFamily } from "../../values/utils/valueRows";
 import { placeTime } from "../../values/utils/valueRows";
 import { keysAt } from "../../vfx/engine/utils/sampleCurve";
 import { VfxRunContext } from "../../vfx/playback/state/run";
+import { useRandomEdit } from "../state/randomEdit";
 import { channelName, STROKE } from "../utils/curveChannels";
 import {
   axisText,
@@ -32,7 +34,7 @@ import { CURVE_TIME_STEP, curveValueStep, snapCurveValue } from "../utils/curveS
 import {
   type ChannelDraw,
   drawsFlat,
-  drawsSpread,
+  shownDraw,
   factorAt,
   isRandom,
   type RandomDraw,
@@ -103,25 +105,27 @@ export function CurveGraph({
   onChange,
   onAdd,
 }: CurveGraphProps) {
+  const shown = shownDraw(draw, useRandomEdit() !== null);
   if (family === "color") {
     return (
       <GradientPlot
         keys={keys}
-        draw={draw}
+        draw={shown}
         selected={selected}
         editable={editable}
         onSelect={onSelect}
         onAdd={onAdd}
+        onChange={onChange}
       />
     );
   }
-  if (drawsSpread(draw) && drawsFlat(draw)) {
-    return <RandomLanes draw={draw} unit={unit} muted={muted} />;
+  if (shown !== null && drawsFlat(shown)) {
+    return <RandomLanes draw={shown} unit={unit} muted={muted} />;
   }
   return (
     <ChannelPlot
       keys={keys}
-      draw={drawsSpread(draw) ? draw : null}
+      draw={shown}
       unit={unit}
       muted={muted}
       playhead={playhead}
@@ -157,6 +161,18 @@ interface KeyDrag {
   readonly key: CurveKey;
   readonly committed: boolean;
 }
+
+/** Where a key was pressed, which a drag moves it from by the pointer's travel. */
+interface KeyPress {
+  readonly pointerId: number;
+  readonly x: number;
+  readonly y: number;
+  readonly key: CurveKey;
+  moved: boolean;
+}
+
+/** How far the pointer travels, in pixels, before a press on a key becomes a drag. */
+const DRAG_SLOP = 3;
 
 interface Marquee {
   readonly pointerId: number;
@@ -197,6 +213,7 @@ function ChannelPlot({
   );
   const [hover, setHover] = useState<number | null>(null);
   const [drag, setDrag] = useState<KeyDrag | null>(null);
+  const press = useRef<KeyPress | null>(null);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   const pinned = use(VfxRunContext)?.pinned ?? null;
 
@@ -217,12 +234,9 @@ function ChannelPlot({
     return keys.map((key, at) => (at === drag.at ? drag.key : key));
   }, [drag, keys]);
 
+  /* A committed drag holds until the curve reads back, which a reorder answers at another index. */
   useEffect(() => {
-    setDrag((held) => {
-      if (held?.committed !== true) return held;
-
-      return sameCurveKey(keys[held.at], held.key) ? null : held;
-    });
+    setDrag((held) => (held?.committed === true ? null : held));
   }, [keys]);
   const plot =
     drag === null || frame === null
@@ -235,7 +249,12 @@ function ChannelPlot({
   const drawn = plot === null ? [] : plot.lines.map((_, at) => at).filter((at) => !muted.has(at));
   const axis = plot !== null && drawn.length > 0;
   const time = hover ?? playhead ?? 0;
-  const levels = keysAt(shownKeys, time);
+  const ordered = useMemo(
+    () =>
+      drag === null ? shownKeys : [...shownKeys].sort((left, right) => left.time - right.time),
+    [drag, shownKeys],
+  );
+  const levels = keysAt(ordered, time);
 
   function follow(event: PointerEvent<HTMLDivElement>) {
     if (plot === null) return;
@@ -280,34 +299,44 @@ function ChannelPlot({
     setMarquee(null);
   }
 
+  /* A press moves nothing until the pointer travels, and a drag moves the key by the pointer's
+     travel rather than to it, so a click on a key never nudges it. */
   function dragPoint(event: PointerEvent<SVGCircleElement>, at: number, channel: number) {
-    if (!editable || frame === null || onChange === undefined) return;
+    const held = press.current;
+    if (!editable || frame === null || onChange === undefined || held === null) return;
 
     const box = event.currentTarget.ownerSVGElement?.getBoundingClientRect();
-    const key = shownKeys[at];
-    if (box === undefined || key === undefined) return;
+    if (box === undefined || box.width === 0 || box.height === 0) return;
 
-    const x = unitShare((event.clientX - box.left) / box.width);
-    const y = unitShare((event.clientY - box.top) / box.height);
-    const before = keys[at - 1]?.time ?? frame.first;
-    const after = keys[at + 1]?.time ?? frame.last;
-    const draggedTime = frame.first + x * (frame.last - frame.first);
+    const dx = event.clientX - held.x;
+    const dy = event.clientY - held.y;
+    if (!held.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
+    held.moved = true;
+
+    /* Past a neighbour is a swap, which the commit writes, so only the axis bounds a drag. */
+    const draggedTime = held.key.time + (dx / box.width) * (frame.last - frame.first);
     const nextTime = Math.min(
-      Math.max(snapCurveValue(draggedTime, CURVE_TIME_STEP), before),
-      after,
+      Math.max(snapCurveValue(draggedTime, CURVE_TIME_STEP), frame.first),
+      frame.last,
     );
     const guide = curveValueStep(keys, channel, family === "color");
-    const values = [...key.values];
-    values[channel] = snapCurveValue(frame.high - y * (frame.high - frame.low), guide);
+    const values = [...held.key.values];
+    const start = held.key.values[channel] ?? 0;
+    values[channel] = snapCurveValue(start - (dy / box.height) * (frame.high - frame.low), guide);
     setDrag({ at, key: { time: nextTime, values }, committed: false });
   }
 
   async function finishDrag(event: PointerEvent<SVGCircleElement>) {
-    if (drag === null) return;
-
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    press.current = null;
+    if (drag === null) return;
+    if (sameCurveKey(keys[drag.at], drag.key)) {
+      setDrag(null);
+      return;
+    }
+
     const pending = { ...drag, committed: true };
     setDrag(pending);
 
@@ -372,7 +401,7 @@ function ChannelPlot({
               {drawn.map((channel) => (
                 <g key={channel} className={STROKE[channel] ?? STROKE[0]}>
                   <Spread
-                    keys={shownKeys}
+                    keys={ordered}
                     plot={plot}
                     size={size}
                     channel={banded.get(channel)}
@@ -430,8 +459,17 @@ function ChannelPlot({
                             if (!editable || onChange === undefined) return;
                             if (event.ctrlKey || event.metaKey || event.shiftKey) return;
 
+                            const key = keys[at];
+                            if (key === undefined) return;
+
                             event.currentTarget.setPointerCapture(event.pointerId);
-                            dragPoint(event, at, channel);
+                            press.current = {
+                              pointerId: event.pointerId,
+                              x: event.clientX,
+                              y: event.clientY,
+                              key,
+                              moved: false,
+                            };
                           }}
                           onPointerMove={(event) => {
                             if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -485,11 +523,6 @@ function ChannelPlot({
         )}
       </div>
       {draw !== null && <DrawReadout draw={draw} unit={unit} muted={muted} levels={levels} />}
-      {editable && plot !== null && (
-        <span className="text-meta leading-none text-surface-500 select-none">
-          {m.workshop_bin_curve_graph_edit_hint()}
-        </span>
-      )}
     </div>
   );
 }

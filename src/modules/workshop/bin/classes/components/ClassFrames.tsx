@@ -2,7 +2,7 @@ import { type ReactNode, lazy, Suspense, use, useMemo, useState } from "react";
 
 import { RetainedContent } from "@/components";
 import type { BinDocumentId } from "@/lib/tauri";
-import { leafHolding } from "@/modules/editor";
+import { leafHolding, type PortalHost, PortalSlot } from "@/modules/editor";
 
 import { useShellLayout, useShellMaximizedLeaf } from "../../../state";
 import { ChanceReadout } from "../../curves/components/ChancePin";
@@ -26,6 +26,7 @@ import { SkinPreview } from "../../skin/components/SkinPreview";
 import { SpellsPane } from "../../spells/components/SpellsPane";
 import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
 import { PreviewPane, RunKeys, TimelinePane, TimelineTransport, VfxRunProvider } from "../../vfx";
+import { GraphPane, PreviewInGraph } from "../../vfx/drivers/components/GraphPane";
 import { EmitterFields } from "../../vfx/inspector/components/EmitterInspector";
 import { EmitterModes, Emitters } from "../../vfx/inspector/components/VfxSections";
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
@@ -51,6 +52,10 @@ interface ShellProps extends ShellFrameProps {
   system: string;
   /** The object's class is one the renderer draws. */
   drawable: boolean;
+  /** The host the view's one preview renders into, which the graph pane's preview node takes. */
+  previewHost: PortalHost;
+  /** Switch the tab to Properties and reveal the row. Absent outside an object tab. */
+  onShowInProperties?: (key: string) => void;
 }
 
 /** The run above whichever frame draws it, and no run at all over a class no renderer draws. */
@@ -360,9 +365,25 @@ function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
  * Where each pane sits and how much room it takes is the project's own tree, so this
  * builds the five of them and hands them over without arranging any of it (ADR-0034).
  */
-export function VfxShell({ placed, pages, view, system, drawable, preview }: ShellProps) {
+export function VfxShell({
+  placed,
+  pages,
+  view,
+  system,
+  drawable,
+  preview,
+  previewHost,
+  onShowInProperties,
+}: ShellProps) {
   const emitters = useMemo(() => placed.find((each) => each.widget === "emitters"), [placed]);
   const others = useMemo(() => placed.filter((each) => each.widget !== "emitters"), [placed]);
+  /* One state decides both slots. The viewport moves between them in one commit, and its
+     content never sees the host unheld. */
+  const [inGraph, setInGraph] = useState(false);
+  const graphViewport = useMemo(
+    () => (inGraph ? <PortalSlot host={previewHost} /> : null),
+    [inGraph, previewHost],
+  );
 
   const content = useMemo<ShellPaneContent<"vfx">>(
     () => ({
@@ -381,14 +402,25 @@ export function VfxShell({ placed, pages, view, system, drawable, preview }: She
         body: <InspectorPane placed={others} pages={pages} view={view} />,
         actions: <ChanceReadout />,
       },
-      preview: { body: preview },
+      preview: { body: inGraph ? <PreviewInGraph /> : preview },
       timeline: {
         body: <TimelinePane drawable={drawable} />,
         actions: drawable && <TimelineTransport />,
         actionsWidth: "rest",
       },
+      graph: {
+        body: (
+          <GraphPane
+            document={view.document}
+            entry={view.entry}
+            viewport={graphViewport}
+            onPreviewShown={setInGraph}
+            onShowInProperties={onShowInProperties}
+          />
+        ),
+      },
     }),
-    [emitters, others, pages, view, drawable, preview],
+    [emitters, others, pages, view, drawable, preview, inGraph, graphViewport, onShowInProperties],
   );
 
   return (

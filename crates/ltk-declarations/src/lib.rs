@@ -564,6 +564,23 @@ impl Manifest {
         self.change(|text| Ok((text.move_keys(module, entry, path, to)?, ())))
     }
 
+    /// Drop every signed key of `path` on `entry` from the `entries` module at `module`.
+    ///
+    /// An unnamed module the drop leaves empty goes, as after [`Manifest::move_keys`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::rename_module`], with [`Refusal::NotEntriesModule`] for a `target`
+    /// module and [`Refusal::NoKey`] where `module` declares nothing under `path`.
+    pub fn drop_keys(
+        &mut self,
+        module: usize,
+        entry: BinHash,
+        path: &PropertyPath,
+    ) -> Result<(), Error> {
+        self.change(|text| Ok((text.drop_keys(module, entry, path)?, ())))
+    }
+
     /// Replace the held text with what `change` makes of it, where that loads.
     fn change<T>(
         &mut self,

@@ -205,7 +205,8 @@ export function drawSummary(draw: RandomDraw): DrawSummary | null {
   return { kind: "several", count: random.length };
 }
 
-function sameDraw(a: ChannelDraw, b: ChannelDraw): boolean {
+/** Two channels draw one table over one base, so they read, and edit, as one. */
+export function sameDraw(a: ChannelDraw, b: ChannelDraw): boolean {
   if (a.base !== b.base || a.table === null || b.table === null) return false;
   if (a.table.single !== b.table.single || a.table.keys.length !== b.table.keys.length) {
     return false;
@@ -214,6 +215,13 @@ function sameDraw(a: ChannelDraw, b: ChannelDraw): boolean {
     const other = b.table?.keys[at];
     return other !== undefined && key.time === other.time && key.values[0] === other.values[0];
   });
+}
+
+/** Two channels of `draw` hold one table over one base, so an edit can move them together. */
+export function linkable(draw: RandomDraw): boolean {
+  return draw.channels.some((a) =>
+    draw.channels.some((b) => a !== b && a.table !== null && sameDraw(a, b)),
+  );
 }
 
 /** The span a channel's draws land in: its results where the base holds still, else its factors. */
@@ -310,6 +318,15 @@ export function drawsSpread(draw: RandomDraw | null): draw is RandomDraw {
   return (
     draw !== null && draw.channels.some((each) => isRandom(each.shape) || each.shape === "broken")
   );
+}
+
+/**
+ * The draw a reading shows: one worth a spread, or any set while its tables can be written,
+ * so a set of fixed tables still offers its shapes.
+ */
+export function shownDraw(draw: RandomDraw | null, writable: boolean): RandomDraw | null {
+  if (drawsSpread(draw)) return draw;
+  return writable ? draw : null;
 }
 
 /** Every channel's base holds still, so the draw reads as lanes rather than over time. */

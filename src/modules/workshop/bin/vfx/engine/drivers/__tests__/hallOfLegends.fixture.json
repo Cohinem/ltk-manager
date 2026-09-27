@@ -1,0 +1,340 @@
+{
+  "sources": ["Map11.wad.client"],
+  "graphs": [
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/LifetimeComponent/SpawnBehavior/0x0f0e454c",
+      "count": 60,
+      "graph": {
+        "type": "struct",
+        "classHash": "0xafe1d569",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0xa6c45d85",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0x1d04cfa7",
+              "class": null,
+              "fields": [],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/LifetimeComponent/SpawnBehavior/0x10498eed",
+      "count": 40,
+      "graph": {
+        "type": "struct",
+        "classHash": "0xafe1d569",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0xa6c45d85",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0xceeafc35",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0xa6c45d85",
+                  "name": null,
+                  "value": {
+                    "type": "number",
+                    "value": 1.0
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/LifetimeComponent/0x986002d8/0x7fa67a85",
+      "count": 140,
+      "graph": {
+        "type": "struct",
+        "classHash": "0xafe1d569",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0xa6c45d85",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0xceeafc35",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0xa6c45d85",
+                  "name": null,
+                  "value": {
+                    "type": "number",
+                    "value": -1.0
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/0x73276a01/Modifiers[0]/0xea0b5c3b",
+      "count": 60,
+      "graph": {
+        "type": "struct",
+        "classHash": "0x67104c43",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0x27188523",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0x55d35477",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0x27188523",
+                  "name": null,
+                  "value": {
+                    "type": "vector",
+                    "values": [1.0, 1.0, 1.0]
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/0x73276a01/Modifiers[1]/0x5176379d",
+      "count": 20,
+      "graph": {
+        "type": "struct",
+        "classHash": "0x67104c43",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0x27188523",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0x55d35477",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0x27188523",
+                  "name": null,
+                  "value": {
+                    "type": "vector",
+                    "values": [180.0, 0.0, 0.0]
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/LifetimeComponent/SpawnBehavior/0x0f0e454c",
+      "count": 20,
+      "graph": {
+        "type": "struct",
+        "classHash": "0xafe1d569",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0xa6c45d85",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0x1d04cfa7",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0xa6c45d85",
+                  "name": null,
+                  "value": {
+                    "type": "struct",
+                    "classHash": "0x04300058",
+                    "class": "ValueFloat",
+                    "fields": [
+                      {
+                        "hash": "0xb4b427aa",
+                        "name": "constantValue",
+                        "value": {
+                          "type": "number",
+                          "value": 3.0
+                        }
+                      }
+                    ],
+                    "object": null
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/0x73276a01/Modifiers[0]/0xd7dec099",
+      "count": 20,
+      "graph": {
+        "type": "struct",
+        "classHash": "0x67104c43",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0x27188523",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0x55d35477",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0x27188523",
+                  "name": null,
+                  "value": {
+                    "type": "vector",
+                    "values": [0.0, 100.0, 0.0]
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer/VfxComponents/0x73276a01/Modifiers[1]/0xea0b5c3b",
+      "count": 20,
+      "graph": {
+        "type": "struct",
+        "classHash": "0x67104c43",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0x27188523",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0x55d35477",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0x27188523",
+                  "name": null,
+                  "value": {
+                    "type": "vector",
+                    "values": [10.0, 10.0, 10.0]
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer3/VfxComponents/LifetimeComponent/SpawnBehavior/0x10498eed",
+      "count": 20,
+      "graph": {
+        "type": "struct",
+        "classHash": "0xafe1d569",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0xa6c45d85",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0xceeafc35",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0xa6c45d85",
+                  "name": null,
+                  "value": {
+                    "type": "number",
+                    "value": 2.0
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    },
+    {
+      "path": "CubeGridMeshShimmer3/VfxComponents/RenderComponent/Color/0x1d2e3b42",
+      "count": 20,
+      "graph": {
+        "type": "struct",
+        "classHash": "0xd2221304",
+        "class": null,
+        "fields": [
+          {
+            "hash": "0x2c188d02",
+            "name": null,
+            "value": {
+              "type": "struct",
+              "classHash": "0x7cc5a312",
+              "class": null,
+              "fields": [
+                {
+                  "hash": "0xf8f489b1",
+                  "name": "colors",
+                  "value": {
+                    "type": "struct",
+                    "classHash": "0x074f91dd",
+                    "class": "ValueColor",
+                    "fields": [
+                      {
+                        "hash": "0xb4b427aa",
+                        "name": "constantValue",
+                        "value": {
+                          "type": "vector",
+                          "values": [0.55414665, 0.539559, 1.0, 1.0]
+                        }
+                      }
+                    ],
+                    "object": null
+                  }
+                }
+              ],
+              "object": null
+            }
+          }
+        ],
+        "object": null
+      }
+    }
+  ]
+}

@@ -43,6 +43,7 @@ import {
   clickIntent,
   useCurveAimRequest,
   useLendOpenBin,
+  useOpenShellPane,
   useRowRevealRequest,
   useSettleCurveAim,
   useSettleRowReveal,
@@ -161,10 +162,19 @@ function OpenObject({
   const [target, setTarget] = useState<CurveTarget | null>(null);
   /* Apart from the target, so a follow that lets go of it leaves the dock open. */
   const [aimed, setAimed] = useState(false);
-  const aim = useCallback((next: CurveTarget) => {
-    setTarget(next);
-    setAimed(true);
-  }, []);
+  /* A shell with a curve pane holds the curve there (ADR-0031), so the dock is what every
+     other frame and Properties get, and no tab draws the surface twice. */
+  const paned = frame === "shell" && layout !== undefined && shellHoldsCurve(layout);
+  const openShellPane = useOpenShellPane(layout?.shell ?? "vfx");
+  /* A reader who closed the curve pane gets it back by asking for a curve. */
+  const aim = useCallback(
+    (next: CurveTarget) => {
+      setTarget(next);
+      setAimed(true);
+      if (paned) openShellPane("curve");
+    },
+    [paned, openShellPane],
+  );
   const dock = useMemo<CurveDock>(
     () => ({ target, aim, clear: () => setTarget(null) }),
     [target, aim],
@@ -199,9 +209,6 @@ function OpenObject({
     setReveal({ key, token: Date.now() });
   }, []);
 
-  /* A shell with a curve pane holds the curve there (ADR-0031), so the dock is what every
-     other frame and Properties get, and no tab draws the surface twice. */
-  const paned = frame === "shell" && layout !== undefined && shellHoldsCurve(layout);
   const docked = aimed && (mode === "properties" || !paned);
 
   /* The crumb and the Panes menu share this row with the header, "The shell" in

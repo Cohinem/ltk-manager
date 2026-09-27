@@ -15,6 +15,7 @@ export type ValueFamily = "color" | "scalar" | "vector";
  *
  * `ValueColorRgb` carries three channels where `ValueColor` carries four, and is read as
  * a colour with a full alpha rather than as a vector, because what it holds is a colour.
+ * An `IntegratedValue*` class adds no field to the class it derives from.
  */
 const FAMILY: ReadonlyMap<string, ValueFamily> = new Map([
   [nameHash("ValueColor"), "color" as const],
@@ -22,6 +23,9 @@ const FAMILY: ReadonlyMap<string, ValueFamily> = new Map([
   [nameHash("ValueFloat"), "scalar" as const],
   [nameHash("ValueVector2"), "vector" as const],
   [nameHash("ValueVector3"), "vector" as const],
+  [nameHash("IntegratedValueFloat"), "scalar" as const],
+  [nameHash("IntegratedValueVector2"), "vector" as const],
+  [nameHash("IntegratedValueVector3"), "vector" as const],
 ]);
 
 /** The alpha a colour written without one carries, which is the opaque the engine samples. */

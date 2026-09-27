@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useRef, useState } from "react";
 
-import { Button, ColorPicker, NumberField, Popover } from "@/components";
+import { Button, ChannelSash, ColorPicker, NumberField, Popover } from "@/components";
 import { m } from "@/i18n";
 import type { SchemaParam } from "@/lib/tauri";
 import type { HeldValue } from "@/modules/viewport";
@@ -20,15 +20,6 @@ const FORMAT: Intl.NumberFormatOptions = { maximumFractionDigits: 3 };
 
 const READOUT = new Intl.NumberFormat(undefined, FORMAT);
 
-/** The channel each component is drawn in, X red, Y green and Z blue as Riot draws them. The
-    hover repeats it over the number field's own hover colour. */
-const TINT = [
-  "text-channel-1-text hover:text-channel-1-text",
-  "text-channel-2-text hover:text-channel-2-text",
-  "text-channel-3-text hover:text-channel-3-text",
-  "text-channel-4-text hover:text-channel-4-text",
-] as const;
-
 /* One column per component the widest parameter writes, so a column holds one component down
    the table, and a seat after them for the swatch where the table holds a colour. A table too
    narrow for four puts two on a line. */
@@ -45,18 +36,17 @@ const SWATCH_COLUMN: Readonly<Record<number, string>> = {
   4: "@min-md:col-start-5",
 };
 
-/* DS-VEIL, DS-HOVER, DS-RADIUS. A component is the labelled readout's box, the letter on a rung
-   above the value, and the shader's default is the same box with its surface taken away. */
+/* DS-VEIL, DS-HOVER, DS-RADIUS. A component is the readout's box headed by its channel's sash,
+   and the shader's default is the same box with its surface taken away. */
 const BOX = "flex min-w-0 items-stretch overflow-hidden rounded-sm border transition-colors";
 const WRITTEN_BOX = "border-surface-veil";
 const DEFAULT_BOX = "border-dashed border-surface-700";
 const FIELD_BOX =
   "hover:border-accent-hover focus-within:border-solid focus-within:border-accent-500";
 
-const LETTER = "flex items-center px-1 font-mono font-semibold lowercase select-none";
-const WRITTEN_LETTER = "bg-surface-veil";
-const DEFAULT_LETTER = "bg-transparent text-surface-500";
-const SCRUB_LETTER = "hover:bg-surface-veil-strong";
+/* The sash is the scrub handle, so its hit area is wider than the bar it draws. */
+const SCRUB = "flex self-stretch pr-1 select-none hover:bg-surface-veil-strong";
+const DEFAULT_SASH = "opacity-40";
 
 const VALUE = "min-w-0 flex-1 truncate py-0.5 pr-1 pl-0.5 text-right font-mono tabular-nums";
 const WRITTEN_VALUE = "bg-surface-veil-soft text-surface-200";
@@ -164,17 +154,13 @@ export function LiveParam({ param, material, stored, write }: LiveParamProps) {
           value={value}
           step={STEP}
           format={FORMAT}
-          scrub={labels[at]}
+          scrub={<ChannelSash channel={at} className={twMerge(inherited && DEFAULT_SASH)} />}
           aria-label={m.workshop_bin_material_component_label({
             name: param.name,
             component: labels[at],
           })}
           rootClassName={twMerge(BOX, FIELD_BOX, inherited ? DEFAULT_BOX : WRITTEN_BOX)}
-          scrubClassName={twMerge(
-            LETTER,
-            SCRUB_LETTER,
-            inherited ? DEFAULT_LETTER : twMerge(WRITTEN_LETTER, TINT[at]),
-          )}
+          scrubClassName={SCRUB}
           className={twMerge(
             VALUE,
             FIELD_INPUT,
@@ -231,16 +217,9 @@ export function ParamReadout({ param, values, inherited }: ParamReadoutProps) {
     >
       {values.slice(0, count).map((value, at) => (
         <span key={labels[at]} className={twMerge(BOX, inherited ? DEFAULT_BOX : WRITTEN_BOX)}>
+          <ChannelSash channel={at} className={twMerge(inherited && DEFAULT_SASH)} />
           <span
-            aria-hidden
-            className={twMerge(
-              LETTER,
-              inherited ? DEFAULT_LETTER : twMerge(WRITTEN_LETTER, TINT[at]),
-            )}
-          >
-            {labels[at]}
-          </span>
-          <span
+            aria-label={labels[at]}
             className={twMerge(VALUE, "select-text", inherited ? DEFAULT_VALUE : WRITTEN_VALUE)}
             title={String(value)}
           >

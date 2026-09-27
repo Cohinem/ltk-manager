@@ -26,6 +26,7 @@ import {
   useFindReferences,
 } from "../../../references/api/useFindReferences";
 import { useOpenDocumentAs } from "../../../state";
+import { ResetMenuItem } from "../../classes/components/ResetMenuItem";
 import { useCurveDock } from "../../curves/state/curveTarget";
 import { DeclarationMenuItems } from "../../documents/components/DeclarationMenuItems";
 import { ObjectMenuItems } from "../../documents/components/ObjectMenuItems";
@@ -47,6 +48,7 @@ import { nameHash } from "../../shared/utils/binHash";
 import { useValueMark } from "../../values/hooks/useValueMarks";
 import { markText } from "../../values/utils/valueRows";
 import { BinEditContext } from "../hooks/useBinEdit";
+import { LeafEditContext } from "../hooks/useLeafEdit";
 import { fieldHash, type VisibleRow } from "../utils/binRows";
 import { EDIT_ICON, editLabel, rowEdits, undeclarable } from "../utils/rowEdits";
 
@@ -94,6 +96,7 @@ export function BinContextMenu({
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
   const edit = use(BinEditContext);
+  const leafEdit = use(LeafEditContext);
   const declares = useDeclares();
   const openTarget = useObjectOpen(row?.node === "target" ? row.entry : null);
   const change = useDeclaredObject(row?.node === "object" ? row.entry : "")?.change ?? null;
@@ -121,6 +124,7 @@ export function BinContextMenu({
   const object = row.node === "object";
   const target = row.node === "target";
   const property = row.node === "property";
+  const resets = property && leafEdit !== null;
   const path = object || target ? row.name : `${objectName(row.entry)}:${row.label}`;
   const openObject =
     object && onOpenObject ? (intent: OpenIntent) => onOpenObject(row, intent) : openTarget;
@@ -226,7 +230,8 @@ export function BinContextMenu({
               </ContextMenu.Item>
             );
           })}
-          {edits.length > 0 && <ContextMenu.Separator />}
+          {resets && <ResetMenuItem row={row} owner={line.owner} curve={mark?.curve === true} />}
+          {(edits.length > 0 || resets) && <ContextMenu.Separator />}
           <ObjectMenuItems row={row} />
           <DeclarationMenuItems row={row} />
           <ContextMenu.Item
