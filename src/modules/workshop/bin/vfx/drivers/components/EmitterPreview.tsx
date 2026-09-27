@@ -1,4 +1,4 @@
-import { PerspectiveCamera, View } from "@react-three/drei";
+import { PerspectiveCamera } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useCallback, useMemo, useState } from "react";
 import { type Camera, Color, type IUniform, Scene } from "three";
@@ -15,6 +15,7 @@ import { bindFrameTargets, grabDepth, PARTICLE_LAYER } from "../../rendering/uti
 import { definitionBounds } from "../../rendering/utils/systemBounds";
 import { guardFrames } from "../utils/frameGuard";
 import { type Framing, PreviewOrbit } from "./PreviewOrbit";
+import { PreviewViews } from "./PreviewView";
 
 /** The texture width a node's preview asks for, which the object grid's previews use too. */
 const PREVIEW_MIP_WIDTH = 128;
@@ -34,7 +35,7 @@ const MARGIN = 0.85;
 /**
  * The one canvas every node preview draws into, over the Graph pane's nodes.
  *
- * Each preview is a drei `View`, which the canvas draws scissored to the preview's box, so
+ * Each preview is a `PreviewView`, which the canvas draws scissored to the preview's box, so
  * one WebGL context serves every node. Pointer events pass through to the nodes.
  */
 export function EmitterPreviewLayer() {
@@ -65,7 +66,7 @@ export function EmitterPreviewLayer() {
         <FrameGuard />
         <FollowPlacement />
         <ClearFrame />
-        <View.Port />
+        <PreviewViews />
       </Canvas>
     </div>
   );
@@ -84,7 +85,7 @@ function FrameGuard() {
   return null;
 }
 
-/* Below every other callback's priority, drei's views and R3F's default included. */
+/* Below every other callback's priority, the views' draws and R3F's default included. */
 const BEFORE_ALL = -1000;
 
 /** A box to measure, and whether it has an area, which a pane in a hidden tab does not. */
@@ -147,7 +148,7 @@ function ClearFrame() {
 
 const CLEAR = new Color(0, 0, 0);
 
-/* After `FollowPlacement`, and before drei's views at a priority of 1. */
+/* After `FollowPlacement`, and before the views draw at a priority of 1. */
 const BEFORE_THE_VIEWS_CLEAR = 0.2;
 
 /* An empty scene, whose depth is what a soft fade in a preview measures its gap to. */
@@ -168,7 +169,7 @@ function FramePrep() {
   return null;
 }
 
-/* drei's views draw at a priority of 1, and a priority above 0 runs after the emitters. */
+/* The scene draws at a priority of 1, and a priority above 0 runs after the emitters. */
 const BEFORE_THE_VIEWS = 0.5;
 
 /**
@@ -187,7 +188,7 @@ function ViewGuard() {
   return null;
 }
 
-/* After `FramePrep`, and before drei's views at a priority of 1. */
+/* After `FramePrep`, and before the scene draws at a priority of 1. */
 const JUST_BEFORE_THE_VIEWS = 0.9;
 
 /** Whether `scene` draws through `camera`: a finite projection and no uniform array opening on NaN. */
@@ -212,8 +213,8 @@ function drawable(scene: Scene, camera: Camera): boolean {
  * One emitter's preview as a mini viewport of its own, for a host that draws no preview layer.
  *
  * A drag orbits the emitter, the wheel zooms toward the cursor, and a double click frames it
- * again. A second `View.Port` would draw every node's view as well, since drei's views share
- * one tunnel, so this canvas draws the scene itself.
+ * again. It draws the scene itself rather than through a `PreviewView`, which only a Graph
+ * pane's layer draws.
  */
 export function EmitterPreviewCanvas({
   simple,
@@ -257,7 +258,7 @@ export function EmitterPreviewCanvas({
 /**
  * Draws the canvas's own scene, which R3F stops doing once any frame callback runs above 0.
  *
- * At the priority drei's views draw at, after `ViewGuard` has said whether it can.
+ * At a priority of 1, after `ViewGuard` has said whether it can.
  */
 function DrawScene() {
   useFrame((state) => {

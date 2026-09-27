@@ -1,4 +1,4 @@
-import { PerspectiveCamera, View } from "@react-three/drei";
+import { PerspectiveCamera } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { type ReactNode, use, useEffect, useMemo, useRef, useState } from "react";
 import { BufferAttribute, BufferGeometry, type Group, Sphere, Vector3 } from "three";
@@ -21,6 +21,7 @@ import { SEGMENTS, wireframeInto } from "../../rendering/utils/emitterShape";
 import { NODE_PREVIEW_SIZE, PRIMITIVE_PREVIEW } from "../utils/driverLayout";
 import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem } from "../utils/graphItems";
+import { PreviewView } from "./PreviewView";
 
 /** The texture width a node's picture asks for, twice its square for a sharp high-DPI draw. */
 const PICTURE_WIDTH = NODE_PREVIEW_SIZE * 2;
@@ -82,9 +83,9 @@ function TexturePicture({ asset }: { asset: AssetRef }) {
 /** A mesh file at rest, turning, drawn by the emitter previews' canvas. */
 function MeshPreview({ asset, path }: { asset: AssetRef; path: string }) {
   return (
-    <View className={BOX} style={BOX_STYLE}>
+    <PreviewView className={BOX} style={BOX_STYLE}>
       <MeshScene asset={asset} path={path} />
-    </View>
+    </PreviewView>
   );
 }
 
@@ -119,9 +120,9 @@ export function ShapePreview({ emitter }: { emitter: EmitterModel | undefined })
 
   return (
     <div className="relative my-1 shrink-0 self-center" style={BOX_STYLE}>
-      <View className={twMerge(BOX, "my-0 h-full w-full")}>
+      <PreviewView className={twMerge(BOX, "my-0 h-full w-full")}>
         {emitter !== undefined && <ShapeScene emitter={emitter} zero={zero} />}
-      </View>
+      </PreviewView>
       {zero && (
         <span className="pointer-events-none absolute inset-x-0 bottom-1.5 text-center text-fine text-surface-400">
           {m.workshop_bin_graph_shape_zero_label()}

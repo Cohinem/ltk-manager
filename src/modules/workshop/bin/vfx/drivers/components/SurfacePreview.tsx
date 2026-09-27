@@ -5,7 +5,6 @@ import {
   StackIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
-import { View } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, type RefObject, use, useEffect, useMemo, useRef, useState } from "react";
 import { Color, type Mesh, type ShaderMaterial, Vector4, type WebGLRenderer } from "three";
@@ -46,6 +45,7 @@ import {
 } from "../utils/surfaceMaterial";
 import { LoopedSurfacesContext } from "./graphActions";
 import { FilePreview } from "./NodePreviews";
+import { PreviewView } from "./PreviewView";
 
 /** `textureMult`'s class, whose node previews the emitter's surface rather than its file. */
 const TEXTURE_MULT = nameHash("VfxTextureMultDefinitionData");
@@ -126,7 +126,7 @@ function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size
         <span className="absolute inset-0 flex items-center justify-center px-3 text-center text-xs text-surface-500">
           {m.workshop_bin_graph_surface_idle_label()}
         </span>
-        <View className="absolute inset-0">
+        <PreviewView className="absolute inset-0">
           {emitter !== undefined && (
             <SurfaceScene
               emitter={emitter}
@@ -137,7 +137,7 @@ function SurfaceBox({ emitter, size }: { emitter: EmitterModel | undefined; size
               onFail={setFailure}
             />
           )}
-        </View>
+        </PreviewView>
       </div>
       <div className="flex h-5 shrink-0 items-center gap-1 border-t border-surface-veil pr-0.5 pl-1.5">
         <div

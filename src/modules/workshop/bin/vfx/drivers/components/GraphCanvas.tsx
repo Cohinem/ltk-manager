@@ -34,6 +34,7 @@ import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
 import type { GraphLayout } from "../utils/driverLayout";
 import { chainThrough, reach } from "../utils/graphChain";
 import { CANVAS_TONE, itemHue } from "../utils/graphTones";
+import { PreviewViewStore } from "../utils/previewViews";
 import type { GraphItem } from "../utils/systemGraph";
 import { type CanvasNode, canvasPosition, layoutNodes, withMoves } from "./canvasNodes";
 import { ComponentNodeView } from "./ComponentNode";
@@ -53,6 +54,7 @@ import { changesOverTime, fadeRule, keptEdges, useLanes } from "./graphEdges";
 import { GraphMenu } from "./GraphMenu";
 import { DriverNodeView, EmitterNodeView, PreviewNodeView } from "./GraphNodes";
 import { FAR_ZOOM } from "./NodeFrame";
+import { PreviewViewsContext } from "./PreviewView";
 
 const NODE_TYPES: NodeTypes = {
   preview: PreviewNodeView,
@@ -91,9 +93,13 @@ interface GraphCanvasProps {
  * emitter of the one master node selected. Decision 2.8 of docs/plans/shimmer-driver-graph.md.
  */
 export function GraphCanvas(props: GraphCanvasProps) {
+  const [views] = useState(() => new PreviewViewStore());
+
   return (
     <ReactFlowProvider>
-      <Canvas {...props} />
+      <PreviewViewsContext value={views}>
+        <Canvas {...props} />
+      </PreviewViewsContext>
     </ReactFlowProvider>
   );
 }
