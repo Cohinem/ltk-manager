@@ -48,7 +48,6 @@ import type {
 } from "../utils/graphItems";
 import { KIND_NAME, KIND_TONE } from "../utils/graphTones";
 import { fieldAlias, itemSubtitle, itemTitle, valueSummary } from "../utils/nodeText";
-import { EmitterPreview } from "./EmitterPreview";
 import { EmitterToggle } from "./EmitterToggle";
 import {
   AddFieldLine,
@@ -77,9 +76,10 @@ import {
   type ValueFlowNode,
 } from "./GraphNodes";
 import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
-import { FilePreview, PrimitiveSketch, ShapePreview } from "./NodePreviews";
+import { PrimitiveSketch, ShapePreview } from "./NodePreviews";
 import { useCardFollowsPick, useCurveFollowsPick } from "./paneSync";
 import { CurvePicture, MarkedCurve } from "./PlateFace";
+import { EmitterSurface, StructPicture } from "./SurfacePreview";
 
 /**
  * A complex or simple emitter: its written fields under the inspector's group headings, with
@@ -111,7 +111,7 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
         folds
         extra={<EmitterToggle wire={item.wire} disabled={item.disabled} />}
       />
-      <EmitterPreview simple={item.simple} listIndex={item.listIndex} />
+      <EmitterSurface simple={item.simple} listIndex={item.listIndex} />
       {!folded && (
         <div className={FIELD_PAD}>
           <MasterBody item={item} />
@@ -252,7 +252,7 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
       />
       {previewed && <SpawnShape id={item.id} />}
       {primitive && <PrimitiveSketch id={item.id} held={heldOf(item)} />}
-      {picture !== null && <FilePreview item={picture} />}
+      {picture !== null && <StructPicture item={item} picture={picture} />}
       {!folded && (
         <div className={FIELD_PAD}>
           <StructBody item={item} nameWidth={structNameWidth(item)} />

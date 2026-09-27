@@ -267,9 +267,17 @@ float eroding(vec2 at) { return 1.0; }
  * round, and the screen's edge pulls in the edge itself. A map the install does not ship
  * warps nothing rather than the whole quad. Decision 2.25 of
  * docs/plans/vfx-particle-renderer.md.
+ *
+ * `onScreen` places the fragment on the target from `viewportOrigin`, which a draw into only
+ * part of its canvas, a graph node's preview, moves off zero.
  */
 export const WARP = /* glsl */ `
 uniform vec2 viewport;
+uniform vec2 viewportOrigin;
+
+vec2 onScreen() {
+  return (gl_FragCoord.xy - viewportOrigin) / viewport;
+}
 
 #ifdef DISTORTS
 uniform sampler2D mapNormal;
@@ -285,7 +293,7 @@ vec4 warped(vec2 at, float mask) {
 #endif
   float shown = mask * held.a;
   vec2 push = (held.xy * 2.0 - 1.0) * warp * shown * vec2(viewport.y / viewport.x, 1.0);
-  vec2 taken = clamp(gl_FragCoord.xy / viewport + push, 0.0, 1.0);
+  vec2 taken = clamp(onScreen() + push, 0.0, 1.0);
   return vec4(texture2D(frame, taken).rgb, shown);
 }
 #endif
@@ -383,7 +391,7 @@ float viewZOf(float depth) {
 }
 
 vec4 softened(vec4 lit) {
-  float stored = texture2D(sceneDepth, gl_FragCoord.xy / viewport).r;
+  float stored = texture2D(sceneDepth, onScreen()).r;
   float scene = viewZOf(stored);
   float here = viewZOf(gl_FragCoord.z);
   vec2 through = clamp((here - scene - softParams.xy) * softParams.zw, 0.0, 1.0);

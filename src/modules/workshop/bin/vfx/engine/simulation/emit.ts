@@ -179,7 +179,7 @@ function travel(state: EmitterState, step: SystemStep): void {
  * table on it keeps the particle square. The roll and its rate land about the view
  * axis, which is the one a simple quad turns on.
  */
-function bornSimple(
+export function bornSimple(
   pool: Pool,
   at: number,
   legacy: LegacySimpleModel,
@@ -203,7 +203,7 @@ function bornSimple(
  * included. The draw is the one the pool already holds, and the mult layer reads the base
  * layer's book, so both layers open on the same cell.
  */
-function bornUv(
+export function bornUv(
   pool: Pool,
   at: number,
   emitter: EmitterModel,

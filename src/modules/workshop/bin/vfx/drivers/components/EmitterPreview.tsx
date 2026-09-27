@@ -13,7 +13,6 @@ import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { drawnEmitters } from "../../rendering/utils/definitions";
 import { bindFrameTargets, grabDepth, PARTICLE_LAYER } from "../../rendering/utils/frame";
 import { definitionBounds } from "../../rendering/utils/systemBounds";
-import { EMITTER_PREVIEW_SIZE } from "../utils/driverLayout";
 import { type Framing, PreviewOrbit } from "./PreviewOrbit";
 
 /** The texture width a node's preview asks for, which the object grid's previews use too. */
@@ -32,11 +31,10 @@ const LOOK = normalized([0.55, 0.45, 1]);
 const MARGIN = 0.85;
 
 /**
- * The one canvas every emitter node's preview draws into, over the Graph pane's nodes.
+ * The one canvas every node preview draws into, over the Graph pane's nodes.
  *
  * Each preview is a drei `View`, which the canvas draws scissored to the preview's box, so
- * one WebGL context serves every node. The run's driver is shared, so every preview plays
- * the same simulation at the same playhead. Pointer events pass through to the nodes.
+ * one WebGL context serves every node. Pointer events pass through to the nodes.
  */
 export function EmitterPreviewLayer() {
   const [box, sized] = useHasSize();
@@ -204,7 +202,7 @@ export function EmitterPreviewCanvas({
         }}
       >
         <FramePrep />
-        <EmitterScene simple={simple} listIndex={listIndex} orbit />
+        <EmitterScene simple={simple} listIndex={listIndex} />
         <DrawScene />
       </Canvas>
     </div>
@@ -223,29 +221,8 @@ function DrawScene() {
   return null;
 }
 
-/** A preview of one emitter and the children it spawns, drawn by `EmitterPreviewLayer`. */
-export function EmitterPreview({ simple, listIndex }: { simple: boolean; listIndex: number }) {
-  return (
-    <View
-      /* DS-GROUND, DS-RADIUS */
-      className="my-1 shrink-0 self-center rounded-md border border-surface-veil bg-surface-950"
-      style={{ width: EMITTER_PREVIEW_SIZE, height: EMITTER_PREVIEW_SIZE }}
-    >
-      <EmitterScene simple={simple} listIndex={listIndex} orbit={false} />
-    </View>
-  );
-}
-
-/** The emitter's scene, and `orbit` for a camera the reader turns rather than a fixed one. */
-function EmitterScene({
-  simple,
-  listIndex,
-  orbit,
-}: {
-  simple: boolean;
-  listIndex: number;
-  orbit: boolean;
-}) {
+/** The emitter's scene under a camera the reader turns. */
+function EmitterScene({ simple, listIndex }: { simple: boolean; listIndex: number }) {
   const { system, driver, rig, document } = useVfxRun();
   const colors = useSceneColors();
   const drawn = useMemo(() => {
@@ -279,7 +256,7 @@ function EmitterScene({
           }}
         />
       )}
-      {orbit && framing !== null && <PreviewOrbit framing={framing} />}
+      {framing !== null && <PreviewOrbit framing={framing} />}
       {drawn.length > 0 && (
         <VfxSystem
           drawn={drawn}
