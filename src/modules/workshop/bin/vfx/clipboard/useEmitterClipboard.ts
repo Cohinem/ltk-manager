@@ -1,3 +1,4 @@
+import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { use } from "react";
 
 import { useToast } from "@/components";
@@ -100,10 +101,14 @@ export function useEmitterClipboard(): EmitterClipboard | null {
   return { copy, duplicate, paste, remove };
 }
 
-/** The clipboard's text, else the last copy's where the webview refuses the read. */
+/**
+ * The clipboard's text, else the last copy's where the read fails.
+ *
+ * Read through the backend, since a read of the webview's own asks the user for permission each time.
+ */
 async function readClipboard(): Promise<string | null> {
   try {
-    return await navigator.clipboard.readText();
+    return await readText();
   } catch {
     return lastCopy;
   }
