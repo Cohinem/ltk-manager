@@ -1378,6 +1378,12 @@ graph the skin's own file does not declare is read out of the files it links, wh
 engine finds it. The camera frames the character when it lands, and again on Frame the character.
 A clip no table names reads as its bare hash, dimmed, which is what a modder pastes elsewhere.
 
+**The backdrop menu stands the skin on a map.** It lists None and the install's maps by folder,
+and four switches under them: Particles, Event effects, Structures and props, and Sky. Particles
+plays the map's placed systems. Event effects adds the systems an event shows, such as the Hall
+of Legends banners, and stays off until Particles is on. Every switch but Event effects starts
+on, and each is kept with the preview's other display settings.
+
 **The inspector and the character point at each other.** The pointer on a material override
 dims every submesh but the one it dresses, and a click on the character dims the same way and
 scrolls that submesh's override into view, marked while it holds. A click that misses the

@@ -223,6 +223,13 @@ map's sun with `SHADOW_COLOR` as the sky's ambient share and its complement summ
 sampler of another shape than a picture, an array, a cube or an integer buffer, takes a
 neutral texel of its own shape.
 
+A texel buffer a stage fetches from, such as a particle material's
+`ParticleInstanceInfo_SharedDataBuffer`, has no combined sampler in the sidecar, and its uniform
+takes the buffer's own name. Left unbound, it stands on unit 0 beside a `sampler2D` of another
+type, and GL refuses every draw of the material with `GL_INVALID_OPERATION`. `samplerNames`
+binds it under that name to the neutral `R32UI` texel. The shader fetches from it only where
+`DYNAMIC_PARTICLE_ENABLE_MASK` sets a bit, and the environment writes that mask as zero.
+
 Two facts of three shape how the buffers reach the GPU. It keeps one UBO binding point per
 `UniformsGroup` for the group's life against a limit of a few dozen, and it uploads a group
 at most once per frame, whatever its typed array holds at later draws. The engine blocks are
@@ -251,9 +258,14 @@ the fog members the map's own or a start one unit above an end far below any map
 has none, since a start equal to the end divides by zero.
 
 Open on screen: the matrix row convention and the depth halving, the ambient cube's values,
-the sun reading above, `SV_Target1` on a single-attachment target, a highlighted submesh not
+the sun reading above, a highlighted submesh not
 dimming under a program, the shared-sampler name heuristics, and the per-mesh texture
 override list with its `baked_paint` channel, which two meshes install-wide carry.
+
+`SV_Target1` is the engine's bloom input. WebGL drops it on a single-attachment target, so a
+pass that writes it draws a second time through `glowMaterial` on the glow layer, with the
+second target at location 0. Section 4.6 of `docs/plans/shimmer-driver-graph.md` describes the
+glow pass, and only shimmer meshes draw one so far.
 
 ### T5: LIT_UBER
 
