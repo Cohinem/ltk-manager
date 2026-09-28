@@ -158,12 +158,6 @@ export function CurveToolbar({
       <span className="ml-auto flex items-center gap-1">
         <span className="mr-1 text-meta text-surface-500">
           {m.workshop_bin_curve_keys_label({ count: keyCount })}
-          {selectedCount > 0 && (
-            <span className="text-surface-400">
-              {" · "}
-              {m.workshop_bin_curve_selected_count_label({ count: selectedCount })}
-            </span>
-          )}
         </span>
         <Tooltip content={m.workshop_bin_curve_add_key_action()}>
           <Button
@@ -188,7 +182,7 @@ export function CurveToolbar({
           />
         </Tooltip>
       </span>
-      <span className="flex items-center gap-3">
+      <span className="ml-auto flex items-center gap-3">
         {spread && <ChanceButton />}
         <SegmentedControl
           size="xs"

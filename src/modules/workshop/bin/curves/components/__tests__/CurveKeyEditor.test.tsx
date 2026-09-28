@@ -66,7 +66,7 @@ describe("CurveKeyEditor", () => {
     expect(input).toHaveValue("1.750");
   });
 
-  it("names the selected key and draws its fields on one strip", () => {
+  it("draws the selected key's fields on one strip that never wraps", () => {
     render(
       <CurveKeyEditor
         keys={KEYS}
@@ -78,11 +78,11 @@ describe("CurveKeyEditor", () => {
       />,
     );
 
-    expect(screen.getByText("Key 1 of 2")).toBeInTheDocument();
+    expect(screen.queryByText("Key 1 of 2")).toBeNull();
     expect(screen.queryByRole("button", { name: "Select next key" })).toBeNull();
     expect(
       screen.getByRole("textbox", { name: "Lifetime" }).closest('[data-ui="CurveKeyEditor"]'),
-    ).toHaveClass("flex-wrap", "border-t");
+    ).toHaveClass("h-8", "flex-nowrap", "overflow-hidden", "border-t");
   });
 
   it("names a vector's channels by the sash in each field, and its unit once after them", () => {

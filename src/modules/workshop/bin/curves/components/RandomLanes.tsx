@@ -67,7 +67,7 @@ export function RandomLanes({ draw, unit, muted }: ReadingProps) {
   return (
     <div
       data-ui="RandomLanes"
-      className={`grid min-h-0 flex-1 auto-rows-min ${LANE_COLUMNS} items-center gap-x-2 gap-y-2.5 overflow-y-auto pt-1 @2xl:gap-y-1.5`}
+      className={`grid min-h-0 flex-1 auto-rows-min ${LANE_COLUMNS} items-center gap-x-2 gap-y-2.5 overflow-x-hidden overflow-y-auto pt-1 @2xl:gap-y-1.5`}
     >
       {draw.channels
         .filter((channel) => !muted.has(channel.channel))
@@ -296,7 +296,15 @@ function Lane({ channel, family, level, pinned, editor }: LaneProps) {
           <Hatch left={share(gap.least)} width={share(gap.most) - share(gap.least)} />
         )}
         {channel.shape === "custom" && (
-          <Density density={density} hue={strokeOf(family, channel.channel)} />
+          <>
+            <RangeBars
+              ranges={ranges}
+              share={share}
+              hue={strokeOf(family, channel.channel)}
+              faint
+            />
+            <Density density={density} hue={strokeOf(family, channel.channel)} />
+          </>
         )}
         {channel.shape !== "custom" && (
           <RangeBars ranges={ranges} share={share} hue={strokeOf(family, channel.channel)} />
@@ -317,13 +325,13 @@ function Lane({ channel, family, level, pinned, editor }: LaneProps) {
   );
 }
 
-/** A channel the roll leaves alone: a dim line, with a tick where the value sits. */
+/**
+ * A channel the roll leaves alone: a dim line, with a tick where the value sits. It draws at
+ * every width, so a still channel's row keeps the shape of a random one's.
+ */
 function StillLane({ channel, family }: { channel: ChannelDraw; family: ValueFamily }) {
   return (
-    <div
-      data-ui="RandomLanes:still"
-      className={twMerge("hidden h-6 items-center @2xl:flex", LANE_CELL)}
-    >
+    <div data-ui="RandomLanes:still" className={twMerge("flex h-6 items-center", LANE_CELL)}>
       <span className="relative h-px w-full bg-surface-700">
         {channel.shape !== "broken" && (
           <span

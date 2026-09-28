@@ -9,10 +9,14 @@ import { readout } from "../utils/randomText";
 /** The share of its height a lane's fullest bin reaches, so the peak clears the edge. */
 const PEAK = 0.85;
 
+/** The least share of the peak a bin that draws at all reaches, so a thin tail still shows. */
+const FLOOR = 0.12;
+
 /** A lane's bins as one filled step, its top edge drawn brighter. */
 export function Density({ density, hue }: { density: readonly number[]; hue: string }) {
   const steps = density.flatMap((each, bin) => {
-    const y = (1 - each * PEAK).toFixed(3);
+    const height = each > 0 ? Math.max(each, FLOOR) : 0;
+    const y = (1 - height * PEAK).toFixed(3);
     return [`${bin},${y}`, `${bin + 1},${y}`];
   });
   const edge = steps.join(" ");
@@ -41,23 +45,30 @@ export function Density({ density, hue }: { density: readonly number[]; hue: str
 /**
  * A lane's ranges drawn whole, for a draw even across each of them: a bar per range in the
  * channel's hue, a light fill inside its edges, as the Graph pane's value node draws one.
+ * `faint` draws only the span, under a density that draws its shape.
  */
 export function RangeBars({
   ranges,
   share,
   hue,
+  faint = false,
 }: {
   ranges: readonly ValueRange[];
   /** Where a value lands across the lane, as a percentage. */
   share: (value: number) => number;
   hue: string;
+  faint?: boolean;
 }) {
   return ranges.map((range, at) => (
     <span
       key={at}
       aria-hidden
       /* DS-KIND-HUE, DS-RADIUS */
-      className={twMerge("absolute inset-y-1 rounded-xs border-2 border-current", hue)}
+      className={twMerge(
+        "absolute inset-y-1 rounded-xs border-2 border-current",
+        faint && "border opacity-40",
+        hue,
+      )}
       style={{
         left: `${share(range.least)}%`,
         width: `${Math.max(share(range.most) - share(range.least), 0)}%`,

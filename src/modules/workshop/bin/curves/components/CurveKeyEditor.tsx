@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useState } from "react";
 
 import { Button, ColorPicker, Popover, StepperField, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type { RgbColor } from "@/utils";
+import { type RgbColor, twMerge } from "@/utils";
 
 import { Swatch } from "../../values/components/ColorMark";
 import { type FieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
@@ -20,9 +20,15 @@ interface CurveKeyEditorProps {
   onCommit: (key: CurveKey) => void;
 }
 
-/** One line of the dock under the graph: the fields of the key selected on the canvas. */
+/**
+ * One line of the dock under the graph, the same height whatever it holds, so selecting a key
+ * never takes a row from the graph. A pane too narrow for the fields narrows them.
+ */
 const STRIP =
-  "flex min-h-8 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-surface-700/40 px-2 py-1 text-meta select-none";
+  "flex h-8 shrink-0 flex-nowrap items-center gap-x-2 overflow-hidden border-t border-surface-700/40 px-2 text-meta select-none";
+
+/** A key field, 80px where the strip has room and down to 48px where it has not. */
+const FIELD = "min-w-12 shrink basis-20 text-meta";
 
 /**
  * The selected key's exact time and channels, in one strip under the graph.
@@ -40,21 +46,23 @@ export function CurveKeyEditor({
 }: CurveKeyEditorProps) {
   const selectedAt = selected.at(-1) ?? 0;
   const key = selected.length === 1 ? keys[selectedAt] : undefined;
-  const [draft, setDraft] = useState<CurveKey | null>(key ?? null);
-
-  useEffect(() => {
-    setDraft(key ?? null);
-  }, [key]);
+  /* The draft belongs to the key it was typed over, so a new selection reads its own key on
+     the render that selects it rather than a frame later. */
+  const [held, setHeld] = useState<{ of: CurveKey; draft: CurveKey } | null>(null);
+  const draft = key === undefined ? null : held !== null && held.of === key ? held.draft : key;
+  const setDraft = (changed: CurveKey) => {
+    if (key !== undefined) setHeld({ of: key, draft: changed });
+  };
 
   const hint = editable && keys.length > 0 && <GestureHint />;
 
   if (selected.length > 1) {
     return (
       <div data-ui="CurveKeyEditor" className={STRIP}>
-        <span className="font-medium text-surface-300">
+        <span className="shrink-0 font-medium text-surface-300">
           {m.workshop_bin_curve_selected_count_label({ count: selected.length })}
         </span>
-        <span className="min-w-0 truncate text-surface-500">
+        <span className="truncate text-surface-500">
           {m.workshop_bin_curve_multi_selection_hint()}
         </span>
         {hint}
@@ -115,15 +123,12 @@ export function CurveKeyEditor({
 
   return (
     <div data-ui="CurveKeyEditor" className={STRIP}>
-      <span className="font-medium text-surface-300 tabular-nums">
-        {m.workshop_bin_curve_key_label({ current: selectedAt + 1, count: keys.length })}
-      </span>
       <KeyField
-        label={m.workshop_bin_curve_lifetime_label()}
-        hint={m.workshop_bin_curve_lifetime_hint()}
+        label={m.workshop_bin_curve_time_short_label()}
+        hint={`${m.workshop_bin_curve_lifetime_label()}: ${m.workshop_bin_curve_lifetime_hint()}`}
       >
         <StepperField
-          className="w-24 text-meta"
+          className={FIELD}
           aria-label={m.workshop_bin_curve_lifetime_label()}
           increaseLabel={m.common_number_increase_action()}
           decreaseLabel={m.common_number_decrease_action()}
@@ -152,7 +157,7 @@ export function CurveKeyEditor({
         const field = (
           <StepperField
             key={channel}
-            className="w-24 text-meta"
+            className={FIELD}
             aria-label={label}
             channel={sashed ? channel : undefined}
             increaseLabel={m.common_number_increase_action()}
@@ -177,7 +182,9 @@ export function CurveKeyEditor({
           </KeyField>
         );
       })}
-      {sashed && suffix !== null && <span className="-ml-2 text-surface-400">{suffix}</span>}
+      {sashed && suffix !== null && (
+        <span className="-ml-1 shrink-0 text-surface-400">{suffix}</span>
+      )}
       {hint}
     </div>
   );
@@ -190,7 +197,7 @@ function GestureHint() {
       <span
         tabIndex={0}
         aria-label={m.workshop_bin_curve_graph_edit_hint()}
-        className="ml-auto flex cursor-help items-center text-surface-500 outline-none hover:text-surface-300 focus-visible:ring-1 focus-visible:ring-accent-500"
+        className="ml-auto flex shrink-0 cursor-help items-center text-surface-500 outline-none hover:text-surface-300 focus-visible:ring-1 focus-visible:ring-accent-500"
       >
         <InfoIcon weight="bold" className="h-3.5 w-3.5" />
       </span>
@@ -209,10 +216,10 @@ function KeyField({
   tone?: string;
   children: ReactNode;
 }) {
-  const text = <span className={tone ?? "text-surface-400"}>{label}</span>;
+  const text = <span className={twMerge("shrink-0", tone ?? "text-surface-400")}>{label}</span>;
 
   return (
-    <label className="flex items-center gap-1.5 text-meta">
+    <label className="flex min-w-0 shrink items-center gap-1.5 text-meta">
       {hint !== undefined && <Tooltip content={hint}>{text}</Tooltip>}
       {hint === undefined && text}
       {children}

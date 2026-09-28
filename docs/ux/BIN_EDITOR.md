@@ -2379,8 +2379,10 @@ over every channel. Delete removes the selected keys from the parallel time and 
 edit. A key or a stop dragged past its neighbour swaps with it: the line draws in time order
 while the drag lasts, and the release rewrites every key between the old place and the new one as
 one edit, with the selection following the key. The graph and the Table select. One strip under them holds the selected key's exact fields,
-its number, its time and a field per channel, and a multiple selection shows its count there. The
-gestures sit behind the info mark at the strip's end.
+its time and a field per channel, and a multiple selection shows its count there. The strip is one
+line of the same height whether a key is selected or not, so a selection never takes room from the
+graph, and a pane too narrow for its fields narrows them. The gestures sit behind the info
+mark at the strip's end.
 
 A colour draws as a gradient editor instead: a bar of the stops, a marker per stop hanging off it
 at the stop's own time, and the keys themselves under them. A marker drags along the axis once the
@@ -2482,10 +2484,12 @@ Z  0  fixed                  |  -----------|-----------
   Y at 10 gets the width X at 55 does
 - one row per channel, read left to right: the channel, the range's least, the lane, the range's
   most with the unit, and the shape switch. A pane too narrow to give the lane room takes each channel on
-  two lines, the fields and then the lane across the whole width, and drops a fixed channel's line
+  two lines, the fields and then the lane across the whole width, a fixed channel's included, so
+  every row keeps one shape
 - a uniform or split draw as its bar or bars, a light fill inside solid edges as the Graph pane's
-  value node draws one, and a custom table as density in a filled step area, both in the
-  channel's hue, a split's gap hatched
+  value node draws one, and a custom table as density in a filled step area over a faint outline
+  of its whole span, both in the channel's hue, a split's gap hatched. A density bin that draws at
+  all reaches at least an eighth of the peak, so a thin tail out to the range's end stays visible
 - a fixed or filler channel as a thin dim lane with one tick at its value
 - after the lane, the value at the pin and a keys button
 - lanes scroll when the dock is short, and a muted chip hides its lane
