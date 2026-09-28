@@ -44,6 +44,7 @@ function rows(objects: ReadonlyMap<string, ObjectChange> = new Map()): DeclaredR
   return {
     layer: "base",
     marks: new Map(),
+    within: new Set<string>(),
     diagnostics: new Map(),
     objects,
     links: new Map(),

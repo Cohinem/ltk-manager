@@ -43,6 +43,7 @@ function declaredRows(links: ReadonlyMap<string, LinkChange>): DeclaredRows {
   return {
     layer: "base",
     marks: new Map(),
+    within: new Set<string>(),
     diagnostics: new Map(),
     objects: new Map(),
     links,
