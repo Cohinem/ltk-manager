@@ -1,12 +1,16 @@
 import type { Node, NodeProps } from "@xyflow/react";
+import { use } from "react";
 
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { rowKey } from "../../../tree/utils/binRows";
 import { FRAME_HEADER_HEIGHT, type PlacedFrame } from "../utils/driverLayout";
 import { itemHue } from "../utils/graphTones";
 import { itemTitle } from "../utils/nodeText";
+import { GraphActionsContext } from "./graphActions";
 import { AbovePlate, NEAR_ONLY } from "./NodeFrame";
+import { NodeLayerMark } from "./NodeLayerMark";
 
 export type FrameFlowNode = Node<{ frame: PlacedFrame }, "frame">;
 
@@ -31,6 +35,8 @@ const FAR_TITLE_SIZE = 20;
 export function FrameNodeView({ data }: NodeProps<FrameFlowNode>) {
   const { frame } = data;
   const title = itemTitle(frame.root);
+  const entry = use(GraphActionsContext)?.entry ?? "";
+  const key = entry === "" ? null : rowKey({ entry, path: frame.root.wire });
 
   return (
     <div
@@ -55,8 +61,17 @@ export function FrameNodeView({ data }: NodeProps<FrameFlowNode>) {
         <span className="shrink-0 text-meta text-surface-400">
           {m.workshop_bin_graph_frame_count_label({ count: frame.count })}
         </span>
+        {key !== null && <NodeLayerMark rowKey={key} />}
       </div>
-      <AbovePlate title={title} size={FAR_TITLE_SIZE} />
+      <AbovePlate
+        title={title}
+        size={FAR_TITLE_SIZE}
+        lead={
+          key !== null && (
+            <NodeLayerMark rowKey={key} size={`calc(${FAR_TITLE_SIZE}px / var(--graph-zoom, 1))`} />
+          )
+        }
+      />
     </div>
   );
 }

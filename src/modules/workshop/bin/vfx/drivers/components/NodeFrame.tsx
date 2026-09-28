@@ -9,6 +9,7 @@ import type { GraphItem } from "../utils/graphItems";
 import { itemHue } from "../utils/graphTones";
 import { itemTitle } from "../utils/nodeText";
 import { GraphActionsContext } from "./graphActions";
+import { NodeLayerMark } from "./NodeLayerMark";
 import { type PlateFace, plateFace } from "./PlateFace";
 
 /**
@@ -46,10 +47,9 @@ export function NodeFrame({
   const hue = itemHue(item);
   const style = { width, height, borderTopColor: hue, ...hueStyle(item) } as CSSProperties;
   const entry = use(GraphActionsContext)?.entry ?? "";
-  const changeKey = item.wire === "" || entry === "" ? null : rowKey({ entry, path: item.wire });
+  const key = item.wire === "" || entry === "" ? null : rowKey({ entry, path: item.wire });
   const only = useChangedOnlyView();
-  const unchanged =
-    only !== null && changeKey !== null && !only.rows.has(changeKey) && !only.within.has(changeKey);
+  const unchanged = only !== null && key !== null && !only.rows.has(key) && !only.within.has(key);
 
   return (
     <div
@@ -66,10 +66,17 @@ export function NodeFrame({
       )}
     >
       {children}
-      {changeKey !== null && (
+      {key !== null && (
         <ChangeMark
-          rowKey={changeKey}
+          rowKey={key}
           className="absolute -top-1 -right-1 z-10 h-2.5 w-2.5 ring-2 ring-surface-900"
+        />
+      )}
+      {key !== null && (
+        <NodeLayerMark
+          rowKey={key}
+          size="1rem"
+          className="absolute -top-2 -left-2 z-10 rounded-full bg-surface-800 p-0.5 ring-2 ring-surface-900"
         />
       )}
       {plate === "inside" && (
@@ -197,21 +204,31 @@ function PlateText({ text, height, mono }: { text: string; height: number; mono:
   );
 }
 
-/** A title over a box's top edge under `FAR_ZOOM`, at `size` screen pixels. */
-export function AbovePlate({ title, size = 15 }: { title: string; size?: number }) {
+/** A title over a box's top edge under `FAR_ZOOM`, at `size` screen pixels, after `lead`. */
+export function AbovePlate({
+  title,
+  size = 15,
+  lead,
+}: {
+  title: string;
+  size?: number;
+  lead?: ReactNode;
+}) {
   return (
     <span
       aria-hidden
       className={twMerge(
-        "absolute bottom-full left-0 max-w-full truncate leading-tight font-semibold text-surface-100",
+        "absolute bottom-full left-0 flex max-w-full items-center leading-tight font-semibold text-surface-100",
         FAR_ONLY,
       )}
       style={{
         fontSize: `calc(${size}px / var(--graph-zoom, 1))`,
         paddingBottom: "calc(6px / var(--graph-zoom, 1))",
+        gap: "calc(6px / var(--graph-zoom, 1))",
       }}
     >
-      {title}
+      {lead}
+      <span className="min-w-0 truncate">{title}</span>
     </span>
   );
 }

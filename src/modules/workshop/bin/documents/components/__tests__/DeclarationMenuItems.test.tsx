@@ -47,6 +47,7 @@ function Menu({ declares, row = ROW, editable = true }: MenuProps) {
     ? {
         layer: "base",
         marks: NO_MARKS,
+        within: new Set<string>(),
         diagnostics: new Map(),
         objects: new Map(),
         links: new Map(),

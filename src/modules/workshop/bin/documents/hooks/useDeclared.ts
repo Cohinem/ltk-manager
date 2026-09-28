@@ -36,6 +36,7 @@ import {
   type ModuleSync,
   moduleSync,
 } from "../utils/declaredModule";
+import { enclosingKeys } from "./useChanges";
 import { sendOn, useDocumentCall } from "./useDocumentCall";
 
 /** The query root of a document's declared state, which every edit leaves stale. */
@@ -196,6 +197,8 @@ export function useModuleAction(
 export interface DeclaredRows {
   readonly layer: string;
   readonly marks: ReadonlyMap<string, DeclaredMark>;
+  /** The row keys of every row that encloses a marked row, its object's included. */
+  readonly within: ReadonlySet<string>;
   /** What the last apply reported, by the key of the row it names, or of its object. */
   readonly diagnostics: ReadonlyMap<string, readonly DeclaredDiagnostic[]>;
   /** The objects the chosen layer creates or removes, by entry. */
@@ -217,6 +220,7 @@ export function useDeclaredRows(document: BinDocumentId, editable: boolean): Dec
     return {
       layer: declared.layer,
       marks: new Map(declared.marks.map((mark) => [rowKey(mark), mark])),
+      within: new Set(declared.marks.flatMap(enclosingKeys)),
       diagnostics: byRow(declared.diagnostics),
       objects: new Map(declared.objects.map((object) => [object.entry, object.change])),
       links: new Map(declared.links.map((link) => [link.path.toLowerCase(), link.change])),
@@ -260,6 +264,13 @@ export function useDeclaredMark(key: string): { mark: DeclaredMark; layer: strin
   const rows = use(DeclaredRowsContext);
   const mark = rows?.marks.get(key);
   return rows && mark ? { mark, layer: rows.layer } : null;
+}
+
+/** The chosen layer where one of its declarations stands on the row under `key` or under it. */
+export function useDeclaredWithin(key: string): string | null {
+  const rows = use(DeclaredRowsContext);
+  if (rows === null) return null;
+  return rows.marks.has(key) || rows.within.has(key) ? rows.layer : null;
 }
 
 /** What the chosen layer does to the object `entry` and that layer, or null where it does nothing. */

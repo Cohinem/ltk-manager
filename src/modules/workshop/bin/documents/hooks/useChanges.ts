@@ -37,7 +37,7 @@ export interface ChangedRows {
   readonly baseline: ChangeBaseline;
   /** How each changed property or object differs, by row key. */
   readonly rows: ReadonlyMap<string, ChangeKind>;
-  /** The row keys of every holder a change sits under, its object's included. */
+  /** The row keys of every row that encloses a change, its object's included. */
   readonly within: ReadonlySet<string>;
   /** Only changed rows show, and unchanged nodes fade. */
   readonly only: boolean;
@@ -59,21 +59,24 @@ export function useChangedRows(document: BinDocumentId): ChangedRows | null {
   }, [data, marks, only, baseline]);
 }
 
-/** `changes` by row key, and every holder above them. */
+/** `changes` by row key, and every row that encloses them. */
 export function changedRows(changes: readonly BinChange[]): Pick<ChangedRows, "rows" | "within"> {
   const rows = new Map<string, ChangeKind>();
   const within = new Set<string>();
   for (const change of changes) {
     rows.set(rowKey(change), change.kind);
-    for (const holder of holdersOf(change.path)) {
-      within.add(rowKey({ entry: change.entry, path: holder }));
-    }
+    for (const key of enclosingKeys(change)) within.add(key);
   }
   return { rows, within };
 }
 
-/** Every holder path above the wire `path`, down from the object, which is the empty path. */
-export function holdersOf(path: string): string[] {
+/** The row keys of every row that encloses `row`, its object's included. */
+export function enclosingKeys(row: { entry: string; path: string }): string[] {
+  return enclosingPaths(row.path).map((path) => rowKey({ entry: row.entry, path }));
+}
+
+/** Every path that encloses the wire `path`, down from the object, which is the empty path. */
+export function enclosingPaths(path: string): string[] {
   if (path === "") return [];
 
   const out = [""];
@@ -87,7 +90,7 @@ export function holdersOf(path: string): string[] {
   return out;
 }
 
-/** How the row under `key` differs from the baseline, `within` for one holding a change, or null. */
+/** How the row under `key` differs from the baseline, `within` for one enclosing a change, or null. */
 export function useRowChange(key: string): ChangeKind | "within" | null {
   const changed = use(ChangedRowsContext);
   if (changed === null) return null;

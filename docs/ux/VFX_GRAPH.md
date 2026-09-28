@@ -40,6 +40,20 @@ change marks, the row menu, Delete and Duplicate all key on that path.
   An emitter is removed through the emitter clipboard, as everywhere else in the editor
   (`nodeRemoval` in `utils/nodeEdits.ts`).
 
+### Declarations on the board
+
+- a node whose row, or a row inside it, a declaration of the chosen layer sets carries that
+  layer's glyph on its top left corner, opposite the change dot. An emitter frame carries it
+  after its node count, and before its title under the far zoom (`components/NodeLayerMark.tsx`).
+- on a layer file, a node with a row that a `game_data.yaml` of the project overrides at build
+  carries the glyph of the layer the build applies last. Its hover names each overriding layer.
+- the rows inside the node carry the row marks that name each value (BIN_EDITOR.md, "Declaring
+  from a game bin" and "A game bin a layer ships")
+
+**Why.** A declared document reports no changes, so the change dot never shows on it, and the
+pane opens with emitters folded. Without a mark on the node, the reader cannot see from the board
+which emitters the project changes.
+
 ### An edge connects a value to the field that holds it
 
 Inputs stand to the left of the node they feed, each tree's root stands rightmost, and every
