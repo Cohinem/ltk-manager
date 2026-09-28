@@ -5,12 +5,11 @@ import { Popover } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AssetRef, ObjectDeclaration } from "@/lib/tauri";
 
-import { useProjectContentTree } from "../../../content/api/useProjectContentTree";
-import { layerTitle } from "../../../documents/utils/contentDocument";
 import { useObjectDeclarations, useWarmObjectIndex } from "../../../gameBrowser";
 import { assetKey } from "../../../preview/utils/assetRef";
-import { useProjectContext } from "../../../projects/state/ProjectContext";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { Dot } from "../../documents/components/BinDocument";
+import { useLayerTitle } from "../hooks/useLinkTargets";
 import { DeclarationList } from "./DeclarationList";
 
 interface OtherDeclarationsProps {
@@ -23,42 +22,23 @@ interface OtherDeclarationsProps {
 }
 
 /**
- * The other files declaring the tab's object, each opening its own tab.
+ * The other files declaring the tab's object in its sandbox, each opening its own tab.
  *
- * The install's come from the object index, the project's from the content scan.
- * "The object tab" in docs/ux/BIN_EDITOR.md.
+ * The backend returns the install's and the layers' declarations together (ADR-0056). "The
+ * object tab" in docs/ux/BIN_EDITOR.md.
  */
 export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclarationsProps) {
-  const project = useProjectContext();
   const hashes = useMemo(() => [objectHash], [objectHash]);
-  const { data, error } = useObjectDeclarations(hashes);
-  const { data: tree } = useProjectContentTree(project.path);
+  const { data, error } = useObjectDeclarations(hashes, useSandbox());
   const warm = useWarmObjectIndex();
+  const title = useLayerTitle();
 
   const others = useMemo<readonly ObjectDeclaration[]>(() => {
     const self = assetKey(asset);
-    const install = data?.objects[objectHash]?.declarations ?? [];
-    const layers = (tree?.layers ?? []).flatMap((layer) =>
-      layer.entries.flatMap((entry): ObjectDeclaration[] => {
-        const object = entry.objects.find((candidate) => candidate.objectHash === objectHash);
-        if (!object) return [];
-        return [
-          {
-            asset: {
-              kind: "layer",
-              project: project.path,
-              layer: layer.name,
-              path: entry.relativePath,
-            },
-            file: entry.relativePath,
-            classHash: object.classHash,
-            class: object.class,
-          },
-        ];
-      }),
+    return (data?.objects[objectHash]?.declarations ?? []).filter(
+      (declaration) => assetKey(declaration.asset) !== self,
     );
-    return [...install, ...layers].filter((declaration) => assetKey(declaration.asset) !== self);
-  }, [asset, data, objectHash, project.path, tree]);
+  }, [asset, data, objectHash]);
 
   if (error) {
     return (
@@ -121,7 +101,7 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
                 declarations={others}
                 objectHash={objectHash}
                 objectPath={objectPath}
-                layerTitle={(layer) => layerTitle(project, layer)}
+                layerTitle={title}
               />
             </Popover.Popup>
           </Popover.Positioner>

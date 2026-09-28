@@ -100,7 +100,7 @@ interface MapSceneProps {
 }
 
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
-  const { near, pick, materials, hidden, focus, selected } = useMapScene();
+  const { pick, materials, hidden, focus, selected } = useMapScene();
   const box = useRef<HTMLDivElement>(null);
   const picking = usePlaceablePicking();
   const colors = useSceneColors();
@@ -158,9 +158,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={played} />
-          {structures && (
-            <MapCharacters document={materials} near={near} flags={flags} hidden={hidden} />
-          )}
+          {structures && <MapCharacters document={materials} flags={flags} hidden={hidden} />}
           <MapFocus focus={focus} colors={colors} />
           {picking.shown && (
             <MapMarkers

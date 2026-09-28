@@ -91,7 +91,8 @@ export function readLegacyEditorSeed(projectPath: string): PersistedProjectEdito
   return entry === undefined ? null : sanitizeEditorState(entry);
 }
 
-function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEditor | null {
+/** The slice of one project's editor that `.ltk/editor.json` holds, or null for none. */
+export function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEditor | null {
   if (!editor) return null;
   return {
     documents: editor.documents,

@@ -2,7 +2,7 @@
    the editor's components, whose imports circle back into workshop state. */
 import { z } from "zod";
 
-import type { AssetRef } from "@/lib/tauri";
+import type { AssetRef, SandboxRef } from "@/lib/tauri";
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
   findLeaf,
@@ -306,6 +306,13 @@ const assetRefSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("file"), path: z.string() }),
 ]) satisfies z.ZodType<AssetRef>;
 
+/* The sandbox of a tab switched away from its project's sandbox, per ADR-0056. */
+const sandboxRefSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("game") }),
+  z.object({ kind: z.literal("project"), project: z.string() }),
+  z.object({ kind: z.literal("layer"), project: z.string(), layer: z.string() }),
+]) satisfies z.ZodType<SandboxRef>;
+
 /* Tab entries stay unchecked here: `dropUnknownTabs` filters them one by one,
    so one bad entry costs a tab rather than the whole layout. */
 const layoutNodeSchema: z.ZodType<unknown> = z.lazy(() =>
@@ -354,6 +361,7 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
     /* Optional so a file written before this field existed still mounts its
        preview tabs, per the version note above. */
     path: z.string().optional(),
+    sandbox: sandboxRefSchema.optional(),
   }),
   z.object({
     id: z.string(),
@@ -363,6 +371,7 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
     objectPath: z.string(),
     file: z.string(),
     objectClass: z.string().nullable().optional(),
+    sandbox: sandboxRefSchema.optional(),
   }),
 ]) satisfies z.ZodType<ContentDocument>;
 

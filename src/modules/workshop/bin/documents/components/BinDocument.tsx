@@ -41,6 +41,7 @@ import { useBinTab } from "../hooks/useBinTab";
 import { useDeclaredState } from "../hooks/useDeclared";
 import { BinEditState } from "./BinEditState";
 import { DeclarationsOffNotice } from "./DeclarationsOffNotice";
+import { SandboxOptions } from "./SandboxOptions";
 
 interface BinDocumentProps {
   /** The editor's id for the tab, which a reveal request names. */
@@ -187,6 +188,9 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
     <div data-ui="BinDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <NewObjectContext value={declares ? newObject : null}>
         <DocumentToolbar active={active}>
+          <span className="flex shrink-0 items-center text-row select-none">
+            <SandboxOptions documentId={documentId} handle={handle} />
+          </span>
           <BinFacts
             document={handle.document}
             header={handle.header}

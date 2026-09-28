@@ -292,7 +292,7 @@ beforeEach(() => {
         value: paths.map((path) => PAGES[`${entry}:${path}`] ?? page([])),
       });
     }
-    if (command === "locate_game_files") {
+    if (command === "locate_files_near") {
       const paths = (args?.paths ?? []) as string[];
       const found = paths.filter((path) => path === SIMPLE_SKIN.toLowerCase());
       return Promise.resolve({
@@ -300,12 +300,7 @@ beforeEach(() => {
         value: Object.fromEntries(
           found.map((path) => [
             path,
-            {
-              pathHash: "00dd00dd00dd00dd",
-              path,
-              sizeBytes: 1n,
-              wad: ASSET.wad,
-            },
+            { kind: "gameChunk", wad: ASSET.wad, pathHash: "00dd00dd00dd00dd" },
           ]),
         ),
       });

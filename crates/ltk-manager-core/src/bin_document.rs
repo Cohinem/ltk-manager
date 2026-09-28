@@ -16,6 +16,7 @@ use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
+use ltk_modpkg::Slug;
 use parking_lot::{ArcRwLockReadGuard, Mutex, RawRwLock, RwLock};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -39,8 +40,8 @@ pub use clipboard::CLIPBOARD_FORMAT;
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
     DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredSign,
-    DeclaredState, Declaring, GameCopy, LinkChange, NewObject, ObjectChange, ObjectSkip,
-    RowDeclaration, SkipReason,
+    DeclaredState, Declaring, GameCopy, LayerOverride, LinkChange, NewObject, ObjectChange,
+    ObjectSkip, RowDeclaration, SkipReason,
 };
 pub use edit::{EditRejection, HistoryStep, LeafValue, ReadOnly, Reshape, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
@@ -62,6 +63,7 @@ use crate::object_index::{CacheNames, ObjectDeclaration};
 use crate::preview::AssetRef;
 use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
+use crate::sandbox::SandboxRef;
 use crate::workshop::{LayerChunks, ModuleAction};
 
 /// How many assets the store keeps open at once. ADR-0026, counted per ADR-0028.
@@ -137,10 +139,13 @@ pub enum BinDocumentError {
     Declaring(#[source] Box<crate::error::AppError>),
 }
 
-/// The open documents, one tree per asset, bounded, evicting the least recently used.
+/// The open documents, one tree per asset in a sandbox, bounded, evicting the least
+/// recently used.
 ///
 /// A file tab and the object tabs over one asset each hold an id on the one tree
-/// (ADR-0028). The bound counts assets. An eviction takes every id over the asset.
+/// (ADR-0028). A declared chunk is held once per sandbox, and a layer file once whichever
+/// sandbox opened it (ADR-0056). The bound counts trees. An eviction takes every id over
+/// the tree.
 pub struct BinDocuments {
     inner: Mutex<Store>,
 }
@@ -149,9 +154,58 @@ struct Store {
     next: u32,
     /// The bound the store keeps to while every tree over it is clean.
     bound: NonZeroUsize,
-    /// The asset each id is over. An id whose asset was evicted reads as not open.
-    ids: HashMap<BinDocumentId, AssetRef>,
-    held: LruCache<AssetRef, Held>,
+    /// The tree each id is over. An id whose tree was evicted reads as not open.
+    ids: HashMap<BinDocumentId, HeldKey>,
+    held: LruCache<HeldKey, Held>,
+}
+
+/// The store's key for one tree: an asset and the sandbox that holds it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct HeldKey {
+    sandbox: SandboxRef,
+    asset: AssetRef,
+}
+
+impl HeldKey {
+    fn new(sandbox: &SandboxRef, asset: AssetRef) -> Self {
+        Self {
+            sandbox: sandbox.holding(&asset),
+            asset,
+        }
+    }
+
+    /// Why the tree is read-only, or `None` where it takes edits: the file's own gate, else
+    /// the game sandbox's.
+    fn gate(&self, document: &BinDocument) -> Option<ReadOnly> {
+        document
+            .read_only(&self.asset)
+            .or_else(|| self.sandbox.is_game().then_some(ReadOnly::GameSandbox))
+    }
+
+    /// The key after `project`'s layer `from` became `to`, or `None` for a key of another
+    /// layer.
+    fn renamed(&self, project: &str, from: &str, to: &str) -> Option<Self> {
+        let AssetRef::Layer {
+            project: owner,
+            layer,
+            path,
+        } = &self.asset
+        else {
+            return None;
+        };
+        if owner != project || layer != from {
+            return None;
+        }
+
+        Some(Self {
+            sandbox: self.sandbox.clone(),
+            asset: AssetRef::Layer {
+                project: owner.clone(),
+                layer: to.to_owned(),
+                path: path.clone(),
+            },
+        })
+    }
 }
 
 /// A read of one document, held with the store unlocked. A patch waits for it.
@@ -161,8 +215,6 @@ pub type DocumentRead = ArcRwLockReadGuard<RawRwLock, BinDocument>;
 struct Held {
     /// Shared, so a read can walk the tree with the store unlocked.
     document: Arc<RwLock<BinDocument>>,
-    /// The chunk paths this asset's project names, scanned once with the parse.
-    chunks: Arc<LayerChunks>,
     holders: usize,
 }
 
@@ -189,11 +241,11 @@ impl Store {
             .iter()
             .rev()
             .find(|(_, held)| held.is_clean())
-            .map(|(asset, _)| asset.clone());
+            .map(|(key, _)| key.clone());
         match clean {
-            Some(asset) => {
-                self.held.pop(&asset);
-                self.ids.retain(|_, over| *over != asset);
+            Some(key) => {
+                self.held.pop(&key);
+                self.ids.retain(|_, over| *over != key);
             }
             None => self.held.resize(self.held.cap().saturating_add(1)),
         }
@@ -208,11 +260,11 @@ impl Store {
         }
     }
 
-    /// A fresh id over `asset`.
-    fn issue(&mut self, asset: AssetRef) -> BinDocumentId {
+    /// A fresh id over `key`.
+    fn issue(&mut self, key: HeldKey) -> BinDocumentId {
         let id = BinDocumentId(self.next);
         self.next = self.next.wrapping_add(1);
-        self.ids.insert(id, asset);
+        self.ids.insert(id, key);
         id
     }
 }
@@ -248,11 +300,11 @@ impl BinDocuments {
         }
     }
 
-    /// Hold `asset` open, answering a fresh id over its tree.
+    /// Hold `asset` open in `sandbox`, answering a fresh id over its tree.
     ///
-    /// `bytes` is read and parsed only while no id is over the asset. At capacity, the
-    /// least recently used clean asset leaves the store with every id over it. The lock is
-    /// not held over `bytes`. Two opens racing on one asset both parse, and one parse
+    /// `bytes` is read and parsed only while no id is over the tree. At capacity, the
+    /// least recently used clean tree leaves the store with every id over it. The lock is
+    /// not held over `bytes`. Two opens racing on one tree both parse, and one parse
     /// is kept.
     ///
     /// # Errors
@@ -261,22 +313,17 @@ impl BinDocuments {
     /// with whatever `bytes` raises.
     pub fn open(
         &self,
+        sandbox: &SandboxRef,
         asset: AssetRef,
         bytes: impl FnOnce() -> AppResult<Vec<u8>>,
     ) -> AppResult<BinDocumentId> {
-        {
-            let mut store = self.inner.lock();
-            if let Some(held) = store.held.get_mut(&asset) {
-                held.holders += 1;
-                return Ok(store.issue(asset));
-            }
-        }
-
-        self.hold(asset, || Ok(BinDocument::parse(bytes()?)?))
+        self.hold(HeldKey::new(sandbox, asset), || {
+            Ok(BinDocument::parse(bytes()?)?)
+        })
     }
 
-    /// Hold the game chunk `asset` open as a declared document of `context`'s project,
-    /// answering a fresh id over its tree. ADR-0042.
+    /// Hold the game chunk `asset` open in `sandbox` as a declared document of `context`'s
+    /// project, answering a fresh id over its tree. ADR-0042.
     ///
     /// As [`BinDocuments::open`], with the tree the game's copy under the project's
     /// declarations. `chunk_hash` is the chunk's path hash.
@@ -286,49 +333,47 @@ impl BinDocuments {
     /// As [`BinDocuments::open`], and with what [`BinDocument::declare`] raises.
     pub fn open_declared(
         &self,
+        sandbox: &SandboxRef,
         asset: AssetRef,
         chunk_hash: u64,
         open: impl FnOnce() -> AppResult<(Vec<u8>, DeclareContext)>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(asset, || {
+        self.hold(HeldKey::new(sandbox, asset), || {
             let (bytes, context) = open()?;
             Ok(BinDocument::declare(bytes, chunk_hash, context)?)
         })
     }
 
-    /// Hold `asset` open over the tree `parse` answers, which runs only while no id is
-    /// over the asset.
+    /// Hold `key` open over the tree `parse` answers, which runs only while no id is
+    /// over the tree.
     fn hold(
         &self,
-        asset: AssetRef,
+        key: HeldKey,
         parse: impl FnOnce() -> AppResult<BinDocument>,
     ) -> AppResult<BinDocumentId> {
         {
             let mut store = self.inner.lock();
-            if let Some(held) = store.held.get_mut(&asset) {
+            if let Some(held) = store.held.get_mut(&key) {
                 held.holders += 1;
-                return Ok(store.issue(asset));
+                return Ok(store.issue(key));
             }
         }
 
         let document = parse()?;
-        /* Scanned beside the parse, and outside the lock, because both read the disk. */
-        let chunks = LayerChunks::of(&asset);
 
         let mut store = self.inner.lock();
-        match store.held.get_mut(&asset) {
+        match store.held.get_mut(&key) {
             Some(held) => held.holders += 1,
             None => {
                 let held = Held {
                     document: Arc::new(RwLock::new(document)),
-                    chunks: Arc::new(chunks),
                     holders: 1,
                 };
                 store.make_room();
-                store.held.push(asset.clone(), held);
+                store.held.push(key.clone(), held);
             }
         }
-        Ok(store.issue(asset))
+        Ok(store.issue(key))
     }
 
     /// Read the document under one id. The read marks its asset the most recently used.
@@ -359,30 +404,30 @@ impl BinDocuments {
         Ok(self.held(id)?.1.read_arc())
     }
 
-    /// The asset under one id and its tree. The ask marks the asset the most recently used.
+    /// The key under one id and its tree. The ask marks the tree the most recently used.
     fn held(
         &self,
         id: BinDocumentId,
-    ) -> Result<(AssetRef, Arc<RwLock<BinDocument>>), BinDocumentError> {
+    ) -> Result<(HeldKey, Arc<RwLock<BinDocument>>), BinDocumentError> {
         let mut store = self.inner.lock();
         let Store { ids, held, .. } = &mut *store;
-        let asset = ids.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
+        let key = ids.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
         let document = held
-            .get(asset)
+            .get(key)
             .map(|held| Arc::clone(&held.document))
             .ok_or(BinDocumentError::NotOpen(id))?;
-        Ok((asset.clone(), document))
+        Ok((key.clone(), document))
     }
 
-    /// Why the document under one id takes no edit, or `None` where it takes them.
+    /// Why the document under one id is read-only, or `None` where it takes edits.
     ///
     /// # Errors
     ///
     /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
     /// evicted.
     pub fn read_only(&self, id: BinDocumentId) -> Result<Option<ReadOnly>, BinDocumentError> {
-        let (asset, document) = self.held(id)?;
-        Ok(document.read().read_only(&asset))
+        let (key, document) = self.held(id)?;
+        Ok(key.gate(&document.read()))
     }
 
     /// Set one leaf of the document under `id`, answering the value it held.
@@ -705,10 +750,10 @@ impl BinDocuments {
         id: BinDocumentId,
         declaring: Declaring,
     ) -> Result<Option<ReadOnly>, BinDocumentError> {
-        let (asset, document) = self.held(id)?;
+        let (key, document) = self.held(id)?;
         let mut document = document.write();
         document.set_declaring(declaring)?;
-        Ok(document.read_only(&asset))
+        Ok(key.gate(&document))
     }
 
     /// Revert the latest edit of the document under `id`, answering how the rows moved, or
@@ -786,9 +831,9 @@ impl BinDocuments {
         id: BinDocumentId,
         edit: impl FnOnce(&mut BinDocument) -> Result<T, BinDocumentError>,
     ) -> Result<T, BinDocumentError> {
-        let (asset, document) = self.held(id)?;
+        let (key, document) = self.held(id)?;
         let mut document = document.write();
-        if let Some(gate) = document.read_only(&asset) {
+        if let Some(gate) = key.gate(&document) {
             return Err(BinDocumentError::ReadOnly(gate));
         }
         edit(&mut document)
@@ -808,12 +853,12 @@ impl BinDocuments {
         id: BinDocumentId,
         bytes: impl FnOnce(&AssetRef) -> AppResult<Vec<u8>>,
     ) -> AppResult<()> {
-        let (asset, document) = self.held(id)?;
+        let (key, document) = self.held(id)?;
         let mut document = document.write();
         if document.declares() {
             return Ok(document.reapply()?);
         }
-        *document = BinDocument::parse(bytes(&asset)?)?;
+        *document = BinDocument::parse(bytes(&key.asset)?)?;
         Ok(())
     }
 
@@ -825,58 +870,94 @@ impl BinDocuments {
     /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
     /// [`BinDocument::save_to`] raises.
     pub fn save(&self, id: BinDocumentId) -> AppResult<()> {
-        let (asset, document) = self.held(id)?;
+        let (key, document) = self.held(id)?;
         let mut document = document.write();
-        if let Some(gate) = document.read_only(&asset) {
+        if let Some(gate) = key.gate(&document) {
             return Err(BinDocumentError::ReadOnly(gate).into());
         }
         /* An edit of a declared document is on disk once it answers. */
         if document.declares() {
             return Ok(());
         }
-        let Some(path) = asset.layer_file() else {
+        let Some(path) = key.asset.layer_file() else {
             return Err(BinDocumentError::ReadOnly(ReadOnly::Loose).into());
         };
         document.save_to(&path?)
     }
 
-    /// The chunk names the project behind `id`'s asset holds.
+    /// The sandbox the document under one id is held in, or `None` where `id` is closed or
+    /// its tree was evicted.
     ///
-    /// Empty for a closed id and for an asset outside a project, which names nothing of
-    /// its own. "A project names its own chunks" in docs/ux/BIN_EDITOR.md.
+    /// A layer file is held in its project's sandbox, and a loose file in the game's.
     #[must_use]
-    pub fn chunks_of(&self, id: BinDocumentId) -> Arc<LayerChunks> {
-        let mut store = self.inner.lock();
-        let Store { ids, held, .. } = &mut *store;
-        ids.get(&id).and_then(|asset| held.get(asset)).map_or_else(
-            || Arc::new(LayerChunks::default()),
-            |held| Arc::clone(&held.chunks),
-        )
+    pub fn sandbox_of(&self, id: BinDocumentId) -> Option<SandboxRef> {
+        self.key_of(id).map(|key| key.sandbox)
     }
 
-    /// The asset under one id, or `None` where `id` is closed or its asset was evicted.
+    /// The asset under one id, or `None` where `id` is closed or its tree was evicted.
     #[must_use]
     pub fn asset_of(&self, id: BinDocumentId) -> Option<AssetRef> {
+        self.key_of(id).map(|key| key.asset)
+    }
+
+    fn key_of(&self, id: BinDocumentId) -> Option<HeldKey> {
         let store = self.inner.lock();
         store
             .ids
             .get(&id)
-            .filter(|asset| store.held.contains(asset))
+            .filter(|key| store.held.contains(key))
             .cloned()
+    }
+
+    /// Update the open documents after `project`'s layer `from` is renamed to `to`.
+    ///
+    /// The trees of the layer's files are stored under the new name, and a declared document
+    /// that wrote to `from` writes to `to`. `from` is a `&str` rather than a [`Slug`],
+    /// because older projects have layer names with underscores, which are not valid slugs.
+    pub fn rename_layer(&self, project: &str, from: &str, to: &Slug) {
+        let to = to.as_str();
+        let mut store = self.inner.lock();
+        let Store { ids, held, .. } = &mut *store;
+
+        let moving: Vec<HeldKey> = held
+            .iter()
+            .filter(|(key, _)| key.renamed(project, from, to).is_some())
+            .map(|(key, _)| key.clone())
+            .collect();
+        for key in moving {
+            let fresh = key
+                .renamed(project, from, to)
+                .expect("the key names the layer");
+            if let Some(tree) = held.pop(&key) {
+                held.push(fresh, tree);
+            }
+        }
+
+        for key in ids.values_mut() {
+            if let Some(fresh) = key.renamed(project, from, to) {
+                *key = fresh;
+            }
+        }
+
+        for (key, tree) in held.iter() {
+            if key.sandbox.project() == Some(project) {
+                tree.document.write().rename_layer(from, to);
+            }
+        }
     }
 
     /// Drop one id. Its asset leaves the store with its last id. A closed id is left as it is.
     pub fn close(&self, id: BinDocumentId) {
         let mut store = self.inner.lock();
-        let Some(asset) = store.ids.remove(&id) else {
+        let Some(key) = store.ids.remove(&id) else {
             return;
         };
-        let last = store.held.peek_mut(&asset).is_some_and(|held| {
+        let last = store.held.peek_mut(&key).is_some_and(|held| {
             held.holders = held.holders.saturating_sub(1);
             held.holders == 0
         });
         if last {
-            store.held.pop(&asset);
+            store.held.pop(&key);
             store.shrink();
         }
     }
@@ -889,14 +970,14 @@ impl BinDocuments {
         let mut store = self.inner.lock();
         store.ids.clear();
 
-        let clean: Vec<AssetRef> = store
+        let clean: Vec<HeldKey> = store
             .held
             .iter()
             .filter(|(_, held)| held.is_clean())
-            .map(|(asset, _)| asset.clone())
+            .map(|(key, _)| key.clone())
             .collect();
-        for asset in &clean {
-            store.held.pop(asset);
+        for key in &clean {
+            store.held.pop(key);
         }
         for (_, held) in store.held.iter_mut() {
             held.holders = 0;
@@ -912,7 +993,7 @@ impl BinDocuments {
         store
             .ids
             .get(&id)
-            .is_some_and(|asset| store.held.contains(asset))
+            .is_some_and(|key| store.held.contains(key))
     }
 }
 
@@ -1441,6 +1522,13 @@ impl BinObjectHeader {
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct BinDocumentHandle {
     pub document: BinDocumentId,
+    /// The sandbox the document is held in. ADR-0056.
+    pub sandbox: SandboxRef,
+    /// The file the document was read from, and the file a save writes.
+    ///
+    /// Usually the asset the open asked for. When the open asked for a game chunk that a
+    /// layer of the sandbox ships, this is that layer's file instead. ADR-0056.
+    pub asset: AssetRef,
     pub header: BinHeader,
     pub rows: Vec<BinRow>,
     /// The object the open is over. Absent for a file open.

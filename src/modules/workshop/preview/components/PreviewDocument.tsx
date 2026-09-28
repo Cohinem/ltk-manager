@@ -53,7 +53,6 @@ export function PreviewDocument({
     return (
       <MapFileDocument
         key={document.id}
-        asset={document.asset}
         map={map}
         active={active}
         actions={<PreviewActions document={document} />}

@@ -6,7 +6,8 @@ import type { SearchPreference } from "@/lib/tauri";
 import { useProjectContentTree } from "../../../content/api/useProjectContentTree";
 import { gameQueries } from "../../../gameBrowser/api/queries";
 import { useGamePathSearch } from "../../../gameBrowser/api/useGamePathSearch";
-import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
+import { sandboxProject } from "../../../sandbox/utils/sandboxRef";
 import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
 import { chunkPath } from "../../links/utils/linkDecision";
 import type { PathField } from "../utils/pathField";
@@ -53,9 +54,9 @@ export function usePathSuggestions({
   query,
   open,
 }: PathSuggestionsOptions): PathSuggestions {
-  const project = useOptionalProjectContext();
+  const project = sandboxProject(useSandbox());
   const asset = use(LinkAssetContext);
-  const tree = useProjectContentTree(open ? project?.path : undefined);
+  const tree = useProjectContentTree(open ? (project ?? undefined) : undefined);
   const files = useMemo(() => (tree.data ? projectFiles(tree.data) : []), [tree.data]);
 
   const preference = useMemo<SearchPreference>(

@@ -5,7 +5,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { AssetInfo, GameFileEntry, WorkshopProject } from "@/lib/tauri";
+import type { AssetInfo, AssetRef, WorkshopProject } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -34,8 +34,8 @@ const PROJECT: WorkshopProject = {
   id: "id-mine",
 };
 
-function located(path: string): GameFileEntry {
-  return { pathHash: "00cc", path, sizeBytes: 12, wad: "Champions/Aatrox.wad.client" };
+function located(): AssetRef {
+  return { kind: "gameChunk", pathHash: "00cc", wad: "Champions/Aatrox.wad.client" };
 }
 
 function targets(
@@ -45,7 +45,7 @@ function targets(
   return {
     index: { status: "ready" },
     declared: new Map(),
-    located: new Map(paths.map((path) => [path, located(path)])),
+    located: new Map(paths.map((path) => [path, located()])),
     strings,
     pending: false,
   };

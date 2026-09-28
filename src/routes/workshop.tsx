@@ -5,6 +5,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { Toolbar } from "@/components";
 import {
   ProjectProvider,
+  RouteSandboxProvider,
   useNewProjectDialog,
   useOpenFolder,
   useRecordListVisit,
@@ -45,28 +46,30 @@ function WorkshopShell() {
 
   return (
     <ProjectProvider project={project}>
-      <div
-        data-ui="WorkshopShell"
-        className={twMerge(
-          "flex h-full flex-col",
-          projectId !== undefined
-            ? "border border-b-0 border-surface-700/50 bg-surface-900"
-            : "bg-surface-900 shadow-pressed",
-        )}
-      >
-        <Toolbar
-          className={twMerge("bg-surface-900", projectId === undefined && "bg-transparent pt-2")}
+      <RouteSandboxProvider project={project?.path ?? null}>
+        <div
+          data-ui="WorkshopShell"
+          className={twMerge(
+            "flex h-full flex-col",
+            projectId !== undefined
+              ? "border border-b-0 border-surface-700/50 bg-surface-900"
+              : "bg-surface-900 shadow-pressed",
+          )}
         >
-          <WorkshopHeader />
-          {!project && <WorkshopActiveFilterChips />}
-        </Toolbar>
+          <Toolbar
+            className={twMerge("bg-surface-900", projectId === undefined && "bg-transparent pt-2")}
+          >
+            <WorkshopHeader />
+            {!project && <WorkshopActiveFilterChips />}
+          </Toolbar>
 
-        <div data-ui="WorkshopShell:fold" className={twMerge("min-h-0 flex-1 overflow-hidden")}>
-          <Outlet />
+          <div data-ui="WorkshopShell:fold" className={twMerge("min-h-0 flex-1 overflow-hidden")}>
+            <Outlet />
+          </div>
         </div>
-      </div>
 
-      <WorkshopDialogs />
+        <WorkshopDialogs />
+      </RouteSandboxProvider>
     </ProjectProvider>
   );
 }

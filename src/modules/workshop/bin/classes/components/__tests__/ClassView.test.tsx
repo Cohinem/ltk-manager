@@ -191,7 +191,7 @@ beforeEach(() => {
       const answered = paths.map((path) => ELEMENTS[path] ?? FIELDS[path] ?? page([]));
       return Promise.resolve({ ok: true, value: answered });
     }
-    if (command === "locate_game_files") return Promise.resolve({ ok: true, value: {} });
+    if (command === "locate_files_near") return Promise.resolve({ ok: true, value: {} });
     if (command === "declared_objects") {
       return Promise.resolve({
         ok: true,

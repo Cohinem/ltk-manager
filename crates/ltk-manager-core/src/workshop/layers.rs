@@ -9,11 +9,19 @@ use camino::Utf8Path;
 use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_mod_project::ModProjectLayer;
+use ltk_modpkg::Slug;
 use ltk_wad::{NamingPolicy, PathResolver, Wad, WadExtractor};
 use std::collections::HashMap;
 use std::io::BufReader;
 use std::path::{Component, Path, PathBuf};
 use std::time::Instant;
+
+/// The directory name a rename gives a layer with this display name. `None` when the display
+/// name has no characters a slug keeps.
+#[must_use]
+pub fn layer_name_for(display_name: &str) -> Option<Slug> {
+    Slug::new(slug::slugify(display_name.trim())).ok()
+}
 
 impl ProjectDir {
     /// Create a new layer.
@@ -138,12 +146,11 @@ impl ProjectDir {
             ));
         }
 
-        let new_name = slug::slugify(&new_display_name);
-        if new_name.is_empty() {
-            return Err(AppError::ValidationFailed(
-                "Display name must produce a valid slug".to_string(),
-            ));
-        }
+        let new_name = layer_name_for(&new_display_name)
+            .ok_or_else(|| {
+                AppError::ValidationFailed("Display name must produce a valid slug".to_string())
+            })?
+            .into_string();
 
         let mut mod_project = self.config()?;
 

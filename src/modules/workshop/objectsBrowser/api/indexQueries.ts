@@ -1,21 +1,28 @@
 import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
 
-import { api, type AppError, type DeclaredObjects, type ObjectSearch } from "@/lib/tauri";
+import {
+  api,
+  type AppError,
+  type DeclaredObjects,
+  type ObjectSearch,
+  type SandboxRef,
+} from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
 import { BUILDING_POLL_MS, gameKeys } from "../../gameBrowser/api/keys";
+import { GAME_SANDBOX } from "../../sandbox/utils/sandboxRef";
 
 /** What the object index answers, and how it reports a build still running. */
 export const objectIndexQueries = {
   /* Asked whatever the Objects switch says, and asked again each second while a
      build runs. A ready answer never refetches on its own, and a warm or a drop
      settling asks again. */
-  declarations: (objectHashes: readonly string[]) =>
+  declarations: (objectHashes: readonly string[], sandbox: SandboxRef = GAME_SANDBOX) =>
     queryOptions<DeclaredObjects, AppError>({
-      queryKey: gameKeys.declaredObjects(objectHashes),
+      queryKey: [...gameKeys.declaredObjects(objectHashes), sandbox],
       queryFn:
         objectHashes.length > 0
-          ? queryFnWithArgs(api.objects.declared, [...objectHashes])
+          ? queryFnWithArgs(api.objects.declared, sandbox, [...objectHashes])
           : skipToken,
       staleTime: Infinity,
       refetchInterval: (query) =>

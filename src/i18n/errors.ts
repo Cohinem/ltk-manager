@@ -8,7 +8,7 @@ import type {
   PatcherError,
   WorkshopError,
 } from "@/lib/bindings";
-import type { EditRejection, ReadOnly, IntegrationError } from "@/lib/bindings.gen";
+import type { EditRejection, IntegrationError, ReadOnly } from "@/lib/bindings.gen";
 import { m } from "@/paraglide/messages";
 import { isAppError } from "@/utils/errors";
 
@@ -123,7 +123,7 @@ function withDetail(title: string, detail: string): ErrorCopy {
 export function readOnlyDescription(gate: ReadOnly): string {
   return match(gate)
     .with("declarationsOff", () => m["error.BIN_READ_ONLY.declarationsOff.description"]())
-    .with("install", () => m["error.BIN_READ_ONLY.install.description"]())
+    .with("gameSandbox", () => m["error.BIN_READ_ONLY.gameSandbox.description"]())
     .with("loose", () => m["error.BIN_READ_ONLY.loose.description"]())
     .with("patch", () => m["error.BIN_READ_ONLY.patch.description"]())
     .exhaustive();

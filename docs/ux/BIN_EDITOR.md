@@ -1651,8 +1651,9 @@ were.
 +------------------------------------------------------+---------------------------+
 ```
 
-**One row holds the object tab's header and the crumb.** The class, the crumb, the mode control,
-Show in file and Panes share it, and the preview takes the height of the row it saves.
+**One row holds the object tab's header and the crumb.** The sandbox, the class, the crumb, the
+mode control, Show in file and Panes share it, and the preview takes the height of the row it
+saves. The row starts with `Sandbox (<name>) >`, per [the sandbox](#the-sandbox).
 
 The crumb names system and emitter, and each segment is a target the inspector draws. The system's
 segment draws Identity, Audio and Other, which is where a shell keeps the sections a stack lists
@@ -2586,24 +2587,39 @@ promises nothing it cannot do.
 
 ## Editing
 
+### The sandbox
+
+A document opens in a sandbox, the data source it reads from and writes to (ADR-0056). A tab
+opened in a project opens in the project's sandbox, which stacks the project's layers over the
+game in the order a build applies them. The game sandbox is the installed game alone.
+
+| Opened in | A layer file | A game chunk a layer ships | A game chunk no layer ships | A loose file |
+| --------- | ------------ | -------------------------- | --------------------------- | ------------ |
+| Project   | Editable     | The layer's file, editable | Declared. ADR-0042          | Read-only    |
+| Game      | Its project  | The game's copy, read-only | The game's copy, read-only  | Read-only    |
+
+A path resolves to the copy the build uses, so a game chunk a layer ships opens as that layer's
+file and its edits save to it. A layer file is always read in its own project, so every tab of
+it shares one tree and one save.
+
+**The Sandbox options** lead the header row of a bin tab: `Sandbox (<name>)`, which names the
+project or the game, and a glyph for where edits go. The hover card says what a sandbox is and
+where this tab's edits go. The options contain:
+
+- The project and the game, which switch the tab in place. The game opens the install's copy of
+  the same path, read-only, and is disabled for a file the install holds no copy of.
+- For a declared document, **Use game data declarations**, the layer edits declare into, and
+  the module new keys join, per [Declaring from a game bin](#declaring-from-a-game-bin).
+
+A link followed out of a tab opens in that tab's sandbox, so a link out of a declared document
+opens declared, and one out of a game tab opens in the game.
+
 ### Where editing is allowed
 
-The rule falls out of `AssetRef` and needs no new state.
-
-| Source                     | Mode      | Why                                                 |
-| -------------------------- | --------- | --------------------------------------------------- |
-| `Layer`                    | Editable  | The project's own file                              |
-| `GameChunk`                | Read-only | Inside the install, which the manager never writes  |
-| `GameChunk` with a project | Declared  | An edit writes the project's declarations. ADR-0042 |
-| The same, declarations off | Read-only | The project's declarations draw applied, no edit    |
-| `File`                     | Read-only | Anywhere on disk, and owned by nobody the app knows |
-
-A game chunk carries its project when it opens from that project's game tree. The same chunk
-opened from the Library carries none and stays read-only.
-
-The source is one of two gates. A `PTCH` file is read-only from either side of that table, for
-a reason of its own that the next section gives. The header of a read-only document names the
-gate it stands behind: the install, a file outside a project, or a patch layer.
+The sandbox is one gate, and the file is the other. A `PTCH` file is read-only in any sandbox,
+for a reason of its own that [A patch bin is read-only](#a-patch-bin-is-read-only) gives. The
+header of a read-only document names the gate it stands behind: the game sandbox, a file outside
+a project, a patch layer, or a project's declarations turned off.
 
 A read-only document draws the same blocks with the widgets disabled, and offers **Copy into
 layer**, which writes the chunk into the active project's layer and reopens it editable. That
@@ -2616,24 +2632,24 @@ A declared document draws the game's copy of the chunk with the project's declar
 applied: every layer in build order, through the function and the schema the overlay build
 uses. What the reader sees is what the build makes.
 
-| Part           | What it does                                                             |
-| -------------- | ------------------------------------------------------------------------ |
-| The layer chip | Names the layer an edit writes to, in the toolbar where the lock stands  |
-| The mark       | Stands on each row a declaration of the chosen layer touches             |
-| The hover      | Names the layer and spells the game's value as a declaration writes it   |
-| A leaf edit    | Writes one key under an `entries` module of the layer's `game_data.yaml` |
-| Undo and redo  | Restore the manifest text from before and after the edit                 |
+| Part                | What it does                                                             |
+| ------------------- | ------------------------------------------------------------------------ |
+| The Sandbox options | Name the layer an edit writes to and the module its new keys join        |
+| The mark            | Stands on each row a declaration of the chosen layer touches             |
+| The hover           | Names the layer and spells the game's value as a declaration writes it   |
+| A leaf edit         | Writes one key under an `entries` module of the layer's `game_data.yaml` |
+| Undo and redo       | Restore the manifest text from before and after the edit                 |
 
-The chip opens on the layer last used for the project, else `base`, and switches among the
-project's layers in build order. A declaration another layer holds draws applied and
-carries no mark.
+The options open on the layer last used for the project, else `base`, and switch among the
+project's layers in build order. A declaration another layer holds draws applied and carries
+no mark.
 
 **Use game data declarations** is a per-project setting in `.ltk/editor.json`, flipped from
-the chip's menu or the command bar. A project that has not chosen reads it as on when a layer
-already holds a `game_data.yaml`, `.yml`, `.toml` or `.json`, and as off otherwise. Off, the
-document still draws the declarations applied with their marks, so the view matches the
-build, and takes no edit. The chip stays with a lock in place of the layer glyph, the module
-chip beside it is disabled, `+ Object` is gone, and the row menu drops the object edits,
+the Sandbox options or the command bar. A project that has not chosen reads it as on when a
+layer already holds a `game_data.yaml`, `.yml`, `.toml` or `.json`, and as off otherwise. Off,
+the document still draws the declarations applied with their marks, so the view matches the
+build, and takes no edit. The options show a lock in place of the layer glyph, the layer and
+module choices are disabled, `+ Object` is gone, and the row menu drops the object edits,
 **Paste reference**, **Merge reference** and **Move to module**. A strip under the toolbar
 offers **Copy into layer** and **Declare edits**, which turns the setting on.
 
@@ -2672,12 +2688,12 @@ A map is compared by its entries in any order, because an addition lands at the 
 An object is created and removed through an `objects` entry of a `target` module for the
 chunk (ADR-0049).
 
-| Action                  | Where                        | Declaration                                  |
-| ----------------------- | ---------------------------- | -------------------------------------------- |
-| Duplicate as new object | An object row's menu         | `<name>: {clone: <object>}`                  |
-| `+ Object`              | The toolbar, beside the chip | `<name>: {class: <class>}`                   |
-| Remove object           | An object row's menu         | `<object>: {remove: true}`, or drops a clone |
-| Restore object          | A removed object row's menu  | Drops the `remove: true`                     |
+| Action                  | Where                       | Declaration                                  |
+| ----------------------- | --------------------------- | -------------------------------------------- |
+| Duplicate as new object | An object row's menu        | `<name>: {clone: <object>}`                  |
+| `+ Object`              | The toolbar                 | `<name>: {class: <class>}`                   |
+| Remove object           | An object row's menu        | `<object>: {remove: true}`, or drops a clone |
+| Restore object          | A removed object row's menu | Drops the `remove: true`                     |
 
 A new object is named on a line after the file's objects, never in a dialog. `+ Object`
 opens it on a class search: the classes the file holds first, then every class the schema
@@ -2690,7 +2706,7 @@ Removing an object the layer created drops its creation, so no `remove: true` is
 for it. An object the layer removes keeps its row, struck through with a `removed` mark: it
 opens nothing, takes no edit, and its menu offers Restore object and Copy path. An object
 the layer creates carries the layer's glyph on its row. A creation or a removal the apply
-skips draws its reason on the object's row, or beside the chip where the chunk holds no
+skips draws its reason on the object's row, or in the toolbar where the chunk holds no
 such object.
 
 Three edits are refused with the reason. A path through a field no table names has no
@@ -2706,8 +2722,8 @@ What the apply reports draws on the row it names, over every layer of the projec
 the chosen one alone. A skipped key draws a warning with its reason, the key as the manifest
 spells it and the layer holding it. A property typed from the game's copy, where the schema
 says nothing, draws as information. A key that reaches no row lists under its object, and a
-diagnostic that names no object of the chunk, a link or an override file, draws beside the
-layer chip.
+diagnostic that names no object of the chunk, a link or an override file, draws in the
+toolbar.
 
 The row menu carries the declaration actions.
 
@@ -2740,6 +2756,15 @@ row.
 
 One re-apply over the largest skin bin of the install (Viego, 3.7 MiB, 483 objects) takes
 65 ms in a release build.
+
+### A game bin a layer ships
+
+A game chunk that a layer of the project ships opens as that layer's file, which is the copy the
+build packs. Its edits save to the file, as any layer file's do (ADR-0040).
+
+The build then applies every layer's `game_data.yaml` over that file. A row that a declaration
+overrides shows the declaring layer's glyph. Its hover lists each layer that declares it in build
+order, the value each writes, and the file's own value. The build packs the last layer's value.
 
 ### A patch bin is read-only
 

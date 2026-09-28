@@ -14,6 +14,7 @@ import {
 import { rowKey } from "../../bin/tree/utils/binRows";
 import { objectDocument } from "../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../palette/utils/types";
+import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { useOpenDocumentAs, useRevealRow } from "../../state";
 
 /** What a key or an entry of the outline goes to. */
@@ -52,22 +53,23 @@ export function declaringChunk(
 /**
  * Open the game bin that declares an outline entry, on the row its key reaches.
  *
- * The object index answers which chunk declares the entry, and a cold index is warmed
- * first. The bin opens declared, because the object tab adds the open project to a game
- * chunk. A key whose path runs through a map key reveals the map's own row.
+ * The object index finds the file that declares the entry in the project's sandbox, and a
+ * cold index is built first. A game chunk no layer ships opens declared. A key whose path
+ * runs through a map key reveals the map's own row.
  */
 export function useGoToDeclaredRow(): (target: DeclaredRowTarget, intent: OpenIntent) => void {
   const open = useOpenDocumentAs();
+  const sandbox = useSandbox();
   const revealRow = useRevealRow();
   const toast = useToast();
 
   return useCallback(
     (target, intent) => {
       void (async () => {
-        let result = await api.objects.declared([target.entry.hash]);
+        let result = await api.objects.declared(sandbox, [target.entry.hash]);
         if (result.ok && result.value.index.status === "absent") {
           await api.objects.warm();
-          result = await api.objects.declared([target.entry.hash]);
+          result = await api.objects.declared(sandbox, [target.entry.hash]);
         }
 
         const found = result.ok ? declaringChunk(result.value, target) : null;

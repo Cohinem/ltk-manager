@@ -352,36 +352,38 @@ impl fmt::Display for EditRejection {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum ReadOnly {
-    /// A chunk of the installed game.
-    Install,
     /// A file outside every project.
     Loose,
     /// A `PTCH` layer. No edit writes a patch record.
     Patch,
     /// A game chunk inside a project whose game data declarations are off. ADR-0042.
     DeclarationsOff,
+    /// A document in the game sandbox, which is the installed game alone. ADR-0056.
+    GameSandbox,
 }
 
 impl fmt::Display for ReadOnly {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
-            Self::Install => "a file of the installed game",
             Self::Loose => "a file outside every project",
             Self::Patch => "a patch layer",
             Self::DeclarationsOff => "a game file of a project with declarations off",
+            Self::GameSandbox => "a file of the game sandbox",
         })
     }
 }
 
 impl BinDocument {
-    /// The gate `asset` stands behind, or `None` where the document takes edits.
+    /// The file's own gate for `asset`, or `None` where the file takes edits.
+    ///
+    /// [`BinDocuments::read_only`](super::BinDocuments::read_only) adds the game sandbox's
+    /// gate. ADR-0056.
     #[must_use]
     pub fn read_only(&self, asset: &AssetRef) -> Option<ReadOnly> {
         match (asset, &self.file) {
             (AssetRef::GameChunk { .. }, _) => match self.declaring() {
-                Some(Declaring::On) => None,
                 Some(Declaring::Off) => Some(ReadOnly::DeclarationsOff),
-                None => Some(ReadOnly::Install),
+                Some(Declaring::On) | None => None,
             },
             (AssetRef::File { .. }, _) => Some(ReadOnly::Loose),
             (AssetRef::Layer { .. }, BinFile::Override(_)) => Some(ReadOnly::Patch),

@@ -7,8 +7,8 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { editCall, landed, sentEdit } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 
-import { assetKey } from "../../../../preview/utils/assetRef";
-import { forgetBinSave, isQueuedThrough } from "../../../../state";
+import { GAME_SANDBOX } from "../../../../sandbox/utils/sandboxRef";
+import { binSaveKey, forgetBinSave, isQueuedThrough } from "../../../../state";
 import { registerReopen } from "../../../documents/hooks/useDocumentCall";
 import { ASSET, DOCUMENT, NO_FOCUS, providers } from "../../components/__tests__/binEditFixtures";
 import type { AddSuggestion } from "../../utils/addProperty";
@@ -27,7 +27,7 @@ beforeEach(() => {
 
 afterEach(() => {
   unregister();
-  forgetBinSave(assetKey(ASSET));
+  forgetBinSave(binSaveKey(GAME_SANDBOX, ASSET));
   vi.useRealTimers();
 });
 
@@ -63,7 +63,7 @@ describe("useBinEditor on an evicted document", () => {
         edit: { kind: "insert", index: null, text: "DATA/Characters/Teemo/Teemo.bin" },
       }),
     );
-    expect(isQueuedThrough(assetKey(ASSET), FRESH)).toBe(true);
+    expect(isQueuedThrough(binSaveKey(GAME_SANDBOX, ASSET), FRESH)).toBe(true);
   });
 
   it("reopens and sends an added property again on the fresh id", async () => {
@@ -93,7 +93,7 @@ describe("useBinEditor on an evicted document", () => {
         edit: expect.objectContaining({ kind: "addProperty" }),
       }),
     );
-    expect(isQueuedThrough(assetKey(ASSET), FRESH)).toBe(true);
+    expect(isQueuedThrough(binSaveKey(GAME_SANDBOX, ASSET), FRESH)).toBe(true);
   });
 
   it("keeps the refusal where no reopen is registered", async () => {
@@ -108,6 +108,6 @@ describe("useBinEditor on an evicted document", () => {
     });
 
     expect(added).toEqual(NOT_OPEN);
-    expect(isQueuedThrough(assetKey(ASSET), DOCUMENT)).toBe(false);
+    expect(isQueuedThrough(binSaveKey(GAME_SANDBOX, ASSET), DOCUMENT)).toBe(false);
   });
 });

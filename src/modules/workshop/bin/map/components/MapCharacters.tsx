@@ -21,6 +21,7 @@ import {
 } from "@/modules/viewport";
 import { usePreviewShaders } from "@/stores";
 
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
@@ -44,8 +45,6 @@ const BEFORE_THE_POSES = -1;
 export interface MapCharactersProps {
   /** The map's open `.materials.bin`, and null until the scene holds it. */
   readonly document: BinDocumentId | null;
-  /** Any asset of the project whose layers answer a skin's bin before the install. */
-  readonly near: AssetRef;
   /** The visibility flags the backdrop draws, as a mask. */
   readonly flags: number;
   /** The chunks and placeables an outliner hid, which a backdrop has none of. */
@@ -61,7 +60,8 @@ const NONE_HIDDEN: ReadonlySet<string> = new Set();
  * map's, and drawn at every place the map stands it. They run on a clock of their own
  * rather than the scene's, since a map's banners wave on through a clip that restarts.
  */
-export function MapCharacters({ document, near, flags, hidden = NONE_HIDDEN }: MapCharactersProps) {
+export function MapCharacters({ document, flags, hidden = NONE_HIDDEN }: MapCharactersProps) {
+  const sandbox = useSandbox();
   const placed = useQuery(mapQueries.characters(document));
   const stood = useMemo(() => stoodCharacters(placed.data ?? [], flags), [placed.data, flags]);
   const skins = useMemo(
@@ -83,7 +83,7 @@ export function MapCharacters({ document, near, flags, hidden = NONE_HIDDEN }: M
     () => [...new Set(stood.map((character) => skinFile(character.skin)))],
     [stood],
   );
-  const files = useQuery(mapQueries.filesNear(near, paths)).data;
+  const files = useQuery(mapQueries.filesNear(sandbox, paths)).data;
 
   /* A skin whose bin nothing holds is a prop the map draws without. */
   return skins.map(([skin, characters]) => {

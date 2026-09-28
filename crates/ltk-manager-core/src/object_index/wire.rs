@@ -10,6 +10,7 @@ use serde::Serialize;
 
 use crate::matcher::Range;
 use crate::preview::AssetRef;
+use crate::sandbox::layer_chunk_hash;
 
 /// One row a search matched, with the runs its path marks.
 ///
@@ -120,14 +121,16 @@ impl ObjectDeclaration {
     /// Where the declaration sits in a link's resolution order: 0 in `this` file, 1 in a
     /// file among `dependencies`, 2 anywhere else.
     fn rank(&self, this: &AssetRef, dependencies: &[WadHash]) -> u8 {
-        if self.asset.same_file(this) {
+        if self.asset == *this {
             return 0;
         }
-        let AssetRef::GameChunk { path_hash, .. } = &self.asset else {
-            return 2;
+        let chunk = match &self.asset {
+            AssetRef::GameChunk { path_hash, .. } => path_hash.parse::<WadHash>().ok(),
+            AssetRef::Layer { .. } => layer_chunk_hash(&self.asset).map(WadHash),
+            AssetRef::File { .. } => None,
         };
-        match path_hash.parse::<WadHash>() {
-            Ok(hash) if dependencies.contains(&hash) => 1,
+        match chunk {
+            Some(hash) if dependencies.contains(&hash) => 1,
             _ => 2,
         }
     }

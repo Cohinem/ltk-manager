@@ -11,6 +11,7 @@ import {
   type MapParticle,
   type MapPath,
   type MapVariant,
+  type SandboxRef,
 } from "@/lib/tauri";
 import { MAP_FILES_NEAR_ROOT, MAP_FILES_ROOT } from "@/modules/viewport";
 import { unwrapForQuery } from "@/utils/query";
@@ -61,26 +62,26 @@ export const mapQueries = {
       staleTime: Infinity,
       retry: false,
     }),
-  /** Where the two files of `map` live, the project `near` sits in answering first. */
-  files: (near: AssetRef, map: MapPath | null) =>
+  /** Where the two files of `map` live in `sandbox`, its layers checked first. */
+  files: (sandbox: SandboxRef, map: MapPath | null) =>
     queryOptions<MapFiles, AppError>({
-      queryKey: [...MAP_FILES_ROOT, near, map],
+      queryKey: [...MAP_FILES_ROOT, sandbox, map],
       queryFn:
         map === null
           ? skipToken
-          : async () => unwrapForQuery(await api.bin.locateMapFiles(near, map)),
+          : async () => unwrapForQuery(await api.bin.locateMapFiles(sandbox, map)),
       staleTime: Infinity,
       retry: false,
     }),
   /**
-   * Where each of `paths` lives, the project `near` sits in answering first, asked in one
-   * call because finding a project's files walks its layers. A path nothing holds is absent.
+   * Where each of `paths` lives in `sandbox`, its layers checked first, asked in one call.
+   * A path nothing holds is absent.
    */
-  filesNear: (near: AssetRef, paths: readonly string[]) =>
+  filesNear: (sandbox: SandboxRef, paths: readonly string[]) =>
     queryOptions<Partial<Record<string, AssetRef>>, AppError>({
-      queryKey: [...MAP_FILES_NEAR_ROOT, near, paths],
+      queryKey: [...MAP_FILES_NEAR_ROOT, sandbox, paths],
       queryFn: async () =>
-        paths.length === 0 ? {} : unwrapForQuery(await api.bin.locateFilesNear(near, paths)),
+        paths.length === 0 ? {} : unwrapForQuery(await api.bin.locateFilesNear(sandbox, paths)),
       staleTime: Infinity,
       retry: false,
     }),

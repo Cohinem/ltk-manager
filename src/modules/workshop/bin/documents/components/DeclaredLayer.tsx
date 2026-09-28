@@ -1,112 +1,15 @@
-import { CaretDownIcon, LockSimpleIcon } from "@phosphor-icons/react";
-
-import { Button, Code, Menu, SeverityGlyph, Tooltip } from "@/components";
-import { m, readOnlyDescription } from "@/i18n";
-import type {
-  BinDocumentId,
-  DeclaredDiagnostic,
-  DeclaredMark,
-  DeclaredState,
-  LinkChange,
-  ObjectChange,
-  ReadOnly,
-} from "@/lib/tauri";
+import { Code, SeverityGlyph, Tooltip } from "@/components";
+import { m } from "@/i18n";
+import type { DeclaredDiagnostic, DeclaredMark, LinkChange, ObjectChange } from "@/lib/tauri";
 
 import { layerTitle } from "../../../documents/utils/contentDocument";
 import { LayerGlyph } from "../../../layers/components/LayerGlyph";
 import { useProjectContext } from "../../../projects/state/ProjectContext";
-import {
-  useSelectedLayerName,
-  useSelectedModule,
-  useSelectLayer,
-  useSetUseDeclarations,
-} from "../../../state";
-import { useDeclareInto, useDeclaredMark, useRowDiagnostics } from "../hooks/useDeclared";
+import { useDeclaredMark, useRowDiagnostics } from "../hooks/useDeclared";
+import { useRowOverrides } from "../hooks/useOverrides";
 import { diagnosticSeverity, diagnosticText } from "../utils/declaredDiagnostics";
 import { moduleLabel } from "../utils/declaredModule";
-import { DeclaredModuleChip } from "./DeclaredModuleChip";
-
-interface DeclaredLayerChipProps {
-  document: BinDocumentId;
-  declared: DeclaredState;
-  /** The gate the document stands behind, `declarationsOff` or null. */
-  readOnly: ReadOnly | null;
-}
-
-/**
- * The layer a declared document's edits write to, and the menu that switches it and turns
- * the project's declarations on and off. The layer is the project's selected layer, so it
- * holds across tabs and sessions. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
- */
-export function DeclaredLayerChip({ document, declared, readOnly }: DeclaredLayerChipProps) {
-  const project = useProjectContext();
-  const selectLayer = useSelectLayer();
-  const setUseDeclarations = useSetUseDeclarations();
-  useDeclareInto(document, declared, useSelectedLayerName(), useSelectedModule());
-
-  const hint =
-    readOnly === null ? m.workshop_bin_declares_into_hint() : readOnlyDescription(readOnly);
-
-  return (
-    <span className="flex shrink-0 items-center gap-1">
-      <DeclaredDiagnosticsMark
-        diagnostics={declared.diagnostics.filter((diagnostic) => diagnostic.entry.length === 0)}
-      />
-      <Menu.Root>
-        <Tooltip content={hint}>
-          <Menu.Trigger
-            render={
-              <Button
-                variant="ghost"
-                size="xs"
-                compact
-                aria-label={m.workshop_bin_declares_into_label()}
-                left={<ChipGlyph layer={declared.layer} locked={readOnly !== null} />}
-                right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
-              >
-                {layerTitle(project, declared.layer)}
-              </Button>
-            }
-          />
-        </Tooltip>
-        <Menu.Portal>
-          <Menu.Positioner align="end">
-            <Menu.Popup
-              data-ui="DeclaredLayerMenu"
-              className="max-h-96 w-56 overflow-y-auto scrollbar-md"
-            >
-              <Menu.CheckboxItem checked={readOnly === null} onCheckedChange={setUseDeclarations}>
-                {m.workshop_bin_declarations_toggle_label()}
-              </Menu.CheckboxItem>
-              <Menu.Separator />
-              <Menu.RadioGroup
-                value={declared.layer}
-                onValueChange={(layer) => selectLayer(layer as string)}
-              >
-                {declared.layers.map((layer) => (
-                  <Menu.RadioItem key={layer} value={layer}>
-                    {layerTitle(project, layer)}
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-      <span aria-hidden="true" className="text-surface-500 select-none">
-        /
-      </span>
-      <DeclaredModuleChip document={document} declared={declared} readOnly={readOnly} />
-    </span>
-  );
-}
-
-/** The chosen layer's glyph, or a lock while declarations are off. */
-function ChipGlyph({ layer, locked }: { layer: string; locked: boolean }) {
-  if (locked) return <LockSimpleIcon className="h-3.5 w-3.5" />;
-
-  return <LayerGlyph layerName={layer} />;
-}
+import { OverrideRowMark } from "./OverrideMark";
 
 interface DeclaredDiagnosticsMarkProps {
   diagnostics: readonly DeclaredDiagnostic[];
@@ -160,11 +63,13 @@ interface DeclaredRowMarkProps {
 /** A field's declaration marker and apply diagnostics. */
 export function DeclaredRowState({ rowKey }: { rowKey: string }) {
   const declared = useDeclaredMark(rowKey);
+  const overrides = useRowOverrides(rowKey);
   const diagnostics = useRowDiagnostics(rowKey);
 
   return (
     <>
       {declared !== null && <DeclaredRowMark mark={declared.mark} layer={declared.layer} />}
+      {overrides.length > 0 && <OverrideRowMark overrides={overrides} />}
       <DeclaredDiagnosticsMark diagnostics={diagnostics} />
     </>
   );

@@ -5,6 +5,7 @@ import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId } from "@/lib/tauri";
 import { createPose, jointAnchor, viewportQueries } from "@/modules/viewport";
 
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { useSkinGraphSource } from "../../skin/hooks/useGraphSource";
@@ -68,8 +69,10 @@ function ReadRecipe({
   const animation = spellAnimation(read.data?.animationName ?? null, graph.data?.clips ?? []);
   const skeleton = useQuery(viewportQueries.skeleton(skin.skin.data?.skeleton?.asset ?? null));
   const clipRead = useQuery(viewportQueries.clip(animation?.animation?.asset ?? null));
+  const sandbox = useSandbox();
   const names = useQuery(
     spellQueries.effects(
+      sandbox,
       source.document,
       skin.skin.data?.effectSystems.map((effect) => effect.system) ?? [],
     ),

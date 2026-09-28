@@ -1,5 +1,5 @@
 import { useQueries, type UseQueryOptions, type UseQueryResult } from "@tanstack/react-query";
-import { createContext, use, useEffect, useMemo, useState } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   api,
@@ -7,32 +7,25 @@ import {
   type AssetRef,
   type BinDocumentId,
   type BinRow,
-  type ContentTree,
   type DeclaredObject,
   type DeclaredObjects,
-  type GameFileEntry,
-  type LayerContent,
-  type ObjectDeclaration,
   type ObjectIndexStatus,
-  type WorkshopProject,
+  type SandboxRef,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
-import { useProjectContentTree } from "../../../content/api/useProjectContentTree";
 import { layerTitle } from "../../../documents/utils/contentDocument";
 /* The leaves rather than the browser barrel, which pulls the documents that route back here. */
 import { BUILDING_POLL_MS, gameKeys } from "../../../gameBrowser/api/keys";
 import { useWarmObjectIndex } from "../../../objectsBrowser/api/useObjectIndex";
 import type { OpenIntent } from "../../../palette/utils/types";
-import { assetKey, assetProject } from "../../../preview/utils/assetRef";
-import {
-  useOptionalProjectContext,
-  useProjectContext,
-} from "../../../projects/state/ProjectContext";
+import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
+import { sandboxKey } from "../../../sandbox/utils/sandboxRef";
 import { useOpenDocumentAs } from "../../../state";
 import { stringQueries } from "../../../string-overrides/api/queries";
 import { nameHash } from "../../shared/utils/binHash";
-import { chunkPath, decideFileLink, decideObjectLink, type LayerCopy } from "../utils/linkDecision";
+import { chunkPath, decideFileLink, decideObjectLink } from "../utils/linkDecision";
 
 /** One group of rows checked together: a node's rows, or the tab's roots. */
 export interface RowGroup {
@@ -46,8 +39,11 @@ export interface LinkTargets {
   readonly index: ObjectIndexStatus | null;
   /** By object hash, `0x` and eight hex digits: what declares it, in resolution order. */
   readonly declared: ReadonlyMap<string, DeclaredObject>;
-  /** By resolved chunk path: the install's copy. A path the install lacks is absent. */
-  readonly located: ReadonlyMap<string, GameFileEntry>;
+  /**
+   * By resolved chunk path: the copy the build uses in the document's sandbox, where a
+   * layer's copy comes before the install's. A path nothing holds is absent.
+   */
+  readonly located: ReadonlyMap<string, AssetRef>;
   /** By string as the file holds it: the in-game line of the string-table key it is. */
   readonly strings: ReadonlyMap<string, string>;
   /** A check is on its way for some page. */
@@ -115,9 +111,9 @@ export function useObjectOpen(hash: string | null): ((intent: OpenIntent) => voi
 export function useChunkOpen(path: string): ((intent: OpenIntent) => void) | null {
   const targets = useLinkTargets();
   const chunk = path.toLowerCase();
-  const layer = useLayerCopy(chunk);
+  const title = useLayerTitle();
   const open = useOpenDocumentAs();
-  const decision = decideFileLink(chunk, targets, layer);
+  const decision = decideFileLink(chunk, targets, title);
   if (decision.kind !== "chip") return null;
   return (intent) => open(decision.document, intent);
 }
@@ -180,10 +176,14 @@ export function linkStringKeys(rows: readonly BinRow[]): string[] {
 }
 
 export const linkKeys = {
-  declared: (document: BinDocumentId, key: string, hashes: readonly string[]) =>
-    [...gameKeys.objectSearches, "links", document, key, hashes] as const,
-  located: (key: string, paths: readonly string[]) =>
-    [...gameKeys.dirs, "files", key, paths] as const,
+  declared: (
+    sandbox: SandboxRef,
+    document: BinDocumentId,
+    key: string,
+    hashes: readonly string[],
+  ) => [...gameKeys.objectSearches, "links", sandboxKey(sandbox), document, key, hashes] as const,
+  located: (sandbox: SandboxRef, key: string, paths: readonly string[]) =>
+    [...gameKeys.dirs, "files", sandboxKey(sandbox), key, paths] as const,
 };
 
 /**
@@ -216,69 +216,6 @@ export function linkPaths(rows: readonly BinRow[]): string[] {
   return [...paths].sort();
 }
 
-/**
- * The project's declarations of `hashes` out of the content scan, by hash.
- *
- * The layer side of "Elsewhere in the install or a layer" in docs/ux/BIN_EDITOR.md. The
- * scan carries every object a layer's bins declare, and no call is made.
- */
-export function layerDeclarations(
-  tree: ContentTree | undefined,
-  projectPath: string,
-  hashes: ReadonlySet<string>,
-): ReadonlyMap<string, DeclaredObject> {
-  const declared = new Map<string, DeclaredObject>();
-  if (!tree || hashes.size === 0) return declared;
-  for (const layer of tree.layers) {
-    for (const entry of layer.entries) {
-      for (const object of entry.objects) {
-        if (!hashes.has(object.objectHash)) continue;
-        const declaration: ObjectDeclaration = {
-          asset: {
-            kind: "layer",
-            project: projectPath,
-            layer: layer.name,
-            path: entry.relativePath,
-          },
-          file: entry.relativePath,
-          classHash: object.classHash,
-          class: object.class,
-        };
-        const known = declared.get(object.objectHash);
-        if (known) known.declarations.push(declaration);
-        else declared.set(object.objectHash, { path: object.path, declarations: [declaration] });
-      }
-    }
-  }
-  return declared;
-}
-
-/**
- * `install` with `layers` folded in, each hash's layer declarations after its install
- * ones and none twice.
- */
-export function joinDeclarations(
-  install: ReadonlyMap<string, DeclaredObject>,
-  layers: ReadonlyMap<string, DeclaredObject>,
-): ReadonlyMap<string, DeclaredObject> {
-  const joined = new Map(install);
-  for (const [hash, fromLayers] of layers) {
-    const known = joined.get(hash);
-    if (!known) {
-      joined.set(hash, fromLayers);
-      continue;
-    }
-    const seen = new Set(known.declarations.map((declaration) => assetKey(declaration.asset)));
-    const added = fromLayers.declarations.filter(
-      (declaration) => !seen.has(assetKey(declaration.asset)),
-    );
-    if (added.length > 0) {
-      joined.set(hash, { ...known, declarations: [...known.declarations, ...added] });
-    }
-  }
-  return joined;
-}
-
 type DeclaredQuery = UseQueryOptions<
   DeclaredObjects,
   AppError,
@@ -287,9 +224,9 @@ type DeclaredQuery = UseQueryOptions<
 >;
 
 type LocatedQuery = UseQueryOptions<
-  Record<string, GameFileEntry>,
+  Partial<Record<string, AssetRef>>,
   AppError,
-  Record<string, GameFileEntry>,
+  Partial<Record<string, AssetRef>>,
   ReturnType<typeof linkKeys.located>
 >;
 
@@ -302,7 +239,7 @@ interface DeclaredAnswer {
 
 /** What the located checks answered across every group. */
 interface LocatedAnswer {
-  readonly entries: Readonly<Record<string, GameFileEntry>>;
+  readonly entries: Readonly<Partial<Record<string, AssetRef>>>;
   readonly pending: boolean;
 }
 
@@ -326,9 +263,9 @@ function combineDeclared(
 }
 
 function combineLocated(
-  results: readonly UseQueryResult<Record<string, GameFileEntry>, AppError>[],
+  results: readonly UseQueryResult<Partial<Record<string, AssetRef>>, AppError>[],
 ): LocatedAnswer {
-  const entries: Record<string, GameFileEntry> = {};
+  const entries: Partial<Record<string, AssetRef>> = {};
   let pending = false;
   for (const result of results) {
     if (result.isPending) pending = true;
@@ -347,8 +284,9 @@ function combineStrings(
 }
 
 /**
- * Check every group's link and hash targets against the index and the project's
- * layers, and its `file` targets against the install, one call per group and per kind.
+ * Check every group's link, hash and `file` targets in the document's sandbox, one call
+ * per group and per kind. The backend returns a layer's copy before the install's
+ * (ADR-0056).
  *
  * "Links" in docs/ux/BIN_EDITOR.md. The declared checks sit under the object searches,
  * and a warm or a drop settling asks them again. A check the build has not answered
@@ -358,8 +296,7 @@ export function useCheckLinkTargets(
   document: BinDocumentId,
   groups: readonly RowGroup[],
 ): LinkTargets {
-  const project = useOptionalProjectContext();
-  const { data: tree } = useProjectContentTree(project?.path);
+  const sandbox = useSandbox();
 
   const targets = useMemo(
     () =>
@@ -375,8 +312,9 @@ export function useCheckLinkTargets(
   const declaredQueries: DeclaredQuery[] = targets
     .filter((group) => group.hashes.length > 0)
     .map((group) => ({
-      queryKey: linkKeys.declared(document, group.key, group.hashes),
-      queryFn: async () => unwrapForQuery(await api.objects.declared(group.hashes, document)),
+      queryKey: linkKeys.declared(sandbox, document, group.key, group.hashes),
+      queryFn: async () =>
+        unwrapForQuery(await api.objects.declared(sandbox, group.hashes, document)),
       staleTime: Infinity,
       retry: false,
       refetchInterval: (query) =>
@@ -387,8 +325,8 @@ export function useCheckLinkTargets(
   const locatedQueries: LocatedQuery[] = targets
     .filter((group) => group.paths.length > 0)
     .map((group) => ({
-      queryKey: linkKeys.located(group.key, group.paths),
-      queryFn: async () => unwrapForQuery(await api.objects.locateGameFiles(group.paths)),
+      queryKey: linkKeys.located(sandbox, group.key, group.paths),
+      queryFn: async () => unwrapForQuery(await api.bin.locateFilesNear(sandbox, group.paths)),
       staleTime: Infinity,
       retry: false,
     }));
@@ -404,98 +342,38 @@ export function useCheckLinkTargets(
   });
 
   return useMemo(() => {
-    const install = new Map(Object.entries(declaredAnswer.objects));
-    const located = new Map(Object.entries(locatedAnswer.entries));
+    const located = new Map<string, AssetRef>();
+    for (const [path, asset] of Object.entries(locatedAnswer.entries)) {
+      if (asset !== undefined) located.set(path, asset);
+    }
 
-    const wanted = new Set(targets.flatMap((group) => group.hashes));
-    const declared = project
-      ? joinDeclarations(install, layerDeclarations(tree, project.path, wanted))
-      : install;
     return {
       index: declaredAnswer.index,
-      declared,
+      declared: new Map(Object.entries(declaredAnswer.objects)),
       located,
       strings: new Map(Object.entries(lines)),
       pending: declaredAnswer.pending || locatedAnswer.pending,
     };
-  }, [declaredAnswer, locatedAnswer, lines, project, targets, tree]);
+  }, [declaredAnswer, locatedAnswer, lines]);
+}
+
+/**
+ * The display title of a layer, which a `file` chip for a layer's copy shows. Outside a
+ * project, the layer's name.
+ */
+export function useLayerTitle(): (layer: string) => string {
+  const project = useOptionalProjectContext();
+  return useCallback(
+    (layer: string) => (project === null ? layer : layerTitle(project, layer)),
+    [project],
+  );
 }
 
 /** What a layer directory holding an archive's chunks is named. */
 const WAD_DIR_SUFFIX = ".wad.client";
 
-/** The layer every project has. At equal priority, any other layer overrides it. */
-const BASE_LAYER = "base";
-
-/** The priority `LayerChunks` stacks a layer the manifest does not declare at. */
-const UNDECLARED_PRIORITY = 0;
-
-/** The tree's asset, for the layer side of a `file` link. Null outside a tree. */
+/** The tree's asset, which a string key and a path suggestion read. Null outside a tree. */
 export const LinkAssetContext = createContext<AssetRef | null>(null);
-
-/**
- * The project's copy of `path`, when the tree's asset resolves in a project that has one.
- *
- * A layer file resolves in its project, and a game bin open in a project resolves in
- * that project (ADR-0042). Matched without regard to case: a layer spells a path as its
- * author spells it, and the tables spell it lowercase.
- */
-export function useLayerCopy(path: string | null): LayerCopy | null {
-  const asset = use(LinkAssetContext);
-  const project = useProjectContext();
-  const owned = asset !== null && assetProject(asset, project.path) !== null;
-  const { data } = useProjectContentTree(owned ? project.path : undefined);
-
-  return useMemo(() => {
-    if (path === null || asset === null || !owned || !data) return null;
-    const wanted = path.toLowerCase();
-
-    const documentLayer = asset.kind === "layer" ? asset.layer : null;
-    for (const layer of lookupOrder(data.layers, documentLayer, project)) {
-      const entry = layer.entries.find(
-        (candidate) => entryChunkPath(candidate.relativePath)?.toLowerCase() === wanted,
-      );
-      if (entry === undefined) continue;
-      return {
-        asset: {
-          kind: "layer",
-          project: project.path,
-          layer: layer.name,
-          path: entry.relativePath,
-        },
-        title: layerTitle(project, layer.name),
-      };
-    }
-    return null;
-  }, [asset, owned, data, path, project]);
-}
-
-/**
- * The order layers are searched for a path: the document's layer, then highest priority first.
- *
- * `LayerChunks` uses the same order: the higher priority wins, and at equal priority any
- * other layer wins over `base`. The chip and the preview then show the same file.
- */
-function lookupOrder(
-  layers: readonly LayerContent[],
-  documentLayer: string | null,
-  project: WorkshopProject,
-): LayerContent[] {
-  const priority = (name: string) =>
-    project.layers.find((layer) => layer.name === name)?.priority ?? UNDECLARED_PRIORITY;
-
-  const stacked = [...layers].sort(
-    (a, b) =>
-      priority(b.name) - priority(a.name) ||
-      Number(a.name === BASE_LAYER) - Number(b.name === BASE_LAYER) ||
-      b.name.localeCompare(a.name, undefined, { numeric: true }),
-  );
-
-  return [
-    ...stacked.filter((layer) => layer.name === documentLayer),
-    ...stacked.filter((layer) => layer.name !== documentLayer),
-  ];
-}
 
 /**
  * The chunk path a layer's file holds, or null for a file outside an archive directory.

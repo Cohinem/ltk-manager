@@ -4,8 +4,24 @@ import { useEffect } from "react";
 import { bumpAssetVersions } from "@/lib/assetVersions";
 import { api, type LayerFilesChanged } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
+import { BACKDROP_ROOT, MAP_FILES_NEAR_ROOT, MAP_FILES_ROOT } from "@/modules/viewport";
 
+import { OVERRIDES_ROOT } from "../../bin/documents/hooks/useOverrides";
+import { gameKeys } from "../../gameBrowser/api/keys";
+import { sandboxKeys } from "../../sandbox/api/keys";
 import { infoChangedBy, LAYER_FILES_CHANGED } from "../utils/layerChanges";
+
+/** The reads that find a file or an object in a project's sandbox. */
+const SANDBOX_READS: readonly (readonly string[])[] = [
+  [...gameKeys.objectSearches, "links"],
+  [...gameKeys.objectSearches, "declared"],
+  [...gameKeys.dirs, "files"],
+  OVERRIDES_ROOT,
+  sandboxKeys.gameCopies,
+  MAP_FILES_ROOT,
+  MAP_FILES_NEAR_ROOT,
+  [...BACKDROP_ROOT, "lightmaps"],
+];
 
 /**
  * Previews of a project's layer files that follow the files on disk while the project is open.
@@ -30,5 +46,8 @@ export function useLayerFileReload(projectPath: string): void {
   useTauriEvent<LayerFilesChanged>(LAYER_FILES_CHANGED, (change) => {
     bumpAssetVersions(change);
     void client.invalidateQueries({ predicate: (query) => infoChangedBy(query.queryKey, change) });
+    /* The backend reads the project's sandbox again, so where a file or an object is found
+       may have changed. ADR-0056. */
+    for (const queryKey of SANDBOX_READS) void client.invalidateQueries({ queryKey });
   });
 }

@@ -34,17 +34,12 @@ import { ObjectMenuItems } from "../../documents/components/ObjectMenuItems";
 import { useDeclaredObject, useDeclares } from "../../documents/hooks/useDeclared";
 import {
   type LinkTargets,
-  useLayerCopy,
+  useLayerTitle,
   useLinkOpen,
   useLinkTargets,
   useObjectOpen,
 } from "../../links/hooks/useLinkTargets";
-import {
-  chunkPath,
-  decideLink,
-  type LinkDecision,
-  type MissingChunk,
-} from "../../links/utils/linkDecision";
+import { decideLink, type LinkDecision, type MissingChunk } from "../../links/utils/linkDecision";
 import { nameHash } from "../../shared/utils/binHash";
 import { useValueMark } from "../../values/hooks/useValueMarks";
 import { markText } from "../../values/utils/valueRows";
@@ -95,7 +90,7 @@ export function BinContextMenu({
   const mark = useValueMark(line?.kind === "row" ? line.key : undefined);
   const { aim } = useCurveDock();
   const row = line?.kind === "row" ? line.row : null;
-  const layer = useLayerCopy(layerPath(row?.value ?? null));
+  const title = useLayerTitle();
   const edit = use(BinEditContext);
   const leafEdit = use(LeafEditContext);
   const declares = useDeclares();
@@ -133,7 +128,7 @@ export function BinContextMenu({
   const structName = struct?.class ?? null;
   const valueText = readableValue(row.value) ?? markText(mark);
   const valueHash = linkedValueHash(row.value, targets);
-  const link = decideLink(row.value, targets, () => layer);
+  const link = decideLink(row.value, targets, title);
   const openLink = linkOpener(row.value, link, open, wantOpen);
 
   return (
@@ -307,13 +302,6 @@ function linkOpener(
   if (link?.kind === "warm" && value.type === "objectLink") {
     return (intent) => wantOpen(value.hash, intent);
   }
-  return null;
-}
-
-/** The chunk path a row's value resolves a layer's copy under, or null where it names none. */
-function layerPath(value: BinValue | null): string | null {
-  if (value?.type === "wadChunkLink") return value.path;
-  if (value?.type === "string") return chunkPath(value.value);
   return null;
 }
 

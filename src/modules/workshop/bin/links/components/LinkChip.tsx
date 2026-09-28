@@ -27,7 +27,7 @@ import { pathUnder, splitPath } from "../../shared/utils/textCut";
 import { KindBadge } from "../../values/components/KindBadge";
 import {
   LinkAssetContext,
-  useLayerCopy,
+  useLayerTitle,
   useLinkOpen,
   useLinkTargets,
 } from "../hooks/useLinkTargets";
@@ -38,6 +38,7 @@ import {
   decideHash,
   decideObjectLink,
   decideStringLink,
+  layerCopyTitle,
 } from "../utils/linkDecision";
 import { TextureSwatch } from "./TextureSwatch";
 
@@ -141,8 +142,8 @@ interface FileChipProps {
  */
 export function FileChip({ hash, path }: FileChipProps) {
   const targets = useLinkTargets();
-  const layer = useLayerCopy(path);
-  const decision = decideFileLink(path, targets, layer);
+  const title = useLayerTitle();
+  const decision = decideFileLink(path, targets, title);
 
   if (path === null) return <Hex>{hash}</Hex>;
   if (decision.kind !== "chip") return <Text missing={decision.kind === "missing"} path={path} />;
@@ -151,7 +152,7 @@ export function FileChip({ hash, path }: FileChipProps) {
       document={decision.document}
       path={path}
       side={decision.side}
-      layerTitle={layer?.title}
+      layerTitle={layerCopyTitle(decision.document.asset, title)}
     />
   );
 }
@@ -170,8 +171,8 @@ interface DependencyChipProps {
 export function DependencyChip({ path, label }: DependencyChipProps) {
   const targets = useLinkTargets();
   const chunk = path.toLowerCase();
-  const layer = useLayerCopy(chunk);
-  const decision = decideFileLink(chunk, targets, layer);
+  const title = useLayerTitle();
+  const decision = decideFileLink(chunk, targets, title);
 
   if (decision.kind !== "chip") {
     return <Text missing={decision.kind === "missing"} path={label} title={path} />;
@@ -182,7 +183,7 @@ export function DependencyChip({ path, label }: DependencyChipProps) {
       path={path}
       label={label}
       side={decision.side}
-      layerTitle={layer?.title}
+      layerTitle={layerCopyTitle(decision.document.asset, title)}
     />
   );
 }
@@ -201,9 +202,9 @@ interface StringValueProps {
 export function StringValue({ text }: StringValueProps) {
   const targets = useLinkTargets();
   const path = chunkPath(text);
-  const layer = useLayerCopy(path);
+  const title = useLayerTitle();
   const open = useOpenDocumentAs();
-  const decision = decideStringLink(text, targets, () => layer);
+  const decision = decideStringLink(text, targets, title);
 
   if (decision.kind === "missing" && path !== null) return <Text missing path={path} />;
   if (decision.kind === "missing") return <Text missing>{text}</Text>;
@@ -212,7 +213,13 @@ export function StringValue({ text }: StringValueProps) {
   if (decision.kind !== "chip") return <Text>{text}</Text>;
   const { document } = decision;
   if (document.kind === "preview" && path !== null) {
-    return <ChunkChip document={document} path={path} layerTitle={layer?.title} />;
+    return (
+      <ChunkChip
+        document={document}
+        path={path}
+        layerTitle={layerCopyTitle(document.asset, title)}
+      />
+    );
   }
 
   const hash = nameHash(text);

@@ -10,8 +10,11 @@ use crate::workshop::{
 use chrono::Local;
 use fs_err as fs;
 use indexmap::IndexMap;
+use ltk_manager_core::bin_document::BinDocuments;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
 use ltk_manager_core::object_index::CacheNames;
+use ltk_manager_core::sandbox::SandboxState;
+use ltk_manager_core::workshop::layer_name_for;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -398,24 +401,35 @@ pub fn create_project_layer(
     display_name: Option<String>,
     description: Option<String>,
     workshop: State<WorkshopState>,
+    sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop
+    let created = workshop
         .0
-        .create_layer(&project_path, &name, display_name, description)
-        .into()
+        .create_layer(&project_path, &name, display_name, description);
+    sandboxes.invalidate(&project_path);
+    created.into()
 }
 
+/// Rename a layer, and move the open documents and sandboxes of the project to the new
+/// name. ADR-0056.
 #[tauri::command]
 pub fn rename_project_layer(
     project_path: String,
     layer_name: String,
     new_display_name: String,
     workshop: State<WorkshopState>,
+    documents: State<BinDocuments>,
+    sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop
+    let renamed = workshop
         .0
-        .rename_layer(&project_path, &layer_name, &new_display_name)
-        .into()
+        .rename_layer(&project_path, &layer_name, &new_display_name);
+    sandboxes.invalidate(&project_path);
+
+    if let (Ok(_), Some(to)) = (&renamed, layer_name_for(&new_display_name)) {
+        documents.rename_layer(&project_path, &layer_name, &to);
+    }
+    renamed.into()
 }
 
 #[tauri::command]
@@ -423,8 +437,11 @@ pub fn delete_project_layer(
     project_path: String,
     layer_name: String,
     workshop: State<WorkshopState>,
+    sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop.0.delete_layer(&project_path, &layer_name).into()
+    let deleted = workshop.0.delete_layer(&project_path, &layer_name);
+    sandboxes.invalidate(&project_path);
+    deleted.into()
 }
 
 #[tauri::command]
@@ -466,8 +483,11 @@ pub fn reorder_project_layers(
     project_path: String,
     layer_names: Vec<String>,
     workshop: State<WorkshopState>,
+    sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop.0.reorder_layers(&project_path, layer_names).into()
+    let reordered = workshop.0.reorder_layers(&project_path, layer_names);
+    sandboxes.invalidate(&project_path);
+    reordered.into()
 }
 
 #[tauri::command]
@@ -477,12 +497,14 @@ pub fn add_files_to_layer(
     sources: Vec<String>,
     workshop: State<WorkshopState>,
     resolvers: State<std::sync::Arc<WadPathResolverState>>,
+    sandboxes: State<SandboxState>,
 ) -> IpcResult<AddFilesReport> {
     let resolver = resolvers.get();
-    workshop
+    let added = workshop
         .0
-        .add_files_to_layer(&project_path, &layer_name, sources, &resolver)
-        .into()
+        .add_files_to_layer(&project_path, &layer_name, sources, &resolver);
+    sandboxes.invalidate(&project_path);
+    added.into()
 }
 
 /// Delete one file or directory from a layer's content directory.
@@ -494,11 +516,13 @@ pub fn delete_layer_content(
     layer_name: String,
     relative_path: String,
     workshop: State<WorkshopState>,
+    sandboxes: State<SandboxState>,
 ) -> IpcResult<()> {
-    workshop
+    let deleted = workshop
         .0
-        .delete_layer_content(&project_path, &layer_name, &relative_path)
-        .into()
+        .delete_layer_content(&project_path, &layer_name, &relative_path);
+    sandboxes.invalidate(&project_path);
+    deleted.into()
 }
 
 /// Read the frontend-owned editor state at `<project>/.ltk/editor.json`.

@@ -6,12 +6,12 @@ import { errorSummary, m, readOnlyDescription } from "@/i18n";
 import { api, type AssetRef, type BinDocumentId, type ReadOnly } from "@/lib/tauri";
 import { SaveStatus } from "@/modules/editor";
 
-import { assetKey } from "../../../preview/utils/assetRef";
-import { forgetBinSave, saveBinNow, useBinSave } from "../../../state";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
+import { binSaveKey, forgetBinSave, saveBinNow, useBinSave } from "../../../state";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { NewObjectContext } from "../../tree/state/newObject";
 import { useDeclaredState } from "../hooks/useDeclared";
-import { DeclaredLayerChip } from "./DeclaredLayer";
+import { DeclaredDiagnosticsMark } from "./DeclaredLayer";
 
 interface BinEditStateProps {
   document: BinDocumentId;
@@ -23,9 +23,8 @@ interface BinEditStateProps {
 }
 
 /**
- * What a bin tab's toolbar says about editing: the gate it stands behind, the layer it
- * declares into, or its autosave. A declared document with declarations off keeps its chip,
- * which is where they turn back on.
+ * The editing state in a bin tab's toolbar: why it is read-only, what the last apply of a
+ * declared document reported, or its autosave. The tab's Sandbox options show where edits go.
  */
 export function BinEditState({ document, asset, readOnly, onReload }: BinEditStateProps) {
   const declared = useDeclaredState(document);
@@ -33,7 +32,10 @@ export function BinEditState({ document, asset, readOnly, onReload }: BinEditSta
     return (
       <span className="flex shrink-0 items-center gap-1">
         <NewObjectAction />
-        <DeclaredLayerChip document={document} declared={declared} readOnly={readOnly} />
+        <DeclaredDiagnosticsMark
+          diagnostics={declared.diagnostics.filter((diagnostic) => diagnostic.entry.length === 0)}
+        />
+        {readOnly !== null && <ReadOnlyMark gate={readOnly} />}
       </span>
     );
   }
@@ -71,7 +73,7 @@ interface AutosaveStatusProps {
 }
 
 function AutosaveStatus({ document, asset, onReload }: AutosaveStatusProps) {
-  const key = assetKey(asset);
+  const key = binSaveKey(useSandbox(), asset);
   const save = useBinSave(key);
   const invalidate = useInvalidateBinReads();
   const toast = useToast();

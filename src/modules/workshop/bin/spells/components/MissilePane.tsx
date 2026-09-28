@@ -12,6 +12,7 @@ import {
 } from "@/lib/tauri";
 
 import { assetKey } from "../../../preview/utils/assetRef";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { Notice } from "../../vfx/preview/components/Notice";
@@ -76,8 +77,10 @@ function MissileSetup({
 }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [anchors, setAnchors] = useState([-400, 0, 400, 0, 100]);
+  const sandbox = useSandbox();
   const names = useQuery(
     spellQueries.effects(
+      sandbox,
       skin.document,
       effects.map((item) => item.system),
     ),

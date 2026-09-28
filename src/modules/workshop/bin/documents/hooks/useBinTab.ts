@@ -5,9 +5,15 @@ import { errorSummary, m } from "@/i18n";
 import { api, type AssetRef, type BinDocumentId } from "@/lib/tauri";
 import { type HistoryStep, useDocumentFlush, useDocumentHistory } from "@/modules/editor";
 
-import { assetKey } from "../../../preview/utils/assetRef";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
-import { queueForSave, saveBinNow, useBinSave, useWorkshopEditorStore } from "../../../state";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
+import {
+  binSaveKey,
+  queueForSave,
+  saveBinNow,
+  useBinSave,
+  useWorkshopEditorStore,
+} from "../../../state";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { announceReshape } from "../../tree/state/reshapes";
 import { useDocumentCall } from "./useDocumentCall";
@@ -25,7 +31,7 @@ export function useBinTab(
   asset: AssetRef,
   editable: boolean,
 ): void {
-  const key = assetKey(asset);
+  const key = binSaveKey(useSandbox(), asset);
   const save = useBinSave(key);
   const invalidate = useInvalidateBinReads();
   const call = useDocumentCall(document);

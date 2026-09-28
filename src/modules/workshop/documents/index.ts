@@ -19,6 +19,7 @@ export {
   gameWadsDocument,
   IGNORE_RULES_DOCUMENT_ID,
   ignoreRulesDocument,
+  inSandbox,
   layerTitle,
   objectDocument,
   objectDocumentId,
