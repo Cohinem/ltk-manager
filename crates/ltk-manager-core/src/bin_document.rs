@@ -156,7 +156,7 @@ struct Store {
     bound: NonZeroUsize,
     /// The tree each id is over. An id whose tree was evicted reads as not open.
     ids: HashMap<BinDocumentId, TreeKey>,
-    held: LruCache<TreeKey, Held>,
+    trees: LruCache<TreeKey, OpenTree>,
 }
 
 /// The store's key for one tree: an asset and the sandbox that holds it.
@@ -212,13 +212,13 @@ impl TreeKey {
 pub type DocumentRead = ArcRwLockReadGuard<RawRwLock, BinDocument>;
 
 /// One parsed asset, and how many ids hold it.
-struct Held {
+struct OpenTree {
     /// Shared, so a read can walk the tree with the store unlocked.
     document: Arc<RwLock<BinDocument>>,
     holders: usize,
 }
 
-impl Held {
+impl OpenTree {
     /// Whether the tree has no unsaved edits. A tree a save holds for writing counts as dirty.
     fn is_clean(&self) -> bool {
         self.document
@@ -233,29 +233,29 @@ impl Store {
     /// A tree with unsaved edits is never evicted (ADR-0026). A store of dirty trees
     /// grows past its bound instead, and [`BinDocuments::close`] shrinks it back.
     fn make_room(&mut self) {
-        if self.held.len() < self.held.cap().get() {
+        if self.trees.len() < self.trees.cap().get() {
             return;
         }
         let clean = self
-            .held
+            .trees
             .iter()
             .rev()
-            .find(|(_, held)| held.is_clean())
+            .find(|(_, tree)| tree.is_clean())
             .map(|(key, _)| key.clone());
         match clean {
             Some(key) => {
-                self.held.pop(&key);
+                self.trees.pop(&key);
                 self.ids.retain(|_, over| *over != key);
             }
-            None => self.held.resize(self.held.cap().saturating_add(1)),
+            None => self.trees.resize(self.trees.cap().saturating_add(1)),
         }
     }
 
     /// Bring a store grown past its bound by dirty trees back toward it.
     fn shrink(&mut self) {
-        let (len, cap, bound) = (self.held.len(), self.held.cap(), self.bound);
+        let (len, cap, bound) = (self.trees.len(), self.trees.cap(), self.bound);
         if cap > bound && len < cap.get() {
-            self.held
+            self.trees
                 .resize(NonZeroUsize::new(len).map_or(bound, |len| len.max(bound)));
         }
     }
@@ -280,7 +280,7 @@ impl fmt::Debug for BinDocuments {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let store = self.inner.lock();
         f.debug_struct("BinDocuments")
-            .field("held", &store.held.len())
+            .field("trees", &store.trees.len())
             .field("ids", &store.ids.len())
             .finish()
     }
@@ -295,7 +295,7 @@ impl BinDocuments {
                 next: 0,
                 bound: capacity,
                 ids: HashMap::new(),
-                held: LruCache::new(capacity),
+                trees: LruCache::new(capacity),
             }),
         }
     }
@@ -353,8 +353,8 @@ impl BinDocuments {
     ) -> AppResult<BinDocumentId> {
         {
             let mut store = self.inner.lock();
-            if let Some(held) = store.held.get_mut(&key) {
-                held.holders += 1;
+            if let Some(tree) = store.trees.get_mut(&key) {
+                tree.holders += 1;
                 return Ok(store.issue(key));
             }
         }
@@ -362,15 +362,15 @@ impl BinDocuments {
         let document = parse()?;
 
         let mut store = self.inner.lock();
-        match store.held.get_mut(&key) {
-            Some(held) => held.holders += 1,
+        match store.trees.get_mut(&key) {
+            Some(tree) => tree.holders += 1,
             None => {
-                let held = Held {
+                let tree = OpenTree {
                     document: Arc::new(RwLock::new(document)),
                     holders: 1,
                 };
                 store.make_room();
-                store.held.push(key.clone(), held);
+                store.trees.push(key.clone(), tree);
             }
         }
         Ok(store.issue(key))
@@ -401,20 +401,20 @@ impl BinDocuments {
     /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
     /// evicted.
     pub fn document(&self, id: BinDocumentId) -> Result<DocumentRead, BinDocumentError> {
-        Ok(self.held(id)?.1.read_arc())
+        Ok(self.tree(id)?.1.read_arc())
     }
 
     /// The key under one id and its tree. The ask marks the tree the most recently used.
-    fn held(
+    fn tree(
         &self,
         id: BinDocumentId,
     ) -> Result<(TreeKey, Arc<RwLock<BinDocument>>), BinDocumentError> {
         let mut store = self.inner.lock();
-        let Store { ids, held, .. } = &mut *store;
+        let Store { ids, trees, .. } = &mut *store;
         let key = ids.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
-        let document = held
+        let document = trees
             .get(key)
-            .map(|held| Arc::clone(&held.document))
+            .map(|tree| Arc::clone(&tree.document))
             .ok_or(BinDocumentError::NotOpen(id))?;
         Ok((key.clone(), document))
     }
@@ -426,7 +426,7 @@ impl BinDocuments {
     /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
     /// evicted.
     pub fn read_only(&self, id: BinDocumentId) -> Result<Option<ReadOnly>, BinDocumentError> {
-        let (key, document) = self.held(id)?;
+        let (key, document) = self.tree(id)?;
         Ok(key.gate(&document.read()))
     }
 
@@ -680,7 +680,7 @@ impl BinDocuments {
         &self,
         id: BinDocumentId,
     ) -> Result<Option<DeclaredState>, BinDocumentError> {
-        Ok(self.held(id)?.1.read().declared_state())
+        Ok(self.tree(id)?.1.read().declared_state())
     }
 
     /// Write the edits that follow on the document under `id` to `module` of `layer`.
@@ -695,7 +695,7 @@ impl BinDocuments {
         layer: &str,
         module: DeclaredModuleChoice,
     ) -> Result<DeclaredState, BinDocumentError> {
-        self.held(id)?.1.write().declare_into(layer, module)
+        self.tree(id)?.1.write().declare_into(layer, module)
     }
 
     /// Apply `action` to the manifest of `layer` through the document under `id`, whose
@@ -750,7 +750,7 @@ impl BinDocuments {
         id: BinDocumentId,
         declaring: Declaring,
     ) -> Result<Option<ReadOnly>, BinDocumentError> {
-        let (key, document) = self.held(id)?;
+        let (key, document) = self.tree(id)?;
         let mut document = document.write();
         document.set_declaring(declaring)?;
         Ok(key.gate(&document))
@@ -792,8 +792,8 @@ impl BinDocuments {
         baseline: ChangeBaseline,
         game: &dyn GameCopy,
     ) -> AppResult<Vec<BinChange>> {
-        let (_, held) = self.held(id)?;
-        let document = held.read();
+        let (_, document) = self.tree(id)?;
+        let document = document.read();
         if document.declares() {
             return Ok(Vec::new());
         }
@@ -816,7 +816,7 @@ impl BinDocuments {
         game: &dyn GameCopy,
     ) -> AppResult<()> {
         let originals = self
-            .held(id)?
+            .tree(id)?
             .1
             .read()
             .originals(baseline, game, Some(entry))?;
@@ -831,7 +831,7 @@ impl BinDocuments {
         id: BinDocumentId,
         edit: impl FnOnce(&mut BinDocument) -> Result<T, BinDocumentError>,
     ) -> Result<T, BinDocumentError> {
-        let (key, document) = self.held(id)?;
+        let (key, document) = self.tree(id)?;
         let mut document = document.write();
         if let Some(gate) = key.gate(&document) {
             return Err(BinDocumentError::ReadOnly(gate));
@@ -853,7 +853,7 @@ impl BinDocuments {
         id: BinDocumentId,
         bytes: impl FnOnce(&AssetRef) -> AppResult<Vec<u8>>,
     ) -> AppResult<()> {
-        let (key, document) = self.held(id)?;
+        let (key, document) = self.tree(id)?;
         let mut document = document.write();
         if document.declares() {
             return Ok(document.reapply()?);
@@ -870,7 +870,7 @@ impl BinDocuments {
     /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
     /// [`BinDocument::save_to`] raises.
     pub fn save(&self, id: BinDocumentId) -> AppResult<()> {
-        let (key, document) = self.held(id)?;
+        let (key, document) = self.tree(id)?;
         let mut document = document.write();
         if let Some(gate) = key.gate(&document) {
             return Err(BinDocumentError::ReadOnly(gate).into());
@@ -905,7 +905,7 @@ impl BinDocuments {
         store
             .ids
             .get(&id)
-            .filter(|key| store.held.contains(key))
+            .filter(|key| store.trees.contains(key))
             .cloned()
     }
 
@@ -917,9 +917,9 @@ impl BinDocuments {
     pub fn rename_layer(&self, project: &str, from: &str, to: &Slug) {
         let to = to.as_str();
         let mut store = self.inner.lock();
-        let Store { ids, held, .. } = &mut *store;
+        let Store { ids, trees, .. } = &mut *store;
 
-        let moving: Vec<TreeKey> = held
+        let moving: Vec<TreeKey> = trees
             .iter()
             .filter(|(key, _)| key.renamed(project, from, to).is_some())
             .map(|(key, _)| key.clone())
@@ -928,8 +928,8 @@ impl BinDocuments {
             let fresh = key
                 .renamed(project, from, to)
                 .expect("the key names the layer");
-            if let Some(tree) = held.pop(&key) {
-                held.push(fresh, tree);
+            if let Some(tree) = trees.pop(&key) {
+                trees.push(fresh, tree);
             }
         }
 
@@ -939,7 +939,7 @@ impl BinDocuments {
             }
         }
 
-        for (key, tree) in held.iter() {
+        for (key, tree) in trees.iter() {
             if key.sandbox.project() == Some(project) {
                 tree.document.write().rename_layer(from, to);
             }
@@ -952,12 +952,12 @@ impl BinDocuments {
         let Some(key) = store.ids.remove(&id) else {
             return;
         };
-        let last = store.held.peek_mut(&key).is_some_and(|held| {
-            held.holders = held.holders.saturating_sub(1);
-            held.holders == 0
+        let last = store.trees.peek_mut(&key).is_some_and(|tree| {
+            tree.holders = tree.holders.saturating_sub(1);
+            tree.holders == 0
         });
         if last {
-            store.held.pop(&key);
+            store.trees.pop(&key);
             store.shrink();
         }
     }
@@ -971,16 +971,16 @@ impl BinDocuments {
         store.ids.clear();
 
         let clean: Vec<TreeKey> = store
-            .held
+            .trees
             .iter()
-            .filter(|(_, held)| held.is_clean())
+            .filter(|(_, tree)| tree.is_clean())
             .map(|(key, _)| key.clone())
             .collect();
         for key in &clean {
-            store.held.pop(key);
+            store.trees.pop(key);
         }
-        for (_, held) in store.held.iter_mut() {
-            held.holders = 0;
+        for (_, tree) in store.trees.iter_mut() {
+            tree.holders = 0;
         }
 
         store.shrink();
@@ -993,7 +993,7 @@ impl BinDocuments {
         store
             .ids
             .get(&id)
-            .is_some_and(|key| store.held.contains(key))
+            .is_some_and(|key| store.trees.contains(key))
     }
 }
 
@@ -2219,8 +2219,8 @@ fn descend_from<'a>(mut node: Node<'a>, steps: &[Step]) -> Option<(Node<'a>, Vec
                 trace.push(Trace::Index(*index));
                 Node::Value(item)
             }
-            (Step::Key(held), Node::Value(PropertyValueEnum::Map(map))) => {
-                let (key, value) = &map.entries()[held.position(map.entries())?];
+            (Step::Key(wanted), Node::Value(PropertyValueEnum::Map(map))) => {
+                let (key, value) = &map.entries()[wanted.position(map.entries())?];
                 trace.push(Trace::Key(key));
                 Node::Value(value)
             }

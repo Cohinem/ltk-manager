@@ -500,7 +500,7 @@ fn walk(
     );
 
     let mut in_flight = walks.0.lock();
-    if in_flight.as_ref().is_some_and(|held| held.is(&budget)) {
+    if in_flight.as_ref().is_some_and(|walk| walk.is(&budget)) {
         *in_flight = None;
     }
     Ok(result)

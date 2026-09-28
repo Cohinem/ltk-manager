@@ -687,7 +687,7 @@ impl Declared {
         let BinFile::Prop(applied) = file else {
             return;
         };
-        let held: Vec<BinHash> = applied.objects.keys().copied().collect();
+        let applied_objects: Vec<BinHash> = applied.objects.keys().copied().collect();
         self.links = links::link_marks(
             &declarations.modules,
             self.chunk_hash,
@@ -699,7 +699,7 @@ impl Declared {
         let mut objects = Vec::new();
         self.context.with_names(&mut |names| {
             for module in &declarations.modules {
-                for edit in edits_on(module, self.chunk_hash, &held) {
+                for edit in edits_on(module, self.chunk_hash, &applied_objects) {
                     let sets = edit
                         .objects
                         .iter()
@@ -746,7 +746,7 @@ impl Declared {
                 self.game_tree
                     .objects
                     .values()
-                    .find(|held| hex(held.path_hash) == object.entry)
+                    .find(|game_object| hex(game_object.path_hash) == object.entry)
             })
     }
 
@@ -877,11 +877,13 @@ fn object_change(
     applied: &Bin,
     game: &Bin,
 ) -> Option<DeclaredObjectMark> {
-    let held = applied.objects.contains_key(&entry);
+    let in_applied = applied.objects.contains_key(&entry);
     let change = match object {
-        ObjectEdit::Remove if !held && game.objects.contains_key(&entry) => ObjectChange::Removed,
+        ObjectEdit::Remove if !in_applied && game.objects.contains_key(&entry) => {
+            ObjectChange::Removed
+        }
         ObjectEdit::Remove => return None,
-        _ if held => ObjectChange::Created,
+        _ if in_applied => ObjectChange::Created,
         _ => return None,
     };
     Some(DeclaredObjectMark {
