@@ -180,7 +180,7 @@ export function DragChip({ node }: { node: OutlineNode }) {
   return (
     <span
       data-ui="DeclarationsTree:drag"
-      className="inline-flex max-w-80 items-center truncate rounded-md border border-surface-600 bg-surface-800 px-2 py-0.5 font-mono text-xs text-surface-100 shadow-lg"
+      className="inline-flex max-w-80 items-center truncate rounded-md border border-surface-600 bg-surface-800 px-2 py-0.5 text-row text-surface-100 shadow-lg"
     >
       {label}
     </span>

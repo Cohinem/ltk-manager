@@ -186,7 +186,7 @@ function FileRow({
       <span className="truncate">
         <MarkedText text={node.name} ranges={node.entry.nameRanges} />
       </span>
-      <span className="ml-auto shrink-0 font-mono text-fine text-surface-400 tabular-nums">
+      <span className="ml-auto shrink-0 text-fine text-surface-400 tabular-nums">
         {formatBytes(node.entry.sizeBytes)}
       </span>
     </div>

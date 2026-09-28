@@ -128,7 +128,10 @@ export function RowPlate({ item }: { item: GraphItem }) {
       {face.type === "picture" && <div className="h-full w-full">{face.picture}</div>}
       {face.type !== "picture" && (
         <span
-          className="truncate font-mono font-medium text-surface-50"
+          className={twMerge(
+            "truncate font-semibold text-surface-50",
+            face.type === "value" && "font-mono font-medium",
+          )}
           style={{ fontSize: `min(${PLATE_TYPE}, ${ROW_TYPE_MAX}px)` }}
         >
           {text}

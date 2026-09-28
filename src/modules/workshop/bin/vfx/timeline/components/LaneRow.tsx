@@ -100,7 +100,7 @@ export const LaneRow = memo(function LaneRow({
     >
       <div
         className={twMerge(
-          "flex h-full shrink-0 items-center gap-1 border-r border-surface-700/50 px-1 font-mono text-code select-none",
+          "flex h-full shrink-0 items-center gap-1 border-r border-surface-700/50 px-1 select-none",
           row.kind === "child" && "pl-5",
           dimmed && "opacity-60",
         )}

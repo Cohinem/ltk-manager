@@ -45,7 +45,7 @@ interface QuickEntry extends AddChoice {
 
 /* DS-VEIL, DS-RADIUS */
 const INPUT =
-  "h-7 w-full min-w-0 rounded-sm border border-accent-500 bg-surface-900 px-2 font-mono text-code text-surface-100 placeholder:text-surface-400 focus:outline-none";
+  "h-7 w-full min-w-0 rounded-sm border border-accent-500 bg-surface-900 px-2 text-surface-100 placeholder:text-surface-400 focus:outline-none";
 
 /**
  * The Graph pane's quick add: a search over what can be added where it opened, which a pick
@@ -122,7 +122,7 @@ export function QuickAdd({ at, masters, onClose }: QuickAddProps) {
                   <Combobox.Item
                     key={entry.key}
                     value={entry}
-                    className="flex items-baseline gap-2 px-2 py-1 font-mono text-mono-row"
+                    className="flex items-baseline gap-2 px-2 py-1 text-row"
                   >
                     <span className="min-w-0 flex-1 truncate">{entry.text}</span>
                     <span className="shrink-0 font-sans text-meta text-surface-500">

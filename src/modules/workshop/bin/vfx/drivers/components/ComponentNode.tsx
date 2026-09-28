@@ -149,11 +149,9 @@ function SectionLine({ line }: { line: SectionLineOf }) {
   return (
     <Line className="gap-2 pr-2">
       <span className="flex min-w-0 items-center gap-2 pl-2" style={indent(line.depth)}>
-        <span className="shrink-0 font-mono text-code text-surface-300">{`${name}${place}`}</span>
+        <span className="shrink-0 text-surface-300">{`${name}${place}`}</span>
         {line.className !== null && (
-          <span className="min-w-0 truncate font-mono text-meta text-bin-class-text">
-            {line.className}
-          </span>
+          <span className="min-w-0 truncate text-meta text-bin-class-text">{line.className}</span>
         )}
       </span>
     </Line>
@@ -208,15 +206,12 @@ function MaterialLine({ line }: { line: Extract<ComponentLine, { type: "material
         className={twMerge(SOCKET, socketFill(null))}
       />
       <span
-        className={twMerge(
-          NAME_COLUMN,
-          "ml-5.5 shrink-0 truncate font-mono text-code text-surface-100",
-        )}
+        className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate text-surface-100")}
         style={indent(line.depth)}
       >
         {fieldAlias(line.name, line.hash)}
       </span>
-      <span className="flex min-w-0 flex-1 items-center gap-1.5 border-l border-surface-700/40 pl-2 font-mono text-meta text-bin-class-text">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 border-l border-surface-700/40 pl-2 text-meta text-bin-class-text">
         <SphereIcon weight="duotone" className="h-3.5 w-3.5 shrink-0" />
         <span className="min-w-0 truncate">{line.className}</span>
       </span>
@@ -238,10 +233,7 @@ function HeldField({
     return (
       <Line>
         <span
-          className={twMerge(
-            NAME_COLUMN,
-            "ml-5.5 shrink-0 truncate font-mono text-code text-surface-500",
-          )}
+          className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate text-surface-500")}
           style={indent(line.depth)}
         >
           {label}
@@ -292,10 +284,7 @@ function InputLine({
         className={twMerge(SOCKET, socketFill(line.kind))}
       />
       <span
-        className={twMerge(
-          NAME_COLUMN,
-          "ml-5.5 shrink-0 truncate font-mono text-code text-surface-100",
-        )}
+        className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate text-surface-100")}
         style={indent(line.depth)}
       >
         {label}
@@ -306,12 +295,12 @@ function InputLine({
         </span>
       )}
       {embed === undefined && (
-        <span className="flex min-w-0 flex-1 items-baseline gap-1.5 border-l border-surface-700/40 pl-2 font-mono text-meta">
+        <span className="flex min-w-0 flex-1 items-baseline gap-1.5 border-l border-surface-700/40 pl-2 text-meta">
           {value !== null && <span className="min-w-0 truncate text-surface-200">{value}</span>}
           <span className="shrink-0 truncate text-surface-400">{role}</span>
         </span>
       )}
-      <span className={twMerge("shrink-0 font-mono text-meta", KIND_TONE[line.kind].text)}>
+      <span className={twMerge("shrink-0 text-meta", KIND_TONE[line.kind].text)}>
         {KIND_NAME[line.kind]}
       </span>
     </Line>

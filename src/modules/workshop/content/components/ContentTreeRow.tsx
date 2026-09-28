@@ -299,7 +299,7 @@ function FileRow({
       <span className="ml-auto shrink-0">
         {excluded && <ExcludedMark rule={excluded} />}
         {!excluded && (
-          <span className="font-mono text-[0.625rem] text-surface-400 tabular-nums">
+          <span className="text-fine text-surface-400 tabular-nums">
             {formatBytes(Number(node.entry.sizeBytes))}
           </span>
         )}

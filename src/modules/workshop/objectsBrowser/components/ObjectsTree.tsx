@@ -162,7 +162,7 @@ export function ObjectsTree({
       <ContextMenu.Trigger
         data-ui="ObjectsTree"
         ref={scrollRef}
-        className="flex-1 overflow-auto font-mono text-xs outline-none scrollbar-md scrollbar-track"
+        className="flex-1 overflow-auto text-row outline-none scrollbar-md scrollbar-track"
         role="tree"
         aria-label={ariaLabel}
         tabIndex={-1}

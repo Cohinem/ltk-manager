@@ -54,7 +54,7 @@ export function BarEditor({ emitter, row, at, onClose }: BarEditorProps) {
           sideOffset={6}
         >
           <Popover.Popup data-ui="BarEditor" className="flex w-64 flex-col gap-2 p-3">
-            <Popover.Title className="truncate font-mono text-code text-surface-200">
+            <Popover.Title className="truncate text-row font-medium text-surface-200">
               {emitter.name}
             </Popover.Title>
             <Seconds

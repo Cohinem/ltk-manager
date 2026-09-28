@@ -17,7 +17,7 @@ export function AddItemLine({ item }: { item: StructItem }) {
         disabled={append === null}
         onClick={append ?? undefined}
         /* DS-HOVER, DS-RADIUS */
-        className="ml-1 flex h-6 min-w-0 items-center gap-1.5 rounded-sm px-1 font-mono text-code text-surface-400 hover:bg-surface-veil hover:text-surface-200 disabled:cursor-not-allowed disabled:opacity-50"
+        className="ml-1 flex h-6 min-w-0 items-center gap-1.5 rounded-sm px-1 text-surface-400 hover:bg-surface-veil hover:text-surface-200 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <PlusIcon weight="bold" className="h-3 w-3 shrink-0" />
         {m.workshop_bin_add_item_action()}

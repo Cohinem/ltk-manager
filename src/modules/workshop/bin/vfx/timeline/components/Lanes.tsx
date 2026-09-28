@@ -220,10 +220,7 @@ export function Lanes() {
       onPointerLeave={unhover}
     >
       <div ref={measurePane} className="flex h-6 shrink-0 border-b border-surface-700/50">
-        <div
-          className="shrink-0 border-r border-surface-700/50 font-mono text-code"
-          style={{ width: head }}
-        >
+        <div className="shrink-0 border-r border-surface-700/50" style={{ width: head }}>
           <VisibilityHeader every={every}>
             <Field.Control
               className="h-5 w-full min-w-0 px-1.5 font-sans text-meta"

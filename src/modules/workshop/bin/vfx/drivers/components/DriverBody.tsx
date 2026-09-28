@@ -71,7 +71,7 @@ function LabeledLeaf({
 }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <span className="w-14 shrink-0 truncate font-mono text-code text-surface-400">{label}</span>
+      <span className="w-14 shrink-0 truncate text-surface-400">{label}</span>
       <span className="min-w-0 flex-1">
         <LeafLine leaf={leaf}>
           <Values values={values} color={false} />
@@ -94,7 +94,7 @@ function EasingBody({ node, leaf }: { node: EasingNode; leaf: LeafTarget | null 
   return (
     <>
       <Line>
-        <span className="min-w-0 flex-1 truncate font-mono text-code text-surface-100">{name}</span>
+        <span className="min-w-0 flex-1 truncate text-surface-100">{name}</span>
         <span className="shrink-0 text-surface-400">{time}</span>
       </Line>
       <LabeledLeaf label={DURATION_LABEL} leaf={leaf} values={[node.duration]} />
@@ -151,9 +151,7 @@ function Values({ values, color }: { values: readonly number[]; color: boolean }
   return (
     <>
       {color && <Swatch rgba={rgbaOf(values)} />}
-      <span className="min-w-0 truncate font-mono text-code text-surface-100">
-        {formatValues(values)}
-      </span>
+      <span className="min-w-0 truncate text-surface-100">{formatValues(values)}</span>
     </>
   );
 }
@@ -194,11 +192,11 @@ function UnknownFields({ value }: { value: VfxValue }) {
   return (
     <>
       {shown.map((field) => (
-        <Line key={field.hash} className="font-mono">
-          <span className="min-w-0 flex-1 truncate text-code text-surface-300">
+        <Line key={field.hash}>
+          <span className="min-w-0 flex-1 truncate text-surface-300">
             {field.name ?? field.hash}
           </span>
-          <span className="shrink-0 text-code text-surface-500">{field.value.type}</span>
+          <span className="shrink-0 text-surface-500">{field.value.type}</span>
         </Line>
       ))}
       {rest > 0 && (

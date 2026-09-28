@@ -424,15 +424,10 @@ function EmbeddedList({
   return (
     <div className={EMBED_TONE} style={hueStyle(list)}>
       <Line>
-        <span
-          className={twMerge(
-            NAME_COLUMN,
-            "ml-5 shrink-0 truncate font-mono text-code text-surface-200",
-          )}
-        >
+        <span className={twMerge(NAME_COLUMN, "ml-5 shrink-0 truncate text-surface-200")}>
           {label}
         </span>
-        <span className="min-w-0 flex-1 truncate pl-2 font-mono text-meta text-surface-400">
+        <span className="min-w-0 flex-1 truncate pl-2 text-meta text-surface-400">
           {inputSummary(list)}
         </span>
         <PopOutButton id={list.id} />

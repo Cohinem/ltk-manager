@@ -265,7 +265,7 @@ function ObjectEditTag({ entry }: { entry: DeclaredEntry }) {
     return (
       <RowTag>
         {m.workshop_declarations_clone_tag()}
-        <span className="truncate font-mono text-surface-300" title={object.source}>
+        <span className="truncate text-surface-300" title={object.source}>
           {object.knownSource ?? object.source}
         </span>
       </RowTag>
@@ -276,7 +276,7 @@ function ObjectEditTag({ entry }: { entry: DeclaredEntry }) {
     <RowTag>
       {m.workshop_declarations_construct_tag()}
       {/* DS-KIND-HUE */}
-      <span className="truncate font-mono text-bin-class-text" title={object.class}>
+      <span className="truncate text-bin-class-text" title={object.class}>
         {object.knownClass ?? object.class}
       </span>
     </RowTag>

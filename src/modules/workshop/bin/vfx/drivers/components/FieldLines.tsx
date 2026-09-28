@@ -195,12 +195,7 @@ export function FieldLine({
 export function NoteLine({ label }: { label: string }) {
   return (
     <Line>
-      <span
-        className={twMerge(
-          NAME_COLUMN,
-          "ml-5.5 shrink-0 truncate font-mono text-code text-surface-500",
-        )}
-      >
+      <span className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate text-surface-500")}>
         {label}
       </span>
     </Line>
@@ -233,7 +228,7 @@ export function EntryLines({
           /* DS-HOVER */
           className={twMerge(
             NAME_COLUMN,
-            "nodrag ml-1 flex shrink-0 cursor-pointer items-center gap-0.5 truncate font-mono text-code text-surface-500 hover:text-surface-200",
+            "nodrag ml-1 flex shrink-0 cursor-pointer items-center gap-0.5 truncate text-surface-500 hover:text-surface-200",
           )}
         >
           <Caret weight="bold" className="h-3 w-3 shrink-0" />
@@ -250,16 +245,13 @@ function EntryLine({ entry }: { entry: ListEntry }) {
   return (
     <Line>
       <span
-        className={twMerge(
-          NAME_COLUMN,
-          "ml-5.5 shrink-0 truncate pl-3 font-mono text-code text-surface-300",
-        )}
+        className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate pl-3 text-surface-300")}
         title={entry.key}
       >
         {entry.key}
       </span>
       <span
-        className="min-w-0 flex-1 truncate border-l border-surface-700/40 pl-2 font-mono text-meta text-surface-400"
+        className="min-w-0 flex-1 truncate border-l border-surface-700/40 pl-2 text-meta text-surface-400"
         title={entry.text}
       >
         {entry.text}
@@ -284,7 +276,7 @@ export function GroupLine({ title, add }: { title: string; add?: ReactNode }) {
 export function SectionLine({ title }: { title: string }) {
   return (
     <Line className="mt-0.5 border-t border-surface-700/40">
-      <span className="px-2 font-mono text-code text-surface-300">{title}</span>
+      <span className="px-2 text-surface-300">{title}</span>
     </Line>
   );
 }
@@ -304,15 +296,10 @@ export function SocketLine({ input, label }: { input: InputItem; label: string }
         isConnectableEnd={false}
         className={twMerge(SOCKET, socketFill(kind))}
       />
-      <span
-        className={twMerge(
-          NAME_COLUMN,
-          "ml-5.5 shrink-0 truncate font-mono text-code text-surface-200",
-        )}
-      >
+      <span className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate text-surface-200")}>
         {label}
       </span>
-      <span className="min-w-0 flex-1 truncate border-l border-surface-700/40 pl-2 font-mono text-meta text-surface-400">
+      <span className="min-w-0 flex-1 truncate border-l border-surface-700/40 pl-2 text-meta text-surface-400">
         {inputSummary(input)}
       </span>
     </Line>
@@ -347,12 +334,7 @@ export function ClassLine({ label, holder, field, path, current }: ClassLineProp
 
   return (
     <Line>
-      <span
-        className={twMerge(
-          NAME_COLUMN,
-          "ml-5.5 shrink-0 truncate font-mono text-code text-surface-400",
-        )}
-      >
+      <span className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate text-surface-400")}>
         {label}
       </span>
       <div className="min-w-0 flex-1 border-l border-surface-700/40 pl-1">
@@ -387,12 +369,7 @@ export function PrimitiveLine({
 
   return (
     <Line>
-      <span
-        className={twMerge(
-          NAME_COLUMN,
-          "ml-5.5 shrink-0 truncate font-mono text-code text-surface-400",
-        )}
-      >
+      <span className={twMerge(NAME_COLUMN, "ml-5.5 shrink-0 truncate text-surface-400")}>
         {label}
       </span>
       <div className="min-w-0 flex-1 border-l border-surface-700/40 pl-1">

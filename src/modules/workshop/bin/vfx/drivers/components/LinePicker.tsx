@@ -16,7 +16,7 @@ interface LinePickerProps<T> {
 
 /* DS-VEIL, DS-HOVER, DS-RADIUS */
 const LINE_INPUT =
-  "h-6 w-full min-w-0 rounded-sm border border-transparent bg-transparent px-1.5 font-mono text-code text-surface-200 placeholder:text-surface-400 hover:border-accent-hover focus:border-accent-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
+  "h-6 w-full min-w-0 rounded-sm border border-transparent bg-transparent px-1.5 text-surface-200 placeholder:text-surface-400 hover:border-accent-hover focus:border-accent-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
 
 /** A one-line combobox that picks one item and then clears, for Add field and a class change. */
 export function LinePicker<T>({
@@ -75,11 +75,7 @@ export function LinePicker<T>({
           <Combobox.Popup className="max-h-64 min-w-64 py-0.5">
             <Combobox.List>
               {(item: T) => (
-                <Combobox.Item
-                  key={itemKey(item)}
-                  value={item}
-                  className="px-2 py-1 font-mono text-mono-row"
-                >
+                <Combobox.Item key={itemKey(item)} value={item} className="px-2 py-1 text-row">
                   {itemText(item)}
                 </Combobox.Item>
               )}

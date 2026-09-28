@@ -269,7 +269,7 @@ export function NodeHeader({
           )}
         </span>
         {(subtitle !== "" || kind !== undefined) && (
-          <span className="flex min-w-0 items-center gap-2 font-mono text-meta">
+          <span className="flex min-w-0 items-center gap-2 text-meta">
             <span className="min-w-0 flex-1 truncate text-surface-400">{subtitle}</span>
             {kind !== undefined && (
               <span className={twMerge("shrink-0", KIND_TONE[kind].text)}>{KIND_NAME[kind]}</span>
@@ -338,7 +338,7 @@ function Ports({ ports, named = false }: { ports: readonly GraphPort[]; named?: 
           <PortLabel label={named ? port.label : pathAlias(port.label)} />
           {port.embed?.type === "driver" && <EmbeddedDriver item={port.embed} />}
           {port.kind !== null && (
-            <span className={twMerge("shrink-0 font-mono text-meta", KIND_TONE[port.kind].text)}>
+            <span className={twMerge("shrink-0 text-meta", KIND_TONE[port.kind].text)}>
               {KIND_NAME[port.kind]}
             </span>
           )}
@@ -353,7 +353,7 @@ export function PortLabel({ label }: { label: string }) {
   const split = label.lastIndexOf(".") + 1;
 
   return (
-    <span className="min-w-0 flex-1 truncate font-mono text-code">
+    <span className="min-w-0 flex-1 truncate">
       <span className="text-surface-400">{label.slice(0, split)}</span>
       <span className="text-surface-100">{label.slice(split)}</span>
     </span>
