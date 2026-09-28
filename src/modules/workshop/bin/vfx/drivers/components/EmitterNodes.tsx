@@ -20,7 +20,7 @@ import { defaultField, GROUP_TITLE } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { VfxRunContext } from "../../playback/state/run";
-import { isMaterial, isPrimitive, shapePreviewed, structNameWidth } from "../utils/driverLayout";
+import { isMaterial, isPrimitive, shapePreviewed } from "../utils/driverLayout";
 import { listId } from "../utils/entryLists";
 import { emitterOf } from "../utils/graphEmitter";
 import type { MasterField, MasterItem, StructItem, StructRow } from "../utils/graphItems";
@@ -229,7 +229,7 @@ export function MasterLine({
  * line under the list's row.
  */
 export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
-  const { item, width, height } = data.placed;
+  const { item, width, height, nameWidth } = data.placed;
   const material = isMaterial(item);
   const folded = (use(GraphActionsContext)?.collapsed.has(item.id) ?? false) && material;
   const previewed = shapePreviewed(item);
@@ -269,7 +269,7 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
         <div className={FIELD_PAD}>
           <StructBody
             item={item}
-            nameWidth={structNameWidth(item)}
+            nameWidth={nameWidth}
             embedded={embeddedValues(item)}
             lists={embeddedLists(item)}
           />

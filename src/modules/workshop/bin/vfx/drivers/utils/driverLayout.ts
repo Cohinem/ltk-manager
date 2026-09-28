@@ -1,7 +1,7 @@
 import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { valueLines } from "./curveShape";
-import { renderLines, socketLines, socketList, structLines } from "./entryLists";
+import { renderLines, socketLines, structLines } from "./entryLists";
 import type {
   GraphItem,
   GraphTree,
@@ -11,10 +11,10 @@ import type {
   ValueItem,
 } from "./graphItems";
 import { MATERIAL_CLASSES } from "./materialNodes";
-import { fieldAlias, itemSubtitle, itemTitle, pathAlias } from "./nodeText";
+import { naturalWidth, structNameWidth, structWidth, UNKNOWN_FIELD_LINES } from "./nodeWidth";
 import { BLOCK_GAP, FRAME_HEADER_HEIGHT, FRAME_PADDING, frameSize, packBlocks } from "./packBlocks";
 import { renderTexture } from "./renderSection";
-import { rowValueWidth, VALUE_WIDTH } from "./rowWidth";
+import { estimateText, type MeasureText } from "./textWidth";
 
 /** An item placed on the canvas: its top-left corner and its size, in canvas units. */
 export interface PlacedItem {
@@ -25,6 +25,8 @@ export interface PlacedItem {
   readonly height: number;
   /** The id of the frame the item sits in, where it sits in one. */
   readonly frame?: string;
+  /** A struct node's name column in pixels, which its rows and its width share. */
+  readonly nameWidth?: number;
 }
 
 /** One emitter's block drawn as a frame around it, named for the emitter at its root. */
@@ -84,15 +86,6 @@ const PRIMITIVE_PREVIEW_HEIGHT = PRIMITIVE_PREVIEW.height + 8;
 /** A file node: its preview square with room for the path under it. */
 const FILE_NODE_WIDTH = 280;
 
-/** A struct node's own struct and every struct folded into it as a section, outermost first. */
-function sectionsOf(item: StructItem): StructItem[] {
-  return item.nested === null ? [item] : [item, ...sectionsOf(item.nested)];
-}
-
-function classLength(item: StructItem): number {
-  return (item.className ?? item.classHash ?? "").length;
-}
-
 /** A struct node that draws its spawn shape in 3D over its rows: a `VfxShape*` struct. */
 export function shapePreviewed(item: StructItem): boolean {
   return item.shape === "struct" && (item.className?.startsWith("VfxShape") ?? false);
@@ -131,56 +124,11 @@ export const VALUE_HEADER_HEIGHT = 30;
 /** The space above and below the rows of a master, struct, value or file node. */
 export const FIELD_PADDING = 4;
 
-/** The number of fields a node of an unknown class lists before it counts the rest. */
-export const UNKNOWN_FIELD_LINES = 8;
-
-/** The narrowest and the widest a column of nodes draws. */
-const MIN_NODE_WIDTH = 232;
-const MAX_NODE_WIDTH = 440;
-
-/*
- * Advance widths for the width estimate: Geist Mono at 0.6em of the 12px row and 11px meta
- * type, and an average for Geist at the title's weight. An estimate short of the text
- * truncates it and leaves the node whole.
- */
-const MONO_ADVANCE = 7.2;
-const META_MONO_ADVANCE = 6.6;
-const SANS_ADVANCE = 6.9;
-
-/** A header's padding, collapse caret, glyph and reveal button, and one chip beside a title. */
-const HEADER_CHROME = 104;
-const CHIP_WIDTH = 72;
-
-/** A port row's padding and kind label, and a driver subtitle's kind label. */
-const PORT_CHROME = 64;
-
-/** The pop-out button beside a driver embedded in a socket. */
-const EMBED_BUTTON_WIDTH = 24;
-const KIND_LABEL_WIDTH = 36;
-
-/** The field a value of 1 to 4 components edits in, the label beside a stored one, and padding. */
-const VALUE_LABEL_WIDTH = 64;
-const BODY_CHROME = 16;
-
 /** The width of a node whose rows are the inspector's field rows: a name column and a value. */
 const FIELD_NODE_WIDTH = { master: 456, value: 320, component: 400 } as const;
 
-/** A struct node's name column, from the inspector's 9rem up, and its value column. */
-const STRUCT_NAME_WIDTH = { min: 144, max: 248 } as const;
-const STRUCT_VALUE_WIDTH = { min: 200, max: 300 } as const;
-
-/** A name's gutter and padding, and a class picker's caret and padding. */
-const NAME_CHROME = 32;
-const CLASS_CHROME = 40;
-
-/** The label of a struct node's class line, which its name column holds too. */
-const CLASS_LABEL = "Class";
-
 /** A folded master node: its preview inside the 8px side margins. */
 const FOLDED_MASTER_WIDTH = EMITTER_PREVIEW_SIZE + 16;
-
-/** An easing body's function name beside its time. */
-const EASING_LINE_WIDTH = 200;
 
 export { FRAME_HEADER_HEIGHT, FRAME_PADDING } from "./packBlocks";
 
@@ -202,10 +150,11 @@ export function layoutGraph(
   root: GraphTree,
   collapsed: ReadonlySet<string> = NONE_COLLAPSED,
   withPreview = true,
+  measure: MeasureText = estimateText,
 ): GraphLayout {
-  if (root.item.type !== "preview") return layoutTree(root, collapsed);
+  if (root.item.type !== "preview") return layoutTree(root, collapsed, measure);
 
-  const blocks = root.inputs.map((input) => layoutTree(input.tree, collapsed));
+  const blocks = root.inputs.map((input) => layoutTree(input.tree, collapsed, measure));
   const placed = packBlocks(blocks);
   const frames = placed.map(({ x, y, block }, index): PlacedFrame => ({
     id: `frame:${root.inputs[index]!.tree.item.id}`,
@@ -230,7 +179,7 @@ export function layoutGraph(
   if (!withPreview) return board;
 
   const packedWidth = Math.max(0, ...frames.map((frame) => frame.x + frame.width));
-  const { width, height } = sizeOf(root.item);
+  const { width, height } = sizeOf(root.item, false, measure);
   const preview: PlacedItem = {
     item: root.item,
     x: placed.length === 0 ? 0 : packedWidth + BLOCK_GAP,
@@ -253,7 +202,11 @@ export function layoutGraph(
  * its column, and an item is placed level with the middle of its inputs. An item taller than
  * its inputs that would reach into the item above it moves down with its inputs.
  */
-function layoutTree(root: GraphTree, collapsed: ReadonlySet<string>): GraphLayout {
+function layoutTree(
+  root: GraphTree,
+  collapsed: ReadonlySet<string>,
+  measure: MeasureText,
+): GraphLayout {
   const items: PlacedItem[] = [];
   const depths: number[] = [];
   const edges: LayoutEdge[] = [];
@@ -261,14 +214,15 @@ function layoutTree(root: GraphTree, collapsed: ReadonlySet<string>): GraphLayou
   /* Measured once per item, since a struct's size measures every row. */
   const sizes = new Map<GraphTree, ReturnType<typeof sizeOf>>();
   const sized = (tree: GraphTree) =>
-    sizes.get(tree) ?? sizes.set(tree, sizeOf(tree.item, collapsed.has(tree.item.id))).get(tree)!;
+    sizes.get(tree) ??
+    sizes.set(tree, sizeOf(tree.item, collapsed.has(tree.item.id), measure)).get(tree)!;
 
   const widths: number[] = [];
-  const measure = (tree: GraphTree, depth: number) => {
+  const widen = (tree: GraphTree, depth: number) => {
     widths[depth] = Math.max(widths[depth] ?? 0, sized(tree).width);
-    inputsOf(tree).forEach((input) => measure(input.tree, depth + 1));
+    inputsOf(tree).forEach((input) => widen(input.tree, depth + 1));
   };
-  measure(root, 0);
+  widen(root, 0);
 
   const total = widths.reduce((sum, width) => sum + width, 0) + COLUMN_GAP * (widths.length - 1);
   const rights = [total];
@@ -314,7 +268,16 @@ function layoutTree(root: GraphTree, collapsed: ReadonlySet<string>): GraphLayou
     }
 
     const x = rights[depth]! - width;
-    items.push({ item: tree.item, x, y: top, width, height });
+    const { item } = tree;
+    const nameWidth = item.type === "struct" ? structNameWidth(item, measure) : undefined;
+    items.push({
+      item,
+      x,
+      y: top,
+      width,
+      height,
+      ...(nameWidth === undefined ? {} : { nameWidth }),
+    });
     depths.push(depth);
     lower(depth, top + height);
     for (const input of inputs) edges.push(edgeOf(tree, input));
@@ -338,46 +301,27 @@ function edgeOf(tree: GraphTree, input: GraphTree["inputs"][number]): LayoutEdge
   };
 }
 
+/** A master or struct node's width: a master's own, and a struct's from its rows. */
+function fieldNodeWidth(
+  item: MasterItem | StructItem,
+  folded: boolean,
+  measure: MeasureText,
+): number {
+  if (item.type === "master") return folded ? FOLDED_MASTER_WIDTH : FIELD_NODE_WIDTH.master;
+  return structWidth(item, measure);
+}
+
 /**
- * The size an item draws at, its width estimated from its text.
+ * The size an item draws at, its width measured from its text.
  *
  * The node components size themselves from the same numbers. An item with no ports and no
  * body draws its header alone.
  */
-function fieldNodeWidth(item: MasterItem | StructItem, folded: boolean): number {
-  if (item.type === "master") return folded ? FOLDED_MASTER_WIDTH : FIELD_NODE_WIDTH.master;
-
-  const className = Math.max(...sectionsOf(item).map(classLength)) * MONO_ADVANCE + CLASS_CHROME;
-  const rows = sectionsOf(item).flatMap((section) =>
-    section.rows.flatMap((row) => [row, ...(socketList(item, row.input)?.rows ?? [])]),
-  );
-  const value = Math.max(
-    Math.min(STRUCT_VALUE_WIDTH.max, Math.max(STRUCT_VALUE_WIDTH.min, className)),
-    ...rows.map(rowValueWidth),
-  );
-  return Math.ceil(structNameWidth(item) + value + BODY_CHROME);
-}
-
-/** The 12px indent of a list entry's name under its row, in mono characters. */
-const ENTRY_INDENT_CHARS = 2;
-
-/**
- * A struct node's name column: as wide as its longest row name, and no narrower than the
- * inspector's own column.
- */
-export function structNameWidth(item: StructItem): number {
-  const names = sectionsOf(item).flatMap((section) =>
-    section.rows.flatMap((row) => [
-      fieldAlias(row.name, row.key.startsWith("0x") ? row.key : null).length,
-      ...(row.entries ?? []).map((entry) => entry.key.length + ENTRY_INDENT_CHARS),
-    ]),
-  );
-  const longest = Math.max(CLASS_LABEL.length, ...names);
-  const natural = Math.ceil(longest * MONO_ADVANCE) + NAME_CHROME;
-  return Math.min(STRUCT_NAME_WIDTH.max, Math.max(STRUCT_NAME_WIDTH.min, natural));
-}
-
-export function sizeOf(item: GraphItem, folded = false): { width: number; height: number } {
+export function sizeOf(
+  item: GraphItem,
+  folded = false,
+  measure: MeasureText = estimateText,
+): { width: number; height: number } {
   if (item.type === "preview") {
     const ports = HEADER_HEIGHT + item.ports.length * LINE_HEIGHT + BODY_PADDING;
     return {
@@ -416,14 +360,14 @@ export function sizeOf(item: GraphItem, folded = false): { width: number; height
   if (item.type === "component") {
     const body = item.lines.length === 0 ? 0 : item.lines.length * LINE_HEIGHT + 2 * FIELD_PADDING;
     return {
-      width: Math.max(naturalWidth(item), FIELD_NODE_WIDTH.component),
+      width: Math.max(naturalWidth(item, measure), FIELD_NODE_WIDTH.component),
       height: HEADER_HEIGHT + FRAME_EDGES + body,
     };
   }
 
   if (item.type === "struct" && folded && isMaterial(item)) {
     return {
-      width: fieldNodeWidth(item, folded),
+      width: fieldNodeWidth(item, folded, measure),
       height: HEADER_HEIGHT + FRAME_EDGES + NODE_PREVIEW_HEIGHT,
     };
   }
@@ -431,7 +375,7 @@ export function sizeOf(item: GraphItem, folded = false): { width: number; height
   if (item.type === "master" || item.type === "struct") {
     const preview = item.type === "master" ? EMITTER_PREVIEW_HEIGHT : structPreviewHeight(item);
     return {
-      width: fieldNodeWidth(item, folded),
+      width: fieldNodeWidth(item, folded, measure),
       height:
         HEADER_HEIGHT +
         FRAME_EDGES +
@@ -442,68 +386,7 @@ export function sizeOf(item: GraphItem, folded = false): { width: number; height
 
   const rows = item.ports.length + (item.type === "driver" ? bodyLines(item.node) : 0);
   const body = rows === 0 ? 0 : rows * LINE_HEIGHT + BODY_PADDING;
-  return { width: naturalWidth(item), height: HEADER_HEIGHT + FRAME_EDGES + body };
-}
-
-function naturalWidth(item: GraphItem): number {
-  const title = itemTitle(item).length * SANS_ADVANCE + chipCount(item) * CHIP_WIDTH;
-  const kind = item.type === "driver" ? KIND_LABEL_WIDTH : 0;
-  const subtitle = itemSubtitle(item).length * META_MONO_ADVANCE + kind;
-  const header = HEADER_CHROME + Math.max(title, subtitle);
-  const ports = item.ports.map(
-    (port) =>
-      PORT_CHROME +
-      pathAlias(port.label).length * MONO_ADVANCE +
-      (port.embed?.type === "driver" ? bodyWidth(port.embed.node) + EMBED_BUTTON_WIDTH : 0),
-  );
-  const body = item.type === "driver" ? bodyWidth(item.node) : 0;
-
-  const natural = Math.max(header, body, ...ports);
-  return Math.ceil(Math.min(MAX_NODE_WIDTH, Math.max(MIN_NODE_WIDTH, natural)));
-}
-
-/** The chips a header draws beside its title: disabled, or a trust level. */
-function chipCount(item: GraphItem): number {
-  if (item.type === "emitter") return item.disabled ? 1 : 0;
-  if (item.type !== "driver") return 0;
-  return item.diagnostics.length > 0 || item.node.type === "unknown" ? 1 : 0;
-}
-
-function bodyWidth(node: DriverNode): number {
-  switch (node.type) {
-    case "constant":
-      return BODY_CHROME + valueWidth(node.value);
-    case "curve":
-      if (node.curve.keys.length > 0) return 0;
-      return BODY_CHROME + valueWidth(node.curve.constant);
-    case "operator":
-      return widest(node.stored.map((each) => VALUE_LABEL_WIDTH + valueWidth(each.value)));
-    case "random":
-      return BODY_CHROME + VALUE_LABEL_WIDTH + valueWidth(node.range);
-    case "easing":
-      return BODY_CHROME + EASING_LINE_WIDTH;
-    case "unknown": {
-      if (node.value.type !== "struct") return 0;
-      const shown = node.value.fields.slice(0, UNKNOWN_FIELD_LINES);
-      return widest(
-        shown.map(
-          (field) => 2 * KIND_LABEL_WIDTH + (field.name ?? field.hash).length * MONO_ADVANCE,
-        ),
-      );
-    }
-    case "property":
-    case "empty":
-      return 0;
-  }
-}
-
-/** The widest of a body's lines, with the body's padding. Zero for a body of no lines. */
-function widest(lines: readonly number[]): number {
-  return lines.length === 0 ? 0 : BODY_CHROME + Math.max(...lines);
-}
-
-function valueWidth(value: readonly number[]): number {
-  return VALUE_WIDTH[Math.min(value.length, 4)] ?? 0;
+  return { width: naturalWidth(item, measure), height: HEADER_HEIGHT + FRAME_EDGES + body };
 }
 
 /**

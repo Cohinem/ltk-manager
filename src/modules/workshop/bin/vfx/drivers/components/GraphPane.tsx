@@ -14,6 +14,7 @@ import { embedSockets } from "../utils/socketEmbed";
 import { type GraphItem, type GraphTree, systemGraph } from "../utils/systemGraph";
 import { type GraphActions, GraphActionsContext } from "./graphActions";
 import { GraphCanvas } from "./GraphCanvas";
+import { useTextMeasure } from "./sansFace";
 
 interface GraphPaneProps {
   document: BinDocumentId;
@@ -71,9 +72,11 @@ export function GraphPane({
   );
   /* The Preview pane holds the viewport until the reader asks for it on the graph. */
   const [previewed, setPreviewed] = useState(false);
+  const measure = useTextMeasure();
   const layout = useMemo(
-    () => (tree === null ? null : layoutGraph(openLists(tree, collapsed), collapsed, previewed)),
-    [tree, collapsed, previewed],
+    () =>
+      tree === null ? null : layoutGraph(openLists(tree, collapsed), collapsed, previewed, measure),
+    [tree, collapsed, previewed, measure],
   );
 
   const holds = visible && layout !== null && previewed;

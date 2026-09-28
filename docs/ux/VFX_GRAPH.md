@@ -139,9 +139,11 @@ the only place a reader learns the difference.
 - a header is 48px, a value node's header 30px, and every line 30px (`LINE_HEIGHT`)
 - no row opens in place (`NO_FOLD` in `components/FieldLines.tsx`), since a struct is a node of
   its own
-- `sizeOf` computes each node's height from its content before anything draws, and estimates its
-  width from its text, 232 to 440px per column. A struct node measures its own name column,
-  144 to 248px, and shares the column's CSS variable with the inspector's `FieldRow`.
+- `sizeOf` computes each node's height from its content before anything draws, and its width
+  from its text, 232 to 440px per column. The text is measured on a canvas in the sans face the
+  reader picked, and measured again when they pick another (`utils/textWidth.ts`,
+  `components/sansFace.ts`). A struct node's name column, 144 to 248px, is measured the same
+  way and shares its CSS variable with the inspector's `FieldRow`.
 - a row whose read has not landed draws its name dimmed in the line it will fill (`NoteLine`)
 
 **Why.** The layout places every node once. A read that lands later fills a line that is
@@ -353,24 +355,21 @@ are off while the pane is hidden.
 
 Found while writing this, against `12661b7e`:
 
-1. **Width estimates still assume the mono face.** `MONO_ADVANCE` and its comment in
-   `utils/driverLayout.ts` describe Geist Mono, but `65188dba` moved node labels to the sans face.
-   Sans is narrower, so nodes come out wider than they need rather than truncating.
-2. **The plan contradicts itself on dragging.** Decision 2.8 of
+1. **The plan contradicts itself on dragging.** Decision 2.8 of
    docs/plans/shimmer-driver-graph.md says a drag moves a node for the session, which the code
    does. Its risks table says nodes do not drag.
-3. **Two levels of editing on one canvas.** Classic emitter nodes support Add field, a class
+2. **Two levels of editing on one canvas.** Classic emitter nodes support Add field, a class
    change, Delete and Duplicate. Shimmer driver nodes edit their leaves only, since tier E1 waits
    on section 5.1 of the plan. Nothing on a driver node says why its structure cannot be edited.
-4. **Live values only on classic value nodes.** Driver nodes show no value at the playhead
+3. **Live values only on classic value nodes.** Driver nodes show no value at the playhead
    until tier E2.
-5. **Read-only is mostly absence, with two exceptions.** Add menus and switches disappear in a
+4. **Read-only is mostly absence, with two exceptions.** Add menus and switches disappear in a
    read-only document, but a list's Add item line draws disabled
    (`components/StructureLines.tsx`). The quick add still opens and lists the emitter's unwritten
    fields, since `useFieldChoices` in `components/MasterAdd.tsx` is not gated on an edit, and a
    pick shows a pending field that can never be written.
-6. **`Tab` opens the quick add.** With focus on a button inside the canvas, `Tab` opens the
+5. **`Tab` opens the quick add.** With focus on a button inside the canvas, `Tab` opens the
    quick add rather than moving focus to the next control. Only fields are exempt
    (`typing` in `components/GraphCanvas.tsx`), so the keyboard cannot walk a node's buttons
    forward.
-7. **`FOLDING` is defined twice**, in `components/GraphPane.tsx` and `components/GraphMenu.tsx`.
+6. **`FOLDING` is defined twice**, in `components/GraphPane.tsx` and `components/GraphMenu.tsx`.

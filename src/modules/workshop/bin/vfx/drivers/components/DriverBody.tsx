@@ -11,8 +11,9 @@ import { easingName } from "../../engine/drivers/easing";
 import { type DriverNode, type EasingNode, frequencyScope } from "../../engine/drivers/node";
 import { isColorDriver } from "../../engine/drivers/registry";
 import type { ValueCurve } from "../../engine/model/model";
-import { LINE_HEIGHT, UNKNOWN_FIELD_LINES } from "../utils/driverLayout";
+import { LINE_HEIGHT } from "../utils/driverLayout";
 import { formatValues } from "../utils/nodeText";
+import { UNKNOWN_FIELD_LINES } from "../utils/nodeWidth";
 import type { LeafTarget } from "../utils/systemGraph";
 import { type GraphActions, GraphActionsContext, NO_DOCUMENT } from "./graphActions";
 

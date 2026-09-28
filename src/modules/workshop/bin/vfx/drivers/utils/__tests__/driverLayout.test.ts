@@ -16,6 +16,9 @@ import { systemGraph } from "../systemGraph";
 
 const GRAPHS = (fixture as unknown as { graphs: { graph: VfxValue }[] }).graphs;
 
+/** The widest a column of nodes draws, however long its text. */
+const WIDEST_NODE = 440;
+
 /** A shimmer emitter whose lifetime component holds `rate` and whose physics holds `scale`. */
 function emitter(name: string, rate: VfxValue, scale: VfxValue): VfxValue {
   return struct("VfxShimmerEmitterDefinitionData", {
@@ -343,6 +346,23 @@ describe("layoutGraph", () => {
       const tree = systemGraph(system(emitter("Grid", graph, SCALE)));
       if (tree === null) throw new Error("the system holds no graph");
       expect(layoutGraph(tree)).toEqual(layoutGraph(tree));
+    }
+  });
+
+  it("sizes each node by its measured text, within a column's bounds", () => {
+    const tree = systemGraph(system(emitter("Grid", RATE, SCALE)));
+    if (tree === null) throw new Error("the system holds no graph");
+    const widths = (measure: () => number) =>
+      new Map(
+        layoutGraph(tree, undefined, true, measure).items.map((each) => [each.item.id, each.width]),
+      );
+
+    const narrow = widths(() => 0);
+    const wide = widths(() => 1000);
+    for (const [id, width] of narrow) expect(width, id).toBeLessThanOrEqual(wide.get(id)!);
+    expect([...narrow].some(([id, width]) => width < wide.get(id)!)).toBe(true);
+    for (const [id, width] of wide) {
+      if (id !== tree.item.id) expect(width, id).toBe(WIDEST_NODE);
     }
   });
 
