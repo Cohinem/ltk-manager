@@ -265,6 +265,17 @@ it was measured at zero, and each is a state the build should assert over the ar
 wrote rather than one a pass over a library should hunt for. So the naming rule now has no
 instance, which does not make it wrong — see ADR-0010.
 
+## The Creator Workshop
+
+**Sandbox** - the data source a workshop editor reads from and writes to: the installed game
+alone, or a mod project's layers stacked over the game in the overlay's order. A document opens in
+a sandbox. The sandbox decides which copy of a path the build uses, and whether an edit writes a
+layer file or a **declaration** for a game bin that no layer ships. A project sandbox shows the
+project's own build output, without other mods. The word comes from Riot's own editor, and the
+object tab's header shows it - see ADR-0056. Not a **layer**, which is one part of a sandbox's
+stack, and not a **profile**, which is what the overlay builds from.
+_Avoid_: environment, workspace, baseline
+
 ## Settings
 
 **Setting id** — one setting's name everywhere: its key in `settings.json`, what a link calls it,

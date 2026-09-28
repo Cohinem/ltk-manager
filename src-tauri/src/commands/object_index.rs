@@ -1,5 +1,6 @@
 //! The bin object index: warm it, drop it, and search it.
 
+use super::document_assets;
 use super::game_index::{built_game_index, find_query};
 use super::off_thread;
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
@@ -22,6 +23,7 @@ use ltk_manager_core::object_index::{
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
 use ltk_manager_core::problems::Budget;
+use ltk_manager_core::sandbox::SandboxRef;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -498,7 +500,7 @@ fn walk(
     );
 
     let mut in_flight = walks.0.lock();
-    if in_flight.as_ref().is_some_and(|held| held.is(&budget)) {
+    if in_flight.as_ref().is_some_and(|walk| walk.is(&budget)) {
         *in_flight = None;
     }
     Ok(result)
@@ -546,15 +548,17 @@ pub struct DeclaredObjects {
     pub objects: HashMap<String, DeclaredObject>,
 }
 
-/// Every declaration of each of `object_hashes`, by hash.
+/// Every declaration of each of `object_hashes` in `sandbox`, by hash.
 ///
-/// The install's declarations come from the index, in the slot it is in. With
-/// `document` open, the document's own declarations join them and every list
-/// is ordered as a link resolves it (ADR-0028): this file, then a file the bin
-/// depends on, then archive order.
+/// The install's declarations come from the index, in the slot it is in. The declarations
+/// in the sandbox's layer files go before them (ADR-0056), and an install declaration in a
+/// chunk a layer ships is removed, because the build packs the layer's copy instead. With
+/// `document` open, the document's own declarations are added and every list is ordered as a
+/// link resolves it (ADR-0028): this file, then a file the bin depends on, then the rest.
 #[tauri::command]
 #[specta::specta]
 pub async fn declared_objects(
+    sandbox: SandboxRef,
     object_hashes: Vec<String>,
     document: Option<BinDocumentId>,
     app_handle: AppHandle,
@@ -574,6 +578,7 @@ pub async fn declared_objects(
             })
             .collect();
 
+        fold_layer_declarations(&app_handle, &sandbox, &object_hashes, &mut objects);
         if let Some(document) = document {
             fold_own_declarations(&app_handle, document, &object_hashes, &mut objects)?;
         }
@@ -583,6 +588,24 @@ pub async fn declared_objects(
         })
     })
     .await
+}
+
+/// Add the declarations of `object_hashes` in the layer files of `sandbox` to `objects`, per
+/// [`Sandbox::join_declared`].
+fn fold_layer_declarations(
+    app: &AppHandle,
+    sandbox: &SandboxRef,
+    object_hashes: &[String],
+    objects: &mut HashMap<String, DeclaredObject>,
+) {
+    if sandbox.is_game() {
+        return;
+    }
+    let bin = app.state::<BinHashTablesState>().get();
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
+    let cache = CacheNames::new(&bin, &wad);
+
+    document_assets::sandbox(app, sandbox).join_declared(object_hashes, &cache, objects);
 }
 
 /// Join the open document's own declarations of `hashes` into `objects`, and order
@@ -629,7 +652,7 @@ fn fold_own_declarations(
         if !declared
             .declarations
             .iter()
-            .any(|known| known.asset.same_file(&asset))
+            .any(|known| known.asset == asset)
         {
             declared.declarations.push(declaration);
         }

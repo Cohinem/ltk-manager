@@ -56,6 +56,7 @@ migrated![
     bin_revert,
     // Bin editor: declarations
     bin_declared,
+    bin_overrides,
     bin_set_declaring,
     bin_declare_into,
     bin_row_declaration,

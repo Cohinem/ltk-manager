@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { api, type AppError } from "@/lib/tauri";
+import { api, type AppError, type SandboxRef } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
 import { mutationFn } from "@/utils/query";
 
@@ -63,15 +63,15 @@ export function useWarmOnAbsent(slot: ObjectIndexSlot | undefined): () => void {
 }
 
 /**
- * Every declaration the install holds for each of `objectHashes`, in the slot the
- * index is in.
+ * Every declaration of each of `objectHashes` in `sandbox`, with the slot the index is in.
+ * The game sandbox by default, which is the install alone.
  *
  * Asked whatever the Objects switch says, and asked again each second while a build
- * runs. The answer is the install's for the session. A ready one never refetches on
- * its own, and a warm or a drop settling asks again.
+ * runs. A ready answer never refetches on its own, and a warm or a drop settling asks
+ * again.
  */
-export function useObjectDeclarations(objectHashes: readonly string[]) {
-  return useQuery(objectIndexQueries.declarations(objectHashes));
+export function useObjectDeclarations(objectHashes: readonly string[], sandbox?: SandboxRef) {
+  return useQuery(objectIndexQueries.declarations(objectHashes, sandbox));
 }
 
 /**

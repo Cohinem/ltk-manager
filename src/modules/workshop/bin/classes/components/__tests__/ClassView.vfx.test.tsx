@@ -466,7 +466,7 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, value: paths.map((path) => pages[path] ?? page([])) });
     }
     if (command === "class_schema") return Promise.resolve({ ok: true, value: SCHEMA });
-    if (command === "locate_game_files") return Promise.resolve({ ok: true, value: {} });
+    if (command === "locate_files_near") return Promise.resolve({ ok: true, value: {} });
     if (command === "declared_objects") {
       const hashes = (args?.objectHashes ?? []) as string[];
       const objects = Object.fromEntries(
@@ -1826,7 +1826,7 @@ describe("A child lane", () => {
 
     await waitFor(() => {
       const located = mockInvoke.mock.calls
-        .filter(([command]) => command === "locate_game_files")
+        .filter(([command]) => command === "locate_files_near")
         .flatMap(([, args]) => (args as { paths: string[] }).paths);
       expect(located).toContain(CHILD_TEXTURE);
     });
@@ -1919,7 +1919,7 @@ describe("ClassView over sixty emitters", () => {
 
   function renderMany() {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "locate_game_files") return Promise.resolve({ ok: true, value: {} });
+      if (command === "locate_files_near") return Promise.resolve({ ok: true, value: {} });
       if (command === "declared_objects") {
         return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });
       }

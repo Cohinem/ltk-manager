@@ -136,12 +136,17 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_core::object_index::ObjectReferenceGeneration::default());
     app.manage(ltk_manager_core::problems::ProblemsState::default());
     app.manage(ltk_manager_core::bin_document::BinDocuments::default());
+    let sandboxes = ltk_manager_core::sandbox::SandboxState::default();
+    app.manage(sandboxes.clone());
     app.manage(ltk_manager_core::hashtables::BinHashTablesState::default());
     app.manage(crate::commands::ExtractState::default());
     app.manage(crate::commands::ReferenceWalkState::default());
     app.manage(mod_library);
     app.manage(workshop);
-    app.manage(crate::workshop::LayerWatches::new(Arc::clone(&events)));
+    app.manage(crate::workshop::LayerWatches::new(
+        Arc::clone(&events),
+        sandboxes,
+    ));
     app.manage(hotkey_manager);
     app.manage(deep_link_state);
 

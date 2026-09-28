@@ -1,8 +1,17 @@
 import { useMemo } from "react";
 import { create } from "zustand";
 
-import { type AppError, api, type BinDocumentId } from "@/lib/tauri";
+import {
+  type AppError,
+  api,
+  type AssetRef,
+  type BinDocumentId,
+  type SandboxRef,
+} from "@/lib/tauri";
 import type { TextSaveState } from "@/modules/editor";
+
+import { assetKey } from "../../../preview/utils/assetRef";
+import { sandboxKey } from "../../../sandbox/utils/sandboxRef";
 
 /* The strings editor's rhythm, "Save" in docs/ux/BIN_EDITOR.md. */
 const SAVE_DELAY_MS = 600;
@@ -21,13 +30,21 @@ const BLOCKED: BinSave = { state: "blocked", error: null };
 const NO_FIELDS: readonly string[] = [];
 
 interface BinSavesStore {
-  /** Every asset with an edit since it opened, by `assetKey`. */
+  /** Every asset with an edit since it opened, by `binSaveKey`. */
   saves: Record<string, BinSave>;
   /** The fields of each asset whose last value was refused, one entry per drawn mark. */
   refused: Record<string, readonly string[]>;
 }
 
 const useBinSavesStore = create<BinSavesStore>()(() => ({ saves: {}, refused: {} }));
+
+/**
+ * What the save queue keys an open bin by: the asset and the sandbox it opened in. One chunk
+ * open in the project and in the game is two documents, so it is two queues. ADR-0056.
+ */
+export function binSaveKey(sandbox: SandboxRef, asset: AssetRef): string {
+  return `${sandboxKey(sandbox)}|${assetKey(asset)}`;
+}
 
 function put(asset: string, save: BinSave) {
   useBinSavesStore.setState((store) => ({ saves: { ...store.saves, [asset]: save } }));

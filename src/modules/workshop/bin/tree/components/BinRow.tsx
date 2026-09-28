@@ -44,12 +44,14 @@ import {
   DeclaredRowMark,
   ObjectChangeMark,
 } from "../../documents/components/DeclaredLayer";
+import { OverrideRowMark } from "../../documents/components/OverrideMark";
 import {
   useDeclaredMark,
   useDeclaredObject,
   useDeclares,
   useRowDiagnostics,
 } from "../../documents/hooks/useDeclared";
+import { useRowOverrides } from "../../documents/hooks/useOverrides";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
 import { ObjectNameContext, useObjectOpen } from "../../links/hooks/useLinkTargets";
 import { PathInput } from "../../paths/components/PathInput";
@@ -400,6 +402,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   const { edit } = useRowEdit(line.key);
   const keyRefusal = edit?.refused.get(keyMark(line.key));
   const declared = useDeclaredMark(line.key);
+  const overrides = useRowOverrides(line.key);
   const objectChange = useDeclaredObject(objectEntry(row));
   const reported = useRowDiagnostics(line.key);
   /* A target is an object of another file, drawn as the heading its records sit under. */
@@ -474,6 +477,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
         </Tooltip>
       )}
       {declared && <DeclaredRowMark mark={declared.mark} layer={declared.layer} />}
+      {overrides.length > 0 && <OverrideRowMark overrides={overrides} />}
       {objectChange && <ObjectChangeMark change={objectChange.change} layer={objectChange.layer} />}
       <ChangeMark rowKey={line.key} />
       <DeclaredDiagnosticsMark diagnostics={reported} />

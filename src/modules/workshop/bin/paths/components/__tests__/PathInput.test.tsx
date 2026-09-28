@@ -10,6 +10,7 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
+import { RouteSandboxProvider } from "../../../../sandbox/state/SandboxContext";
 import type { PathField } from "../../utils/pathField";
 import { PathInput } from "../PathInput";
 
@@ -77,15 +78,17 @@ function mount(value = "", field = TEXTURE) {
   render(
     <QueryClientProvider client={createTestQueryClient()}>
       <ProjectProvider project={PROJECT}>
-        <PathInput
-          value={value}
-          field={field}
-          aria-label="Edit value"
-          invalid={false}
-          autoFocus={false}
-          onCommit={onCommit}
-          onEnter={onEnter}
-        />
+        <RouteSandboxProvider project={PROJECT.path}>
+          <PathInput
+            value={value}
+            field={field}
+            aria-label="Edit value"
+            invalid={false}
+            autoFocus={false}
+            onCommit={onCommit}
+            onEnter={onEnter}
+          />
+        </RouteSandboxProvider>
       </ProjectProvider>
     </QueryClientProvider>,
   );

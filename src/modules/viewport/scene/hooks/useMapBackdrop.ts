@@ -10,6 +10,7 @@ import {
   type MapPath,
   type MaterialPreview,
   type MaterialProgram,
+  type SandboxRef,
 } from "@/lib/tauri";
 
 import { BACKDROP_ROOT } from "../../assets/api/placements";
@@ -91,6 +92,14 @@ export interface BackdropSource {
 
 /** Who answers a map's reads through a document, which is what two sources share them by. */
 type ReadScope = { readonly project: string | null } | { readonly document: BinDocumentId | null };
+
+/** The sandbox a source's files are located in: its project's, else the game's. ADR-0056. */
+function sourceSandbox(source: BackdropSource | null): SandboxRef {
+  const project = source?.project ?? null;
+  if (project === null) return { kind: "game" };
+
+  return { kind: "project", project };
+}
 
 function readScope(source: BackdropSource | null): ReadScope {
   if (source?.project !== undefined) return { project: source.project };
@@ -237,18 +246,18 @@ export const backdropQueries = {
       retry: false,
     }),
 
-  /* Located beside the geometry, so a project's copy of a light map wins over the
-     install's as its geometry does. */
-  lightmaps: (near: AssetRef | null, paths: readonly string[] | null) =>
+  /* Looked up in the source's sandbox, so a project's copy of a light map is used instead of
+     the install's, as its geometry is. */
+  lightmaps: (sandbox: SandboxRef | null, paths: readonly string[] | null) =>
     queryOptions<ReadonlyMap<string, AssetRef>>({
-      queryKey: [...BACKDROP_ROOT, "lightmaps", near, paths],
+      queryKey: [...BACKDROP_ROOT, "lightmaps", sandbox, paths],
       queryFn: async () => {
-        if (near === null || paths === null || paths.length === 0) return new Map();
-        const answer = await api.bin.locateFilesNear(near, paths);
+        if (sandbox === null || paths === null || paths.length === 0) return new Map();
+        const answer = await api.bin.locateFilesNear(sandbox, paths);
         if (!answer.ok) throw answer.error;
         return new Map(Object.entries(answer.value));
       },
-      enabled: near !== null && paths !== null,
+      enabled: sandbox !== null && paths !== null,
       staleTime: Infinity,
       retry: false,
     }),
@@ -376,7 +385,10 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   );
   const programs = programsRead.data ?? NO_PROGRAMS;
   const lightmapAssets = useQuery(
-    backdropQueries.lightmaps(shaders ? asset : null, geometry.data?.lightmaps ?? null),
+    backdropQueries.lightmaps(
+      shaders ? sourceSandbox(source) : null,
+      geometry.data?.lightmaps ?? null,
+    ),
   ).data;
   const lightmaps = useAssetTextures(lightmapAssets ?? NO_ASSETS, {
     fullWidth: FULL_WIDTH,

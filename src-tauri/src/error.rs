@@ -104,6 +104,7 @@ pub enum AppErrorResponse {
     BinReadTooDeep,
     /// The open bin takes no edit, behind the gate named.
     BinReadOnly { gate: ReadOnly },
+
     /// An edit's value does not fit the leaf it addresses.
     BinEditRejected {
         address: String,
@@ -355,6 +356,7 @@ impl From<AppError> for AppErrorResponse {
             AppError::BinDocument(BinDocumentError::ReadTooLarge) => Self::BinReadTooLarge,
             AppError::BinDocument(BinDocumentError::ReadTooDeep) => Self::BinReadTooDeep,
             AppError::BinDocument(BinDocumentError::ReadOnly(gate)) => Self::BinReadOnly { gate },
+
             AppError::BinDocument(BinDocumentError::EditRejected { address, rejection }) => {
                 Self::BinEditRejected { address, rejection }
             }

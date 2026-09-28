@@ -5,7 +5,6 @@
 //! and the tables its manifest declares list the chunk paths its archives no longer carry,
 //! the object paths of what its bins add, and the strings behind their `Hash` values.
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -13,14 +12,13 @@ use camino::Utf8Path;
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_hashtable::{Category, Hashtable};
-use ltk_mod_project::{CONTENT_DIR_NAME, ModProject};
+use ltk_mod_project::{CONTENT_DIR_NAME, ModProject, ModProjectLayer};
 use ltk_wad::is_hex_chunk_path;
 use walkdir::WalkDir;
 
 use crate::preview::AssetRef;
 
-use super::layer::{self, Layer};
-use crate::utils::natural_order::compare_names;
+use super::layer;
 
 /// The names one project holds: chunk paths by the hash a `file` value addresses them
 /// with, object paths by their entry hash, and the strings behind `Hash` values.
@@ -38,36 +36,32 @@ pub struct LayerChunks {
     entries: HashMap<BinHash, String>,
     /// The strings a declared `binhashes` table lists, by the hash a `Hash` value carries.
     values: HashMap<BinHash, String>,
+    /// The scanned layers, lowest first, in the order the overlay applies them.
+    stack: Vec<String>,
 }
 
 impl LayerChunks {
-    /// The names the project behind `asset` holds, and none for an asset outside one.
-    ///
-    /// A layer file belongs to its project. A declared game chunk (ADR-0042) belongs to the
-    /// project it was opened in, and the game loads that project's layers over the install
-    /// when the mod is enabled.
-    #[must_use]
-    pub fn of(asset: &AssetRef) -> Self {
-        match asset {
-            AssetRef::Layer { project, .. }
-            | AssetRef::GameChunk {
-                project: Some(project),
-                ..
-            } => Self::scan(Path::new(project)),
-            AssetRef::GameChunk { project: None, .. } | AssetRef::File { .. } => Self::default(),
-        }
-    }
-
     /// Every chunk path `project_dir`'s layers hold and every name its declared tables list.
     ///
     /// Best-effort: a project that loads no manifest still has its layers walked, and
     /// an unreadable table is skipped rather than failing the scan.
     #[must_use]
     pub fn scan(project_dir: &Path) -> Self {
+        Self::scan_where(project_dir, |_| true)
+    }
+
+    /// The chunk paths the one layer `layer` of `project_dir` holds, and every name the
+    /// project's declared tables list.
+    #[must_use]
+    pub fn scan_layer(project_dir: &Path, layer: &str) -> Self {
+        Self::scan_where(project_dir, |name| name == layer)
+    }
+
+    fn scan_where(project_dir: &Path, walks: impl Fn(&str) -> bool) -> Self {
         let project = Utf8Path::from_path(project_dir).and_then(|root| ModProject::load(root).ok());
 
         let mut chunks = Self::default();
-        chunks.read_layers(project_dir, project.as_ref());
+        chunks.read_layers(project_dir, project.as_ref(), walks);
         chunks.read_declared_tables(project_dir, project.as_ref());
         chunks
     }
@@ -112,6 +106,17 @@ impl LayerChunks {
             .or_else(|| self.by_path.get(&self.by_hash.get(&hash)?.to_lowercase()))
     }
 
+    /// Every layer file a build packs: for each path, the copy of the highest layer.
+    pub fn files(&self) -> impl Iterator<Item = &AssetRef> + '_ {
+        self.by_path.values()
+    }
+
+    /// The scanned layers, lowest first, in the order the overlay applies them.
+    #[must_use]
+    pub fn layers(&self) -> &[String] {
+        &self.stack
+    }
+
     /// How many chunk paths the scan named.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -129,9 +134,14 @@ impl LayerChunks {
     /// The shape is `content/<layer>/<archive>/<chunk path>`, so what a `file` value
     /// addresses is the walk under one archive directory.
     ///
-    /// The stack is walked from the bottom, so the file left at a path two layers both
-    /// hold is the one the higher-priority layer holds.
-    fn read_layers(&mut self, project_dir: &Path, project: Option<&ModProject>) {
+    /// The layers are scanned in [`ModProjectLayer::apply_order`], the overlay's order, so
+    /// when two layers hold the same path, the file kept is the one a build packs.
+    fn read_layers(
+        &mut self,
+        project_dir: &Path,
+        project: Option<&ModProject>,
+        walks: impl Fn(&str) -> bool,
+    ) {
         let owner = project_dir.display().to_string();
         let Ok(dirs) = layer::dirs_in(&project_dir.join(CONTENT_DIR_NAME)) else {
             return;
@@ -140,16 +150,19 @@ impl LayerChunks {
         let mut layers: Vec<LayerDir> = dirs
             .into_iter()
             .filter_map(|dir| LayerDir::of(dir, project))
+            .filter(|dir| walks(&dir.layer.name))
             .collect();
-        layers.sort_by(|a, b| a.cmp_for_stacking(b));
+        layers.sort_by(|a, b| ModProjectLayer::apply_order(&a.layer, &b.layer));
 
         for layer in &layers {
+            self.stack.push(layer.layer.name.clone());
+
             let Ok(archives) = fs::read_dir(&layer.dir) else {
                 continue;
             };
             for archive in archives.flatten().map(|entry| entry.path()) {
                 if archive.is_dir() {
-                    self.read_archive(&owner, &layer.name, &archive);
+                    self.read_archive(&owner, &layer.layer.name, &archive);
                 }
             }
         }
@@ -264,10 +277,7 @@ fn read_table(project_dir: &Path, path: &str) -> Option<Hashtable> {
     }
 }
 
-/// The priority a layer directory the manifest does not declare is stacked at.
-///
-/// `base` is written at zero, so an undeclared layer ties with it and `cmp_for_display`
-/// puts it directly above.
+/// The priority of a layer directory the manifest does not list, which equals `base`'s.
 const UNDECLARED_PRIORITY: i32 = 0;
 
 /// One layer directory, under whatever priority the manifest gives its name.
@@ -276,8 +286,7 @@ const UNDECLARED_PRIORITY: i32 = 0;
 /// name, and the stack this walks needs the manifest's.
 struct LayerDir {
     dir: PathBuf,
-    name: String,
-    priority: i32,
+    layer: ModProjectLayer,
 }
 
 impl LayerDir {
@@ -289,35 +298,12 @@ impl LayerDir {
 
         Some(Self {
             dir,
-            name,
-            priority,
+            layer: ModProjectLayer {
+                name,
+                priority,
+                ..ModProjectLayer::default()
+            },
         })
-    }
-}
-
-impl LayerDir {
-    /// Order against `other` bottom of the stack first, which is what a walk overwrites in.
-    ///
-    /// Priority leads, because [`Layer::priority`] is what decides the file a path resolves
-    /// to. `base` breaks a tie by sitting under its siblings, which is the one thing
-    /// [`Layer::cmp_for_display`] settles the same way. A listing's own order is that
-    /// comparator and not this one: it leads with `base` whatever its priority, which would
-    /// resolve a negative-priority sibling backwards.
-    fn cmp_for_stacking(&self, other: &Self) -> Ordering {
-        self.priority
-            .cmp(&other.priority)
-            .then_with(|| other.is_base().cmp(&self.is_base()))
-            .then_with(|| compare_names(&self.name, &other.name))
-    }
-}
-
-impl Layer for LayerDir {
-    fn name(&self) -> &str {
-        &self.name
-    }
-
-    fn priority(&self) -> i32 {
-        self.priority
     }
 }
 

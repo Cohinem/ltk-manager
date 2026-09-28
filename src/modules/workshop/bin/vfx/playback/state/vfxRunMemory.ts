@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import type { AssetRef, BinDocumentId } from "@/lib/tauri";
 
-import { assetKey, assetProject } from "../../../../preview/utils/assetRef";
+import { assetKey } from "../../../../preview/utils/assetRef";
 import type { RigChoice } from "../../engine/model/rig";
 
 /** The in and the out a run loops between, in seconds of the run's own phase. */
@@ -46,7 +46,8 @@ interface VfxRunMemoryStore {
 export function vfxRunKey(source: AssetRef | BinDocumentId, entry: string): string {
   if (typeof source === "number") return `open:${source}:${entry}`;
 
-  return `${assetProject(source, null) ?? ""}:${assetKey(source)}:${entry}`;
+  const project = source.kind === "layer" ? source.project : "";
+  return `${project}:${assetKey(source)}:${entry}`;
 }
 
 export const useVfxRunMemoryStore = create<VfxRunMemoryStore>()((set) => ({

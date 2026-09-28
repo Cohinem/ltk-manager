@@ -4,6 +4,7 @@ import { createContext, type ReactNode, use, useCallback, useMemo, useState } fr
 import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
 
 import { assetKey } from "../../../preview/utils/assetRef";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { DocumentOpener } from "../../skin/hooks/useGraphSource";
 import { mapQueries } from "../api/mapQueries";
 import { NO_FILTER, type OutlineFilter } from "../utils/mapOutline";
@@ -29,8 +30,6 @@ export type MapSceneSource =
 
 /** One map's scene, shared by the panes that draw it and list it. */
 export interface MapSceneState {
-  /** Any asset of the project whose layers answer before the install. */
-  readonly near: AssetRef;
   /** The maps the source draws, and undefined while they read. */
   readonly variants: readonly MapVariant[] | undefined;
   /** The variants could not be read. */
@@ -81,8 +80,6 @@ export function useMapScene(): MapSceneState {
 export interface MapSceneHostProps {
   /** Off, this holds nothing and reads nothing. */
   readonly enabled?: boolean;
-  /** Any asset of the project whose layers answer before the install for the map's files. */
-  readonly near: AssetRef;
   readonly source: MapSceneSource;
   readonly children: ReactNode;
 }
@@ -99,7 +96,7 @@ export function MapSceneHost({ enabled = true, children, ...props }: MapSceneHos
   return <MapSceneProvider {...props}>{children}</MapSceneProvider>;
 }
 
-function MapSceneProvider({ near, source, children }: Omit<MapSceneHostProps, "enabled">) {
+function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled">) {
   const object = source.kind === "object" ? source : null;
   const read = useQuery(mapQueries.variants(object?.document ?? null, object?.entry ?? null));
   const file = source.kind === "file" ? source.map : null;
@@ -118,7 +115,8 @@ function MapSceneProvider({ near, source, children }: Omit<MapSceneHostProps, "e
     [listed, picked],
   );
 
-  const files = useQuery(mapQueries.files(near, chosen?.map ?? null)).data;
+  const sandbox = useSandbox();
+  const files = useQuery(mapQueries.files(sandbox, chosen?.map ?? null)).data;
   const materialsFile = files?.materials ?? null;
   const [opened, setOpened] = useState<BinDocumentId | null>(null);
 
@@ -151,7 +149,6 @@ function MapSceneProvider({ near, source, children }: Omit<MapSceneHostProps, "e
 
   const scene = useMemo<MapSceneState>(
     () => ({
-      near,
       variants: listed,
       failed,
       chosen,
@@ -174,7 +171,6 @@ function MapSceneProvider({ near, source, children }: Omit<MapSceneHostProps, "e
       setMarkers,
     }),
     [
-      near,
       listed,
       failed,
       chosen,

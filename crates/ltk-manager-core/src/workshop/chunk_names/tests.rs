@@ -283,10 +283,10 @@ fn an_undeclared_layer_directory_stacks_onto_base() {
     );
 }
 
-/// `base` sits under its siblings by convention, not by rank, so a manifest that puts it
-/// above them resolves that way.
+/// The overlay applies `base` first regardless of its priority, so another layer with a
+/// lower priority still replaces its files.
 #[test]
-fn a_base_layer_of_the_higher_priority_still_wins() {
+fn base_stacks_under_a_sibling_of_a_lower_priority() {
     let dir = layered(
         &[
             "base/W.wad.client/assets/x.tex",
@@ -301,15 +301,16 @@ fn a_base_layer_of_the_higher_priority_still_wins() {
         chunks.asset_at("assets/x.tex"),
         Some(&AssetRef::Layer {
             project: dir.path().display().to_string(),
-            layer: "base".to_owned(),
+            layer: "extra".to_owned(),
             path: "W.wad.client/assets/x.tex".to_owned(),
         })
     );
 }
 
-/// A priority is signed, and a layer below `base` is under it rather than over it.
+/// Acceptance test 1 of docs/plans/sandbox.md: the overlay packs the negative-priority
+/// layer's file, because it applies `base` first.
 #[test]
-fn a_layer_of_a_negative_priority_is_under_base() {
+fn a_layer_of_a_negative_priority_resolves_to_the_file_the_overlay_routes() {
     let dir = layered(
         &[
             "base/W.wad.client/assets/x.tex",
@@ -324,10 +325,28 @@ fn a_layer_of_a_negative_priority_is_under_base() {
         chunks.asset_at("assets/x.tex"),
         Some(&AssetRef::Layer {
             project: dir.path().display().to_string(),
-            layer: "base".to_owned(),
+            layer: "under".to_owned(),
             path: "W.wad.client/assets/x.tex".to_owned(),
         })
     );
+    assert_eq!(chunks.layers(), ["base", "under"]);
+}
+
+#[test]
+fn one_layer_scanned_alone_holds_its_own_files_only() {
+    let dir = layered(
+        &[
+            "base/W.wad.client/assets/x.tex",
+            "extra/W.wad.client/assets/y.tex",
+        ],
+        &[("base", 0), ("extra", 1)],
+    );
+
+    let chunks = LayerChunks::scan_layer(dir.path(), "extra");
+
+    assert_eq!(chunks.asset_at("assets/x.tex"), None);
+    assert!(chunks.asset_at("assets/y.tex").is_some());
+    assert_eq!(chunks.layers(), ["extra"]);
 }
 
 /// One layer answers both halves, so a resolved link does not name one file and open another.
@@ -362,37 +381,4 @@ fn a_project_with_no_content_and_no_tables_names_nothing() {
     let dir = tempfile::tempdir().expect("temp dir");
 
     assert!(LayerChunks::scan(dir.path()).is_empty());
-}
-
-#[test]
-fn a_game_chunk_opened_from_a_project_reaches_the_project_layer_file() {
-    let path = "assets/characters/twistedfate/skins/base/twistedfate_base_2012_cm.tex";
-    let dir = project(&[&format!("base/TwistedFate.wad.client/{path}")], &[]);
-    let asset = AssetRef::GameChunk {
-        wad: "Champions/TwistedFate.wad.client".to_owned(),
-        path_hash: "0040cb0b0c8560aa".to_owned(),
-        project: Some(dir.path().display().to_string()),
-    };
-
-    let chunks = LayerChunks::of(&asset);
-
-    assert_eq!(
-        chunks.asset_at(path),
-        Some(&AssetRef::Layer {
-            project: dir.path().display().to_string(),
-            layer: "base".to_owned(),
-            path: format!("TwistedFate.wad.client/{path}"),
-        })
-    );
-}
-
-#[test]
-fn an_asset_outside_a_project_names_nothing() {
-    let asset = AssetRef::GameChunk {
-        wad: "Aatrox.wad.client".to_owned(),
-        path_hash: "0040cb0b0c8560aa".to_owned(),
-        project: None,
-    };
-
-    assert!(LayerChunks::of(&asset).is_empty());
 }

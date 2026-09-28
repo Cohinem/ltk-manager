@@ -40,6 +40,7 @@ import { ProblemsDocument } from "../../problems";
 import { DetailsDocument } from "../../projects/details/components/DetailsDocument";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { objectReferences, ReferencesDocument, useFindReferences } from "../../references";
+import { inDocumentSandbox } from "../../sandbox/state/SandboxContext";
 import { ObjectGlyph } from "../../shared/components/ObjectGlyph";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
 import { StringsDocument } from "../../string-overrides/components/StringsDocument";
@@ -62,6 +63,10 @@ import {
  * screen - `layerTitle` against the wrong project names the wrong layer.
  */
 /* DS-KIND-HUE: a root text file is a kind of its own, not a status. */
+/* Module constants, so a registry rebuilt for another project keeps each tab mounted. */
+const SandboxedPreviewDocument = inDocumentSandbox(PreviewDocument);
+const SandboxedObjectDocument = inDocumentSandbox(ObjectDocument);
+
 function glyphClass(file: ContentDocumentOf<"text">["file"]): string {
   const hue = file === "readme" ? "text-doc-readme-text" : "text-doc-license-text";
   return `h-4 w-4 shrink-0 ${hue}`;
@@ -166,7 +171,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
           path: document.path ?? assetPath(document.asset),
         };
       },
-      component: PreviewDocument,
+      component: SandboxedPreviewDocument,
       tabMenu: (document) => {
         /* A file picked off disk belongs to no browser of this editor, and the
            strip's own items are the whole menu it gets. */
@@ -186,7 +191,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         context: declaringFileContext(document.asset, document.file),
         path: document.objectPath,
       }),
-      component: ObjectDocument,
+      component: SandboxedObjectDocument,
       tabMenu: (document) => (
         <ObjectTabMenu objectHash={document.objectHash} objectPath={document.objectPath} />
       ),

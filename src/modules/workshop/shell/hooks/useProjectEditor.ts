@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import type { BinRow } from "@/lib/tauri";
+import type { BinRow, WorkshopProject } from "@/lib/tauri";
 import { type DropOutcome, type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
 import { usePreviewOnClick } from "@/stores/workshopLayout";
 
@@ -12,9 +12,14 @@ import {
   type ShellKind,
   type ShellPaneId,
 } from "../../bin/shell/utils/shellPanes";
-import { type ContentDocument, documentLayerName } from "../../documents/utils/contentDocument";
+import {
+  type ContentDocument,
+  documentLayerName,
+  inSandbox,
+} from "../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../palette/utils/types";
 import { useProjectContext } from "../../projects/state/ProjectContext";
+import { useRouteSandbox, useSandbox } from "../../sandbox/state/SandboxContext";
 import {
   type CurveAimRequest,
   EMPTY_EDITOR,
@@ -179,17 +184,38 @@ export function useRequestedDocument(projectPath: string, ready: boolean) {
   }, [projectPath, ready]);
 }
 
-export function useOpenDocument() {
-  const projectPath = useProjectPath();
+/**
+ * The document to open from inside another document: a game chunk with no sandbox of its
+ * own gets the enclosing document's sandbox, so a link keeps its sandbox (ADR-0056). A layer
+ * file always opens in its project.
+ */
+function useOpenedInSandbox(): (document: ContentDocument) => ContentDocument {
+  const sandbox = useSandbox();
+  const route = useRouteSandbox();
   return useCallback(
     (document: ContentDocument) => {
+      if (document.kind !== "preview" && document.kind !== "object") return document;
+      if (document.sandbox !== undefined || document.asset.kind !== "gameChunk") return document;
+
+      return inSandbox(document, sandbox, route);
+    },
+    [sandbox, route],
+  );
+}
+
+export function useOpenDocument() {
+  const projectPath = useProjectPath();
+  const opened = useOpenedInSandbox();
+  return useCallback(
+    (requested: ContentDocument) => {
+      const document = opened(requested);
       const store = useWorkshopEditorStore.getState();
       store.openDocument(projectPath, document);
 
       const layerName = documentLayerName(document);
       if (layerName) store.selectLayer(projectPath, layerName);
     },
-    [projectPath],
+    [projectPath, opened],
   );
 }
 
@@ -202,15 +228,17 @@ export function useOpenDocument() {
  */
 export function useOpenPreview() {
   const projectPath = useProjectPath();
+  const opened = useOpenedInSandbox();
   return useCallback(
-    (document: ContentDocument) => {
+    (requested: ContentDocument) => {
+      const document = opened(requested);
       const store = useWorkshopEditorStore.getState();
       store.openPreview(projectPath, document);
 
       const layerName = documentLayerName(document);
       if (layerName) store.selectLayer(projectPath, layerName);
     },
-    [projectPath],
+    [projectPath, opened],
   );
 }
 
@@ -263,14 +291,16 @@ export function useOpenRowPreview() {
 export function useOpenDocumentBeside() {
   const projectPath = useProjectPath();
   const openDocumentBeside = useWorkshopEditorStore((s) => s.openDocumentBeside);
+  const opened = useOpenedInSandbox();
   return useCallback(
-    (document: ContentDocument) => {
+    (requested: ContentDocument) => {
+      const document = opened(requested);
       openDocumentBeside(projectPath, document);
 
       const layerName = documentLayerName(document);
       if (layerName) useWorkshopEditorStore.getState().selectLayer(projectPath, layerName);
     },
-    [openDocumentBeside, projectPath],
+    [openDocumentBeside, projectPath, opened],
   );
 }
 
@@ -298,6 +328,22 @@ export function useOpenDocumentAs() {
 /** The intent a click carries: beside with `Ctrl` or `Cmd` held, the tab mode without. */
 export function clickIntent(event: { ctrlKey: boolean; metaKey: boolean }): OpenIntent {
   return event.ctrlKey || event.metaKey ? "beside" : "default";
+}
+
+/** The open document `id`, or null where it is not open. */
+export function useEditorDocument(id: string): ContentDocument | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => s.byProject[projectPath]?.documents[id] ?? null);
+}
+
+/** Put a document in the tab another holds, keeping its place, as a sandbox switch does. */
+export function useReplaceDocument() {
+  const projectPath = useProjectPath();
+  const replaceDocument = useWorkshopEditorStore((s) => s.replaceDocument);
+  return useCallback(
+    (from: string, document: ContentDocument) => replaceDocument(projectPath, from, document),
+    [replaceDocument, projectPath],
+  );
 }
 
 export function usePromoteDocument() {
@@ -342,6 +388,23 @@ export function useCloseLayerDocuments() {
   return useCallback(
     (layerName: string) => closeLayerDocuments(projectPath, layerName),
     [closeLayerDocuments, projectPath],
+  );
+}
+
+/**
+ * Update the editor after the layer `from` is renamed to `displayName`. The new layer name is
+ * read from `updated`. The layer's tabs keep their place under the new name, and
+ * `.ltk/editor.json` saves them.
+ */
+export function useFollowLayerRename() {
+  const projectPath = useProjectPath();
+  const renameLayer = useWorkshopEditorStore((s) => s.renameLayer);
+  return useCallback(
+    (from: string, displayName: string, updated: WorkshopProject) => {
+      const to = updated.layers.find((layer) => layer.displayName === displayName)?.name;
+      if (to !== undefined) renameLayer(projectPath, from, to);
+    },
+    [renameLayer, projectPath],
   );
 }
 

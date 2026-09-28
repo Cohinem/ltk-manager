@@ -4,6 +4,7 @@ import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
 import { ChangedRowsContext, useChangedRows } from "../../documents/hooks/useChanges";
 import { DeclaredRowsContext, useDeclaredRows } from "../../documents/hooks/useDeclared";
+import { OverriddenRowsContext, useOverriddenRows } from "../../documents/hooks/useOverrides";
 import {
   LinkAssetContext,
   LinkOpenContext,
@@ -52,6 +53,7 @@ export function TreeContexts({
   const marks = useValueMarks(document, inView);
   const edit = useBinEditor(document, asset, editable, focus);
   const declared = useDeclaredRows(document, editable);
+  const overridden = useOverriddenRows(document);
   const changed = useChangedRows(document);
 
   return (
@@ -62,11 +64,13 @@ export function TreeContexts({
             <ValueMarksContext value={marks}>
               <ChangedRowsContext value={changed}>
                 <DeclaredRowsContext value={declared}>
-                  <RowDocumentContext value={document}>
-                    <LeafEditContext value={null}>
-                      <BinEditContext value={edit}>{children}</BinEditContext>
-                    </LeafEditContext>
-                  </RowDocumentContext>
+                  <OverriddenRowsContext value={overridden}>
+                    <RowDocumentContext value={document}>
+                      <LeafEditContext value={null}>
+                        <BinEditContext value={edit}>{children}</BinEditContext>
+                      </LeafEditContext>
+                    </RowDocumentContext>
+                  </OverriddenRowsContext>
                 </DeclaredRowsContext>
               </ChangedRowsContext>
             </ValueMarksContext>

@@ -21,12 +21,14 @@ import {
   type ClassChoice,
   type Declaring,
   type Dependency,
+  type SandboxRef,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { assetKey } from "../../../preview/utils/assetRef";
-import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
-import { flushBinSave, isQueuedThrough } from "../../../state";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
+import { sandboxKey, sandboxProject } from "../../../sandbox/utils/sandboxRef";
+import { binSaveKey, flushBinSave, isQueuedThrough } from "../../../state";
 import { expectKind } from "../../shared/utils/expectKind";
 import { type LoadedChildren, mergePages, PAGE_SIZE, splitKey } from "../../tree/utils/binRows";
 import { useDeclarationsOn } from "./useDeclared";
@@ -57,25 +59,22 @@ const LINGER_MS = 10_000;
  * fresh id, or null where the open failed. A document the store evicted is reopened this way,
  * and every open id registers it, so `sendOn` reopens and resends a call the store refuses.
  *
- * A declared document follows the project's "Use game data declarations", and its handle's
- * `readOnly` is the gate the backend answers for it.
+ * The asset opens in the sandbox of the enclosing document (ADR-0056). A declared document
+ * follows the project's "Use game data declarations". The handle's `readOnly` is the gate the
+ * backend reports for it.
  */
 export function useBinDocument(
   asset: AssetRef,
   entry: string | null = null,
   release: BinRelease = "now",
 ): { state: BinOpenState; reopen: () => Promise<BinDocumentId | null> } {
-  /* A game chunk opened inside a project declares into it (ADR-0042). */
-  const project = useOptionalProjectContext()?.path;
-  const opened =
-    asset.kind === "gameChunk" && project !== undefined ? { ...asset, project } : asset;
-  const declarationProject = opened.kind === "gameChunk" ? opened.project : undefined;
-  const key = `${declarationProject ?? ""}:${assetKey(asset)}:${entry ?? ""}`;
+  const sandbox = useSandbox();
+  const key = `${sandboxKey(sandbox)}:${assetKey(asset)}:${entry ?? ""}`;
   const declaring: Declaring =
-    useDeclarationsOn(declarationProject ?? undefined) === true ? "on" : "off";
+    useDeclarationsOn(sandboxProject(sandbox) ?? undefined) === true ? "on" : "off";
 
-  const latest = useRef({ asset: opened, entry, declaring });
-  latest.current = { asset: opened, entry, declaring };
+  const latest = useRef({ sandbox, asset, entry, declaring });
+  latest.current = { sandbox, asset, entry, declaring };
 
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
@@ -115,27 +114,26 @@ export function useBinDocument(
     heldKey.current = key;
     setState((previous) => (same && previous.status === "open" ? previous : { status: "opening" }));
 
-    void openGated(latest.current.asset, latest.current.entry, () => latest.current.declaring).then(
-      (result) => {
-        if (!live) {
-          if (result.ok) void api.bin.close(result.value.document);
-          return;
-        }
-        const settled = waiting.current;
-        waiting.current = [];
-        if (result.ok) {
-          opened = result.value.document;
-          unregister = registerReopen(opened, reopen);
-          setState({ status: "open", handle: result.value });
-          for (const resolve of settled) resolve(opened);
-          return;
-        }
-        setState({ status: "failed", error: result.error });
-        for (const resolve of settled) resolve(null);
-      },
-    );
+    const { sandbox: openIn, asset: opening, entry: object } = latest.current;
+    void openGated(openIn, opening, object, () => latest.current.declaring).then((result) => {
+      if (!live) {
+        if (result.ok) void api.bin.close(result.value.document);
+        return;
+      }
+      const settled = waiting.current;
+      waiting.current = [];
+      if (result.ok) {
+        opened = result.value.document;
+        unregister = registerReopen(opened, reopen);
+        setState({ status: "open", handle: result.value });
+        for (const resolve of settled) resolve(opened);
+        return;
+      }
+      setState({ status: "failed", error: result.error });
+      for (const resolve of settled) resolve(null);
+    });
 
-    const held = assetKey(latest.current.asset);
+    const held = binSaveKey(latest.current.sandbox, latest.current.asset);
     return () => {
       live = false;
       unregister();
@@ -176,15 +174,17 @@ export function useBinDocument(
 }
 
 /**
- * Open `asset`, and set a declared document's gate before the handle is drawn, so an open
- * with declarations on never draws read-only first. `declaring` is read once the open lands.
+ * Open `asset` in `sandbox`, and set a declared document's gate before the handle is drawn,
+ * so an open with declarations on never draws read-only first. `declaring` is read once the
+ * open lands.
  */
 async function openGated(
+  sandbox: SandboxRef,
   asset: AssetRef,
   entry: string | null,
   declaring: () => Declaring,
 ): Promise<Awaited<ReturnType<typeof api.bin.open>>> {
-  const opened = await api.bin.open(asset, entry);
+  const opened = await api.bin.open(sandbox, asset, entry);
   if (!opened.ok || !opened.value.declared) return opened;
 
   const gate = await api.bin.setDeclaring(opened.value.document, declaring());

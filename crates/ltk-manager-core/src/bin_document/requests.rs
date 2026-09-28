@@ -356,7 +356,7 @@ impl BinDocuments {
         };
 
         if !typed.is_empty() {
-            let (_, document) = self.held(id)?;
+            let (_, document) = self.tree(id)?;
             let mut document = document.write();
             for text in &typed.hashes {
                 document.typed.learn_hash(text);

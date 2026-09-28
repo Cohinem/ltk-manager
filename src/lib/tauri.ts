@@ -89,6 +89,7 @@ import type {
   Revision,
   SearchPreference,
   UiError,
+  SandboxRef,
 } from "@/lib/bindings.gen";
 import {
   type BinDocumentId,
@@ -154,6 +155,7 @@ export type {
   FieldRevision,
   FieldSchema,
   KindShape,
+  LayerOverride,
   LeafValue,
   LinkChange,
   ModuleAction,
@@ -170,6 +172,7 @@ export type {
   Reshape,
   RowDeclaration,
   RowNode,
+  SandboxRef,
   SkipReason,
   ValueEdit,
 } from "@/lib/bindings.gen";
@@ -605,7 +608,8 @@ export const api = {
   // Diagnostics. One group per migrated module: the generated `commands` object is
   // The bin editor and the class reads over its documents, on tauri-specta.
   bin: {
-    open: (asset: AssetRef, entry: string | null) => commands.binOpen(asset, entry).then(toResult),
+    open: (sandbox: SandboxRef, asset: AssetRef, entry: string | null) =>
+      commands.binOpen(sandbox, asset, entry).then(toResult),
     children: (
       document: BinDocumentId,
       entry: string,
@@ -632,6 +636,7 @@ export const api = {
     revert: (document: BinDocumentId, entry: string, path: string, baseline: ChangeBaseline) =>
       commands.binRevert(document, entry, path, baseline).then(toResult),
     declared: (document: BinDocumentId) => commands.binDeclared(document).then(toResult),
+    overrides: (document: BinDocumentId) => commands.binOverrides(document).then(toResult),
     declareInto: (document: BinDocumentId, layer: string, module: DeclaredModuleChoice) =>
       commands.binDeclareInto(document, layer, module).then(toResult),
     setDeclaring: (document: BinDocumentId, declaring: Declaring) =>
@@ -678,10 +683,10 @@ export const api = {
     readMapVariants: (document: BinDocumentId, entry: string) =>
       commands.readMapVariants(document, entry).then(toResult),
     readMapOutline: (document: BinDocumentId) => commands.readMapOutline(document).then(toResult),
-    locateFilesNear: (near: AssetRef, paths: readonly string[]) =>
-      commands.locateFilesNear(near, [...paths]).then(toResult),
-    locateMapFiles: (near: AssetRef, map: string) =>
-      commands.locateMapFiles(near, map).then(toResult),
+    locateFilesNear: (sandbox: SandboxRef, paths: readonly string[]) =>
+      commands.locateFilesNear(sandbox, [...paths]).then(toResult),
+    locateMapFiles: (sandbox: SandboxRef, map: string) =>
+      commands.locateMapFiles(sandbox, map).then(toResult),
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
       commands.readAnimationGraph(document, entry).then(toResult),
     readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),
@@ -694,8 +699,11 @@ export const api = {
     search: (query: string) => commands.searchObjectIndex(query).then(toResult),
     warm: () => commands.warmObjectIndex().then(toResult),
     drop: () => commands.dropObjectIndex().then(toResult),
-    declared: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
-      commands.declaredObjects([...objectHashes], document).then(toResult),
+    declared: (
+      sandbox: SandboxRef,
+      objectHashes: readonly string[],
+      document: BinDocumentId | null = null,
+    ) => commands.declaredObjects(sandbox, [...objectHashes], document).then(toResult),
     dir: (prefix: string) => commands.objectDir(prefix).then(toResult),
     spells: (character: string) => commands.characterSpells(character).then(toResult),
     find: (pattern: string, regex: boolean, cls: string | null) =>

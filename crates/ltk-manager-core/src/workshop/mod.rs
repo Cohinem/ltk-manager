@@ -24,6 +24,7 @@ pub use folders::{
 };
 pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
 pub use layer_changes::{LayerFile, LayerFilesChanged};
+pub use layers::layer_name_for;
 pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};
 pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
 

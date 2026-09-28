@@ -73,6 +73,7 @@ const DOCUMENT_READS = [
   ["bin-item-classes"],
   ["bin-object-classes"],
   ["bin-declared"],
+  ["bin-overrides"],
   ["bin-changes"],
   DECLARATIONS_OUTLINE_ROOT,
   ["vfx-system"],

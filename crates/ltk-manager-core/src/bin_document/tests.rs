@@ -4,6 +4,7 @@
 use super::*;
 use crate::meta_schema::MetaSchema;
 use crate::problems::GameBuild;
+use crate::sandbox::SandboxRef;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::{Bin, BinOverride, PropertyPatch};
 use std::collections::HashMap;
@@ -926,7 +927,7 @@ fn bytes_that_are_not_a_bin_do_not_open() {
     assert!(matches!(error, BinDocumentError::Unreadable(_)));
 
     let error = BinDocuments::default()
-        .open(asset("a.bin"), || Ok(b"PROP".to_vec()))
+        .open(&SandboxRef::Game, asset("a.bin"), || Ok(b"PROP".to_vec()))
         .unwrap_err();
     assert!(error.to_string().contains("not a readable bin"), "{error}");
 }
@@ -936,10 +937,16 @@ fn the_store_evicts_the_least_recently_used_asset_past_its_capacity() {
     let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
     let bytes = prop_bytes();
 
-    let first = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
-    let second = store.open(asset("b.bin"), || Ok(bytes.clone())).unwrap();
+    let first = store
+        .open(&SandboxRef::Game, asset("a.bin"), || Ok(bytes.clone()))
+        .unwrap();
+    let second = store
+        .open(&SandboxRef::Game, asset("b.bin"), || Ok(bytes.clone()))
+        .unwrap();
     store.read(first, |_| Ok(())).unwrap();
-    let third = store.open(asset("c.bin"), || Ok(bytes.clone())).unwrap();
+    let third = store
+        .open(&SandboxRef::Game, asset("c.bin"), || Ok(bytes.clone()))
+        .unwrap();
 
     assert!(store.is_open(first));
     assert!(!store.is_open(second));
@@ -954,10 +961,14 @@ fn a_tree_read_or_edited_recently_outlives_a_burst_of_opens_at_capacity() {
     let store = BinDocuments::new(NonZeroUsize::new(3).unwrap());
     let bytes = prop_bytes();
 
-    let idle = store.open(asset("idle.bin"), || Ok(bytes.clone())).unwrap();
-    let read = store.open(asset("read.bin"), || Ok(bytes.clone())).unwrap();
+    let idle = store
+        .open(&SandboxRef::Game, asset("idle.bin"), || Ok(bytes.clone()))
+        .unwrap();
+    let read = store
+        .open(&SandboxRef::Game, asset("read.bin"), || Ok(bytes.clone()))
+        .unwrap();
     let edited = store
-        .open(asset("edited.bin"), || Ok(bytes.clone()))
+        .open(&SandboxRef::Game, asset("edited.bin"), || Ok(bytes.clone()))
         .unwrap();
     store.read(read, |_| Ok(())).unwrap();
     /* A loose asset refuses the edit, after the edit has touched its tree. */
@@ -965,7 +976,11 @@ fn a_tree_read_or_edited_recently_outlives_a_burst_of_opens_at_capacity() {
 
     for burst in 0..8 {
         let passing = store
-            .open(asset(&format!("burst{burst}.bin")), || Ok(bytes.clone()))
+            .open(
+                &SandboxRef::Game,
+                asset(&format!("burst{burst}.bin")),
+                || Ok(bytes.clone()),
+            )
             .unwrap();
         store.read(passing, |_| Ok(())).unwrap();
         store.close(passing);
@@ -989,8 +1004,8 @@ fn two_opens_of_one_asset_share_one_parse_and_close_apart() {
         Ok(bytes.clone())
     };
 
-    let file_tab = store.open(asset("a.bin"), read).unwrap();
-    let object_tab = store.open(asset("a.bin"), read).unwrap();
+    let file_tab = store.open(&SandboxRef::Game, asset("a.bin"), read).unwrap();
+    let object_tab = store.open(&SandboxRef::Game, asset("a.bin"), read).unwrap();
     assert_ne!(file_tab, object_tab);
     assert_eq!(parses.get(), 1);
 
@@ -1001,7 +1016,7 @@ fn two_opens_of_one_asset_share_one_parse_and_close_apart() {
 
     store.close(object_tab);
     assert!(!store.is_open(object_tab));
-    store.open(asset("a.bin"), read).unwrap();
+    store.open(&SandboxRef::Game, asset("a.bin"), read).unwrap();
     assert_eq!(parses.get(), 2, "the last close dropped the tree");
 }
 
@@ -1010,16 +1025,26 @@ fn the_bound_counts_assets_and_not_ids() {
     let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
     let bytes = prop_bytes();
 
-    let first = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
-    let second = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
-    let third = store.open(asset("a.bin"), || Ok(bytes.clone())).unwrap();
-    let other = store.open(asset("b.bin"), || Ok(bytes.clone())).unwrap();
+    let first = store
+        .open(&SandboxRef::Game, asset("a.bin"), || Ok(bytes.clone()))
+        .unwrap();
+    let second = store
+        .open(&SandboxRef::Game, asset("a.bin"), || Ok(bytes.clone()))
+        .unwrap();
+    let third = store
+        .open(&SandboxRef::Game, asset("a.bin"), || Ok(bytes.clone()))
+        .unwrap();
+    let other = store
+        .open(&SandboxRef::Game, asset("b.bin"), || Ok(bytes.clone()))
+        .unwrap();
 
     for id in [first, second, third, other] {
         assert!(store.is_open(id), "{id}");
     }
 
-    let more = store.open(asset("c.bin"), || Ok(bytes.clone())).unwrap();
+    let more = store
+        .open(&SandboxRef::Game, asset("c.bin"), || Ok(bytes.clone()))
+        .unwrap();
     assert!(store.is_open(more));
     assert!(store.is_open(other));
     for id in [first, second, third] {
@@ -1030,7 +1055,9 @@ fn the_bound_counts_assets_and_not_ids() {
 #[test]
 fn a_closed_document_is_not_open_and_closing_it_again_is_nothing() {
     let store = BinDocuments::default();
-    let id = store.open(asset("a.bin"), || Ok(prop_bytes())).unwrap();
+    let id = store
+        .open(&SandboxRef::Game, asset("a.bin"), || Ok(prop_bytes()))
+        .unwrap();
 
     store.close(id);
     store.close(id);

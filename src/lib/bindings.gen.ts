@@ -13,12 +13,14 @@ export const commands = {
 	/**  Cancel a matching download before registration begins. */
 	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
 	/**
-	 *  Hold `asset` open as a bin, answering the header and the rows at depth zero.
+	 *  Hold `asset` open as a bin in `sandbox`, answering the header and the rows at depth zero.
 	 * 
-	 *  With no `entry`, the rows are one per object. With one, `0x` and eight hex digits,
-	 *  the rows are that object's properties and the answer carries its header facts.
+	 *  A game chunk a layer of the sandbox ships opens as that layer's file, and one no layer
+	 *  ships opens as a declared document of the project (ADR-0042, ADR-0056). With no `entry`,
+	 *  the rows are one per object. With one, `0x` and eight hex digits, the rows are that
+	 *  object's properties and the answer carries its header facts.
 	 */
-	binOpen: (asset: AssetRef, entry: string | null) => __TAURI_INVOKE<({ ok: true; value: BinDocumentHandle }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_open", { asset, entry }),
+	binOpen: (sandbox: SandboxRef, asset: AssetRef, entry: string | null) => __TAURI_INVOKE<({ ok: true; value: BinDocumentHandle }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_open", { sandbox, asset, entry }),
 	/**
 	 *  Write an open document's edits to its layer file, as a delta over the bytes it opened.
 	 * 
@@ -125,6 +127,11 @@ export const commands = {
 	 */
 	binDeclared: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: DeclaredState | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declared", { document }),
 	/**
+	 *  The rows of an open layer file that the declarations of its project override. Empty for
+	 *  every other document. ADR-0056.
+	 */
+	binOverrides: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: LayerOverride[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_overrides", { document }),
+	/**
 	 *  Take edits on a declared document as declarations, or refuse them, answering the gate
 	 *  it then stands behind. The project's "Use game data declarations". ADR-0042.
 	 */
@@ -181,14 +188,15 @@ export const commands = {
 	 */
 	searchObjectIndex: (query: string) => __TAURI_INVOKE<({ ok: true; value: ObjectSearch }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_object_index", { query }),
 	/**
-	 *  Every declaration of each of `object_hashes`, by hash.
+	 *  Every declaration of each of `object_hashes` in `sandbox`, by hash.
 	 * 
-	 *  The install's declarations come from the index, in the slot it is in. With
-	 *  `document` open, the document's own declarations join them and every list
-	 *  is ordered as a link resolves it (ADR-0028): this file, then a file the bin
-	 *  depends on, then archive order.
+	 *  The install's declarations come from the index, in the slot it is in. The declarations
+	 *  in the sandbox's layer files go before them (ADR-0056), and an install declaration in a
+	 *  chunk a layer ships is removed, because the build packs the layer's copy instead. With
+	 *  `document` open, the document's own declarations are added and every list is ordered as a
+	 *  link resolves it (ADR-0028): this file, then a file the bin depends on, then the rest.
 	 */
-	declaredObjects: (objectHashes: string[], document: number | null) => __TAURI_INVOKE<({ ok: true; value: DeclaredObjects }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declared_objects", { objectHashes, document }),
+	declaredObjects: (sandbox: SandboxRef, objectHashes: string[], document: number | null) => __TAURI_INVOKE<({ ok: true; value: DeclaredObjects }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declared_objects", { sandbox, objectHashes, document }),
 	/**
 	 *  What one prefix of the object tree holds.
 	 * 
@@ -237,7 +245,9 @@ export const commands = {
 	 *  One particle system of an open document, with every reference resolved.
 	 * 
 	 *  `entry` is the object's hash as `0x` and eight hex digits. A class or field the hash
-	 *  tables leave unnamed takes the meta schema's name.
+	 *  tables leave unnamed takes the meta schema's name. A custom material the document does
+	 *  not declare is looked for through the files it links, and a linked file that cannot be
+	 *  read is passed over.
 	 */
 	readVfxSystem: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: VfxSystem }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_vfx_system", { document, entry }),
 	/**
@@ -344,19 +354,18 @@ export const commands = {
 	/**  Every chunk the open `.materials.bin` under `document` declares, and what each holds. */
 	readMapOutline: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapChunk[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_outline", { document }),
 	/**
-	 *  Where the two files of `map` live, the project `near` sits in answering before the install.
+	 *  Where the two files of `map` live in `sandbox`, its layers checked before the install.
 	 * 
 	 *  So a mod that ships its own geometry draws it, and one that ships only materials draws
 	 *  the install's geometry under them.
 	 */
-	locateMapFiles: (near: AssetRef, map: MapPath) => __TAURI_INVOKE<({ ok: true; value: MapFiles }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_map_files", { near, map }),
+	locateMapFiles: (sandbox: SandboxRef, map: MapPath) => __TAURI_INVOKE<({ ok: true; value: MapFiles }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_map_files", { sandbox, map }),
 	/**
-	 *  Where each of `paths` lives, the project `near` sits in answering before the install.
+	 *  Where each of `paths` lives in `sandbox`, its layers checked before the install.
 	 * 
-	 *  One call for every file a scene is about to open, since finding a project's files
-	 *  walks its layers. A path nothing holds is absent.
+	 *  One call for every file a scene is about to open. A path nothing holds is absent.
 	 */
-	locateFilesNear: (near: AssetRef, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: AssetRef } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_files_near", { near, paths }),
+	locateFilesNear: (sandbox: SandboxRef, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: AssetRef } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_files_near", { sandbox, paths }),
 	/**
 	 *  One animation graph: its clips with their files placed, and the maps they key into.
 	 * 
@@ -655,12 +664,7 @@ path: string } |
 /**  A `DATA/FINAL`-relative archive name. */
 wad: string; 
 /**  The chunk's path hash as 16 lowercase hex digits. */
-pathHash: string; 
-/**
- *  The project directory whose game tree the chunk was opened from, which makes a
- *  bin of it a declared document (ADR-0042). Absent for a chunk opened anywhere else.
- */
-project?: string | null } | 
+pathHash: string } | 
 /**
  *  Any file on disk, for a preview that belongs to no project.
  * 
@@ -731,6 +735,15 @@ export type BinChange = {
  */
 export type BinDocumentHandle = {
 	document: BinDocumentId,
+	/**  The sandbox the document is held in. ADR-0056. */
+	sandbox: SandboxRef,
+	/**
+	 *  The file the document was read from, and the file a save writes.
+	 * 
+	 *  Usually the asset the open asked for. When the open asked for a game chunk that a
+	 *  layer of the sandbox ships, this is that layer's file instead. ADR-0056.
+	 */
+	asset: AssetRef,
 	header: BinHeader,
 	rows: BinRow[],
 	/**  The object the open is over. Absent for a file open. */
@@ -2357,6 +2370,16 @@ export type LauncherError =
  */
 { kind: "OTHER"; message: string };
 
+/**  One row of a layer file that a declaration of the project overrides. ADR-0056. */
+export type LayerOverride = {
+	/**  The layer whose `game_data.yaml` holds the declaration. */
+	layer: string,
+	/**  The declaration's mark. Its `game` field holds the file's value, not the game's. */
+	mark: DeclaredMark,
+	/**  The value the declaration writes, as YAML. Absent when it cannot be written as YAML. */
+	value: string | null,
+};
+
 /**
  *  The value a leaf edit sets, in the shape its widget holds.
  * 
@@ -3386,14 +3409,14 @@ export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32"
 
 /**  Why a document takes no edit. "Where editing is allowed" in docs/ux/BIN_EDITOR.md. */
 export type ReadOnly = 
-/**  A chunk of the installed game. */
-"install" | 
 /**  A file outside every project. */
 "loose" | 
 /**  A `PTCH` layer. No edit writes a patch record. */
 "patch" | 
 /**  A game chunk inside a project whose game data declarations are off. ADR-0042. */
-"declarationsOff";
+"declarationsOff" | 
+/**  A document in the game sandbox, which is the installed game alone. ADR-0056. */
+"gameSandbox";
 
 /**  The objects one file declares, as a reference query groups them. */
 export type ReferenceGroup = {
@@ -3600,6 +3623,21 @@ export type SamplerState = {
 	/**  `filterMag` is 1, linear. */
 	filterMag: boolean,
 };
+
+/**  Which sandbox a document opens in, as it crosses IPC. */
+export type SandboxRef = 
+/**  The installed game alone, which takes no edit. */
+{ kind: "game" } | 
+/**  Every layer of a project over the game. */
+{ kind: "project"; 
+/**  The project directory. */
+project: string } | 
+/**  One layer of a project over the game. Reserved: nothing opens one yet. */
+{ kind: "layer"; 
+/**  The project directory. */
+project: string; 
+/**  The layer's name. */
+layer: string };
 
 /**  Which scan the DLL ran, as it decided from the flags and the command line. */
 export type ScanMode = "eager" | "lazy";

@@ -36,6 +36,7 @@ export {
   useOptionalProjectContext,
   useProjectContext,
 } from "../projects/state/ProjectContext";
+export { RouteSandboxProvider, useSandbox } from "../sandbox";
 export { ObjectGlyph, type ObjectIcon, objectIcon } from "../shared/components/ObjectGlyph";
 export {
   CaretSlot,

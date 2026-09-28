@@ -17,8 +17,9 @@ import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../../../palette/utils/types";
 import { stirImages } from "../../../preview/hooks/useImageSlot";
-import { assetKey } from "../../../preview/utils/assetRef";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
+import { binSaveKey } from "../../../state";
 import { rowTag } from "../../values/utils/kindTag";
 import type { TreeFocus } from "../hooks/useBinEdit";
 import { type TreeReveal, useReveal } from "../hooks/useReveal";
@@ -152,7 +153,7 @@ export function BinTree({
     dependencies,
   });
 
-  useReshapes(assetKey(asset), remap);
+  useReshapes(binSaveKey(useSandbox(), asset), remap);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const { items, lines, totalSize, rowHeight, measureElement, scrollToKey } = useRowWindow(

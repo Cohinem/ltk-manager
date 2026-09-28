@@ -5,6 +5,7 @@ import { m } from "@/i18n";
 import type { BinDocumentId, SkinModel } from "@/lib/tauri";
 import { viewportQueries } from "@/modules/viewport";
 
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { skinQueries } from "../../skin/api/skinQueries";
 import type { GraphSource } from "../../skin/hooks/useGraphSource";
 import { spellQueries } from "../api/spellQueries";
@@ -35,8 +36,10 @@ export function RecipeFields({
 }) {
   const graph = useQuery(skinQueries.graph(source.document, source.graph));
   const skeleton = useQuery(viewportQueries.skeleton(skin.skeleton?.asset ?? null));
+  const sandbox = useSandbox();
   const names = useQuery(
     spellQueries.effects(
+      sandbox,
       document,
       skin.effectSystems.map((effect) => effect.system),
     ),

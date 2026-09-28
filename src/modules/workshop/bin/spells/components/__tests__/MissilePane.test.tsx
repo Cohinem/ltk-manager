@@ -94,6 +94,7 @@ it("opens a foreign effect in its own document", async () => {
   mount(PREVIEW, [{ ...EFFECT, source: { kind: "file", path: "particles.bin" } }]);
   expect(await screen.findByText("Flight 9 0x12345678")).toBeInTheDocument();
   expect(mockInvoke).toHaveBeenCalledWith("bin_open", {
+    sandbox: { kind: "game" },
     asset: { kind: "file", path: "particles.bin" },
     entry: "0x12345678",
   });

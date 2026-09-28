@@ -10,8 +10,8 @@ import {
   type ValueEdit,
 } from "@/lib/tauri";
 
-import { assetKey } from "../../../preview/utils/assetRef";
-import { clearRefusedBy, markRefused, queueForSave } from "../../../state";
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
+import { binSaveKey, clearRefusedBy, markRefused, queueForSave } from "../../../state";
 import {
   type DocumentCall,
   type Reopen,
@@ -68,7 +68,7 @@ export function useLeafEdit(
   reopen?: Reopen,
 ) {
   const [refused, setRefused] = useState<ReadonlyMap<string, AppError>>(new Map());
-  const key = assetKey(asset);
+  const key = binSaveKey(useSandbox(), asset);
   const owner = useId();
   const send = useDocumentCall(document, reopen);
 

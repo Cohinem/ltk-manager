@@ -65,7 +65,6 @@ impl AssetLookup for ShaderCacheLookup {
             .map(|_| AssetRef::GameChunk {
                 wad: SHADER_CACHE.to_owned(),
                 path_hash: format!("{:016x}", hash.0),
-                project: None,
             })
     }
 }

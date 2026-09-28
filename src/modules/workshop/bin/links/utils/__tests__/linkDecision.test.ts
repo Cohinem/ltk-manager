@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { BinValue, DeclaredObject, GameFileEntry, ObjectIndexStatus } from "@/lib/tauri";
+import type { AssetRef, BinValue, DeclaredObject, ObjectIndexStatus } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import type { LinkTargets } from "../../hooks/useLinkTargets";
@@ -34,12 +34,17 @@ const DECLARED: DeclaredObject = {
   ],
 };
 
-const LOCATED: GameFileEntry = {
+const LOCATED_PATH = "assets/characters/aatrox/aatrox.tex";
+
+/** The install's copy of `LOCATED_PATH`, as the sandbox returns it. */
+const LOCATED: AssetRef = {
+  kind: "gameChunk",
   pathHash: "00cc",
-  path: "assets/characters/aatrox/aatrox.tex",
-  sizeBytes: 12,
   wad: "Champions/Aatrox.wad.client",
 };
+
+/** A layer's title, as the project names it. */
+const TITLE = (layer: string) => layer.toUpperCase();
 
 function targets(overrides: Partial<LinkTargets> = {}): LinkTargets {
   return {
@@ -114,53 +119,54 @@ describe("decideHash", () => {
 });
 
 describe("decideFileLink", () => {
-  const path = "assets/characters/aatrox/aatrox.tex";
-  const layer = {
-    asset: {
-      kind: "layer",
-      project: "C:/mods/skin",
-      layer: "base",
-      path: "ASSETS/Characters/Aatrox/Aatrox.tex",
-    },
-    title: "Base",
-  } as const;
+  const path = LOCATED_PATH;
+  const layerCopy: AssetRef = {
+    kind: "layer",
+    project: "C:/mods/skin",
+    layer: "base",
+    path: "Aatrox.wad.client/ASSETS/Characters/Aatrox/Aatrox.tex",
+  };
 
   it("is text for a path nothing resolves", () => {
-    expect(decideFileLink(null, targets({ located: new Map([[path, LOCATED]]) }), layer).kind).toBe(
+    expect(decideFileLink(null, targets({ located: new Map([[path, LOCATED]]) }), TITLE).kind).toBe(
       "text",
     );
   });
 
-  it("answers from the layer first and carries the layer's title", () => {
-    const decision = decideFileLink(path, targets({ located: new Map([[path, LOCATED]]) }), layer);
+  it("opens the layer's copy the sandbox answers and carries the layer's title", () => {
+    const decision = decideFileLink(
+      path,
+      targets({ located: new Map([[path, layerCopy]]) }),
+      TITLE,
+    );
 
     expect(decision.kind).toBe("chip");
     if (decision.kind !== "chip") return;
-    expect(decision.side).toBe("Base");
-    expect(decision.document).toMatchObject({ kind: "preview", asset: layer.asset });
+    expect(decision.side).toBe("BASE");
+    expect(decision.document).toMatchObject({ kind: "preview", asset: layerCopy });
   });
 
-  it("answers from the install second and carries the archive's name", () => {
-    const decision = decideFileLink(path, targets({ located: new Map([[path, LOCATED]]) }), null);
+  it("opens the install's copy the sandbox answers and carries the archive's name", () => {
+    const decision = decideFileLink(path, targets({ located: new Map([[path, LOCATED]]) }), TITLE);
 
     expect(decision.kind).toBe("chip");
     if (decision.kind !== "chip") return;
     expect(decision.side).toBe("Aatrox");
     expect(decision.document).toMatchObject({
       kind: "preview",
-      asset: { kind: "gameChunk", wad: LOCATED.wad, pathHash: LOCATED.pathHash },
+      asset: LOCATED,
       title: "aatrox.tex",
     });
   });
 
-  it("is missing where neither side holds the path, and pending while the check runs", () => {
-    expect(decideFileLink(path, targets(), null).kind).toBe("missing");
-    expect(decideFileLink(path, targets({ pending: true }), null).kind).toBe("pending");
+  it("is missing where nothing holds the path, and pending while the check runs", () => {
+    expect(decideFileLink(path, targets(), TITLE).kind).toBe("missing");
+    expect(decideFileLink(path, targets({ pending: true }), TITLE).kind).toBe("pending");
   });
 
   /* A hash no table names says nothing about whether the chunk is there. */
   it("is text for a path no table resolved, rather than missing", () => {
-    expect(decideFileLink(null, targets(), null).kind).toBe("text");
+    expect(decideFileLink(null, targets(), TITLE).kind).toBe("text");
   });
 });
 
@@ -201,7 +207,7 @@ describe("chunkPath", () => {
 });
 
 describe("decideStringLink", () => {
-  const path = "assets/characters/aatrox/aatrox.tex";
+  const path = LOCATED_PATH;
   /* The object the index declares under the FNV-1a of the string below. */
   const named = "Characters/Aatrox/Skins/Skin0/Resources";
   const namedHash = nameHash(named);
@@ -210,7 +216,7 @@ describe("decideStringLink", () => {
     const decision = decideStringLink(
       "ASSETS/Characters/Aatrox/Aatrox.tex",
       targets({ located: new Map([[path, LOCATED]]) }),
-      () => null,
+      TITLE,
     );
 
     expect(decision.kind).toBe("chip");
@@ -222,7 +228,7 @@ describe("decideStringLink", () => {
     const decision = decideStringLink(
       named,
       targets({ index: ready, declared: new Map([[namedHash, DECLARED]]) }),
-      () => null,
+      TITLE,
     );
 
     expect(decision.kind).toBe("chip");
@@ -237,20 +243,20 @@ describe("decideStringLink", () => {
       located: new Map([[path, LOCATED]]),
     });
 
-    const decision = decideStringLink(path, both, () => null);
+    const decision = decideStringLink(path, both, TITLE);
     expect(decision.kind).toBe("chip");
     if (decision.kind !== "chip") return;
     expect(decision.document.kind).toBe("preview");
   });
 
   it("is text where neither side answers, and missing where a path names no chunk", () => {
-    expect(decideStringLink(named, targets({ index: ready }), () => null).kind).toBe("text");
-    expect(decideStringLink(path, targets({ index: ready }), () => null).kind).toBe("missing");
+    expect(decideStringLink(named, targets({ index: ready }), TITLE).kind).toBe("text");
+    expect(decideStringLink(path, targets({ index: ready }), TITLE).kind).toBe("missing");
   });
 
   /* A string is not a link the reader asked to follow, so a miss never builds the index. */
   it("never warms the index", () => {
-    expect(decideStringLink(named, targets({ index: { status: "absent" } }), () => null).kind).toBe(
+    expect(decideStringLink(named, targets({ index: { status: "absent" } }), TITLE).kind).toBe(
       "text",
     );
   });
@@ -260,20 +266,20 @@ describe("decideLink", () => {
   const checked = targets({
     index: ready,
     declared: new Map([[HASH, DECLARED]]),
-    located: new Map([[LOCATED.path ?? "", LOCATED]]),
+    located: new Map([[LOCATED_PATH, LOCATED]]),
   });
 
   it("routes each link kind and answers null for a value that is no link", () => {
     const link: BinValue = { type: "objectLink", hash: HASH, name: null };
     const hash: BinValue = { type: "hash", hash: HASH, name: null };
-    const file: BinValue = { type: "wadChunkLink", hash: "00cc", path: LOCATED.path };
-    const text: BinValue = { type: "string", value: LOCATED.path ?? "" };
+    const file: BinValue = { type: "wadChunkLink", hash: "00cc", path: LOCATED_PATH };
+    const text: BinValue = { type: "string", value: LOCATED_PATH };
     const number: BinValue = { type: "float", value: 1 };
 
-    expect(decideLink(link, checked, () => null)?.kind).toBe("chip");
-    expect(decideLink(hash, checked, () => null)?.kind).toBe("chip");
-    expect(decideLink(file, checked, () => null)?.kind).toBe("chip");
-    expect(decideLink(text, checked, () => null)?.kind).toBe("chip");
-    expect(decideLink(number, checked, () => null)).toBeNull();
+    expect(decideLink(link, checked, TITLE)?.kind).toBe("chip");
+    expect(decideLink(hash, checked, TITLE)?.kind).toBe("chip");
+    expect(decideLink(file, checked, TITLE)?.kind).toBe("chip");
+    expect(decideLink(text, checked, TITLE)?.kind).toBe("chip");
+    expect(decideLink(number, checked, TITLE)).toBeNull();
   });
 });

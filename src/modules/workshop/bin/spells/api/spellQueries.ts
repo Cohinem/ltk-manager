@@ -8,12 +8,14 @@ import {
   type CharacterSpell,
   type AssetRef,
   type DeclaredObjects,
+  type SandboxRef,
   type SpellPreview,
 } from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
 import { BUILDING_POLL_MS, gameKeys } from "../../../gameBrowser/api/keys";
 import { assetKey } from "../../../preview/utils/assetRef";
+import { GAME_SANDBOX } from "../../../sandbox/utils/sandboxRef";
 import { compileFlight } from "../utils/flight";
 
 export type SpellAvailability = "supported" | "unsupported" | "ambiguous" | "unavailable";
@@ -38,7 +40,7 @@ async function availability(
   }
   for (const file of files.values()) {
     signal.throwIfAborted();
-    const opened = await api.bin.open(file.asset, null);
+    const opened = await api.bin.open(GAME_SANDBOX, file.asset, null);
     if (!opened.ok) {
       for (const spell of file.spells) result[spell.objectHash] = "unavailable";
       continue;
@@ -78,10 +80,10 @@ export const spellQueries = {
       retry: false,
       enabled: spells.length > 0,
     }),
-  effects: (document: BinDocumentId, hashes: readonly string[]) =>
+  effects: (sandbox: SandboxRef, document: BinDocumentId, hashes: readonly string[]) =>
     queryOptions<DeclaredObjects, AppError>({
-      queryKey: ["spell-effects", document, hashes],
-      queryFn: queryFnWithArgs(api.objects.declared, hashes, document),
+      queryKey: ["spell-effects", sandbox, document, hashes],
+      queryFn: queryFnWithArgs(api.objects.declared, sandbox, hashes, document),
       staleTime: Infinity,
       retry: false,
       enabled: hashes.length > 0,

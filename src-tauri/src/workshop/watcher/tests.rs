@@ -25,7 +25,10 @@ fn project_with_layer() -> tempfile::TempDir {
 fn watches_reporting() -> (LayerWatches, Receiver<LayerFilesChanged>) {
     let (sender, receiver) = mpsc::channel();
     let sink = ChangeSink(Mutex::new(sender));
-    (LayerWatches::new(Arc::new(sink)), receiver)
+    (
+        LayerWatches::new(Arc::new(sink), SandboxState::default()),
+        receiver,
+    )
 }
 
 fn refs(watches: &LayerWatches, project: &str) -> Option<usize> {
@@ -63,7 +66,7 @@ fn a_directory_is_left_out_and_a_removed_file_is_kept() {
 fn a_watch_runs_until_its_last_reference_is_released() {
     let project = project_with_layer();
     let path = project.path().to_str().unwrap();
-    let watches = LayerWatches::new(Arc::new(NullEventSink));
+    let watches = LayerWatches::new(Arc::new(NullEventSink), SandboxState::default());
 
     watches.acquire(path).unwrap();
     watches.acquire(path).unwrap();
@@ -82,7 +85,7 @@ fn a_watch_runs_until_its_last_reference_is_released() {
 #[test]
 fn a_project_without_content_cannot_be_watched() {
     let project = tempfile::tempdir().unwrap();
-    let watches = LayerWatches::new(Arc::new(NullEventSink));
+    let watches = LayerWatches::new(Arc::new(NullEventSink), SandboxState::default());
 
     assert!(watches.acquire(project.path().to_str().unwrap()).is_err());
     assert!(watches.watches.lock().is_empty());

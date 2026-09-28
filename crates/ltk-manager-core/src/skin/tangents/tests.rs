@@ -123,7 +123,6 @@ fn baking_rejects_other_layers_loose_files_and_game_chunks() {
         AssetRef::GameChunk {
             wad: "Ahri.wad.client".to_owned(),
             path_hash: "0000000000000000".to_owned(),
-            project: None,
         },
     ] {
         assert!(bake_mesh_tangents(&skin, &asset).is_err());

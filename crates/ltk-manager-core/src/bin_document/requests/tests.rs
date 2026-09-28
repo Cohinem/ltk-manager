@@ -12,6 +12,7 @@ use super::*;
 use crate::bin_document::{BinDocumentError, ReadOnly};
 use crate::meta_schema::MetaSchema;
 use crate::preview::AssetRef;
+use crate::sandbox::SandboxRef;
 
 const OBJECT: &str = "Characters/Teemo/Record";
 const COMMON: &str = "DATA/Characters/Teemo/Teemo.bin";
@@ -53,7 +54,9 @@ fn schema() -> MetaSchema {
 /// A store holding the fixture over `asset`, and the id it answered.
 fn open(asset: AssetRef) -> (BinDocuments, BinDocumentId) {
     let store = BinDocuments::default();
-    let id = store.open(asset, || Ok(bytes())).unwrap();
+    let id = store
+        .open(&SandboxRef::Game, asset, || Ok(bytes()))
+        .unwrap();
     (store, id)
 }
 

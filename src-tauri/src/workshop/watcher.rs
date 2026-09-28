@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use fs_err as fs;
 use ltk_manager_core::events::{BackendEvent, EventSink};
+use ltk_manager_core::sandbox::SandboxState;
 use ltk_manager_core::workshop::LayerFilesChanged;
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
@@ -27,8 +28,12 @@ const QUIET: Duration = Duration::from_millis(300);
 const CONTENT_DIR: &str = "content";
 
 /// The layer watches of the open workshop projects, by project directory.
+///
+/// A change clears the project's cached sandboxes before the event is emitted, so a read the
+/// event starts sees the changed files. ADR-0056.
 pub struct LayerWatches {
     events: Arc<dyn EventSink>,
+    sandboxes: SandboxState,
     watches: Mutex<HashMap<String, LayerWatch>>,
 }
 
@@ -39,10 +44,12 @@ struct LayerWatch {
 }
 
 impl LayerWatches {
-    /// An empty set of watches that announces through `events`.
-    pub fn new(events: Arc<dyn EventSink>) -> Self {
+    /// An empty set of watches that emits through `events` and clears the changed project's
+    /// snapshots from `sandboxes`.
+    pub fn new(events: Arc<dyn EventSink>, sandboxes: SandboxState) -> Self {
         Self {
             events,
+            sandboxes,
             watches: Mutex::default(),
         }
     }
@@ -96,11 +103,12 @@ impl LayerWatches {
         prefix it was reported under. */
         let content = fs::canonicalize(Path::new(project).join(CONTENT_DIR))?;
         let events = Arc::clone(&self.events);
+        let sandboxes = self.sandboxes.clone();
         let owner = project.to_owned();
         let root = content.clone();
 
         let mut debouncer = new_debouncer(QUIET, move |result: DebounceEventResult| match result {
-            Ok(batch) => announce(&*events, &owner, &root, &batch),
+            Ok(batch) => announce(&*events, &sandboxes, &owner, &root, &batch),
             Err(error) => tracing::warn!("Layer watch on {owner} failed: {error}"),
         })
         .map_err(watch_error)?;
@@ -129,11 +137,18 @@ impl fmt::Debug for LayerWatches {
 }
 
 /// Emit the layer files a debounced batch touched, where it touched any.
-fn announce(events: &dyn EventSink, project: &str, content: &Path, batch: &[DebouncedEvent]) {
+fn announce(
+    events: &dyn EventSink,
+    sandboxes: &SandboxState,
+    project: &str,
+    content: &Path,
+    batch: &[DebouncedEvent],
+) {
     let paths = settled_files(batch);
     if let Some(change) =
         LayerFilesChanged::collect(project, content, paths.iter().map(PathBuf::as_path))
     {
+        sandboxes.invalidate(project);
         tracing::debug!("{} layer files of {project} changed", change.files.len());
         events.emit(BackendEvent::LayerFilesChanged(change));
     }

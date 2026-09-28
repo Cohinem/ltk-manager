@@ -37,15 +37,14 @@ import { DeclaredRowState } from "../../documents/components/DeclaredLayer";
 import { useBinRead } from "../../documents/hooks/useBinRead";
 import { TextureSwatch } from "../../links/components/TextureSwatch";
 import {
-  joinDeclarations,
   type LinkTargets,
   LinkTargetsContext,
   type RowGroup,
   useCheckLinkTargets,
-  useLayerCopy,
+  useLayerTitle,
   useLinkTargets,
 } from "../../links/hooks/useLinkTargets";
-import { chunkPath, decideFileLink } from "../../links/utils/linkDecision";
+import { chunkPath, decideFileLink, layerCopyTitle } from "../../links/utils/linkDecision";
 import { CutText } from "../../shared/components/CutText";
 import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../tree/components/BinRow";
 import { BinTree } from "../../tree/components/BinTree";
@@ -110,7 +109,7 @@ export function AlsoCheck({
   const merged = useMemo<LinkTargets>(
     () => ({
       index: inner.index ?? outer.index,
-      declared: joinDeclarations(outer.declared, inner.declared),
+      declared: new Map([...outer.declared, ...inner.declared]),
       located: new Map([...outer.located, ...inner.located]),
       strings: new Map([...outer.strings, ...inner.strings]),
       pending: outer.pending || inner.pending,
@@ -856,9 +855,9 @@ const EMPTY_BOX: Record<TileSize, { box: string; mark: string }> = {
 export function TextureTile({ row, size = "tile" }: { row: BinRow | undefined; size?: TileSize }) {
   const targets = useLinkTargets();
   const path = texturePath(row);
-  const layer = useLayerCopy(path);
+  const title = useLayerTitle();
   const open = useOpenDocumentAs();
-  const decision = decideFileLink(path, targets, layer);
+  const decision = decideFileLink(path, targets, title);
 
   const fileKind = path === null ? "unknown" : fileKindFromPath(path);
   if (decision.kind === "missing") return <EmptyTile size={size} missing />;
@@ -870,7 +869,7 @@ export function TextureTile({ row, size = "tile" }: { row: BinRow | undefined; s
       asset={decision.document.asset}
       path={path}
       fileKind={fileKind}
-      layerTitle={layer?.title}
+      layerTitle={layerCopyTitle(decision.document.asset, title)}
       size={size}
       onOpen={(intent: OpenIntent) => open(decision.document, intent)}
     />

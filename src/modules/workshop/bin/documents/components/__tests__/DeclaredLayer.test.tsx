@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -186,17 +185,7 @@ describe("a declared row", () => {
 describe("the toolbar of a declared document", () => {
   const asset = { kind: "gameChunk", wad: "Champions/Teemo.wad.client", pathHash: "ab" } as const;
 
-  it("names the layer in place of the save status", async () => {
-    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
-      wrapper: Providers,
-    });
-
-    expect(
-      await screen.findByRole("button", { name: "Layer the edits declare into" }),
-    ).toHaveTextContent("Base");
-  });
-
-  it("draws a diagnostic that names no row beside the layer", async () => {
+  it("draws a diagnostic that names no row in the toolbar", async () => {
     render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
       wrapper: Providers,
     });
@@ -204,119 +193,10 @@ describe("the toolbar of a declared document", () => {
     expect(await screen.findByRole("img", { name: "1 apply diagnostic" })).toBeInTheDocument();
   });
 
-  it("declares into the layer the menu picks", async () => {
-    const user = userEvent.setup();
-    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
-      wrapper: Providers,
-    });
-
-    await user.click(await screen.findByRole("button", { name: "Layer the edits declare into" }));
-    await user.click(await screen.findByRole("menuitemradio", { name: "Chroma" }));
-
-    await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
-        document: DOCUMENT,
-        layer: "chroma",
-        module: { kind: "auto" },
-      }),
-    );
-    expect(
-      await screen.findByRole("button", { name: "Layer the edits declare into" }),
-    ).toHaveTextContent("Chroma");
-  });
-
-  it("keeps the chip, locked, while the project's declarations are off", async () => {
-    render(
-      <BinEditState
-        document={DOCUMENT}
-        asset={asset}
-        readOnly="declarationsOff"
-        onReload={() => {}}
-      />,
-      { wrapper: Providers },
-    );
-
-    expect(
-      await screen.findByRole("button", { name: "Layer the edits declare into" }),
-    ).toHaveTextContent("Base");
-    expect(screen.getByRole("button", { name: "Module the edits declare into" })).toBeDisabled();
-    expect(await screen.findAllByRole("img", { name: "1 apply diagnostic" })).toHaveLength(1);
-  });
-
-  it("turns the project's declarations on from the chip's menu", async () => {
-    const user = userEvent.setup();
-    render(
-      <BinEditState
-        document={DOCUMENT}
-        asset={asset}
-        readOnly="declarationsOff"
-        onReload={() => {}}
-      />,
-      { wrapper: Providers },
-    );
-
-    await user.click(await screen.findByRole("button", { name: "Layer the edits declare into" }));
-    const toggle = await screen.findByRole("menuitemcheckbox", {
-      name: "Use game data declarations",
-    });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
-    await user.click(toggle);
-
-    expect(useWorkshopEditorStore.getState().byProject[PROJECT.path]?.useDeclarations).toBe(true);
-  });
-
-  it("names the module the edits join, automatic until one is picked", async () => {
-    const user = userEvent.setup();
-    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
-      wrapper: Providers,
-    });
-
-    const chip = await screen.findByRole("button", { name: "Module the edits declare into" });
-    expect(chip).toHaveTextContent("Automatic");
-
-    await user.click(chip);
-    expect(await screen.findByRole("menuitemradio", { name: "Module 1" })).toBeEnabled();
-    expect(screen.getByRole("menuitemradio", { name: "Module 3" })).toBeDisabled();
-    await user.click(screen.getByRole("menuitemradio", { name: "Glow" }));
-
-    await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
-        document: DOCUMENT,
-        layer: "base",
-        module: { kind: "index", index: 1 },
-      }),
-    );
-    expect(
-      await screen.findByRole("button", { name: "Module the edits declare into" }),
-    ).toHaveTextContent("Glow");
-  });
-
-  it("starts a new module from a name typed in place", async () => {
-    const user = userEvent.setup();
-    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
-      wrapper: Providers,
-    });
-
-    await user.click(await screen.findByRole("button", { name: "Module the edits declare into" }));
-    await user.click(await screen.findByRole("button", { name: "New module" }));
-    await user.type(screen.getByRole("textbox", { name: "Module name" }), "Blue{Enter}");
-
-    await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
-        document: DOCUMENT,
-        layer: "base",
-        module: { kind: "new", name: "Blue" },
-      }),
-    );
-    expect(
-      await screen.findByRole("button", { name: "Module the edits declare into" }),
-    ).toHaveTextContent("Blue");
-  });
-
-  it("keeps the lock on a game bin that declares nothing", async () => {
+  it("keeps the lock on a game bin of the game sandbox", async () => {
     declared = null;
     render(
-      <BinEditState document={DOCUMENT} asset={asset} readOnly="install" onReload={() => {}} />,
+      <BinEditState document={DOCUMENT} asset={asset} readOnly="gameSandbox" onReload={() => {}} />,
       { wrapper: Providers },
     );
 

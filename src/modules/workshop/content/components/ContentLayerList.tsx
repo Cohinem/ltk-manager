@@ -42,7 +42,7 @@ import {
 } from "../../layers";
 import { LayerGlyph } from "../../layers/components/LayerGlyph";
 import { workshopKeys } from "../../shared/api/keys";
-import { useCloseLayerDocuments } from "../../state";
+import { useCloseLayerDocuments, useFollowLayerRename } from "../../state";
 
 interface ContentLayerListProps {
   project: WorkshopProject;
@@ -323,6 +323,7 @@ function RowShell({
   trailing,
 }: RowShellProps) {
   const renameLayer = useRenameLayer();
+  const followRename = useFollowLayerRename();
   const toast = useToast();
   const showStats = useShowLayerStats();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -342,7 +343,10 @@ function RowShell({
     renameLayer.mutate(
       { projectPath, layerName: layer.name, newDisplayName: trimmed },
       {
-        onSuccess: () => onRenamed(),
+        onSuccess: (updated) => {
+          followRename(layer.name, trimmed, updated);
+          onRenamed();
+        },
         onError: (err) => toast.error(`Failed to rename: ${errorSummary(err)}`),
         onSettled: () => setIsRenaming(false),
       },

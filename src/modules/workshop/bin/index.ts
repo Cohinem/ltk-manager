@@ -14,8 +14,6 @@ export {
 export { FileChip, LinkChip, ObjectChip } from "./links/components/LinkChip";
 export { OtherDeclarations } from "./links/components/OtherDeclarations";
 export {
-  joinDeclarations,
-  layerDeclarations,
   LinkAssetContext,
   linkHashes,
   linkKeys,
@@ -28,7 +26,7 @@ export {
   NO_LINK_TARGETS,
   type RowGroup,
   useCheckLinkTargets,
-  useLayerCopy,
+  useLayerTitle,
   useLinkOpen,
   useLinkTargets,
 } from "./links/hooks/useLinkTargets";
@@ -38,7 +36,8 @@ export {
   decideHash,
   decideLink,
   decideObjectLink,
-  type LayerCopy,
+  layerCopyTitle,
+  type LayerTitle,
   type LinkDecision,
 } from "./links/utils/linkDecision";
 export { BinTree, type TreeReveal } from "./tree/components/BinTree";

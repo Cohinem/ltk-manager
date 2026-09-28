@@ -28,6 +28,7 @@ pub mod patcher;
 pub mod preview;
 pub mod problems;
 pub mod ritobin;
+pub mod sandbox;
 pub mod skin;
 pub mod spell;
 pub mod storage;

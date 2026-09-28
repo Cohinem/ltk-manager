@@ -170,7 +170,6 @@ impl ObjectIndex {
             asset: AssetRef::GameChunk {
                 wad,
                 path_hash: hex_name(row.file),
-                project: None,
             },
             file,
             class_hash: hex(row.class),

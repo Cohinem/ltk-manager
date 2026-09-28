@@ -237,6 +237,21 @@ pub struct DeclaredMark {
     pub game: Option<String>,
 }
 
+/// One row of a layer file that a declaration of the project overrides. ADR-0056.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct LayerOverride {
+    /// The layer whose `game_data.yaml` holds the declaration.
+    pub layer: String,
+    /// The declaration's mark. Its `game` field holds the file's value, not the game's.
+    pub mark: DeclaredMark,
+    /// The value the declaration writes, as YAML. Absent when it cannot be written as YAML.
+    pub value: Option<String>,
+}
+
 /// The sign of a declared key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -349,11 +364,7 @@ impl BinDocument {
     ) -> Result<DeclaredState, BinDocumentError> {
         let Self { declared, file, .. } = self;
         let declared = declared.as_mut().ok_or_else(not_declared)?;
-        if !declared.layers.iter().any(|held| held == layer) {
-            return Err(declaring(AppError::ValidationFailed(format!(
-                "The project holds no layer {layer}"
-            ))));
-        }
+        declared.check_layer(layer)?;
         module.to_module_choice().map_err(declaring)?;
 
         layer.clone_into(&mut declared.layer);
@@ -375,11 +386,7 @@ impl BinDocument {
         action: &ModuleAction,
     ) -> Result<DeclaredState, BinDocumentError> {
         let declared = self.declared.as_mut().ok_or_else(not_declared)?;
-        if !declared.layers.iter().any(|held| held == layer) {
-            return Err(declaring(AppError::ValidationFailed(format!(
-                "The project holds no layer {layer}"
-            ))));
-        }
+        declared.check_layer(layer)?;
 
         let change = declared
             .context
@@ -444,6 +451,100 @@ impl BinDocument {
         Ok(true)
     }
 
+    /// The rows of this layer file that the declarations of `project`'s layers override,
+    /// in build order. `chunk_hash` is the path hash the file is packed under. ADR-0056.
+    ///
+    /// The read is best-effort: a project or a layer that cannot be read adds no overrides.
+    #[must_use]
+    pub fn overrides(
+        &self,
+        chunk_hash: u64,
+        project: &ProjectDir,
+        names: &dyn RowNames,
+    ) -> Vec<LayerOverride> {
+        let BinFile::Prop(file) = &self.file else {
+            return Vec::new();
+        };
+        let Ok(root) = project.path().try_as_utf8("project directory") else {
+            return Vec::new();
+        };
+        let (Ok(config), Ok(ignore)) = (project.config(), project.ignore_filter()) else {
+            return Vec::new();
+        };
+
+        let mut layers = config.layers;
+        layers.sort_by(ModProjectLayer::apply_order);
+
+        let names = RenderNames(names);
+        let file_objects: Vec<BinHash> = file.objects.keys().copied().collect();
+        let mut overrides = Vec::new();
+        for layer in &layers {
+            let Ok(Some(declarations)) = load_layer(root, &layer.name, &ignore).declarations else {
+                continue;
+            };
+            for module in &declarations.modules {
+                for edit in edits_on(module, chunk_hash, &file_objects) {
+                    let sets = edit
+                        .objects
+                        .iter()
+                        .map(|(name, object)| (name, object.properties()));
+                    let entries = edit
+                        .entries
+                        .iter()
+                        .map(|(name, properties)| (name, properties.as_slice()));
+                    for (name, properties) in sets.chain(entries) {
+                        let entry = name.object_hash();
+                        let Some(object) = file.objects.get(&entry) else {
+                            continue;
+                        };
+                        for property in properties {
+                            overrides.extend(
+                                valued_marks_of(
+                                    entry,
+                                    object,
+                                    Some(object),
+                                    property,
+                                    module,
+                                    &names,
+                                )
+                                .into_iter()
+                                .map(|(mark, value)| {
+                                    LayerOverride {
+                                        layer: layer.name.clone(),
+                                        mark,
+                                        value,
+                                    }
+                                }),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        overrides
+    }
+
+    /// Update a declared document after the project's layer `from` is renamed to `to`.
+    pub(super) fn rename_layer(&mut self, from: &str, to: &str) {
+        let Some(declared) = self.declared.as_mut() else {
+            return;
+        };
+        let rename = |layer: &mut String| {
+            if layer == from {
+                to.clone_into(layer);
+            }
+        };
+
+        rename(&mut declared.layer);
+        declared.layers.iter_mut().for_each(rename);
+        declared
+            .undo
+            .iter_mut()
+            .chain(declared.redo.iter_mut())
+            .for_each(|edit| rename(&mut edit.layer));
+    }
+
     /// Apply the project's declarations over the game's copy again, replacing the tree.
     pub(super) fn reapply(&mut self) -> Result<(), BinDocumentError> {
         let declared = self.declared.as_mut().ok_or_else(not_declared)?;
@@ -459,13 +560,34 @@ impl BinDocument {
 }
 
 impl Declared {
+    /// Refuse `layer` unless the project holds it. The project's layers are read again first
+    /// when `layer` is not among the ones the last apply read, so a layer created since is
+    /// accepted.
+    fn check_layer(&mut self, layer: &str) -> Result<(), BinDocumentError> {
+        if !self.layers.iter().any(|known| known == layer) {
+            self.layers = self.project_layers().map_err(declaring)?;
+        }
+        if self.layers.iter().any(|known| known == layer) {
+            return Ok(());
+        }
+
+        Err(declaring(AppError::ValidationFailed(format!(
+            "The project holds no layer {layer}"
+        ))))
+    }
+
+    /// The project's layers in build order.
+    fn project_layers(&self) -> AppResult<Vec<String>> {
+        let mut layers = self.context.project.config()?.layers;
+        layers.sort_by(ModProjectLayer::apply_order);
+        Ok(layers.into_iter().map(|layer| layer.name).collect())
+    }
+
     /// The game's copy with every layer's declarations applied, in build order.
     fn apply(&mut self) -> AppResult<Vec<u8>> {
+        self.layers = self.project_layers()?;
         let project = &self.context.project;
         let root = project.path().try_as_utf8("project directory")?;
-        let mut layers = project.config()?.layers;
-        layers.sort_by(ModProjectLayer::apply_order);
-        self.layers = layers.into_iter().map(|layer| layer.name).collect();
         if !self.layers.contains(&self.layer) {
             BASE_LAYER.clone_into(&mut self.layer);
         }
@@ -565,7 +687,7 @@ impl Declared {
         let BinFile::Prop(applied) = file else {
             return;
         };
-        let held: Vec<BinHash> = applied.objects.keys().copied().collect();
+        let applied_objects: Vec<BinHash> = applied.objects.keys().copied().collect();
         self.links = links::link_marks(
             &declarations.modules,
             self.chunk_hash,
@@ -577,7 +699,7 @@ impl Declared {
         let mut objects = Vec::new();
         self.context.with_names(&mut |names| {
             for module in &declarations.modules {
-                for edit in edits_on(module, self.chunk_hash, &held) {
+                for edit in edits_on(module, self.chunk_hash, &applied_objects) {
                     let sets = edit
                         .objects
                         .iter()
@@ -601,7 +723,11 @@ impl Declared {
                         };
                         let before = self.game_tree.objects.get(&entry);
                         for property in properties {
-                            marks.extend(marks_of(entry, object, before, property, module, &names));
+                            marks.extend(
+                                valued_marks_of(entry, object, before, property, module, &names)
+                                    .into_iter()
+                                    .map(|(mark, _)| mark),
+                            );
                         }
                     }
                 }
@@ -620,7 +746,7 @@ impl Declared {
                 self.game_tree
                     .objects
                     .values()
-                    .find(|held| hex(held.path_hash) == object.entry)
+                    .find(|game_object| hex(game_object.path_hash) == object.entry)
             })
     }
 
@@ -751,11 +877,13 @@ fn object_change(
     applied: &Bin,
     game: &Bin,
 ) -> Option<DeclaredObjectMark> {
-    let held = applied.objects.contains_key(&entry);
+    let in_applied = applied.objects.contains_key(&entry);
     let change = match object {
-        ObjectEdit::Remove if !held && game.objects.contains_key(&entry) => ObjectChange::Removed,
+        ObjectEdit::Remove if !in_applied && game.objects.contains_key(&entry) => {
+            ObjectChange::Removed
+        }
         ObjectEdit::Remove => return None,
-        _ if held => ObjectChange::Created,
+        _ if in_applied => ObjectChange::Created,
         _ => return None,
     };
     Some(DeclaredObjectMark {
@@ -764,18 +892,19 @@ fn object_change(
     })
 }
 
-/// The marks one property edit leaves on `object`, the applied copy of `entry`.
+/// The marks one property edit leaves on `object`, the applied copy of `entry`, each with
+/// the value the edit writes, as YAML.
 ///
 /// A set whose value is a block on a struct descends to the keys of the block, as the apply
 /// does.
-fn marks_of(
+fn valued_marks_of(
     entry: BinHash,
     object: &BinObject,
     game: Option<&BinObject>,
     property: &PropertyEdit,
     module: &Module,
     names: &RenderNames<'_>,
-) -> Vec<DeclaredMark> {
+) -> Vec<(DeclaredMark, Option<String>)> {
     let block = match &property.value {
         Value::Mapping(block)
             if property.sign == Sign::Set
@@ -803,11 +932,11 @@ fn marks_of(
                 .ok()?;
                 Some(PropertyEdit { path, ..inner })
             })
-            .flat_map(|inner| marks_of(entry, object, game, &inner, module, names))
+            .flat_map(|inner| valued_marks_of(entry, object, game, &inner, module, names))
             .collect();
     }
 
-    vec![DeclaredMark {
+    let mark = DeclaredMark {
         entry: hex(entry),
         path: wire_path(object, &property.path).unwrap_or_default(),
         property: property.path.as_str().to_owned(),
@@ -826,7 +955,8 @@ fn marks_of(
             .and_then(|game| game.resolve(&property.path).ok())
             .and_then(|value| Value::render(value, names).ok())
             .and_then(|value| value.to_yaml().ok()),
-    }]
+    };
+    vec![(mark, property.value.to_yaml().ok())]
 }
 
 /// The wire path of the node `path` resolves to on `object`, or `None` where it reaches none.

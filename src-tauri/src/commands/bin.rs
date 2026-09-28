@@ -7,6 +7,7 @@
 
 use std::sync::Arc;
 
+use super::document_assets;
 use super::object_index::ObjectIndexState;
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
@@ -15,15 +16,16 @@ use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{
     BinChange, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow,
     BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
-    DeclaredState, Declaring, Dependency, EditOutcome, GameCopy, ProjectNames, ReadOnly, Reshape,
+    DeclaredState, Declaring, Dependency, EditOutcome, GameCopy, LayerOverride, ReadOnly, Reshape,
     RowDeclaration, RowNames,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
-use ltk_manager_core::meta_schema::{self, ClassSchema, MetaSchema, PatchSchema};
+use ltk_manager_core::meta_schema::{self, ClassSchema, MetaSchema, PatchSchema, SchemaNames};
 use ltk_manager_core::object_index::{parse_hash, CacheNames, ObjectIndexSnapshot};
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::GameBuild;
+use ltk_manager_core::sandbox::{layer_chunk_hash, Opening, SandboxRef};
 use ltk_manager_core::workshop::{ModuleAction, ProjectDir};
 use tauri::{AppHandle, Manager};
 
@@ -31,13 +33,16 @@ use tauri::{AppHandle, Manager};
 /// declares tens of fields, and a page is for a container.
 const WHOLE: usize = usize::MAX;
 
-/// Hold `asset` open as a bin, answering the header and the rows at depth zero.
+/// Hold `asset` open as a bin in `sandbox`, answering the header and the rows at depth zero.
 ///
-/// With no `entry`, the rows are one per object. With one, `0x` and eight hex digits,
-/// the rows are that object's properties and the answer carries its header facts.
+/// A game chunk a layer of the sandbox ships opens as that layer's file, and one no layer
+/// ships opens as a declared document of the project (ADR-0042, ADR-0056). With no `entry`,
+/// the rows are one per object. With one, `0x` and eight hex digits, the rows are that
+/// object's properties and the answer carries its header facts.
 #[tauri::command]
 #[specta::specta]
 pub async fn bin_open(
+    sandbox: SandboxRef,
     asset: AssetRef,
     entry: Option<String>,
     app_handle: AppHandle,
@@ -53,56 +58,103 @@ pub async fn bin_open(
 
         let config = app_handle.state::<SettingsState>().config();
         let store = app_handle.state::<BinDocuments>();
-        let read = || asset.read(&config, &app_handle.state::<WadCache>());
-        let document = match &asset {
-            AssetRef::GameChunk {
-                path_hash,
-                project: Some(project),
-                ..
-            } => {
-                let chunk_hash = u64::from_str_radix(path_hash, 16).map_err(|_| {
-                    AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}"))
+        let wads = app_handle.state::<WadCache>();
+        let (document, opened) = match document_assets::sandbox(&app_handle, &sandbox)
+            .opening(asset)?
+        {
+            Opening::File(file) => {
+                let document = store.open(&sandbox, file.clone(), || file.read(&config, &wads))?;
+                (document, file)
+            }
+            Opening::Declared { asset, chunk_hash } => {
+                let project = sandbox.project().ok_or_else(|| {
+                    AppError::ValidationFailed("The game sandbox declares nothing".to_owned())
                 })?;
-                store.open_declared(asset.clone(), chunk_hash, || {
+                let document = store.open_declared(&sandbox, asset.clone(), chunk_hash, || {
                     let (schema, build) = installed_schema(&app_handle);
                     let context = DeclareContext {
                         project: ProjectDir::open(project)?,
                         schema: PatchSchema::new(schema, build),
                         game: Arc::new(InstalledGame(app_handle.clone())),
                     };
-                    Ok((read()?, context))
-                })?
+                    Ok((asset.read(&config, &wads)?, context))
+                })?;
+                (document, asset)
             }
-            _ => store.open(asset.clone(), read)?,
         };
 
-        let bin = app_handle.state::<BinHashTablesState>().get();
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let cache = CacheNames::new(&bin, &wad);
-        let chunks = store.chunks_of(document);
-        let names = ProjectNames::new(&cache, &chunks);
         let (schema, build) = installed_schema(&app_handle);
-        store.read(document, |open| {
-            let read_only = open.read_only(&asset);
-            let at = Some(schema.at(build));
-            let (rows, object) = match entry {
-                Some(entry) => (
-                    open.children(entry, "", 0, WHOLE, &names, at)?.rows,
-                    Some(open.object(entry, &names, at)?),
-                ),
-                None => (open.roots(&names, at), None),
-            };
-            Ok(BinDocumentHandle {
-                document,
-                header: open.header(&names),
-                rows,
-                object,
-                read_only,
-                declared: open.declared_state(),
+        let read_only = store.read_only(document)?;
+        with_document_names(&app_handle, document, |names| {
+            store.read(document, |open| {
+                let at = Some(schema.at(build));
+                let (rows, object) = match entry {
+                    Some(entry) => (
+                        open.children(entry, "", 0, WHOLE, names, at)?.rows,
+                        Some(open.object(entry, names, at)?),
+                    ),
+                    None => (open.roots(names, at), None),
+                };
+                Ok(BinDocumentHandle {
+                    document,
+                    sandbox: store.sandbox_of(document).unwrap_or(SandboxRef::Game),
+                    read_only,
+                    asset: opened.clone(),
+                    header: open.header(names),
+                    rows,
+                    object,
+                    declared: open.declared_state(),
+                })
             })
         })
     })
     .await
+}
+
+/// The rows of an open layer file that the declarations of its project override. Empty for
+/// every other document. ADR-0056.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_overrides(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<LayerOverride>> {
+    off_thread(move || {
+        let store = app_handle.state::<BinDocuments>();
+        let Some(asset) = store.asset_of(document) else {
+            return Ok(Vec::new());
+        };
+        let (AssetRef::Layer { project, .. }, Some(chunk_hash)) =
+            (&asset, layer_chunk_hash(&asset))
+        else {
+            return Ok(Vec::new());
+        };
+
+        let project = ProjectDir::open(project)?;
+        let (schema, _) = installed_schema(&app_handle);
+
+        with_document_names(&app_handle, document, |names| {
+            let names = SchemaNames::new(names, &schema);
+            store.read(document, |open| {
+                Ok(open.overrides(chunk_hash, &project, &names))
+            })
+        })
+    })
+    .await
+}
+
+/// Run `read` with the names of the sandbox `document` is held in.
+fn with_document_names<T>(
+    app_handle: &AppHandle,
+    document: BinDocumentId,
+    read: impl FnOnce(&dyn RowNames) -> T,
+) -> T {
+    let reference = app_handle
+        .state::<BinDocuments>()
+        .sandbox_of(document)
+        .unwrap_or(SandboxRef::Game);
+
+    document_assets::with_names_in(app_handle, &reference, read)
 }
 
 /// The rows under one node of an open document, `offset` in and at most `limit` of them.
@@ -123,14 +175,11 @@ pub async fn bin_children(
     off_thread(move || {
         let entry = parse_hash(&entry)
             .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        let bin = app_handle.state::<BinHashTablesState>().get();
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let cache = CacheNames::new(&bin, &wad);
-        let chunks = app_handle.state::<BinDocuments>().chunks_of(document);
-        let names = ProjectNames::new(&cache, &chunks);
         let (schema, build) = installed_schema(&app_handle);
-        app_handle.state::<BinDocuments>().read(document, |open| {
-            Ok(open.children(entry, &path, offset, limit, &names, Some(schema.at(build)))?)
+        with_document_names(&app_handle, document, |names| {
+            app_handle.state::<BinDocuments>().read(document, |open| {
+                Ok(open.children(entry, &path, offset, limit, names, Some(schema.at(build)))?)
+            })
         })
     })
     .await
@@ -156,14 +205,11 @@ pub async fn bin_find(
                 })
             })
             .transpose()?;
-        let bin = app_handle.state::<BinHashTablesState>().get();
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let cache = CacheNames::new(&bin, &wad);
-        let chunks = app_handle.state::<BinDocuments>().chunks_of(document);
-        let names = ProjectNames::new(&cache, &chunks);
         let (schema, build) = installed_schema(&app_handle);
-        app_handle.state::<BinDocuments>().read(document, |open| {
-            Ok(open.find(entry, &query, &names, Some(schema.at(build))))
+        with_document_names(&app_handle, document, |names| {
+            app_handle.state::<BinDocuments>().read(document, |open| {
+                Ok(open.find(entry, &query, names, Some(schema.at(build))))
+            })
         })
     })
     .await
@@ -186,14 +232,11 @@ pub async fn bin_read(
     off_thread(move || {
         let entry = parse_hash(&entry)
             .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        let bin = app_handle.state::<BinHashTablesState>().get();
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let cache = CacheNames::new(&bin, &wad);
-        let chunks = app_handle.state::<BinDocuments>().chunks_of(document);
-        let names = ProjectNames::new(&cache, &chunks);
         let (schema, build) = installed_schema(&app_handle);
-        app_handle.state::<BinDocuments>().read(document, |open| {
-            Ok(open.children_each(entry, &paths, &names, Some(schema.at(build)))?)
+        with_document_names(&app_handle, document, |names| {
+            app_handle.state::<BinDocuments>().read(document, |open| {
+                Ok(open.children_each(entry, &paths, names, Some(schema.at(build)))?)
+            })
         })
     })
     .await
@@ -275,14 +318,11 @@ pub async fn bin_dependencies(
 #[specta::specta]
 pub async fn bin_roots(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<Vec<BinRow>> {
     off_thread(move || {
-        let bin = app_handle.state::<BinHashTablesState>().get();
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let cache = CacheNames::new(&bin, &wad);
-        let chunks = app_handle.state::<BinDocuments>().chunks_of(document);
-        let names = ProjectNames::new(&cache, &chunks);
         let (schema, build) = installed_schema(&app_handle);
-        app_handle.state::<BinDocuments>().read(document, |open| {
-            Ok(open.roots(&names, Some(schema.at(build))))
+        with_document_names(&app_handle, document, |names| {
+            app_handle.state::<BinDocuments>().read(document, |open| {
+                Ok(open.roots(names, Some(schema.at(build))))
+            })
         })
     })
     .await
