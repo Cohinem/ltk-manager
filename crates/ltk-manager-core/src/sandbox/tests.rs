@@ -1,7 +1,6 @@
 use std::io::Cursor;
 
 use fs_err as fs;
-use ltk_hash::Hash as _;
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
