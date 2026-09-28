@@ -317,7 +317,7 @@ export function Lanes() {
           ))}
           <div
             ref={tracks}
-            className="pointer-events-none absolute inset-y-0 overflow-hidden font-mono text-code"
+            className="pointer-events-none absolute inset-y-0 overflow-hidden"
             style={{ left: head, right: COUNT }}
             aria-hidden="true"
           >
