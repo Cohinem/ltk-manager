@@ -333,7 +333,7 @@ function ObjectPath({ path }: { path: string }) {
   return (
     <span
       data-ui="ClassView:object-path"
-      className="min-w-0 truncate px-1 font-mono text-meta text-code text-surface-200 select-text"
+      className="min-w-0 truncate px-1 font-mono text-row text-code text-surface-200 select-text"
     >
       {path}
     </span>

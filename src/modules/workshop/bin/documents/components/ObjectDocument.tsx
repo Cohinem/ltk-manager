@@ -16,7 +16,15 @@ import {
 } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
-import { Button, IconButton, Menu, RetainedContent, SegmentedControl, Spinner } from "@/components";
+import {
+  Button,
+  IconButton,
+  Menu,
+  RetainedContent,
+  SegmentedControl,
+  Separator,
+  Spinner,
+} from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinDocumentId, BinObjectHeader } from "@/lib/tauri";
@@ -226,14 +234,17 @@ function OpenObject({
       onKeyDown={steps.onKeyDown}
     >
       <DocumentToolbar active={active}>
-        <span className="flex min-w-0 shrink-0 items-center gap-2 text-meta text-surface-400 select-none">
+        <span className="flex min-w-0 shrink-0 items-center gap-2 px-1 text-row text-surface-400 select-none">
           <ClassCard classHash={object.classHash} name={object.class} />
           {!narrow && (
             <OtherDeclarations asset={asset} objectHash={object.entry} objectPath={objectPath} />
           )}
         </span>
         {shelled && (
-          <ShellHeaderSlot name="crumb" onElement={registerSlot} className="min-w-0 flex-1" />
+          <>
+            <Separator orientation="vertical" className="mx-0 h-4 bg-surface-veil-strong" />
+            <ShellHeaderSlot name="crumb" onElement={registerSlot} className="min-w-0 flex-1" />
+          </>
         )}
         {layout && (
           <SegmentedControl
@@ -377,10 +388,8 @@ function HeaderMenu({ document, object, onShowInFile }: HeaderMenuProps) {
           <IconButton
             variant="ghost"
             size="xs"
-            compact
             icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
             aria-label={label}
-            className="h-5 w-5"
           />
         }
       />
