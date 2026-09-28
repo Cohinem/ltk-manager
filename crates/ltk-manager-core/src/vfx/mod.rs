@@ -7,7 +7,7 @@
 
 mod resolve;
 
-pub use resolve::{MAX_DEPTH, MAX_NODES, resolve_system};
+pub use resolve::{MAX_DEPTH, MAX_NODES, resolve_system, search_linked_materials};
 
 use serde::Serialize;
 

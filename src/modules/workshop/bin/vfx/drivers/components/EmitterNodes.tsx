@@ -263,7 +263,7 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
       />
       {previewed && <SpawnShape id={item.id} />}
       {primitive && <PrimitiveSketch id={item.id} held={heldOf(item)} />}
-      {material && <MaterialShape entry={item.material} />}
+      {material && <MaterialShape material={item.material} />}
       {picture !== null && <StructPicture item={item} picture={picture} />}
       {!folded && (
         <div className={FIELD_PAD}>

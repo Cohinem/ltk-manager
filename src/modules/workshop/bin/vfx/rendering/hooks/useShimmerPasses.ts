@@ -6,7 +6,7 @@ import { createProgramMaterial, EngineEnvironment, glowMaterial } from "@/module
 import { usePreviewShaders } from "@/stores";
 
 import type { ShimmerMesh } from "../utils/shimmerMeshes";
-import { useEmbeddedMaterialPasses } from "./useParticlePrograms";
+import { useEmbeddedMaterialPasses, useMaterialPasses } from "./useParticlePrograms";
 
 /** Each pass of an embedded material, and the environment, clock and tint its draws write. */
 export interface PassMaterials {
@@ -24,8 +24,8 @@ const NO_MATERIALS: readonly RawShaderMaterial[] = [];
 const NO_GLOWS: readonly (RawShaderMaterial | null)[] = [];
 
 /**
- * The translated passes of the material `mesh` embeds, none while the game's shaders are
- * off or a pass is not ready, under one environment the particle's colour tints.
+ * The translated passes of the material `mesh` embeds or links to, none while the game's
+ * shaders are off or a pass is not ready, under one environment the particle's colour tints.
  *
  * Array uniforms rather than groups: a map stands many meshes, and the context's 24 binding
  * points are shared with the backdrop's draws. `BufferBinding` has the detail.
@@ -36,7 +36,13 @@ export function useShimmerPasses(
   geometry: BufferGeometry | null,
 ): PassMaterials {
   const shaders = usePreviewShaders();
-  const { passes } = useEmbeddedMaterialPasses(document, shaders ? mesh.material : null);
+  const embedded = useEmbeddedMaterialPasses(document, shaders ? mesh.material : null);
+  const linked = useMaterialPasses(
+    document,
+    shaders && mesh.material === null ? (mesh.linked?.hash ?? null) : null,
+    mesh.linked?.file ?? null,
+  );
+  const passes = mesh.material === null ? linked.passes : embedded.passes;
   const time = useRef(0);
   const [environment, color] = useMemo(() => {
     const made = new EngineEnvironment("uniform");

@@ -147,13 +147,32 @@ describe("systemGraph", () => {
       { type: "material", name: "Material", className: "StaticMaterialDef", port: node.id },
     ]);
     expect(isMaterial(node)).toBe(true);
-    expect(node.material).toBe("0x0000beef");
+    expect(node.material).toEqual({ type: "linked", entry: "0x0000beef" });
 
     const open = layoutGraph(tree!).items.find((each) => each.item.id === node.id);
     const folded = layoutGraph(tree!, new Set([node.id])).items.find(
       (each) => each.item.id === node.id,
     );
     expect(folded!.height).toBeLessThan(open!.height);
+  });
+
+  it("reads an embedded material at its property path under the system", () => {
+    const def = struct("StaticMaterialDef", { name: { type: "string", value: "Glow" } });
+    const material = struct("VfxMaterialContainer", { Material: def });
+    const shimmer = struct("VfxShimmerEmitterDefinitionData", {
+      VfxComponents: struct("VfxComponents", {
+        RenderComponent: struct("VfxMaterialRenderComponent", { Material: material }),
+      }),
+    });
+    const tree = systemGraph(system(shimmer));
+    const node = tree?.inputs[0]?.tree.inputs[0]?.tree.inputs[0]?.tree.item;
+    if (node?.type !== "struct") throw new Error("the render component holds no material node");
+
+    expect(node.material).toEqual({
+      type: "embedded",
+      entry: null,
+      path: `${node.wire}.${nameHash("Material").slice(2)}`,
+    });
   });
 
   it("draws the items of a material's lists as lines of the material node", () => {

@@ -16,6 +16,7 @@ pub mod game_wads;
 pub mod hashtables;
 pub mod integrations;
 pub mod launcher;
+pub(crate) mod linked;
 pub mod matcher;
 pub mod material;
 pub mod meta_docs;

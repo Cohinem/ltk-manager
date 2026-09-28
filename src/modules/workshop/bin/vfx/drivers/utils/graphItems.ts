@@ -4,6 +4,7 @@ import type { DriverDiagnostic } from "../../engine/drivers/diagnostics";
 import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import type { ValueCurve } from "../../engine/model/model";
 import type { EmitterGroup } from "../../inspector/utils/emitterGroups";
+import type { MaterialRef } from "./materialNodes";
 
 /** One input of a graph node: its handle id, what it is labelled, and the kind it takes. */
 export interface GraphPort {
@@ -211,8 +212,8 @@ export interface StructItem extends ItemBase {
   readonly nested: StructItem | null;
   /** The first file among its rows or its section's, drawn as the node's preview. */
   readonly picture: FileItem | null;
-  /** The `StaticMaterialDef` a material node is or links, by entry hash, drawn on a shape. */
-  readonly material?: string;
+  /** The `StaticMaterialDef` a material node is, links or embeds, drawn on a shape. */
+  readonly material?: MaterialRef;
 }
 
 /** A keyed or randomised `Value*` field, which the curve panel edits. */

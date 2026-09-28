@@ -14,8 +14,12 @@ import {
 import { twMerge } from "@/utils";
 
 import { vfxQueries } from "../../hooks/useVfxSystem";
-import { useMaterialPasses } from "../../rendering/hooks/useParticlePrograms";
+import {
+  useEmbeddedMaterialPasses,
+  useMaterialPasses,
+} from "../../rendering/hooks/useParticlePrograms";
 import { NODE_PREVIEW_SIZE } from "../utils/driverLayout";
+import type { MaterialRef } from "../utils/materialNodes";
 import { GraphActionsContext, NO_DOCUMENT } from "./graphActions";
 import { NODE_BOX, Turntable } from "./NodePreviews";
 import { PreviewView } from "./PreviewView";
@@ -54,7 +58,7 @@ const FRAMED = new Sphere(
  * drawn with its translated passes as the material shell's preview draws it. The Component
  * row of decision 2.8 in docs/plans/shimmer-driver-graph.md.
  */
-export function MaterialShape({ entry }: { entry: string | undefined }) {
+export function MaterialShape({ material }: { material: MaterialRef | undefined }) {
   const [shape, setShape] = useState<PreviewShape>("sphere");
   const actions = use(GraphActionsContext);
   const document = actions?.document ?? null;
@@ -62,8 +66,16 @@ export function MaterialShape({ entry }: { entry: string | undefined }) {
     ...vfxQueries.system(document ?? NO_DOCUMENT, actions?.entry ?? ""),
     enabled: document !== null && actions?.entry !== "",
   }).data;
-  const source = system?.materials.find((each) => each.hash === entry)?.source ?? null;
-  const { program, passes, failed } = useMaterialPasses(document, entry ?? null, source);
+
+  const linked = material?.type === "linked" ? material.entry : null;
+  const source = system?.materials.find((each) => each.hash === linked)?.source ?? null;
+  const linkedRead = useMaterialPasses(document, linked, source);
+  const at =
+    material?.type === "embedded" && document !== null
+      ? { entry: material.entry ?? actions?.entry ?? "", path: material.path }
+      : null;
+  const embeddedRead = useEmbeddedMaterialPasses(document ?? NO_DOCUMENT, at);
+  const { program, passes, failed } = material?.type === "embedded" ? embeddedRead : linkedRead;
 
   return (
     <div data-ui="MaterialShape" className={twMerge(NODE_BOX, "relative")} style={BOX_STYLE}>
@@ -81,7 +93,7 @@ export function MaterialShape({ entry }: { entry: string | undefined }) {
           </Turntable>
         </PreviewView>
       )}
-      <Note entry={entry} program={program} failed={failed} />
+      <Note named={material !== undefined} program={program} failed={failed} />
       <div
         role="group"
         aria-label={m.workshop_bin_material_shape_label()}
@@ -108,16 +120,17 @@ export function MaterialShape({ entry }: { entry: string | undefined }) {
 
 /** Why the box draws no shape: the read runs, or it found no material to draw. */
 function Note({
-  entry,
+  named,
   program,
   failed,
 }: {
-  entry: string | undefined;
+  /** The node names a material to read. */
+  named: boolean;
   program: MaterialProgram | null | undefined;
   failed: boolean;
 }) {
-  const reading = entry !== undefined && program === undefined && !failed;
-  const missing = entry === undefined || failed || program === null;
+  const reading = named && program === undefined && !failed;
+  const missing = !named || failed || program === null;
   if (!reading && !missing) return null;
 
   return (

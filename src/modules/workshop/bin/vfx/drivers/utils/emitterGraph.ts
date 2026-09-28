@@ -20,7 +20,7 @@ import type {
   StructRow,
 } from "./graphItems";
 import { listEntries } from "./listEntries";
-import { holdsMaterial, MATERIAL_CLASSES, materialEntry } from "./materialNodes";
+import { holdsMaterial, MATERIAL_CLASSES, materialOf } from "./materialNodes";
 import {
   drawnInSection,
   FORCE_FIELD,
@@ -422,7 +422,7 @@ function structTree(at: StructPlace, rows: readonly StructPlaceRow[]): GraphTree
     draws,
   }));
 
-  const material = at.held !== null && holdsMaterial(at.held) ? materialEntry(at.held) : null;
+  const material = at.held !== null && holdsMaterial(at.held) ? materialOf(at.held, at.wire) : null;
   return {
     item: {
       ...(material === null ? {} : { material }),

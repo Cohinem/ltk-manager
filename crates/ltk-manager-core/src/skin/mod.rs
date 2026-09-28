@@ -10,7 +10,7 @@ mod tangents;
 
 pub use tangents::bake_mesh_tangents;
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 
 use ltk_hash::BinHash;
 use ltk_meta::PropertyValueEnum;
@@ -22,6 +22,7 @@ use crate::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Fields, Locator, RowNames, fields_of,
     hex, items, leaf, link, object_at, resolver_entries, struct_of, text,
 };
+use crate::linked::{Walk, find_linked_materials, walk_linked};
 use crate::material::{MaterialPreview, linked_material};
 use crate::preview::AssetRef;
 
@@ -954,9 +955,6 @@ pub fn graph_at(
     ))
 }
 
-/// The most linked files a graph is looked for in, however deep the links run.
-const LINKED_CAP: usize = 32;
-
 /// The graph at `entry`, looked for in `linked` and in what each file links.
 ///
 /// Breadth first, each file's links in the order its header lists them, so the file
@@ -1010,8 +1008,7 @@ pub fn search_linked_materials(
     shaders: Option<&BinDocument>,
     read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
 ) {
-    let locator = Locator { names, assets };
-    let mut missing: Vec<&mut MaterialPreview> = model
+    let missing: Vec<&mut MaterialPreview> = model
         .material
         .iter_mut()
         .chain(
@@ -1020,30 +1017,8 @@ pub fn search_linked_materials(
                 .iter_mut()
                 .filter_map(|o| o.material.as_mut()),
         )
-        .filter(|material| material.missing)
         .collect();
-    if missing.is_empty() {
-        return;
-    }
-    walk_linked(linked, assets, read, &mut |asset, document| {
-        for material in &mut missing {
-            let Some(hash) = parse_hex(&material.hash) else {
-                continue;
-            };
-            if document.object_at(hash).is_some() {
-                **material = MaterialPreview {
-                    source: Some(asset.clone()),
-                    ..linked_material(document, hash, &locator, shaders)
-                };
-            }
-        }
-        missing.retain(|material| material.missing);
-        if missing.is_empty() {
-            Walk::Done
-        } else {
-            Walk::On
-        }
-    });
+    find_linked_materials(missing, linked, names, assets, shaders, read);
 }
 
 /// The systems the skin's resolver maps that `document` does not declare, looked for in
@@ -1099,57 +1074,6 @@ pub fn search_linked_systems(
     });
     model.effect_systems.extend(found);
     model.effect_systems.sort_by(|a, b| a.key.cmp(&b.key));
-}
-
-/// Whether a walk over linked files goes on past the file it is at.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Walk {
-    On,
-    Done,
-}
-
-/// Every file in `linked` and in what each links, breadth first, until `visit` is done.
-///
-/// Each file's links come in the order its header lists them, so the file nearest the
-/// skin is visited first. `read` answers a file's document, and none for one it cannot
-/// read, which is passed over. A file reached twice is read once, and at most
-/// [`LINKED_CAP`] files are opened.
-fn walk_linked(
-    linked: Vec<AssetRef>,
-    assets: &dyn AssetLookup,
-    read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
-    visit: &mut dyn FnMut(&AssetRef, &BinDocument) -> Walk,
-) {
-    let mut seen: HashSet<AssetRef> = linked.iter().cloned().collect();
-    let mut queue: VecDeque<AssetRef> = linked.into();
-    let mut opened = 0;
-
-    while let Some(asset) = queue.pop_front() {
-        if opened == LINKED_CAP {
-            break;
-        }
-        opened += 1;
-        let Some(document) = read(&asset) else {
-            continue;
-        };
-        if visit(&asset, &document) == Walk::Done {
-            return;
-        }
-        for next in document
-            .dependencies()
-            .iter()
-            .filter_map(|path| assets.locate(path))
-        {
-            if seen.insert(next.clone()) {
-                queue.push_back(next);
-            }
-        }
-    }
-}
-
-/// The hash a record prints, `0x` and eight hex digits, read back.
-fn parse_hex(text: &str) -> Option<BinHash> {
-    crate::object_index::parse_hash(text)
 }
 
 /// The skin's idle effects, each with the system its key resolves to out of `systems`,

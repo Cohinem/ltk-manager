@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { VfxValue } from "@/lib/tauri";
+import type { MaterialPreview, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../../shared/utils/binHash";
 import {
@@ -113,6 +113,25 @@ describe("shimmerMeshesOf", () => {
         segment("Material"),
       ].join("."),
     });
+  });
+
+  it("reads a render component's linked material with the file that declares it", () => {
+    const emitter = cube("Cube", asset("assets/cube.gmesh"));
+    const render = field(field(emitter, nameHash("VfxComponents")), nameHash("RenderComponent"));
+    if (render?.type !== "struct") throw new Error("the cube has no render component");
+    render.fields.push({
+      hash: nameHash("Material"),
+      name: "Material",
+      value: { type: "link", hash: "0x1234abcd", name: null },
+    });
+    const file = { kind: "file", path: "data/shared/materials.bin" } as const;
+    const preview = { hash: "0x1234abcd", missing: false, source: file } as MaterialPreview;
+
+    const [linked] = shimmerMeshesOf(system(emitter), [preview]);
+    const [unread] = shimmerMeshesOf(system(emitter));
+
+    expect(linked?.linked).toEqual({ hash: "0x1234abcd", file });
+    expect(unread?.linked).toBeNull();
   });
 
   it("leaves out an emitter whose geometry names no mesh", () => {

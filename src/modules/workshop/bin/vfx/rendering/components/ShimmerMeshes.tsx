@@ -65,7 +65,8 @@ export function ShimmerMeshes({ document, entry }: { document: BinDocumentId; en
 export function useShimmerMeshes(document: BinDocumentId, entry: string): readonly ShimmerMesh[] {
   const query = useQuery({ ...vfxQueries.system(document, entry), enabled: entry !== "" });
   return useMemo(
-    () => (query.data === undefined ? NO_MESHES : shimmerMeshesOf(query.data.root)),
+    () =>
+      query.data === undefined ? NO_MESHES : shimmerMeshesOf(query.data.root, query.data.materials),
     [query.data],
   );
 }

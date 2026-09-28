@@ -287,6 +287,87 @@ fn a_custom_materials_shader_resolves_in_the_shader_defs() {
 }
 
 #[test]
+fn a_shimmer_render_components_linked_material_is_previewed() {
+    let direct = h("Materials/Direct");
+    let contained = h("Materials/Contained");
+    let render = embedded(
+        "VfxMaterialRenderComponent",
+        vec![
+            (MATERIAL, values::ObjectLink::new(direct).into()),
+            (
+                h("MaterialContainer"),
+                values::Embedded(values::Struct {
+                    class_hash: BinHash(0x44ad_896b),
+                    properties: [(MATERIAL, values::ObjectLink::new(contained).into())]
+                        .into_iter()
+                        .collect(),
+                })
+                .into(),
+            ),
+        ],
+    );
+    let system = BinObject::builder(h(SYSTEM), h("VfxSystemDefinitionData"))
+        .property(h("RenderComponent"), render)
+        .build();
+
+    let resolved = resolve_system(
+        &document_of(vec![system]),
+        h(SYSTEM),
+        &named(),
+        &Placed,
+        None,
+    )
+    .unwrap();
+
+    let hashes: Vec<_> = resolved
+        .materials
+        .iter()
+        .map(|each| each.hash.clone())
+        .collect();
+    assert_eq!(hashes, [hex(direct), hex(contained)]);
+}
+
+#[test]
+fn a_custom_material_a_linked_bin_declares_is_read_there() {
+    let material_hash = h("Materials/Linked");
+    let system = BinObject::builder(h(SYSTEM), h("VfxSystemDefinitionData"))
+        .property(
+            h("CustomMaterial"),
+            embedded(
+                "VfxMaterialDefinitionData",
+                vec![(MATERIAL, values::ObjectLink::new(material_hash).into())],
+            ),
+        )
+        .build();
+    let mut resolved = resolve_system(
+        &document_of(vec![system]),
+        h(SYSTEM),
+        &named(),
+        &Placed,
+        None,
+    )
+    .unwrap();
+    assert!(resolved.materials[0].missing);
+
+    let skin = Placed::asset();
+    super::search_linked_materials(
+        &mut resolved,
+        vec![skin.clone()],
+        &named(),
+        &Placed,
+        None,
+        &mut |_| {
+            Some(document_of(vec![
+                BinObject::builder(material_hash, h("StaticMaterialDef")).build(),
+            ]))
+        },
+    );
+
+    assert!(!resolved.materials[0].missing);
+    assert_eq!(resolved.materials[0].source, Some(skin));
+}
+
+#[test]
 fn an_unresolved_custom_material_keeps_the_missing_preview() {
     let material_hash = h("Materials/Missing");
     let system = BinObject::builder(h(SYSTEM), h("VfxSystemDefinitionData"))
@@ -329,7 +410,8 @@ fn a_material_field_on_another_class_adds_no_custom_preview() {
     .unwrap();
 
     assert!(resolved.materials.is_empty());
-    assert_eq!(MATERIAL_DEFINITION, h("VfxMaterialDefinitionData"));
+    assert_eq!(MATERIAL_HOLDERS[0], h("VfxMaterialDefinitionData"));
+    assert_eq!(MATERIAL_HOLDERS[1], h("VfxMaterialRenderComponent"));
     assert_eq!(MATERIAL, h("Material"));
 }
 

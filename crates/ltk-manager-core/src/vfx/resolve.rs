@@ -14,7 +14,9 @@ use crate::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Locator, Namer, RowNames, chunk_asset,
     hex, link, object_at, owned, resolver_entries,
 };
+use crate::linked::find_linked_materials;
 use crate::material::{MaterialPreview, linked_material};
+use crate::preview::AssetRef;
 use crate::problems::walk;
 
 /// How many values one system answers, past which the read is refused.
@@ -58,7 +60,15 @@ const ASSET_FIELDS: [BinHash; 16] = [
 
 const ANIMATION_VARIANTS: BinHash = BinHash(0x147f_071c);
 
-const MATERIAL_DEFINITION: BinHash = BinHash(0x2820_c167);
+/// The classes whose `Material` link names a custom material, which the walk previews.
+///
+/// A shimmer emitter's render component holds the link itself or in the linked container,
+/// where a legacy emitter holds it in its material definition.
+const MATERIAL_HOLDERS: [BinHash; 3] = [
+    BinHash(0x2820_c167), // VfxMaterialDefinitionData
+    BinHash(0x5301_c149), // VfxMaterialRenderComponent
+    BinHash(0x44ad_896b), // the VfxMaterialContainer holding a link
+];
 const MATERIAL: BinHash = BinHash(0xd2e4_d060);
 
 /// `VfxChildIdentifier`, the one class whose `effectKey` a walk resolves.
@@ -113,6 +123,24 @@ pub fn resolve_system(
         root,
         materials: walk.materials.into_values().collect(),
     })
+}
+
+/// The custom materials of `system` its own bin does not declare, looked for in `linked`
+/// and in what each file links.
+///
+/// A system's custom material is as often declared in the skin or map bin its file links as
+/// in its own. Each one found is read there and carries that file as its `source`, and one no
+/// file within reach declares stays missing. `shaders` is the defs [`resolve_system`] took.
+pub fn search_linked_materials(
+    system: &mut VfxSystem,
+    linked: Vec<AssetRef>,
+    names: &dyn RowNames,
+    assets: &dyn AssetLookup,
+    shaders: Option<&BinDocument>,
+    read: &mut dyn FnMut(&AssetRef) -> Option<BinDocument>,
+) {
+    let missing = system.materials.iter_mut().collect();
+    find_linked_materials(missing, linked, names, assets, shaders, read);
 }
 
 /// One read of one system: the tree it is over, what it resolves against, and what it
@@ -182,7 +210,7 @@ impl<'a> Walk<'a> {
         value: &PropertyValueEnum,
         depth: usize,
     ) -> Result<VfxValue, BinDocumentError> {
-        if class == MATERIAL_DEFINITION
+        if MATERIAL_HOLDERS.contains(&class)
             && field == MATERIAL
             && let Some(hash) = link(Some(value))
             && hash != BinHash(0)

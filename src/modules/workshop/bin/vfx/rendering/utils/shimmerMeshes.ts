@@ -1,4 +1,4 @@
-import type { AssetRef, VfxValue } from "@/lib/tauri";
+import type { AssetRef, MaterialPreview, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { field, flag, text } from "../../engine/parsing/readValue";
@@ -10,6 +10,10 @@ import {
 const SHIMMER_LIST = nameHash("shimmerEmitterDefinitionData");
 const COMPLEX_LIST = nameHash("complexEmitterDefinitionData");
 const STATIC_MATERIAL = nameHash("StaticMaterialDef");
+
+/** The `Material` field of a render component and of the container it holds a material in. */
+const MATERIAL = nameHash("Material");
+const MATERIAL_CONTAINER = nameHash("MaterialContainer");
 
 const EMITTER = {
   name: nameHash("emitterName"),
@@ -34,6 +38,13 @@ export interface EmbeddedMaterialAt {
   readonly path: string;
 }
 
+/** A material a render component links to, and the linked file that declares it. */
+export interface LinkedMaterial {
+  readonly hash: string;
+  /** Null where the system's own bin declares it. */
+  readonly file: AssetRef | null;
+}
+
 /** One shimmer emitter's mesh, and the components that spawn and move its particles. */
 export interface ShimmerMesh {
   /** The list it is read from: the shimmer list, or the complex list's component emitters. */
@@ -47,6 +58,8 @@ export interface ShimmerMesh {
   readonly components: ShimmerComponents;
   /** The `StaticMaterialDef` its render component embeds, and null for none. */
   readonly material: EmbeddedMaterialAt | null;
+  /** The material its render component links to in another bin, and null for none. */
+  readonly linked: LinkedMaterial | null;
 }
 
 /**
@@ -59,14 +72,22 @@ export interface ShimmerMesh {
  * The complex list's emitters that hold components are the ones the game draws, and the
  * shimmer list keeps disabled copies of them, so a copy named as a complex one is left out.
  */
-export function shimmerMeshesOf(root: VfxValue): ShimmerMesh[] {
-  const complex = meshesOf(root, "complex");
+export function shimmerMeshesOf(
+  root: VfxValue,
+  materials: readonly MaterialPreview[] = [],
+): ShimmerMesh[] {
+  const previews = new Map(materials.map((material) => [material.hash, material]));
+  const complex = meshesOf(root, "complex", previews);
   const drawn = new Set(complex.map((each) => each.name));
-  const shimmer = meshesOf(root, "shimmer").filter((each) => !drawn.has(each.name));
+  const shimmer = meshesOf(root, "shimmer", previews).filter((each) => !drawn.has(each.name));
   return [...complex, ...shimmer];
 }
 
-function meshesOf(root: VfxValue, from: ShimmerMesh["list"]): ShimmerMesh[] {
+function meshesOf(
+  root: VfxValue,
+  from: ShimmerMesh["list"],
+  previews: ReadonlyMap<string, MaterialPreview>,
+): ShimmerMesh[] {
   const listHash = from === "shimmer" ? SHIMMER_LIST : COMPLEX_LIST;
   const list = field(root, listHash);
   if (list?.type !== "container") return [];
@@ -97,9 +118,29 @@ function meshesOf(root: VfxValue, from: ShimmerMesh["list"]): ShimmerMesh[] {
           null,
         components: shimmerComponentsOf(components),
         material: at === null ? null : materialAt(emitter, at, [EMITTER.components, SLOT.render]),
+        linked: linkedMaterial(render, previews),
       },
     ];
   });
+}
+
+/**
+ * The material `render` links to rather than embeds, with the file the system read found it
+ * in, and null where the link names nothing any bin declares.
+ *
+ * A link to an object of the system's own bin is inlined by the read, and `materialAt`
+ * finds it as an embedded material.
+ */
+function linkedMaterial(
+  render: VfxValue | null,
+  previews: ReadonlyMap<string, MaterialPreview>,
+): LinkedMaterial | null {
+  const held = field(render, MATERIAL) ?? field(field(render, MATERIAL_CONTAINER), MATERIAL);
+  if (held?.type !== "link") return null;
+
+  const preview = previews.get(held.hash);
+  if (preview === undefined || preview.missing) return null;
+  return { hash: held.hash, file: preview.source };
 }
 
 /**
