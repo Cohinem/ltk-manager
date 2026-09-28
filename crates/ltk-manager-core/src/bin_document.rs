@@ -155,18 +155,18 @@ struct Store {
     /// The bound the store keeps to while every tree over it is clean.
     bound: NonZeroUsize,
     /// The tree each id is over. An id whose tree was evicted reads as not open.
-    ids: HashMap<BinDocumentId, HeldKey>,
-    held: LruCache<HeldKey, Held>,
+    ids: HashMap<BinDocumentId, TreeKey>,
+    held: LruCache<TreeKey, Held>,
 }
 
 /// The store's key for one tree: an asset and the sandbox that holds it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct HeldKey {
+struct TreeKey {
     sandbox: SandboxRef,
     asset: AssetRef,
 }
 
-impl HeldKey {
+impl TreeKey {
     fn new(sandbox: &SandboxRef, asset: AssetRef) -> Self {
         Self {
             sandbox: sandbox.holding(&asset),
@@ -261,7 +261,7 @@ impl Store {
     }
 
     /// A fresh id over `key`.
-    fn issue(&mut self, key: HeldKey) -> BinDocumentId {
+    fn issue(&mut self, key: TreeKey) -> BinDocumentId {
         let id = BinDocumentId(self.next);
         self.next = self.next.wrapping_add(1);
         self.ids.insert(id, key);
@@ -317,7 +317,7 @@ impl BinDocuments {
         asset: AssetRef,
         bytes: impl FnOnce() -> AppResult<Vec<u8>>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(HeldKey::new(sandbox, asset), || {
+        self.hold(TreeKey::new(sandbox, asset), || {
             Ok(BinDocument::parse(bytes()?)?)
         })
     }
@@ -338,7 +338,7 @@ impl BinDocuments {
         chunk_hash: u64,
         open: impl FnOnce() -> AppResult<(Vec<u8>, DeclareContext)>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(HeldKey::new(sandbox, asset), || {
+        self.hold(TreeKey::new(sandbox, asset), || {
             let (bytes, context) = open()?;
             Ok(BinDocument::declare(bytes, chunk_hash, context)?)
         })
@@ -348,7 +348,7 @@ impl BinDocuments {
     /// over the tree.
     fn hold(
         &self,
-        key: HeldKey,
+        key: TreeKey,
         parse: impl FnOnce() -> AppResult<BinDocument>,
     ) -> AppResult<BinDocumentId> {
         {
@@ -408,7 +408,7 @@ impl BinDocuments {
     fn held(
         &self,
         id: BinDocumentId,
-    ) -> Result<(HeldKey, Arc<RwLock<BinDocument>>), BinDocumentError> {
+    ) -> Result<(TreeKey, Arc<RwLock<BinDocument>>), BinDocumentError> {
         let mut store = self.inner.lock();
         let Store { ids, held, .. } = &mut *store;
         let key = ids.get(&id).ok_or(BinDocumentError::NotOpen(id))?;
@@ -900,7 +900,7 @@ impl BinDocuments {
         self.key_of(id).map(|key| key.asset)
     }
 
-    fn key_of(&self, id: BinDocumentId) -> Option<HeldKey> {
+    fn key_of(&self, id: BinDocumentId) -> Option<TreeKey> {
         let store = self.inner.lock();
         store
             .ids
@@ -919,7 +919,7 @@ impl BinDocuments {
         let mut store = self.inner.lock();
         let Store { ids, held, .. } = &mut *store;
 
-        let moving: Vec<HeldKey> = held
+        let moving: Vec<TreeKey> = held
             .iter()
             .filter(|(key, _)| key.renamed(project, from, to).is_some())
             .map(|(key, _)| key.clone())
@@ -970,7 +970,7 @@ impl BinDocuments {
         let mut store = self.inner.lock();
         store.ids.clear();
 
-        let clean: Vec<HeldKey> = store
+        let clean: Vec<TreeKey> = store
             .held
             .iter()
             .filter(|(_, held)| held.is_clean())

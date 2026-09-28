@@ -241,10 +241,10 @@ impl Sandbox {
             let Some(hash) = crate::object_index::parse_hash(text) else {
                 continue;
             };
-            let Some(held) = self.objects().get(&hash) else {
+            let Some(declaring) = self.objects().get(&hash) else {
                 continue;
             };
-            let layers = held.iter().filter_map(|object| {
+            let layers = declaring.iter().filter_map(|object| {
                 let AssetRef::Layer { path, .. } = &object.asset else {
                     return None;
                 };
@@ -402,7 +402,7 @@ pub struct SandboxState {
 
 #[derive(Debug, Default)]
 struct Cache {
-    held: HashMap<SandboxRef, Arc<Sandbox>>,
+    snapshots: HashMap<SandboxRef, Arc<Sandbox>>,
     /// Counts invalidations, so a read that started before one does not cache what it read.
     generation: u64,
 }
@@ -424,8 +424,8 @@ impl SandboxState {
     fn get_with(&self, reference: &SandboxRef, read: impl FnOnce() -> Sandbox) -> Arc<Sandbox> {
         let generation = {
             let cache = self.cache.lock();
-            if let Some(held) = cache.held.get(reference) {
-                return Arc::clone(held);
+            if let Some(snapshot) = cache.snapshots.get(reference) {
+                return Arc::clone(snapshot);
             }
             cache.generation
         };
@@ -435,14 +435,14 @@ impl SandboxState {
         if cache.generation != generation {
             return fresh;
         }
-        Arc::clone(cache.held.entry(reference.clone()).or_insert(fresh))
+        Arc::clone(cache.snapshots.entry(reference.clone()).or_insert(fresh))
     }
 
     /// Drop every snapshot of `project`, whose layers or config changed.
     pub fn invalidate(&self, project: &str) {
         let mut cache = self.cache.lock();
         cache
-            .held
+            .snapshots
             .retain(|reference, _| reference.project() != Some(project));
         cache.generation += 1;
     }

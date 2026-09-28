@@ -143,7 +143,7 @@ fn a_chunk_hash_that_is_not_hex_does_not_open() {
 }
 
 #[test]
-fn a_layer_file_is_held_in_its_project_whichever_sandbox_opens_it() {
+fn a_layer_file_belongs_to_its_project_whichever_sandbox_opens_it() {
     let dir = project(&[], &[("base", 0)]);
     let file = layer_file(&dir, "base", "W.wad.client/assets/x.bin");
 

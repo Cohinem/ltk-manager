@@ -476,14 +476,14 @@ impl BinDocument {
         layers.sort_by(ModProjectLayer::apply_order);
 
         let names = RenderNames(names);
-        let held: Vec<BinHash> = file.objects.keys().copied().collect();
+        let file_objects: Vec<BinHash> = file.objects.keys().copied().collect();
         let mut overrides = Vec::new();
         for layer in &layers {
             let Ok(Some(declarations)) = load_layer(root, &layer.name, &ignore).declarations else {
                 continue;
             };
             for module in &declarations.modules {
-                for edit in edits_on(module, chunk_hash, &held) {
+                for edit in edits_on(module, chunk_hash, &file_objects) {
                     let sets = edit
                         .objects
                         .iter()
@@ -564,10 +564,10 @@ impl Declared {
     /// when `layer` is not among the ones the last apply read, so a layer created since is
     /// accepted.
     fn check_layer(&mut self, layer: &str) -> Result<(), BinDocumentError> {
-        if !self.layers.iter().any(|held| held == layer) {
+        if !self.layers.iter().any(|known| known == layer) {
             self.layers = self.project_layers().map_err(declaring)?;
         }
-        if self.layers.iter().any(|held| held == layer) {
+        if self.layers.iter().any(|known| known == layer) {
             return Ok(());
         }
 

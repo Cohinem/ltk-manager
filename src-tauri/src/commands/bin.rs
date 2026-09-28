@@ -59,7 +59,7 @@ pub async fn bin_open(
         let config = app_handle.state::<SettingsState>().config();
         let store = app_handle.state::<BinDocuments>();
         let wads = app_handle.state::<WadCache>();
-        let (document, held) = match document_assets::sandbox(&app_handle, &sandbox)
+        let (document, opened) = match document_assets::sandbox(&app_handle, &sandbox)
             .opening(asset)?
         {
             Opening::File(file) => {
@@ -99,7 +99,7 @@ pub async fn bin_open(
                     document,
                     sandbox: store.sandbox_of(document).unwrap_or(SandboxRef::Game),
                     read_only,
-                    asset: held.clone(),
+                    asset: opened.clone(),
                     header: open.header(names),
                     rows,
                     object,
