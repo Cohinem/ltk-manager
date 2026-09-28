@@ -37,7 +37,7 @@ export interface RowWindow {
  * The app's `scroll-behavior: smooth` animates a plain `scrollTo`. A reveal re-aims on every
  * frame a row measures, and each re-aim restarts that animation.
  */
-function instantScroll(
+export function instantScroll(
   offset: number,
   { adjustments, behavior }: { adjustments?: number; behavior?: ScrollBehavior },
   instance: Virtualizer<HTMLDivElement, Element>,

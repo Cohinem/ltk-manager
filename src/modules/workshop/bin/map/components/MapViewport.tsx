@@ -3,9 +3,10 @@ import {
   CastleTurretIcon,
   CloudSunIcon,
   FrameCornersIcon,
+  ConfettiIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Button, HexshadeIcon, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -20,6 +21,7 @@ import {
 import {
   usePreviewAmbientOcclusion,
   usePreviewAntiAliasing,
+  usePreviewBackdropEvents,
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
@@ -42,9 +44,12 @@ import { useMapParticles } from "../hooks/useMapParticles";
 import { useMapScene } from "../state/mapScene";
 import { variantLabel } from "../utils/mapVariants";
 import { BackdropLayerMenu } from "./BackdropLayerMenu";
+import { BoxSelect } from "./BoxSelect";
 import { MapCharacters } from "./MapCharacters";
 import { MapFocus } from "./MapFocus";
+import { MapMarkers } from "./MapMarkers";
 import { MapParticles } from "./MapParticles";
+import { PlaceableButtons, usePlaceablePicking } from "./PlaceablePicking";
 import { PostEffectsControl } from "./PostEffectsControl";
 import { SunControl } from "./SunControl";
 
@@ -95,7 +100,9 @@ interface MapSceneProps {
 }
 
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
-  const { near, pick, materials, hidden, focus } = useMapScene();
+  const { near, pick, materials, hidden, focus, selected } = useMapScene();
+  const box = useRef<HTMLDivElement>(null);
+  const picking = usePlaceablePicking();
   const colors = useSceneColors();
   const shaders = usePreviewShaders();
   const source = useMemo(
@@ -117,7 +124,12 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { layers, flags, setLayer } = useBackdropFlags(source);
 
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
-  const played = useMapParticles(particles ? materials : null, flags, hidden);
+  const events = usePreviewBackdropEvents();
+  const played = useMapParticles(particles ? materials : null, flags, {
+    hidden,
+    events,
+    picked: selected,
+  });
   const { warps, softens } = useMemo(() => passesOf(played.map((group) => group.system)), [played]);
 
   const [fitToken, setFitToken] = useState(0);
@@ -125,7 +137,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
 
   return (
     <>
-      <div data-ui="MapViewport" className="relative min-h-0 flex-1">
+      <div ref={box} data-ui="MapViewport" className="relative min-h-0 flex-1">
         <Viewport
           antiAliasing={antiAliasing}
           renderer="shared"
@@ -150,7 +162,17 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
             <MapCharacters document={materials} near={near} flags={flags} hidden={hidden} />
           )}
           <MapFocus focus={focus} colors={colors} />
+          {picking.shown && (
+            <MapMarkers
+              items={picking.items}
+              hidden={hidden}
+              selected={selected}
+              colors={colors}
+              projector={picking.projector}
+            />
+          )}
         </Viewport>
+        <BoxSelect target={box} active={picking.boxing} onBox={picking.onBox} />
         {origin === null && (
           <div className="pointer-events-none absolute inset-0 flex">
             <Notice text={m.workshop_bin_map_preview_loading_label()} />
@@ -170,6 +192,14 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
             onClick={() => setDisplay({ previewBackdropParticles: !particles })}
           />
           <ViewToggle
+            label={m.workshop_bin_preview_backdrop_events_label()}
+            active={particles && events}
+            icon={<ConfettiIcon weight="bold" className="h-4 w-4" />}
+            onClick={() =>
+              setDisplay({ previewBackdropParticles: true, previewBackdropEvents: !events })
+            }
+          />
+          <ViewToggle
             label={m.workshop_bin_preview_backdrop_structures_label()}
             active={structures}
             icon={<CastleTurretIcon weight="bold" className="h-4 w-4" />}
@@ -187,6 +217,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
             icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
             onClick={() => setDisplay({ previewShaders: !shaders })}
           />
+          <PlaceableButtons picking={picking} />
           <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />
           <SunControl source={source} />
           <PostEffectsControl source={source} />

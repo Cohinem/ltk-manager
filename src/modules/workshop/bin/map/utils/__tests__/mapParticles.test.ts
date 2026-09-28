@@ -51,6 +51,26 @@ describe("playedParticles", () => {
 
     expect(playedParticles(events, 0b0000_0001)).toEqual([]);
   });
+
+  it("plays an event the reader picked, whatever turns it on", () => {
+    const trophy = particle({ name: "Trophy", key: "0x00000007", controller: "0x8f1ab207" });
+    const picked = new Set(["0x0000000c/0x00000007"]);
+
+    expect(playedParticles([trophy], 0b0000_0001, false, picked)).toEqual([trophy]);
+  });
+
+  it("plays what a script or a controller turns on once events play, and never a transition", () => {
+    const events = [
+      particle({ name: "Transition", transitional: true }),
+      particle({ name: "Scripted", startDisabled: true }),
+      particle({ name: "Trophy", controller: "0x8f1ab207" }),
+    ];
+
+    expect(playedParticles(events, 0b0000_0001, true).map((each) => each.name)).toEqual([
+      "Scripted",
+      "Trophy",
+    ]);
+  });
 });
 
 describe("particlesBySystem", () => {

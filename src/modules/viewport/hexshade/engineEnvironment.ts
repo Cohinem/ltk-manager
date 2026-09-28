@@ -369,6 +369,9 @@ function gridCube(grid: LightGrid, object: Object3D): readonly SunColor[] {
   ]);
 }
 
+/** The colour factor of an object no particle draws, which leaves a fragment as it is. */
+const NEUTRAL_FACTOR = [1, 1, 1, 1] as const;
+
 /** Each buffer's writer, at the member offsets of section 3.2, in floats. */
 const WRITERS: Record<string, Writer> = {
   PerFrameVertexCB: (out, environment, camera, object, time) => {
@@ -452,6 +455,11 @@ const WRITERS: Record<string, Writer> = {
     if (particle === null) return;
     out.set(particle.colorFactor, 4);
     out[10] = particle.depthPushPull;
+  },
+  /* `PARTICLE_COLOR_FACTOR` scales every fragment's colour and alpha, so an object with no
+     particle draws at one rather than at the zero an unwritten buffer holds. */
+  VFXDynamicPerParticleInstanceCBPS: (out, environment) => {
+    out.set(environment.particle?.colorFactor ?? NEUTRAL_FACTOR, 0);
   },
   BonesCB: (out, _environment, _camera, object) => {
     if (!isSkinned(object)) return;

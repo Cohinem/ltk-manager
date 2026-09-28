@@ -17,8 +17,8 @@ use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_game::map::MapPath;
 use ltk_manager_game::program::{
-    read_programs, MaterialProgram, ParticleDefine, ParticleShader, PassProgram, ProgramOptions,
-    Resolution,
+    read_embedded_program, read_programs, MaterialProgram, ParticleDefine, ParticleShader,
+    PassProgram, ProgramOptions, Resolution,
 };
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
@@ -68,56 +68,92 @@ pub async fn read_material_programs(
     app_handle: AppHandle,
 ) -> IpcResult<Vec<Option<MaterialProgram>>> {
     off_thread(move || {
-        let entries: Vec<BinHash> = entries
-            .iter()
-            .map(|entry| parse_hash(entry).unwrap_or_else(|| BinHash::hash_str(entry)))
-            .collect();
+        let entries: Vec<BinHash> = entries.iter().map(|entry| entry_hash(entry)).collect();
+        let absent = vec![None; entries.len()];
         let translations = translations(&app_handle);
-        let programs = |bin: &BinDocument, names: &dyn RowNames, assets: &dyn AssetLookup| {
-            let config = app_handle.state::<SettingsState>().config();
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
-            let shaders = shader_defs(&app_handle, assets);
-            let resolution = Resolution {
-                document: bin,
-                names,
-                assets,
-                shaders: shaders.as_deref(),
-            };
-            Ok(read_programs(
-                resolution,
-                &entries,
-                options,
-                &translations,
-                &mut read,
-            ))
-        };
-
-        match source {
-            MaterialSource::Document { document } => read_resolved(&app_handle, document, programs),
-            MaterialSource::File { asset, document } => {
-                with_resolution(&app_handle, document, |names, assets| {
-                    let config = app_handle.state::<SettingsState>().config();
-                    let wads = app_handle.state::<WadCache>();
-                    let bin = BinDocument::parse(asset.read(&config, &wads)?)?;
-                    programs(&bin, names, assets)
-                })
-            }
-            MaterialSource::Map { map, document } => {
-                with_resolution(&app_handle, document, |names, assets| {
-                    let Some(asset) = assets.locate(&map.materials()) else {
-                        return Ok(vec![None; entries.len()]);
-                    };
-
-                    let config = app_handle.state::<SettingsState>().config();
-                    let wads = app_handle.state::<WadCache>();
-                    let bin = BinDocument::parse(asset.read(&config, &wads)?)?;
-                    programs(&bin, names, assets)
-                })
-            }
-        }
+        on_source(&app_handle, source, absent, |resolution, read| {
+            read_programs(resolution, &entries, options, &translations, read)
+        })
     })
     .await
+}
+
+/// The material embedded at the property path `path` under the object `entry`, with a
+/// translated program per pass, and null where the path reaches no struct.
+///
+/// The entry is read as [`read_material_programs`] reads one, and the program is keyed by
+/// the hash of `entry:path`, since the material has no object of its own.
+///
+/// # Errors
+///
+/// Fails when the source bin cannot be read or parsed.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_embedded_material_program(
+    source: MaterialSource,
+    entry: String,
+    path: String,
+    options: ProgramOptions,
+    app_handle: AppHandle,
+) -> IpcResult<Option<MaterialProgram>> {
+    off_thread(move || {
+        let entry = entry_hash(&entry);
+        let translations = translations(&app_handle);
+        on_source(&app_handle, source, None, |resolution, read| {
+            read_embedded_program(resolution, entry, &path, options, &translations, read)
+        })
+    })
+    .await
+}
+
+/// An entry as an object hash, `0x` and eight hex digits, or an object path, which is hashed.
+fn entry_hash(entry: &str) -> BinHash {
+    parse_hash(entry).unwrap_or_else(|| BinHash::hash_str(entry))
+}
+
+/// `read` over the bin `source` names, resolved with its shader defs, and `absent` for a
+/// map with no materials bin.
+fn on_source<T>(
+    app_handle: &AppHandle,
+    source: MaterialSource,
+    absent: T,
+    read: impl FnOnce(Resolution<'_>, &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>) -> T,
+) -> AppResult<T> {
+    let resolved = |bin: &BinDocument, names: &dyn RowNames, assets: &dyn AssetLookup| {
+        let config = app_handle.state::<SettingsState>().config();
+        let wads = app_handle.state::<WadCache>();
+        let mut bytes = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+        let shaders = shader_defs(app_handle, assets);
+        let resolution = Resolution {
+            document: bin,
+            names,
+            assets,
+            shaders: shaders.as_deref(),
+        };
+        Ok(read(resolution, &mut bytes))
+    };
+    let parsed = |asset: &AssetRef| -> AppResult<BinDocument> {
+        let config = app_handle.state::<SettingsState>().config();
+        let wads = app_handle.state::<WadCache>();
+        Ok(BinDocument::parse(asset.read(&config, &wads)?)?)
+    };
+
+    match source {
+        MaterialSource::Document { document } => read_resolved(app_handle, document, resolved),
+        MaterialSource::File { asset, document } => {
+            with_resolution(app_handle, document, |names, assets| {
+                resolved(&parsed(&asset)?, names, assets)
+            })
+        }
+        MaterialSource::Map { map, document } => {
+            with_resolution(app_handle, document, |names, assets| {
+                let Some(asset) = assets.locate(&map.materials()) else {
+                    return Ok(absent);
+                };
+                resolved(&parsed(&asset)?, names, assets)
+            })
+        }
+    }
 }
 
 /// The pass the engine draws a skinned submesh with where its skin names no material,

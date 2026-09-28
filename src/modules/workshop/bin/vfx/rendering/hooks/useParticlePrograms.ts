@@ -83,7 +83,29 @@ export const particleQueries = {
       staleTime: Infinity,
       retry: false,
     }),
+  /**
+   * The material embedded at the property path `path` under the object `entry` of
+   * `document`, keyed under the material reads an edit refreshes.
+   */
+  embedded: (document: BinDocumentId, entry: string, path: string) =>
+    queryOptions<MaterialProgram | null, AppError>({
+      queryKey: ["material-program", "embedded", document, entry, path],
+      queryFn: async () =>
+        unwrapForQuery(
+          await api.bin.readEmbeddedMaterialProgram({ kind: "document", document }, entry, path, {
+            lowQuality: false,
+          }),
+        ),
+      staleTime: Infinity,
+      retry: false,
+    }),
 };
+
+/** Where a material sits inside an object rather than as one: the object and the property path. */
+export interface EmbeddedMaterial {
+  readonly entry: string;
+  readonly path: string;
+}
 
 /** A particle program material ready to draw, and what writes its engine buffers before a draw. */
 export interface ParticleProgram {
@@ -310,18 +332,33 @@ export function useMaterialPasses(
     ...particleQueries.material(document, hash, file),
     enabled: hash !== null,
   });
-  const program = query.data ?? null;
+  return { program: query.data, passes: usePassesOf(query.data), failed: query.error !== null };
+}
+
+/** `useMaterialPasses` for a material embedded in an object, and none for a null `at`. */
+export function useEmbeddedMaterialPasses(
+  document: BinDocumentId,
+  at: EmbeddedMaterial | null,
+): MaterialPasses {
+  const query = useQuery({
+    ...particleQueries.embedded(document, at?.entry ?? "", at?.path ?? ""),
+    enabled: at !== null,
+  });
+  return { program: query.data, passes: usePassesOf(query.data), failed: query.error !== null };
+}
+
+/** The passes of `read` with its textures bound, once they load. */
+function usePassesOf(read: MaterialProgram | null | undefined): readonly SubmeshProgram[] {
+  const program = read ?? null;
   const assets = useMemo(
     () => (program === null ? NO_ASSETS : programTextureAssets([program])),
     [program],
   );
   const textures = useAssetTextures(assets, RAW_TEXTURES);
-  const passes = useMemo(() => {
+  return useMemo(() => {
     const ready = programPasses(program, textures);
     return ready.length === 0 ? NO_PASSES : ready;
   }, [program, textures]);
-
-  return { program: query.data, passes, failed: query.error !== null };
 }
 
 function disposeAll(materials: readonly RawShaderMaterial[]): void {

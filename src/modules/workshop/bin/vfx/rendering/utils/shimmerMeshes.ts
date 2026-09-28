@@ -1,13 +1,15 @@
 import type { AssetRef, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { compileDriver } from "../../engine/drivers/compileDriver";
-import type { DriverKind } from "../../engine/drivers/node";
-import { readDriver } from "../../engine/drivers/readDriver";
-import { graphRootKind } from "../../engine/drivers/registry";
 import { field, flag, text } from "../../engine/parsing/readValue";
+import {
+  type ShimmerComponents,
+  shimmerComponentsOf,
+} from "../../engine/shimmer/shimmerComponents";
 
 const SHIMMER_LIST = nameHash("shimmerEmitterDefinitionData");
+const COMPLEX_LIST = nameHash("complexEmitterDefinitionData");
+const STATIC_MATERIAL = nameHash("StaticMaterialDef");
 
 const EMITTER = {
   name: nameHash("emitterName"),
@@ -16,7 +18,6 @@ const EMITTER = {
 } as const;
 
 const SLOT = {
-  physics: nameHash("PhysicsComponent"),
   render: nameHash("RenderComponent"),
   geometry: nameHash("GeometryComponent"),
 } as const;
@@ -24,79 +25,139 @@ const SLOT = {
 const MESH_EXTENSIONS = [".gmesh", ".tmesh", ".scb"] as const;
 const TEXTURE_EXTENSIONS = [".tex", ".dds"] as const;
 
-/** The depth past which the walk for assets and graphs stops. */
+/** The depth past which the walk for assets and materials stops. */
 const MAX_DEPTH = 24;
 
-/** A three-component value, or four for a colour. */
-type Triple = readonly [number, number, number];
-type Quad = readonly [number, number, number, number];
+/** Where a material embedded in an emitter sits: its object and its property path there. */
+export interface EmbeddedMaterialAt {
+  readonly entry: string;
+  readonly path: string;
+}
 
-/** One shimmer emitter as a single mesh at rest, until a component runtime spawns it. */
+/** One shimmer emitter's mesh, and the components that spawn and move its particles. */
 export interface ShimmerMesh {
-  /** Its place in `shimmerEmitterDefinitionData`. */
+  /** The list it is read from: the shimmer list, or the complex list's component emitters. */
+  readonly list: "shimmer" | "complex";
+  /** Its place in its list. */
   readonly index: number;
   readonly name: string;
   readonly disabled: boolean;
   readonly mesh: { readonly asset: AssetRef; readonly path: string };
   readonly texture: AssetRef | null;
-  readonly color: Quad;
-  readonly scale: Triple;
-  /** In the engine's own space, which the draw mirrors as the particles' is. */
-  readonly offset: Triple;
-  /** Degrees about each axis. */
-  readonly rotation: Triple;
+  readonly components: ShimmerComponents;
+  /** The `StaticMaterialDef` its render component embeds, and null for none. */
+  readonly material: EmbeddedMaterialAt | null;
 }
 
 /**
- * Every shimmer emitter of a resolved system that names a mesh, as the mesh drawn once.
+ * Every shimmer emitter of a resolved system that names a mesh.
  *
  * The geometry component's primitive holds a mesh path and a texture name under fields no
  * table names reliably, so each is the first asset under it with the extension the engine
- * tests. The colour, the scale, the offset and the rotation are the constant driver graphs
- * of those names under the render and physics components. The field names are what the
- * Hall of Legends cube grid writes, and a graph that is not constant leaves its default.
+ * tests. The lifetime, physics and render components are read for `shimmerParticles`.
+ *
+ * The complex list's emitters that hold components are the ones the game draws, and the
+ * shimmer list keeps disabled copies of them, so a copy named as a complex one is left out.
  */
 export function shimmerMeshesOf(root: VfxValue): ShimmerMesh[] {
-  const list = field(root, SHIMMER_LIST);
+  const complex = meshesOf(root, "complex");
+  const drawn = new Set(complex.map((each) => each.name));
+  const shimmer = meshesOf(root, "shimmer").filter((each) => !drawn.has(each.name));
+  return [...complex, ...shimmer];
+}
+
+function meshesOf(root: VfxValue, from: ShimmerMesh["list"]): ShimmerMesh[] {
+  const listHash = from === "shimmer" ? SHIMMER_LIST : COMPLEX_LIST;
+  const list = field(root, listHash);
   if (list?.type !== "container") return [];
+  const entry = root.type === "struct" ? (root.object?.entry ?? null) : null;
 
   return list.items.flatMap((emitter, index) => {
     const components = field(emitter, EMITTER.components);
     const geometry = field(components, SLOT.geometry);
     const render = field(components, SLOT.render);
-    const physics = field(components, SLOT.physics);
 
     const mesh = firstAsset(geometry, MESH_EXTENSIONS, 0);
     if (mesh === null || mesh.asset === null) return [];
+    /* The game skips a disabled complex emitter, and the shimmer list is all disabled copies. */
+    const disabled = flag(field(emitter, EMITTER.disabled));
+    if (from === "complex" && disabled) return [];
 
-    const graphs = [...namedGraphs(render, 0), ...namedGraphs(physics, 0)];
-    const constant = <T>(name: RegExp, kind: DriverKind, fallback: T): T => {
-      const graph = graphs.find((each) => name.test(each.name) && each.kind === kind);
-      if (graph === undefined) return fallback;
-
-      const compiled = compileDriver(readDriver(graph.value, kind, graph.name).node, {
-        scope: "emitter",
-      });
-      return compiled.constant === null ? fallback : (Array.from(compiled.constant) as T);
-    };
-
+    const at = entry === null ? null : { entry, path: `${segment(listHash)}[${index}]` };
     return [
       {
+        list: from,
         index,
         name: text(field(emitter, EMITTER.name)) ?? `[${index}]`,
-        disabled: flag(field(emitter, EMITTER.disabled)),
+        disabled,
         mesh: { asset: mesh.asset, path: mesh.path },
         texture:
           firstAsset(geometry, TEXTURE_EXTENSIONS, 0)?.asset ??
           firstAsset(render, TEXTURE_EXTENSIONS, 0)?.asset ??
           null,
-        color: constant<Quad>(/Color$/i, "vec4", [1, 1, 1, 1]),
-        scale: constant<Triple>(/Scale$/i, "vec3", [1, 1, 1]),
-        offset: constant<Triple>(/(Position|Offset|Translation)$/i, "vec3", [0, 0, 0]),
-        rotation: constant<Triple>(/Rotation$/i, "vec3", [0, 0, 0]),
+        components: shimmerComponentsOf(components),
+        material: at === null ? null : materialAt(emitter, at, [EMITTER.components, SLOT.render]),
       },
     ];
   });
+}
+
+/**
+ * Where the `StaticMaterialDef` under the fields `steps` of `value` sits, depth first, with
+ * `at` the address of `value`. A struct resolved from another object starts that object's
+ * own address.
+ */
+function materialAt(
+  value: VfxValue | null,
+  at: EmbeddedMaterialAt,
+  steps: readonly string[],
+): EmbeddedMaterialAt | null {
+  let held = value;
+  let place = at;
+  for (const step of steps) {
+    if (held?.type === "struct" && held.object !== null) {
+      place = { entry: held.object.entry, path: "" };
+    }
+    held = field(held, step);
+    place = { entry: place.entry, path: joined(place.path, segment(step)) };
+  }
+  return firstMaterial(held, place, 0);
+}
+
+function firstMaterial(
+  value: VfxValue | null,
+  at: EmbeddedMaterialAt,
+  depth: number,
+): EmbeddedMaterialAt | null {
+  if (value === null || depth > MAX_DEPTH) return null;
+
+  if (value.type === "container") {
+    for (const [index, item] of value.items.entries()) {
+      const found = firstMaterial(item, { ...at, path: `${at.path}[${index}]` }, depth + 1);
+      if (found !== null) return found;
+    }
+    return null;
+  }
+  if (value.type !== "struct") return null;
+
+  const place = value.object === null ? at : { entry: value.object.entry, path: "" };
+  if (value.classHash === STATIC_MATERIAL) return place;
+
+  for (const each of value.fields) {
+    const next = { ...place, path: joined(place.path, segment(each.hash)) };
+    const found = firstMaterial(each.value, next, depth + 1);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+/** A field hash as a property path writes it: its eight hex digits alone. */
+function segment(hash: string): string {
+  return hash.slice(2);
+}
+
+function joined(path: string, next: string): string {
+  return path === "" ? next : `${path}.${next}`;
 }
 
 /** The first asset under `value` whose path ends in one of `extensions`, depth first. */
@@ -127,22 +188,4 @@ function firstAsset(
     if (found !== null) return found;
   }
   return null;
-}
-
-/** Every driver graph under `value`, by the name of the field that holds it. */
-function namedGraphs(
-  value: VfxValue | null,
-  depth: number,
-): { name: string; kind: DriverKind; value: VfxValue }[] {
-  if (value === null || depth > MAX_DEPTH) return [];
-
-  if (value.type === "container")
-    return value.items.flatMap((item) => namedGraphs(item, depth + 1));
-  if (value.type !== "struct") return [];
-
-  return value.fields.flatMap(({ name, value: held }) => {
-    const kind = held.type === "struct" ? graphRootKind(held.classHash) : null;
-    if (kind !== null && name !== null) return [{ name, kind, value: held }];
-    return namedGraphs(held, depth + 1);
-  });
 }

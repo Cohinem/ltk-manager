@@ -10,6 +10,7 @@ import { CurveSurface } from "../../curves/components/CurveSurface";
 import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
 import { MapOutliner } from "../../map/components/MapOutliner";
 import { MapPreview } from "../../map/components/MapPreview";
+import { PlaceableInspector } from "../../map/components/PlaceableInspector";
 import { MaterialPane } from "../../material/components/MaterialPane";
 import { MaterialPreview } from "../../material/components/MaterialPreview";
 import { ShellCrumb } from "../../shell/components/ShellCrumb";
@@ -266,14 +267,23 @@ interface MapShellProps extends ShellFrameProps {
 /**
  * The panes of a map class: the drawn map, its chunk graph, and the sections of the object.
  *
- * The preview and the outliner share the `MapSceneHost` the view mounts above them.
+ * The preview, the outliner and the inspector share the `MapSceneHost` the view mounts above
+ * them, and the inspector heads its sections with the placeable picked last.
  */
 export function MapShell({ placed, pages, view, entry, preview }: MapShellProps) {
   const content = useMemo<ShellPaneContent<"map">>(
     () => ({
       preview: { body: preview },
       outliner: { body: <MapOutliner /> },
-      inspector: { body: <SectionColumn placed={placed} pages={pages} view={view} /> },
+      inspector: {
+        body: (
+          /* DS-SCROLLBAR */
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-md">
+            <PlaceableInspector objectName={view.objectName} onNotOpen={view.onNotOpen} />
+            <Sections placed={placed} pages={pages} view={view} />
+          </div>
+        ),
+      },
     }),
     [placed, pages, view, preview],
   );

@@ -265,6 +265,18 @@ export const commands = {
 	 */
 	readMaterialPrograms: (source: MaterialSource, entries: string[], options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: (MaterialProgram | null)[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_material_programs", { source, entries, options }),
 	/**
+	 *  The material embedded at the property path `path` under the object `entry`, with a
+	 *  translated program per pass, and null where the path reaches no struct.
+	 * 
+	 *  The entry is read as [`read_material_programs`] reads one, and the program is keyed by
+	 *  the hash of `entry:path`, since the material has no object of its own.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the source bin cannot be read or parsed.
+	 */
+	readEmbeddedMaterialProgram: (source: MaterialSource, entry: string, path: string, options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: MaterialProgram | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_embedded_material_program", { source, entry, path, options }),
+	/**
 	 *  The pass the engine draws a skinned submesh with where its skin names no material,
 	 *  with `LIT_UBER` translated.
 	 * 

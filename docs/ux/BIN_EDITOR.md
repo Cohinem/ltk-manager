@@ -1159,6 +1159,23 @@ outliner of its chunks, and the object's sections. The outliner lists each
 `MapPlaceableContainer` of the map's `.materials.bin` and what it holds. A row sends the camera
 to where its placeable stands, and an eye hides a chunk or one placeable from the scene.
 
+A search box over the outliner keeps the placeables whose name or class holds its text, and every
+placeable of a chunk whose own name does. A chip per kind the map holds keeps only that kind.
+Under a search each chunk with a match opens by itself and counts what it keeps of what it holds.
+A placeable an event shows carries a lightning mark, and the preview plays it only with Event
+effects on or while the reader has it selected. The tree is one tab stop: the arrows walk and fold it, Enter flies to the row, and
+Ctrl+F returns to the box.
+
+The Placeables switch in the preview marks every placeable the outliner lists with a dot in its
+kind's colour, drawn through the map at one size on the screen. The Box select tool takes the
+primary button: a drag selects the dots inside its box and a click the one under it, Shift adds
+and Ctrl flips, and the other buttons still move the camera. The outliner and the preview hold
+one selection. A click on a row selects it alone and flies to it, Shift and Ctrl edit the
+selection there too, and Ctrl+A selects every row listed. A bar over the tree counts the
+selection and frames, hides, shows or clears it. A pick opens the chunk of the placeable picked
+last and scrolls the outliner to it, and the inspector heads its sections with that placeable's
+own fields, read in the `.materials.bin`, with a button that opens its chunk's tab at the row.
+
 A `.mapgeo` and a `.materials.bin` open on the same map, because the map is what a reader of
 either file came for. The path says which map it is, since both files are the map's entry path
 under `data/`. A `.materials.bin` keeps its blocks behind a Map and Objects switch in the

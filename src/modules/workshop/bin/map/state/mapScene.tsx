@@ -6,6 +6,8 @@ import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
 import { assetKey } from "../../../preview/utils/assetRef";
 import { DocumentOpener } from "../../skin/hooks/useGraphSource";
 import { mapQueries } from "../api/mapQueries";
+import { NO_FILTER, type OutlineFilter } from "../utils/mapOutline";
+import { type SelectMode, selectedBy } from "../utils/mapSelection";
 import { openingVariant } from "../utils/mapVariants";
 
 /** The placeable the camera was last sent to, a new one per send so the same row sends twice. */
@@ -44,14 +46,30 @@ export interface MapSceneState {
   readonly hasMaterials: boolean;
   /** The open `.materials.bin` of the chosen variant, and null until it is open. */
   readonly materials: BinDocumentId | null;
+  /** Where that `.materials.bin` was read from, and null where nothing holds one. */
+  readonly materialsAsset: AssetRef | null;
   /** The chunks and placeables the reader hid, by chunk entry and by `itemId`. */
   readonly hidden: ReadonlySet<string>;
-  readonly setHidden: (id: string, hidden: boolean) => void;
+  /** Hide or show one chunk or placeable, or several at once. */
+  readonly setHidden: (ids: string | readonly string[], hidden: boolean) => void;
   readonly focus: MapFocus | null;
   readonly focusOn: (focus: MapFocus) => void;
+  /** What the outliner lists, which the viewport's markers show the same of. */
+  readonly filter: OutlineFilter;
+  readonly setFilter: (filter: OutlineFilter) => void;
+  /** The placeables the reader picked in the outliner or the viewport, by `itemId`. */
+  readonly selected: ReadonlySet<string>;
+  /** The placeable picked last, which the outliner scrolls to and the inspector shows. */
+  readonly lead: string | null;
+  readonly select: (ids: readonly string[], mode: SelectMode) => void;
+  /** The viewport marks every placeable the outliner lists. */
+  readonly markers: boolean;
+  readonly setMarkers: (markers: boolean) => void;
 }
 
 const MapSceneContext = createContext<MapSceneState | null>(null);
+
+const NONE: ReadonlySet<string> = new Set();
 
 /** The scene of the map in view, which a pane that draws or lists a map is always under. */
 export function useMapScene(): MapSceneState {
@@ -105,18 +123,30 @@ function MapSceneProvider({ near, source, children }: Omit<MapSceneHostProps, "e
   const [opened, setOpened] = useState<BinDocumentId | null>(null);
 
   const [hidden, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
-  const setHidden = useCallback((id: string, hide: boolean) => {
+  const setHidden = useCallback((ids: string | readonly string[], hide: boolean) => {
     setHiddenIds((held) => {
       const next = new Set(held);
-      if (hide) next.add(id);
-      else next.delete(id);
+      for (const id of typeof ids === "string" ? [ids] : ids) {
+        if (hide) next.add(id);
+        else next.delete(id);
+      }
       return next;
     });
   }, []);
   const [focus, setFocus] = useState<MapFocus | null>(null);
+  const [filter, setFilter] = useState<OutlineFilter>(NO_FILTER);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(NONE);
+  const [lead, setLead] = useState<string | null>(null);
+  const [markers, setMarkers] = useState(false);
+  const select = useCallback((ids: readonly string[], mode: SelectMode) => {
+    setSelected((held) => selectedBy(held, ids, mode));
+    setLead((held) => ids[0] ?? (mode === "replace" ? null : held));
+  }, []);
   const pick = useCallback((map: MapPath) => {
     setPicked(map);
     setFocus(null);
+    setSelected(NONE);
+    setLead(null);
   }, []);
 
   const scene = useMemo<MapSceneState>(
@@ -130,12 +160,37 @@ function MapSceneProvider({ near, source, children }: Omit<MapSceneHostProps, "e
       geometry: files?.geometry ?? null,
       hasMaterials: materialsFile !== null,
       materials: materialsFile === null ? null : opened,
+      materialsAsset: materialsFile,
       hidden,
       setHidden,
       focus,
       focusOn: setFocus,
+      filter,
+      setFilter,
+      selected,
+      lead,
+      select,
+      markers,
+      setMarkers,
     }),
-    [near, listed, failed, chosen, pick, files, materialsFile, opened, hidden, setHidden, focus],
+    [
+      near,
+      listed,
+      failed,
+      chosen,
+      pick,
+      files,
+      materialsFile,
+      opened,
+      hidden,
+      setHidden,
+      focus,
+      filter,
+      selected,
+      lead,
+      select,
+      markers,
+    ],
   );
 
   return (

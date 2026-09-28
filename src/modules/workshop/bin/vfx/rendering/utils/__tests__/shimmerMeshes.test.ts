@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { VfxValue } from "@/lib/tauri";
 
+import { nameHash } from "../../../../shared/utils/binHash";
 import {
   bool,
   list,
@@ -10,6 +11,8 @@ import {
   valueCurve,
   vector,
 } from "../../../engine/drivers/__tests__/driverFixture";
+import { field } from "../../../engine/parsing/readValue";
+import { shimmerParticles } from "../../../engine/shimmer/shimmerRun";
 import { shimmerMeshesOf } from "../shimmerMeshes";
 
 function asset(path: string): VfxValue {
@@ -59,7 +62,7 @@ function system(...emitters: VfxValue[]): VfxValue {
 }
 
 describe("shimmerMeshesOf", () => {
-  it("reads each emitter's mesh, texture and constant graphs", () => {
+  it("reads each emitter's mesh, texture and components", () => {
     const [cubeMesh] = shimmerMeshesOf(system(cube("Cube", asset("assets/cube.gmesh"))));
 
     expect(cubeMesh).toMatchObject({
@@ -68,11 +71,48 @@ describe("shimmerMeshesOf", () => {
       disabled: true,
       mesh: { path: "assets/cube.gmesh" },
       texture: { kind: "file", path: "assets/cube.tex" },
+    });
+    if (cubeMesh === undefined) throw new Error("the cube has no mesh");
+    expect(shimmerParticles(cubeMesh.components, 0, 1)[0]).toMatchObject({
       scale: [10, 10, 10],
       rotation: [180, 0, 0],
-      offset: [0, 0, 0],
+      position: [0, 0, 0],
+      color: [0.5, 0.25, 1, 1],
     });
-    expect(cubeMesh?.color).toEqual([0.5, 0.25, 1, 1]);
+  });
+
+  it("draws the complex list's component emitters over their shimmer copies, with their material", () => {
+    const drawn = cube("Cube", asset("assets/cube.gmesh"));
+    const render = field(field(drawn, nameHash("VfxComponents")), nameHash("RenderComponent"));
+    if (render?.type !== "struct" || drawn.type !== "struct") {
+      throw new Error("the cube has no render component");
+    }
+    drawn.fields = drawn.fields.filter((each) => each.hash !== nameHash("disabled"));
+    render.fields.push({
+      hash: "0x1f14dbe7",
+      name: null,
+      value: struct("0xd2807c60", { Material: struct("StaticMaterialDef") }),
+    });
+    const root = struct("VfxSystemDefinitionData", {
+      complexEmitterDefinitionData: list(drawn),
+      shimmerEmitterDefinitionData: list(cube("Cube", asset("assets/cube.gmesh"))),
+    });
+    if (root.type === "struct") root.object = { entry: "0x0000abcd", name: null };
+
+    const meshes = shimmerMeshesOf(root);
+    const segment = (name: string) => nameHash(name).slice(2);
+
+    expect(meshes.map((each) => each.list)).toEqual(["complex"]);
+    expect(meshes[0]?.material).toEqual({
+      entry: "0x0000abcd",
+      path: [
+        `${segment("complexEmitterDefinitionData")}[0]`,
+        segment("VfxComponents"),
+        segment("RenderComponent"),
+        "1f14dbe7",
+        segment("Material"),
+      ].join("."),
+    });
   });
 
   it("leaves out an emitter whose geometry names no mesh", () => {
@@ -82,5 +122,13 @@ describe("shimmerMeshesOf", () => {
 
     expect(meshes.map((each) => each.name)).toEqual(["Cube"]);
     expect(meshes[0]?.index).toBe(1);
+  });
+
+  it("leaves out a disabled complex emitter, as the game does", () => {
+    const root = struct("VfxSystemDefinitionData", {
+      complexEmitterDefinitionData: list(cube("Off", asset("assets/cube.gmesh"))),
+    });
+
+    expect(shimmerMeshesOf(root)).toEqual([]);
   });
 });

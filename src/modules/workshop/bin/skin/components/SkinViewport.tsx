@@ -44,6 +44,7 @@ import {
   usePreviewAntiAliasing,
   usePreviewArmature,
   usePreviewBackdrop,
+  usePreviewBackdropEvents,
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
@@ -362,7 +363,10 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   );
   /* One open file answers both what the map plays and what it stands. */
   const mapFile = useMapMaterialsFile(backdropParticles || backdropStructures ? backdrop : null);
-  const mapParticles = useMapParticles(backdropParticles ? mapFile.document : null, backdropFlags);
+  const backdropEvents = usePreviewBackdropEvents();
+  const mapParticles = useMapParticles(backdropParticles ? mapFile.document : null, backdropFlags, {
+    events: backdropEvents,
+  });
   const bounds = useMemo(
     () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
     [mesh.data, skin.hidden, scale],
@@ -712,6 +716,7 @@ function groupMaps(choices: readonly BackdropChoice[]): MapGroup[] {
 function BackdropToggle() {
   const backdrop = usePreviewBackdrop();
   const particles = usePreviewBackdropParticles();
+  const events = usePreviewBackdropEvents();
   const structures = usePreviewBackdropStructures();
   const sky = usePreviewBackdropSky();
   const setDisplay = useSetPreviewDisplay();
@@ -769,6 +774,13 @@ function BackdropToggle() {
                 onCheckedChange={(checked) => setDisplay({ previewBackdropParticles: checked })}
               >
                 {m.workshop_bin_preview_backdrop_particles_label()}
+              </Menu.CheckboxItem>
+              <Menu.CheckboxItem
+                checked={particles && events}
+                disabled={!particles}
+                onCheckedChange={(checked) => setDisplay({ previewBackdropEvents: checked })}
+              >
+                {m.workshop_bin_preview_backdrop_events_label()}
               </Menu.CheckboxItem>
               <Menu.CheckboxItem
                 checked={structures}

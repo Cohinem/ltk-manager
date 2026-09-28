@@ -544,6 +544,42 @@ fn without_the_defs_a_pass_lists_what_the_material_writes_and_says_so_once() {
 }
 
 #[test]
+fn an_embedded_material_resolves_at_its_property_path_under_the_object() {
+    let material = body().passes(vec![pass(SHADER_PATH, vec![])]).build();
+    let holder = embedded(
+        "VfxMaterialRenderComponent",
+        vec![(
+            h("Material"),
+            values::Embedded(values::Struct {
+                class_hash: h("StaticMaterialDef"),
+                properties: material.properties,
+            })
+            .into(),
+        )],
+    );
+    let emitter = BinObject::builder(h("Emitter"), h("VfxSystemDefinitionData"))
+        .property(h("RenderComponent"), PropertyValueEnum::from(holder))
+        .build();
+    let document = document_of(vec![emitter]);
+    let path = format!("{:08x}.{:08x}", h("RenderComponent").0, h("Material").0);
+
+    let resolved =
+        resolve_embedded_passes(&document, h("Emitter"), &path, &Tables, &Placed, None).unwrap();
+    let missing =
+        resolve_embedded_passes(&document, h("Emitter"), "00000001", &Tables, &Placed, None);
+
+    assert_eq!(resolved.passes.len(), 1);
+    assert_eq!(
+        resolved.hash,
+        hex(BinHash::hash_str(format!("{}:{path}", hex(h("Emitter")))))
+    );
+    assert!(matches!(
+        missing,
+        Err(BinDocumentError::NodeNotFound { .. })
+    ));
+}
+
+#[test]
 fn a_material_without_a_pass_has_none_and_is_warned() {
     let resolved = resolve(Material::new(), None);
 

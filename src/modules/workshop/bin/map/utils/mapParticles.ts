@@ -2,6 +2,7 @@ import type { MapParticle } from "@/lib/tauri";
 
 import { fnv1a32 } from "../../shared/utils/binHash";
 import type { Anchor, Point, RigModel } from "../../vfx/engine/model/rig";
+import { itemId } from "./mapOutline";
 
 /** The slots of a column-major transform its translation sits in. */
 const TRANSLATION = 12;
@@ -9,19 +10,27 @@ const TRANSLATION = 12;
 /**
  * The particles of `particles` a backdrop plays under the visibility `flags`, a mask.
  *
- * A transitional particle is the game's one-shot as the map changes, and one a script or
- * a visibility controller turns on is an event the backdrop is not in, so none of them
- * play.
+ * A transitional particle is the game's one-shot as the map changes, so none plays. One a
+ * script or a visibility controller turns on is an event, which plays only with `events` or
+ * where the reader picked it, which `picked` holds by `itemId`.
  */
-export function playedParticles(particles: readonly MapParticle[], flags: number): MapParticle[] {
+export function playedParticles(
+  particles: readonly MapParticle[],
+  flags: number,
+  events = false,
+  picked: ReadonlySet<string> = NONE_PICKED,
+): MapParticle[] {
   return particles.filter(
     (particle) =>
       (particle.visibility & flags) !== 0 &&
       !particle.transitional &&
-      !particle.startDisabled &&
-      particle.controller === null,
+      (events ||
+        picked.has(itemId(particle.chunk, particle.key)) ||
+        (!particle.startDisabled && particle.controller === null)),
   );
 }
+
+const NONE_PICKED: ReadonlySet<string> = new Set();
 
 /** `particles` under the system each plays, in the order a system is first met. */
 export function particlesBySystem(

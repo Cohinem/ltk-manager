@@ -1,9 +1,12 @@
-import { type RefObject, useLayoutEffect } from "react";
+import { useThree } from "@react-three/fiber";
+import { type RefObject, useEffect, useLayoutEffect } from "react";
 import {
   type Camera,
+  Color,
   DepthTexture,
   ExternalTexture,
   FramebufferTexture,
+  HalfFloatType,
   LinearFilter,
   type Object3D,
   OrthographicCamera,
@@ -16,6 +19,8 @@ import {
   WebGLRenderTarget,
 } from "three";
 
+import { drawBloom, releaseBloom } from "./bloom";
+
 /** The layer everything but a particle draws on: the stage, the grid and the character. */
 export const SCENE_LAYER = 0;
 
@@ -24,6 +29,9 @@ export const DISTORTION_LAYER = 1;
 
 /** The layer an emitter drawing colour sits on, which the scene's depth pass leaves out. */
 export const PARTICLE_LAYER = 2;
+
+/** The layer a pass's glow copy draws on, which only the glow pass sees. */
+export const GLOW_LAYER = 3;
 
 /**
  * The frame as it was before anything warped it, which a distorting fragment samples.
@@ -52,8 +60,8 @@ interface FrameTargets {
   readonly frame: FramebufferTexture;
   /**
    * Rendered rather than copied out of the canvas, because a target is what hands a depth
-   * buffer back as a texture. Its colour is never read, so the colour space trap of
-   * decision 2.25 in docs/plans/vfx-particle-renderer.md does not reach it.
+   * buffer back as a texture. Its colour holds the glow, drawn over the depth, and half
+   * floats keep a glow brighter than white.
    */
   readonly depth: WebGLRenderTarget;
 }
@@ -71,7 +79,10 @@ function targetsOf(gl: WebGLRenderer): FrameTargets {
     frame.format = RGBFormat;
     frame.internalFormat = "RGB8";
 
-    const depth = new WebGLRenderTarget(1, 1, { depthTexture: new DepthTexture(1, 1) });
+    const depth = new WebGLRenderTarget(1, 1, {
+      depthTexture: new DepthTexture(1, 1),
+      type: HalfFloatType,
+    });
     targets = { frame, depth };
     TARGETS.set(gl, targets);
   }
@@ -112,6 +123,7 @@ export function releaseFrame(gl: WebGLRenderer): void {
   TARGETS.delete(gl);
   targets.frame.dispose();
   targets.depth.dispose();
+  releaseBloom(gl);
   FRAME.sourceTexture = null;
   SCENE_DEPTH.sourceTexture = null;
 }
@@ -170,6 +182,55 @@ export function grabDepth(gl: WebGLRenderer, scene: Scene, camera: Camera): void
   color.setMask(true);
   scene.background = background;
   SCENE_DEPTH.sourceTexture = glTextureOf(gl, depth.depthTexture);
+}
+
+const GLOWING = new WeakMap<Scene, number>();
+
+/** Count the scene as holding a glow copy while `glows`, which turns its glow pass on. */
+export function useGlowing(glows: boolean): void {
+  const scene = useThree((state) => state.scene);
+  useEffect(() => {
+    if (!glows) return;
+
+    GLOWING.set(scene, (GLOWING.get(scene) ?? 0) + 1);
+    return () => {
+      GLOWING.set(scene, (GLOWING.get(scene) ?? 1) - 1);
+    };
+  }, [glows, scene]);
+}
+
+/** Whether `scene` holds a glow copy the frame draws a glow pass for. */
+export function glowing(scene: Scene): boolean {
+  return (GLOWING.get(scene) ?? 0) > 0;
+}
+
+const CLEAR_COLOR = new Color();
+
+/**
+ * Draw the glow layer over the depth `grabDepth` left, and add it to the frame blurred.
+ *
+ * The camera is left on the glow layer, and the caller sets the layers it draws next.
+ */
+export function drawGlow(gl: WebGLRenderer, scene: Scene, camera: Camera): void {
+  const { depth } = targetsOf(gl);
+  const background = scene.background;
+  scene.background = null;
+  camera.layers.set(GLOW_LAYER);
+
+  gl.getClearColor(CLEAR_COLOR);
+  const clearAlpha = gl.getClearAlpha();
+  const autoClear = gl.autoClear;
+  gl.setRenderTarget(depth);
+  gl.setClearColor(0x000000, 0);
+  gl.clear(true, false, false);
+  gl.setClearColor(CLEAR_COLOR, clearAlpha);
+  gl.autoClear = false;
+  gl.render(scene, camera);
+  gl.autoClear = autoClear;
+  gl.setRenderTarget(null);
+  scene.background = background;
+
+  drawBloom(gl, depth.texture, VIEWPORT);
 }
 
 /**

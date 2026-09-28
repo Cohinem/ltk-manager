@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use indexmap::IndexMap;
-use ltk_hash::BinHash;
+use ltk_hash::{BinHash, Hash as _};
 use ltk_meta::PropertyValueEnum;
 use serde::Serialize;
 
@@ -401,6 +401,35 @@ pub fn resolve_passes(
     let material = &object_at(document, entry)?.properties;
     let locator = Locator { names, assets };
     Ok(Reader::new(entry, material, &locator, shaders).resolved())
+}
+
+/// The material embedded at the property path `path` under `entry`, with every pass as the
+/// engine builds it.
+///
+/// An embedded material has no object of its own, so the record is keyed by the hash of
+/// its address, `entry:path`, as a row key spells it.
+///
+/// # Errors
+///
+/// Fails with [`BinDocumentError::NodeNotFound`] where `path` reaches no struct under
+/// `entry`.
+pub fn resolve_embedded_passes(
+    document: &BinDocument,
+    entry: BinHash,
+    path: &str,
+    names: &dyn RowNames,
+    assets: &dyn AssetLookup,
+    shaders: Option<&BinDocument>,
+) -> Result<ResolvedMaterial, BinDocumentError> {
+    let address = format!("{}:{path}", hex(entry));
+    let material =
+        document
+            .properties_at(entry, path)
+            .ok_or_else(|| BinDocumentError::NodeNotFound {
+                address: address.clone(),
+            })?;
+    let locator = Locator { names, assets };
+    Ok(Reader::new(BinHash::hash_str(&address), material, &locator, shaders).resolved())
 }
 
 impl<'a> Reader<'a> {

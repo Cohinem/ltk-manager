@@ -206,7 +206,7 @@ export function createProgramMaterial(
   material.uniformsGroups = stages.flatMap(([sidecar, inlined]) => {
     for (const binding of sidecar.textures) {
       const held = samplers.get(binding.name) ?? [];
-      held.push(...binding.samplers.map((sampler) => sampler.glslName));
+      held.push(...samplerNames(binding));
       samplers.set(binding.name, held);
     }
     return sidecar.blocks.flatMap((block) => {
@@ -259,6 +259,12 @@ export function programGlobals(material: Material): ProgramGlobals | undefined {
   return GLOBALS_OF.get(material);
 }
 
+/** Point `to` at the `$Globals` of `from`, for a material drawing over its uniforms. */
+export function shareProgramGlobals(from: Material, to: Material): void {
+  const globals = GLOBALS_OF.get(from);
+  if (globals !== undefined) GLOBALS_OF.set(to, globals);
+}
+
 /**
  * Every sampler of `material` bound to the texture `program` holds for it, which lands
  * a texture that arrived after the material was made.
@@ -268,13 +274,25 @@ export function bindProgramTextures(material: RawShaderMaterial, program: Submes
   for (const sidecar of [program.program.vertex.sidecar, program.program.pixel.sidecar]) {
     for (const binding of sidecar.textures) {
       const texture = textureFor(binding.name, binding.dimension, program);
-      for (const sampler of binding.samplers) {
-        const held = uniforms[sampler.glslName];
-        if (held === undefined) uniforms[sampler.glslName] = { value: texture };
+      for (const name of samplerNames(binding)) {
+        const held = uniforms[name];
+        if (held === undefined) uniforms[name] = { value: texture };
         else held.value = texture;
       }
     }
   }
+}
+
+/**
+ * The uniforms a stage reads `binding` through: each combined sampler, or for a buffer the
+ * stage fetches from, the buffer's own name.
+ *
+ * Left unbound, a buffer's uniform stands on unit 0 beside a 2D sampler of another type,
+ * and GL refuses the draw.
+ */
+function samplerNames(binding: Sidecar["textures"][number]): readonly string[] {
+  if (binding.samplers.length === 0) return [binding.name];
+  return binding.samplers.map((sampler) => sampler.glslName);
 }
 
 /**

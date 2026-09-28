@@ -13,8 +13,8 @@ use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
 use ltk_manager_core::error::AppResult;
 use ltk_manager_core::material::MaterialWarning;
 use ltk_manager_core::material::pass::{
-    Define, DefineSource, MaterialKind, PassState, PassTexture, ResolvedPass, SamplerState,
-    TextureSource, resolve_passes,
+    Define, DefineSource, MaterialKind, PassState, PassTexture, ResolvedMaterial, ResolvedPass,
+    SamplerState, TextureSource, resolve_embedded_passes, resolve_passes,
 };
 use ltk_manager_core::preview::AssetRef;
 use serde::{Deserialize, Serialize};
@@ -332,33 +332,68 @@ pub fn read_programs(
             let material = resolve_passes(document, *entry, names, assets, shaders)
                 .inspect_err(|e| tracing::debug!(?entry, "Passed over a material: {e}"))
                 .ok()?;
-            let passes = material
-                .passes
-                .into_iter()
-                .enumerate()
-                .map(|(index, pass)| {
-                    let program = program_of(&pass, material.kind, options, &mut cache);
-                    if let ProgramRead::Failed { reason } = &program {
-                        tracing::warn!(
-                            material = %material.hash,
-                            pass = index,
-                            shader = ?pass.shader,
-                            "No program for the pass: {reason}"
-                        );
-                    }
-                    PassProgram { pass, program }
-                })
-                .collect();
-            Some(MaterialProgram {
-                hash: material.hash,
-                name: material.name,
-                animated: material.animated,
-                kind: material.kind,
-                passes,
-                warnings: material.warnings,
-            })
+            Some(material_program(material, options, &mut cache))
         })
         .collect()
+}
+
+/// The program of the material embedded at the property path `path` under `entry`, and none
+/// where the path reaches no struct.
+///
+/// `read` answers asset bytes as [`read_programs`] reads them.
+pub fn read_embedded_program(
+    resolution: Resolution<'_>,
+    entry: BinHash,
+    path: &str,
+    options: ProgramOptions,
+    translations: &TranslationCache,
+    read: &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
+) -> Option<MaterialProgram> {
+    let Resolution {
+        document,
+        names,
+        assets,
+        shaders,
+    } = resolution;
+    let material = resolve_embedded_passes(document, entry, path, names, assets, shaders)
+        .inspect_err(|e| tracing::debug!(?entry, path, "Passed over a material: {e}"))
+        .ok()?;
+    let mut source = AssetChunks { assets, read };
+    let mut cache = ShaderCache::new(&mut source, translations);
+    Some(material_program(material, options, &mut cache))
+}
+
+/// `material` with a program for each of its passes, a failed one logged.
+fn material_program(
+    material: ResolvedMaterial,
+    options: ProgramOptions,
+    cache: &mut ShaderCache<'_>,
+) -> MaterialProgram {
+    let passes = material
+        .passes
+        .into_iter()
+        .enumerate()
+        .map(|(index, pass)| {
+            let program = program_of(&pass, material.kind, options, cache);
+            if let ProgramRead::Failed { reason } = &program {
+                tracing::warn!(
+                    material = %material.hash,
+                    pass = index,
+                    shader = ?pass.shader,
+                    "No program for the pass: {reason}"
+                );
+            }
+            PassProgram { pass, program }
+        })
+        .collect();
+    MaterialProgram {
+        hash: material.hash,
+        name: material.name,
+        animated: material.animated,
+        kind: material.kind,
+        passes,
+        warnings: material.warnings,
+    }
 }
 
 /// The pass the engine draws a skinned submesh with where its skin names no material,

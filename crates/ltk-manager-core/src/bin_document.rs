@@ -1282,6 +1282,17 @@ impl BinDocument {
             .collect()
     }
 
+    /// The properties of the struct or embed the property path `path` under `entry` reaches.
+    ///
+    /// `None` where the path reaches no node, a leaf, a container or a null struct.
+    pub(crate) fn properties_at(
+        &self,
+        entry: BinHash,
+        path: &str,
+    ) -> Option<&IndexMap<BinHash, PropertyValueEnum>> {
+        self.locate(entry, path)?.0.properties()
+    }
+
     /// The node a wire address reaches, the trace down to it, and the readable path above.
     ///
     /// Under an object the readable path starts empty. Under a record it starts with the

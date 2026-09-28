@@ -653,6 +653,12 @@ export const api = {
       entries: readonly string[],
       options: ProgramOptions,
     ) => commands.readMaterialPrograms(source, [...entries], options).then(toResult),
+    readEmbeddedMaterialProgram: (
+      source: MaterialSource,
+      entry: string,
+      path: string,
+      options: ProgramOptions,
+    ) => commands.readEmbeddedMaterialProgram(source, entry, path, options).then(toResult),
     readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) =>
       commands.readDefaultSkinnedProgram(document, options).then(toResult),
     readParticleProgram: (

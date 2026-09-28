@@ -9,10 +9,12 @@ import {
   OneMinusSrcAlphaFactor,
   SrcAlphaFactor,
   RawShaderMaterial,
+  type Texture,
+  UnsignedIntType,
 } from "three";
 import { describe, expect, it } from "vitest";
 
-import type { PassState, ResolvedPass, UniformBlock } from "@/lib/tauri";
+import type { PassState, ResolvedPass, Sidecar, UniformBlock } from "@/lib/tauri";
 
 import { EngineEnvironment } from "../engineEnvironment";
 import {
@@ -250,7 +252,7 @@ function stageOf(blocks: readonly UniformBlock[], declarations: string, body: st
     id: 1,
     glsl,
     cached: false,
-    sidecar: { blocks: [...blocks], textures: [], attributes: [] },
+    sidecar: { blocks: [...blocks], textures: [] as Sidecar["textures"], attributes: [] },
   };
 }
 
@@ -368,5 +370,41 @@ describe("createProgramMaterial with the back buffer copy", () => {
     expect(material.fragmentShader).toContain(
       "textureLod(SAMPLER_BACK_BUFFER_COPY_SharedTexture, vec2(at.x, 1.0 - at.y), lod)",
     );
+  });
+});
+
+describe("createProgramMaterial with a fetched buffer", () => {
+  it("binds the buffer under its own name, off the unit a 2D sampler takes", () => {
+    const vertex = stageOf(
+      [],
+      "uniform highp usampler2D ParticleInstanceInfo_SharedDataBuffer;",
+      "    gl_Position = vec4(0.0);",
+    );
+    const buffer = {
+      ...vertex,
+      sidecar: {
+        ...vertex.sidecar,
+        textures: [
+          {
+            name: "ParticleInstanceInfo_SharedDataBuffer",
+            dimension: "buffer" as const,
+            samplers: [],
+          },
+        ],
+      },
+    };
+    const pixel = stageOf(
+      [],
+      "layout(location = 0) out vec4 SV_Target;",
+      "    SV_Target = vec4(1.0);",
+    );
+
+    const material = createProgramMaterial(
+      programOf(buffer, pixel),
+      new EngineEnvironment("uniform"),
+    );
+
+    const bound = material.uniforms.ParticleInstanceInfo_SharedDataBuffer?.value as Texture;
+    expect(bound.type).toBe(UnsignedIntType);
   });
 });

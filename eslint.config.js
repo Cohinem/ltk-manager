@@ -232,6 +232,8 @@ export default tseslint.config(
       "src/modules/workshop/bin/vfx/**/*.tsx",
       "src/modules/workshop/bin/map/components/MapCharacters.tsx",
       "src/modules/workshop/bin/map/components/MapFocus.tsx",
+      "src/modules/workshop/bin/map/components/MapMarkers.tsx",
+      "src/modules/workshop/bin/map/components/MapParticles.tsx",
       "src/modules/workshop/bin/spells/components/MissileViewport.tsx",
       "src/modules/workshop/bin/spells/components/AbilityPreview.tsx",
       "src/modules/workshop/bin/spells/components/AbilityScene.tsx",

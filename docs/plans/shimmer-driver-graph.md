@@ -458,9 +458,41 @@ Not part of this plan, listed so the seam is designed for it:
 The component semantics are as unverified as the drivers', so the runtime plan carries its own
 section 5.
 
-Until then the preview draws each shimmer emitter as its geometry component's mesh once at rest,
-textured, tinted and placed by its constant driver graphs (`ShimmerMeshes`). Nothing spawns,
-ages or moves.
+Until then a simple runtime stands in for it (`engine/shimmer/`). `shimmerParticles` places an
+emitter's particles as a pure function of the run's time, so a scrub and a loop draw the same
+frame a play does:
+
+- The emitter starts after `startDelay`, spawns the burst `0x10498eed` at once or spread over
+  `SpawnDuration`, and `EmissionRate` a second until `EmitterDuration` runs out. A negative
+  duration or lifetime lasts for ever, and an emitter writing neither a burst nor a rate spawns
+  one particle
+- The lifetime behaviour `0xdbb4f634`, the one holding `LoopDelay`, starts over after its
+  duration and `LoopDelay`
+- Every emitter-scope property is read once at the emitter's start, so a rate that changes over
+  the emitter's life is read at its first value
+- A particle reads its initial properties at its birth and its keyed ones at its age. Its scale
+  is `InitialScale` times `KeyedScale`, its colour `InitialColor` times `ColorOverLife`, its turn
+  `InitialRotation`, and it moves by `InitialVelocity` under every acceleration field the
+  modifiers write. Physics fields are gathered across the modifier list by name, the first
+  writer winning. Drag, orbit, noise, attraction and rotation rates are not read
+- Each emitter draws its newest 32 particles at most, each as the mesh with its own engine
+  environment. The VFX preview evaluates at the run's clock and the map at the frame's time
+
+The Hall of Legends cube grid is a burst of one with no lifetime, so it draws one mesh for ever
+and its motion is its shader's. The emitters read are the complex list's that hold components, which the game
+draws, and the shimmer list's where no complex one carries the same name, since the shipped
+shimmer list keeps disabled copies. A `StaticMaterialDef` the render component embeds draws with
+its translated passes, read by its object and property path, which is how the Hall of Legends
+cube grid draws `Shaders/Particles/ShaderPreset/VFX_Uber_StaticMesh_Unlit`.
+
+That shader's pixel stage writes a second target, `SV_Target1`, which is the frame colour
+weighted by how far it rises past white: none at 1, all of it at 3. The frame colour itself
+clamps to white on an 8-bit target, so the grid's purple is carried by the second target alone.
+The preview draws each pass with a second target again on a glow layer, with the second target
+at the only location a single target draws. That layer draws into a half-float buffer over the
+scene's depth, and the buffer is blurred down five halvings with a dual filter and added onto the
+frame after the warp pass. The engine's own bloom strength and radius are not read, so the
+preview's glow is an estimate of the shape, not a measurement.
 
 ## 5. Evidence that precedes it
 

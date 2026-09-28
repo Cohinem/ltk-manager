@@ -21,6 +21,12 @@ const TOKENS = {
   untextured: "--color-surface-500",
   /* A character's submesh whose material link resolves to nothing. */
   errored: "--color-danger",
+  /* A map placeable's marker, by what it places, and one the reader hid. */
+  markerParticle: "--color-warning",
+  markerCharacter: "--color-channel-3",
+  markerLocator: "--color-channel-2",
+  markerOther: "--color-surface-300",
+  markerHidden: "--color-surface-600",
 } as const;
 
 /** What the grid, the ground, the gizmo and an untextured mesh are painted in. */
@@ -57,6 +63,11 @@ export function sceneColors(): SceneColors {
     wire: read(TOKENS.wire),
     untextured: read(TOKENS.untextured),
     errored: read(TOKENS.errored),
+    markerParticle: read(TOKENS.markerParticle),
+    markerCharacter: read(TOKENS.markerCharacter),
+    markerLocator: read(TOKENS.markerLocator),
+    markerOther: read(TOKENS.markerOther),
+    markerHidden: read(TOKENS.markerHidden),
   };
 }
 

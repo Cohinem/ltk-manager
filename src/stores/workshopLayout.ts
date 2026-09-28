@@ -44,6 +44,8 @@ interface PreviewDisplay {
   previewBackdrop: MapPath | null;
   /** The backdrop plays the particle systems its map stands in it. */
   previewBackdropParticles: boolean;
+  /** The backdrop also plays the particle systems a script or a visibility controller turns on. */
+  previewBackdropEvents: boolean;
   /** The backdrop stands the structures and the level props its map places. */
   previewBackdropStructures: boolean;
   /** The backdrop draws the sky cube map behind its map. */
@@ -234,6 +236,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewMidlane: true,
   previewBackdrop: null,
   previewBackdropParticles: true,
+  previewBackdropEvents: false,
   previewBackdropStructures: true,
   previewBackdropSky: true,
   previewSun: null,
@@ -429,6 +432,8 @@ export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMi
 export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);
 export const usePreviewBackdropParticles = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropParticles);
+export const usePreviewBackdropEvents = () =>
+  useWorkshopLayoutStore((s) => s.previewBackdropEvents);
 export const usePreviewBackdropStructures = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropStructures);
 export const usePreviewBackdropSky = () => useWorkshopLayoutStore((s) => s.previewBackdropSky);

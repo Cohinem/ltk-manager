@@ -221,6 +221,33 @@ describe("EngineEnvironment under the uniform binding", () => {
     expect(material.uniformsNeedUpdate).toBe(true);
   });
 
+  it("writes a particle's colour factor for the pixel stage, and one where no particle draws", () => {
+    const pixel: UniformBlock = {
+      name: "VFXDynamicPerParticleInstanceCBPS",
+      glslName: "VFXDynamicPerParticleInstanceCBPS_ps",
+      size: 16,
+      members: [],
+    };
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+    const factorOf = (environment: EngineEnvironment) => {
+      const material = programMaterial(
+        environment,
+        [],
+        [[pixel, declared(pixel.glslName, "vec4", 1)]],
+      );
+      environment.write(renderer, new PerspectiveCamera(), new Object3D(), 0);
+      return [
+        ...(material.uniforms["VFXDynamicPerParticleInstanceCBPS_ps"]?.value as Float32Array),
+      ];
+    };
+
+    expect(factorOf(new EngineEnvironment("uniform"))).toEqual([1, 1, 1, 1]);
+
+    const tinted = new EngineEnvironment("uniform");
+    tinted.particle = { colorFactor: [0.5, 0.25, 1, 0.75], depthPushPull: 0 };
+    expect(factorOf(tinted)).toEqual([0.5, 0.25, 1, 0.75]);
+  });
+
   it("states a depth gap as the eye distance between two depths, in either projection", () => {
     const pixel: UniformBlock = {
       name: "PerFramePixelCB",

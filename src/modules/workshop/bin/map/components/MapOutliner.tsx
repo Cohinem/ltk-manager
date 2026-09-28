@@ -1,64 +1,109 @@
-import {
-  CaretRightIcon,
-  CastleTurretIcon,
-  CubeIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  type Icon,
-  MapPinIcon,
-  SelectionIcon,
-  SparkleIcon,
-  SpeakerHighIcon,
-} from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
-import type { MapItemKind } from "@/lib/tauri";
-import { twMerge } from "@/utils";
 
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
+import { instantScroll } from "../../tree/hooks/useRowWindow";
 import { Notice } from "../../vfx/preview/components/Notice";
 import { mapQueries } from "../api/mapQueries";
 import { useMapScene } from "../state/mapScene";
-import { chunkLabel, isDrawn, isHidden, type OutlineRow, outlineRows } from "../utils/mapOutline";
+import {
+  filtering,
+  isHidden,
+  kindCounts,
+  type OutlineFilter,
+  type OutlineRow,
+  outlineRows,
+  placedItems,
+} from "../utils/mapOutline";
+import { modeOf, type SelectMode } from "../utils/mapSelection";
+import { OutlinerRow } from "./OutlinerRow";
+import { OutlinerSearch } from "./OutlinerSearch";
+import { SelectionBar } from "./SelectionBar";
 
-const KIND_ICON: Record<MapItemKind, Icon> = {
-  particle: SparkleIcon,
-  character: CastleTurretIcon,
-  locator: MapPinIcon,
-  group: SelectionIcon,
-  audio: SpeakerHighIcon,
-  other: CubeIcon,
-};
+const NONE: ReadonlySet<string> = new Set();
 
 /**
  * A map's chunk graph as a tree: each chunk of its `.materials.bin`, and what each holds.
  *
- * A row sends the camera to where its placeable stands, and an eye hides a chunk or one
- * placeable from the scene. Only what the scene draws has an eye, which is a particle and
- * a character. The rows are virtual, since one chunk of Summoner's Rift holds a thousand.
+ * A search box over the tree narrows it to the placeables whose name or class holds the text,
+ * or whose chunk's name does, and a chip per kind keeps only that kind. A narrowed chunk opens
+ * on its own. A row sends the camera to where its placeable stands, and an eye hides a chunk
+ * or one placeable from the scene, only what the scene draws having one.
+ *
+ * The tree is one tab stop: Up and Down walk the rows, Right opens a chunk or steps into it,
+ * Left closes it or steps out to it, Enter or Space acts on the row, and Ctrl+F returns to the
+ * box. A click on a placeable selects it and flies to it, Shift adds it to the selection and
+ * Ctrl flips it, Ctrl+A selects every placeable listed and Escape lets go, the same selection
+ * the viewport's box tool makes. The rows are virtual, since one chunk of Summoner's Rift
+ * holds a thousand.
  */
 export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
-  const { materials, chosen, variants, failed, hidden, setHidden, focus, focusOn } = useMapScene();
+  const {
+    materials,
+    chosen,
+    variants,
+    failed,
+    hidden,
+    setHidden,
+    focus,
+    focusOn,
+    filter,
+    setFilter,
+    selected,
+    lead,
+    select,
+  } = useMapScene();
   const outline = useQuery(mapQueries.outline(materials));
-  const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
-  const rows = useMemo(() => outlineRows(outline.data ?? [], opened), [outline.data, opened]);
+  const chunks = outline.data;
+  const [opened, setOpened] = useState<ReadonlySet<string>>(NONE);
+  /* The chunks the reader shut under the current filter, where a chunk opens by default. */
+  const [shut, setShut] = useState<ReadonlySet<string>>(NONE);
+  const narrowed = filtering(filter);
+  const rows = useMemo(
+    () => outlineRows(chunks ?? [], opened, filter, shut),
+    [chunks, opened, filter, shut],
+  );
+  const counts = useMemo(() => kindCounts(chunks ?? []), [chunks]);
+  const matches = narrowed ? shownCount(rows) : null;
 
-  const toggle = useCallback((chunk: string) => {
-    setOpened((held) => {
-      const next = new Set(held);
-      if (!next.delete(chunk)) next.add(chunk);
-      return next;
-    });
-  }, []);
+  const changeFilter = useCallback(
+    (next: OutlineFilter) => {
+      setFilter(next);
+      setShut(NONE);
+    },
+    [setFilter],
+  );
+
+  const toggle = useCallback(
+    (chunk: string) => {
+      const flip = (held: ReadonlySet<string>) => {
+        const next = new Set(held);
+        if (!next.delete(chunk)) next.add(chunk);
+        return next;
+      };
+      if (narrowed) setShut(flip);
+      else setOpened(flip);
+    },
+    [narrowed],
+  );
 
   const collapseAll = useCallback(() => {
-    setOpened((current) => (current.size === 0 ? current : new Set()));
-  }, []);
+    if (narrowed) setShut(new Set((chunks ?? []).map((chunk) => chunk.entry)));
+    else setOpened((current) => (current.size === 0 ? current : NONE));
+  }, [narrowed, chunks]);
 
   const collapsedFor = useRef(collapseAllSignal);
   useEffect(() => {
@@ -67,14 +112,8 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
     collapseAll();
   }, [collapseAllSignal, collapseAll]);
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!isCollapseAllKey(event)) return;
-
-    event.preventDefault();
-    collapseAll();
-  }
-
   const scroller = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
   const zoomed = useZoomedPx();
   const rowHeight = zoomed(ROW_HEIGHT);
   const virtualizer = useVirtualizer({
@@ -83,7 +122,102 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
     estimateSize: useCallback(() => rowHeight, [rowHeight]),
     overscan: 12,
     getItemKey: useCallback((index: number) => rows[index]?.id ?? index, [rows]),
+    scrollToFn: instantScroll,
   });
+
+  /* The row the keyboard stands on, by id, so a filter or a fold keeps it where it can. */
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const found = activeId === null ? -1 : rows.findIndex((row) => row.id === activeId);
+  const active = found >= 0 ? found : Math.min(0, rows.length - 1);
+  const idPrefix = useId();
+
+  /* A pick made anywhere, the viewport's box included, opens its chunk and scrolls the tree to
+     it once the row stands. */
+  const revealed = useRef<string | null>(null);
+  const scrollTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (lead === null || lead === revealed.current || !selected.has(lead)) return;
+    revealed.current = lead;
+    scrollTo.current = lead;
+    setActiveId(lead);
+
+    const chunk = lead.slice(0, lead.indexOf("/"));
+    if (narrowed) setShut((held) => (held.has(chunk) ? without(held, chunk) : held));
+    else setOpened((held) => (held.has(chunk) ? held : new Set([...held, chunk])));
+  }, [lead, selected, narrowed]);
+  useEffect(() => {
+    const target = scrollTo.current;
+    if (target === null) return;
+
+    const index = rows.findIndex((row) => row.id === target);
+    if (index < 0) return;
+    scrollTo.current = null;
+    virtualizer.scrollToIndex(index, { align: "auto" });
+  }, [rows, virtualizer]);
+
+  const moveTo = (index: number) => {
+    const at = Math.max(0, Math.min(rows.length - 1, index));
+    const row = rows[at];
+    if (row === undefined) return;
+
+    setActiveId(row.id);
+    virtualizer.scrollToIndex(at, { align: "auto" });
+  };
+
+  /* A plain pick selects the placeable alone and flies to it, and a modified one edits the
+     selection in place. */
+  const act = (row: OutlineRow, mode: SelectMode = "replace") => {
+    setActiveId(row.id);
+    if (row.type === "chunk") {
+      toggle(row.chunk.entry);
+      return;
+    }
+    select([row.id], mode);
+    if (mode === "replace") {
+      focusOn({ id: row.id, position: row.item.position as [number, number, number] });
+    }
+  };
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (isCollapseAllKey(event)) {
+      event.preventDefault();
+      collapseAll();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+      event.preventDefault();
+      search.current?.focus();
+      search.current?.select();
+      return;
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      select(
+        placedItems(chunks ?? [], filter).map((each) => each.id),
+        "replace",
+      );
+      return;
+    }
+    if (event.key === "Escape" && selected.size > 0) {
+      event.preventDefault();
+      select([], "replace");
+      return;
+    }
+
+    const row = rows[active];
+    if (row === undefined) return;
+
+    const page = virtualizer.getVirtualItems().length;
+    const step = navigation(event.key, row, active, rows, page);
+    if (step === null) return;
+
+    event.preventDefault();
+    /* The first key a fresh tree hears shows where the keyboard stands rather than moving it. */
+    if (activeId === null && typeof step === "number") setActiveId(row.id);
+    else if (step === "act") act(row);
+    else if (step === "toggle" && row.type === "chunk") toggle(row.chunk.entry);
+    else if (typeof step === "number") moveTo(step);
+  }
 
   if (failed || outline.error !== null) {
     return <Notice text={m.workshop_bin_map_preview_failed_empty()} />;
@@ -91,40 +225,59 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
   if (variants !== undefined && chosen === null) {
     return <Notice text={m.workshop_bin_map_preview_missing_empty()} />;
   }
-  if (outline.data === undefined)
-    return <Notice text={m.workshop_bin_map_outliner_loading_label()} />;
-  if (rows.length === 0) return <Notice text={m.workshop_bin_map_outliner_empty()} />;
+  if (chunks === undefined) return <Notice text={m.workshop_bin_map_outliner_loading_label()} />;
+  if (chunks.length === 0) return <Notice text={m.workshop_bin_map_outliner_empty()} />;
 
   return (
-    <div
-      ref={scroller}
-      data-ui="MapOutliner"
-      role="tree"
-      aria-label={m.workshop_bin_pane_outliner_label()}
-      /* DS-SCROLLBAR */
-      className="min-h-0 flex-1 overflow-y-auto p-1.5 font-mono text-mono-row scrollbar-md select-none"
-      onKeyDown={handleKeyDown}
-    >
-      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-        {virtualizer.getVirtualItems().map((virtual) => {
-          const row = rows[virtual.index];
-          return (
-            <div
-              key={virtual.key}
-              className="absolute top-0 left-0 w-full"
-              style={{ height: virtual.size, transform: `translateY(${virtual.start}px)` }}
-            >
-              <OutlinerRow
-                row={row}
-                hidden={rowHidden(row, hidden)}
-                focused={row.type === "item" && focus?.id === row.id}
-                onToggle={toggle}
-                onHide={setHidden}
-                onFocus={focusOn}
-              />
-            </div>
-          );
-        })}
+    <div data-ui="MapOutliner" className="flex min-h-0 flex-1 flex-col select-none">
+      <OutlinerSearch
+        filter={filter}
+        onChange={changeFilter}
+        counts={counts}
+        matches={matches}
+        inputRef={search}
+        onLeave={() => scroller.current?.focus()}
+      />
+      <SelectionBar chunks={chunks} />
+      {rows.length === 0 && <Notice text={m.workshop_bin_map_outliner_no_match_empty()} />}
+      <div
+        ref={scroller}
+        role="tree"
+        tabIndex={0}
+        aria-label={m.workshop_bin_pane_outliner_label()}
+        aria-activedescendant={active < 0 ? undefined : `${idPrefix}-${active}`}
+        /* DS-SCROLLBAR */
+        className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5 font-mono text-mono-row outline-none scrollbar-md"
+        onKeyDown={handleKeyDown}
+      >
+        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+          {virtualizer.getVirtualItems().map((virtual) => {
+            const row = rows[virtual.index];
+            if (row === undefined) return null;
+
+            const rowIsHidden = rowHidden(row, hidden);
+            return (
+              <div
+                key={virtual.key}
+                className="absolute top-0 left-0 w-full"
+                style={{ height: virtual.size, transform: `translateY(${virtual.start}px)` }}
+              >
+                <OutlinerRow
+                  domId={`${idPrefix}-${virtual.index}`}
+                  row={row}
+                  hidden={rowIsHidden}
+                  focused={row.type === "item" && focus?.id === row.id}
+                  selected={selected.has(row.id)}
+                  active={virtual.index === active && activeId !== null}
+                  query={filter.text}
+                  narrowed={narrowed}
+                  onActivate={(event) => act(row, modeOf(event))}
+                  onHide={() => setHidden(row.id, !rowIsHidden)}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -141,88 +294,55 @@ function rowHidden(row: OutlineRow, hidden: ReadonlySet<string>): boolean {
     : isHidden(hidden, row.chunk.entry, row.item.key);
 }
 
-interface OutlinerRowProps {
-  readonly row: OutlineRow;
-  readonly hidden: boolean;
-  /** The camera was last sent to this row. */
-  readonly focused: boolean;
-  readonly onToggle: (chunk: string) => void;
-  readonly onHide: (id: string, hidden: boolean) => void;
-  readonly onFocus: (focus: { id: string; position: readonly [number, number, number] }) => void;
+function without(held: ReadonlySet<string>, id: string): ReadonlySet<string> {
+  const next = new Set(held);
+  next.delete(id);
+  return next;
 }
 
-function OutlinerRow({ row, hidden, focused, onToggle, onHide, onFocus }: OutlinerRowProps) {
-  const chunk = row.type === "chunk";
-  const Glyph = chunk ? null : KIND_ICON[row.item.kind];
-  const activate = () => {
-    if (row.type === "chunk") onToggle(row.chunk.entry);
-    else onFocus({ id: row.id, position: row.item.position as [number, number, number] });
-  };
-
-  return (
-    <div
-      role="treeitem"
-      aria-level={chunk ? 1 : 2}
-      aria-expanded={row.type === "chunk" ? row.open : undefined}
-      aria-selected={focused}
-      tabIndex={0}
-      className={twMerge(
-        /* DS-VEIL, DS-RADIUS */
-        "group/row flex h-full cursor-pointer items-center gap-1.5 rounded-sm pr-1 hover:bg-surface-veil-soft",
-        !chunk && "pl-5",
-        focused && "bg-accent-500/15",
-        hidden && "text-surface-500",
-      )}
-      onClick={activate}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        activate();
-      }}
-    >
-      {row.type === "chunk" && (
-        <span className="flex h-4 w-3 shrink-0 items-center justify-center text-surface-400">
-          <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", row.open && "rotate-90")} />
-        </span>
-      )}
-      {Glyph !== null && <Glyph className="h-3.5 w-3.5 shrink-0 text-surface-400" />}
-      <span className="min-w-0 truncate">
-        {row.type === "chunk" ? chunkLabel(row.chunk) : row.item.name}
-      </span>
-      <span className="ml-auto shrink-0 pl-2 text-meta text-surface-400">
-        {row.type === "chunk" ? row.chunk.items.length : row.item.class}
-      </span>
-      {(row.type === "chunk" || isDrawn(row.item)) && (
-        <EyeButton hidden={hidden} onClick={() => onHide(row.id, !hidden)} />
-      )}
-    </div>
-  );
+/** How many placeables the narrowed chunks keep between them. */
+function shownCount(rows: readonly OutlineRow[]): number {
+  let total = 0;
+  for (const row of rows) {
+    if (row.type === "chunk") total += row.shown;
+  }
+  return total;
 }
 
-function EyeButton({ hidden, onClick }: { hidden: boolean; onClick: () => void }) {
-  const label = hidden
-    ? m.workshop_bin_map_outliner_show_action()
-    : m.workshop_bin_map_outliner_hide_action();
-  const Eye = hidden ? EyeSlashIcon : EyeIcon;
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      /* DS-VEIL, DS-RADIUS. A hidden row keeps its eye on screen, since that is what says it is hidden. */
-      className={twMerge(
-        "flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200 focus-visible:opacity-100",
-        !hidden && "opacity-0 group-hover/row:opacity-100",
-      )}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      onKeyDown={(event) => {
-        if (!isCollapseAllKey(event)) event.stopPropagation();
-      }}
-    >
-      <Eye weight="bold" className="h-3.5 w-3.5" />
-    </button>
-  );
+/**
+ * What a key asks of the tree from the row at `at`: a row to move to, a chunk to fold, the
+ * row's own action, or nothing. `page` is how many rows a Page key moves.
+ */
+function navigation(
+  key: string,
+  row: OutlineRow,
+  at: number,
+  rows: readonly OutlineRow[],
+  page: number,
+): number | "toggle" | "act" | null {
+  switch (key) {
+    case "ArrowDown":
+      return at + 1;
+    case "ArrowUp":
+      return at - 1;
+    case "Home":
+      return 0;
+    case "End":
+      return rows.length - 1;
+    case "PageDown":
+      return at + Math.max(page - 1, 1);
+    case "PageUp":
+      return at - Math.max(page - 1, 1);
+    case "Enter":
+    case " ":
+      return "act";
+    case "ArrowRight":
+      if (row.type !== "chunk") return null;
+      return row.open ? at + 1 : "toggle";
+    case "ArrowLeft":
+      if (row.type === "chunk") return row.open ? "toggle" : null;
+      return rows.findIndex((each) => each.type === "chunk" && each.chunk === row.chunk);
+    default:
+      return null;
+  }
 }
