@@ -519,7 +519,6 @@
   "workshop_bin_graph_preview_show_action": "Show preview in graph",
   "workshop_bin_graph_quick_add_empty": "Nothing matches",
   "workshop_bin_graph_quick_add_label": "Add",
-  "workshop_bin_graph_quick_add_placeholder": "Search fields and nodes",
   "workshop_bin_graph_quick_add_to_label": "Add to {name}",
   "workshop_bin_graph_quick_system_label": "System",
   "workshop_bin_graph_reset_layout_action": "Reset layout",

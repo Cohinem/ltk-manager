@@ -205,7 +205,8 @@ export const ComboboxEmpty = forwardRef<HTMLDivElement, ComboboxEmptyProps>(
     return (
       <BaseCombobox.Empty
         ref={ref}
-        className={twMerge("px-3 py-6 text-center text-sm text-surface-400", className)}
+        /* The live region stays mounted while items show, so it must take no space then. */
+        className={twMerge("px-3 py-6 text-center text-sm text-surface-400 empty:p-0", className)}
         {...props}
       >
         {children ?? "No results found"}

@@ -1,6 +1,6 @@
-import { use, useMemo, useState } from "react";
+import { type RefObject, use, useEffect, useMemo, useRef, useState } from "react";
 
-import { Combobox } from "@/components";
+import { CommandPalette, type PaletteGroupModel, type PaletteRow } from "@/components";
 import { m } from "@/i18n";
 import type { ValueEdit } from "@/lib/tauri";
 
@@ -43,13 +43,9 @@ interface QuickEntry extends AddChoice {
   readonly section: string;
 }
 
-/* DS-VEIL, DS-RADIUS */
-const INPUT =
-  "h-7 w-full min-w-0 rounded-sm border border-accent-500 bg-surface-900 px-2 text-surface-100 placeholder:text-surface-400 focus:outline-none";
-
 /**
- * The Graph pane's quick add: a search over what can be added where it opened, which a pick
- * adds and closes. "Adding from the keyboard" in docs/ux/BIN_EDITOR.md.
+ * The Graph pane's quick add: a `CommandPalette` over what can be added where it opened, which a
+ * pick adds and closes. "Adding from the keyboard" in docs/ux/BIN_EDITOR.md.
  *
  * Over a master node it lists the node's unwritten fields and its forces, and everywhere a new
  * emitter. Opened by an empty socket it lists what plugs into that socket. Escape or a press
@@ -66,77 +62,74 @@ export function QuickAdd({ at, masters, onClose }: QuickAddProps) {
         : [{ title: m.workshop_bin_graph_quick_system_label(), choices: [emitter] }];
     return entriesOf(plugged ?? [...fields, ...system]);
   }, [plugged, fields, emitter]);
+
   const [text, setText] = useState("");
   const shown = useMemo(() => matching(entries, text), [entries, text]);
+  const groups = useMemo(() => groupsOf(shown), [shown]);
+
+  const panel = useRef<HTMLDivElement>(null);
+  usePressOutside(panel, onClose);
+
   const title =
     at.plug?.title ??
     (at.master === null
       ? m.workshop_bin_graph_quick_add_label()
       : m.workshop_bin_graph_quick_add_to_label({ name: at.master.name }));
 
+  function select(key: string) {
+    const entry = shown.find((candidate) => candidate.key === key);
+    if (entry === undefined) return;
+
+    onClose();
+    entry.pick();
+  }
+
   return (
     <div
+      ref={panel}
       data-ui="QuickAdd"
-      className="nodrag nopan bg-surface-850 absolute z-20 w-72 rounded-md border border-surface-veil-strong p-1 shadow-lg"
+      className="nodrag nopan absolute z-20 w-72"
       style={{ left: at.x, top: at.y }}
     >
-      <div className="truncate px-1 pb-1 text-meta text-surface-400 select-none">{title}</div>
-      <Combobox.Root<QuickEntry>
-        items={shown}
-        inputValue={text}
-        onInputValueChange={(next, details) => {
-          if (details.reason === "input-clear" || details.reason === "none") return;
-          setText(next);
-        }}
-        onValueChange={(entry) => {
-          if (entry === null) return;
-          onClose();
-          entry.pick();
-        }}
-        open
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
-        filter={() => true}
-        autoHighlight
-        itemToStringLabel={(entry) => entry.text}
-        itemToStringValue={(entry) => entry.key}
-      >
-        <Combobox.Input
-          autoFocus
-          placeholder={m.workshop_bin_graph_quick_add_placeholder()}
-          aria-label={title}
-          spellCheck={false}
-          autoComplete="off"
-          className={INPUT}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") onClose();
-          }}
-        />
-        <Combobox.Portal>
-          <Combobox.Positioner side="bottom" align="start" sideOffset={4}>
-            <Combobox.Popup className="max-h-80 w-72 py-0.5">
-              <Combobox.Empty>{m.workshop_bin_graph_quick_add_empty()}</Combobox.Empty>
-              <Combobox.List>
-                {(entry: QuickEntry) => (
-                  <Combobox.Item
-                    key={entry.key}
-                    value={entry}
-                    className="flex items-baseline gap-2 px-2 py-1 text-row"
-                  >
-                    <span className="min-w-0 flex-1 truncate">{entry.text}</span>
-                    <span className="shrink-0 font-sans text-meta text-surface-500">
-                      {entry.section}
-                    </span>
-                  </Combobox.Item>
-                )}
-              </Combobox.List>
-            </Combobox.Popup>
-          </Combobox.Positioner>
-        </Combobox.Portal>
-      </Combobox.Root>
+      <CommandPalette
+        query={text}
+        onQueryChange={setText}
+        placeholder={title}
+        groups={groups}
+        onSelect={select}
+        onClose={onClose}
+        emptyMessage={m.workshop_bin_graph_quick_add_empty()}
+      />
     </div>
   );
+}
+
+/**
+ * Call `onPress` on a pointer press outside `ref`.
+ *
+ * Listens in the capture phase, because the canvas stops the press from bubbling to start a pan.
+ */
+function usePressOutside(ref: RefObject<HTMLElement | null>, onPress: () => void) {
+  useEffect(() => {
+    function press(event: PointerEvent) {
+      if (ref.current?.contains(event.target as Node) === false) onPress();
+    }
+
+    document.addEventListener("pointerdown", press, true);
+    return () => document.removeEventListener("pointerdown", press, true);
+  }, [ref, onPress]);
+}
+
+/** `entries` as the palette's groups, one per section in the order the sections first appear. */
+function groupsOf(entries: readonly QuickEntry[]): PaletteGroupModel[] {
+  const groups = new Map<string, PaletteRow[]>();
+  for (const entry of entries) {
+    const rows = groups.get(entry.section) ?? [];
+    rows.push({ id: entry.key, name: entry.text });
+    groups.set(entry.section, rows);
+  }
+
+  return [...groups].map(([section, rows]) => ({ id: section, label: section, rows }));
 }
 
 /** Every choice of `sections` as one list, each keyed apart by its section. */
