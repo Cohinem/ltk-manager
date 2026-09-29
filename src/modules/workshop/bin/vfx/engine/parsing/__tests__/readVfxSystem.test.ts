@@ -6,6 +6,7 @@ import { nameHash } from "../../../../shared/utils/binHash";
 import { materialPreview } from "../../../rendering/utils/__tests__/materialFixture";
 import {
   drawsAsMesh,
+  drawsAsProjection,
   drawsAsQuad,
   drawsTheAttachment,
   facesTheCamera,
@@ -609,6 +610,29 @@ describe("readVfxSystem", () => {
     });
     expect(segment.beam).toMatchObject({ segments: 0, mode: 0 });
     expect(segment.trail).toBeNull();
+  });
+
+  it("reads the decal a planar projection carries, at the schema's defaults where it writes none", () => {
+    const [authored, bare, quad] = readVfxSystem(
+      system([
+        emitter({
+          primitive: struct(nameHash("VfxPrimitivePlanarProjection"), {
+            mProjection: struct(nameHash("VfxProjectionDefinitionData"), {
+              mYRange: number(20),
+              mFading: number(80),
+            }),
+          }),
+        }),
+        emitter({ primitive: struct(nameHash("VfxPrimitivePlanarProjection"), {}) }),
+        emitter({ primitive: struct(nameHash("VfxPrimitiveCameraQuad"), {}) }),
+      ]),
+    ).emitters;
+
+    expect(authored.projection).toEqual({ yRange: 20, fading: 80 });
+    expect(bare.projection).toEqual({ yRange: 5, fading: 200 });
+    expect(quad.projection).toBeNull();
+    expect([authored, bare].map(drawsAsProjection)).toEqual([true, true]);
+    expect([authored, bare].map(isUndrawn)).toEqual([false, false]);
   });
 
   it("reads where the emitter stands and which space its particles are stored in", () => {

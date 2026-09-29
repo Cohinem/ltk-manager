@@ -207,7 +207,7 @@ Primitive behaviour indexes by a number with no name of its own. The number is t
 | 4    | `CAMERATRAIL`         | `VfxPrimitiveCameraTrail`       | —                                                                       |
 | 5    | `ARBITRARYTRAIL`      | `VfxPrimitiveArbitraryTrail`    | —                                                                       |
 | 6    | `BEAM`                | `VfxPrimitiveBeam`              | Folds one further colour factor from the primitive sub-object           |
-| 7    | `PLANAR_PROJECTION`   | `VfxPrimitivePlanarProjection`  | —                                                                       |
+| 7    | `PLANAR_PROJECTION`   | `VfxPrimitivePlanarProjection`  | A decal per particle through `UNLIT_DECAL`, "Planar projection" in T8   |
 | 8    | `CAMERA_UNIT_QUAD`    | `VfxPrimitiveCameraUnitQuad`    | The camera quad's builder at half the factor, so it spans `scale0` once |
 | 9    | `CAMERA_SEGMENT_BEAM` | `VfxPrimitiveCameraSegmentBeam` | Folds one further colour factor. Excluded from direction orientation    |
 | 11   | `ATTACHED_MESH`       | `VfxPrimitiveAttachedMesh`      | `isDirectionOriented` applies. Orientation comes from the attachment    |
@@ -2542,6 +2542,38 @@ every block is a plain dissolve, and the tail at `0.1` to `0.5` is a band burnin
 map samples at the base layer's own uv, a mesh at its own, under `erosionMapAddressMode` as
 the sampler receives it, unremapped. `erosionDriveSource` reaches no shader and is read by
 nothing here.
+
+**Planar projection.** `VfxPrimitivePlanarProjection` lays each particle on the ground as a
+decal. Read in 16.17.8057408, where both families reach one projector
+(`0x1412F8790`): the simple draw (`0x1412C4AC0`) and the complex batch's kind-7 branch
+(`0x1412F578D`). Per live particle the projector takes the ground position, a half-width and
+half-height, a turn in degrees, `COLOR_UV`, `MODULATE_COLOR` and a vector of the particle's
+height, `mYRange` and `mFading`. It queries the map triangles under the footprint's bounding box
+and redraws them with `Environment/UNLIT_DECAL_VS` and `UNLIT_DECAL_PS`, which
+`VfxEmitter_SelectShaderPermutation` picks for kind 7 on every pass, distortion included.
+
+| Input            | Simple emitter            | Complex emitter                                                |
+| ---------------- | ------------------------- | -------------------------------------------------------------- |
+| Half-extents     | scale times `scaleBias`   | `scale.x` by `scale.z`, `scale.x` twice under `isUniformScale` |
+| Turn, degrees    | the rotation stream       | `deg(atan2(-m00, m02))` wrapped, less 270                      |
+| `MODULATE_COLOR` | white                     | the particle's colour                                          |
+| `COLOR_UV`       | the colour lookup streams | the colour lookup                                              |
+
+The uv matrix is `T(-x, 0, -z) . RotY(turn) . S(1/2w, 1, 1/2h) . T(0.5, 0, 0.5)` under the row
+vector convention, and the vertex shader flips `v`. The complex turn undoes the particle's own
+yaw, so the texture lies along the particle's `X` and `Z`. The vertex shader fades by height:
+with `d = |surface.y - particle.y|` the decal is whole while `d <= mYRange` and scales its alpha
+by `1 - (d - mYRange) / mFading` past it. The `.troy` loader stores `p-projection-y-range` at
+`+0` and `p-projection-fading` at `+4` of the block, which is the order the projector reads. The
+pixel shader is the texel times the ramp at `COLOR_UV` times `MODULATE_COLOR` times the fog of
+war, with no vertex colour and none of the emitter's uv transform, cell or flipbook.
+`colorModulate` is read by no draw.
+
+`Projections.tsx` draws the footprint itself as one quad at `GROUND_LEVEL`, because the
+preview's ground is flat, with `OVERLAY` as its depth offset where the emitter writes none. Four
+things are left out: the fog of war, the `MULT_PASS`, `ALPHA_EROSION` and `PALETTIZE_TEXTURES`
+permutations, terrain, and what a wrapping texture draws past the footprint over a whole map
+triangle. The decal has no game-shader route.
 
 ### T9 — child particle sets
 

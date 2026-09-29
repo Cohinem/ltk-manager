@@ -94,6 +94,7 @@ export function emitterOf(index: number, over: Partial<EmitterModel> = {}): Emit
     mesh: null,
     trail: null,
     beam: null,
+    projection: null,
     childSet: null,
     fields: null,
     depthBias: [0, 0],

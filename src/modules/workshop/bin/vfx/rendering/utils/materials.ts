@@ -16,6 +16,7 @@ import {
 } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import { ATTACHED_VERTEX, MESH_VERTEX } from "../shaders/mesh";
+import { PROJECTION_FRAGMENT, PROJECTION_VERTEX } from "../shaders/projection";
 import { FRAGMENT, VERTEX } from "../shaders/quad";
 import { RIBBON_FRAGMENT, RIBBON_VERTEX } from "../shaders/ribbon";
 import { drawState, type FragmentTests } from "./blend";
@@ -334,6 +335,50 @@ export function wireMaterial(
     depthTest: solid.depthTest,
     depthWrite: false,
     transparent: true,
+  });
+}
+
+/**
+ * The material one emitter's planar projections draw with.
+ *
+ * The texture spans the footprint once whatever the emitter's uv fields say, since the decal
+ * shader takes its uv from the projection alone. A footprint authoring no depth bias takes
+ * `OVERLAY`, which holds it over the ground plane it lies on.
+ */
+export function projectionMaterial(
+  emitter: EmitterModel,
+  texture: Texture | null,
+  ramp: Texture | null,
+  tests: FragmentTests,
+): ShaderMaterial {
+  const state = drawState(emitter.blendMode, false);
+  const projection = emitter.projection;
+
+  return new ShaderMaterial({
+    vertexShader: PROJECTION_VERTEX,
+    fragmentShader: PROJECTION_FRAGMENT,
+    uniforms: {
+      map: { value: texture },
+      address: { value: emitter.uv.addressMode },
+      mapRamp: { value: ramp },
+      alphaRef: { value: tests.alphaRef },
+      heightFade: { value: [projection?.yRange ?? 0, projection?.fading ?? 0] },
+    },
+    defines: {
+      ...(texture !== null ? { HAS_MAP: "" } : {}),
+      ...(ramp !== null ? { HAS_RAMP: "" } : {}),
+    },
+    side: DoubleSide,
+    depthTest: tests.depthTest,
+    depthWrite: state.depthWrite,
+    transparent: state.transparent && !emitter.groundLayer,
+    blending: state.blending,
+    blendSrc: state.blendSrc,
+    blendDst: state.blendDst,
+    blendEquation: state.blendEquation,
+    blendSrcAlpha: state.blendSrcAlpha,
+    blendDstAlpha: state.blendDstAlpha,
+    ...polygonOffsetOf(offsets(emitter.depthBias) ? emitter.depthBias : OVERLAY),
   });
 }
 
