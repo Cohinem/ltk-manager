@@ -14,6 +14,8 @@ export interface ProjectActions {
     key: string,
     markers: readonly TimelineMarker[],
   ) => void;
+  /** Drop the markers of systems that no longer exist, by key. */
+  dropTimelineMarkers: (projectPath: string, keys: readonly string[]) => void;
   /** Follows a project whose path changed, so a rename keeps its editor. */
   moveProject: (fromPath: string, toPath: string) => void;
   /** Drops a deleted project, which would otherwise sit in storage forever. */
@@ -40,6 +42,14 @@ export function createProjectActions(set: EditorSet): ProjectActions {
           delete next[key];
         } else {
           next[key] = markers;
+        }
+        return { ...editor, markers: next };
+      }),
+    dropTimelineMarkers: (projectPath, keys) =>
+      setProject(set, projectPath, (editor) => {
+        const next = { ...editor.markers };
+        for (const key of keys) {
+          delete next[key];
         }
         return { ...editor, markers: next };
       }),

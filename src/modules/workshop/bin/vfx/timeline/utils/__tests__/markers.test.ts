@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { ContentTree } from "@/lib/tauri";
+
 import {
   addedMarker,
   markerKey,
@@ -9,6 +11,7 @@ import {
   renamedLayerMarkers,
   renamedMarker,
   restoredMarker,
+  staleMarkerKeys,
   type TimelineMarker,
 } from "../markers";
 import { rulerTicks, snapTargets } from "../snapping";
@@ -126,5 +129,51 @@ describe("rulerTicks", () => {
 
     expect(labelled).toEqual(expect.arrayContaining([1, 2]));
     expect(labelled).not.toContain(1.25);
+  });
+});
+
+describe("staleMarkerKeys", () => {
+  const layer = (path: string) => ({ kind: "layer", project: "p", layer: "base", path }) as const;
+  const object = (objectHash: string) => ({ objectHash, path: "", class: "", classHash: "" });
+  const entry = (relativePath: string, objects: ReturnType<typeof object>[]) => ({
+    relativePath,
+    sizeBytes: 0n,
+    kind: "property_bin" as const,
+    objects,
+    ignoredBy: null,
+  });
+  const tree: ContentTree = {
+    layers: [
+      {
+        name: "base",
+        fileCount: 2,
+        totalSizeBytes: 0n,
+        entries: [entry("fx.bin", [object("0x1")]), entry("big.bin", [])],
+        ignoredDirectories: [
+          { relativePath: "wip", ignoredBy: { pattern: "wip/", source: ".modignore", line: 1 } },
+        ],
+      },
+    ],
+  };
+
+  it("names a deleted file's markers and a deleted system's", () => {
+    const markers = {
+      [markerKey(layer("gone.bin"), "0x1")]: [IMPACT],
+      [markerKey(layer("fx.bin"), "0x2")]: [IMPACT],
+    };
+
+    expect(staleMarkerKeys(markers, tree).sort()).toEqual(Object.keys(markers).sort());
+  });
+
+  it("keeps a live system's markers, and any the tree cannot vouch for", () => {
+    const game = { kind: "gameChunk", wad: "Aatrox.wad.client", pathHash: "0x9" } as const;
+    const markers = {
+      [markerKey(layer("fx.bin"), "0x1")]: [IMPACT],
+      [markerKey(layer("big.bin"), "0x7")]: [IMPACT],
+      [markerKey(layer("wip/draft.bin"), "0x3")]: [IMPACT],
+      [markerKey(game, "0x1")]: [IMPACT],
+    };
+
+    expect(staleMarkerKeys(markers, tree)).toEqual([]);
   });
 });

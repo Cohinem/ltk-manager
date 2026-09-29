@@ -1974,7 +1974,10 @@ Undo. The playhead's chip stands over a flag at its time.
 
 Markers are kept per system in the project's `.ltk/editor.json`, so they last across sessions and
 never reach the packed mod. A layer rename carries the markers of the layer's files to the new
-name. A system opened outside a project has none.
+name. When a layer file or its system is gone from the project, its markers leave the file the
+next time the project's files are read. A file under an ignored directory keeps its markers,
+since the project's listing does not name its objects. A system opened outside a project has
+none.
 
 **Snapping.** A time a gesture moves snaps: a dragged bar edge, the playhead scrubbed on the
 ruler, a track or its flag, the loop's in and out as they are drawn or dragged, and a marker. It

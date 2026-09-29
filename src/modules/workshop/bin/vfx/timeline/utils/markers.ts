@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { AssetRef } from "@/lib/tauri";
+import type { AssetRef, ContentTree } from "@/lib/tauri";
 
 import { assetKey } from "../../../../preview/utils/assetRef";
 
@@ -62,6 +62,42 @@ export function renamedLayerMarkers(
       key.startsWith(before) ? after + key.slice(before.length) : key,
       list,
     ]),
+  );
+}
+
+/** The key a layer file's systems' markers start with, which `markerKey` builds on `assetKey`. */
+function layerFileKey(layer: string, path: string): string {
+  return assetKey({ kind: "layer", project: "", layer, path });
+}
+
+/**
+ * The keys of `markers` whose system is gone from `tree`: its layer file is not listed, or the
+ * file lists its objects and not this one.
+ *
+ * Only a layer file's markers can go stale this way. A file under an ignored directory, which the
+ * tree lists no entry for, and a `.bin` the tree lists no objects of keep theirs, since the tree
+ * cannot say either way.
+ */
+export function staleMarkerKeys(markers: TimelineMarkers, tree: ContentTree): string[] {
+  const live = new Set<string>();
+  const unknown: string[] = [];
+  for (const layer of tree.layers) {
+    for (const entry of layer.entries) {
+      const file = layerFileKey(layer.name, entry.relativePath);
+      if (entry.objects.length === 0) unknown.push(`${file}:`);
+      for (const object of entry.objects) live.add(`${file}:${object.objectHash}`.toLowerCase());
+    }
+    for (const directory of layer.ignoredDirectories) {
+      unknown.push(layerFileKey(layer.name, `${directory.relativePath}/`));
+    }
+  }
+
+  const layerFiles = layerFileKey("", "").split(":")[0] + ":";
+  return Object.keys(markers).filter(
+    (key) =>
+      key.startsWith(layerFiles) &&
+      !live.has(key.toLowerCase()) &&
+      !unknown.some((prefix) => key.startsWith(prefix)),
   );
 }
 
