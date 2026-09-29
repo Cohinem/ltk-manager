@@ -53,6 +53,10 @@ const END_SLACK = 1e-6;
  */
 export interface VfxRun {
   readonly document: BinDocumentId;
+  /** What the document was read from, and null for a run keyed on the open. */
+  readonly asset: AssetRef | null;
+  /** The system object, `0x` and eight hex digits. */
+  readonly entry: string;
   readonly system: SystemModel | null;
   readonly error: AppError | null;
   readonly pending: boolean;
@@ -365,6 +369,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
   const run = useMemo<VfxRun>(
     () => ({
       document,
+      asset,
+      entry,
       system,
       error,
       pending,
@@ -406,6 +412,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     }),
     [
       document,
+      asset,
+      entry,
       system,
       error,
       pending,

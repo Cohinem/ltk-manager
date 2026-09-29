@@ -3,6 +3,7 @@ import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } f
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import type { SnapKeys, TimeSnap } from "../hooks/useTimeSnap";
 import {
   barFields,
   type BarGrip,
@@ -10,17 +11,12 @@ import {
   draggedBar,
   dragReadout,
   edgeTime,
-  snapTime,
 } from "../utils/barDrag";
-import { type LaneBar, minorTicks, type TimeWindow, timeAt, xOf } from "../utils/laneModel";
+import { type LaneBar, type TimeWindow, timeAt, xOf } from "../utils/laneModel";
 import { Bar } from "./BarShape";
 
 /** How far a press travels before it drags rather than seeks, in pixels. */
 const DRAG_START = 3;
-
-/** The step a free drag rounds to, in seconds, and the step under Ctrl. */
-const STEP = 0.01;
-const FINE_STEP = 0.001;
 
 interface TrackProps {
   label: string;
@@ -30,7 +26,8 @@ interface TrackProps {
   dimmed: boolean;
   /** The room left at the lane's right edge, in pixels. */
   right: number;
-  onSeek: (x: number) => void;
+  /** Seek to `x` pixels into the track, snapped under the pointer's keys. */
+  onSeek: (x: number, keys: SnapKeys) => void;
   /** Pause the clock while a press scrubs. */
   onScrubStart: () => void;
   /** Let the clock run again once the scrub ends. */
@@ -43,10 +40,8 @@ interface TrackProps {
   onBarOpen?: (at: { readonly x: number; readonly y: number }) => void;
   /** The first bar offers its linger edge. */
   lingers?: boolean;
-  /** The times a dragged edge snaps to beside the view's own ticks: other bars' edges. */
-  snaps?: readonly number[];
-  /** Where the playhead stands, which a dragged edge snaps to as well. */
-  playhead?: () => number;
+  /** How a dragged edge snaps. */
+  snap: TimeSnap;
 }
 
 /** A drag of the lane's first bar: the part it holds, the bar at the press, and where it began. */
@@ -73,8 +68,7 @@ interface Draft {
  *
  * Where `onBarEdit` is given, the first bar edits. A drag on its body moves it, on its left
  * edge trims its first emission, on its right edge sets its lifetime and on the end of its
- * hatch its linger. The edge snaps to other bars, the playhead and the ticks, and rounds to
- * hundredths between them. Shift drags free and Ctrl rounds to thousandths. The dragged bar
+ * hatch its linger. The edge snaps through `snap`. The dragged bar
  * and its value draw until the edit lands, and Escape drops the drag. A press on the bar
  * that never travels seeks, as the rest of the lane does, and a double click opens its
  * exact times. "The timeline" in docs/ux/BIN_EDITOR.md.
@@ -93,8 +87,7 @@ export function Track({
   onBarPreview,
   onBarOpen,
   lingers = false,
-  snaps,
-  playhead,
+  snap,
 }: TrackProps) {
   const pressed = useRef(false);
   const drag = useRef<BarDrag | null>(null);
@@ -131,14 +124,14 @@ export function Track({
     event.clientX - event.currentTarget.getBoundingClientRect().left;
   const gripAt = (x: number) => (editable ? barGripAt(bars[0], view, width, x, lingers) : null);
 
-  const finishDrag = (x: number) => {
+  const finishDrag = (x: number, keys: SnapKeys) => {
     const held = drag.current;
     drag.current = null;
     if (held === null) return;
 
     if (!held.moved) {
       setDraft(null);
-      onSeek(x);
+      onSeek(x, keys);
       return;
     }
     const before = barFields(held.grip, held.held);
@@ -160,10 +153,7 @@ export function Track({
 
     held.moved = true;
     const raw = timeAt(view, width, x) - held.offset;
-    const targets = event.shiftKey
-      ? []
-      : [0, playhead?.() ?? 0, ...(snaps ?? []), ...minorTicks(view, width)];
-    const { time, snapped } = snapTime(raw, targets, view, width, event.ctrlKey ? FINE_STEP : STEP);
+    const { time, snapped } = snap(raw, event);
     const bar = draggedBar(held.grip, held.held, time);
     setDraft({ grip: held.grip, bar, snapped, moved: true });
     onBarPreview?.(bar);
@@ -174,7 +164,7 @@ export function Track({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     if (drag.current !== null) {
-      finishDrag(at(event));
+      finishDrag(at(event), event);
       return;
     }
     if (!pressed.current) return;
@@ -213,7 +203,7 @@ export function Track({
 
         pressed.current = true;
         onScrubStart();
-        onSeek(x);
+        onSeek(x, event);
       }}
       onPointerMove={(event) => {
         const held = drag.current;
@@ -222,7 +212,7 @@ export function Track({
           return;
         }
         if (pressed.current) {
-          onSeek(at(event));
+          onSeek(at(event), event);
           return;
         }
         setHovered(gripAt(at(event)));

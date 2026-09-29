@@ -3,7 +3,17 @@ import { useCallback, useMemo, useState } from "react";
 import type { SystemModel } from "../../engine/model/model";
 import { toggled } from "../../playback/state/run";
 import type { Row } from "../components/LaneRow";
-import { childLanes, laneBar, laneOrder, matchingLanes } from "../utils/laneModel";
+import {
+  childLanes,
+  laneBar,
+  laneOrder,
+  matchingLanes,
+  periodCycles,
+  type TimeWindow,
+} from "../utils/laneModel";
+
+/** Every cycle a bar's period opens, however far the view reaches, for the snap targets. */
+const EVERY_CYCLE: TimeWindow = { from: 0, to: Number.POSITIVE_INFINITY };
 
 /** What the lanes list under `filter`, and the emitters whose child lanes are unfolded. */
 export interface LaneRows {
@@ -12,7 +22,7 @@ export interface LaneRows {
   readonly every: readonly number[];
   /** Every emitter's pool index the filter lists, in the order it lists them. */
   readonly listed: readonly number[];
-  /** Every bar's start and end, which a dragged edge snaps to. */
+  /** Every bar's start, end and cycle notches, which a moved time snaps to. */
   readonly edges: readonly number[];
   readonly expanded: ReadonlySet<number>;
   readonly expand: (index: number) => void;
@@ -51,7 +61,8 @@ export function useLaneRows(system: SystemModel | null, filter: string): LaneRow
         ? []
         : system.emitters.flatMap((emitter) => {
             const bar = laneBar(emitter);
-            return bar.end === null ? [bar.start] : [bar.start, bar.end];
+            const cycles = periodCycles(bar, EVERY_CYCLE).map((cycle) => cycle.from);
+            return bar.end === null ? [bar.start, ...cycles] : [bar.start, bar.end, ...cycles];
           }),
     [system],
   );

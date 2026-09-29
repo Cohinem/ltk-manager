@@ -10,6 +10,7 @@ import {
   type ShellKind,
 } from "../../bin/shell/utils/shellPanes";
 import type { AbilityRecipe } from "../../bin/spells/utils/abilityRecipe";
+import type { TimelineMarkers } from "../../bin/vfx/timeline/utils/markers";
 import type { ContentDocument } from "../../documents/utils/contentDocument";
 import type {
   CurveAimRequest,
@@ -31,6 +32,8 @@ import type { PreviewIds } from "./previewTabs";
  */
 export interface ProjectEditor {
   abilities?: readonly AbilityRecipe[];
+  /** Each particle system's timeline markers, by `markerKey`. */
+  markers?: TimelineMarkers;
   /** Every open document, keyed by id. A leaf's tabs are ids into this map. */
   documents: Record<string, ContentDocument>;
   /** The split tree of editor groups. A single leaf until the user splits. */

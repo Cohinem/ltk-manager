@@ -105,6 +105,7 @@ export function persistedSlice(editor: ProjectEditor | undefined): PersistedProj
     pinned: editor.pinned,
     shells: editor.shells,
     abilities: editor.abilities,
+    markers: editor.markers,
   };
 }
 
@@ -123,7 +124,8 @@ function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor |
     a.previewIds === b.previewIds &&
     a.pinned === b.pinned &&
     a.shells === b.shells &&
-    a.abilities === b.abilities
+    a.abilities === b.abilities &&
+    a.markers === b.markers
   );
 }
 

@@ -104,6 +104,16 @@ describe("editorFile", () => {
       ).toEqual([recipe]);
     });
 
+    it("carries each system's timeline markers across the file", () => {
+      const markers = { "layer:base:a.bin:0x1a2b3c4d": [{ id: "m", time: 0.5, name: "impact" }] };
+      const state = { ...twoDocumentState(), markers };
+
+      expect(parseEditorFile(serializeEditorFile(state))).toEqual({ kind: "ok", state });
+      expect(
+        sanitizeEditorState({ ...state, markers: { broken: [{ id: "x", time: -1 }] } })?.markers,
+      ).toEqual({});
+    });
+
     it("carries a pinned tab across the file", () => {
       const state = twoDocumentState();
       const withPin = {

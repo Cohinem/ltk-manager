@@ -1865,7 +1865,7 @@ v [*] Burst       [3] (o) S        [###]~~~               120
 lanes keep the row a separate transport row would take. Step back, play, step forward and restart
 come first, with play the one filled control. The time follows as `0.42 / 1.60 s`, the current time bright and the span muted. A
 hairline then sets off how the run plays: the Loop toggle and the speed. The view switches
-sit at the far end behind a second hairline: the Histogram toggle and the dice button of
+sit at the far end behind a second hairline: Add marker, the Snapping toggle, the Histogram toggle and the dice button of
 [the random spread](#the-random-spread), which opens the chance pin in a popover and reads the
 pinned chance beside the dice, lit while one holds. Loop and Histogram are icon toggles lit while on, and
 their tooltips name them, with Loop's naming its key. Restart plays the run from zero.
@@ -1904,9 +1904,7 @@ included, and the edge nearest the pointer wins, the end over the start on a tie
 while the pointer is over the lane and the held one lights, the cursor says what a press takes,
 and the value reads beside the edge during the drag.
 
-- a dragged edge snaps to every emitter's bar edges, the playhead, 0 and the ruler's ticks, and a
-  line marks the snap. Between them it rounds to hundredths of a second, Ctrl rounds to
-  thousandths and Shift drags free
+- a dragged edge snaps, per the snapping paragraph below, and a line marks the snap
 - the preview plays the dragged timing as the drag goes, replayed to the playhead
 - the release writes the drag as one edit, one undo step, and Escape drops it
 - a press on the bar that never travels seeks, as the rest of the lane does
@@ -1966,6 +1964,27 @@ that edge, and a drag on the band moves the whole range. A double click inside t
 x, clears it. A run with no range loops as the Loop switch says. While Shift is down the ruler's
 cursor is a crosshair, and resting the pointer on the ruler names its gestures.
 
+**Markers name times on the ruler.** A marker is a flag at the top of the ruler with its name
+beside it, and a dashed line down the lanes. Add marker in the transport and `Ctrl+M` add one at
+the playhead, and the ruler's menu adds one where it opened. A second marker at the time of one is
+not added. A click on a flag seeks there, a drag moves it and snaps, and Escape drops the drag. A
+double click names it: Enter or leaving the field keeps the name, a blank one clears it, and
+Escape drops the edit. The menu on a flag renames or deletes it, and a delete raises a toast with
+Undo. The playhead's chip stands over a flag at its time.
+
+Markers are kept per system in the project's `.ltk/editor.json`, so they last across sessions and
+never reach the packed mod. A layer rename carries the markers of the layer's files to the new
+name. A system opened outside a project has none.
+
+**Snapping.** A time a gesture moves snaps: a dragged bar edge, the playhead scrubbed on the
+ruler, a track or its flag, the loop's in and out as they are drawn or dragged, and a marker. It
+lands on a target within 6 px: 0, the end of the span, every emitter's bar edges, cycle notches
+and bursts, the loop's in and out, the markers, the playhead and the ruler's ticks, the labelled
+whole seconds among them. A target that is the time being moved is left out, and a scrub leaves
+out the minor ticks too, which would quantize it to their spacing. Between targets a time rounds
+to whole frames, 1/60 s, and Ctrl rounds to thousandths. Shift moves free of the targets, and the
+Snapping toggle in the transport, on by default, turns them off for every gesture.
+
 **The playhead is a flag.** Its chip on the ruler reads the time, and its line runs down every
 lane with a faint glow, so it reads over the bars and the histogram. A drag on the chip scrubs,
 as a drag on the open ruler does. A dashed line
@@ -2003,6 +2022,7 @@ option keeps Space.
 | F                       | Fit the camera                                     |
 | S, M                    | Solo or mute the selected emitter                  |
 | `[`, `]`                | The next speed detent down or up                   |
+| Ctrl+M                  | Add a marker at the playhead                       |
 | Esc                     | Restore a maximized pane                           |
 
 **The preview carries a mini transport while no timeline shows**: play, a scrub, the time, the

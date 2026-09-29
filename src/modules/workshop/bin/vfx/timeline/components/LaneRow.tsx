@@ -11,6 +11,7 @@ import { CardSquare } from "../../inspector/components/VfxSections";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import type { EmitterCardData } from "../../inspector/utils/emitterTypes";
 import { useVfxRun } from "../../playback/state/run";
+import type { SnapKeys, TimeSnap } from "../hooks/useTimeSnap";
 import { liveCount } from "../utils/histogram";
 import {
   childBars,
@@ -45,9 +46,9 @@ interface LaneRowProps {
   expanded: boolean;
   onExpand: (emitter: number) => void;
   onSelect: (row: Row) => void;
-  onSeek: (x: number) => void;
-  /** Every emitter's bar edges, which a dragged edge snaps to. */
-  edges: readonly number[];
+  onSeek: (x: number, keys: SnapKeys) => void;
+  /** How a dragged edge snaps. */
+  snap: TimeSnap;
 }
 
 /**
@@ -68,7 +69,7 @@ export const LaneRow = memo(function LaneRow({
   onExpand,
   onSelect,
   onSeek,
-  edges,
+  snap,
 }: LaneRowProps) {
   const run = useVfxRun();
   const { open, child } = useEmitters();
@@ -168,8 +169,7 @@ export const LaneRow = memo(function LaneRow({
           onBarPreview={editing.onBarPreview}
           onBarOpen={editing.onBarOpen}
           lingers={!emitter.simple}
-          snaps={edges}
-          playhead={() => run.driver.phase}
+          snap={snap}
         />
         {editing.editor !== null && <BarEditor emitter={emitter} {...editing.editor} />}
         {row.kind === "emitter" && (

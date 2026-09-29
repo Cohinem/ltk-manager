@@ -3,7 +3,23 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { TimeSnap } from "../../hooks/useTimeSnap";
+import { snapTime } from "../../utils/barDrag";
+import { FINE_STEP, FRAME, rulerTicks } from "../../utils/snapping";
 import { Track } from "../Track";
+
+const VIEW = { from: 0, to: 10 };
+const WIDTH = 100;
+
+/** The snap the timeline hands a track, over the ruler's ticks alone. */
+const snap: TimeSnap = (time, keys) =>
+  snapTime(
+    time,
+    keys.shiftKey ? [] : rulerTicks(VIEW, WIDTH, true),
+    VIEW,
+    WIDTH,
+    keys.ctrlKey ? FINE_STEP : FRAME,
+  );
 
 const BAR = { start: 1, end: 3, tail: 0, linger: 0, period: null, burst: false };
 
@@ -11,8 +27,8 @@ function track(onBarEdit = vi.fn(async () => true), onSeek = vi.fn()) {
   render(
     <Track
       label="smoke lane"
-      view={{ from: 0, to: 10 }}
-      width={100}
+      view={VIEW}
+      width={WIDTH}
       bars={[BAR]}
       dimmed={false}
       right={0}
@@ -20,6 +36,7 @@ function track(onBarEdit = vi.fn(async () => true), onSeek = vi.fn()) {
       onScrubStart={() => {}}
       onScrubEnd={() => {}}
       onBarEdit={onBarEdit}
+      snap={snap}
     />,
   );
   return { lane: screen.getByRole("group", { name: "smoke lane" }), onBarEdit, onSeek };
@@ -46,7 +63,7 @@ describe("a lane's track", () => {
     fireEvent.pointerDown(lane, { button: 0, clientX: 20, pointerId: 1 });
     fireEvent.pointerUp(lane, { clientX: 20, pointerId: 1 });
 
-    expect(onSeek).toHaveBeenCalledWith(20);
+    expect(onSeek).toHaveBeenCalledWith(20, expect.objectContaining({ shiftKey: false }));
     expect(onBarEdit).not.toHaveBeenCalled();
   });
 

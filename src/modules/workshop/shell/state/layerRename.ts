@@ -3,6 +3,7 @@
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import type { LayoutNode } from "@/modules/editor/layout";
 
+import { renamedLayerMarkers } from "../../bin/vfx/timeline/utils/markers";
 import {
   type ContentDocument,
   declarationsDocument,
@@ -31,10 +32,12 @@ export interface RenamedLayer {
 export function renamedLayer(editor: ProjectEditor, from: string, to: string): RenamedLayer | null {
   const moved = movedDocuments(editor, (document) => renamedDocument(document, from, to));
 
+  const markers = renamedLayerMarkers(editor.markers ?? {}, from, to);
   const touchesState =
     editor.selectedLayer === from ||
     editor.selectedModule?.layer === from ||
-    from in editor.collapsed;
+    from in editor.collapsed ||
+    markers !== null;
   if (moved.ids.size === 0 && !touchesState) return null;
 
   const collapsed = { ...editor.collapsed };
@@ -53,6 +56,7 @@ export function renamedLayer(editor: ProjectEditor, from: string, to: string): R
           ? { ...editor.selectedModule, layer: to }
           : editor.selectedModule,
       collapsed,
+      markers: markers ?? editor.markers,
     },
   };
 }

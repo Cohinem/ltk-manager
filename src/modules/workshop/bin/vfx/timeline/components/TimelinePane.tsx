@@ -1,13 +1,14 @@
-import { ChartBarIcon } from "@phosphor-icons/react";
+import { ChartBarIcon, FlagIcon, MagnetIcon } from "@phosphor-icons/react";
 
 import { ErrorBoundary, IconButton, Separator, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import { useSetPreviewDisplay, useTimelineHistogram } from "@/stores";
+import { useSetPreviewDisplay, useTimelineHistogram, useTimelineSnap } from "@/stores";
 
 import { RunTransport } from "../../playback/components/RunTransport";
 import { useVfxRun } from "../../playback/state/run";
 import { Notice } from "../../preview/components/Notice";
 import { PaneFault } from "../../preview/components/PaneFault";
+import { useTimelineMarkers } from "../hooks/useTimelineMarkers";
 import { Lanes } from "./Lanes";
 
 export interface TimelinePaneProps {
@@ -50,12 +51,40 @@ function Timeline() {
  */
 export function TimelineTransport() {
   const histogram = useTimelineHistogram();
+  const snap = useTimelineSnap();
   const setDisplay = useSetPreviewDisplay();
+  const markers = useTimelineMarkers();
+  const { driver } = useVfxRun();
 
   return (
     <>
       <Separator orientation="vertical" className="mx-1 h-4" />
       <RunTransport className="min-w-0 flex-1 py-0 pl-0" scrub={false}>
+        {markers !== null && (
+          <Tooltip content={m.workshop_bin_timeline_marker_add_hint()}>
+            <IconButton
+              variant="ghost"
+              size="xs"
+              compact
+              aria-label={m.workshop_bin_timeline_marker_add_action()}
+              className="text-surface-400"
+              icon={<FlagIcon weight="bold" className="h-4 w-4" />}
+              onClick={() => markers.add(driver.phase)}
+            />
+          </Tooltip>
+        )}
+        <Tooltip content={m.workshop_bin_timeline_snap_label()}>
+          <IconButton
+            variant="ghost"
+            size="xs"
+            compact
+            aria-label={m.workshop_bin_timeline_snap_label()}
+            aria-pressed={snap}
+            className="text-surface-400 aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
+            icon={<MagnetIcon weight="bold" className="h-4 w-4" />}
+            onClick={() => setDisplay({ timelineSnap: !snap })}
+          />
+        </Tooltip>
         <Tooltip content={m.workshop_bin_timeline_histogram_label()}>
           <IconButton
             variant="ghost"
