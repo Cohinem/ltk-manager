@@ -52,13 +52,12 @@ function WorkshopShell() {
           className={twMerge(
             "flex h-full flex-col",
             projectId !== undefined
-              ? "border border-b-0 border-surface-700/50 bg-surface-900"
+              ? /* DS-GROUND: the project's islands and the bar over them share the ground. */
+                "border border-b-0 border-surface-700/50 bg-surface-950"
               : "bg-surface-900 shadow-pressed",
           )}
         >
-          <Toolbar
-            className={twMerge("bg-surface-900", projectId === undefined && "bg-transparent pt-2")}
-          >
+          <Toolbar className={twMerge(projectId === undefined && "bg-transparent pt-2")}>
             <WorkshopHeader />
             {!project && <WorkshopActiveFilterChips />}
           </Toolbar>

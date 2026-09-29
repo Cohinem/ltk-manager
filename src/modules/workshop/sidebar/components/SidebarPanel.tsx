@@ -29,8 +29,8 @@ export function SidebarPanel(props: ContentSidebarProps) {
   return (
     <aside
       data-ui="SidebarPanel"
-      /* DS-GROUND: an island inside the fold sits a rung below it. */
-      className="flex h-full w-full flex-col overflow-hidden border border-surface-700 bg-surface-950 select-none"
+      /* DS-GROUND: an island on the ground, which its border marks. */
+      className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-surface-700 bg-surface-950 select-none"
     >
       <div
         data-ui="SidebarPanel:title"

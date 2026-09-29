@@ -107,8 +107,8 @@ export function SplitLayout({
 export interface SeamProps {
   orientation: "horizontal" | "vertical";
   /**
-   * `gap` holds two islands apart and shows its rail while it is hovered.
-   * `divider` is the edge between two panes of one island, and always shows.
+   * `gap` holds two islands apart over the ground between them.
+   * `divider` is the edge between two panes of one island, and fills its band.
    */
   variant?: "gap" | "divider";
 }
@@ -117,11 +117,11 @@ export interface SeamProps {
  * The boundary between two panels, and the control that drags it.
  *
  * Both variants are the 6px band with a centred 2px rail that SidePanel's
- * ResizeHandle draws, so every seam reads as one control. A `gap` is
- * transparent, because the islands either side of it already mark their edges.
- * A `divider` parts two panes that share one frame and would otherwise meet
- * with no edge at all, so it fills its band and carries a grip until the rail
- * takes over on hover.
+ * ResizeHandle draws, so every seam reads as one control, and both carry a grip
+ * until the rail takes over on hover. A `gap` is transparent, because the
+ * islands either side of it already mark their edges. A `divider` parts two
+ * panes that share one frame and would otherwise meet with no edge at all, so
+ * it fills its band.
  */
 export function Seam({ orientation, variant = "gap" }: SeamProps) {
   const horizontal = orientation === "horizontal";
@@ -137,19 +137,17 @@ export function Seam({ orientation, variant = "gap" }: SeamProps) {
         divider && (horizontal ? "border-x" : "border-y"),
       )}
     >
-      {divider && (
-        <span
-          aria-hidden="true"
-          className={twMerge(
-            "flex gap-0.5 transition-opacity group-hover/seam:opacity-0 group-focus-visible/seam:opacity-0",
-            horizontal ? "flex-col" : "flex-row",
-          )}
-        >
-          <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
-          <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
-          <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
-        </span>
-      )}
+      <span
+        aria-hidden="true"
+        className={twMerge(
+          "flex gap-0.5 transition-opacity group-hover/seam:opacity-0 group-focus-visible/seam:opacity-0",
+          horizontal ? "flex-col" : "flex-row",
+        )}
+      >
+        <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
+        <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
+        <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
+      </span>
       <span
         aria-hidden="true"
         className={twMerge(
