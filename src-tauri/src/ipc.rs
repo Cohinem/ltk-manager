@@ -72,6 +72,7 @@ migrated![
     character_spells,
     read_spell,
     find_objects,
+    class_object_count,
     find_references,
     cancel_reference_walk,
     // Particle renderer

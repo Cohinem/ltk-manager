@@ -22,6 +22,7 @@ function definition(name: string, defaultValue: string | null): FieldSchema {
     defaultValue,
     declared: { kind: "embed", key: null, value: null },
     classHash: nameHash("ValueVector3"),
+    owner: null,
     revisions: [],
   };
 }

@@ -11,6 +11,7 @@ use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeade
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::{BackendEvent, EventSink as _};
 use ltk_manager_core::game_wads::GameArchives;
+use ltk_manager_core::hashing::HexBinHash;
 use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
@@ -214,6 +215,42 @@ pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<Obje
             AppError::InvalidPath(format!("No such prefix in the object index: {prefix}"))
         })?;
         Ok(ObjectDir::Ready(listing))
+    })
+    .await
+}
+
+/// How many objects of the install declare a class, given the slot the index is in.
+#[derive(Debug, Clone, Serialize, TS, specta::Type)]
+#[ts(export)]
+#[serde(tag = "status", rename_all = "camelCase")]
+pub enum ClassObjectCount {
+    /// Nothing has warmed the index, or the switch that gates it is off.
+    Absent,
+    /// A build is running. The count follows it.
+    Building,
+    /// The last build failed, and the next warm retries it.
+    Failed { error: AppErrorResponse },
+    /// The index answered.
+    Ready { count: u32 },
+}
+
+/// How many objects of the install declare the class `class_hash`, for the class card.
+#[tauri::command]
+#[specta::specta]
+pub async fn class_object_count(
+    class_hash: HexBinHash,
+    app_handle: AppHandle,
+) -> IpcResult<ClassObjectCount> {
+    off_thread(move || {
+        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
+            ObjectIndexSnapshot::Absent => return Ok(ClassObjectCount::Absent),
+            ObjectIndexSnapshot::Building => return Ok(ClassObjectCount::Building),
+            ObjectIndexSnapshot::Failed(error) => return Ok(ClassObjectCount::Failed { error }),
+            ObjectIndexSnapshot::Ready(index) => index,
+        };
+
+        let count = u32::try_from(index.class_object_count(class_hash.get())).unwrap_or(u32::MAX);
+        Ok(ClassObjectCount::Ready { count })
     })
     .await
 }

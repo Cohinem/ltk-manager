@@ -1021,13 +1021,18 @@ and the card. It reads and does nothing else, per `DS-MENU-SCOPE`: it carries no
 name under it takes no click of its own, so a click there expands the row like a click anywhere
 else on it. The pointer reaches into the card to scroll the field list and to select a hash.
 
-| Shows      | From                                                                             |
-| ---------- | -------------------------------------------------------------------------------- |
-| Name, hash | The tables, and the hex where no table names it                                  |
-| Prose      | The wiki's documentation for the class, per [the wiki's prose](#the-wikis-prose) |
-| Declares   | How many objects of the install declare it, from the index                       |
-| Patch      | The patch the schema answered at, or that it has no line                         |
-| Meta wiki  | A link to the class's page, where its fields are written                         |
+| Shows     | From                                                                             |
+| --------- | -------------------------------------------------------------------------------- |
+| Name      | The tables, and the hex where no table names it                                  |
+| Bases     | The classes it derives from at the build, nearest first, each opening its card   |
+| Counts    | The fields it and its bases declare, and the install's objects of the class      |
+| Prose     | The wiki's documentation for the class, per [the wiki's prose](#the-wikis-prose) |
+| Patch     | The patch the schema answered at, or that it has no line                         |
+| Meta wiki | A link to the class's page, where its fields are written                         |
+
+The object count comes from the object index, and is left out while the index is absent or
+building. A card carries no hash: Copy class hash is on [the row menu](#the-row-menu), and a
+class no table names shows its hash as its name.
 
 The class name's actions are on [the row menu](#the-row-menu) where a row carries it, and on the
 object tab's kebab where no row does.
@@ -1051,13 +1056,24 @@ A field name is the same control as a class name: a card on hover after the tool
 closed by leaving it. The name draws under a dotted underline while the pointer is on it, which
 marks the card without making the name a second click target inside the row.
 
-| Shows      | From                                                                             |
-| ---------- | -------------------------------------------------------------------------------- |
-| Name, hash | The tables, and the hex where no table names it                                  |
-| Declared   | The schema's kind for the field at this build                                    |
-| Prose      | The wiki's documentation for the field, per [the wiki's prose](#the-wikis-prose) |
-| Revisions  | The field's kinds across builds, as the schema's revisions hold them             |
-| Meta wiki  | A link to the field's section on the wiki page that documents it, if any         |
+| Shows       | From                                                                              |
+| ----------- | --------------------------------------------------------------------------------- |
+| Title       | The label the row shows, where it says other words than the field's name          |
+| Signature   | The field's name, then its kind and class after a colon: `rate: embed ValueFloat` |
+| Declared on | The base class that declares the field, where the row's class does not            |
+| Default     | The schema's constructor default, in the row's own notation                       |
+| Mismatch    | A warning naming the file's kind and the schema's, where the two differ           |
+| Type change | The type an earlier revision had and the patch it changed at, if it changed       |
+| Prose       | The wiki's documentation for the field, per [the wiki's prose](#the-wikis-prose)  |
+| Meta wiki   | A link to the field's section on the wiki page that documents it, if any          |
+
+The card's content scrolls under a cap and the footer with the wiki link stays in view, so long
+prose never cuts a section in half. The signature is colored as a bin preview colors it: the kind in the kind hue and the class
+in the class hue, per `DS-KIND-HUE`. The card's text is a step larger than a hover card's own.
+A class on the card opens its own class card on hover. A value family's default is its
+constant, the way its row draws it. A struct, a pointer and a container show no default, since
+their default is their class's own defaults. A field no table names shows its hash as its name,
+and Copy field hash is on the row menu.
 
 Every field name that opens this card - a tree row, a class view row, the VFX inspector's rows,
 the emitter table's column headers and the force rows - shows the same documentation.

@@ -37,6 +37,7 @@ import type {
   HealthSweepReport,
   HealthSweepState,
   HealthTiming,
+  HexBinHash,
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
@@ -135,6 +136,8 @@ export type {
   Choices,
   ClassChoice,
   ClassDocs,
+  ClassObjectCount,
+  ClassRef,
   ClassSchema,
   DeclaredDiagnostic,
   DeclaredDiagnosticKind,
@@ -154,6 +157,7 @@ export type {
   EditRejection,
   FieldRevision,
   FieldSchema,
+  HexBinHash,
   KindShape,
   LayerOverride,
   LeafValue,
@@ -706,6 +710,7 @@ export const api = {
     ) => commands.declaredObjects(sandbox, [...objectHashes], document).then(toResult),
     dir: (prefix: string) => commands.objectDir(prefix).then(toResult),
     spells: (character: string) => commands.characterSpells(character).then(toResult),
+    classCount: (classHash: HexBinHash) => commands.classObjectCount(classHash).then(toResult),
     find: (pattern: string, regex: boolean, cls: string | null) =>
       commands.findObjects(pattern, regex, cls).then(toResult),
     references: (query: ReferenceQuery, project: string | null) =>

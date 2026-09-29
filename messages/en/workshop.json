@@ -125,9 +125,30 @@
   "workshop_bin_changed_on_disk_hint": "Changed on disk",
   "workshop_bin_chip_archive_label": "Archive {name}",
   "workshop_bin_chip_layer_label": "Layer {name}",
+  "workshop_bin_class_bases_label": "Extends",
   "workshop_bin_class_derived_label": "extends {class}",
+  "workshop_bin_class_field_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} field",
+        "countPlural=other": "{count} fields"
+      }
+    }
+  ],
   "workshop_bin_class_held_label": "in use here",
   "workshop_bin_class_label": "Class",
+  "workshop_bin_class_object_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} object",
+        "countPlural=other": "{count} objects"
+      }
+    }
+  ],
   "workshop_bin_class_typed_label": "by name",
   "workshop_bin_class_unknown_empty": "Not in the schema",
   "workshop_bin_clear_value_action": "Clear value",
@@ -428,7 +449,11 @@
       }
     }
   ],
+  "workshop_bin_field_declared_on_label": "Declared on",
   "workshop_bin_field_default_label": "Default",
+  "workshop_bin_field_mismatch_description": "The file writes *{file}*, the schema declares *{declared}*.",
+  "workshop_bin_field_retyped_description": "Was *{kind}* before {patch}.",
+  "workshop_bin_field_retyped_unplaced_description": "Was *{kind}* in an earlier build.",
   "workshop_bin_field_undeclared_label": "Not declared at this build",
   "workshop_bin_flags_none_label": "None",
   "workshop_bin_force_acceleration_label": "Acceleration",
@@ -1021,9 +1046,6 @@
   "workshop_bin_reset_default_remove_hint": "Removes the property, so the game reads the class default",
   "workshop_bin_reset_default_write_hint": "Writes the class default, because a declaration cannot remove a property",
   "workshop_bin_restore_object_action": "Restore object",
-  "workshop_bin_revision_open_label": "since {from}",
-  "workshop_bin_revision_span_label": "{from} – {to}",
-  "workshop_bin_revisions_label": "Revisions",
   "workshop_bin_row_fields_action": "Show fields",
   "workshop_bin_sandbox_current_label": "Sandbox ({name})",
   "workshop_bin_sandbox_declares_hint": "Edits are declared in the game_data.yaml of {layer}, in {module}.",
@@ -1110,7 +1132,6 @@
   "workshop_bin_undeclarable_remove_property_hint": "No declaration removes a property from a game bin",
   "workshop_bin_undo_failed_title": "Couldn't undo the edit",
   "workshop_bin_undrawn_label": "Not drawn by this viewer",
-  "workshop_bin_unmapped_kind_label": "unmapped type",
   "workshop_bin_unreadable_title": "This bin could not be read",
   "workshop_bin_unsupported_description": "Bin preview is not supported yet",
   "workshop_bin_use_constant_action": "Use constant value",

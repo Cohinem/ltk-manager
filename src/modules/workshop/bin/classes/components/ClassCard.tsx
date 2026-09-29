@@ -1,9 +1,12 @@
+import { Fragment, type ReactNode } from "react";
+
 import { Code, ExternalLink, HoverCard, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import type { AppError, ClassSchema } from "@/lib/tauri";
+import type { AppError, ClassRef, ClassSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { useClassDocs } from "../hooks/useClassDocs";
+import { useClassObjectCount } from "../hooks/useClassObjectCount";
 import { useClassSchema } from "../hooks/useClassSchema";
 import { classPageUrl } from "../utils/metaWiki";
 import { DocProse } from "./DocProse";
@@ -15,11 +18,35 @@ interface ClassCardProps {
   name: string | null;
 }
 
+/** The text size of the class and field cards, a step above a hover card's own. */
+export const CARD_TEXT = "text-row";
+
+/** A schema card's content over its footer. The content scrolls, so the footer stays in view. */
+export function CardLayout({
+  ui,
+  footer,
+  children,
+}: {
+  /** The card's `data-ui` name. */
+  ui: string;
+  footer: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div data-ui={ui} className="flex max-h-[min(34rem,70vh)] flex-col gap-2.5">
+      <div className="-mr-2 flex min-h-0 flex-col gap-2.5 overflow-y-auto pr-2 scrollbar-md">
+        {children}
+      </div>
+      {footer}
+    </div>
+  );
+}
+
 /**
  * A class name, and what the schema says about it while the pointer is on it.
  *
  * "The class card" in docs/ux/BIN_EDITOR.md. The body mounts when the card opens, which
- * is when its query runs.
+ * is when its queries run.
  */
 export function ClassCard({ classHash, name }: ClassCardProps) {
   const label = name ?? classHash;
@@ -27,7 +54,7 @@ export function ClassCard({ classHash, name }: ClassCardProps) {
   return (
     <HoverCard
       label={label}
-      className="w-max max-w-md min-w-80"
+      className={twMerge("w-max max-w-md min-w-80", CARD_TEXT)}
       content={<ClassCardBody classHash={classHash} name={name} />}
     >
       <span
@@ -43,31 +70,78 @@ export function ClassCard({ classHash, name }: ClassCardProps) {
   );
 }
 
+/** A class the schema names, as its own card. */
+export function ClassRefCard({ reference }: { reference: ClassRef }) {
+  return <ClassCard classHash={reference.hash} name={reference.name} />;
+}
+
+/** The class at `classHash`, named by the schema, as its own card. */
+export function SchemaClassCard({ classHash }: { classHash: string }) {
+  const { data } = useClassSchema(classHash);
+  return <ClassCard classHash={classHash} name={data?.name ?? null} />;
+}
+
 function ClassCardBody({ classHash, name }: ClassCardProps) {
   const { data, error, isPending } = useClassSchema(classHash);
 
   return (
-    <div data-ui="ClassCard" className="flex flex-col gap-2">
-      <header className="flex items-baseline gap-2">
+    <CardLayout
+      ui="ClassCard"
+      footer={
+        <footer className="flex items-center justify-between gap-3">
+          <Basis pending={isPending} error={error} schema={data} />
+          {name !== null && (
+            <ExternalLink href={classPageUrl(name)} className="shrink-0">
+              {m.workshop_bin_meta_wiki_action()}
+            </ExternalLink>
+          )}
+        </footer>
+      }
+    >
+      <header className="flex min-w-0 flex-col gap-0.5">
         {name !== null && (
-          <span className="min-w-0 flex-1 truncate text-row font-medium text-surface-100 select-text">
-            {name}
-          </span>
+          <span className="truncate font-medium text-surface-50 select-text">{name}</span>
         )}
-        <Code className={twMerge("shrink-0 select-text", name === null && "flex-1")}>
-          {classHash}
-        </Code>
+        {name === null && <Code className="self-start select-text">{classHash}</Code>}
+        {data && data.bases.length > 0 && <Bases bases={data.bases} />}
       </header>
+      {data && <Counts classHash={classHash} schema={data} />}
       <ClassDoc classHash={classHash} />
-      <footer className="flex items-center justify-between gap-3">
-        <Basis pending={isPending} error={error} schema={data} />
-        {name !== null && (
-          <ExternalLink href={classPageUrl(name)} className="shrink-0">
-            {m.workshop_bin_meta_wiki_action()}
-          </ExternalLink>
-        )}
-      </footer>
-    </div>
+    </CardLayout>
+  );
+}
+
+/** The classes the class derives from, nearest first, each opening its own card. */
+function Bases({ bases }: { bases: readonly ClassRef[] }) {
+  return (
+    <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-surface-400">
+      {m.workshop_bin_class_bases_label()}
+      {bases.map((base, at) => (
+        <Fragment key={base.hash}>
+          {at > 0 && <span aria-hidden>,</span>}
+          <ClassRefCard reference={base} />
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
+/** The fields the class declares, and the objects of the install that declare it. */
+function Counts({ classHash, schema }: { classHash: string; schema: ClassSchema }) {
+  const objects = useClassObjectCount(classHash);
+
+  return (
+    <span className="flex items-center gap-1.5 text-surface-300 tabular-nums">
+      {m.workshop_bin_class_field_count_label({ count: schema.fields.length })}
+      {objects !== null && (
+        <>
+          <span aria-hidden className="text-surface-500">
+            ·
+          </span>
+          {m.workshop_bin_class_object_count_label({ count: objects })}
+        </>
+      )}
+    </span>
   );
 }
 

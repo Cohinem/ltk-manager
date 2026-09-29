@@ -107,6 +107,14 @@ fn a_group_carries_the_class_and_the_asset_of_every_object_in_it() {
 }
 
 #[test]
+fn a_class_counts_the_objects_that_declare_it() {
+    let (_tmp, index) = install();
+
+    assert_eq!(index.class_object_count(BinHash::hash_str(SKIN)), 3);
+    assert_eq!(index.class_object_count(BinHash::hash_str("MapData")), 0);
+}
+
+#[test]
 fn a_class_nothing_declares_has_no_group() {
     let (_tmp, index) = install();
     let result = index.class_references(BinHash::hash_str("MapData"), || false);

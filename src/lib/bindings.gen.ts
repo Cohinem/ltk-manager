@@ -223,6 +223,8 @@ export const commands = {
 	 *  [`find_in_game_index`]: super::game_index::find_in_game_index
 	 */
 	findObjects: (pattern: string, regex: boolean, classTerm: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectFind }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_objects", { pattern, regex, classTerm }),
+	/**  How many objects of the install declare the class `class_hash`, for the class card. */
+	classObjectCount: (classHash: HexBinHash) => __TAURI_INVOKE<({ ok: true; value: ClassObjectCount }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_object_count", { classHash }),
 	/**
 	 *  What `query` names, grouped by the file that holds it.
 	 * 
@@ -1134,6 +1136,24 @@ export type ClassDocs = {
 	properties: { [key in string]: PropertyDocs },
 };
 
+/**  How many objects of the install declare a class, given the slot the index is in. */
+export type ClassObjectCount = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+{ status: "absent" } | 
+/**  A build is running. The count follows it. */
+{ status: "building" } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{ status: "ready"; count: number };
+
+/**  A class as a card names it. */
+export type ClassRef = {
+	hash: HexBinHash,
+	/**  The class as the database names it. */
+	name: string | null,
+};
+
 /**  One class as the class card draws it: its name, and its fields typed at one build. */
 export type ClassSchema = {
 	/**  The class as the database names it. */
@@ -1150,6 +1170,8 @@ export type ClassSchema = {
 	 *  names stood in, because that build belongs to no patch this install knows.
 	 */
 	patch: string | null,
+	/**  The classes it derives from at `build`, nearest first. */
+	bases: ClassRef[],
 	/**  The named fields first, by name, and the unnamed after them by hash. */
 	fields: FieldSchema[],
 };
@@ -1833,6 +1855,8 @@ export type FieldRevision = {
 	from: number,
 	/**  The last content build it holds for, inclusive. Open where absent. */
 	to: number | null,
+	/**  The patch that shipped `from`, absent where the database names none that early. */
+	patch: string | null,
 	/**  Absent for a type this build cannot map. */
 	shape: KindShape | null,
 };
@@ -1852,6 +1876,8 @@ export type FieldSchema = {
 	classHash: string | null,
 	/**  The constructor default as lossless JSON, absent when the schema has none. */
 	defaultValue: string | null,
+	/**  The base class that declares the field, absent where the class itself does. */
+	owner: ClassRef | null,
 	/**  Oldest first. */
 	revisions: FieldRevision[],
 };
@@ -2021,6 +2047,9 @@ export type HashRef = {
 	/**  The hash, `0x` and eight hex digits. */
 	hash: string,
 };
+
+/**  A [`BinHash`] written as `0x` and eight hex digits, which is how a user reads one. */
+export type HexBinHash = string;
 
 /**
  *  A setting or an action the evidence points at, under the verdict.

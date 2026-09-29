@@ -142,6 +142,50 @@ fn class_cards_include_inherited_constructor_fields() {
 }
 
 #[test]
+fn a_class_card_names_its_bases_nearest_first() {
+    let schema = derived_schema();
+    let card = schema.class_schema(DERIVED, Some(AFTER_RETYPE)).unwrap();
+
+    assert_eq!(card.bases, [float_text_icon_data()]);
+}
+
+#[test]
+fn an_inherited_field_names_the_base_that_declares_it() {
+    let schema = derived_schema();
+    let derived = schema.class_schema(DERIVED, Some(AFTER_RETYPE)).unwrap();
+    let own = schema
+        .class_schema(FLOAT_TEXT_ICON_DATA, Some(AFTER_RETYPE))
+        .unwrap();
+
+    assert_eq!(
+        field(&derived, "mOffset").owner,
+        Some(float_text_icon_data())
+    );
+    assert_eq!(field(&own, "mOffset").owner, None);
+}
+
+#[test]
+fn a_revision_names_the_patch_that_shipped_its_first_build() {
+    let card = schema()
+        .class_schema(FLOAT_TEXT_ICON_DATA, Some(AFTER_RETYPE))
+        .unwrap();
+    let patches: Vec<_> = field(&card, "mIconFileName")
+        .revisions
+        .iter()
+        .map(|revision| revision.patch.as_deref())
+        .collect();
+
+    assert_eq!(patches, [None, Some("16.17")]);
+}
+
+fn float_text_icon_data() -> ClassRef {
+    ClassRef {
+        hash: FLOAT_TEXT_ICON_DATA.into(),
+        name: Some("FloatTextIconData".to_owned()),
+    }
+}
+
+#[test]
 fn a_lineage_runs_from_the_class_to_its_bases() {
     let schema = derived_schema();
 
@@ -215,11 +259,13 @@ fn a_class_answers_its_fields_named_first_with_their_types_at_a_build() {
             FieldRevision {
                 from: 5_229_820,
                 to: Some(8_049_184),
+                patch: None,
                 shape: Some(KindShape::bare(PropertyKind::String)),
             },
             FieldRevision {
                 from: 8_104_348,
                 to: None,
+                patch: Some("16.17".to_owned()),
                 shape: Some(KindShape::bare(PropertyKind::WadChunkLink)),
             },
         ]
@@ -246,6 +292,7 @@ fn a_class_answers_its_fields_named_first_with_their_types_at_a_build() {
         vec![FieldRevision {
             from: 5_229_820,
             to: None,
+            patch: None,
             shape: None,
         }]
     );

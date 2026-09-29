@@ -34,6 +34,7 @@ function schemaField(name: string, declared: FieldSchema["declared"], extra = {}
     declared,
     classHash: null,
     defaultValue: null,
+    owner: null,
     revisions: [],
     ...extra,
   };
