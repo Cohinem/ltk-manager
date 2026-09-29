@@ -44,7 +44,8 @@ import {
 } from "../utils/shellPanes";
 
 /** The box one pane draws, so no pane invents a surface of its own. DS-GROUND. */
-const PANE = "flex min-h-0 min-w-0 flex-1 flex-col border border-surface-700/50 bg-surface-900";
+const PANE =
+  "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-surface-700/50 bg-surface-900";
 
 /** What one pane draws: its body, and the controls its own strip carries. */
 export interface ShellPane {
@@ -86,16 +87,19 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
 
   return (
     <TabDndProvider tree={tree} onDrop={applyDrop} overlay={PaneGhost}>
-      <SplitLayout
-        node={tree}
-        seamVariant="gap"
-        onLayoutChanged={setSplitLayout}
-        renderLeaf={(leaf) => (
-          <PaneLeaf key={leaf.id} kind={kind} leaf={leaf} content={content} hostOf={hostOf} />
-        )}
-        maximizedLeafId={maximizedLeafId}
-        onRestore={restoreMaximized}
-      />
+      {/* `data-islands` tells the frame the panes draw their own edges. */}
+      <div data-islands className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <SplitLayout
+          node={tree}
+          seamVariant="gap"
+          onLayoutChanged={setSplitLayout}
+          renderLeaf={(leaf) => (
+            <PaneLeaf key={leaf.id} kind={kind} leaf={leaf} content={content} hostOf={hostOf} />
+          )}
+          maximizedLeafId={maximizedLeafId}
+          onRestore={restoreMaximized}
+        />
+      </div>
       {/* After the tree, so a panel has adopted its host before a body's layout effects run. */}
       {heldPanes(tree, maximizedLeafId).map(({ pane, shown }) => {
         const focus = () => bodies[pane]?.onFocus?.();

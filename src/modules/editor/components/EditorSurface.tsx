@@ -13,6 +13,22 @@ import { DocumentToolbarSlotContext } from "./DocumentToolbar";
 import { EditorTabs } from "./EditorTabs";
 import { UnsavedCloseDialog } from "./UnsavedCloseDialog";
 
+/** The strip and the toolbar row, one island while the shown document is islands. */
+const HEADER = [
+  "flex shrink-0 flex-col bg-surface-900",
+  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:mb-1.5",
+  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:overflow-hidden",
+  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:rounded-lg",
+  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:border",
+  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:border-surface-700/50",
+].join(" ");
+
+/* The island's own border closes the row, so the row drops its hairline under it. */
+const TOOLBAR = [
+  "flex shrink-0 items-center gap-2 border-b border-surface-700/50 px-2 py-1.5 empty:hidden",
+  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:border-b-0",
+].join(" ");
+
 export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   /** The leaf this surface draws, which the strip scopes its drag ids by. */
   leafId: string;
@@ -66,6 +82,9 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
  *
  * The row under the strip is a slot the active document fills through
  * {@link DocumentToolbar}, rather than chrome this surface is handed.
+ *
+ * A shown document holding `[data-islands]` draws its own framed panes, so the strip and the row
+ * become one rounded island over the ground and the surface paints none of its own.
  */
 export function EditorSurface<D extends EditorDocumentBase>({
   leafId,
@@ -158,35 +177,34 @@ export function EditorSurface<D extends EditorDocumentBase>({
       data-ui={`EditorSurface:${leafId}`}
       onPointerDownCapture={onFocus}
       className={twMerge(
-        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-900",
+        "group/surface flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-900",
+        "has-[[data-islands]:not([hidden]_[data-islands])]:bg-transparent",
         className,
       )}
     >
-      <EditorTabs
-        leafId={leafId}
-        tabs={tabs}
-        activeId={activeId}
-        onActivate={onActivate}
-        onClose={close.closeOne}
-        onCloseOthers={close.closeOthers}
-        onCloseToRight={close.closeToRight}
-        onCloseAll={close.closeAll}
-        onSplit={onSplit}
-        onPromote={onPromote}
-        onTogglePin={onTogglePin}
-        locked={locked}
-        onToggleLock={onToggleLock}
-        onMaximize={onMaximize}
-        focused={focused}
-      />
+      <div data-ui="EditorSurface:header" className={HEADER}>
+        <EditorTabs
+          leafId={leafId}
+          tabs={tabs}
+          activeId={activeId}
+          onActivate={onActivate}
+          onClose={close.closeOne}
+          onCloseOthers={close.closeOthers}
+          onCloseToRight={close.closeToRight}
+          onCloseAll={close.closeAll}
+          onSplit={onSplit}
+          onPromote={onPromote}
+          onTogglePin={onTogglePin}
+          locked={locked}
+          onToggleLock={onToggleLock}
+          onMaximize={onMaximize}
+          focused={focused}
+        />
 
-      {/* `empty:hidden` rather than a conditional, because what fills this row
-          arrives through a portal and so cannot be read from here. */}
-      <div
-        ref={setToolbar}
-        data-ui="EditorSurface:toolbar"
-        className="flex shrink-0 items-center gap-2 border-b border-surface-700/50 px-2 py-1.5 empty:hidden"
-      />
+        {/* `empty:hidden` rather than a conditional, because what fills this row
+            arrives through a portal and so cannot be read from here. */}
+        <div ref={setToolbar} data-ui="EditorSurface:toolbar" className={TOOLBAR} />
+      </div>
 
       <div data-ui="EditorSurface:documents" className="relative min-h-0 flex-1 overflow-hidden">
         {documents.length === 0 && empty}

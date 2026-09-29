@@ -171,9 +171,9 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const surface = (
     <div
       data-ui="ContentBrowser:surface"
-      /* DS-GROUND: the grid is one island, so the frame is the surface's and not
-         each leaf's. A split then shows one divider where two leaves meet. */
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip border border-surface-700"
+      /* DS-GROUND: each editor group is an island that frames itself, so a split
+         parts two frames with a gap. */
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip"
     >
       {isLoading && (
         <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
@@ -191,6 +191,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       <TabDndProvider tree={layout} onDrop={handleTabDrop} overlay={renderGhost}>
         <SplitLayout
           node={layout}
+          seamVariant="gap"
           onLayoutChanged={setSplitLayout}
           renderLeaf={renderLeaf}
           maximizedLeafId={maximizedLeafId}
@@ -220,7 +221,8 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   return (
     <div
       data-ui="ContentBrowser"
-      className="relative flex h-full min-h-0 bg-surface-900 px-1.5 pb-1.5"
+      /* DS-GROUND: the gaps between islands are the ground, as the gaps between panes are. */
+      className="relative flex h-full min-h-0 bg-surface-950 px-1.5 pb-1.5"
     >
       {/* Outside the Group the panel is a share of, because the rail answers for
           the project rather than for the panel and stays while that panel is hidden. */}
