@@ -30,6 +30,7 @@ describe("objectPreviewKind", () => {
     expect(objectPreviewKind(object("StaticMaterialDef"))).toBe("material");
     expect(objectPreviewKind(object("SkinCharacterDataProperties"))).toBe("skin");
     expect(objectPreviewKind(object("VfxSystemDefinitionData"))).toBe("vfx");
+    expect(objectPreviewKind(object("UiElementIconData"))).toBe("ui");
     expect(objectPreviewKind(object("CharacterRecord"))).toBeNull();
   });
 });
@@ -39,6 +40,7 @@ describe("playsOnHover", () => {
     expect(playsOnHover("material")).toBe(true);
     expect(playsOnHover("vfx")).toBe(true);
     expect(playsOnHover("skin")).toBe(true);
+    expect(playsOnHover("ui")).toBe(false);
     expect(playsOnHover(null)).toBe(false);
   });
 });

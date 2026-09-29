@@ -5,8 +5,12 @@ import type { BinRow, BinValue } from "@/lib/tauri";
 import { nameHash } from "../../../shared/utils/binHash";
 import {
   animationGraphLayout,
+  atlasLayout,
+  atlasLoadableLayout,
   classLayout,
   descentOf,
+  elementLayout,
+  fontLayout,
   frameOf,
   levelRequests,
   materialLayout,
@@ -64,6 +68,37 @@ describe("classLayout", () => {
 
   it("opens the TFT skin in the skin layout, which the schema does not say derives it", () => {
     expect(classLayout(nameHash("TftSkinCharacterDataProperties"))).toBe(skinLayout);
+  });
+
+  it("opens any view controller in Atlas through the nearest base that has a layout", () => {
+    const bases = [nameHash("LogicDriverViewControllerBase"), nameHash("ViewController")];
+
+    expect(classLayout(nameHash("LogicDriverViewController"), bases)).toBe(atlasLayout);
+    expect(classLayout(nameHash("LogicDriverViewController"))).toBeUndefined();
+    expect(classLayout(nameHash("VfxSystemDefinitionData"), bases)).toBe(vfxLayout);
+  });
+
+  it("opens a UiPropertyLoadable in Atlas, and a UiComponent under it in nothing", () => {
+    const bases = [nameHash("UiPropertyLoadable"), nameHash("PropertyLoadable")];
+
+    expect(classLayout(nameHash("UiPropertyLoadable"))).toBe(atlasLoadableLayout);
+    expect(classLayout(nameHash("UiComponent"), bases)).toBeUndefined();
+  });
+
+  it("opens every UI element in the element shell through the interface they all derive", () => {
+    const bases = [
+      nameHash("UiElementAssetData"),
+      nameHash("UiElementData"),
+      nameHash("UiElementIData"),
+    ];
+
+    expect(classLayout(nameHash("UiElementIconData"), bases)).toBe(elementLayout);
+    expect(frameOf(elementLayout)).toBe("shell");
+  });
+
+  it("opens a GameFontDescription in the font shell", () => {
+    expect(classLayout(nameHash("GameFontDescription"))).toBe(fontLayout);
+    expect(frameOf(fontLayout)).toBe("shell");
   });
 });
 

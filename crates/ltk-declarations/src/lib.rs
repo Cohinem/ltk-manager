@@ -185,7 +185,7 @@ impl Operation {
 ///
 /// A key some module already declares is edited where it stands, whichever
 /// module is chosen.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum ModuleChoice {
     /// The last `entries` module naming the entry, else the last module where
     /// that is an `entries` module, else a new trailing `entries` module.
@@ -195,6 +195,10 @@ pub enum ModuleChoice {
     Index(usize),
     /// A new trailing `entries` module, holding this name where one is given.
     New(Option<ModuleName>),
+    /// The last `target` module of this chunk, else a new trailing one. An edit of
+    /// a variant's `PTCH` lands here: an `entries` module reaches the chunk that
+    /// declares the entry, which for a variant is its base.
+    Target(Target),
 }
 
 /// One edit of one property of one entry, as a document showing one chunk

@@ -68,6 +68,11 @@ export function previewCubeUrl(asset: AssetRef): string {
   return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=cube`;
 }
 
+/** The URL an OpenType or TrueType file's own bytes arrive on, for a `FontFace` to load. */
+export function previewFontUrl(asset: AssetRef): string {
+  return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=font`;
+}
+
 /**
  * Pack a reference into one URL path segment.
  *

@@ -6,6 +6,7 @@
 //! the second.
 
 mod animation;
+mod font;
 mod light_grid;
 mod map;
 mod mesh;
@@ -54,6 +55,8 @@ pub enum PreviewRequest {
     Mips { min_width: Option<NonZeroU32> },
     /// A map's baked light grid, as one ambient buffer.
     LightGrid,
+    /// An OpenType or TrueType font's own bytes.
+    Font,
 }
 
 /// A decoded preview of one asset, ready for a webview to draw.
@@ -62,6 +65,16 @@ pub enum Preview {
     Image(PreviewImage),
     /// A buffer the webview decodes, in the layout the module that wrote it documents.
     Buffer(Vec<u8>),
+    /// A font the webview loads through `FontFace`.
+    Font(PreviewFont),
+}
+
+/// A font file, under the MIME type its `sfnt` version names.
+#[derive(Debug)]
+pub struct PreviewFont {
+    pub bytes: Vec<u8>,
+    /// `font/otf` or `font/ttf`.
+    pub mime: &'static str,
 }
 
 /// A preview the webview draws as an image.
@@ -111,6 +124,10 @@ pub enum PreviewError {
     /// A cube map was asked of a texture holding other than six faces.
     #[error("The texture is not a cube map")]
     NotCube,
+
+    /// A font was asked of a file that is not an OpenType or TrueType font.
+    #[error("The file is not an OpenType or TrueType font")]
+    NotFont,
 
     /// The pixel data would not decode.
     #[error("Could not decode the texture: {0}")]
@@ -210,6 +227,7 @@ impl AssetRef {
                 return Ok(Preview::Buffer(mips::render(&bytes, min_width)?));
             }
             PreviewRequest::LightGrid => return Ok(Preview::Buffer(light_grid::render(&bytes)?)),
+            PreviewRequest::Font => return Ok(Preview::Font(font::render(bytes)?)),
         };
 
         let image = match self.file_kind(&bytes) {

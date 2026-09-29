@@ -50,6 +50,12 @@ export type BinRelease = "now" | "lingering";
 /** How long a lingering id stays open past its caller. */
 const LINGER_MS = 10_000;
 
+/** A UI variant opened over its base scene bin: the base, and the variant chunk's path. */
+export interface VariantOf {
+  readonly base: AssetRef;
+  readonly path: string;
+}
+
 /**
  * One asset held open as a bin document for as long as the caller is mounted.
  *
@@ -61,20 +67,23 @@ const LINGER_MS = 10_000;
  *
  * The asset opens in the sandbox of the enclosing document (ADR-0056). A declared document
  * follows the project's "Use game data declarations". The handle's `readOnly` is the gate the
- * backend reports for it.
+ * backend reports for it. With `variantOf`, the asset is a UI variant opened laid over its
+ * base, which in a project declares into a `target` module of the variant.
  */
 export function useBinDocument(
   asset: AssetRef,
   entry: string | null = null,
   release: BinRelease = "now",
+  variantOf: VariantOf | null = null,
 ): { state: BinOpenState; reopen: () => Promise<BinDocumentId | null> } {
   const sandbox = useSandbox();
-  const key = `${sandboxKey(sandbox)}:${assetKey(asset)}:${entry ?? ""}`;
+  const over = variantOf === null ? "" : `:${assetKey(variantOf.base)}:${variantOf.path}`;
+  const key = `${sandboxKey(sandbox)}:${assetKey(asset)}:${entry ?? ""}${over}`;
   const declaring: Declaring =
     useDeclarationsOn(sandboxProject(sandbox) ?? undefined) === true ? "on" : "off";
 
-  const latest = useRef({ sandbox, asset, entry, declaring });
-  latest.current = { sandbox, asset, entry, declaring };
+  const latest = useRef({ sandbox, asset, entry, declaring, variantOf });
+  latest.current = { sandbox, asset, entry, declaring, variantOf };
 
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
@@ -114,8 +123,8 @@ export function useBinDocument(
     heldKey.current = key;
     setState((previous) => (same && previous.status === "open" ? previous : { status: "opening" }));
 
-    const { sandbox: openIn, asset: opening, entry: object } = latest.current;
-    void openGated(openIn, opening, object, () => latest.current.declaring).then((result) => {
+    const { sandbox: openIn, asset: opening, entry: object, variantOf: over } = latest.current;
+    void openGated(openIn, opening, object, over, () => latest.current.declaring).then((result) => {
       if (!live) {
         if (result.ok) void api.bin.close(result.value.document);
         return;
@@ -182,9 +191,13 @@ async function openGated(
   sandbox: SandboxRef,
   asset: AssetRef,
   entry: string | null,
+  variantOf: VariantOf | null,
   declaring: () => Declaring,
 ): Promise<Awaited<ReturnType<typeof api.bin.open>>> {
-  const opened = await api.bin.open(sandbox, asset, entry);
+  const opened =
+    variantOf === null
+      ? await api.bin.open(sandbox, asset, entry)
+      : await api.bin.openVariant(sandbox, asset, variantOf.base, variantOf.path);
   if (!opened.ok || !opened.value.declared) return opened;
 
   const gate = await api.bin.setDeclaring(opened.value.document, declaring());

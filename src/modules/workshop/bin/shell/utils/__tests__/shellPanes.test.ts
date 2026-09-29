@@ -65,11 +65,25 @@ describe("defaultShellArrangements", () => {
     expect(shells.material).toEqual({ layout: defaultShellLayout("material"), leafId: "leaf-2" });
   });
 
+  it("holds every pane of the Atlas shell once, the canvas between the layers and the inspector", () => {
+    const tree = defaultShellLayout("atlas");
+
+    expect([...openShellPanes(tree)].sort()).toEqual([...shellPanesOf("atlas")].sort());
+    expect(leaves(tree).map((leaf) => leaf.tabs[0])).toEqual(["layers", "preview", "inspector"]);
+  });
+
   it("holds every pane of the material shell once, the preview beside the inspector", () => {
     const tree = defaultShellLayout("material");
 
     expect([...openShellPanes(tree)].sort()).toEqual([...shellPanesOf("material")].sort());
     expect(leaves(tree).map((leaf) => leaf.tabs[0])).toEqual(["preview", "inspector"]);
+  });
+
+  it("gives the font and element shells the material's arrangement", () => {
+    expect(defaultShellLayout("font")).toEqual(defaultShellLayout("material"));
+    expect(shellPanesOf("font")).toEqual(shellPanesOf("material"));
+    expect(defaultShellLayout("element")).toEqual(defaultShellLayout("material"));
+    expect(shellPanesOf("element")).toEqual(shellPanesOf("material"));
   });
 
   it("drops a program pane a saved material tree still names", () => {
@@ -146,6 +160,26 @@ describe("sanitizeShellLayout", () => {
         { kind: "leaf", id: "leaf-3", tabs: ["inspector", "material"], activeTab: "inspector" },
       ],
     });
+  });
+
+  it("opens an Atlas tree saved before the sprites pane existed with it behind the variants", () => {
+    const tree = sanitizeShellLayout("atlas", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-5", tabs: ["layers", "variants"], activeTab: "layers" },
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+      ],
+    });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["layers", "variants", "sprites"],
+      ["preview"],
+    ]);
+    expect(sanitizeShellLayout("atlas", defaultShellLayout("atlas"))).toEqual(
+      defaultShellLayout("atlas"),
+    );
   });
 
   it("opens a skin tree saved before the material pane existed with it behind the inspector", () => {

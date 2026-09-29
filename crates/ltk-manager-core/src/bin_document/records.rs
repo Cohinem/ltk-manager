@@ -73,7 +73,8 @@ pub(super) fn target_row(target: BinHash, records: usize, named: &Named) -> BinR
 
 impl BinDocument {
     /// The patch records of the file, in file order. A `PROP` holds none.
-    pub(super) fn records(&self) -> &[PropertyPatch] {
+    #[must_use]
+    pub fn records(&self) -> &[PropertyPatch] {
         match &self.file {
             BinFile::Prop(_) => &[],
             BinFile::Override(patch) => &patch.patches,

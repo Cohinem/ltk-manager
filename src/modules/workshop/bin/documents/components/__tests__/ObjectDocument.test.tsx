@@ -27,6 +27,9 @@ const ASSET: AssetRef = {
 
 const HANDLE: BinDocumentHandle = {
   document: 9,
+  asset: ASSET,
+  sandbox: { kind: "game" },
+  readOnly: null,
   rows: [],
   object: {
     entry: ENTRY,

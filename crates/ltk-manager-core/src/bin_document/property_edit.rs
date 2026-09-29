@@ -19,6 +19,20 @@ use crate::object_index::parse_hash;
 
 /// The bound on staged operations in one document mutation.
 const MAX_PROPERTY_EDITS: usize = 64;
+/// The bound on properties one grouped edit changes.
+const MAX_GROUPED_PROPERTIES: usize = 512;
+
+/// One property's staged edits, as [`BinDocuments::edit_properties`] groups them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct PropertyEdit {
+    /// The object, as `0x` and eight hex digits.
+    pub entry: String,
+    pub holder: String,
+    pub field: String,
+    pub edits: Vec<ValueEdit>,
+}
 
 /// One staged edit, addressed relative to its enclosing property.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,6 +96,20 @@ impl BinDocuments {
             document.edit_property(entry, holder, field, edits, schema)
         })
     }
+
+    /// Edit several properties, of one object or several, as one undoable change.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::edit_property`], and a refusal of any one leaves none.
+    pub fn edit_properties(
+        &self,
+        id: BinDocumentId,
+        edits: Vec<PropertyEdit>,
+        schema: SchemaAt<'_>,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.edit_properties(edits, schema))
+    }
 }
 
 impl BinDocument {
@@ -98,6 +126,66 @@ impl BinDocument {
         edits: Vec<ValueEdit>,
         schema: SchemaAt<'_>,
     ) -> Result<(), BinDocumentError> {
+        let inverse = self.change_property(entry, holder, field, edits, schema)?;
+        self.record(inverse)
+    }
+
+    /// Stage edits under several properties and record them as one undoable change. A
+    /// declared document folds their declarations into one step. A refusal leaves none.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocument::edit_property`], and an entry that is not an object hash.
+    pub fn edit_properties(
+        &mut self,
+        edits: Vec<PropertyEdit>,
+        schema: SchemaAt<'_>,
+    ) -> Result<(), BinDocumentError> {
+        if edits.is_empty() || edits.len() > MAX_GROUPED_PROPERTIES {
+            return Err(BinDocumentError::EditRejected {
+                address: String::new(),
+                rejection: EditRejection::InvalidShape,
+            });
+        }
+
+        if self.declares() {
+            return self.declared_group(|document| {
+                edits.into_iter().try_for_each(|edit| {
+                    let entry = entry_of(&edit)?;
+                    document.edit_property(entry, &edit.holder, &edit.field, edit.edits, schema)
+                })
+            });
+        }
+
+        let mut inverses = Vec::with_capacity(edits.len());
+        for edit in edits {
+            let changed = entry_of(&edit).and_then(|entry| {
+                self.change_property(entry, &edit.holder, &edit.field, edit.edits, schema)
+            });
+            match changed {
+                Ok(inverse) => inverses.push(inverse),
+                Err(error) => {
+                    for inverse in inverses.into_iter().rev() {
+                        self.apply(inverse)?;
+                    }
+                    return Err(error);
+                }
+            }
+        }
+
+        inverses.reverse();
+        self.record(Edit::Group { edits: inverses })
+    }
+
+    /// Apply the staged edits under one property, answering the edit that reverts them.
+    fn change_property(
+        &mut self,
+        entry: BinHash,
+        holder: &str,
+        field: &str,
+        edits: Vec<ValueEdit>,
+        schema: SchemaAt<'_>,
+    ) -> Result<Edit, BinDocumentError> {
         let field = parse_hash(field)
             .ok_or_else(|| refused(entry, holder, EditRejection::MalformedHash))?;
         let scope = field_path(holder, field);
@@ -184,13 +272,12 @@ impl BinDocument {
         }
 
         let next = staged.property_value(entry, &scope)?.clone();
-        let inverse = if self.property_value(entry, &scope).is_ok() {
-            self.swap_property(entry, &scope, next)?
-        } else {
-            self.insert_property(entry, holder, field, None, next)?;
-            Edit::RemoveProperty { entry, path: scope }
-        };
-        self.record(inverse)
+        if self.property_value(entry, &scope).is_ok() {
+            return self.swap_property(entry, &scope, next);
+        }
+
+        self.insert_property(entry, holder, field, None, next)?;
+        Ok(Edit::RemoveProperty { entry, path: scope })
     }
 
     fn ensure_property(
@@ -292,6 +379,13 @@ fn missing(entry: BinHash, path: &str) -> BinDocumentError {
     BinDocumentError::NodeNotFound {
         address: format!("{}:{path}", hex(entry)),
     }
+}
+
+fn entry_of(edit: &PropertyEdit) -> Result<BinHash, BinDocumentError> {
+    parse_hash(&edit.entry).ok_or_else(|| BinDocumentError::EditRejected {
+        address: edit.entry.clone(),
+        rejection: EditRejection::MalformedHash,
+    })
 }
 
 fn refused(entry: BinHash, path: &str, rejection: EditRejection) -> BinDocumentError {

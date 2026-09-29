@@ -492,9 +492,9 @@ fn particle_pass(shader: ParticleShader, defines: &[ParticleDefine]) -> Resolved
 
 /// The shader cache's chunks as the resolution locates them, by hash first, since the
 /// bundle chunks have no name any table carries, and by path where a table names it.
-struct AssetChunks<'a> {
-    assets: &'a dyn AssetLookup,
-    read: &'a mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
+pub(crate) struct AssetChunks<'a> {
+    pub(crate) assets: &'a dyn AssetLookup,
+    pub(crate) read: &'a mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
 }
 
 impl ShaderSource for AssetChunks<'_> {

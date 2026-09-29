@@ -34,6 +34,7 @@ migrated![
     cancel_integration_download,
     // Bin editor: a document's lifetime
     bin_open,
+    bin_open_variant,
     bin_save,
     bin_reload,
     bin_close,
@@ -94,6 +95,13 @@ migrated![
     locate_files_near,
     read_animation_graph,
     read_clip_header,
+    // Atlas
+    read_ui_view,
+    read_ui_scene_view,
+    read_ui_font,
+    read_ui_programs,
+    atlas_import_sprite,
+    atlas_sheet,
     // Diagnostics
     run_diagnostics,
     open_elevated_terminal,

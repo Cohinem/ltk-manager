@@ -12,13 +12,15 @@ use std::sync::Arc;
 
 use ltk_declarations::{Edit as ManifestEdit, Manifest, ModuleChoice};
 use ltk_game_data::{
-    Edit, EntryName, Module, ModuleName, Names, ObjectEdit, PropertyEdit, Selector, Sign, Value,
-    apply,
+    Edit, EntryName, Module, ModuleName, Names, ObjectEdit, PropertyEdit, Selector, Sign, Target,
+    Value, apply,
 };
 use ltk_hash::{BinHash, WadHash};
 use ltk_meta::path::{FieldNames, MapKey, PropertyPath, Subscript, ValuePath};
 use ltk_meta::walk::TreeValue as _;
-use ltk_meta::{Bin, BinFile, BinObject, PropertyValueEnum};
+use ltk_meta::{
+    ApplyReport, Bin, BinFile, BinObject, BinOverride, PropertyPatch, PropertyValueEnum,
+};
 use ltk_mod_project::{ModProjectLayer, game_data::load_layer};
 use serde::{Deserialize, Serialize};
 
@@ -111,6 +113,42 @@ pub(super) struct Declared {
     redo: Vec<TextEdit>,
     /// How many writes `remember` has held, which counts past the undo stack's depth.
     written: usize,
+    /// The base scene a declared variant lays over. Absent for every other chunk.
+    variant: Option<VariantBase>,
+}
+
+/// The base scene bin of a declared variant, which the variant's `PTCH` lays over. ADR-0035 of
+/// `league-mod` takes the variant's declarations as its records.
+struct VariantBase {
+    /// The variant chunk, as a `target` module names it.
+    target: Target,
+    /// The game's copy of the base scene bin, and its path hash.
+    game: Vec<u8>,
+    chunk_hash: u64,
+    /// The objects of the base's game copy, and of the variant's own.
+    base_entries: Vec<BinHash>,
+    variant_entries: Vec<BinHash>,
+    /// The declared variant's records, and what laying it over the declared base did.
+    laid: LaidVariant,
+}
+
+/// The declared variant's records, and what laying them over the declared base did.
+#[derive(Debug, Clone, Default)]
+pub struct LaidVariant {
+    pub records: Vec<PropertyPatch>,
+    pub report: ApplyReport,
+}
+
+/// What a declared variant opens from: the game's copies of the variant and of its base.
+pub struct VariantSource {
+    /// The game's variant, a `PTCH`.
+    pub game: Vec<u8>,
+    /// The variant chunk, as a `target` module names it.
+    pub target: Target,
+    /// The game's base scene bin, a `PROP`, and its path hash.
+    pub base: Vec<u8>,
+    pub base_hash: u64,
+    pub context: DeclareContext,
 }
 
 impl fmt::Debug for Declared {
@@ -296,6 +334,71 @@ impl BinDocument {
                 return Err(BinDocumentError::ReadOnly(super::ReadOnly::Patch));
             }
         };
+        Self::declared(game, chunk_hash, game_tree, None, context)
+    }
+
+    /// The game's variant `source.game`, a `PTCH` of the chunk `chunk_hash`, laid over the
+    /// game's base scene bin, as a declared document of the source's project.
+    ///
+    /// The tree is the base with the project's declarations of the base, and the variant with
+    /// the project's declarations of the variant laid over it: what the client loads with the
+    /// variant switched on. An edit lands in a `target` module of the variant.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocument::declare`], and with [`BinDocumentError::Declaring`] where the variant
+    /// is no `PTCH` or its base no `PROP`.
+    pub fn declare_variant(
+        source: VariantSource,
+        chunk_hash: u64,
+    ) -> Result<Self, BinDocumentError> {
+        let VariantSource {
+            game,
+            target,
+            base,
+            base_hash,
+            context,
+        } = source;
+        let BinFile::Override(patch) = BinFile::from_reader(&mut Cursor::new(&game))? else {
+            return Err(declaring(AppError::ValidationFailed(
+                "A variant is a PTCH".to_owned(),
+            )));
+        };
+        let BinFile::Prop(mut game_tree) = BinFile::from_reader(&mut Cursor::new(&base))? else {
+            return Err(declaring(AppError::ValidationFailed(
+                "A variant's base is a PROP".to_owned(),
+            )));
+        };
+
+        let variant = VariantBase {
+            target,
+            chunk_hash: base_hash,
+            base_entries: game_tree.objects.keys().copied().collect(),
+            variant_entries: patch.objects.keys().copied().collect(),
+            game: base,
+            laid: LaidVariant::default(),
+        };
+        patch.apply(&mut game_tree);
+        Self::declared(game, chunk_hash, game_tree, Some(variant), context)
+    }
+
+    /// The declared variant's records and what laying them did, `None` for any other document.
+    #[must_use]
+    pub fn laid_variant(&self) -> Option<&LaidVariant> {
+        self.declared
+            .as_ref()?
+            .variant
+            .as_ref()
+            .map(|variant| &variant.laid)
+    }
+
+    fn declared(
+        game: Vec<u8>,
+        chunk_hash: u64,
+        game_tree: Bin,
+        variant: Option<VariantBase>,
+        context: DeclareContext,
+    ) -> Result<Self, BinDocumentError> {
         let mut declared = Declared {
             context,
             declaring: Declaring::Off,
@@ -314,6 +417,7 @@ impl BinDocument {
             undo: VecDeque::new(),
             redo: Vec::new(),
             written: 0,
+            variant,
         };
         let bytes = declared.apply().map_err(declaring)?;
         let mut document = Self::parse(bytes)?;
@@ -422,6 +526,30 @@ impl BinDocument {
             address: format!("{}:{path}", hex(entry)),
             rejection: EditRejection::Undeclarable,
         })
+    }
+
+    /// Run `edits`, each declaring itself, and fold what they wrote into one undo step. A
+    /// refusal takes back what the ones before it wrote.
+    pub(super) fn declared_group(
+        &mut self,
+        edits: impl FnOnce(&mut Self) -> Result<(), BinDocumentError>,
+    ) -> Result<(), BinDocumentError> {
+        let since = self.declared.as_ref().ok_or_else(not_declared)?.written;
+        let outcome = edits(self);
+        let declared = self.declared.as_mut().ok_or_else(not_declared)?;
+        let folded = declared.fold_undo(since);
+        if outcome.is_ok() {
+            return Ok(());
+        }
+
+        if let Some(folded) = folded {
+            declared
+                .put(&folded.layer, &folded.after, &folded.before)
+                .map_err(declaring)?;
+            declared.undo.pop_back();
+        }
+        self.reapply()?;
+        outcome
     }
 
     /// Restore the manifest text from before the latest edit, answering whether one was held.
@@ -586,19 +714,55 @@ impl Declared {
         Ok(layers.into_iter().map(|layer| layer.name).collect())
     }
 
-    /// The game's copy with every layer's declarations applied, in build order.
+    /// The game's copy with every layer's declarations applied, in build order. A variant is
+    /// its declared `PTCH` laid over its declared base.
     fn apply(&mut self) -> AppResult<Vec<u8>> {
         self.layers = self.project_layers()?;
-        let project = &self.context.project;
-        let root = project.path().try_as_utf8("project directory")?;
         if !self.layers.contains(&self.layer) {
             BASE_LAYER.clone_into(&mut self.layer);
         }
 
+        let mut raised = Vec::new();
+        let Some(variant) = &self.variant else {
+            let entries: Vec<BinHash> = self.game_tree.objects.keys().copied().collect();
+            let bytes = self.apply_chunk(&self.game, self.chunk_hash, &entries, &mut raised)?;
+            self.raised = raised;
+            return Ok(bytes);
+        };
+
+        let base = self.apply_chunk(
+            &variant.game,
+            variant.chunk_hash,
+            &variant.base_entries,
+            &mut raised,
+        )?;
+        let patch = self.apply_chunk(
+            &self.game,
+            self.chunk_hash,
+            &variant.variant_entries,
+            &mut raised,
+        )?;
+        let (bytes, laid) = lay_variant(&base, &patch)?;
+        self.raised = raised;
+        if let Some(variant) = &mut self.variant {
+            variant.laid = laid;
+        }
+        Ok(bytes)
+    }
+
+    /// `game`, the chunk `chunk_hash` whose objects are `entries`, with every layer's
+    /// declarations applied in build order. What each apply raises joins `raised`.
+    fn apply_chunk(
+        &self,
+        game: &[u8],
+        chunk_hash: u64,
+        entries: &[BinHash],
+        raised: &mut Vec<Raised>,
+    ) -> AppResult<Vec<u8>> {
+        let project = &self.context.project;
+        let root = project.path().try_as_utf8("project directory")?;
         let ignore = project.ignore_filter()?;
-        let entries: Vec<BinHash> = self.game_tree.objects.keys().copied().collect();
-        let mut bytes = self.game.clone();
-        self.raised.clear();
+        let mut bytes = game.to_vec();
         for layer in &self.layers {
             let loaded = load_layer(root, layer, &ignore);
             let Ok(Some(declarations)) = &loaded.declarations else {
@@ -607,7 +771,7 @@ impl Declared {
             let edits: Vec<Edit> = declarations
                 .modules
                 .iter()
-                .flat_map(|module| edits_on(module, self.chunk_hash, &entries))
+                .flat_map(|module| edits_on(module, chunk_hash, entries))
                 .collect();
             if edits.is_empty() {
                 continue;
@@ -634,8 +798,7 @@ impl Declared {
                 &self.context.schema,
             )
             .map_err(|error| AppError::Other(format!("The declarations do not apply: {error}")))?;
-            self.raised
-                .extend(Raised::of(layer, &edits, applied.diagnostics));
+            raised.extend(Raised::of(layer, &edits, applied.diagnostics));
             bytes = applied.bytes;
         }
         Ok(bytes)
@@ -759,7 +922,10 @@ impl Declared {
     /// Every edit joins the chosen module. A new module the first key makes takes the keys
     /// after it.
     fn write(&self, plan: &[ManifestEdit]) -> AppResult<Option<TextEdit>> {
-        let mut choice = self.module.to_module_choice()?;
+        let mut choice = match &self.variant {
+            Some(variant) => ModuleChoice::Target(variant.target.clone()),
+            None => self.module.to_module_choice()?,
+        };
         self.write_with(|manifest| {
             let mut module = None;
             for edit in plan {
@@ -847,6 +1013,21 @@ impl Declared {
         manifest.write()?;
         Ok(())
     }
+}
+
+/// The declared variant `patch` laid over the declared base `base`, as the client lays a
+/// switched-on override, and its records with what laying them did.
+fn lay_variant(base: &[u8], patch: &[u8]) -> AppResult<(Vec<u8>, LaidVariant)> {
+    let unreadable =
+        |error: &dyn fmt::Display| AppError::Other(format!("The variant does not lay: {error}"));
+    let mut merged = Bin::from_reader(&mut Cursor::new(base)).map_err(|e| unreadable(&e))?;
+    let patch = BinOverride::from_reader(&mut Cursor::new(patch)).map_err(|e| unreadable(&e))?;
+
+    let records = patch.patches.clone();
+    let report = patch.apply(&mut merged);
+    let mut bytes = Cursor::new(Vec::new());
+    merged.to_writer(&mut bytes).map_err(|e| unreadable(&e))?;
+    Ok((bytes.into_inner(), LaidVariant { records, report }))
 }
 
 /// The game's copy of the entry a reference names, as the overlay reads it.
@@ -1107,3 +1288,5 @@ mod links;
 mod objects;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod variant_tests;

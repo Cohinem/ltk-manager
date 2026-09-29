@@ -22,6 +22,15 @@ export const commands = {
 	 */
 	binOpen: (sandbox: SandboxRef, asset: AssetRef, entry: string | null) => __TAURI_INVOKE<({ ok: true; value: BinDocumentHandle }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_open", { sandbox, asset, entry }),
 	/**
+	 *  Hold the UI variant `asset` open in `sandbox` laid over its base scene bin `base`,
+	 *  answering the header and one row per object.
+	 * 
+	 *  In a project, a variant no layer ships opens as a declared variant: the base and the variant
+	 *  with the project's declarations of each, and an edit landing in a `target` module of `path`,
+	 *  the variant chunk's path (league-mod ADR-0035). Any other variant opens as its file.
+	 */
+	binOpenVariant: (sandbox: SandboxRef, asset: AssetRef, base: AssetRef, path: string) => __TAURI_INVOKE<({ ok: true; value: BinDocumentHandle }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_open_variant", { sandbox, asset, base, path }),
+	/**
 	 *  Write an open document's edits to its layer file, as a delta over the bytes it opened.
 	 * 
 	 *  A document no patch touched writes nothing. ADR-0040.
@@ -380,6 +389,73 @@ export const commands = {
 	readAnimationGraph: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AnimationGraph }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_animation_graph", { document, entry }),
 	/**  The rate and the length of one `.anm`, which the clip table's rate column reads. */
 	readClipHeader: (asset: AssetRef) => __TAURI_INVOKE<({ ok: true; value: ClipHeader }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_clip_header", { asset }),
+	/**
+	 *  The view controller at `entry` in the open document `document`, with its base scene bin,
+	 *  its manifest and every sprite resolved through the document's sandbox.
+	 * 
+	 *  `scene` is the open document of the base scene bin, which the view draws as it stands in
+	 *  place of the file. `variant` is laid over that base as the client lays an override.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when `entry` is no object hash or the document has no object under it. A file or
+	 *  sprite the view cannot reach is a warning on the answer.
+	 */
+	readUiView: (document: BinDocumentId, entry: string, scene: number | null, variant: {
+	slot: string,
+	document: BinDocumentId | null,
+} | null) => __TAURI_INVOKE<({ ok: true; value: UiView }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_view", { document, entry, scene, variant }),
+	/**
+	 *  The scene bin open as `document`, drawn as a view of its own for the element at `entry`: its
+	 *  scenes and elements as they stand, with the manifest of the folder the file sits in.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when `entry` is no object hash, the document is closed or it has no object under it.
+	 */
+	readUiSceneView: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: UiView }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_scene_view", { document, entry }),
+	/**
+	 *  The `GameFontDescription` at `entry` in the open document `document`, its links followed
+	 *  into the document and then into the `ux/fonts` its sandbox resolves.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when `entry` is no object hash or neither bin holds an object under it.
+	 */
+	readUiFont: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: UiFont }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_font", { document, entry }),
+	/**
+	 *  The programs of `shaders`, one for one and in that order, translated.
+	 * 
+	 *  The shaders are the ones `document` resolves against, and the install's alone where it
+	 *  is none. Translations are cached as `read_material_programs` caches them.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the names or the project chunks the resolution reads are unavailable.
+	 */
+	readUiPrograms: (document: number | null, shaders: UiShader[]) => __TAURI_INVOKE<({ ok: true; value: ProgramRead[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_programs", { document, shaders }),
+	/**
+	 *  Import the PNG at `source` into the sheet `sheet` of the project `document` opens in, or put
+	 *  it in place of the sprite `replace`, per section 5 of docs/plans/atlas-ui-editor.md.
+	 * 
+	 *  A new sheet's page lands in the layer the document declares into, and in the archive folder
+	 *  its own bin comes from.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document is closed or opens in no project, when the image cannot be read, and
+	 *  when the sheet would outgrow one page.
+	 */
+	atlasImportSprite: (document: BinDocumentId, sheet: string, source: string, replace: string | null) => __TAURI_INVOKE<({ ok: true; value: SheetImport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_import_sprite", { document, sheet, source, replace }),
+	/**
+	 *  The spec of the sheet `sheet` of the project `document` opens in, none where it has not made
+	 *  that sheet.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document is closed or opens in no project, and when the spec cannot be read.
+	 */
+	atlasSheet: (document: BinDocumentId, sheet: string) => __TAURI_INVOKE<({ ok: true; value: SheetSpec | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_sheet", { document, sheet }),
 	runDiagnostics: () => __TAURI_INVOKE<({ ok: true; value: DiagnosticReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("run_diagnostics"),
 	/**
 	 *  Launch an elevated PowerShell window so the user can run a fix command.
@@ -777,6 +853,11 @@ export type BinEdit =
 { kind: "patch"; entry: string; path: string; value: LeafValue } | 
 /**  Edit one property's subtree as one undoable change. [`BinDocuments::edit_property`]. */
 { kind: "editProperty"; entry: string; holder: string; field: string; edits: ValueEdit[] } | 
+/**
+ *  Edit several properties, of one object or several, as one undoable change.
+ *  [`BinDocuments::edit_properties`].
+ */
+{ kind: "editProperties"; edits: PropertyEdit[] } | 
 /**  Add a property to the end of the holder at `path`. [`BinDocuments::add_property`]. */
 { kind: "addProperty"; entry: string; path: string; property: NewProperty } | 
 /**  Take the property at `path` out of its holder. [`BinDocuments::remove_property`]. */
@@ -3436,6 +3517,15 @@ export type PropertyDocs = {
 	doc: Doc,
 };
 
+/**  One property's staged edits, as [`BinDocuments::edit_properties`] groups them. */
+export type PropertyEdit = {
+	/**  The object, as `0x` and eight hex digits. */
+	entry: string,
+	holder: string,
+	field: string,
+	edits: ValueEdit[],
+};
+
 /**
  *  The 27 kinds `ltk_meta` reads, as they cross IPC.
  * 
@@ -3832,6 +3922,33 @@ export type ShaderSchema = {
 	switches: SchemaSwitch[],
 };
 
+/**  The sheet after an import, and the sprite the image became. */
+export type SheetImport = {
+	sheet: SheetSpec,
+	sprite: SheetSprite,
+};
+
+/**  A sheet's pack spec: where its page goes and where each sprite sits on it. */
+export type SheetSpec = {
+	/**  The page's chunk path, such as `assets/ux/<project>/<sheet>.tex`. */
+	path: string,
+	/**  The layer and the archive folder of it the page lands in. */
+	layer: string,
+	archive: string,
+	width: number,
+	height: number,
+	sprites: SheetSprite[],
+};
+
+/**  One sprite of a sheet, whose source is `<key>.png` beside the spec. */
+export type SheetSprite = {
+	key: string,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+};
+
 /**  What a translated stage binds. */
 export type Sidecar = {
 	blocks: UniformBlock[],
@@ -4109,6 +4226,119 @@ export type Track = {
 	blendWeight: number | null,
 };
 
+/**  `Anchors`, as fractions of the screen or of the parent rect. */
+export type UiAnchor = 
+/**  No anchor object, which places the element as an anchor at the origin does. */
+{ kind: "none" } | { kind: "single"; anchor: [(number | null), (number | null)] } | { kind: "double"; left: [(number | null), (number | null)]; right: [(number | null), (number | null)] } | 
+/**
+ *  `AnchorHierarchy`, class `0xf090d2e7`, which places the element in its parent's
+ *  rect, per `0x1413B2860`. Four of its fields have no name.
+ */
+{ kind: "hierarchy"; 
+/**  `AlignX` and `AlignY`: 0, 1 and 2 the parent's start, centre and end, 3 a stretch. */
+align: [number, number]; 
+/**
+ *  Fields `0x0a567dbd` and `0x09567c2a`: the element's own start, centre or end that
+ *  lands on the aligned point.
+ */
+pivot: [number, number]; 
+/**  The near and far margins of a stretch: field `0xf00a15b2` on X, `0x8ecb313b` on Y. */
+margins: [([(number | null), (number | null)]), ([(number | null), (number | null)])] };
+
+/**  A file a font or a style sheet names. */
+export type UiAsset = {
+	/**  The path as written, or its sixteen hex digits where no table names it. */
+	path: string,
+	/**  Absent where nothing on this machine holds it. */
+	asset: AssetRef | null,
+};
+
+/**
+ *  What a `UiElementGroupButtonData` holds beyond its states, per "Buttons" in
+ *  docs/research/ui-data-layout.md. Each element is `0x` and eight digits.
+ */
+export type UiButton = {
+	/**  The region a click lands in, absent where the button takes its group's rect. */
+	hitRegion: string | null,
+	/**  The hit region grows by its label's size. */
+	textSizeInHitRegion: boolean,
+	/**  `IsSelected`, which the file starts the button with. */
+	selected: boolean,
+	/**  `IsEnabled`, false by the class's default. */
+	enabled: boolean,
+	/**  `IsActive`, true by the class's default. An inactive button draws its inactive state. */
+	active: boolean,
+	/**  The particle a click's release plays. */
+	clickParticle: string | null,
+	/**  The tooltip TRA keys of the active, inactive and selected button. */
+	tooltip: string | null,
+	inactiveTooltip: string | null,
+	selectedTooltip: string | null,
+};
+
+/**  One state of a `UiElementGroupButtonData`, such as `DefaultStateElements`. */
+export type UiButtonState = {
+	/**  The field name, such as `HoverStateElements`. */
+	state: string,
+	/**  The `DisplayElementList`, as `0x` and eight digits each. */
+	elements: string[],
+	/**  The text the state's label draws with, as `0x` and eight digits. */
+	text: string | null,
+	/**  The element framing that label, as `0x` and eight digits. */
+	textFrame: string | null,
+};
+
+/**
+ *  One `UiComboBoxDefinition`: the elements a combo box builds its list from, each as `0x` and
+ *  eight digits, per "Combo boxes" in docs/research/ui-data-layout.md.
+ */
+export type UiComboBox = {
+	/**  The definition object. */
+	key: string,
+	/**  Its object path, where a table names it. */
+	path: string | null,
+	/**  The `UiElementGroupButtonData` a click opens and closes the list on. */
+	button: string | null,
+	/**  The icon behind the open list, authored for one row. */
+	backdrop: string | null,
+	/**  The icon on the row under the pointer. */
+	hover: string | null,
+	/**  The icon on the selected option's row. */
+	highlight: string | null,
+	/**  The text every row's label is cloned from. */
+	optionText: string | null,
+	/**  The region every row is cloned from, whose height is the row's. */
+	optionHitArea: string | null,
+	/**  The rows run up from the button, `ListDisplayDirection` 1, rather than down. */
+	upward: boolean,
+	/**  The TRA key the closed box reads, `@Name@` standing for the selected option. */
+	labelKey: string | null,
+	/**  The sound event a selection plays. */
+	selectionSound: string | null,
+};
+
+/**  One effect class and the fields its constants come from, with the class defaults filled. */
+export type UiEffect = { effect: "cooldown"; color0: [number, number, number, number]; color1: [number, number, number, number] } | { effect: "ammo"; color0: [number, number, number, number]; color1: [number, number, number, number] } | { effect: "circleMaskCooldown"; color0: [number, number, number, number]; color1: [number, number, number, number] } | { effect: "cooldownRadial"; fill: boolean } | { effect: "arcFill" } | { effect: "glow"; cycleTime: number | null; baseScale: number | null; cycleScale: number | null; minimumAlpha: number | null } | { effect: "glowConstant"; minimum: number | null; maximum: number | null } | { effect: "animation"; frames: number | null; perRow: number | null; fps: number | null; finish: number } | { effect: "animatedRotatingIcon"; frames: number | null; perRow: number | null; fps: number | null } | { effect: "fillPercentage" } | { effect: "desaturate"; minimum: number | null; maximum: number | null } | { effect: "circleMaskDesaturate"; minimum: number | null; maximum: number | null } | { effect: "line"; thickness: number | null; rightSlice: number | null } | { effect: "rotatingIcon" } | { effect: "glowingRotatingIcon"; brightness: number | null; cycleTime: number | null } | { effect: "instanced"; color: [number, number, number, number] } | { effect: "customMaterial"; material: string | null };
+
+/**  One `UiElementIData`. */
+export type UiElement = {
+	/**  The element object, as `0x` and eight digits. */
+	key: string,
+	/**  The object path, where a table names it. */
+	path: string | null,
+	/**  The element's `name` field. */
+	label: string,
+	class: string,
+	/**  The `Scene` link, as `0x` and eight digits. */
+	scene: string | null,
+	layer: number,
+	/**  The file's `Enabled`, which the controller usually sets at run time instead. */
+	enabled: boolean,
+	/**  Absent for an element without a position, such as a plain group. */
+	position: UiPosition | null,
+	look: UiLook,
+};
+
 /**
  *  What a frontend crash reports, as the boundary and the two window handlers
  *  hand it over.
@@ -4126,6 +4356,371 @@ export type UiError = {
 	/**  Whether anything caught it, which the vendor draws on an issue. */
 	handled: boolean,
 };
+
+/**  One loadable a controller links. */
+export type UiFile = {
+	/**  The controller field that links it, such as `BaseLoadable` or `RTLOverride`. */
+	slot: string,
+	role: UiFileRole,
+	/**  The chunk's path, or its sixteen hex digits where no table names it. */
+	path: string,
+	/**  Absent where nothing on this machine holds the chunk. */
+	asset: AssetRef | null,
+};
+
+/**  What a loadable is to its controller. */
+export type UiFileRole = 
+/**  The scene bin the view draws: `BaseLoadable`, or the loadable the view was opened on. */
+"base" | 
+/**  Another `UiPropertyLoadable`, a base of its own that the view does not draw. */
+"loadable" | 
+/**  A `UiPropertyOverrideLoadable`, a `PTCH` over the base. */
+"override";
+
+/**
+ *  A `GameFontDescription`, with its `FontType` and `FontResolutionData` followed.
+ * 
+ *  Every colour is `r, g, b, a`.
+ */
+export type UiFont = {
+	/**  The description's object path, or its hash where no table names it. */
+	path: string,
+	/**  Its `name` field. */
+	name: string,
+	color: [number, number, number, number],
+	outlineColor: [number, number, number, number],
+	shadowColor: [number, number, number, number],
+	glowColor: [number, number, number, number],
+	/**  `fillTextureName`, the texture the fill samples. */
+	fill: UiAsset | null,
+	/**  The `FontType`'s faces, one per locale. */
+	faces: UiFontFace[],
+	/**  `FontResolutionData.autoScale`. */
+	autoScale: boolean,
+	/**  The `FontResolutionData`'s sizes, one list per locale. */
+	sizes: UiFontSizes[],
+};
+
+/**  A `FontLocaleType`: the files a locale draws a font with. */
+export type UiFontFace = {
+	/**  `localeName`, such as `en_us`. */
+	locale: string,
+	regular: UiAsset,
+	bold: UiAsset | null,
+};
+
+/**  A `FontResolution`, in pixels at `screenHeight`. */
+export type UiFontResolution = {
+	screenHeight: number,
+	fontSize: number,
+	outlineSize: number,
+	/**  `shadowDepthX` and `shadowDepthY`. */
+	shadowDepth: [number, number],
+};
+
+/**  A `FontLocaleResolutions`: the sizes a locale draws a font at. */
+export type UiFontSizes = {
+	locale: string,
+	resolutions: UiFontResolution[],
+};
+
+/**  A managed layout's `LayoutStyle` and `Region`, which place its children per `0x1413E4740`. */
+export type UiLayout = {
+	/**  The `Region` the children lay out in, as `0x` and eight digits. */
+	region: string | null,
+	kind: UiLayoutKind,
+	/**
+	 *  `HorizontalJustification` and `VerticalJustification`: 0, 1 and 2 the start, centre and
+	 *  end, 3 the free space shared around every child and 4 between them.
+	 */
+	justify: [number, number],
+	/**  `HorizontalFillDirection` and `VerticalFillDirection`, 1 filling from the far edge. */
+	fill: [number, number],
+	/**  A grid's `FillPriority`, non-zero filling columns first. */
+	fillPriority: number,
+	/**
+	 *  Where a child sits across its row or column, 0, 1 and 2 the start, centre and end: a
+	 *  horizontal list's `RowVerticalAlignment`, a vertical list's `ColumnHorizontalAlignment`,
+	 *  and a grid's `RowHorizontalAlignment` then `RowVerticalAlignment`.
+	 */
+	cross: [number, number],
+	/**  `IgnoreDisabledElements`, which leaves a disabled child out of the layout. */
+	ignoreDisabled: boolean,
+};
+
+/**  The class of a `LayoutStyle`. */
+export type UiLayoutKind = "horizontalList" | "verticalList" | "grid";
+
+/**  What an element draws. */
+export type UiLook = 
+/**  `UiElementIconData`. */
+{ kind: "icon"; sprite: UiSprite | null; 
+/**  `Color` as `r, g, b, a`. */
+color: [number, number, number, number]; useAlpha: boolean; flip: [boolean, boolean]; perPixelUvs: [boolean, boolean]; fillType: number; 
+/**  The `StaticMaterialDef` it draws with in place of the UI shader. */
+material: string | null } | 
+/**  A `UiElementEffect*Data`. */
+{ kind: "effect"; effect: UiEffect; sprite: UiSprite | null; flip: [boolean, boolean]; perPixelUvsX: boolean } | 
+/**  `UiElementTextData`. */
+{ kind: "text"; 
+/**  The index into [`UiView::fonts`]. */
+font: number | null; 
+/**  The index into [`UiView::style_sheets`]. */
+styleSheet: number | null; traKey: string; 
+/**  `TextAlignmentHorizontal` and `TextAlignmentVertical`. */
+align: [number, number]; wrap: number; flipForRtl: boolean; iconScale: number | null; 
+/**  The smallest scale a shrinking `wrap` draws at. */
+minScale: number | null; 
+/**  The element's own `Color`, over the font's. */
+color: [number, number, number, number] | null } | 
+/**  `UiElementParticleSystemData`. */
+{ kind: "particle"; system: string | null; scale: number | null; atElementLayer: boolean } | 
+/**  `UiElementRegionData`, an invisible rect. */
+{ kind: "region" } | 
+/**  `UiElementScissorRegionData`, the clip rect of the scene `scene`, as `0x` and eight digits. */
+{ kind: "scissor"; scene: string | null } | 
+/**  A `UiElementGroupData` or a class under it. */
+{ kind: "group"; 
+/**  The `Elements` list, as `0x` and eight digits each. */
+children: string[]; 
+/**  The button states, each drawing only its own elements. */
+states: UiButtonState[]; 
+/**  The group's `Alpha`, and 1 for a class that carries none. */
+alpha: number | null; 
+/**
+ *  How a `UiElementGroupManagedLayoutData` places its children, and none for any
+ *  other group.
+ */
+layout: UiLayout | null; 
+/**  What a `UiElementGroupButtonData` holds beyond its states, and none for any other group. */
+button: UiButton | null; 
+/**  What a `UiElementGroupMeterData` holds, and none for any other group. */
+meter: UiMeter | null } | 
+/**  `UiElementSpineAnimationData`, drawn as a placeholder. */
+{ kind: "spine" } | 
+/**  A class the read does not know. */
+{ kind: "unknown" };
+
+/**
+ *  What a `UiElementGroupMeterData` holds, per "Meters" in docs/research/ui-data-layout.md. Each
+ *  element is `0x` and eight digits.
+ */
+export type UiMeter = {
+	/**  `BarElements`, the children the fill cuts. */
+	bars: string[],
+	/**  `FillDirection`. */
+	direction: number,
+	/**  `StartPercentage`, the fill the meter starts at, 0 to 1. */
+	start: number | null,
+	/**  `IsEnabled`, true by the class's default. */
+	enabled: boolean,
+	/**  The `TipStyle`, none where the file writes none or a class the read does not know. */
+	tip: UiMeterTip | null,
+};
+
+/**  A meter's `TipStyle`, the children drawn at the fill's edge. */
+export type UiMeterTip = {
+	style: UiTipStyle,
+	/**  `DirectionalTipElements`. */
+	elements: string[],
+	/**  A double-sided tip's `ReverseDirectionalTipElements`. */
+	reverse: string[],
+	/**  A double-sided tip's `Sliver`. */
+	sliver: string | null,
+	/**  A glow-centered tip's unnamed `0xcc4c6d1d`, 0.5 by default. */
+	glow: number | null,
+};
+
+/**  Where an element sits, `Position`. */
+export type UiPosition = 
+/**  `UiPositionRect`. */
+{ kind: "rect"; rect: UiRect } | 
+/**  `UiPositionPolygon`, drawn as its rect until its tessellation is known. */
+{ kind: "polygon"; rect: UiRect; vertices: ([(number | null), (number | null)])[] } | 
+/**  `UiPositionFullScreen`, the whole parent rect. */
+{ kind: "fullScreen" };
+
+/**  `UiPositionRect` and its `UIRect`, in the element's source resolution. */
+export type UiRect = {
+	/**  The top-left corner in source pixels. */
+	position: [(number | null), (number | null)],
+	size: [(number | null), (number | null)],
+	/**  `SourceResolutionWidth` and `Height`. */
+	source: [number, number],
+	anchor: UiAnchor,
+	ignoreGlobalScale: boolean,
+	ignoreSafeZone: boolean,
+	disableResolutionDownscale: boolean,
+	/**  `DisablePixelSnappingX` and `Y`. */
+	disablePixelSnapping: [boolean, boolean],
+	minSize: [(number | null), (number | null)],
+	maxSize: [(number | null), (number | null)],
+};
+
+/**  One `UISceneData`. */
+export type UiScene = {
+	/**  The scene object, as `0x` and eight digits. */
+	key: string,
+	/**  The object path, where a table names it. */
+	path: string | null,
+	/**  The scene's `name` field. */
+	label: string,
+	class: string,
+	/**  The `ParentScene` link, as `0x` and eight digits. */
+	parent: string | null,
+	layer: number,
+	/**  The file's `Enabled`, which the controller usually sets at run time instead. */
+	enabled: boolean,
+	inheritScissoring: boolean,
+};
+
+/**
+ *  A shader pair the client draws a UI command with. The client pairs them in code, so a
+ *  vertex stage can serve several pixel stages.
+ */
+export type UiShader = "blend" | "opaque" | "copy" | "cooldown" | "cooldownLine" | "ammo" | "ammoLine" | "circleMaskCooldown" | "cooldownRadial" | "cooldownRadialFill" | "arcFill" | "glow" | "glowConstant" | "animation" | "fillPercentage" | "desaturate" | "circleMaskDesaturate" | "line" | "lineGraph" | "rotatingIcon" | "glowingRotatingIcon" | "animatedRotatingIcon" | "gradient" | "font" | "fontOutline" | "fontIcon";
+
+/**  A 3-slice or 9-slice sprite. */
+export type UiSlice = {
+	kind: UiSliceKind,
+	/**
+	 *  The column edges, normalized, four for a horizontal or nine slice and two otherwise.
+	 *  Absent for a `LooseUiTextureData` slice, whose edges follow from `uv` and `edges`.
+	 */
+	us: (number | null)[] | null,
+	/**  The row edges, as `us`. */
+	vs: (number | null)[] | null,
+	/**  Left, right, top and bottom edge sizes in the element's source pixels. */
+	edges: [(number | null), (number | null), (number | null), (number | null)],
+};
+
+export type UiSliceKind = "horizontal" | "vertical" | "nine";
+
+/**  A region of a texture: an IMAA entry or an `AtlasData` rect. */
+export type UiSprite = {
+	/**  The index into [`UiView::textures`]. */
+	texture: number,
+	/**  `u0, v0, u1, v1`, normalized to the texture. */
+	uv: [(number | null), (number | null), (number | null), (number | null)],
+	/**  The source image path a `LooseUiTextureData` names, where a table names it. */
+	name: string | null,
+	slice: UiSlice | null,
+};
+
+/**  A `CSSSheet`: the style tags and inline icons a text's markup names. */
+export type UiStyleSheet = {
+	path: string,
+	styles: UiTextStyle[],
+	icons: UiTextIcon[],
+};
+
+/**  A `CSSIcon`, drawn inline where the markup writes `%i:name%`. */
+export type UiTextIcon = {
+	name: string,
+	texture: UiAsset | null,
+	/**  `YAdjustment`, in pixels. */
+	yAdjustment: number | null,
+};
+
+/**  A `CSSStyle`, where each field it leaves unset keeps the run's own. */
+export type UiTextStyle = {
+	/**  The tag name, such as `spellActive`. */
+	name: string,
+	color: [number, number, number, number] | null,
+	bold: boolean | null,
+	italics: boolean | null,
+	underline: boolean | null,
+};
+
+/**  A texture a sprite samples: an auto-atlas page or a hand-made sheet. */
+export type UiTexture = {
+	/**  The texture's path, or its sixteen hex digits where no table names it. */
+	path: string,
+	/**  Absent where nothing on this machine holds it. */
+	asset: AssetRef | null,
+	/**  An auto-atlas page rather than a sheet. */
+	page: boolean,
+};
+
+/**  The class of a meter's `TipStyle`. */
+export type UiTipStyle = "barExtension" | "doubleSided" | "glowCenteredOverlay";
+
+/**  A variant laid over the base scene bin, and what laying it did. */
+export type UiVariant = {
+	/**  The controller field that links it, such as `RTLOverride`. */
+	slot: string,
+	/**  Every patch record of the variant, in file order. */
+	records: UiVariantRecord[],
+	/**  The objects the variant adds, as `0x` and eight digits. */
+	added: string[],
+	/**  The base objects the variant deletes, as `0x` and eight digits. */
+	deleted: string[],
+};
+
+/**  One patch record of a variant. */
+export type UiVariantRecord = {
+	/**  The object it patches, as `0x` and eight digits. */
+	object: string,
+	/**  The property path as the file writes it, such as `Position.UIRect`. */
+	path: string,
+	/**  The same path in wire segments, each field as eight hex digits. */
+	fields: string,
+	/**  Why the record did not apply, absent where it did. */
+	skipped: string | null,
+};
+
+/**
+ *  A view controller or a `UiPropertyLoadable`, and everything its base scene bin holds, resolved
+ *  for drawing.
+ */
+export type UiView = {
+	/**  The object the view was opened on, as `0x` and eight digits. */
+	entry: string,
+	/**  Its object path, where a table names it. */
+	name: string | null,
+	/**  Its class, or its hash where no table names it. */
+	class: string,
+	/**
+	 *  The path `PathHashToSelf` hashes, which is the manifest and the page folder, where a
+	 *  table names it.
+	 */
+	folder: string | null,
+	/**  Every loadable the controller links, the base first. */
+	files: UiFile[],
+	/**  The variant drawn over the base, absent where the view draws the base alone. */
+	variant: UiVariant | null,
+	/**  The scenes of the base file, in file order. */
+	scenes: UiScene[],
+	/**  The elements of the base file, in file order. */
+	elements: UiElement[],
+	/**  The combo boxes of the base file, in file order. */
+	comboBoxes: UiComboBox[],
+	/**  Every texture a sprite names, which a sprite indexes. */
+	textures: UiTexture[],
+	/**  Every font a text names, which a text indexes. */
+	fonts: UiFont[],
+	/**  Every style sheet a text names, which a text indexes. */
+	styleSheets: UiStyleSheet[],
+	/**  Every reference the read could not follow. */
+	warnings: UiViewWarning[],
+};
+
+/**  A reference a view read could not follow. The view draws without it. */
+export type UiViewWarning = 
+/**  The controller links no `BaseLoadable`. */
+{ kind: "noBase" } | 
+/**  A loadable's chunk is on no layer and in no archive. */
+{ kind: "missingFile"; path: string } | 
+/**  A file is there and does not parse as a bin or a manifest. */
+{ kind: "unreadableFile"; path: string; reason: string } | 
+/**  A `LooseUiTextureData` names a key no loaded manifest holds. */
+{ kind: "missingSprite"; element: string; name: string } | 
+/**  A text links a `GameFontDescription` or a `CSSSheet` that `ux/fonts` does not hold. */
+{ kind: "missingFont"; element: string; link: string } | 
+/**  The variant asked for is in no override slot of the controller. */
+{ kind: "unknownVariant"; slot: string } | 
+/**  A variant's file is no `PTCH`, or the base it lays over is no `PROP`. */
+{ kind: "notAPatch"; path: string };
 
 /**  One uniform block, as the blob's `RDEF` laid it out. */
 export type UniformBlock = {
@@ -4328,6 +4923,12 @@ object: VfxObject | null } |
 { type: "none" } | 
 /**  A leaf this build has no reading for. */
 { type: "undrawn" };
+
+/**  A variant a view draws over its base: the override slot, and its open document where one is. */
+export type ViewVariant = {
+	slot: string,
+	document: BinDocumentId | null,
+};
 
 /**  The winding a pass culls, `windingToCull` on the wire. */
 export type Winding = 

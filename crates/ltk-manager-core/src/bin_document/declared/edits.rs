@@ -377,8 +377,9 @@ fn change_of(inverse: &Edit) -> Result<(BinHash, Change<'_>), BinDocumentError> 
         Edit::SetKey { entry, path, key } => (*entry, Change::Rekeyed { path, old: key }),
         /* No declaration takes a property away. */
         Edit::InsertProperty { entry, holder, .. } => return Err(undeclarable(*entry, holder)),
-        /* A declared document takes a dependency edit as a link edit, never through here. */
-        Edit::Dependencies { .. } => {
+        /* A declared document takes a dependency edit as a link edit, and a group edit by
+        edit, never through here. */
+        Edit::Dependencies { .. } | Edit::Group { .. } => {
             return Err(BinDocumentError::EditRejected {
                 address: super::super::dependencies::ADDRESS.to_owned(),
                 rejection: EditRejection::Undeclarable,

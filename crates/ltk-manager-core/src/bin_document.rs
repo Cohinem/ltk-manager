@@ -15,7 +15,7 @@ use lru::LruCache;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::walk::{Leaf, TreeValue as _};
-use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
+use ltk_meta::{ApplyReport, Bin, BinFile, BinObject, PropertyValueEnum};
 use ltk_modpkg::Slug;
 use parking_lot::{ArcRwLockReadGuard, Mutex, RawRwLock, RwLock};
 use serde::{Deserialize, Serialize};
@@ -40,14 +40,14 @@ pub use clipboard::{CLIPBOARD_FORMAT, clipboard_text, clipboard_value};
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
     DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredSign,
-    DeclaredState, Declaring, GameCopy, LayerOverride, LinkChange, NewObject, ObjectChange,
-    ObjectSkip, RowDeclaration, SkipReason,
+    DeclaredState, Declaring, GameCopy, LaidVariant, LayerOverride, LinkChange, NewObject,
+    ObjectChange, ObjectSkip, RowDeclaration, SkipReason, VariantSource,
 };
 pub use edit::{EditRejection, HistoryStep, LeafValue, ReadOnly, Reshape, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
 pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
-pub use property_edit::ValueEdit;
+pub use property_edit::{PropertyEdit, ValueEdit};
 pub use records::TARGET_PATH;
 pub use requests::{BinEdit, ChoiceQuery, Choices, DependencyEdit, EditOutcome, ObjectEdit};
 
@@ -341,6 +341,27 @@ impl BinDocuments {
         self.hold(TreeKey::new(sandbox, asset), || {
             let (bytes, context) = open()?;
             Ok(BinDocument::declare(bytes, chunk_hash, context)?)
+        })
+    }
+
+    /// Hold the game variant `asset` open in `sandbox` as a declared document laid over its
+    /// base scene bin, answering a fresh id over its tree.
+    ///
+    /// As [`BinDocuments::open_declared`], with the tree [`BinDocument::declare_variant`]
+    /// builds. `chunk_hash` is the variant chunk's path hash.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::open`], and with what [`BinDocument::declare_variant`] raises.
+    pub fn open_declared_variant(
+        &self,
+        sandbox: &SandboxRef,
+        asset: AssetRef,
+        chunk_hash: u64,
+        open: impl FnOnce() -> AppResult<VariantSource>,
+    ) -> AppResult<BinDocumentId> {
+        self.hold(TreeKey::new(sandbox, asset), || {
+            Ok(BinDocument::declare_variant(open()?, chunk_hash)?)
         })
     }
 
@@ -1130,6 +1151,19 @@ impl BinDocument {
     #[must_use]
     pub fn object_at(&self, entry: BinHash) -> Option<&BinObject> {
         self.file.objects().get(&entry)
+    }
+
+    /// This `PROP` with the `PTCH` `variant` laid over a copy of it in the client's order, and
+    /// what laying it did. `None` where this is no `PROP` or `variant` is no `PTCH`.
+    #[must_use]
+    pub fn with_variant(&self, variant: &BinDocument) -> Option<(Bin, ApplyReport)> {
+        let (BinFile::Prop(bin), BinFile::Override(patch)) = (&self.file, &variant.file) else {
+            return None;
+        };
+
+        let mut merged = bin.clone();
+        let report = patch.clone().apply(&mut merged);
+        Some((merged, report))
     }
 
     /// The header's dependencies, as the archive paths the file writes them. A `PTCH`

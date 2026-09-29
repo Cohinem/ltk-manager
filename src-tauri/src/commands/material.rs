@@ -226,7 +226,7 @@ pub async fn read_particle_program(
 }
 
 /// The translations kept under the app's data directory, or none kept where it has none.
-fn translations(app_handle: &AppHandle) -> TranslationCache {
+pub(super) fn translations(app_handle: &AppHandle) -> TranslationCache {
     TranslationCache::new(
         get_app_data_dir(app_handle)
             .map(|dir| dir.join("shaders"))

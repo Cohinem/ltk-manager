@@ -37,6 +37,7 @@ ltk-telemetry = { workspace = true }
 ltk_mod_core = { version = "0.1.1" }
 ltk_overlay = { workspace = true }
 ltk_file = { workspace = true }
+ltk_game_data = { workspace = true }
 ltk_hash = { workspace = true }
 
 serde_yaml_ng = { workspace = true }
