@@ -2114,6 +2114,14 @@ the system picks takes effect when the run next starts over, never under the aut
 Continuous run lasts the minute a seek reaches and never starts over, so a stop shows the
 linger.
 
+**Open effect carries the rig a view built.** The spell's Missile pane opens its projectile
+effect on the spell's own flight, and its hit effect on the ground. The skin preview's Open
+effect menu lists each idle effect, which opens Continuous on its joint, and each particle
+event of the clip playing, which opens on its joint and replays once per pass of the clip. A
+skin's effect opens with the skin and the clip in the character picker, the character posed
+from the event's frame. The pill names the view as the rig's source, and `Ctrl` opens the tab
+beside.
+
 **The gizmo** draws the selected emitter's origin and its offset as lines, and its spawn shape as
 a body in faint faces under crisp edges. It is the one gizmo of the editor: the Geometry node's
 Show shape switch opens its emitter and turns the gizmo on, pressed while the gizmo shows that
