@@ -2103,7 +2103,8 @@ already stands there, it turns the camera to the axis's other end, on Orbit.
 Auto, Custom, a template's name or the context it was opened from (ADR-0057). Its popover says the
 same in a line, with Reset to auto beside it for a rig that is not the system's own. Under it are
 the carrier (Ground, Flight and Orbit, and Bone while a skin's joint carries the run), the
-playback (Once, Replay and Continuous), the height, the motion's sliders, the stop, and the seed
+playback (Once, Replay and Continuous), the height, the motion's sliders and an orbit's
+Orientation, the stop, and the seed
 with its reroll.
 
 **The system picks its own rig.** A system with an emitter that has no `lifetime` plays
@@ -2113,6 +2114,11 @@ carrier keeps the playback, the stop and a height the author tuned. An edit that
 the system picks takes effect when the run next starts over, never under the author. A
 Continuous run lasts the minute a seek reaches and never starts over, so a stop shows the
 linger.
+
+**Orbit flies as a missile unless told otherwise.** A missile's effect is authored travelling
+along its own `Y`, so Orbit carries the system on the frame Flight does and the trail lies along
+the circle. Its Orientation picks Unit for a system a champion carries, such as a dash, which
+travels along its own `Z` as it does on the Ground.
 
 **Open effect carries the rig a view built.** The spell's Missile pane opens its projectile
 effect on the spell's own flight, and its hit effect on the ground. The skin preview's Open

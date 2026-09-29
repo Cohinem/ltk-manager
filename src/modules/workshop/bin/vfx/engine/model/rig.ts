@@ -59,7 +59,12 @@ export type Joints = (name: string) => Anchor | null;
 export type Motion =
   | { readonly kind: "still" }
   | { readonly kind: "path"; readonly from: Point; readonly to: Point; readonly speed: number }
-  | { readonly kind: "orbit"; readonly radius: number; readonly period: number }
+  | {
+      readonly kind: "orbit";
+      readonly radius: number;
+      readonly period: number;
+      readonly orientation: OrbitOrientation;
+    }
   | {
       readonly kind: "bone";
       readonly anchor: Anchor;
@@ -109,6 +114,14 @@ export function flightPath(distance: number, speed: number): Motion {
     speed,
   };
 }
+
+/**
+ * The frame an orbit carries its system on: a missile's, travelling along its local `Y` as
+ * Flight does, or a unit's look-at, travelling along its local `Z` as Ground faces.
+ */
+export type OrbitOrientation = "missile" | "unit";
+
+export const ORBIT_ORIENTATIONS: readonly OrbitOrientation[] = ["missile", "unit"];
 
 /** What carries a system, the half of a rig that places its origin. ADR-0057. */
 export type Carrier = "ground" | "bone" | "flight" | "orbit";
@@ -168,7 +181,12 @@ function carried(carrier: Exclude<Carrier, "bone">): Pick<RigModel, "motion" | "
       return { motion: flightPath(FLIGHT_RANGE, FLIGHT_SPEED), height: FLIGHT_HEIGHT };
     case "orbit":
       return {
-        motion: { kind: "orbit", radius: ORBIT.radius, period: ORBIT.period },
+        motion: {
+          kind: "orbit",
+          radius: ORBIT.radius,
+          period: ORBIT.period,
+          orientation: "missile",
+        },
         height: FLIGHT_HEIGHT,
       };
   }
@@ -286,6 +304,11 @@ export function facingAt(motion: Motion, time: number): Point {
 }
 
 const ANCHOR_BASIS = new Float32Array(9);
+
+/** The motion carries its system on a missile's frame, as Flight and a missile-oriented orbit do. */
+export function fliesAsMissile(motion: Motion): boolean {
+  return motion.kind === "path" || (motion.kind === "orbit" && motion.orientation === "missile");
+}
 
 /** `direction` laid flat as a unit vector, and [`FORWARD`] for one with no reach in the plane. */
 function flat(direction: Point): Point {

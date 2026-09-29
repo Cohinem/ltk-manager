@@ -9,6 +9,7 @@ import {
   facingAt,
   FLIGHT_HEIGHT,
   flightPath,
+  fliesAsMissile,
   GROUND_RIG,
   landed,
   type Motion,
@@ -58,7 +59,7 @@ describe("facingAt", () => {
   });
 
   it("faces an orbit along its own tangent", () => {
-    const orbit: Motion = { kind: "orbit", radius: 10, period: 4 };
+    const orbit: Motion = { kind: "orbit", radius: 10, period: 4, orientation: "missile" };
     expect(rounded(facingAt(orbit, 0))).toEqual([0, 0, 1]);
     expect(rounded(facingAt(orbit, 1))).toEqual([-1, 0, 0]);
   });
@@ -100,7 +101,9 @@ describe("targetAt", () => {
   });
 
   it("aims an orbit at what it circles", () => {
-    expect(targetAt({ kind: "orbit", radius: 10, period: 1 }, 0.3)).toEqual([0, 0, 0]);
+    expect(targetAt({ kind: "orbit", radius: 10, period: 1, orientation: "missile" }, 0.3)).toEqual(
+      [0, 0, 0],
+    );
   });
 
   it("aims a still rig a fixed reach ahead, so a beam has a length", () => {
@@ -136,7 +139,7 @@ describe("originAt", () => {
   });
 
   it("circles an orbit in the ground plane, once per period", () => {
-    const orbit: Motion = { kind: "orbit", radius: 10, period: 4 };
+    const orbit: Motion = { kind: "orbit", radius: 10, period: 4, orientation: "missile" };
 
     expect(originAt(orbit, 0)).toEqual([10, 0, 0]);
 
@@ -192,7 +195,7 @@ describe("runLength", () => {
   });
 
   it("gives an orbit whichever of its period and the span is longer", () => {
-    const slow: Motion = { kind: "orbit", radius: 1, period: 9 };
+    const slow: Motion = { kind: "orbit", radius: 1, period: 9, orientation: "missile" };
 
     expect(runLength(slow, 2)).toBe(9);
     expect(runLength(slow, 20)).toBe(20);
@@ -259,11 +262,24 @@ describe("carrierOf and playbackOf", () => {
   it("names the half of a rig each motion and lifecycle is", () => {
     expect(carrierOf({ kind: "still" })).toBe("ground");
     expect(carrierOf(SLOW)).toBe("flight");
-    expect(carrierOf({ kind: "orbit", radius: 1, period: 1 })).toBe("orbit");
+    expect(carrierOf({ kind: "orbit", radius: 1, period: 1, orientation: "missile" })).toBe(
+      "orbit",
+    );
     expect(carrierOf({ kind: "bone", anchor: WALKER, target: null })).toBe("bone");
     expect(playbackOf("loop")).toBe("replay");
     expect(playbackOf("once")).toBe("once");
     expect(playbackOf("continuous")).toBe("continuous");
+  });
+});
+
+describe("fliesAsMissile", () => {
+  it("carries a flight and a missile-oriented orbit on a missile's frame, and nothing else", () => {
+    expect(fliesAsMissile(SLOW)).toBe(true);
+    expect(fliesAsMissile(withCarrier(GROUND_RIG, "orbit").motion)).toBe(true);
+    expect(fliesAsMissile({ kind: "orbit", radius: 1, period: 1, orientation: "unit" })).toBe(
+      false,
+    );
+    expect(fliesAsMissile({ kind: "still" })).toBe(false);
   });
 });
 

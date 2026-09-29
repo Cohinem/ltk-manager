@@ -19,6 +19,8 @@ import {
   distance,
   flightPath,
   type Motion,
+  ORBIT_ORIENTATIONS,
+  type OrbitOrientation,
   PICKED_CARRIERS,
   type Playback,
   playbackOf,
@@ -57,6 +59,11 @@ const CARRIER_ICON: Record<Carrier, Icon> = {
   bone: BoneIcon,
   flight: RocketLaunchIcon,
   orbit: SpiralIcon,
+};
+
+const ORIENTATION_LABEL: Record<OrbitOrientation, () => string> = {
+  missile: m.workshop_bin_preview_rig_orientation_missile,
+  unit: m.workshop_bin_preview_rig_orientation_unit,
 };
 
 const PLAYBACK_LABEL: Record<Playback, () => string> = {
@@ -308,6 +315,21 @@ function MotionRows({
           range={RANGE.period}
           onValueChange={(period) => onMotionChange({ ...motion, period })}
         />
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-surface-300">
+            {m.workshop_bin_preview_rig_orientation_label()}
+          </span>
+          <SegmentedControl
+            size="xs"
+            aria-label={m.workshop_bin_preview_rig_orientation_label()}
+            value={motion.orientation}
+            onChange={(orientation: OrbitOrientation) => onMotionChange({ ...motion, orientation })}
+            options={ORBIT_ORIENTATIONS.map((each) => ({
+              value: each,
+              label: ORIENTATION_LABEL[each](),
+            }))}
+          />
+        </div>
       </>
     );
   }
