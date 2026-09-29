@@ -171,10 +171,9 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const surface = (
     <div
       data-ui="ContentBrowser:surface"
-      /* DS-GROUND: the grid is one island, so the frame is the surface's and not
-         each leaf's. A split then shows one divider where two leaves meet. A shown
-         document of islands draws its own edges, and the frame then draws none. */
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-lg border border-surface-700 has-[[data-islands]:not([hidden]_[data-islands])]:border-transparent"
+      /* DS-GROUND: each editor group is an island that frames itself, so a split
+         parts two frames with a gap. */
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip"
     >
       {isLoading && (
         <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
@@ -192,6 +191,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       <TabDndProvider tree={layout} onDrop={handleTabDrop} overlay={renderGhost}>
         <SplitLayout
           node={layout}
+          seamVariant="gap"
           onLayoutChanged={setSplitLayout}
           renderLeaf={renderLeaf}
           maximizedLeafId={maximizedLeafId}
