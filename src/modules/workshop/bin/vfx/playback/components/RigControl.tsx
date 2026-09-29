@@ -1,10 +1,11 @@
 import {
+  ArrowCounterClockwiseIcon,
+  BoneIcon,
   CaretDownIcon,
   DiceFiveIcon,
   type Icon,
   MapPinSimpleIcon,
   RocketLaunchIcon,
-  SparkleIcon,
   SpiralIcon,
 } from "@phosphor-icons/react";
 
@@ -13,12 +14,19 @@ import { m } from "@/i18n";
 import { CHAMPION_HEIGHT } from "@/modules/viewport";
 
 import {
+  type Carrier,
+  carrierOf,
   distance,
   flightPath,
   type Motion,
-  RIG_PRESETS,
+  PICKED_CARRIERS,
+  type Playback,
+  playbackOf,
+  PLAYBACKS,
   type RigModel,
-  type RigPreset,
+  type RigSource,
+  withCarrier,
+  withPlayback,
 } from "../../engine/model/rig";
 import { SliderRow } from "../../preview/components/SliderRow";
 import { useVfxRun } from "../state/run";
@@ -36,32 +44,41 @@ const RANGE = {
 /** Where the stop lands when it is switched on, which a slider then moves. */
 const FIRST_STOP = 2;
 
-const PRESET_LABEL: Record<RigPreset, () => string> = {
-  still: m.workshop_bin_preview_rig_still_label,
-  burst: m.workshop_bin_preview_rig_burst_label,
-  missile: m.workshop_bin_preview_rig_missile_label,
-  trail: m.workshop_bin_preview_rig_trail_label,
+const CARRIER_LABEL: Record<Carrier, () => string> = {
+  ground: m.workshop_bin_preview_rig_ground_label,
+  bone: m.workshop_bin_preview_rig_bone_label,
+  flight: m.workshop_bin_preview_rig_flight_label,
+  orbit: m.workshop_bin_preview_rig_orbit_label,
 };
 
-/** A glyph of each preset's motion: a place held, a burst out of one, a flight, a circuit. */
-const PRESET_ICON: Record<RigPreset, Icon> = {
-  still: MapPinSimpleIcon,
-  burst: SparkleIcon,
-  missile: RocketLaunchIcon,
-  trail: SpiralIcon,
+/** A glyph of each carrier's motion: a place held, a joint, a flight, a circuit. */
+const CARRIER_ICON: Record<Carrier, Icon> = {
+  ground: MapPinSimpleIcon,
+  bone: BoneIcon,
+  flight: RocketLaunchIcon,
+  orbit: SpiralIcon,
+};
+
+const PLAYBACK_LABEL: Record<Playback, () => string> = {
+  once: m.workshop_bin_preview_rig_once_label,
+  replay: m.workshop_bin_preview_rig_replay_label,
+  continuous: m.workshop_bin_preview_rig_continuous_label,
 };
 
 /**
  * The rig the preview drives the system on, off a pill in the viewport's own controls.
  *
- * The preset picks a motion and a lifecycle together, the sliders under it tune the one
- * the preset chose, and the seed is beside them because a rig and a seed are the two
- * halves of what a run is, "The viewer" in docs/ux/BIN_EDITOR.md.
+ * The pill names the carrier and where the rig came from. The popover picks the carrier and
+ * the playback, tunes the carrier's motion, and resets a chosen rig to the one the system
+ * picks. The seed is beside them because a rig and a seed are the two halves of what a run
+ * is. "The viewer" in docs/ux/BIN_EDITOR.md, and ADR-0057.
  */
 export function RigControl() {
-  const { rig: choice, setRig, looping, setLooping } = useVfxRun();
-  const change = (rig: RigModel) => setRig({ preset: choice.preset, rig });
-  const PresetIcon = PRESET_ICON[choice.preset];
+  const { rig: choice, setRig, resetRig } = useVfxRun();
+  const rig = choice.rig;
+  const carrier = carrierOf(rig.motion);
+  const change = (next: RigModel) => setRig({ source: { kind: "custom" }, rig: next });
+  const CarrierIcon = CARRIER_ICON[carrier];
 
   return (
     <Popover.Root>
@@ -71,11 +88,14 @@ export function RigControl() {
             variant="ghost"
             size="xs"
             compact
-            left={<PresetIcon weight="bold" className="h-4 w-4" />}
+            left={<CarrierIcon weight="bold" className="h-4 w-4" />}
             right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
             aria-label={m.workshop_bin_preview_rig_label()}
           >
-            {PRESET_LABEL[choice.preset]()}
+            {CARRIER_LABEL[carrier]()}
+            <span className="ml-1.5 max-w-32 truncate text-surface-400">
+              {sourceTag(choice.source)}
+            </span>
           </Button>
         }
       />
@@ -94,41 +114,60 @@ export function RigControl() {
               {m.workshop_bin_preview_rig_description()}
             </Popover.Description>
 
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-xs text-surface-300">
+                {sourceLine(choice.source)}
+              </span>
+              {choice.source.kind !== "auto" && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  compact
+                  left={<ArrowCounterClockwiseIcon weight="bold" className="h-3.5 w-3.5" />}
+                  onClick={resetRig}
+                >
+                  {m.workshop_bin_preview_rig_reset_action()}
+                </Button>
+              )}
+            </div>
+
             <SegmentedControl
               className="mt-3 w-full"
               size="xs"
-              aria-label={m.workshop_bin_preview_rig_label()}
-              value={choice.preset}
-              onChange={(preset: RigPreset) => setRig({ preset, rig: RIG_PRESETS[preset] })}
-              options={presetOptions()}
+              aria-label={m.workshop_bin_preview_rig_motion_label()}
+              value={carrier}
+              onChange={(next: Carrier) => {
+                if (next !== "bone") change(withCarrier(rig, next));
+              }}
+              options={carrierOptions(carrier)}
+            />
+
+            <SegmentedControl
+              className="mt-2 w-full"
+              size="xs"
+              aria-label={m.workshop_bin_preview_rig_playback_label()}
+              value={playbackOf(rig.life)}
+              onChange={(next: Playback) => change(withPlayback(rig, next))}
+              options={PLAYBACKS.map((each) => ({ value: each, label: PLAYBACK_LABEL[each]() }))}
             />
 
             <div className="mt-3 flex flex-col gap-3">
-              <SliderRow
-                label={m.workshop_bin_preview_rig_height_label()}
-                reading={m.workshop_bin_preview_rig_units_label({
-                  value: Math.round(choice.rig.height),
-                })}
-                value={choice.rig.height}
-                range={RANGE.height}
-                onValueChange={(height) => change({ ...choice.rig, height })}
-              />
+              {carrier !== "bone" && (
+                <SliderRow
+                  label={m.workshop_bin_preview_rig_height_label()}
+                  reading={m.workshop_bin_preview_rig_units_label({
+                    value: Math.round(rig.height),
+                  })}
+                  value={rig.height}
+                  range={RANGE.height}
+                  onValueChange={(height) => change({ ...rig, height })}
+                />
+              )}
 
               <MotionRows
-                motion={choice.rig.motion}
-                onMotionChange={(motion) => change({ ...choice.rig, motion })}
+                motion={rig.motion}
+                onMotionChange={(motion) => change({ ...rig, motion })}
               />
-
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-surface-300">
-                  {m.workshop_bin_preview_rig_loop_label()}
-                </span>
-                <Switch
-                  aria-label={m.workshop_bin_preview_rig_loop_label()}
-                  checked={looping}
-                  onCheckedChange={setLooping}
-                />
-              </div>
 
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-surface-300">
@@ -136,21 +175,19 @@ export function RigControl() {
                 </span>
                 <Switch
                   aria-label={m.workshop_bin_preview_rig_stop_label()}
-                  checked={choice.rig.stopAt != null}
-                  onCheckedChange={(stop) =>
-                    change({ ...choice.rig, stopAt: stop ? FIRST_STOP : null })
-                  }
+                  checked={rig.stopAt != null}
+                  onCheckedChange={(stop) => change({ ...rig, stopAt: stop ? FIRST_STOP : null })}
                 />
               </div>
-              {choice.rig.stopAt != null && (
+              {rig.stopAt != null && (
                 <SliderRow
                   label={m.workshop_bin_preview_rig_stop_after_label()}
                   reading={m.workshop_bin_preview_time_label({
-                    seconds: choice.rig.stopAt.toFixed(2),
+                    seconds: rig.stopAt.toFixed(2),
                   })}
-                  value={choice.rig.stopAt}
+                  value={rig.stopAt}
                   range={RANGE.stop}
-                  onValueChange={(stopAt) => change({ ...choice.rig, stopAt })}
+                  onValueChange={(stopAt) => change({ ...rig, stopAt })}
                 />
               )}
 
@@ -161,6 +198,42 @@ export function RigControl() {
       </Popover.Portal>
     </Popover.Root>
   );
+}
+
+/** The pill's short word for where the rig came from. */
+function sourceTag(source: RigSource): string {
+  switch (source.kind) {
+    case "auto":
+      return m.workshop_bin_preview_rig_auto_label();
+    case "custom":
+      return m.workshop_bin_preview_rig_custom_label();
+    case "template":
+      return source.name;
+    case "context":
+      return source.label;
+  }
+}
+
+/** The popover's line saying where the rig came from. */
+function sourceLine(source: RigSource): string {
+  switch (source.kind) {
+    case "auto":
+      return m.workshop_bin_preview_rig_source_auto_description();
+    case "custom":
+      return m.workshop_bin_preview_rig_source_custom_description();
+    case "template":
+      return m.workshop_bin_preview_rig_source_template_description({ name: source.name });
+    case "context":
+      return m.workshop_bin_preview_rig_source_context_description({ label: source.label });
+  }
+}
+
+/** The carriers an author picks, and Bone beside them while a skin's joint carries the run. */
+function carrierOptions(current: Carrier) {
+  const carriers: Carrier[] = [...PICKED_CARRIERS];
+  if (current === "bone") carriers.push("bone");
+
+  return carriers.map((carrier) => ({ value: carrier, label: CARRIER_LABEL[carrier]() }));
 }
 
 /** The stream every draw of the run comes out of, and the button that takes another. */
@@ -240,10 +313,4 @@ function MotionRows({
   }
 
   return null;
-}
-
-/** The four presets as the track's own segments, in the order the picker reads them. */
-function presetOptions() {
-  const presets = Object.keys(RIG_PRESETS) as RigPreset[];
-  return presets.map((preset) => ({ value: preset, label: PRESET_LABEL[preset]() }));
 }

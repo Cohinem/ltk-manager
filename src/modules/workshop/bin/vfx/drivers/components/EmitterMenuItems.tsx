@@ -5,12 +5,14 @@ import { ContextMenu } from "@/components";
 import { m } from "@/i18n";
 
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
+import { TemplateSubmenu } from "../../templates/TemplateMenus";
 import type { MasterItem } from "../utils/systemGraph";
 import { GraphActionsContext } from "./graphActions";
 
 /**
  * The emitter clipboard's items of the Graph menu: Duplicate, Copy and Delete on a master
- * node, and Paste emitter on a master node or the canvas. A paste on a node lands after it.
+ * node, and Paste emitter and Add from template on a master node or the canvas. A paste or a
+ * template on a node lands after it.
  */
 export function EmitterMenuItems({ item }: { item: MasterItem | null }) {
   const actions = use(GraphActionsContext);
@@ -47,6 +49,7 @@ export function EmitterMenuItems({ item }: { item: MasterItem | null }) {
           {m.workshop_bin_emitter_paste_action()}
         </ContextMenu.Item>
       )}
+      <TemplateSubmenu place={{ entry: actions.entry, after: emitter }} />
       {emitter !== null && remove !== null && (
         <ContextMenu.Item
           icon={<TrashIcon />}

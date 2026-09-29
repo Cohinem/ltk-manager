@@ -157,6 +157,9 @@ Named behaviours are presets over that pair rather than cases in the evaluator. 
 looping run restarts on `runLength`, which for a path is the flight time, because a missile's system
 dies where the missile lands, and for everything else is the system's own span.
 
+ADR-0057 replaced the presets with a carrier and a playback that the system picks for itself,
+and added a Continuous playback that never starts over.
+
 **Where a run stands is read off the clock, never stored.** `phaseAt` is `time` for a rig that plays
 once and `time % runLength` for one that loops, so nothing the rig remembers about when the reader
 picked it can make a play and a seek disagree, which decision 2.6 does not allow. A rig that counted
@@ -170,8 +173,9 @@ decision 2.5 keeps it across an edit, so a drag along a slider moves what it is 
 
 The scrub spans `max(systemSpan, runLength)`, so a flight longer than the effect is reachable.
 
-`flightPath` centres its path on the origin at half a champion's height, so an effect authored about
-its own origin is on screen for the whole run and clears the ground plane. The path's direction is
+`flightPath` centres its path on the origin, so an effect authored about its own origin is on screen
+for the whole run. A rig that moves flies at half a champion's height, and one that stands still
+stands on the ground, as the skin, spell and map previews do (ADR-0057). The path's direction is
 not a control: the reader orbits the camera instead.
 
 **A moving origin alone draws no trail**, which is why `bindWeight` (`0xca406316`) joined the field

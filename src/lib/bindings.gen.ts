@@ -252,6 +252,8 @@ export const commands = {
 	 *  read is passed over.
 	 */
 	readVfxSystem: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: VfxSystem }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_vfx_system", { document, entry }),
+	/**  Every VFX template of the catalog, which the Graph pane and the inspector offer. ADR-0058. */
+	vfxTemplates: () => __TAURI_INVOKE<({ ok: true; value: VfxTemplate[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("vfx_templates"),
 	/**
 	 *  One skin of an open document, as a viewport draws it.
 	 * 
@@ -2913,7 +2915,14 @@ source: string } |
 /**  An object of a class holding no property: `class`. */
 { type: "class"; 
 /**  The class, as a name or `0x` and eight hex digits. */
-class: string };
+class: string } | 
+/**
+ *  A particle system of the VFX template catalog: `class` and a `set` of its value.
+ *  ADR-0058.
+ */
+{ type: "template"; 
+/**  The template's catalog id. */
+template: string };
 
 /**  A property Add property writes: a field the schema declares, or one the reader shapes. */
 export type NewProperty = 
@@ -4033,6 +4042,28 @@ export type SyncGroup = {
 	kind: number,
 };
 
+/**  What carries a system a template made, per ADR-0057. */
+export type TemplateCarrier = "ground" | "flight" | "orbit";
+
+/**  One emitter a template lands, with the name it is written under. */
+export type TemplateEmitter = {
+	/**  The English `emitterName` it holds, which a landing numbers apart from the system's. */
+	name: string,
+	/**  The emitter as clipboard text. */
+	text: string,
+};
+
+/**  When a run of a system a template made starts over. */
+export type TemplatePlayback = "once" | "replay" | "continuous";
+
+/**  The rig a system template was tuned on. */
+export type TemplateRig = {
+	carrier: TemplateCarrier,
+	playback: TemplatePlayback,
+	/**  A flight's speed in engine units a second, and `None` for the carrier's own. */
+	speed: number | null,
+};
+
 /**  One texture the shader samples, and the GLSL samplers that sample it. */
 export type TextureBinding = {
 	/**  The `RDEF` name, suffix and all: `Diffuse_Texture__TX`, `PIXEL_COLOR_REMAP_RAMP_SharedTexture`. */
@@ -4238,6 +4269,24 @@ export type VfxSystem = {
 	/**  Static previews of custom materials referenced by this system and its children. */
 	materials: MaterialPreview[],
 };
+
+/**  One template of the catalog. */
+export type VfxTemplate = {
+	/**  The catalog's key, which the frontend's messages are named by. */
+	id: string,
+	kind: VfxTemplateKind,
+	/**  The English name an emitter or a system made from it is written with. */
+	name: string,
+	/**  The rig a system template was tuned on, and `None` for an emitter template. */
+	rig: TemplateRig | null,
+	/**  The game patch the template was last checked on in game, and `None` for one not yet. */
+	checked: string | null,
+	/**  The emitters the template lands, in list order: itself for an emitter template. */
+	emitters: TemplateEmitter[],
+};
+
+/**  Whether a template is one emitter or a whole system. */
+export type VfxTemplateKind = "emitter" | "system";
 
 /**  A value of a resolved system's tree. */
 export type VfxValue = 

@@ -4,11 +4,14 @@ import { use } from "react";
 import { useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
-import { api, type ValueEdit } from "@/lib/tauri";
+import { api, type TemplateEmitter, type ValueEdit } from "@/lib/tauri";
 
 import { useDocumentCall } from "../../documents/hooks/useDocumentCall";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
+import type { SystemModel } from "../engine/model/model";
+import { VfxRunContext } from "../playback/state/run";
+import { landingEdits } from "../templates/templateEdits";
 import {
   COMPLEX_LIST,
   duplicateEdits,
@@ -36,6 +39,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
   const call = useDocumentCall(document);
   const toast = useToast();
   const writeClipboard = useCopyToClipboard();
+  const system = use(VfxRunContext)?.system ?? null;
 
   if (document === null) return null;
 
@@ -53,7 +57,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
   const send = edit?.send;
   const landed = edit?.landed;
   if (send === undefined || landed === undefined) {
-    return { copy, duplicate: null, paste: null, remove: null };
+    return { copy, duplicate: null, paste: null, remove: null, land: null };
   }
 
   const apply = async (entry: string, list: string, edits: ValueEdit[]) => {
@@ -62,10 +66,11 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     );
     if (!result.ok) {
       toast.error(m.workshop_bin_emitter_edit_failed_title(), errorSummary(result.error));
-      return;
+      return false;
     }
 
     landed(id);
+    return true;
   };
 
   const duplicate = async (emitter: EmitterRef) => {
@@ -98,7 +103,25 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     await apply(emitter.entry, place.list, removeEdits(place.index));
   };
 
-  return { copy, duplicate, paste, remove };
+  const land =
+    system === null
+      ? null
+      : async (entry: string, after: EmitterRef | null, emitters: readonly TemplateEmitter[]) => {
+          const place = after === null ? null : emitterPlace(after.wire);
+          const list = place?.list ?? COMPLEX_LIST;
+          const index = place === null ? complexEnd(system) : place.index + 1;
+          const taken = new Set(system.emitters.map((emitter) => emitter.name));
+          return apply(entry, list, landingEdits(emitters, index, taken));
+        };
+
+  return { copy, duplicate, paste, remove, land };
+}
+
+/** The index past the last emitter of the system's complex list. */
+function complexEnd(system: SystemModel): number {
+  return system.emitters
+    .filter((emitter) => !emitter.simple)
+    .reduce((most, emitter) => Math.max(most, emitter.listIndex + 1), 0);
 }
 
 /**

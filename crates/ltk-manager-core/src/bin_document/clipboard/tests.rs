@@ -373,3 +373,48 @@ fn a_paste_refuses_a_list_whose_items_are_not_its_kind() {
         EditRejection::InvalidShape
     );
 }
+
+#[test]
+fn a_system_template_lands_its_emitters_named_apart_in_one_undo_step() {
+    let mut document = document(&["Sparks"], &[]);
+    let explosion = crate::vfx::vfx_templates()
+        .into_iter()
+        .find(|template| template.id == "explosion")
+        .unwrap();
+    let mut taken = vec!["Sparks".to_owned()];
+    let mut edits = Vec::new();
+    for (offset, emitter) in explosion.emitters.iter().enumerate() {
+        let name = if taken.contains(&emitter.name) {
+            format!("{}2", emitter.name)
+        } else {
+            emitter.name.clone()
+        };
+        taken.push(name.clone());
+
+        let index = 1 + offset;
+        edits.push(ValueEdit::PasteItem {
+            path: String::new(),
+            index: Some(index),
+            text: emitter.text.clone(),
+            unique: None,
+        });
+        edits.push(ValueEdit::SetLeaf {
+            path: format!("[{index}].{}", wire("emitterName")),
+            value: LeafValue::String { value: name },
+        });
+    }
+
+    document
+        .edit_property(
+            h(SYSTEM),
+            "",
+            &format!("0x{}", wire("complexEmitterDefinitionData")),
+            edits,
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+
+    assert_eq!(names(&document, SYSTEM), taken);
+    assert!(document.undo().unwrap());
+    assert_eq!(names(&document, SYSTEM), ["Sparks"]);
+}

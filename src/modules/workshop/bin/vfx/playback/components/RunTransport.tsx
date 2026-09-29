@@ -24,7 +24,8 @@ export interface RunTransportProps {
  * re-renders the scrub and the readout and nothing beside them.
  */
 export function RunTransport({ variant, scrub = true, children, className }: RunTransportProps) {
-  const { playing, speed, looping, setPlaying, setSpeed, setLooping, step, restart } = useVfxRun();
+  const { playing, speed, looping, playback, setPlaying, setSpeed, setLooping, step, restart } =
+    useVfxRun();
 
   return (
     <Transport
@@ -36,6 +37,7 @@ export function RunTransport({ variant, scrub = true, children, className }: Run
       onPlayingChange={setPlaying}
       onSpeedChange={setSpeed}
       onLoopingChange={setLooping}
+      loopDisabled={playback === "continuous"}
       onStep={step}
       onRestart={() => {
         restart();

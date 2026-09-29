@@ -3,6 +3,8 @@
 - **Status:** Accepted (2026-09-24)
 - **Date:** 2026-09-24
 - **Crates:** `ltk-declarations`, `ltk-manager-core`
+- **Extended by:** [ADR-0058](0058-a-declared-document-creates-an-object-from-a-vfx-template.md),
+  a third origin, a VFX template.
 - **Related:** Supersedes the object half of [ADR-0042](0042-a-game-bin-edit-inside-a-project-declares-into-a-layer.md),
   which disabled adding and removing an object. League-mod ADR-0029 (object bindings), ADR-0030
   (own-path rewrite) and `docs/design/game-data.md` sections 4 and 6.

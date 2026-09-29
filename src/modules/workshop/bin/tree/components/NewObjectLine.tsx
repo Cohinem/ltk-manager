@@ -7,8 +7,16 @@ import { type AppError, api, type BinDocumentId, type NewObject } from "@/lib/ta
 import { twMerge } from "@/utils";
 
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
+import { handRig } from "../../../state";
 import { binQueries } from "../../documents/hooks/useBinDocument";
 import { useDocumentCall } from "../../documents/hooks/useDocumentCall";
+import {
+  isSystemClass,
+  type SystemStart,
+  SystemTemplatePicker,
+} from "../../vfx/templates/SystemTemplatePicker";
+import { templateRig } from "../../vfx/templates/templateRig";
+import { templateLabel } from "../../vfx/templates/templateText";
 import { useInvalidateBinReads } from "../hooks/useBinEdit";
 import { NewObjectContext, type ObjectDraft } from "../state/newObject";
 import { type ClassSuggestion, classLabel, classSuggestions, classWire } from "../utils/addItem";
@@ -37,10 +45,11 @@ interface PickedClass {
  * The line after a declared file's objects where a new object is named. ADR-0049.
  *
  * A copy goes straight to its name. A new object of a class picks the class first, from the
- * classes the file holds and then every class the schema knows. The name starts as
- * `Mods/<mod>/<source or class>`, the prefix the game-data reference suggests, with the caret
- * at its end. Enter declares it, Escape steps back, and a refusal stays on the line under the
- * name. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+ * classes the file holds and then every class the schema knows, and a particle system then
+ * picks Blank or a system template (ADR-0058). The name starts as
+ * `Mods/<mod>/<source, template or class>`, the prefix the game-data reference suggests, with
+ * the caret at its end. Enter declares it, Escape steps back, and a refusal stays on the line
+ * under the name. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
  */
 export function NewObjectLine({ line, draft }: NewObjectLineProps) {
   const drafts = use(NewObjectContext);
@@ -48,12 +57,14 @@ export function NewObjectLine({ line, draft }: NewObjectLineProps) {
   const invalidate = useInvalidateBinReads();
   const call = useDocumentCall(line.document);
   const [picked, setPicked] = useState<PickedClass | null>(null);
+  const [start, setStart] = useState<SystemStart | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
 
-  const origin = originOf(draft, picked);
+  const system = picked !== null && isSystemClass(picked.wire, picked.label);
+  const origin = originOf(draft, picked, system ? start : { kind: "blank" });
   const folder = `Mods/${project?.name ?? NO_MOD}/`;
-  const suggested = `${folder}${draft.kind === "clone" ? leafOf(draft.source.name) : (picked?.label ?? "")}`;
+  const suggested = `${folder}${suggestedLeaf(draft, picked, start)}`;
 
   async function create(name: string) {
     if (origin === null || pending) return;
@@ -67,20 +78,34 @@ export function NewObjectLine({ line, draft }: NewObjectLineProps) {
       setError(result.error);
       return;
     }
+    if (
+      result.value.kind === "object" &&
+      start?.kind === "template" &&
+      start.template.rig !== null
+    ) {
+      handRig(result.value.entry, {
+        source: { kind: "template", name: templateLabel(start.template) },
+        rig: templateRig(start.template.rig),
+      });
+    }
     invalidate();
     drafts?.close();
   }
 
   function back() {
     setError(null);
-    if (draft.kind === "class" && picked !== null) setPicked(null);
+    if (draft.kind === "class" && system && start !== null) setStart(null);
+    else if (draft.kind === "class" && picked !== null) setPicked(null);
     else drafts?.close();
   }
 
   return (
     <AddLineFrame line={line} pending={pending} error={null}>
-      {origin === null && (
+      {origin === null && picked === null && (
         <ClassPicker document={line.document} onPick={setPicked} onEscape={back} />
+      )}
+      {origin === null && picked !== null && (
+        <SystemTemplatePicker className={LINE_FIELD_CLASSES} onPick={setStart} onEscape={back} />
       )}
       {origin !== null && (
         <NameField
@@ -101,10 +126,30 @@ export function NewObjectLine({ line, draft }: NewObjectLineProps) {
   );
 }
 
-/** What the backend makes the object from, or null while its class is still to pick. */
-function originOf(draft: ObjectDraft, picked: PickedClass | null): NewObject | null {
+/**
+ * What the backend makes the object from, or null while its class, or a particle system's
+ * start, is still to pick.
+ */
+function originOf(
+  draft: ObjectDraft,
+  picked: PickedClass | null,
+  start: SystemStart | null,
+): NewObject | null {
   if (draft.kind === "clone") return { type: "clone", source: draft.source.entry };
-  return picked === null ? null : { type: "class", class: picked.wire };
+  if (picked === null || start === null) return null;
+  if (start.kind === "template") return { type: "template", template: start.template.id };
+  return { type: "class", class: picked.wire };
+}
+
+/** The name a new object's suggestion ends in: its source's, its template's or its class's. */
+function suggestedLeaf(
+  draft: ObjectDraft,
+  picked: PickedClass | null,
+  start: SystemStart | null,
+): string {
+  if (draft.kind === "clone") return leafOf(draft.source.name);
+  if (start?.kind === "template") return start.template.name;
+  return picked?.label ?? "";
 }
 
 /** The last segment of an object's path, which a copy's suggested name ends in. */

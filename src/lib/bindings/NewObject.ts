@@ -11,4 +11,8 @@ source: string, } | { "type": "class",
 /**
  * The class, as a name or `0x` and eight hex digits.
  */
-class: string, };
+class: string, } | { "type": "template", 
+/**
+ * The template's catalog id.
+ */
+template: string, };

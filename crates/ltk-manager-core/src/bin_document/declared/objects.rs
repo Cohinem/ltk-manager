@@ -6,14 +6,17 @@
 
 use ltk_declarations::{ObjectEdit as ManifestObjectEdit, ObjectOperation};
 use ltk_game_data::{ClassName, EntryName, Names as _, Target};
-use ltk_hash::BinHash;
+use ltk_hash::{BinHash, Hash as _};
+use ltk_meta::property::values;
 use ltk_meta::{BinObject, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
-use super::super::edit::bin_hash;
+use super::super::edit::{Edit, bin_hash};
+use super::super::properties::field_path;
 use super::super::{BinDocument, BinDocumentError, ClassChoice, EditRejection, hex};
 use super::{RenderNames, declaring, entry_name, not_declared};
 use crate::meta_schema::SchemaAt;
+use crate::vfx::vfx_system_template;
 
 /// Where a new object of a declared document starts.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -35,6 +38,12 @@ pub enum NewObject {
     Class {
         /// The class, as a name or `0x` and eight hex digits.
         class: String,
+    },
+    /// A particle system of the VFX template catalog: `class` and a `set` of its value.
+    /// ADR-0058.
+    Template {
+        /// The template's catalog id.
+        template: String,
     },
 }
 
@@ -96,6 +105,7 @@ impl BinDocument {
             return Err(rejected(EditRejection::ObjectExists));
         }
 
+        let mut filling = None;
         let (operation, expected) = match origin {
             NewObject::Clone { source } => {
                 let source = bin_hash(source).map_err(rejected)?;
@@ -119,13 +129,68 @@ impl BinDocument {
                 let expected = BinObject::new(entry, spelled.class_hash());
                 (ObjectOperation::Construct(spelled), expected)
             }
+            NewObject::Template { template } => {
+                let value = vfx_system_template(template).ok_or_else(|| {
+                    BinDocumentError::NodeNotFound {
+                        address: template.clone(),
+                    }
+                })?;
+                let spelled = self.spelled(|names| class_name(value.class_hash, names))?;
+                let expected = BinObject::new(entry, value.class_hash);
+                filling = Some(own_named(value, &name));
+                (ObjectOperation::Construct(spelled), expected)
+            }
         };
 
+        let since = self.declared.as_ref().ok_or_else(not_declared)?.written;
         let plan = self.object_edit(name, operation)?;
         self.declare_object(&[plan], entry, |document| {
             document.object_at(entry) == Some(&expected)
         })?;
+        if let Some(properties) = filling {
+            self.fill_object(entry, properties, since)?;
+        }
         Ok(entry)
+    }
+
+    /// Declare each of `properties` on the object `entry` just created, and fold the creation
+    /// and every key into one undo step. A refusal takes the object back with its keys.
+    fn fill_object(
+        &mut self,
+        entry: BinHash,
+        properties: Vec<(BinHash, PropertyValueEnum)>,
+        since: usize,
+    ) -> Result<(), BinDocumentError> {
+        let outcome = self.declare_properties(entry, properties);
+        let declared = self.declared.as_mut().ok_or_else(not_declared)?;
+        let folded = declared.fold_undo(since);
+        if outcome.is_ok() {
+            return Ok(());
+        }
+
+        if let Some(folded) = folded {
+            declared
+                .put(&folded.layer, &folded.after, &folded.before)
+                .map_err(declaring)?;
+            declared.undo.pop_back();
+        }
+        self.reapply()?;
+        outcome
+    }
+
+    fn declare_properties(
+        &mut self,
+        entry: BinHash,
+        properties: Vec<(BinHash, PropertyValueEnum)>,
+    ) -> Result<(), BinDocumentError> {
+        for (field, value) in properties {
+            self.insert_property(entry, "", field, None, value)?;
+            self.record(Edit::RemoveProperty {
+                entry,
+                path: field_path("", field),
+            })?;
+        }
+        Ok(())
     }
 
     /// Declare the removal of the object `entry` in the chosen layer.
@@ -321,6 +386,33 @@ fn class_name(class: BinHash, names: &RenderNames<'_>) -> ClassName {
         .unwrap_or_else(|| {
             ClassName::try_from(hex(class).as_str()).expect("a spelled hash is a class name")
         })
+}
+
+/// The properties of a system template made under `name`, its `particleName` the name's last
+/// segment and its `particlePath` the name, as a clone rewrites its own path.
+fn own_named(system: values::Struct, name: &EntryName) -> Vec<(BinHash, PropertyValueEnum)> {
+    let path = name.as_str();
+    let leaf = path.rsplit('/').next().unwrap_or(path);
+    let particle_name = BinHash::hash_str("particleName");
+    let particle_path = BinHash::hash_str("particlePath");
+
+    system
+        .properties
+        .into_iter()
+        .map(|(field, value)| {
+            let own = if field == particle_name {
+                Some(leaf)
+            } else if field == particle_path {
+                Some(path)
+            } else {
+                None
+            };
+            match own {
+                Some(text) => (field, values::String::from(text).into()),
+                None => (field, value),
+            }
+        })
+        .collect()
 }
 
 /// The object a clone of `object`, spelled `source`, makes under `name`. league-mod

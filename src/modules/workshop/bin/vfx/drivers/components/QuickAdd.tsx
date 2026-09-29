@@ -7,6 +7,7 @@ import type { ValueEdit } from "@/lib/tauri";
 import { nameHash } from "../../../shared/utils/binHash";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import { COMPLEX_LIST } from "../../clipboard/emitterCopy";
+import { useTemplateChoices } from "../../templates/TemplateMenus";
 import type { MasterItem } from "../utils/graphItems";
 import { holderRow } from "../utils/holderRow";
 import type { AddChoice, AddSection } from "./AddMenu";
@@ -48,20 +49,28 @@ interface QuickEntry extends AddChoice {
  * pick adds and closes. "Adding from the keyboard" in docs/ux/BIN_EDITOR.md.
  *
  * Over a master node it lists the node's unwritten fields and its forces, and everywhere a new
- * emitter. Opened by an empty socket it lists what plugs into that socket. Escape or a press
- * outside closes it.
+ * emitter and the emitter and system templates, which land after that node or last. Opened by an empty
+ * socket it lists what plugs into that socket. Escape or a press outside closes it.
  */
 export function QuickAdd({ at, masters, onClose }: QuickAddProps) {
   const fields = useQuickFieldSections(at.plug === null ? at.master : null);
   const emitter = useNewEmitter(masters);
+  const entry = use(GraphActionsContext)?.entry ?? "";
+  const after = at.master === null ? null : { entry, wire: at.master.wire, name: at.master.name };
+  const templates = useTemplateChoices({ entry, after }, "emitter");
+  const systemTemplates = useTemplateChoices({ entry, after }, "system");
   const plugged = at.plug?.sections;
   const entries = useMemo(() => {
     const system =
       emitter === null
         ? []
         : [{ title: m.workshop_bin_graph_quick_system_label(), choices: [emitter] }];
-    return entriesOf(plugged ?? [...fields, ...system]);
-  }, [plugged, fields, emitter]);
+    const starters = [
+      { title: m.workshop_bin_graph_quick_templates_label(), choices: templates },
+      { title: m.workshop_bin_graph_quick_system_templates_label(), choices: systemTemplates },
+    ];
+    return entriesOf(plugged ?? [...fields, ...system, ...starters]);
+  }, [plugged, fields, emitter, templates, systemTemplates]);
 
   const [text, setText] = useState("");
   const shown = useMemo(() => matching(entries, text), [entries, text]);

@@ -7,6 +7,7 @@ import { errorSummary, m } from "@/i18n";
 import {
   type AssetRef,
   type BinDocumentId,
+  type DeclaredObjects,
   type EffectSystem,
   type SpellPreview,
 } from "@/lib/tauri";
@@ -15,10 +16,12 @@ import { assetKey } from "../../../preview/utils/assetRef";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { skinQueries } from "../../skin/api/skinQueries";
+import { type EffectTarget, OpenEffectButton } from "../../vfx/context/OpenEffect";
+import { GROUND_RIG } from "../../vfx/engine/model/rig";
 import { Notice } from "../../vfx/preview/components/Notice";
 import { spellQueries } from "../api/spellQueries";
 import { compileFlight } from "../utils/flight";
-import { spellEffect } from "../utils/spellSuggestions";
+import { spellEffect, spellImpact } from "../utils/spellSuggestions";
 import { MissileOptions } from "./MissileOptions";
 
 const MissileViewport = lazy(() => import("./MissileViewport"));
@@ -109,6 +112,9 @@ function MissileSetup({
     }))
     .sort((a, b) => a.label.localeCompare(b.label) || a.value.localeCompare(b.value));
   const selected = items.find((item) => item.value === (picked ?? suggested));
+  const target = effectTarget(effect, names.data?.objects);
+  const hit = spellImpact(preview, effects, names.data?.objects);
+  const hitTarget = effectTarget(hit ?? undefined, names.data?.objects);
   const movement = preview.missile?.movement;
   let blocked: { title: string; description: string } | null = null;
   if (invalid)
@@ -146,38 +152,60 @@ function MissileSetup({
           </span>
           <span className="text-surface-400">{m.workshop_missile_isolated_label()}</span>
         </div>
-        <Select.Root
-          items={items}
-          value={selected?.value ?? null}
-          onValueChange={setPicked}
-          disabled={effects.length === 0}
-        >
-          <Select.Trigger
-            aria-label={m.workshop_missile_effect_label()}
-            className="h-8 min-w-0 gap-2 bg-surface-900 px-2 text-meta"
+        <div className="flex min-w-0 items-center gap-1">
+          <Select.Root
+            items={items}
+            value={selected?.value ?? null}
+            onValueChange={setPicked}
+            disabled={effects.length === 0}
           >
-            <Select.Value
-              className="min-w-0 truncate"
-              placeholder={m.workshop_missile_effect_label()}
+            <Select.Trigger
+              aria-label={m.workshop_missile_effect_label()}
+              className="h-8 min-w-0 flex-1 gap-2 bg-surface-900 px-2 text-meta"
             >
-              {selected?.label}
-            </Select.Value>
-            <Select.Icon />
-          </Select.Trigger>
-          <Select.Portal>
-            <Select.Positioner>
-              <Select.Popup>
-                {items.map((item) => (
-                  <Select.Item key={item.value} value={item.value} className="text-meta">
-                    {item.label}
-                  </Select.Item>
-                ))}
-              </Select.Popup>
-            </Select.Positioner>
-          </Select.Portal>
-        </Select.Root>
+              <Select.Value
+                className="min-w-0 truncate"
+                placeholder={m.workshop_missile_effect_label()}
+              >
+                {selected?.label}
+              </Select.Value>
+              <Select.Icon />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner>
+                <Select.Popup>
+                  {items.map((item) => (
+                    <Select.Item key={item.value} value={item.value} className="text-meta">
+                      {item.label}
+                    </Select.Item>
+                  ))}
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
+          <OpenEffectButton
+            target={target}
+            rig={flight?.rig ?? null}
+            label={m.workshop_bin_vfx_context_flight_label()}
+          />
+        </div>
         {picked !== null && (
           <p className="text-meta text-surface-400">{m.workshop_missile_effect_manual_hint()}</p>
+        )}
+        {hitTarget !== null && (
+          <div className="flex min-w-0 items-center gap-2 text-meta">
+            <span className="shrink-0 text-surface-400">
+              {m.workshop_missile_hit_effect_label()}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-surface-200 select-text">
+              {hitTarget.path.split("/").at(-1)}
+            </span>
+            <OpenEffectButton
+              target={hitTarget}
+              rig={GROUND_RIG}
+              label={m.workshop_bin_vfx_context_impact_label()}
+            />
+          </div>
         )}
       </div>
       {blocked !== null && (
@@ -204,6 +232,26 @@ function MissileSetup({
       <MissileOptions preview={preview} anchors={anchors} setAnchors={setAnchors} effect={effect} />
     </div>
   );
+}
+
+/** The file that declares the picked effect's system, and null while it is unknown. */
+function effectTarget(
+  effect: EffectSystem | undefined,
+  objects: DeclaredObjects["objects"] | undefined,
+): EffectTarget | null {
+  if (effect === undefined) return null;
+
+  const declared = objects?.[effect.system];
+  const declaration = declared?.declarations[0];
+  const asset = effect.source ?? declaration?.asset ?? null;
+  if (asset === null) return null;
+
+  return {
+    asset,
+    entry: effect.system,
+    path: declared?.path ?? effect.system,
+    file: declaration?.file ?? effect.system,
+  };
 }
 
 function EffectPreview({

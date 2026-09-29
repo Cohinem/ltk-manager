@@ -17,7 +17,7 @@ import {
   POINT_SHAPE,
   type SystemModel,
 } from "../../model/model";
-import { type Joints, STAND_HEIGHT } from "../../model/rig";
+import type { Joints } from "../../model/rig";
 import { multiplyInto } from "../../utils/basis";
 import { createDriver, type Driver } from "../driver";
 import type { Pool } from "../pool";
@@ -420,7 +420,7 @@ describe("child sets", () => {
 
     expect(driver.pool.count).toBe(1);
     expect(child.origin[1]).toBeCloseTo(driver.pool.position[1], 3);
-    expect(child.origin[1]).toBeGreaterThan(STAND_HEIGHT + 40);
+    expect(child.origin[1]).toBeGreaterThan(40);
   });
 
   it("stops a child where its particle died, and reaps it once it has played out", () => {
@@ -452,7 +452,7 @@ describe("child sets", () => {
 
     for (let at = 0; at < 36; at += 1) driver.advance(1 / 60);
     const [child] = driver.sources("0.0");
-    expect(child.origin[1]).toBeGreaterThan(STAND_HEIGHT + 90);
+    expect(child.origin[1]).toBeGreaterThan(90);
 
     const where = child.origin[1];
     for (let at = 0; at < 12; at += 1) driver.advance(1 / 60);
@@ -594,7 +594,7 @@ describe("child sets", () => {
     /** `model` run with `joints` bound before any particle spawns, so bone children reach it. */
     function boneRun(model: SystemModel, seed: number, frames: number, joints: Joints) {
       const driver = driverFor(model, seed);
-      driver.steer({ motion: { kind: "still" }, life: "once", height: STAND_HEIGHT, joints });
+      driver.steer({ motion: { kind: "still" }, life: "once", height: 0, joints });
       for (let at = 0; at < frames; at += 1) driver.advance(1 / 60);
       return driver;
     }
@@ -888,7 +888,7 @@ describe("the rig", () => {
 
     expect(driver.pool.count).toBeGreaterThan(0);
     expect(driver.pool.position[0]).toBeCloseTo(500, 3);
-    expect(driver.origin).toEqual([500, STAND_HEIGHT, 0]);
+    expect(driver.origin).toEqual([500, 0, 0]);
   });
 
   it("puts the run back to its start when the motion itself changes", () => {

@@ -10,7 +10,7 @@ import {
   type Point,
   type RigModel,
   type Joints,
-  runLength,
+  runSpan,
   targetAt,
 } from "../model/rig";
 import {
@@ -317,7 +317,7 @@ export function createDriver(
 
   /** The lanes sized for the emitters drawn and the run they are drawn over. */
   function relane(): void {
-    lanes.resize(system.emitters.length, runLength(rig.motion, span, tail));
+    lanes.resize(system.emitters.length, runSpan(rig, span, tail));
   }
 
   /** The run at `now` as a value, deep copied. */

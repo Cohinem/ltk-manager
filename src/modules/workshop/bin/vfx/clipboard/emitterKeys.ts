@@ -1,3 +1,5 @@
+import type { TemplateEmitter } from "@/lib/tauri";
+
 import type { EmitterRef } from "./emitterCopy";
 
 /** The emitter actions of an open system. A document that takes no edit copies alone. */
@@ -9,6 +11,18 @@ export interface EmitterClipboard {
   readonly paste: ((entry: string, after: EmitterRef | null) => Promise<void>) | null;
   /** Null where the document takes no edit. */
   readonly remove: ((emitter: EmitterRef) => Promise<void>) | null;
+  /**
+   * Land a template's emitters in the system `entry`, after `after` or else last, each named
+   * apart from the system's, answering whether the edit landed. Null where the document takes
+   * no edit or no system is read.
+   */
+  readonly land:
+    | ((
+        entry: string,
+        after: EmitterRef | null,
+        emitters: readonly TemplateEmitter[],
+      ) => Promise<boolean>)
+    | null;
 }
 
 /** The keys of a chord, as a keyboard event carries them. */

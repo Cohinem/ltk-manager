@@ -1655,7 +1655,7 @@ were.
 | VfxSystemDefinitionData  Ahri_Base_Q_mis > Orb [0]   [System|Properties] [Panes] |
 +------------------------------------------------------+---------------------------+
 | PREVIEW  [Ground][Midlane][Gizmo][Stats][Cam v][Fit] | INSPECTOR                 |
-|                                            [Burst v] | [Emission][Birth][Scale]  |
+|                                      [Ground Auto v] | [Emission][Birth][Scale]  |
 |                                                      | v EMISSION                |
 |                      (viewport)                      |   rate           1  ___/  |
 |                                                      |   lifetime       1 s      |
@@ -1870,10 +1870,11 @@ sit at the far end behind a second hairline: Add marker, the Snapping toggle, th
 pinned chance beside the dice, lit while one holds. Loop and Histogram are icon toggles lit while on, and
 their tooltips name them, with Loop's naming its key. Restart plays the run from zero.
 
-**Loop is on by default.** The Loop switch is the rig's loop, the same switch the rig's popover
-shows, and a system opens with it on. With Loop off, the run pauses at the end of its span, and
-Play starts it again from zero. Turning Loop on at the end plays the run from zero, and turning it
-off during a later pass keeps the time the playhead reads.
+**Loop switches the rig between Replay and Once.** A system that ends opens on Replay, so the
+switch is on. With Loop off, the run pauses at the end of its span, and Play starts it again from
+zero. Turning Loop on at the end plays the run from zero, and turning it off during a later pass
+keeps the time the playhead reads. A switch of Loop is a change of the rig, so the rig becomes the
+author's. Under Continuous the switch takes no press, since the run never starts over.
 
 The speed is a number typed to three places, `1.000` by default, between 0.05 and 2, with a pair
 of arrows on its right that nudge it by 0.1, by 0.01 under Alt and by 0.5 under Shift. The bracket keys walk it through 0.05, 0.1, 0.25, 0.5, 1, 1.5
@@ -2098,9 +2099,28 @@ every two. An arm, its head and the face across it wear that axis's channel colo
 face stands the camera on its axis, picking Side, Top or Front. Picked again while the camera
 already stands there, it turns the camera to the axis's other end, on Orbit.
 
-**The rig pill** names its preset beside an icon of the motion. Its popover holds the motion, the
-loop, the stop, and the seed with its reroll. A system opens on Burst, which moves nothing and
-loops, and the popover's loop is the timeline's Loop switch.
+**The rig pill** names the carrier beside an icon of its motion, and where the rig came from:
+Auto, Custom, a template's name or the context it was opened from (ADR-0057). Its popover says the
+same in a line, with Reset to auto beside it for a rig that is not the system's own. Under it are
+the carrier (Ground, Flight and Orbit, and Bone while a skin's joint carries the run), the
+playback (Once, Replay and Continuous), the height, the motion's sliders, the stop, and the seed
+with its reroll.
+
+**The system picks its own rig.** A system with an emitter that has no `lifetime` plays
+Continuous, and any other Replays. A system with a trail Orbits, and any other stands on the
+Ground. Ground stands at zero, and Flight and Orbit fly at half a champion's height. A switch of
+carrier keeps the playback, the stop and a height the author tuned. An edit that changes the rig
+the system picks takes effect when the run next starts over, never under the author. A
+Continuous run lasts the minute a seek reaches and never starts over, so a stop shows the
+linger.
+
+**Open effect carries the rig a view built.** The spell's Missile pane opens its projectile
+effect on the spell's own flight, and its hit effect on the ground. The skin preview's Open
+effect menu lists each idle effect, which opens Continuous on its joint, and each particle
+event of the clip playing, which opens on its joint and replays once per pass of the clip. A
+skin's effect opens with the skin and the clip in the character picker, the character posed
+from the event's frame. The pill names the view as the rig's source, and `Ctrl` opens the tab
+beside.
 
 **The gizmo** draws the selected emitter's origin and its offset as lines, and its spawn shape as
 a body in faint faces under crisp edges. It is the one gizmo of the editor: the Geometry node's
@@ -2731,14 +2751,19 @@ chunk (ADR-0049).
 | ----------------------- | --------------------------- | -------------------------------------------- |
 | Duplicate as new object | An object row's menu        | `<name>: {clone: <object>}`                  |
 | `+ Object`              | The toolbar                 | `<name>: {class: <class>}`                   |
+| `+ Object`, a template  | The toolbar                 | `<name>: {class: <class>, set: <template>}`  |
 | Remove object           | An object row's menu        | `<object>: {remove: true}`, or drops a clone |
 | Restore object          | A removed object row's menu | Drops the `remove: true`                     |
 
 A new object is named on a line after the file's objects, never in a dialog. `+ Object`
 opens it on a class search: the classes the file holds first, then every class the schema
-knows. A duplicate opens it on the name. The name starts as `Mods/<mod>/<source or class>`,
-the prefix the game-data reference suggests, with the caret at its end. Enter declares the
-object, and Escape steps back to the class or closes the line. A name the chunk holds
+knows. A particle system then picks what it starts from: Blank, or a system template such as
+Explosion (ADR-0058). A duplicate opens it on the name. The name starts as
+`Mods/<mod>/<source, template or class>`, the prefix the game-data reference suggests, with the
+caret at its end. Enter declares the object, and Escape steps back to the template, to the class
+or closes the line. A template writes its whole value in the object's `set`, its
+`particleName` the name's last segment and its `particlePath` the name, as one undo step, and
+the system opens on the template's rig. A name the chunk holds
 already is refused on the line under the name, which stays open.
 
 Removing an object the layer created drops its creation, so no `remove: true` is written
@@ -3051,6 +3076,27 @@ nothing else is renamed.
 class, leaves the list as it was, and a toast names the reason as for every refused structural
 edit.
 
+### Adding an emitter from a template
+
+A VFX template is a tuned emitter or system the editor ships, stored as a copied emitter is
+(ADR-0058). Add from template sits beside Paste emitter in the Graph menu on a master node and on
+the canvas, and in the inspector's actions on the open card. The quick add lists the emitter
+templates too.
+
+**A template lands where a paste would**, after the emitter it was asked on, else at the end of
+the complex list, as one property edit and so one undo step. Its emitter keeps the template's
+English name, such as `Sparks`, and a name the system already holds gains a number: `Sparks2`,
+`Sparks3` and on.
+
+**A system template lands every emitter it holds**, such as Explosion's flash, fireball, debris,
+smoke, ring, heat and scorch, in the same single edit, each named apart. The run then plays on the
+template's rig, such as Missile's flight, unless the author or a context chose the rig in hand,
+and the rig pill names the template as its source.
+
+**A template names only assets the game ships**, under `assets/shared/particles/`, so it draws
+at once and the project gains no file. The plan and the list of templates are
+`docs/plans/vfx-templates.md`.
+
 ### Editing a node's structure in the Graph pane
 
 A node under an emitter stands for a value of the file, so the Graph pane edits the value's
@@ -3078,7 +3124,9 @@ leave out the force collection, which adding a force writes when it is missing.
 **Tab opens the quick add.** With the Graph pane focused, Tab or Shift+A opens a search box at
 the pointer, and a double click on bare canvas opens one at the click. Over an emitter's node, or
 with one selected, it lists that emitter's unwritten fields under their groups, then the forces.
-It always lists New emitter, which appends a complex emitter named `Emitter1`, `Emitter2` and on.
+It always lists New emitter, which appends a complex emitter named `Emitter1`, `Emitter2` and on,
+and the emitter and system templates, which land after the emitter it was opened over, else
+last.
 Typing narrows the list by an entry's name or its group, Enter adds the highlighted entry, and
 Escape or a press outside closes it. A field added this way shows at its default on its node,
 which unfolds, until an edit writes it.
