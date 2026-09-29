@@ -13,7 +13,9 @@ use ltk_manager_core::bin_document::{BinDocument, BinDocumentId};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::meta_schema::SchemaNames;
 use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::vfx::{resolve_system, search_linked_materials, VfxSystem};
+use ltk_manager_core::vfx::{
+    resolve_system, search_linked_materials, vfx_templates as catalog, VfxSystem, VfxTemplate,
+};
 use tauri::{AppHandle, Manager};
 
 /// One particle system of an open document, with every reference resolved.
@@ -65,4 +67,11 @@ pub async fn read_vfx_system(
         })
     })
     .await
+}
+
+/// Every VFX template of the catalog, which the Graph pane and the inspector offer. ADR-0058.
+#[tauri::command]
+#[specta::specta]
+pub async fn vfx_templates() -> IpcResult<Vec<VfxTemplate>> {
+    off_thread(|| Ok(catalog())).await
 }

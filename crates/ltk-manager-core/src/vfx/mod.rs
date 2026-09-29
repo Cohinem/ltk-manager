@@ -6,8 +6,13 @@
 //! tree is generic for that reason: no field name is mapped and no value is interpreted.
 
 mod resolve;
+mod templates;
 
 pub use resolve::{MAX_DEPTH, MAX_NODES, resolve_system, search_linked_materials};
+pub use templates::{
+    TemplateCarrier, TemplateEmitter, TemplatePlayback, TemplateRig, VfxTemplate, VfxTemplateKind,
+    vfx_system_template, vfx_templates,
+};
 
 use serde::Serialize;
 

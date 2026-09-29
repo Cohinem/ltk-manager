@@ -276,6 +276,14 @@ export type {
 } from "@/lib/bindings.gen";
 // The particle renderer's types, per ADR-0029.
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
+export type {
+  TemplateCarrier,
+  TemplateEmitter,
+  TemplatePlayback,
+  TemplateRig,
+  VfxTemplate,
+  VfxTemplateKind,
+} from "@/lib/bindings.gen";
 // The skin preview's types, per ADR-0029.
 export type {
   MissileMovement,
@@ -655,6 +663,7 @@ export const api = {
     syncMetaDocs: () => commands.syncMetaDocs().then(toResult),
     readVfxSystem: (document: BinDocumentId, entry: string) =>
       commands.readVfxSystem(document, entry).then(toResult),
+    vfxTemplates: () => commands.vfxTemplates().then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>
       commands.readSkin(document, entry).then(toResult),
     readMaterialPrograms: (

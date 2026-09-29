@@ -1,0 +1,993 @@
+{
+  "format": "ltk-manager/bin-value",
+  "version": 1,
+  "class": "VfxSystemDefinitionData",
+  "classHash": "0x45cd899f",
+  "value": {
+    "kind": "Struct",
+    "value": {
+      "class_hash": 1171098015,
+      "properties": {
+        "3975268028": {
+          "kind": "String",
+          "value": {
+            "value": "Aura"
+          }
+        },
+        "3882058040": {
+          "kind": "String",
+          "value": {
+            "value": "Aura"
+          }
+        },
+        "2257500010": {
+          "kind": "Container",
+          "value": {
+            "item_kind": "Struct",
+            "items": [
+              {
+                "kind": "Struct",
+                "value": {
+                  "class_hash": 164488258,
+                  "properties": {
+                    "1025882318": {
+                      "kind": "String",
+                      "value": {
+                        "value": "Ring"
+                      }
+                    },
+                    "1119715179": {
+                      "kind": "BitBool",
+                      "value": {
+                        "value": false
+                      }
+                    },
+                    "2927860839": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 70254680,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 1.0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "1376955374": {
+                      "kind": "Optional",
+                      "value": {
+                        "item_kind": "F32",
+                        "value": null
+                      }
+                    },
+                    "710223508": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 70254680,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 1.0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "8066294": {
+                      "kind": "Struct",
+                      "value": {
+                        "class_hash": 1273725437,
+                        "properties": {}
+                      }
+                    },
+                    "668207363": {
+                      "kind": "BitBool",
+                      "value": {
+                        "value": true
+                      }
+                    },
+                    "1496514460": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 1759261366,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector3",
+                            "value": {
+                              "value": [90.0, 0.0, 0.0]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "1013213428": {
+                      "kind": "String",
+                      "value": {
+                        "value": "assets/shared/particles/vs_outerring.tex"
+                      }
+                    },
+                    "4202188459": {
+                      "kind": "U8",
+                      "value": {
+                        "value": 4
+                      }
+                    },
+                    "4041961604": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 1759261366,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector3",
+                            "value": {
+                              "value": [260.0, 260.0, 260.0]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "1031692888": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 122655197,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [1.0, 1.0, 1.0, 0.0]
+                            }
+                          },
+                          "3154345447": {
+                            "kind": "Struct",
+                            "value": {
+                              "class_hash": 1128908277,
+                              "properties": {
+                                "1567157941": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "F32",
+                                    "items": [
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.0
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.1
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.7
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 1.0
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "877087803": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "Vector4",
+                                    "items": [
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 0.0]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 1.0]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 1.0]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 0.0]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "2211310241": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 122655197,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [0.5, 0.8, 1.0, 1.0]
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "Struct",
+                "value": {
+                  "class_hash": 164488258,
+                  "properties": {
+                    "1025882318": {
+                      "kind": "String",
+                      "value": {
+                        "value": "Motes"
+                      }
+                    },
+                    "2927860839": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 70254680,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 12.0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "710223508": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 70254680,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 1.5
+                            }
+                          },
+                          "3154345447": {
+                            "kind": "Struct",
+                            "value": {
+                              "class_hash": 4261825672,
+                              "properties": {
+                                "1567157941": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "F32",
+                                    "items": [
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.0
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "877087803": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "F32",
+                                    "items": [
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 1.5
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "2802337561": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "Struct",
+                                    "items": [
+                                      {
+                                        "kind": "Struct",
+                                        "value": {
+                                          "class_hash": 1403439486,
+                                          "properties": {
+                                            "1086542298": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 0.0
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.0
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            "3830150018": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 0.66
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.33
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "8066294": {
+                      "kind": "Struct",
+                      "value": {
+                        "class_hash": 2531114100,
+                        "properties": {}
+                      }
+                    },
+                    "1013213428": {
+                      "kind": "String",
+                      "value": {
+                        "value": "assets/shared/particles/base_dot.tex"
+                      }
+                    },
+                    "4202188459": {
+                      "kind": "U8",
+                      "value": {
+                        "value": 4
+                      }
+                    },
+                    "1005630701": {
+                      "kind": "Struct",
+                      "value": {
+                        "class_hash": 1035878749,
+                        "properties": {
+                          "230313139": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 80.0
+                            }
+                          },
+                          "2624027180": {
+                            "kind": "U8",
+                            "value": {
+                              "value": 1
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "4198607757": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 1759261366,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector3",
+                            "value": {
+                              "value": [15.0, 100.0, 15.0]
+                            }
+                          },
+                          "3154345447": {
+                            "kind": "Struct",
+                            "value": {
+                              "class_hash": 2899841408,
+                              "properties": {
+                                "1567157941": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "F32",
+                                    "items": [
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.0
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "877087803": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "Vector3",
+                                    "items": [
+                                      {
+                                        "kind": "Vector3",
+                                        "value": {
+                                          "value": [15.0, 100.0, 15.0]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "2802337561": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "Struct",
+                                    "items": [
+                                      {
+                                        "kind": "Struct",
+                                        "value": {
+                                          "class_hash": 1403439486,
+                                          "properties": {
+                                            "1086542298": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 0.0
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.0
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            "3830150018": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": -1.0
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.0
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "kind": "Struct",
+                                        "value": {
+                                          "class_hash": 1403439486,
+                                          "properties": {
+                                            "1086542298": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 0.0
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.0
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            "3830150018": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 0.6
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.4
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        }
+                                      },
+                                      {
+                                        "kind": "Struct",
+                                        "value": {
+                                          "class_hash": 1403439486,
+                                          "properties": {
+                                            "1086542298": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 0.0
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.0
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            },
+                                            "3830150018": {
+                                              "kind": "Container",
+                                              "value": {
+                                                "item_kind": "F32",
+                                                "items": [
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": -1.0
+                                                    }
+                                                  },
+                                                  {
+                                                    "kind": "F32",
+                                                    "value": {
+                                                      "value": 1.0
+                                                    }
+                                                  }
+                                                ]
+                                              }
+                                            }
+                                          }
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "4041961604": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 1759261366,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector3",
+                            "value": {
+                              "value": [12.0, 12.0, 12.0]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "2211310241": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 122655197,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [0.6, 0.9, 1.0, 1.0]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "1031692888": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 122655197,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [1.0, 1.0, 1.0, 0.0]
+                            }
+                          },
+                          "3154345447": {
+                            "kind": "Struct",
+                            "value": {
+                              "class_hash": 1128908277,
+                              "properties": {
+                                "1567157941": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "F32",
+                                    "items": [
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.0
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.2
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 1.0
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "877087803": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "Vector4",
+                                    "items": [
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 0.0]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 1.0]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 0.0]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "kind": "Struct",
+                "value": {
+                  "class_hash": 164488258,
+                  "properties": {
+                    "1025882318": {
+                      "kind": "String",
+                      "value": {
+                        "value": "Body"
+                      }
+                    },
+                    "1119715179": {
+                      "kind": "BitBool",
+                      "value": {
+                        "value": false
+                      }
+                    },
+                    "2927860839": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 70254680,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 4.0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "1376955374": {
+                      "kind": "Optional",
+                      "value": {
+                        "item_kind": "F32",
+                        "value": null
+                      }
+                    },
+                    "710223508": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 70254680,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 1.0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "8066294": {
+                      "kind": "Struct",
+                      "value": {
+                        "class_hash": 2531114100,
+                        "properties": {}
+                      }
+                    },
+                    "1013213428": {
+                      "kind": "String",
+                      "value": {
+                        "value": "assets/shared/particles/common_bigglow.tex"
+                      }
+                    },
+                    "4202188459": {
+                      "kind": "U8",
+                      "value": {
+                        "value": 4
+                      }
+                    },
+                    "4041961604": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 1759261366,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector3",
+                            "value": {
+                              "value": [220.0, 220.0, 220.0]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "3571546707": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 1759261366,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector3",
+                            "value": {
+                              "value": [0.6, 0.6, 0.6]
+                            }
+                          },
+                          "3154345447": {
+                            "kind": "Struct",
+                            "value": {
+                              "class_hash": 2899841408,
+                              "properties": {
+                                "1567157941": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "F32",
+                                    "items": [
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.0
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 1.0
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "877087803": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "Vector3",
+                                    "items": [
+                                      {
+                                        "kind": "Vector3",
+                                        "value": {
+                                          "value": [0.6, 0.6, 0.6]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector3",
+                                        "value": {
+                                          "value": [1.2, 1.2, 1.2]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "2211310241": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 122655197,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [0.5, 0.8, 1.0, 0.6]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "1031692888": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 122655197,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [1.0, 1.0, 1.0, 0.0]
+                            }
+                          },
+                          "3154345447": {
+                            "kind": "Struct",
+                            "value": {
+                              "class_hash": 1128908277,
+                              "properties": {
+                                "1567157941": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "F32",
+                                    "items": [
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.0
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 0.2
+                                        }
+                                      },
+                                      {
+                                        "kind": "F32",
+                                        "value": {
+                                          "value": 1.0
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "877087803": {
+                                  "kind": "Container",
+                                  "value": {
+                                    "item_kind": "Vector4",
+                                    "items": [
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 0.0]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 1.0]
+                                        }
+                                      },
+                                      {
+                                        "kind": "Vector4",
+                                        "value": {
+                                          "value": [1.0, 1.0, 1.0, 0.0]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "3393217302": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 70254680,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "F32",
+                            "value": {
+                              "value": 1.0
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "1005630701": {
+                      "kind": "Struct",
+                      "value": {
+                        "class_hash": 1330523863,
+                        "properties": {
+                          "3857869021": {
+                            "kind": "Embedded",
+                            "value": {
+                              "class_hash": 1759261366,
+                              "properties": {
+                                "3031705514": {
+                                  "kind": "Vector3",
+                                  "value": {
+                                    "value": [0.0, 100.0, 0.0]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

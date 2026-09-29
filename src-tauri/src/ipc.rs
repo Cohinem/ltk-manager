@@ -77,6 +77,7 @@ migrated![
     cancel_reference_walk,
     // Particle renderer
     read_vfx_system,
+    vfx_templates,
     // Skin preview
     read_skin,
     read_material_programs,

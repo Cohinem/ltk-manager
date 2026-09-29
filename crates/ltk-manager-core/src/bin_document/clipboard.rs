@@ -82,19 +82,9 @@ impl BinDocument {
         schema: SchemaAt<'_>,
     ) -> Result<String, BinDocumentError> {
         let value = self.property_value(entry, path)?;
-        let class = struct_class(value);
-        let copied = Copied {
-            format: CLIPBOARD_FORMAT.to_owned(),
-            version: CLIPBOARD_VERSION,
-            class: class
-                .and_then(|class| schema.class_name(class))
-                .map(str::to_owned),
-            class_hash: class.map(hex),
-            value: value.clone(),
-        };
+        let class = struct_class(value).and_then(|class| schema.class_name(class));
 
-        Ok(serde_json::to_string_pretty(&copied)
-            .expect("a bin value serializes with string keys only"))
+        Ok(clipboard_text(value, class))
     }
 
     /// Put a copy of the item at `from` into the list at `holder`, answering the copy's path.
@@ -214,6 +204,24 @@ impl BinDocument {
             None => held.is_empty(),
         })
     }
+}
+
+/// `value` as clipboard text, its struct's class named `class` where a name is known.
+pub fn clipboard_text(value: &PropertyValueEnum, class: Option<&str>) -> String {
+    let copied = Copied {
+        format: CLIPBOARD_FORMAT.to_owned(),
+        version: CLIPBOARD_VERSION,
+        class: class.map(str::to_owned),
+        class_hash: struct_class(value).map(hex),
+        value: value.clone(),
+    };
+
+    serde_json::to_string_pretty(&copied).expect("a bin value serializes with string keys only")
+}
+
+/// The value clipboard `text` carries, and `None` for text that is no sound copy.
+pub fn clipboard_value(text: &str) -> Option<PropertyValueEnum> {
+    parse_copied(text).ok()
 }
 
 /// The class of a struct or an embed, and `None` for any other value and a null pointer.

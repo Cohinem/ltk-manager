@@ -36,7 +36,7 @@ pub(crate) mod resolve;
 mod typed_names;
 
 pub use changes::{BinChange, ChangeBaseline, ChangeKind, Originals};
-pub use clipboard::CLIPBOARD_FORMAT;
+pub use clipboard::{CLIPBOARD_FORMAT, clipboard_text, clipboard_value};
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
     DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredSign,

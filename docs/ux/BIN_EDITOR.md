@@ -3063,6 +3063,22 @@ nothing else is renamed.
 class, leaves the list as it was, and a toast names the reason as for every refused structural
 edit.
 
+### Adding an emitter from a template
+
+A VFX template is a tuned emitter or system the editor ships, stored as a copied emitter is
+(ADR-0058). Add from template sits beside Paste emitter in the Graph menu on a master node and on
+the canvas, and in the inspector's actions on the open card. The quick add lists the emitter
+templates too.
+
+**A template lands where a paste would**, after the emitter it was asked on, else at the end of
+the complex list, as one property edit and so one undo step. Its emitter keeps the template's
+English name, such as `Sparks`, and a name the system already holds gains a number: `Sparks2`,
+`Sparks3` and on.
+
+**A template names only assets the game ships**, under `assets/shared/particles/`, so it draws
+at once and the project gains no file. The plan and the list of templates are
+`docs/plans/vfx-templates.md`.
+
 ### Editing a node's structure in the Graph pane
 
 A node under an emitter stands for a value of the file, so the Graph pane edits the value's
@@ -3090,7 +3106,8 @@ leave out the force collection, which adding a force writes when it is missing.
 **Tab opens the quick add.** With the Graph pane focused, Tab or Shift+A opens a search box at
 the pointer, and a double click on bare canvas opens one at the click. Over an emitter's node, or
 with one selected, it lists that emitter's unwritten fields under their groups, then the forces.
-It always lists New emitter, which appends a complex emitter named `Emitter1`, `Emitter2` and on.
+It always lists New emitter, which appends a complex emitter named `Emitter1`, `Emitter2` and on,
+and the emitter templates, which land after the emitter it was opened over, else last.
 Typing narrows the list by an entry's name or its group, Enter adds the highlighted entry, and
 Escape or a press outside closes it. A field added this way shows at its default on its node,
 which unfolds, until an edit writes it.

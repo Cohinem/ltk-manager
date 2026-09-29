@@ -74,6 +74,7 @@ describe("emitter keys", () => {
     duplicate: vi.fn(() => Promise.resolve()),
     paste: vi.fn(() => Promise.resolve()),
     remove: vi.fn(() => Promise.resolve()),
+    land: vi.fn(() => Promise.resolve()),
   });
 
   it("duplicates, copies and pastes the picked emitter", () => {

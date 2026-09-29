@@ -6,11 +6,13 @@ import { m } from "@/i18n";
 
 import type { EmitterRef } from "../../clipboard/emitterCopy";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
+import { TemplateMenuButton } from "../../templates/TemplateMenus";
 import { useEmitters } from "../state/emitterChoice";
 import { nameOf } from "../utils/emitterCards";
 
 /**
- * Duplicate, copy, paste and delete of the open card's emitter, among the inspector's actions.
+ * Duplicate, copy, paste, add from template and delete of the open card's emitter, among the
+ * inspector's actions.
  *
  * A child lane's emitter belongs to another system, so it draws none of them.
  */
@@ -45,6 +47,7 @@ export function EmitterClipboardActions() {
           <ClipboardTextIcon weight="bold" className="h-4 w-4" />
         </Action>
       )}
+      <TemplateMenuButton place={{ entry: emitter.entry, after: emitter }} />
       {remove !== null && (
         <Action label={m.workshop_bin_emitter_delete_action()} onPress={() => remove(emitter)}>
           <TrashIcon weight="bold" className="h-4 w-4" />
