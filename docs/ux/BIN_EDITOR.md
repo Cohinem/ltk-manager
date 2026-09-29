@@ -2743,14 +2743,19 @@ chunk (ADR-0049).
 | ----------------------- | --------------------------- | -------------------------------------------- |
 | Duplicate as new object | An object row's menu        | `<name>: {clone: <object>}`                  |
 | `+ Object`              | The toolbar                 | `<name>: {class: <class>}`                   |
+| `+ Object`, a template  | The toolbar                 | `<name>: {class: <class>, set: <template>}`  |
 | Remove object           | An object row's menu        | `<object>: {remove: true}`, or drops a clone |
 | Restore object          | A removed object row's menu | Drops the `remove: true`                     |
 
 A new object is named on a line after the file's objects, never in a dialog. `+ Object`
 opens it on a class search: the classes the file holds first, then every class the schema
-knows. A duplicate opens it on the name. The name starts as `Mods/<mod>/<source or class>`,
-the prefix the game-data reference suggests, with the caret at its end. Enter declares the
-object, and Escape steps back to the class or closes the line. A name the chunk holds
+knows. A particle system then picks what it starts from: Blank, or a system template such as
+Explosion (ADR-0058). A duplicate opens it on the name. The name starts as
+`Mods/<mod>/<source, template or class>`, the prefix the game-data reference suggests, with the
+caret at its end. Enter declares the object, and Escape steps back to the template, to the class
+or closes the line. A template writes its whole value in the object's `set`, its
+`particleName` the name's last segment and its `particlePath` the name, as one undo step, and
+the system opens on the template's rig. A name the chunk holds
 already is refused on the line under the name, which stays open.
 
 Removing an object the layer created drops its creation, so no `remove: true` is written

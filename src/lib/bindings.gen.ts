@@ -2915,7 +2915,14 @@ source: string } |
 /**  An object of a class holding no property: `class`. */
 { type: "class"; 
 /**  The class, as a name or `0x` and eight hex digits. */
-class: string };
+class: string } | 
+/**
+ *  A particle system of the VFX template catalog: `class` and a `set` of its value.
+ *  ADR-0058.
+ */
+{ type: "template"; 
+/**  The template's catalog id. */
+template: string };
 
 /**  A property Add property writes: a field the schema declares, or one the reader shapes. */
 export type NewProperty = 

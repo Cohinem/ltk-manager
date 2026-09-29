@@ -109,6 +109,8 @@ pub(super) struct Declared {
     diagnostics: Vec<DeclaredDiagnostic>,
     undo: VecDeque<TextEdit>,
     redo: Vec<TextEdit>,
+    /// How many writes `remember` has held, which counts past the undo stack's depth.
+    written: usize,
 }
 
 impl fmt::Debug for Declared {
@@ -311,6 +313,7 @@ impl BinDocument {
             diagnostics: Vec::new(),
             undo: VecDeque::new(),
             redo: Vec::new(),
+            written: 0,
         };
         let bytes = declared.apply().map_err(declaring)?;
         let mut document = Self::parse(bytes)?;
@@ -805,6 +808,27 @@ impl Declared {
         }
         self.undo.push_back(edit);
         self.redo.clear();
+        self.written += 1;
+    }
+
+    /// Fold every write held since the count stood at `since` into one undo step, answering
+    /// it, and `None` where none was held.
+    fn fold_undo(&mut self, since: usize) -> Option<TextEdit> {
+        let count = (self.written - since).min(self.undo.len());
+        if count == 0 {
+            return None;
+        }
+
+        let folded: Vec<TextEdit> = self.undo.drain(self.undo.len() - count..).collect();
+        let (first, last) = (folded.first()?, folded.last()?);
+        let edit = TextEdit {
+            layer: last.layer.clone(),
+            before: first.before.clone(),
+            after: last.after.clone(),
+            module: last.module,
+        };
+        self.undo.push_back(edit.clone());
+        Some(edit)
     }
 
     /// Replace the text `from` of `layer`'s manifest with `to`.

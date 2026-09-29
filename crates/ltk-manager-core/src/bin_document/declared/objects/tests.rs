@@ -293,3 +293,66 @@ fn an_object_edit_that_does_not_apply_is_reported() {
     assert_eq!(skipped[1].object, Some(ObjectSkip::RemovalUnmatched));
     assert_eq!(skipped[1].entry, "");
 }
+
+const EXPLOSION: &str = "Mods/jade-teemo/Particles/Explosion";
+
+fn template(id: &str) -> NewObject {
+    NewObject::Template {
+        template: id.to_owned(),
+    }
+}
+
+fn text_of(object: &BinObject, field: &str) -> String {
+    match &object.properties[&h(field)] {
+        PropertyValueEnum::String(text) => text.value.clone(),
+        other => panic!("{field} is no string: {other:?}"),
+    }
+}
+
+#[test]
+fn a_template_declares_a_system_of_its_value_under_its_own_name() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(project(dir.path()));
+
+    let created = document
+        .create_object(EXPLOSION, &template("explosion"))
+        .unwrap();
+
+    let object = document.object_at(created).unwrap();
+    assert_eq!(object.class_hash, h("VfxSystemDefinitionData"));
+    assert_eq!(text_of(object, "particleName"), "Explosion");
+    assert_eq!(text_of(object, "particlePath"), EXPLOSION);
+    assert_matches!(
+        &object.properties[&h("complexEmitterDefinitionData")],
+        PropertyValueEnum::Container(list) if list.len() == 7
+    );
+    let text = manifest(dir.path(), "base");
+    assert!(text.contains("class: VfxSystemDefinitionData"), "{text}");
+    assert!(text.contains("complexEmitterDefinitionData"), "{text}");
+}
+
+#[test]
+fn a_template_is_one_undo_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(project(dir.path()));
+    let created = document
+        .create_object(EXPLOSION, &template("aura"))
+        .unwrap();
+
+    assert!(document.undo().unwrap());
+
+    assert!(document.object_at(created).is_none());
+    assert!(!document.undo().unwrap());
+}
+
+#[test]
+fn a_template_no_catalog_holds_is_refused_and_writes_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(project(dir.path()));
+
+    assert_matches!(
+        document.create_object(EXPLOSION, &template("glow")),
+        Err(BinDocumentError::NodeNotFound { .. })
+    );
+    assert!(!has_manifest(dir.path(), "base"));
+}

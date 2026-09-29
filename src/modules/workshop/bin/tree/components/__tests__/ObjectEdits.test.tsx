@@ -7,7 +7,7 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ContextMenu, ToastProvider } from "@/components";
-import type { BinRow, ChoiceQuery, ObjectChange } from "@/lib/tauri";
+import type { BinRow, ChoiceQuery, ObjectChange, VfxTemplate } from "@/lib/tauri";
 import { editCall, landed, sentEdit } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -35,6 +35,15 @@ const OBJECT: BinRow = {
   kind: null,
   value: { type: "struct", classHash: "0x1b2c3d4e", class: "SkinCharacterDataProperties", len: 4 },
   declared: null,
+};
+
+const MISSILE: VfxTemplate = {
+  id: "missile",
+  kind: "system",
+  name: "Missile",
+  rig: { carrier: "flight", playback: "replay", speed: 1200 },
+  checked: null,
+  emitters: [],
 };
 
 const start = vi.fn<(draft: ObjectDraft) => void>();
@@ -139,6 +148,7 @@ beforeEach(() => {
     const object = sentEdit(command, args, "object");
     if (object?.edit.kind === "create") return landed({ kind: "object", entry: "0x0badf00d" });
     if (object !== null) return landed();
+    if (command === "vfx_templates") return Promise.resolve({ ok: true, value: [MISSILE] });
     if (command === "bin_choices" && (args?.query as ChoiceQuery).kind === "objectClasses") {
       return Promise.resolve({
         ok: true,
@@ -254,8 +264,30 @@ describe("the new-object line", () => {
     renderLine({ kind: "class" });
     const search = screen.getByRole("combobox", { name: "Class of the new object" });
 
-    await userEvent.type(search, "VfxSys");
+    await userEvent.type(search, "SkinChar");
+    await userEvent.click(
+      await screen.findByRole("option", { name: /SkinCharacterDataProperties/ }),
+    );
+
+    const input = await screen.findByRole<HTMLInputElement>("textbox", {
+      name: "Name of the new object",
+    });
+    expect(input.value).toBe("Mods/skin/SkinCharacterDataProperties");
+
+    await userEvent.type(input, "{Escape}");
+    expect(await screen.findByRole("combobox", { name: "Class of the new object" })).toBeVisible();
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("starts a particle system blank, naming it after its class", async () => {
+    renderLine({ kind: "class" });
+    await userEvent.type(
+      screen.getByRole("combobox", { name: "Class of the new object" }),
+      "VfxSys",
+    );
     await userEvent.click(await screen.findByRole("option", { name: /VfxSystemDefinitionData/ }));
+
+    await userEvent.click(await screen.findByRole("option", { name: /Blank/ }));
 
     const input = await screen.findByRole<HTMLInputElement>("textbox", {
       name: "Name of the new object",
@@ -263,8 +295,37 @@ describe("the new-object line", () => {
     expect(input.value).toBe("Mods/skin/VfxSystemDefinitionData");
 
     await userEvent.type(input, "{Escape}");
-    expect(await screen.findByRole("combobox", { name: "Class of the new object" })).toBeVisible();
-    expect(close).not.toHaveBeenCalled();
+    expect(await screen.findByRole("combobox", { name: "Start from" })).toBeVisible();
+  });
+
+  it("starts a particle system from a template, named after it", async () => {
+    renderLine({ kind: "class" });
+    await userEvent.type(
+      screen.getByRole("combobox", { name: "Class of the new object" }),
+      "VfxSys",
+    );
+    await userEvent.click(await screen.findByRole("option", { name: /VfxSystemDefinitionData/ }));
+
+    await userEvent.click(await screen.findByRole("option", { name: /Missile/ }));
+    const input = await screen.findByRole<HTMLInputElement>("textbox", {
+      name: "Name of the new object",
+    });
+    expect(input.value).toBe("Mods/skin/Missile");
+    await userEvent.type(input, "{Enter}");
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(DOCUMENT, {
+          kind: "object",
+          edit: {
+            kind: "create",
+            name: "Mods/skin/Missile",
+            origin: { type: "template", template: "missile" },
+          },
+        }),
+      ),
+    );
+    await waitFor(() => expect(close).toHaveBeenCalled());
   });
 });
 

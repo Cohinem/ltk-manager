@@ -63,6 +63,22 @@ export const useVfxRunMemoryStore = create<VfxRunMemoryStore>()((set) => ({
     }),
 }));
 
+/** The rig each system a template just made opens on, by its entry, which its first run takes. */
+const madeRigs = new Map<string, RigChoice>();
+
+/** Open the system `entry` a template made on the template's `rig`. ADR-0057. */
+export function rememberMadeRig(entry: string, rig: RigChoice): void {
+  madeRigs.set(entry.toLowerCase(), rig);
+}
+
+/** The rig a template left for the system `entry`, taken once, and null for none. */
+export function takeMadeRig(entry: string): RigChoice | null {
+  const key = entry.toLowerCase();
+  const rig = madeRigs.get(key) ?? null;
+  madeRigs.delete(key);
+  return rig;
+}
+
 /** The memory kept for `key`, read once rather than subscribed to. */
 export function rememberedVfxRun(key: string): VfxRunMemory | undefined {
   return useVfxRunMemoryStore.getState().runs[key];
