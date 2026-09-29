@@ -14,12 +14,11 @@ import {
   FIELD_PADDING,
   fieldLines,
   HEADER_HEIGHT,
-  isPrimitive,
   layoutGraph,
   LINE_HEIGHT,
-  PRIMITIVE_PREVIEW,
+  NODE_PREVIEW_SIZE,
 } from "../driverLayout";
-import type { MasterItem, StructItem } from "../graphItems";
+import type { MasterItem, RenderItem, StructItem } from "../graphItems";
 import { systemGraph } from "../systemGraph";
 
 const hex = (name: string) => nameHash(name).slice(2);
@@ -49,11 +48,13 @@ function master(root: VfxValue, pending = new Map<string, string[]>()) {
   return { tree: emitter, item: emitter.item };
 }
 
-/** A field of the master node or of its Texture node. */
+/** A field of the master node or of its Texture or Geometry node. */
 function fieldOf(item: MasterItem, name: string) {
-  return [...item.groups.flatMap((each) => each.fields), ...(item.render?.fields ?? [])].find(
-    (each) => each.hash === nameHash(name),
-  );
+  return [
+    ...item.groups.flatMap((each) => each.fields),
+    ...(item.render?.fields ?? []),
+    ...(item.geometry?.fields ?? []),
+  ].find((each) => each.hash === nameHash(name));
 }
 
 describe("classicEmitters", () => {
@@ -71,7 +72,7 @@ describe("classicEmitters", () => {
     expect(fieldOf(item, "rate")?.input).toBeNull();
   });
 
-  it("gives a keyed value and every struct a node on its field's input", () => {
+  it("gives a keyed value and every struct a node, the primitive in the Geometry node", () => {
     const { item, tree } = master(system(SPARK));
 
     expect(fieldOf(item, "birthColor")?.input).toMatchObject({
@@ -80,7 +81,8 @@ describe("classicEmitters", () => {
       wire: `${hex("complexEmitterDefinitionData")}[0].${hex("birthColor")}`,
     });
     expect(fieldOf(item, "primitive")?.input).toMatchObject({ type: "struct", shape: "struct" });
-    expect(tree.inputs.map((each) => each.tree.item.type)).toEqual(["value", "struct", "struct"]);
+    expect(tree.inputs.map((each) => each.tree.item.type)).toEqual(["value", "render", "struct"]);
+    expect(item.geometry?.role).toBe("geometry");
   });
 
   it("folds a struct's lone struct into it, and gives a list's items nodes of their own", () => {
@@ -131,11 +133,12 @@ describe("classicEmitters", () => {
       (each) => each.item.id === "c0",
     );
 
-    expect(fieldLines(item)).toBe(5 + 4);
+    /* Five headings, three fields, and the Geometry group's socket line. */
+    expect(fieldLines(item)).toBe(5 + 3 + 1);
     expect(placed?.height).toBeGreaterThan(fieldLines(item) * LINE_HEIGHT);
   });
 
-  it("moves a spawn shape taller than its one input clear of the node above it", () => {
+  it("moves a Geometry node taller than its one input clear of the node above it", () => {
     const keyed = valueCurve("ValueVector3", vector(0, 0, 0), [
       [0, vector(0, 0, 0)],
       [1, vector(1, 1, 1)],
@@ -145,10 +148,10 @@ describe("classicEmitters", () => {
     const emitter = struct("VfxEmitterDefinitionData", {
       emitterName: { type: "string", value: "Shaped" },
       birthScale0: keyed,
-      shape,
+      SpawnShape: shape,
     });
     const { items } = layoutGraph(systemGraph(system(emitter))!);
-    const placed = items.find((each) => each.item.type === "struct");
+    const placed = items.find((each) => each.item.type === "render");
 
     expect(placed?.height).toBeGreaterThan(200);
     for (const one of items) {
@@ -160,19 +163,35 @@ describe("classicEmitters", () => {
     }
   });
 
-  it("leaves a primitive node room for its sketch over its rows", () => {
-    const { item } = master(system(SPARK));
-    const primitive = fieldOf(item, "primitive")?.input as StructItem;
-    const placed = layoutGraph(systemGraph(system(SPARK))!).items.find(
-      (each) => each.item.id === primitive.id,
+  it("gathers the orientation, the spawn shape and the primitive in a Geometry node", () => {
+    const emitter = struct("VfxEmitterDefinitionData", {
+      primitive: struct("VfxPrimitiveArbitraryQuad"),
+      SpawnShape: struct("VfxShapeBox", { size: vector(1, 1, 1) }),
+      FlexShapeDefinition: struct("VfxFlexShapeDefinitionData"),
+      isDirectionOriented: { type: "bool", value: true },
+      bindWeight: valueCurve("ValueFloat", number(1)),
+    });
+    const { item, tree } = master(system(emitter));
+    const geometry = item.geometry as RenderItem;
+    const placed = layoutGraph(systemGraph(system(emitter))!).items.find(
+      (each) => each.item.id === geometry.id,
     );
-    const rows = fieldLines(primitive) * LINE_HEIGHT + 2 * FIELD_PADDING;
+    const rows = fieldLines(geometry) * LINE_HEIGHT + 2 * FIELD_PADDING;
 
-    expect(isPrimitive(primitive)).toBe(true);
-    expect(placed?.height).toBe(HEADER_HEIGHT + 3 + PRIMITIVE_PREVIEW.height + 8 + rows);
+    expect(geometry.id).toBe("c0/geometry");
+    expect(geometry.fields.map((each) => each.hash)).toEqual([
+      nameHash("isDirectionOriented"),
+      nameHash("SpawnShape"),
+      nameHash("FlexShapeDefinition"),
+      nameHash("primitive"),
+    ]);
+    expect(item.groups.find((each) => each.group === "primitive")?.fields).toEqual([]);
+    expect(fieldOf(item, "bindWeight")).toBeDefined();
+    expect(tree.inputs.some((each) => each.tree.item.id === geometry.id)).toBe(true);
+    expect(placed?.height).toBe(HEADER_HEIGHT + 3 + NODE_PREVIEW_SIZE + 8 + rows);
   });
 
-  it("gathers the texture and render fields in a Texture node, and keeps the primitive a node", () => {
+  it("gathers the texture and render fields in a Texture node, and the primitive in Geometry", () => {
     const emitter = struct("VfxEmitterDefinitionData", {
       blendMode: number(4),
       texture: { type: "asset", path: "assets/spark.tex", asset: null },
@@ -187,7 +206,7 @@ describe("classicEmitters", () => {
       nameHash("blendMode"),
     ]);
     expect(fieldOf(item, "texture")?.input).toMatchObject({ type: "file" });
-    expect(tree.inputs.map((each) => each.tree.item.type)).toEqual(["struct", "render"]);
+    expect(tree.inputs.map((each) => each.tree.item.type)).toEqual(["render", "render"]);
     expect(render?.inputs).toEqual([]);
   });
 
@@ -224,7 +243,8 @@ describe("classicEmitters", () => {
     expect(item.render?.fields.at(-1)?.hash).toBe(nameHash("alphaErosionDefinition"));
     expect(erosion?.input).toMatchObject({ type: "struct" });
     expect(render?.inputs.map((each) => each.tree.item.type)).toEqual(["value"]);
-    expect(render === undefined ? 0 : fieldLines(render.item as never)).toBe(4);
+    /* The texture, the erosion's heading and its curve row. */
+    expect(render === undefined ? 0 : fieldLines(render.item as never)).toBe(3);
   });
 
   it("gives each force its own node on an input of the emitter", () => {

@@ -30,6 +30,14 @@ const LEAST_RADIUS = 20;
 /** The camera's distance as a factor of the one that holds the particles' sphere whole. */
 const MARGIN = 1.15;
 
+/** How a follow frames what it measures: the least radius it holds, and its margin. */
+export interface Fit {
+  readonly least: number;
+  readonly margin: number;
+}
+
+const FOLLOW_FIT: Fit = { least: LEAST_RADIUS, margin: MARGIN };
+
 /** How fast the framing catches up, a second's share: quickly out, slowly back in. */
 const GROW_RATE = 10;
 const SHRINK_RATE = 1.5;
@@ -39,6 +47,8 @@ const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
 const LOW = new Vector3();
 const HIGH = new Vector3();
 const POINT = new Vector3();
+const ANCHOR = new Vector3();
+const UP = new Vector3(0, 1, 0);
 
 interface Held {
   readonly target: Vector3;
@@ -57,21 +67,37 @@ const MEASURED: Held = { target: new Vector3(), radius: 0 };
  *
  * It eases toward what it measures, out faster than in, so a birth or a death does not jolt
  * it, and it holds still while none lives. It stands on `framing` until the first particle.
+ * `source` is the run's driver unless a preview runs its own, and `turn` walks the camera round
+ * what it looks at, in radians a second. `anchor` writes the point the camera stays on, which
+ * the framing then holds the particles about, so particles born at scattered places change how
+ * far it stands and never where it looks. `fit` is the least radius it holds and its margin.
  */
 export function FollowFraming({
   drawn,
   meshes,
   framing,
+  source,
+  turn = 0,
+  anchor,
+  fit = FOLLOW_FIT,
 }: {
   drawn: readonly DrawnEmitter[];
   meshes: EmitterMeshes;
   framing: Framing;
+  source?: Source;
+  turn?: number;
+  anchor?: (out: Vector3) => Vector3;
+  fit?: Fit;
 }) {
   const { driver } = useVfxRun();
+  const read = source ?? driver;
   const held = useRef<Held | null>(null);
+  const angle = useRef(0);
 
   useFrame((state, delta) => {
-    const measured = measure(driver, drawn, meshes);
+    angle.current += delta * turn;
+    const measured = measure(read, drawn, meshes, fit.least);
+    if (anchor !== undefined && measured !== null) widenAround(measured, anchor(ANCHOR));
     let now = held.current;
     if (now === null) {
       if (measured === null) return;
@@ -85,10 +111,16 @@ export function FollowFraming({
       now.radius += (measured.radius - now.radius) * share;
     }
 
-    place(state.camera as PerspectiveCamera, now, framing);
+    place(state.camera as PerspectiveCamera, now, framing, angle.current, fit.margin);
   });
 
   return null;
+}
+
+/** `measured` as the sphere about `anchor` that holds it whole. */
+function widenAround(measured: Held, anchor: Vector3): void {
+  measured.radius += measured.target.distanceTo(anchor);
+  measured.target.copy(anchor);
 }
 
 /** The sphere holding the live particles of `drawn`'s own emitters, and null while none lives. */
@@ -96,6 +128,7 @@ function measure(
   source: Source,
   drawn: readonly DrawnEmitter[],
   meshes: EmitterMeshes,
+  least: number,
 ): Held | null {
   const pool = source.pool;
   LOW.set(Infinity, Infinity, Infinity);
@@ -126,7 +159,7 @@ function measure(
   if (!found) return null;
 
   MEASURED.target.copy(LOW).add(HIGH).multiplyScalar(0.5);
-  MEASURED.radius = Math.max(HIGH.distanceTo(LOW) / 2, LEAST_RADIUS);
+  MEASURED.radius = Math.max(HIGH.distanceTo(LOW) / 2, least);
   return MEASURED;
 }
 
@@ -143,11 +176,18 @@ function meshReach(meshes: EmitterMeshes, key: string): number {
 const EMPTY = new Sphere();
 
 /** The camera stood off `held` along the direction `framing` looks from, far enough to hold it. */
-function place(camera: PerspectiveCamera, held: Held, framing: Framing): void {
+function place(
+  camera: PerspectiveCamera,
+  held: Held,
+  framing: Framing,
+  angle: number,
+  margin: number,
+): void {
   const direction = POINT.set(...framing.position)
     .sub(LOW.set(...framing.target))
-    .normalize();
-  const distance = (held.radius / Math.sin((camera.fov * Math.PI) / 360)) * MARGIN;
+    .normalize()
+    .applyAxisAngle(UP, angle);
+  const distance = (held.radius / Math.sin((camera.fov * Math.PI) / 360)) * margin;
 
   camera.position.copy(direction).multiplyScalar(distance).add(held.target);
   camera.lookAt(held.target);

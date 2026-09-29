@@ -110,6 +110,8 @@
   --color-bin-class-text: var(--ltk-bin-class-text);
   --color-bin-kind: var(--ltk-bin-kind);
   --color-bin-kind-text: var(--ltk-bin-kind-text);
+  --color-graph-geometry: var(--ltk-graph-geometry);
+  --color-graph-geometry-text: var(--ltk-graph-geometry-text);
 
   /* Void */
   --color-void: var(--ltk-void);

@@ -272,11 +272,12 @@ export function GroupLine({ title, add }: { title: string; add?: ReactNode }) {
   );
 }
 
-/** The field a folded struct sits in, which heads its section of a struct node. */
-export function SectionLine({ title }: { title: string }) {
+/** The field a folded struct sits in, which heads its section of a struct node, and its action. */
+export function SectionLine({ title, action }: { title: string; action?: ReactNode }) {
   return (
-    <Line className="mt-0.5 border-t border-surface-700/40">
+    <Line className="mt-0.5 border-t border-surface-700/40 pr-1">
       <span className="px-2 text-surface-300">{title}</span>
+      {action}
     </Line>
   );
 }

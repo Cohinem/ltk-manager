@@ -72,14 +72,13 @@ export function socketLines(owner: GraphItem, input: InputItem | null): number {
 }
 
 /**
- * The lines a struct node draws: its class line over its rows, a list field's Add item line
- * under them, and a folded section's heading and lines. `owner` holds the sockets a list is
- * embedded in, which a section shares with its node.
+ * The lines a struct node draws: its rows, a list field's Add item line under them, and a
+ * folded section's heading and lines. `owner` holds the sockets a list is embedded in, which a
+ * section shares with its node.
  */
 export function structLines(item: StructItem, owner: GraphItem = item): number {
   return (
     item.rows.reduce((sum, row) => sum + rowLines(row) + socketLines(owner, row.input), 0) +
-    (item.shape === "struct" ? 1 : 0) +
     (listAppend(item) === null ? 0 : 1) +
     (item.nested === null ? 0 : 1 + structLines(item.nested, owner))
   );

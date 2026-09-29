@@ -22,11 +22,13 @@ import type {
 import { listEntries } from "./listEntries";
 import { holdsMaterial, MATERIAL_CLASSES, materialOf } from "./materialNodes";
 import {
+  COMPONENT_GROUP,
+  componentOf,
+  type ComponentRole,
   drawnInSection,
   FORCE_FIELD,
   FORCE_GROUP,
   masterGroup,
-  RENDER_GROUP,
   renderRank,
 } from "./renderSection";
 
@@ -119,22 +121,28 @@ function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string
     if (!authored.has(hash)) put(hash, { hash, input: null, pending: true });
   }
 
-  const rendered = byGroup.get(RENDER_GROUP);
-  const render =
-    rendered === undefined
-      ? null
-      : renderTree(rendered, inputs, { ...at, classHash, rowCount: fields.length });
+  const component = (role: ComponentRole) => {
+    const gathered = byGroup.get(COMPONENT_GROUP[role]);
+    if (gathered === undefined) return null;
+    return renderTree(role, gathered, inputs, { ...at, classHash, rowCount: fields.length });
+  };
+  const components = { texture: component("texture"), geometry: component("geometry") };
 
-  /* The Texture group's fields are the render node's, so the group holds only its input. */
+  /* A component group's fields are its node's, so the group holds only the node's input. */
   const groups: MasterGroup[] = GROUP_ORDER.flatMap((group) => {
-    const held = byGroup.get(group);
-    if (held === undefined) return group === FORCE_GROUP ? [{ group, fields: [] }] : [];
-    return [{ group, fields: group === RENDER_GROUP ? [] : held }];
+    const gathered = byGroup.get(group);
+    if (gathered === undefined) return group === FORCE_GROUP ? [{ group, fields: [] }] : [];
+    return [{ group, fields: componentOf(group) === null ? gathered : [] }];
   });
   const ordered = groups.flatMap((each) => {
-    if (each.group === RENDER_GROUP) return render === null ? [] : [render];
+    const role = componentOf(each.group);
+    if (role !== null) {
+      const tree = components[role];
+      return tree === null ? [] : [tree];
+    }
     return each.fields.flatMap((field) => inputs.get(field.hash) ?? []);
   });
+  const itemOf = (tree: GraphTree | null) => (tree?.item.type === "render" ? tree.item : null);
 
   return {
     item: {
@@ -149,15 +157,20 @@ function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string
       className: emitter.type === "struct" ? emitter.class : null,
       groups,
       rowCount: fields.length,
-      render: render?.item.type === "render" ? render.item : null,
+      render: itemOf(components.texture),
+      geometry: itemOf(components.geometry),
       ports: ordered.map(portOf),
     },
     inputs: ordered.map((tree) => ({ port: tree.item.id, tree })),
   };
 }
 
-/** The Texture node of an emitter's texture and render `fields`, which draws the texture itself. */
+/**
+ * The component node `role` of an emitter's `fields`: the Texture node, which draws the texture
+ * itself, or the Geometry node. A struct drawn as a section hands its own inputs to the node.
+ */
 function renderTree(
+  role: ComponentRole,
   fields: readonly MasterField[],
   inputs: ReadonlyMap<string, GraphTree | readonly GraphTree[]>,
   at: MasterPlace & { classHash: string; rowCount: number },
@@ -174,7 +187,9 @@ function renderTree(
   return {
     item: {
       type: "render",
-      id: `${at.id}/render`,
+      role,
+      /* The Texture node keeps the id it had before the Geometry node, which saved folds key on. */
+      id: `${at.id}/${role === "texture" ? "render" : "geometry"}`,
       wire: at.wire,
       master: at.id,
       classHash: at.classHash,

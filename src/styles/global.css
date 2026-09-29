@@ -75,6 +75,10 @@
   --ltk-bin-class-text: var(--ltk-bin-class);
   --ltk-bin-kind-text: var(--ltk-bin-kind);
 
+  /* The Geometry node of the particle graph. */
+  --ltk-graph-geometry: #f472b6;
+  --ltk-graph-geometry-text: var(--ltk-graph-geometry);
+
   /* Colors for the channels of one curve, in the order a value holds them. */
   --ltk-channel-1: #f87171;
   --ltk-channel-2: #4ade80;
@@ -121,6 +125,7 @@
   --ltk-folder-text: color-mix(in srgb, var(--ltk-folder) 60%, black);
   --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
   --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);
+  --ltk-graph-geometry-text: color-mix(in srgb, var(--ltk-graph-geometry) 55%, black);
   --ltk-void-text: color-mix(in srgb, var(--ltk-void) 50%, black);
   --ltk-channel-1-text: color-mix(in srgb, var(--ltk-channel-1) 55%, black);
   --ltk-channel-2-text: color-mix(in srgb, var(--ltk-channel-2) 55%, black);

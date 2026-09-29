@@ -5,6 +5,7 @@ import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import type { ValueCurve } from "../../engine/model/model";
 import type { EmitterGroup } from "../../inspector/utils/emitterGroups";
 import type { MaterialRef } from "./materialNodes";
+import type { ComponentRole } from "./renderSection";
 
 /** One input of a graph node: its handle id, what it is labelled, and the kind it takes. */
 export interface GraphPort {
@@ -149,20 +150,25 @@ export interface MasterItem extends ItemBase {
   readonly rowCount: number;
   /** The node the Texture group's input connects, and null where the emitter writes none. */
   readonly render: RenderItem | null;
+  /** The node the Geometry group's input connects, and null where the emitter writes none. */
+  readonly geometry: RenderItem | null;
 }
 
 /**
- * An emitter's texture and render fields as one Texture node, the fields
- * `VfxLegacyRenderComponent` gathers. Its wire is the emitter's, which holds each field.
+ * A component node gathering fields of an emitter. The Texture node holds the texture and
+ * render fields, the ones `VfxLegacyRenderComponent` gathers. The Geometry node holds the spawn
+ * shape, the primitive and the fields that orient it. Its wire is the emitter's, which holds
+ * each field.
  */
 export interface RenderItem extends ItemBase {
   readonly type: "render";
+  readonly role: ComponentRole;
   /** The id of the master node the fields belong to, which Add field keys its picks on. */
   readonly master: string;
   readonly classHash: string;
   /** The number of fields the emitter writes, which its row read asks for. */
   readonly rowCount: number;
-  /** The texture, then the rest in file order. */
+  /** In `renderRank` order. */
   readonly fields: readonly MasterField[];
 }
 

@@ -105,7 +105,8 @@ describe("embedSockets", () => {
     const shape = struct("VfxShapeLegacy", {
       emitRotationAxes: list(vector(0, 1, 0), vector(1, 0, 0)),
     });
-    const emitter = struct("VfxEmitterDefinitionData", { shape });
+    /* A struct field the master keeps a node for, since the Geometry node takes the shapes. */
+    const emitter = struct("VfxEmitterDefinitionData", { emissionSurfaceDefinition: shape });
     const tree = systemGraph(
       struct("VfxSystemDefinitionData", { complexEmitterDefinitionData: list(emitter) }),
     )!;

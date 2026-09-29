@@ -23,8 +23,11 @@ const AXIS_SHARE = 0.3;
 /** How far each arm of a lone spawn point's crosshair reaches, as a share of the cloud's reach. */
 const CROSS_SHARE = 0.12;
 
-/** The stem's opacity from the emitter's origin to the spawn point. */
-const STEM_OPACITY = 0.4;
+/**
+ * The marks' opacities, which stay under the figure so they read as guides at node size: the
+ * emitter's axes, the stem from its origin to the spawn point, and the crosshair.
+ */
+const MARK_OPACITY = { axes: 0.35, stem: 0.25, cross: 0.6 } as const;
 
 /** The least radius a body is framed at, so a body of almost no size is not zoomed into. */
 const LEAST_RADIUS = 0.5;
@@ -33,7 +36,7 @@ const IDENTITY = identityInto(new Float32Array(9));
 const ORIGIN: [number, number, number] = [0, 0, 0];
 
 /** What a spawn shape draws as: its body where it has one, else the one place it spawns at. */
-interface Drawn {
+export interface Drawn {
   readonly cloud: SpawnCloud;
   readonly body: ShapeBody | null;
   /** Where the body stands, turned by the spawn frame and mirrored as the viewport's is. */
@@ -93,7 +96,8 @@ export function ShapePreview({ emitter }: { emitter: EmitterModel | undefined })
   );
 }
 
-function drawnOf(emitter: EmitterModel, zero: boolean): Drawn {
+/** The figure `emitter`'s spawn shape draws as, a shape of no size at a unit size when `zero`. */
+export function drawnOf(emitter: EmitterModel, zero: boolean): Drawn {
   const cloud = spawnCloud(emitter);
   const shape = zero ? (UNIT_SHAPE[emitter.shape.kind] ?? emitter.shape) : emitter.shape;
   const body = shapeBody(shape, cloud);
@@ -110,38 +114,58 @@ function drawnOf(emitter: EmitterModel, zero: boolean): Drawn {
 }
 
 function SpawnScene({ drawn, zero }: { drawn: Drawn; zero: boolean }) {
-  const colors = useSceneColors();
   const reach = cloudReach(drawn.cloud);
-  const marks = useMemo(
-    () => (drawn.body === null ? pointMarks(drawn.box, reach, colors) : null),
-    [drawn, reach, colors],
-  );
-  useEffect(() => () => marks?.forEach((each) => each.dispose()), [marks]);
-
   const sphere = useMemo(() => boundsOf(drawn, reach), [drawn, reach]);
   const shift = sphere.center.clone().negate();
 
   return (
     <Turntable sphere={sphere}>
       <group position={shift}>
-        {drawn.body !== null && (
-          <SpawnBody body={drawn.body} matrix={drawn.matrix} standIn={zero} />
-        )}
-        {marks !== null && (
-          <>
-            <lineSegments geometry={marks[0]}>
-              <lineBasicMaterial vertexColors />
-            </lineSegments>
-            <lineSegments geometry={marks[1]}>
-              <lineBasicMaterial color={colors.ink} transparent opacity={STEM_OPACITY} />
-            </lineSegments>
-            <lineSegments geometry={marks[2]}>
-              <lineBasicMaterial color={colors.gizmo} />
-            </lineSegments>
-          </>
-        )}
+        <SpawnFigure drawn={drawn} zero={zero} />
       </group>
     </Turntable>
+  );
+}
+
+/**
+ * A spawn shape's figure in the emitter's own space: its body, or for a point the emitter's
+ * axes, a stem from them and a crosshair where it spawns, drawn faint. Without `marks` a point
+ * draws nothing.
+ */
+export function SpawnFigure({
+  drawn,
+  zero,
+  marks: marked = true,
+}: {
+  drawn: Drawn;
+  zero: boolean;
+  marks?: boolean;
+}) {
+  const colors = useSceneColors();
+  const reach = cloudReach(drawn.cloud);
+  const marks = useMemo(
+    () => (drawn.body === null && marked ? pointMarks(drawn.box, reach, colors) : null),
+    [drawn, reach, colors, marked],
+  );
+  useEffect(() => () => marks?.forEach((each) => each.dispose()), [marks]);
+
+  if (drawn.body !== null) {
+    return <SpawnBody body={drawn.body} matrix={drawn.matrix} standIn={zero} />;
+  }
+  if (marks === null) return null;
+
+  return (
+    <>
+      <lineSegments geometry={marks[0]}>
+        <lineBasicMaterial vertexColors transparent opacity={MARK_OPACITY.axes} />
+      </lineSegments>
+      <lineSegments geometry={marks[1]}>
+        <lineBasicMaterial color={colors.ink} transparent opacity={MARK_OPACITY.stem} />
+      </lineSegments>
+      <lineSegments geometry={marks[2]}>
+        <lineBasicMaterial color={colors.gizmo} transparent opacity={MARK_OPACITY.cross} />
+      </lineSegments>
+    </>
   );
 }
 
@@ -155,7 +179,7 @@ function lineGeometry(positions: Float32Array): BufferGeometry {
  * The sphere the camera frames: the body, or a spawn point with the emitter's origin and
  * half the cloud's reach around it, so the point keeps its surroundings.
  */
-function boundsOf(drawn: Drawn, reach: number): Sphere {
+export function boundsOf(drawn: Drawn, reach: number): Sphere {
   const box = drawn.box.clone();
   if (drawn.body === null) box.expandByPoint(new Vector3());
 
@@ -225,7 +249,7 @@ function Caption({ children }: { children: string }) {
 }
 
 /** A shape whose volume or surface has no extent, which spawns at its centre. */
-function zeroSized(shape: SpawnShape): boolean {
+export function zeroSized(shape: SpawnShape): boolean {
   switch (shape.kind) {
     case "box":
       return shape.size.every((extent) => extent === 0);

@@ -13,7 +13,7 @@ import type {
 import { MATERIAL_CLASSES } from "./materialNodes";
 import { naturalWidth, structNameWidth, structWidth, UNKNOWN_FIELD_LINES } from "./nodeWidth";
 import { BLOCK_GAP, FRAME_HEADER_HEIGHT, FRAME_PADDING, frameSize, packBlocks } from "./packBlocks";
-import { renderTexture } from "./renderSection";
+import { componentOf, renderTexture } from "./renderSection";
 import { estimateText, type MeasureText } from "./textWidth";
 
 /** An item placed on the canvas: its top-left corner and its size, in canvas units. */
@@ -103,8 +103,12 @@ export function isMaterial(item: StructItem): boolean {
   );
 }
 
-/** The height of the picture a Texture node draws its texture in, and zero where it has none. */
+/**
+ * The height of a component node's picture: a Texture node's texture, and zero where it has
+ * none, or a Geometry node's view of its emitter.
+ */
 export function renderPreviewHeight(item: RenderItem): number {
+  if (item.role === "geometry") return NODE_PREVIEW_HEIGHT;
   return renderTexture(item) === null ? 0 : NODE_PREVIEW_HEIGHT;
 }
 
@@ -392,8 +396,8 @@ export function sizeOf(
 /**
  * The lines a master, struct or curve node draws, each one `LINE_HEIGHT` tall.
  *
- * A master draws each group's heading and fields, whose Add sits on the heading. A struct node draws its class line
- * over its rows and a list field its Add item line under them, and a value node its curve or
+ * A master draws each group's heading and fields, whose Add sits on the heading. A struct node
+ * draws its rows and a list field its Add item line under them, and a value node its curve or
  * its editor, per `valueLines`.
  */
 export function fieldLines(item: MasterItem | StructItem | ValueItem | RenderItem): number {
@@ -406,7 +410,8 @@ export function fieldLines(item: MasterItem | StructItem | ValueItem | RenderIte
             (rows, field) => rows + (field.forces?.length ?? 1) + socketLines(item, field.input),
             0,
           ) +
-          1,
+          /* The heading, and a component group's socket line under it. */
+          (componentOf(each.group) === null ? 1 : 2),
         0,
       );
     case "render":

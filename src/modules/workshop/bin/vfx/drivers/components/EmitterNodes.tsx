@@ -9,26 +9,32 @@ import {
 import { type NodeProps, Position } from "@xyflow/react";
 import { Fragment, use, useMemo } from "react";
 
-import { m } from "@/i18n";
 import type { BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { DefaultProperty } from "../../inspector/components/DefaultProperty";
 import type { HeldClass } from "../../inspector/components/PrimitivePicker";
-import { defaultField, GROUP_TITLE } from "../../inspector/utils/emitterGroups";
+import { defaultField, type EmitterGroup } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { VfxRunContext } from "../../playback/state/run";
 import { isMaterial, isPrimitive, shapePreviewed } from "../utils/driverLayout";
 import { listId } from "../utils/entryLists";
 import { emitterOf } from "../utils/graphEmitter";
-import type { MasterField, MasterItem, StructItem, StructRow } from "../utils/graphItems";
+import type {
+  MasterField,
+  MasterItem,
+  RenderItem,
+  StructItem,
+  StructRow,
+} from "../utils/graphItems";
 import { listAppend } from "../utils/nodeEdits";
-import { fieldAlias, inputSummary, itemSubtitle, itemTitle } from "../utils/nodeText";
+import { fieldAlias, groupTitle, inputSummary, itemSubtitle, itemTitle } from "../utils/nodeText";
 import { outputTop } from "../utils/outputSocket";
-import { drawnInSection, RENDER_GROUP } from "../utils/renderSection";
+import { componentOf, drawnInSection } from "../utils/renderSection";
 import { embeddedLists, embeddedValues, embedsList } from "../utils/socketEmbed";
+import { ClassAction } from "./ClassAction";
 import { EmitterRunToggles, useRunPresence } from "./EmitterRunToggles";
 import { EmitterToggle } from "./EmitterToggle";
 import {
@@ -125,11 +131,14 @@ function MasterBody({ item }: { item: MasterItem }) {
       {item.groups.map((group) => (
         <Fragment key={group.group}>
           <GroupLine
-            title={GROUP_TITLE[group.group]()}
-            add={group.group !== RENDER_GROUP && <GroupAdd item={item} group={group.group} />}
+            title={groupTitle(group.group)}
+            add={componentOf(group.group) === null && <GroupAdd item={item} group={group.group} />}
           />
-          {group.group === RENDER_GROUP && item.render !== null && (
-            <SocketLine input={item.render} label={GROUP_TITLE[RENDER_GROUP]()} />
+          {componentInput(item, group.group) !== null && (
+            <SocketLine
+              input={componentInput(item, group.group)!}
+              label={groupTitle(group.group)}
+            />
           )}
           {group.fields.map((field) => (
             <MasterLine
@@ -147,6 +156,14 @@ function MasterBody({ item }: { item: MasterItem }) {
       ))}
     </FieldBody>
   );
+}
+
+/** The component node a master group's input connects, and null for a group the master keeps. */
+function componentInput(item: MasterItem, group: EmitterGroup): RenderItem | null {
+  const role = componentOf(group);
+  if (role === "texture") return item.render;
+  if (role === "geometry") return item.geometry;
+  return null;
 }
 
 export interface MasterLineProps {
@@ -258,6 +275,7 @@ export function StructNodeView({ data, selected }: NodeProps<StructFlowNode>) {
           <>
             {previewed && <ShapeInViewButton id={item.id} />}
             {embedsList(item) && <EmbedBackButton id={item.id} />}
+            <ClassAction item={item} />
           </>
         }
       />
@@ -311,27 +329,12 @@ export function StructBody({
   /** The lists embedded in the node's sockets, by port, its section's included. */
   lists?: ReadonlyMap<string, StructItem>;
 }) {
-  const actions = use(GraphActionsContext);
-  const entry = actions?.entry ?? "";
   const rows = useRowsAt(item.wire, item.rows.length);
-  const holder = useMemo(() => holderRow(entry, item.holder), [entry, item.holder]);
   const shown = useMemo(() => (rows === null ? [] : [...rows.values()]), [rows]);
 
   return (
     <>
       <FieldBody wire={item.wire} rows={shown} nameWidth={nameWidth}>
-        {isPrimitive(item) && (
-          <PrimitiveLine label={m.workshop_bin_class_label()} holder={holder} held={heldOf(item)} />
-        )}
-        {item.shape === "struct" && !isPrimitive(item) && (
-          <ClassLine
-            label={m.workshop_bin_class_label()}
-            holder={holder}
-            field={item.field}
-            path={item.wire}
-            current={item.className ?? item.classHash}
-          />
-        )}
         {item.rows.map((each, index) => (
           <StructLine
             key={each.key}
@@ -348,7 +351,10 @@ export function StructBody({
       </FieldBody>
       {item.nested !== null && (
         <>
-          <SectionLine title={fieldAlias(item.nested.label, item.nested.field)} />
+          <SectionLine
+            title={fieldAlias(item.nested.label, item.nested.field)}
+            action={<ClassAction item={item.nested} />}
+          />
           <StructBody item={item.nested} nameWidth={nameWidth} embedded={embedded} lists={lists} />
         </>
       )}

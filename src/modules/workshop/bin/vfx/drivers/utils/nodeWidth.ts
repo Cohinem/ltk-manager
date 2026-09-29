@@ -33,10 +33,6 @@ const STRUCT_VALUE_WIDTH = { min: 200, max: 300 } as const;
 
 /** A name's gutter and padding, and a class picker's caret and padding. */
 const NAME_CHROME = 32;
-const CLASS_CHROME = 40;
-
-/** The label of a struct node's class line, which its name column holds too. */
-const CLASS_LABEL = "Class";
 
 /** An easing body's function name beside its time. */
 const EASING_LINE_WIDTH = 200;
@@ -49,21 +45,12 @@ function sectionsOf(item: StructItem): StructItem[] {
   return item.nested === null ? [item] : [item, ...sectionsOf(item.nested)];
 }
 
-function classText(item: StructItem): string {
-  return item.className ?? item.classHash ?? "";
-}
-
-/** A struct node's width: its name column beside its widest value, its class line's included. */
+/** A struct node's width: its name column beside its widest value. */
 export function structWidth(item: StructItem, measure: MeasureText): number {
-  const classes = sectionsOf(item).map((section) => measure(classText(section), ROW_TEXT));
-  const className = Math.max(...classes) + CLASS_CHROME;
   const rows = sectionsOf(item).flatMap((section) =>
     section.rows.flatMap((row) => [row, ...(socketList(item, row.input)?.rows ?? [])]),
   );
-  const value = Math.max(
-    Math.min(STRUCT_VALUE_WIDTH.max, Math.max(STRUCT_VALUE_WIDTH.min, className)),
-    ...rows.map(rowValueWidth),
-  );
+  const value = Math.max(STRUCT_VALUE_WIDTH.min, ...rows.map(rowValueWidth));
   return Math.ceil(structNameWidth(item, measure) + value + BODY_CHROME);
 }
 
@@ -78,7 +65,7 @@ export function structNameWidth(item: StructItem, measure: MeasureText): number 
       ...(row.entries ?? []).map((entry) => measure(entry.key, ROW_TEXT) + ENTRY_INDENT),
     ]),
   );
-  const longest = Math.max(measure(CLASS_LABEL, ROW_TEXT), ...names);
+  const longest = Math.max(0, ...names);
   const natural = Math.ceil(longest) + NAME_CHROME;
   return Math.min(STRUCT_NAME_WIDTH.max, Math.max(STRUCT_NAME_WIDTH.min, natural));
 }
