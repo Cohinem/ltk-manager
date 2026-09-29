@@ -14,6 +14,10 @@ from: number,
  */
 to: number | null, 
 /**
+ * The patch that shipped `from`, absent where the database names none that early.
+ */
+patch: string | null, 
+/**
  * Absent for a type this build cannot map.
  */
 shape: KindShape | null, };

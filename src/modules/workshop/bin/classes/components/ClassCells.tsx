@@ -53,6 +53,7 @@ import { RowDocumentContext, useRowFold } from "../../tree/state/rowFold";
 import { useHeldRows } from "../../tree/state/rowRegistry";
 import { canExpand, childCount, fieldHash, rowKey } from "../../tree/utils/binRows";
 import { useValueMark, useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
+import { rowTag } from "../../values/utils/kindTag";
 import { markRanges, valueFamily, type ValueMark } from "../../values/utils/valueRows";
 import { FieldLabelsContext } from "../state/fieldLabels";
 import type { LayoutFrame, PlacedSection } from "../utils/classLayouts";
@@ -570,6 +571,7 @@ function FieldName({ row, label, width, depth, owner, caret }: FieldNameProps) {
         label={label}
         unnamed={row.unnamed}
         declared={row.declared}
+        fileTag={rowTag(row)}
         triggerClassName={twMerge(
           "text-surface-200",
           label && "font-sans font-medium",

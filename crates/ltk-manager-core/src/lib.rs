@@ -13,6 +13,7 @@ pub mod events;
 pub mod game_extract;
 pub mod game_index;
 pub mod game_wads;
+pub mod hashing;
 pub mod hashtables;
 pub mod integrations;
 pub mod launcher;

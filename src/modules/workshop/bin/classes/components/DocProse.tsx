@@ -52,6 +52,6 @@ function Part({ label, children }: { label: string; children: ReactNode }) {
 
 function Prose({ text }: { text: string }) {
   return (
-    <MarkdownView text={text} root={null} linkBase={META_WIKI} className="text-meta *:last:mb-0" />
+    <MarkdownView text={text} root={null} linkBase={META_WIKI} className="text-row *:last:mb-0" />
   );
 }

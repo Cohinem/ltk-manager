@@ -30,6 +30,7 @@ function field(defaultValue: string | null): FieldSchema {
     declared: { kind: "f32", key: null, value: null },
     classHash: null,
     defaultValue,
+    owner: null,
     revisions: [],
   };
 }

@@ -103,6 +103,7 @@ function declared(name: string): FieldSchema {
     declared: { kind: "f32", key: null, value: null },
     classHash: null,
     defaultValue: "0",
+    owner: null,
     revisions: [],
   };
 }

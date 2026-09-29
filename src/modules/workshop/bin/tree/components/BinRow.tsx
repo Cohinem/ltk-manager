@@ -449,6 +449,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
           name={row.name}
           unnamed={row.unnamed}
           declared={row.declared}
+          fileTag={rowTag(row)}
           triggerClassName={nameClasses}
         />
       )}
