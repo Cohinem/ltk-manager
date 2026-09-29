@@ -1,8 +1,9 @@
 # VFX starter templates and the automatic rig
 
-> Status: **planned** (2026-09-29). The decisions in section 2 were settled with the maintainer
-> over four rounds of questions. Section 1 is evidence gathered the same day against `bc6426f4`
-> and the installed game's `Global.wad.client` of patch 2026-09-23.
+> Status: **phases 0 to 5 built** (2026-09-29), with the departures in section 4. The decisions
+> in section 2 were settled with the maintainer over four rounds of questions. Section 1 is
+> evidence gathered the same day against `bc6426f4` and the installed game's
+> `Global.wad.client` of patch 2026-09-23.
 
 A new effect starts today as an empty emitter that draws nothing. This plan adds templates an
 author starts from, and replaces the preview rig an author picks by hand with one that picks
@@ -148,3 +149,26 @@ ADR-0049. `CONTEXT.md` gains VFX template, rig, carrier and playback.
 | 6     | Later: the other thirteen templates, live thumbnails, copying assets, an author's own templates | #738  |
 
 Each phase ships on its own.
+
+## 4. As built
+
+Where the build departs from section 2, and what is still open:
+
+- **No template is checked in game yet.** Every catalog entry's `checked` is empty, and the test
+  that requires it is ignored until a person checks each template through a test mod. The
+  values are the generator's first draft (`crates/ltk-manager-core/examples/vfx_template_values.rs`).
+- **A distortion's texture is white.** The game's `DISTORTION_PS` multiplies the frame by the
+  emitter's texture and takes its coverage from the normal map's alpha, so the Distortion
+  template and the Heat emitters of Explosion and Missile use `white.tex` and the BC3
+  `base_circle_normal.tex`. The first draft's `glow-soft.tex` drew a black square.
+- **A Continuous run spans the minute a seek reaches**, `CONTINUOUS_RUN`, rather than a window
+  that follows the playhead.
+- **The skin's entry point is a menu in the skin preview**, beside the effects switch, which
+  lists the idle effects and the particle events of the clip playing. The rows of the idle
+  effect table have no pose to build a rig from, and a clip row has none for a clip that is not
+  playing.
+- **A skin's effect draws its character only where the skin and the system share a file**,
+  since the particle preview picks its character among the skins of the system's own file. A
+  system a linked file declares opens on the joint with no character.
+- **A bone rig may carry the clip's length** as `period`, which a particle event's run replays
+  on, so each replay fires on the event's frame.
