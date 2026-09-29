@@ -182,6 +182,11 @@ describe("runLength", () => {
     expect(runLength(GROUND_RIG.motion, 6)).toBe(6);
   });
 
+  it("runs a bone on a clip for one pass of the clip, so a replay fires on its frame", () => {
+    expect(runLength({ kind: "bone", anchor: WALKER, target: null, period: 2.5 }, 6)).toBe(2.5);
+    expect(runLength({ kind: "bone", anchor: WALKER, target: null }, 6)).toBe(6);
+  });
+
   it("gives a still rig the system's own span", () => {
     expect(runLength({ kind: "still" }, 4.5)).toBe(4.5);
   });

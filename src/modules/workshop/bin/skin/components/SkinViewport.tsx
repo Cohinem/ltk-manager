@@ -112,6 +112,7 @@ import {
 import { BakeTangentsButton } from "./BakeTangentsButton";
 import { ClipEffect } from "./ClipEffect";
 import { IdleEffect } from "./IdleEffect";
+import { SkinEffectsMenu } from "./SkinEffectsMenu";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
 
 /** `useFrame` runs the lowest priority first, so the clock moves before anything samples it. */
@@ -603,6 +604,17 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                   onClick={() => setEffects(!effects)}
                 />
               )}
+              <SkinEffectsMenu
+                document={document}
+                asset={asset}
+                skin={entry}
+                clip={chosen === BIND_POSE ? "" : chosen}
+                clipName={chosenClip?.name ?? null}
+                idle={idle}
+                cues={cues}
+                pose={pose}
+                scale={scale}
+              />
               <ArmatureMenu />
               <ViewToggle
                 label={m.workshop_bin_preview_shaders_label()}

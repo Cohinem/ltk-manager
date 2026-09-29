@@ -60,7 +60,13 @@ export type Motion =
   | { readonly kind: "still" }
   | { readonly kind: "path"; readonly from: Point; readonly to: Point; readonly speed: number }
   | { readonly kind: "orbit"; readonly radius: number; readonly period: number }
-  | { readonly kind: "bone"; readonly anchor: Anchor; readonly target: Anchor | null };
+  | {
+      readonly kind: "bone";
+      readonly anchor: Anchor;
+      readonly target: Anchor | null;
+      /** The clip the joint plays, in seconds, which a run on it replays on, and none for the system's own span. */
+      readonly period?: number | null;
+    };
 
 /**
  * Whether a run plays through once, starts over from its beginning, or plays on for as
@@ -307,7 +313,8 @@ export function phaseAt(rig: RigModel, time: number, span: number, tail = 0): nu
  * How long one run lasts, which is when a looping rig starts over and what a scrub spans.
  *
  * A path ends on arrival plus `tail`, because a missile's system is stopped where the
- * missile lands and its particles play out for their linger. Every other motion runs for
+ * missile lands and its particles play out for their linger. A bone on a clip runs one pass of
+ * the clip, so a replay lands on the frame it fired on. Every other motion runs for
  * as long as the system itself takes to play out, and so does a path that arrives the
  * moment it sets off, which would otherwise be a run of no length that a looping rig
  * restarts on every step.
@@ -318,6 +325,7 @@ export function runLength(motion: Motion, span: number, tail = 0): number {
     return flight > 0 ? flight + tail : span;
   }
   if (motion.kind === "orbit") return Math.max(motion.period, span);
+  if (motion.kind === "bone" && motion.period != null && motion.period > 0) return motion.period;
 
   return span;
 }

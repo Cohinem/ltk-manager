@@ -7,7 +7,7 @@ import type { AssetRef } from "@/lib/tauri";
 import { objectDocument } from "../../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
-import { clickIntent, handRig, useOpenDocumentAs } from "../../../state";
+import { clickIntent, handRig, type HostHint, useOpenDocumentAs } from "../../../state";
 import type { RigModel } from "../engine/model/rig";
 
 const SYSTEM_CLASS = "VfxSystemDefinitionData";
@@ -24,13 +24,20 @@ export interface EffectTarget {
 
 /**
  * Open a particle system in its own tab on the rig the view it is opened from built, named
- * `label` on the rig pill. "The rig picks itself" in docs/plans/vfx-templates.md.
+ * `label` on the rig pill, and on the character `host` names where one rides it. "The rig
+ * picks itself" in docs/plans/vfx-templates.md.
  */
 export function useOpenEffect() {
   const open = useOpenDocumentAs();
 
-  return (target: EffectTarget, rig: RigModel, label: string, intent: OpenIntent) => {
-    handRig(target.entry, { source: { kind: "context", label }, rig });
+  return (
+    target: EffectTarget,
+    rig: RigModel,
+    label: string,
+    intent: OpenIntent,
+    host: HostHint | null = null,
+  ) => {
+    handRig(target.entry, { source: { kind: "context", label }, rig }, host);
     open(
       objectDocument(target.asset, target.entry, target.path, target.file, SYSTEM_CLASS),
       intent,

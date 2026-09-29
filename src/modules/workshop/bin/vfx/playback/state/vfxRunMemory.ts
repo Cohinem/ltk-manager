@@ -63,20 +63,55 @@ export const useVfxRunMemoryStore = create<VfxRunMemoryStore>()((set) => ({
     }),
 }));
 
+/** The character a rig handed from a skin rides: the skin, its clip, and how far into it the run starts. */
+export interface HostHint {
+  /** The skin's object, `0x` and eight hex digits. */
+  readonly skin: string;
+  /** The clip's hash, and empty for the bind pose. */
+  readonly clip: string;
+  /** Seconds into the clip the system starts, a particle event's frame. */
+  readonly offset: number;
+}
+
 interface HandedRigStore {
   /** The rig handed to each system, by its entry in lowercase, until its run takes it. */
   rigs: Record<string, RigChoice>;
+  /** The character handed beside a rig, by the same key, until the preview takes it. */
+  hosts: Record<string, HostHint>;
 }
 
 /**
  * Rigs handed to a system from outside its tab: a template that made it, or a skin or a spell
  * it was opened from. ADR-0057.
  */
-export const useHandedRigStore = create<HandedRigStore>()(() => ({ rigs: {} }));
+export const useHandedRigStore = create<HandedRigStore>()(() => ({ rigs: {}, hosts: {} }));
 
-/** Carry the run of the system `entry` on `rig`, whether its tab is open yet or not. */
-export function handRig(entry: string, rig: RigChoice): void {
-  useHandedRigStore.setState((state) => ({ rigs: { ...state.rigs, [entry.toLowerCase()]: rig } }));
+/**
+ * Carry the run of the system `entry` on `rig`, whether its tab is open yet or not, and on
+ * the character `host` names where one rides it.
+ */
+export function handRig(entry: string, rig: RigChoice, host: HostHint | null = null): void {
+  const key = entry.toLowerCase();
+  useHandedRigStore.setState((state) => {
+    const hosts = { ...state.hosts };
+    if (host === null) delete hosts[key];
+    else hosts[key] = host;
+    return { rigs: { ...state.rigs, [key]: rig }, hosts };
+  });
+}
+
+/** The character handed to the system `entry`'s preview, taken once, and null for none. */
+export function takeHandedHost(entry: string): HostHint | null {
+  const key = entry.toLowerCase();
+  const host = useHandedRigStore.getState().hosts[key] ?? null;
+  if (host === null) return null;
+
+  useHandedRigStore.setState((state) => {
+    const hosts = { ...state.hosts };
+    delete hosts[key];
+    return { hosts };
+  });
+  return host;
 }
 
 /** The rig handed to the system `entry`, taken once, and null for none. */
