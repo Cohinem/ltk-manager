@@ -16,6 +16,7 @@ import {
   readFields,
   readLegacySimple,
   readLinger,
+  readProjection,
   readShape,
   readTrail,
 } from "./readMotion";
@@ -358,6 +359,7 @@ function readEmitter(
     mesh: readMesh(primitive),
     trail: readTrail(primitive),
     beam: readBeam(primitive),
+    projection: readProjection(primitive),
     childSet: readChildSet(field(node, FIELD.childSet), materials),
     fields: readFields(field(node, FIELD.fields)),
 

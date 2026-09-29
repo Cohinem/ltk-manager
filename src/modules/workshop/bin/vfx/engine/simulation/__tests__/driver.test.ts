@@ -106,6 +106,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     mesh: null,
     trail: null,
     beam: null,
+    projection: null,
     childSet: null,
     fields: null,
     depthBias: [0, 0],

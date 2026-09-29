@@ -16,6 +16,7 @@ import {
   type LegacySimpleModel,
   type LingerModel,
   POINT_SHAPE,
+  type ProjectionModel,
   type SpawnShape,
   type TrailModel,
   type ValueCurve,
@@ -45,7 +46,15 @@ import {
 const PRIMITIVE_FIELD = {
   trail: nameHash("mTrail"),
   beam: nameHash("mBeam"),
+  projection: nameHash("mProjection"),
 } as const;
+
+/** `VfxProjectionDefinitionData`'s two read fields and their schema defaults. */
+const PROJECTION = {
+  yRange: nameHash("mYRange"),
+  fading: nameHash("mFading"),
+} as const;
+const PROJECTION_DEFAULT = { yRange: 5, fading: 200 } as const;
 
 /**
  * The five concrete `IVfxShape` classes, and the pre-split `VfxShape` old data still carries.
@@ -178,6 +187,17 @@ export function readBeam(primitive: VfxValue | null): BeamModel | null {
     colorBoundToDistance: flag(field(held, BEAM.bound)),
     sourceOffset: triple(field(held, BEAM.source)),
     targetOffset: triple(field(held, BEAM.target)),
+  };
+}
+
+/** The decal a planar projection primitive lays, and null for a primitive of any other kind. */
+export function readProjection(primitive: VfxValue | null): ProjectionModel | null {
+  if (quadType(primitive) !== QUAD_TYPE.planarProjection) return null;
+
+  const held = field(primitive, PRIMITIVE_FIELD.projection);
+  return {
+    yRange: number(field(held, PROJECTION.yRange)) ?? PROJECTION_DEFAULT.yRange,
+    fading: number(field(held, PROJECTION.fading)) ?? PROJECTION_DEFAULT.fading,
   };
 }
 

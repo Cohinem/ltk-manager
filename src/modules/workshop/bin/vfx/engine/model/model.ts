@@ -181,6 +181,21 @@ export interface TrailModel {
  * Both ends are the system's, so every particle of the emitter draws the same segment and
  * differs in colour, width and uv.
  */
+/**
+ * `VfxProjectionDefinitionData`: how far above or below the ground a projecting particle
+ * still draws.
+ *
+ * The decal is whole while the particle stands within `yRange` of the surface and fades
+ * out over the next `fading` units. `colorModulate` is carried by the class and read by no
+ * draw.
+ */
+export interface ProjectionModel {
+  /** `mYRange`, the height band the decal draws whole in. */
+  readonly yRange: number;
+  /** `mFading`, the units past that band it fades out over. */
+  readonly fading: number;
+}
+
 export interface BeamModel {
   /** `mMode`, of [`BEAM_MODE`]. */
   readonly mode: BeamMode;
@@ -757,6 +772,8 @@ export interface EmitterModel {
   readonly trail: TrailModel | null;
   /** The ribbon a beam primitive reaches the target with, and null for every other kind. */
   readonly beam: BeamModel | null;
+  /** The decal a planar projection lays on the ground, and null for every other kind. */
+  readonly projection: ProjectionModel | null;
   /** `childParticleSetDefinition`, and null for an emitter spawning no systems. */
   readonly childSet: ChildSetModel | null;
   /** `fieldCollectionDefinition`, and null for an emitter whose particles cross no field. */

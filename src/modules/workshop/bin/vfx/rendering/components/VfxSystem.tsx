@@ -15,6 +15,7 @@ import type { DrawnEmitter } from "../utils/definitions";
 import {
   drawsAsBeam,
   drawsAsMesh,
+  drawsAsProjection,
   drawsAsQuad,
   drawsAsTrail,
   drawsTheAttachment,
@@ -22,6 +23,7 @@ import {
 import { AttachedMeshes } from "./AttachedMeshes";
 import { Beams } from "./Beams";
 import { Meshes } from "./Meshes";
+import { Projections } from "./Projections";
 import { Quads } from "./Quads";
 import { Trails } from "./Trails";
 
@@ -116,6 +118,20 @@ export function VfxSystem({
               hidden={hiddenOf(definition)}
               room={room}
               document={document}
+            />
+          </PickScopeContext>
+        ))}
+      {drawn
+        .filter((definition) => drawsAsProjection(definition.emitter))
+        .map((definition) => (
+          <PickScopeContext key={definition.key} value={scopeOf(definition)}>
+            <Projections
+              emitter={definition.emitter}
+              sources={sourcesOf(definition)}
+              samplers={samplersOf(textures, definition)}
+              rank={definition.rank}
+              hidden={hiddenOf(definition)}
+              room={room}
             />
           </PickScopeContext>
         ))}

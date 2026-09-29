@@ -62,6 +62,7 @@ const DRAWN_ONLY: ReadonlySet<string> = new Set<keyof EmitterModel>([
   "pivotUp",
   "primitiveClass",
   "primitiveName",
+  "projection",
   "quadType",
   "reflection",
   "scale0",
