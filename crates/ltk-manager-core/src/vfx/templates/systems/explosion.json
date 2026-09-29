@@ -3037,7 +3037,7 @@
                     "1013213428": {
                       "kind": "String",
                       "value": {
-                        "value": "assets/shared/particles/glow-soft.tex"
+                        "value": "assets/shared/particles/white.tex"
                       }
                     },
                     "4202188459": {
@@ -3204,7 +3204,7 @@
                           "3866285399": {
                             "kind": "String",
                             "value": {
-                              "value": "assets/shared/particles/distort-soft-shockwave.tex"
+                              "value": "assets/shared/particles/base_circle_normal.tex"
                             }
                           }
                         }

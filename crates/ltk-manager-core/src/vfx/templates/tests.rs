@@ -16,17 +16,17 @@ const MOST_EMITTERS: usize = 32;
 /// Every asset a template names, each found in `Global.wad.client` of patch 2026-09-23.
 const SHIPPED: &[&str] = &[
     "assets/shared/particles/base_brightspark.tex",
+    "assets/shared/particles/base_circle_normal.tex",
     "assets/shared/particles/base_dot.tex",
     "assets/shared/particles/base_smokeerode.tex",
     "assets/shared/particles/base_trail_01.tex",
     "assets/shared/particles/blast_ring_16.tex",
     "assets/shared/particles/common_bigglow.tex",
-    "assets/shared/particles/distort-soft-shockwave.tex",
     "assets/shared/particles/explosion_groundburn.tex",
     "assets/shared/particles/global_ss_ignite_fire.tex",
-    "assets/shared/particles/glow-soft.tex",
     "assets/shared/particles/smoke_clouds_2x2_hc.tex",
     "assets/shared/particles/vs_outerring.tex",
+    "assets/shared/particles/white.tex",
 ];
 
 /// The fields whose text is an asset path.

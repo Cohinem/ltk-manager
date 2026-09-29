@@ -222,6 +222,9 @@ fn trail(name: &str) -> values::Struct {
     )
 }
 
+/// A warp of what is behind it. The game's `DISTORTION_PS` multiplies the frame by the
+/// texture, so the texture is white, and takes its coverage from the normal map's alpha, so
+/// the map carries one.
 fn distortion(name: &str) -> values::Struct {
     emitter(
         name,
@@ -231,7 +234,7 @@ fn distortion(name: &str) -> values::Struct {
             ("lifetime", some(0.4)),
             ("particleLifetime", float(0.4)),
             ("primitive", pointer("VfxPrimitiveCameraQuad", vec![])),
-            ("texture", texture("glow-soft.tex")),
+            ("texture", texture("white.tex")),
             ("blendMode", byte(ADD)),
             ("birthScale0", vector3(200.0, 200.0, 200.0)),
             ("scale0", vector3_keys(&[0.0, 1.0], &[[0.3; 3], [1.2; 3]])),
@@ -243,7 +246,7 @@ fn distortion(name: &str) -> values::Struct {
                     vec![
                         ("distortion", f32(0.03)),
                         ("distortionMode", byte(1)),
-                        ("normalMapTexture", texture("distort-soft-shockwave.tex")),
+                        ("normalMapTexture", texture("base_circle_normal.tex")),
                     ],
                 ),
             ),
