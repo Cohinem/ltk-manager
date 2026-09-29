@@ -3075,6 +3075,11 @@ the complex list, as one property edit and so one undo step. Its emitter keeps t
 English name, such as `Sparks`, and a name the system already holds gains a number: `Sparks2`,
 `Sparks3` and on.
 
+**A system template lands every emitter it holds**, such as Explosion's flash, fireball, debris,
+smoke, ring, heat and scorch, in the same single edit, each named apart. The run then plays on the
+template's rig, such as Missile's flight, unless the author or a context chose the rig in hand,
+and the rig pill names the template as its source.
+
 **A template names only assets the game ships**, under `assets/shared/particles/`, so it draws
 at once and the project gains no file. The plan and the list of templates are
 `docs/plans/vfx-templates.md`.
@@ -3107,7 +3112,8 @@ leave out the force collection, which adding a force writes when it is missing.
 the pointer, and a double click on bare canvas opens one at the click. Over an emitter's node, or
 with one selected, it lists that emitter's unwritten fields under their groups, then the forces.
 It always lists New emitter, which appends a complex emitter named `Emitter1`, `Emitter2` and on,
-and the emitter templates, which land after the emitter it was opened over, else last.
+and the emitter and system templates, which land after the emitter it was opened over, else
+last.
 Typing narrows the list by an entry's name or its group, Enter adds the highlighted entry, and
 Escape or a press outside closes it. A field added this way shows at its default on its node,
 which unfolds, until an edit writes it.

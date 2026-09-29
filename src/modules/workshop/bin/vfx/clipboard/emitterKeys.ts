@@ -13,14 +13,15 @@ export interface EmitterClipboard {
   readonly remove: ((emitter: EmitterRef) => Promise<void>) | null;
   /**
    * Land a template's emitters in the system `entry`, after `after` or else last, each named
-   * apart from the system's. Null where the document takes no edit or no system is read.
+   * apart from the system's, answering whether the edit landed. Null where the document takes
+   * no edit or no system is read.
    */
   readonly land:
     | ((
         entry: string,
         after: EmitterRef | null,
         emitters: readonly TemplateEmitter[],
-      ) => Promise<void>)
+      ) => Promise<boolean>)
     | null;
 }
 

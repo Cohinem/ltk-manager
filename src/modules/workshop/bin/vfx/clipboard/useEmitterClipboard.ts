@@ -66,10 +66,11 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     );
     if (!result.ok) {
       toast.error(m.workshop_bin_emitter_edit_failed_title(), errorSummary(result.error));
-      return;
+      return false;
     }
 
     landed(id);
+    return true;
   };
 
   const duplicate = async (emitter: EmitterRef) => {
@@ -110,7 +111,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
           const list = place?.list ?? COMPLEX_LIST;
           const index = place === null ? complexEnd(system) : place.index + 1;
           const taken = new Set(system.emitters.map((emitter) => emitter.name));
-          await apply(entry, list, landingEdits(emitters, index, taken));
+          return apply(entry, list, landingEdits(emitters, index, taken));
         };
 
   return { copy, duplicate, paste, remove, land };

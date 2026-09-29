@@ -551,6 +551,7 @@
   "workshop_bin_graph_quick_add_label": "Add",
   "workshop_bin_graph_quick_add_to_label": "Add to {name}",
   "workshop_bin_graph_quick_system_label": "System",
+  "workshop_bin_graph_quick_system_templates_label": "System templates",
   "workshop_bin_graph_quick_templates_label": "Emitter templates",
   "workshop_bin_graph_reset_layout_action": "Reset layout",
   "workshop_bin_graph_shape_in_view_action": "Show shape in preview",
