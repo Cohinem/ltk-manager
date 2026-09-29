@@ -63,19 +63,33 @@ export const useVfxRunMemoryStore = create<VfxRunMemoryStore>()((set) => ({
     }),
 }));
 
-/** The rig each system a template just made opens on, by its entry, which its first run takes. */
-const madeRigs = new Map<string, RigChoice>();
-
-/** Open the system `entry` a template made on the template's `rig`. ADR-0057. */
-export function rememberMadeRig(entry: string, rig: RigChoice): void {
-  madeRigs.set(entry.toLowerCase(), rig);
+interface HandedRigStore {
+  /** The rig handed to each system, by its entry in lowercase, until its run takes it. */
+  rigs: Record<string, RigChoice>;
 }
 
-/** The rig a template left for the system `entry`, taken once, and null for none. */
-export function takeMadeRig(entry: string): RigChoice | null {
+/**
+ * Rigs handed to a system from outside its tab: a template that made it, or a skin or a spell
+ * it was opened from. ADR-0057.
+ */
+export const useHandedRigStore = create<HandedRigStore>()(() => ({ rigs: {} }));
+
+/** Carry the run of the system `entry` on `rig`, whether its tab is open yet or not. */
+export function handRig(entry: string, rig: RigChoice): void {
+  useHandedRigStore.setState((state) => ({ rigs: { ...state.rigs, [entry.toLowerCase()]: rig } }));
+}
+
+/** The rig handed to the system `entry`, taken once, and null for none. */
+export function takeHandedRig(entry: string): RigChoice | null {
   const key = entry.toLowerCase();
-  const rig = madeRigs.get(key) ?? null;
-  madeRigs.delete(key);
+  const rig = useHandedRigStore.getState().rigs[key] ?? null;
+  if (rig === null) return null;
+
+  useHandedRigStore.setState((state) => {
+    const rigs = { ...state.rigs };
+    delete rigs[key];
+    return { rigs };
+  });
   return rig;
 }
 

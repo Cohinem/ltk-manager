@@ -15,7 +15,8 @@ import type { AppError, AssetRef, BinDocumentId } from "@/lib/tauri";
 import {
   type LoopRange,
   rememberedVfxRun,
-  takeMadeRig,
+  takeHandedRig,
+  useHandedRigStore,
   useVfxRunMemoryStore,
   vfxRunKey,
   type VfxRunMemory,
@@ -191,7 +192,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 
   const [seed, setSeed] = useState(kept?.seed ?? FIRST_SEED);
   const [speed, setSpeed] = useState(kept?.speed ?? FIRST_SPEED);
-  const [chosen, setChosen] = useState<RigChoice | null>(() => kept?.rig ?? takeMadeRig(entry));
+  const [chosen, setChosen] = useState<RigChoice | null>(kept?.rig ?? null);
   const auto = useAutoRig(system);
   const rig = useMemo<RigChoice>(
     () => chosen ?? { source: AUTO_SOURCE, rig: auto.rig },
@@ -381,6 +382,16 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     },
     [parked, restart],
   );
+  /* A rig handed from outside the tab, by a template that made the system or a skin or a
+     spell it is opened from, replaces the one in hand, whether the tab is new or open. */
+  const handed = useHandedRigStore((state) => state.rigs[entry.toLowerCase()] ?? null);
+  useEffect(() => {
+    if (handed === null) return;
+
+    const taken = takeHandedRig(entry);
+    if (taken !== null) setRig(taken);
+  }, [handed, entry, setRig]);
+
   const resetAuto = auto.reset;
   const resetRig = useCallback(() => {
     resetAuto();

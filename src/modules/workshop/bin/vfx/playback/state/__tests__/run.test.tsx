@@ -8,7 +8,7 @@ import type { AssetRef } from "@/lib/tauri";
 
 import { readVfxSystem } from "../../../engine/parsing/readVfxSystem";
 import { useVfxRun, type VfxRun, VfxRunProvider } from "../run";
-import { rememberMadeRig, useVfxRunMemoryStore, vfxRunKey } from "../vfxRunMemory";
+import { handRig, useVfxRunMemoryStore, vfxRunKey } from "../vfxRunMemory";
 
 /** A system of no emitters, whose run lasts the shortest span, one second. */
 const SYSTEM = readVfxSystem({
@@ -119,7 +119,7 @@ describe("VfxRunProvider", () => {
   });
 
   it("opens a system a template just made on the template's rig, once", () => {
-    rememberMadeRig("0x1", {
+    handRig("0x1", {
       source: { kind: "template", name: "Aura" },
       rig: { motion: { kind: "still" }, life: "continuous", height: 0 },
     });

@@ -7,7 +7,7 @@ import { type AppError, api, type BinDocumentId, type NewObject } from "@/lib/ta
 import { twMerge } from "@/utils";
 
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
-import { rememberMadeRig } from "../../../state";
+import { handRig } from "../../../state";
 import { binQueries } from "../../documents/hooks/useBinDocument";
 import { useDocumentCall } from "../../documents/hooks/useDocumentCall";
 import {
@@ -83,7 +83,7 @@ export function NewObjectLine({ line, draft }: NewObjectLineProps) {
       start?.kind === "template" &&
       start.template.rig !== null
     ) {
-      rememberMadeRig(result.value.entry, {
+      handRig(result.value.entry, {
         source: { kind: "template", name: templateLabel(start.template) },
         rig: templateRig(start.template.rig),
       });
