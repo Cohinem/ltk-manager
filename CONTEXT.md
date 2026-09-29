@@ -276,6 +276,20 @@ object tab's header shows it - see ADR-0056. Not a **layer**, which is one part 
 stack, and not a **profile**, which is what the overlay builds from.
 _Avoid_: environment, workspace, baseline
 
+**VFX template** - a stored emitter or particle system an author starts a new effect from, kept
+in the core crate's catalog as clipboard text beside its rig. An emitter template lands in a
+system, and a system template lands its emitters in one or creates a new system. See ADR-0058.
+_Avoid_: preset, which names a **Built-in mod**, and starter
+
+**Rig** - how the preview carries a particle system, which the file does not say: a **carrier**
+and a **playback**, and where the choice came from. The rig picks itself from the context a system
+was opened from, a template, or the system alone, until the author changes it. See ADR-0057.
+
+**Carrier** - the half of a rig that places the system's origin: Ground, Bone, Flight or Orbit.
+A word for the code and the docs, and the UI shows the kind names alone.
+
+**Playback** - the half of a rig that says when a run starts over: Once, Replay or Continuous.
+
 ## Settings
 
 **Setting id** — one setting's name everywhere: its key in `settings.json`, what a link calls it,
